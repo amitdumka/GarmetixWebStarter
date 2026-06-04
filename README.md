@@ -17,7 +17,7 @@ docker-compose.yml
 - Backend: ASP.NET Core API.
 - Domain: your existing C# model and enum classes, with MAUI-only form attributes removed.
 - Database: PostgreSQL with EF Core/Npgsql.
-- Frontend: Nuxt/Vue dashboard and module screens.
+- Frontend: Nuxt 4 with Nuxt UI v4 dashboard and module screens.
 - Deployment: Docker Compose for Linux or Mac mini.
 
 ## Covered Modules
@@ -81,6 +81,10 @@ Purchase now has its own Nuxt route at `/purchase`. The page lists purchase invo
 
 The dashboard is now an overview page. Module navigation uses separate Nuxt pages, starting with `/setup`, `/billing`, `/purchase`, `/inventory`, `/vouchers`, `/petty-cash`, `/hr`, `/payroll`, and `/access`. Other module links have placeholder pages ready for their own list/form workflows.
 
+## Nuxt UI Direction
+
+The frontend is staged for Nuxt 4 + Nuxt UI v4. Stage 1 adds the Nuxt UI module, wraps the app in `UApp`, and uses Nuxt UI dashboard layout components for the shared shell. Stage 2 adds reusable CRUD building blocks for page headers, toolbars, empty states, delete confirmation, form slideovers, and toast feedback. The full staged migration list is in `Nuxt-UI-Implementation-Stages.md`.
+
 ## Company Setup
 
 Company Setup now has its own Nuxt route at `/setup`. The page manages companies, store groups, and stores with list, add, edit, and soft-delete actions.
@@ -99,7 +103,7 @@ Petty Cash now has its own Nuxt route at `/petty-cash`. The page manages daily c
 
 ## HR
 
-HR now has its own Nuxt route at `/hr`. The page lists employees and includes add, edit, and soft-delete actions using the generated employee model.
+HR now has its own Nuxt route at `/hr`. The page lists employees and includes add, edit, and soft-delete actions using the generated employee model. It also manages daily attendance and monthly attendance. Monthly attendance can be generated from daily attendance rows, and the HR page auto-runs generation once when opened on the last day of a month.
 
 ## Payroll
 

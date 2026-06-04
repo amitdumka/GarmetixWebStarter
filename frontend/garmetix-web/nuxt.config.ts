@@ -6,10 +6,10 @@ export default defineNuxtConfig({
       apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:5080/api'
     }
   },
-  modules: ['@nuxtjs/google-fonts'],
-  googleFonts: {
-    families: {
-      Inter: [400, 500, 600, 700]
+  modules: ['@nuxt/ui'],
+  ui: {
+    theme: {
+      colors: ['primary', 'success', 'warning', 'error', 'neutral']
     }
   }
 })

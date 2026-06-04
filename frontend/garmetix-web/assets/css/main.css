@@ -1,3 +1,6 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
 :root {
   color-scheme: light;
   --bg: #f6f7f9;
@@ -30,6 +33,108 @@ select {
   font: inherit;
 }
 
+.ui-brand {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.ui-brand-mark {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 7px;
+  background: #0f766e;
+  color: #fff;
+}
+
+.ui-brand-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.ui-brand-subtitle {
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-content {
+  min-width: 0;
+  flex: 1;
+  overflow: auto;
+  background: var(--bg);
+}
+
+.module-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.module-page-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.module-page-title h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.module-page-title p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.crud-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.crud-search {
+  width: min(360px, 100%);
+}
+
+.crud-actions,
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.slideover-form {
+  display: grid;
+  gap: 14px;
+}
+
 .auth-screen {
   min-height: 100vh;
   display: grid;
@@ -48,6 +153,22 @@ select {
   border-radius: 8px;
   box-shadow: 0 24px 70px rgba(23, 32, 42, 0.16);
   overflow: hidden;
+}
+
+.auth-card {
+  width: min(440px, 100%);
+}
+
+.auth-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.auth-mode {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
 }
 
 .auth-brand {
@@ -687,9 +808,15 @@ select {
   }
 
   .table-toolbar,
-  .form-actions {
+  .form-actions,
+  .module-page-header,
+  .crud-toolbar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .crud-search {
+    width: 100%;
   }
 }
 

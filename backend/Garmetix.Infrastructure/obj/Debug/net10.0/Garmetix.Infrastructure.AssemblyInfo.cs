@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Garmetix.Infrastructure")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+db282bc129323cffce3b5e53e90dbaee939afded")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+671c47ee2368aeb3bc97e83722810c33e9c9ec37")]
 [assembly: System.Reflection.AssemblyProductAttribute("Garmetix.Infrastructure")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Garmetix.Infrastructure")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

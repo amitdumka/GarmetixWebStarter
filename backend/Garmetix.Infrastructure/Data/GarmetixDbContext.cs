@@ -7,11 +7,20 @@ using Garmetix.Core.Models.Inventory;
 using Garmetix.Core.Models.Stores;
 using Garmetix.Models.DayOperations;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Garmetix.Infrastructure.Data;
 
 public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> options) : DbContext(options)
 {
+    private static readonly ValueConverter<DateTime, DateTime> DateTimeKindConverter = new(
+        value => NormalizeDateTime(value),
+        value => NormalizeDateTime(value));
+
+    private static readonly ValueConverter<DateTime?, DateTime?> NullableDateTimeKindConverter = new(
+        value => NormalizeDateTime(value),
+        value => NormalizeDateTime(value));
+
     public DbSet<Company> Companies => Set<Company>();
     public DbSet<StoreGroup> StoreGroups => Set<StoreGroup>();
     public DbSet<Store> Stores => Set<Store>();
@@ -78,6 +87,9 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
             foreach (var property in entityType.GetProperties().Where(property => property.ClrType == typeof(DateTime) || property.ClrType == typeof(DateTime?)))
             {
                 property.SetColumnType("timestamp without time zone");
+                property.SetValueConverter(property.ClrType == typeof(DateTime)
+                    ? DateTimeKindConverter
+                    : NullableDateTimeKindConverter);
             }
         }
 
@@ -136,15 +148,25 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
                 var clrType = property.Metadata.ClrType;
                 if (clrType == typeof(DateTime) && property.CurrentValue is DateTime dateTime)
                 {
-                    property.CurrentValue = DateTime.SpecifyKind(dateTime, DateTimeKind.Unspecified);
+                    property.CurrentValue = NormalizeDateTime(dateTime);
                 }
 
                 if (clrType == typeof(DateTime?) && property.CurrentValue is DateTime nullableDateTime)
                 {
-                    property.CurrentValue = DateTime.SpecifyKind(nullableDateTime, DateTimeKind.Unspecified);
+                    property.CurrentValue = NormalizeDateTime(nullableDateTime);
                 }
             }
         }
+    }
+
+    private static DateTime NormalizeDateTime(DateTime value)
+    {
+        return DateTime.SpecifyKind(value, DateTimeKind.Unspecified);
+    }
+
+    private static DateTime? NormalizeDateTime(DateTime? value)
+    {
+        return value.HasValue ? NormalizeDateTime(value.Value) : null;
     }
 
     private static LambdaExpression CreateSoftDeleteFilter(Type entityType)

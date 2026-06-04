@@ -1,52 +1,55 @@
 <script setup lang="ts">
-import {
-  BadgeIndianRupee,
-  Banknote,
-  Boxes,
-  Building2,
-  CircleDollarSign,
-  FileDown,
-  FileText,
-  PackagePlus,
-  ReceiptIndianRupee,
-  ShieldCheck,
-  Shirt,
-  Store,
-  UserRoundCog,
-  UsersRound
-} from 'lucide-vue-next'
-
-defineProps<{
+const props = defineProps<{
   title: string
   companies?: any[]
   stores?: any[]
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   refresh: []
 }>()
 
 const auth = useAuth()
 const route = useRoute()
 
+const companyValue = ref('all')
+const storeValue = ref('all')
+
 const modules = [
-  { to: '/', label: 'Dashboard', icon: Building2 },
-  { to: '/setup', label: 'Setup', icon: Building2 },
-  { to: '/billing', label: 'Billing', icon: ReceiptIndianRupee },
-  { to: '/inventory', label: 'Inventory', icon: Boxes },
-  { to: '/purchase', label: 'Purchase', icon: PackagePlus },
-  { to: '/vouchers', label: 'Vouchers', icon: Banknote },
-  { to: '/petty-cash', label: 'Petty Cash', icon: CircleDollarSign },
-  { to: '/hr', label: 'HR', icon: UsersRound },
-  { to: '/payroll', label: 'Payroll', icon: BadgeIndianRupee },
-  { to: '/reports', label: 'Reports', icon: FileText },
-  { to: '/access', label: 'Access', icon: ShieldCheck },
-  { to: '/import-export', label: 'Import Export', icon: FileDown }
+  { to: '/', label: 'Dashboard', icon: 'i-lucide-layout-dashboard' },
+  { to: '/setup', label: 'Setup', icon: 'i-lucide-building-2' },
+  { to: '/billing', label: 'Billing', icon: 'i-lucide-receipt-indian-rupee' },
+  { to: '/inventory', label: 'Inventory', icon: 'i-lucide-boxes' },
+  { to: '/purchase', label: 'Purchase', icon: 'i-lucide-package-plus' },
+  { to: '/vouchers', label: 'Vouchers', icon: 'i-lucide-banknote' },
+  { to: '/petty-cash', label: 'Petty Cash', icon: 'i-lucide-circle-dollar-sign' },
+  { to: '/hr', label: 'HR', icon: 'i-lucide-users-round' },
+  { to: '/payroll', label: 'Payroll', icon: 'i-lucide-badge-indian-rupee' },
+  { to: '/reports', label: 'Reports', icon: 'i-lucide-file-text' },
+  { to: '/access', label: 'Access', icon: 'i-lucide-shield-check' },
+  { to: '/import-export', label: 'Import Export', icon: 'i-lucide-file-down' }
 ]
 
-function isActive(to: string) {
-  return to === '/' ? route.path === '/' : route.path.startsWith(to)
-}
+const navigationItems = computed(() => modules.map((item) => ({
+  ...item,
+  active: item.to === '/' ? route.path === '/' : route.path.startsWith(item.to)
+})))
+
+const companyOptions = computed(() => [
+  { label: 'All Companies', value: 'all' },
+  ...((props.companies || []).map((company) => ({
+    label: company.name || company.companyName || 'Company',
+    value: company.id
+  })))
+])
+
+const storeOptions = computed(() => [
+  { label: 'All Stores', value: 'all' },
+  ...((props.stores || []).map((storeItem) => ({
+    label: storeItem.name || storeItem.storeName || 'Store',
+    value: storeItem.id
+  })))
+])
 
 function logout() {
   auth.logout()
@@ -55,58 +58,86 @@ function logout() {
 </script>
 
 <template>
-  <div class="app-shell">
-    <aside class="sidebar">
-      <NuxtLink class="brand brand-link" to="/">
-        <div class="brand-mark">
-          <Shirt :size="21" />
-        </div>
-        <div>
-          <p class="brand-title">Garmetix</p>
-          <p class="brand-subtitle">Store management</p>
-        </div>
-      </NuxtLink>
-
-      <nav class="nav">
-        <NuxtLink
-          v-for="item in modules"
-          :key="item.to"
-          class="nav-button"
-          :class="{ active: isActive(item.to) }"
-          :to="item.to"
-        >
-          <component :is="item.icon" :size="18" />
-          <span>{{ item.label }}</span>
+  <UDashboardGroup storage-key="garmetix-dashboard">
+    <UDashboardSidebar
+      id="garmetix-sidebar"
+      collapsible
+      resizable
+      :min-size="12"
+      :default-size="16"
+      :max-size="20"
+      :ui="{ footer: 'border-t border-default' }"
+    >
+      <template #header="{ collapsed }">
+        <NuxtLink class="ui-brand" to="/">
+          <div class="ui-brand-mark">
+            <UIcon name="i-lucide-shirt" class="size-5" />
+          </div>
+          <div v-if="!collapsed" class="min-w-0">
+            <p class="ui-brand-title">Garmetix</p>
+            <p class="ui-brand-subtitle">Store management</p>
+          </div>
         </NuxtLink>
-      </nav>
-    </aside>
+      </template>
 
-    <main class="main">
-      <header class="topbar">
-        <div>
-          <h1>{{ title }}</h1>
-        </div>
-        <div class="context-controls">
-          <select class="select" aria-label="Company">
-            <option>All Companies</option>
-            <option v-for="company in companies || []" :key="company.id">{{ company.name || company.companyName }}</option>
-          </select>
-          <select class="select" aria-label="Store">
-            <option>All Stores</option>
-            <option v-for="storeItem in stores || []" :key="storeItem.id">{{ storeItem.name || storeItem.storeName }}</option>
-          </select>
-          <button class="button secondary" type="button" @click="$emit('refresh')">
-            <Store :size="16" />
-            Sync
-          </button>
-          <button class="button secondary" type="button" @click="logout">
-            <UserRoundCog :size="16" />
-            Logout
-          </button>
-        </div>
-      </header>
+      <template #default="{ collapsed }">
+        <UNavigationMenu
+          :collapsed="collapsed"
+          :items="navigationItems"
+          orientation="vertical"
+        />
+      </template>
 
-      <slot />
-    </main>
-  </div>
+      <template #footer="{ collapsed }">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-log-out"
+          :label="collapsed ? undefined : 'Logout'"
+          :square="collapsed"
+          block
+          @click="logout"
+        />
+      </template>
+    </UDashboardSidebar>
+
+    <UDashboardPanel id="garmetix-main">
+      <template #header>
+        <UDashboardNavbar :title="title">
+          <template #leading>
+            <UDashboardSidebarCollapse />
+          </template>
+          <template #right>
+            <div class="dashboard-toolbar">
+              <USelect
+                v-model="companyValue"
+                :items="companyOptions"
+                class="hidden md:flex w-44"
+                aria-label="Company"
+              />
+              <USelect
+                v-model="storeValue"
+                :items="storeOptions"
+                class="hidden lg:flex w-40"
+                aria-label="Store"
+              />
+              <UTooltip text="Refresh data">
+                <UButton
+                  color="neutral"
+                  variant="subtle"
+                  icon="i-lucide-refresh-cw"
+                  @click="emit('refresh')"
+                />
+              </UTooltip>
+              <UColorModeButton color="neutral" variant="ghost" />
+            </div>
+          </template>
+        </UDashboardNavbar>
+      </template>
+
+      <div class="dashboard-content">
+        <slot />
+      </div>
+    </UDashboardPanel>
+  </UDashboardGroup>
 </template>
