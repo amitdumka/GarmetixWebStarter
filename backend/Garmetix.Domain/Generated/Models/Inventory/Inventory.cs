@@ -75,7 +75,7 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Tax", AutoGenerateField = false)] public Guid TaxId { get; set; }
         [Display(Name = "Branded Product")] public bool BrandedProduct { get; set; } = true;
 
-        [Display(Name ="Sold Value")]public decimal SoldValue { get; set; }= 0;
+        [Display(Name = "Sold Value")] public decimal SoldValue { get; set; } = 0;
 
         [JsonIgnore]
         [Display(Name = "Tax", AutoGenerateField = false)] public virtual Tax? Tax { get; set; }
@@ -102,7 +102,7 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "MRP")] public decimal MRP { get; set; }
         [Display(Name = "Tax Rate")] public decimal TaxRate { get; set; }
         //TODO: Need to use Basic Rate Calucator Static Function need to be create in toolkit
-        [Display(Name="Basic Rate", AutoGenerateField =false)] public decimal BasicPrice =>MRP/(1 + (TaxRate/100));
+        [Display(Name = "Basic Rate", AutoGenerateField = false)] public decimal BasicPrice => MRP / (1 + (TaxRate / 100));
         [Display(Name = "Unit")] public Unit Unit { get; set; }
         [Display(Name = "Tax Type")] public TaxType TaxType { get; set; }
         [Display(Name = "Product Type")] public ProductType ProductType { get; set; } = ProductType.Fabric;
@@ -111,7 +111,7 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Product Category", AutoGenerateField = false)] public virtual ProductCategory? ProductCategory { get; set; }
         [Display(Name = "Product Sub Category", AutoGenerateField = false)] public virtual ProductSubCategory? ProductSubCategory { get; set; }
         [Display(Name = "Stocks", AutoGenerateField = false)] public virtual ICollection<Stock>? Stocks { get; set; } = null;
-        
+
         // NEW: Add this so the SfAutocomplete has a property to bind to
         [NotMapped]
         public string DisplayText => $"{Name} ({Barcode})";
@@ -142,7 +142,7 @@ namespace Garmetix.Core.Models.Inventory
     public class Brand : BaseEntity
     {
 
-       [Display(Name = "Brand Name")] public required string Name { get; set; }
+        [Display(Name = "Brand Name")] public required string Name { get; set; }
         [Display(Name = "Brand Code")] public required string BrandCode { get; set; }
         [Display(Name = "Supplier", AutoGenerateField = false)] public Guid? SupplierId { get; set; } = null;
     }

@@ -61,7 +61,7 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Quantity")] public decimal Quantity { get; set; }
         [Display(Name = "Item Count")] public int ItemCount { get; set; }
         [Display(Name = "Payment Mode")] public PaymentMode? PaymentMode { get; set; }
-       
+
         //Handling GST System and Vat System as well
 
         [Display(Name = "CGST Amount")] public decimal? CGSTAmount { get; set; }
@@ -91,7 +91,7 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Amount")] public decimal Amount { get; set; } = 0;
         [Display(Name = "Bill Count")] public int BillCount { get; set; } = 0;
         // The current total available credit
-        [Display(Name = "Store Credit Balance")] public decimal CreditBalance { get; set; }=0;
+        [Display(Name = "Store Credit Balance")] public decimal CreditBalance { get; set; } = 0;
         public decimal LoyaltyPoints { get; set; } = 0;
         [Display(Name = "Customer Party", AutoGenerateField = false)] public virtual Party? Party { get; set; }
     }
@@ -103,15 +103,15 @@ namespace Garmetix.Core.Models.Inventory
     /// </summary>
     public class StoreCreditLedger
     {
-        public Guid Id { get; set; }= Guid.NewGuid();
+        public Guid Id { get; set; } = Guid.NewGuid();
         public Guid CustomerId { get; set; }
-        public DateTime TransactionDate { get; set; }= DateTime.Now;
+        public DateTime TransactionDate { get; set; } = DateTime.Now;
 
         // Positive amount when a return happens. Negative amount when spent.
-        public decimal Amount { get; set; }= 0;
+        public decimal Amount { get; set; } = 0;
 
         // Explanation: e.g., "Credit for Return RET-INV-001"
-        public string Description { get; set; }=string.Empty;
+        public string Description { get; set; } = string.Empty;
 
         public virtual Customer? Customer { get; set; }
     }
@@ -161,14 +161,14 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Salesman", AutoGenerateField = false)] public Guid SalemanId { get; set; }
 
         [Display(Name = "Customer Name")] public string? CustomerName { get; set; }
-        [Display(Name = "Customer Mobile Number")] public string CustomerMobileNumber { get; set; }=string.Empty;
+        [Display(Name = "Customer Mobile Number")] public string CustomerMobileNumber { get; set; } = string.Empty;
         [Display(Name = "Customer GSTIN")] public string? CustomerGSTIN { get; set; }
 
         [Display(Name = "Credit Sale")] public bool CreditSale { get; set; }
         [Display(Name = "B2B Sale")] public bool B2BSale { get; set; } = false;
         [Display(Name = "Sale Invoice Type")] public SaleInvoiceType SaleInvoiceType { get; set; } = SaleInvoiceType.B2C;
 
-        [Display(Name = "Bill Discount", AutoGenerateField = false)]public decimal BillDiscountAmount { get; set; } = 0m;
+        [Display(Name = "Bill Discount", AutoGenerateField = false)] public decimal BillDiscountAmount { get; set; } = 0m;
 
         [Display(Name = "Salesman", AutoGenerateField = false)] public virtual Salesman? Saleman { get; set; }
         [Display(Name = "Customer", AutoGenerateField = false)] public virtual Customer? Customer { get; set; }
@@ -188,7 +188,7 @@ namespace Garmetix.Core.Models.Inventory
 
 
         [Display(Name = "Store", AutoGenerateField = false)]
-        public Guid StoreId {  get; set; } 
+        public Guid StoreId { get; set; }
         public virtual Store? Store { get; set; }
     }
 
@@ -212,7 +212,7 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Card Number")] public int CardNumber { get; set; }
         [Display(Name = "Card")] public Card Card { get; set; } = Card.DebitCard;
         [Display(Name = "Card Type")] public CardType CardType { get; set; } = CardType.Rupay;
-        
+
         [Display(Name = "Bank Name")] public string? BankName { get; set; }
         [Display(Name = "Store", AutoGenerateField = false)] public Guid StoreId { get; set; }
     }
@@ -262,7 +262,7 @@ namespace Garmetix.Core.Models.Inventory
 
         [JsonIgnore]
         [Display(Name = "Line Total")] public decimal LineTotal { get { return Math.Round(TaxableAmount + TotalTaxAmount, 2); } }
-        
+
         [JsonIgnore]
         public virtual ProductType Category { get; set; } = ProductType.Apparels;
     }
