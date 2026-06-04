@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Garmetix.Domain")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+db282bc129323cffce3b5e53e90dbaee939afded")]
 [assembly: System.Reflection.AssemblyProductAttribute("Garmetix.Domain")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Garmetix.Domain")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

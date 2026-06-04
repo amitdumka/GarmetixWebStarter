@@ -92,31 +92,57 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        StampAuditableEntities();
+        PrepareEntitiesForSave();
         return base.SaveChangesAsync(cancellationToken);
     }
 
     public override int SaveChanges()
     {
-        StampAuditableEntities();
+        PrepareEntitiesForSave();
         return base.SaveChanges();
+    }
+
+    private void PrepareEntitiesForSave()
+    {
+        StampAuditableEntities();
+        NormalizeDateTimeKinds();
     }
 
     private void StampAuditableEntities()
     {
-        var utcNow = DateTime.UtcNow;
+        var now = DateTime.SpecifyKind(DateTime.Now, DateTimeKind.Unspecified);
 
         foreach (var entry in ChangeTracker.Entries<BaseEntity>())
         {
             if (entry.State == EntityState.Added)
             {
-                entry.Entity.CreatedAt = utcNow;
-                entry.Entity.UpdatedAt = utcNow;
+                entry.Entity.CreatedAt = now;
+                entry.Entity.UpdatedAt = now;
             }
 
             if (entry.State == EntityState.Modified)
             {
-                entry.Entity.UpdatedAt = utcNow;
+                entry.Entity.UpdatedAt = now;
+            }
+        }
+    }
+
+    private void NormalizeDateTimeKinds()
+    {
+        foreach (var entry in ChangeTracker.Entries().Where(entry => entry.State is EntityState.Added or EntityState.Modified))
+        {
+            foreach (var property in entry.Properties)
+            {
+                var clrType = property.Metadata.ClrType;
+                if (clrType == typeof(DateTime) && property.CurrentValue is DateTime dateTime)
+                {
+                    property.CurrentValue = DateTime.SpecifyKind(dateTime, DateTimeKind.Unspecified);
+                }
+
+                if (clrType == typeof(DateTime?) && property.CurrentValue is DateTime nullableDateTime)
+                {
+                    property.CurrentValue = DateTime.SpecifyKind(nullableDateTime, DateTimeKind.Unspecified);
+                }
             }
         }
     }
