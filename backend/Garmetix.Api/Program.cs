@@ -10,6 +10,7 @@ using Garmetix.Api.Setup;
 using Garmetix.Core.Enums;
 using Garmetix.Infrastructure;
 using Garmetix.Infrastructure.Data;
+using Garmetix.Models.DayOperations;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -98,6 +99,7 @@ auth.MapGet("/me", (HttpContext context, GarmetixDbContext db, CancellationToken
 app.MapSetupEndpoints();
 app.MapBillingEndpoints();
 app.MapPurchaseEndpoints();
+app.MapUserManagementEndpoints();
 
 MapCrud<Company>(app, "/api/companies", GarmetixPolicies.CompanySetup);
 MapCrud<StoreGroup>(app, "/api/store-groups", GarmetixPolicies.CompanySetup);
@@ -110,6 +112,9 @@ MapCrud<Invoice>(app, "/api/sales-invoices", GarmetixPolicies.Billing);
 MapCrud<PurchaseInvoice>(app, "/api/purchase-invoices", GarmetixPolicies.Purchase);
 MapCrud<Voucher>(app, "/api/vouchers", GarmetixPolicies.Accounting);
 MapCrud<Ledger>(app, "/api/ledgers", GarmetixPolicies.Accounting);
+MapCrud<PettyCashSheet>(app, "/api/petty-cash-sheets", GarmetixPolicies.Accounting);
+MapCrud<DayBegin>(app, "/api/day-begins", GarmetixPolicies.Accounting);
+MapCrud<DayEnd>(app, "/api/day-ends", GarmetixPolicies.Accounting);
 MapCrud<Employee>(app, "/api/employees", GarmetixPolicies.Hr);
 MapCrud<Attendance>(app, "/api/attendance", GarmetixPolicies.Hr);
 MapCrud<SalaryStructure>(app, "/api/salary-structures", GarmetixPolicies.Payroll);

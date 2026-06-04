@@ -120,6 +120,11 @@ select {
   margin-bottom: 14px;
 }
 
+.brand-link {
+  color: inherit;
+  text-decoration: none;
+}
+
 .brand-mark {
   width: 36px;
   height: 36px;
@@ -159,6 +164,7 @@ select {
   background: transparent;
   cursor: pointer;
   text-align: left;
+  text-decoration: none;
 }
 
 .nav-button:hover,
@@ -237,6 +243,39 @@ select {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.75fr);
   gap: 18px;
+}
+
+.module-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+
+.module-card {
+  min-height: 96px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  color: var(--ink);
+  background: #fff;
+  text-decoration: none;
+}
+
+.module-card:hover {
+  border-color: var(--accent);
+}
+
+.module-card span {
+  font-weight: 700;
+}
+
+.module-card strong {
+  font-size: 20px;
 }
 
 .setup-panel {
@@ -419,6 +458,43 @@ select {
   border-bottom: 1px solid var(--line);
 }
 
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.panel-body {
+  min-width: 0;
+}
+
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.inline-message {
+  margin: 0;
+  color: var(--ok);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.empty-state {
+  padding: 28px 16px;
+  color: var(--muted);
+}
+
+.empty-state p {
+  margin: 0;
+}
+
 .panel-title {
   margin: 0;
   font-size: 16px;
@@ -499,6 +575,51 @@ select {
   padding: 16px;
 }
 
+.wide-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-actions {
+  display: flex;
+  align-items: end;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.checkbox-field {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.checkbox-field input {
+  width: 16px;
+  height: 16px;
+}
+
+.payroll-summary {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--panel-soft);
+}
+
+.payroll-summary span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.payroll-summary strong {
+  font-size: 15px;
+}
+
 .field {
   display: grid;
   gap: 6px;
@@ -520,10 +641,12 @@ select {
 
 @media (max-width: 1040px) {
   .metric-grid,
+  .module-grid,
   .workspace,
   .setup-grid,
   .pos-grid,
-  .payment-grid {
+  .payment-grid,
+  .wide-form {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -543,10 +666,12 @@ select {
   }
 
   .metric-grid,
+  .module-grid,
   .workspace,
   .setup-grid,
   .pos-grid,
-  .payment-grid {
+  .payment-grid,
+  .wide-form {
     grid-template-columns: 1fr;
   }
 
@@ -559,6 +684,12 @@ select {
 
   .context-controls {
     flex-wrap: wrap;
+  }
+
+  .table-toolbar,
+  .form-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

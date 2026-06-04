@@ -31,6 +31,7 @@ const route = useRoute()
 
 const modules = [
   { to: '/', label: 'Dashboard', icon: Building2 },
+  { to: '/setup', label: 'Setup', icon: Building2 },
   { to: '/billing', label: 'Billing', icon: ReceiptIndianRupee },
   { to: '/inventory', label: 'Inventory', icon: Boxes },
   { to: '/purchase', label: 'Purchase', icon: PackagePlus },

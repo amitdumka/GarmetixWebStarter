@@ -71,11 +71,43 @@ After login, the Nuxt dashboard checks `/api/setup/status`. If company/store def
 
 ## Billing POS
 
-The Nuxt dashboard includes a compact POS panel. It calls `POST /api/billing/sales`, saves invoice/items/payment in one backend transaction, and updates stock sold quantity. More details are in `backend/Billing-Notes.md`.
+Billing now has its own Nuxt route at `/billing`. The page lists sales invoices, opens a new invoice/POS form, shows printable receipts, and cancels invoices with stock reversal. It calls `POST /api/billing/sales`, saves invoice/items/payment in one backend transaction, and updates stock sold quantity. More details are in `backend/Billing-Notes.md`.
 
 ## Purchase Inward
 
-The dashboard also includes a purchase inward panel. It calls `POST /api/purchase/inward`, creates or reuses a vendor, creates missing products when name/barcode are supplied, saves the purchase invoice/items, and increases store stock purchase quantity. More details are in `backend/Purchase-Notes.md`.
+Purchase now has its own Nuxt route at `/purchase`. The page lists purchase invoices and opens a purchase inward form. It calls `POST /api/purchase/inward`, creates or reuses a vendor, creates missing products when name/barcode are supplied, saves the purchase invoice/items, and increases store stock purchase quantity. More details are in `backend/Purchase-Notes.md`.
+
+## Frontend Routing
+
+The dashboard is now an overview page. Module navigation uses separate Nuxt pages, starting with `/setup`, `/billing`, `/purchase`, `/inventory`, `/vouchers`, `/petty-cash`, `/hr`, `/payroll`, and `/access`. Other module links have placeholder pages ready for their own list/form workflows.
+
+## Company Setup
+
+Company Setup now has its own Nuxt route at `/setup`. The page manages companies, store groups, and stores with list, add, edit, and soft-delete actions.
+
+## Inventory
+
+Inventory now has its own Nuxt route at `/inventory`. The page lists products with purchase quantity, sold quantity, current stock, and stock value. It also includes add, edit, and soft-delete actions for products.
+
+## Vouchers
+
+Vouchers now have their own Nuxt route at `/vouchers`. The page lists payment, receipt, and expense vouchers with add, edit, and soft-delete actions.
+
+## Petty Cash
+
+Petty Cash now has its own Nuxt route at `/petty-cash`. The page manages daily cash sheets with opening balance, sales, receipts, expenses, payments, deposits, and calculated cash in hand.
+
+## HR
+
+HR now has its own Nuxt route at `/hr`. The page lists employees and includes add, edit, and soft-delete actions using the generated employee model.
+
+## Payroll
+
+Payroll now has its own Nuxt route at `/payroll`. The page manages salary structures and salary payments with list, add, edit, and soft-delete actions.
+
+## Access
+
+Access now has its own Nuxt route at `/access`. The page manages users, roles, user types, admin access, password reset, and company/store scope. It uses safe `/api/access/users` endpoints that hash passwords and do not return password hashes.
 
 ## Run Frontend Locally
 
