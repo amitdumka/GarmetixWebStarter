@@ -30,10 +30,11 @@ Edit `.env` and change at least:
 ```text
 POSTGRES_PASSWORD=...
 JWT_SIGNING_KEY=...
-NUXT_PUBLIC_API_BASE=http://YOUR-SERVER-IP:5080/api
+NUXT_PUBLIC_API_BASE=/api
+NUXT_API_INTERNAL_BASE=http://api:5080/api
 ```
 
-For a LAN-only setup, `YOUR-SERVER-IP` can be the Mac mini or Linux machine IP address.
+The browser should use `/api`. Nuxt forwards that privately to the ASP.NET API. This also works behind Cloudflare Tunnel because only the Nuxt web port needs to be public.
 
 ## 3. Start The App
 
@@ -46,6 +47,22 @@ Open:
 ```text
 http://YOUR-SERVER-IP:3000
 ```
+
+For Cloudflare Tunnel on Windows, expose only the web app:
+
+```powershell
+cloudflared tunnel --url http://localhost:3000
+```
+
+Then open the generated `trycloudflare.com` URL. The frontend will call `/api/...` on the same URL, and Nuxt will forward those requests to the backend.
+
+Check backend connectivity through the same public URL:
+
+```text
+https://YOUR-TUNNEL-URL/api/health
+```
+
+The response should show `databaseReady: true`.
 
 View logs:
 

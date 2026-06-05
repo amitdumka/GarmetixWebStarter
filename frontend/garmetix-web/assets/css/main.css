@@ -136,18 +136,11 @@ select {
   font-weight: 800;
 }
 
-.sidebar-stage-progress {
-  height: 6px;
+.sidebar-stage-card-header > span {
+  min-width: 0;
   overflow: hidden;
-  border-radius: 999px;
-  background: var(--panel-soft);
-}
-
-.sidebar-stage-progress span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--accent);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-stage-card p {
@@ -155,6 +148,24 @@ select {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.35;
+}
+
+.sidebar-status-clock {
+  display: grid;
+  gap: 2px;
+  border-radius: 7px;
+  padding: 9px;
+  background: var(--panel-soft);
+}
+
+.sidebar-status-clock strong {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.sidebar-status-clock span {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .planner-dashboard {
@@ -1084,6 +1095,34 @@ select {
   margin-bottom: 16px;
 }
 
+.system-health-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+
+.system-health-row {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--panel);
+}
+
+.system-health-row span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.system-health-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+
 .report-filter-bar {
   display: flex;
   justify-content: space-between;
@@ -1311,6 +1350,7 @@ select {
   .pos-grid,
   .monthly-generate-bar,
   .payment-grid,
+  .system-health-grid,
   .wide-form {
     grid-template-columns: 1fr 1fr;
   }
@@ -1341,6 +1381,7 @@ select {
   .planner-setup-grid,
   .pos-grid,
   .payment-grid,
+  .system-health-grid,
   .wide-form {
     grid-template-columns: 1fr;
   }

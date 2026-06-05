@@ -3,8 +3,10 @@ using System.Text;
 using Garmetix.Api.Auth;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Accounting;
+using Garmetix.Core.Models.Authentication;
 using Garmetix.Core.Models.HRM;
 using Garmetix.Core.Models.Inventory;
+using Garmetix.Core.Models.Stores;
 using Garmetix.Infrastructure.Data;
 using Garmetix.Models.DayOperations;
 using Microsoft.EntityFrameworkCore;
@@ -19,16 +21,18 @@ public static class ImportExportEndpoints
     {
         ["setup"] = new(
             "Company",
-            ["Type", "Name", "Code", "Contact", "Email", "City", "State", "Active"],
+            ["Type", "CompanyCode", "StoreGroupCode", "Name", "Code", "Contact", "Email", "City", "State", "Active"],
             async (db, cancellationToken) =>
             {
                 var companies = await db.Companies.AsNoTracking().OrderBy(item => item.Name).ToListAsync(cancellationToken);
                 var groups = await db.StoreGroups.AsNoTracking().OrderBy(item => item.Name).ToListAsync(cancellationToken);
                 var stores = await db.Stores.AsNoTracking().OrderBy(item => item.Name).ToListAsync(cancellationToken);
+                var companyCodes = companies.ToDictionary(item => item.Id, item => item.Code);
+                var groupCodes = groups.ToDictionary(item => item.Id, item => item.GroupCode);
 
-                return companies.Select(item => Row("Company", item.Name, item.Code, item.ContactNumber, item.Email, item.City, item.State, item.Active))
-                    .Concat(groups.Select(item => Row("StoreGroup", item.Name, item.GroupCode, "", "", "", "", item.Active)))
-                    .Concat(stores.Select(item => Row("Store", item.Name, item.StoreCode, item.ContactNumber, item.Email, item.City, item.State, item.Active)));
+                return companies.Select(item => Row("Company", item.Code, "", item.Name, item.Code, item.ContactNumber, item.Email, item.City, item.State, item.Active))
+                    .Concat(groups.Select(item => Row("StoreGroup", companyCodes.GetValueOrDefault(item.CompanyId), item.GroupCode, item.Name, item.GroupCode, "", "", "", "", item.Active)))
+                    .Concat(stores.Select(item => Row("Store", companyCodes.GetValueOrDefault(item.CompanyId), groupCodes.GetValueOrDefault(item.StoreGroupId), item.Name, item.StoreCode, item.ContactNumber, item.Email, item.City, item.State, item.Active)));
             }),
         ["inventory"] = new(
             "Inventory",
@@ -199,21 +203,28 @@ public static class ImportExportEndpoints
             }),
         ["access"] = new(
             "Access",
-            ["Name", "UserName", "Email", "Role", "UserType", "Admin", "AppOperation"],
+            ["Name", "UserName", "Email", "Password", "Role", "UserType", "Admin", "AppOperation", "CompanyCode", "StoreGroupCode", "StoreCode"],
             async (db, cancellationToken) =>
             {
                 var rows = await db.Users.AsNoTracking()
                     .OrderBy(item => item.UserName)
                     .ToListAsync(cancellationToken);
+                var companies = await db.Companies.AsNoTracking().ToDictionaryAsync(item => item.Id, cancellationToken);
+                var groups = await db.StoreGroups.AsNoTracking().ToDictionaryAsync(item => item.Id, cancellationToken);
+                var stores = await db.Stores.AsNoTracking().ToDictionaryAsync(item => item.Id, cancellationToken);
 
                 return rows.Select(item => Row(
                     item.Name,
                     item.UserName,
                     item.Email,
+                    "",
                     item.Role,
                     item.UserType,
                     item.Admin,
-                    item.AppOperation));
+                    item.AppOperation,
+                    item.CompanyId.HasValue && companies.TryGetValue(item.CompanyId.Value, out var company) ? company.Code : "",
+                    item.StoreGroupId.HasValue && groups.TryGetValue(item.StoreGroupId.Value, out var group) ? group.GroupCode : "",
+                    item.StoreId.HasValue && stores.TryGetValue(item.StoreId.Value, out var store) ? store.StoreCode : ""));
             })
     };
 
@@ -228,7 +239,7 @@ public static class ImportExportEndpoints
             key = item.Key,
             name = item.Value.Name,
             columns = item.Value.Headers.Length,
-            importSupported = item.Key is "inventory" or "hr" or "vouchers" or "petty-cash"
+            importSupported = item.Key is "setup" or "inventory" or "hr" or "vouchers" or "petty-cash" or "access"
         })));
         group.MapGet("/export/{module}", ExportModuleAsync);
         group.MapGet("/template/{module}", TemplateAsync);
@@ -305,6 +316,9 @@ public static class ImportExportEndpoints
 
         switch (module.ToLowerInvariant())
         {
+            case "setup":
+                await ImportSetupAsync(db, dataRows, commit, result, cancellationToken);
+                break;
             case "inventory":
                 await ImportInventoryAsync(db, dataRows, commit, result, cancellationToken);
                 break;
@@ -316,6 +330,9 @@ public static class ImportExportEndpoints
                 break;
             case "petty-cash":
                 await ImportPettyCashAsync(db, dataRows, commit, result, cancellationToken);
+                break;
+            case "access":
+                await ImportAccessAsync(db, dataRows, commit, result, cancellationToken);
                 break;
             default:
                 result.Errors.Add(new ImportRowError(1, "Module", $"{definition.Name} import write is not enabled yet. Download/export is available."));
@@ -336,6 +353,332 @@ public static class ImportExportEndpoints
         }
 
         return Results.Ok(result);
+    }
+
+    private static async Task ImportSetupAsync(
+        GarmetixDbContext db,
+        IReadOnlyList<CsvDataRow> rows,
+        bool commit,
+        ImportResult result,
+        CancellationToken cancellationToken)
+    {
+        var companies = await db.Companies.OrderBy(item => item.CreatedAt).ToListAsync(cancellationToken);
+        var groups = await db.StoreGroups.OrderBy(item => item.CreatedAt).ToListAsync(cancellationToken);
+        var stores = await db.Stores.OrderBy(item => item.CreatedAt).ToListAsync(cancellationToken);
+
+        var companiesByCode = new Dictionary<string, Company>(StringComparer.OrdinalIgnoreCase);
+        var companiesByName = new Dictionary<string, Company>(StringComparer.OrdinalIgnoreCase);
+        var groupsByKey = new Dictionary<string, StoreGroup>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var company in companies)
+        {
+            AddLookup(companiesByCode, company.Code, company);
+            AddLookup(companiesByName, company.Name, company);
+        }
+
+        foreach (var group in groups)
+        {
+            AddLookup(groupsByKey, GroupKey(group.CompanyId, group.GroupCode), group);
+            AddLookup(groupsByKey, GroupKey(group.CompanyId, group.Name), group);
+        }
+
+        foreach (var row in rows)
+        {
+            var type = row.Required("Type", result).Replace(" ", "", StringComparison.OrdinalIgnoreCase);
+            var name = row.Required("Name", result);
+            if (string.IsNullOrWhiteSpace(type) || string.IsNullOrWhiteSpace(name))
+            {
+                continue;
+            }
+
+            var code = row["Code"];
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                code = MakeCode(name);
+                result.Warnings.Add($"Line {row.Line}: Code was blank, generated '{code}'.");
+            }
+
+            switch (type.ToLowerInvariant())
+            {
+                case "company":
+                    ImportCompanyRow(db, row, name, code, companiesByCode, companiesByName, commit, result);
+                    break;
+                case "storegroup":
+                    ImportStoreGroupRow(db, row, name, code, companiesByCode, companiesByName, groupsByKey, commit, result);
+                    break;
+                case "store":
+                    ImportStoreRow(db, row, name, code, companiesByCode, companiesByName, groupsByKey, stores, commit, result);
+                    break;
+                default:
+                    result.Errors.Add(new ImportRowError(row.Line, "Type", "Type must be Company, StoreGroup, or Store."));
+                    break;
+            }
+        }
+    }
+
+    private static async Task ImportAccessAsync(
+        GarmetixDbContext db,
+        IReadOnlyList<CsvDataRow> rows,
+        bool commit,
+        ImportResult result,
+        CancellationToken cancellationToken)
+    {
+        var users = await db.Users.OrderBy(item => item.UserName).ToListAsync(cancellationToken);
+        var companies = await db.Companies.AsNoTracking().OrderBy(item => item.CreatedAt).ToListAsync(cancellationToken);
+        var groups = await db.StoreGroups.AsNoTracking().OrderBy(item => item.CreatedAt).ToListAsync(cancellationToken);
+        var stores = await db.Stores.AsNoTracking().OrderBy(item => item.CreatedAt).ToListAsync(cancellationToken);
+        var userByUserName = users
+            .Where(item => !string.IsNullOrWhiteSpace(item.UserName))
+            .GroupBy(item => item.UserName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(item => item.Key, item => item.First(), StringComparer.OrdinalIgnoreCase);
+        var userByEmail = users
+            .Where(item => !string.IsNullOrWhiteSpace(item.Email))
+            .GroupBy(item => item.Email, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(item => item.Key, item => item.First(), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var row in rows)
+        {
+            var name = row.Required("Name", result);
+            var userName = row.Required("UserName", result);
+            var email = row.Required("Email", result);
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(email))
+            {
+                continue;
+            }
+
+            var byUserName = userByUserName.GetValueOrDefault(userName);
+            var byEmail = userByEmail.GetValueOrDefault(email);
+            if (byUserName is not null && byEmail is not null && byUserName.Id != byEmail.Id)
+            {
+                result.Errors.Add(new ImportRowError(row.Line, "Email", "Username and email belong to different existing users."));
+                continue;
+            }
+
+            var user = byUserName ?? byEmail;
+            var created = user is null;
+            var password = row["Password"];
+            if (created && string.IsNullOrWhiteSpace(password))
+            {
+                result.Errors.Add(new ImportRowError(row.Line, "Password", "Password is required for new users."));
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(password) && password.Length < 6)
+            {
+                result.Errors.Add(new ImportRowError(row.Line, "Password", "Password must be at least 6 characters."));
+                continue;
+            }
+
+            var role = row.Enum("Role", LoginRole.Member, result);
+            var userType = row.Enum("UserType", UserType.StoreManager, result);
+            var admin = row.Bool("Admin", role == LoginRole.Admin) || role == LoginRole.Admin;
+            var appOperation = row.Enum("AppOperation", AppOperation.All, result);
+            var scope = ResolveUserScope(row, companies, groups, stores, result);
+
+            if (user is not null && (user.Admin || user.Role == LoginRole.Admin) && !admin)
+            {
+                var adminCount = users.Count(item => item.Admin || item.Role == LoginRole.Admin);
+                if (adminCount <= 1)
+                {
+                    result.Errors.Add(new ImportRowError(row.Line, "Admin", "Cannot remove admin access from the last admin user."));
+                    continue;
+                }
+            }
+
+            if (!commit || result.HasLineError(row.Line))
+            {
+                continue;
+            }
+
+            user ??= new AppUser();
+            user.Name = name.Trim();
+            user.UserName = userName.Trim();
+            user.Email = email.Trim();
+            user.Role = role;
+            user.UserType = userType;
+            user.Admin = admin;
+            user.AppOperation = appOperation;
+            user.CompanyId = scope.CompanyId;
+            user.StoreGroupId = scope.StoreGroupId;
+            user.StoreId = scope.StoreId;
+
+            if (!string.IsNullOrWhiteSpace(password))
+            {
+                user.Password = PasswordHasher.Hash(password);
+            }
+
+            if (created)
+            {
+                db.Users.Add(user);
+                userByUserName[user.UserName] = user;
+                userByEmail[user.Email] = user;
+                users.Add(user);
+                result.Created++;
+            }
+            else
+            {
+                result.Updated++;
+            }
+        }
+    }
+
+    private static void ImportCompanyRow(
+        GarmetixDbContext db,
+        CsvDataRow row,
+        string name,
+        string code,
+        Dictionary<string, Company> companiesByCode,
+        Dictionary<string, Company> companiesByName,
+        bool commit,
+        ImportResult result)
+    {
+        var company = companiesByCode.GetValueOrDefault(code) ?? companiesByName.GetValueOrDefault(name);
+        var created = company is null;
+        company ??= new Company { StartDate = DateTime.Today };
+
+        company.Name = name;
+        company.Code = code;
+        company.ContactNumber = row["Contact"];
+        company.ContactMobile = row["Contact"];
+        company.Email = row["Email"];
+        company.City = RequiredOrDefault(row["City"], "Dumka");
+        company.State = RequiredOrDefault(row["State"], "Jharkhand");
+        company.Country = "India";
+        company.Address = RequiredOrDefault(row["City"], company.City);
+        company.Active = row.Bool("Active", true);
+        company.ContactPerson = RequiredOrDefault(company.ContactPerson, "Admin");
+
+        AddLookup(companiesByCode, company.Code, company);
+        AddLookup(companiesByName, company.Name, company);
+
+        if (!commit || result.HasLineError(row.Line))
+        {
+            return;
+        }
+
+        if (created)
+        {
+            db.Companies.Add(company);
+            result.Created++;
+        }
+        else
+        {
+            result.Updated++;
+        }
+    }
+
+    private static void ImportStoreGroupRow(
+        GarmetixDbContext db,
+        CsvDataRow row,
+        string name,
+        string code,
+        Dictionary<string, Company> companiesByCode,
+        Dictionary<string, Company> companiesByName,
+        Dictionary<string, StoreGroup> groupsByKey,
+        bool commit,
+        ImportResult result)
+    {
+        var company = ResolveCompany(row, companiesByCode, companiesByName, result);
+        if (company is null)
+        {
+            return;
+        }
+
+        var group = groupsByKey.GetValueOrDefault(GroupKey(company.Id, code)) ?? groupsByKey.GetValueOrDefault(GroupKey(company.Id, name));
+        var created = group is null;
+        group ??= new StoreGroup { CompanyId = company.Id, StartDate = DateTime.Today };
+
+        group.CompanyId = company.Id;
+        group.Name = name;
+        group.GroupCode = code;
+        group.Active = row.Bool("Active", true);
+
+        AddLookup(groupsByKey, GroupKey(company.Id, group.GroupCode), group);
+        AddLookup(groupsByKey, GroupKey(company.Id, group.Name), group);
+
+        if (!commit || result.HasLineError(row.Line))
+        {
+            return;
+        }
+
+        if (created)
+        {
+            db.StoreGroups.Add(group);
+            result.Created++;
+        }
+        else
+        {
+            result.Updated++;
+        }
+    }
+
+    private static void ImportStoreRow(
+        GarmetixDbContext db,
+        CsvDataRow row,
+        string name,
+        string code,
+        Dictionary<string, Company> companiesByCode,
+        Dictionary<string, Company> companiesByName,
+        Dictionary<string, StoreGroup> groupsByKey,
+        List<Store> stores,
+        bool commit,
+        ImportResult result)
+    {
+        var company = ResolveCompany(row, companiesByCode, companiesByName, result);
+        if (company is null)
+        {
+            return;
+        }
+
+        var groupCode = row["StoreGroupCode"];
+        var group = string.IsNullOrWhiteSpace(groupCode)
+            ? groupsByKey.Values.FirstOrDefault(item => item.CompanyId == company.Id)
+            : groupsByKey.GetValueOrDefault(GroupKey(company.Id, groupCode));
+
+        if (group is null)
+        {
+            result.Errors.Add(new ImportRowError(row.Line, "StoreGroupCode", "Store group was not found. Add a StoreGroup row first or enter an existing StoreGroupCode."));
+            return;
+        }
+
+        var store = stores.FirstOrDefault(item =>
+            item.CompanyId == company.Id &&
+            item.StoreGroupId == group.Id &&
+            (item.StoreCode.Equals(code, StringComparison.OrdinalIgnoreCase) || item.Name.Equals(name, StringComparison.OrdinalIgnoreCase)));
+        var created = store is null;
+        store ??= new Store { CompanyId = company.Id, StoreGroupId = group.Id, StartDate = DateTime.Today };
+
+        store.CompanyId = company.Id;
+        store.StoreGroupId = group.Id;
+        store.Name = name;
+        store.StoreCode = code;
+        store.ContactNumber = row["Contact"];
+        store.Email = row["Email"];
+        store.City = RequiredOrDefault(row["City"], "Dumka");
+        store.State = RequiredOrDefault(row["State"], "Jharkhand");
+        store.Country = "India";
+        store.Address = RequiredOrDefault(row["City"], store.City);
+        store.Active = row.Bool("Active", true);
+
+        if (created)
+        {
+            stores.Add(store);
+        }
+
+        if (!commit || result.HasLineError(row.Line))
+        {
+            return;
+        }
+
+        if (created)
+        {
+            db.Stores.Add(store);
+            result.Created++;
+        }
+        else
+        {
+            result.Updated++;
+        }
     }
 
     private static async Task ImportInventoryAsync(
@@ -652,6 +995,115 @@ public static class ImportExportEndpoints
         }
     }
 
+    private static UserScope ResolveUserScope(
+        CsvDataRow row,
+        IReadOnlyList<Company> companies,
+        IReadOnlyList<StoreGroup> groups,
+        IReadOnlyList<Store> stores,
+        ImportResult result)
+    {
+        var companyCode = row["CompanyCode"];
+        var groupCode = row["StoreGroupCode"];
+        var storeCode = row["StoreCode"];
+
+        var company = string.IsNullOrWhiteSpace(companyCode)
+            ? companies.FirstOrDefault()
+            : companies.FirstOrDefault(item => item.Code.Equals(companyCode, StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrWhiteSpace(companyCode) && company is null)
+        {
+            result.Errors.Add(new ImportRowError(row.Line, "CompanyCode", "Company was not found."));
+        }
+
+        var group = string.IsNullOrWhiteSpace(groupCode)
+            ? groups.FirstOrDefault(item => company is null || item.CompanyId == company.Id)
+            : groups.FirstOrDefault(item =>
+                item.GroupCode.Equals(groupCode, StringComparison.OrdinalIgnoreCase) &&
+                (company is null || item.CompanyId == company.Id));
+
+        if (!string.IsNullOrWhiteSpace(groupCode) && group is null)
+        {
+            result.Errors.Add(new ImportRowError(row.Line, "StoreGroupCode", "Store group was not found."));
+        }
+
+        var store = string.IsNullOrWhiteSpace(storeCode)
+            ? stores.FirstOrDefault(item =>
+                (company is null || item.CompanyId == company.Id) &&
+                (group is null || item.StoreGroupId == group.Id))
+            : stores.FirstOrDefault(item =>
+                item.StoreCode.Equals(storeCode, StringComparison.OrdinalIgnoreCase) &&
+                (company is null || item.CompanyId == company.Id) &&
+                (group is null || item.StoreGroupId == group.Id));
+
+        if (!string.IsNullOrWhiteSpace(storeCode) && store is null)
+        {
+            result.Errors.Add(new ImportRowError(row.Line, "StoreCode", "Store was not found."));
+        }
+
+        return new UserScope(company?.Id, group?.Id, store?.Id);
+    }
+
+    private static Company? ResolveCompany(
+        CsvDataRow row,
+        Dictionary<string, Company> companiesByCode,
+        Dictionary<string, Company> companiesByName,
+        ImportResult result)
+    {
+        var companyCode = row["CompanyCode"];
+        if (!string.IsNullOrWhiteSpace(companyCode))
+        {
+            if (companiesByCode.TryGetValue(companyCode, out var company))
+            {
+                return company;
+            }
+
+            result.Errors.Add(new ImportRowError(row.Line, "CompanyCode", "Company was not found. Add a Company row first or enter an existing CompanyCode."));
+            return null;
+        }
+
+        if (companiesByCode.Count == 1)
+        {
+            return companiesByCode.Values.First();
+        }
+
+        if (companiesByName.Count == 1)
+        {
+            return companiesByName.Values.First();
+        }
+
+        result.Errors.Add(new ImportRowError(row.Line, "CompanyCode", "CompanyCode is required when more than one company exists."));
+        return null;
+    }
+
+    private static string GroupKey(Guid companyId, string value)
+    {
+        return $"{companyId:N}:{value.Trim()}";
+    }
+
+    private static void AddLookup<T>(Dictionary<string, T> lookup, string? key, T value)
+    {
+        if (!string.IsNullOrWhiteSpace(key) && !lookup.ContainsKey(key.Trim()))
+        {
+            lookup[key.Trim()] = value;
+        }
+    }
+
+    private static string MakeCode(string name)
+    {
+        var code = new string(name
+            .Where(char.IsLetterOrDigit)
+            .Take(12)
+            .Select(char.ToUpperInvariant)
+            .ToArray());
+
+        return string.IsNullOrWhiteSpace(code) ? "MAIN" : code;
+    }
+
+    private static string RequiredOrDefault(string? value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+    }
+
     private static async Task<DefaultScope?> GetDefaultScopeAsync(GarmetixDbContext db, ImportResult result, CancellationToken cancellationToken)
     {
         var company = await db.Companies.AsNoTracking().OrderBy(item => item.CreatedAt).FirstOrDefaultAsync(cancellationToken);
@@ -712,6 +1164,8 @@ public static class ImportExportEndpoints
         Func<GarmetixDbContext, CancellationToken, Task<IEnumerable<string?[]>>> Export);
 
     private sealed record DefaultScope(Guid CompanyId, Guid StoreGroupId, Guid StoreId);
+
+    private sealed record UserScope(Guid? CompanyId, Guid? StoreGroupId, Guid? StoreId);
 
     private sealed class ImportResult(string module, bool commit)
     {

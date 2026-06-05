@@ -37,7 +37,7 @@ cd backend/Garmetix.Api
 dotnet run
 ```
 
-API starts on the ASP.NET default development URL. The Nuxt config expects `http://localhost:5080/api`; set `ASPNETCORE_URLS=http://localhost:5080` if needed.
+API starts on the ASP.NET default development URL. The Nuxt app exposes a same-origin `/api` proxy and forwards it to `NUXT_API_INTERNAL_BASE`, which defaults to `http://localhost:5080/api`; set `ASPNETCORE_URLS=http://localhost:5080` if needed.
 
 ## Database
 
@@ -68,6 +68,16 @@ More details are in `backend/Auth-Access-Notes.md`.
 ## First Run Setup
 
 After login, the Nuxt dashboard checks `/api/setup/status`. If company/store defaults are missing, use the `Quick Setup` panel to create the first company, store group, store, product category, product subcategory, and GST tax.
+
+## Public Health Check
+
+Use `/api/health` to confirm the public Nuxt site can reach the backend through the same-origin proxy. With Cloudflare Tunnel, open:
+
+```text
+https://YOUR-TUNNEL-URL/api/health
+```
+
+If `databaseReady` is `true`, frontend, proxy, API, and database connectivity are working.
 
 ## Billing POS
 
@@ -141,7 +151,7 @@ Access now has its own Nuxt UI route at `/access`. The page manages users, roles
 
 Import Export now has its own Nuxt route at `/import-export`. Admin users can download CSV exports and matching import templates for setup, inventory, billing, purchase, vouchers, petty cash, HR, payroll, and access.
 
-Validated CSV import is enabled for inventory, HR employees, vouchers, and petty cash. Use `Validate CSV` first to check row and field errors, then `Import CSV` to commit valid files. Billing, purchase, payroll, access, and setup remain export/template-ready until their write rules are finalized.
+Validated CSV import is enabled for setup, inventory, HR employees, vouchers, petty cash, and access users. Use `Validate CSV` first to check row and field errors, then `Import CSV` to commit valid files. Setup import supports Company, StoreGroup, and Store rows with `CompanyCode` and `StoreGroupCode` parent mapping for multi-store data. Access import keeps exported passwords blank, requires a password only for new users, and prevents downgrading the last admin. Billing, purchase, and payroll remain export/template-ready until their write rules are finalized.
 
 ## Audit
 
@@ -181,6 +191,18 @@ Then open:
 - Web: `http://localhost:3000`
 - API: `http://localhost:5080`
 
+## Windows Docker Operations
+
+Windows helper scripts are available under `scripts/windows`:
+
+```powershell
+.\scripts\windows\start-garmetix.ps1 -Build
+.\scripts\windows\health-check.ps1 -PublicUrl "https://garmetix.aadwikafashion.in"
+.\scripts\windows\backup-db.ps1
+```
+
+Use `Deployment-Windows.md` for Windows hosting, Cloudflare Tunnel, restart, backup, and restore steps.
+
 ## Production Deploy
 
 For Linux or Mac mini deployment:
@@ -190,7 +212,7 @@ cp .env.example .env
 docker compose -f docker-compose.prod.yml up --build -d
 ```
 
-Set `POSTGRES_PASSWORD`, `JWT_SIGNING_KEY`, and `NUXT_PUBLIC_API_BASE` in `.env` before starting. Full deployment, backup, restore, and update notes are in `Deployment-Linux-MacMini.md`.
+Set `POSTGRES_PASSWORD` and `JWT_SIGNING_KEY` in `.env` before starting. Keep `NUXT_PUBLIC_API_BASE=/api` unless you intentionally expose the API on a separate public host. Full deployment, backup, restore, and update notes are in `Deployment-Linux-MacMini.md`.
 
 ## Migration Notes
 

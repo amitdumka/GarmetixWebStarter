@@ -22,6 +22,10 @@ const companyValue = ref('all')
 const storeValue = ref('all')
 const colorMode = useColorMode()
 const logOpen = ref(false)
+const now = ref(new Date())
+const apiLive = ref<boolean | null>(null)
+let clockTimer: ReturnType<typeof setInterval> | undefined
+let healthTimer: ReturnType<typeof setInterval> | undefined
 
 const themeOptions = [
   { label: 'System', value: 'system' },
@@ -68,7 +72,8 @@ const moduleGroups = [
       { to: '/setup', label: 'Company', icon: 'i-lucide-building-2' },
       { to: '/access', label: 'Roles & Users', icon: 'i-lucide-shield-check' },
       { to: '/import-export', label: 'Import Export', icon: 'i-lucide-file-down' },
-      { to: '/audit', label: 'Audit', icon: 'i-lucide-history' }
+      { to: '/audit', label: 'Audit', icon: 'i-lucide-history' },
+      { to: '/system-health', label: 'System Health', icon: 'i-lucide-activity' }
     ]
   }
 ]
@@ -103,6 +108,37 @@ const storeOptions = computed(() => [
   })))
 ])
 
+const workingStoreName = computed(() => {
+  const userStoreId = auth.user.value?.storeId
+  const selectedStoreId = storeValue.value !== 'all' ? storeValue.value : userStoreId
+  const store = (props.stores || []).find((item) => item.id === selectedStoreId) || (props.stores || [])[0]
+
+  return store?.name || store?.storeName || 'No store selected'
+})
+
+const currentClock = computed(() => now.value.toLocaleTimeString('en-IN', {
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: true
+}))
+
+const currentDate = computed(() => now.value.toLocaleDateString('en-IN', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric'
+}))
+
+const apiBadge = computed(() => {
+  if (apiLive.value === null) {
+    return { label: 'Checking', color: 'warning' as const, icon: 'i-lucide-loader-circle' }
+  }
+
+  return apiLive.value
+    ? { label: 'API Live', color: 'success' as const, icon: 'i-lucide-wifi' }
+    : { label: 'API Offline', color: 'error' as const, icon: 'i-lucide-wifi-off' }
+})
+
 function logout() {
   auth.logout()
   navigateTo('/')
@@ -111,6 +147,34 @@ function logout() {
 function formatLogDate(value: string) {
   return value ? new Date(value).toLocaleString() : '-'
 }
+
+async function checkApiHealth() {
+  try {
+    const response = await $fetch<{ databaseReady?: boolean }>('/api/health')
+    apiLive.value = Boolean(response?.databaseReady)
+  } catch {
+    apiLive.value = false
+  }
+}
+
+onMounted(() => {
+  clockTimer = setInterval(() => {
+    now.value = new Date()
+  }, 1000)
+
+  checkApiHealth()
+  healthTimer = setInterval(checkApiHealth, 60000)
+})
+
+onBeforeUnmount(() => {
+  if (clockTimer) {
+    clearInterval(clockTimer)
+  }
+
+  if (healthTimer) {
+    clearInterval(healthTimer)
+  }
+})
 </script>
 
 <template>
@@ -147,13 +211,16 @@ function formatLogDate(value: string) {
       <template #footer="{ collapsed }">
         <div v-if="!collapsed" class="sidebar-stage-card">
           <div class="sidebar-stage-card-header">
-            <span>UI Migration</span>
-            <UBadge size="xs" color="primary" variant="subtle">6/6</UBadge>
+            <span>{{ workingStoreName }}</span>
+            <UBadge size="xs" :color="apiBadge.color" variant="subtle" :icon="apiBadge.icon">
+              {{ apiBadge.label }}
+            </UBadge>
           </div>
-          <div class="sidebar-stage-progress">
-            <span style="width: 100%" />
+          <div class="sidebar-status-clock">
+            <strong>{{ currentClock }}</strong>
+            <span>{{ currentDate }}</span>
           </div>
-          <p>Reports and deployment polish are being completed.</p>
+          <p>Current working store and service status.</p>
         </div>
         <UButton
           color="neutral"

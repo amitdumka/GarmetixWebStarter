@@ -28,7 +28,8 @@ services:
       context: .
       dockerfile: frontend/garmetix-web/Dockerfile
     environment:
-      NUXT_PUBLIC_API_BASE: "${NUXT_PUBLIC_API_BASE}"
+      NUXT_PUBLIC_API_BASE: "${NUXT_PUBLIC_API_BASE:-/api}"
+      NUXT_API_INTERNAL_BASE: "${NUXT_API_INTERNAL_BASE:-http://api:5080/api}"
     ports:
       - "${WEB_PORT:-3000}:3000"
     restart: unless-stopped

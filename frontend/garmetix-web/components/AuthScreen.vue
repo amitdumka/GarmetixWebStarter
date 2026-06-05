@@ -8,6 +8,7 @@ const feedback = useUiFeedback()
 const authMode = ref<'login' | 'bootstrap'>('login')
 const authError = ref('')
 const authStatus = ref('')
+const hasAdmin = ref(true)
 const authForm = reactive({
   name: 'Garmetix Admin',
   userName: 'admin',
@@ -23,8 +24,10 @@ async function submitAuth() {
   authError.value = ''
 
   try {
-    if (authMode.value === 'bootstrap') {
+    if (authMode.value === 'bootstrap' && !hasAdmin.value) {
       await auth.bootstrapAdmin(authForm.name, authForm.userName, authForm.email, authForm.password)
+      hasAdmin.value = true
+      authMode.value = 'login'
     } else {
       await auth.login(authForm.userName, authForm.password)
     }
@@ -42,6 +45,7 @@ onMounted(async () => {
   try {
     const status = await auth.bootstrapStatus()
     authStatus.value = status.message
+    hasAdmin.value = status.hasAdmin
     authMode.value = status.hasAdmin ? 'login' : 'bootstrap'
   } catch (error: any) {
     authStatus.value = feedback.errorMessage(error, 'Could not reach the API.')
@@ -64,7 +68,7 @@ onMounted(async () => {
         </div>
       </template>
 
-      <div class="auth-mode">
+      <div v-if="!hasAdmin" class="auth-mode">
         <UButton
           :color="authMode === 'login' ? 'primary' : 'neutral'"
           :variant="authMode === 'login' ? 'solid' : 'subtle'"
@@ -90,7 +94,7 @@ onMounted(async () => {
           :description="authStatus"
         />
 
-        <UFormField v-if="authMode === 'bootstrap'" label="Name" name="adminName">
+        <UFormField v-if="authMode === 'bootstrap' && !hasAdmin" label="Name" name="adminName">
           <UInput v-model="authForm.name" required />
         </UFormField>
 
@@ -98,7 +102,7 @@ onMounted(async () => {
           <UInput v-model="authForm.userName" autocomplete="username" required />
         </UFormField>
 
-        <UFormField v-if="authMode === 'bootstrap'" label="Email" name="authEmail">
+        <UFormField v-if="authMode === 'bootstrap' && !hasAdmin" label="Email" name="authEmail">
           <UInput v-model="authForm.email" autocomplete="email" required type="email" />
         </UFormField>
 
@@ -117,7 +121,7 @@ onMounted(async () => {
         <UButton
           type="submit"
           icon="i-lucide-shield-check"
-          :label="authMode === 'bootstrap' ? 'Create Admin' : 'Login'"
+          :label="authMode === 'bootstrap' && !hasAdmin ? 'Create Admin' : 'Login'"
           block
         />
       </form>

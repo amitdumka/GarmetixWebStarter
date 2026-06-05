@@ -96,6 +96,7 @@ app.MapGet("/", () => Results.Ok(new
     name = "Garmetix API",
     modules = new[] { "Company", "Store", "Inventory", "Billing", "Purchase", "Voucher", "HR", "Payroll" }
 }));
+app.MapGet("/api/health", HealthAsync).AllowAnonymous();
 
 var auth = app.MapGroup("/api/auth").WithTags("Auth");
 auth.MapGet("/bootstrap-status", BootstrapStatusAsync).AllowAnonymous();
@@ -235,6 +236,34 @@ static async Task<IResult> BootstrapAdminAsync(BootstrapAdminRequest request, Ga
     await db.SaveChangesAsync(cancellationToken);
 
     return Results.Created($"/api/users/{user.Id}", tokens.CreateToken(user));
+}
+
+static async Task<IResult> HealthAsync(GarmetixDbContext db, IWebHostEnvironment environment, CancellationToken cancellationToken)
+{
+    try
+    {
+        var databaseReady = await db.Database.CanConnectAsync(cancellationToken);
+        return Results.Ok(new
+        {
+            status = databaseReady ? "Healthy" : "Database unavailable",
+            application = "Garmetix API",
+            environment = environment.EnvironmentName,
+            databaseReady,
+            checkedAtUtc = DateTimeOffset.UtcNow
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.Ok(new
+        {
+            status = "Database unavailable",
+            application = "Garmetix API",
+            environment = environment.EnvironmentName,
+            databaseReady = false,
+            checkedAtUtc = DateTimeOffset.UtcNow,
+            message = ex.Message
+        });
+    }
 }
 
 static async Task<IResult> BootstrapStatusAsync(GarmetixDbContext db, CancellationToken cancellationToken)
