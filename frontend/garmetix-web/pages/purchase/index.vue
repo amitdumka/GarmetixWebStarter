@@ -1,42 +1,149 @@
 <script setup lang="ts">
-import { CreditCard, FileText, PackagePlus } from 'lucide-vue-next'
+import { h, resolveComponent } from 'vue'
+import type { TableColumn } from '@nuxt/ui'
 
 const api = useGarmetixApi()
 const auth = useAuth()
+const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
+
+const UBadge = resolveComponent('UBadge')
 
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const products = ref<any[]>([])
 const purchaseInvoices = ref<any[]>([])
 const loading = ref(false)
+const saving = ref(false)
 const setupStatus = ref<any | null>(null)
-const viewMode = ref<'list' | 'create'>('list')
-const purchaseMessage = ref('')
+const search = ref('')
+const formOpen = ref(false)
 
-const purchaseForm = reactive({
-  vendorName: 'Default Supplier',
-  vendorMobileNumber: '',
-  vendorGstin: '',
-  invoiceNumber: '',
-  inwardNumber: '',
-  paymentMode: 0,
-  paidAmount: 0,
-  frightAmount: 0,
-  selectedProductId: '',
-  productName: '',
-  barcode: '',
-  quantity: 1,
-  costPrice: 0,
-  mrp: 0,
-  discountAmount: 0
-})
+const paymentModeOptions = [
+  { value: 0, label: 'Cash' },
+  { value: 1, label: 'Card' },
+  { value: 2, label: 'UPI' },
+  { value: 7, label: 'Cheque' }
+]
+
+const purchaseForm = reactive<any>(emptyPurchaseForm())
 const purchaseCart = ref<any[]>([])
 
+const productOptions = computed(() => [
+  { value: '', label: 'New product' },
+  ...products.value.map((product) => ({
+    value: product.id,
+    label: `${product.name || 'Product'} - ${product.barcode || 'No barcode'}`
+  }))
+])
+
 const selectedPurchaseProduct = computed(() => products.value.find((item) => item.id === purchaseForm.selectedProductId))
+
 const purchaseCartTotal = computed(() => {
-  return purchaseCart.value.reduce((sum, item) => sum + Math.max((item.costPrice - item.discountAmount) * item.quantity, 0), 0)
+  return purchaseCart.value.reduce((sum, item) => sum + lineTotal(item), 0)
 })
+
+const payableTotal = computed(() => purchaseCartTotal.value + Number(purchaseForm.frightAmount || 0))
+
+const invoiceSummary = computed(() => {
+  return purchaseInvoices.value.reduce((summary, invoice) => {
+    summary.billAmount += Number(invoice.billAmount || invoice.totalAmount || invoice.netAmount || 0)
+    summary.paidAmount += Number(invoice.paidAmount || 0)
+    summary.freightAmount += Number(invoice.frightAmount || 0)
+    return summary
+  }, {
+    billAmount: 0,
+    paidAmount: 0,
+    freightAmount: 0
+  })
+})
+
+const metrics = computed(() => [
+  {
+    label: 'Purchase Invoices',
+    value: purchaseInvoices.value.length,
+    meta: 'Inward records',
+    icon: 'i-lucide-file-text',
+    color: 'primary'
+  },
+  {
+    label: 'Purchase Value',
+    value: money(invoiceSummary.value.billAmount),
+    meta: 'Invoice total',
+    icon: 'i-lucide-indian-rupee',
+    color: 'success'
+  },
+  {
+    label: 'Paid',
+    value: money(invoiceSummary.value.paidAmount),
+    meta: 'Supplier payments',
+    icon: 'i-lucide-credit-card',
+    color: 'neutral'
+  },
+  {
+    label: 'Freight',
+    value: money(invoiceSummary.value.freightAmount),
+    meta: 'Purchase freight',
+    icon: 'i-lucide-truck',
+    color: 'warning'
+  }
+])
+
+const tableRows = computed(() => purchaseInvoices.value.map((invoice) => ({
+  id: invoice.id,
+  invoiceNumber: invoice.invoiceNumber || '-',
+  inwardNumber: invoice.inwardNumber || '-',
+  vendorName: invoice.vendorName || invoice.vendor?.name || '-',
+  billAmount: money(Number(invoice.billAmount || invoice.totalAmount || invoice.netAmount || 0)),
+  paidAmount: money(Number(invoice.paidAmount || 0)),
+  status: invoice.invoiceStatus ?? 'Saved',
+  raw: invoice
+})))
+
+const filteredRows = computed(() => {
+  const term = search.value.trim().toLowerCase()
+  if (!term) {
+    return tableRows.value
+  }
+
+  return tableRows.value.filter((row) => JSON.stringify(row).toLowerCase().includes(term))
+})
+
+const columns: TableColumn<any>[] = [
+  { accessorKey: 'invoiceNumber', header: 'Invoice' },
+  { accessorKey: 'inwardNumber', header: 'Inward' },
+  { accessorKey: 'vendorName', header: 'Vendor' },
+  { accessorKey: 'billAmount', header: 'Amount' },
+  { accessorKey: 'paidAmount', header: 'Paid' },
+  {
+    accessorKey: 'status',
+    header: 'Status',
+    cell: ({ row }) => h(UBadge, {
+      color: 'success',
+      variant: 'subtle'
+    }, () => String(row.original.status))
+  }
+]
+
+function emptyPurchaseForm() {
+  return {
+    vendorName: 'Default Supplier',
+    vendorMobileNumber: '',
+    vendorGstin: '',
+    invoiceNumber: '',
+    inwardNumber: '',
+    paymentMode: 0,
+    paidAmount: 0,
+    frightAmount: 0,
+    selectedProductId: '',
+    productName: '',
+    barcode: '',
+    quantity: 1,
+    costPrice: 0,
+    mrp: 0,
+    discountAmount: 0
+  }
+}
 
 async function refresh() {
   if (!auth.isAuthenticated.value) {
@@ -57,9 +164,17 @@ async function refresh() {
     stores.value = storeRows
     products.value = productRows
     purchaseInvoices.value = purchaseRows
+  } catch (error) {
+    feedback.failed('Purchase refresh failed', error)
   } finally {
     loading.value = false
   }
+}
+
+function startCreate() {
+  Object.assign(purchaseForm, emptyPurchaseForm())
+  purchaseCart.value = []
+  formOpen.value = true
 }
 
 function addPurchaseItem() {
@@ -68,7 +183,7 @@ function addPurchaseItem() {
   const barcode = selected?.barcode || purchaseForm.barcode
 
   if (!productName || !barcode) {
-    purchaseMessage.value = 'Select an existing product or enter product name and barcode.'
+    feedback.notify('Item missing', 'Select an existing product or enter product name and barcode.', 'warning')
     return
   }
 
@@ -76,10 +191,10 @@ function addPurchaseItem() {
     productId: selected?.id || null,
     productName,
     barcode,
-    quantity: Number(purchaseForm.quantity),
-    costPrice: Number(purchaseForm.costPrice),
+    quantity: Number(purchaseForm.quantity || 0),
+    costPrice: Number(purchaseForm.costPrice || 0),
     mrp: Number(purchaseForm.mrp || selected?.mrp || 0),
-    discountAmount: Number(purchaseForm.discountAmount)
+    discountAmount: Number(purchaseForm.discountAmount || 0)
   })
 
   purchaseForm.selectedProductId = ''
@@ -89,63 +204,72 @@ function addPurchaseItem() {
   purchaseForm.costPrice = 0
   purchaseForm.mrp = 0
   purchaseForm.discountAmount = 0
-  purchaseForm.paidAmount = purchaseCartTotal.value
-  purchaseMessage.value = ''
+  purchaseForm.paidAmount = payableTotal.value
 }
 
 function removePurchaseItem(index: number) {
   purchaseCart.value.splice(index, 1)
-  purchaseForm.paidAmount = purchaseCartTotal.value
+  purchaseForm.paidAmount = payableTotal.value
 }
 
 async function submitPurchase() {
-  purchaseMessage.value = ''
+  saving.value = true
+  try {
+    const companyId = setupStatus.value?.companyId || companies.value[0]?.id
+    const storeGroupId = setupStatus.value?.storeGroupId || stores.value[0]?.storeGroupId
+    const storeId = setupStatus.value?.storeId || stores.value[0]?.id
 
-  const companyId = setupStatus.value?.companyId || companies.value[0]?.id
-  const storeGroupId = setupStatus.value?.storeGroupId || stores.value[0]?.storeGroupId
-  const storeId = setupStatus.value?.storeId || stores.value[0]?.id
+    if (!companyId || !storeGroupId || !storeId) {
+      throw new Error('Run quick setup before purchase inward.')
+    }
 
-  if (!companyId || !storeGroupId || !storeId) {
-    purchaseMessage.value = 'Run quick setup before purchase inward.'
-    return
+    if (purchaseCart.value.length === 0) {
+      throw new Error('Add at least one item to the inward cart.')
+    }
+
+    const response = await api.create<any>('purchase/inward', {
+      companyId,
+      storeGroupId,
+      storeId,
+      vendorName: purchaseForm.vendorName,
+      vendorMobileNumber: purchaseForm.vendorMobileNumber,
+      vendorGstin: purchaseForm.vendorGstin,
+      invoiceNumber: purchaseForm.invoiceNumber,
+      inwardNumber: purchaseForm.inwardNumber,
+      paymentMode: Number(purchaseForm.paymentMode),
+      paidAmount: Number(purchaseForm.paidAmount || 0),
+      frightAmount: Number(purchaseForm.frightAmount || 0),
+      items: purchaseCart.value.map((item) => ({
+        productId: item.productId,
+        productName: item.productName,
+        barcode: item.barcode,
+        quantity: item.quantity,
+        costPrice: item.costPrice,
+        mrp: item.mrp,
+        discountAmount: item.discountAmount
+      }))
+    })
+
+    feedback.saved(`Inward ${response.inwardNumber || ''}`.trim())
+    formOpen.value = false
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not save purchase inward', error)
+  } finally {
+    saving.value = false
   }
+}
 
-  if (purchaseCart.value.length === 0) {
-    purchaseMessage.value = 'Add at least one item to the inward cart.'
-    return
-  }
+function lineTotal(item: any) {
+  return Math.max((Number(item.costPrice || 0) - Number(item.discountAmount || 0)) * Number(item.quantity || 0), 0)
+}
 
-  const response = await api.create<any>('purchase/inward', {
-    companyId,
-    storeGroupId,
-    storeId,
-    vendorName: purchaseForm.vendorName,
-    vendorMobileNumber: purchaseForm.vendorMobileNumber,
-    vendorGstin: purchaseForm.vendorGstin,
-    invoiceNumber: purchaseForm.invoiceNumber,
-    inwardNumber: purchaseForm.inwardNumber,
-    paymentMode: Number(purchaseForm.paymentMode),
-    paidAmount: Number(purchaseForm.paidAmount),
-    frightAmount: Number(purchaseForm.frightAmount),
-    items: purchaseCart.value.map((item) => ({
-      productId: item.productId,
-      productName: item.productName,
-      barcode: item.barcode,
-      quantity: item.quantity,
-      costPrice: item.costPrice,
-      mrp: item.mrp,
-      discountAmount: item.discountAmount
-    }))
-  })
-
-  purchaseCart.value = []
-  purchaseForm.invoiceNumber = ''
-  purchaseForm.inwardNumber = ''
-  purchaseForm.paidAmount = 0
-  purchaseForm.frightAmount = 0
-  purchaseMessage.value = `Inward ${response.inwardNumber} saved and stock updated.`
-  viewMode.value = 'list'
-  await refresh()
+function money(value: number) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 2
+  }).format(value || 0)
 }
 
 onMounted(async () => {
@@ -164,161 +288,179 @@ onMounted(async () => {
     :stores="stores"
     @refresh="refresh"
   >
-    <section class="content">
-      <section class="panel">
-        <div class="panel-header">
-          <h2 class="panel-title">Purchase Invoices</h2>
-          <div class="panel-actions">
-            <span class="status" :class="loading ? 'warn' : 'ok'">{{ loading ? 'Loading' : `${purchaseInvoices.length} invoices` }}</span>
-            <button class="button secondary" type="button" @click="viewMode = 'list'">
-              <FileText :size="16" />
-              List
-            </button>
-            <button class="button" type="button" @click="viewMode = 'create'">
-              <PackagePlus :size="16" />
-              New Inward
-            </button>
+    <section class="planner-dashboard">
+      <UiModulePageHeader
+        title="Purchase Inward"
+        description="Record supplier inward invoices, add items, and update stock in one workflow."
+        icon="i-lucide-package-plus"
+        primary-label="New Inward"
+        primary-icon="i-lucide-plus"
+        @primary="startCreate"
+      >
+        <template #actions>
+          <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
+            {{ loading ? 'Loading' : `${purchaseInvoices.length} invoices` }}
+          </UBadge>
+          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
+          <UButton icon="i-lucide-plus" label="New Inward" @click="startCreate" />
+        </template>
+      </UiModulePageHeader>
+
+      <div class="planner-metric-grid">
+        <UCard v-for="metric in metrics" :key="metric.label" class="planner-metric-card">
+          <div class="planner-metric-body">
+            <UAvatar :icon="metric.icon" :color="metric.color" variant="subtle" />
+            <div>
+              <p>{{ metric.label }}</p>
+              <strong>{{ metric.value }}</strong>
+              <span>{{ metric.meta }}</span>
+            </div>
           </div>
+        </UCard>
+      </div>
+
+      <UCard class="planner-card">
+        <template #header>
+          <div class="planner-card-header">
+            <div>
+              <h2>Purchase Register</h2>
+              <p>Search supplier invoice, inward number, or vendor.</p>
+            </div>
+            <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
+          </div>
+        </template>
+
+        <UiCrudToolbar
+          v-model:search="search"
+          search-placeholder="Search invoice, inward, vendor"
+          :loading="loading"
+          refresh-label="Sync"
+          create-label="New Inward"
+          @refresh="refresh"
+          @create="startCreate"
+        />
+
+        <UTable
+          v-if="filteredRows.length"
+          :data="filteredRows"
+          :columns="columns"
+          :loading="loading"
+        />
+
+        <UiCrudEmptyState
+          v-else
+          title="No purchase invoices found"
+          description="Create the first inward invoice to begin stock receiving."
+          icon="i-lucide-package-plus"
+          action-label="New Inward"
+          @action="startCreate"
+        />
+      </UCard>
+
+      <UiFormSlideover
+        v-model:open="formOpen"
+        title="New Purchase Inward"
+        description="Create or reuse products and receive stock from a supplier."
+        submit-label="Save Inward"
+        :loading="saving"
+        @submit="submitPurchase"
+      >
+        <UFormField label="Vendor" required>
+          <UInput v-model="purchaseForm.vendorName" required />
+        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Vendor mobile">
+            <UInput v-model="purchaseForm.vendorMobileNumber" />
+          </UFormField>
+          <UFormField label="Vendor GSTIN">
+            <UInput v-model="purchaseForm.vendorGstin" />
+          </UFormField>
+        </div>
+        <div class="form-two-column">
+          <UFormField label="Supplier invoice">
+            <UInput v-model="purchaseForm.invoiceNumber" />
+          </UFormField>
+          <UFormField label="Inward number">
+            <UInput v-model="purchaseForm.inwardNumber" />
+          </UFormField>
         </div>
 
-        <div v-if="viewMode === 'list'" class="panel-body">
-          <table class="table">
+        <USeparator label="Item" />
+
+        <UFormField label="Existing product">
+          <USelect v-model="purchaseForm.selectedProductId" :items="productOptions" />
+        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Product name">
+            <UInput v-model="purchaseForm.productName" :disabled="Boolean(purchaseForm.selectedProductId)" />
+          </UFormField>
+          <UFormField label="Barcode">
+            <UInput v-model="purchaseForm.barcode" :disabled="Boolean(purchaseForm.selectedProductId)" />
+          </UFormField>
+        </div>
+        <div class="form-two-column">
+          <UFormField label="Quantity">
+            <UInput v-model="purchaseForm.quantity" min="1" type="number" />
+          </UFormField>
+          <UFormField label="Cost price">
+            <UInput v-model="purchaseForm.costPrice" min="0" step="0.01" type="number" />
+          </UFormField>
+        </div>
+        <div class="form-two-column">
+          <UFormField label="MRP">
+            <UInput v-model="purchaseForm.mrp" min="0" step="0.01" type="number" />
+          </UFormField>
+          <UFormField label="Unit discount">
+            <UInput v-model="purchaseForm.discountAmount" min="0" step="0.01" type="number" />
+          </UFormField>
+        </div>
+        <UButton color="neutral" variant="subtle" icon="i-lucide-plus" label="Add Inward Item" type="button" @click="addPurchaseItem" />
+
+        <div class="planner-table-wrap">
+          <table class="planner-table">
             <thead>
               <tr>
-                <th>Invoice</th>
-                <th>Inward</th>
-                <th>Vendor</th>
-                <th>Amount</th>
-                <th>Status</th>
+                <th>Item</th>
+                <th>Qty</th>
+                <th>Cost</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="invoice in purchaseInvoices" :key="invoice.id">
-                <td>{{ invoice.invoiceNumber }}</td>
-                <td>{{ invoice.inwardNumber }}</td>
-                <td>{{ invoice.vendorName }}</td>
-                <td>{{ Number(invoice.billAmount).toFixed(2) }}</td>
-                <td><span class="status ok">{{ invoice.invoiceStatus }}</span></td>
+              <tr v-for="(item, index) in purchaseCart" :key="`${item.barcode}-${index}`">
+                <td>{{ item.productName }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>{{ money(lineTotal(item)) }}</td>
+                <td>
+                  <UButton color="error" variant="ghost" icon="i-lucide-x" size="xs" type="button" @click="removePurchaseItem(index)" />
+                </td>
               </tr>
-              <tr v-if="purchaseInvoices.length === 0">
-                <td colspan="5">No purchase invoices</td>
+              <tr v-if="purchaseCart.length === 0">
+                <td colspan="4">No inward items</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <div v-else class="pos-grid">
-          <div class="form-grid">
-            <div class="field">
-              <label for="vendorName">Vendor</label>
-              <input id="vendorName" v-model="purchaseForm.vendorName" required />
-            </div>
-            <div class="field">
-              <label for="vendorMobile">Vendor mobile</label>
-              <input id="vendorMobile" v-model="purchaseForm.vendorMobileNumber" />
-            </div>
-            <div class="field">
-              <label for="vendorGstin">Vendor GSTIN</label>
-              <input id="vendorGstin" v-model="purchaseForm.vendorGstin" />
-            </div>
-            <div class="field">
-              <label for="purchaseInvoice">Supplier invoice</label>
-              <input id="purchaseInvoice" v-model="purchaseForm.invoiceNumber" />
-            </div>
-            <div class="field">
-              <label for="purchaseProduct">Existing product</label>
-              <select id="purchaseProduct" v-model="purchaseForm.selectedProductId">
-                <option value="">New product</option>
-                <option v-for="product in products" :key="product.id" :value="product.id">
-                  {{ product.name }} - {{ product.barcode }}
-                </option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="purchaseProductName">Product name</label>
-              <input id="purchaseProductName" v-model="purchaseForm.productName" :disabled="!!purchaseForm.selectedProductId" />
-            </div>
-            <div class="field">
-              <label for="purchaseBarcode">Barcode</label>
-              <input id="purchaseBarcode" v-model="purchaseForm.barcode" :disabled="!!purchaseForm.selectedProductId" />
-            </div>
-            <div class="field">
-              <label for="purchaseQty">Quantity</label>
-              <input id="purchaseQty" v-model="purchaseForm.quantity" min="1" type="number" />
-            </div>
-            <div class="field">
-              <label for="purchaseCost">Cost price</label>
-              <input id="purchaseCost" v-model="purchaseForm.costPrice" min="0" type="number" />
-            </div>
-            <div class="field">
-              <label for="purchaseMrp">MRP</label>
-              <input id="purchaseMrp" v-model="purchaseForm.mrp" min="0" type="number" />
-            </div>
-            <div class="field">
-              <label for="purchaseDiscount">Unit discount</label>
-              <input id="purchaseDiscount" v-model="purchaseForm.discountAmount" min="0" type="number" />
-            </div>
-            <button class="button secondary" type="button" @click="addPurchaseItem">
-              <PackagePlus :size="16" />
-              Add Inward Item
-            </button>
-          </div>
+        <USeparator label="Payment" />
 
-          <div class="pos-cart">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Item</th>
-                  <th>Qty</th>
-                  <th>Cost</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(item, index) in purchaseCart" :key="`${item.barcode}-${index}`">
-                  <td>{{ item.productName }}</td>
-                  <td>{{ item.quantity }}</td>
-                  <td>{{ Math.max((item.costPrice - item.discountAmount) * item.quantity, 0).toFixed(2) }}</td>
-                  <td>
-                    <button class="icon-button" type="button" @click="removePurchaseItem(index)">x</button>
-                  </td>
-                </tr>
-                <tr v-if="purchaseCart.length === 0">
-                  <td colspan="4">No inward items</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <div class="payment-grid">
-              <div class="field">
-                <label for="purchasePayment">Payment</label>
-                <select id="purchasePayment" v-model="purchaseForm.paymentMode">
-                  <option :value="0">Cash</option>
-                  <option :value="1">Card</option>
-                  <option :value="2">UPI</option>
-                  <option :value="7">Cheque</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="frightAmount">Freight</label>
-                <input id="frightAmount" v-model="purchaseForm.frightAmount" min="0" type="number" />
-              </div>
-              <div class="field">
-                <label for="purchasePaid">Paid</label>
-                <input id="purchasePaid" v-model="purchaseForm.paidAmount" min="0" type="number" />
-              </div>
-              <div class="pos-total">
-                {{ (purchaseCartTotal + Number(purchaseForm.frightAmount)).toFixed(2) }}
-              </div>
-              <button class="button" type="button" @click="submitPurchase">
-                <CreditCard :size="16" />
-                Save Inward
-              </button>
-            </div>
-            <p v-if="purchaseMessage" class="setup-message">{{ purchaseMessage }}</p>
-          </div>
+        <UFormField label="Payment mode">
+          <USelect v-model="purchaseForm.paymentMode" :items="paymentModeOptions" />
+        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Freight">
+            <UInput v-model="purchaseForm.frightAmount" min="0" step="0.01" type="number" />
+          </UFormField>
+          <UFormField label="Paid">
+            <UInput v-model="purchaseForm.paidAmount" min="0" step="0.01" type="number" />
+          </UFormField>
         </div>
-      </section>
+        <div class="payroll-summary">
+          <span>Cart total</span><strong>{{ money(purchaseCartTotal) }}</strong>
+          <span>Freight</span><strong>{{ money(Number(purchaseForm.frightAmount || 0)) }}</strong>
+          <span>Payable</span><strong>{{ money(payableTotal) }}</strong>
+        </div>
+      </UiFormSlideover>
     </section>
   </AppShell>
 </template>

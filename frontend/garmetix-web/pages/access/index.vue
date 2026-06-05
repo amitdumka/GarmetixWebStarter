@@ -1,17 +1,30 @@
 <script setup lang="ts">
-import { Pencil, Plus, ShieldCheck, Trash2 } from 'lucide-vue-next'
+import { h, resolveComponent } from 'vue'
+import type { TableColumn } from '@nuxt/ui'
 
 const api = useGarmetixApi()
 const auth = useAuth()
+const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
+
+const UBadge = resolveComponent('UBadge')
+const UButton = resolveComponent('UButton')
 
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const users = ref<any[]>([])
 const loading = ref(false)
-const viewMode = ref<'list' | 'create' | 'edit'>('list')
-const accessMessage = ref('')
-const searchText = ref('')
+const saving = ref(false)
+const deleting = ref(false)
+const resetting = ref(false)
+const search = ref('')
+const formOpen = ref(false)
+const deleteOpen = ref(false)
+const resetOpen = ref(false)
+const editingUserId = ref('')
+const pendingDelete = ref<any | null>(null)
+const pendingReset = ref<any | null>(null)
+const resetPassword = ref('')
 
 const roleOptions = [
   { value: 0, label: 'Admin' },
@@ -45,19 +58,124 @@ const appOperationOptions = [
 
 const form = reactive<any>(emptyUser())
 
-const filteredUsers = computed(() => {
-  const query = searchText.value.trim().toLowerCase()
-  if (!query) {
-    return users.value
+const companyOptions = computed(() => [
+  { value: '', label: 'No company scope' },
+  ...companies.value.map((company) => ({
+    value: company.id,
+    label: company.name || 'Company'
+  }))
+])
+
+const storeOptions = computed(() => [
+  { value: '', label: 'No store scope' },
+  ...stores.value.map((store) => ({
+    value: store.id,
+    label: store.name || 'Store'
+  }))
+])
+
+const metrics = computed(() => [
+  {
+    label: 'Users',
+    value: users.value.length,
+    meta: 'Active access records',
+    icon: 'i-lucide-users-round',
+    color: 'primary'
+  },
+  {
+    label: 'Admins',
+    value: users.value.filter((user) => user.admin || compact(user.role) === 'admin').length,
+    meta: 'High privilege users',
+    icon: 'i-lucide-shield-check',
+    color: 'success'
+  },
+  {
+    label: 'Store Scoped',
+    value: users.value.filter((user) => Boolean(user.storeId)).length,
+    meta: 'Bound to a store',
+    icon: 'i-lucide-store',
+    color: 'warning'
+  },
+  {
+    label: 'Roles',
+    value: new Set(users.value.map((user) => user.role)).size,
+    meta: 'Role groups in use',
+    icon: 'i-lucide-key-round',
+    color: 'neutral'
+  }
+])
+
+const rows = computed(() => users.value.map((user) => ({
+  id: user.id,
+  name: user.name || '-',
+  userName: user.userName || '-',
+  email: user.email || '-',
+  role: user.role || '-',
+  userType: user.userType || '-',
+  scope: scopeLabel(user),
+  admin: user.admin ? 'Yes' : 'No',
+  raw: user
+})))
+
+const filteredRows = computed(() => {
+  const term = search.value.trim().toLowerCase()
+  if (!term) {
+    return rows.value
   }
 
-  return users.value.filter((user) => {
-    return String(user.name || '').toLowerCase().includes(query) ||
-      String(user.userName || '').toLowerCase().includes(query) ||
-      String(user.email || '').toLowerCase().includes(query) ||
-      String(user.role || '').toLowerCase().includes(query)
-  })
+  return rows.value.filter((row) => JSON.stringify(row).toLowerCase().includes(term))
 })
+
+const columns: TableColumn<any>[] = [
+  { accessorKey: 'name', header: 'Name' },
+  { accessorKey: 'userName', header: 'Username' },
+  { accessorKey: 'email', header: 'Email' },
+  {
+    accessorKey: 'role',
+    header: 'Role',
+    cell: ({ row }) => h(UBadge, {
+      color: roleColor(row.original.role),
+      variant: 'subtle'
+    }, () => row.original.role)
+  },
+  { accessorKey: 'userType', header: 'User Type' },
+  { accessorKey: 'scope', header: 'Scope' },
+  {
+    accessorKey: 'admin',
+    header: 'Admin',
+    cell: ({ row }) => h(UBadge, {
+      color: row.original.admin === 'Yes' ? 'success' : 'neutral',
+      variant: 'subtle'
+    }, () => row.original.admin)
+  },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => h('div', { class: 'table-action-buttons' }, [
+      h(UButton, {
+        color: 'neutral',
+        variant: 'ghost',
+        icon: 'i-lucide-key-round',
+        label: 'Reset',
+        onClick: () => startReset(row.original.raw)
+      }),
+      h(UButton, {
+        color: 'neutral',
+        variant: 'ghost',
+        icon: 'i-lucide-pencil',
+        label: 'Edit',
+        onClick: () => startEdit(row.original.raw)
+      }),
+      h(UButton, {
+        color: 'error',
+        variant: 'ghost',
+        icon: 'i-lucide-trash-2',
+        label: 'Delete',
+        onClick: () => askDelete(row.original.raw)
+      })
+    ])
+  }
+]
 
 function emptyUser() {
   return {
@@ -92,6 +210,8 @@ async function refresh() {
     companies.value = companyRows
     stores.value = storeRows
     users.value = userRows
+  } catch (error) {
+    feedback.failed('Access refresh failed', error)
   } finally {
     loading.value = false
   }
@@ -108,8 +228,8 @@ function resetForm() {
 
 function startCreate() {
   resetForm()
-  accessMessage.value = ''
-  viewMode.value = 'create'
+  editingUserId.value = ''
+  formOpen.value = true
 }
 
 function startEdit(user: any) {
@@ -127,18 +247,29 @@ function startEdit(user: any) {
     admin: Boolean(user.admin),
     appOperation: appOperationValue(user.appOperation)
   })
-  accessMessage.value = ''
-  viewMode.value = 'edit'
+  editingUserId.value = user.id
+  formOpen.value = true
 }
 
-function buildPayload() {
+function startReset(user: any) {
+  pendingReset.value = user
+  resetPassword.value = ''
+  resetOpen.value = true
+}
+
+function askDelete(user: any) {
+  pendingDelete.value = user
+  deleteOpen.value = true
+}
+
+function buildPayload(passwordOverride?: string) {
   const selectedStore = stores.value.find((item) => item.id === form.storeId)
 
   return {
     name: String(form.name || '').trim(),
     userName: String(form.userName || '').trim(),
     email: String(form.email || '').trim(),
-    password: String(form.password || '').trim() || null,
+    password: passwordOverride ?? (String(form.password || '').trim() || null),
     role: Number(form.role),
     userType: Number(form.userType),
     companyId: form.companyId || selectedStore?.companyId || null,
@@ -149,38 +280,79 @@ function buildPayload() {
   }
 }
 
-async function saveUser() {
-  accessMessage.value = ''
-
-  try {
-    const payload = buildPayload()
-    if (viewMode.value === 'edit' && form.id) {
-      await api.update<any>('access/users', form.id, payload)
-      accessMessage.value = 'User updated.'
-    } else {
-      await api.create<any>('access/users', payload)
-      accessMessage.value = 'User created.'
-    }
-
-    viewMode.value = 'list'
-    await refresh()
-  } catch (error: any) {
-    accessMessage.value = error?.data?.message || error?.message || 'Could not save user.'
+function payloadForUser(user: any, password: string) {
+  return {
+    name: user.name,
+    userName: user.userName,
+    email: user.email,
+    password,
+    role: roleValue(user.role),
+    userType: userTypeValue(user.userType),
+    companyId: user.companyId || null,
+    storeGroupId: user.storeGroupId || null,
+    storeId: user.storeId || null,
+    admin: Boolean(user.admin),
+    appOperation: appOperationValue(user.appOperation)
   }
 }
 
-async function deleteUser(user: any) {
-  const confirmed = window.confirm(`Delete user ${user.userName}?`)
-  if (!confirmed) {
+async function saveUser() {
+  saving.value = true
+  try {
+    const payload = buildPayload()
+    if (editingUserId.value) {
+      await api.update<any>('access/users', editingUserId.value, payload)
+      feedback.updated('User')
+    } else {
+      await api.create<any>('access/users', payload)
+      feedback.saved('User')
+    }
+
+    formOpen.value = false
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not save user', error)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function savePasswordReset() {
+  if (!pendingReset.value || !resetPassword.value) {
+    feedback.failed('Enter a new password')
     return
   }
 
+  resetting.value = true
   try {
-    await api.remove('access/users', user.id)
-    accessMessage.value = 'User deleted.'
+    await api.update<any>('access/users', pendingReset.value.id, payloadForUser(pendingReset.value, resetPassword.value))
+    feedback.updated('Password')
+    resetOpen.value = false
+    pendingReset.value = null
     await refresh()
-  } catch (error: any) {
-    accessMessage.value = error?.data?.message || error?.message || 'Could not delete user.'
+  } catch (error) {
+    feedback.failed('Could not reset password', error)
+  } finally {
+    resetting.value = false
+  }
+}
+
+async function confirmDelete() {
+  if (!pendingDelete.value) {
+    return
+  }
+
+  deleting.value = true
+  try {
+    await api.remove('access/users', pendingDelete.value.id)
+    feedback.deleted('User')
+    deleteOpen.value = false
+    pendingDelete.value = null
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not delete user', error)
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -194,6 +366,33 @@ function userTypeValue(label: string) {
 
 function appOperationValue(label: string) {
   return appOperationOptions.find((item) => compact(item.label) === compact(label))?.value ?? 2
+}
+
+function roleColor(role: string) {
+  const key = compact(role)
+  if (key === 'admin' || key === 'poweruser') {
+    return 'success'
+  }
+
+  if (key.includes('accountant')) {
+    return 'warning'
+  }
+
+  return key === 'member' ? 'neutral' : 'primary'
+}
+
+function scopeLabel(user: any) {
+  if (compact(user.appOperation) === 'all') {
+    return 'All'
+  }
+
+  const store = stores.value.find((item) => item.id === user.storeId)
+  if (store) {
+    return store.name || 'Store'
+  }
+
+  const company = companies.value.find((item) => item.id === user.companyId)
+  return company?.name || user.appOperation || 'None'
 }
 
 function compact(value: string) {
@@ -216,131 +415,149 @@ onMounted(async () => {
     :stores="stores"
     @refresh="refresh"
   >
-    <section class="content">
-      <section class="panel">
-        <div class="panel-header">
-          <h2 class="panel-title">Users & Roles</h2>
-          <div class="panel-actions">
-            <span class="status" :class="loading ? 'warn' : 'ok'">{{ loading ? 'Loading' : `${users.length} users` }}</span>
-            <button class="button secondary" type="button" @click="viewMode = 'list'">
-              <ShieldCheck :size="16" />
-              List
-            </button>
-            <button class="button" type="button" @click="startCreate">
-              <Plus :size="16" />
-              New User
-            </button>
-          </div>
-        </div>
+    <section class="planner-dashboard">
+      <UiModulePageHeader
+        title="Access"
+        description="Manage users, roles, admin permission, and company/store access scope."
+        icon="i-lucide-shield-check"
+        primary-label="New User"
+        primary-icon="i-lucide-user-plus"
+        @primary="startCreate"
+      >
+        <template #actions>
+          <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
+            {{ loading ? 'Loading' : `${users.length} users` }}
+          </UBadge>
+          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
+        </template>
+      </UiModulePageHeader>
 
-        <div v-if="viewMode === 'list'" class="panel-body">
-          <div class="table-toolbar">
-            <input v-model="searchText" class="search" aria-label="Search users" placeholder="Search user, email, role" />
-            <p v-if="accessMessage" class="inline-message">{{ accessMessage }}</p>
+      <div class="planner-metric-grid">
+        <UCard v-for="metric in metrics" :key="metric.label" class="planner-metric-card">
+          <div class="planner-metric-body">
+            <UAvatar :icon="metric.icon" :color="metric.color" variant="subtle" />
+            <div>
+              <p>{{ metric.label }}</p>
+              <strong>{{ metric.value }}</strong>
+              <span>{{ metric.meta }}</span>
+            </div>
           </div>
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Username</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>User Type</th>
-                <th>Scope</th>
-                <th>Admin</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="user in filteredUsers" :key="user.id">
-                <td>{{ user.name }}</td>
-                <td>{{ user.userName }}</td>
-                <td>{{ user.email }}</td>
-                <td><span class="status ok">{{ user.role }}</span></td>
-                <td>{{ user.userType }}</td>
-                <td>{{ user.appOperation }}</td>
-                <td><span class="status" :class="user.admin ? 'ok' : 'warn'">{{ user.admin ? 'Yes' : 'No' }}</span></td>
-                <td>
-                  <button class="button secondary" type="button" @click="startEdit(user)">
-                    <Pencil :size="16" />
-                    Edit
-                  </button>
-                  <button class="button danger-button" type="button" @click="deleteUser(user)">
-                    <Trash2 :size="16" />
-                    Delete
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="filteredUsers.length === 0">
-                <td colspan="8">No users</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        </UCard>
+      </div>
 
-        <form v-else class="form-grid wide-form" @submit.prevent="saveUser">
-          <div class="field">
-            <label for="name">Name</label>
-            <input id="name" v-model="form.name" required />
+      <UCard class="planner-card">
+        <template #header>
+          <div class="setup-list-header">
+            <div>
+              <h3>Users & Roles</h3>
+              <p>Role-wise access with scoped company and store permissions.</p>
+            </div>
+            <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
           </div>
-          <div class="field">
-            <label for="userName">Username</label>
-            <input id="userName" v-model="form.userName" required />
+        </template>
+
+        <UiCrudToolbar
+          v-model:search="search"
+          search-placeholder="Search user, email, role, or scope"
+          :loading="loading"
+          refresh-label="Sync"
+          create-label="New User"
+          @refresh="refresh"
+          @create="startCreate"
+        />
+
+        <UTable
+          v-if="filteredRows.length"
+          :data="filteredRows"
+          :columns="columns"
+          :loading="loading"
+        />
+
+        <UiCrudEmptyState
+          v-else
+          title="No users found"
+          description="Create the first user after bootstrap admin is available."
+          icon="i-lucide-shield-check"
+          action-label="New User"
+          @action="startCreate"
+        />
+      </UCard>
+
+      <UiFormSlideover
+        v-model:open="formOpen"
+        :title="editingUserId ? 'Edit User' : 'New User'"
+        :description="editingUserId ? 'Update role, scope, and optional password.' : 'Create a role-scoped application user.'"
+        submit-label="Save User"
+        :loading="saving"
+        @submit="saveUser"
+      >
+        <UFormField label="Name" required>
+          <UInput v-model="form.name" required />
+        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Username" required>
+            <UInput v-model="form.userName" required />
+          </UFormField>
+          <UFormField label="Email" required>
+            <UInput v-model="form.email" required type="email" />
+          </UFormField>
+        </div>
+        <UFormField :label="editingUserId ? 'New password' : 'Password'" :required="!editingUserId">
+          <UInput v-model="form.password" :required="!editingUserId" type="password" />
+        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Role">
+            <USelect v-model="form.role" :items="roleOptions" />
+          </UFormField>
+          <UFormField label="User type">
+            <USelect v-model="form.userType" :items="userTypeOptions" />
+          </UFormField>
+        </div>
+        <UFormField label="Operation scope">
+          <USelect v-model="form.appOperation" :items="appOperationOptions" />
+        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Company">
+            <USelect v-model="form.companyId" :items="companyOptions" />
+          </UFormField>
+          <UFormField label="Store">
+            <USelect v-model="form.storeId" :items="storeOptions" />
+          </UFormField>
+        </div>
+        <UCheckbox v-model="form.admin" label="Admin access" />
+      </UiFormSlideover>
+
+      <UModal v-model:open="resetOpen" title="Reset Password" :ui="{ content: 'max-w-md' }">
+        <template #body>
+          <div class="modal-stack">
+            <UAlert
+              color="warning"
+              variant="subtle"
+              icon="i-lucide-key-round"
+              title="Password reset"
+              :description="`Set a new password for ${pendingReset?.userName || 'this user'}.`"
+            />
+            <UFormField label="New password" required>
+              <UInput v-model="resetPassword" required type="password" />
+            </UFormField>
           </div>
-          <div class="field">
-            <label for="email">Email</label>
-            <input id="email" v-model="form.email" required type="email" />
+        </template>
+
+        <template #footer>
+          <div class="modal-actions">
+            <UButton color="neutral" variant="outline" label="Cancel" @click="resetOpen = false" />
+            <UButton icon="i-lucide-key-round" label="Reset Password" :loading="resetting" @click="savePasswordReset" />
           </div>
-          <div class="field">
-            <label for="password">{{ viewMode === 'edit' ? 'New password' : 'Password' }}</label>
-            <input id="password" v-model="form.password" :required="viewMode === 'create'" type="password" />
-          </div>
-          <div class="field">
-            <label for="role">Role</label>
-            <select id="role" v-model="form.role">
-              <option v-for="item in roleOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="userType">User type</label>
-            <select id="userType" v-model="form.userType">
-              <option v-for="item in userTypeOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="appOperation">Scope</label>
-            <select id="appOperation" v-model="form.appOperation">
-              <option v-for="item in appOperationOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="company">Company</label>
-            <select id="company" v-model="form.companyId">
-              <option value="">No company scope</option>
-              <option v-for="company in companies" :key="company.id" :value="company.id">{{ company.name }}</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="store">Store</label>
-            <select id="store" v-model="form.storeId">
-              <option value="">No store scope</option>
-              <option v-for="store in stores" :key="store.id" :value="store.id">{{ store.name }}</option>
-            </select>
-          </div>
-          <label class="checkbox-field">
-            <input v-model="form.admin" type="checkbox" />
-            <span>Admin access</span>
-          </label>
-          <div class="form-actions">
-            <button class="button secondary" type="button" @click="viewMode = 'list'">Cancel</button>
-            <button class="button" type="submit">
-              <ShieldCheck :size="16" />
-              Save User
-            </button>
-          </div>
-          <p v-if="accessMessage" class="setup-message">{{ accessMessage }}</p>
-        </form>
-      </section>
+        </template>
+      </UModal>
+
+      <UiConfirmDeleteModal
+        v-model:open="deleteOpen"
+        title="Delete User"
+        :description="`Delete user ${pendingDelete?.userName || ''}?`"
+        :loading="deleting"
+        @confirm="confirmDelete"
+      />
     </section>
   </AppShell>
 </template>

@@ -1,32 +1,90 @@
 <script setup lang="ts">
-import { CircleDollarSign, Pencil, Plus, Trash2 } from 'lucide-vue-next'
+import { h, resolveComponent } from 'vue'
+import type { TableColumn } from '@nuxt/ui'
 
 const api = useGarmetixApi()
 const auth = useAuth()
+const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
+
+const UBadge = resolveComponent('UBadge')
+const UButton = resolveComponent('UButton')
 
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const sheets = ref<any[]>([])
 const loading = ref(false)
-const viewMode = ref<'list' | 'create' | 'edit'>('list')
-const pettyCashMessage = ref('')
-const searchText = ref('')
+const saving = ref(false)
+const deleting = ref(false)
+const search = ref('')
+const formOpen = ref(false)
+const deleteOpen = ref(false)
+const editMode = ref<'create' | 'edit'>('create')
+const pendingDelete = ref<any | null>(null)
 
 const form = reactive<any>(emptySheet())
 
-const filteredSheets = computed(() => {
-  const query = searchText.value.trim().toLowerCase()
-  if (!query) {
-    return sheets.value
+const storeOptions = computed(() => stores.value.map((store) => ({
+  value: store.id,
+  label: store.name || 'Store'
+})))
+
+const filteredRows = computed(() => {
+  const term = search.value.trim().toLowerCase()
+  if (!term) {
+    return tableRows.value
   }
 
-  return sheets.value.filter((sheet) => {
-    return storeName(sheet.storeId).toLowerCase().includes(query) ||
-      String(sheet.createdBy || '').toLowerCase().includes(query) ||
-      String(sheet.onDate || '').toLowerCase().includes(query)
+  return tableRows.value.filter((row) => JSON.stringify(row).toLowerCase().includes(term))
+})
+
+const cashSummary = computed(() => {
+  return sheets.value.reduce((summary, sheet) => {
+    summary.opening += Number(sheet.openingBalance || 0)
+    summary.sales += Number(sheet.sales || 0)
+    summary.receipts += Number(sheet.receipts || 0) + Number(sheet.dueReceipts || 0)
+    summary.expenses += Number(sheet.expenses || 0) + Number(sheet.payments || 0)
+    summary.cashInHand += sheetCash(sheet)
+    return summary
+  }, {
+    opening: 0,
+    sales: 0,
+    receipts: 0,
+    expenses: 0,
+    cashInHand: 0
   })
 })
+
+const metrics = computed(() => [
+  {
+    label: 'Sheets',
+    value: sheets.value.length,
+    meta: 'Daily cash records',
+    icon: 'i-lucide-circle-dollar-sign',
+    color: 'primary'
+  },
+  {
+    label: 'Cash Sales',
+    value: money(cashSummary.value.sales),
+    meta: 'Recorded cash sales',
+    icon: 'i-lucide-shopping-bag',
+    color: 'success'
+  },
+  {
+    label: 'Expenses',
+    value: money(cashSummary.value.expenses),
+    meta: 'Expenses and payments',
+    icon: 'i-lucide-arrow-up-right',
+    color: 'warning'
+  },
+  {
+    label: 'Cash In Hand',
+    value: money(cashSummary.value.cashInHand),
+    meta: 'Across cash sheets',
+    icon: 'i-lucide-wallet',
+    color: cashSummary.value.cashInHand >= 0 ? 'neutral' : 'error'
+  }
+])
 
 const totalIn = computed(() => {
   return Number(form.openingBalance || 0) +
@@ -45,6 +103,58 @@ const totalOut = computed(() => {
 })
 
 const calculatedCash = computed(() => totalIn.value - totalOut.value)
+
+const tableRows = computed(() => sheets.value.map((sheet) => ({
+  id: sheet.id,
+  onDate: formatDate(sheet.onDate),
+  store: storeName(sheet.storeId),
+  openingBalance: money(Number(sheet.openingBalance || 0)),
+  sales: money(Number(sheet.sales || 0)),
+  receipts: money(Number(sheet.receipts || 0)),
+  expenses: money(Number(sheet.expenses || 0)),
+  payments: money(Number(sheet.payments || 0)),
+  cashInHand: sheetCash(sheet),
+  cashInHandText: money(sheetCash(sheet)),
+  raw: sheet
+})))
+
+const columns: TableColumn<any>[] = [
+  { accessorKey: 'onDate', header: 'Date' },
+  { accessorKey: 'store', header: 'Store' },
+  { accessorKey: 'openingBalance', header: 'Opening' },
+  { accessorKey: 'sales', header: 'Sales' },
+  { accessorKey: 'receipts', header: 'Receipts' },
+  { accessorKey: 'expenses', header: 'Expenses' },
+  { accessorKey: 'payments', header: 'Payments' },
+  {
+    accessorKey: 'cashInHandText',
+    header: 'Cash In Hand',
+    cell: ({ row }) => h(UBadge, {
+      color: row.original.cashInHand >= 0 ? 'success' : 'error',
+      variant: 'subtle'
+    }, () => row.original.cashInHandText)
+  },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => h('div', { class: 'table-action-buttons' }, [
+      h(UButton, {
+        color: 'neutral',
+        variant: 'ghost',
+        icon: 'i-lucide-pencil',
+        label: 'Edit',
+        onClick: () => startEdit(row.original.raw)
+      }),
+      h(UButton, {
+        color: 'error',
+        variant: 'ghost',
+        icon: 'i-lucide-trash-2',
+        label: 'Delete',
+        onClick: () => askDelete(row.original.raw)
+      })
+    ])
+  }
+]
 
 function emptySheet() {
   return {
@@ -82,29 +192,27 @@ async function refresh() {
     companies.value = companyRows
     stores.value = storeRows
     sheets.value = sheetRows.sort((a, b) => String(b.onDate).localeCompare(String(a.onDate)))
+  } catch (error) {
+    feedback.failed('Petty cash refresh failed', error)
   } finally {
     loading.value = false
   }
 }
 
-function resetForm() {
+function startCreate() {
+  editMode.value = 'create'
   Object.assign(form, emptySheet())
   form.storeId = stores.value[0]?.id || ''
-}
-
-function startCreate() {
-  resetForm()
-  pettyCashMessage.value = ''
-  viewMode.value = 'create'
+  formOpen.value = true
 }
 
 function startEdit(sheet: any) {
+  editMode.value = 'edit'
   Object.assign(form, {
     ...sheet,
     onDate: String(sheet.onDate || new Date().toISOString()).slice(0, 10)
   })
-  pettyCashMessage.value = ''
-  viewMode.value = 'edit'
+  formOpen.value = true
 }
 
 function buildPayload() {
@@ -115,7 +223,7 @@ function buildPayload() {
   return {
     ...form,
     storeId: form.storeId,
-    onDate: new Date(form.onDate).toISOString(),
+    onDate: new Date(`${form.onDate}T00:00:00`).toISOString(),
     openingBalance: Number(form.openingBalance || 0),
     sales: Number(form.sales || 0),
     receipts: Number(form.receipts || 0),
@@ -132,34 +240,48 @@ function buildPayload() {
 }
 
 async function saveSheet() {
-  pettyCashMessage.value = ''
-
+  saving.value = true
   try {
     const payload = buildPayload()
-    if (viewMode.value === 'edit' && form.id) {
+    if (editMode.value === 'edit' && form.id) {
       await api.update<any>('petty-cash-sheets', form.id, payload)
-      pettyCashMessage.value = 'Petty cash sheet updated.'
+      feedback.updated('Petty cash sheet')
     } else {
       await api.create<any>('petty-cash-sheets', payload)
-      pettyCashMessage.value = 'Petty cash sheet saved.'
+      feedback.saved('Petty cash sheet')
     }
 
-    viewMode.value = 'list'
+    formOpen.value = false
     await refresh()
-  } catch (error: any) {
-    pettyCashMessage.value = error?.data?.message || error?.message || 'Could not save petty cash sheet.'
+  } catch (error) {
+    feedback.failed('Could not save petty cash sheet', error)
+  } finally {
+    saving.value = false
   }
 }
 
-async function deleteSheet(sheet: any) {
-  const confirmed = window.confirm(`Delete petty cash sheet for ${new Date(sheet.onDate).toLocaleDateString()}?`)
-  if (!confirmed) {
+function askDelete(sheet: any) {
+  pendingDelete.value = sheet
+  deleteOpen.value = true
+}
+
+async function confirmDelete() {
+  if (!pendingDelete.value) {
     return
   }
 
-  await api.remove('petty-cash-sheets', sheet.id)
-  pettyCashMessage.value = 'Petty cash sheet deleted.'
-  await refresh()
+  deleting.value = true
+  try {
+    await api.remove('petty-cash-sheets', pendingDelete.value.id)
+    feedback.deleted('Petty cash sheet')
+    deleteOpen.value = false
+    pendingDelete.value = null
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not delete petty cash sheet', error)
+  } finally {
+    deleting.value = false
+  }
 }
 
 function storeName(storeId: string) {
@@ -168,6 +290,18 @@ function storeName(storeId: string) {
 
 function sheetCash(sheet: any) {
   return Number(sheet.cashInHand || 0)
+}
+
+function formatDate(value: string) {
+  return value ? new Date(value).toLocaleDateString() : '-'
+}
+
+function money(value: number) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 2
+  }).format(value || 0)
 }
 
 onMounted(async () => {
@@ -186,141 +320,153 @@ onMounted(async () => {
     :stores="stores"
     @refresh="refresh"
   >
-    <section class="content">
-      <section class="panel">
-        <div class="panel-header">
-          <h2 class="panel-title">Daily Cash Sheets</h2>
-          <div class="panel-actions">
-            <span class="status" :class="loading ? 'warn' : 'ok'">{{ loading ? 'Loading' : `${sheets.length} sheets` }}</span>
-            <button class="button secondary" type="button" @click="viewMode = 'list'">
-              <CircleDollarSign :size="16" />
-              List
-            </button>
-            <button class="button" type="button" @click="startCreate">
-              <Plus :size="16" />
-              New Sheet
-            </button>
+    <section class="planner-dashboard">
+      <UiModulePageHeader
+        title="Daily Cash Sheets"
+        description="Track opening cash, sales, receipts, expenses, deposits, and calculated cash in hand."
+        icon="i-lucide-circle-dollar-sign"
+        primary-label="New Sheet"
+        primary-icon="i-lucide-plus"
+        @primary="startCreate"
+      >
+        <template #actions>
+          <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
+            {{ loading ? 'Loading' : `${sheets.length} sheets` }}
+          </UBadge>
+          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
+          <UButton icon="i-lucide-plus" label="New Sheet" @click="startCreate" />
+        </template>
+      </UiModulePageHeader>
+
+      <div class="planner-metric-grid">
+        <UCard v-for="metric in metrics" :key="metric.label" class="planner-metric-card">
+          <div class="planner-metric-body">
+            <UAvatar :icon="metric.icon" :color="metric.color" variant="subtle" />
+            <div>
+              <p>{{ metric.label }}</p>
+              <strong>{{ metric.value }}</strong>
+              <span>{{ metric.meta }}</span>
+            </div>
           </div>
+        </UCard>
+      </div>
+
+      <UCard class="planner-card">
+        <template #header>
+          <div class="planner-card-header">
+            <div>
+              <h2>Cash Register</h2>
+              <p>Search by store, date, or creator and review daily cash position.</p>
+            </div>
+            <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
+          </div>
+        </template>
+
+        <UiCrudToolbar
+          v-model:search="search"
+          search-placeholder="Search store or date"
+          :loading="loading"
+          refresh-label="Sync"
+          create-label="New Sheet"
+          @refresh="refresh"
+          @create="startCreate"
+        />
+
+        <UTable
+          v-if="filteredRows.length"
+          :data="filteredRows"
+          :columns="columns"
+          :loading="loading"
+        />
+
+        <UiCrudEmptyState
+          v-else
+          title="No petty cash sheets found"
+          description="Create the first daily cash sheet for a store."
+          icon="i-lucide-wallet"
+          action-label="New Sheet"
+          @action="startCreate"
+        />
+      </UCard>
+
+      <UiFormSlideover
+        v-model:open="formOpen"
+        :title="editMode === 'create' ? 'New Petty Cash Sheet' : 'Edit Petty Cash Sheet'"
+        description="Enter daily cash in, cash out, and calculated cash in hand."
+        :submit-label="editMode === 'create' ? 'Save Sheet' : 'Update Sheet'"
+        :loading="saving"
+        @submit="saveSheet"
+      >
+        <UFormField label="Store" required>
+          <USelect v-model="form.storeId" :items="storeOptions" placeholder="Select store" />
+        </UFormField>
+        <UFormField label="Date" required>
+          <UInput v-model="form.onDate" required type="date" />
+        </UFormField>
+
+        <div class="form-two-column">
+          <UFormField label="Opening balance">
+            <UInput v-model="form.openingBalance" step="0.01" type="number" />
+          </UFormField>
+          <UFormField label="Cash sales">
+            <UInput v-model="form.sales" step="0.01" type="number" />
+          </UFormField>
         </div>
 
-        <div v-if="viewMode === 'list'" class="panel-body">
-          <div class="table-toolbar">
-            <input v-model="searchText" class="search" aria-label="Search petty cash sheets" placeholder="Search store or date" />
-            <p v-if="pettyCashMessage" class="inline-message">{{ pettyCashMessage }}</p>
-          </div>
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Store</th>
-                <th>Opening</th>
-                <th>Sales</th>
-                <th>Receipts</th>
-                <th>Expenses</th>
-                <th>Payments</th>
-                <th>Cash In Hand</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="sheet in filteredSheets" :key="sheet.id">
-                <td>{{ new Date(sheet.onDate).toLocaleDateString() }}</td>
-                <td>{{ storeName(sheet.storeId) }}</td>
-                <td>{{ Number(sheet.openingBalance).toFixed(2) }}</td>
-                <td>{{ Number(sheet.sales).toFixed(2) }}</td>
-                <td>{{ Number(sheet.receipts).toFixed(2) }}</td>
-                <td>{{ Number(sheet.expenses).toFixed(2) }}</td>
-                <td>{{ Number(sheet.payments).toFixed(2) }}</td>
-                <td><span class="status" :class="sheetCash(sheet) >= 0 ? 'ok' : 'danger'">{{ sheetCash(sheet).toFixed(2) }}</span></td>
-                <td>
-                  <button class="button secondary" type="button" @click="startEdit(sheet)">
-                    <Pencil :size="16" />
-                    Edit
-                  </button>
-                  <button class="button danger-button" type="button" @click="deleteSheet(sheet)">
-                    <Trash2 :size="16" />
-                    Delete
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="filteredSheets.length === 0">
-                <td colspan="9">No petty cash sheets</td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="form-two-column">
+          <UFormField label="Receipts">
+            <UInput v-model="form.receipts" step="0.01" type="number" />
+          </UFormField>
+          <UFormField label="Due receipts">
+            <UInput v-model="form.dueReceipts" step="0.01" type="number" />
+          </UFormField>
         </div>
 
-        <form v-else class="form-grid wide-form" @submit.prevent="saveSheet">
-          <div class="field">
-            <label for="cashStore">Store</label>
-            <select id="cashStore" v-model="form.storeId" required>
-              <option value="">Select store</option>
-              <option v-for="store in stores" :key="store.id" :value="store.id">{{ store.name }}</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="cashDate">Date</label>
-            <input id="cashDate" v-model="form.onDate" required type="date" />
-          </div>
-          <div class="field">
-            <label for="openingBalance">Opening balance</label>
-            <input id="openingBalance" v-model="form.openingBalance" type="number" />
-          </div>
-          <div class="field">
-            <label for="sales">Cash sales</label>
-            <input id="sales" v-model="form.sales" type="number" />
-          </div>
-          <div class="field">
-            <label for="receipts">Receipts</label>
-            <input id="receipts" v-model="form.receipts" type="number" />
-          </div>
-          <div class="field">
-            <label for="dueReceipts">Due receipts</label>
-            <input id="dueReceipts" v-model="form.dueReceipts" type="number" />
-          </div>
-          <div class="field">
-            <label for="bankWithdrawal">Bank withdrawal</label>
-            <input id="bankWithdrawal" v-model="form.bankWithdrawal" type="number" />
-          </div>
-          <div class="field">
-            <label for="expenses">Expenses</label>
-            <input id="expenses" v-model="form.expenses" type="number" />
-          </div>
-          <div class="field">
-            <label for="payments">Payments</label>
-            <input id="payments" v-model="form.payments" type="number" />
-          </div>
-          <div class="field">
-            <label for="customerDue">Customer due</label>
-            <input id="customerDue" v-model="form.customerDue" type="number" />
-          </div>
-          <div class="field">
-            <label for="bankDeposit">Bank deposit</label>
-            <input id="bankDeposit" v-model="form.bankDeposit" type="number" />
-          </div>
-          <div class="field">
-            <label for="nonCashSale">Non-cash sale</label>
-            <input id="nonCashSale" v-model="form.nonCashSale" type="number" />
-          </div>
-          <div class="field">
-            <label for="cashInHand">Cash in hand</label>
-            <input id="cashInHand" v-model="form.cashInHand" type="number" />
-          </div>
-          <div class="payroll-summary">
-            <span>Total in</span><strong>{{ totalIn.toFixed(2) }}</strong>
-            <span>Total out</span><strong>{{ totalOut.toFixed(2) }}</strong>
-            <span>Calculated cash</span><strong>{{ calculatedCash.toFixed(2) }}</strong>
-          </div>
-          <div class="form-actions">
-            <button class="button secondary" type="button" @click="viewMode = 'list'">Cancel</button>
-            <button class="button" type="submit">
-              <CircleDollarSign :size="16" />
-              Save Sheet
-            </button>
-          </div>
-          <p v-if="pettyCashMessage" class="setup-message">{{ pettyCashMessage }}</p>
-        </form>
-      </section>
+        <UFormField label="Bank withdrawal">
+          <UInput v-model="form.bankWithdrawal" step="0.01" type="number" />
+        </UFormField>
+
+        <div class="form-two-column">
+          <UFormField label="Expenses">
+            <UInput v-model="form.expenses" step="0.01" type="number" />
+          </UFormField>
+          <UFormField label="Payments">
+            <UInput v-model="form.payments" step="0.01" type="number" />
+          </UFormField>
+        </div>
+
+        <div class="form-two-column">
+          <UFormField label="Customer due">
+            <UInput v-model="form.customerDue" step="0.01" type="number" />
+          </UFormField>
+          <UFormField label="Bank deposit">
+            <UInput v-model="form.bankDeposit" step="0.01" type="number" />
+          </UFormField>
+        </div>
+
+        <div class="form-two-column">
+          <UFormField label="Non-cash sale">
+            <UInput v-model="form.nonCashSale" step="0.01" type="number" />
+          </UFormField>
+          <UFormField label="Cash in hand">
+            <UInput v-model="form.cashInHand" step="0.01" type="number" />
+          </UFormField>
+        </div>
+
+        <div class="payroll-summary">
+          <span>Total in</span><strong>{{ money(totalIn) }}</strong>
+          <span>Total out</span><strong>{{ money(totalOut) }}</strong>
+          <span>Calculated cash</span><strong>{{ money(calculatedCash) }}</strong>
+        </div>
+      </UiFormSlideover>
+
+      <UiConfirmDeleteModal
+        v-model:open="deleteOpen"
+        title="Delete Petty Cash Sheet"
+        :description="`Delete petty cash sheet for ${pendingDelete ? formatDate(pendingDelete.onDate) : ''}?`"
+        :loading="deleting"
+        @confirm="confirmDelete"
+      />
     </section>
   </AppShell>
 </template>

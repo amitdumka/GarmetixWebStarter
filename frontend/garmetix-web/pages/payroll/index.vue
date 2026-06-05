@@ -1,23 +1,45 @@
 <script setup lang="ts">
-import { BadgeIndianRupee, CreditCard, Pencil, Plus, Trash2 } from 'lucide-vue-next'
+import { h, resolveComponent } from 'vue'
+import type { TableColumn } from '@nuxt/ui'
+
+type PayrollTab = 'payslips' | 'structures' | 'payments'
+type FormKind = 'payslip' | 'structure' | 'payment'
 
 const api = useGarmetixApi()
 const auth = useAuth()
+const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
+
+const UBadge = resolveComponent('UBadge')
+const UButton = resolveComponent('UButton')
 
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const employees = ref<any[]>([])
+const monthlyAttendance = ref<any[]>([])
 const salaryStructures = ref<any[]>([])
 const salaryPayments = ref<any[]>([])
+const salaryPaySlips = ref<any[]>([])
 const setupStatus = ref<any | null>(null)
 const loading = ref(false)
-const activeTab = ref<'structures' | 'payments'>('structures')
-const viewMode = ref<'list' | 'structureForm' | 'paymentForm'>('list')
-const payrollMessage = ref('')
-const searchText = ref('')
+const saving = ref(false)
+const deleting = ref(false)
+const generating = ref(false)
+const printLoading = ref(false)
+const activeTab = ref<PayrollTab>('payslips')
+const search = ref('')
+const formOpen = ref(false)
+const formKind = ref<FormKind>('structure')
+const deleteOpen = ref(false)
+const printOpen = ref(false)
+const pendingDelete = ref<any | null>(null)
+const selectedPayslip = ref<any | null>(null)
+const printDetail = ref<any | null>(null)
 const editingStructureId = ref('')
 const editingPaymentId = ref('')
+const periodForm = reactive({
+  month: previousMonthInput()
+})
 
 const paymentModeOptions = [
   { value: 0, label: 'Cash' },
@@ -41,43 +63,279 @@ const salaryComponentOptions = [
   { value: 10, label: 'Receipts' }
 ]
 
+const tabs = [
+  { key: 'payslips' as const, label: 'Payslips', icon: 'i-lucide-file-text' },
+  { key: 'structures' as const, label: 'Salary Structures', icon: 'i-lucide-badge-indian-rupee' },
+  { key: 'payments' as const, label: 'Salary Payments', icon: 'i-lucide-credit-card' }
+]
+
 const structureForm = reactive<any>(emptyStructure())
 const paymentForm = reactive<any>(emptyPayment())
 
-const filteredStructures = computed(() => {
-  const query = searchText.value.trim().toLowerCase()
-  return salaryStructures.value.filter((item) => {
-    const employee = employeeName(item.employeeId).toLowerCase()
-    return !query || employee.includes(query)
-  })
+const employeeOptions = computed(() => employees.value.map((employee) => ({
+  value: employee.id,
+  label: employeeName(employee.id)
+})))
+
+const activeLabel = computed(() => {
+  if (activeTab.value === 'payslips') {
+    return 'Payslips'
+  }
+
+  return activeTab.value === 'structures' ? 'Salary Structures' : 'Salary Payments'
+})
+const primaryLabel = computed(() => {
+  if (activeTab.value === 'payslips') {
+    return 'Generate Payslips'
+  }
+
+  return activeTab.value === 'structures' ? 'New Structure' : 'New Payment'
+})
+const primaryIcon = computed(() => {
+  if (activeTab.value === 'payslips') {
+    return 'i-lucide-file-plus-2'
+  }
+
+  return activeTab.value === 'structures' ? 'i-lucide-plus' : 'i-lucide-credit-card'
+})
+const searchPlaceholder = computed(() => {
+  if (activeTab.value === 'payslips') {
+    return 'Search employee or month'
+  }
+
+  return activeTab.value === 'structures' ? 'Search employee' : 'Search employee or voucher'
 })
 
-const filteredPayments = computed(() => {
-  const query = searchText.value.trim().toLowerCase()
-  return salaryPayments.value.filter((item) => {
-    const employee = employeeName(item.employeeId).toLowerCase()
-    return !query ||
-      employee.includes(query) ||
-      String(item.voucherNumber || '').toLowerCase().includes(query)
-  })
-})
-
-const structureGross = computed(() => {
-  return Number(structureForm.basicSalary || 0) +
-    Number(structureForm.hra || 0) +
-    Number(structureForm.specialAllowance || 0) +
-    Number(structureForm.conveyanceAllowance || 0) +
-    Number(structureForm.incentives || 0)
-})
-
-const structureDeductions = computed(() => {
-  return Number(structureForm.providentFund || 0) +
-    Number(structureForm.gratuity || 0) +
-    Number(structureForm.professionalTax || 0) +
-    Number(structureForm.deductions || 0)
-})
-
+const structureGross = computed(() => grossForStructure(structureForm))
+const structureDeductions = computed(() => deductionsForStructure(structureForm))
 const structureNet = computed(() => structureGross.value - structureDeductions.value)
+const paymentBalance = computed(() => Number(paymentForm.netSalary || 0) - Number(paymentForm.amount || 0))
+
+const payrollSummary = computed(() => {
+  return {
+    gross: salaryStructures.value.reduce((sum, item) => sum + grossForStructure(item), 0),
+    deductions: salaryStructures.value.reduce((sum, item) => sum + deductionsForStructure(item), 0),
+    net: salaryStructures.value.reduce((sum, item) => sum + netForStructure(item), 0),
+    paid: salaryPayments.value.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    due: salaryPaySlips.value.reduce((sum, item) => sum + Number(item.dueAmount || 0), 0),
+    advance: salaryPaySlips.value.reduce((sum, item) => sum + Number(item.salaryAdvance || 0), 0),
+    billableDays: monthlyAttendance.value.reduce((sum, item) => sum + Number(item.billableDays || 0), 0)
+  }
+})
+
+const metrics = computed(() => [
+  {
+    label: 'Payslips',
+    value: salaryPaySlips.value.length,
+    meta: 'Generated payroll slips',
+    icon: 'i-lucide-file-text',
+    color: 'primary'
+  },
+  {
+    label: 'Due Salary',
+    value: money(payrollSummary.value.due),
+    meta: 'After advance and paid amount',
+    icon: 'i-lucide-indian-rupee',
+    color: 'warning'
+  },
+  {
+    label: 'Advance',
+    value: money(payrollSummary.value.advance),
+    meta: 'Reduced from payable',
+    icon: 'i-lucide-minus-circle',
+    color: 'neutral'
+  },
+  {
+    label: 'Billable Days',
+    value: payrollSummary.value.billableDays.toFixed(1),
+    meta: 'From monthly attendance',
+    icon: 'i-lucide-calendar-days',
+    color: 'warning'
+  }
+])
+
+const payslipRows = computed(() => salaryPaySlips.value.map((item) => ({
+  id: item.id,
+  monthYear: item.monthYear,
+  employee: item.employeeName || employeeName(item.employeeId),
+  netSalary: money(Number(item.netSalary || 0)),
+  advance: money(Number(item.salaryAdvance || 0)),
+  carryForwardDue: money(Number(item.carryForwardDue || 0)),
+  paid: money(Number(item.paidAmount || 0)),
+  due: money(Number(item.dueAmount || 0)),
+  status: item.status || 'Due',
+  raw: item
+})))
+
+const structureRows = computed(() => salaryStructures.value.map((item) => ({
+  id: item.id,
+  employee: employeeName(item.employeeId),
+  fromDate: formatDate(item.fromDate),
+  gross: money(grossForStructure(item)),
+  deductions: money(deductionsForStructure(item)),
+  net: money(netForStructure(item)),
+  status: item.toDate ? 'Closed' : 'Current',
+  raw: item
+})))
+
+const paymentRows = computed(() => salaryPayments.value.map((item) => ({
+  id: item.id,
+  voucherNumber: item.voucherNumber || '-',
+  onDate: formatDate(item.onDate),
+  employee: employeeName(item.employeeId),
+  salaryMonth: item.salaryMonth || '-',
+  component: componentLabel(item.salaryComponent),
+  mode: paymentModeLabel(item.paymentMode),
+  amount: money(Number(item.amount || 0)),
+  raw: item
+})))
+
+const currentRows = computed(() => {
+  const rows = activeTab.value === 'payslips'
+    ? payslipRows.value
+    : activeTab.value === 'structures'
+      ? structureRows.value
+      : paymentRows.value
+  const term = search.value.trim().toLowerCase()
+  if (!term) {
+    return rows
+  }
+
+  return rows.filter((row) => JSON.stringify(row).toLowerCase().includes(term))
+})
+
+const structureColumns: TableColumn<any>[] = [
+  { accessorKey: 'employee', header: 'Employee' },
+  { accessorKey: 'fromDate', header: 'From' },
+  { accessorKey: 'gross', header: 'Gross' },
+  { accessorKey: 'deductions', header: 'Deductions' },
+  { accessorKey: 'net', header: 'Net' },
+  {
+    accessorKey: 'status',
+    header: 'Status',
+    cell: ({ row }) => h(UBadge, {
+      color: row.original.status === 'Current' ? 'success' : 'warning',
+      variant: 'subtle'
+    }, () => row.original.status)
+  },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => h('div', { class: 'table-action-buttons' }, [
+      h(UButton, {
+        color: 'primary',
+        variant: 'ghost',
+        icon: 'i-lucide-credit-card',
+        label: 'Pay',
+        onClick: () => startPaymentCreate(row.original.raw)
+      }),
+      h(UButton, {
+        color: 'neutral',
+        variant: 'ghost',
+        icon: 'i-lucide-pencil',
+        label: 'Edit',
+        onClick: () => startStructureEdit(row.original.raw)
+      }),
+      h(UButton, {
+        color: 'error',
+        variant: 'ghost',
+        icon: 'i-lucide-trash-2',
+        label: 'Delete',
+        onClick: () => askDelete('structure', row.original.raw)
+      })
+    ])
+  }
+]
+
+const payslipColumns: TableColumn<any>[] = [
+  { accessorKey: 'monthYear', header: 'Month' },
+  { accessorKey: 'employee', header: 'Employee' },
+  { accessorKey: 'netSalary', header: 'Net' },
+  { accessorKey: 'advance', header: 'Advance' },
+  { accessorKey: 'carryForwardDue', header: 'Old Due' },
+  { accessorKey: 'paid', header: 'Paid' },
+  { accessorKey: 'due', header: 'Due' },
+  {
+    accessorKey: 'status',
+    header: 'Status',
+    cell: ({ row }) => h(UBadge, {
+      color: row.original.status === 'Paid' ? 'success' : row.original.status === 'Partial' ? 'warning' : 'error',
+      variant: 'subtle'
+    }, () => row.original.status)
+  },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => h('div', { class: 'table-action-buttons' }, [
+      h(UButton, {
+        color: 'primary',
+        variant: 'ghost',
+        icon: 'i-lucide-printer',
+        label: 'Print',
+        onClick: () => openPrintablePayslip(row.original.raw)
+      }),
+      h(UButton, {
+        color: 'neutral',
+        variant: 'ghost',
+        icon: 'i-lucide-mail',
+        label: 'Email',
+        onClick: () => sharePayslipEmail(row.original.raw)
+      }),
+      h(UButton, {
+        color: 'success',
+        variant: 'ghost',
+        icon: 'i-lucide-message-circle',
+        label: 'WhatsApp',
+        onClick: () => sharePayslipWhatsApp(row.original.raw)
+      }),
+      h(UButton, {
+        color: 'neutral',
+        variant: 'ghost',
+        icon: 'i-lucide-credit-card',
+        label: 'Pay',
+        onClick: () => startPaymentFromPayslip(row.original.raw)
+      })
+    ])
+  }
+]
+
+const paymentColumns: TableColumn<any>[] = [
+  { accessorKey: 'voucherNumber', header: 'Voucher' },
+  { accessorKey: 'onDate', header: 'Date' },
+  { accessorKey: 'employee', header: 'Employee' },
+  { accessorKey: 'salaryMonth', header: 'Month' },
+  { accessorKey: 'component', header: 'Component' },
+  { accessorKey: 'mode', header: 'Mode' },
+  { accessorKey: 'amount', header: 'Amount' },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => h('div', { class: 'table-action-buttons' }, [
+      h(UButton, {
+        color: 'neutral',
+        variant: 'ghost',
+        icon: 'i-lucide-pencil',
+        label: 'Edit',
+        onClick: () => startPaymentEdit(row.original.raw)
+      }),
+      h(UButton, {
+        color: 'error',
+        variant: 'ghost',
+        icon: 'i-lucide-trash-2',
+        label: 'Delete',
+        onClick: () => askDelete('payment', row.original.raw)
+      })
+    ])
+  }
+]
+
+const activeColumns = computed(() => {
+  if (activeTab.value === 'payslips') {
+    return payslipColumns
+  }
+
+  return activeTab.value === 'structures' ? structureColumns : paymentColumns
+})
 
 function emptyStructure() {
   return {
@@ -110,7 +368,8 @@ function emptyPayment() {
     netSalary: 0,
     amount: 0,
     paymentMode: 0,
-    remarks: ''
+    remarks: '',
+    salaryPaySlipId: ''
   }
 }
 
@@ -118,19 +377,6 @@ function createPayrollVoucherNumber() {
   const date = new Date()
   const stamp = date.toISOString().slice(0, 10).replaceAll('-', '')
   return `PAY-${stamp}-${String(Date.now()).slice(-4)}`
-}
-
-function employeeName(employeeId: string) {
-  const employee = employees.value.find((item) => item.id === employeeId)
-  return employee ? `${employee.firstName} ${employee.lastName}`.trim() : 'Employee'
-}
-
-function paymentModeLabel(value: number) {
-  return paymentModeOptions.find((item) => item.value === Number(value))?.label || 'Other'
-}
-
-function componentLabel(value: number) {
-  return salaryComponentOptions.find((item) => item.value === Number(value))?.label || 'Component'
 }
 
 async function refresh() {
@@ -141,55 +387,54 @@ async function refresh() {
   loading.value = true
   try {
     setupStatus.value = await api.get<any>('setup/status')
-    const [companyRows, storeRows, employeeRows, structureRows, paymentRows] = await Promise.all([
+    const [companyRows, storeRows, employeeRows, monthlyRows, structureRowsData, paymentRowsData, payslipRowsData] = await Promise.all([
       api.list<any>('companies'),
       api.list<any>('stores'),
       api.list<any>('employees'),
+      api.list<any>('monthly-attendance'),
       api.list<any>('salary-structures'),
-      api.list<any>('salary-payments')
+      api.list<any>('salary-payments'),
+      api.get<any[]>('payroll/payslips/recent?take=250')
     ])
 
     companies.value = companyRows
     stores.value = storeRows
     employees.value = employeeRows
-    salaryStructures.value = structureRows
-    salaryPayments.value = paymentRows
+    monthlyAttendance.value = monthlyRows
+    salaryStructures.value = structureRowsData
+    salaryPayments.value = paymentRowsData.sort((a, b) => String(b.onDate).localeCompare(String(a.onDate)))
+    salaryPaySlips.value = payslipRowsData
+  } catch (error) {
+    feedback.failed('Payroll refresh failed', error)
   } finally {
     loading.value = false
   }
 }
 
-function showStructures() {
-  activeTab.value = 'structures'
-  viewMode.value = 'list'
-  payrollMessage.value = ''
-}
-
-function showPayments() {
-  activeTab.value = 'payments'
-  viewMode.value = 'list'
-  payrollMessage.value = ''
+function showTab(tab: PayrollTab) {
+  activeTab.value = tab
+  search.value = ''
 }
 
 function startStructureCreate() {
   Object.assign(structureForm, emptyStructure())
   editingStructureId.value = ''
-  payrollMessage.value = ''
   activeTab.value = 'structures'
-  viewMode.value = 'structureForm'
+  formKind.value = 'structure'
+  formOpen.value = true
 }
 
 function startStructureEdit(item: any) {
   Object.assign(structureForm, {
     ...item,
-    fromDate: String(item.fromDate || new Date().toISOString()).slice(0, 10),
-    toDate: item.toDate ? String(item.toDate).slice(0, 10) : '',
+    fromDate: toDateInput(item.fromDate),
+    toDate: item.toDate ? toDateInput(item.toDate) : '',
     employee: null
   })
   editingStructureId.value = item.id
-  payrollMessage.value = ''
   activeTab.value = 'structures'
-  viewMode.value = 'structureForm'
+  formKind.value = 'structure'
+  formOpen.value = true
 }
 
 function startPaymentCreate(structure?: any) {
@@ -202,22 +447,47 @@ function startPaymentCreate(structure?: any) {
     paymentForm.amount = netForStructure(structure)
   }
   editingPaymentId.value = ''
-  payrollMessage.value = ''
   activeTab.value = 'payments'
-  viewMode.value = 'paymentForm'
+  formKind.value = 'payment'
+  formOpen.value = true
+}
+
+function startPaymentFromPayslip(payslip: any) {
+  Object.assign(paymentForm, emptyPayment())
+  paymentForm.employeeId = payslip.employeeId
+  paymentForm.salaryMonth = salaryMonthFromDate(payslip.payPeriodStart)
+  paymentForm.grossSalary = Number(payslip.totalEarnings || 0)
+  paymentForm.totalDeductions = Number(payslip.totalDeductions || 0)
+  paymentForm.netSalary = Number(payslip.payableAmount || payslip.netSalary || 0)
+  paymentForm.amount = Number(payslip.dueAmount || payslip.payableAmount || payslip.netSalary || 0)
+  paymentForm.salaryComponent = 0
+  paymentForm.remarks = `Salary payment against payslip ${payslip.monthYear}`
+  paymentForm.salaryPaySlipId = payslip.id
+  editingPaymentId.value = ''
+  activeTab.value = 'payments'
+  formKind.value = 'payment'
+  formOpen.value = true
 }
 
 function startPaymentEdit(item: any) {
   Object.assign(paymentForm, {
     ...item,
-    onDate: String(item.onDate || new Date().toISOString()).slice(0, 10),
+    onDate: toDateInput(item.onDate),
     employee: null,
     salaryPaySlip: null
   })
   editingPaymentId.value = item.id
-  payrollMessage.value = ''
   activeTab.value = 'payments'
-  viewMode.value = 'paymentForm'
+  formKind.value = 'payment'
+  formOpen.value = true
+}
+
+async function saveCurrentForm() {
+  if (formKind.value === 'structure') {
+    await saveStructure()
+  } else {
+    await savePayment()
+  }
 }
 
 function grossForStructure(item: any) {
@@ -252,15 +522,14 @@ function setupIds(includeStore: boolean) {
 }
 
 async function saveStructure() {
-  payrollMessage.value = ''
-
+  saving.value = true
   try {
     const { companyId } = setupIds(false)
     const payload = {
       ...structureForm,
       employeeId: structureForm.employeeId,
-      fromDate: new Date(structureForm.fromDate).toISOString(),
-      toDate: structureForm.toDate ? new Date(structureForm.toDate).toISOString() : null,
+      fromDate: toApiDate(structureForm.fromDate),
+      toDate: structureForm.toDate ? toApiDate(structureForm.toDate) : null,
       basicSalary: Number(structureForm.basicSalary || 0),
       hra: Number(structureForm.hra || 0),
       specialAllowance: Number(structureForm.specialAllowance || 0),
@@ -277,22 +546,23 @@ async function saveStructure() {
 
     if (editingStructureId.value) {
       await api.update<any>('salary-structures', editingStructureId.value, payload)
-      payrollMessage.value = 'Salary structure updated.'
+      feedback.updated('Salary structure')
     } else {
       await api.create<any>('salary-structures', payload)
-      payrollMessage.value = 'Salary structure saved.'
+      feedback.saved('Salary structure')
     }
 
-    viewMode.value = 'list'
+    formOpen.value = false
     await refresh()
-  } catch (error: any) {
-    payrollMessage.value = error?.data?.message || error?.message || 'Could not save salary structure.'
+  } catch (error) {
+    feedback.failed('Could not save salary structure', error)
+  } finally {
+    saving.value = false
   }
 }
 
 async function savePayment() {
-  payrollMessage.value = ''
-
+  saving.value = true
   try {
     const { companyId, storeGroupId, storeId } = setupIds(true)
     const payload = {
@@ -300,7 +570,7 @@ async function savePayment() {
       employeeId: paymentForm.employeeId,
       voucherNumber: String(paymentForm.voucherNumber || '').trim(),
       salaryMonth: Number(paymentForm.salaryMonth || 0),
-      onDate: new Date(paymentForm.onDate).toISOString(),
+      onDate: toApiDate(paymentForm.onDate),
       salaryComponent: Number(paymentForm.salaryComponent),
       grossSalary: Number(paymentForm.grossSalary || 0),
       totalDeductions: Number(paymentForm.totalDeductions || 0),
@@ -308,6 +578,7 @@ async function savePayment() {
       amount: Number(paymentForm.amount || 0),
       paymentMode: Number(paymentForm.paymentMode),
       remarks: String(paymentForm.remarks || '').trim() || null,
+      salaryPaySlipId: paymentForm.salaryPaySlipId || null,
       employee: null,
       salaryPaySlip: null,
       companyId,
@@ -317,44 +588,225 @@ async function savePayment() {
 
     if (editingPaymentId.value) {
       await api.update<any>('salary-payments', editingPaymentId.value, payload)
-      payrollMessage.value = 'Salary payment updated.'
+      feedback.updated('Salary payment')
     } else {
       await api.create<any>('salary-payments', payload)
-      payrollMessage.value = 'Salary payment saved.'
+      feedback.saved('Salary payment')
     }
 
-    viewMode.value = 'list'
+    formOpen.value = false
     await refresh()
-  } catch (error: any) {
-    payrollMessage.value = error?.data?.message || error?.message || 'Could not save salary payment.'
+  } catch (error) {
+    feedback.failed('Could not save salary payment', error)
+  } finally {
+    saving.value = false
   }
 }
 
-async function deleteStructure(item: any) {
-  const confirmed = window.confirm(`Delete salary structure for ${employeeName(item.employeeId)}?`)
-  if (!confirmed) {
-    return
-  }
-
-  await api.remove('salary-structures', item.id)
-  payrollMessage.value = 'Salary structure deleted.'
-  await refresh()
+function askDelete(kind: FormKind, item: any) {
+  formKind.value = kind
+  pendingDelete.value = item
+  deleteOpen.value = true
 }
 
-async function deletePayment(item: any) {
-  const confirmed = window.confirm(`Delete salary payment ${item.voucherNumber}?`)
-  if (!confirmed) {
+async function confirmDelete() {
+  if (!pendingDelete.value) {
     return
   }
 
-  await api.remove('salary-payments', item.id)
-  payrollMessage.value = 'Salary payment deleted.'
-  await refresh()
+  deleting.value = true
+  try {
+    if (formKind.value === 'payslip') {
+      await api.remove('salary-pay-slips', pendingDelete.value.id)
+      feedback.deleted('Payslip')
+    } else if (formKind.value === 'structure') {
+      await api.remove('salary-structures', pendingDelete.value.id)
+      feedback.deleted('Salary structure')
+    } else {
+      await api.remove('salary-payments', pendingDelete.value.id)
+      feedback.deleted('Salary payment')
+    }
+
+    deleteOpen.value = false
+    pendingDelete.value = null
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not delete payroll record', error)
+  } finally {
+    deleting.value = false
+  }
+}
+
+function primaryAction() {
+  if (activeTab.value === 'payslips') {
+    generatePayslips()
+    return
+  }
+
+  if (activeTab.value === 'structures') {
+    startStructureCreate()
+  } else {
+    startPaymentCreate()
+  }
+}
+
+async function generatePayslips(silent = false) {
+  const [yearText, monthText] = periodForm.month.split('-')
+  const year = Number(yearText)
+  const month = Number(monthText)
+
+  if (!year || !month) {
+    feedback.failed('Select a payroll month')
+    return false
+  }
+
+  generating.value = true
+  try {
+    const ids = setupIds(true)
+    const result = await api.create<any>('payroll/payslips/generate-month', {
+      year,
+      month,
+      ...ids
+    })
+
+    if (!silent) {
+      feedback.notify('Payslips generated', `${result.payslipsCreated} created, ${result.payslipsUpdated} updated. Due ${money(Number(result.totalDue || 0))}`)
+    }
+
+    await refresh()
+    return true
+  } catch (error) {
+    if (!silent) {
+      feedback.failed('Could not generate payslips', error)
+    }
+    return false
+  } finally {
+    generating.value = false
+  }
+}
+
+async function autoGeneratePayrollIfDue() {
+  if (!import.meta.client) {
+    return
+  }
+
+  const today = new Date()
+  if (today.getDate() !== 1) {
+    return
+  }
+
+  const previous = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+  const previousMonth = toMonthInput(previous)
+  const storageKey = `garmetix.payroll.auto-payslips.${previousMonth}`
+
+  if (localStorage.getItem(storageKey)) {
+    return
+  }
+
+  periodForm.month = previousMonth
+  const generated = await generatePayslips(true)
+  if (generated) {
+    localStorage.setItem(storageKey, new Date().toISOString())
+    feedback.notify('Payslips auto-generated', previous.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }))
+  }
+}
+
+async function openPrintablePayslip(payslip: any) {
+  selectedPayslip.value = payslip
+  printDetail.value = null
+  printOpen.value = true
+  printLoading.value = true
+  try {
+    printDetail.value = await api.get<any>(`payroll/payslips/${payslip.id}/print`)
+  } catch (error) {
+    feedback.failed('Could not open payslip', error)
+    printOpen.value = false
+  } finally {
+    printLoading.value = false
+  }
+}
+
+function printPayslip() {
+  window.print()
+}
+
+function sharePayslipEmail(payslip: any) {
+  const subject = `Payslip ${payslip.monthYear} - ${payslip.employeeName}`
+  const body = payslipShareText(payslip)
+  const to = payslip.employeeEmail || ''
+  window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+}
+
+function sharePayslipWhatsApp(payslip: any) {
+  const phone = String(payslip.employeeMobile || '').replace(/\D/g, '')
+  const target = phone ? `https://wa.me/${phone}` : 'https://wa.me/'
+  window.open(`${target}?text=${encodeURIComponent(payslipShareText(payslip))}`, '_blank', 'noopener,noreferrer')
+}
+
+function payslipShareText(payslip: any) {
+  return [
+    `Garmetix payslip for ${payslip.employeeName}`,
+    `Month: ${payslip.monthYear}`,
+    `Net salary: ${money(Number(payslip.netSalary || 0))}`,
+    `Advance reduced: ${money(Number(payslip.salaryAdvance || 0))}`,
+    `Carry forward due: ${money(Number(payslip.carryForwardDue || 0))}`,
+    `Paid: ${money(Number(payslip.paidAmount || 0))}`,
+    `Due: ${money(Number(payslip.dueAmount || 0))}`,
+    'Open Garmetix Payroll to print or save the PDF.'
+  ].join('\n')
+}
+
+function employeeName(employeeId: string) {
+  const employee = employees.value.find((item) => item.id === employeeId)
+  return employee ? `${employee.firstName} ${employee.lastName}`.trim() : 'Employee'
+}
+
+function paymentModeLabel(value: number) {
+  return paymentModeOptions.find((item) => item.value === Number(value))?.label || 'Other'
+}
+
+function componentLabel(value: number) {
+  return salaryComponentOptions.find((item) => item.value === Number(value))?.label || 'Component'
+}
+
+function formatDate(value: string) {
+  return value ? new Date(value).toLocaleDateString() : '-'
+}
+
+function salaryMonthFromDate(value: string) {
+  const date = new Date(value)
+  return Number(`${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}`)
+}
+
+function previousMonthInput() {
+  const today = new Date()
+  return toMonthInput(new Date(today.getFullYear(), today.getMonth() - 1, 1))
+}
+
+function toMonthInput(value: Date) {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}`
+}
+
+function toDateInput(value: string) {
+  return String(value || new Date().toISOString()).slice(0, 10)
+}
+
+function toApiDate(value: string) {
+  return new Date(`${value}T00:00:00`).toISOString()
+}
+
+function money(value: number) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 2
+  }).format(value || 0)
 }
 
 onMounted(async () => {
   auth.restore()
   await refresh()
+  await autoGeneratePayrollIfDue()
 })
 </script>
 
@@ -368,254 +820,318 @@ onMounted(async () => {
     :stores="stores"
     @refresh="refresh"
   >
-    <section class="content">
-      <section class="panel">
-        <div class="panel-header">
-          <h2 class="panel-title">Payroll</h2>
-          <div class="panel-actions">
-            <span class="status" :class="loading ? 'warn' : 'ok'">{{ loading ? 'Loading' : `${salaryStructures.length} structures` }}</span>
-            <button class="button secondary" type="button" @click="showStructures">
-              Structures
-            </button>
-            <button class="button secondary" type="button" @click="showPayments">
-              Payments
-            </button>
-            <button v-if="activeTab === 'structures'" class="button" type="button" @click="startStructureCreate">
-              <Plus :size="16" />
-              New Structure
-            </button>
-            <button v-else class="button" type="button" @click="startPaymentCreate()">
-              <CreditCard :size="16" />
-              New Payment
-            </button>
+    <section class="planner-dashboard">
+      <UiModulePageHeader
+        title="Payroll"
+        description="Generate payslips, reduce salary advance, carry unpaid due, and manage salary payments."
+        icon="i-lucide-badge-indian-rupee"
+        :primary-label="primaryLabel"
+        :primary-icon="primaryIcon"
+        @primary="primaryAction"
+      >
+        <template #actions>
+          <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
+            {{ loading ? 'Loading' : 'Ready' }}
+          </UBadge>
+          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
+        </template>
+      </UiModulePageHeader>
+
+      <div class="planner-metric-grid">
+        <UCard v-for="metric in metrics" :key="metric.label" class="planner-metric-card">
+          <div class="planner-metric-body">
+            <UAvatar :icon="metric.icon" :color="metric.color" variant="subtle" />
+            <div>
+              <p>{{ metric.label }}</p>
+              <strong>{{ metric.value }}</strong>
+              <span>{{ metric.meta }}</span>
+            </div>
           </div>
+        </UCard>
+      </div>
+
+      <UCard class="planner-card">
+        <template #header>
+          <div class="setup-list-header">
+            <div class="setup-tabs">
+              <UButton
+                v-for="tab in tabs"
+                :key="tab.key"
+                :icon="tab.icon"
+                :color="activeTab === tab.key ? 'primary' : 'neutral'"
+                :variant="activeTab === tab.key ? 'solid' : 'subtle'"
+                :label="tab.label"
+                @click="showTab(tab.key)"
+              />
+            </div>
+            <UBadge color="neutral" variant="subtle">{{ currentRows.length }} shown</UBadge>
+          </div>
+        </template>
+
+        <UiCrudToolbar
+          v-model:search="search"
+          :search-placeholder="searchPlaceholder"
+          :loading="loading"
+          refresh-label="Sync"
+          :create-label="primaryLabel"
+          @refresh="refresh"
+          @create="primaryAction"
+        />
+
+        <div v-if="activeTab === 'payslips'" class="payroll-generator">
+          <UFormField label="Payroll month">
+            <UInput v-model="periodForm.month" type="month" />
+          </UFormField>
+          <UButton
+            icon="i-lucide-file-plus-2"
+            label="Generate Month"
+            :loading="generating"
+            @click="generatePayslips()"
+          />
+          <UBadge color="neutral" variant="subtle">
+            Auto runs on the 1st for previous month
+          </UBadge>
         </div>
 
-        <div v-if="viewMode === 'list' && activeTab === 'structures'" class="panel-body">
-          <div class="table-toolbar">
-            <input v-model="searchText" class="search" aria-label="Search salary structures" placeholder="Search employee" />
-            <p v-if="payrollMessage" class="inline-message">{{ payrollMessage }}</p>
-          </div>
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Employee</th>
-                <th>From</th>
-                <th>Gross</th>
-                <th>Deductions</th>
-                <th>Net</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="item in filteredStructures" :key="item.id">
-                <td>{{ employeeName(item.employeeId) }}</td>
-                <td>{{ new Date(item.fromDate).toLocaleDateString() }}</td>
-                <td>{{ grossForStructure(item).toFixed(2) }}</td>
-                <td>{{ deductionsForStructure(item).toFixed(2) }}</td>
-                <td>{{ netForStructure(item).toFixed(2) }}</td>
-                <td><span class="status" :class="item.toDate ? 'warn' : 'ok'">{{ item.toDate ? 'Closed' : 'Current' }}</span></td>
-                <td>
-                  <button class="button secondary" type="button" @click="startPaymentCreate(item)">
-                    <CreditCard :size="16" />
-                    Pay
-                  </button>
-                  <button class="button secondary" type="button" @click="startStructureEdit(item)">
-                    <Pencil :size="16" />
-                    Edit
-                  </button>
-                  <button class="button danger-button" type="button" @click="deleteStructure(item)">
-                    <Trash2 :size="16" />
-                    Delete
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="filteredStructures.length === 0">
-                <td colspan="7">No salary structures</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <UTable
+          v-if="currentRows.length"
+          :data="currentRows"
+          :columns="activeColumns"
+          :loading="loading"
+        />
 
-        <div v-else-if="viewMode === 'list' && activeTab === 'payments'" class="panel-body">
-          <div class="table-toolbar">
-            <input v-model="searchText" class="search" aria-label="Search salary payments" placeholder="Search employee or voucher" />
-            <p v-if="payrollMessage" class="inline-message">{{ payrollMessage }}</p>
-          </div>
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Voucher</th>
-                <th>Date</th>
-                <th>Employee</th>
-                <th>Month</th>
-                <th>Component</th>
-                <th>Mode</th>
-                <th>Amount</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="item in filteredPayments" :key="item.id">
-                <td>{{ item.voucherNumber }}</td>
-                <td>{{ new Date(item.onDate).toLocaleDateString() }}</td>
-                <td>{{ employeeName(item.employeeId) }}</td>
-                <td>{{ item.salaryMonth }}</td>
-                <td>{{ componentLabel(item.salaryComponent) }}</td>
-                <td>{{ paymentModeLabel(item.paymentMode) }}</td>
-                <td>{{ Number(item.amount).toFixed(2) }}</td>
-                <td>
-                  <button class="button secondary" type="button" @click="startPaymentEdit(item)">
-                    <Pencil :size="16" />
-                    Edit
-                  </button>
-                  <button class="button danger-button" type="button" @click="deletePayment(item)">
-                    <Trash2 :size="16" />
-                    Delete
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="filteredPayments.length === 0">
-                <td colspan="8">No salary payments</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <UiCrudEmptyState
+          v-else
+          :title="`No ${activeLabel.toLowerCase()} found`"
+          description="Create salary structures first, then generate payslips for a month."
+          icon="i-lucide-badge-indian-rupee"
+          :action-label="primaryLabel"
+          @action="primaryAction"
+        />
+      </UCard>
 
-        <form v-else-if="viewMode === 'structureForm'" class="form-grid wide-form" @submit.prevent="saveStructure">
-          <div class="field">
-            <label for="structureEmployee">Employee</label>
-            <select id="structureEmployee" v-model="structureForm.employeeId" required>
-              <option value="">Select employee</option>
-              <option v-for="employee in employees" :key="employee.id" :value="employee.id">
-                {{ employee.firstName }} {{ employee.lastName }}
-              </option>
-            </select>
+      <UiFormSlideover
+        v-model:open="formOpen"
+        :title="formKind === 'structure' ? (editingStructureId ? 'Edit Salary Structure' : 'New Salary Structure') : (editingPaymentId ? 'Edit Salary Payment' : 'New Salary Payment')"
+        :description="formKind === 'structure' ? 'Maintain salary components and deductions.' : 'Record employee salary payment details.'"
+        :submit-label="formKind === 'structure' ? 'Save Structure' : 'Save Payment'"
+        :loading="saving"
+        @submit="saveCurrentForm"
+      >
+        <template v-if="formKind === 'structure'">
+          <UFormField label="Employee" required>
+            <USelect v-model="structureForm.employeeId" :items="employeeOptions" placeholder="Select employee" />
+          </UFormField>
+          <div class="form-two-column">
+            <UFormField label="From date" required>
+              <UInput v-model="structureForm.fromDate" required type="date" />
+            </UFormField>
+            <UFormField label="To date">
+              <UInput v-model="structureForm.toDate" type="date" />
+            </UFormField>
           </div>
-          <div class="field">
-            <label for="fromDate">From date</label>
-            <input id="fromDate" v-model="structureForm.fromDate" required type="date" />
+          <div class="form-two-column">
+            <UFormField label="Basic salary">
+              <UInput v-model="structureForm.basicSalary" min="0" step="0.01" type="number" />
+            </UFormField>
+            <UFormField label="HRA">
+              <UInput v-model="structureForm.hra" min="0" step="0.01" type="number" />
+            </UFormField>
           </div>
-          <div class="field">
-            <label for="toDate">To date</label>
-            <input id="toDate" v-model="structureForm.toDate" type="date" />
+          <div class="form-two-column">
+            <UFormField label="Special allowance">
+              <UInput v-model="structureForm.specialAllowance" min="0" step="0.01" type="number" />
+            </UFormField>
+            <UFormField label="Conveyance">
+              <UInput v-model="structureForm.conveyanceAllowance" min="0" step="0.01" type="number" />
+            </UFormField>
           </div>
-          <div class="field">
-            <label for="basicSalary">Basic salary</label>
-            <input id="basicSalary" v-model="structureForm.basicSalary" min="0" type="number" />
+          <UFormField label="Incentives">
+            <UInput v-model="structureForm.incentives" min="0" step="0.01" type="number" />
+          </UFormField>
+          <div class="form-two-column">
+            <UFormField label="Provident fund">
+              <UInput v-model="structureForm.providentFund" min="0" step="0.01" type="number" />
+            </UFormField>
+            <UFormField label="Gratuity">
+              <UInput v-model="structureForm.gratuity" min="0" step="0.01" type="number" />
+            </UFormField>
           </div>
-          <div class="field">
-            <label for="hra">HRA</label>
-            <input id="hra" v-model="structureForm.hra" min="0" type="number" />
+          <div class="form-two-column">
+            <UFormField label="Professional tax">
+              <UInput v-model="structureForm.professionalTax" min="0" step="0.01" type="number" />
+            </UFormField>
+            <UFormField label="Deductions">
+              <UInput v-model="structureForm.deductions" min="0" step="0.01" type="number" />
+            </UFormField>
           </div>
-          <div class="field">
-            <label for="specialAllowance">Special allowance</label>
-            <input id="specialAllowance" v-model="structureForm.specialAllowance" min="0" type="number" />
-          </div>
-          <div class="field">
-            <label for="conveyanceAllowance">Conveyance</label>
-            <input id="conveyanceAllowance" v-model="structureForm.conveyanceAllowance" min="0" type="number" />
-          </div>
-          <div class="field">
-            <label for="incentives">Incentives</label>
-            <input id="incentives" v-model="structureForm.incentives" min="0" type="number" />
-          </div>
-          <div class="field">
-            <label for="providentFund">Provident fund</label>
-            <input id="providentFund" v-model="structureForm.providentFund" min="0" type="number" />
-          </div>
-          <div class="field">
-            <label for="gratuity">Gratuity</label>
-            <input id="gratuity" v-model="structureForm.gratuity" min="0" type="number" />
-          </div>
-          <div class="field">
-            <label for="professionalTax">Professional tax</label>
-            <input id="professionalTax" v-model="structureForm.professionalTax" min="0" type="number" />
-          </div>
-          <div class="field">
-            <label for="deductions">Deductions</label>
-            <input id="deductions" v-model="structureForm.deductions" min="0" type="number" />
-          </div>
+          <UFormField label="Yearly bonus">
+            <UInput v-model="structureForm.yearlyBonus" min="0" step="0.01" type="number" />
+          </UFormField>
           <div class="payroll-summary">
-            <span>Gross</span><strong>{{ structureGross.toFixed(2) }}</strong>
-            <span>Deductions</span><strong>{{ structureDeductions.toFixed(2) }}</strong>
-            <span>Net</span><strong>{{ structureNet.toFixed(2) }}</strong>
+            <span>Gross</span><strong>{{ money(structureGross) }}</strong>
+            <span>Deductions</span><strong>{{ money(structureDeductions) }}</strong>
+            <span>Net</span><strong>{{ money(structureNet) }}</strong>
           </div>
-          <div class="form-actions">
-            <button class="button secondary" type="button" @click="viewMode = 'list'">Cancel</button>
-            <button class="button" type="submit">
-              <BadgeIndianRupee :size="16" />
-              Save Structure
-            </button>
-          </div>
-          <p v-if="payrollMessage" class="setup-message">{{ payrollMessage }}</p>
-        </form>
+        </template>
 
-        <form v-else class="form-grid wide-form" @submit.prevent="savePayment">
-          <div class="field">
-            <label for="paymentEmployee">Employee</label>
-            <select id="paymentEmployee" v-model="paymentForm.employeeId" required>
-              <option value="">Select employee</option>
-              <option v-for="employee in employees" :key="employee.id" :value="employee.id">
-                {{ employee.firstName }} {{ employee.lastName }}
-              </option>
-            </select>
+        <template v-else>
+          <UFormField label="Employee" required>
+            <USelect v-model="paymentForm.employeeId" :items="employeeOptions" placeholder="Select employee" />
+          </UFormField>
+          <div class="form-two-column">
+            <UFormField label="Voucher number" required>
+              <UInput v-model="paymentForm.voucherNumber" required />
+            </UFormField>
+            <UFormField label="Salary month" required>
+              <UInput v-model="paymentForm.salaryMonth" required type="number" />
+            </UFormField>
           </div>
-          <div class="field">
-            <label for="voucherNumber">Voucher number</label>
-            <input id="voucherNumber" v-model="paymentForm.voucherNumber" required />
+          <UFormField label="Payment date" required>
+            <UInput v-model="paymentForm.onDate" required type="date" />
+          </UFormField>
+          <div class="form-two-column">
+            <UFormField label="Component">
+              <USelect v-model="paymentForm.salaryComponent" :items="salaryComponentOptions" />
+            </UFormField>
+            <UFormField label="Payment mode">
+              <USelect v-model="paymentForm.paymentMode" :items="paymentModeOptions" />
+            </UFormField>
           </div>
-          <div class="field">
-            <label for="salaryMonth">Salary month</label>
-            <input id="salaryMonth" v-model="paymentForm.salaryMonth" required type="number" />
+          <div class="form-two-column">
+            <UFormField label="Gross salary">
+              <UInput v-model="paymentForm.grossSalary" min="0" step="0.01" type="number" />
+            </UFormField>
+            <UFormField label="Deductions">
+              <UInput v-model="paymentForm.totalDeductions" min="0" step="0.01" type="number" />
+            </UFormField>
           </div>
-          <div class="field">
-            <label for="paymentDate">Payment date</label>
-            <input id="paymentDate" v-model="paymentForm.onDate" required type="date" />
+          <div class="form-two-column">
+            <UFormField label="Net salary">
+              <UInput v-model="paymentForm.netSalary" min="0" step="0.01" type="number" />
+            </UFormField>
+            <UFormField label="Paid amount">
+              <UInput v-model="paymentForm.amount" min="0" step="0.01" type="number" />
+            </UFormField>
           </div>
-          <div class="field">
-            <label for="salaryComponent">Component</label>
-            <select id="salaryComponent" v-model="paymentForm.salaryComponent">
-              <option v-for="item in salaryComponentOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
-            </select>
+          <UFormField label="Remarks">
+            <UTextarea v-model="paymentForm.remarks" autoresize />
+          </UFormField>
+          <div class="payroll-summary">
+            <span>Gross</span><strong>{{ money(Number(paymentForm.grossSalary || 0)) }}</strong>
+            <span>Net</span><strong>{{ money(Number(paymentForm.netSalary || 0)) }}</strong>
+            <span>Balance after payment</span><strong>{{ money(paymentBalance) }}</strong>
           </div>
-          <div class="field">
-            <label for="paymentMode">Payment mode</label>
-            <select id="paymentMode" v-model="paymentForm.paymentMode">
-              <option v-for="item in paymentModeOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
-            </select>
+        </template>
+      </UiFormSlideover>
+
+      <UModal v-model:open="printOpen" title="Payslip" :ui="{ content: 'max-w-4xl' }">
+        <template #body>
+          <div v-if="printLoading" class="modal-loading">
+            <UIcon name="i-lucide-loader-circle" class="animate-spin" />
+            <span>Loading payslip</span>
           </div>
-          <div class="field">
-            <label for="grossSalary">Gross salary</label>
-            <input id="grossSalary" v-model="paymentForm.grossSalary" min="0" type="number" />
+
+          <div v-else-if="printDetail" class="receipt-print payslip-print">
+            <header class="receipt-header">
+              <h2>{{ printDetail.companyName }}</h2>
+              <p>{{ printDetail.companyAddress }}</p>
+              <p>{{ printDetail.storeName || 'Payroll' }}</p>
+              <p>Payslip {{ printDetail.summary.monthYear }}</p>
+            </header>
+
+            <div class="payslip-identity">
+              <div>
+                <span>Employee</span>
+                <strong>{{ printDetail.summary.employeeName }}</strong>
+              </div>
+              <div>
+                <span>Period</span>
+                <strong>{{ formatDate(printDetail.summary.payPeriodStart) }} - {{ formatDate(printDetail.summary.payPeriodEnd) }}</strong>
+              </div>
+              <div>
+                <span>Billable days</span>
+                <strong>{{ Number(printDetail.summary.billableDays || 0).toFixed(1) }} / {{ Number(printDetail.summary.workingDays || 0).toFixed(1) }}</strong>
+              </div>
+              <div>
+                <span>Status</span>
+                <strong>{{ printDetail.summary.status }}</strong>
+              </div>
+            </div>
+
+            <div class="payslip-columns">
+              <table class="receipt-table">
+                <thead>
+                  <tr>
+                    <th>Earnings</th>
+                    <th>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>Basic salary</td><td>{{ money(Number(printDetail.basicSalary || 0)) }}</td></tr>
+                  <tr><td>HRA</td><td>{{ money(Number(printDetail.hra || 0)) }}</td></tr>
+                  <tr><td>Special allowance</td><td>{{ money(Number(printDetail.specialAllowance || 0)) }}</td></tr>
+                  <tr><td>Conveyance</td><td>{{ money(Number(printDetail.conveyanceAllowance || 0)) }}</td></tr>
+                  <tr><td>Incentives</td><td>{{ money(Number(printDetail.incentives || 0)) }}</td></tr>
+                  <tr><td>Other earnings</td><td>{{ money(Number(printDetail.otherEarnings || 0)) }}</td></tr>
+                </tbody>
+              </table>
+
+              <table class="receipt-table">
+                <thead>
+                  <tr>
+                    <th>Deductions</th>
+                    <th>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>Provident fund</td><td>{{ money(Number(printDetail.providentFund || 0)) }}</td></tr>
+                  <tr><td>Gratuity</td><td>{{ money(Number(printDetail.gratuity || 0)) }}</td></tr>
+                  <tr><td>Professional tax</td><td>{{ money(Number(printDetail.professionalTax || 0)) }}</td></tr>
+                  <tr><td>Income tax</td><td>{{ money(Number(printDetail.incomeTax || 0)) }}</td></tr>
+                  <tr><td>Deductions</td><td>{{ money(Number(printDetail.deductions || 0)) }}</td></tr>
+                  <tr><td>Other deductions</td><td>{{ money(Number(printDetail.otherDeductions || 0)) }}</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="receipt-totals payslip-totals">
+              <span>Total earnings</span><strong>{{ money(Number(printDetail.summary.totalEarnings || 0)) }}</strong>
+              <span>Total deductions</span><strong>{{ money(Number(printDetail.summary.totalDeductions || 0)) }}</strong>
+              <span>Net salary</span><strong>{{ money(Number(printDetail.summary.netSalary || 0)) }}</strong>
+              <span>Carry forward due</span><strong>{{ money(Number(printDetail.summary.carryForwardDue || 0)) }}</strong>
+              <span>Salary advance reduced</span><strong>{{ money(Number(printDetail.summary.salaryAdvance || 0)) }}</strong>
+              <span>Paid amount</span><strong>{{ money(Number(printDetail.summary.paidAmount || 0)) }}</strong>
+              <span>Due amount</span><strong>{{ money(Number(printDetail.summary.dueAmount || 0)) }}</strong>
+            </div>
+
+            <footer class="receipt-footer">
+              {{ printDetail.remarks || 'Generated by Garmetix payroll.' }}
+            </footer>
           </div>
-          <div class="field">
-            <label for="totalDeductions">Deductions</label>
-            <input id="totalDeductions" v-model="paymentForm.totalDeductions" min="0" type="number" />
+        </template>
+
+        <template #footer>
+          <div class="modal-actions">
+            <UButton color="neutral" variant="outline" label="Close" @click="printOpen = false" />
+            <UButton icon="i-lucide-mail" color="neutral" variant="subtle" label="Email" :disabled="!selectedPayslip" @click="selectedPayslip && sharePayslipEmail(selectedPayslip)" />
+            <UButton icon="i-lucide-message-circle" color="success" variant="subtle" label="WhatsApp" :disabled="!selectedPayslip" @click="selectedPayslip && sharePayslipWhatsApp(selectedPayslip)" />
+            <UButton icon="i-lucide-printer" label="Print / PDF" :disabled="!printDetail" @click="printPayslip" />
           </div>
-          <div class="field">
-            <label for="netSalary">Net salary</label>
-            <input id="netSalary" v-model="paymentForm.netSalary" min="0" type="number" />
-          </div>
-          <div class="field">
-            <label for="amount">Paid amount</label>
-            <input id="amount" v-model="paymentForm.amount" min="0" type="number" />
-          </div>
-          <div class="field">
-            <label for="remarks">Remarks</label>
-            <input id="remarks" v-model="paymentForm.remarks" />
-          </div>
-          <div class="form-actions">
-            <button class="button secondary" type="button" @click="viewMode = 'list'">Cancel</button>
-            <button class="button" type="submit">
-              <CreditCard :size="16" />
-              Save Payment
-            </button>
-          </div>
-          <p v-if="payrollMessage" class="setup-message">{{ payrollMessage }}</p>
-        </form>
-      </section>
+        </template>
+      </UModal>
+
+      <UiConfirmDeleteModal
+        v-model:open="deleteOpen"
+        :title="formKind === 'payslip' ? 'Delete Payslip' : formKind === 'structure' ? 'Delete Salary Structure' : 'Delete Salary Payment'"
+        :description="formKind === 'payslip'
+          ? `Delete payslip for ${pendingDelete?.employeeName || ''}?`
+          : formKind === 'structure'
+            ? `Delete salary structure for ${pendingDelete ? employeeName(pendingDelete.employeeId) : ''}?`
+            : `Delete salary payment ${pendingDelete?.voucherNumber || ''}?`"
+        :loading="deleting"
+        @confirm="confirmDelete"
+      />
     </section>
   </AppShell>
 </template>

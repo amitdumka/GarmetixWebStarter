@@ -3,9 +3,13 @@ using Garmetix.Core.Models.Authentication;
 using Garmetix.Core.Models.HRM;
 using Garmetix.Core.Models.Inventory;
 using Garmetix.Core.Models.Stores;
+using Garmetix.Api.Audit;
 using Garmetix.Api.Auth;
+using Garmetix.Api.Automation;
 using Garmetix.Api.Billing;
 using Garmetix.Api.Hr;
+using Garmetix.Api.ImportExport;
+using Garmetix.Api.Payroll;
 using Garmetix.Api.Purchase;
 using Garmetix.Api.Setup;
 using Garmetix.Core.Enums;
@@ -33,6 +37,10 @@ var connectionString = builder.Configuration.GetConnectionString("Default")
 
 builder.Services.AddGarmetixInfrastructure(connectionString);
 builder.Services.AddSingleton<JwtTokenService>();
+builder.Services.AddScoped<MonthlyAttendanceService>();
+builder.Services.AddScoped<PayrollService>();
+builder.Services.Configure<PayrollAutomationOptions>(builder.Configuration.GetSection("PayrollAutomation"));
+builder.Services.AddHostedService<PayrollAutomationHostedService>();
 
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "Garmetix";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "GarmetixWeb";
@@ -102,6 +110,9 @@ app.MapBillingEndpoints();
 app.MapPurchaseEndpoints();
 app.MapUserManagementEndpoints();
 app.MapHrEndpoints();
+app.MapPayrollEndpoints();
+app.MapImportExportEndpoints();
+app.MapAuditEndpoints();
 
 MapCrud<Company>(app, "/api/companies", GarmetixPolicies.CompanySetup);
 MapCrud<StoreGroup>(app, "/api/store-groups", GarmetixPolicies.CompanySetup);
@@ -121,6 +132,7 @@ MapCrud<Employee>(app, "/api/employees", GarmetixPolicies.Hr);
 MapCrud<Attendance>(app, "/api/attendance", GarmetixPolicies.Hr);
 MapCrud<MonthlyAttendance>(app, "/api/monthly-attendance", GarmetixPolicies.Hr);
 MapCrud<SalaryStructure>(app, "/api/salary-structures", GarmetixPolicies.Payroll);
+MapCrud<SalaryPaySlip>(app, "/api/salary-pay-slips", GarmetixPolicies.Payroll);
 MapCrud<SalaryPayment>(app, "/api/salary-payments", GarmetixPolicies.Payroll);
 MapCrud<AppUser>(app, "/api/users", GarmetixPolicies.Admin);
 

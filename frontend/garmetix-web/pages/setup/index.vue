@@ -1,18 +1,35 @@
 <script setup lang="ts">
-import { Building2, Pencil, Plus, Store, Trash2 } from 'lucide-vue-next'
+import { h, resolveComponent } from 'vue'
+import type { TableColumn } from '@nuxt/ui'
+
+type SetupTab = 'companies' | 'groups' | 'stores'
 
 const api = useGarmetixApi()
 const auth = useAuth()
+const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
+
+const UBadge = resolveComponent('UBadge')
+const UButton = resolveComponent('UButton')
 
 const companies = ref<any[]>([])
 const storeGroups = ref<any[]>([])
 const stores = ref<any[]>([])
 const loading = ref(false)
-const activeTab = ref<'companies' | 'groups' | 'stores'>('companies')
-const viewMode = ref<'list' | 'form'>('list')
-const setupMessage = ref('')
+const saving = ref(false)
+const deleting = ref(false)
+const activeTab = ref<SetupTab>('companies')
+const search = ref('')
+const formOpen = ref(false)
 const editingId = ref('')
+const deleteOpen = ref(false)
+const pendingDelete = ref<any | null>(null)
+
+const tabs = [
+  { key: 'companies' as const, label: 'Companies', icon: 'i-lucide-building-2' },
+  { key: 'groups' as const, label: 'Store Groups', icon: 'i-lucide-network' },
+  { key: 'stores' as const, label: 'Stores', icon: 'i-lucide-store' }
+]
 
 const storeCategoryOptions = [
   { value: 0, label: 'Cloths' },
@@ -34,9 +51,158 @@ const companyTypeOptions = [
   { value: 5, label: 'Others' }
 ]
 
+const companyOptions = computed(() => companies.value.map((company) => ({
+  value: company.id,
+  label: company.name || 'Company'
+})))
+
+const groupOptions = computed(() => storeGroups.value.map((group) => ({
+  value: group.id,
+  label: group.name || 'Store group'
+})))
+
 const companyForm = reactive<any>(emptyCompany())
 const groupForm = reactive<any>(emptyStoreGroup())
 const storeForm = reactive<any>(emptyStore())
+
+const activeLabel = computed(() => tabs.find((tab) => tab.key === activeTab.value)?.label || 'Setup')
+const activeCount = computed(() => activeRows.value.length)
+const isEditing = computed(() => Boolean(editingId.value))
+const formTitle = computed(() => `${isEditing.value ? 'Edit' : 'New'} ${singularLabel(activeTab.value)}`)
+
+const activeRows = computed(() => {
+  if (activeTab.value === 'companies') {
+    return companies.value
+  }
+
+  if (activeTab.value === 'groups') {
+    return storeGroups.value
+  }
+
+  return stores.value
+})
+
+const filteredRows = computed(() => {
+  const term = search.value.trim().toLowerCase()
+  if (!term) {
+    return tableRows.value
+  }
+
+  return tableRows.value.filter((row) => JSON.stringify(row).toLowerCase().includes(term))
+})
+
+const tableRows = computed(() => activeRows.value.map((item) => {
+  if (activeTab.value === 'companies') {
+    return {
+      id: item.id,
+      name: item.name,
+      code: item.code || '-',
+      contact: item.contactNumber || item.email || '-',
+      location: [item.city, item.state].filter(Boolean).join(', ') || '-',
+      type: companyTypeLabel(item.companyType),
+      status: item.active ? 'Active' : 'Inactive',
+      raw: item
+    }
+  }
+
+  if (activeTab.value === 'groups') {
+    return {
+      id: item.id,
+      name: item.name,
+      code: item.groupCode || '-',
+      company: companyName(item.companyId),
+      category: categoryLabel(item.storeCategory),
+      status: item.active ? 'Active' : 'Inactive',
+      raw: item
+    }
+  }
+
+  return {
+    id: item.id,
+    name: item.name,
+    code: item.storeCode || '-',
+    company: companyName(item.companyId),
+    group: groupName(item.storeGroupId),
+    location: [item.city, item.state].filter(Boolean).join(', ') || '-',
+    status: item.active ? 'Active' : 'Inactive',
+    raw: item
+  }
+}))
+
+const companyColumns: TableColumn<any>[] = [
+  { accessorKey: 'name', header: 'Company' },
+  { accessorKey: 'code', header: 'Code' },
+  { accessorKey: 'contact', header: 'Contact' },
+  { accessorKey: 'location', header: 'Location' },
+  { accessorKey: 'type', header: 'Type' },
+  statusColumn(),
+  actionColumn()
+]
+
+const groupColumns: TableColumn<any>[] = [
+  { accessorKey: 'name', header: 'Store Group' },
+  { accessorKey: 'code', header: 'Code' },
+  { accessorKey: 'company', header: 'Company' },
+  { accessorKey: 'category', header: 'Category' },
+  statusColumn(),
+  actionColumn()
+]
+
+const storeColumns: TableColumn<any>[] = [
+  { accessorKey: 'name', header: 'Store' },
+  { accessorKey: 'code', header: 'Code' },
+  { accessorKey: 'company', header: 'Company' },
+  { accessorKey: 'group', header: 'Group' },
+  { accessorKey: 'location', header: 'Location' },
+  statusColumn(),
+  actionColumn()
+]
+
+const activeColumns = computed(() => {
+  if (activeTab.value === 'companies') {
+    return companyColumns
+  }
+
+  if (activeTab.value === 'groups') {
+    return groupColumns
+  }
+
+  return storeColumns
+})
+
+function statusColumn(): TableColumn<any> {
+  return {
+    accessorKey: 'status',
+    header: 'Status',
+    cell: ({ row }) => h(UBadge, {
+      color: row.original.status === 'Active' ? 'success' : 'warning',
+      variant: 'subtle'
+    }, () => row.original.status)
+  }
+}
+
+function actionColumn(): TableColumn<any> {
+  return {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => h('div', { class: 'table-action-buttons' }, [
+      h(UButton, {
+        color: 'neutral',
+        variant: 'ghost',
+        icon: 'i-lucide-pencil',
+        label: 'Edit',
+        onClick: () => startEdit(row.original.raw)
+      }),
+      h(UButton, {
+        color: 'error',
+        variant: 'ghost',
+        icon: 'i-lucide-trash-2',
+        label: 'Delete',
+        onClick: () => askDelete(row.original.raw)
+      })
+    ])
+  }
+}
 
 function emptyCompany() {
   return {
@@ -110,21 +276,22 @@ async function refresh() {
     companies.value = companyRows
     storeGroups.value = groupRows
     stores.value = storeRows
+  } catch (error) {
+    feedback.failed('Setup refresh failed', error)
   } finally {
     loading.value = false
   }
 }
 
-function showTab(tab: 'companies' | 'groups' | 'stores') {
+function showTab(tab: SetupTab) {
   activeTab.value = tab
-  viewMode.value = 'list'
-  setupMessage.value = ''
+  search.value = ''
   editingId.value = ''
+  pendingDelete.value = null
 }
 
 function startCreate() {
   editingId.value = ''
-  setupMessage.value = ''
 
   if (activeTab.value === 'companies') {
     Object.assign(companyForm, emptyCompany())
@@ -134,76 +301,77 @@ function startCreate() {
     Object.assign(storeForm, emptyStore())
   }
 
-  viewMode.value = 'form'
+  formOpen.value = true
 }
 
 function startEdit(item: any) {
   editingId.value = item.id
-  setupMessage.value = ''
 
   if (activeTab.value === 'companies') {
     Object.assign(companyForm, {
       ...item,
-      startDate: String(item.startDate || new Date().toISOString()).slice(0, 10),
-      endDate: item.endDate ? String(item.endDate).slice(0, 10) : ''
+      startDate: toDateInput(item.startDate),
+      endDate: item.endDate ? toDateInput(item.endDate) : ''
     })
   } else if (activeTab.value === 'groups') {
     Object.assign(groupForm, {
       ...item,
       company: null,
-      startDate: String(item.startDate || new Date().toISOString()).slice(0, 10),
-      endDate: item.endDate ? String(item.endDate).slice(0, 10) : ''
+      startDate: toDateInput(item.startDate),
+      endDate: item.endDate ? toDateInput(item.endDate) : ''
     })
   } else {
     Object.assign(storeForm, {
       ...item,
       company: null,
       storeGroup: null,
-      startDate: String(item.startDate || new Date().toISOString()).slice(0, 10),
-      endDate: item.endDate ? String(item.endDate).slice(0, 10) : ''
+      startDate: toDateInput(item.startDate),
+      endDate: item.endDate ? toDateInput(item.endDate) : ''
     })
   }
 
-  viewMode.value = 'form'
+  formOpen.value = true
 }
 
 async function saveCurrent() {
-  setupMessage.value = ''
+  saving.value = true
 
   try {
     if (activeTab.value === 'companies') {
       const payload = buildCompany()
       if (editingId.value) {
         await api.update<any>('companies', editingId.value, payload)
-        setupMessage.value = 'Company updated.'
+        feedback.updated('Company')
       } else {
         await api.create<any>('companies', payload)
-        setupMessage.value = 'Company saved.'
+        feedback.saved('Company')
       }
     } else if (activeTab.value === 'groups') {
       const payload = buildStoreGroup()
       if (editingId.value) {
         await api.update<any>('store-groups', editingId.value, payload)
-        setupMessage.value = 'Store group updated.'
+        feedback.updated('Store group')
       } else {
         await api.create<any>('store-groups', payload)
-        setupMessage.value = 'Store group saved.'
+        feedback.saved('Store group')
       }
     } else {
       const payload = buildStore()
       if (editingId.value) {
         await api.update<any>('stores', editingId.value, payload)
-        setupMessage.value = 'Store updated.'
+        feedback.updated('Store')
       } else {
         await api.create<any>('stores', payload)
-        setupMessage.value = 'Store saved.'
+        feedback.saved('Store')
       }
     }
 
-    viewMode.value = 'list'
+    formOpen.value = false
     await refresh()
-  } catch (error: any) {
-    setupMessage.value = error?.data?.message || error?.message || 'Could not save setup record.'
+  } catch (error) {
+    feedback.failed('Could not save setup record', error)
+  } finally {
+    saving.value = false
   }
 }
 
@@ -212,8 +380,8 @@ function buildCompany() {
     ...companyForm,
     name: String(companyForm.name || '').trim(),
     code: String(companyForm.code || '').trim(),
-    startDate: new Date(companyForm.startDate).toISOString(),
-    endDate: companyForm.endDate ? new Date(companyForm.endDate).toISOString() : null,
+    startDate: toApiDate(companyForm.startDate),
+    endDate: companyForm.endDate ? toApiDate(companyForm.endDate) : null,
     active: Boolean(companyForm.active),
     storeCategory: Number(companyForm.storeCategory),
     companyType: Number(companyForm.companyType)
@@ -229,8 +397,8 @@ function buildStoreGroup() {
     ...groupForm,
     name: String(groupForm.name || '').trim(),
     groupCode: String(groupForm.groupCode || '').trim(),
-    startDate: new Date(groupForm.startDate).toISOString(),
-    endDate: groupForm.endDate ? new Date(groupForm.endDate).toISOString() : null,
+    startDate: toApiDate(groupForm.startDate),
+    endDate: groupForm.endDate ? toApiDate(groupForm.endDate) : null,
     active: Boolean(groupForm.active),
     storeCategory: Number(groupForm.storeCategory),
     companyId: groupForm.companyId,
@@ -247,8 +415,8 @@ function buildStore() {
     ...storeForm,
     name: String(storeForm.name || '').trim(),
     storeCode: String(storeForm.storeCode || '').trim(),
-    startDate: new Date(storeForm.startDate).toISOString(),
-    endDate: storeForm.endDate ? new Date(storeForm.endDate).toISOString() : null,
+    startDate: toApiDate(storeForm.startDate),
+    endDate: storeForm.endDate ? toApiDate(storeForm.endDate) : null,
     active: Boolean(storeForm.active),
     storeCategory: Number(storeForm.storeCategory),
     companyId: storeForm.companyId,
@@ -258,10 +426,13 @@ function buildStore() {
   }
 }
 
-async function deleteCurrent(item: any) {
-  const label = activeTab.value === 'companies' ? item.name : activeTab.value === 'groups' ? item.name : item.name
-  const confirmed = window.confirm(`Delete ${label}?`)
-  if (!confirmed) {
+function askDelete(item: any) {
+  pendingDelete.value = item
+  deleteOpen.value = true
+}
+
+async function confirmDelete() {
+  if (!pendingDelete.value) {
     return
   }
 
@@ -269,9 +440,18 @@ async function deleteCurrent(item: any) {
     ? 'companies'
     : activeTab.value === 'groups' ? 'store-groups' : 'stores'
 
-  await api.remove(resource, item.id)
-  setupMessage.value = 'Record deleted.'
-  await refresh()
+  deleting.value = true
+  try {
+    await api.remove(resource, pendingDelete.value.id)
+    feedback.deleted(singularLabel(activeTab.value))
+    deleteOpen.value = false
+    pendingDelete.value = null
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not delete setup record', error)
+  } finally {
+    deleting.value = false
+  }
 }
 
 function companyName(companyId: string) {
@@ -290,6 +470,26 @@ function companyTypeLabel(value: number) {
   return companyTypeOptions.find((item) => item.value === Number(value))?.label || 'Company'
 }
 
+function singularLabel(tab: SetupTab) {
+  if (tab === 'companies') {
+    return 'Company'
+  }
+
+  if (tab === 'groups') {
+    return 'Store group'
+  }
+
+  return 'Store'
+}
+
+function toApiDate(value: string) {
+  return value ? new Date(`${value}T00:00:00`).toISOString() : null
+}
+
+function toDateInput(value: string) {
+  return String(value || new Date().toISOString()).slice(0, 10)
+}
+
 onMounted(async () => {
   auth.restore()
   await refresh()
@@ -306,291 +506,226 @@ onMounted(async () => {
     :stores="stores"
     @refresh="refresh"
   >
-    <section class="content">
-      <section class="panel">
-        <div class="panel-header">
-          <h2 class="panel-title">Company & Stores</h2>
-          <div class="panel-actions">
-            <span class="status" :class="loading ? 'warn' : 'ok'">{{ loading ? 'Loading' : 'Ready' }}</span>
-            <button class="button secondary" type="button" @click="showTab('companies')">Companies</button>
-            <button class="button secondary" type="button" @click="showTab('groups')">Store Groups</button>
-            <button class="button secondary" type="button" @click="showTab('stores')">Stores</button>
-            <button class="button" type="button" @click="startCreate">
-              <Plus :size="16" />
-              New
-            </button>
-          </div>
-        </div>
+    <section class="planner-dashboard">
+      <UiModulePageHeader
+        title="Company & Stores"
+        description="Manage companies, store groups, and stores before billing and inventory operations."
+        icon="i-lucide-building-2"
+        :primary-label="`New ${singularLabel(activeTab)}`"
+        primary-icon="i-lucide-plus"
+        @primary="startCreate"
+      >
+        <template #actions>
+          <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
+            {{ loading ? 'Loading' : 'Ready' }}
+          </UBadge>
+          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
+          <UButton icon="i-lucide-plus" :label="`New ${singularLabel(activeTab)}`" @click="startCreate" />
+        </template>
+      </UiModulePageHeader>
 
-        <div v-if="viewMode === 'list'" class="panel-body">
-          <div class="table-toolbar">
-            <p v-if="setupMessage" class="inline-message">{{ setupMessage }}</p>
+      <div class="setup-summary-grid">
+        <UCard>
+          <div class="planner-metric-body">
+            <UAvatar icon="i-lucide-building-2" color="primary" variant="subtle" />
+            <div>
+              <p>Companies</p>
+              <strong>{{ companies.length }}</strong>
+              <span>Legal entities</span>
+            </div>
           </div>
+        </UCard>
+        <UCard>
+          <div class="planner-metric-body">
+            <UAvatar icon="i-lucide-network" color="success" variant="subtle" />
+            <div>
+              <p>Store Groups</p>
+              <strong>{{ storeGroups.length }}</strong>
+              <span>Regional or business groups</span>
+            </div>
+          </div>
+        </UCard>
+        <UCard>
+          <div class="planner-metric-body">
+            <UAvatar icon="i-lucide-store" color="warning" variant="subtle" />
+            <div>
+              <p>Stores</p>
+              <strong>{{ stores.length }}</strong>
+              <span>Billing and stock locations</span>
+            </div>
+          </div>
+        </UCard>
+      </div>
 
-          <table v-if="activeTab === 'companies'" class="table">
-            <thead>
-              <tr>
-                <th>Company</th>
-                <th>Code</th>
-                <th>Contact</th>
-                <th>City</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="company in companies" :key="company.id">
-                <td>{{ company.name }}</td>
-                <td>{{ company.code }}</td>
-                <td>{{ company.contactNumber }}</td>
-                <td>{{ company.city }}</td>
-                <td>{{ companyTypeLabel(company.companyType) }}</td>
-                <td><span class="status" :class="company.active ? 'ok' : 'warn'">{{ company.active ? 'Active' : 'Inactive' }}</span></td>
-                <td>
-                  <button class="button secondary" type="button" @click="startEdit(company)">
-                    <Pencil :size="16" />
-                    Edit
-                  </button>
-                  <button class="button danger-button" type="button" @click="deleteCurrent(company)">
-                    <Trash2 :size="16" />
-                    Delete
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="companies.length === 0">
-                <td colspan="7">No companies</td>
-              </tr>
-            </tbody>
-          </table>
+      <UCard class="planner-card">
+        <template #header>
+          <div class="setup-list-header">
+            <div class="setup-tabs">
+              <UButton
+                v-for="tab in tabs"
+                :key="tab.key"
+                :icon="tab.icon"
+                :color="activeTab === tab.key ? 'primary' : 'neutral'"
+                :variant="activeTab === tab.key ? 'solid' : 'subtle'"
+                :label="tab.label"
+                @click="showTab(tab.key)"
+              />
+            </div>
 
-          <table v-else-if="activeTab === 'groups'" class="table">
-            <thead>
-              <tr>
-                <th>Group</th>
-                <th>Code</th>
-                <th>Company</th>
-                <th>Category</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="group in storeGroups" :key="group.id">
-                <td>{{ group.name }}</td>
-                <td>{{ group.groupCode }}</td>
-                <td>{{ companyName(group.companyId) }}</td>
-                <td>{{ categoryLabel(group.storeCategory) }}</td>
-                <td><span class="status" :class="group.active ? 'ok' : 'warn'">{{ group.active ? 'Active' : 'Inactive' }}</span></td>
-                <td>
-                  <button class="button secondary" type="button" @click="startEdit(group)">
-                    <Pencil :size="16" />
-                    Edit
-                  </button>
-                  <button class="button danger-button" type="button" @click="deleteCurrent(group)">
-                    <Trash2 :size="16" />
-                    Delete
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="storeGroups.length === 0">
-                <td colspan="6">No store groups</td>
-              </tr>
-            </tbody>
-          </table>
+            <UBadge color="neutral" variant="subtle">{{ activeCount }} records</UBadge>
+          </div>
+        </template>
 
-          <table v-else class="table">
-            <thead>
-              <tr>
-                <th>Store</th>
-                <th>Code</th>
-                <th>Company</th>
-                <th>Group</th>
-                <th>City</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="store in stores" :key="store.id">
-                <td>{{ store.name }}</td>
-                <td>{{ store.storeCode }}</td>
-                <td>{{ companyName(store.companyId) }}</td>
-                <td>{{ groupName(store.storeGroupId) }}</td>
-                <td>{{ store.city }}</td>
-                <td><span class="status" :class="store.active ? 'ok' : 'warn'">{{ store.active ? 'Active' : 'Inactive' }}</span></td>
-                <td>
-                  <button class="button secondary" type="button" @click="startEdit(store)">
-                    <Pencil :size="16" />
-                    Edit
-                  </button>
-                  <button class="button danger-button" type="button" @click="deleteCurrent(store)">
-                    <Trash2 :size="16" />
-                    Delete
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="stores.length === 0">
-                <td colspan="7">No stores</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <UiCrudToolbar
+          v-model:search="search"
+          :search-placeholder="`Search ${activeLabel.toLowerCase()}`"
+          :loading="loading"
+          refresh-label="Sync"
+          :create-label="`New ${singularLabel(activeTab)}`"
+          @refresh="refresh"
+          @create="startCreate"
+        />
 
-        <form v-else-if="activeTab === 'companies'" class="form-grid wide-form" @submit.prevent="saveCurrent">
-          <div class="field">
-            <label for="companyName">Name</label>
-            <input id="companyName" v-model="companyForm.name" required />
-          </div>
-          <div class="field">
-            <label for="companyCode">Code</label>
-            <input id="companyCode" v-model="companyForm.code" />
-          </div>
-          <div class="field">
-            <label for="companyStart">Start date</label>
-            <input id="companyStart" v-model="companyForm.startDate" type="date" />
-          </div>
-          <div class="field">
-            <label for="companyType">Company type</label>
-            <select id="companyType" v-model="companyForm.companyType">
-              <option v-for="item in companyTypeOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="companyContact">Contact</label>
-            <input id="companyContact" v-model="companyForm.contactNumber" />
-          </div>
-          <div class="field">
-            <label for="companyEmail">Email</label>
-            <input id="companyEmail" v-model="companyForm.email" type="email" />
-          </div>
-          <div class="field">
-            <label for="companyCity">City</label>
-            <input id="companyCity" v-model="companyForm.city" />
-          </div>
-          <div class="field">
-            <label for="companyState">State</label>
-            <input id="companyState" v-model="companyForm.state" />
-          </div>
-          <div class="field">
-            <label for="companyGstin">GSTIN</label>
-            <input id="companyGstin" v-model="companyForm.gstin" />
-          </div>
-          <div class="field">
-            <label for="companyPan">PAN</label>
-            <input id="companyPan" v-model="companyForm.pan" />
-          </div>
-          <label class="checkbox-field">
-            <input v-model="companyForm.active" type="checkbox" />
-            <span>Active</span>
-          </label>
-          <div class="form-actions">
-            <button class="button secondary" type="button" @click="viewMode = 'list'">Cancel</button>
-            <button class="button" type="submit">
-              <Building2 :size="16" />
-              Save Company
-            </button>
-          </div>
-          <p v-if="setupMessage" class="setup-message">{{ setupMessage }}</p>
-        </form>
+        <UTable
+          v-if="filteredRows.length"
+          :data="filteredRows"
+          :columns="activeColumns"
+          :loading="loading"
+        />
 
-        <form v-else-if="activeTab === 'groups'" class="form-grid wide-form" @submit.prevent="saveCurrent">
-          <div class="field">
-            <label for="groupName">Name</label>
-            <input id="groupName" v-model="groupForm.name" required />
-          </div>
-          <div class="field">
-            <label for="groupCode">Code</label>
-            <input id="groupCode" v-model="groupForm.groupCode" />
-          </div>
-          <div class="field">
-            <label for="groupCompany">Company</label>
-            <select id="groupCompany" v-model="groupForm.companyId" required>
-              <option value="">Select company</option>
-              <option v-for="company in companies" :key="company.id" :value="company.id">{{ company.name }}</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="groupCategory">Category</label>
-            <select id="groupCategory" v-model="groupForm.storeCategory">
-              <option v-for="item in storeCategoryOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
-            </select>
-          </div>
-          <label class="checkbox-field">
-            <input v-model="groupForm.active" type="checkbox" />
-            <span>Active</span>
-          </label>
-          <div class="form-actions">
-            <button class="button secondary" type="button" @click="viewMode = 'list'">Cancel</button>
-            <button class="button" type="submit">
-              <Building2 :size="16" />
-              Save Group
-            </button>
-          </div>
-          <p v-if="setupMessage" class="setup-message">{{ setupMessage }}</p>
-        </form>
+        <UiCrudEmptyState
+          v-else
+          :title="`No ${activeLabel.toLowerCase()} found`"
+          description="Create the first record to continue setup."
+          icon="i-lucide-inbox"
+          :action-label="`New ${singularLabel(activeTab)}`"
+          @action="startCreate"
+        />
+      </UCard>
 
-        <form v-else class="form-grid wide-form" @submit.prevent="saveCurrent">
-          <div class="field">
-            <label for="storeName">Name</label>
-            <input id="storeName" v-model="storeForm.name" required />
+      <UiFormSlideover
+        v-model:open="formOpen"
+        :title="formTitle"
+        :description="`Save ${singularLabel(activeTab).toLowerCase()} master data.`"
+        :submit-label="isEditing ? 'Update' : 'Save'"
+        :loading="saving"
+        @submit="saveCurrent"
+      >
+        <template v-if="activeTab === 'companies'">
+          <UFormField label="Name" required>
+            <UInput v-model="companyForm.name" required />
+          </UFormField>
+          <UFormField label="Code">
+            <UInput v-model="companyForm.code" />
+          </UFormField>
+          <UFormField label="Start date">
+            <UInput v-model="companyForm.startDate" type="date" />
+          </UFormField>
+          <UFormField label="End date">
+            <UInput v-model="companyForm.endDate" type="date" />
+          </UFormField>
+          <UFormField label="Company type">
+            <USelect v-model="companyForm.companyType" :items="companyTypeOptions" />
+          </UFormField>
+          <UFormField label="Contact">
+            <UInput v-model="companyForm.contactNumber" />
+          </UFormField>
+          <UFormField label="Email">
+            <UInput v-model="companyForm.email" type="email" />
+          </UFormField>
+          <UFormField label="Address">
+            <UTextarea v-model="companyForm.address" autoresize />
+          </UFormField>
+          <div class="form-two-column">
+            <UFormField label="City">
+              <UInput v-model="companyForm.city" />
+            </UFormField>
+            <UFormField label="State">
+              <UInput v-model="companyForm.state" />
+            </UFormField>
           </div>
-          <div class="field">
-            <label for="storeCode">Code</label>
-            <input id="storeCode" v-model="storeForm.storeCode" />
+          <div class="form-two-column">
+            <UFormField label="GSTIN">
+              <UInput v-model="companyForm.gstin" />
+            </UFormField>
+            <UFormField label="PAN">
+              <UInput v-model="companyForm.pan" />
+            </UFormField>
           </div>
-          <div class="field">
-            <label for="storeCompany">Company</label>
-            <select id="storeCompany" v-model="storeForm.companyId" required>
-              <option value="">Select company</option>
-              <option v-for="company in companies" :key="company.id" :value="company.id">{{ company.name }}</option>
-            </select>
+          <UCheckbox v-model="companyForm.active" label="Active" />
+        </template>
+
+        <template v-else-if="activeTab === 'groups'">
+          <UFormField label="Name" required>
+            <UInput v-model="groupForm.name" required />
+          </UFormField>
+          <UFormField label="Code">
+            <UInput v-model="groupForm.groupCode" />
+          </UFormField>
+          <UFormField label="Company" required>
+            <USelect v-model="groupForm.companyId" :items="companyOptions" placeholder="Select company" />
+          </UFormField>
+          <UFormField label="Category">
+            <USelect v-model="groupForm.storeCategory" :items="storeCategoryOptions" />
+          </UFormField>
+          <UFormField label="Start date">
+            <UInput v-model="groupForm.startDate" type="date" />
+          </UFormField>
+          <UFormField label="End date">
+            <UInput v-model="groupForm.endDate" type="date" />
+          </UFormField>
+          <UCheckbox v-model="groupForm.active" label="Active" />
+        </template>
+
+        <template v-else>
+          <UFormField label="Name" required>
+            <UInput v-model="storeForm.name" required />
+          </UFormField>
+          <UFormField label="Code">
+            <UInput v-model="storeForm.storeCode" />
+          </UFormField>
+          <UFormField label="Company" required>
+            <USelect v-model="storeForm.companyId" :items="companyOptions" placeholder="Select company" />
+          </UFormField>
+          <UFormField label="Store group" required>
+            <USelect v-model="storeForm.storeGroupId" :items="groupOptions" placeholder="Select group" />
+          </UFormField>
+          <UFormField label="Contact">
+            <UInput v-model="storeForm.contactNumber" />
+          </UFormField>
+          <UFormField label="Email">
+            <UInput v-model="storeForm.email" type="email" />
+          </UFormField>
+          <UFormField label="Address">
+            <UTextarea v-model="storeForm.address" autoresize />
+          </UFormField>
+          <div class="form-two-column">
+            <UFormField label="City">
+              <UInput v-model="storeForm.city" />
+            </UFormField>
+            <UFormField label="State">
+              <UInput v-model="storeForm.state" />
+            </UFormField>
           </div>
-          <div class="field">
-            <label for="storeGroup">Store group</label>
-            <select id="storeGroup" v-model="storeForm.storeGroupId" required>
-              <option value="">Select group</option>
-              <option v-for="group in storeGroups" :key="group.id" :value="group.id">{{ group.name }}</option>
-            </select>
+          <div class="form-two-column">
+            <UFormField label="Country">
+              <UInput v-model="storeForm.country" />
+            </UFormField>
+            <UFormField label="Zip">
+              <UInput v-model="storeForm.zipCode" />
+            </UFormField>
           </div>
-          <div class="field">
-            <label for="storeContact">Contact</label>
-            <input id="storeContact" v-model="storeForm.contactNumber" />
-          </div>
-          <div class="field">
-            <label for="storeEmail">Email</label>
-            <input id="storeEmail" v-model="storeForm.email" type="email" />
-          </div>
-          <div class="field">
-            <label for="storeAddress">Address</label>
-            <input id="storeAddress" v-model="storeForm.address" />
-          </div>
-          <div class="field">
-            <label for="storeCity">City</label>
-            <input id="storeCity" v-model="storeForm.city" />
-          </div>
-          <div class="field">
-            <label for="storeState">State</label>
-            <input id="storeState" v-model="storeForm.state" />
-          </div>
-          <div class="field">
-            <label for="storeZip">Zip</label>
-            <input id="storeZip" v-model="storeForm.zipCode" />
-          </div>
-          <label class="checkbox-field">
-            <input v-model="storeForm.active" type="checkbox" />
-            <span>Active</span>
-          </label>
-          <div class="form-actions">
-            <button class="button secondary" type="button" @click="viewMode = 'list'">Cancel</button>
-            <button class="button" type="submit">
-              <Store :size="16" />
-              Save Store
-            </button>
-          </div>
-          <p v-if="setupMessage" class="setup-message">{{ setupMessage }}</p>
-        </form>
-      </section>
+          <UCheckbox v-model="storeForm.active" label="Active" />
+        </template>
+      </UiFormSlideover>
+
+      <UiConfirmDeleteModal
+        v-model:open="deleteOpen"
+        :title="`Delete ${singularLabel(activeTab)}`"
+        :description="`Delete ${pendingDelete?.name || 'this record'}?`"
+        :loading="deleting"
+        @confirm="confirmDelete"
+      />
     </section>
   </AppShell>
 </template>

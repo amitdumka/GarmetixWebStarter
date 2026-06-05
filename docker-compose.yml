@@ -7,8 +7,13 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       Database__AutoMigrate: "true"
       ConnectionStrings__Default: Host=postgres;Port=5432;Database=garmetix;Username=garmetix;Password=garmetix_dev
+      PayrollAutomation__Enabled: "true"
+      PayrollAutomation__TimeZoneId: Asia/Kolkata
+      PayrollAutomation__RunHour: "2"
+      PayrollAutomation__RunMinute: "0"
     ports:
       - "5080:5080"
+    restart: unless-stopped
     depends_on:
       - postgres
 
@@ -20,6 +25,7 @@ services:
       NUXT_PUBLIC_API_BASE: http://localhost:5080/api
     ports:
       - "3000:3000"
+    restart: unless-stopped
     depends_on:
       - api
 
@@ -33,6 +39,12 @@ services:
       - garmetix_pg:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U garmetix -d garmetix"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   garmetix_pg:

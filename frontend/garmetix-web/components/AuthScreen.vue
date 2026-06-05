@@ -4,6 +4,7 @@ const emit = defineEmits<{
 }>()
 
 const auth = useAuth()
+const feedback = useUiFeedback()
 const authMode = ref<'login' | 'bootstrap'>('login')
 const authError = ref('')
 const authStatus = ref('')
@@ -27,8 +28,7 @@ async function submitAuth() {
     authForm.password = ''
     emit('authenticated')
   } catch (error: any) {
-    const message = error?.data?.message || error?.data?.title || error?.message
-    authError.value = message || (authMode.value === 'bootstrap'
+    authError.value = feedback.errorMessage(error, authMode.value === 'bootstrap'
       ? 'Could not create the first admin. Check the database and API status.'
       : 'Login failed. Check the username and password.')
   }
@@ -40,7 +40,7 @@ onMounted(async () => {
     authStatus.value = status.message
     authMode.value = status.hasAdmin ? 'login' : 'bootstrap'
   } catch (error: any) {
-    authStatus.value = error?.message || 'Could not reach the API.'
+    authStatus.value = feedback.errorMessage(error, 'Could not reach the API.')
   }
 })
 </script>

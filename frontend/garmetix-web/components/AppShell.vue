@@ -11,29 +11,74 @@ const emit = defineEmits<{
 
 const auth = useAuth()
 const route = useRoute()
+const feedback = useUiFeedback()
+const messageLogs = feedback.logs
 
 const companyValue = ref('all')
 const storeValue = ref('all')
+const colorMode = useColorMode()
+const logOpen = ref(false)
 
-const modules = [
-  { to: '/', label: 'Dashboard', icon: 'i-lucide-layout-dashboard' },
-  { to: '/setup', label: 'Setup', icon: 'i-lucide-building-2' },
-  { to: '/billing', label: 'Billing', icon: 'i-lucide-receipt-indian-rupee' },
-  { to: '/inventory', label: 'Inventory', icon: 'i-lucide-boxes' },
-  { to: '/purchase', label: 'Purchase', icon: 'i-lucide-package-plus' },
-  { to: '/vouchers', label: 'Vouchers', icon: 'i-lucide-banknote' },
-  { to: '/petty-cash', label: 'Petty Cash', icon: 'i-lucide-circle-dollar-sign' },
-  { to: '/hr', label: 'HR', icon: 'i-lucide-users-round' },
-  { to: '/payroll', label: 'Payroll', icon: 'i-lucide-badge-indian-rupee' },
-  { to: '/reports', label: 'Reports', icon: 'i-lucide-file-text' },
-  { to: '/access', label: 'Access', icon: 'i-lucide-shield-check' },
-  { to: '/import-export', label: 'Import Export', icon: 'i-lucide-file-down' }
+const themeOptions = [
+  { label: 'System', value: 'system' },
+  { label: 'Dark', value: 'dark' },
+  { label: 'Light', value: 'light' }
 ]
 
-const navigationItems = computed(() => modules.map((item) => ({
-  ...item,
-  active: item.to === '/' ? route.path === '/' : route.path.startsWith(item.to)
-})))
+const selectedTheme = computed({
+  get: () => colorMode.preference,
+  set: (value: string) => {
+    colorMode.preference = value
+  }
+})
+
+const moduleGroups = [
+  {
+    label: 'Dashboards',
+    items: [
+      { to: '/', label: 'Overview', icon: 'i-lucide-layout-dashboard' },
+      { to: '/reports', label: 'Reports', icon: 'i-lucide-file-text' }
+    ]
+  },
+  {
+    label: 'Operations',
+    items: [
+      { to: '/setup', label: 'Setup', icon: 'i-lucide-building-2' },
+      { to: '/billing', label: 'Billing', icon: 'i-lucide-receipt-indian-rupee' },
+      { to: '/inventory', label: 'Inventory', icon: 'i-lucide-boxes' },
+      { to: '/purchase', label: 'Purchase', icon: 'i-lucide-package-plus' },
+      { to: '/vouchers', label: 'Vouchers', icon: 'i-lucide-banknote' },
+      { to: '/petty-cash', label: 'Petty Cash', icon: 'i-lucide-circle-dollar-sign' }
+    ]
+  },
+  {
+    label: 'People',
+    items: [
+      { to: '/hr', label: 'HR', icon: 'i-lucide-users-round' },
+      { to: '/payroll', label: 'Payroll', icon: 'i-lucide-badge-indian-rupee' }
+    ]
+  },
+  {
+    label: 'Admin',
+    items: [
+      { to: '/access', label: 'Access', icon: 'i-lucide-shield-check' },
+      { to: '/import-export', label: 'Import Export', icon: 'i-lucide-file-down' },
+      { to: '/audit', label: 'Audit', icon: 'i-lucide-history' }
+    ]
+  }
+]
+
+function isActive(to: string) {
+  return to === '/' ? route.path === '/' : route.path.startsWith(to)
+}
+
+const navigationItems = computed(() => moduleGroups.flatMap((group) => [
+  { label: group.label, type: 'label' },
+  ...group.items.map((item) => ({
+    ...item,
+    active: isActive(item.to)
+  }))
+]))
 
 const companyOptions = computed(() => [
   { label: 'All Companies', value: 'all' },
@@ -54,6 +99,10 @@ const storeOptions = computed(() => [
 function logout() {
   auth.logout()
   navigateTo('/')
+}
+
+function formatLogDate(value: string) {
+  return value ? new Date(value).toLocaleString() : '-'
 }
 </script>
 
@@ -89,6 +138,16 @@ function logout() {
       </template>
 
       <template #footer="{ collapsed }">
+        <div v-if="!collapsed" class="sidebar-stage-card">
+          <div class="sidebar-stage-card-header">
+            <span>UI Migration</span>
+            <UBadge size="xs" color="primary" variant="subtle">6/6</UBadge>
+          </div>
+          <div class="sidebar-stage-progress">
+            <span style="width: 100%" />
+          </div>
+          <p>Reports and deployment polish are being completed.</p>
+        </div>
         <UButton
           color="neutral"
           variant="ghost"
@@ -129,7 +188,24 @@ function logout() {
                   @click="emit('refresh')"
                 />
               </UTooltip>
-              <UColorModeButton color="neutral" variant="ghost" />
+              <UTooltip text="Message log">
+                <UButton
+                  color="neutral"
+                  variant="subtle"
+                  icon="i-lucide-list-collapse"
+                  :label="messageLogs.length ? String(messageLogs.length) : undefined"
+                  @click="logOpen = true"
+                />
+              </UTooltip>
+              <USelect
+                v-model="selectedTheme"
+                :items="themeOptions"
+                class="hidden sm:flex w-28"
+                aria-label="Theme"
+              />
+              <UTooltip text="Toggle theme">
+                <UColorModeButton color="neutral" variant="ghost" />
+              </UTooltip>
             </div>
           </template>
         </UDashboardNavbar>
@@ -140,4 +216,32 @@ function logout() {
       </div>
     </UDashboardPanel>
   </UDashboardGroup>
+
+  <UModal v-model:open="logOpen" title="Message Log" :ui="{ content: 'max-w-3xl' }">
+    <template #body>
+      <div v-if="messageLogs.length" class="message-log-list">
+        <div v-for="entry in messageLogs" :key="entry.id" class="message-log-entry">
+          <div class="message-log-header">
+            <UBadge :color="entry.color" variant="subtle">{{ entry.title }}</UBadge>
+            <span>{{ formatLogDate(entry.at) }}</span>
+          </div>
+          <p>{{ entry.message }}</p>
+          <pre v-if="entry.details">{{ entry.details }}</pre>
+        </div>
+      </div>
+      <UiCrudEmptyState
+        v-else
+        title="No messages"
+        description="Application messages and technical details will appear here."
+        icon="i-lucide-list-collapse"
+      />
+    </template>
+
+    <template #footer>
+      <div class="modal-actions">
+        <UButton color="neutral" variant="outline" label="Close" @click="logOpen = false" />
+        <UButton color="warning" variant="subtle" icon="i-lucide-trash-2" label="Clear Log" @click="feedback.clearLogs" />
+      </div>
+    </template>
+  </UModal>
 </template>

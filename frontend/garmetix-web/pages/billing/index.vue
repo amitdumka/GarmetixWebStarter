@@ -1,43 +1,192 @@
 <script setup lang="ts">
-import {
-  CreditCard,
-  FileText,
-  PackagePlus,
-  Printer,
-  ReceiptIndianRupee
-} from 'lucide-vue-next'
+import { h, resolveComponent } from 'vue'
+import type { TableColumn } from '@nuxt/ui'
 
 const api = useGarmetixApi()
 const auth = useAuth()
+const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
+
+const UBadge = resolveComponent('UBadge')
+const UButton = resolveComponent('UButton')
 
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const products = ref<any[]>([])
 const invoices = ref<any[]>([])
 const selectedReceipt = ref<any | null>(null)
+const pendingCancel = ref<any | null>(null)
 const loading = ref(false)
+const saving = ref(false)
+const cancelling = ref(false)
 const setupStatus = ref<any | null>(null)
-const viewMode = ref<'list' | 'create'>('list')
-const saleMessage = ref('')
+const search = ref('')
+const saleOpen = ref(false)
+const cancelOpen = ref(false)
 
-const saleForm = reactive({
-  customerName: 'Walk-in Customer',
-  customerMobileNumber: '',
-  paymentMode: 0,
-  paidAmount: 0,
-  billDiscountAmount: 0,
-  selectedProductId: '',
-  quantity: 1,
-  lineDiscount: 0
-})
+const paymentModeOptions = [
+  { value: 0, label: 'Cash' },
+  { value: 1, label: 'Card' },
+  { value: 2, label: 'UPI' },
+  { value: 7, label: 'Cheque' }
+]
+
+const saleForm = reactive<any>(emptySaleForm())
 const saleCart = ref<any[]>([])
 
-const selectedProduct = computed(() => products.value.find((item) => item.id === saleForm.selectedProductId))
-const cartTotal = computed(() => {
-  return saleCart.value.reduce((sum, item) => sum + ((item.mrp - item.discountAmount) * item.quantity), 0)
+const receiptOpen = computed({
+  get: () => Boolean(selectedReceipt.value),
+  set: (value: boolean) => {
+    if (!value) {
+      selectedReceipt.value = null
+    }
+  }
 })
-const payableTotal = computed(() => Math.max(cartTotal.value - Number(saleForm.billDiscountAmount), 0))
+
+const productOptions = computed(() => [
+  { value: '', label: 'Select product' },
+  ...products.value.map((product) => ({
+    value: product.id,
+    label: `${product.name || 'Product'} - ${product.barcode || 'No barcode'}`
+  }))
+])
+
+const selectedProduct = computed(() => products.value.find((item) => item.id === saleForm.selectedProductId))
+
+const cartTotal = computed(() => {
+  return saleCart.value.reduce((sum, item) => sum + lineTotal(item), 0)
+})
+
+const payableTotal = computed(() => Math.max(cartTotal.value - Number(saleForm.billDiscountAmount || 0), 0))
+
+const invoiceSummary = computed(() => {
+  return invoices.value.reduce((summary, invoice) => {
+    const billAmount = Number(invoice.billAmount || 0)
+    const paidAmount = Number(invoice.paidAmount || 0)
+    summary.billAmount += billAmount
+    summary.paidAmount += paidAmount
+    summary.balanceAmount += Number(invoice.balanceAmount || (billAmount - paidAmount))
+    if (invoice.invoiceStatus === 'Cancelled') {
+      summary.cancelled += 1
+    }
+    return summary
+  }, {
+    billAmount: 0,
+    paidAmount: 0,
+    balanceAmount: 0,
+    cancelled: 0
+  })
+})
+
+const metrics = computed(() => [
+  {
+    label: 'Invoices',
+    value: invoices.value.length,
+    meta: `${invoiceSummary.value.cancelled} cancelled`,
+    icon: 'i-lucide-receipt-indian-rupee',
+    color: 'primary'
+  },
+  {
+    label: 'Sales',
+    value: money(invoiceSummary.value.billAmount),
+    meta: 'Bill amount',
+    icon: 'i-lucide-indian-rupee',
+    color: 'success'
+  },
+  {
+    label: 'Paid',
+    value: money(invoiceSummary.value.paidAmount),
+    meta: 'Collected amount',
+    icon: 'i-lucide-credit-card',
+    color: 'neutral'
+  },
+  {
+    label: 'Balance',
+    value: money(invoiceSummary.value.balanceAmount),
+    meta: 'Outstanding',
+    icon: 'i-lucide-wallet',
+    color: invoiceSummary.value.balanceAmount > 0 ? 'warning' : 'success'
+  }
+])
+
+const tableRows = computed(() => invoices.value.map((invoice) => ({
+  id: invoice.id,
+  invoiceNumber: invoice.invoiceNumber || '-',
+  onDate: formatDate(invoice.onDate),
+  customerName: invoice.customerName || 'Walk-in Customer',
+  billAmount: money(Number(invoice.billAmount || 0)),
+  paidAmount: money(Number(invoice.paidAmount || 0)),
+  balanceAmount: money(Number(invoice.balanceAmount || (Number(invoice.billAmount || 0) - Number(invoice.paidAmount || 0)))),
+  invoiceStatus: invoice.invoiceStatus || 'Saved',
+  raw: invoice
+})))
+
+const filteredRows = computed(() => {
+  const term = search.value.trim().toLowerCase()
+  if (!term) {
+    return tableRows.value
+  }
+
+  return tableRows.value.filter((row) => JSON.stringify(row).toLowerCase().includes(term))
+})
+
+const columns: TableColumn<any>[] = [
+  { accessorKey: 'invoiceNumber', header: 'Invoice' },
+  { accessorKey: 'onDate', header: 'Date' },
+  { accessorKey: 'customerName', header: 'Customer' },
+  { accessorKey: 'billAmount', header: 'Amount' },
+  { accessorKey: 'paidAmount', header: 'Paid' },
+  { accessorKey: 'balanceAmount', header: 'Balance' },
+  {
+    accessorKey: 'invoiceStatus',
+    header: 'Status',
+    cell: ({ row }) => h(UBadge, {
+      color: row.original.invoiceStatus === 'Cancelled' ? 'error' : 'success',
+      variant: 'subtle'
+    }, () => row.original.invoiceStatus)
+  },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => {
+      const invoice = row.original.raw
+      const actions = [
+        h(UButton, {
+          color: 'neutral',
+          variant: 'ghost',
+          icon: 'i-lucide-file-text',
+          label: 'Receipt',
+          onClick: () => viewReceipt(invoice.id)
+        })
+      ]
+
+      if (invoice.invoiceStatus !== 'Cancelled') {
+        actions.push(h(UButton, {
+          color: 'error',
+          variant: 'ghost',
+          icon: 'i-lucide-ban',
+          label: 'Cancel',
+          onClick: () => askCancel(invoice)
+        }))
+      }
+
+      return h('div', { class: 'table-action-buttons' }, actions)
+    }
+  }
+]
+
+function emptySaleForm() {
+  return {
+    customerName: 'Walk-in Customer',
+    customerMobileNumber: '',
+    paymentMode: 0,
+    paidAmount: 0,
+    billDiscountAmount: 0,
+    selectedProductId: '',
+    quantity: 1,
+    lineDiscount: 0
+  }
+}
 
 async function refresh() {
   if (!auth.isAuthenticated.value) {
@@ -58,14 +207,22 @@ async function refresh() {
     stores.value = storeRows
     products.value = productRows
     invoices.value = invoiceRows
+  } catch (error) {
+    feedback.failed('Billing refresh failed', error)
   } finally {
     loading.value = false
   }
 }
 
+function startCreate() {
+  Object.assign(saleForm, emptySaleForm())
+  saleCart.value = []
+  saleOpen.value = true
+}
+
 function addToCart() {
   if (!selectedProduct.value) {
-    saleMessage.value = 'Select a product before adding to cart.'
+    feedback.notify('Product missing', 'Select a product before adding to cart.', 'warning')
     return
   }
 
@@ -73,16 +230,15 @@ function addToCart() {
     productId: selectedProduct.value.id,
     name: selectedProduct.value.name,
     barcode: selectedProduct.value.barcode,
-    quantity: Number(saleForm.quantity),
+    quantity: Number(saleForm.quantity || 0),
     mrp: Number(selectedProduct.value.mrp || 0),
-    discountAmount: Number(saleForm.lineDiscount)
+    discountAmount: Number(saleForm.lineDiscount || 0)
   })
 
   saleForm.selectedProductId = ''
   saleForm.quantity = 1
   saleForm.lineDiscount = 0
   saleForm.paidAmount = payableTotal.value
-  saleMessage.value = ''
 }
 
 function removeCartItem(index: number) {
@@ -91,80 +247,110 @@ function removeCartItem(index: number) {
 }
 
 async function submitSale() {
-  saleMessage.value = ''
+  saving.value = true
+  try {
+    const companyId = setupStatus.value?.companyId || companies.value[0]?.id
+    const storeGroupId = setupStatus.value?.storeGroupId || stores.value[0]?.storeGroupId
+    const storeId = setupStatus.value?.storeId || stores.value[0]?.id
 
-  const companyId = setupStatus.value?.companyId || companies.value[0]?.id
-  const storeGroupId = setupStatus.value?.storeGroupId || stores.value[0]?.storeGroupId
-  const storeId = setupStatus.value?.storeId || stores.value[0]?.id
+    if (!companyId || !storeGroupId || !storeId) {
+      throw new Error('Run quick setup before billing.')
+    }
 
-  if (!companyId || !storeGroupId || !storeId) {
-    saleMessage.value = 'Run quick setup before billing.'
-    return
+    if (saleCart.value.length === 0) {
+      throw new Error('Add at least one item to the bill.')
+    }
+
+    const response = await api.create<any>('billing/sales', {
+      companyId,
+      storeGroupId,
+      storeId,
+      customerName: saleForm.customerName,
+      customerMobileNumber: saleForm.customerMobileNumber,
+      paymentMode: Number(saleForm.paymentMode),
+      paidAmount: Number(saleForm.paidAmount || 0),
+      billDiscountAmount: Number(saleForm.billDiscountAmount || 0),
+      items: saleCart.value.map((item) => ({
+        productId: item.productId,
+        barcode: item.barcode,
+        quantity: item.quantity,
+        mrp: item.mrp,
+        discountAmount: item.discountAmount
+      }))
+    })
+
+    feedback.saved(`Invoice ${response.invoiceNumber || ''}`.trim())
+    saleOpen.value = false
+    await viewReceipt(response.invoiceId)
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not save invoice', error)
+  } finally {
+    saving.value = false
   }
-
-  if (saleCart.value.length === 0) {
-    saleMessage.value = 'Add at least one item to the bill.'
-    return
-  }
-
-  const response = await api.create<any>('billing/sales', {
-    companyId,
-    storeGroupId,
-    storeId,
-    customerName: saleForm.customerName,
-    customerMobileNumber: saleForm.customerMobileNumber,
-    paymentMode: Number(saleForm.paymentMode),
-    paidAmount: Number(saleForm.paidAmount),
-    billDiscountAmount: Number(saleForm.billDiscountAmount),
-    items: saleCart.value.map((item) => ({
-      productId: item.productId,
-      barcode: item.barcode,
-      quantity: item.quantity,
-      mrp: item.mrp,
-      discountAmount: item.discountAmount
-    }))
-  })
-
-  saleCart.value = []
-  saleForm.billDiscountAmount = 0
-  saleForm.paidAmount = 0
-  saleMessage.value = `Invoice ${response.invoiceNumber} saved.`
-  viewMode.value = 'list'
-  await viewReceipt(response.invoiceId)
-  await refresh()
 }
 
 async function viewReceipt(invoiceId: string) {
-  selectedReceipt.value = await api.get<any>(`billing/sales/${invoiceId}/receipt`)
+  try {
+    selectedReceipt.value = await api.get<any>(`billing/sales/${invoiceId}/receipt`)
+  } catch (error) {
+    feedback.failed('Could not open receipt', error)
+  }
 }
 
-async function cancelInvoice(invoice: any) {
+function askCancel(invoice: any) {
   if (invoice.invoiceStatus === 'Cancelled') {
     return
   }
 
-  const confirmed = window.confirm(`Cancel invoice ${invoice.invoiceNumber}? Stock will be reversed.`)
-  if (!confirmed) {
+  pendingCancel.value = invoice
+  cancelOpen.value = true
+}
+
+async function confirmCancel() {
+  if (!pendingCancel.value) {
     return
   }
 
-  await api.create<any>(`billing/sales/${invoice.id}/cancel`, {
-    reason: 'Cancelled from billing page'
-  })
+  cancelling.value = true
+  try {
+    await api.create<any>(`billing/sales/${pendingCancel.value.id}/cancel`, {
+      reason: 'Cancelled from billing page'
+    })
 
-  if (selectedReceipt.value?.id === invoice.id) {
-    selectedReceipt.value = null
+    if (selectedReceipt.value?.id === pendingCancel.value.id) {
+      selectedReceipt.value = null
+    }
+
+    feedback.notify('Invoice cancelled', 'Stock quantities were reversed.', 'warning')
+    cancelOpen.value = false
+    pendingCancel.value = null
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not cancel invoice', error)
+  } finally {
+    cancelling.value = false
   }
-
-  await refresh()
-}
-
-function closeReceipt() {
-  selectedReceipt.value = null
 }
 
 function printReceipt() {
   window.print()
+}
+
+function lineTotal(item: any) {
+  return Math.max((Number(item.mrp || 0) - Number(item.discountAmount || 0)) * Number(item.quantity || 0), 0)
+}
+
+function formatDate(value: string) {
+  return value ? new Date(value).toLocaleDateString() : '-'
+}
+
+function money(value: number) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 2
+  }).format(value || 0)
 }
 
 onMounted(async () => {
@@ -183,215 +369,219 @@ onMounted(async () => {
     :stores="stores"
     @refresh="refresh"
   >
-    <section class="content">
-      <section class="panel">
-        <div class="panel-header">
-          <h2 class="panel-title">Sales Invoices</h2>
-          <div class="panel-actions">
-            <span class="status" :class="loading ? 'warn' : 'ok'">{{ loading ? 'Loading' : `${invoices.length} invoices` }}</span>
-            <button class="button secondary" type="button" @click="viewMode = 'list'">
-              <FileText :size="16" />
-              List
-            </button>
-            <button class="button" type="button" @click="viewMode = 'create'">
-              <ReceiptIndianRupee :size="16" />
-              New Invoice
-            </button>
+    <section class="planner-dashboard">
+      <UiModulePageHeader
+        title="Sales Billing"
+        description="Create POS invoices, print receipts, and cancel invoices with stock reversal."
+        icon="i-lucide-receipt-indian-rupee"
+        primary-label="New Invoice"
+        primary-icon="i-lucide-plus"
+        @primary="startCreate"
+      >
+        <template #actions>
+          <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
+            {{ loading ? 'Loading' : `${invoices.length} invoices` }}
+          </UBadge>
+          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
+          <UButton icon="i-lucide-plus" label="New Invoice" @click="startCreate" />
+        </template>
+      </UiModulePageHeader>
+
+      <div class="planner-metric-grid">
+        <UCard v-for="metric in metrics" :key="metric.label" class="planner-metric-card">
+          <div class="planner-metric-body">
+            <UAvatar :icon="metric.icon" :color="metric.color" variant="subtle" />
+            <div>
+              <p>{{ metric.label }}</p>
+              <strong>{{ metric.value }}</strong>
+              <span>{{ metric.meta }}</span>
+            </div>
           </div>
-        </div>
+        </UCard>
+      </div>
 
-        <div v-if="viewMode === 'list'" class="panel-body">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Invoice</th>
-                <th>Date</th>
-                <th>Customer</th>
-                <th>Amount</th>
-                <th>Paid</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="invoice in invoices" :key="invoice.id">
-                <td>{{ invoice.invoiceNumber }}</td>
-                <td>{{ new Date(invoice.onDate).toLocaleDateString() }}</td>
-                <td>{{ invoice.customerName }}</td>
-                <td>{{ Number(invoice.billAmount).toFixed(2) }}</td>
-                <td>{{ Number(invoice.paidAmount).toFixed(2) }}</td>
-                <td><span class="status" :class="invoice.invoiceStatus === 'Cancelled' ? 'danger' : 'ok'">{{ invoice.invoiceStatus }}</span></td>
-                <td>
-                  <button class="button secondary" type="button" @click="viewReceipt(invoice.id)">
-                    <FileText :size="16" />
-                    Receipt
-                  </button>
-                  <button
-                    v-if="invoice.invoiceStatus !== 'Cancelled'"
-                    class="button danger-button"
-                    type="button"
-                    @click="cancelInvoice(invoice)"
-                  >
-                    Cancel
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="invoices.length === 0">
-                <td colspan="7">No invoices</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div v-else class="pos-grid">
-          <div class="form-grid">
-            <div class="field">
-              <label for="customerName">Customer</label>
-              <input id="customerName" v-model="saleForm.customerName" />
+      <UCard class="planner-card">
+        <template #header>
+          <div class="planner-card-header">
+            <div>
+              <h2>Invoice Register</h2>
+              <p>Search invoice number, customer, status, or date.</p>
             </div>
-            <div class="field">
-              <label for="customerMobile">Mobile</label>
-              <input id="customerMobile" v-model="saleForm.customerMobileNumber" />
-            </div>
-            <div class="field">
-              <label for="saleProduct">Product</label>
-              <select id="saleProduct" v-model="saleForm.selectedProductId">
-                <option value="">Select product</option>
-                <option v-for="product in products" :key="product.id" :value="product.id">
-                  {{ product.name }} - {{ product.barcode }}
-                </option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="saleQty">Quantity</label>
-              <input id="saleQty" v-model="saleForm.quantity" min="1" type="number" />
-            </div>
-            <div class="field">
-              <label for="lineDiscount">Line discount</label>
-              <input id="lineDiscount" v-model="saleForm.lineDiscount" min="0" type="number" />
-            </div>
-            <button class="button secondary" type="button" @click="addToCart">
-              <PackagePlus :size="16" />
-              Add Item
-            </button>
+            <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
           </div>
+        </template>
 
-          <div class="pos-cart">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Item</th>
-                  <th>Qty</th>
-                  <th>Total</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(item, index) in saleCart" :key="`${item.productId}-${index}`">
-                  <td>{{ item.name }}</td>
-                  <td>{{ item.quantity }}</td>
-                  <td>{{ ((item.mrp - item.discountAmount) * item.quantity).toFixed(2) }}</td>
-                  <td>
-                    <button class="icon-button" type="button" @click="removeCartItem(index)">x</button>
-                  </td>
-                </tr>
-                <tr v-if="saleCart.length === 0">
-                  <td colspan="4">No items</td>
-                </tr>
-              </tbody>
-            </table>
+        <UiCrudToolbar
+          v-model:search="search"
+          search-placeholder="Search invoice or customer"
+          :loading="loading"
+          refresh-label="Sync"
+          create-label="New Invoice"
+          @refresh="refresh"
+          @create="startCreate"
+        />
 
-            <div class="payment-grid">
-              <div class="field">
-                <label for="paymentMode">Payment</label>
-                <select id="paymentMode" v-model="saleForm.paymentMode">
-                  <option :value="0">Cash</option>
-                  <option :value="1">Card</option>
-                  <option :value="2">UPI</option>
-                  <option :value="7">Cheque</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="billDiscount">Bill discount</label>
-                <input id="billDiscount" v-model="saleForm.billDiscountAmount" min="0" type="number" />
-              </div>
-              <div class="field">
-                <label for="paidAmount">Paid</label>
-                <input id="paidAmount" v-model="saleForm.paidAmount" min="0" type="number" />
-              </div>
-              <div class="pos-total">
-                {{ payableTotal.toFixed(2) }}
-              </div>
-              <button class="button" type="button" @click="submitSale">
-                <CreditCard :size="16" />
-                Save Invoice
-              </button>
-            </div>
-            <p v-if="saleMessage" class="setup-message">{{ saleMessage }}</p>
-          </div>
+        <UTable
+          v-if="filteredRows.length"
+          :data="filteredRows"
+          :columns="columns"
+          :loading="loading"
+        />
+
+        <UiCrudEmptyState
+          v-else
+          title="No invoices found"
+          description="Create the first sales invoice from the POS billing workflow."
+          icon="i-lucide-receipt-indian-rupee"
+          action-label="New Invoice"
+          @action="startCreate"
+        />
+      </UCard>
+
+      <UiFormSlideover
+        v-model:open="saleOpen"
+        title="New Sales Invoice"
+        description="Select products, add quantities, collect payment, and save the invoice."
+        submit-label="Save Invoice"
+        :loading="saving"
+        @submit="submitSale"
+      >
+        <UFormField label="Customer">
+          <UInput v-model="saleForm.customerName" />
+        </UFormField>
+        <UFormField label="Mobile">
+          <UInput v-model="saleForm.customerMobileNumber" />
+        </UFormField>
+
+        <USeparator label="Item" />
+
+        <UFormField label="Product">
+          <USelect v-model="saleForm.selectedProductId" :items="productOptions" />
+        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Quantity">
+            <UInput v-model="saleForm.quantity" min="1" type="number" />
+          </UFormField>
+          <UFormField label="Line discount">
+            <UInput v-model="saleForm.lineDiscount" min="0" step="0.01" type="number" />
+          </UFormField>
         </div>
-      </section>
-    </section>
+        <UButton color="neutral" variant="subtle" icon="i-lucide-plus" label="Add Item" type="button" @click="addToCart" />
 
-    <div v-if="selectedReceipt" class="receipt-overlay">
-      <section class="receipt-sheet">
-        <div class="receipt-actions">
-          <button class="button secondary" type="button" @click="closeReceipt">Close</button>
-          <button class="button" type="button" @click="printReceipt">
-            <Printer :size="16" />
-            Print
-          </button>
-        </div>
-
-        <div class="receipt-print">
-          <header class="receipt-header">
-            <h2>{{ selectedReceipt.companyName }}</h2>
-            <p>{{ selectedReceipt.storeName }}</p>
-            <p>Invoice {{ selectedReceipt.invoiceNumber }}</p>
-            <p>{{ new Date(selectedReceipt.onDate).toLocaleString() }}</p>
-          </header>
-
-          <div class="receipt-customer">
-            <span>{{ selectedReceipt.customerName }}</span>
-            <span>{{ selectedReceipt.customerMobileNumber }}</span>
-          </div>
-
-          <table class="receipt-table">
+        <div class="planner-table-wrap">
+          <table class="planner-table">
             <thead>
               <tr>
                 <th>Item</th>
                 <th>Qty</th>
-                <th>MRP</th>
-                <th>Tax</th>
-                <th>Amount</th>
+                <th>Total</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in selectedReceipt.items" :key="`${item.barcode}-${item.productName}`">
-                <td>{{ item.productName }}</td>
+              <tr v-for="(item, index) in saleCart" :key="`${item.productId}-${index}`">
+                <td>{{ item.name }}</td>
                 <td>{{ item.quantity }}</td>
-                <td>{{ Number(item.mrp).toFixed(2) }}</td>
-                <td>{{ Number(item.taxAmount).toFixed(2) }}</td>
-                <td>{{ Number(item.amount).toFixed(2) }}</td>
+                <td>{{ money(lineTotal(item)) }}</td>
+                <td>
+                  <UButton color="error" variant="ghost" icon="i-lucide-x" size="xs" type="button" @click="removeCartItem(index)" />
+                </td>
+              </tr>
+              <tr v-if="saleCart.length === 0">
+                <td colspan="4">No items</td>
               </tr>
             </tbody>
           </table>
-
-          <div class="receipt-totals">
-            <span>MRP</span><strong>{{ Number(selectedReceipt.mrp).toFixed(2) }}</strong>
-            <span>Discount</span><strong>{{ Number(selectedReceipt.discountAmount).toFixed(2) }}</strong>
-            <span>Tax</span><strong>{{ Number(selectedReceipt.taxAmount).toFixed(2) }}</strong>
-            <span>Round off</span><strong>{{ Number(selectedReceipt.roundOff).toFixed(2) }}</strong>
-            <span>Bill amount</span><strong>{{ Number(selectedReceipt.billAmount).toFixed(2) }}</strong>
-            <span>Paid</span><strong>{{ Number(selectedReceipt.paidAmount).toFixed(2) }}</strong>
-            <span>Balance</span><strong>{{ Number(selectedReceipt.balanceAmount).toFixed(2) }}</strong>
-          </div>
-
-          <footer class="receipt-footer">
-            Thank you for shopping with us.
-          </footer>
         </div>
-      </section>
-    </div>
+
+        <USeparator label="Payment" />
+
+        <UFormField label="Payment">
+          <USelect v-model="saleForm.paymentMode" :items="paymentModeOptions" />
+        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Bill discount">
+            <UInput v-model="saleForm.billDiscountAmount" min="0" step="0.01" type="number" />
+          </UFormField>
+          <UFormField label="Paid">
+            <UInput v-model="saleForm.paidAmount" min="0" step="0.01" type="number" />
+          </UFormField>
+        </div>
+        <div class="payroll-summary">
+          <span>Cart total</span><strong>{{ money(cartTotal) }}</strong>
+          <span>Discount</span><strong>{{ money(Number(saleForm.billDiscountAmount || 0)) }}</strong>
+          <span>Payable</span><strong>{{ money(payableTotal) }}</strong>
+        </div>
+      </UiFormSlideover>
+
+      <UModal v-model:open="receiptOpen" title="Invoice Receipt" :ui="{ content: 'max-w-3xl' }">
+        <template #body>
+          <div v-if="selectedReceipt" class="receipt-print">
+            <header class="receipt-header">
+              <h2>{{ selectedReceipt.companyName }}</h2>
+              <p>{{ selectedReceipt.storeName }}</p>
+              <p>Invoice {{ selectedReceipt.invoiceNumber }}</p>
+              <p>{{ new Date(selectedReceipt.onDate).toLocaleString() }}</p>
+            </header>
+
+            <div class="receipt-customer">
+              <span>{{ selectedReceipt.customerName }}</span>
+              <span>{{ selectedReceipt.customerMobileNumber }}</span>
+            </div>
+
+            <table class="receipt-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Qty</th>
+                  <th>MRP</th>
+                  <th>Tax</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in selectedReceipt.items" :key="`${item.barcode}-${item.productName}`">
+                  <td>{{ item.productName }}</td>
+                  <td>{{ item.quantity }}</td>
+                  <td>{{ money(Number(item.mrp || 0)) }}</td>
+                  <td>{{ money(Number(item.taxAmount || 0)) }}</td>
+                  <td>{{ money(Number(item.amount || 0)) }}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="receipt-totals">
+              <span>MRP</span><strong>{{ money(Number(selectedReceipt.mrp || selectedReceipt.MRP || 0)) }}</strong>
+              <span>Discount</span><strong>{{ money(Number(selectedReceipt.discountAmount || 0)) }}</strong>
+              <span>Tax</span><strong>{{ money(Number(selectedReceipt.taxAmount || 0)) }}</strong>
+              <span>Round off</span><strong>{{ money(Number(selectedReceipt.roundOff || 0)) }}</strong>
+              <span>Bill amount</span><strong>{{ money(Number(selectedReceipt.billAmount || 0)) }}</strong>
+              <span>Paid</span><strong>{{ money(Number(selectedReceipt.paidAmount || 0)) }}</strong>
+              <span>Balance</span><strong>{{ money(Number(selectedReceipt.balanceAmount || 0)) }}</strong>
+            </div>
+
+            <footer class="receipt-footer">
+              Thank you for shopping with us.
+            </footer>
+          </div>
+        </template>
+
+        <template #footer>
+          <div class="modal-actions">
+            <UButton color="neutral" variant="outline" label="Close" @click="receiptOpen = false" />
+            <UButton icon="i-lucide-printer" label="Print" @click="printReceipt" />
+          </div>
+        </template>
+      </UModal>
+
+      <UiConfirmDeleteModal
+        v-model:open="cancelOpen"
+        title="Cancel Invoice"
+        :description="`Cancel invoice ${pendingCancel?.invoiceNumber || ''}? Stock will be reversed.`"
+        confirm-label="Cancel Invoice"
+        :loading="cancelling"
+        @confirm="confirmCancel"
+      />
+    </section>
   </AppShell>
 </template>

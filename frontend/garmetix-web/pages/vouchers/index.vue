@@ -1,18 +1,27 @@
 <script setup lang="ts">
-import { Banknote, Pencil, Plus, Trash2 } from 'lucide-vue-next'
+import { h, resolveComponent } from 'vue'
+import type { TableColumn } from '@nuxt/ui'
 
 const api = useGarmetixApi()
 const auth = useAuth()
+const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
+
+const UBadge = resolveComponent('UBadge')
+const UButton = resolveComponent('UButton')
 
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const vouchers = ref<any[]>([])
 const setupStatus = ref<any | null>(null)
 const loading = ref(false)
-const viewMode = ref<'list' | 'create' | 'edit'>('list')
-const voucherMessage = ref('')
-const searchText = ref('')
+const saving = ref(false)
+const deleting = ref(false)
+const search = ref('')
+const formOpen = ref(false)
+const deleteOpen = ref(false)
+const pendingDelete = ref<any | null>(null)
+const editMode = ref<'create' | 'edit'>('create')
 
 const voucherTypeOptions = [
   { value: 0, label: 'Payment' },
@@ -30,18 +39,117 @@ const paymentModeOptions = [
 
 const form = reactive<any>(emptyVoucher())
 
-const filteredVouchers = computed(() => {
-  const query = searchText.value.trim().toLowerCase()
-  if (!query) {
-    return vouchers.value
+const filteredRows = computed(() => {
+  const term = search.value.trim().toLowerCase()
+  if (!term) {
+    return tableRows.value
   }
 
-  return vouchers.value.filter((voucher) => {
-    return String(voucher.voucherNumber || '').toLowerCase().includes(query) ||
-      String(voucher.partyName || '').toLowerCase().includes(query) ||
-      String(voucher.particulars || '').toLowerCase().includes(query)
+  return tableRows.value.filter((row) => JSON.stringify(row).toLowerCase().includes(term))
+})
+
+const voucherSummary = computed(() => {
+  return vouchers.value.reduce((summary, voucher) => {
+    const type = Number(voucher.voucherType)
+    const amount = Number(voucher.amount || 0)
+
+    if (type === 0) {
+      summary.payments += amount
+    } else if (type === 1) {
+      summary.receipts += amount
+    } else {
+      summary.expenses += amount
+    }
+
+    summary.total += amount
+    return summary
+  }, {
+    payments: 0,
+    receipts: 0,
+    expenses: 0,
+    total: 0
   })
 })
+
+const metrics = computed(() => [
+  {
+    label: 'Vouchers',
+    value: vouchers.value.length,
+    meta: 'Accounting entries',
+    icon: 'i-lucide-banknote',
+    color: 'primary'
+  },
+  {
+    label: 'Payments',
+    value: money(voucherSummary.value.payments),
+    meta: 'Payment vouchers',
+    icon: 'i-lucide-arrow-up-right',
+    color: 'warning'
+  },
+  {
+    label: 'Receipts',
+    value: money(voucherSummary.value.receipts),
+    meta: 'Receipt vouchers',
+    icon: 'i-lucide-arrow-down-left',
+    color: 'success'
+  },
+  {
+    label: 'Expenses',
+    value: money(voucherSummary.value.expenses),
+    meta: 'Expense vouchers',
+    icon: 'i-lucide-receipt',
+    color: 'neutral'
+  }
+])
+
+const tableRows = computed(() => vouchers.value.map((voucher) => ({
+  id: voucher.id,
+  voucherNumber: voucher.voucherNumber || '-',
+  onDate: formatDate(voucher.onDate),
+  voucherType: voucherTypeLabel(voucher.voucherType),
+  partyName: voucher.partyName || '-',
+  particulars: voucher.particulars || '-',
+  paymentMode: paymentModeLabel(voucher.paymentMode),
+  amount: money(Number(voucher.amount || 0)),
+  raw: voucher
+})))
+
+const columns: TableColumn<any>[] = [
+  { accessorKey: 'voucherNumber', header: 'Voucher' },
+  { accessorKey: 'onDate', header: 'Date' },
+  {
+    accessorKey: 'voucherType',
+    header: 'Type',
+    cell: ({ row }) => h(UBadge, {
+      color: voucherTypeColor(row.original.raw.voucherType),
+      variant: 'subtle'
+    }, () => row.original.voucherType)
+  },
+  { accessorKey: 'partyName', header: 'Party' },
+  { accessorKey: 'particulars', header: 'Particulars' },
+  { accessorKey: 'paymentMode', header: 'Mode' },
+  { accessorKey: 'amount', header: 'Amount' },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => h('div', { class: 'table-action-buttons' }, [
+      h(UButton, {
+        color: 'neutral',
+        variant: 'ghost',
+        icon: 'i-lucide-pencil',
+        label: 'Edit',
+        onClick: () => startEdit(row.original.raw)
+      }),
+      h(UButton, {
+        color: 'error',
+        variant: 'ghost',
+        icon: 'i-lucide-trash-2',
+        label: 'Delete',
+        onClick: () => askDelete(row.original.raw)
+      })
+    ])
+  }
+]
 
 function emptyVoucher() {
   return {
@@ -84,22 +192,21 @@ async function refresh() {
     companies.value = companyRows
     stores.value = storeRows
     vouchers.value = voucherRows
+  } catch (error) {
+    feedback.failed('Vouchers refresh failed', error)
   } finally {
     loading.value = false
   }
 }
 
-function resetForm() {
-  Object.assign(form, emptyVoucher())
-}
-
 function startCreate() {
-  resetForm()
-  voucherMessage.value = ''
-  viewMode.value = 'create'
+  editMode.value = 'create'
+  Object.assign(form, emptyVoucher())
+  formOpen.value = true
 }
 
 function startEdit(voucher: any) {
+  editMode.value = 'edit'
   Object.assign(form, {
     ...voucher,
     onDate: String(voucher.onDate || new Date().toISOString()).slice(0, 10),
@@ -108,8 +215,7 @@ function startEdit(voucher: any) {
     party: null,
     bankAccount: null
   })
-  voucherMessage.value = ''
-  viewMode.value = 'edit'
+  formOpen.value = true
 }
 
 function buildPayload() {
@@ -124,7 +230,7 @@ function buildPayload() {
   return {
     ...form,
     voucherNumber: String(form.voucherNumber || '').trim(),
-    onDate: new Date(form.onDate).toISOString(),
+    onDate: new Date(`${form.onDate}T00:00:00`).toISOString(),
     voucherType: Number(form.voucherType),
     partyName: String(form.partyName || '').trim(),
     particulars: String(form.particulars || '').trim(),
@@ -132,47 +238,89 @@ function buildPayload() {
     paymentMode: Number(form.paymentMode),
     companyId,
     storeGroupId,
-    storeId
+    storeId,
+    ledger: null,
+    employee: null,
+    party: null,
+    bankAccount: null
   }
 }
 
 async function saveVoucher() {
-  voucherMessage.value = ''
-
+  saving.value = true
   try {
     const payload = buildPayload()
-    if (viewMode.value === 'edit' && form.id) {
+    if (editMode.value === 'edit' && form.id) {
       await api.update<any>('vouchers', form.id, payload)
-      voucherMessage.value = 'Voucher updated.'
+      feedback.updated('Voucher')
     } else {
       await api.create<any>('vouchers', payload)
-      voucherMessage.value = 'Voucher saved.'
+      feedback.saved('Voucher')
     }
 
-    viewMode.value = 'list'
+    formOpen.value = false
     await refresh()
-  } catch (error: any) {
-    voucherMessage.value = error?.data?.message || error?.message || 'Could not save voucher.'
+  } catch (error) {
+    feedback.failed('Could not save voucher', error)
+  } finally {
+    saving.value = false
   }
 }
 
-async function deleteVoucher(voucher: any) {
-  const confirmed = window.confirm(`Delete voucher ${voucher.voucherNumber}?`)
-  if (!confirmed) {
+function askDelete(voucher: any) {
+  pendingDelete.value = voucher
+  deleteOpen.value = true
+}
+
+async function confirmDelete() {
+  if (!pendingDelete.value) {
     return
   }
 
-  await api.remove('vouchers', voucher.id)
-  voucherMessage.value = 'Voucher deleted.'
-  await refresh()
+  deleting.value = true
+  try {
+    await api.remove('vouchers', pendingDelete.value.id)
+    feedback.deleted('Voucher')
+    deleteOpen.value = false
+    pendingDelete.value = null
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not delete voucher', error)
+  } finally {
+    deleting.value = false
+  }
 }
 
 function voucherTypeLabel(value: number) {
   return voucherTypeOptions.find((item) => item.value === Number(value))?.label || 'Voucher'
 }
 
+function voucherTypeColor(value: number) {
+  if (Number(value) === 1) {
+    return 'success'
+  }
+
+  if (Number(value) === 2) {
+    return 'warning'
+  }
+
+  return 'primary'
+}
+
 function paymentModeLabel(value: number) {
   return paymentModeOptions.find((item) => item.value === Number(value))?.label || 'Other'
+}
+
+function formatDate(value: string) {
+  return value ? new Date(value).toLocaleDateString() : '-'
+}
+
+function money(value: number) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 2
+  }).format(value || 0)
 }
 
 onMounted(async () => {
@@ -191,123 +339,125 @@ onMounted(async () => {
     :stores="stores"
     @refresh="refresh"
   >
-    <section class="content">
-      <section class="panel">
-        <div class="panel-header">
-          <h2 class="panel-title">Accounting Vouchers</h2>
-          <div class="panel-actions">
-            <span class="status" :class="loading ? 'warn' : 'ok'">{{ loading ? 'Loading' : `${vouchers.length} vouchers` }}</span>
-            <button class="button secondary" type="button" @click="viewMode = 'list'">
-              <Banknote :size="16" />
-              List
-            </button>
-            <button class="button" type="button" @click="startCreate">
-              <Plus :size="16" />
-              New Voucher
-            </button>
-          </div>
-        </div>
+    <section class="planner-dashboard">
+      <UiModulePageHeader
+        title="Accounting Vouchers"
+        description="Manage payment, receipt, and expense vouchers with a compact accounting workflow."
+        icon="i-lucide-banknote"
+        primary-label="New Voucher"
+        primary-icon="i-lucide-plus"
+        @primary="startCreate"
+      >
+        <template #actions>
+          <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
+            {{ loading ? 'Loading' : `${vouchers.length} vouchers` }}
+          </UBadge>
+          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
+          <UButton icon="i-lucide-plus" label="New Voucher" @click="startCreate" />
+        </template>
+      </UiModulePageHeader>
 
-        <div v-if="viewMode === 'list'" class="panel-body">
-          <div class="table-toolbar">
-            <input v-model="searchText" class="search" aria-label="Search vouchers" placeholder="Search voucher, party, particulars" />
-            <p v-if="voucherMessage" class="inline-message">{{ voucherMessage }}</p>
+      <div class="planner-metric-grid">
+        <UCard v-for="metric in metrics" :key="metric.label" class="planner-metric-card">
+          <div class="planner-metric-body">
+            <UAvatar :icon="metric.icon" :color="metric.color" variant="subtle" />
+            <div>
+              <p>{{ metric.label }}</p>
+              <strong>{{ metric.value }}</strong>
+              <span>{{ metric.meta }}</span>
+            </div>
           </div>
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Voucher</th>
-                <th>Date</th>
-                <th>Type</th>
-                <th>Party</th>
-                <th>Particulars</th>
-                <th>Mode</th>
-                <th>Amount</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="voucher in filteredVouchers" :key="voucher.id">
-                <td>{{ voucher.voucherNumber }}</td>
-                <td>{{ new Date(voucher.onDate).toLocaleDateString() }}</td>
-                <td><span class="status ok">{{ voucherTypeLabel(voucher.voucherType) }}</span></td>
-                <td>{{ voucher.partyName }}</td>
-                <td>{{ voucher.particulars }}</td>
-                <td>{{ paymentModeLabel(voucher.paymentMode) }}</td>
-                <td>{{ Number(voucher.amount).toFixed(2) }}</td>
-                <td>
-                  <button class="button secondary" type="button" @click="startEdit(voucher)">
-                    <Pencil :size="16" />
-                    Edit
-                  </button>
-                  <button class="button danger-button" type="button" @click="deleteVoucher(voucher)">
-                    <Trash2 :size="16" />
-                    Delete
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="filteredVouchers.length === 0">
-                <td colspan="8">No vouchers</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        </UCard>
+      </div>
 
-        <form v-else class="form-grid wide-form" @submit.prevent="saveVoucher">
-          <div class="field">
-            <label for="voucherNumber">Voucher number</label>
-            <input id="voucherNumber" v-model="form.voucherNumber" required />
+      <UCard class="planner-card">
+        <template #header>
+          <div class="planner-card-header">
+            <div>
+              <h2>Voucher Register</h2>
+              <p>Search voucher number, party name, particulars, or payment mode.</p>
+            </div>
+            <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
           </div>
-          <div class="field">
-            <label for="voucherDate">Date</label>
-            <input id="voucherDate" v-model="form.onDate" required type="date" />
-          </div>
-          <div class="field">
-            <label for="voucherType">Type</label>
-            <select id="voucherType" v-model="form.voucherType">
-              <option v-for="item in voucherTypeOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="paymentMode">Payment mode</label>
-            <select id="paymentMode" v-model="form.paymentMode">
-              <option v-for="item in paymentModeOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="partyName">Party</label>
-            <input id="partyName" v-model="form.partyName" required />
-          </div>
-          <div class="field">
-            <label for="amount">Amount</label>
-            <input id="amount" v-model="form.amount" min="0" required type="number" />
-          </div>
-          <div class="field">
-            <label for="particulars">Particulars</label>
-            <input id="particulars" v-model="form.particulars" required />
-          </div>
-          <div class="field">
-            <label for="paymentDetails">Payment details</label>
-            <input id="paymentDetails" v-model="form.paymentDetails" />
-          </div>
-          <div class="field">
-            <label for="slipNumber">Slip number</label>
-            <input id="slipNumber" v-model="form.slipNumber" />
-          </div>
-          <div class="field">
-            <label for="remarks">Remarks</label>
-            <input id="remarks" v-model="form.remarks" />
-          </div>
-          <div class="form-actions">
-            <button class="button secondary" type="button" @click="viewMode = 'list'">Cancel</button>
-            <button class="button" type="submit">
-              <Banknote :size="16" />
-              Save Voucher
-            </button>
-          </div>
-          <p v-if="voucherMessage" class="setup-message">{{ voucherMessage }}</p>
-        </form>
-      </section>
+        </template>
+
+        <UiCrudToolbar
+          v-model:search="search"
+          search-placeholder="Search voucher, party, particulars"
+          :loading="loading"
+          refresh-label="Sync"
+          create-label="New Voucher"
+          @refresh="refresh"
+          @create="startCreate"
+        />
+
+        <UTable
+          v-if="filteredRows.length"
+          :data="filteredRows"
+          :columns="columns"
+          :loading="loading"
+        />
+
+        <UiCrudEmptyState
+          v-else
+          title="No vouchers found"
+          description="Create the first payment, receipt, or expense voucher."
+          icon="i-lucide-banknote"
+          action-label="New Voucher"
+          @action="startCreate"
+        />
+      </UCard>
+
+      <UiFormSlideover
+        v-model:open="formOpen"
+        :title="editMode === 'create' ? 'New Voucher' : 'Edit Voucher'"
+        description="Save payment, receipt, or expense details."
+        :submit-label="editMode === 'create' ? 'Save Voucher' : 'Update Voucher'"
+        :loading="saving"
+        @submit="saveVoucher"
+      >
+        <UFormField label="Voucher number" required>
+          <UInput v-model="form.voucherNumber" required />
+        </UFormField>
+        <UFormField label="Date" required>
+          <UInput v-model="form.onDate" required type="date" />
+        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Type">
+            <USelect v-model="form.voucherType" :items="voucherTypeOptions" />
+          </UFormField>
+          <UFormField label="Payment mode">
+            <USelect v-model="form.paymentMode" :items="paymentModeOptions" />
+          </UFormField>
+        </div>
+        <UFormField label="Party" required>
+          <UInput v-model="form.partyName" required />
+        </UFormField>
+        <UFormField label="Amount" required>
+          <UInput v-model="form.amount" min="0" step="0.01" required type="number" />
+        </UFormField>
+        <UFormField label="Particulars" required>
+          <UTextarea v-model="form.particulars" autoresize required />
+        </UFormField>
+        <UFormField label="Payment details">
+          <UInput v-model="form.paymentDetails" />
+        </UFormField>
+        <UFormField label="Slip number">
+          <UInput v-model="form.slipNumber" />
+        </UFormField>
+        <UFormField label="Remarks">
+          <UTextarea v-model="form.remarks" autoresize />
+        </UFormField>
+        <UCheckbox v-model="form.isParty" label="Party ledger voucher" />
+      </UiFormSlideover>
+
+      <UiConfirmDeleteModal
+        v-model:open="deleteOpen"
+        title="Delete Voucher"
+        :description="`Delete voucher ${pendingDelete?.voucherNumber || ''}?`"
+        :loading="deleting"
+        @confirm="confirmDelete"
+      />
     </section>
   </AppShell>
 </template>

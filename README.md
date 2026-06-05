@@ -71,11 +71,11 @@ After login, the Nuxt dashboard checks `/api/setup/status`. If company/store def
 
 ## Billing POS
 
-Billing now has its own Nuxt route at `/billing`. The page lists sales invoices, opens a new invoice/POS form, shows printable receipts, and cancels invoices with stock reversal. It calls `POST /api/billing/sales`, saves invoice/items/payment in one backend transaction, and updates stock sold quantity. More details are in `backend/Billing-Notes.md`.
+Billing now has its own Nuxt route at `/billing`. The page uses Nuxt UI sales KPI cards, searchable `UTable`, a POS slideover workflow, receipt modal, print action, cancel confirmation, and toast feedback. It calls `POST /api/billing/sales`, saves invoice/items/payment in one backend transaction, and updates stock sold quantity. More details are in `backend/Billing-Notes.md`.
 
 ## Purchase Inward
 
-Purchase now has its own Nuxt route at `/purchase`. The page lists purchase invoices and opens a purchase inward form. It calls `POST /api/purchase/inward`, creates or reuses a vendor, creates missing products when name/barcode are supplied, saves the purchase invoice/items, and increases store stock purchase quantity. More details are in `backend/Purchase-Notes.md`.
+Purchase now has its own Nuxt route at `/purchase`. The page uses Nuxt UI purchase KPI cards, searchable `UTable`, and a purchase inward slideover workflow with item cart totals and toast feedback. It calls `POST /api/purchase/inward`, creates or reuses a vendor, creates missing products when name/barcode are supplied, saves the purchase invoice/items, and increases store stock purchase quantity. More details are in `backend/Purchase-Notes.md`.
 
 ## Frontend Routing
 
@@ -83,35 +83,69 @@ The dashboard is now an overview page. Module navigation uses separate Nuxt page
 
 ## Nuxt UI Direction
 
-The frontend is staged for Nuxt 4 + Nuxt UI v4. Stage 1 adds the Nuxt UI module, wraps the app in `UApp`, and uses Nuxt UI dashboard layout components for the shared shell. Stage 2 adds reusable CRUD building blocks for page headers, toolbars, empty states, delete confirmation, form slideovers, and toast feedback. The full staged migration list is in `Nuxt-UI-Implementation-Stages.md`.
+The frontend is staged for Nuxt 4 + Nuxt UI v4. Stage 1 adds the Nuxt UI module, wraps the app in `UApp`, and uses Nuxt UI dashboard layout components for the shared shell. Stage 2 adds reusable CRUD building blocks for page headers, toolbars, empty states, delete confirmation, form slideovers, and toast feedback. Stage 3 now uses the Nuxt Planner demo as the dashboard direction: grouped navigation, compact KPI cards, dense work tables, progress panels, and recent activity. The full staged migration list is in `Nuxt-UI-Implementation-Stages.md`.
+
+Dark mode is the default theme. Users can switch between Dark, Light, and System from the dashboard top bar, or use the theme icon button for quick toggling.
 
 ## Company Setup
 
-Company Setup now has its own Nuxt route at `/setup`. The page manages companies, store groups, and stores with list, add, edit, and soft-delete actions.
+Company Setup now has its own Nuxt route at `/setup`. The page manages companies, store groups, and stores with Nuxt UI summary cards, tabbed lists, `UTable`, slideover add/edit forms, toast feedback, and delete confirmation.
 
 ## Inventory
 
-Inventory now has its own Nuxt route at `/inventory`. The page lists products with purchase quantity, sold quantity, current stock, and stock value. It also includes add, edit, and soft-delete actions for products.
+Inventory now has its own Nuxt route at `/inventory`. The page uses Nuxt UI stock KPI cards, searchable `UTable`, product add/edit slideover forms, toast feedback, and delete confirmation. It shows purchase quantity, sold quantity, current stock, and MRP stock value.
 
 ## Vouchers
 
-Vouchers now have their own Nuxt route at `/vouchers`. The page lists payment, receipt, and expense vouchers with add, edit, and soft-delete actions.
+Vouchers now have their own Nuxt route at `/vouchers`. The page uses Nuxt UI payment, receipt, and expense KPI cards, searchable `UTable`, voucher add/edit slideover forms, toast feedback, and delete confirmation.
 
 ## Petty Cash
 
-Petty Cash now has its own Nuxt route at `/petty-cash`. The page manages daily cash sheets with opening balance, sales, receipts, expenses, payments, deposits, and calculated cash in hand.
+Petty Cash now has its own Nuxt route at `/petty-cash`. The page uses Nuxt UI daily cash KPI cards, searchable `UTable`, cash sheet add/edit slideover forms, calculated cash summary, toast feedback, and delete confirmation.
 
 ## HR
 
-HR now has its own Nuxt route at `/hr`. The page lists employees and includes add, edit, and soft-delete actions using the generated employee model. It also manages daily attendance and monthly attendance. Monthly attendance can be generated from daily attendance rows, and the HR page auto-runs generation once when opened on the last day of a month.
+HR now has its own Nuxt route at `/hr`. The page uses Nuxt UI KPI cards, tabs, `UTable`, employee and attendance slideover forms, monthly attendance generation controls, toast feedback, and delete confirmation. Monthly attendance can be generated from daily attendance rows, and the HR page auto-runs generation once when opened on the last day of a month.
 
 ## Payroll
 
-Payroll now has its own Nuxt route at `/payroll`. The page manages salary structures and salary payments with list, add, edit, and soft-delete actions.
+Payroll now has its own Nuxt route at `/payroll`. The page uses Nuxt UI KPI cards, payslip, salary structure, and salary payment tabs, `UTable`, slideover forms, salary summaries, billable-days attendance context, toast feedback, and delete confirmation.
+
+Payslips can be generated for a selected month from `/api/payroll/payslips/generate-month`. The generator prorates salary from monthly attendance billable days, reduces salary advances, carries previous unpaid due, and shows the remaining due amount. The Payroll page auto-generates the previous month's payslips once when opened on the first day of a month. Each payslip can be opened in a print view and saved as PDF from the browser print dialog, with quick Email and WhatsApp share actions.
+
+The API also runs a hosted payroll automation job. On the last day of each month it generates monthly attendance from daily attendance. On the first day of each month it generates payslips for the previous month, including attendance proration, salary advance reduction, and carry-forward due calculation. The job is idempotent: if records already exist, it updates them instead of duplicating them.
+
+Configure the automation in `backend/Garmetix.Api/appsettings.json`:
+
+```json
+"PayrollAutomation": {
+  "Enabled": true,
+  "TimeZoneId": "Asia/Kolkata",
+  "RunHour": 2,
+  "RunMinute": 0,
+  "RunOnStartup": true
+}
+```
+
+For Linux and Mac mini deployments, `Asia/Kolkata` is recommended. The app also falls back to `India Standard Time` for Windows development machines.
 
 ## Access
 
-Access now has its own Nuxt route at `/access`. The page manages users, roles, user types, admin access, password reset, and company/store scope. It uses safe `/api/access/users` endpoints that hash passwords and do not return password hashes.
+Access now has its own Nuxt UI route at `/access`. The page manages users, roles, user types, admin access, password reset, and company/store scope with KPI cards, searchable `UTable`, role badges, form slideover, reset dialog, toast feedback, and delete confirmation. It uses safe `/api/access/users` endpoints that hash passwords and do not return password hashes.
+
+## Import Export
+
+Import Export now has its own Nuxt route at `/import-export`. Admin users can download CSV exports and matching import templates for setup, inventory, billing, purchase, vouchers, petty cash, HR, payroll, and access.
+
+Validated CSV import is enabled for inventory, HR employees, vouchers, and petty cash. Use `Validate CSV` first to check row and field errors, then `Import CSV` to commit valid files. Billing, purchase, payroll, access, and setup remain export/template-ready until their write rules are finalized.
+
+## Audit
+
+Audit now has its own Nuxt UI route at `/audit`. Admin users can review a searchable activity register generated from existing created/updated timestamps across setup, inventory, billing, purchase, vouchers, petty cash, HR, and payroll. The backend endpoint is `GET /api/audit/recent`.
+
+## Reports
+
+Reports now has its own Nuxt UI route at `/reports`. It includes Sales, Purchase, Stock, Petty Cash, Attendance, and Payroll report views with date filters, KPI cards, searchable `UTable` rows, print action, and client-side CSV export.
 
 ## Run Frontend Locally
 
@@ -120,6 +154,17 @@ cd frontend/garmetix-web
 npm install
 npm run dev
 ```
+
+On this Windows machine, if `node` resolves to a blocked WindowsApps shim, use the installed Node.js path explicitly:
+
+```powershell
+$env:NODE_OPTIONS='--use-system-ca'
+$env:PATH='C:\Program Files\nodejs;' + $env:PATH
+& 'C:\Program Files\nodejs\npm.cmd' install
+& 'C:\Program Files\nodejs\npm.cmd' run build
+```
+
+The Nuxt production build has been verified with this command path.
 
 ## Run With Docker
 
@@ -131,6 +176,17 @@ Then open:
 
 - Web: `http://localhost:3000`
 - API: `http://localhost:5080`
+
+## Production Deploy
+
+For Linux or Mac mini deployment:
+
+```bash
+cp .env.example .env
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+Set `POSTGRES_PASSWORD`, `JWT_SIGNING_KEY`, and `NUXT_PUBLIC_API_BASE` in `.env` before starting. Full deployment, backup, restore, and update notes are in `Deployment-Linux-MacMini.md`.
 
 ## Migration Notes
 

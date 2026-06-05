@@ -7,6 +7,11 @@ export default defineNuxtConfig({
     }
   },
   modules: ['@nuxt/ui'],
+  colorMode: {
+    preference: 'dark',
+    fallback: 'dark',
+    classSuffix: ''
+  },
   ui: {
     theme: {
       colors: ['primary', 'success', 'warning', 'error', 'neutral']

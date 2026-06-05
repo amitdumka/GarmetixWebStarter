@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import { Boxes, PackagePlus, Pencil, Trash2 } from 'lucide-vue-next'
+import { h, resolveComponent } from 'vue'
+import type { TableColumn } from '@nuxt/ui'
 
 const api = useGarmetixApi()
 const auth = useAuth()
+const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
+
+const UBadge = resolveComponent('UBadge')
+const UButton = resolveComponent('UButton')
 
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
@@ -11,43 +16,142 @@ const products = ref<any[]>([])
 const stocks = ref<any[]>([])
 const setupStatus = ref<any | null>(null)
 const loading = ref(false)
-const viewMode = ref<'list' | 'create' | 'edit'>('list')
-const inventoryMessage = ref('')
-const searchText = ref('')
+const saving = ref(false)
+const deleting = ref(false)
+const search = ref('')
+const formOpen = ref(false)
+const deleteOpen = ref(false)
+const editMode = ref<'create' | 'edit'>('create')
+const pendingDelete = ref<any | null>(null)
 
-const createForm = reactive({
-  productName: '',
-  barcode: '',
-  mrp: 0,
-  openingQuantity: 0
-})
+const productForm = reactive<any>(emptyProduct())
 
-const editForm = reactive<any>({
-  id: '',
-  name: '',
-  barcode: '',
-  mrp: 0,
-  taxRate: 0,
-  unit: 2,
-  taxType: 0,
-  productType: 0,
-  productCategoryId: '',
-  productSubCategoryId: '',
-  companyId: '',
-  storeGroupId: ''
-})
-
-const filteredProducts = computed(() => {
-  const query = searchText.value.trim().toLowerCase()
-  if (!query) {
-    return products.value
+const filteredRows = computed(() => {
+  const term = search.value.trim().toLowerCase()
+  if (!term) {
+    return tableRows.value
   }
 
-  return products.value.filter((product) => {
-    return String(product.name || '').toLowerCase().includes(query) ||
-      String(product.barcode || '').toLowerCase().includes(query)
+  return tableRows.value.filter((row) => JSON.stringify(row).toLowerCase().includes(term))
+})
+
+const stockSummary = computed(() => {
+  return products.value.reduce((summary, product) => {
+    const stock = stockFor(product.id)
+    summary.purchaseQty += stock.purchaseQty
+    summary.soldQty += stock.soldQty
+    summary.currentStock += stock.currentStock
+    summary.stockValue += stock.mrpValue
+    return summary
+  }, {
+    purchaseQty: 0,
+    soldQty: 0,
+    currentStock: 0,
+    stockValue: 0
   })
 })
+
+const metrics = computed(() => [
+  {
+    label: 'Products',
+    value: products.value.length,
+    meta: 'Product masters',
+    icon: 'i-lucide-boxes',
+    color: 'primary'
+  },
+  {
+    label: 'Current Stock',
+    value: stockSummary.value.currentStock,
+    meta: 'Purchased minus sold',
+    icon: 'i-lucide-warehouse',
+    color: stockSummary.value.currentStock > 0 ? 'success' : 'warning'
+  },
+  {
+    label: 'Sold Qty',
+    value: stockSummary.value.soldQty,
+    meta: 'Across all stores',
+    icon: 'i-lucide-shopping-bag',
+    color: 'neutral'
+  },
+  {
+    label: 'Stock Value',
+    value: money(stockSummary.value.stockValue),
+    meta: 'MRP value',
+    icon: 'i-lucide-indian-rupee',
+    color: 'warning'
+  }
+])
+
+const tableRows = computed(() => products.value.map((product) => {
+  const stock = stockFor(product.id)
+  return {
+    id: product.id,
+    name: product.name || 'Product',
+    barcode: product.barcode || '-',
+    mrp: money(Number(product.mrp || 0)),
+    purchased: stock.purchaseQty,
+    sold: stock.soldQty,
+    currentStock: stock.currentStock,
+    stockValue: money(stock.mrpValue),
+    raw: product
+  }
+}))
+
+const columns: TableColumn<any>[] = [
+  { accessorKey: 'name', header: 'Product' },
+  { accessorKey: 'barcode', header: 'Barcode' },
+  { accessorKey: 'mrp', header: 'MRP' },
+  { accessorKey: 'purchased', header: 'Purchased' },
+  { accessorKey: 'sold', header: 'Sold' },
+  {
+    accessorKey: 'currentStock',
+    header: 'Stock',
+    cell: ({ row }) => h(UBadge, {
+      color: row.original.currentStock > 0 ? 'success' : 'warning',
+      variant: 'subtle'
+    }, () => String(row.original.currentStock))
+  },
+  { accessorKey: 'stockValue', header: 'Value' },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => h('div', { class: 'table-action-buttons' }, [
+      h(UButton, {
+        color: 'neutral',
+        variant: 'ghost',
+        icon: 'i-lucide-pencil',
+        label: 'Edit',
+        onClick: () => startEdit(row.original.raw)
+      }),
+      h(UButton, {
+        color: 'error',
+        variant: 'ghost',
+        icon: 'i-lucide-trash-2',
+        label: 'Delete',
+        onClick: () => askDelete(row.original.raw)
+      })
+    ])
+  }
+]
+
+function emptyProduct() {
+  return {
+    id: '',
+    name: '',
+    productName: '',
+    barcode: '',
+    mrp: 0,
+    openingQuantity: 0,
+    taxRate: 0,
+    unit: 2,
+    taxType: 0,
+    productType: 0,
+    productCategoryId: '',
+    productSubCategoryId: '',
+    companyId: '',
+    storeGroupId: ''
+  }
+}
 
 function stockFor(productId: string) {
   const rows = stocks.value.filter((stock) => stock.productId === productId)
@@ -78,79 +182,115 @@ async function refresh() {
     stores.value = storeRows
     products.value = productRows
     stocks.value = stockRows
+  } catch (error) {
+    feedback.failed('Inventory refresh failed', error)
   } finally {
     loading.value = false
   }
 }
 
-async function createProduct() {
-  inventoryMessage.value = ''
+function startCreate() {
+  editMode.value = 'create'
+  Object.assign(productForm, emptyProduct())
+  formOpen.value = true
+}
 
+function startEdit(product: any) {
+  editMode.value = 'edit'
+  Object.assign(productForm, {
+    ...emptyProduct(),
+    ...product,
+    productName: product.name || '',
+    productCategory: null,
+    productSubCategory: null,
+    stocks: null
+  })
+  formOpen.value = true
+}
+
+async function saveProduct() {
+  saving.value = true
+  try {
+    if (editMode.value === 'create') {
+      await createProduct()
+      feedback.saved('Product')
+    } else {
+      await updateProduct()
+      feedback.updated('Product')
+    }
+
+    formOpen.value = false
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not save product', error)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function createProduct() {
   const companyId = setupStatus.value?.companyId || companies.value[0]?.id
   const storeGroupId = setupStatus.value?.storeGroupId || stores.value[0]?.storeGroupId
   const storeId = setupStatus.value?.storeId || stores.value[0]?.id
 
   if (!companyId || !storeGroupId || !storeId) {
-    inventoryMessage.value = 'Run quick setup before adding products.'
-    return
+    throw new Error('Run quick setup before adding products.')
   }
 
   await api.create<any>('setup/quick-product', {
-    name: createForm.productName,
-    barcode: createForm.barcode,
-    mrp: Number(createForm.mrp),
-    openingQuantity: Number(createForm.openingQuantity),
+    name: String(productForm.productName || productForm.name || '').trim(),
+    barcode: String(productForm.barcode || '').trim(),
+    mrp: Number(productForm.mrp || 0),
+    openingQuantity: Number(productForm.openingQuantity || 0),
     companyId,
     storeGroupId,
     storeId
   })
-
-  createForm.productName = ''
-  createForm.barcode = ''
-  createForm.mrp = 0
-  createForm.openingQuantity = 0
-  inventoryMessage.value = 'Product saved.'
-  viewMode.value = 'list'
-  await refresh()
 }
 
-function startEdit(product: any) {
-  Object.assign(editForm, {
-    ...product,
+async function updateProduct() {
+  await api.update<any>('products', productForm.id, {
+    ...productForm,
+    name: String(productForm.productName || productForm.name || '').trim(),
+    barcode: String(productForm.barcode || '').trim(),
+    mrp: Number(productForm.mrp || 0),
+    taxRate: Number(productForm.taxRate || 0),
     productCategory: null,
     productSubCategory: null,
     stocks: null
   })
-  viewMode.value = 'edit'
-  inventoryMessage.value = ''
 }
 
-async function saveEdit() {
-  inventoryMessage.value = ''
-
-  await api.update<any>('products', editForm.id, {
-    ...editForm,
-    name: String(editForm.name || '').trim(),
-    barcode: String(editForm.barcode || '').trim(),
-    mrp: Number(editForm.mrp || 0),
-    taxRate: Number(editForm.taxRate || 0)
-  })
-
-  inventoryMessage.value = 'Product updated.'
-  viewMode.value = 'list'
-  await refresh()
+function askDelete(product: any) {
+  pendingDelete.value = product
+  deleteOpen.value = true
 }
 
-async function deleteProduct(product: any) {
-  const stock = stockFor(product.id)
-  const confirmed = window.confirm(`Delete product ${product.name}? Current stock is ${stock.currentStock}.`)
-  if (!confirmed) {
+async function confirmDelete() {
+  if (!pendingDelete.value) {
     return
   }
 
-  await api.remove('products', product.id)
-  inventoryMessage.value = 'Product deleted.'
-  await refresh()
+  deleting.value = true
+  try {
+    await api.remove('products', pendingDelete.value.id)
+    feedback.deleted('Product')
+    deleteOpen.value = false
+    pendingDelete.value = null
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not delete product', error)
+  } finally {
+    deleting.value = false
+  }
+}
+
+function money(value: number) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 2
+  }).format(value || 0)
 }
 
 onMounted(async () => {
@@ -169,126 +309,109 @@ onMounted(async () => {
     :stores="stores"
     @refresh="refresh"
   >
-    <section class="content">
-      <section class="panel">
-        <div class="panel-header">
-          <h2 class="panel-title">Products</h2>
-          <div class="panel-actions">
-            <span class="status" :class="loading ? 'warn' : 'ok'">{{ loading ? 'Loading' : `${products.length} products` }}</span>
-            <button class="button secondary" type="button" @click="viewMode = 'list'">
-              <Boxes :size="16" />
-              List
-            </button>
-            <button class="button" type="button" @click="viewMode = 'create'">
-              <PackagePlus :size="16" />
-              New Product
-            </button>
+    <section class="planner-dashboard">
+      <UiModulePageHeader
+        title="Inventory"
+        description="Track product masters, stock quantity, sold quantity, and MRP stock value."
+        icon="i-lucide-boxes"
+        primary-label="New Product"
+        primary-icon="i-lucide-package-plus"
+        @primary="startCreate"
+      >
+        <template #actions>
+          <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
+            {{ loading ? 'Loading' : `${products.length} products` }}
+          </UBadge>
+          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
+          <UButton icon="i-lucide-package-plus" label="New Product" @click="startCreate" />
+        </template>
+      </UiModulePageHeader>
+
+      <div class="planner-metric-grid">
+        <UCard v-for="metric in metrics" :key="metric.label" class="planner-metric-card">
+          <div class="planner-metric-body">
+            <UAvatar :icon="metric.icon" :color="metric.color" variant="subtle" />
+            <div>
+              <p>{{ metric.label }}</p>
+              <strong>{{ metric.value }}</strong>
+              <span>{{ metric.meta }}</span>
+            </div>
           </div>
+        </UCard>
+      </div>
+
+      <UCard class="planner-card">
+        <template #header>
+          <div class="planner-card-header">
+            <div>
+              <h2>Products</h2>
+              <p>Search, edit, and maintain product stock visibility.</p>
+            </div>
+            <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
+          </div>
+        </template>
+
+        <UiCrudToolbar
+          v-model:search="search"
+          search-placeholder="Search product or barcode"
+          :loading="loading"
+          refresh-label="Sync"
+          create-label="New Product"
+          @refresh="refresh"
+          @create="startCreate"
+        />
+
+        <UTable
+          v-if="filteredRows.length"
+          :data="filteredRows"
+          :columns="columns"
+          :loading="loading"
+        />
+
+        <UiCrudEmptyState
+          v-else
+          title="No products found"
+          description="Create the first product to start billing, purchase, and inventory workflows."
+          icon="i-lucide-package-search"
+          action-label="New Product"
+          @action="startCreate"
+        />
+      </UCard>
+
+      <UiFormSlideover
+        v-model:open="formOpen"
+        :title="editMode === 'create' ? 'New Product' : 'Edit Product'"
+        description="Maintain product master data and opening stock."
+        :submit-label="editMode === 'create' ? 'Save Product' : 'Update Product'"
+        :loading="saving"
+        @submit="saveProduct"
+      >
+        <UFormField label="Product name" required>
+          <UInput v-model="productForm.productName" required />
+        </UFormField>
+        <UFormField label="Barcode" required>
+          <UInput v-model="productForm.barcode" required />
+        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="MRP">
+            <UInput v-model="productForm.mrp" min="0" step="0.01" type="number" />
+          </UFormField>
+          <UFormField v-if="editMode === 'create'" label="Opening quantity">
+            <UInput v-model="productForm.openingQuantity" min="0" step="1" type="number" />
+          </UFormField>
+          <UFormField v-else label="Tax rate">
+            <UInput v-model="productForm.taxRate" min="0" step="0.01" type="number" />
+          </UFormField>
         </div>
+      </UiFormSlideover>
 
-        <div v-if="viewMode === 'list'" class="panel-body">
-          <div class="table-toolbar">
-            <input v-model="searchText" class="search" aria-label="Search products" placeholder="Search product or barcode" />
-            <p v-if="inventoryMessage" class="inline-message">{{ inventoryMessage }}</p>
-          </div>
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Barcode</th>
-                <th>MRP</th>
-                <th>Purchased</th>
-                <th>Sold</th>
-                <th>Stock</th>
-                <th>Value</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="product in filteredProducts" :key="product.id">
-                <td>{{ product.name }}</td>
-                <td>{{ product.barcode }}</td>
-                <td>{{ Number(product.mrp).toFixed(2) }}</td>
-                <td>{{ stockFor(product.id).purchaseQty }}</td>
-                <td>{{ stockFor(product.id).soldQty }}</td>
-                <td>
-                  <span class="status" :class="stockFor(product.id).currentStock > 0 ? 'ok' : 'warn'">
-                    {{ stockFor(product.id).currentStock }}
-                  </span>
-                </td>
-                <td>{{ stockFor(product.id).mrpValue.toFixed(2) }}</td>
-                <td>
-                  <button class="button secondary" type="button" @click="startEdit(product)">
-                    <Pencil :size="16" />
-                    Edit
-                  </button>
-                  <button class="button danger-button" type="button" @click="deleteProduct(product)">
-                    <Trash2 :size="16" />
-                    Delete
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="filteredProducts.length === 0">
-                <td colspan="8">No products</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <form v-else-if="viewMode === 'create'" class="form-grid wide-form" @submit.prevent="createProduct">
-          <div class="field">
-            <label for="productName">Product name</label>
-            <input id="productName" v-model="createForm.productName" required />
-          </div>
-          <div class="field">
-            <label for="barcode">Barcode</label>
-            <input id="barcode" v-model="createForm.barcode" required />
-          </div>
-          <div class="field">
-            <label for="mrp">MRP</label>
-            <input id="mrp" v-model="createForm.mrp" min="0" type="number" />
-          </div>
-          <div class="field">
-            <label for="openingQuantity">Opening quantity</label>
-            <input id="openingQuantity" v-model="createForm.openingQuantity" min="0" type="number" />
-          </div>
-          <div class="form-actions">
-            <button class="button secondary" type="button" @click="viewMode = 'list'">Cancel</button>
-            <button class="button" type="submit">
-              <PackagePlus :size="16" />
-              Save Product
-            </button>
-          </div>
-          <p v-if="inventoryMessage" class="setup-message">{{ inventoryMessage }}</p>
-        </form>
-
-        <form v-else class="form-grid wide-form" @submit.prevent="saveEdit">
-          <div class="field">
-            <label for="editName">Product name</label>
-            <input id="editName" v-model="editForm.name" required />
-          </div>
-          <div class="field">
-            <label for="editBarcode">Barcode</label>
-            <input id="editBarcode" v-model="editForm.barcode" required />
-          </div>
-          <div class="field">
-            <label for="editMrp">MRP</label>
-            <input id="editMrp" v-model="editForm.mrp" min="0" type="number" />
-          </div>
-          <div class="field">
-            <label for="editTaxRate">Tax rate</label>
-            <input id="editTaxRate" v-model="editForm.taxRate" min="0" type="number" />
-          </div>
-          <div class="form-actions">
-            <button class="button secondary" type="button" @click="viewMode = 'list'">Cancel</button>
-            <button class="button" type="submit">
-              <Pencil :size="16" />
-              Save Changes
-            </button>
-          </div>
-          <p v-if="inventoryMessage" class="setup-message">{{ inventoryMessage }}</p>
-        </form>
-      </section>
+      <UiConfirmDeleteModal
+        v-model:open="deleteOpen"
+        title="Delete Product"
+        :description="`Delete ${pendingDelete?.name || 'this product'}? Current stock is ${pendingDelete ? stockFor(pendingDelete.id).currentStock : 0}.`"
+        :loading="deleting"
+        @confirm="confirmDelete"
+      />
     </section>
   </AppShell>
 </template>
