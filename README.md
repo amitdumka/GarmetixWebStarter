@@ -79,7 +79,7 @@ Purchase now has its own Nuxt route at `/purchase`. The page uses Nuxt UI purcha
 
 ## Frontend Routing
 
-The dashboard is now an overview page. Module navigation uses separate Nuxt pages, starting with `/setup`, `/billing`, `/purchase`, `/inventory`, `/vouchers`, `/petty-cash`, `/hr`, `/payroll`, and `/access`. Other module links have placeholder pages ready for their own list/form workflows.
+The dashboard is now an overview page. Module navigation uses separate Nuxt pages, starting with `/setup`, `/billing`, `/purchase`, `/inventory`, `/vouchers`, `/accounting`, `/petty-cash`, `/hr`, `/payroll`, and `/access`. Other module links have placeholder pages ready for their own list/form workflows.
 
 ## Nuxt UI Direction
 
@@ -97,7 +97,11 @@ Inventory now has its own Nuxt route at `/inventory`. The page uses Nuxt UI stoc
 
 ## Vouchers
 
-Vouchers now have their own Nuxt route at `/vouchers`. The page uses Nuxt UI payment, receipt, and expense KPI cards, searchable `UTable`, voucher add/edit slideover forms, toast feedback, and delete confirmation.
+Vouchers now have their own Nuxt route at `/vouchers`. The page uses Nuxt UI payment, receipt, and expense KPI cards, searchable `UTable`, voucher add/edit slideover forms, toast feedback, and delete confirmation. Non-cash vouchers require a bank account and post bank transactions, statement lines, and cheque logs where applicable.
+
+## Accounting
+
+Accounting now has its own Nuxt route at `/accounting`. It includes Indian accounting defaults, ledger groups, ledgers, parties, bank accounts, bank transaction entry, bank statements, vendor bank accounts, cheque logs, and trial balance. Voucher save uses double-entry journal posting: payments and expenses debit the selected ledger and credit cash/bank; receipts debit cash/bank and credit the selected ledger.
 
 ## Petty Cash
 

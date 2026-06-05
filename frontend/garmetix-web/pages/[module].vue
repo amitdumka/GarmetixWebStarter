@@ -10,6 +10,7 @@ const stores = ref<any[]>([])
 const titleMap: Record<string, string> = {
   inventory: 'Inventory',
   vouchers: 'Vouchers',
+  accounting: 'Accounting',
   'petty-cash': 'Petty Cash',
   hr: 'HR',
   payroll: 'Payroll',

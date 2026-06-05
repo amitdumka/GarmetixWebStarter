@@ -30,6 +30,7 @@ Status: Done
 - Convert Setup to Nuxt UI with summary cards, tabbed master data, `UTable`, shared toolbar, slideover forms, toast feedback, and delete confirmation.
 - Convert Inventory to Nuxt UI with stock KPI cards, product search, `UTable`, product slideover forms, toast feedback, and delete confirmation.
 - Convert Vouchers to Nuxt UI with payment/receipt/expense KPI cards, searchable `UTable`, voucher slideover forms, toast feedback, and delete confirmation.
+- Add Accounting to Nuxt UI with Indian ledger groups, party masters, bank accounts, bank transactions, cheque logs, trial balance, and bank statement views.
 - Convert Petty Cash to Nuxt UI with daily cash KPI cards, searchable `UTable`, cash sheet slideover forms, calculated cash summary, toast feedback, and delete confirmation.
 - Convert Purchase to Nuxt UI with purchase KPI cards, searchable purchase register, inward slideover workflow, cart totals, and toast feedback.
 - Convert Billing to Nuxt UI with sales KPI cards, searchable invoice register, POS slideover workflow, receipt modal, cancel confirmation, print action, and toast feedback.

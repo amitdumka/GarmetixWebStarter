@@ -42,8 +42,16 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
 
     public DbSet<Bank> Banks => Set<Bank>();
     public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
+    public DbSet<BankAccountDetail> BankAccountDetails => Set<BankAccountDetail>();
+    public DbSet<VendorBankAccount> VendorBankAccounts => Set<VendorBankAccount>();
+    public DbSet<BankTransaction> BankTransactions => Set<BankTransaction>();
+    public DbSet<ChequeLog> ChequeLogs => Set<ChequeLog>();
+    public DbSet<BankCashTranscation> BankCashTranscations => Set<BankCashTranscation>();
+    public DbSet<BankStatementLine> BankStatementLines => Set<BankStatementLine>();
     public DbSet<LedgerGroup> LedgerGroups => Set<LedgerGroup>();
     public DbSet<Ledger> Ledgers => Set<Ledger>();
+    public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
+    public DbSet<JournalLine> JournalLines => Set<JournalLine>();
     public DbSet<Voucher> Vouchers => Set<Voucher>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<Party> Parties => Set<Party>();
@@ -99,6 +107,11 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<Invoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.StoreId, invoice.InvoiceNumber }).IsUnique(false);
         modelBuilder.Entity<PurchaseInvoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.VendorId, invoice.InvoiceNumber }).IsUnique(false);
         modelBuilder.Entity<Voucher>().HasIndex(voucher => new { voucher.CompanyId, voucher.StoreId, voucher.VoucherNumber }).IsUnique(false);
+        modelBuilder.Entity<JournalEntry>().HasIndex(entry => new { entry.CompanyId, entry.StoreId, entry.EntryNumber }).IsUnique(false);
+        modelBuilder.Entity<JournalLine>().HasIndex(line => new { line.CompanyId, line.LedgerId, line.JournalEntryId });
+        modelBuilder.Entity<BankTransaction>().HasIndex(transaction => new { transaction.CompanyId, transaction.BankAccountId, transaction.OnDate });
+        modelBuilder.Entity<BankStatementLine>().HasIndex(line => new { line.CompanyId, line.BankAccountId, line.OnDate });
+        modelBuilder.Entity<ChequeLog>().HasIndex(cheque => new { cheque.CompanyId, cheque.BankAccountId, cheque.ChequeNumber });
         modelBuilder.Entity<Employee>().HasIndex(employee => new { employee.CompanyId, employee.StoreId, employee.Mobile });
     }
 

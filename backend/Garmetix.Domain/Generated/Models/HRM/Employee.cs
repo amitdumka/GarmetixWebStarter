@@ -82,7 +82,7 @@ namespace Garmetix.Core.Models.HRM
         [Display(Name = "PAN Number")]
         public string? PAN { get; set; }
 
-        [Required, MaxLength(10), MinLength(10)]
+        [Required, MaxLength(12), MinLength(12)]
         [Display(Name = "Aadhar Number")]
         public required string Aadhar { get; set; }
 

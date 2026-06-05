@@ -39,3 +39,8 @@ public sealed record QuickProductRequest(
     Guid? ProductCategoryId,
     Guid? ProductSubCategoryId,
     Guid? TaxId);
+
+public sealed record AccountingDefaultsResponse(
+    int LedgerGroupsCreated,
+    int LedgersCreated,
+    int PartiesCreated);

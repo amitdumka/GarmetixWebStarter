@@ -109,7 +109,25 @@ namespace Garmetix.Core.Enums
         Employees,
         Stock,
         Debitor,
-        Creditor
+        Creditor,
+        CapitalAccount,
+        CurrentAssets,
+        FixedAssets,
+        CurrentLiabilities,
+        DutiesAndTaxes,
+        SecuredLoans,
+        UnsecuredLoans,
+        SundryDebtors,
+        SundryCreditors,
+        BankAccounts,
+        CashInHand,
+        DirectIncome,
+        IndirectIncome,
+        DirectExpenses,
+        IndirectExpenses,
+        PurchaseAccounts,
+        SalesAccounts,
+        SuspenseAccount
     }
 
     public enum LedgerEntryType
@@ -141,6 +159,15 @@ namespace Garmetix.Core.Enums
         StockItem,
         Employee,
         CaptialAccount,
+        CapitalAccount,
+        CurrentAsset,
+        FixedAsset,
+        CurrentLiability,
+        DutyAndTax,
+        SundryDebtor,
+        SundryCreditor,
+        BankLoan,
+        Suspense,
     }
 
     public enum LoginRole

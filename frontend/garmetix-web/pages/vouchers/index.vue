@@ -13,6 +13,10 @@ const UButton = resolveComponent('UButton')
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const vouchers = ref<any[]>([])
+const ledgers = ref<any[]>([])
+const parties = ref<any[]>([])
+const employees = ref<any[]>([])
+const bankAccounts = ref<any[]>([])
 const setupStatus = ref<any | null>(null)
 const loading = ref(false)
 const saving = ref(false)
@@ -33,11 +37,37 @@ const paymentModeOptions = [
   { value: 0, label: 'Cash' },
   { value: 1, label: 'Card' },
   { value: 2, label: 'UPI' },
+  { value: 3, label: 'Wallets' },
+  { value: 4, label: 'IMPS' },
+  { value: 5, label: 'RTGS' },
   { value: 6, label: 'NEFT' },
-  { value: 7, label: 'Cheque' }
+  { value: 7, label: 'Cheque' },
+  { value: 8, label: 'Demand Draft' }
 ]
 
 const form = reactive<any>(emptyVoucher())
+
+const ledgerOptions = computed(() => ledgers.value.map((ledger) => ({
+  value: ledger.id,
+  label: ledger.name || 'Ledger'
+})))
+
+const partyOptions = computed(() => parties.value.map((party) => ({
+  value: party.id,
+  label: party.name || 'Party'
+})))
+
+const employeeOptions = computed(() => employees.value.map((employee) => ({
+  value: employee.id,
+  label: `${employee.firstName || ''} ${employee.lastName || ''}`.trim() || employee.staffName || 'Employee'
+})))
+
+const bankAccountOptions = computed(() => bankAccounts.value.map((account) => ({
+  value: account.id,
+  label: `${account.accountHolderName || 'Bank'} - ${account.accountNumber || ''}`.trim()
+})))
+
+const requiresBankAccount = computed(() => [1, 2, 3, 4, 5, 6, 7, 8].includes(Number(form.paymentMode)))
 
 const filteredRows = computed(() => {
   const term = search.value.trim().toLowerCase()
@@ -111,6 +141,9 @@ const tableRows = computed(() => vouchers.value.map((voucher) => ({
   particulars: voucher.particulars || '-',
   paymentMode: paymentModeLabel(voucher.paymentMode),
   amount: money(Number(voucher.amount || 0)),
+  issuedBy: employeeName(voucher.employeeId),
+  ledgerName: ledgerName(voucher.ledgerId),
+  bankAccount: bankAccountName(voucher.accountNumber),
   raw: voucher
 })))
 
@@ -127,6 +160,9 @@ const columns: TableColumn<any>[] = [
   },
   { accessorKey: 'partyName', header: 'Party' },
   { accessorKey: 'particulars', header: 'Particulars' },
+  { accessorKey: 'ledgerName', header: 'Ledger' },
+  { accessorKey: 'issuedBy', header: 'Issued By' },
+  { accessorKey: 'bankAccount', header: 'Bank' },
   { accessorKey: 'paymentMode', header: 'Mode' },
   { accessorKey: 'amount', header: 'Amount' },
   {
@@ -164,7 +200,11 @@ function emptyVoucher() {
     slipNumber: '',
     paymentMode: 0,
     paymentDetails: '',
-    isParty: false
+    isParty: false,
+    partyId: null,
+    ledgerId: null,
+    employeeId: null,
+    accountNumber: null
   }
 }
 
@@ -183,15 +223,35 @@ async function refresh() {
   loading.value = true
   try {
     setupStatus.value = await api.get<any>('setup/status')
-    const [companyRows, storeRows, voucherRows] = await Promise.all([
+    const [companyRows, storeRows, voucherRows, ledgerRows, partyRows, employeeRows, bankAccountRows] = await Promise.all([
       api.list<any>('companies'),
       api.list<any>('stores'),
-      api.list<any>('vouchers')
+      api.list<any>('vouchers'),
+      api.list<any>('ledgers'),
+      api.list<any>('parties'),
+      api.list<any>('employees'),
+      api.list<any>('bank-accounts')
     ])
 
     companies.value = companyRows
     stores.value = storeRows
     vouchers.value = voucherRows
+    ledgers.value = ledgerRows
+    parties.value = partyRows
+    employees.value = employeeRows
+    bankAccounts.value = bankAccountRows
+
+    if (!ledgers.value.length || !parties.value.length || !bankAccounts.value.length) {
+      await api.create<any>('setup/accounting-defaults', {})
+      const [refreshedLedgers, refreshedParties, refreshedBankAccounts] = await Promise.all([
+        api.list<any>('ledgers'),
+        api.list<any>('parties'),
+        api.list<any>('bank-accounts')
+      ])
+      ledgers.value = refreshedLedgers
+      parties.value = refreshedParties
+      bankAccounts.value = refreshedBankAccounts
+    }
   } catch (error) {
     feedback.failed('Vouchers refresh failed', error)
   } finally {
@@ -202,6 +262,10 @@ async function refresh() {
 function startCreate() {
   editMode.value = 'create'
   Object.assign(form, emptyVoucher())
+  form.partyId = parties.value.find((item) => item.name === 'No Party')?.id || parties.value[0]?.id || null
+  form.ledgerId = ledgers.value.find((item) => item.name === 'Cash In Hand')?.id || ledgers.value[0]?.id || null
+  form.employeeId = employees.value[0]?.id || null
+  form.accountNumber = bankAccounts.value[0]?.id || null
   formOpen.value = true
 }
 
@@ -213,7 +277,11 @@ function startEdit(voucher: any) {
     ledger: null,
     employee: null,
     party: null,
-    bankAccount: null
+    bankAccount: null,
+    partyId: normalizeGuid(voucher.partyId),
+    ledgerId: normalizeGuid(voucher.ledgerId),
+    employeeId: normalizeGuid(voucher.employeeId),
+    accountNumber: normalizeGuid(voucher.accountNumber)
   })
   formOpen.value = true
 }
@@ -227,15 +295,41 @@ function buildPayload() {
     throw new Error('Run quick setup before saving vouchers.')
   }
 
+  if (!String(form.voucherNumber || '').trim()) {
+    throw new Error('Voucher number is required.')
+  }
+
+  if (!String(form.partyName || '').trim() && !form.partyId) {
+    throw new Error('Select a party or enter a party name.')
+  }
+
+  if (!form.ledgerId) {
+    throw new Error('Select ledger before saving voucher.')
+  }
+
+  if (!form.employeeId) {
+    throw new Error('Select who issued this voucher.')
+  }
+
+  if (requiresBankAccount.value && !form.accountNumber) {
+    throw new Error('Select bank account for non-cash voucher.')
+  }
+
+  const party = parties.value.find((item) => item.id === form.partyId)
+
   return {
     ...form,
     voucherNumber: String(form.voucherNumber || '').trim(),
     onDate: new Date(`${form.onDate}T00:00:00`).toISOString(),
     voucherType: Number(form.voucherType),
-    partyName: String(form.partyName || '').trim(),
+    partyName: String(party?.name || form.partyName || '').trim(),
     particulars: String(form.particulars || '').trim(),
     amount: Number(form.amount || 0),
     paymentMode: Number(form.paymentMode),
+    partyId: nullableGuid(form.partyId),
+    ledgerId: nullableGuid(form.ledgerId),
+    employeeId: nullableGuid(form.employeeId),
+    accountNumber: requiresBankAccount.value ? nullableGuid(form.accountNumber) : null,
     companyId,
     storeGroupId,
     storeId,
@@ -311,6 +405,44 @@ function paymentModeLabel(value: number) {
   return paymentModeOptions.find((item) => item.value === Number(value))?.label || 'Other'
 }
 
+function employeeName(employeeId: string | null | undefined) {
+  const id = normalizeGuid(employeeId)
+  if (!id) {
+    return '-'
+  }
+
+  const employee = employees.value.find((item) => item.id === id)
+  return employee ? `${employee.firstName || ''} ${employee.lastName || ''}`.trim() || employee.staffName || 'Employee' : '-'
+}
+
+function ledgerName(ledgerId: string | null | undefined) {
+  const id = normalizeGuid(ledgerId)
+  if (!id) {
+    return '-'
+  }
+
+  return ledgers.value.find((item) => item.id === id)?.name || '-'
+}
+
+function bankAccountName(bankAccountId: string | null | undefined) {
+  const id = normalizeGuid(bankAccountId)
+  if (!id) {
+    return '-'
+  }
+
+  const account = bankAccounts.value.find((item) => item.id === id)
+  return account ? `${account.accountHolderName || 'Bank'} - ${account.accountNumber || ''}`.trim() : '-'
+}
+
+function nullableGuid(value: unknown) {
+  return normalizeGuid(value) || null
+}
+
+function normalizeGuid(value: unknown) {
+  const text = String(value || '').trim()
+  return text && text !== '00000000-0000-0000-0000-000000000000' ? text : ''
+}
+
 function formatDate(value: string) {
   return value ? new Date(value).toLocaleDateString() : '-'
 }
@@ -326,6 +458,19 @@ function money(value: number) {
 onMounted(async () => {
   auth.restore()
   await refresh()
+})
+
+watch(() => form.partyId, (partyId) => {
+  const party = parties.value.find((item) => item.id === partyId)
+  if (party) {
+    form.partyName = party.name
+  }
+})
+
+watch(() => form.paymentMode, () => {
+  if (requiresBankAccount.value && !form.accountNumber) {
+    form.accountNumber = bankAccounts.value[0]?.id || null
+  }
 })
 </script>
 
@@ -430,9 +575,23 @@ onMounted(async () => {
             <USelect v-model="form.paymentMode" :items="paymentModeOptions" />
           </UFormField>
         </div>
-        <UFormField label="Party" required>
-          <UInput v-model="form.partyName" required />
+        <UFormField v-if="requiresBankAccount" label="Bank account" required>
+          <USelect v-model="form.accountNumber" :items="bankAccountOptions" placeholder="Select bank account" />
         </UFormField>
+        <UFormField label="Party" required>
+          <USelect v-model="form.partyId" :items="partyOptions" placeholder="Select party" />
+        </UFormField>
+        <UFormField label="Party name">
+          <UInput v-model="form.partyName" placeholder="Used when party is not in master" />
+        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Ledger" required>
+            <USelect v-model="form.ledgerId" :items="ledgerOptions" placeholder="Select ledger" />
+          </UFormField>
+          <UFormField label="Issued by" required>
+            <USelect v-model="form.employeeId" :items="employeeOptions" placeholder="Select employee" />
+          </UFormField>
+        </div>
         <UFormField label="Amount" required>
           <UInput v-model="form.amount" min="0" step="0.01" required type="number" />
         </UFormField>

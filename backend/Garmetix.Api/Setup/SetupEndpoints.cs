@@ -1,5 +1,7 @@
 using Garmetix.Api.Auth;
 using Garmetix.Core.Enums;
+using Garmetix.Core.Models.Accounting;
+using Garmetix.Core.Models.HRM;
 using Garmetix.Core.Models.Inventory;
 using Garmetix.Core.Models.Stores;
 using Garmetix.Infrastructure.Data;
@@ -20,6 +22,7 @@ public static class SetupEndpoints
         group.MapGet("/status", GetStatusAsync);
         group.MapPost("/quick-start", QuickStartAsync).RequireAuthorization(GarmetixPolicies.CompanySetup);
         group.MapPost("/quick-product", QuickProductAsync).RequireAuthorization(GarmetixPolicies.Inventory);
+        group.MapPost("/accounting-defaults", SeedAccountingDefaultsAsync).RequireAuthorization(GarmetixPolicies.Accounting);
 
         return group;
     }
@@ -133,6 +136,7 @@ public static class SetupEndpoints
         }
 
         await db.SaveChangesAsync(cancellationToken);
+        await EnsureAccountingDefaultsAsync(db, company, cancellationToken);
 
         return Results.Ok(new QuickSetupResponse(company.Id, storeGroup.Id, store.Id, category.Id, subCategory.Id, tax.Id));
     }
@@ -201,5 +205,300 @@ public static class SetupEndpoints
     private static string RequiredOrDefault(string? value, string fallback)
     {
         return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+    }
+
+    private static async Task<IResult> SeedAccountingDefaultsAsync(GarmetixDbContext db, CancellationToken cancellationToken)
+    {
+        var company = await db.Companies.OrderBy(item => item.CreatedAt).FirstOrDefaultAsync(cancellationToken);
+        if (company is null)
+        {
+            return Results.BadRequest(new { message = "Run quick setup before creating accounting defaults." });
+        }
+
+        var result = await EnsureAccountingDefaultsAsync(db, company, cancellationToken);
+        return Results.Ok(result);
+    }
+
+    private static async Task<AccountingDefaultsResponse> EnsureAccountingDefaultsAsync(
+        GarmetixDbContext db,
+        Company company,
+        CancellationToken cancellationToken)
+    {
+        var groupsCreated = 0;
+        var ledgersCreated = 0;
+        var partiesCreated = 0;
+
+        async Task<LedgerGroup> GroupAsync(string name, LedgerCategory category, string remarks)
+        {
+            var group = await db.LedgerGroups.FirstOrDefaultAsync(
+                item => item.CompanyId == company.Id && item.Name == name,
+                cancellationToken);
+
+            if (group is not null)
+            {
+                return group;
+            }
+
+            group = new LedgerGroup
+            {
+                CompanyId = company.Id,
+                Name = name,
+                Category = category,
+                Remarks = remarks
+            };
+            db.LedgerGroups.Add(group);
+            groupsCreated++;
+            return group;
+        }
+
+        async Task<Ledger> LedgerAsync(string name, LedgerGroup group, LedgerType type, bool isParty = false)
+        {
+            var ledger = await db.Ledgers.FirstOrDefaultAsync(
+                item => item.CompanyId == company.Id && item.Name == name,
+                cancellationToken);
+
+            if (ledger is not null)
+            {
+                return ledger;
+            }
+
+            ledger = new Ledger
+            {
+                CompanyId = company.Id,
+                Name = name,
+                LedgerGroupId = group.Id,
+                LedgerType = type,
+                OpeningBalance = 0,
+                OpeningDate = company.StartDate,
+                IsParty = isParty,
+                CreatedBy = "AutoAdmin"
+            };
+            db.Ledgers.Add(ledger);
+            ledgersCreated++;
+            return ledger;
+        }
+
+        await EnsureBanksAsync(db, cancellationToken);
+
+        await GroupAsync("Capital Account", LedgerCategory.CapitalAccount, "Owner capital, partner capital, and proprietor capital");
+        await GroupAsync("Loans - Secured", LedgerCategory.SecuredLoans, "Secured loans and term loans");
+        await GroupAsync("Loans - Unsecured", LedgerCategory.UnsecuredLoans, "Unsecured loans and borrowings");
+        await GroupAsync("Duties & Taxes", LedgerCategory.DutiesAndTaxes, "GST, TDS, TCS, and statutory tax ledgers");
+        await GroupAsync("Current Assets", LedgerCategory.CurrentAssets, "Current assets");
+        await GroupAsync("Fixed Assets", LedgerCategory.FixedAssets, "Fixed assets");
+        await GroupAsync("Current Liabilities", LedgerCategory.CurrentLiabilities, "Current liabilities");
+        var debtors = await GroupAsync("Sundry Debtors", LedgerCategory.SundryDebtors, "Customer receivables");
+        var creditors = await GroupAsync("Sundry Creditors", LedgerCategory.SundryCreditors, "Vendor and supplier payables");
+        var bankAccounts = await GroupAsync("Bank Accounts", LedgerCategory.BankAccounts, "Current, savings, cash credit, and overdraft bank accounts");
+        var cash = await GroupAsync("Cash-in-Hand", LedgerCategory.CashInHand, "Cash counters and cash in hand");
+        var directIncome = await GroupAsync("Direct Income", LedgerCategory.DirectIncome, "Direct income");
+        var indirectIncome = await GroupAsync("Indirect Income", LedgerCategory.IndirectIncome, "Indirect income");
+        var directExpenses = await GroupAsync("Direct Expenses", LedgerCategory.DirectExpenses, "Direct business expenses");
+        var indirectExpenses = await GroupAsync("Indirect Expenses", LedgerCategory.IndirectExpenses, "Indirect business expenses");
+        var purchaseAccounts = await GroupAsync("Purchase Accounts", LedgerCategory.PurchaseAccounts, "Purchase and purchase return accounts");
+        var salesAccounts = await GroupAsync("Sales Accounts", LedgerCategory.SalesAccounts, "Sales and sales return accounts");
+        var snackGroup = await GroupAsync("Snacks & Refreshments", LedgerCategory.IndirectExpenses, "Store snacks and refreshments expenses");
+        var storeExpenses = await GroupAsync("Store Expenses", LedgerCategory.IndirectExpenses, "Store expenses");
+        var pettyExpenses = await GroupAsync("Petty Expenses", LedgerCategory.IndirectExpenses, "Petty expenses");
+        var noGroup = await GroupAsync("No Group", LedgerCategory.UnCategory, "Default group for uncategorized and temporary party ledgers");
+        var vendorGroup = await GroupAsync("Vendors", LedgerCategory.Vendor, "Vendor party ledgers");
+        var customerGroup = await GroupAsync("Customers", LedgerCategory.Customer, "Customer party ledgers");
+        var employeeGroup = await GroupAsync("Employees", LedgerCategory.Employees, "Employee party ledgers");
+        await GroupAsync("Stock", LedgerCategory.Stock, "Stock ledgers");
+        await GroupAsync("Debitors", LedgerCategory.Debitor, "Legacy debitor ledgers");
+        await GroupAsync("Creditors", LedgerCategory.Creditor, "Legacy creditor ledgers");
+
+        await LedgerAsync("Dan", pettyExpenses, LedgerType.Expenses);
+        await LedgerAsync("Snacks & Tea", snackGroup, LedgerType.Expenses);
+        await LedgerAsync("Electricity", storeExpenses, LedgerType.Expenses);
+        await LedgerAsync("Water", snackGroup, LedgerType.Expenses);
+        await LedgerAsync("Printing & Stationery", storeExpenses, LedgerType.Expenses);
+        await LedgerAsync("Transport & Freight Charges", directExpenses, LedgerType.Expenses);
+        await LedgerAsync("Miscellaneous", storeExpenses, LedgerType.Expenses);
+        var noPartyLedger = await LedgerAsync("No Party", noGroup, LedgerType.Suspense, true);
+        await LedgerAsync("Cash In Hand", cash, LedgerType.Cash);
+        await LedgerAsync("Salary Payables", directExpenses, LedgerType.Expenses);
+        await LedgerAsync("Internet & Mobile Bills", storeExpenses, LedgerType.Expenses);
+        await LedgerAsync("Store Maintenance", storeExpenses, LedgerType.Expenses);
+        await LedgerAsync("Store Supplies", storeExpenses, LedgerType.Expenses);
+        await LedgerAsync("Petty Cash Expenses", pettyExpenses, LedgerType.Expenses);
+        await LedgerAsync("Sales", salesAccounts, LedgerType.Sale);
+        await LedgerAsync("Sales Return", salesAccounts, LedgerType.Sale);
+        await LedgerAsync("Purchases", purchaseAccounts, LedgerType.Purcahase);
+        await LedgerAsync("Purchase Return", purchaseAccounts, LedgerType.Purcahase);
+        await LedgerAsync("Bank Clearing", bankAccounts, LedgerType.BankAccount);
+        await LedgerAsync("Sundry Debtors Control", debtors, LedgerType.SundryDebtor, true);
+        await LedgerAsync("Sundry Creditors Control", creditors, LedgerType.SundryCreditor, true);
+
+        var noParty = await db.Parties.FirstOrDefaultAsync(
+            item => item.CompanyId == company.Id && item.Name == "No Party",
+            cancellationToken);
+
+        if (noParty is null)
+        {
+            noParty = new Party
+            {
+                CompanyId = company.Id,
+                Name = "No Party",
+                Category = PartyType.Others,
+                LedgerId = noPartyLedger.Id
+            };
+            db.Parties.Add(noParty);
+            partiesCreated++;
+        }
+
+        async Task<Party> PartyFromMasterAsync(
+            string name,
+            PartyType partyType,
+            LedgerGroup ledgerGroup,
+            LedgerType ledgerType,
+            string? address,
+            string? email,
+            string? phone,
+            string? gstin,
+            string? pan)
+        {
+            var ledgerName = $"{name} - {partyType}";
+            var ledger = await LedgerAsync(ledgerName, ledgerGroup, ledgerType, true);
+            var party = await db.Parties.FirstOrDefaultAsync(
+                item => item.CompanyId == company.Id && item.Name == name && item.Category == partyType,
+                cancellationToken);
+
+            if (party is null)
+            {
+                party = new Party
+                {
+                    CompanyId = company.Id,
+                    Name = name,
+                    Category = partyType,
+                    LedgerId = ledger.Id,
+                    Address = address,
+                    EmailId = email,
+                    Phone = phone,
+                    GSTIN = gstin,
+                    PAN = pan
+                };
+                db.Parties.Add(party);
+                partiesCreated++;
+            }
+            else if (party.LedgerId == Guid.Empty)
+            {
+                party.LedgerId = ledger.Id;
+            }
+
+            return party;
+        }
+
+        var customers = await db.Customers.Where(item => item.CompanyId == company.Id).ToListAsync(cancellationToken);
+        foreach (var customer in customers)
+        {
+            var party = await PartyFromMasterAsync(
+                customer.Name,
+                PartyType.Customer,
+                customerGroup,
+                LedgerType.SundryDebtor,
+                customer.Address,
+                customer.Email,
+                customer.MobileNumber,
+                customer.GSTIN,
+                null);
+            customer.PartyId = party.Id;
+        }
+
+        var vendors = await db.Vendors.Where(item => item.CompanyId == company.Id).ToListAsync(cancellationToken);
+        foreach (var vendor in vendors)
+        {
+            var party = await PartyFromMasterAsync(
+                vendor.Name,
+                PartyType.Vendor,
+                vendorGroup,
+                LedgerType.SundryCreditor,
+                vendor.Address,
+                vendor.Email,
+                vendor.MobileNumber,
+                vendor.GSTIN,
+                vendor.Pan);
+            vendor.PartyId = party.Id;
+        }
+
+        var employees = await db.Employees.Where(item => item.CompanyId == company.Id).ToListAsync(cancellationToken);
+        foreach (var employee in employees)
+        {
+            await PartyFromMasterAsync(
+                employee.StaffName,
+                PartyType.Employee,
+                employeeGroup,
+                LedgerType.Employee,
+                null,
+                employee.Email,
+                employee.Mobile,
+                null,
+                employee.PAN);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        await EnsurePrimaryBankAccountAsync(db, company, bankAccounts, cancellationToken);
+        return new AccountingDefaultsResponse(groupsCreated, ledgersCreated, partiesCreated);
+    }
+
+    private static async Task EnsureBanksAsync(GarmetixDbContext db, CancellationToken cancellationToken)
+    {
+        foreach (var bankName in new[] { "State Bank Of India", "HDFC Bank", "ICICI Bank", "Axis Bank", "Punjab National Bank", "Bank of Baroda", "Kotak Mahindra Bank" })
+        {
+            if (!await db.Banks.AnyAsync(item => item.Name == bankName, cancellationToken))
+            {
+                db.Banks.Add(new Bank { Name = bankName });
+            }
+        }
+    }
+
+    private static async Task EnsurePrimaryBankAccountAsync(
+        GarmetixDbContext db,
+        Company company,
+        LedgerGroup bankAccounts,
+        CancellationToken cancellationToken)
+    {
+        if (await db.BankAccounts.AnyAsync(item => item.CompanyId == company.Id, cancellationToken))
+        {
+            return;
+        }
+
+        var bank = await db.Banks.FirstAsync(cancellationToken);
+        var ledger = await db.Ledgers.FirstOrDefaultAsync(
+            item => item.CompanyId == company.Id && item.Name == "Primary Bank Account",
+            cancellationToken);
+
+        if (ledger is null)
+        {
+            ledger = new Ledger
+            {
+                CompanyId = company.Id,
+                LedgerGroupId = bankAccounts.Id,
+                LedgerType = LedgerType.BankAccount,
+                Name = "Primary Bank Account",
+                OpeningBalance = 0,
+                OpeningDate = company.StartDate,
+                IsParty = false,
+                CreatedBy = "AutoAdmin"
+            };
+            db.Ledgers.Add(ledger);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        db.BankAccounts.Add(new BankAccount
+        {
+            CompanyId = company.Id,
+            BankId = bank.Id,
+            LedgerId = ledger.Id,
+            AccountHolderName = company.Name,
+            AccountNumber = "PRIMARY-BANK",
+            AccountType = AccountType.Current,
+            Branch = company.City,
+            IFSCode = "CHANGE-ME",
+            OpeningDate = company.StartDate,
+            Active = true
+        });
+
+        await db.SaveChangesAsync(cancellationToken);
     }
 }

@@ -375,6 +375,25 @@ async function saveCurrentForm() {
 
 function employeePayload() {
   const ids = selectedScopeIds()
+  const pan = String(employeeForm.pan || '').trim().toUpperCase()
+  const aadhar = digitsOnly(employeeForm.aadhar)
+  const mobile = digitsOnly(employeeForm.mobile)
+
+  if (!String(employeeForm.firstName || '').trim() || !String(employeeForm.lastName || '').trim()) {
+    throw new Error('Employee first name and last name are required.')
+  }
+
+  if (aadhar.length !== 12) {
+    throw new Error('Aadhaar number must be exactly 12 digits.')
+  }
+
+  if (pan && pan.length !== 10) {
+    throw new Error('PAN number must be exactly 10 characters.')
+  }
+
+  if (mobile.length < 10 || mobile.length > 15) {
+    throw new Error('Mobile number must be 10 to 15 digits.')
+  }
 
   return {
     ...employeeForm,
@@ -388,12 +407,16 @@ function employeePayload() {
     leavingDate: employeeForm.leavingDate ? toApiDate(employeeForm.leavingDate) : null,
     working: Boolean(employeeForm.working),
     category: Number(employeeForm.category),
-    pan: String(employeeForm.pan || '').trim() || null,
-    aadhar: String(employeeForm.aadhar || '').trim(),
+    pan: pan || null,
+    aadhar,
     email: String(employeeForm.email || '').trim() || null,
-    mobile: String(employeeForm.mobile || '').trim(),
+    mobile,
     ...ids
   }
+}
+
+function digitsOnly(value: unknown) {
+  return String(value || '').replace(/\D/g, '')
 }
 
 function attendancePayload() {
@@ -746,18 +769,18 @@ onMounted(async () => {
           </UFormField>
           <div class="form-two-column">
             <UFormField label="Mobile" required>
-              <UInput v-model="employeeForm.mobile" required />
+              <UInput v-model="employeeForm.mobile" inputmode="numeric" maxlength="15" placeholder="10 to 15 digits" required />
             </UFormField>
             <UFormField label="Email">
               <UInput v-model="employeeForm.email" type="email" />
             </UFormField>
           </div>
           <div class="form-two-column">
-            <UFormField label="Aadhar" required>
-              <UInput v-model="employeeForm.aadhar" required />
+            <UFormField label="Aadhaar" required>
+              <UInput v-model="employeeForm.aadhar" inputmode="numeric" maxlength="14" placeholder="12 digits" required />
             </UFormField>
             <UFormField label="PAN">
-              <UInput v-model="employeeForm.pan" />
+              <UInput v-model="employeeForm.pan" maxlength="10" placeholder="10 characters" />
             </UFormField>
           </div>
           <UCheckbox v-model="employeeForm.working" label="Working" />

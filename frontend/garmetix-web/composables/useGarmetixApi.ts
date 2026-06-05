@@ -32,7 +32,7 @@ export function useGarmetixApi() {
     return await $fetch<T>(`${base}/${resource}`, {
       method: 'POST',
       headers: authHeaders(),
-      body
+      body: sanitizeCreateBody(body)
     })
   }
 
@@ -49,6 +49,15 @@ export function useGarmetixApi() {
       method: 'DELETE',
       headers: authHeaders()
     })
+  }
+
+  function sanitizeCreateBody<T extends GarmetixEntity>(body: T) {
+    if (!body || body.id) {
+      return body
+    }
+
+    const { id, ...rest } = body
+    return rest
   }
 
   return { list, get, create, update, remove, authHeaders }

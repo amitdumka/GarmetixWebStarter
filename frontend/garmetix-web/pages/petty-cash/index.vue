@@ -220,8 +220,7 @@ function buildPayload() {
     throw new Error('Select store before saving petty cash.')
   }
 
-  return {
-    ...form,
+  const payload: any = {
     storeId: form.storeId,
     onDate: new Date(`${form.onDate}T00:00:00`).toISOString(),
     openingBalance: Number(form.openingBalance || 0),
@@ -234,9 +233,15 @@ function buildPayload() {
     customerDue: Number(form.customerDue || 0),
     bankDeposit: Number(form.bankDeposit || 0),
     nonCashSale: Number(form.nonCashSale || 0),
-    cashInHand: Number(form.cashInHand || calculatedCash.value),
+    cashInHand: roundMoney(calculatedCash.value),
     createdBy: String(form.createdBy || 'AutoAdmin').trim()
   }
+
+  if (editMode.value === 'edit' && form.id) {
+    payload.id = form.id
+  }
+
+  return payload
 }
 
 async function saveSheet() {
@@ -289,7 +294,22 @@ function storeName(storeId: string) {
 }
 
 function sheetCash(sheet: any) {
-  return Number(sheet.cashInHand || 0)
+  return roundMoney(
+    Number(sheet.openingBalance || 0) +
+    Number(sheet.sales || 0) +
+    Number(sheet.receipts || 0) +
+    Number(sheet.dueReceipts || 0) +
+    Number(sheet.bankWithdrawal || 0) -
+    Number(sheet.expenses || 0) -
+    Number(sheet.payments || 0) -
+    Number(sheet.customerDue || 0) -
+    Number(sheet.bankDeposit || 0) -
+    Number(sheet.nonCashSale || 0)
+  )
+}
+
+function roundMoney(value: number) {
+  return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100
 }
 
 function formatDate(value: string) {
@@ -308,6 +328,10 @@ onMounted(async () => {
   auth.restore()
   await refresh()
 })
+
+watch(calculatedCash, (value) => {
+  form.cashInHand = roundMoney(value)
+}, { immediate: true })
 </script>
 
 <template>
@@ -449,7 +473,7 @@ onMounted(async () => {
             <UInput v-model="form.nonCashSale" step="0.01" type="number" />
           </UFormField>
           <UFormField label="Cash in hand">
-            <UInput v-model="form.cashInHand" step="0.01" type="number" />
+            <UInput v-model="form.cashInHand" readonly step="0.01" type="number" />
           </UFormField>
         </div>
 

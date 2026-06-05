@@ -93,10 +93,10 @@ namespace Garmetix.Core.Models.Accounting
         [Display(Name = "Slip Number")] public string? SlipNumber { get; set; }
 
 
-        [Display(Name = "Ledger")] public Guid? LedgerId { get; set; } = Guid.Empty;
+        [Display(Name = "Ledger")] public Guid? LedgerId { get; set; }
         [JsonIgnore]
         [Display(Name = "Ledger", AutoGenerateField = false)] public virtual Ledger? Ledger { get; set; }
-        [Display(Name = "Employee", AutoGenerateField = false)] public Guid? EmployeeId { get; set; } = Guid.Empty;
+        [Display(Name = "Employee", AutoGenerateField = false)] public Guid? EmployeeId { get; set; }
         [JsonIgnore]
         [Display(Name = "Employee", AutoGenerateField = false)] public virtual Employee? Employee { get; set; }
     }
@@ -119,7 +119,7 @@ namespace Garmetix.Core.Models.Accounting
         [Display(Name = "Payment Details")] public string? PaymentDetails { get; set; }
 
         [Display(Name = "Is Party")] public bool IsParty { get; set; } = false;
-        [Display(Name = "Party", AutoGenerateField = false)] public Guid? PartyId { get; set; } = Guid.Empty;
+        [Display(Name = "Party", AutoGenerateField = false)] public Guid? PartyId { get; set; }
 
         [JsonIgnore]
         [Display(Name = "Party", AutoGenerateField = false)] public virtual Party? Party { get; set; }
@@ -157,16 +157,16 @@ namespace Garmetix.Core.Models.Accounting
         [Display(Name = "Payment Mode")] public PaymentMode PaymentMode { get; set; } = PaymentMode.Cash;
         [Display(Name = "Payment Details")] public string? PaymentDetails { get; set; } = string.Empty;
         [Display(Name = "Remarks")] public string Remarks { get; set; } = string.Empty;
-        [Display(Name = "Employee", AutoGenerateField = false)] public Guid? EmployeeId { get; set; } = Guid.Empty;
+        [Display(Name = "Employee", AutoGenerateField = false)] public Guid? EmployeeId { get; set; }
         [JsonIgnore]
         [ForeignKey("EmployeeId")]
         [Display(Name = "Employee", AutoGenerateField = false)] public virtual Employee? Employee { get; set; }
-        [Display(Name = "Ledger", AutoGenerateField = false)] public Guid? LedgerId { get; set; } = Guid.Empty;
+        [Display(Name = "Ledger", AutoGenerateField = false)] public Guid? LedgerId { get; set; }
         [JsonIgnore]
         [ForeignKey("LedgerId")]
         [Display(Name = "Ledger", AutoGenerateField = false)] public virtual Ledger? Ledger { get; set; }
         [Display(Name = "Slip Number")] public string? SlipNumber { get; set; } = string.Empty;
-        [Display(Name = "Trip", AutoGenerateField = false)] public Guid? TripId { get; set; } = Guid.Empty;
+        [Display(Name = "Trip", AutoGenerateField = false)] public Guid? TripId { get; set; }
         [JsonIgnore]
         [ForeignKey("TripId")]
         [Display(Name = "Trip", AutoGenerateField = false)] public virtual TravelTrip? Trip { get; set; }
