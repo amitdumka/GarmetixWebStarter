@@ -27,13 +27,13 @@ public static class AuditEndpoints
         var rows = new List<AuditActivityDto>();
 
         rows.AddRange(ToDtos(await db.Companies.AsNoTracking()
-            .Select(item => new AuditSource("Setup", "Company", item.Id, item.Name, item.CreatedAt, item.UpdatedAt, null))
+            .Select(item => new AuditSource("Company", "Company", item.Id, item.Name, item.CreatedAt, item.UpdatedAt, null))
             .ToListAsync(cancellationToken)));
         rows.AddRange(ToDtos(await db.StoreGroups.AsNoTracking()
-            .Select(item => new AuditSource("Setup", "Store Group", item.Id, item.Name, item.CreatedAt, item.UpdatedAt, null))
+            .Select(item => new AuditSource("Company", "Store Group", item.Id, item.Name, item.CreatedAt, item.UpdatedAt, null))
             .ToListAsync(cancellationToken)));
         rows.AddRange(ToDtos(await db.Stores.AsNoTracking()
-            .Select(item => new AuditSource("Setup", "Store", item.Id, item.Name, item.CreatedAt, item.UpdatedAt, null))
+            .Select(item => new AuditSource("Company", "Store", item.Id, item.Name, item.CreatedAt, item.UpdatedAt, null))
             .ToListAsync(cancellationToken)));
         rows.AddRange(ToDtos(await db.Products.AsNoTracking()
             .Select(item => new AuditSource("Inventory", "Product", item.Id, item.Name, item.CreatedAt, item.UpdatedAt, item.CreatedBy))

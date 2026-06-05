@@ -2,12 +2,14 @@
 import { h, resolveComponent } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 
-type AccountingTab = 'trial' | 'ledgers' | 'parties' | 'bankAccounts' | 'transactions' | 'cheques' | 'vendorBanks' | 'accountDetails'
+type AccountingTab = 'trial' | 'ledgerBook' | 'ledgers' | 'parties' | 'bankAccounts' | 'transactions' | 'cheques' | 'vendorBanks' | 'accountDetails'
 
 const api = useGarmetixApi()
 const auth = useAuth()
 const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
+const canEdit = auth.canEdit
+const canDelete = auth.canDelete
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
@@ -26,7 +28,9 @@ const vendorBankAccounts = ref<any[]>([])
 const bankAccountDetails = ref<any[]>([])
 const vendors = ref<any[]>([])
 const trialBalance = ref<any[]>([])
+const ledgerStatement = ref<any[]>([])
 const bankStatement = ref<any[]>([])
+const selectedLedgerId = ref('')
 const selectedBankAccountId = ref('')
 const activeTab = ref<AccountingTab>('trial')
 const search = ref('')
@@ -38,6 +42,7 @@ const formOpen = ref(false)
 const editMode = ref<'create' | 'edit'>('create')
 const deleteOpen = ref(false)
 const pendingDelete = ref<any | null>(null)
+const emptyGuid = '00000000-0000-0000-0000-000000000000'
 
 const ledgerTypeOptions = [
   { value: 0, label: 'Asset' },
@@ -97,6 +102,7 @@ const transactionModeOptions = [
 
 const tabs = [
   { key: 'trial' as const, label: 'Trial Balance', icon: 'i-lucide-scale' },
+  { key: 'ledgerBook' as const, label: 'Ledger Book', icon: 'i-lucide-list-tree' },
   { key: 'ledgers' as const, label: 'Ledgers', icon: 'i-lucide-book-open' },
   { key: 'parties' as const, label: 'Parties', icon: 'i-lucide-users' },
   { key: 'bankAccounts' as const, label: 'Bank Accounts', icon: 'i-lucide-landmark' },
@@ -116,7 +122,7 @@ const accountDetailForm = reactive<any>(emptyAccountDetail())
 
 const companyId = computed(() => setupStatus.value?.companyId || companies.value[0]?.id || '')
 const currentTab = computed(() => tabs.find((tab) => tab.key === activeTab.value) || tabs[0])
-const canCreate = computed(() => activeTab.value !== 'trial')
+const canCreate = computed(() => !['trial', 'ledgerBook'].includes(activeTab.value))
 const formTitle = computed(() => `${editMode.value === 'edit' ? 'Edit' : 'New'} ${singularLabel(activeTab.value)}`)
 
 const ledgerGroupOptions = computed(() => ledgerGroups.value.map((item) => ({ value: item.id, label: item.name || 'Ledger Group' })))
@@ -125,6 +131,13 @@ const partyOptions = computed(() => parties.value.map((item) => ({ value: item.i
 const bankOptions = computed(() => banks.value.map((item) => ({ value: item.id, label: item.name || 'Bank' })))
 const bankAccountOptions = computed(() => bankAccounts.value.map((item) => ({ value: item.id, label: bankAccountLabel(item) })))
 const vendorOptions = computed(() => vendors.value.map((item) => ({ value: item.id, label: item.name || item.vendorName || 'Vendor' })))
+const currentStore = computed(() => stores.value.find((item) => item.id === setupStatus.value?.storeId) || stores.value[0])
+const currentStoreGroupId = computed(() => setupStatus.value?.storeGroupId || currentStore.value?.storeGroupId || '')
+const currentStoreId = computed(() => setupStatus.value?.storeId || currentStore.value?.id || '')
+const transactionLedgerOptions = computed(() => {
+  const selectedBank = bankAccounts.value.find((item) => item.id === transactionForm.bankAccountId)
+  return ledgerOptions.value.filter((item) => item.value !== selectedBank?.ledgerId)
+})
 
 const metrics = computed(() => [
   { label: 'Ledgers', value: ledgers.value.length, meta: 'Chart of accounts', icon: 'i-lucide-book-open', color: 'primary' },
@@ -147,6 +160,21 @@ const rows = computed(() => {
     }))
   }
 
+  if (activeTab.value === 'ledgerBook') {
+    return ledgerStatement.value.map((item) => ({
+      id: item.id || `${item.entryNumber}-${item.onDate}`,
+      date: formatDate(item.onDate),
+      entry: item.entryNumber || '-',
+      source: item.sourceType || '-',
+      reference: item.referenceNumber || '-',
+      particulars: item.particulars || '-',
+      debit: money(item.debit),
+      credit: money(item.credit),
+      balance: `${money(item.balance)} ${item.balanceType || ''}`.trim(),
+      raw: item
+    }))
+  }
+
   if (activeTab.value === 'ledgers') {
     return ledgers.value.map((item) => ({
       id: item.id,
@@ -154,7 +182,6 @@ const rows = computed(() => {
       group: ledgerGroupName(item.ledgerGroupId),
       type: optionLabel(ledgerTypeOptions, item.ledgerType),
       opening: money(item.openingBalance),
-      party: item.isParty ? 'Yes' : 'No',
       raw: item
     }))
   }
@@ -164,7 +191,6 @@ const rows = computed(() => {
       id: item.id,
       name: item.name,
       category: optionLabel(partyTypeOptions, item.category),
-      ledger: ledgerName(item.ledgerId),
       phone: item.phone || '-',
       tax: item.gstin || item.pan || '-',
       raw: item
@@ -177,7 +203,6 @@ const rows = computed(() => {
       holder: item.accountHolderName,
       account: item.accountNumber,
       bank: bankName(item.bankId),
-      ledger: ledgerName(item.ledgerId),
       type: optionLabel(accountTypeOptions, item.accountType),
       balance: money(item.closingBalance || item.openingBalance),
       status: item.active ? 'Active' : 'Inactive',
@@ -192,6 +217,7 @@ const rows = computed(() => {
       bank: bankAccountName(item.bankAccountId),
       type: optionLabel(transactionTypeOptions, item.transactionType),
       mode: optionLabel(transactionModeOptions, item.transactionMode),
+      ledger: ledgerName(item.ledgerId),
       reference: item.reference || '-',
       person: item.personName || '-',
       amount: money(item.amount),
@@ -258,13 +284,25 @@ const columns = computed<TableColumn<any>[]>(() => {
     ]
   }
 
+  if (activeTab.value === 'ledgerBook') {
+    return [
+      { accessorKey: 'date', header: 'Date' },
+      { accessorKey: 'entry', header: 'Entry' },
+      { accessorKey: 'source', header: 'Source' },
+      { accessorKey: 'reference', header: 'Reference' },
+      { accessorKey: 'particulars', header: 'Particulars' },
+      { accessorKey: 'debit', header: 'Debit' },
+      { accessorKey: 'credit', header: 'Credit' },
+      { accessorKey: 'balance', header: 'Balance' }
+    ]
+  }
+
   if (activeTab.value === 'ledgers') {
     return [
       { accessorKey: 'name', header: 'Ledger' },
       { accessorKey: 'group', header: 'Group' },
       { accessorKey: 'type', header: 'Type' },
       { accessorKey: 'opening', header: 'Opening' },
-      { accessorKey: 'party', header: 'Party' },
       action
     ]
   }
@@ -273,7 +311,6 @@ const columns = computed<TableColumn<any>[]>(() => {
     return [
       { accessorKey: 'name', header: 'Party' },
       { accessorKey: 'category', header: 'Category' },
-      { accessorKey: 'ledger', header: 'Ledger' },
       { accessorKey: 'phone', header: 'Phone' },
       { accessorKey: 'tax', header: 'GST/PAN' },
       action
@@ -285,7 +322,6 @@ const columns = computed<TableColumn<any>[]>(() => {
       { accessorKey: 'holder', header: 'Holder' },
       { accessorKey: 'account', header: 'Account' },
       { accessorKey: 'bank', header: 'Bank' },
-      { accessorKey: 'ledger', header: 'Ledger' },
       { accessorKey: 'balance', header: 'Balance' },
       statusColumn(),
       action
@@ -298,6 +334,7 @@ const columns = computed<TableColumn<any>[]>(() => {
       { accessorKey: 'bank', header: 'Bank Account' },
       { accessorKey: 'type', header: 'Type' },
       { accessorKey: 'mode', header: 'Mode' },
+      { accessorKey: 'ledger', header: 'Against Ledger' },
       { accessorKey: 'reference', header: 'Reference' },
       { accessorKey: 'person', header: 'Person' },
       { accessorKey: 'amount', header: 'Amount' },
@@ -376,7 +413,7 @@ async function refresh() {
       api.list<any>('parties'),
       api.list<any>('banks'),
       api.list<any>('bank-accounts'),
-      api.list<any>('bank-transactions'),
+      api.list<any>('accounting/bank-transactions'),
       api.list<any>('cheque-logs'),
       api.list<any>('vendor-bank-accounts'),
       api.list<any>('bank-account-details'),
@@ -400,7 +437,11 @@ async function refresh() {
       selectedBankAccountId.value = bankAccounts.value[0].id
     }
 
-    await Promise.all([loadTrialBalance(), loadBankStatement()])
+    if (!selectedLedgerId.value && ledgers.value.length) {
+      selectedLedgerId.value = ledgers.value[0].id
+    }
+
+    await Promise.all([loadTrialBalance(), loadLedgerStatement(), loadBankStatement()])
   } catch (error) {
     feedback.failed('Accounting refresh failed', error)
   } finally {
@@ -411,6 +452,15 @@ async function refresh() {
 async function loadTrialBalance() {
   const query = companyId.value ? `?companyId=${companyId.value}` : ''
   trialBalance.value = await api.get<any[]>(`accounting/trial-balance${query}`)
+}
+
+async function loadLedgerStatement() {
+  if (!selectedLedgerId.value) {
+    ledgerStatement.value = []
+    return
+  }
+
+  ledgerStatement.value = await api.get<any[]>(`accounting/ledger-statement/${selectedLedgerId.value}`)
 }
 
 async function loadBankStatement() {
@@ -454,20 +504,21 @@ function resetActiveForm(item: any = null) {
       ledgerGroupId: item?.ledgerGroupId || ledgerGroups.value[0]?.id || null
     })
   } else if (activeTab.value === 'parties') {
-    Object.assign(partyForm, emptyParty(), item || {}, {
-      ledgerId: item?.ledgerId || ledgers.value.find((ledger) => ledger.isParty)?.id || ledgers.value[0]?.id || null
-    })
+    Object.assign(partyForm, emptyParty(), item || {})
   } else if (activeTab.value === 'bankAccounts') {
     Object.assign(bankAccountForm, emptyBankAccount(), item || {}, {
       openingDate: dateInput(item?.openingDate),
       closingDate: dateInput(item?.closingDate),
-      bankId: item?.bankId || banks.value[0]?.id || null,
-      ledgerId: item?.ledgerId || bankLedgerId()
+      bankId: item?.bankId || banks.value[0]?.id || null
     })
   } else if (activeTab.value === 'transactions') {
+    const bankAccountId = item?.bankAccountId || selectedBankAccountId.value || bankAccounts.value[0]?.id || null
+    const bankLedger = bankAccounts.value.find((account) => account.id === bankAccountId)?.ledgerId
     Object.assign(transactionForm, emptyTransaction(), item || {}, {
       onDate: dateInput(item?.onDate),
-      bankAccountId: item?.bankAccountId || selectedBankAccountId.value || bankAccounts.value[0]?.id || null
+      bankAccountId,
+      ledgerId: item?.ledgerId || ledgers.value.find((ledger) => ledger.id !== bankLedger)?.id || null,
+      partyId: nullableGuid(item?.partyId) || null
     })
   } else if (activeTab.value === 'cheques') {
     Object.assign(chequeForm, emptyCheque(), item || {}, {
@@ -532,6 +583,7 @@ function buildPayload() {
       ledgerType: Number(ledgerForm.ledgerType),
       openingBalance: Number(ledgerForm.openingBalance || 0),
       openingDate: toIso(ledgerForm.openingDate),
+      isParty: Boolean(ledgerForm.isParty),
       ledgerGroup: null
     }
   }
@@ -541,7 +593,7 @@ function buildPayload() {
       ...partyForm,
       companyId: companyId.value,
       category: Number(partyForm.category),
-      ledgerId: requiredGuid(partyForm.ledgerId, 'Select party ledger.'),
+      ledgerId: nullableGuid(partyForm.ledgerId) || emptyGuid,
       ledger: null
     }
   }
@@ -551,7 +603,7 @@ function buildPayload() {
       ...bankAccountForm,
       companyId: companyId.value,
       bankId: requiredGuid(bankAccountForm.bankId, 'Select bank.'),
-      ledgerId: requiredGuid(bankAccountForm.ledgerId, 'Select bank ledger.'),
+      ledgerId: nullableGuid(bankAccountForm.ledgerId) || emptyGuid,
       accountType: Number(bankAccountForm.accountType),
       openingBalance: Number(bankAccountForm.openingBalance || 0),
       closingBalance: Number(bankAccountForm.closingBalance || 0),
@@ -566,7 +618,11 @@ function buildPayload() {
     return {
       ...transactionForm,
       companyId: companyId.value,
+      storeGroupId: requiredGuid(currentStoreGroupId.value, 'Select store group.'),
+      storeId: requiredGuid(currentStoreId.value, 'Select store.'),
       bankAccountId: requiredGuid(transactionForm.bankAccountId, 'Select bank account.'),
+      ledgerId: requiredGuid(transactionForm.ledgerId, 'Select contra ledger.'),
+      partyId: nullableGuid(transactionForm.partyId) || null,
       onDate: toIso(transactionForm.onDate),
       transactionType: Number(transactionForm.transactionType),
       transactionMode: Number(transactionForm.transactionMode),
@@ -663,21 +719,21 @@ function actionColumn(): TableColumn<any> {
     id: 'actions',
     header: '',
     cell: ({ row }) => h('div', { class: 'table-action-buttons' }, [
-      h(UButton, {
+      canEdit.value ? h(UButton, {
         color: 'neutral',
         variant: 'ghost',
         icon: 'i-lucide-pencil',
         label: 'Edit',
         onClick: () => startEdit(row.original.raw)
-      }),
-      h(UButton, {
+      }) : null,
+      canDelete.value ? h(UButton, {
         color: 'error',
         variant: 'ghost',
         icon: 'i-lucide-trash-2',
         label: 'Delete',
         onClick: () => askDelete(row.original.raw)
-      })
-    ])
+      }) : null
+    ].filter(Boolean))
   }
 }
 
@@ -732,6 +788,8 @@ function emptyTransaction() {
     onDate: new Date().toISOString().slice(0, 10),
     transactionType: 0,
     transactionMode: 4,
+    ledgerId: null,
+    partyId: null,
     narration: '',
     reference: '',
     amount: 0,
@@ -796,6 +854,7 @@ function emptyAccountDetail() {
 
 function endpointFor(tab: AccountingTab) {
   return {
+    ledgerBook: '',
     ledgers: 'ledgers',
     parties: 'parties',
     bankAccounts: 'bank-accounts',
@@ -810,6 +869,7 @@ function endpointFor(tab: AccountingTab) {
 function singularLabel(tab: AccountingTab) {
   return {
     trial: 'Trial Balance',
+    ledgerBook: 'Ledger Book',
     ledgers: 'Ledger',
     parties: 'Party',
     bankAccounts: 'Bank Account',
@@ -908,6 +968,22 @@ onMounted(async () => {
 watch(selectedBankAccountId, async () => {
   await loadBankStatement()
 })
+
+watch(selectedLedgerId, async () => {
+  await loadLedgerStatement()
+})
+
+watch(() => transactionForm.bankAccountId, () => {
+  const selectedBank = bankAccounts.value.find((item) => item.id === transactionForm.bankAccountId)
+  if (selectedBank?.ledgerId && transactionForm.ledgerId === selectedBank.ledgerId) {
+    transactionForm.ledgerId = transactionLedgerOptions.value[0]?.value || null
+  }
+})
+
+watch(() => transactionForm.ledgerId, (ledgerId) => {
+  const party = parties.value.find((item) => item.ledgerId === ledgerId)
+  transactionForm.partyId = party?.id || null
+})
 </script>
 
 <template>
@@ -968,6 +1044,13 @@ watch(selectedBankAccountId, async () => {
                 @click="activeTab = tab.key"
               />
             </div>
+            <USelect
+              v-if="activeTab === 'ledgerBook'"
+              v-model="selectedLedgerId"
+              :items="ledgerOptions"
+              class="w-72 max-w-full"
+              placeholder="Select ledger"
+            />
           </div>
         </template>
 
@@ -1049,7 +1132,6 @@ watch(selectedBankAccountId, async () => {
           <UFormField label="Opening balance">
             <UInput v-model="ledgerForm.openingBalance" type="number" step="0.01" />
           </UFormField>
-          <UCheckbox v-model="ledgerForm.isParty" label="Party ledger" />
         </template>
 
         <template v-else-if="activeTab === 'parties'">
@@ -1060,14 +1142,11 @@ watch(selectedBankAccountId, async () => {
             <UFormField label="Category">
               <USelect v-model="partyForm.category" :items="partyTypeOptions" />
             </UFormField>
-            <UFormField label="Ledger" required>
-              <USelect v-model="partyForm.ledgerId" :items="ledgerOptions" />
-            </UFormField>
-          </div>
-          <div class="form-two-column">
             <UFormField label="Phone">
               <UInput v-model="partyForm.phone" />
             </UFormField>
+          </div>
+          <div class="form-two-column">
             <UFormField label="Email">
               <UInput v-model="partyForm.emailId" type="email" />
             </UFormField>
@@ -1096,22 +1175,19 @@ watch(selectedBankAccountId, async () => {
             <UFormField label="Bank" required>
               <USelect v-model="bankAccountForm.bankId" :items="bankOptions" />
             </UFormField>
-            <UFormField label="Ledger" required>
-              <USelect v-model="bankAccountForm.ledgerId" :items="ledgerOptions" />
-            </UFormField>
-          </div>
-          <div class="form-two-column">
             <UFormField label="Account type">
               <USelect v-model="bankAccountForm.accountType" :items="accountTypeOptions" />
             </UFormField>
+          </div>
+          <div class="form-two-column">
             <UFormField label="Opening date">
               <UInput v-model="bankAccountForm.openingDate" type="date" />
             </UFormField>
-          </div>
-          <div class="form-two-column">
             <UFormField label="Branch">
               <UInput v-model="bankAccountForm.branch" />
             </UFormField>
+          </div>
+          <div class="form-two-column">
             <UFormField label="IFSC">
               <UInput v-model="bankAccountForm.ifsCode" />
             </UFormField>
@@ -1130,6 +1206,12 @@ watch(selectedBankAccountId, async () => {
         <template v-else-if="activeTab === 'transactions'">
           <UFormField label="Bank account" required>
             <USelect v-model="transactionForm.bankAccountId" :items="bankAccountOptions" />
+          </UFormField>
+          <UFormField label="Against ledger" required>
+            <USelect v-model="transactionForm.ledgerId" :items="transactionLedgerOptions" placeholder="Select ledger" />
+          </UFormField>
+          <UFormField label="Party">
+            <USelect v-model="transactionForm.partyId" :items="partyOptions" placeholder="Auto from ledger when applicable" />
           </UFormField>
           <div class="form-two-column">
             <UFormField label="Date" required>

@@ -17,7 +17,7 @@ public static class UserManagementEndpoints
         group.MapGet("/", ListUsersAsync);
         group.MapPost("/", CreateUserAsync);
         group.MapPut("/{id:guid}", UpdateUserAsync);
-        group.MapDelete("/{id:guid}", DeleteUserAsync);
+        group.MapDelete("/{id:guid}", DeleteUserAsync).RequireAuthorization(GarmetixPolicies.Delete);
 
         return group;
     }

@@ -6,6 +6,8 @@ const api = useGarmetixApi()
 const auth = useAuth()
 const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
+const canEdit = auth.canEdit
+const canDelete = auth.canDelete
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
@@ -169,21 +171,21 @@ const columns: TableColumn<any>[] = [
     id: 'actions',
     header: '',
     cell: ({ row }) => h('div', { class: 'table-action-buttons' }, [
-      h(UButton, {
+      canEdit.value ? h(UButton, {
         color: 'neutral',
         variant: 'ghost',
         icon: 'i-lucide-pencil',
         label: 'Edit',
         onClick: () => startEdit(row.original.raw)
-      }),
-      h(UButton, {
+      }) : null,
+      canDelete.value ? h(UButton, {
         color: 'error',
         variant: 'ghost',
         icon: 'i-lucide-trash-2',
         label: 'Delete',
         onClick: () => askDelete(row.original.raw)
-      })
-    ])
+      }) : null
+    ].filter(Boolean))
   }
 ]
 
@@ -262,7 +264,6 @@ async function refresh() {
 function startCreate() {
   editMode.value = 'create'
   Object.assign(form, emptyVoucher())
-  form.partyId = parties.value.find((item) => item.name === 'No Party')?.id || parties.value[0]?.id || null
   form.ledgerId = ledgers.value.find((item) => item.name === 'Cash In Hand')?.id || ledgers.value[0]?.id || null
   form.employeeId = employees.value[0]?.id || null
   form.accountNumber = bankAccounts.value[0]?.id || null
@@ -299,8 +300,9 @@ function buildPayload() {
     throw new Error('Voucher number is required.')
   }
 
-  if (!String(form.partyName || '').trim() && !form.partyId) {
-    throw new Error('Select a party or enter a party name.')
+  const partyLedger = parties.value.find((item) => item.ledgerId === form.ledgerId)
+  if (!String(form.partyName || partyLedger?.name || '').trim()) {
+    throw new Error('Enter party name before saving voucher.')
   }
 
   if (!form.ledgerId) {
@@ -315,7 +317,7 @@ function buildPayload() {
     throw new Error('Select bank account for non-cash voucher.')
   }
 
-  const party = parties.value.find((item) => item.id === form.partyId)
+  const party = parties.value.find((item) => item.ledgerId === form.ledgerId)
 
   return {
     ...form,
@@ -326,7 +328,7 @@ function buildPayload() {
     particulars: String(form.particulars || '').trim(),
     amount: Number(form.amount || 0),
     paymentMode: Number(form.paymentMode),
-    partyId: nullableGuid(form.partyId),
+    partyId: null,
     ledgerId: nullableGuid(form.ledgerId),
     employeeId: nullableGuid(form.employeeId),
     accountNumber: requiresBankAccount.value ? nullableGuid(form.accountNumber) : null,
@@ -467,6 +469,13 @@ watch(() => form.partyId, (partyId) => {
   }
 })
 
+watch(() => form.ledgerId, (ledgerId) => {
+  const party = parties.value.find((item) => item.ledgerId === ledgerId)
+  if (party) {
+    form.partyName = party.name
+  }
+})
+
 watch(() => form.paymentMode, () => {
   if (requiresBankAccount.value && !form.accountNumber) {
     form.accountNumber = bankAccounts.value[0]?.id || null
@@ -578,11 +587,8 @@ watch(() => form.paymentMode, () => {
         <UFormField v-if="requiresBankAccount" label="Bank account" required>
           <USelect v-model="form.accountNumber" :items="bankAccountOptions" placeholder="Select bank account" />
         </UFormField>
-        <UFormField label="Party" required>
-          <USelect v-model="form.partyId" :items="partyOptions" placeholder="Select party" />
-        </UFormField>
-        <UFormField label="Party name">
-          <UInput v-model="form.partyName" placeholder="Used when party is not in master" />
+        <UFormField label="Party name" required>
+          <UInput v-model="form.partyName" required />
         </UFormField>
         <div class="form-two-column">
           <UFormField label="Ledger" required>
@@ -607,7 +613,6 @@ watch(() => form.paymentMode, () => {
         <UFormField label="Remarks">
           <UTextarea v-model="form.remarks" autoresize />
         </UFormField>
-        <UCheckbox v-model="form.isParty" label="Party ledger voucher" />
       </UiFormSlideover>
 
       <UiConfirmDeleteModal

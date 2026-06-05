@@ -13,6 +13,7 @@ const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const products = ref<any[]>([])
 const purchaseInvoices = ref<any[]>([])
+const bankAccounts = ref<any[]>([])
 const loading = ref(false)
 const saving = ref(false)
 const setupStatus = ref<any | null>(null)
@@ -23,7 +24,11 @@ const paymentModeOptions = [
   { value: 0, label: 'Cash' },
   { value: 1, label: 'Card' },
   { value: 2, label: 'UPI' },
-  { value: 7, label: 'Cheque' }
+  { value: 4, label: 'IMPS' },
+  { value: 5, label: 'RTGS' },
+  { value: 6, label: 'NEFT' },
+  { value: 7, label: 'Cheque' },
+  { value: 8, label: 'Demand Draft' }
 ]
 
 const purchaseForm = reactive<any>(emptyPurchaseForm())
@@ -38,6 +43,12 @@ const productOptions = computed(() => [
 ])
 
 const selectedPurchaseProduct = computed(() => products.value.find((item) => item.id === purchaseForm.selectedProductId))
+const requiresBankAccount = computed(() => Number(purchaseForm.paidAmount || 0) > 0 && Number(purchaseForm.paymentMode) !== 0)
+
+const bankAccountOptions = computed(() => bankAccounts.value.map((account) => ({
+  value: account.id,
+  label: `${account.accountHolderName || 'Bank'} - ${account.accountNumber || ''}`.trim()
+})))
 
 const purchaseCartTotal = computed(() => {
   return purchaseCart.value.reduce((sum, item) => sum + lineTotal(item), 0)
@@ -141,7 +152,8 @@ function emptyPurchaseForm() {
     quantity: 1,
     costPrice: 0,
     mrp: 0,
-    discountAmount: 0
+    discountAmount: 0,
+    bankAccountId: null
   }
 }
 
@@ -153,17 +165,19 @@ async function refresh() {
   loading.value = true
   try {
     setupStatus.value = await api.get<any>('setup/status')
-    const [companyRows, storeRows, productRows, purchaseRows] = await Promise.all([
+    const [companyRows, storeRows, productRows, purchaseRows, bankAccountRows] = await Promise.all([
       api.list<any>('companies'),
       api.list<any>('stores'),
       api.list<any>('products'),
-      api.list<any>('purchase-invoices')
+      api.list<any>('purchase-invoices'),
+      api.list<any>('bank-accounts')
     ])
 
     companies.value = companyRows
     stores.value = storeRows
     products.value = productRows
     purchaseInvoices.value = purchaseRows
+    bankAccounts.value = bankAccountRows
   } catch (error) {
     feedback.failed('Purchase refresh failed', error)
   } finally {
@@ -227,6 +241,10 @@ async function submitPurchase() {
       throw new Error('Add at least one item to the inward cart.')
     }
 
+    if (requiresBankAccount.value && !purchaseForm.bankAccountId) {
+      throw new Error('Select bank account for non-cash payment.')
+    }
+
     const response = await api.create<any>('purchase/inward', {
       companyId,
       storeGroupId,
@@ -237,6 +255,7 @@ async function submitPurchase() {
       invoiceNumber: purchaseForm.invoiceNumber,
       inwardNumber: purchaseForm.inwardNumber,
       paymentMode: Number(purchaseForm.paymentMode),
+      bankAccountId: requiresBankAccount.value ? purchaseForm.bankAccountId : null,
       paidAmount: Number(purchaseForm.paidAmount || 0),
       frightAmount: Number(purchaseForm.frightAmount || 0),
       items: purchaseCart.value.map((item) => ({
@@ -275,6 +294,18 @@ function money(value: number) {
 onMounted(async () => {
   auth.restore()
   await refresh()
+})
+
+watch(() => purchaseForm.paymentMode, () => {
+  if (requiresBankAccount.value && !purchaseForm.bankAccountId) {
+    purchaseForm.bankAccountId = bankAccounts.value[0]?.id || null
+  }
+})
+
+watch(() => purchaseForm.paidAmount, () => {
+  if (requiresBankAccount.value && !purchaseForm.bankAccountId) {
+    purchaseForm.bankAccountId = bankAccounts.value[0]?.id || null
+  }
 })
 </script>
 
@@ -446,6 +477,9 @@ onMounted(async () => {
 
         <UFormField label="Payment mode">
           <USelect v-model="purchaseForm.paymentMode" :items="paymentModeOptions" />
+        </UFormField>
+        <UFormField v-if="requiresBankAccount" label="Bank account" required>
+          <USelect v-model="purchaseForm.bankAccountId" :items="bankAccountOptions" placeholder="Select bank account" />
         </UFormField>
         <div class="form-two-column">
           <UFormField label="Freight">

@@ -1,3 +1,4 @@
+using Garmetix.Api.Accounting;
 using Garmetix.Api.Auth;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Inventory;
@@ -19,7 +20,11 @@ public static class PurchaseEndpoints
         return group;
     }
 
-    private static async Task<IResult> CreateInwardAsync(PurchaseInwardRequest request, GarmetixDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> CreateInwardAsync(
+        PurchaseInwardRequest request,
+        GarmetixDbContext db,
+        AccountingPostingService accounting,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.VendorName))
         {
@@ -183,6 +188,7 @@ public static class PurchaseEndpoints
         vendor.BillCount += 1;
         vendor.BillAmount += billAmount;
         vendor.Paid += paidAmount;
+        await accounting.PostPurchaseInvoiceAsync(invoice, vendor, paidAmount, request.StoreGroupId, request.StoreId, request.BankAccountId, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

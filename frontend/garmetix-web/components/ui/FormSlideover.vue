@@ -18,7 +18,7 @@ const emit = defineEmits<{
     v-model:open="open"
     :title="title"
     :description="description"
-    :ui="{ body: 'overflow-y-auto' }"
+    :ui="{ content: 'w-full sm:max-w-3xl lg:max-w-5xl', body: 'overflow-y-auto' }"
   >
     <template #body>
       <form class="slideover-form" @submit.prevent="emit('submit')">

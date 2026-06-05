@@ -18,7 +18,7 @@ const titleMap: Record<string, string> = {
   audit: 'Audit',
   access: 'Access',
   'import-export': 'Import Export',
-  setup: 'Company Setup'
+  setup: 'Company'
 }
 
 const moduleKey = computed(() => String(route.params.module || ''))

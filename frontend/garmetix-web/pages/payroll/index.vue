@@ -9,6 +9,8 @@ const api = useGarmetixApi()
 const auth = useAuth()
 const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
+const canEdit = auth.canEdit
+const canDelete = auth.canDelete
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
@@ -229,21 +231,21 @@ const structureColumns: TableColumn<any>[] = [
         label: 'Pay',
         onClick: () => startPaymentCreate(row.original.raw)
       }),
-      h(UButton, {
+      canEdit.value ? h(UButton, {
         color: 'neutral',
         variant: 'ghost',
         icon: 'i-lucide-pencil',
         label: 'Edit',
         onClick: () => startStructureEdit(row.original.raw)
-      }),
-      h(UButton, {
+      }) : null,
+      canDelete.value ? h(UButton, {
         color: 'error',
         variant: 'ghost',
         icon: 'i-lucide-trash-2',
         label: 'Delete',
         onClick: () => askDelete('structure', row.original.raw)
-      })
-    ])
+      }) : null
+    ].filter(Boolean))
   }
 ]
 
@@ -311,21 +313,21 @@ const paymentColumns: TableColumn<any>[] = [
     id: 'actions',
     header: '',
     cell: ({ row }) => h('div', { class: 'table-action-buttons' }, [
-      h(UButton, {
+      canEdit.value ? h(UButton, {
         color: 'neutral',
         variant: 'ghost',
         icon: 'i-lucide-pencil',
         label: 'Edit',
         onClick: () => startPaymentEdit(row.original.raw)
-      }),
-      h(UButton, {
+      }) : null,
+      canDelete.value ? h(UButton, {
         color: 'error',
         variant: 'ghost',
         icon: 'i-lucide-trash-2',
         label: 'Delete',
         onClick: () => askDelete('payment', row.original.raw)
-      })
-    ])
+      }) : null
+    ].filter(Boolean))
   }
 ]
 

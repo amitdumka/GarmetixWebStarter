@@ -34,7 +34,27 @@ public sealed record AccountingPostResult(
 public sealed record BankTransactionSaveRequest(
     Guid? Id,
     Guid CompanyId,
+    Guid StoreGroupId,
+    Guid StoreId,
     Guid BankAccountId,
+    Guid LedgerId,
+    Guid? PartyId,
+    DateTime OnDate,
+    TransactionType TransactionType,
+    TransactionMode TransactionMode,
+    string? Narration,
+    string? Reference,
+    decimal Amount,
+    string? PersonName);
+
+public sealed record BankTransactionRow(
+    Guid Id,
+    Guid CompanyId,
+    Guid? StoreGroupId,
+    Guid? StoreId,
+    Guid BankAccountId,
+    Guid? LedgerId,
+    Guid? PartyId,
     DateTime OnDate,
     TransactionType TransactionType,
     TransactionMode TransactionMode,
@@ -51,6 +71,19 @@ public sealed record TrialBalanceRow(
     decimal Credit,
     decimal ClosingDebit,
     decimal ClosingCredit);
+
+public sealed record LedgerStatementRow(
+    Guid Id,
+    Guid LedgerId,
+    DateTime OnDate,
+    string EntryNumber,
+    string SourceType,
+    string? ReferenceNumber,
+    string Particulars,
+    decimal Debit,
+    decimal Credit,
+    decimal Balance,
+    string BalanceType);
 
 public sealed record BankStatementRow(
     Guid Id,

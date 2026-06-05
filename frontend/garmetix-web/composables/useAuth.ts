@@ -33,6 +33,11 @@ export function useAuth() {
   const authBase = apiBase.replace(/\/api$/, '/api/auth')
 
   const isAuthenticated = computed(() => Boolean(token.value && user.value))
+  const isOwner = computed(() => equals(user.value?.userType, 'Owner'))
+  const isAdmin = computed(() => equals(user.value?.role, 'Admin') || Boolean(user.value?.admin))
+  const canSeeAdmin = computed(() => isAdmin.value || isOwner.value)
+  const canEdit = computed(() => canSeeAdmin.value || ['PowerUser', 'Accountant'].some((role) => equals(user.value?.role, role)))
+  const canDelete = computed(() => canSeeAdmin.value)
 
   function setSession(response: AuthResponse) {
     token.value = response.token
@@ -88,5 +93,23 @@ export function useAuth() {
     }
   }
 
-  return { user, token, isAuthenticated, restore, login, bootstrapStatus, bootstrapAdmin, logout }
+  function equals(value: string | undefined, expected: string) {
+    return String(value || '').toLowerCase() === expected.toLowerCase()
+  }
+
+  return {
+    user,
+    token,
+    isAuthenticated,
+    isOwner,
+    isAdmin,
+    canSeeAdmin,
+    canEdit,
+    canDelete,
+    restore,
+    login,
+    bootstrapStatus,
+    bootstrapAdmin,
+    logout
+  }
 }

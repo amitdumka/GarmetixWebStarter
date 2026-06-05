@@ -1,3 +1,4 @@
+using Garmetix.Api.Accounting;
 using Garmetix.Api.Auth;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Inventory;
@@ -17,7 +18,7 @@ public static class BillingEndpoints
         group.MapPost("/sales", CreateSaleAsync);
         group.MapGet("/sales/recent", GetRecentSalesAsync);
         group.MapGet("/sales/{id:guid}/receipt", GetReceiptAsync);
-        group.MapPost("/sales/{id:guid}/cancel", CancelSaleAsync);
+        group.MapPost("/sales/{id:guid}/cancel", CancelSaleAsync).RequireAuthorization(GarmetixPolicies.Delete);
 
         return group;
     }
@@ -112,7 +113,11 @@ public static class BillingEndpoints
             payments));
     }
 
-    private static async Task<IResult> CreateSaleAsync(PosSaleRequest request, GarmetixDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> CreateSaleAsync(
+        PosSaleRequest request,
+        GarmetixDbContext db,
+        AccountingPostingService accounting,
+        CancellationToken cancellationToken)
     {
         if (request.Items.Count == 0)
         {
@@ -239,6 +244,7 @@ public static class BillingEndpoints
 
         customer.BillCount += 1;
         customer.Amount += billAmount;
+        await accounting.PostSalesInvoiceAsync(invoice, customer, request.StoreGroupId, request.BankAccountId, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -255,7 +261,12 @@ public static class BillingEndpoints
             invoice.Quantity));
     }
 
-    private static async Task<IResult> CancelSaleAsync(Guid id, CancelInvoiceRequest request, GarmetixDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> CancelSaleAsync(
+        Guid id,
+        CancelInvoiceRequest request,
+        GarmetixDbContext db,
+        AccountingPostingService accounting,
+        CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
@@ -269,6 +280,17 @@ public static class BillingEndpoints
         {
             return Results.Conflict(new { message = "Invoice is already cancelled." });
         }
+
+        var originalPaidAmount = invoice.PaidAmount;
+        var originalPaymentMode = invoice.PaymentMode;
+        var originalBankAccountId = await db.BankTransactions
+            .Where(item => item.CompanyId == invoice.CompanyId && item.Reference == $"SI-{invoice.InvoiceNumber}")
+            .Select(item => (Guid?)item.BankAccountId)
+            .FirstOrDefaultAsync(cancellationToken);
+        var storeGroupId = await db.Stores
+            .Where(item => item.Id == invoice.StoreId)
+            .Select(item => item.StoreGroupId)
+            .FirstOrDefaultAsync(cancellationToken);
 
         var items = await db.InvoiceItems
             .Where(item => item.InvoiceId == id)
@@ -308,6 +330,7 @@ public static class BillingEndpoints
         invoice.PaymentMode = null;
         invoice.CreditSale = false;
 
+        await accounting.PostSalesInvoiceCancellationAsync(invoice, customer, storeGroupId, originalPaidAmount, originalPaymentMode, originalBankAccountId, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 

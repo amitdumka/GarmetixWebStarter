@@ -22,7 +22,7 @@ const moduleMeta: Record<string, { icon: string, color: UiColor, description: st
   setup: {
     icon: 'i-lucide-building-2',
     color: 'primary',
-    description: 'Companies, store groups, and stores.'
+    description: 'Company, store groups, and stores.'
   },
   inventory: {
     icon: 'i-lucide-boxes',

@@ -14,13 +14,33 @@ public static class AccountingEndpoints
             .RequireAuthorization(GarmetixPolicies.Accounting);
 
         group.MapPost("/vouchers", SaveVoucherAsync);
-        group.MapPut("/vouchers/{id:guid}", UpdateVoucherAsync);
+        group.MapPut("/vouchers/{id:guid}", UpdateVoucherAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapGet("/journal", GetJournalAsync);
         group.MapGet("/trial-balance", GetTrialBalanceAsync);
+        group.MapGet("/ledger-statement/{ledgerId:guid}", GetLedgerStatementAsync);
         group.MapGet("/bank-statement/{bankAccountId:guid}", GetBankStatementAsync);
+        group.MapGet("/bank-transactions", ListPostedBankTransactionsAsync);
         group.MapPost("/bank-transactions", SaveBankTransactionAsync);
-        group.MapPut("/bank-transactions/{id:guid}", UpdateBankTransactionAsync);
-        group.MapDelete("/bank-transactions/{id:guid}", DeleteBankTransactionAsync);
+        group.MapPut("/bank-transactions/{id:guid}", UpdateBankTransactionAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapDelete("/bank-transactions/{id:guid}", DeleteBankTransactionAsync).RequireAuthorization(GarmetixPolicies.Delete);
+
+        var parties = app.MapGroup("/api/parties")
+            .WithTags("Party")
+            .RequireAuthorization(GarmetixPolicies.Accounting);
+        parties.MapGet("/", ListPartiesAsync);
+        parties.MapGet("/{id:guid}", GetPartyAsync);
+        parties.MapPost("/", SavePartyAsync);
+        parties.MapPut("/{id:guid}", UpdatePartyAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        parties.MapDelete("/{id:guid}", DeletePartyAsync).RequireAuthorization(GarmetixPolicies.Delete);
+
+        var bankAccounts = app.MapGroup("/api/bank-accounts")
+            .WithTags("BankAccount")
+            .RequireAuthorization(GarmetixPolicies.Accounting);
+        bankAccounts.MapGet("/", ListBankAccountsAsync);
+        bankAccounts.MapGet("/{id:guid}", GetBankAccountAsync);
+        bankAccounts.MapPost("/", SaveBankAccountAsync);
+        bankAccounts.MapPut("/{id:guid}", UpdateBankAccountAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        bankAccounts.MapDelete("/{id:guid}", DeleteBankAccountAsync).RequireAuthorization(GarmetixPolicies.Delete);
 
         var vouchers = app.MapGroup("/api/vouchers")
             .WithTags("Voucher")
@@ -29,10 +49,131 @@ public static class AccountingEndpoints
         vouchers.MapGet("/", ListVouchersAsync);
         vouchers.MapGet("/{id:guid}", GetVoucherAsync);
         vouchers.MapPost("/", SaveVoucherAsync);
-        vouchers.MapPut("/{id:guid}", UpdateVoucherAsync);
-        vouchers.MapDelete("/{id:guid}", DeleteVoucherAsync);
+        vouchers.MapPut("/{id:guid}", UpdateVoucherAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        vouchers.MapDelete("/{id:guid}", DeleteVoucherAsync).RequireAuthorization(GarmetixPolicies.Delete);
 
         return group;
+    }
+
+    private static async Task<IResult> ListPartiesAsync(
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        return Results.Ok(await db.Parties.AsNoTracking()
+            .OrderBy(item => item.Name)
+            .ToListAsync(cancellationToken));
+    }
+
+    private static async Task<IResult> GetPartyAsync(
+        Guid id,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var party = await db.Parties.AsNoTracking().FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        return party is null ? Results.NotFound() : Results.Ok(party);
+    }
+
+    private static async Task<IResult> SavePartyAsync(
+        Party party,
+        AccountingPostingService service,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var saved = await service.SavePartyAsync(party, cancellationToken);
+            return Results.Created($"/api/parties/{saved.Id}", saved);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> UpdatePartyAsync(
+        Guid id,
+        Party party,
+        AccountingPostingService service,
+        CancellationToken cancellationToken)
+    {
+        party.Id = id;
+        return await SavePartyAsync(party, service, cancellationToken);
+    }
+
+    private static async Task<IResult> DeletePartyAsync(
+        Guid id,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var party = await db.Parties.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (party is null)
+        {
+            return Results.NotFound();
+        }
+
+        db.Parties.Remove(party);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> ListBankAccountsAsync(
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        return Results.Ok(await db.BankAccounts.AsNoTracking()
+            .OrderBy(item => item.AccountHolderName)
+            .ThenBy(item => item.AccountNumber)
+            .ToListAsync(cancellationToken));
+    }
+
+    private static async Task<IResult> GetBankAccountAsync(
+        Guid id,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var account = await db.BankAccounts.AsNoTracking().FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        return account is null ? Results.NotFound() : Results.Ok(account);
+    }
+
+    private static async Task<IResult> SaveBankAccountAsync(
+        BankAccount account,
+        AccountingPostingService service,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var saved = await service.SaveBankAccountAsync(account, cancellationToken);
+            return Results.Created($"/api/bank-accounts/{saved.Id}", saved);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> UpdateBankAccountAsync(
+        Guid id,
+        BankAccount account,
+        AccountingPostingService service,
+        CancellationToken cancellationToken)
+    {
+        account.Id = id;
+        return await SaveBankAccountAsync(account, service, cancellationToken);
+    }
+
+    private static async Task<IResult> DeleteBankAccountAsync(
+        Guid id,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var account = await db.BankAccounts.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (account is null)
+        {
+            return Results.NotFound();
+        }
+
+        db.BankAccounts.Remove(account);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> ListVouchersAsync(
@@ -163,6 +304,23 @@ public static class AccountingEndpoints
         return Results.Ok(await service.GetBankStatementAsync(bankAccountId, cancellationToken));
     }
 
+    private static async Task<IResult> GetLedgerStatementAsync(
+        Guid ledgerId,
+        DateTime? from,
+        DateTime? to,
+        AccountingPostingService service,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Results.Ok(await service.GetLedgerStatementAsync(ledgerId, from, to, cancellationToken));
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
     private static async Task<IResult> SaveBankTransactionAsync(
         BankTransactionSaveRequest request,
         AccountingPostingService service,
@@ -176,6 +334,51 @@ public static class AccountingEndpoints
         {
             return Results.BadRequest(new { message = ex.Message });
         }
+    }
+
+    private static async Task<IResult> ListPostedBankTransactionsAsync(
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var transactions = await db.BankTransactions.AsNoTracking()
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .ToListAsync(cancellationToken);
+        var transactionIds = transactions.Select(item => item.Id).ToList();
+        var bankAccountIds = transactions.Select(item => item.BankAccountId).Distinct().ToList();
+        var bankLedgers = await db.BankAccounts.AsNoTracking()
+            .Where(item => bankAccountIds.Contains(item.Id))
+            .ToDictionaryAsync(item => item.Id, item => item.LedgerId, cancellationToken);
+        var journals = await db.JournalEntries.AsNoTracking()
+            .Include(entry => entry.Lines)
+            .Where(entry => entry.SourceType == "BankTransaction" && entry.SourceId.HasValue && transactionIds.Contains(entry.SourceId.Value))
+            .ToListAsync(cancellationToken);
+
+        var rows = transactions.Select(transaction =>
+        {
+            var journal = journals.FirstOrDefault(entry => entry.SourceId == transaction.Id);
+            bankLedgers.TryGetValue(transaction.BankAccountId, out var bankLedgerId);
+            var contraLine = journal?.Lines?
+                .FirstOrDefault(line => bankLedgerId == Guid.Empty || line.LedgerId != bankLedgerId);
+
+            return new BankTransactionRow(
+                transaction.Id,
+                transaction.CompanyId,
+                journal?.StoreGroupId,
+                journal?.StoreId,
+                transaction.BankAccountId,
+                contraLine?.LedgerId,
+                contraLine?.PartyId,
+                transaction.OnDate,
+                transaction.TransactionType,
+                transaction.TransactionMode,
+                transaction.Narration,
+                transaction.Reference,
+                transaction.Amount,
+                transaction.PersonName);
+        });
+
+        return Results.Ok(rows);
     }
 
     private static async Task<IResult> UpdateBankTransactionAsync(
@@ -204,8 +407,22 @@ public static class AccountingEndpoints
         var statementLines = await db.BankStatementLines
             .Where(item => item.BankTransactionId == transaction.Id)
             .ToListAsync(cancellationToken);
+        var journals = await db.JournalEntries
+            .Include(entry => entry.Lines)
+            .Where(entry => entry.SourceType == "BankTransaction" && entry.SourceId == transaction.Id)
+            .ToListAsync(cancellationToken);
+        foreach (var journal in journals)
+        {
+            db.JournalLines.RemoveRange(journal.Lines ?? []);
+            db.JournalEntries.Remove(journal);
+        }
+
+        var cheques = await db.ChequeLogs
+            .Where(item => item.Narration == transaction.Reference)
+            .ToListAsync(cancellationToken);
 
         db.BankStatementLines.RemoveRange(statementLines);
+        db.ChequeLogs.RemoveRange(cheques);
         db.BankTransactions.Remove(transaction);
         await db.SaveChangesAsync(cancellationToken);
         await service.RecalculateBankStatementBalancesAsync(bankAccountId, cancellationToken);

@@ -18,7 +18,7 @@ const selectedModule = ref('all')
 
 const moduleOptions = [
   { value: 'all', label: 'All Modules' },
-  { value: 'Setup', label: 'Setup' },
+  { value: 'Company', label: 'Company' },
   { value: 'Inventory', label: 'Inventory' },
   { value: 'Billing', label: 'Billing' },
   { value: 'Purchase', label: 'Purchase' },

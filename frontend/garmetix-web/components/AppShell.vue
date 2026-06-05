@@ -14,6 +14,10 @@ const route = useRoute()
 const feedback = useUiFeedback()
 const messageLogs = feedback.logs
 
+useHead(() => ({
+  title: props.title || 'Dashboard'
+}))
+
 const companyValue = ref('all')
 const storeValue = ref('all')
 const colorMode = useColorMode()
@@ -43,7 +47,6 @@ const moduleGroups = [
   {
     label: 'Operations',
     items: [
-      { to: '/setup', label: 'Setup', icon: 'i-lucide-building-2' },
       { to: '/billing', label: 'Billing', icon: 'i-lucide-receipt-indian-rupee' },
       { to: '/inventory', label: 'Inventory', icon: 'i-lucide-boxes' },
       { to: '/purchase', label: 'Purchase', icon: 'i-lucide-package-plus' },
@@ -62,7 +65,8 @@ const moduleGroups = [
   {
     label: 'Admin',
     items: [
-      { to: '/access', label: 'Access', icon: 'i-lucide-shield-check' },
+      { to: '/setup', label: 'Company', icon: 'i-lucide-building-2' },
+      { to: '/access', label: 'Roles & Users', icon: 'i-lucide-shield-check' },
       { to: '/import-export', label: 'Import Export', icon: 'i-lucide-file-down' },
       { to: '/audit', label: 'Audit', icon: 'i-lucide-history' }
     ]
@@ -73,7 +77,9 @@ function isActive(to: string) {
   return to === '/' ? route.path === '/' : route.path.startsWith(to)
 }
 
-const navigationItems = computed(() => moduleGroups.flatMap((group) => [
+const visibleModuleGroups = computed(() => moduleGroups.filter((group) => group.label !== 'Admin' || auth.canSeeAdmin.value))
+
+const navigationItems = computed(() => visibleModuleGroups.value.flatMap((group) => [
   { label: group.label, type: 'label' },
   ...group.items.map((item) => ({
     ...item,
@@ -121,7 +127,7 @@ function formatLogDate(value: string) {
       <template #header="{ collapsed }">
         <NuxtLink class="ui-brand" to="/">
           <div class="ui-brand-mark">
-            <UIcon name="i-lucide-shirt" class="size-5" />
+            <img class="ui-brand-logo" src="/garmetix-icon-512.png" alt="Garmetix" />
           </div>
           <div v-if="!collapsed" class="min-w-0">
             <p class="ui-brand-title">Garmetix</p>

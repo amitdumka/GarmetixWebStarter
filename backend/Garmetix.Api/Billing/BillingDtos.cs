@@ -9,6 +9,7 @@ public sealed record PosSaleRequest(
     string? CustomerName,
     string? CustomerMobileNumber,
     PaymentMode PaymentMode,
+    Guid? BankAccountId,
     decimal PaidAmount,
     decimal BillDiscountAmount,
     IReadOnlyList<PosSaleItemRequest> Items);

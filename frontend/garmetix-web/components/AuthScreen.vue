@@ -15,6 +15,10 @@ const authForm = reactive({
   password: ''
 })
 
+useHead({
+  title: 'Login'
+})
+
 async function submitAuth() {
   authError.value = ''
 
@@ -51,7 +55,7 @@ onMounted(async () => {
       <template #header>
         <div class="auth-heading">
           <div class="ui-brand-mark">
-            <UIcon name="i-lucide-shirt" class="size-5" />
+            <img class="ui-brand-logo" src="/garmetix-icon-512.png" alt="Garmetix" />
           </div>
           <div>
             <p class="brand-title">Garmetix</p>

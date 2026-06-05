@@ -18,7 +18,7 @@ public static class ImportExportEndpoints
     private static readonly Dictionary<string, ExportDefinition> Definitions = new(StringComparer.OrdinalIgnoreCase)
     {
         ["setup"] = new(
-            "Setup",
+            "Company",
             ["Type", "Name", "Code", "Contact", "Email", "City", "State", "Active"],
             async (db, cancellationToken) =>
             {
@@ -659,7 +659,7 @@ public static class ImportExportEndpoints
 
         if (company is null || store is null)
         {
-            result.Errors.Add(new ImportRowError(1, "Setup", "Run quick setup before importing data."));
+            result.Errors.Add(new ImportRowError(1, "Company", "Run quick setup before importing data."));
             return null;
         }
 

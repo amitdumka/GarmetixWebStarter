@@ -66,8 +66,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy(GarmetixPolicies.Admin, policy => policy.RequireRole(GarmetixPolicies.AdminRoles));
-    options.AddPolicy(GarmetixPolicies.CompanySetup, policy => policy.RequireRole(GarmetixPolicies.AdminRoles));
+    options.AddPolicy(GarmetixPolicies.Admin, policy => policy.RequireAssertion(IsAdminOrOwner));
+    options.AddPolicy(GarmetixPolicies.CompanySetup, policy => policy.RequireAssertion(IsAdminOrOwner));
+    options.AddPolicy(GarmetixPolicies.Edit, policy => policy.RequireAssertion(CanEdit));
+    options.AddPolicy(GarmetixPolicies.Delete, policy => policy.RequireAssertion(CanDelete));
     options.AddPolicy(GarmetixPolicies.Billing, policy => policy.RequireRole(GarmetixPolicies.BillingRoles));
     options.AddPolicy(GarmetixPolicies.Inventory, policy => policy.RequireRole(GarmetixPolicies.InventoryRoles));
     options.AddPolicy(GarmetixPolicies.Purchase, policy => policy.RequireRole(GarmetixPolicies.InventoryRoles));
@@ -117,9 +119,9 @@ app.MapImportExportEndpoints();
 app.MapAuditEndpoints();
 app.MapAccountingEndpoints();
 
-MapCrud<Company>(app, "/api/companies", GarmetixPolicies.CompanySetup);
-MapCrud<StoreGroup>(app, "/api/store-groups", GarmetixPolicies.CompanySetup);
-MapCrud<Store>(app, "/api/stores", GarmetixPolicies.CompanySetup);
+MapCrud<Company>(app, "/api/companies", GarmetixPolicies.CompanySetup, readPolicyName: null);
+MapCrud<StoreGroup>(app, "/api/store-groups", GarmetixPolicies.CompanySetup, readPolicyName: null);
+MapCrud<Store>(app, "/api/stores", GarmetixPolicies.CompanySetup, readPolicyName: null);
 MapCrud<Product>(app, "/api/products", GarmetixPolicies.Inventory);
 MapCrud<Stock>(app, "/api/stocks", GarmetixPolicies.Inventory);
 MapCrud<Customer>(app, "/api/customers", GarmetixPolicies.Billing);
@@ -128,9 +130,7 @@ MapCrud<Invoice>(app, "/api/sales-invoices", GarmetixPolicies.Billing);
 MapCrud<PurchaseInvoice>(app, "/api/purchase-invoices", GarmetixPolicies.Purchase);
 MapCrud<LedgerGroup>(app, "/api/ledger-groups", GarmetixPolicies.Accounting);
 MapCrud<Ledger>(app, "/api/ledgers", GarmetixPolicies.Accounting);
-MapCrud<Party>(app, "/api/parties", GarmetixPolicies.Accounting);
 MapCrud<Bank>(app, "/api/banks", GarmetixPolicies.Accounting);
-MapCrud<BankAccount>(app, "/api/bank-accounts", GarmetixPolicies.Accounting);
 MapCrud<BankAccountDetail>(app, "/api/bank-account-details", GarmetixPolicies.Accounting);
 MapCrud<VendorBankAccount>(app, "/api/vendor-bank-accounts", GarmetixPolicies.Accounting);
 MapCrud<BankTransaction>(app, "/api/bank-transactions", GarmetixPolicies.Accounting);
@@ -153,25 +153,58 @@ MapCrud<AppUser>(app, "/api/users", GarmetixPolicies.Admin);
 
 app.Run();
 
-static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string policyName) where T : class, Garmetix.Core.Interfaces.IEntity
+static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string policyName, string? readPolicyName = "") where T : class, Garmetix.Core.Interfaces.IEntity
 {
-    var group = app.MapGroup(route).WithTags(typeof(T).Name).RequireAuthorization(policyName);
+    readPolicyName = readPolicyName == string.Empty ? policyName : readPolicyName;
+    var group = app.MapGroup(route).WithTags(typeof(T).Name);
 
-    group.MapGet("/", async (IGarmetixRepository repository, CancellationToken cancellationToken) =>
+    var list = group.MapGet("/", async (IGarmetixRepository repository, CancellationToken cancellationToken) =>
         Results.Ok(await repository.ListAsync<T>(cancellationToken)));
-    group.MapGet("/{id:guid}", async (Guid id, IGarmetixRepository repository, CancellationToken cancellationToken) =>
+    var get = group.MapGet("/{id:guid}", async (Guid id, IGarmetixRepository repository, CancellationToken cancellationToken) =>
         await repository.FindAsync<T>(id, cancellationToken) is { } entity ? Results.Ok(entity) : Results.NotFound());
+    if (readPolicyName is null)
+    {
+        list.RequireAuthorization();
+        get.RequireAuthorization();
+    }
+    else
+    {
+        list.RequireAuthorization(readPolicyName);
+        get.RequireAuthorization(readPolicyName);
+    }
+
     group.MapPost("/", async (T entity, IGarmetixRepository repository, CancellationToken cancellationToken) =>
-        Results.Created($"{route}/{entity.Id}", await repository.SaveAsync(entity, cancellationToken)));
+        Results.Created($"{route}/{entity.Id}", await repository.SaveAsync(entity, cancellationToken)))
+        .RequireAuthorization(policyName);
     group.MapPut("/{id:guid}", async (Guid id, T entity, IGarmetixRepository repository, CancellationToken cancellationToken) =>
     {
         entity.Id = id;
         return Results.Ok(await repository.SaveAsync(entity, cancellationToken));
-    });
+    }).RequireAuthorization(policyName).RequireAuthorization(GarmetixPolicies.Edit);
     group.MapDelete("/{id:guid}", async (Guid id, IGarmetixRepository repository, CancellationToken cancellationToken) =>
-        await repository.DeleteAsync<T>(id, cancellationToken) ? Results.NoContent() : Results.NotFound());
+        await repository.DeleteAsync<T>(id, cancellationToken) ? Results.NoContent() : Results.NotFound())
+        .RequireAuthorization(policyName)
+        .RequireAuthorization(GarmetixPolicies.Delete);
 
     return group;
+}
+
+static bool IsAdminOrOwner(AuthorizationHandlerContext context)
+{
+    return context.User.IsInRole(LoginRole.Admin.ToString())
+        || string.Equals(context.User.FindFirst("userType")?.Value, UserType.Owner.ToString(), StringComparison.OrdinalIgnoreCase);
+}
+
+static bool CanEdit(AuthorizationHandlerContext context)
+{
+    return IsAdminOrOwner(context)
+        || context.User.IsInRole(LoginRole.PowerUser.ToString())
+        || context.User.IsInRole(LoginRole.Accountant.ToString());
+}
+
+static bool CanDelete(AuthorizationHandlerContext context)
+{
+    return IsAdminOrOwner(context);
 }
 
 static async Task<IResult> BootstrapAdminAsync(BootstrapAdminRequest request, GarmetixDbContext db, JwtTokenService tokens, CancellationToken cancellationToken)

@@ -6,6 +6,7 @@ const api = useGarmetixApi()
 const auth = useAuth()
 const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
+const canDelete = auth.canDelete
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
@@ -14,6 +15,7 @@ const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const products = ref<any[]>([])
 const invoices = ref<any[]>([])
+const bankAccounts = ref<any[]>([])
 const selectedReceipt = ref<any | null>(null)
 const pendingCancel = ref<any | null>(null)
 const loading = ref(false)
@@ -28,7 +30,11 @@ const paymentModeOptions = [
   { value: 0, label: 'Cash' },
   { value: 1, label: 'Card' },
   { value: 2, label: 'UPI' },
-  { value: 7, label: 'Cheque' }
+  { value: 4, label: 'IMPS' },
+  { value: 5, label: 'RTGS' },
+  { value: 6, label: 'NEFT' },
+  { value: 7, label: 'Cheque' },
+  { value: 8, label: 'Demand Draft' }
 ]
 
 const saleForm = reactive<any>(emptySaleForm())
@@ -52,6 +58,12 @@ const productOptions = computed(() => [
 ])
 
 const selectedProduct = computed(() => products.value.find((item) => item.id === saleForm.selectedProductId))
+const requiresBankAccount = computed(() => Number(saleForm.paidAmount || 0) > 0 && Number(saleForm.paymentMode) !== 0)
+
+const bankAccountOptions = computed(() => bankAccounts.value.map((account) => ({
+  value: account.id,
+  label: `${account.accountHolderName || 'Bank'} - ${account.accountNumber || ''}`.trim()
+})))
 
 const cartTotal = computed(() => {
   return saleCart.value.reduce((sum, item) => sum + lineTotal(item), 0)
@@ -160,7 +172,7 @@ const columns: TableColumn<any>[] = [
         })
       ]
 
-      if (invoice.invoiceStatus !== 'Cancelled') {
+      if (canDelete.value && invoice.invoiceStatus !== 'Cancelled') {
         actions.push(h(UButton, {
           color: 'error',
           variant: 'ghost',
@@ -184,7 +196,8 @@ function emptySaleForm() {
     billDiscountAmount: 0,
     selectedProductId: '',
     quantity: 1,
-    lineDiscount: 0
+    lineDiscount: 0,
+    bankAccountId: null
   }
 }
 
@@ -196,17 +209,19 @@ async function refresh() {
   loading.value = true
   try {
     setupStatus.value = await api.get<any>('setup/status')
-    const [companyRows, storeRows, productRows, invoiceRows] = await Promise.all([
+    const [companyRows, storeRows, productRows, invoiceRows, bankAccountRows] = await Promise.all([
       api.list<any>('companies'),
       api.list<any>('stores'),
       api.list<any>('products'),
-      api.get<any[]>('billing/sales/recent?take=100')
+      api.get<any[]>('billing/sales/recent?take=100'),
+      api.list<any>('bank-accounts')
     ])
 
     companies.value = companyRows
     stores.value = storeRows
     products.value = productRows
     invoices.value = invoiceRows
+    bankAccounts.value = bankAccountRows
   } catch (error) {
     feedback.failed('Billing refresh failed', error)
   } finally {
@@ -261,6 +276,10 @@ async function submitSale() {
       throw new Error('Add at least one item to the bill.')
     }
 
+    if (requiresBankAccount.value && !saleForm.bankAccountId) {
+      throw new Error('Select bank account for non-cash payment.')
+    }
+
     const response = await api.create<any>('billing/sales', {
       companyId,
       storeGroupId,
@@ -268,6 +287,7 @@ async function submitSale() {
       customerName: saleForm.customerName,
       customerMobileNumber: saleForm.customerMobileNumber,
       paymentMode: Number(saleForm.paymentMode),
+      bankAccountId: requiresBankAccount.value ? saleForm.bankAccountId : null,
       paidAmount: Number(saleForm.paidAmount || 0),
       billDiscountAmount: Number(saleForm.billDiscountAmount || 0),
       items: saleCart.value.map((item) => ({
@@ -356,6 +376,18 @@ function money(value: number) {
 onMounted(async () => {
   auth.restore()
   await refresh()
+})
+
+watch(() => saleForm.paymentMode, () => {
+  if (requiresBankAccount.value && !saleForm.bankAccountId) {
+    saleForm.bankAccountId = bankAccounts.value[0]?.id || null
+  }
+})
+
+watch(() => saleForm.paidAmount, () => {
+  if (requiresBankAccount.value && !saleForm.bankAccountId) {
+    saleForm.bankAccountId = bankAccounts.value[0]?.id || null
+  }
 })
 </script>
 
@@ -498,6 +530,9 @@ onMounted(async () => {
 
         <UFormField label="Payment">
           <USelect v-model="saleForm.paymentMode" :items="paymentModeOptions" />
+        </UFormField>
+        <UFormField v-if="requiresBankAccount" label="Bank account" required>
+          <USelect v-model="saleForm.bankAccountId" :items="bankAccountOptions" placeholder="Select bank account" />
         </UFormField>
         <div class="form-two-column">
           <UFormField label="Bill discount">

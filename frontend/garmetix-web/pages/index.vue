@@ -13,6 +13,7 @@ const employees = ref<any[]>([])
 const loading = ref(false)
 const setupStatus = ref<any | null>(null)
 const setupMessage = ref('')
+const canSeeAdmin = auth.canSeeAdmin
 
 const setupForm = reactive({
   companyName: 'Garmetix Company',
@@ -86,14 +87,21 @@ const metrics = computed(() => [
   }
 ])
 
-const moduleCards = computed(() => [
-  { to: '/billing', label: 'Billing', count: invoices.value.length, icon: 'i-lucide-receipt-indian-rupee', status: 'Live' },
-  { to: '/inventory', label: 'Inventory', count: products.value.length, icon: 'i-lucide-boxes', status: 'Live' },
-  { to: '/purchase', label: 'Purchase', count: products.value.length, icon: 'i-lucide-package-plus', status: 'Live' },
-  { to: '/vouchers', label: 'Vouchers', count: vouchers.value.length, icon: 'i-lucide-banknote', status: 'Live' },
-  { to: '/hr', label: 'HR', count: employees.value.length, icon: 'i-lucide-users-round', status: 'Attendance' },
-  { to: '/setup', label: 'Setup', count: companies.value.length + stores.value.length, icon: 'i-lucide-building-2', status: needsSetup.value ? 'Required' : 'Ready' }
-])
+const moduleCards = computed(() => {
+  const items = [
+    { to: '/billing', label: 'Billing', count: invoices.value.length, icon: 'i-lucide-receipt-indian-rupee', status: 'Live' },
+    { to: '/inventory', label: 'Inventory', count: products.value.length, icon: 'i-lucide-boxes', status: 'Live' },
+    { to: '/purchase', label: 'Purchase', count: products.value.length, icon: 'i-lucide-package-plus', status: 'Live' },
+    { to: '/vouchers', label: 'Vouchers', count: vouchers.value.length, icon: 'i-lucide-banknote', status: 'Live' },
+    { to: '/hr', label: 'HR', count: employees.value.length, icon: 'i-lucide-users-round', status: 'Attendance' }
+  ]
+
+  if (canSeeAdmin.value) {
+    items.push({ to: '/setup', label: 'Company', count: companies.value.length + stores.value.length, icon: 'i-lucide-building-2', status: needsSetup.value ? 'Required' : 'Ready' })
+  }
+
+  return items
+})
 
 const currentWork = computed(() => [
   { title: 'Nuxt UI dashboard shell', status: 'Done', type: 'Frontend', owner: 'Codex', due: 'Stage 1' },
@@ -112,7 +120,7 @@ const recentActivity = computed(() => {
   }))
 
   const setupItems = [
-    { label: `${companies.value.length} companies configured`, meta: 'Setup', icon: 'i-lucide-building-2', to: '/setup' },
+    ...(canSeeAdmin.value ? [{ label: `${companies.value.length} companies configured`, meta: 'Company', icon: 'i-lucide-building-2', to: '/setup' }] : []),
     { label: `${products.value.length} products available`, meta: 'Inventory', icon: 'i-lucide-boxes', to: '/inventory' },
     { label: `${employees.value.length} employees registered`, meta: 'HR', icon: 'i-lucide-users-round', to: '/hr' }
   ]
@@ -256,7 +264,7 @@ onMounted(async () => {
 
       <div class="planner-workspace">
         <div class="planner-main-column">
-          <UCard v-if="needsSetup" class="planner-card">
+          <UCard v-if="needsSetup && canSeeAdmin" class="planner-card">
             <template #header>
               <div class="planner-card-header">
                 <div>
@@ -346,7 +354,7 @@ onMounted(async () => {
                   <h2>Current Sprint</h2>
                   <p>UI implementation stages tracked like the planner template</p>
                 </div>
-                <UButton to="/setup" color="neutral" variant="ghost" icon="i-lucide-arrow-right" label="Open Setup" />
+                <UButton v-if="canSeeAdmin" to="/setup" color="neutral" variant="ghost" icon="i-lucide-arrow-right" label="Open Company" />
               </div>
             </template>
 

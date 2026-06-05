@@ -13,6 +13,7 @@ public sealed record PurchaseInwardRequest(
     string? InwardNumber,
     decimal PaidAmount,
     PaymentMode PaymentMode,
+    Guid? BankAccountId,
     decimal FrightAmount,
     IReadOnlyList<PurchaseInwardItemRequest> Items);
 

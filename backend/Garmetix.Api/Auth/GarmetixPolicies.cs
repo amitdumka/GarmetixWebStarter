@@ -6,6 +6,8 @@ public static class GarmetixPolicies
 {
     public const string Admin = "Admin";
     public const string CompanySetup = "CompanySetup";
+    public const string Edit = "Edit";
+    public const string Delete = "Delete";
     public const string Billing = "Billing";
     public const string Inventory = "Inventory";
     public const string Purchase = "Purchase";
@@ -15,8 +17,19 @@ public static class GarmetixPolicies
 
     public static readonly string[] AdminRoles =
     [
+        LoginRole.Admin.ToString()
+    ];
+
+    public static readonly string[] EditRoles =
+    [
         LoginRole.Admin.ToString(),
-        LoginRole.PowerUser.ToString()
+        LoginRole.PowerUser.ToString(),
+        LoginRole.Accountant.ToString()
+    ];
+
+    public static readonly string[] DeleteRoles =
+    [
+        LoginRole.Admin.ToString()
     ];
 
     public static readonly string[] BillingRoles =
@@ -39,7 +52,8 @@ public static class GarmetixPolicies
         LoginRole.Admin.ToString(),
         LoginRole.PowerUser.ToString(),
         LoginRole.Accountant.ToString(),
-        LoginRole.RemoteAccountant.ToString()
+        LoginRole.RemoteAccountant.ToString(),
+        LoginRole.StoreManager.ToString()
     ];
 
     public static readonly string[] HrRoles =

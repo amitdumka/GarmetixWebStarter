@@ -8,6 +8,8 @@ const api = useGarmetixApi()
 const auth = useAuth()
 const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
+const canEdit = auth.canEdit
+const canDelete = auth.canDelete
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
@@ -65,7 +67,7 @@ const companyForm = reactive<any>(emptyCompany())
 const groupForm = reactive<any>(emptyStoreGroup())
 const storeForm = reactive<any>(emptyStore())
 
-const activeLabel = computed(() => tabs.find((tab) => tab.key === activeTab.value)?.label || 'Setup')
+const activeLabel = computed(() => tabs.find((tab) => tab.key === activeTab.value)?.label || 'Company')
 const activeCount = computed(() => activeRows.value.length)
 const isEditing = computed(() => Boolean(editingId.value))
 const formTitle = computed(() => `${isEditing.value ? 'Edit' : 'New'} ${singularLabel(activeTab.value)}`)
@@ -186,21 +188,21 @@ function actionColumn(): TableColumn<any> {
     id: 'actions',
     header: '',
     cell: ({ row }) => h('div', { class: 'table-action-buttons' }, [
-      h(UButton, {
+      canEdit.value ? h(UButton, {
         color: 'neutral',
         variant: 'ghost',
         icon: 'i-lucide-pencil',
         label: 'Edit',
         onClick: () => startEdit(row.original.raw)
-      }),
-      h(UButton, {
+      }) : null,
+      canDelete.value ? h(UButton, {
         color: 'error',
         variant: 'ghost',
         icon: 'i-lucide-trash-2',
         label: 'Delete',
         onClick: () => askDelete(row.original.raw)
-      })
-    ])
+      }) : null
+    ].filter(Boolean))
   }
 }
 
@@ -277,7 +279,7 @@ async function refresh() {
     storeGroups.value = groupRows
     stores.value = storeRows
   } catch (error) {
-    feedback.failed('Setup refresh failed', error)
+    feedback.failed('Company refresh failed', error)
   } finally {
     loading.value = false
   }
@@ -369,7 +371,7 @@ async function saveCurrent() {
     formOpen.value = false
     await refresh()
   } catch (error) {
-    feedback.failed('Could not save setup record', error)
+    feedback.failed('Could not save company record', error)
   } finally {
     saving.value = false
   }
@@ -448,7 +450,7 @@ async function confirmDelete() {
     pendingDelete.value = null
     await refresh()
   } catch (error) {
-    feedback.failed('Could not delete setup record', error)
+    feedback.failed('Could not delete company record', error)
   } finally {
     deleting.value = false
   }
@@ -501,7 +503,7 @@ onMounted(async () => {
 
   <AppShell
     v-else
-    title="Setup"
+    title="Company"
     :companies="companies"
     :stores="stores"
     @refresh="refresh"
@@ -596,7 +598,7 @@ onMounted(async () => {
         <UiCrudEmptyState
           v-else
           :title="`No ${activeLabel.toLowerCase()} found`"
-          description="Create the first record to continue setup."
+          description="Create the first company, group, or store record."
           icon="i-lucide-inbox"
           :action-label="`New ${singularLabel(activeTab)}`"
           @action="startCreate"

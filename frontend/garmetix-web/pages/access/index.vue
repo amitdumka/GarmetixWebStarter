@@ -6,6 +6,8 @@ const api = useGarmetixApi()
 const auth = useAuth()
 const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
+const canEdit = auth.canEdit
+const canDelete = auth.canDelete
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
@@ -152,28 +154,28 @@ const columns: TableColumn<any>[] = [
     id: 'actions',
     header: '',
     cell: ({ row }) => h('div', { class: 'table-action-buttons' }, [
-      h(UButton, {
+      canEdit.value ? h(UButton, {
         color: 'neutral',
         variant: 'ghost',
         icon: 'i-lucide-key-round',
         label: 'Reset',
         onClick: () => startReset(row.original.raw)
-      }),
-      h(UButton, {
+      }) : null,
+      canEdit.value ? h(UButton, {
         color: 'neutral',
         variant: 'ghost',
         icon: 'i-lucide-pencil',
         label: 'Edit',
         onClick: () => startEdit(row.original.raw)
-      }),
-      h(UButton, {
+      }) : null,
+      canDelete.value ? h(UButton, {
         color: 'error',
         variant: 'ghost',
         icon: 'i-lucide-trash-2',
         label: 'Delete',
         onClick: () => askDelete(row.original.raw)
-      })
-    ])
+      }) : null
+    ].filter(Boolean))
   }
 ]
 
