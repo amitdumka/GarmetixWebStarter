@@ -1009,6 +1009,60 @@ select {
   padding-top: 14px;
 }
 
+.voucher-print {
+  color: var(--ink);
+}
+
+.voucher-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.voucher-meta-grid div {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.voucher-meta-grid span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.voucher-table td:first-child {
+  width: 180px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.voucher-table td:last-child {
+  text-align: left;
+}
+
+.voucher-total {
+  margin-left: auto;
+  max-width: 360px;
+}
+
+.voucher-signatures {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 36px;
+}
+
+.voucher-signatures div {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
 .import-export-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -393,6 +393,8 @@ watch(() => purchaseForm.paidAmount, () => {
         title="New Purchase Inward"
         description="Create or reuse products and receive stock from a supplier."
         submit-label="Save Inward"
+        layout="modal"
+        content-class="w-[calc(100vw-2rem)] sm:max-w-6xl xl:max-w-7xl"
         :loading="saving"
         @submit="submitPurchase"
       >

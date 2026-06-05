@@ -730,6 +730,8 @@ onMounted(async () => {
         :title="formKind === 'employee' ? (editingEmployeeId ? 'Edit Employee' : 'New Employee') : (editingAttendanceId ? 'Edit Attendance' : 'New Attendance')"
         :description="formKind === 'employee' ? 'Maintain employee master details.' : 'Record daily attendance status and times.'"
         :submit-label="formKind === 'employee' ? 'Save Employee' : 'Save Attendance'"
+        :layout="formKind === 'employee' ? 'modal' : 'slideover'"
+        :content-class="formKind === 'employee' ? 'w-[calc(100vw-2rem)] sm:max-w-5xl lg:max-w-6xl' : undefined"
         :loading="saving"
         @submit="saveCurrentForm"
       >

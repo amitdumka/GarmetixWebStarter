@@ -475,6 +475,8 @@ watch(() => saleForm.paidAmount, () => {
         title="New Sales Invoice"
         description="Select products, add quantities, collect payment, and save the invoice."
         submit-label="Save Invoice"
+        layout="modal"
+        content-class="w-[calc(100vw-2rem)] sm:max-w-6xl xl:max-w-7xl"
         :loading="saving"
         @submit="submitSale"
       >

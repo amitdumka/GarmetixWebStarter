@@ -26,6 +26,7 @@ const deleting = ref(false)
 const search = ref('')
 const formOpen = ref(false)
 const deleteOpen = ref(false)
+const selectedPrintVoucher = ref<any | null>(null)
 const pendingDelete = ref<any | null>(null)
 const editMode = ref<'create' | 'edit'>('create')
 
@@ -70,6 +71,15 @@ const bankAccountOptions = computed(() => bankAccounts.value.map((account) => ({
 })))
 
 const requiresBankAccount = computed(() => [1, 2, 3, 4, 5, 6, 7, 8].includes(Number(form.paymentMode)))
+
+const printOpen = computed({
+  get: () => Boolean(selectedPrintVoucher.value),
+  set: (value: boolean) => {
+    if (!value) {
+      selectedPrintVoucher.value = null
+    }
+  }
+})
 
 const filteredRows = computed(() => {
   const term = search.value.trim().toLowerCase()
@@ -171,6 +181,13 @@ const columns: TableColumn<any>[] = [
     id: 'actions',
     header: '',
     cell: ({ row }) => h('div', { class: 'table-action-buttons' }, [
+      h(UButton, {
+        color: 'neutral',
+        variant: 'ghost',
+        icon: 'i-lucide-printer',
+        label: 'Print',
+        onClick: () => openPrintVoucher(row.original.raw)
+      }),
       canEdit.value ? h(UButton, {
         color: 'neutral',
         variant: 'ghost',
@@ -368,6 +385,14 @@ function askDelete(voucher: any) {
   deleteOpen.value = true
 }
 
+function openPrintVoucher(voucher: any) {
+  selectedPrintVoucher.value = voucher
+}
+
+function printVoucher() {
+  window.print()
+}
+
 async function confirmDelete() {
   if (!pendingDelete.value) {
     return
@@ -434,6 +459,18 @@ function bankAccountName(bankAccountId: string | null | undefined) {
 
   const account = bankAccounts.value.find((item) => item.id === id)
   return account ? `${account.accountHolderName || 'Bank'} - ${account.accountNumber || ''}`.trim() : '-'
+}
+
+function companyName(companyId: string | null | undefined) {
+  const id = normalizeGuid(companyId)
+  const company = companies.value.find((item) => item.id === id) || companies.value[0]
+  return company?.name || company?.companyName || 'Garmetix'
+}
+
+function storeName(storeId: string | null | undefined) {
+  const id = normalizeGuid(storeId)
+  const store = stores.value.find((item) => item.id === id) || stores.value[0]
+  return store?.name || store?.storeName || 'Store'
 }
 
 function nullableGuid(value: unknown) {
@@ -567,6 +604,8 @@ watch(() => form.paymentMode, () => {
         :title="editMode === 'create' ? 'New Voucher' : 'Edit Voucher'"
         description="Save payment, receipt, or expense details."
         :submit-label="editMode === 'create' ? 'Save Voucher' : 'Update Voucher'"
+        layout="modal"
+        content-class="w-[calc(100vw-2rem)] sm:max-w-5xl lg:max-w-6xl"
         :loading="saving"
         @submit="saveVoucher"
       >
@@ -622,6 +661,97 @@ watch(() => form.paymentMode, () => {
         :loading="deleting"
         @confirm="confirmDelete"
       />
+
+      <UModal v-model:open="printOpen" title="Voucher Print" :ui="{ content: 'max-w-4xl' }">
+        <template #body>
+          <div v-if="selectedPrintVoucher" class="receipt-print voucher-print">
+            <header class="receipt-header">
+              <h2>{{ companyName(selectedPrintVoucher.companyId) }}</h2>
+              <p>{{ storeName(selectedPrintVoucher.storeId) }}</p>
+              <p>{{ voucherTypeLabel(selectedPrintVoucher.voucherType) }} Voucher</p>
+            </header>
+
+            <div class="voucher-meta-grid">
+              <div>
+                <span>Voucher No.</span>
+                <strong>{{ selectedPrintVoucher.voucherNumber || '-' }}</strong>
+              </div>
+              <div>
+                <span>Date</span>
+                <strong>{{ formatDate(selectedPrintVoucher.onDate) }}</strong>
+              </div>
+              <div>
+                <span>Mode</span>
+                <strong>{{ paymentModeLabel(selectedPrintVoucher.paymentMode) }}</strong>
+              </div>
+              <div>
+                <span>Amount</span>
+                <strong>{{ money(Number(selectedPrintVoucher.amount || 0)) }}</strong>
+              </div>
+            </div>
+
+            <table class="receipt-table voucher-table">
+              <tbody>
+                <tr>
+                  <td>Party</td>
+                  <td>{{ selectedPrintVoucher.partyName || '-' }}</td>
+                </tr>
+                <tr>
+                  <td>Ledger</td>
+                  <td>{{ ledgerName(selectedPrintVoucher.ledgerId) }}</td>
+                </tr>
+                <tr>
+                  <td>Issued by</td>
+                  <td>{{ employeeName(selectedPrintVoucher.employeeId) }}</td>
+                </tr>
+                <tr>
+                  <td>Bank account</td>
+                  <td>{{ bankAccountName(selectedPrintVoucher.accountNumber) }}</td>
+                </tr>
+                <tr>
+                  <td>Payment details</td>
+                  <td>{{ selectedPrintVoucher.paymentDetails || '-' }}</td>
+                </tr>
+                <tr>
+                  <td>Slip number</td>
+                  <td>{{ selectedPrintVoucher.slipNumber || '-' }}</td>
+                </tr>
+                <tr>
+                  <td>Particulars</td>
+                  <td>{{ selectedPrintVoucher.particulars || '-' }}</td>
+                </tr>
+                <tr>
+                  <td>Remarks</td>
+                  <td>{{ selectedPrintVoucher.remarks || '-' }}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="receipt-totals voucher-total">
+              <span>Total voucher amount</span>
+              <strong>{{ money(Number(selectedPrintVoucher.amount || 0)) }}</strong>
+            </div>
+
+            <div class="voucher-signatures">
+              <div>Prepared by</div>
+              <div>Checked by</div>
+              <div>Approved by</div>
+              <div>Received by</div>
+            </div>
+
+            <footer class="receipt-footer">
+              Generated by Garmetix. Keep this voucher for accounting audit records.
+            </footer>
+          </div>
+        </template>
+
+        <template #footer>
+          <div class="modal-actions">
+            <UButton color="neutral" variant="outline" label="Close" @click="printOpen = false" />
+            <UButton icon="i-lucide-printer" label="Print / PDF" @click="printVoucher" />
+          </div>
+        </template>
+      </UModal>
     </section>
   </AppShell>
 </template>
