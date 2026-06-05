@@ -17,38 +17,23 @@ export function useGarmetixApi() {
   }
 
   async function list<T>(resource: string) {
-    return await $fetch<T[]>(`${base}/${resource}`, {
-      headers: authHeaders()
-    })
+    return await request<T[]>(resource, 'GET')
   }
 
   async function get<T>(resource: string) {
-    return await $fetch<T>(`${base}/${resource}`, {
-      headers: authHeaders()
-    })
+    return await request<T>(resource, 'GET')
   }
 
   async function create<T extends GarmetixEntity>(resource: string, body: T) {
-    return await $fetch<T>(`${base}/${resource}`, {
-      method: 'POST',
-      headers: authHeaders(),
-      body: sanitizeCreateBody(body)
-    })
+    return await request<T>(resource, 'POST', sanitizeCreateBody(body))
   }
 
   async function update<T extends GarmetixEntity>(resource: string, id: string, body: T) {
-    return await $fetch<T>(`${base}/${resource}/${id}`, {
-      method: 'PUT',
-      headers: authHeaders(),
-      body
-    })
+    return await request<T>(`${resource}/${id}`, 'PUT', body)
   }
 
   async function remove(resource: string, id: string) {
-    return await $fetch(`${base}/${resource}/${id}`, {
-      method: 'DELETE',
-      headers: authHeaders()
-    })
+    return await request(`${resource}/${id}`, 'DELETE')
   }
 
   function sanitizeCreateBody<T extends GarmetixEntity>(body: T) {
@@ -58,6 +43,40 @@ export function useGarmetixApi() {
 
     const { id, ...rest } = body
     return rest
+  }
+
+  async function request<T>(resource: string, method: string, body?: unknown) {
+    const path = `${base}/${resource}`
+
+    try {
+      return await $fetch<T>(path, {
+        method,
+        headers: authHeaders(),
+        body
+      })
+    } catch (error: any) {
+      error.garmetixRequest = {
+        method,
+        resource,
+        path,
+        body: summarizeBody(body)
+      }
+      throw error
+    }
+  }
+
+  function summarizeBody(body?: unknown) {
+    if (!body || typeof body !== 'object') {
+      return body
+    }
+
+    const record = body as Record<string, unknown>
+    const summary: Record<string, unknown> = {}
+    for (const key of Object.keys(record).slice(0, 20)) {
+      summary[key] = key.toLowerCase().includes('password') ? '[hidden]' : record[key]
+    }
+
+    return summary
   }
 
   return { list, get, create, update, remove, authHeaders }

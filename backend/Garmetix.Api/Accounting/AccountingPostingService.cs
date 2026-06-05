@@ -1,5 +1,6 @@
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Accounting;
+using Garmetix.Core.Models.HRM;
 using Garmetix.Core.Models.Inventory;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -728,6 +729,61 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
             cancellationToken);
     }
 
+    public async Task PostSalaryPaymentAsync(
+        SalaryPayment payment,
+        CancellationToken cancellationToken)
+    {
+        if (payment.Amount <= 0)
+        {
+            throw new ArgumentException("Salary payment amount must be greater than zero.");
+        }
+
+        var employee = await db.Employees.FirstOrDefaultAsync(item => item.Id == payment.EmployeeId, cancellationToken)
+            ?? throw new InvalidOperationException("Select a valid employee.");
+        var party = await EnsureEmployeePartyAsync(employee, cancellationToken);
+        var debitLedger = IsAdvanceComponent(payment.SalaryComponent)
+            ? await EnsureNamedLedgerAsync(payment.CompanyId, "Salary Advance", "Current Assets", LedgerCategory.CurrentAssets, LedgerType.CurrentAsset, cancellationToken)
+            : await EnsureNamedLedgerAsync(payment.CompanyId, "Salary Payables", "Direct Expenses", LedgerCategory.DirectExpenses, LedgerType.Expenses, cancellationToken);
+        var creditLedger = payment.PaymentMode == PaymentMode.Cash
+            ? await EnsureNamedLedgerAsync(payment.CompanyId, "Cash In Hand", "Cash-in-Hand", LedgerCategory.CashInHand, LedgerType.Cash, cancellationToken)
+            : await EnsureNamedLedgerAsync(payment.CompanyId, "Bank Clearing", "Bank Accounts", LedgerCategory.BankAccounts, LedgerType.BankAccount, cancellationToken);
+        var reference = string.IsNullOrWhiteSpace(payment.VoucherNumber)
+            ? $"SAL-{payment.Id:N}"[..16]
+            : payment.VoucherNumber.Trim();
+        var narration = $"{payment.SalaryComponent} - {employee.StaffName} - {payment.SalaryMonth}";
+
+        await RepostSourceJournalAsync(
+            "SalaryPayment",
+            payment.Id,
+            $"SP-{reference}",
+            payment.OnDate,
+            reference,
+            narration,
+            payment.CompanyId,
+            payment.StoreGroupId,
+            payment.StoreId,
+            [
+                new(debitLedger.Id, party.Id, payment.Amount, 0, narration),
+                new(creditLedger.Id, null, 0, payment.Amount, narration)
+            ],
+            cancellationToken);
+    }
+
+    public async Task RemoveSalaryPaymentPostingAsync(Guid salaryPaymentId, CancellationToken cancellationToken)
+    {
+        var journal = await db.JournalEntries
+            .Include(entry => entry.Lines)
+            .FirstOrDefaultAsync(entry => entry.SourceType == "SalaryPayment" && entry.SourceId == salaryPaymentId, cancellationToken);
+
+        if (journal is null)
+        {
+            return;
+        }
+
+        db.JournalLines.RemoveRange(journal.Lines ?? []);
+        db.JournalEntries.Remove(journal);
+    }
+
     private async Task<Voucher> ResolveVoucherAsync(VoucherSaveRequest request, CancellationToken cancellationToken)
     {
         if (request.Id.HasValue)
@@ -835,6 +891,35 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         }
 
         return ledger;
+    }
+
+    private async Task<Party> EnsureEmployeePartyAsync(Employee employee, CancellationToken cancellationToken)
+    {
+        var party = await db.Parties.FirstOrDefaultAsync(
+            item => item.CompanyId == employee.CompanyId && item.Name == employee.StaffName && item.Category == PartyType.Employee,
+            cancellationToken);
+
+        party ??= new Party
+        {
+            CompanyId = employee.CompanyId,
+            Name = employee.StaffName,
+            Category = PartyType.Employee
+        };
+
+        party.CompanyId = employee.CompanyId;
+        party.Name = employee.StaffName;
+        party.Category = PartyType.Employee;
+        party.EmailId = employee.Email;
+        party.Phone = employee.Mobile;
+        party.PAN = employee.PAN;
+        party.LedgerId = (await EnsurePartyLedgerAsync(party, cancellationToken)).Id;
+
+        if (db.Entry(party).State == EntityState.Detached)
+        {
+            db.Parties.Add(party);
+        }
+
+        return party;
     }
 
     private async Task<Ledger> EnsureBankAccountLedgerAsync(BankAccount account, CancellationToken cancellationToken)
@@ -1536,6 +1621,11 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
     private static bool RequiresBank(PaymentMode mode)
     {
         return BankPaymentModes.Contains(mode);
+    }
+
+    private static bool IsAdvanceComponent(SalaryComponent component)
+    {
+        return component is SalaryComponent.Advance or SalaryComponent.SalaryAdvance;
     }
 
     private static Guid? NormalizeGuid(Guid? value)

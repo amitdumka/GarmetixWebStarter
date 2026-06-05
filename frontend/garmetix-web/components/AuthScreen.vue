@@ -37,7 +37,8 @@ async function submitAuth() {
   } catch (error: any) {
     authError.value = feedback.errorMessage(error, authMode.value === 'bootstrap'
       ? 'Could not create the first admin. Check the database and API status.'
-      : 'Login failed. Check the username and password.')
+      : 'Login failed. Check the username and password.',
+      authMode.value === 'bootstrap' ? 'First admin setup failed' : 'Login failed')
   }
 }
 
@@ -48,7 +49,7 @@ onMounted(async () => {
     hasAdmin.value = status.hasAdmin
     authMode.value = status.hasAdmin ? 'login' : 'bootstrap'
   } catch (error: any) {
-    authStatus.value = feedback.errorMessage(error, 'Could not reach the API.')
+    authStatus.value = feedback.errorMessage(error, 'Could not reach the API.', 'API status check failed')
   }
 })
 </script>

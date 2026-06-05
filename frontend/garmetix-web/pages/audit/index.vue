@@ -23,6 +23,7 @@ const moduleOptions = [
   { value: 'Billing', label: 'Billing' },
   { value: 'Purchase', label: 'Purchase' },
   { value: 'Vouchers', label: 'Vouchers' },
+  { value: 'Accounting', label: 'Accounting' },
   { value: 'Petty Cash', label: 'Petty Cash' },
   { value: 'HR', label: 'HR' },
   { value: 'Payroll', label: 'Payroll' }
@@ -49,6 +50,13 @@ const metrics = computed(() => [
     meta: 'Changed records',
     icon: 'i-lucide-pencil',
     color: 'warning'
+  },
+  {
+    label: 'Deleted',
+    value: activities.value.filter((item) => item.action === 'Deleted').length,
+    meta: 'Soft-deleted records',
+    icon: 'i-lucide-trash-2',
+    color: 'error'
   },
   {
     label: 'Modules',
@@ -94,7 +102,7 @@ const columns: TableColumn<any>[] = [
     accessorKey: 'action',
     header: 'Action',
     cell: ({ row }) => h(UBadge, {
-      color: row.original.action === 'Created' ? 'success' : 'warning',
+      color: actionColor(row.original.action),
       variant: 'subtle'
     }, () => row.original.action)
   },
@@ -135,11 +143,24 @@ function moduleColor(moduleName: string) {
     return 'warning'
   }
 
-  if (key === 'hr') {
+  if (key === 'hr' || key === 'accounting') {
     return 'primary'
   }
 
   return 'neutral'
+}
+
+function actionColor(action: string) {
+  const key = String(action || '').toLowerCase()
+  if (key === 'created') {
+    return 'success'
+  }
+
+  if (key === 'deleted') {
+    return 'error'
+  }
+
+  return 'warning'
 }
 
 function formatDateTime(value: string) {

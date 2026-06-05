@@ -509,7 +509,7 @@ select {
 
 .message-log-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 8px;
@@ -517,11 +517,38 @@ select {
   font-size: 12px;
 }
 
+.message-log-title,
+.message-log-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.message-log-title span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .message-log-entry p {
   margin: 0;
 }
 
-.message-log-entry pre {
+.message-log-details {
+  margin-top: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.message-log-details summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.message-log-details pre {
   margin: 10px 0 0;
   padding: 10px;
   border-radius: 8px;

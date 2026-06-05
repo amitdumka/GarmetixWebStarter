@@ -443,7 +443,7 @@ public static class ImportExportEndpoints
                 await ImportBillingAsync(db, dataRows, commit, result, accounting, cancellationToken);
                 break;
             case "payroll":
-                await ImportPayrollAsync(db, dataRows, commit, result, cancellationToken);
+                await ImportPayrollAsync(db, dataRows, commit, result, accounting, cancellationToken);
                 break;
             default:
                 result.Errors.Add(new ImportRowError(1, "Module", $"{definition.Name} import write is not enabled yet. Download/export is available."));
@@ -1127,6 +1127,7 @@ public static class ImportExportEndpoints
         IReadOnlyList<CsvDataRow> rows,
         bool commit,
         ImportResult result,
+        AccountingPostingService accounting,
         CancellationToken cancellationToken)
     {
         var employees = await db.Employees
@@ -1160,7 +1161,7 @@ public static class ImportExportEndpoints
                 case "payment":
                 case "salarypayment":
                 case "advance":
-                    ImportSalaryPaymentRow(db, row, employee, structures, payments, payslips, commit, result);
+                    await ImportSalaryPaymentRow(db, row, employee, structures, payments, payslips, commit, result, accounting, cancellationToken);
                     break;
                 default:
                     result.Errors.Add(new ImportRowError(row.Line, "Type", "Type must be Structure or Payment."));
@@ -1239,7 +1240,7 @@ public static class ImportExportEndpoints
         }
     }
 
-    private static void ImportSalaryPaymentRow(
+    private static async Task ImportSalaryPaymentRow(
         GarmetixDbContext db,
         CsvDataRow row,
         Employee employee,
@@ -1247,7 +1248,9 @@ public static class ImportExportEndpoints
         List<SalaryPayment> payments,
         List<SalaryPaySlip> payslips,
         bool commit,
-        ImportResult result)
+        ImportResult result,
+        AccountingPostingService accounting,
+        CancellationToken cancellationToken)
     {
         var voucherNumber = row.Required("VoucherNumber", result);
         var onDate = row.Date("PaymentDate", DateTime.Today, result);
@@ -1339,6 +1342,8 @@ public static class ImportExportEndpoints
         {
             result.Updated++;
         }
+
+        await accounting.PostSalaryPaymentAsync(payment, cancellationToken);
     }
 
     private static void ImportCompanyRow(

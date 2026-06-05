@@ -127,6 +127,8 @@ Payroll now has its own Nuxt route at `/payroll`. The page uses Nuxt UI KPI card
 
 Payslips can be generated for a selected month from `/api/payroll/payslips/generate-month`. The generator prorates salary from monthly attendance billable days, reduces salary advances, carries previous unpaid due, and shows the remaining due amount. The Payroll page auto-generates the previous month's payslips once when opened on the first day of a month. Each payslip can be opened in a print view and saved as PDF from the browser print dialog, with quick Email and WhatsApp share actions.
 
+Salary payments saved through `/api/salary-payments` now post accounting journals automatically. Net salary payments debit `Salary Payables`; advance payments debit `Salary Advance`; cash payments credit `Cash In Hand`; non-cash payments credit `Bank Clearing`. Editing a salary payment reposts the journal, and deleting it removes the posting.
+
 The API also runs a hosted payroll automation job. On the last day of each month it generates monthly attendance from daily attendance. On the first day of each month it generates payslips for the previous month, including attendance proration, salary advance reduction, and carry-forward due calculation. The job is idempotent: if records already exist, it updates them instead of duplicating them.
 
 Configure the automation in `backend/Garmetix.Api/appsettings.json`:

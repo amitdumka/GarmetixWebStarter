@@ -148,6 +148,23 @@ function formatLogDate(value: string) {
   return value ? new Date(value).toLocaleString() : '-'
 }
 
+async function copyLogDetails(entry: any) {
+  const text = [
+    entry.title,
+    entry.message,
+    entry.statusCode ? `Status: ${entry.statusCode}` : '',
+    entry.resource ? `Resource: ${entry.resource}` : '',
+    entry.details || ''
+  ].filter(Boolean).join('\n\n')
+
+  if (!import.meta.client || !navigator.clipboard) {
+    return
+  }
+
+  await navigator.clipboard.writeText(text)
+  feedback.notify('Message details copied', undefined, 'neutral')
+}
+
 async function checkApiHealth() {
   try {
     const response = await $fetch<{ databaseReady?: boolean }>('/api/health')
@@ -296,11 +313,31 @@ onBeforeUnmount(() => {
       <div v-if="messageLogs.length" class="message-log-list">
         <div v-for="entry in messageLogs" :key="entry.id" class="message-log-entry">
           <div class="message-log-header">
-            <UBadge :color="entry.color" variant="subtle">{{ entry.title }}</UBadge>
-            <span>{{ formatLogDate(entry.at) }}</span>
+            <div class="message-log-title">
+              <UBadge :color="entry.color" variant="subtle">{{ entry.title }}</UBadge>
+              <UBadge v-if="entry.statusCode" color="neutral" variant="outline">
+                {{ entry.statusCode }}
+              </UBadge>
+              <span v-if="entry.resource">{{ entry.resource }}</span>
+            </div>
+            <div class="message-log-actions">
+              <span>{{ formatLogDate(entry.at) }}</span>
+              <UButton
+                v-if="entry.details"
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                icon="i-lucide-copy"
+                label="Copy"
+                @click="copyLogDetails(entry)"
+              />
+            </div>
           </div>
           <p>{{ entry.message }}</p>
-          <pre v-if="entry.details">{{ entry.details }}</pre>
+          <details v-if="entry.details" class="message-log-details">
+            <summary>Technical details</summary>
+            <pre>{{ entry.details }}</pre>
+          </details>
         </div>
       </div>
       <UiCrudEmptyState

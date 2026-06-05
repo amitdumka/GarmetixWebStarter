@@ -116,6 +116,7 @@ app.MapPurchaseEndpoints();
 app.MapUserManagementEndpoints();
 app.MapHrEndpoints();
 app.MapPayrollEndpoints();
+app.MapSalaryPaymentEndpoints();
 app.MapImportExportEndpoints();
 app.MapAuditEndpoints();
 app.MapAccountingEndpoints();
@@ -149,7 +150,6 @@ MapCrud<Attendance>(app, "/api/attendance", GarmetixPolicies.Hr);
 MapCrud<MonthlyAttendance>(app, "/api/monthly-attendance", GarmetixPolicies.Hr);
 MapCrud<SalaryStructure>(app, "/api/salary-structures", GarmetixPolicies.Payroll);
 MapCrud<SalaryPaySlip>(app, "/api/salary-pay-slips", GarmetixPolicies.Payroll);
-MapCrud<SalaryPayment>(app, "/api/salary-payments", GarmetixPolicies.Payroll);
 MapCrud<AppUser>(app, "/api/users", GarmetixPolicies.Admin);
 
 app.Run();
