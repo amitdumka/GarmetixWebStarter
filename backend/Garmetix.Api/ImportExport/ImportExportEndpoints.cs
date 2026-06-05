@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Garmetix.Api.Accounting;
 using Garmetix.Api.Auth;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Accounting;
@@ -76,46 +77,99 @@ public static class ImportExportEndpoints
             }),
         ["billing"] = new(
             "Billing",
-            ["InvoiceNumber", "Date", "Customer", "Mobile", "MRP", "Discount", "Tax", "BillAmount", "Paid", "Balance", "Status"],
+            ["InvoiceNumber", "Date", "Customer", "Mobile", "Product", "Barcode", "Quantity", "MRP", "Discount", "Paid", "PaymentMode", "BankAccountNumber", "BillDiscount", "CompanyCode", "StoreGroupCode", "StoreCode"],
             async (db, cancellationToken) =>
             {
-                var rows = await db.SalesInvoices.AsNoTracking()
+                var invoices = await db.SalesInvoices.AsNoTracking()
                     .OrderByDescending(item => item.OnDate)
                     .ToListAsync(cancellationToken);
+                var invoiceIds = invoices.Select(item => item.Id).ToList();
+                var items = await db.InvoiceItems.AsNoTracking()
+                    .Where(item => invoiceIds.Contains(item.InvoiceId))
+                    .ToListAsync(cancellationToken);
+                var products = await db.Products.AsNoTracking().ToDictionaryAsync(item => item.Id, cancellationToken);
+                var stores = await db.Stores.AsNoTracking().ToDictionaryAsync(item => item.Id, cancellationToken);
+                var groups = await db.StoreGroups.AsNoTracking().ToDictionaryAsync(item => item.Id, cancellationToken);
+                var companies = await db.Companies.AsNoTracking().ToDictionaryAsync(item => item.Id, cancellationToken);
 
-                return rows.Select(item => Row(
-                    item.InvoiceNumber,
-                    item.OnDate,
-                    item.CustomerName,
-                    item.CustomerMobileNumber,
-                    item.MRP,
-                    item.DiscountAmount + item.BillDiscountAmount,
-                    item.TaxAmount,
-                    item.BillAmount,
-                    item.PaidAmount,
-                    item.BalanceAmount,
-                    item.InvoiceStatus));
+                return invoices.SelectMany(invoice =>
+                {
+                    var invoiceItems = items.Where(item => item.InvoiceId == invoice.Id).DefaultIfEmpty();
+                    return invoiceItems.Select(item =>
+                    {
+                        products.TryGetValue(item?.ProductId ?? Guid.Empty, out var product);
+                        stores.TryGetValue(invoice.StoreId, out var store);
+                        groups.TryGetValue(store?.StoreGroupId ?? Guid.Empty, out var group);
+                        companies.TryGetValue(invoice.CompanyId, out var company);
+                        return Row(
+                            invoice.InvoiceNumber,
+                            invoice.OnDate,
+                            invoice.CustomerName,
+                            invoice.CustomerMobileNumber,
+                            product?.Name ?? "",
+                            item?.Barcode ?? "",
+                            item?.BilledQuantity ?? invoice.Quantity,
+                            item?.MRP ?? invoice.MRP,
+                            item?.DiscountAmount ?? invoice.DiscountAmount,
+                            invoice.PaidAmount,
+                            invoice.PaymentMode,
+                            "",
+                            invoice.BillDiscountAmount,
+                            company?.Code ?? "",
+                            group?.GroupCode ?? "",
+                            store?.StoreCode ?? "");
+                    });
+                });
             }),
         ["purchase"] = new(
             "Purchase",
-            ["InvoiceNumber", "InwardNumber", "Date", "Vendor", "GSTIN", "MRP", "Discount", "Tax", "BillAmount", "Status"],
+            ["InvoiceNumber", "InwardNumber", "Date", "Vendor", "VendorMobile", "GSTIN", "Product", "Barcode", "Quantity", "CostPrice", "MRP", "Discount", "TaxRate", "Paid", "PaymentMode", "BankAccountNumber", "FrightAmount", "CompanyCode", "StoreGroupCode", "StoreCode"],
             async (db, cancellationToken) =>
             {
-                var rows = await db.PurchaseInvoices.AsNoTracking()
+                var invoices = await db.PurchaseInvoices.AsNoTracking()
                     .OrderByDescending(item => item.OnDate)
                     .ToListAsync(cancellationToken);
+                var invoiceIds = invoices.Select(item => item.Id).ToList();
+                var items = await db.PurchaseInvoiceItems.AsNoTracking()
+                    .Where(item => invoiceIds.Contains(item.InvoiceId))
+                    .ToListAsync(cancellationToken);
+                var products = await db.Products.AsNoTracking().ToDictionaryAsync(item => item.Id, cancellationToken);
+                var stores = await db.Stores.AsNoTracking().ToDictionaryAsync(item => item.Id, cancellationToken);
+                var groups = await db.StoreGroups.AsNoTracking().ToDictionaryAsync(item => item.Id, cancellationToken);
+                var companies = await db.Companies.AsNoTracking().ToDictionaryAsync(item => item.Id, cancellationToken);
 
-                return rows.Select(item => Row(
-                    item.InvoiceNumber,
-                    item.InwardNumber,
-                    item.OnDate,
-                    item.VendorName,
-                    item.VendorGSTIN,
-                    item.MRP,
-                    item.DiscountAmount,
-                    item.TaxAmount,
-                    item.BillAmount,
-                    item.InvoiceStatus));
+                return invoices.SelectMany(invoice =>
+                {
+                    var invoiceItems = items.Where(item => item.InvoiceId == invoice.Id).DefaultIfEmpty();
+                    return invoiceItems.Select(item =>
+                    {
+                        products.TryGetValue(item?.ProductId ?? Guid.Empty, out var product);
+                        var store = stores.Values.FirstOrDefault(item => item.CompanyId == invoice.CompanyId);
+                        groups.TryGetValue(store?.StoreGroupId ?? Guid.Empty, out var group);
+                        companies.TryGetValue(invoice.CompanyId, out var company);
+                        return Row(
+                            invoice.InvoiceNumber,
+                            invoice.InwardNumber,
+                            invoice.OnDate,
+                            invoice.VendorName,
+                            "",
+                            invoice.VendorGSTIN,
+                            product?.Name ?? "",
+                            item?.Barcode ?? "",
+                            item?.BilledQuantity ?? invoice.Quantity,
+                            item is null || item.BilledQuantity == 0 ? 0 : Math.Round(item.Amount / item.BilledQuantity, 2),
+                            item?.MRP ?? invoice.MRP,
+                            item?.DiscountAmount ?? invoice.DiscountAmount,
+                            item?.TaxPercentage ?? 0,
+                            0,
+                            invoice.PaymentMode,
+                            "",
+                            invoice.FrightAmount,
+                            company?.Code ?? "",
+                            group?.GroupCode ?? "",
+                            store?.StoreCode ?? "");
+                    });
+                });
             }),
         ["vouchers"] = new(
             "Vouchers",
@@ -177,29 +231,76 @@ public static class ImportExportEndpoints
             }),
         ["payroll"] = new(
             "Payroll",
-            ["Employee", "Month", "Basic", "HRA", "SpecialAllowance", "Conveyance", "Incentives", "Earnings", "Deductions", "NetSalary"],
+            ["Type", "Employee", "Mobile", "Month", "FromDate", "ToDate", "Basic", "HRA", "SpecialAllowance", "Conveyance", "Incentives", "ProvidentFund", "Gratuity", "ProfessionalTax", "Deductions", "GrossSalary", "TotalDeductions", "NetSalary", "SalaryComponent", "VoucherNumber", "PaymentDate", "PaymentMode", "Amount", "Remarks"],
             async (db, cancellationToken) =>
             {
-                var payslips = await db.SalaryPaySlips.AsNoTracking()
-                    .OrderByDescending(item => item.PayPeriodStart)
-                    .ToListAsync(cancellationToken);
                 var employees = await db.Employees.AsNoTracking().ToDictionaryAsync(item => item.Id, cancellationToken);
-
-                return payslips.Select(item =>
+                var structures = await db.SalaryStructures.AsNoTracking()
+                    .OrderBy(item => item.EmployeeId)
+                    .ThenByDescending(item => item.FromDate)
+                    .ToListAsync(cancellationToken);
+                var payments = await db.SalaryPayments.AsNoTracking()
+                    .OrderByDescending(item => item.OnDate)
+                    .ToListAsync(cancellationToken);
+                var rows = structures.Select(item =>
                 {
                     employees.TryGetValue(item.EmployeeId, out var employee);
                     return Row(
+                        "Structure",
                         employee?.StaffName ?? item.EmployeeId.ToString(),
-                        item.MonthYear,
+                        employee?.Mobile ?? "",
+                        "",
+                        item.FromDate,
+                        item.ToDate,
                         item.BasicSalary,
                         item.HRA,
                         item.SpecialAllowance,
                         item.ConveyanceAllowance,
                         item.Incentives,
-                        item.TotalEarnings,
-                        item.TotalDeductions,
-                        item.NetSalary);
+                        item.ProvidentFund,
+                        item.Gratuity,
+                        item.ProfessionalTax,
+                        item.Deductions,
+                        item.BasicSalary + item.HRA + item.SpecialAllowance + item.ConveyanceAllowance + item.Incentives,
+                        item.ProvidentFund + item.Gratuity + item.ProfessionalTax + item.Deductions,
+                        item.NetSalary,
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "");
                 });
+
+                return rows.Concat(payments.Select(item =>
+                {
+                    employees.TryGetValue(item.EmployeeId, out var employee);
+                    return Row(
+                        "Payment",
+                        employee?.StaffName ?? item.EmployeeId.ToString(),
+                        employee?.Mobile ?? "",
+                        item.SalaryMonth,
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        item.GrossSalary,
+                        item.TotalDeductions,
+                        item.NetSalary,
+                        item.SalaryComponent,
+                        item.VoucherNumber,
+                        item.OnDate,
+                        item.PaymentMode,
+                        item.Amount,
+                        item.Remarks);
+                }));
             }),
         ["access"] = new(
             "Access",
@@ -239,7 +340,7 @@ public static class ImportExportEndpoints
             key = item.Key,
             name = item.Value.Name,
             columns = item.Value.Headers.Length,
-            importSupported = item.Key is "setup" or "inventory" or "hr" or "vouchers" or "petty-cash" or "access"
+            importSupported = item.Key is "setup" or "inventory" or "billing" or "purchase" or "hr" or "payroll" or "vouchers" or "petty-cash" or "access"
         })));
         group.MapGet("/export/{module}", ExportModuleAsync);
         group.MapGet("/template/{module}", TemplateAsync);
@@ -274,6 +375,7 @@ public static class ImportExportEndpoints
         IFormFile file,
         bool commit,
         GarmetixDbContext db,
+        AccountingPostingService accounting,
         CancellationToken cancellationToken)
     {
         if (!Definitions.TryGetValue(module, out var definition))
@@ -333,6 +435,15 @@ public static class ImportExportEndpoints
                 break;
             case "access":
                 await ImportAccessAsync(db, dataRows, commit, result, cancellationToken);
+                break;
+            case "purchase":
+                await ImportPurchaseAsync(db, dataRows, commit, result, accounting, cancellationToken);
+                break;
+            case "billing":
+                await ImportBillingAsync(db, dataRows, commit, result, accounting, cancellationToken);
+                break;
+            case "payroll":
+                await ImportPayrollAsync(db, dataRows, commit, result, cancellationToken);
                 break;
             default:
                 result.Errors.Add(new ImportRowError(1, "Module", $"{definition.Name} import write is not enabled yet. Download/export is available."));
@@ -519,6 +630,714 @@ public static class ImportExportEndpoints
             {
                 result.Updated++;
             }
+        }
+    }
+
+    private static async Task ImportPurchaseAsync(
+        GarmetixDbContext db,
+        IReadOnlyList<CsvDataRow> rows,
+        bool commit,
+        ImportResult result,
+        AccountingPostingService accounting,
+        CancellationToken cancellationToken)
+    {
+        var companies = await db.Companies.AsNoTracking().OrderBy(item => item.CreatedAt).ToListAsync(cancellationToken);
+        var groups = await db.StoreGroups.AsNoTracking().OrderBy(item => item.CreatedAt).ToListAsync(cancellationToken);
+        var stores = await db.Stores.AsNoTracking().OrderBy(item => item.CreatedAt).ToListAsync(cancellationToken);
+        var existingInvoices = await db.PurchaseInvoices.AsNoTracking()
+            .Select(item => new { item.CompanyId, item.InvoiceNumber })
+            .ToListAsync(cancellationToken);
+        var bankAccounts = await db.BankAccounts.AsNoTracking().ToListAsync(cancellationToken);
+        var drafts = new List<PurchaseImportLine>();
+
+        foreach (var row in rows)
+        {
+            var invoiceNumber = row.Required("InvoiceNumber", result);
+            var vendorName = row.Required("Vendor", result);
+            var productName = row.Required("Product", result);
+            var barcode = row.Required("Barcode", result);
+            if (string.IsNullOrWhiteSpace(invoiceNumber) ||
+                string.IsNullOrWhiteSpace(vendorName) ||
+                string.IsNullOrWhiteSpace(productName) ||
+                string.IsNullOrWhiteSpace(barcode))
+            {
+                continue;
+            }
+
+            var scope = ResolveRequiredStoreScope(row, companies, groups, stores, result);
+            var quantity = row.Decimal("Quantity", result);
+            var costPrice = row.Decimal("CostPrice", result);
+            var mrp = row.Decimal("MRP", result);
+            var discount = row.Decimal("Discount", result);
+            var taxRate = row.Decimal("TaxRate", result);
+            var paid = row.Decimal("Paid", result);
+            var freight = row.Decimal("FrightAmount", result);
+            var paymentMode = row.Enum("PaymentMode", PaymentMode.Cash, result);
+            var bankAccount = ResolveBankAccount(row, scope.CompanyId, bankAccounts, result);
+
+            if (quantity <= 0)
+            {
+                result.Errors.Add(new ImportRowError(row.Line, "Quantity", "Quantity must be greater than zero."));
+            }
+
+            if (costPrice < 0 || mrp < 0 || discount < 0 || paid < 0 || freight < 0)
+            {
+                result.Errors.Add(new ImportRowError(row.Line, "Amount", "Amounts cannot be negative."));
+            }
+
+            if (paid > 0 && paymentMode != PaymentMode.Cash && bankAccount is null)
+            {
+                result.Errors.Add(new ImportRowError(row.Line, "BankAccountNumber", "Bank account is required for non-cash purchase payment."));
+            }
+
+            if (existingInvoices.Any(item =>
+                item.CompanyId == scope.CompanyId &&
+                item.InvoiceNumber.Equals(invoiceNumber, StringComparison.OrdinalIgnoreCase)))
+            {
+                result.Errors.Add(new ImportRowError(row.Line, "InvoiceNumber", "Purchase invoice already exists. Purchase import is create-only."));
+            }
+
+            drafts.Add(new PurchaseImportLine(
+                row.Line,
+                scope.CompanyId,
+                scope.StoreGroupId,
+                scope.StoreId,
+                invoiceNumber.Trim(),
+                RequiredOrDefault(row["InwardNumber"], $"INW-{invoiceNumber.Trim()}"),
+                row.Date("Date", DateTime.Today, result),
+                vendorName.Trim(),
+                row["VendorMobile"],
+                row["GSTIN"],
+                productName.Trim(),
+                barcode.Trim(),
+                quantity,
+                costPrice,
+                mrp,
+                discount,
+                taxRate,
+                paid,
+                paymentMode,
+                bankAccount?.Id,
+                freight));
+        }
+
+        foreach (var group in drafts.GroupBy(item => new { item.CompanyId, item.InvoiceNumber }))
+        {
+            var first = group.First();
+            if (group.Select(item => item.VendorName).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+            {
+                result.Errors.Add(new ImportRowError(first.Line, "Vendor", "All rows for one purchase invoice must use the same vendor."));
+            }
+
+            if (group.Select(item => item.StoreId).Distinct().Count() > 1)
+            {
+                result.Errors.Add(new ImportRowError(first.Line, "StoreCode", "All rows for one purchase invoice must use the same store."));
+            }
+        }
+
+        if (!commit || result.Errors.Count > 0)
+        {
+            if (!commit)
+            {
+                result.Warnings.Add("Purchase import will create invoices, vendors/products if missing, stock entries, ledger postings, and bank transactions when committed.");
+            }
+
+            return;
+        }
+
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var categoryCache = new Dictionary<Guid, InventoryProductCategory>();
+        var subCategoryCache = new Dictionary<Guid, InventoryProductSubCategory>();
+        var taxCache = await db.Taxes.ToListAsync(cancellationToken);
+
+        foreach (var group in drafts.GroupBy(item => new { item.CompanyId, item.InvoiceNumber }))
+        {
+            var first = group.First();
+            var vendor = await GetOrCreateImportVendorAsync(db, first, cancellationToken);
+            var invoiceId = Guid.NewGuid();
+            var invoiceItems = new List<PurchaseInvoiceItem>();
+            decimal grossMrp = 0;
+            decimal discountAmount = 0;
+            decimal taxableAmount = 0;
+            decimal taxAmount = 0;
+            decimal totalQuantity = 0;
+
+            foreach (var line in group)
+            {
+                var category = await GetOrCreateGeneralCategoryAsync(db, categoryCache, line.CompanyId, cancellationToken);
+                var subCategory = await GetOrCreateGeneralSubCategoryAsync(db, subCategoryCache, line.CompanyId, cancellationToken);
+                var tax = await GetOrCreateImportTaxAsync(db, taxCache, line.TaxRate, cancellationToken);
+                var product = await GetOrCreateImportProductAsync(db, line, category.Id, subCategory.Id, tax, cancellationToken);
+
+                var lineMrp = line.Mrp * line.Quantity;
+                var lineCost = line.CostPrice * line.Quantity;
+                var lineNet = Math.Max(lineCost - line.Discount, 0);
+                var taxable = Math.Round(lineNet / (1 + (tax.CompositeRate / 100)), 2);
+                var taxValue = Math.Round(taxable * (tax.CompositeRate / 100), 2);
+                var lineAmount = taxable + taxValue;
+
+                invoiceItems.Add(new PurchaseInvoiceItem
+                {
+                    InvoiceId = invoiceId,
+                    ProductId = product.Id,
+                    Barcode = line.Barcode,
+                    MRP = line.Mrp,
+                    DiscountAmount = line.Discount,
+                    BasePrice = taxable,
+                    TaxPercentage = tax.CompositeRate,
+                    TaxAmount = taxValue,
+                    Amount = lineAmount,
+                    TaxType = tax.TaxType,
+                    TaxId = tax.Id,
+                    BilledQuantity = line.Quantity,
+                    CompanyId = line.CompanyId
+                });
+
+                var stock = await db.Stocks.FirstOrDefaultAsync(item =>
+                    item.ProductId == product.Id &&
+                    item.Barcode == line.Barcode &&
+                    item.StoreId == line.StoreId,
+                    cancellationToken);
+
+                if (stock is null)
+                {
+                    stock = new Stock
+                    {
+                        ProductId = product.Id,
+                        Barcode = line.Barcode,
+                        Unit = Unit.Pcs,
+                        CompanyId = line.CompanyId,
+                        StoreGroupId = line.StoreGroupId,
+                        StoreId = line.StoreId,
+                        TaxId = tax.Id
+                    };
+                    db.Stocks.Add(stock);
+                }
+
+                stock.PurchaseQty += line.Quantity;
+                stock.CostPrice = line.CostPrice;
+                stock.MRP = line.Mrp;
+                stock.TaxRate = tax.CompositeRate;
+                stock.TaxType = tax.TaxType;
+                stock.TaxId = tax.Id;
+
+                product.MRP = line.Mrp;
+                product.TaxRate = tax.CompositeRate;
+                product.TaxType = tax.TaxType;
+
+                grossMrp += lineMrp;
+                discountAmount += line.Discount;
+                taxableAmount += taxable;
+                taxAmount += taxValue;
+                totalQuantity += line.Quantity;
+            }
+
+            var freightAmount = group.Max(item => item.FrightAmount);
+            var paidAmount = group.Max(item => item.PaidAmount);
+            var netAmount = taxableAmount + taxAmount + freightAmount;
+            var billAmount = Math.Round(netAmount, 0);
+            paidAmount = Math.Min(Math.Max(paidAmount, 0), billAmount);
+
+            var invoice = new PurchaseInvoice
+            {
+                Id = invoiceId,
+                InvoiceNumber = first.InvoiceNumber,
+                InwardNumber = first.InwardNumber,
+                InwardDate = first.OnDate,
+                OnDate = first.OnDate,
+                InvoiceType = InvoiceType.Regular,
+                InvoiceStatus = paidAmount <= 0
+                    ? InvoiceStatus.Pending
+                    : paidAmount >= billAmount ? InvoiceStatus.Paid : InvoiceStatus.PartiallyPaid,
+                MRP = grossMrp,
+                BasePrice = taxableAmount,
+                DiscountAmount = discountAmount,
+                TaxAmount = taxAmount,
+                NetAmount = taxableAmount + taxAmount,
+                RoundOff = billAmount - netAmount,
+                BillAmount = billAmount,
+                Quantity = totalQuantity,
+                ItemCount = invoiceItems.Count,
+                PaymentMode = paidAmount > 0 ? first.PaymentMode : null,
+                VendorId = vendor.Id,
+                VendorName = vendor.Name,
+                VendorGSTIN = vendor.GSTIN,
+                FrightAmount = freightAmount,
+                DueDate = first.OnDate.AddDays(45),
+                CompanyId = first.CompanyId
+            };
+
+            db.PurchaseInvoices.Add(invoice);
+            db.PurchaseInvoiceItems.AddRange(invoiceItems);
+            vendor.BillCount += 1;
+            vendor.BillAmount += billAmount;
+            vendor.Paid += paidAmount;
+            await accounting.PostPurchaseInvoiceAsync(invoice, vendor, paidAmount, first.StoreGroupId, first.StoreId, first.BankAccountId, cancellationToken);
+            result.Created++;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    private static async Task ImportBillingAsync(
+        GarmetixDbContext db,
+        IReadOnlyList<CsvDataRow> rows,
+        bool commit,
+        ImportResult result,
+        AccountingPostingService accounting,
+        CancellationToken cancellationToken)
+    {
+        var companies = await db.Companies.AsNoTracking().OrderBy(item => item.CreatedAt).ToListAsync(cancellationToken);
+        var groups = await db.StoreGroups.AsNoTracking().OrderBy(item => item.CreatedAt).ToListAsync(cancellationToken);
+        var stores = await db.Stores.AsNoTracking().OrderBy(item => item.CreatedAt).ToListAsync(cancellationToken);
+        var existingInvoices = await db.SalesInvoices.AsNoTracking()
+            .Select(item => new { item.CompanyId, item.StoreId, item.InvoiceNumber })
+            .ToListAsync(cancellationToken);
+        var bankAccounts = await db.BankAccounts.AsNoTracking().ToListAsync(cancellationToken);
+        var drafts = new List<BillingImportLine>();
+
+        foreach (var row in rows)
+        {
+            var invoiceNumber = row.Required("InvoiceNumber", result);
+            var barcode = row.Required("Barcode", result);
+            if (string.IsNullOrWhiteSpace(invoiceNumber) || string.IsNullOrWhiteSpace(barcode))
+            {
+                continue;
+            }
+
+            var scope = ResolveRequiredStoreScope(row, companies, groups, stores, result);
+            var quantity = row.Decimal("Quantity", result);
+            var mrp = row.Decimal("MRP", result);
+            var discount = row.Decimal("Discount", result);
+            var paid = row.Decimal("Paid", result);
+            var billDiscount = row.Decimal("BillDiscount", result);
+            var paymentMode = row.Enum("PaymentMode", PaymentMode.Cash, result);
+            var bankAccount = ResolveBankAccount(row, scope.CompanyId, bankAccounts, result);
+
+            if (quantity <= 0)
+            {
+                result.Errors.Add(new ImportRowError(row.Line, "Quantity", "Quantity must be greater than zero."));
+            }
+
+            if (mrp < 0 || discount < 0 || paid < 0 || billDiscount < 0)
+            {
+                result.Errors.Add(new ImportRowError(row.Line, "Amount", "Amounts cannot be negative."));
+            }
+
+            if (paid > 0 && paymentMode != PaymentMode.Cash && bankAccount is null)
+            {
+                result.Errors.Add(new ImportRowError(row.Line, "BankAccountNumber", "Bank account is required for non-cash billing payment."));
+            }
+
+            if (existingInvoices.Any(item =>
+                item.CompanyId == scope.CompanyId &&
+                item.StoreId == scope.StoreId &&
+                item.InvoiceNumber.Equals(invoiceNumber, StringComparison.OrdinalIgnoreCase)))
+            {
+                result.Errors.Add(new ImportRowError(row.Line, "InvoiceNumber", "Sales invoice already exists. Billing import is create-only."));
+            }
+
+            drafts.Add(new BillingImportLine(
+                row.Line,
+                scope.CompanyId,
+                scope.StoreGroupId,
+                scope.StoreId,
+                invoiceNumber.Trim(),
+                row.Date("Date", DateTime.Today, result),
+                RequiredOrDefault(row["Customer"], "Walk-in Customer"),
+                RequiredOrDefault(row["Mobile"], "WALKIN"),
+                row["Product"],
+                barcode.Trim(),
+                quantity,
+                mrp,
+                discount,
+                paid,
+                paymentMode,
+                bankAccount?.Id,
+                billDiscount));
+        }
+
+        var requiredStock = drafts
+            .GroupBy(item => new { item.StoreId, item.Barcode })
+            .ToDictionary(item => item.Key, item => item.Sum(line => line.Quantity));
+        var requiredStoreIds = requiredStock.Keys.Select(key => key.StoreId).Distinct().ToList();
+        var stockRows = await db.Stocks
+            .Include(item => item.Product)
+            .Where(item => requiredStoreIds.Contains(item.StoreId))
+            .ToListAsync(cancellationToken);
+
+        foreach (var group in drafts.GroupBy(item => new { item.CompanyId, item.StoreId, item.InvoiceNumber }))
+        {
+            var first = group.First();
+            if (group.Select(item => item.CustomerMobile).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1)
+            {
+                result.Errors.Add(new ImportRowError(first.Line, "Mobile", "All rows for one sales invoice must use the same customer mobile."));
+            }
+
+            if (group.Select(item => item.PaymentMode).Distinct().Count() > 1)
+            {
+                result.Errors.Add(new ImportRowError(first.Line, "PaymentMode", "All rows for one sales invoice must use the same payment mode."));
+            }
+        }
+
+        foreach (var stockNeed in requiredStock)
+        {
+            var stock = stockRows.FirstOrDefault(item =>
+                item.StoreId == stockNeed.Key.StoreId &&
+                item.Barcode.Equals(stockNeed.Key.Barcode, StringComparison.OrdinalIgnoreCase));
+
+            if (stock is null)
+            {
+                var line = drafts.First(item => item.StoreId == stockNeed.Key.StoreId && item.Barcode.Equals(stockNeed.Key.Barcode, StringComparison.OrdinalIgnoreCase));
+                result.Errors.Add(new ImportRowError(line.Line, "Barcode", $"Stock not found for barcode {line.Barcode}."));
+                continue;
+            }
+
+            if (stock.CurrentStock < stockNeed.Value)
+            {
+                var line = drafts.First(item => item.StoreId == stockNeed.Key.StoreId && item.Barcode.Equals(stockNeed.Key.Barcode, StringComparison.OrdinalIgnoreCase));
+                result.Errors.Add(new ImportRowError(line.Line, "Quantity", $"Insufficient stock for {line.Barcode}. Available: {stock.CurrentStock}."));
+            }
+        }
+
+        if (!commit || result.Errors.Count > 0)
+        {
+            if (!commit)
+            {
+                result.Warnings.Add("Billing import will create sales invoices, customers if missing, reduce stock, post ledgers, and create bank transactions when committed.");
+            }
+
+            return;
+        }
+
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        foreach (var group in drafts.GroupBy(item => new { item.CompanyId, item.StoreId, item.InvoiceNumber }))
+        {
+            var first = group.First();
+            var customer = await GetOrCreateImportCustomerAsync(db, first, cancellationToken);
+            var invoiceId = Guid.NewGuid();
+            var invoiceItems = new List<InvoiceItem>();
+            decimal grossMrp = 0;
+            decimal itemDiscount = 0;
+            decimal taxableAmount = 0;
+            decimal taxAmount = 0;
+            decimal totalQuantity = 0;
+
+            foreach (var line in group)
+            {
+                var stock = stockRows.First(item =>
+                    item.StoreId == line.StoreId &&
+                    item.Barcode.Equals(line.Barcode, StringComparison.OrdinalIgnoreCase));
+                var product = stock.Product ?? await db.Products.FirstAsync(item => item.Id == stock.ProductId, cancellationToken);
+                var lineMrp = line.Mrp * line.Quantity;
+                var lineDiscount = line.Discount * line.Quantity;
+                var taxable = Math.Round((lineMrp - lineDiscount) / (1 + (stock.TaxRate / 100)), 2);
+                var tax = Math.Round(taxable * (stock.TaxRate / 100), 2);
+                var lineAmount = taxable + tax;
+
+                invoiceItems.Add(new InvoiceItem
+                {
+                    InvoiceId = invoiceId,
+                    ProductId = product.Id,
+                    Barcode = line.Barcode,
+                    MRP = line.Mrp,
+                    DiscountAmount = line.Discount,
+                    BasePrice = taxable,
+                    TaxPercentage = stock.TaxRate,
+                    TaxAmount = tax,
+                    Amount = lineAmount,
+                    TaxType = stock.TaxType,
+                    TaxId = stock.TaxId,
+                    BilledQuantity = line.Quantity,
+                    CompanyId = line.CompanyId
+                });
+
+                stock.SoldQty += line.Quantity;
+                stock.SoldValue += lineAmount;
+                grossMrp += lineMrp;
+                itemDiscount += lineDiscount;
+                taxableAmount += taxable;
+                taxAmount += tax;
+                totalQuantity += line.Quantity;
+            }
+
+            var billDiscount = group.Max(item => item.BillDiscount);
+            var totalDiscount = itemDiscount + billDiscount;
+            var billAmount = Math.Round(grossMrp - totalDiscount, 0);
+            var paidAmount = Math.Min(Math.Max(group.Max(item => item.PaidAmount), 0), billAmount);
+
+            var invoice = new Invoice
+            {
+                Id = invoiceId,
+                InvoiceNumber = first.InvoiceNumber,
+                OnDate = first.OnDate,
+                InvoiceType = InvoiceType.Regular,
+                InvoiceStatus = paidAmount <= 0
+                    ? InvoiceStatus.Pending
+                    : paidAmount >= billAmount ? InvoiceStatus.Paid : InvoiceStatus.PartiallyPaid,
+                MRP = grossMrp,
+                BasePrice = taxableAmount,
+                DiscountAmount = totalDiscount,
+                TaxAmount = taxAmount,
+                NetAmount = taxableAmount,
+                RoundOff = billAmount - (taxableAmount + taxAmount),
+                BillAmount = billAmount,
+                Quantity = totalQuantity,
+                ItemCount = invoiceItems.Count,
+                PaymentMode = paidAmount > 0 ? first.PaymentMode : null,
+                CustomerId = customer.Id,
+                CustomerName = customer.Name,
+                CustomerMobileNumber = customer.MobileNumber,
+                CreditSale = paidAmount < billAmount,
+                PaidAmount = paidAmount,
+                BillDiscountAmount = billDiscount,
+                StoreId = first.StoreId,
+                CompanyId = first.CompanyId
+            };
+
+            db.SalesInvoices.Add(invoice);
+            db.InvoiceItems.AddRange(invoiceItems);
+
+            if (paidAmount > 0)
+            {
+                db.InvoicePayments.Add(new InvoicePayment
+                {
+                    InvoiceId = invoice.Id,
+                    OnDate = first.OnDate,
+                    Amount = paidAmount,
+                    PaymentMode = first.PaymentMode,
+                    StoreId = first.StoreId,
+                    CompanyId = first.CompanyId
+                });
+            }
+
+            customer.BillCount += 1;
+            customer.Amount += billAmount;
+            await accounting.PostSalesInvoiceAsync(invoice, customer, first.StoreGroupId, first.BankAccountId, cancellationToken);
+            result.Created++;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    private static async Task ImportPayrollAsync(
+        GarmetixDbContext db,
+        IReadOnlyList<CsvDataRow> rows,
+        bool commit,
+        ImportResult result,
+        CancellationToken cancellationToken)
+    {
+        var employees = await db.Employees
+            .OrderBy(item => item.FirstName)
+            .ThenBy(item => item.LastName)
+            .ToListAsync(cancellationToken);
+        var structures = await db.SalaryStructures.ToListAsync(cancellationToken);
+        var payments = await db.SalaryPayments.ToListAsync(cancellationToken);
+        var payslips = await db.SalaryPaySlips.ToListAsync(cancellationToken);
+
+        foreach (var row in rows)
+        {
+            var type = row.Required("Type", result).Replace(" ", "", StringComparison.OrdinalIgnoreCase);
+            if (string.IsNullOrWhiteSpace(type))
+            {
+                continue;
+            }
+
+            var employee = ResolvePayrollEmployee(row, employees, result);
+            if (employee is null)
+            {
+                continue;
+            }
+
+            switch (type.ToLowerInvariant())
+            {
+                case "structure":
+                case "salarystructure":
+                    ImportSalaryStructureRow(db, row, employee, structures, commit, result);
+                    break;
+                case "payment":
+                case "salarypayment":
+                case "advance":
+                    ImportSalaryPaymentRow(db, row, employee, structures, payments, payslips, commit, result);
+                    break;
+                default:
+                    result.Errors.Add(new ImportRowError(row.Line, "Type", "Type must be Structure or Payment."));
+                    break;
+            }
+        }
+    }
+
+    private static void ImportSalaryStructureRow(
+        GarmetixDbContext db,
+        CsvDataRow row,
+        Employee employee,
+        List<SalaryStructure> structures,
+        bool commit,
+        ImportResult result)
+    {
+        var fromDate = row.Date("FromDate", DateTime.Today, result);
+        var toDate = row.OptionalDate("ToDate", result);
+        var basic = row.Decimal("Basic", result);
+        var hra = row.Decimal("HRA", result);
+        var specialAllowance = row.Decimal("SpecialAllowance", result);
+        var conveyance = row.Decimal("Conveyance", result);
+        var incentives = row.Decimal("Incentives", result);
+        var providentFund = row.Decimal("ProvidentFund", result);
+        var gratuity = row.Decimal("Gratuity", result);
+        var professionalTax = row.Decimal("ProfessionalTax", result);
+        var deductions = row.Decimal("Deductions", result);
+
+        if (toDate.HasValue && toDate.Value.Date < fromDate.Date)
+        {
+            result.Errors.Add(new ImportRowError(row.Line, "ToDate", "ToDate cannot be earlier than FromDate."));
+        }
+
+        if (new[] { basic, hra, specialAllowance, conveyance, incentives, providentFund, gratuity, professionalTax, deductions }.Any(item => item < 0))
+        {
+            result.Errors.Add(new ImportRowError(row.Line, "Amount", "Salary structure amounts cannot be negative."));
+        }
+
+        if (!commit || result.HasLineError(row.Line))
+        {
+            return;
+        }
+
+        var structure = structures.FirstOrDefault(item => item.EmployeeId == employee.Id && item.FromDate.Date == fromDate.Date);
+        var created = structure is null;
+        structure ??= new SalaryStructure
+        {
+            EmployeeId = employee.Id,
+            FromDate = fromDate,
+            CompanyId = employee.CompanyId
+        };
+
+        structure.EmployeeId = employee.Id;
+        structure.CompanyId = employee.CompanyId;
+        structure.FromDate = fromDate;
+        structure.ToDate = toDate;
+        structure.BasicSalary = basic;
+        structure.HRA = hra;
+        structure.SpecialAllowance = specialAllowance;
+        structure.ConveyanceAllowance = conveyance;
+        structure.Incentives = incentives;
+        structure.ProvidentFund = providentFund;
+        structure.Gratuity = gratuity;
+        structure.ProfessionalTax = professionalTax;
+        structure.Deductions = deductions;
+
+        if (created)
+        {
+            db.SalaryStructures.Add(structure);
+            structures.Add(structure);
+            result.Created++;
+        }
+        else
+        {
+            result.Updated++;
+        }
+    }
+
+    private static void ImportSalaryPaymentRow(
+        GarmetixDbContext db,
+        CsvDataRow row,
+        Employee employee,
+        List<SalaryStructure> structures,
+        List<SalaryPayment> payments,
+        List<SalaryPaySlip> payslips,
+        bool commit,
+        ImportResult result)
+    {
+        var voucherNumber = row.Required("VoucherNumber", result);
+        var onDate = row.Date("PaymentDate", DateTime.Today, result);
+        var salaryMonth = row.SalaryMonth("Month", onDate, result);
+        var component = row.Enum("SalaryComponent", SalaryComponent.NetSalary, result);
+        var paymentMode = row.Enum("PaymentMode", PaymentMode.Cash, result);
+        var amount = row.Decimal("Amount", result);
+        var grossSalary = row.Decimal("GrossSalary", result);
+        var totalDeductions = row.Decimal("TotalDeductions", result);
+        var netSalary = row.Decimal("NetSalary", result);
+
+        if (string.IsNullOrWhiteSpace(voucherNumber))
+        {
+            return;
+        }
+
+        if (amount <= 0)
+        {
+            result.Errors.Add(new ImportRowError(row.Line, "Amount", "Payment amount must be greater than zero."));
+        }
+
+        if (!commit || result.HasLineError(row.Line))
+        {
+            return;
+        }
+
+        var monthStart = new DateTime(salaryMonth / 100, salaryMonth % 100, 1);
+        var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+        var structure = structures
+            .Where(item =>
+                item.EmployeeId == employee.Id &&
+                item.FromDate.Date <= monthEnd &&
+                (item.ToDate == null || item.ToDate.Value.Date >= monthStart))
+            .OrderByDescending(item => item.FromDate)
+            .FirstOrDefault();
+        var payslip = payslips.FirstOrDefault(item => item.EmployeeId == employee.Id && item.PayPeriodStart.Date == monthStart);
+
+        if (grossSalary <= 0 && structure is not null)
+        {
+            grossSalary = structure.BasicSalary + structure.HRA + structure.SpecialAllowance + structure.ConveyanceAllowance + structure.Incentives;
+        }
+
+        if (totalDeductions <= 0 && structure is not null)
+        {
+            totalDeductions = structure.ProvidentFund + structure.Gratuity + structure.ProfessionalTax + structure.Deductions;
+        }
+
+        if (netSalary <= 0)
+        {
+            netSalary = payslip?.NetSalary ?? structure?.NetSalary ?? amount;
+        }
+
+        var payment = payments.FirstOrDefault(item =>
+            item.EmployeeId == employee.Id &&
+            item.VoucherNumber.Equals(voucherNumber, StringComparison.OrdinalIgnoreCase));
+        var created = payment is null;
+        payment ??= new SalaryPayment
+        {
+            EmployeeId = employee.Id,
+            VoucherNumber = voucherNumber,
+            CompanyId = employee.CompanyId,
+            StoreGroupId = employee.StoreGroupId,
+            StoreId = employee.StoreId
+        };
+
+        payment.EmployeeId = employee.Id;
+        payment.CompanyId = employee.CompanyId;
+        payment.StoreGroupId = employee.StoreGroupId;
+        payment.StoreId = employee.StoreId;
+        payment.VoucherNumber = voucherNumber.Trim();
+        payment.SalaryMonth = salaryMonth;
+        payment.OnDate = onDate;
+        payment.SalaryComponent = component;
+        payment.GrossSalary = grossSalary;
+        payment.TotalDeductions = totalDeductions;
+        payment.NetSalary = netSalary;
+        payment.Amount = amount;
+        payment.PaymentMode = paymentMode;
+        payment.Remarks = row["Remarks"];
+        payment.SalaryPaySlipId = payslip?.Id;
+
+        if (created)
+        {
+            db.SalaryPayments.Add(payment);
+            payments.Add(payment);
+            result.Created++;
+        }
+        else
+        {
+            result.Updated++;
         }
     }
 
@@ -1043,6 +1862,277 @@ public static class ImportExportEndpoints
         return new UserScope(company?.Id, group?.Id, store?.Id);
     }
 
+    private static DefaultScope ResolveRequiredStoreScope(
+        CsvDataRow row,
+        IReadOnlyList<Company> companies,
+        IReadOnlyList<StoreGroup> groups,
+        IReadOnlyList<Store> stores,
+        ImportResult result)
+    {
+        var companyCode = row["CompanyCode"];
+        var groupCode = row["StoreGroupCode"];
+        var storeCode = row["StoreCode"];
+
+        var company = string.IsNullOrWhiteSpace(companyCode)
+            ? companies.FirstOrDefault()
+            : companies.FirstOrDefault(item => item.Code.Equals(companyCode, StringComparison.OrdinalIgnoreCase));
+
+        if (company is null)
+        {
+            result.Errors.Add(new ImportRowError(row.Line, "CompanyCode", "Company was not found. Run setup first or enter a valid CompanyCode."));
+            return new DefaultScope(Guid.Empty, Guid.Empty, Guid.Empty);
+        }
+
+        var group = string.IsNullOrWhiteSpace(groupCode)
+            ? groups.FirstOrDefault(item => item.CompanyId == company.Id)
+            : groups.FirstOrDefault(item => item.CompanyId == company.Id && item.GroupCode.Equals(groupCode, StringComparison.OrdinalIgnoreCase));
+
+        if (group is null)
+        {
+            result.Errors.Add(new ImportRowError(row.Line, "StoreGroupCode", "Store group was not found."));
+            return new DefaultScope(company.Id, Guid.Empty, Guid.Empty);
+        }
+
+        var store = string.IsNullOrWhiteSpace(storeCode)
+            ? stores.FirstOrDefault(item => item.CompanyId == company.Id && item.StoreGroupId == group.Id)
+            : stores.FirstOrDefault(item =>
+                item.CompanyId == company.Id &&
+                item.StoreGroupId == group.Id &&
+                item.StoreCode.Equals(storeCode, StringComparison.OrdinalIgnoreCase));
+
+        if (store is null)
+        {
+            result.Errors.Add(new ImportRowError(row.Line, "StoreCode", "Store was not found."));
+            return new DefaultScope(company.Id, group.Id, Guid.Empty);
+        }
+
+        return new DefaultScope(company.Id, group.Id, store.Id);
+    }
+
+    private static BankAccount? ResolveBankAccount(
+        CsvDataRow row,
+        Guid companyId,
+        IReadOnlyList<BankAccount> bankAccounts,
+        ImportResult result)
+    {
+        var accountNumber = row["BankAccountNumber"];
+        if (string.IsNullOrWhiteSpace(accountNumber))
+        {
+            return null;
+        }
+
+        var account = bankAccounts.FirstOrDefault(item =>
+            item.CompanyId == companyId &&
+            item.AccountNumber.Equals(accountNumber, StringComparison.OrdinalIgnoreCase));
+
+        if (account is null)
+        {
+            result.Errors.Add(new ImportRowError(row.Line, "BankAccountNumber", "Bank account was not found."));
+        }
+
+        return account;
+    }
+
+    private static async Task<Vendor> GetOrCreateImportVendorAsync(
+        GarmetixDbContext db,
+        PurchaseImportLine line,
+        CancellationToken cancellationToken)
+    {
+        var mobile = string.IsNullOrWhiteSpace(line.VendorMobile) ? "NA" : line.VendorMobile.Trim();
+        var vendor = await db.Vendors.FirstOrDefaultAsync(
+            item => item.CompanyId == line.CompanyId && (item.Name == line.VendorName || item.MobileNumber == mobile),
+            cancellationToken);
+
+        if (vendor is null)
+        {
+            vendor = new Vendor
+            {
+                CompanyId = line.CompanyId,
+                Name = line.VendorName,
+                Address = "Dumka",
+                City = "Dumka",
+                ZipCode = "814101",
+                MobileNumber = mobile,
+                Active = true
+            };
+            db.Vendors.Add(vendor);
+        }
+
+        vendor.GSTIN = string.IsNullOrWhiteSpace(line.Gstin) ? vendor.GSTIN : line.Gstin.Trim();
+        return vendor;
+    }
+
+    private static async Task<Customer> GetOrCreateImportCustomerAsync(
+        GarmetixDbContext db,
+        BillingImportLine line,
+        CancellationToken cancellationToken)
+    {
+        var mobile = string.IsNullOrWhiteSpace(line.CustomerMobile) ? "WALKIN" : line.CustomerMobile.Trim();
+        var customer = await db.Customers.FirstOrDefaultAsync(
+            item => item.CompanyId == line.CompanyId && item.MobileNumber == mobile,
+            cancellationToken);
+
+        if (customer is null)
+        {
+            customer = new Customer
+            {
+                CompanyId = line.CompanyId,
+                Name = string.IsNullOrWhiteSpace(line.CustomerName) ? "Walk-in Customer" : line.CustomerName.Trim(),
+                MobileNumber = mobile
+            };
+            db.Customers.Add(customer);
+        }
+        else if (!string.IsNullOrWhiteSpace(line.CustomerName) && customer.Name == "Walk-in Customer")
+        {
+            customer.Name = line.CustomerName.Trim();
+        }
+
+        return customer;
+    }
+
+    private static Employee? ResolvePayrollEmployee(
+        CsvDataRow row,
+        IReadOnlyList<Employee> employees,
+        ImportResult result)
+    {
+        var mobile = row["Mobile"];
+        if (!string.IsNullOrWhiteSpace(mobile))
+        {
+            var employeeByMobile = employees.FirstOrDefault(item => item.Mobile.Equals(mobile, StringComparison.OrdinalIgnoreCase));
+            if (employeeByMobile is not null)
+            {
+                return employeeByMobile;
+            }
+
+            result.Errors.Add(new ImportRowError(row.Line, "Mobile", "Employee was not found for this mobile number."));
+            return null;
+        }
+
+        var employeeName = row.Required("Employee", result);
+        if (string.IsNullOrWhiteSpace(employeeName))
+        {
+            return null;
+        }
+
+        var matches = employees
+            .Where(item => item.StaffName.Equals(employeeName, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (matches.Count == 1)
+        {
+            return matches[0];
+        }
+
+        result.Errors.Add(new ImportRowError(row.Line, "Employee", matches.Count == 0
+            ? "Employee was not found."
+            : "Employee name matches more than one record. Enter Mobile."));
+        return null;
+    }
+
+    private static async Task<InventoryProductCategory> GetOrCreateGeneralCategoryAsync(
+        GarmetixDbContext db,
+        Dictionary<Guid, InventoryProductCategory> cache,
+        Guid companyId,
+        CancellationToken cancellationToken)
+    {
+        if (cache.TryGetValue(companyId, out var category))
+        {
+            return category;
+        }
+
+        category = await db.ProductCategories.FirstOrDefaultAsync(item => item.CompanyId == companyId && item.Name == "General", cancellationToken);
+        if (category is null)
+        {
+            category = new InventoryProductCategory { Name = "General", CompanyId = companyId };
+            db.ProductCategories.Add(category);
+        }
+
+        cache[companyId] = category;
+        return category;
+    }
+
+    private static async Task<InventoryProductSubCategory> GetOrCreateGeneralSubCategoryAsync(
+        GarmetixDbContext db,
+        Dictionary<Guid, InventoryProductSubCategory> cache,
+        Guid companyId,
+        CancellationToken cancellationToken)
+    {
+        if (cache.TryGetValue(companyId, out var subCategory))
+        {
+            return subCategory;
+        }
+
+        subCategory = await db.ProductSubCategories.FirstOrDefaultAsync(item => item.CompanyId == companyId && item.Name == "General", cancellationToken);
+        if (subCategory is null)
+        {
+            subCategory = new InventoryProductSubCategory { Name = "General", CompanyId = companyId };
+            db.ProductSubCategories.Add(subCategory);
+        }
+
+        cache[companyId] = subCategory;
+        return subCategory;
+    }
+
+    private static async Task<Tax> GetOrCreateImportTaxAsync(
+        GarmetixDbContext db,
+        List<Tax> taxCache,
+        decimal taxRate,
+        CancellationToken cancellationToken)
+    {
+        var tax = taxCache.FirstOrDefault(item => item.TaxType == TaxType.GST && item.CompositeRate == taxRate);
+        if (tax is not null)
+        {
+            return tax;
+        }
+
+        tax = await db.Taxes.FirstOrDefaultAsync(item => item.TaxType == TaxType.GST && item.CompositeRate == taxRate, cancellationToken);
+        if (tax is null)
+        {
+            tax = new Tax { Name = $"GST {taxRate:0.##}", CompositeRate = taxRate, TaxType = TaxType.GST };
+            db.Taxes.Add(tax);
+        }
+
+        taxCache.Add(tax);
+        return tax;
+    }
+
+    private static async Task<Product> GetOrCreateImportProductAsync(
+        GarmetixDbContext db,
+        PurchaseImportLine line,
+        Guid categoryId,
+        Guid subCategoryId,
+        Tax tax,
+        CancellationToken cancellationToken)
+    {
+        var product = await db.Products.FirstOrDefaultAsync(
+            item => item.CompanyId == line.CompanyId && item.Barcode == line.Barcode,
+            cancellationToken);
+
+        if (product is null)
+        {
+            product = new Product
+            {
+                CompanyId = line.CompanyId,
+                StoreGroupId = line.StoreGroupId,
+                Name = line.ProductName,
+                Barcode = line.Barcode,
+                Unit = Unit.Pcs,
+                ProductType = ProductType.Apparels,
+                ProductCategoryId = categoryId,
+                ProductSubCategoryId = subCategoryId
+            };
+            db.Products.Add(product);
+        }
+
+        product.Name = line.ProductName;
+        product.MRP = line.Mrp;
+        product.TaxRate = tax.CompositeRate;
+        product.TaxType = tax.TaxType;
+        product.Unit = Unit.Pcs;
+        product.ProductType = ProductType.Apparels;
+        return product;
+    }
+
     private static Company? ResolveCompany(
         CsvDataRow row,
         Dictionary<string, Company> companiesByCode,
@@ -1167,6 +2257,48 @@ public static class ImportExportEndpoints
 
     private sealed record UserScope(Guid? CompanyId, Guid? StoreGroupId, Guid? StoreId);
 
+    private sealed record PurchaseImportLine(
+        int Line,
+        Guid CompanyId,
+        Guid StoreGroupId,
+        Guid StoreId,
+        string InvoiceNumber,
+        string InwardNumber,
+        DateTime OnDate,
+        string VendorName,
+        string VendorMobile,
+        string Gstin,
+        string ProductName,
+        string Barcode,
+        decimal Quantity,
+        decimal CostPrice,
+        decimal Mrp,
+        decimal Discount,
+        decimal TaxRate,
+        decimal PaidAmount,
+        PaymentMode PaymentMode,
+        Guid? BankAccountId,
+        decimal FrightAmount);
+
+    private sealed record BillingImportLine(
+        int Line,
+        Guid CompanyId,
+        Guid StoreGroupId,
+        Guid StoreId,
+        string InvoiceNumber,
+        DateTime OnDate,
+        string CustomerName,
+        string CustomerMobile,
+        string ProductName,
+        string Barcode,
+        decimal Quantity,
+        decimal Mrp,
+        decimal Discount,
+        decimal PaidAmount,
+        PaymentMode PaymentMode,
+        Guid? BankAccountId,
+        decimal BillDiscount);
+
     private sealed class ImportResult(string module, bool commit)
     {
         public string Module { get; } = module;
@@ -1252,6 +2384,31 @@ public static class ImportExportEndpoints
         {
             var value = this[field];
             return string.IsNullOrWhiteSpace(value) ? null : Date(field, DateTime.Today, result);
+        }
+
+        public int SalaryMonth(string field, DateTime defaultDate, ImportResult result)
+        {
+            var value = this[field];
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return (defaultDate.Year * 100) + defaultDate.Month;
+            }
+
+            if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) &&
+                number >= 200001 &&
+                number % 100 is >= 1 and <= 12)
+            {
+                return number;
+            }
+
+            if (DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) ||
+                DateTime.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.None, out date))
+            {
+                return (date.Year * 100) + date.Month;
+            }
+
+            result.Errors.Add(new ImportRowError(Line, field, "Enter month as yyyyMM, yyyy-MM, or month name and year."));
+            return (defaultDate.Year * 100) + defaultDate.Month;
         }
 
         public Guid Guid(string field, Guid defaultValue, ImportResult result)
