@@ -3,6 +3,7 @@ using System;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Garmetix.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(GarmetixDbContext))]
-    partial class GarmetixDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260606100212_AddVoucherCashTransaction")]
+    partial class AddVoucherCashTransaction
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -835,10 +838,13 @@ namespace Garmetix.Infrastructure.Data.Migrations
                     b.ToTable("VendorBankAccounts");
                 });
 
-            modelBuilder.Entity("Garmetix.Core.Models.Accounting.VoucherBase", b =>
+            modelBuilder.Entity("Garmetix.Core.Models.Accounting.Voucher", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AccountNumber")
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("Amount")
@@ -860,6 +866,9 @@ namespace Garmetix.Infrastructure.Data.Migrations
                     b.Property<Guid?>("EmployeeId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("IsParty")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid?>("LedgerId")
                         .HasColumnType("uuid");
 
@@ -870,9 +879,18 @@ namespace Garmetix.Infrastructure.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("PartyId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("PartyName")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<string>("PaymentDetails")
+                        .HasColumnType("text");
+
+                    b.Property<int>("PaymentMode")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Remarks")
                         .IsRequired()
@@ -890,6 +908,9 @@ namespace Garmetix.Infrastructure.Data.Migrations
                     b.Property<bool>("Synced")
                         .HasColumnType("boolean");
 
+                    b.Property<Guid?>("TransactionId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
 
@@ -902,13 +923,19 @@ namespace Garmetix.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AccountNumber");
+
                     b.HasIndex("EmployeeId");
 
                     b.HasIndex("LedgerId");
 
-                    b.ToTable((string)null);
+                    b.HasIndex("PartyId");
 
-                    b.UseTpcMappingStrategy();
+                    b.HasIndex("TransactionId");
+
+                    b.HasIndex("CompanyId", "StoreId", "VoucherNumber");
+
+                    b.ToTable("Vouchers");
                 });
 
             modelBuilder.Entity("Garmetix.Core.Models.Authentication.AppUser", b =>
@@ -2921,48 +2948,6 @@ namespace Garmetix.Infrastructure.Data.Migrations
                     b.ToTable("PettyCashSheets");
                 });
 
-            modelBuilder.Entity("Garmetix.Core.Models.Accounting.CashVoucher", b =>
-                {
-                    b.HasBaseType("Garmetix.Core.Models.Accounting.VoucherBase");
-
-                    b.Property<Guid>("TransactionId")
-                        .HasColumnType("uuid");
-
-                    b.HasIndex("TransactionId");
-
-                    b.HasIndex("CompanyId", "StoreId", "VoucherNumber");
-
-                    b.ToTable("CashVouchers", (string)null);
-                });
-
-            modelBuilder.Entity("Garmetix.Core.Models.Accounting.Voucher", b =>
-                {
-                    b.HasBaseType("Garmetix.Core.Models.Accounting.VoucherBase");
-
-                    b.Property<Guid?>("AccountNumber")
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("IsParty")
-                        .HasColumnType("boolean");
-
-                    b.Property<Guid?>("PartyId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("PaymentDetails")
-                        .HasColumnType("text");
-
-                    b.Property<int>("PaymentMode")
-                        .HasColumnType("integer");
-
-                    b.HasIndex("AccountNumber");
-
-                    b.HasIndex("PartyId");
-
-                    b.HasIndex("CompanyId", "StoreId", "VoucherNumber");
-
-                    b.ToTable("Vouchers", (string)null);
-                });
-
             modelBuilder.Entity("Garmetix.Core.Models.Inventory.PurchaseInvoiceItem", b =>
                 {
                     b.HasBaseType("Garmetix.Core.Models.Inventory.InvoiceItem");
@@ -3122,8 +3107,12 @@ namespace Garmetix.Infrastructure.Data.Migrations
                     b.Navigation("Ledger");
                 });
 
-            modelBuilder.Entity("Garmetix.Core.Models.Accounting.VoucherBase", b =>
+            modelBuilder.Entity("Garmetix.Core.Models.Accounting.Voucher", b =>
                 {
+                    b.HasOne("Garmetix.Core.Models.Accounting.BankAccount", "BankAccount")
+                        .WithMany()
+                        .HasForeignKey("AccountNumber");
+
                     b.HasOne("Garmetix.Core.Models.HRM.Employee", "Employee")
                         .WithMany()
                         .HasForeignKey("EmployeeId");
@@ -3132,9 +3121,23 @@ namespace Garmetix.Infrastructure.Data.Migrations
                         .WithMany()
                         .HasForeignKey("LedgerId");
 
+                    b.HasOne("Garmetix.Core.Models.Accounting.Party", "Party")
+                        .WithMany()
+                        .HasForeignKey("PartyId");
+
+                    b.HasOne("Garmetix.Core.Models.Accounting.Transaction", "Transaction")
+                        .WithMany()
+                        .HasForeignKey("TransactionId");
+
+                    b.Navigation("BankAccount");
+
                     b.Navigation("Employee");
 
                     b.Navigation("Ledger");
+
+                    b.Navigation("Party");
+
+                    b.Navigation("Transaction");
                 });
 
             modelBuilder.Entity("Garmetix.Core.Models.HRM.Attendance", b =>
@@ -3376,32 +3379,6 @@ namespace Garmetix.Infrastructure.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Company");
-                });
-
-            modelBuilder.Entity("Garmetix.Core.Models.Accounting.CashVoucher", b =>
-                {
-                    b.HasOne("Garmetix.Core.Models.Accounting.Transaction", "Transaction")
-                        .WithMany()
-                        .HasForeignKey("TransactionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Transaction");
-                });
-
-            modelBuilder.Entity("Garmetix.Core.Models.Accounting.Voucher", b =>
-                {
-                    b.HasOne("Garmetix.Core.Models.Accounting.BankAccount", "BankAccount")
-                        .WithMany()
-                        .HasForeignKey("AccountNumber");
-
-                    b.HasOne("Garmetix.Core.Models.Accounting.Party", "Party")
-                        .WithMany()
-                        .HasForeignKey("PartyId");
-
-                    b.Navigation("BankAccount");
-
-                    b.Navigation("Party");
                 });
 
             modelBuilder.Entity("Garmetix.Core.Models.Accounting.JournalEntry", b =>

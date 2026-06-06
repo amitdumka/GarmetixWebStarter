@@ -77,7 +77,7 @@ namespace Garmetix.Core.Models.Accounting
     }
 
     [method: SetsRequiredMembers]
-    public class VoucherBase() : StoreBase
+    public abstract class VoucherBase() : StoreBase
     {
         [Display(Name = "Voucher Number")] public required string VoucherNumber { get; set; } = string.Empty;
         [Display(Name = "Date")] public DateTime OnDate { get; set; }

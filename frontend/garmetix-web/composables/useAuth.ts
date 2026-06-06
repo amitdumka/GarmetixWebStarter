@@ -84,6 +84,7 @@ export function useAuth() {
   }
 
   function logout() {
+    useWorkspace().clear()
     token.value = null
     user.value = null
 

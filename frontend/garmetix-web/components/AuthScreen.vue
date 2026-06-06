@@ -45,9 +45,9 @@ async function submitAuth() {
 onMounted(async () => {
   try {
     const status = await auth.bootstrapStatus()
-    authStatus.value = status.message
     hasAdmin.value = status.hasAdmin
     authMode.value = status.hasAdmin ? 'login' : 'bootstrap'
+    authStatus.value = status.hasAdmin ? '' : status.message
   } catch (error: any) {
     authStatus.value = feedback.errorMessage(error, 'Could not reach the API.', 'API status check failed')
   }

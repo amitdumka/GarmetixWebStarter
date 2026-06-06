@@ -207,12 +207,17 @@ public static class SetupEndpoints
         return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
     }
 
-    private static async Task<IResult> SeedAccountingDefaultsAsync(GarmetixDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> SeedAccountingDefaultsAsync(
+        Guid? companyId,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
     {
-        var company = await db.Companies.OrderBy(item => item.CreatedAt).FirstOrDefaultAsync(cancellationToken);
+        var company = companyId.HasValue
+            ? await db.Companies.FirstOrDefaultAsync(item => item.Id == companyId.Value, cancellationToken)
+            : await db.Companies.OrderBy(item => item.CreatedAt).FirstOrDefaultAsync(cancellationToken);
         if (company is null)
         {
-            return Results.BadRequest(new { message = "Run quick setup before creating accounting defaults." });
+            return Results.BadRequest(new { message = "Select a valid company before creating accounting defaults." });
         }
 
         var result = await EnsureAccountingDefaultsAsync(db, company, cancellationToken);
@@ -227,6 +232,16 @@ public static class SetupEndpoints
         var groupsCreated = 0;
         var ledgersCreated = 0;
         var partiesCreated = 0;
+        var defaultTransactions = new[]
+        {
+            "Petty Cash Expenses",
+            "Home Expenses",
+            "Store Expenses",
+            "Dan & Donations",
+            "Snacks & Breakfast Expenses",
+            "Cash In",
+            "Cash Out"
+        };
 
         async Task<LedgerGroup> GroupAsync(string name, LedgerCategory category, string remarks)
         {
@@ -279,6 +294,19 @@ public static class SetupEndpoints
         }
 
         await EnsureBanksAsync(db, cancellationToken);
+        foreach (var transactionName in defaultTransactions)
+        {
+            if (!await db.Transactions.AnyAsync(
+                item => item.CompanyId == company.Id && item.Name == transactionName,
+                cancellationToken))
+            {
+                db.Transactions.Add(new Transaction
+                {
+                    CompanyId = company.Id,
+                    Name = transactionName
+                });
+            }
+        }
 
         await GroupAsync("Capital Account", LedgerCategory.CapitalAccount, "Owner capital, partner capital, and proprietor capital");
         await GroupAsync("Loans - Secured", LedgerCategory.SecuredLoans, "Secured loans and term loans");

@@ -10,6 +10,7 @@ using Garmetix.Api.Automation;
 using Garmetix.Api.Billing;
 using Garmetix.Api.Hr;
 using Garmetix.Api.ImportExport;
+using Garmetix.Api.OffBook;
 using Garmetix.Api.Payroll;
 using Garmetix.Api.Purchase;
 using Garmetix.Api.Setup;
@@ -94,7 +95,7 @@ app.UseAuthorization();
 app.MapGet("/", () => Results.Ok(new
 {
     name = "Garmetix API",
-    modules = new[] { "Company", "Store", "Inventory", "Billing", "Purchase", "Voucher", "HR", "Payroll" }
+    modules = new[] { "Company", "Store", "Inventory", "Billing", "Purchase", "Voucher", "Cash Voucher", "HR", "Payroll" }
 }));
 app.MapGet("/api/health", HealthAsync).AllowAnonymous();
 
@@ -120,6 +121,7 @@ app.MapSalaryPaymentEndpoints();
 app.MapImportExportEndpoints();
 app.MapAuditEndpoints();
 app.MapAccountingEndpoints();
+app.MapCashVoucherEndpoints();
 
 MapCrud<Company>(app, "/api/companies", GarmetixPolicies.CompanySetup, readPolicyName: null);
 MapCrud<StoreGroup>(app, "/api/store-groups", GarmetixPolicies.CompanySetup, readPolicyName: null);

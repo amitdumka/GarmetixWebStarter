@@ -7,9 +7,12 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   refresh: []
+  workspaceChange: []
 }>()
 
 const auth = useAuth()
+const api = useGarmetixApi()
+const workspace = useWorkspace()
 const route = useRoute()
 const feedback = useUiFeedback()
 const messageLogs = feedback.logs
@@ -18,10 +21,10 @@ useHead(() => ({
   title: props.title || 'Dashboard'
 }))
 
-const companyValue = ref('all')
-const storeValue = ref('all')
+const storeGroups = ref<any[]>([])
 const colorMode = useColorMode()
 const logOpen = ref(false)
+const workspaceOpen = ref(false)
 const now = ref(new Date())
 const apiLive = ref<boolean | null>(null)
 let clockTimer: ReturnType<typeof setInterval> | undefined
@@ -67,6 +70,12 @@ const moduleGroups = [
     ]
   },
   {
+    label: 'Off Book',
+    items: [
+      { to: '/cash-vouchers', label: 'Cash Vouchers', icon: 'i-lucide-wallet-cards' }
+    ]
+  },
+  {
     label: 'Admin',
     items: [
       { to: '/setup', label: 'Company', icon: 'i-lucide-building-2' },
@@ -92,26 +101,62 @@ const navigationItems = computed(() => visibleModuleGroups.value.flatMap((group)
   }))
 ]))
 
-const companyOptions = computed(() => [
-  { label: 'All Companies', value: 'all' },
-  ...((props.companies || []).map((company) => ({
+const allowedCompanies = computed(() => (props.companies || []).filter((company) =>
+  !auth.user.value?.companyId || company.id === auth.user.value.companyId))
+
+const companyOptions = computed(() =>
+  allowedCompanies.value.map((company) => ({
     label: company.name || company.companyName || 'Company',
     value: company.id
   })))
-])
 
-const storeOptions = computed(() => [
-  { label: 'All Stores', value: 'all' },
-  ...((props.stores || []).map((storeItem) => ({
+const allowedStoreGroups = computed(() => storeGroups.value.filter((group) =>
+  (!workspace.companyId.value || group.companyId === workspace.companyId.value)
+  && (!auth.user.value?.storeGroupId || group.id === auth.user.value.storeGroupId)))
+
+const storeGroupOptions = computed(() =>
+  allowedStoreGroups.value.map((group) => ({
+    label: group.name || 'Store group',
+    value: group.id
+  })))
+
+const allowedStores = computed(() => (props.stores || []).filter((storeItem) =>
+  (!workspace.companyId.value || storeItem.companyId === workspace.companyId.value)
+  && (!workspace.storeGroupId.value || storeItem.storeGroupId === workspace.storeGroupId.value)
+  && (!auth.user.value?.storeId || storeItem.id === auth.user.value.storeId)))
+
+const storeOptions = computed(() =>
+  allowedStores.value.map((storeItem) => ({
     label: storeItem.name || storeItem.storeName || 'Store',
     value: storeItem.id
   })))
-])
+
+const companyValue = computed({
+  get: () => workspace.companyId.value,
+  set: (value: string) => {
+    workspace.selectCompany(value, auth.user.value, storeGroups.value, props.stores || [])
+    emit('workspaceChange')
+  }
+})
+
+const storeGroupValue = computed({
+  get: () => workspace.storeGroupId.value,
+  set: (value: string) => {
+    workspace.selectStoreGroup(value, auth.user.value, props.stores || [])
+    emit('workspaceChange')
+  }
+})
+
+const storeValue = computed({
+  get: () => workspace.storeId.value,
+  set: (value: string) => {
+    workspace.selectStore(value, auth.user.value)
+    emit('workspaceChange')
+  }
+})
 
 const workingStoreName = computed(() => {
-  const userStoreId = auth.user.value?.storeId
-  const selectedStoreId = storeValue.value !== 'all' ? storeValue.value : userStoreId
-  const store = (props.stores || []).find((item) => item.id === selectedStoreId) || (props.stores || [])[0]
+  const store = (props.stores || []).find((item) => item.id === workspace.storeId.value)
 
   return store?.name || store?.storeName || 'No store selected'
 })
@@ -174,7 +219,24 @@ async function checkApiHealth() {
   }
 }
 
-onMounted(() => {
+async function loadWorkspaceOptions() {
+  try {
+    storeGroups.value = await api.list<any>('store-groups')
+  } catch {
+    storeGroups.value = []
+  }
+
+  workspace.initialize(auth.user.value, props.companies || [], storeGroups.value, props.stores || [])
+}
+
+watch(
+  () => [auth.user.value?.id, props.companies, props.stores],
+  () => workspace.initialize(auth.user.value, props.companies || [], storeGroups.value, props.stores || []),
+  { deep: true }
+)
+
+onMounted(async () => {
+  await loadWorkspaceOptions()
   clockTimer = setInterval(() => {
     now.value = new Date()
   }, 1000)
@@ -259,16 +321,35 @@ onBeforeUnmount(() => {
           </template>
           <template #right>
             <div class="dashboard-toolbar">
+              <UTooltip text="Working store">
+                <UButton
+                  color="neutral"
+                  variant="subtle"
+                  icon="i-lucide-building-2"
+                  class="xl:hidden"
+                  aria-label="Working store"
+                  @click="workspaceOpen = true"
+                />
+              </UTooltip>
               <USelect
                 v-model="companyValue"
                 :items="companyOptions"
-                class="hidden md:flex w-44"
+                :disabled="Boolean(auth.user.value?.companyId) || companyOptions.length < 2"
+                class="hidden md:flex w-40"
                 aria-label="Company"
+              />
+              <USelect
+                v-model="storeGroupValue"
+                :items="storeGroupOptions"
+                :disabled="Boolean(auth.user.value?.storeGroupId) || storeGroupOptions.length < 2"
+                class="hidden lg:flex w-36"
+                aria-label="Store group"
               />
               <USelect
                 v-model="storeValue"
                 :items="storeOptions"
-                class="hidden lg:flex w-40"
+                :disabled="Boolean(auth.user.value?.storeId) || storeOptions.length < 2"
+                class="hidden xl:flex w-36"
                 aria-label="Store"
               />
               <UTooltip text="Refresh data">
@@ -307,6 +388,54 @@ onBeforeUnmount(() => {
       </div>
     </UDashboardPanel>
   </UDashboardGroup>
+
+  <UTooltip text="Working store">
+    <UButton
+      color="primary"
+      variant="solid"
+      icon="i-lucide-building-2"
+      class="mobile-workspace-button xl:hidden"
+      aria-label="Working store"
+      @click="workspaceOpen = true"
+    />
+  </UTooltip>
+
+  <UModal v-model:open="workspaceOpen" title="Working Store" :ui="{ content: 'max-w-lg' }">
+    <template #body>
+      <div class="form-grid">
+        <UFormField label="Company">
+          <USelect
+            v-model="companyValue"
+            :items="companyOptions"
+            :disabled="Boolean(auth.user.value?.companyId) || companyOptions.length < 2"
+            placeholder="Select company"
+          />
+        </UFormField>
+        <UFormField label="Store group">
+          <USelect
+            v-model="storeGroupValue"
+            :items="storeGroupOptions"
+            :disabled="Boolean(auth.user.value?.storeGroupId) || storeGroupOptions.length < 2"
+            placeholder="Select store group"
+          />
+        </UFormField>
+        <UFormField label="Store">
+          <USelect
+            v-model="storeValue"
+            :items="storeOptions"
+            :disabled="Boolean(auth.user.value?.storeId) || storeOptions.length < 2"
+            placeholder="Select store"
+          />
+        </UFormField>
+      </div>
+    </template>
+    <template #footer>
+      <div class="modal-actions">
+        <UButton color="neutral" variant="outline" label="Close" @click="workspaceOpen = false" />
+        <UButton icon="i-lucide-check" label="Use Store" @click="workspaceOpen = false" />
+      </div>
+    </template>
+  </UModal>
 
   <UModal v-model:open="logOpen" title="Message Log" :ui="{ content: 'max-w-3xl' }">
     <template #body>

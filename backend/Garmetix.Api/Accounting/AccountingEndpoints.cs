@@ -177,10 +177,31 @@ public static class AccountingEndpoints
     }
 
     private static async Task<IResult> ListVouchersAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        HttpContext context,
         GarmetixDbContext db,
         CancellationToken cancellationToken)
     {
-        return Results.Ok(await db.Vouchers.AsNoTracking()
+        var query = db.Vouchers.AsNoTracking().AsQueryable();
+        query = ApplyUserScope(query, context);
+        if (companyId.HasValue)
+        {
+            query = query.Where(item => item.CompanyId == companyId.Value);
+        }
+
+        if (storeGroupId.HasValue)
+        {
+            query = query.Where(item => item.StoreGroupId == storeGroupId.Value);
+        }
+
+        if (storeId.HasValue)
+        {
+            query = query.Where(item => item.StoreId == storeId.Value);
+        }
+
+        return Results.Ok(await query
             .OrderByDescending(voucher => voucher.OnDate)
             .ThenByDescending(voucher => voucher.CreatedAt)
             .ToListAsync(cancellationToken));
@@ -197,11 +218,13 @@ public static class AccountingEndpoints
 
     private static async Task<IResult> SaveVoucherAsync(
         VoucherSaveRequest request,
+        HttpContext context,
         AccountingPostingService service,
         CancellationToken cancellationToken)
     {
         try
         {
+            EnsureUserScope(request, context);
             return Results.Ok(await service.SaveVoucherAsync(request, cancellationToken));
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
@@ -213,11 +236,55 @@ public static class AccountingEndpoints
     private static async Task<IResult> UpdateVoucherAsync(
         Guid id,
         VoucherSaveRequest request,
+        HttpContext context,
         AccountingPostingService service,
         CancellationToken cancellationToken)
     {
         request = request with { Id = id };
-        return await SaveVoucherAsync(request, service, cancellationToken);
+        return await SaveVoucherAsync(request, context, service, cancellationToken);
+    }
+
+    private static IQueryable<Voucher> ApplyUserScope(IQueryable<Voucher> query, HttpContext context)
+    {
+        if (ClaimGuid(context, "companyId") is { } companyId)
+        {
+            query = query.Where(item => item.CompanyId == companyId);
+        }
+
+        if (ClaimGuid(context, "storeGroupId") is { } storeGroupId)
+        {
+            query = query.Where(item => item.StoreGroupId == storeGroupId);
+        }
+
+        if (ClaimGuid(context, "storeId") is { } storeId)
+        {
+            query = query.Where(item => item.StoreId == storeId);
+        }
+
+        return query;
+    }
+
+    private static void EnsureUserScope(VoucherSaveRequest request, HttpContext context)
+    {
+        if (ClaimGuid(context, "companyId") is { } companyId && request.CompanyId != companyId)
+        {
+            throw new InvalidOperationException("The selected company is outside your access scope.");
+        }
+
+        if (ClaimGuid(context, "storeGroupId") is { } storeGroupId && request.StoreGroupId != storeGroupId)
+        {
+            throw new InvalidOperationException("The selected store group is outside your access scope.");
+        }
+
+        if (ClaimGuid(context, "storeId") is { } storeId && request.StoreId != storeId)
+        {
+            throw new InvalidOperationException("The selected store is outside your access scope.");
+        }
+    }
+
+    private static Guid? ClaimGuid(HttpContext context, string claimName)
+    {
+        return Guid.TryParse(context.User.FindFirst(claimName)?.Value, out var value) ? value : null;
     }
 
     private static async Task<IResult> DeleteVoucherAsync(

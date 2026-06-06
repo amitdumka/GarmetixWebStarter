@@ -117,6 +117,16 @@ select {
   background: var(--bg);
 }
 
+.mobile-workspace-button {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 40;
+  width: 44px;
+  height: 44px;
+  box-shadow: 0 10px 28px rgba(2, 6, 23, 0.35);
+}
+
 .sidebar-stage-card {
   display: grid;
   gap: 8px;
@@ -1058,6 +1068,49 @@ select {
   margin-bottom: 16px;
 }
 
+.cash-voucher-print-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.cash-voucher-print-document {
+  display: grid;
+  gap: 14px;
+}
+
+.cash-voucher-copy {
+  position: relative;
+  min-width: 0;
+  border: 1px solid var(--line);
+  padding: 18px;
+  background: #ffffff;
+  color: #111827;
+}
+
+.cash-voucher-format-a4-two .cash-voucher-copy {
+  min-height: 132mm;
+}
+
+.cash-voucher-format-a5-one .cash-voucher-copy {
+  min-height: 190mm;
+}
+
+.cash-voucher-reprint-stamp {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  border: 2px solid #b91c1c;
+  padding: 3px 7px;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0;
+  transform: rotate(-8deg);
+}
+
 .voucher-meta-grid div {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -1472,6 +1525,34 @@ select {
     display: block;
     padding: 0;
     background: var(--panel);
+  }
+
+  .cash-voucher-print-document {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    display: block;
+    padding: 0;
+  }
+
+  .cash-voucher-copy {
+    border-color: #111827;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .cash-voucher-format-a4-two .cash-voucher-copy {
+    height: 138mm;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .cash-voucher-format-a4-two .cash-voucher-copy + .cash-voucher-copy {
+    border-top-style: dashed;
+  }
+
+  .cash-voucher-format-a5-one .cash-voucher-copy {
+    min-height: 190mm;
   }
 
   .receipt-sheet {
