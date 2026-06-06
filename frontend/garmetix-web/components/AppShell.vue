@@ -299,9 +299,8 @@ onBeforeUnmount(() => {
             <strong>{{ currentClock }}</strong>
             <span>{{ currentDate }}</span>
           </div>
-          <p>Current working store and service status.</p>
-        </div>
-        <UButton
+          <p>AKS Labs(India)</p>
+          <UButton
           color="neutral"
           variant="ghost"
           icon="i-lucide-log-out"
@@ -310,6 +309,8 @@ onBeforeUnmount(() => {
           block
           @click="logout"
         />
+        </div>
+        
       </template>
     </UDashboardSidebar>
 
