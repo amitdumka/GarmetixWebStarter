@@ -2,6 +2,7 @@ using Garmetix.Api.Auth;
 using Garmetix.Core.Models.Accounting;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 
 namespace Garmetix.Api.Accounting;
 
@@ -48,6 +49,7 @@ public static class AccountingEndpoints
 
         vouchers.MapGet("/", ListVouchersAsync);
         vouchers.MapGet("/{id:guid}", GetVoucherAsync);
+        vouchers.MapGet("/{id:guid}/pdf", DownloadVoucherPdfAsync);
         vouchers.MapPost("/", SaveVoucherAsync);
         vouchers.MapPut("/{id:guid}", UpdateVoucherAsync).RequireAuthorization(GarmetixPolicies.Edit);
         vouchers.MapDelete("/{id:guid}", DeleteVoucherAsync).RequireAuthorization(GarmetixPolicies.Delete);
@@ -209,11 +211,82 @@ public static class AccountingEndpoints
 
     private static async Task<IResult> GetVoucherAsync(
         Guid id,
+        HttpContext context,
         GarmetixDbContext db,
         CancellationToken cancellationToken)
     {
-        var voucher = await db.Vouchers.AsNoTracking().FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        var voucher = await ApplyUserScope(db.Vouchers.AsNoTracking(), context)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         return voucher is null ? Results.NotFound() : Results.Ok(voucher);
+    }
+
+    private static async Task<IResult> DownloadVoucherPdfAsync(
+        Guid id,
+        string? format,
+        bool? reprint,
+        bool? signatures,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var voucher = await ApplyUserScope(db.Vouchers.AsNoTracking(), context)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (voucher is null)
+        {
+            return Results.NotFound();
+        }
+
+        var company = await db.Companies.AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == voucher.CompanyId, cancellationToken);
+        var store = await db.Stores.AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == voucher.StoreId, cancellationToken);
+        var ledger = voucher.LedgerId.HasValue
+            ? await db.Ledgers.AsNoTracking().FirstOrDefaultAsync(item => item.Id == voucher.LedgerId.Value, cancellationToken)
+            : null;
+        var employee = voucher.EmployeeId.HasValue
+            ? await db.Employees.AsNoTracking().FirstOrDefaultAsync(item => item.Id == voucher.EmployeeId.Value, cancellationToken)
+            : null;
+        var bankAccount = voucher.AccountNumber.HasValue
+            ? await db.BankAccounts.AsNoTracking().FirstOrDefaultAsync(item => item.Id == voucher.AccountNumber.Value, cancellationToken)
+            : null;
+        var bank = bankAccount is not null
+            ? await db.Banks.AsNoTracking().FirstOrDefaultAsync(item => item.Id == bankAccount.BankId, cancellationToken)
+            : null;
+
+        var document = new VoucherPdfModel(
+            company?.Name ?? "Garmetix",
+            FormatAddress(company?.Address, company?.City, company?.State, company?.ZipCode),
+            company?.ContactNumber ?? string.Empty,
+            company?.GSTIN ?? string.Empty,
+            store?.Name ?? "Store",
+            voucher.VoucherNumber,
+            voucher.OnDate,
+            voucher.VoucherType.ToString(),
+            voucher.PartyName,
+            voucher.Particulars,
+            voucher.Amount,
+            voucher.Remarks,
+            voucher.SlipNumber,
+            voucher.PaymentMode.ToString(),
+            voucher.PaymentDetails,
+            ledger?.Name ?? "-",
+            employee?.StaffName ?? "-",
+            bankAccount is null
+                ? "-"
+                : $"{bank?.Name ?? "Bank"} - {bankAccount.AccountHolderName} - {bankAccount.AccountNumber}");
+
+        var pdf = VoucherPdfDocument.Build(
+            document,
+            string.Equals(format, "a5-one", StringComparison.OrdinalIgnoreCase),
+            reprint == true,
+            signatures != false);
+        var safeNumber = Regex.Replace(voucher.VoucherNumber, @"[^A-Za-z0-9_-]+", "-").Trim('-');
+        return Results.File(pdf, "application/pdf", $"{(safeNumber.Length > 0 ? safeNumber : "voucher")}.pdf");
+    }
+
+    private static string FormatAddress(params string?[] parts)
+    {
+        return string.Join(", ", parts.Where(part => !string.IsNullOrWhiteSpace(part)).Select(part => part!.Trim()));
     }
 
     private static async Task<IResult> SaveVoucherAsync(

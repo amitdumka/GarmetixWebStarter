@@ -11,8 +11,17 @@ services:
       PayrollAutomation__TimeZoneId: Asia/Kolkata
       PayrollAutomation__RunHour: "2"
       PayrollAutomation__RunMinute: "0"
+      Backup__Enabled: "true"
+      Backup__Directory: /app/backups
+      Backup__TimeZoneId: Asia/Kolkata
+      Backup__RunHour: "2"
+      Backup__RunMinute: "30"
+      Backup__RunOnStartup: "false"
+      Backup__RetentionCount: "14"
     ports:
       - "5080:5080"
+    volumes:
+      - ./backups:/app/backups
     restart: unless-stopped
     depends_on:
       - postgres

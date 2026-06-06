@@ -1068,20 +1068,24 @@ select {
   margin-bottom: 16px;
 }
 
-.cash-voucher-print-controls {
+.cash-voucher-print-controls,
+.voucher-print-controls {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 14px;
 }
 
-.cash-voucher-print-document {
+.cash-voucher-print-document,
+.voucher-print-document {
   display: grid;
   gap: 14px;
 }
 
-.cash-voucher-copy {
+.cash-voucher-copy,
+.voucher-copy {
   position: relative;
   min-width: 0;
   border: 1px solid var(--line);
@@ -1090,15 +1094,18 @@ select {
   color: #111827;
 }
 
-.cash-voucher-format-a4-two .cash-voucher-copy {
+.cash-voucher-format-a4-two .cash-voucher-copy,
+.voucher-format-a4-two .voucher-copy {
   min-height: 132mm;
 }
 
-.cash-voucher-format-a5-one .cash-voucher-copy {
+.cash-voucher-format-a5-one .cash-voucher-copy,
+.voucher-format-a5-one .voucher-copy {
   min-height: 190mm;
 }
 
-.cash-voucher-reprint-stamp {
+.cash-voucher-reprint-stamp,
+.voucher-reprint-stamp {
   position: absolute;
   top: 16px;
   right: 16px;
@@ -1508,6 +1515,44 @@ select {
   }
 }
 
+@media screen and (max-width: 760px) {
+  .voucher-copy {
+    padding: 10px;
+  }
+
+  .voucher-meta-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .voucher-meta-grid div {
+    min-width: 0;
+    padding: 8px;
+  }
+
+  .voucher-meta-grid strong,
+  .voucher-table td {
+    overflow-wrap: anywhere;
+  }
+
+  .voucher-table {
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  .voucher-table td:first-child {
+    width: 92px;
+  }
+
+  .voucher-signatures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 30px;
+  }
+
+  .voucher-total {
+    max-width: none;
+  }
+}
+
 @media print {
   body * {
     visibility: hidden;
@@ -1535,23 +1580,35 @@ select {
     padding: 0;
   }
 
-  .cash-voucher-copy {
+  .voucher-print-document {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    display: block;
+    padding: 0;
+  }
+
+  .cash-voucher-copy,
+  .voucher-copy {
     border-color: #111827;
     break-inside: avoid;
     page-break-inside: avoid;
   }
 
-  .cash-voucher-format-a4-two .cash-voucher-copy {
+  .cash-voucher-format-a4-two .cash-voucher-copy,
+  .voucher-format-a4-two .voucher-copy {
     height: 138mm;
     min-height: 0;
     overflow: hidden;
   }
 
-  .cash-voucher-format-a4-two .cash-voucher-copy + .cash-voucher-copy {
+  .cash-voucher-format-a4-two .cash-voucher-copy + .cash-voucher-copy,
+  .voucher-format-a4-two .voucher-copy + .voucher-copy {
     border-top-style: dashed;
   }
 
-  .cash-voucher-format-a5-one .cash-voucher-copy {
+  .cash-voucher-format-a5-one .cash-voucher-copy,
+  .voucher-format-a5-one .voucher-copy {
     min-height: 190mm;
   }
 

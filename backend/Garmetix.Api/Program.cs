@@ -7,6 +7,7 @@ using Garmetix.Api.Audit;
 using Garmetix.Api.Auth;
 using Garmetix.Api.Accounting;
 using Garmetix.Api.Automation;
+using Garmetix.Api.Backup;
 using Garmetix.Api.Billing;
 using Garmetix.Api.Hr;
 using Garmetix.Api.ImportExport;
@@ -44,6 +45,9 @@ builder.Services.AddScoped<PayrollService>();
 builder.Services.AddScoped<AccountingPostingService>();
 builder.Services.Configure<PayrollAutomationOptions>(builder.Configuration.GetSection("PayrollAutomation"));
 builder.Services.AddHostedService<PayrollAutomationHostedService>();
+builder.Services.Configure<BackupOptions>(builder.Configuration.GetSection("Backup"));
+builder.Services.AddSingleton<DatabaseBackupService>();
+builder.Services.AddHostedService<BackupAutomationHostedService>();
 
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "Garmetix";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "GarmetixWeb";
@@ -91,6 +95,23 @@ if (app.Configuration.GetValue<bool>("Database:AutoMigrate"))
 app.UseCors("frontend");
 app.UseAuthentication();
 app.UseAuthorization();
+app.Use(async (context, next) =>
+{
+    var backupService = context.RequestServices.GetRequiredService<DatabaseBackupService>();
+    if (backupService.IsRestoreInProgress
+        && !context.Request.Path.StartsWithSegments("/api/health")
+        && !context.Request.Path.StartsWithSegments("/api/backups/status"))
+    {
+        context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+        await context.Response.WriteAsJsonAsync(new
+        {
+            message = "Database restore is in progress. Please try again shortly."
+        });
+        return;
+    }
+
+    await next();
+});
 
 app.MapGet("/", () => Results.Ok(new
 {
@@ -122,6 +143,7 @@ app.MapImportExportEndpoints();
 app.MapAuditEndpoints();
 app.MapAccountingEndpoints();
 app.MapCashVoucherEndpoints();
+app.MapBackupEndpoints();
 
 MapCrud<Company>(app, "/api/companies", GarmetixPolicies.CompanySetup, readPolicyName: null);
 MapCrud<StoreGroup>(app, "/api/store-groups", GarmetixPolicies.CompanySetup, readPolicyName: null);

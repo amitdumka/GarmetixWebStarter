@@ -159,6 +159,14 @@ Validated CSV import is enabled for setup, inventory, billing, purchase, HR empl
 
 Audit now has its own Nuxt UI route at `/audit`. Admin users can review a searchable activity register generated from existing created/updated timestamps across setup, inventory, billing, purchase, vouchers, petty cash, HR, and payroll. The backend endpoint is `GET /api/audit/recent`.
 
+## Backup and Restore
+
+System Health now includes admin-only full PostgreSQL backup and restore controls. Manual and scheduled backups use PostgreSQL custom dump format, are stored in the host `backups/` directory, can be downloaded or deleted, and survive container replacement. Scheduled backups run daily at 2:30 AM Asia/Kolkata by default and retain the latest 14 scheduled files.
+
+Restore accepts only PostgreSQL custom-format `.dump` files and requires typing `RESTORE`. The API blocks other application requests while restore is running and creates a pre-restore safety backup automatically.
+
+Configure the schedule with the `BACKUP_*` values in `.env.example`. Google Drive synchronization is not enabled by default because it requires a Google account credential and destination-folder authorization.
+
 ## Reports
 
 Reports now has its own Nuxt UI route at `/reports`. It includes Sales, Purchase, Stock, Petty Cash, Attendance, and Payroll report views with date filters, KPI cards, searchable `UTable` rows, print action, and client-side CSV export.

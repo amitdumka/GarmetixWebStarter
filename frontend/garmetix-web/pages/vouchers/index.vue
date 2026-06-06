@@ -4,7 +4,9 @@ import type { TableColumn } from '@nuxt/ui'
 
 const api = useGarmetixApi()
 const auth = useAuth()
+const workspace = useWorkspace()
 const feedback = useUiFeedback()
+const config = useRuntimeConfig()
 const isAuthenticated = auth.isAuthenticated
 const canEdit = auth.canEdit
 const canDelete = auth.canDelete
@@ -23,12 +25,16 @@ const setupStatus = ref<any | null>(null)
 const loading = ref(false)
 const saving = ref(false)
 const deleting = ref(false)
+const downloadingPdf = ref(false)
 const search = ref('')
 const formOpen = ref(false)
 const deleteOpen = ref(false)
 const selectedPrintVoucher = ref<any | null>(null)
 const pendingDelete = ref<any | null>(null)
 const editMode = ref<'create' | 'edit'>('create')
+const printFormat = ref<'a4-two' | 'a5-one'>('a4-two')
+const isReprint = ref(false)
+const includeSignatures = ref(true)
 
 const voucherTypeOptions = [
   { value: 0, label: 'Payment' },
@@ -50,27 +56,41 @@ const paymentModeOptions = [
 
 const form = reactive<any>(emptyVoucher())
 
-const ledgerOptions = computed(() => ledgers.value.map((ledger) => ({
+const ledgerOptions = computed(() => ledgers.value
+  .filter((ledger) => !workspace.companyId.value || ledger.companyId === workspace.companyId.value)
+  .map((ledger) => ({
   value: ledger.id,
   label: ledger.name || 'Ledger'
 })))
 
-const partyOptions = computed(() => parties.value.map((party) => ({
+const partyOptions = computed(() => parties.value
+  .filter((party) => !workspace.companyId.value || party.companyId === workspace.companyId.value)
+  .map((party) => ({
   value: party.id,
   label: party.name || 'Party'
 })))
 
-const employeeOptions = computed(() => employees.value.map((employee) => ({
+const employeeOptions = computed(() => employees.value
+  .filter((employee) =>
+    (!workspace.companyId.value || employee.companyId === workspace.companyId.value)
+    && (!workspace.storeId.value || employee.storeId === workspace.storeId.value))
+  .map((employee) => ({
   value: employee.id,
   label: `${employee.firstName || ''} ${employee.lastName || ''}`.trim() || employee.staffName || 'Employee'
 })))
 
-const bankAccountOptions = computed(() => bankAccounts.value.map((account) => ({
+const bankAccountOptions = computed(() => bankAccounts.value
+  .filter((account) => !workspace.companyId.value || account.companyId === workspace.companyId.value)
+  .map((account) => ({
   value: account.id,
   label: `${account.accountHolderName || 'Bank'} - ${account.accountNumber || ''}`.trim()
 })))
 
 const requiresBankAccount = computed(() => [1, 2, 3, 4, 5, 6, 7, 8].includes(Number(form.paymentMode)))
+const isCashPayment = computed(() => Number(form.paymentMode) === 0)
+const printCopies = computed(() => printFormat.value === 'a4-two'
+  ? ['Office Copy', 'Recipient Copy']
+  : ['Voucher Copy'])
 
 const printOpen = computed({
   get: () => Boolean(selectedPrintVoucher.value),
@@ -242,10 +262,15 @@ async function refresh() {
   loading.value = true
   try {
     setupStatus.value = await api.get<any>('setup/status')
+    const query = new URLSearchParams()
+    if (workspace.companyId.value) query.set('companyId', workspace.companyId.value)
+    if (workspace.storeGroupId.value) query.set('storeGroupId', workspace.storeGroupId.value)
+    if (workspace.storeId.value) query.set('storeId', workspace.storeId.value)
+    const voucherResource = query.size ? `vouchers?${query.toString()}` : 'vouchers'
     const [companyRows, storeRows, voucherRows, ledgerRows, partyRows, employeeRows, bankAccountRows] = await Promise.all([
       api.list<any>('companies'),
       api.list<any>('stores'),
-      api.list<any>('vouchers'),
+      api.get<any[]>(voucherResource),
       api.list<any>('ledgers'),
       api.list<any>('parties'),
       api.list<any>('employees'),
@@ -281,9 +306,9 @@ async function refresh() {
 function startCreate() {
   editMode.value = 'create'
   Object.assign(form, emptyVoucher())
-  form.ledgerId = ledgers.value.find((item) => item.name === 'Cash In Hand')?.id || ledgers.value[0]?.id || null
-  form.employeeId = employees.value[0]?.id || null
-  form.accountNumber = bankAccounts.value[0]?.id || null
+  form.ledgerId = ledgerOptions.value.find((item) => item.label === 'Cash In Hand')?.value || ledgerOptions.value[0]?.value || null
+  form.employeeId = employeeOptions.value[0]?.value || null
+  form.accountNumber = bankAccountOptions.value[0]?.value || null
   formOpen.value = true
 }
 
@@ -305,9 +330,10 @@ function startEdit(voucher: any) {
 }
 
 function buildPayload() {
-  const companyId = setupStatus.value?.companyId || companies.value[0]?.id
-  const storeGroupId = setupStatus.value?.storeGroupId || stores.value[0]?.storeGroupId
-  const storeId = setupStatus.value?.storeId || stores.value[0]?.id
+  const selectedStore = stores.value.find((item) => item.id === workspace.storeId.value)
+  const companyId = workspace.companyId.value || auth.user.value?.companyId || setupStatus.value?.companyId || companies.value[0]?.id
+  const storeGroupId = workspace.storeGroupId.value || auth.user.value?.storeGroupId || selectedStore?.storeGroupId || setupStatus.value?.storeGroupId
+  const storeId = workspace.storeId.value || auth.user.value?.storeId || setupStatus.value?.storeId || stores.value[0]?.id
 
   if (!companyId || !storeGroupId || !storeId) {
     throw new Error('Run quick setup before saving vouchers.')
@@ -345,6 +371,7 @@ function buildPayload() {
     particulars: String(form.particulars || '').trim(),
     amount: Number(form.amount || 0),
     paymentMode: Number(form.paymentMode),
+    slipNumber: isCashPayment.value ? String(form.slipNumber || '').trim() || null : 'NA',
     partyId: null,
     ledgerId: nullableGuid(form.ledgerId),
     employeeId: nullableGuid(form.employeeId),
@@ -387,10 +414,58 @@ function askDelete(voucher: any) {
 
 function openPrintVoucher(voucher: any) {
   selectedPrintVoucher.value = voucher
+  printFormat.value = 'a4-two'
+  isReprint.value = false
+  includeSignatures.value = true
 }
 
 function printVoucher() {
+  const style = document.createElement('style')
+  style.id = 'garmetix-voucher-page-size'
+  style.textContent = printFormat.value === 'a5-one'
+    ? '@page { size: A5 portrait; margin: 8mm; }'
+    : '@page { size: A4 portrait; margin: 8mm; }'
+  document.getElementById(style.id)?.remove()
+  document.head.appendChild(style)
   window.print()
+  window.setTimeout(() => style.remove(), 1000)
+}
+
+async function downloadVoucherPdf() {
+  if (!selectedPrintVoucher.value?.id) {
+    return
+  }
+
+  downloadingPdf.value = true
+  try {
+    const query = new URLSearchParams({
+      format: printFormat.value,
+      reprint: String(isReprint.value),
+      signatures: String(includeSignatures.value)
+    })
+    const response = await fetch(
+      `${config.public.apiBase}/vouchers/${selectedPrintVoucher.value.id}/pdf?${query.toString()}`,
+      { headers: api.authHeaders() }
+    )
+    if (!response.ok) {
+      throw new Error(`Voucher PDF could not be generated (${response.status}).`)
+    }
+
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${selectedPrintVoucher.value.voucherNumber || 'voucher'}.pdf`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    feedback.notify('Voucher PDF downloaded')
+  } catch (error) {
+    feedback.failed('Could not download voucher PDF', error)
+  } finally {
+    downloadingPdf.value = false
+  }
 }
 
 async function confirmDelete() {
@@ -515,7 +590,15 @@ watch(() => form.ledgerId, (ledgerId) => {
 
 watch(() => form.paymentMode, () => {
   if (requiresBankAccount.value && !form.accountNumber) {
-    form.accountNumber = bankAccounts.value[0]?.id || null
+    form.accountNumber = bankAccountOptions.value[0]?.value || null
+  }
+
+  if (isCashPayment.value) {
+    if (form.slipNumber === 'NA') {
+      form.slipNumber = ''
+    }
+  } else {
+    form.slipNumber = 'NA'
   }
 })
 </script>
@@ -529,6 +612,7 @@ watch(() => form.paymentMode, () => {
     :companies="companies"
     :stores="stores"
     @refresh="refresh"
+    @workspace-change="refresh"
   >
     <section class="planner-dashboard">
       <UiModulePageHeader
@@ -609,12 +693,14 @@ watch(() => form.paymentMode, () => {
         :loading="saving"
         @submit="saveVoucher"
       >
-        <UFormField label="Voucher number" required>
-          <UInput v-model="form.voucherNumber" required />
-        </UFormField>
-        <UFormField label="Date" required>
-          <UInput v-model="form.onDate" required type="date" />
-        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Voucher number" required>
+            <UInput v-model="form.voucherNumber" required />
+          </UFormField>
+          <UFormField label="Date" required>
+            <UInput v-model="form.onDate" required type="date" />
+          </UFormField>
+        </div>
         <div class="form-two-column">
           <UFormField label="Type">
             <USelect v-model="form.voucherType" :items="voucherTypeOptions" />
@@ -623,34 +709,38 @@ watch(() => form.paymentMode, () => {
             <USelect v-model="form.paymentMode" :items="paymentModeOptions" />
           </UFormField>
         </div>
-        <UFormField v-if="requiresBankAccount" label="Bank account" required>
-          <USelect v-model="form.accountNumber" :items="bankAccountOptions" placeholder="Select bank account" />
-        </UFormField>
-        <UFormField label="Party name" required>
-          <UInput v-model="form.partyName" required />
-        </UFormField>
         <div class="form-two-column">
+          <UFormField label="Party name" required>
+            <UInput v-model="form.partyName" required />
+          </UFormField>
           <UFormField label="Ledger" required>
             <USelect v-model="form.ledgerId" :items="ledgerOptions" placeholder="Select ledger" />
           </UFormField>
+        </div>
+        <div class="form-two-column">
           <UFormField label="Issued by" required>
             <USelect v-model="form.employeeId" :items="employeeOptions" placeholder="Select employee" />
           </UFormField>
+          <UFormField label="Amount" required>
+            <UInput v-model="form.amount" min="0.01" step="0.01" required type="number" />
+          </UFormField>
         </div>
-        <UFormField label="Amount" required>
-          <UInput v-model="form.amount" min="0" step="0.01" required type="number" />
+        <UFormField v-if="requiresBankAccount" label="Bank account" required>
+          <USelect v-model="form.accountNumber" :items="bankAccountOptions" placeholder="Select bank account" />
         </UFormField>
         <UFormField label="Particulars" required>
-          <UTextarea v-model="form.particulars" autoresize required />
+          <UTextarea v-model="form.particulars" :rows="4" autoresize required />
         </UFormField>
-        <UFormField label="Payment details">
-          <UInput v-model="form.paymentDetails" />
-        </UFormField>
-        <UFormField label="Slip number">
-          <UInput v-model="form.slipNumber" />
-        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Payment details">
+            <UInput v-model="form.paymentDetails" />
+          </UFormField>
+          <UFormField v-if="isCashPayment" label="Slip number">
+            <UInput v-model="form.slipNumber" placeholder="Optional cash slip reference" />
+          </UFormField>
+        </div>
         <UFormField label="Remarks">
-          <UTextarea v-model="form.remarks" autoresize />
+          <UTextarea v-model="form.remarks" :rows="3" autoresize />
         </UFormField>
       </UiFormSlideover>
 
@@ -662,93 +752,128 @@ watch(() => form.paymentMode, () => {
         @confirm="confirmDelete"
       />
 
-      <UModal v-model:open="printOpen" title="Voucher Print" :ui="{ content: 'max-w-4xl' }">
+      <UModal v-model:open="printOpen" title="Voucher Print" :ui="{ content: 'max-w-5xl' }">
         <template #body>
-          <div v-if="selectedPrintVoucher" class="receipt-print voucher-print">
-            <header class="receipt-header">
-              <h2>{{ companyName(selectedPrintVoucher.companyId) }}</h2>
-              <p>{{ storeName(selectedPrintVoucher.storeId) }}</p>
-              <p>{{ voucherTypeLabel(selectedPrintVoucher.voucherType) }} Voucher</p>
-            </header>
+          <div class="voucher-print-controls no-print">
+            <USelect
+              v-model="printFormat"
+              :items="[
+                { value: 'a4-two', label: 'A4 - Two copies' },
+                { value: 'a5-one', label: 'A5 - Single copy' }
+              ]"
+              aria-label="Voucher print size"
+            />
+            <UCheckbox v-model="includeSignatures" label="Signature lines" />
+            <UButton
+              color="neutral"
+              :variant="isReprint ? 'solid' : 'outline'"
+              icon="i-lucide-stamp"
+              :label="isReprint ? 'Reprint marked' : 'Mark as reprint'"
+              @click="isReprint = !isReprint"
+            />
+          </div>
 
-            <div class="voucher-meta-grid">
-              <div>
-                <span>Voucher No.</span>
-                <strong>{{ selectedPrintVoucher.voucherNumber || '-' }}</strong>
+          <div
+            v-if="selectedPrintVoucher"
+            class="receipt-print voucher-print-document"
+            :class="`voucher-format-${printFormat}`"
+          >
+            <section v-for="copyLabel in printCopies" :key="copyLabel" class="voucher-print voucher-copy">
+              <div v-if="isReprint" class="voucher-reprint-stamp">REPRINT</div>
+              <header class="receipt-header">
+                <h2>{{ companyName(selectedPrintVoucher.companyId) }}</h2>
+                <p>{{ storeName(selectedPrintVoucher.storeId) }}</p>
+                <p>{{ voucherTypeLabel(selectedPrintVoucher.voucherType) }} Voucher</p>
+                <strong>{{ copyLabel }}</strong>
+              </header>
+
+              <div class="voucher-meta-grid">
+                <div>
+                  <span>Voucher No.</span>
+                  <strong>{{ selectedPrintVoucher.voucherNumber || '-' }}</strong>
+                </div>
+                <div>
+                  <span>Date</span>
+                  <strong>{{ formatDate(selectedPrintVoucher.onDate) }}</strong>
+                </div>
+                <div>
+                  <span>Mode</span>
+                  <strong>{{ paymentModeLabel(selectedPrintVoucher.paymentMode) }}</strong>
+                </div>
+                <div>
+                  <span>Amount</span>
+                  <strong>{{ money(Number(selectedPrintVoucher.amount || 0)) }}</strong>
+                </div>
               </div>
-              <div>
-                <span>Date</span>
-                <strong>{{ formatDate(selectedPrintVoucher.onDate) }}</strong>
-              </div>
-              <div>
-                <span>Mode</span>
-                <strong>{{ paymentModeLabel(selectedPrintVoucher.paymentMode) }}</strong>
-              </div>
-              <div>
-                <span>Amount</span>
+
+              <table class="receipt-table voucher-table">
+                <tbody>
+                  <tr>
+                    <td>Party</td>
+                    <td>{{ selectedPrintVoucher.partyName || '-' }}</td>
+                  </tr>
+                  <tr>
+                    <td>Ledger</td>
+                    <td>{{ ledgerName(selectedPrintVoucher.ledgerId) }}</td>
+                  </tr>
+                  <tr>
+                    <td>Issued by</td>
+                    <td>{{ employeeName(selectedPrintVoucher.employeeId) }}</td>
+                  </tr>
+                  <tr v-if="Number(selectedPrintVoucher.paymentMode) !== 0">
+                    <td>Bank account</td>
+                    <td>{{ bankAccountName(selectedPrintVoucher.accountNumber) }}</td>
+                  </tr>
+                  <tr>
+                    <td>Payment details</td>
+                    <td>{{ selectedPrintVoucher.paymentDetails || '-' }}</td>
+                  </tr>
+                  <tr v-if="Number(selectedPrintVoucher.paymentMode) === 0">
+                    <td>Slip number</td>
+                    <td>{{ selectedPrintVoucher.slipNumber || '-' }}</td>
+                  </tr>
+                  <tr>
+                    <td>Particulars</td>
+                    <td>{{ selectedPrintVoucher.particulars || '-' }}</td>
+                  </tr>
+                  <tr>
+                    <td>Remarks</td>
+                    <td>{{ selectedPrintVoucher.remarks || '-' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div class="receipt-totals voucher-total">
+                <span>Total voucher amount</span>
                 <strong>{{ money(Number(selectedPrintVoucher.amount || 0)) }}</strong>
               </div>
-            </div>
 
-            <table class="receipt-table voucher-table">
-              <tbody>
-                <tr>
-                  <td>Party</td>
-                  <td>{{ selectedPrintVoucher.partyName || '-' }}</td>
-                </tr>
-                <tr>
-                  <td>Ledger</td>
-                  <td>{{ ledgerName(selectedPrintVoucher.ledgerId) }}</td>
-                </tr>
-                <tr>
-                  <td>Issued by</td>
-                  <td>{{ employeeName(selectedPrintVoucher.employeeId) }}</td>
-                </tr>
-                <tr>
-                  <td>Bank account</td>
-                  <td>{{ bankAccountName(selectedPrintVoucher.accountNumber) }}</td>
-                </tr>
-                <tr>
-                  <td>Payment details</td>
-                  <td>{{ selectedPrintVoucher.paymentDetails || '-' }}</td>
-                </tr>
-                <tr>
-                  <td>Slip number</td>
-                  <td>{{ selectedPrintVoucher.slipNumber || '-' }}</td>
-                </tr>
-                <tr>
-                  <td>Particulars</td>
-                  <td>{{ selectedPrintVoucher.particulars || '-' }}</td>
-                </tr>
-                <tr>
-                  <td>Remarks</td>
-                  <td>{{ selectedPrintVoucher.remarks || '-' }}</td>
-                </tr>
-              </tbody>
-            </table>
+              <div v-if="includeSignatures" class="voucher-signatures">
+                <div>Prepared by</div>
+                <div>Checked by</div>
+                <div>Approved by</div>
+                <div>Received by</div>
+              </div>
 
-            <div class="receipt-totals voucher-total">
-              <span>Total voucher amount</span>
-              <strong>{{ money(Number(selectedPrintVoucher.amount || 0)) }}</strong>
-            </div>
-
-            <div class="voucher-signatures">
-              <div>Prepared by</div>
-              <div>Checked by</div>
-              <div>Approved by</div>
-              <div>Received by</div>
-            </div>
-
-            <footer class="receipt-footer">
-              Generated by Garmetix. Keep this voucher for accounting audit records.
-            </footer>
+              <footer class="receipt-footer">
+                Generated by Garmetix. Keep this voucher for accounting audit records.
+              </footer>
+            </section>
           </div>
         </template>
 
         <template #footer>
           <div class="modal-actions">
             <UButton color="neutral" variant="outline" label="Close" @click="printOpen = false" />
-            <UButton icon="i-lucide-printer" label="Print / PDF" @click="printVoucher" />
+            <UButton
+              color="neutral"
+              variant="soft"
+              icon="i-lucide-file-down"
+              label="Download PDF"
+              :loading="downloadingPdf"
+              @click="downloadVoucherPdf"
+            />
+            <UButton icon="i-lucide-printer" label="Print" @click="printVoucher" />
           </div>
         </template>
       </UModal>

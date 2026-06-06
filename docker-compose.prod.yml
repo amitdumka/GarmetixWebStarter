@@ -16,8 +16,17 @@ services:
       PayrollAutomation__RunHour: "${PAYROLL_AUTOMATION_RUN_HOUR:-2}"
       PayrollAutomation__RunMinute: "${PAYROLL_AUTOMATION_RUN_MINUTE:-0}"
       PayrollAutomation__RunOnStartup: "${PAYROLL_AUTOMATION_RUN_ON_STARTUP:-true}"
+      Backup__Enabled: "${BACKUP_ENABLED:-true}"
+      Backup__Directory: /app/backups
+      Backup__TimeZoneId: "${BACKUP_TIME_ZONE:-Asia/Kolkata}"
+      Backup__RunHour: "${BACKUP_RUN_HOUR:-2}"
+      Backup__RunMinute: "${BACKUP_RUN_MINUTE:-30}"
+      Backup__RunOnStartup: "${BACKUP_RUN_ON_STARTUP:-false}"
+      Backup__RetentionCount: "${BACKUP_RETENTION_COUNT:-14}"
     ports:
       - "${API_PORT:-5080}:5080"
+    volumes:
+      - ./backups:/app/backups
     restart: unless-stopped
     depends_on:
       postgres:

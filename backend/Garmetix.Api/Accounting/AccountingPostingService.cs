@@ -50,7 +50,9 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         voucher.Particulars = request.Particulars.Trim();
         voucher.Amount = Math.Round(request.Amount, 2, MidpointRounding.AwayFromZero);
         voucher.Remarks = request.Remarks?.Trim() ?? string.Empty;
-        voucher.SlipNumber = request.SlipNumber?.Trim();
+        voucher.SlipNumber = request.PaymentMode == PaymentMode.Cash
+            ? request.SlipNumber?.Trim()
+            : "NA";
         voucher.PaymentMode = request.PaymentMode;
         voucher.PaymentDetails = request.PaymentDetails?.Trim();
         voucher.IsParty = ledger.IsParty || party is not null;
