@@ -974,6 +974,49 @@ namespace Garmetix.Infrastructure.Data.Migrations
                     b.ToTable("Users", (string)null);
                 });
 
+            modelBuilder.Entity("Garmetix.Core.Models.Authentication.PasswordResetToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("RequestIpAddress")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RequestUserAgent")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UsedAtUtc")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "ExpiresAtUtc");
+
+                    b.ToTable("PasswordResetTokens", (string)null);
+                });
+
             modelBuilder.Entity("Garmetix.Core.Models.HRM.Attendance", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3135,6 +3178,15 @@ namespace Garmetix.Infrastructure.Data.Migrations
                     b.Navigation("Employee");
 
                     b.Navigation("Ledger");
+                });
+
+            modelBuilder.Entity("Garmetix.Core.Models.Authentication.PasswordResetToken", b =>
+                {
+                    b.HasOne("Garmetix.Core.Models.Authentication.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Garmetix.Core.Models.HRM.Attendance", b =>

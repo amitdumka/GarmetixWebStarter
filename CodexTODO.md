@@ -9,7 +9,7 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Add Reset Password from login screen.
 - [x] Add Change Password in current user profile.
 - [x] Add production email delivery for forgot-password reset link/token. SMTP sender added; SMS still optional for future.
-- [ ] Add optional reset-token persistence/revocation table for stricter production security.
+- [x] Add optional reset-token persistence/revocation table for stricter production security. Added `PasswordResetTokens` table, token hashing, one-time use, and revocation on new reset/change password.
 
 ## Company / Store / StoreGroup Permission Flow
 

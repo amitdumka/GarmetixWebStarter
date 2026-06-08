@@ -63,7 +63,7 @@ The API uses JWT bearer authentication and role policies for each module. Create
 curl -X POST http://localhost:5080/api/auth/bootstrap-admin -H "Content-Type: application/json" -d "{\"name\":\"Garmetix Admin\",\"userName\":\"admin\",\"email\":\"admin@garmetix.local\",\"password\":\"change-me\"}"
 ```
 
-More details are in `backend/Auth-Access-Notes.md`.
+More details are in `backend/Auth-Access-Notes.md`. Forgot/reset password email delivery and one-time reset-token storage are documented in `backend/Password-Reset-Email-Notes.md`.
 
 ## First Run Setup
 

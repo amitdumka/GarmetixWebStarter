@@ -25,6 +25,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<StoreGroup> StoreGroups => Set<StoreGroup>();
     public DbSet<Store> Stores => Set<Store>();
     public DbSet<AppUser> Users => Set<AppUser>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
 
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Stock> Stocks => Set<Stock>();
@@ -77,6 +78,11 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<AppUser>().HasKey(user => user.Id);
         modelBuilder.Entity<AppUser>().HasIndex(user => user.UserName).IsUnique();
         modelBuilder.Entity<AppUser>().HasIndex(user => user.Email).IsUnique(false);
+        modelBuilder.Entity<PasswordResetToken>().ToTable("PasswordResetTokens");
+        modelBuilder.Entity<PasswordResetToken>().HasKey(token => token.Id);
+        modelBuilder.Entity<PasswordResetToken>().HasIndex(token => token.TokenHash).IsUnique();
+        modelBuilder.Entity<PasswordResetToken>().HasIndex(token => new { token.UserId, token.ExpiresAtUtc });
+        modelBuilder.Entity<PasswordResetToken>().HasOne<AppUser>().WithMany().HasForeignKey(token => token.UserId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<VoucherBase>().UseTpcMappingStrategy();
         modelBuilder.Entity<Voucher>().ToTable("Vouchers");
         modelBuilder.Entity<CashVoucher>().ToTable("CashVouchers");

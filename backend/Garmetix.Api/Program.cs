@@ -404,9 +404,23 @@ static async Task<IResult> ForgotPasswordAsync(
         return Results.Ok(new ForgotPasswordResponse(genericMessage, null, null, null));
     }
 
+    var now = UtcNowForStorage();
     var token = resetTokens.CreateToken(user.Id);
-    var expiresAtUtc = resetTokens.ExpiresAtUtc;
+    var expiresAtUtc = DateTime.SpecifyKind(resetTokens.ExpiresAtUtc, DateTimeKind.Unspecified);
     var resetUrl = BuildPasswordResetUrl(configuration, httpContext, token);
+    var tokenHash = resetTokens.HashToken(token);
+
+    await RevokeActivePasswordResetTokensAsync(db, user.Id, now, cancellationToken);
+    db.PasswordResetTokens.Add(new PasswordResetToken
+    {
+        UserId = user.Id,
+        TokenHash = tokenHash,
+        CreatedAtUtc = now,
+        ExpiresAtUtc = expiresAtUtc,
+        RequestIpAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? string.Empty,
+        RequestUserAgent = httpContext.Request.Headers.UserAgent.ToString()
+    });
+    await db.SaveChangesAsync(cancellationToken);
 
     if (resetEmail.IsEnabled)
     {
@@ -471,13 +485,45 @@ static async Task<IResult> ResetPasswordAsync(
         return Results.BadRequest(new { message = tokenMessage });
     }
 
+    var now = UtcNowForStorage();
+    var tokenHash = resetTokens.HashToken(request.Token);
+    var storedToken = await db.PasswordResetTokens.FirstOrDefaultAsync(
+        token => token.UserId == userId && token.TokenHash == tokenHash,
+        cancellationToken);
+
+    if (storedToken is null)
+    {
+        return Results.BadRequest(new { message = "Reset token is invalid, expired, or has already been revoked." });
+    }
+
+    if (storedToken.UsedAtUtc.HasValue)
+    {
+        return Results.BadRequest(new { message = "Reset token has already been used. Request a new reset link." });
+    }
+
+    if (storedToken.RevokedAtUtc.HasValue)
+    {
+        return Results.BadRequest(new { message = "Reset token has been revoked. Request a new reset link." });
+    }
+
+    if (storedToken.ExpiresAtUtc < now)
+    {
+        storedToken.RevokedAtUtc = now;
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.BadRequest(new { message = "Reset token has expired. Request a new reset link." });
+    }
+
     var user = await db.Users.FirstOrDefaultAsync(item => item.Id == userId, cancellationToken);
     if (user is null)
     {
+        storedToken.RevokedAtUtc = now;
+        await db.SaveChangesAsync(cancellationToken);
         return Results.BadRequest(new { message = "Reset token user was not found." });
     }
 
     user.Password = PasswordHasher.Hash(request.NewPassword);
+    storedToken.UsedAtUtc = now;
+    await RevokeActivePasswordResetTokensAsync(db, user.Id, now, cancellationToken, exceptTokenId: storedToken.Id);
     await db.SaveChangesAsync(cancellationToken);
 
     return Results.Ok(new { message = "Password reset successfully. You can login with the new password." });
@@ -512,9 +558,33 @@ static async Task<IResult> ChangePasswordAsync(
     }
 
     user.Password = PasswordHasher.Hash(request.NewPassword);
+    await RevokeActivePasswordResetTokensAsync(db, user.Id, UtcNowForStorage(), cancellationToken);
     await db.SaveChangesAsync(cancellationToken);
 
     return Results.Ok(new { message = "Password changed successfully." });
+}
+
+
+static DateTime UtcNowForStorage() => DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
+
+static async Task RevokeActivePasswordResetTokensAsync(
+    GarmetixDbContext db,
+    Guid userId,
+    DateTime revokedAtUtc,
+    CancellationToken cancellationToken,
+    Guid? exceptTokenId = null)
+{
+    var activeTokens = await db.PasswordResetTokens
+        .Where(token => token.UserId == userId
+            && token.UsedAtUtc == null
+            && token.RevokedAtUtc == null
+            && token.Id != exceptTokenId)
+        .ToListAsync(cancellationToken);
+
+    foreach (var activeToken in activeTokens)
+    {
+        activeToken.RevokedAtUtc = revokedAtUtc;
+    }
 }
 
 static async Task<IResult> LoginAsync(LoginRequest request, GarmetixDbContext db, JwtTokenService tokens, CancellationToken cancellationToken)

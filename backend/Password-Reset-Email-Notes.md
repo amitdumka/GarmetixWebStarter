@@ -90,4 +90,21 @@ EMAIL_FROM_EMAIL=no-reply@your-domain.com
 - In Production, the reset token is never returned in the API response.
 - In Development, if email is disabled, the token/link is returned so local testing still works.
 - Reset tokens are signed with `Jwt:SigningKey` and expire after 30 minutes.
-- The next stricter production improvement is storing reset tokens in a database table so tokens can be revoked after first use.
+- Reset tokens are now stored only as SHA-256 hashes in `PasswordResetTokens`. The raw token is never stored.
+- Requesting a new reset link revokes any earlier unused reset token for that user.
+- Successfully resetting or changing the password revokes remaining unused reset tokens for that user.
+- Used, expired, and revoked tokens cannot be reused.
+
+## Database migration
+
+Apply the migration before using password reset in a migrated database:
+
+```bash
+dotnet ef database update --project backend/Garmetix.Infrastructure --startup-project backend/Garmetix.Api
+```
+
+Migration added:
+
+```text
+20260606211500_AddPasswordResetTokens
+```

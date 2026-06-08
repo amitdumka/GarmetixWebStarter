@@ -19,6 +19,13 @@ public sealed class PasswordResetTokenService(IConfiguration configuration)
         return $"{Base64UrlEncode(payloadBytes)}.{Base64UrlEncode(signature)}";
     }
 
+
+    public string HashToken(string token)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+        return Convert.ToHexString(bytes);
+    }
+
     public bool TryValidate(string token, out Guid userId, out string message)
     {
         userId = Guid.Empty;
