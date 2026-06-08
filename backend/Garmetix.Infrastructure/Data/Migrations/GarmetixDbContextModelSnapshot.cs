@@ -1745,6 +1745,36 @@ namespace Garmetix.Infrastructure.Data.Migrations
                     b.Property<string>("GSTIN")
                         .HasColumnType("text");
 
+                    b.Property<string>("GSTLegalName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTTradeName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTPrincipalAddress")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTStateCode")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTTaxpayerType")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTRegistrationStatus")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("GSTVerified")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("GSTVerifiedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("GSTLookupSource")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTMismatchAlert")
+                        .HasColumnType("text");
+
                     b.Property<decimal>("LoyaltyPoints")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -1779,6 +1809,9 @@ namespace Garmetix.Infrastructure.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("PartyId");
+
+                    b.HasIndex("CompanyId", "GSTIN")
+                        .HasDatabaseName("IX_Customers_CompanyId_GSTIN");
 
                     b.ToTable("Customers");
                 });
@@ -2544,6 +2577,36 @@ namespace Garmetix.Infrastructure.Data.Migrations
                     b.Property<string>("GSTIN")
                         .HasColumnType("text");
 
+                    b.Property<string>("GSTLegalName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTTradeName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTPrincipalAddress")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTStateCode")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTTaxpayerType")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTRegistrationStatus")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("GSTVerified")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("GSTVerifiedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("GSTLookupSource")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTMismatchAlert")
+                        .HasColumnType("text");
+
                     b.Property<string>("MobileNumber")
                         .IsRequired()
                         .HasColumnType("text");
@@ -2580,6 +2643,9 @@ namespace Garmetix.Infrastructure.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("PartyId");
+
+                    b.HasIndex("CompanyId", "GSTIN")
+                        .HasDatabaseName("IX_Vendors_CompanyId_GSTIN");
 
                     b.ToTable("Vendors");
                 });

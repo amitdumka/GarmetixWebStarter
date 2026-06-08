@@ -88,6 +88,16 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Party ID")] public Guid? PartyId { get; set; }
         [Display(Name = "Registered")] public bool Registred { get; set; } = false;
         [Display(Name = "GSTIN")] public string? GSTIN { get; set; }
+        [Display(Name = "GST Legal Name")] public string? GSTLegalName { get; set; }
+        [Display(Name = "GST Trade Name")] public string? GSTTradeName { get; set; }
+        [Display(Name = "GST Principal Address")] public string? GSTPrincipalAddress { get; set; }
+        [Display(Name = "GST State Code")] public string? GSTStateCode { get; set; }
+        [Display(Name = "GST Taxpayer Type")] public string? GSTTaxpayerType { get; set; }
+        [Display(Name = "GST Registration Status")] public string? GSTRegistrationStatus { get; set; }
+        [Display(Name = "GST Verified")] public bool GSTVerified { get; set; } = false;
+        [Display(Name = "GST Verified At")] public DateTime? GSTVerifiedAt { get; set; }
+        [Display(Name = "GST Lookup Source")] public string? GSTLookupSource { get; set; }
+        [Display(Name = "GST Mismatch Alert")] public string? GSTMismatchAlert { get; set; }
         [Display(Name = "Amount")] public decimal Amount { get; set; } = 0;
         [Display(Name = "Bill Count")] public int BillCount { get; set; } = 0;
         // The current total available credit
@@ -127,6 +137,16 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "End Date")] public DateTime? EndDate { get; set; } = null;
 
         [Display(Name = "GSTIN")] public string? GSTIN { get; set; }
+        [Display(Name = "GST Legal Name")] public string? GSTLegalName { get; set; }
+        [Display(Name = "GST Trade Name")] public string? GSTTradeName { get; set; }
+        [Display(Name = "GST Principal Address")] public string? GSTPrincipalAddress { get; set; }
+        [Display(Name = "GST State Code")] public string? GSTStateCode { get; set; }
+        [Display(Name = "GST Taxpayer Type")] public string? GSTTaxpayerType { get; set; }
+        [Display(Name = "GST Registration Status")] public string? GSTRegistrationStatus { get; set; }
+        [Display(Name = "GST Verified")] public bool GSTVerified { get; set; } = false;
+        [Display(Name = "GST Verified At")] public DateTime? GSTVerifiedAt { get; set; }
+        [Display(Name = "GST Lookup Source")] public string? GSTLookupSource { get; set; }
+        [Display(Name = "GST Mismatch Alert")] public string? GSTMismatchAlert { get; set; }
         [Display(Name = "PAN")] public string? Pan { get; set; }
         [Display(Name = "TAN")] public string? Tan { get; set; }
         [Display(Name = "Active")] public bool Active { get; set; }

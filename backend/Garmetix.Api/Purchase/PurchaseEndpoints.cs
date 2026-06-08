@@ -1,5 +1,6 @@
 using Garmetix.Api.Accounting;
 using Garmetix.Api.Auth;
+using Garmetix.Api.Gstin;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Inventory;
@@ -26,6 +27,7 @@ public static class PurchaseEndpoints
         HttpContext context,
         GarmetixDbContext db,
         AccountingPostingService accounting,
+        GstinLookupService gstinLookup,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.VendorName))
@@ -52,7 +54,10 @@ public static class PurchaseEndpoints
 
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
-        var vendor = await GetOrCreateVendorAsync(request, db, cancellationToken);
+        var vendorValidation = !string.IsNullOrWhiteSpace(request.VendorGstin)
+            ? await gstinLookup.ValidatePartyAsync("Vendor", request.VendorGstin, request.VendorName, null, cancellationToken)
+            : null;
+        var vendor = await GetOrCreateVendorAsync(request, db, gstinLookup, vendorValidation, cancellationToken);
         var invoiceNumber = string.IsNullOrWhiteSpace(request.InvoiceNumber)
             ? await CreatePurchaseInvoiceNumberAsync(request.CompanyId, db, cancellationToken)
             : request.InvoiceNumber.Trim();
@@ -215,23 +220,39 @@ public static class PurchaseEndpoints
             invoice.BillAmount,
             paidAmount,
             invoice.ItemCount,
-            invoice.Quantity));
+            invoice.Quantity,
+            vendorValidation?.Alerts ?? Array.Empty<string>()));
     }
 
-    private static async Task<Vendor> GetOrCreateVendorAsync(PurchaseInwardRequest request, GarmetixDbContext db, CancellationToken cancellationToken)
+    private static async Task<Vendor> GetOrCreateVendorAsync(
+        PurchaseInwardRequest request,
+        GarmetixDbContext db,
+        GstinLookupService gstinLookup,
+        PartyGstinValidationResponse? validation,
+        CancellationToken cancellationToken)
     {
         var mobile = string.IsNullOrWhiteSpace(request.VendorMobileNumber) ? "NA" : request.VendorMobileNumber.Trim();
         var name = request.VendorName.Trim();
+        var gstin = GstinLookupService.NormalizeGstin(request.VendorGstin);
 
         var vendor = await db.Vendors.FirstOrDefaultAsync(
-            item => item.CompanyId == request.CompanyId && (item.MobileNumber == mobile || item.Name == name),
+            item => item.CompanyId == request.CompanyId &&
+                ((!string.IsNullOrWhiteSpace(gstin) && item.GSTIN == gstin) || item.MobileNumber == mobile || item.Name == name),
             cancellationToken);
 
         if (vendor is not null)
         {
-            if (!string.IsNullOrWhiteSpace(request.VendorGstin))
+            if (validation is not null)
             {
-                vendor.GSTIN = request.VendorGstin.Trim();
+                gstinLookup.ApplyVerification(vendor, validation);
+                if (!string.IsNullOrWhiteSpace(validation.Lookup.PrincipalAddress) && (string.IsNullOrWhiteSpace(vendor.Address) || vendor.Address == "Dumka"))
+                {
+                    vendor.Address = validation.Lookup.PrincipalAddress;
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(gstin))
+            {
+                vendor.GSTIN = gstin;
             }
 
             return vendor;
@@ -240,14 +261,19 @@ public static class PurchaseEndpoints
         vendor = new Vendor
         {
             Name = name,
-            Address = "Dumka",
+            Address = validation?.Lookup.PrincipalAddress ?? "Dumka",
             City = "Dumka",
             ZipCode = "814101",
             MobileNumber = mobile,
-            GSTIN = string.IsNullOrWhiteSpace(request.VendorGstin) ? null : request.VendorGstin.Trim(),
+            GSTIN = string.IsNullOrWhiteSpace(gstin) ? null : gstin,
             Active = true,
             CompanyId = request.CompanyId
         };
+
+        if (validation is not null)
+        {
+            gstinLookup.ApplyVerification(vendor, validation);
+        }
 
         db.Vendors.Add(vendor);
         return vendor;

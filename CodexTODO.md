@@ -36,6 +36,13 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Reprint/copy options for invoices. Added customer/office/duplicate copy labels plus reprint/signature toggles.
 
 
+## GSTIN Verification - URGENT
+
+- [x] Add GSTIN lookup/verification for Customer and Vendor creation. Added configurable provider service and `/api/gstin` endpoints.
+- [x] Fetch and store GSTIN details on relevant party model. Customer/Vendor now store legal name, trade name, principal address, state code, taxpayer type, status, verification time/source, and mismatch alert.
+- [x] Alert when entered party name/address does not match GSTIN data. Added backend validation alerts plus Party, Billing, and Purchase UI warnings.
+- [ ] Connect to final licensed GSTIN provider credentials in production `.env`.
+
 ## GST Returns - URGENT
 
 - [x] Create standalone GST Return module shell without linking Billing/Purchase. Added `/gst-returns` frontend page and `/api/gst-returns` backend group.

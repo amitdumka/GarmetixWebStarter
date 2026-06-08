@@ -12,6 +12,7 @@ using Garmetix.Api.Backup;
 using Garmetix.Api.Billing;
 using Garmetix.Api.Hr;
 using Garmetix.Api.GstReturns;
+using Garmetix.Api.Gstin;
 using Garmetix.Api.ImportExport;
 using Garmetix.Api.OffBook;
 using Garmetix.Api.Payroll;
@@ -54,6 +55,8 @@ builder.Services.AddScoped<AccountingPostingService>();
 builder.Services.Configure<PayrollAutomationOptions>(builder.Configuration.GetSection("PayrollAutomation"));
 builder.Services.AddHostedService<PayrollAutomationHostedService>();
 builder.Services.Configure<BackupOptions>(builder.Configuration.GetSection("Backup"));
+builder.Services.Configure<GstinLookupOptions>(builder.Configuration.GetSection("GstinLookup"));
+builder.Services.AddHttpClient<GstinLookupService>();
 builder.Services.Configure<GoogleDriveBackupOptions>(builder.Configuration.GetSection("GoogleDriveBackup"));
 builder.Services.AddHttpClient("GoogleDriveAuth");
 builder.Services.AddHttpClient("GoogleDriveBackup");
@@ -129,7 +132,7 @@ app.Use(async (context, next) =>
 app.MapGet("/", () => Results.Ok(new
 {
     name = "Garmetix API",
-    modules = new[] { "Company", "Store", "Inventory", "Billing", "Purchase", "Voucher", "Cash Voucher", "HR", "Payroll" }
+    modules = new[] { "Company", "Store", "Inventory", "Billing", "Purchase", "Parties", "Voucher", "Cash Voucher", "HR", "Payroll" }
 }));
 app.MapGet("/api/health", HealthAsync).AllowAnonymous();
 
@@ -162,6 +165,7 @@ app.MapAccountingEndpoints();
 app.MapCashVoucherEndpoints();
 app.MapBackupEndpoints();
 app.MapGstReturnEndpoints();
+app.MapGstinEndpoints();
 
 MapCrud<Company>(app, "/api/companies", GarmetixPolicies.CompanySetup, readPolicyName: null);
 MapCrud<StoreGroup>(app, "/api/store-groups", GarmetixPolicies.CompanySetup, readPolicyName: null);
@@ -220,7 +224,7 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         get.RequireAuthorization(readPolicyName);
     }
 
-    group.MapPost("/", async (T entity, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken) =>
+    group.MapPost("/", async (T entity, GarmetixDbContext db, HttpContext context, GstinLookupService gstinLookup, CancellationToken cancellationToken) =>
     {
         if (!WorkspaceScope.CanWrite(entity, context, out var message))
         {
@@ -232,12 +236,13 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
             entity.Id = Guid.NewGuid();
         }
 
+        await EnrichPartyGstinAsync(entity, gstinLookup, cancellationToken);
         db.Set<T>().Add(entity);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Created($"{route}/{entity.Id}", entity);
     }).RequireAuthorization(policyName);
 
-    group.MapPut("/{id:guid}", async (Guid id, T entity, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken) =>
+    group.MapPut("/{id:guid}", async (Guid id, T entity, GarmetixDbContext db, HttpContext context, GstinLookupService gstinLookup, CancellationToken cancellationToken) =>
     {
         entity.Id = id;
         if (!await WorkspaceScope.ApplyTo(db.Set<T>().AsNoTracking(), context).AnyAsync(item => item.Id == id, cancellationToken))
@@ -250,6 +255,7 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
             return Results.BadRequest(new { message });
         }
 
+        await EnrichPartyGstinAsync(entity, gstinLookup, cancellationToken);
         db.Entry(entity).State = EntityState.Modified;
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(entity);
@@ -280,6 +286,25 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         .RequireAuthorization(GarmetixPolicies.Delete);
 
     return group;
+}
+
+static async Task EnrichPartyGstinAsync<T>(T entity, GstinLookupService gstinLookup, CancellationToken cancellationToken) where T : class
+{
+    switch (entity)
+    {
+        case Customer customer when !string.IsNullOrWhiteSpace(customer.GSTIN):
+        {
+            var validation = await gstinLookup.ValidatePartyAsync("Customer", customer.GSTIN, customer.Name, customer.Address, cancellationToken);
+            gstinLookup.ApplyVerification(customer, validation);
+            break;
+        }
+        case Vendor vendor when !string.IsNullOrWhiteSpace(vendor.GSTIN):
+        {
+            var validation = await gstinLookup.ValidatePartyAsync("Vendor", vendor.GSTIN, vendor.Name, vendor.Address, cancellationToken);
+            gstinLookup.ApplyVerification(vendor, validation);
+            break;
+        }
+    }
 }
 
 static bool IsAdminOrOwner(AuthorizationHandlerContext context)

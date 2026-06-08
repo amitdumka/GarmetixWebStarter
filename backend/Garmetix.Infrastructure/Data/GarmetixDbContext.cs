@@ -123,6 +123,8 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<Company>().HasIndex(company => company.Name);
         modelBuilder.Entity<Store>().HasIndex(store => new { store.CompanyId, store.StoreGroupId, store.StoreCode }).IsUnique();
         modelBuilder.Entity<Product>().HasIndex(product => product.Barcode);
+        modelBuilder.Entity<Customer>().HasIndex(customer => new { customer.CompanyId, customer.GSTIN }).IsUnique(false);
+        modelBuilder.Entity<Vendor>().HasIndex(vendor => new { vendor.CompanyId, vendor.GSTIN }).IsUnique(false);
         modelBuilder.Entity<Invoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.StoreId, invoice.InvoiceNumber }).IsUnique(false);
         modelBuilder.Entity<PurchaseInvoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.VendorId, invoice.InvoiceNumber }).IsUnique(false);
         modelBuilder.Entity<Voucher>().HasIndex(voucher => new { voucher.CompanyId, voucher.StoreId, voucher.VoucherNumber }).IsUnique(false);

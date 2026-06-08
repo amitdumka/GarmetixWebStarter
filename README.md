@@ -264,3 +264,7 @@ Open `/gst-returns` for the standalone manual GST module. It supports GSTR-1 and
 - GST saved drafts and audit trail are available in `/gst-returns`. Apply migration `AddGstReturnDrafts` before testing saved drafts.
 
 - Reports page now supports Excel export, Save-as-PDF/print, and local cached report snapshots by report/filter/search.
+
+### GSTIN verification
+
+Customer and Vendor creation now supports GSTIN lookup/validation through a configurable provider. Open `/parties` to verify GSTIN, store legal/trade name and address details, and see mismatch alerts before saving. Billing and Purchase forms also show GSTIN alerts. Configure `GSTIN_LOOKUP_*` values in `.env` before production use. See `backend/GSTIN-Verification-Notes.md`.

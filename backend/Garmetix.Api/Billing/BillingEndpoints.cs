@@ -1,5 +1,6 @@
 using Garmetix.Api.Accounting;
 using Garmetix.Api.Auth;
+using Garmetix.Api.Gstin;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Inventory;
@@ -219,6 +220,7 @@ public static class BillingEndpoints
         HttpContext context,
         GarmetixDbContext db,
         AccountingPostingService accounting,
+        GstinLookupService gstinLookup,
         CancellationToken cancellationToken)
     {
         if (request.Items.Count == 0)
@@ -240,7 +242,10 @@ public static class BillingEndpoints
 
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
-        var customer = await GetOrCreateCustomerAsync(request, db, cancellationToken);
+        var customerValidation = !string.IsNullOrWhiteSpace(request.CustomerGstin)
+            ? await gstinLookup.ValidatePartyAsync("Customer", request.CustomerGstin, request.CustomerName, null, cancellationToken)
+            : null;
+        var customer = await GetOrCreateCustomerAsync(request, db, gstinLookup, customerValidation, cancellationToken);
         var invoiceNumber = await CreateInvoiceNumberAsync(request.StoreId, db, cancellationToken);
         var invoiceId = Guid.NewGuid();
 
@@ -328,6 +333,7 @@ public static class BillingEndpoints
             CustomerId = customer.Id,
             CustomerName = customer.Name,
             CustomerMobileNumber = customer.MobileNumber,
+            CustomerGSTIN = customer.GSTIN,
             CreditSale = paidAmount < billAmount,
             PaidAmount = paidAmount,
             BillDiscountAmount = request.BillDiscountAmount,
@@ -367,7 +373,8 @@ public static class BillingEndpoints
             invoice.PaidAmount,
             invoice.BalanceAmount,
             invoice.ItemCount,
-            invoice.Quantity));
+            invoice.Quantity,
+            customerValidation?.Alerts ?? Array.Empty<string>()));
     }
 
     private static async Task<IResult> CancelSaleAsync(
@@ -452,24 +459,52 @@ public static class BillingEndpoints
             reversedAmount));
     }
 
-    private static async Task<Customer> GetOrCreateCustomerAsync(PosSaleRequest request, GarmetixDbContext db, CancellationToken cancellationToken)
+    private static async Task<Customer> GetOrCreateCustomerAsync(
+        PosSaleRequest request,
+        GarmetixDbContext db,
+        GstinLookupService gstinLookup,
+        PartyGstinValidationResponse? validation,
+        CancellationToken cancellationToken)
     {
         var mobile = string.IsNullOrWhiteSpace(request.CustomerMobileNumber) ? "WALKIN" : request.CustomerMobileNumber.Trim();
+        var gstin = GstinLookupService.NormalizeGstin(request.CustomerGstin);
         var customer = await db.Customers.FirstOrDefaultAsync(
-            item => item.CompanyId == request.CompanyId && item.MobileNumber == mobile,
+            item => item.CompanyId == request.CompanyId &&
+                ((!string.IsNullOrWhiteSpace(gstin) && item.GSTIN == gstin) || item.MobileNumber == mobile),
             cancellationToken);
 
         if (customer is not null)
         {
+            if (!string.IsNullOrWhiteSpace(request.CustomerName) && customer.Name == "Walk-in Customer")
+            {
+                customer.Name = request.CustomerName.Trim();
+            }
+
+            if (validation is not null)
+            {
+                gstinLookup.ApplyVerification(customer, validation);
+                if (!string.IsNullOrWhiteSpace(validation.Lookup.PrincipalAddress) && (string.IsNullOrWhiteSpace(customer.Address) || customer.Address == "Dumka"))
+                {
+                    customer.Address = validation.Lookup.PrincipalAddress;
+                }
+            }
+
             return customer;
         }
 
         customer = new Customer
         {
-            Name = string.IsNullOrWhiteSpace(request.CustomerName) ? "Walk-in Customer" : request.CustomerName.Trim(),
+            Name = string.IsNullOrWhiteSpace(request.CustomerName) ? (validation?.Lookup.TradeName ?? validation?.Lookup.LegalName ?? "Walk-in Customer") : request.CustomerName.Trim(),
+            Address = validation?.Lookup.PrincipalAddress ?? "Dumka",
             MobileNumber = mobile,
+            GSTIN = string.IsNullOrWhiteSpace(gstin) ? null : gstin,
             CompanyId = request.CompanyId
         };
+
+        if (validation is not null)
+        {
+            gstinLookup.ApplyVerification(customer, validation);
+        }
 
         db.Customers.Add(customer);
         return customer;

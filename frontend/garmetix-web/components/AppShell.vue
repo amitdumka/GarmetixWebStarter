@@ -69,6 +69,7 @@ const moduleGroups = [
       { to: '/billing', label: 'Billing', icon: 'i-lucide-receipt-indian-rupee' },
       { to: '/inventory', label: 'Inventory', icon: 'i-lucide-boxes' },
       { to: '/purchase', label: 'Purchase', icon: 'i-lucide-package-plus' },
+      { to: '/parties', label: 'Parties', icon: 'i-lucide-users-round' },
       { to: '/vouchers', label: 'Vouchers', icon: 'i-lucide-banknote' },
       { to: '/accounting', label: 'Accounting', icon: 'i-lucide-landmark' },
       { to: '/petty-cash', label: 'Petty Cash', icon: 'i-lucide-circle-dollar-sign' }

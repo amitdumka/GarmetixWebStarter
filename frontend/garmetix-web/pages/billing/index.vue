@@ -25,6 +25,8 @@ const saving = ref(false)
 const cancelling = ref(false)
 const downloadingInvoicePdf = ref(false)
 const setupStatus = ref<any | null>(null)
+const saleGstinValidation = ref<any | null>(null)
+const saleGstinChecking = ref(false)
 const search = ref('')
 const saleOpen = ref(false)
 const cancelOpen = ref(false)
@@ -211,6 +213,7 @@ function emptySaleForm() {
   return {
     customerName: 'Walk-in Customer',
     customerMobileNumber: '',
+    customerGstin: '',
     paymentMode: 0,
     paidAmount: 0,
     billDiscountAmount: 0,
@@ -252,6 +255,7 @@ async function refresh() {
 function startCreate() {
   Object.assign(saleForm, emptySaleForm())
   saleCart.value = []
+  saleGstinValidation.value = null
   saleOpen.value = true
 }
 
@@ -281,6 +285,34 @@ function removeCartItem(index: number) {
   saleForm.paidAmount = payableTotal.value
 }
 
+async function validateSaleGstin() {
+  saleGstinValidation.value = null
+  if (!saleForm.customerGstin) {
+    feedback.notify('Enter customer GSTIN first', undefined, 'warning')
+    return
+  }
+
+  saleGstinChecking.value = true
+  try {
+    saleGstinValidation.value = await api.create<any>('gstin/validate-party', {
+      partyType: 'Customer',
+      gstin: saleForm.customerGstin,
+      name: saleForm.customerName,
+      address: ''
+    })
+
+    if (saleGstinValidation.value.alerts?.length) {
+      feedback.notify('Customer GSTIN alert', saleGstinValidation.value.alerts.join(' '), 'warning')
+    } else {
+      feedback.notify('Customer GSTIN checked', saleGstinValidation.value.lookup?.isVerified ? 'GSTIN verified.' : 'GSTIN format checked.', 'success')
+    }
+  } catch (error) {
+    feedback.failed('Could not verify customer GSTIN', error)
+  } finally {
+    saleGstinChecking.value = false
+  }
+}
+
 async function submitSale() {
   saving.value = true
   try {
@@ -301,12 +333,17 @@ async function submitSale() {
       throw new Error('Select bank account for non-cash payment.')
     }
 
+    if (saleForm.customerGstin && !saleGstinValidation.value) {
+      await validateSaleGstin()
+    }
+
     const response = await api.create<any>('billing/sales', {
       companyId,
       storeGroupId,
       storeId,
       customerName: saleForm.customerName,
       customerMobileNumber: saleForm.customerMobileNumber,
+      customerGstin: saleForm.customerGstin,
       paymentMode: Number(saleForm.paymentMode),
       bankAccountId: requiresBankAccount.value ? saleForm.bankAccountId : null,
       paidAmount: Number(saleForm.paidAmount || 0),
@@ -321,6 +358,9 @@ async function submitSale() {
     })
 
     feedback.saved(`Invoice ${response.invoiceNumber || ''}`.trim())
+    if (response.gstinAlerts?.length) {
+      feedback.notify('Customer GSTIN alert saved', response.gstinAlerts.join(' '), 'warning')
+    }
     saleOpen.value = false
     await viewReceipt(response.invoiceId)
     await refresh()
@@ -558,9 +598,24 @@ watch(() => saleForm.paidAmount, () => {
         <UFormField label="Customer">
           <UInput v-model="saleForm.customerName" />
         </UFormField>
-        <UFormField label="Mobile">
-          <UInput v-model="saleForm.customerMobileNumber" />
-        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Mobile">
+            <UInput v-model="saleForm.customerMobileNumber" />
+          </UFormField>
+          <UFormField label="Customer GSTIN">
+            <div class="inline-action-row">
+              <UInput v-model="saleForm.customerGstin" class="flex-1" placeholder="22AAAAA0000A1Z5" />
+              <UButton color="neutral" variant="subtle" icon="i-lucide-search-check" label="Check" type="button" :loading="saleGstinChecking" @click="validateSaleGstin" />
+            </div>
+          </UFormField>
+        </div>
+        <UAlert
+          v-if="saleGstinValidation?.alerts?.length"
+          color="warning"
+          variant="subtle"
+          title="Customer GSTIN alert"
+          :description="saleGstinValidation.alerts.join(' ')"
+        />
 
         <USeparator label="Item" />
 

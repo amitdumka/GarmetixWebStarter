@@ -35,4 +35,5 @@ public sealed record PurchaseInwardResponse(
     decimal BillAmount,
     decimal PaidAmount,
     int ItemCount,
-    decimal Quantity);
+    decimal Quantity,
+    IReadOnlyList<string> GstinAlerts);

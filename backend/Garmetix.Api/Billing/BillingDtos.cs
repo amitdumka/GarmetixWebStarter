@@ -8,6 +8,7 @@ public sealed record PosSaleRequest(
     Guid StoreId,
     string? CustomerName,
     string? CustomerMobileNumber,
+    string? CustomerGstin,
     PaymentMode PaymentMode,
     Guid? BankAccountId,
     decimal PaidAmount,
@@ -30,7 +31,8 @@ public sealed record PosSaleResponse(
     decimal PaidAmount,
     decimal BalanceAmount,
     int ItemCount,
-    decimal Quantity);
+    decimal Quantity,
+    IReadOnlyList<string> GstinAlerts);
 
 public sealed record RecentInvoiceDto(
     Guid Id,

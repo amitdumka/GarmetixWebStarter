@@ -18,6 +18,8 @@ const bankAccounts = ref<any[]>([])
 const loading = ref(false)
 const saving = ref(false)
 const setupStatus = ref<any | null>(null)
+const vendorGstinValidation = ref<any | null>(null)
+const vendorGstinChecking = ref(false)
 const search = ref('')
 const formOpen = ref(false)
 
@@ -189,6 +191,7 @@ async function refresh() {
 function startCreate() {
   Object.assign(purchaseForm, emptyPurchaseForm())
   purchaseCart.value = []
+  vendorGstinValidation.value = null
   formOpen.value = true
 }
 
@@ -227,6 +230,34 @@ function removePurchaseItem(index: number) {
   purchaseForm.paidAmount = payableTotal.value
 }
 
+async function validateVendorGstin() {
+  vendorGstinValidation.value = null
+  if (!purchaseForm.vendorGstin) {
+    feedback.notify('Enter vendor GSTIN first', undefined, 'warning')
+    return
+  }
+
+  vendorGstinChecking.value = true
+  try {
+    vendorGstinValidation.value = await api.create<any>('gstin/validate-party', {
+      partyType: 'Vendor',
+      gstin: purchaseForm.vendorGstin,
+      name: purchaseForm.vendorName,
+      address: ''
+    })
+
+    if (vendorGstinValidation.value.alerts?.length) {
+      feedback.notify('Vendor GSTIN alert', vendorGstinValidation.value.alerts.join(' '), 'warning')
+    } else {
+      feedback.notify('Vendor GSTIN checked', vendorGstinValidation.value.lookup?.isVerified ? 'GSTIN verified.' : 'GSTIN format checked.', 'success')
+    }
+  } catch (error) {
+    feedback.failed('Could not verify vendor GSTIN', error)
+  } finally {
+    vendorGstinChecking.value = false
+  }
+}
+
 async function submitPurchase() {
   saving.value = true
   try {
@@ -245,6 +276,10 @@ async function submitPurchase() {
 
     if (requiresBankAccount.value && !purchaseForm.bankAccountId) {
       throw new Error('Select bank account for non-cash payment.')
+    }
+
+    if (purchaseForm.vendorGstin && !vendorGstinValidation.value) {
+      await validateVendorGstin()
     }
 
     const response = await api.create<any>('purchase/inward', {
@@ -272,6 +307,9 @@ async function submitPurchase() {
     })
 
     feedback.saved(`Inward ${response.inwardNumber || ''}`.trim())
+    if (response.gstinAlerts?.length) {
+      feedback.notify('Vendor GSTIN alert saved', response.gstinAlerts.join(' '), 'warning')
+    }
     formOpen.value = false
     await refresh()
   } catch (error) {
@@ -408,9 +446,19 @@ watch(() => purchaseForm.paidAmount, () => {
             <UInput v-model="purchaseForm.vendorMobileNumber" />
           </UFormField>
           <UFormField label="Vendor GSTIN">
-            <UInput v-model="purchaseForm.vendorGstin" />
+            <div class="inline-action-row">
+              <UInput v-model="purchaseForm.vendorGstin" class="flex-1" />
+              <UButton color="neutral" variant="subtle" icon="i-lucide-search-check" label="Check" type="button" :loading="vendorGstinChecking" @click="validateVendorGstin" />
+            </div>
           </UFormField>
         </div>
+        <UAlert
+          v-if="vendorGstinValidation?.alerts?.length"
+          color="warning"
+          variant="subtle"
+          title="Vendor GSTIN alert"
+          :description="vendorGstinValidation.alerts.join(' ')"
+        />
         <div class="form-two-column">
           <UFormField label="Supplier invoice">
             <UInput v-model="purchaseForm.invoiceNumber" />
