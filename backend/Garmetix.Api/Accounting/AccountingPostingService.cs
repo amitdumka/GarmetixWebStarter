@@ -731,6 +731,78 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
             cancellationToken);
     }
 
+    public async Task PostPurchaseInvoiceCancellationAsync(
+        PurchaseInvoice invoice,
+        Vendor? vendor,
+        Guid storeGroupId,
+        Guid storeId,
+        decimal originalPaidAmount,
+        PaymentMode? originalPaymentMode,
+        Guid? bankAccountId,
+        CancellationToken cancellationToken)
+    {
+        if (vendor is null)
+        {
+            return;
+        }
+
+        var party = await EnsureVendorPartyAsync(vendor, cancellationToken);
+        var vendorLedgerId = party.LedgerId;
+        var purchaseLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Purchases", "Purchase Accounts", LedgerCategory.PurchaseAccounts, LedgerType.Purcahase, cancellationToken);
+        var inputGstLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Input GST", "Duties & Taxes", LedgerCategory.DutiesAndTaxes, LedgerType.DutyAndTax, cancellationToken);
+        var freightLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Transport & Freight Charges", "Direct Expenses", LedgerCategory.DirectExpenses, LedgerType.Expenses, cancellationToken);
+        var roundOffLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Round Off", "Indirect Income", LedgerCategory.IndirectIncome, LedgerType.Income, cancellationToken);
+
+        var lines = new List<JournalLineDraft>
+        {
+            new(vendorLedgerId, party.Id, invoice.BillAmount, 0, $"Cancel purchase invoice {invoice.InvoiceNumber}"),
+            new(purchaseLedger.Id, null, 0, invoice.BasePrice, $"Cancel purchase invoice {invoice.InvoiceNumber}")
+        };
+
+        if (invoice.TaxAmount > 0)
+        {
+            lines.Add(new(inputGstLedger.Id, null, 0, invoice.TaxAmount, $"Cancel purchase tax {invoice.InvoiceNumber}"));
+        }
+
+        if (invoice.FrightAmount > 0)
+        {
+            lines.Add(new(freightLedger.Id, null, 0, invoice.FrightAmount, $"Cancel purchase freight {invoice.InvoiceNumber}"));
+        }
+
+        AddRoundOff(lines, roundOffLedger.Id, invoice.RoundOff * -1, isSale: false, invoice.InvoiceNumber);
+
+        if (originalPaidAmount > 0 && originalPaymentMode.HasValue)
+        {
+            var settlementLedger = await ResolveSettlementLedgerAsync(invoice.CompanyId, originalPaymentMode.Value, bankAccountId, cancellationToken);
+            lines.Add(new(settlementLedger.Id, null, originalPaidAmount, 0, $"Reverse purchase payment {invoice.InvoiceNumber}"));
+            lines.Add(new(vendorLedgerId, party.Id, 0, originalPaidAmount, $"Reverse purchase payment {invoice.InvoiceNumber}"));
+            await UpsertInvoiceBankTransactionAsync(
+                invoice.CompanyId,
+                originalPaymentMode.Value,
+                bankAccountId,
+                TransactionType.Deposit,
+                DateTime.Now,
+                $"PIC-{invoice.InvoiceNumber}",
+                $"Reverse purchase payment {invoice.InvoiceNumber}",
+                originalPaidAmount,
+                vendor.Name,
+                cancellationToken);
+        }
+
+        await RepostSourceJournalAsync(
+            "PurchaseInvoiceCancellation",
+            invoice.Id,
+            $"PIC-{invoice.InvoiceNumber}",
+            DateTime.Now,
+            invoice.InvoiceNumber,
+            $"Cancel purchase invoice {invoice.InvoiceNumber}",
+            invoice.CompanyId,
+            storeGroupId,
+            storeId,
+            lines,
+            cancellationToken);
+    }
+
     public async Task PostSalaryPaymentAsync(
         SalaryPayment payment,
         CancellationToken cancellationToken)

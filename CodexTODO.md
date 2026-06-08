@@ -63,10 +63,10 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 
 ## Purchase
 
-- [ ] Purchase invoice list and detail/print view.
-- [ ] Purchase return/cancellation with stock reversal.
+- [x] Purchase invoice list and detail/print view. Added `/api/purchase/invoices/recent`, receipt/PDF endpoints, and Purchase page view/print/download modal.
+- [x] Purchase return/cancellation with stock reversal. Added cancel endpoint that reverses inward stock and purchase accounting posting.
 - [ ] Vendor payment voucher creation from purchase payment.
-- [ ] Better tax/category selector in purchase inward form.
+- [x] Better tax/category selector in purchase inward form. Added tax/category/subcategory lookup and selectors for new inward products.
 
 ## Sales Return / Exchange
 

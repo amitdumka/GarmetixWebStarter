@@ -6,22 +6,35 @@ const api = useGarmetixApi()
 const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
+const config = useRuntimeConfig()
 const isAuthenticated = auth.isAuthenticated
+const canDelete = auth.canDelete
 
 const UBadge = resolveComponent('UBadge')
+const UButton = resolveComponent('UButton')
 
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const products = ref<any[]>([])
 const purchaseInvoices = ref<any[]>([])
+const purchaseLookup = ref<any>({ categories: [], subCategories: [], taxes: [] })
 const bankAccounts = ref<any[]>([])
 const loading = ref(false)
 const saving = ref(false)
 const setupStatus = ref<any | null>(null)
 const vendorGstinValidation = ref<any | null>(null)
 const vendorGstinChecking = ref(false)
+const selectedReceipt = ref<any | null>(null)
+const pendingCancel = ref<any | null>(null)
 const search = ref('')
 const formOpen = ref(false)
+const cancelOpen = ref(false)
+const cancelling = ref(false)
+const downloadingPurchasePdf = ref(false)
+const purchasePrintFormat = ref<'a4' | 'a5' | 'thermal-2' | 'thermal-3'>('a4')
+const purchaseCopyType = ref<'store' | 'supplier' | 'office' | 'duplicate'>('store')
+const purchaseReprint = ref(false)
+const purchaseSignatures = ref(true)
 
 const paymentModeOptions = [
   { value: 0, label: 'Cash' },
@@ -32,6 +45,20 @@ const paymentModeOptions = [
   { value: 6, label: 'NEFT' },
   { value: 7, label: 'Cheque' },
   { value: 8, label: 'Demand Draft' }
+]
+
+const purchasePrintFormatOptions = [
+  { value: 'a4', label: 'A4 purchase invoice' },
+  { value: 'a5', label: 'A5 compact invoice' },
+  { value: 'thermal-2', label: 'Thermal 2-inch / 58mm' },
+  { value: 'thermal-3', label: 'Thermal 3-inch / 80mm' }
+]
+
+const purchaseCopyOptions = [
+  { value: 'store', label: 'Store copy' },
+  { value: 'supplier', label: 'Supplier copy' },
+  { value: 'office', label: 'Office copy' },
+  { value: 'duplicate', label: 'Duplicate copy' }
 ]
 
 const purchaseForm = reactive<any>(emptyPurchaseForm())
@@ -46,6 +73,9 @@ const productOptions = computed(() => [
 ])
 
 const selectedPurchaseProduct = computed(() => products.value.find((item) => item.id === purchaseForm.selectedProductId))
+const categoryOptions = computed(() => purchaseLookup.value.categories?.map((item: any) => ({ value: item.id, label: item.name })) || [])
+const subCategoryOptions = computed(() => purchaseLookup.value.subCategories?.map((item: any) => ({ value: item.id, label: item.name })) || [])
+const taxOptions = computed(() => purchaseLookup.value.taxes?.map((item: any) => ({ value: item.id, label: `${item.name || 'GST'} - ${Number(item.rate || 0).toFixed(2)}%` })) || [])
 const requiresBankAccount = computed(() => Number(purchaseForm.paidAmount || 0) > 0 && Number(purchaseForm.paymentMode) !== 0)
 
 const bankAccountOptions = computed(() => bankAccounts.value.map((account) => ({
@@ -59,16 +89,29 @@ const purchaseCartTotal = computed(() => {
 
 const payableTotal = computed(() => purchaseCartTotal.value + Number(purchaseForm.frightAmount || 0))
 
+const receiptOpen = computed({
+  get: () => Boolean(selectedReceipt.value),
+  set: (value: boolean) => {
+    if (!value) {
+      selectedReceipt.value = null
+    }
+  }
+})
+
 const invoiceSummary = computed(() => {
   return purchaseInvoices.value.reduce((summary, invoice) => {
     summary.billAmount += Number(invoice.billAmount || invoice.totalAmount || invoice.netAmount || 0)
     summary.paidAmount += Number(invoice.paidAmount || 0)
     summary.freightAmount += Number(invoice.frightAmount || 0)
+    if (invoice.invoiceStatus === 'Cancelled') {
+      summary.cancelled += 1
+    }
     return summary
   }, {
     billAmount: 0,
     paidAmount: 0,
-    freightAmount: 0
+    freightAmount: 0,
+    cancelled: 0
   })
 })
 
@@ -76,7 +119,7 @@ const metrics = computed(() => [
   {
     label: 'Purchase Invoices',
     value: purchaseInvoices.value.length,
-    meta: 'Inward records',
+    meta: `${invoiceSummary.value.cancelled} cancelled`,
     icon: 'i-lucide-file-text',
     color: 'primary'
   },
@@ -111,6 +154,7 @@ const tableRows = computed(() => purchaseInvoices.value.map((invoice) => ({
   billAmount: money(Number(invoice.billAmount || invoice.totalAmount || invoice.netAmount || 0)),
   paidAmount: money(Number(invoice.paidAmount || 0)),
   status: invoice.invoiceStatus ?? 'Saved',
+  balanceAmount: money(Number(invoice.balanceAmount || 0)),
   raw: invoice
 })))
 
@@ -129,13 +173,42 @@ const columns: TableColumn<any>[] = [
   { accessorKey: 'vendorName', header: 'Vendor' },
   { accessorKey: 'billAmount', header: 'Amount' },
   { accessorKey: 'paidAmount', header: 'Paid' },
+  { accessorKey: 'balanceAmount', header: 'Balance' },
   {
     accessorKey: 'status',
     header: 'Status',
     cell: ({ row }) => h(UBadge, {
-      color: 'success',
+      color: row.original.status === 'Cancelled' ? 'error' : 'success',
       variant: 'subtle'
     }, () => String(row.original.status))
+  },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => {
+      const invoice = row.original.raw
+      const actions = [
+        h(UButton, {
+          color: 'neutral',
+          variant: 'ghost',
+          icon: 'i-lucide-file-text',
+          label: 'View',
+          onClick: () => viewReceipt(invoice.id)
+        })
+      ]
+
+      if (canDelete.value && invoice.invoiceStatus !== 'Cancelled') {
+        actions.push(h(UButton, {
+          color: 'error',
+          variant: 'ghost',
+          icon: 'i-lucide-ban',
+          label: 'Cancel',
+          onClick: () => askCancel(invoice)
+        }))
+      }
+
+      return h('div', { class: 'table-action-buttons' }, actions)
+    }
   }
 ]
 
@@ -156,6 +229,9 @@ function emptyPurchaseForm() {
     costPrice: 0,
     mrp: 0,
     discountAmount: 0,
+    taxId: '',
+    productCategoryId: '',
+    productSubCategoryId: '',
     bankAccountId: null
   }
 }
@@ -168,12 +244,13 @@ async function refresh() {
   loading.value = true
   try {
     setupStatus.value = await api.get<any>('setup/status')
-    const [companyRows, storeRows, productRows, purchaseRows, bankAccountRows] = await Promise.all([
+    const [companyRows, storeRows, productRows, purchaseRows, bankAccountRows, lookupRows] = await Promise.all([
       api.list<any>('companies'),
       api.list<any>('stores'),
       api.list<any>('products'),
-      api.list<any>('purchase-invoices'),
-      api.list<any>('bank-accounts')
+      api.get<any[]>('purchase/invoices/recent'),
+      api.list<any>('bank-accounts'),
+      api.get<any>('purchase/lookup-options')
     ])
 
     companies.value = companyRows
@@ -181,6 +258,7 @@ async function refresh() {
     products.value = productRows
     purchaseInvoices.value = purchaseRows
     bankAccounts.value = bankAccountRows
+    purchaseLookup.value = lookupRows
   } catch (error) {
     feedback.failed('Purchase refresh failed', error)
   } finally {
@@ -212,7 +290,10 @@ function addPurchaseItem() {
     quantity: Number(purchaseForm.quantity || 0),
     costPrice: Number(purchaseForm.costPrice || 0),
     mrp: Number(purchaseForm.mrp || selected?.mrp || 0),
-    discountAmount: Number(purchaseForm.discountAmount || 0)
+    discountAmount: Number(purchaseForm.discountAmount || 0),
+    taxId: purchaseForm.taxId || null,
+    productCategoryId: purchaseForm.productCategoryId || null,
+    productSubCategoryId: purchaseForm.productSubCategoryId || null
   })
 
   purchaseForm.selectedProductId = ''
@@ -222,6 +303,9 @@ function addPurchaseItem() {
   purchaseForm.costPrice = 0
   purchaseForm.mrp = 0
   purchaseForm.discountAmount = 0
+  purchaseForm.taxId = ''
+  purchaseForm.productCategoryId = ''
+  purchaseForm.productSubCategoryId = ''
   purchaseForm.paidAmount = payableTotal.value
 }
 
@@ -302,7 +386,10 @@ async function submitPurchase() {
         quantity: item.quantity,
         costPrice: item.costPrice,
         mrp: item.mrp,
-        discountAmount: item.discountAmount
+        discountAmount: item.discountAmount,
+        taxId: item.taxId,
+        productCategoryId: item.productCategoryId,
+        productSubCategoryId: item.productSubCategoryId
       }))
     })
 
@@ -311,11 +398,114 @@ async function submitPurchase() {
       feedback.notify('Vendor GSTIN alert saved', response.gstinAlerts.join(' '), 'warning')
     }
     formOpen.value = false
+    await viewReceipt(response.purchaseInvoiceId)
     await refresh()
   } catch (error) {
     feedback.failed('Could not save purchase inward', error)
   } finally {
     saving.value = false
+  }
+}
+
+
+async function viewReceipt(invoiceId: string) {
+  try {
+    selectedReceipt.value = await api.get<any>(`purchase/invoices/${invoiceId}/receipt`)
+    purchasePrintFormat.value = 'a4'
+    purchaseCopyType.value = 'store'
+    purchaseReprint.value = false
+    purchaseSignatures.value = true
+  } catch (error) {
+    feedback.failed('Could not open purchase invoice', error)
+  }
+}
+
+function askCancel(invoice: any) {
+  if (invoice.invoiceStatus === 'Cancelled') {
+    return
+  }
+
+  pendingCancel.value = invoice
+  cancelOpen.value = true
+}
+
+async function confirmCancel() {
+  if (!pendingCancel.value) {
+    return
+  }
+
+  cancelling.value = true
+  try {
+    await api.create<any>(`purchase/invoices/${pendingCancel.value.id}/cancel`, {
+      reason: 'Cancelled from purchase page'
+    })
+
+    if (selectedReceipt.value?.id === pendingCancel.value.id) {
+      selectedReceipt.value = null
+    }
+
+    feedback.notify('Purchase invoice cancelled', 'Inward stock quantities were reversed.', 'warning')
+    cancelOpen.value = false
+    pendingCancel.value = null
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not cancel purchase invoice', error)
+  } finally {
+    cancelling.value = false
+  }
+}
+
+function printReceipt() {
+  const style = document.createElement('style')
+  style.id = 'garmetix-purchase-page-size'
+  style.textContent = purchasePrintFormat.value === 'a5'
+    ? '@page { size: A5 portrait; margin: 7mm; }'
+    : purchasePrintFormat.value === 'thermal-2'
+      ? '@page { size: 58mm auto; margin: 2mm; }'
+      : purchasePrintFormat.value === 'thermal-3'
+        ? '@page { size: 80mm auto; margin: 3mm; }'
+        : '@page { size: A4 portrait; margin: 8mm; }'
+  document.getElementById(style.id)?.remove()
+  document.head.appendChild(style)
+  window.print()
+  window.setTimeout(() => style.remove(), 1000)
+}
+
+async function downloadPurchasePdf() {
+  if (!selectedReceipt.value?.id) {
+    return
+  }
+
+  downloadingPurchasePdf.value = true
+  try {
+    const query = new URLSearchParams({
+      format: purchasePrintFormat.value,
+      copy: purchaseCopyType.value,
+      reprint: String(purchaseReprint.value),
+      signatures: String(purchaseSignatures.value)
+    })
+    const response = await fetch(
+      `${config.public.apiBase}/purchase/invoices/${selectedReceipt.value.id}/pdf?${query.toString()}`,
+      { headers: api.authHeaders() }
+    )
+    if (!response.ok) {
+      throw new Error(`Purchase PDF could not be generated (${response.status}).`)
+    }
+
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${selectedReceipt.value.invoiceNumber || 'purchase'}-${purchasePrintFormat.value}.pdf`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    feedback.notify('Purchase PDF downloaded')
+  } catch (error) {
+    feedback.failed('Could not download purchase PDF', error)
+  } finally {
+    downloadingPurchasePdf.value = false
   }
 }
 
@@ -497,6 +687,17 @@ watch(() => purchaseForm.paidAmount, () => {
             <UInput v-model="purchaseForm.discountAmount" min="0" step="0.01" type="number" />
           </UFormField>
         </div>
+        <div class="form-three-column">
+          <UFormField label="Tax">
+            <USelect v-model="purchaseForm.taxId" :items="taxOptions" placeholder="Default tax" />
+          </UFormField>
+          <UFormField label="Category">
+            <USelect v-model="purchaseForm.productCategoryId" :items="categoryOptions" placeholder="Default category" />
+          </UFormField>
+          <UFormField label="Sub category">
+            <USelect v-model="purchaseForm.productSubCategoryId" :items="subCategoryOptions" placeholder="Default sub category" />
+          </UFormField>
+        </div>
         <UButton color="neutral" variant="subtle" icon="i-lucide-plus" label="Add Inward Item" type="button" @click="addPurchaseItem" />
 
         <div class="planner-table-wrap">
@@ -547,6 +748,104 @@ watch(() => purchaseForm.paidAmount, () => {
           <span>Payable</span><strong>{{ money(payableTotal) }}</strong>
         </div>
       </UiFormSlideover>
+
+      <UModal v-model:open="receiptOpen" title="Purchase Invoice" :ui="{ content: 'max-w-3xl' }">
+        <template #body>
+          <div v-if="selectedReceipt" class="invoice-print-toolbar no-print">
+            <USelect v-model="purchasePrintFormat" :items="purchasePrintFormatOptions" />
+            <USelect v-model="purchaseCopyType" :items="purchaseCopyOptions" />
+            <UCheckbox v-model="purchaseReprint" label="Reprint" />
+            <UCheckbox v-model="purchaseSignatures" label="Signature lines" />
+          </div>
+
+          <div
+            v-if="selectedReceipt"
+            class="receipt-print invoice-print-document"
+            :class="[`invoice-print-${purchasePrintFormat}`]"
+          >
+            <header class="receipt-header">
+              <span v-if="purchaseReprint" class="invoice-reprint-stamp">REPRINT</span>
+              <span class="invoice-copy-stamp">{{ purchaseCopyOptions.find((item) => item.value === purchaseCopyType)?.label }}</span>
+              <h2>{{ selectedReceipt.companyName }}</h2>
+              <p>{{ selectedReceipt.storeName }}</p>
+              <p>Purchase Invoice {{ selectedReceipt.invoiceNumber }} / Inward {{ selectedReceipt.inwardNumber }}</p>
+              <p>{{ new Date(selectedReceipt.onDate).toLocaleString() }}</p>
+            </header>
+
+            <div class="receipt-customer">
+              <span>Supplier: {{ selectedReceipt.vendorName }}</span>
+              <span>GSTIN: {{ selectedReceipt.vendorGstin || '-' }}</span>
+            </div>
+
+            <table class="receipt-table">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Qty</th>
+                  <th>MRP</th>
+                  <th>Tax</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in selectedReceipt.items" :key="`${item.barcode}-${item.productName}`">
+                  <td>{{ item.productName }}</td>
+                  <td>{{ item.quantity }}</td>
+                  <td>{{ money(Number(item.mrp || 0)) }}</td>
+                  <td>{{ money(Number(item.taxAmount || 0)) }}</td>
+                  <td>{{ money(Number(item.amount || 0)) }}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="receipt-totals">
+              <span>MRP</span><strong>{{ money(Number(selectedReceipt.mrp || selectedReceipt.MRP || 0)) }}</strong>
+              <span>Discount</span><strong>{{ money(Number(selectedReceipt.discountAmount || 0)) }}</strong>
+              <span>Tax</span><strong>{{ money(Number(selectedReceipt.taxAmount || 0)) }}</strong>
+              <span>Freight</span><strong>{{ money(Number(selectedReceipt.freightAmount || 0)) }}</strong>
+              <span>Round off</span><strong>{{ money(Number(selectedReceipt.roundOff || 0)) }}</strong>
+              <span>Bill amount</span><strong>{{ money(Number(selectedReceipt.billAmount || 0)) }}</strong>
+              <span>Paid</span><strong>{{ money(Number(selectedReceipt.paidAmount || 0)) }}</strong>
+              <span>Balance</span><strong>{{ money(Number(selectedReceipt.balanceAmount || 0)) }}</strong>
+            </div>
+
+            <div v-if="purchaseSignatures" class="invoice-signatures">
+              <div>Prepared by</div>
+              <div>Checked by</div>
+              <div>Supplier</div>
+              <div>Authorized</div>
+            </div>
+
+            <footer class="receipt-footer">
+              Purchase inward recorded in Garmetix.
+            </footer>
+          </div>
+        </template>
+
+        <template #footer>
+          <div class="modal-actions">
+            <UButton color="neutral" variant="outline" label="Close" @click="receiptOpen = false" />
+            <UButton
+              color="neutral"
+              variant="soft"
+              icon="i-lucide-file-down"
+              label="Download PDF"
+              :loading="downloadingPurchasePdf"
+              @click="downloadPurchasePdf"
+            />
+            <UButton icon="i-lucide-printer" label="Print" @click="printReceipt" />
+          </div>
+        </template>
+      </UModal>
+
+      <UiConfirmDeleteModal
+        v-model:open="cancelOpen"
+        title="Cancel Purchase Invoice"
+        :description="`Cancel purchase invoice ${pendingCancel?.invoiceNumber || ''}? Inward stock will be reversed.`"
+        confirm-label="Cancel Purchase"
+        :loading="cancelling"
+        @confirm="confirmCancel"
+      />
     </section>
   </AppShell>
 </template>

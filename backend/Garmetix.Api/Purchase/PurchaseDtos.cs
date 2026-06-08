@@ -25,7 +25,9 @@ public sealed record PurchaseInwardItemRequest(
     decimal CostPrice,
     decimal Mrp,
     decimal DiscountAmount,
-    Guid? TaxId);
+    Guid? TaxId,
+    Guid? ProductCategoryId,
+    Guid? ProductSubCategoryId);
 
 public sealed record PurchaseInwardResponse(
     Guid PurchaseInvoiceId,
@@ -37,3 +39,74 @@ public sealed record PurchaseInwardResponse(
     int ItemCount,
     decimal Quantity,
     IReadOnlyList<string> GstinAlerts);
+
+public sealed record RecentPurchaseInvoiceDto(
+    Guid Id,
+    string InvoiceNumber,
+    string InwardNumber,
+    DateTime OnDate,
+    DateTime InwardDate,
+    string VendorName,
+    string? VendorGstin,
+    decimal BillAmount,
+    decimal PaidAmount,
+    decimal BalanceAmount,
+    decimal FrightAmount,
+    int ItemCount,
+    decimal Quantity,
+    string InvoiceStatus,
+    string PaymentMode);
+
+public sealed record PurchaseReceiptDto(
+    Guid Id,
+    string InvoiceNumber,
+    string InwardNumber,
+    DateTime OnDate,
+    DateTime InwardDate,
+    string CompanyName,
+    string CompanyAddress,
+    string CompanyPhone,
+    string CompanyGstin,
+    string StoreName,
+    string VendorName,
+    string? VendorGstin,
+    decimal MRP,
+    decimal DiscountAmount,
+    decimal NetAmount,
+    decimal TaxAmount,
+    decimal FreightAmount,
+    decimal RoundOff,
+    decimal BillAmount,
+    decimal PaidAmount,
+    decimal BalanceAmount,
+    string InvoiceStatus,
+    string PaymentMode,
+    IReadOnlyList<PurchaseReceiptItemDto> Items);
+
+public sealed record PurchaseReceiptItemDto(
+    string ProductName,
+    string Barcode,
+    decimal Quantity,
+    decimal Mrp,
+    decimal DiscountAmount,
+    decimal TaxPercentage,
+    decimal TaxAmount,
+    decimal Amount);
+
+public sealed record CancelPurchaseInvoiceRequest(string? Reason);
+
+public sealed record CancelPurchaseInvoiceResponse(
+    Guid PurchaseInvoiceId,
+    string InvoiceNumber,
+    string InvoiceStatus,
+    decimal ReversedQuantity,
+    decimal ReversedAmount);
+
+public sealed record PurchaseLookupOptionsDto(
+    IReadOnlyList<PurchaseLookupOptionDto> Categories,
+    IReadOnlyList<PurchaseLookupOptionDto> SubCategories,
+    IReadOnlyList<PurchaseTaxOptionDto> Taxes);
+
+public sealed record PurchaseLookupOptionDto(Guid Id, string Name);
+
+public sealed record PurchaseTaxOptionDto(Guid Id, string Name, decimal Rate, string TaxType);

@@ -268,3 +268,4 @@ Open `/gst-returns` for the standalone manual GST module. It supports GSTR-1 and
 ### GSTIN verification
 
 Customer and Vendor creation now supports GSTIN lookup/validation through a configurable provider. Open `/parties` to verify GSTIN, store legal/trade name and address details, and see mismatch alerts before saving. Billing and Purchase forms also show GSTIN alerts. Configure `GSTIN_LOOKUP_*` values in `.env` before production use. See `backend/GSTIN-Verification-Notes.md`.
+- Purchase now has list/detail/print/PDF and cancellation with stock reversal; see `backend/Purchase-Print-Cancel-Notes.md`.
