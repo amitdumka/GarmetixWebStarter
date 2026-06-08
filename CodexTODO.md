@@ -35,6 +35,18 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Download PDF invoice. Added `GET /api/billing/sales/{id}/pdf` and Billing page download button.
 - [x] Reprint/copy options for invoices. Added customer/office/duplicate copy labels plus reprint/signature toggles.
 
+
+## GST Returns - URGENT
+
+- [x] Create standalone GST Return module shell without linking Billing/Purchase. Added `/gst-returns` frontend page and `/api/gst-returns` backend group.
+- [x] Generate GSTR-1 JSON from manual/separate entry data.
+- [x] Generate GSTR-1 Excel from manual/separate entry data.
+- [x] Generate GSTR-3B JSON from manual/separate entry data.
+- [x] Generate GSTR-3B Excel from manual/separate entry data.
+- [ ] Review generated JSON/Excel against latest GST portal/offline utility templates before production filing.
+- [ ] Add saved GST return drafts and audit trail.
+- [ ] Link GST module with Billing/Purchase after manual module approval.
+
 ## Reports
 
 - [ ] PDF export for reports.

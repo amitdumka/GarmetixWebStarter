@@ -1818,3 +1818,95 @@ select {
     background: #ffffff;
   }
 }
+
+
+.gst-return-page {
+  gap: 1rem;
+}
+
+.gst-entry-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.gst-entry-list.compact {
+  gap: .75rem;
+}
+
+.gst-entry-card {
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: 1rem;
+  padding: 1rem;
+  background: rgb(var(--ui-bg-muted));
+}
+
+.gst-entry-title,
+.setup-list-header.small {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  margin-bottom: .75rem;
+}
+
+.compact-grid {
+  gap: .75rem;
+}
+
+.gst-subsection {
+  display: grid;
+  gap: .75rem;
+  padding: .85rem 0;
+  border-top: 1px solid rgb(var(--ui-border));
+}
+
+.gst-subsection:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.gst-line {
+  align-items: end;
+  padding: .55rem;
+  border-radius: .75rem;
+  background: rgb(var(--ui-bg-muted));
+}
+
+.gst-issue-list {
+  display: grid;
+  gap: .65rem;
+}
+
+.gst-issue-row {
+  display: grid;
+  gap: .25rem;
+  padding: .75rem;
+  border: 1px solid color-mix(in srgb, rgb(var(--ui-error)) 35%, transparent);
+  border-radius: .75rem;
+  background: color-mix(in srgb, rgb(var(--ui-error)) 8%, transparent);
+}
+
+.gst-issue-row strong {
+  color: rgb(var(--ui-error));
+}
+
+
+.form-grid.four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.empty-state.compact {
+  padding: 1rem;
+}
+
+@media (max-width: 1180px) {
+  .form-grid.four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .form-grid.four {
+    grid-template-columns: 1fr;
+  }
+}

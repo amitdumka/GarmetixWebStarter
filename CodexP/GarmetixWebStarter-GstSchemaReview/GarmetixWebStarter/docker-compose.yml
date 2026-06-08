@@ -1,0 +1,68 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend/Garmetix.Api/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Database__AutoMigrate: "true"
+      ConnectionStrings__Default: Host=postgres;Port=5432;Database=garmetix;Username=garmetix;Password=garmetix_dev
+      PasswordReset__FrontendBaseUrl: http://localhost:3000
+      Email__Enabled: "false"
+      PayrollAutomation__Enabled: "true"
+      PayrollAutomation__TimeZoneId: Asia/Kolkata
+      PayrollAutomation__RunHour: "2"
+      PayrollAutomation__RunMinute: "0"
+      Backup__Enabled: "true"
+      Backup__Directory: /app/backups
+      Backup__TimeZoneId: Asia/Kolkata
+      Backup__RunHour: "2"
+      Backup__RunMinute: "30"
+      Backup__RunOnStartup: "false"
+      Backup__RetentionCount: "14"
+      GoogleDriveBackup__Enabled: "false"
+      GoogleDriveBackup__UploadOnBackup: "true"
+      GoogleDriveBackup__ServiceAccountJsonPath: /app/secrets/google-drive-service-account.json
+      GoogleDriveBackup__FolderId: ""
+      GoogleDriveBackup__RetentionCount: "30"
+    ports:
+      - "5080:5080"
+    volumes:
+      - ./backups:/app/backups
+      - ./secrets:/app/secrets:ro
+    restart: unless-stopped
+    depends_on:
+      - postgres
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/garmetix-web/Dockerfile
+    environment:
+      NUXT_PUBLIC_API_BASE: /api
+      NUXT_API_INTERNAL_BASE: http://api:5080/api
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: garmetix
+      POSTGRES_USER: garmetix
+      POSTGRES_PASSWORD: garmetix_dev
+    volumes:
+      - garmetix_pg:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U garmetix -d garmetix"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  garmetix_pg:

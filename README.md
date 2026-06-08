@@ -243,3 +243,15 @@ Company / StoreGroup / Store selector is now backed by `/api/workspace/options` 
 ## Google Drive Online Backup
 
 Google Drive backup is optional and disabled by default. To enable it, create `./secrets/google-drive-service-account.json`, share the target Drive folder with that service account email, set `GOOGLE_DRIVE_BACKUP_ENABLED=true`, and set `GOOGLE_DRIVE_FOLDER_ID` in `.env`. Admin users can view/upload/download/delete/restore cloud backups from **System Health**. See `backend/Google-Drive-Backup-Notes.md`.
+
+### GST Returns standalone module
+
+A separate urgent GST Returns module is available at `/gst-returns`. It currently accepts manual return values and generates:
+
+- GSTR-1 JSON
+- GSTR-1 Excel
+- GSTR-3B JSON
+- GSTR-3B Excel
+
+This module is intentionally not linked to Billing/Purchase yet. See `backend/GST-Return-Notes.md`.
+
