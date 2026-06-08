@@ -28,12 +28,12 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 
 ## Billing / Invoice Printing
 
-- [ ] Standard A4 invoice print layout.
-- [ ] Standard A5 invoice print layout.
-- [ ] Thermal 2-inch receipt layout.
-- [ ] Thermal 3-inch receipt layout.
-- [ ] Download PDF invoice.
-- [ ] Reprint/copy options for invoices.
+- [x] Standard A4 invoice print layout. Added print/PDF format `a4` from Billing receipt modal.
+- [x] Standard A5 invoice print layout. Added print/PDF format `a5` from Billing receipt modal.
+- [x] Thermal 2-inch receipt layout. Added print/PDF format `thermal-2` for 58mm receipts.
+- [x] Thermal 3-inch receipt layout. Added print/PDF format `thermal-3` for 80mm receipts.
+- [x] Download PDF invoice. Added `GET /api/billing/sales/{id}/pdf` and Billing page download button.
+- [x] Reprint/copy options for invoices. Added customer/office/duplicate copy labels plus reprint/signature toggles.
 
 ## Reports
 

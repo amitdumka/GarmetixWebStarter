@@ -81,7 +81,7 @@ If `databaseReady` is `true`, frontend, proxy, API, and database connectivity ar
 
 ## Billing POS
 
-Billing now has its own Nuxt route at `/billing`. The page uses Nuxt UI sales KPI cards, searchable `UTable`, a POS slideover workflow, receipt modal, print action, cancel confirmation, and toast feedback. It calls `POST /api/billing/sales`, saves invoice/items/payment in one backend transaction, and updates stock sold quantity. More details are in `backend/Billing-Notes.md`.
+Billing now has its own Nuxt route at `/billing`. The page uses Nuxt UI sales KPI cards, searchable `UTable`, a POS slideover workflow, receipt modal, print/PDF actions, cancel confirmation, and toast feedback. It calls `POST /api/billing/sales`, saves invoice/items/payment in one backend transaction, and updates stock sold quantity. Invoice printing supports A4, A5, 2-inch thermal, 3-inch thermal, customer/office/duplicate copies, reprint mode, and optional signature lines. More details are in `backend/Billing-Notes.md`.
 
 ## Purchase Inward
 

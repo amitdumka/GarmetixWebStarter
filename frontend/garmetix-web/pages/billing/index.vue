@@ -6,6 +6,7 @@ const api = useGarmetixApi()
 const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
+const config = useRuntimeConfig()
 const isAuthenticated = auth.isAuthenticated
 const canDelete = auth.canDelete
 
@@ -22,10 +23,15 @@ const pendingCancel = ref<any | null>(null)
 const loading = ref(false)
 const saving = ref(false)
 const cancelling = ref(false)
+const downloadingInvoicePdf = ref(false)
 const setupStatus = ref<any | null>(null)
 const search = ref('')
 const saleOpen = ref(false)
 const cancelOpen = ref(false)
+const invoicePrintFormat = ref<'a4' | 'a5' | 'thermal-2' | 'thermal-3'>('a4')
+const invoiceCopyType = ref<'customer' | 'office' | 'duplicate'>('customer')
+const invoiceReprint = ref(false)
+const invoiceSignatures = ref(true)
 
 const paymentModeOptions = [
   { value: 0, label: 'Cash' },
@@ -36,6 +42,19 @@ const paymentModeOptions = [
   { value: 6, label: 'NEFT' },
   { value: 7, label: 'Cheque' },
   { value: 8, label: 'Demand Draft' }
+]
+
+const invoicePrintFormatOptions = [
+  { value: 'a4', label: 'A4 standard invoice' },
+  { value: 'a5', label: 'A5 compact invoice' },
+  { value: 'thermal-2', label: 'Thermal 2-inch / 58mm' },
+  { value: 'thermal-3', label: 'Thermal 3-inch / 80mm' }
+]
+
+const invoiceCopyOptions = [
+  { value: 'customer', label: 'Customer copy' },
+  { value: 'office', label: 'Office copy' },
+  { value: 'duplicate', label: 'Duplicate copy' }
 ]
 
 const saleForm = reactive<any>(emptySaleForm())
@@ -315,6 +334,10 @@ async function submitSale() {
 async function viewReceipt(invoiceId: string) {
   try {
     selectedReceipt.value = await api.get<any>(`billing/sales/${invoiceId}/receipt`)
+    invoicePrintFormat.value = 'a4'
+    invoiceCopyType.value = 'customer'
+    invoiceReprint.value = false
+    invoiceSignatures.value = true
   } catch (error) {
     feedback.failed('Could not open receipt', error)
   }
@@ -356,7 +379,57 @@ async function confirmCancel() {
 }
 
 function printReceipt() {
+  const style = document.createElement('style')
+  style.id = 'garmetix-invoice-page-size'
+  style.textContent = invoicePrintFormat.value === 'a5'
+    ? '@page { size: A5 portrait; margin: 7mm; }'
+    : invoicePrintFormat.value === 'thermal-2'
+      ? '@page { size: 58mm auto; margin: 2mm; }'
+      : invoicePrintFormat.value === 'thermal-3'
+        ? '@page { size: 80mm auto; margin: 3mm; }'
+        : '@page { size: A4 portrait; margin: 8mm; }'
+  document.getElementById(style.id)?.remove()
+  document.head.appendChild(style)
   window.print()
+  window.setTimeout(() => style.remove(), 1000)
+}
+
+async function downloadInvoicePdf() {
+  if (!selectedReceipt.value?.id) {
+    return
+  }
+
+  downloadingInvoicePdf.value = true
+  try {
+    const query = new URLSearchParams({
+      format: invoicePrintFormat.value,
+      copy: invoiceCopyType.value,
+      reprint: String(invoiceReprint.value),
+      signatures: String(invoiceSignatures.value)
+    })
+    const response = await fetch(
+      `${config.public.apiBase}/billing/sales/${selectedReceipt.value.id}/pdf?${query.toString()}`,
+      { headers: api.authHeaders() }
+    )
+    if (!response.ok) {
+      throw new Error(`Invoice PDF could not be generated (${response.status}).`)
+    }
+
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${selectedReceipt.value.invoiceNumber || 'invoice'}-${invoicePrintFormat.value}.pdf`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    feedback.notify('Invoice PDF downloaded')
+  } catch (error) {
+    feedback.failed('Could not download invoice PDF', error)
+  } finally {
+    downloadingInvoicePdf.value = false
+  }
 }
 
 function lineTotal(item: any) {
@@ -555,11 +628,28 @@ watch(() => saleForm.paidAmount, () => {
 
       <UModal v-model:open="receiptOpen" title="Invoice Receipt" :ui="{ content: 'max-w-3xl' }">
         <template #body>
-          <div v-if="selectedReceipt" class="receipt-print">
+          <div v-if="selectedReceipt" class="invoice-print-toolbar no-print">
+            <UFormField label="Format">
+              <USelect v-model="invoicePrintFormat" :items="invoicePrintFormatOptions" />
+            </UFormField>
+            <UFormField label="Copy">
+              <USelect v-model="invoiceCopyType" :items="invoiceCopyOptions" />
+            </UFormField>
+            <UCheckbox v-model="invoiceReprint" label="Reprint" />
+            <UCheckbox v-model="invoiceSignatures" label="Signature lines" />
+          </div>
+
+          <div
+            v-if="selectedReceipt"
+            class="receipt-print invoice-print-document"
+            :class="[`invoice-print-${invoicePrintFormat}`, `invoice-copy-${invoiceCopyType}`, { 'invoice-reprint': invoiceReprint }]"
+          >
             <header class="receipt-header">
+              <div class="invoice-copy-chip">{{ invoiceCopyOptions.find(item => item.value === invoiceCopyType)?.label }}</div>
+              <div v-if="invoiceReprint" class="invoice-reprint-chip">REPRINT</div>
               <h2>{{ selectedReceipt.companyName }}</h2>
               <p>{{ selectedReceipt.storeName }}</p>
-              <p>Invoice {{ selectedReceipt.invoiceNumber }}</p>
+              <p>Tax Invoice {{ selectedReceipt.invoiceNumber }}</p>
               <p>{{ new Date(selectedReceipt.onDate).toLocaleString() }}</p>
             </header>
 
@@ -599,6 +689,13 @@ watch(() => saleForm.paidAmount, () => {
               <span>Balance</span><strong>{{ money(Number(selectedReceipt.balanceAmount || 0)) }}</strong>
             </div>
 
+            <div v-if="invoiceSignatures" class="invoice-signatures">
+              <div>Prepared by</div>
+              <div>Checked by</div>
+              <div>Customer</div>
+              <div>Authorized</div>
+            </div>
+
             <footer class="receipt-footer">
               Thank you for shopping with us.
             </footer>
@@ -608,6 +705,14 @@ watch(() => saleForm.paidAmount, () => {
         <template #footer>
           <div class="modal-actions">
             <UButton color="neutral" variant="outline" label="Close" @click="receiptOpen = false" />
+            <UButton
+              color="neutral"
+              variant="soft"
+              icon="i-lucide-file-down"
+              label="Download PDF"
+              :loading="downloadingInvoicePdf"
+              @click="downloadInvoicePdf"
+            />
             <UButton icon="i-lucide-printer" label="Print" @click="printReceipt" />
           </div>
         </template>

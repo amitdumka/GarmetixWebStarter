@@ -5,6 +5,7 @@ using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Inventory;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 
 namespace Garmetix.Api.Billing;
 
@@ -19,6 +20,7 @@ public static class BillingEndpoints
         group.MapPost("/sales", CreateSaleAsync);
         group.MapGet("/sales/recent", GetRecentSalesAsync);
         group.MapGet("/sales/{id:guid}/receipt", GetReceiptAsync);
+        group.MapGet("/sales/{id:guid}/pdf", DownloadInvoicePdfAsync);
         group.MapPost("/sales/{id:guid}/cancel", CancelSaleAsync).RequireAuthorization(GarmetixPolicies.Delete);
 
         return group;
@@ -48,10 +50,96 @@ public static class BillingEndpoints
 
     private static async Task<IResult> GetReceiptAsync(Guid id, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
     {
+        var receipt = await LoadReceiptAsync(id, context, db, cancellationToken);
+        return receipt is null ? Results.NotFound() : Results.Ok(receipt);
+    }
+
+    private static async Task<IResult> DownloadInvoicePdfAsync(
+        Guid id,
+        string? format,
+        string? copy,
+        bool? reprint,
+        bool? signatures,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
         var invoice = await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (invoice is null)
         {
             return Results.NotFound();
+        }
+
+        var company = await db.Companies.AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == invoice.CompanyId, cancellationToken);
+        var store = await db.Stores.AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == invoice.StoreId, cancellationToken);
+
+        var items = await db.InvoiceItems
+            .AsNoTracking()
+            .Include(item => item.Product)
+            .Where(item => item.InvoiceId == id)
+            .OrderBy(item => item.CreatedAt)
+            .Select(item => new ReceiptItemDto(
+                item.Product != null ? item.Product.Name : item.Barcode,
+                item.Barcode,
+                item.BilledQuantity,
+                item.MRP,
+                item.DiscountAmount,
+                item.TaxPercentage,
+                item.TaxAmount,
+                item.Amount))
+            .ToListAsync(cancellationToken);
+
+        var payments = await db.InvoicePayments
+            .AsNoTracking()
+            .Where(item => item.InvoiceId == id)
+            .OrderBy(item => item.OnDate)
+            .Select(item => new ReceiptPaymentDto(
+                item.OnDate,
+                item.Amount,
+                item.PaymentMode.ToString(),
+                item.ReferenceNumber))
+            .ToListAsync(cancellationToken);
+
+        var model = new InvoicePdfModel(
+            company?.Name ?? "Garmetix",
+            FormatAddress(company?.Address, company?.City, company?.State, company?.ZipCode),
+            company?.ContactNumber ?? string.Empty,
+            company?.GSTIN ?? string.Empty,
+            store?.Name ?? "Store",
+            invoice.InvoiceNumber,
+            invoice.OnDate,
+            invoice.InvoiceStatus.ToString(),
+            invoice.CustomerName ?? "Walk-in Customer",
+            invoice.CustomerMobileNumber,
+            invoice.MRP,
+            invoice.DiscountAmount,
+            invoice.NetAmount,
+            invoice.TaxAmount,
+            invoice.RoundOff,
+            invoice.BillAmount,
+            invoice.PaidAmount,
+            invoice.BalanceAmount,
+            items,
+            payments);
+
+        var pdf = InvoicePdfDocument.Build(
+            model,
+            format ?? "a4",
+            copy ?? "customer",
+            reprint == true,
+            signatures != false);
+        var safeNumber = Regex.Replace(invoice.InvoiceNumber, @"[^A-Za-z0-9_-]+", "-").Trim('-');
+        return Results.File(pdf, "application/pdf", $"{(safeNumber.Length > 0 ? safeNumber : "invoice")}-{NormalizePdfFormat(format)}.pdf");
+    }
+
+    private static async Task<ReceiptDto?> LoadReceiptAsync(Guid id, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
+    {
+        var invoice = await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (invoice is null)
+        {
+            return null;
         }
 
         var companyName = await db.Companies
@@ -93,7 +181,7 @@ public static class BillingEndpoints
                 item.ReferenceNumber))
             .ToListAsync(cancellationToken);
 
-        return Results.Ok(new ReceiptDto(
+        return new ReceiptDto(
             invoice.Id,
             invoice.InvoiceNumber,
             invoice.OnDate,
@@ -110,8 +198,21 @@ public static class BillingEndpoints
             invoice.PaidAmount,
             invoice.BalanceAmount,
             items,
-            payments));
+            payments);
     }
+
+    private static string FormatAddress(params string?[] parts)
+    {
+        return string.Join(", ", parts.Where(part => !string.IsNullOrWhiteSpace(part)).Select(part => part!.Trim()));
+    }
+
+    private static string NormalizePdfFormat(string? value) => value?.Trim().ToLowerInvariant() switch
+    {
+        "a5" or "a5-one" => "a5",
+        "thermal-2" or "2-inch" or "thermal2" => "thermal-2",
+        "thermal-3" or "3-inch" or "thermal3" => "thermal-3",
+        _ => "a4"
+    };
 
     private static async Task<IResult> CreateSaleAsync(
         PosSaleRequest request,
