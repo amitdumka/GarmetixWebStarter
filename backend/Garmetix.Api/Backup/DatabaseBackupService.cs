@@ -13,6 +13,7 @@ public sealed record BackupFileDto(
 public sealed class DatabaseBackupService(
     IConfiguration configuration,
     IOptions<BackupOptions> options,
+    GoogleDriveBackupService googleDriveBackupService,
     ILogger<DatabaseBackupService> logger)
 {
     private readonly BackupOptions options = options.Value;
@@ -208,6 +209,22 @@ public sealed class DatabaseBackupService(
             "Database backup {FileName} created with size {SizeBytes} bytes.",
             file.Name,
             file.Length);
+
+        if (googleDriveBackupService.IsEnabled && googleDriveBackupService.UploadOnBackup)
+        {
+            try
+            {
+                await googleDriveBackupService.UploadBackupAsync(filePath, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(
+                    ex,
+                    "Local backup {FileName} was created, but Google Drive upload failed.",
+                    file.Name);
+            }
+        }
+
         return new BackupFileDto(file.Name, file.Length, file.CreationTimeUtc, source);
     }
 
@@ -293,7 +310,7 @@ public sealed class DatabaseBackupService(
             await errorTask);
     }
 
-    private static string SourceFromFileName(string fileName)
+    public static string SourceFromFileName(string fileName)
     {
         if (fileName.Contains("-pre-restore-", StringComparison.OrdinalIgnoreCase))
         {

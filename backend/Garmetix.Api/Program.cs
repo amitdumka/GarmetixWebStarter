@@ -53,6 +53,10 @@ builder.Services.AddScoped<AccountingPostingService>();
 builder.Services.Configure<PayrollAutomationOptions>(builder.Configuration.GetSection("PayrollAutomation"));
 builder.Services.AddHostedService<PayrollAutomationHostedService>();
 builder.Services.Configure<BackupOptions>(builder.Configuration.GetSection("Backup"));
+builder.Services.Configure<GoogleDriveBackupOptions>(builder.Configuration.GetSection("GoogleDriveBackup"));
+builder.Services.AddHttpClient("GoogleDriveAuth");
+builder.Services.AddHttpClient("GoogleDriveBackup");
+builder.Services.AddSingleton<GoogleDriveBackupService>();
 builder.Services.AddSingleton<DatabaseBackupService>();
 builder.Services.AddHostedService<BackupAutomationHostedService>();
 
@@ -107,7 +111,8 @@ app.Use(async (context, next) =>
     var backupService = context.RequestServices.GetRequiredService<DatabaseBackupService>();
     if (backupService.IsRestoreInProgress
         && !context.Request.Path.StartsWithSegments("/api/health")
-        && !context.Request.Path.StartsWithSegments("/api/backups/status"))
+        && !context.Request.Path.StartsWithSegments("/api/backups/status")
+        && !context.Request.Path.StartsWithSegments("/api/backups/cloud/status"))
     {
         context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
         await context.Response.WriteAsJsonAsync(new

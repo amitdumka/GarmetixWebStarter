@@ -238,3 +238,8 @@ Date/time values are normalized before saving so PostgreSQL `timestamp without t
 ## Workspace permissions
 
 Company / StoreGroup / Store selector is now backed by `/api/workspace/options` and server-side scope checks. See `backend/Workspace-Permissions-Notes.md`.
+
+
+## Google Drive Online Backup
+
+Google Drive backup is optional and disabled by default. To enable it, create `./secrets/google-drive-service-account.json`, share the target Drive folder with that service account email, set `GOOGLE_DRIVE_BACKUP_ENABLED=true`, and set `GOOGLE_DRIVE_FOLDER_ID` in `.env`. Admin users can view/upload/download/delete/restore cloud backups from **System Health**. See `backend/Google-Drive-Backup-Notes.md`.

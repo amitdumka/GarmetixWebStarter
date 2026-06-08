@@ -33,10 +33,16 @@ services:
       Backup__RunMinute: "${BACKUP_RUN_MINUTE:-30}"
       Backup__RunOnStartup: "${BACKUP_RUN_ON_STARTUP:-false}"
       Backup__RetentionCount: "${BACKUP_RETENTION_COUNT:-14}"
+      GoogleDriveBackup__Enabled: "${GOOGLE_DRIVE_BACKUP_ENABLED:-false}"
+      GoogleDriveBackup__UploadOnBackup: "${GOOGLE_DRIVE_UPLOAD_ON_BACKUP:-true}"
+      GoogleDriveBackup__ServiceAccountJsonPath: /app/secrets/google-drive-service-account.json
+      GoogleDriveBackup__FolderId: "${GOOGLE_DRIVE_FOLDER_ID}"
+      GoogleDriveBackup__RetentionCount: "${GOOGLE_DRIVE_RETENTION_COUNT:-30}"
     ports:
       - "${API_PORT:-5080}:5080"
     volumes:
       - ./backups:/app/backups
+      - ./secrets:/app/secrets:ro
     restart: unless-stopped
     depends_on:
       postgres:

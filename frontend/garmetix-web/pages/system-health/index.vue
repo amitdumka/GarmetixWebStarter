@@ -22,6 +22,13 @@ const restoreOpen = ref(false)
 const restoring = ref(false)
 const restoreFile = ref<File | null>(null)
 const restoreConfirmation = ref('')
+const cloudBackups = ref<any[]>([])
+const cloudStatus = ref<any | null>(null)
+const uploadingCloudBackup = ref('')
+const downloadingCloudBackup = ref('')
+const deletingCloudBackup = ref('')
+const restoringCloudBackup = ref('')
+const cloudRestoreConfirmation = ref('')
 
 const metrics = computed(() => [
   {
@@ -60,6 +67,15 @@ const metrics = computed(() => [
       : 'Automation disabled',
     icon: 'i-lucide-hard-drive-download',
     color: backupStatus.value?.enabled ? 'success' : 'warning'
+  },
+  {
+    label: 'Google Drive',
+    value: cloudStatus.value?.configured ? 'Ready' : 'Not configured',
+    meta: cloudStatus.value?.enabled
+      ? `${cloudBackups.value.length} online files`
+      : 'Cloud backup disabled',
+    icon: 'i-lucide-cloud-upload',
+    color: cloudStatus.value?.configured ? 'success' : cloudStatus.value?.enabled ? 'warning' : 'neutral'
   }
 ])
 
@@ -93,6 +109,15 @@ const backupRows = computed(() => backups.value.map((backup) => ({
     : backup.source === 'scheduled' ? 'Scheduled' : 'Manual'
 })))
 
+const cloudBackupRows = computed(() => cloudBackups.value.map((backup) => ({
+  ...backup,
+  size: formatBytes(backup.sizeBytes),
+  created: formatDateTime(backup.createdAtUtc),
+  sourceLabel: backup.source === 'pre-restore'
+    ? 'Safety'
+    : backup.source === 'scheduled' ? 'Scheduled' : 'Manual'
+})))
+
 async function refresh() {
   if (!auth.isAuthenticated.value || !auth.canSeeAdmin.value) {
     return
@@ -100,13 +125,14 @@ async function refresh() {
 
   loading.value = true
   try {
-    const [healthResponse, bootstrapResponse, companyRows, storeRows, backupRowsResponse, backupStatusResponse] = await Promise.all([
+    const [healthResponse, bootstrapResponse, companyRows, storeRows, backupRowsResponse, backupStatusResponse, cloudStatusResponse] = await Promise.all([
       $fetch<any>('/api/health'),
       $fetch<any>('/api/auth/bootstrap-status'),
       api.list<any>('companies'),
       api.list<any>('stores'),
       api.list<any>('backups'),
-      api.get<any>('backups/status')
+      api.get<any>('backups/status'),
+      api.get<any>('backups/cloud/status')
     ])
 
     health.value = healthResponse
@@ -115,6 +141,10 @@ async function refresh() {
     stores.value = storeRows
     backups.value = backupRowsResponse
     backupStatus.value = backupStatusResponse
+    cloudStatus.value = cloudStatusResponse
+    cloudBackups.value = cloudStatusResponse?.configured
+      ? await api.list<any>('backups/cloud')
+      : []
     lastChecked.value = new Date().toLocaleTimeString('en-IN')
   } catch (error) {
     feedback.failed('System health refresh failed', error)
@@ -173,6 +203,86 @@ async function deleteBackup(backup: any) {
     feedback.failed('Could not delete backup', error)
   } finally {
     deletingBackup.value = ''
+  }
+}
+
+async function uploadBackupToDrive(backup: any) {
+  uploadingCloudBackup.value = backup.fileName
+  try {
+    await api.create<any>(`backups/${encodeURIComponent(backup.fileName)}/cloud`, {})
+    feedback.notify('Uploaded to Google Drive', backup.fileName)
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not upload backup to Google Drive', error)
+  } finally {
+    uploadingCloudBackup.value = ''
+  }
+}
+
+async function downloadCloudBackup(backup: any) {
+  downloadingCloudBackup.value = backup.id
+  try {
+    const response = await fetch(`${config.public.apiBase}/backups/cloud/${encodeURIComponent(backup.id)}/download`, {
+      headers: api.authHeaders()
+    })
+    if (!response.ok) {
+      throw new Error(await response.text())
+    }
+
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = backup.name
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    feedback.notify('Google Drive backup downloaded', backup.name)
+  } catch (error) {
+    feedback.failed('Could not download Google Drive backup', error)
+  } finally {
+    downloadingCloudBackup.value = ''
+  }
+}
+
+async function deleteCloudBackup(backup: any) {
+  deletingCloudBackup.value = backup.id
+  try {
+    await api.remove('backups/cloud', backup.id)
+    feedback.deleted('Google Drive backup')
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not delete Google Drive backup', error)
+  } finally {
+    deletingCloudBackup.value = ''
+  }
+}
+
+async function restoreCloudBackup(backup: any) {
+  if (cloudRestoreConfirmation.value !== 'RESTORE') {
+    feedback.failed('Type RESTORE before restoring from Google Drive')
+    return
+  }
+
+  restoringCloudBackup.value = backup.id
+  try {
+    const response = await fetch(`${config.public.apiBase}/backups/cloud/${encodeURIComponent(backup.id)}/restore?confirmation=RESTORE`, {
+      method: 'POST',
+      headers: api.authHeaders()
+    })
+    if (!response.ok) {
+      throw new Error(await response.text())
+    }
+
+    const result = await response.json()
+    cloudRestoreConfirmation.value = ''
+    feedback.notify('Database restored from Google Drive', `Safety backup: ${result.safetyBackup?.fileName || 'created'}`)
+    await refresh()
+  } catch (error) {
+    feedback.failed('Google Drive restore failed', error)
+  } finally {
+    restoringCloudBackup.value = ''
   }
 }
 
@@ -376,6 +486,15 @@ onMounted(async () => {
                   @click="downloadBackup(row.original)"
                 />
                 <UButton
+                  v-if="cloudStatus?.configured"
+                  color="primary"
+                  variant="ghost"
+                  icon="i-lucide-cloud-upload"
+                  label="Drive"
+                  :loading="uploadingCloudBackup === row.original.fileName"
+                  @click="uploadBackupToDrive(row.original)"
+                />
+                <UButton
                   color="error"
                   variant="ghost"
                   icon="i-lucide-trash-2"
@@ -394,6 +513,104 @@ onMounted(async () => {
             icon="i-lucide-hard-drive-download"
             action-label="Create Backup"
             @action="createBackup"
+          />
+        </UCard>
+
+        <UCard class="planner-card">
+          <template #header>
+            <div class="planner-card-header">
+              <div>
+                <h2>Google Drive Online Backup</h2>
+                <p>Upload local PostgreSQL backup files to your configured Google Drive folder and restore them when needed.</p>
+              </div>
+              <UBadge :color="cloudStatus?.configured ? 'success' : cloudStatus?.enabled ? 'warning' : 'neutral'" variant="subtle">
+                {{ cloudStatus?.configured ? 'Connected' : cloudStatus?.enabled ? 'Needs Setup' : 'Disabled' }}
+              </UBadge>
+            </div>
+          </template>
+
+          <UAlert
+            :color="cloudStatus?.configured ? 'success' : 'warning'"
+            variant="subtle"
+            icon="i-lucide-cloud"
+            :title="cloudStatus?.configured ? 'Google Drive backup is configured' : 'Google Drive backup is not configured'"
+            :description="cloudStatus?.configured
+              ? `Folder ${cloudStatus.folderId}. Upload on backup: ${cloudStatus.uploadOnBackup ? 'enabled' : 'manual only'}. Retention: ${cloudStatus.retentionCount}.`
+              : 'Add a service account JSON file, share the target Drive folder with that service account email, and set GoogleDriveBackup__Enabled=true.'"
+          />
+
+          <div v-if="cloudStatus?.lastError" class="mt-4">
+            <UAlert
+              color="error"
+              variant="subtle"
+              icon="i-lucide-triangle-alert"
+              title="Last Google Drive backup error"
+              :description="cloudStatus.lastError"
+            />
+          </div>
+
+          <div v-if="cloudStatus?.configured" class="mt-4 form-grid">
+            <UFormField label="Type RESTORE to enable cloud restore buttons">
+              <UInput v-model="cloudRestoreConfirmation" placeholder="RESTORE" autocomplete="off" />
+            </UFormField>
+          </div>
+
+          <UTable
+            v-if="cloudBackupRows.length"
+            class="mt-4"
+            :data="cloudBackupRows"
+            :columns="[
+              { accessorKey: 'name', header: 'Drive Backup' },
+              { accessorKey: 'sourceLabel', header: 'Source' },
+              { accessorKey: 'created', header: 'Created' },
+              { accessorKey: 'size', header: 'Size' },
+              { id: 'actions', header: '' }
+            ]"
+          >
+            <template #sourceLabel-cell="{ row }">
+              <UBadge
+                :color="row.original.source === 'pre-restore' ? 'warning' : row.original.source === 'scheduled' ? 'success' : 'primary'"
+                variant="subtle"
+              >
+                {{ row.original.sourceLabel }}
+              </UBadge>
+            </template>
+            <template #actions-cell="{ row }">
+              <div class="table-action-buttons">
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  icon="i-lucide-download"
+                  label="Download"
+                  :loading="downloadingCloudBackup === row.original.id"
+                  @click="downloadCloudBackup(row.original)"
+                />
+                <UButton
+                  color="warning"
+                  variant="ghost"
+                  icon="i-lucide-rotate-ccw"
+                  label="Restore"
+                  :disabled="cloudRestoreConfirmation !== 'RESTORE'"
+                  :loading="restoringCloudBackup === row.original.id"
+                  @click="restoreCloudBackup(row.original)"
+                />
+                <UButton
+                  color="error"
+                  variant="ghost"
+                  icon="i-lucide-trash-2"
+                  label="Delete"
+                  :loading="deletingCloudBackup === row.original.id"
+                  @click="deleteCloudBackup(row.original)"
+                />
+              </div>
+            </template>
+          </UTable>
+
+          <UiCrudEmptyState
+            v-else
+            title="No Google Drive backups"
+            description="Create a local backup first. If Google Drive is configured with upload-on-backup, it will upload automatically; otherwise use the Drive button from the local backup list."
+            icon="i-lucide-cloud-upload"
           />
         </UCard>
       </template>

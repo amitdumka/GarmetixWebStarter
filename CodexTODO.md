@@ -21,10 +21,10 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 ## Backup / Restore
 
 - [x] Local backup and restore.
-- [ ] Google Drive credential setup.
-- [ ] Upload backups to Google Drive.
-- [ ] Restore/download backups from Google Drive.
-- [ ] Show online backup status and schedule history.
+- [x] Google Drive credential setup. Added service-account JSON configuration and Docker secret mount.
+- [x] Upload backups to Google Drive. Local manual/scheduled backups can upload automatically or manually from System Health.
+- [x] Restore/download backups from Google Drive. Added cloud list/download/delete/restore endpoints and UI actions.
+- [x] Show online backup status and schedule history. System Health now shows Google Drive status, cloud files, last error/action, and online backup count.
 
 ## Billing / Invoice Printing
 
