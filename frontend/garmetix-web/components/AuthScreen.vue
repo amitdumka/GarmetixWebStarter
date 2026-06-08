@@ -192,7 +192,7 @@ onMounted(async () => {
         <UButton
           type="submit"
           icon="i-lucide-shield-check"
-          :label="authMode === 'bootstrap' && !hasAdmin ? 'Create Admin' : authMode === 'forgot' ? 'Get Reset Token' : authMode === 'reset' ? 'Reset Password' : 'Login'"
+          :label="authMode === 'bootstrap' && !hasAdmin ? 'Create Admin' : authMode === 'forgot' ? 'Send Reset Link' : authMode === 'reset' ? 'Reset Password' : 'Login'"
           block
         />
       </form>

@@ -41,6 +41,10 @@ var connectionString = builder.Configuration.GetConnectionString("Default")
 builder.Services.AddGarmetixInfrastructure(connectionString);
 builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddSingleton<PasswordResetTokenService>();
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
+builder.Services.Configure<PasswordResetOptions>(builder.Configuration.GetSection("PasswordReset"));
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+builder.Services.AddScoped<PasswordResetEmailService>();
 builder.Services.AddScoped<MonthlyAttendanceService>();
 builder.Services.AddScoped<PayrollService>();
 builder.Services.AddScoped<AccountingPostingService>();
@@ -323,8 +327,11 @@ static async Task<IResult> ForgotPasswordAsync(
     ForgotPasswordRequest request,
     GarmetixDbContext db,
     PasswordResetTokenService resetTokens,
+    PasswordResetEmailService resetEmail,
+    IConfiguration configuration,
     IWebHostEnvironment environment,
     HttpContext httpContext,
+    ILogger<Program> logger,
     CancellationToken cancellationToken)
 {
     if (string.IsNullOrWhiteSpace(request.UserNameOrEmail))
@@ -338,7 +345,7 @@ static async Task<IResult> ForgotPasswordAsync(
         cancellationToken);
 
     // Keep the normal response generic so the login screen does not reveal whether a user exists.
-    const string genericMessage = "If the account exists, a password reset link will be available.";
+    const string genericMessage = "If the account exists, a password reset link has been sent to the registered email address.";
     if (user is null)
     {
         return Results.Ok(new ForgotPasswordResponse(genericMessage, null, null, null));
@@ -346,24 +353,53 @@ static async Task<IResult> ForgotPasswordAsync(
 
     var token = resetTokens.CreateToken(user.Id);
     var expiresAtUtc = resetTokens.ExpiresAtUtc;
-    var frontendBaseUrl = httpContext.Request.Headers.Origin.ToString();
-    if (string.IsNullOrWhiteSpace(frontendBaseUrl))
+    var resetUrl = BuildPasswordResetUrl(configuration, httpContext, token);
+
+    if (resetEmail.IsEnabled)
     {
-        frontendBaseUrl = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}";
+        try
+        {
+            await resetEmail.SendAsync(user, resetUrl, token, expiresAtUtc, cancellationToken);
+            return Results.Ok(new ForgotPasswordResponse(genericMessage, null, null, expiresAtUtc));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to send password reset email for user {UserId}.", user.Id);
+
+            if (!environment.IsDevelopment())
+            {
+                return Results.Ok(new ForgotPasswordResponse(genericMessage, null, null, expiresAtUtc));
+            }
+        }
     }
-    var resetUrl = $"{frontendBaseUrl.TrimEnd('/')}/?token={Uri.EscapeDataString(token)}";
 
     if (environment.IsDevelopment())
     {
         return Results.Ok(new ForgotPasswordResponse(
-            "Development reset token generated. Copy the token or use the reset link shown in the login screen.",
+            "Development reset token generated. Configure Email:Enabled=true to send reset email through SMTP.",
             token,
             resetUrl,
             expiresAtUtc));
     }
 
-    // TODO: plug in email/SMS delivery here. The token is intentionally not returned outside Development.
+    logger.LogWarning("Password reset email was requested for user {UserId}, but Email:Enabled is false.", user.Id);
     return Results.Ok(new ForgotPasswordResponse(genericMessage, null, null, expiresAtUtc));
+}
+
+static string BuildPasswordResetUrl(IConfiguration configuration, HttpContext httpContext, string token)
+{
+    var frontendBaseUrl = configuration["PasswordReset:FrontendBaseUrl"];
+    if (string.IsNullOrWhiteSpace(frontendBaseUrl))
+    {
+        frontendBaseUrl = httpContext.Request.Headers.Origin.ToString();
+    }
+
+    if (string.IsNullOrWhiteSpace(frontendBaseUrl))
+    {
+        frontendBaseUrl = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}";
+    }
+
+    return $"{frontendBaseUrl.TrimEnd('/')}/?token={Uri.EscapeDataString(token)}";
 }
 
 static async Task<IResult> ResetPasswordAsync(

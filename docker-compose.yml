@@ -7,6 +7,8 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       Database__AutoMigrate: "true"
       ConnectionStrings__Default: Host=postgres;Port=5432;Database=garmetix;Username=garmetix;Password=garmetix_dev
+      PasswordReset__FrontendBaseUrl: http://localhost:3000
+      Email__Enabled: "false"
       PayrollAutomation__Enabled: "true"
       PayrollAutomation__TimeZoneId: Asia/Kolkata
       PayrollAutomation__RunHour: "2"

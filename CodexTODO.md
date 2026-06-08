@@ -8,7 +8,7 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Add Forgot Password from login screen.
 - [x] Add Reset Password from login screen.
 - [x] Add Change Password in current user profile.
-- [ ] Add production email/SMS delivery for forgot-password reset link/token.
+- [x] Add production email delivery for forgot-password reset link/token. SMTP sender added; SMS still optional for future.
 - [ ] Add optional reset-token persistence/revocation table for stricter production security.
 
 ## Company / Store / StoreGroup Permission Flow

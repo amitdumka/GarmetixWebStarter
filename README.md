@@ -231,3 +231,5 @@ EF Core setup details are in `backend/EF-Core-Next-Step.md`.
 The model conversion made one bridge change: `AppUser` now implements `IEntity` because it already has an `Id` and should participate in the same API/storage pattern.
 
 Date/time values are normalized before saving so PostgreSQL `timestamp without time zone` columns can accept values submitted from browsers and backend audit stamps.
+
+- Password reset email delivery through configurable SMTP. See `backend/Password-Reset-Email-Notes.md`.
