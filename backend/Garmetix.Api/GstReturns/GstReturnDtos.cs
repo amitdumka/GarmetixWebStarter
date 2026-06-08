@@ -164,3 +164,61 @@ public sealed record GstExportPreview(
     decimal StateTax,
     decimal Cess,
     IReadOnlyList<GstValidationIssue> Issues);
+
+public sealed record GstReturnDraftSaveRequest(
+    string Form,
+    string Title,
+    Guid? CompanyId,
+    System.Text.Json.JsonElement Payload);
+
+public sealed record GstReturnDraftSummaryDto(
+    Guid Id,
+    string Form,
+    string Gstin,
+    string ReturnPeriod,
+    string Title,
+    string Status,
+    int RowCount,
+    decimal TaxableValue,
+    decimal IntegratedTax,
+    decimal CentralTax,
+    decimal StateTax,
+    decimal Cess,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt,
+    string UpdatedByUserName);
+
+public sealed record GstReturnDraftDetailDto(
+    Guid Id,
+    string Form,
+    string Gstin,
+    string ReturnPeriod,
+    string Title,
+    string Status,
+    Guid CompanyId,
+    string PayloadJson,
+    string LastPreviewIssuesJson,
+    int RowCount,
+    decimal TaxableValue,
+    decimal IntegratedTax,
+    decimal CentralTax,
+    decimal StateTax,
+    decimal Cess,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt,
+    string CreatedByUserName,
+    string UpdatedByUserName,
+    DateTime? FiledAt,
+    DateTime? LockedAt);
+
+public sealed record GstReturnAuditDto(
+    Guid Id,
+    Guid DraftId,
+    string Form,
+    string ReturnPeriod,
+    string Gstin,
+    string Action,
+    string Summary,
+    string ActorName,
+    DateTime CreatedAt,
+    string DetailsJson);

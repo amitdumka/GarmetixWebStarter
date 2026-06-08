@@ -3,6 +3,7 @@ using Garmetix.Core.Models.Accounting;
 using Garmetix.Core.Models.Authentication;
 using Garmetix.Core.Models.Base;
 using Garmetix.Core.Models.HRM;
+using Garmetix.Core.Models.GstReturns;
 using Garmetix.Core.Models.Inventory;
 using Garmetix.Core.Models.Stores;
 using Garmetix.Models.DayOperations;
@@ -26,6 +27,8 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<Store> Stores => Set<Store>();
     public DbSet<AppUser> Users => Set<AppUser>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<GstReturnDraft> GstReturnDrafts => Set<GstReturnDraft>();
+    public DbSet<GstReturnAuditEntry> GstReturnAuditEntries => Set<GstReturnAuditEntry>();
 
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Stock> Stocks => Set<Stock>();
@@ -83,6 +86,12 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<PasswordResetToken>().HasIndex(token => token.TokenHash).IsUnique();
         modelBuilder.Entity<PasswordResetToken>().HasIndex(token => new { token.UserId, token.ExpiresAtUtc });
         modelBuilder.Entity<PasswordResetToken>().HasOne<AppUser>().WithMany().HasForeignKey(token => token.UserId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<GstReturnDraft>().ToTable("GstReturnDrafts");
+        modelBuilder.Entity<GstReturnDraft>().HasIndex(draft => new { draft.CompanyId, draft.Form, draft.ReturnPeriod, draft.Gstin });
+        modelBuilder.Entity<GstReturnDraft>().HasIndex(draft => new { draft.CompanyId, draft.Status, draft.UpdatedAt });
+        modelBuilder.Entity<GstReturnAuditEntry>().ToTable("GstReturnAuditEntries");
+        modelBuilder.Entity<GstReturnAuditEntry>().HasIndex(entry => new { entry.CompanyId, entry.DraftId, entry.CreatedAt });
+        modelBuilder.Entity<GstReturnAuditEntry>().HasIndex(entry => new { entry.CompanyId, entry.Form, entry.ReturnPeriod });
         modelBuilder.Entity<VoucherBase>().UseTpcMappingStrategy();
         modelBuilder.Entity<Voucher>().ToTable("Vouchers");
         modelBuilder.Entity<CashVoucher>().ToTable("CashVouchers");

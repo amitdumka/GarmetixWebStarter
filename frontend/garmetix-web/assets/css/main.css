@@ -1956,3 +1956,135 @@ select {
     grid-template-columns: 1fr;
   }
 }
+
+.gst-draft-card {
+  border: 1px solid rgba(37, 99, 235, 0.14);
+}
+
+.native-select {
+  width: 100%;
+  min-height: 2.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(255, 255, 255, 0.88);
+  padding: 0.55rem 0.75rem;
+  color: rgb(15, 23, 42);
+}
+
+.dark .native-select {
+  background: rgba(15, 23, 42, 0.86);
+  color: rgb(226, 232, 240);
+  border-color: rgba(148, 163, 184, 0.24);
+}
+
+.button-row.compact {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.draft-status-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.gst-draft-summary {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.gst-draft-summary > div {
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(248, 250, 252, 0.72);
+  padding: 0.85rem;
+}
+
+.dark .gst-draft-summary > div {
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.gst-draft-summary span,
+.gst-audit-row small {
+  display: block;
+  font-size: 0.78rem;
+  color: rgb(100, 116, 139);
+}
+
+.gst-draft-summary strong {
+  display: block;
+  margin-top: 0.2rem;
+}
+
+.gst-issue-list.compact {
+  margin-top: 0.9rem;
+}
+
+.gst-audit-list {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.gst-audit-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  padding: 0.75rem;
+}
+
+.gst-audit-row span {
+  display: block;
+  color: rgb(71, 85, 105);
+  font-size: 0.86rem;
+}
+
+.dark .gst-audit-row span,
+.dark .gst-audit-row small,
+.dark .gst-draft-summary span {
+  color: rgb(148, 163, 184);
+}
+
+@media (max-width: 900px) {
+  .gst-draft-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gst-audit-row {
+    flex-direction: column;
+  }
+}
+
+.report-cache-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.75rem 0 1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.9rem;
+  background: rgba(241, 245, 249, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  color: rgb(71, 85, 105);
+  font-size: 0.86rem;
+}
+
+.dark .report-cache-bar {
+  background: rgba(15, 23, 42, 0.48);
+  color: rgb(148, 163, 184);
+}
+
+@media (max-width: 760px) {
+  .report-cache-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

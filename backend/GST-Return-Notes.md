@@ -57,3 +57,32 @@ The page supports:
 This version adds a schema-review endpoint and checklist workbook. The generated JSON uses the common GST offline key groups used by GSTR-1 and GSTR-3B exports, and the Excel workbook now includes a `Portal Review Checklist` sheet.
 
 Before production filing, still test the generated file through the GST portal/offline utility and get accountant/CA approval. This is important because GSTN may change live portal validation rules or auto-populated GSTR-3B behavior.
+
+
+## Saved Drafts and Audit Trail
+
+The standalone GST module now supports saved return drafts without reading Billing or Purchase data.
+
+Endpoints added:
+
+- `GET /api/gst-returns/drafts` - list saved drafts in the current company scope.
+- `GET /api/gst-returns/drafts/{id}` - load one draft.
+- `POST /api/gst-returns/drafts` - create a draft from the current manual GSTR payload.
+- `PUT /api/gst-returns/drafts/{id}` - update an unlocked draft.
+- `DELETE /api/gst-returns/drafts/{id}` - soft-delete an unlocked draft.
+- `POST /api/gst-returns/drafts/{id}/filed` - mark a draft as filed and lock it.
+- `GET /api/gst-returns/drafts/{id}/audit` - view draft audit trail.
+- `GET /api/gst-returns/drafts/{id}/json` - export a saved draft as JSON after validation.
+- `GET /api/gst-returns/drafts/{id}/excel` - export a saved draft as Excel after validation.
+
+Each create/update/delete/filed/export action writes a row to `GstReturnAuditEntries`. Filed drafts are locked to preserve filing history.
+
+Migration added:
+
+- `20260606223000_AddGstReturnDrafts`
+
+Run database update before testing this module:
+
+```bash
+dotnet ef database update --project backend/Garmetix.Infrastructure --startup-project backend/Garmetix.Api
+```

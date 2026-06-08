@@ -21,6 +21,8 @@ const employees = ref<any[]>([])
 const monthlyAttendance = ref<any[]>([])
 const payslips = ref<any[]>([])
 const loading = ref(false)
+const cacheStatus = ref('No cached snapshot loaded')
+const cachedRows = ref<any[] | null>(null)
 const search = ref('')
 const reportKind = ref<ReportKind>('sales')
 const today = new Date()
@@ -39,6 +41,7 @@ const reportTabs = [
 ]
 
 const activeLabel = computed(() => reportTabs.find((item) => item.key === reportKind.value)?.label || 'Report')
+const activeRows = computed(() => cachedRows.value || reportRows.value)
 
 const salesRows = computed(() => filteredByDate(salesInvoices.value, 'onDate').map((invoice) => ({
   invoice: invoice.invoiceNumber || '-',
@@ -241,6 +244,7 @@ async function refresh() {
 function showReport(kind: ReportKind) {
   reportKind.value = kind
   search.value = ''
+  clearReportCache()
 }
 
 function filteredByDate(rows: any[], field: string) {
@@ -257,7 +261,7 @@ function filteredByDate(rows: any[], field: string) {
 }
 
 function exportCsv() {
-  const rows = reportRows.value
+  const rows = activeRows.value
   if (!rows.length) {
     feedback.failed('No report rows to export')
     return
@@ -268,20 +272,94 @@ function exportCsv() {
     keys.join(','),
     ...rows.map((row: any) => keys.map((key: string) => csvCell(row[key])).join(','))
   ].join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `Garmetix-${activeLabel.value}-Report.csv`)
+  saveReportCache()
+  feedback.notify('Report exported', `${activeLabel.value} CSV downloaded.`)
+}
+
+function exportExcel() {
+  const rows = activeRows.value
+  if (!rows.length) {
+    feedback.failed('No report rows to export')
+    return
+  }
+
+  const keys = columns.value.map((column: any) => column.accessorKey).filter(Boolean)
+  const html = `<!doctype html><html><head><meta charset="utf-8"></head><body><table border="1"><thead><tr>${keys.map((key: string) => `<th>${escapeHtml(titleCase(key))}</th>`).join('')}</tr></thead><tbody>${rows.map((row: any) => `<tr>${keys.map((key: string) => `<td>${escapeHtml(row[key])}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`
+  downloadBlob(new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' }), `Garmetix-${activeLabel.value}-Report.xls`)
+  saveReportCache()
+  feedback.notify('Report exported', `${activeLabel.value} Excel downloaded.`)
+}
+
+function exportPdf() {
+  saveReportCache()
+  window.print()
+  feedback.notify('Report PDF', 'Use the browser print dialog and choose Save as PDF.')
+}
+
+function printReport() {
+  saveReportCache()
+  window.print()
+}
+
+function saveReportCache() {
+  const rows = reportRows.value
+  const payload = {
+    label: activeLabel.value,
+    kind: reportKind.value,
+    filters: { ...filters },
+    search: search.value,
+    rows,
+    cachedAt: new Date().toISOString()
+  }
+  localStorage.setItem(reportCacheKey(), JSON.stringify(payload))
+  cacheStatus.value = `Cached ${rows.length} rows at ${new Date(payload.cachedAt).toLocaleString()}`
+}
+
+function loadReportCache() {
+  try {
+    const raw = localStorage.getItem(reportCacheKey())
+    if (!raw) {
+      cachedRows.value = null
+      cacheStatus.value = 'No cached snapshot for this report/filter.'
+      return
+    }
+    const payload = JSON.parse(raw)
+    cachedRows.value = payload.rows || []
+    cacheStatus.value = `Loaded cached ${payload.rows?.length || 0} rows from ${new Date(payload.cachedAt).toLocaleString()}`
+  } catch (error) {
+    cachedRows.value = null
+    feedback.failed('Report cache load failed', error)
+  }
+}
+
+function clearReportCache() {
+  cachedRows.value = null
+  cacheStatus.value = 'Live report data active.'
+}
+
+function reportCacheKey() {
+  return `garmetix.report.${reportKind.value}.${filters.fromDate}.${filters.toDate}.${search.value.trim().toLowerCase()}`
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `Garmetix-${activeLabel.value}-Report.csv`
+  link.download = fileName
   document.body.appendChild(link)
   link.click()
   link.remove()
   URL.revokeObjectURL(url)
-  feedback.notify('Report exported', `${activeLabel.value} CSV downloaded.`)
 }
 
-function printReport() {
-  window.print()
+function escapeHtml(value: any) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
 }
 
 function moneyColumns(keys: string[]) {
@@ -409,6 +487,8 @@ onMounted(async () => {
           <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
             {{ loading ? 'Loading' : 'Ready' }}
           </UBadge>
+          <UButton icon="i-lucide-file-spreadsheet" color="success" variant="subtle" label="Excel" @click="exportExcel" />
+          <UButton icon="i-lucide-file-down" color="warning" variant="subtle" label="PDF" @click="exportPdf" />
           <UButton icon="i-lucide-printer" color="neutral" variant="subtle" label="Print" @click="printReport" />
         </template>
       </UiModulePageHeader>
@@ -457,7 +537,10 @@ onMounted(async () => {
               <h3>{{ activeLabel }} Report</h3>
               <p>{{ filters.fromDate }} to {{ filters.toDate }}</p>
             </div>
-            <UBadge color="neutral" variant="subtle">{{ reportRows.length }} rows</UBadge>
+            <div class="setup-tabs">
+              <UBadge color="neutral" variant="subtle">{{ activeRows.length }} rows</UBadge>
+              <UBadge v-if="cachedRows" color="warning" variant="subtle">Cached</UBadge>
+            </div>
           </div>
         </template>
 
@@ -471,9 +554,18 @@ onMounted(async () => {
           @create="exportCsv"
         />
 
+        <div class="report-cache-bar no-print">
+          <span>{{ cacheStatus }}</span>
+          <div class="button-row compact">
+            <UButton size="sm" icon="i-lucide-save" color="neutral" variant="subtle" label="Cache" @click="saveReportCache" />
+            <UButton size="sm" icon="i-lucide-database" color="warning" variant="subtle" label="Load Cache" @click="loadReportCache" />
+            <UButton size="sm" icon="i-lucide-rotate-ccw" color="neutral" variant="ghost" label="Live" :disabled="!cachedRows" @click="clearReportCache" />
+          </div>
+        </div>
+
         <UTable
-          v-if="reportRows.length"
-          :data="reportRows"
+          v-if="activeRows.length"
+          :data="activeRows"
           :columns="columns"
           :loading="loading"
         />

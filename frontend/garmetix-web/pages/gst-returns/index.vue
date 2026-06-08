@@ -2,6 +2,7 @@
 type GstForm = 'gstr1' | 'gstr3b'
 
 const api = useGarmetixApi()
+const workspace = useWorkspace()
 const auth = useAuth()
 const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
@@ -14,6 +15,13 @@ const preview = ref<any | null>(null)
 const schemaReview = ref<any | null>(null)
 const schemaReviewLoading = ref(false)
 const loading = ref(false)
+const drafts = ref<any[]>([])
+const selectedDraftId = ref('')
+const selectedDraft = ref<any | null>(null)
+const draftAudit = ref<any[]>([])
+const draftTitle = ref('')
+const draftLoading = ref(false)
+const auditLoading = ref(false)
 const today = new Date()
 const currentPeriod = `${String(today.getMonth() + 1).padStart(2, '0')}${today.getFullYear()}`
 
@@ -123,6 +131,17 @@ const activeLabel = computed(() => activeForm.value === 'gstr1' ? 'GSTR-1' : 'GS
 const previewIssues = computed(() => preview.value?.issues || [])
 const schemaWarnings = computed(() => schemaReview.value?.productionWarnings || [])
 const activeSchemaItems = computed(() => activeForm.value === 'gstr1' ? schemaReview.value?.gstr1 || [] : schemaReview.value?.gstr3B || [])
+const selectedDraftLocked = computed(() => Boolean(selectedDraft.value?.lockedAt))
+const selectedDraftIssues = computed(() => {
+  if (!selectedDraft.value?.lastPreviewIssuesJson) {
+    return []
+  }
+  try {
+    return JSON.parse(selectedDraft.value.lastPreviewIssuesJson)
+  } catch {
+    return []
+  }
+})
 
 async function refresh() {
   if (!auth.isAuthenticated.value) {
@@ -144,7 +163,7 @@ async function refresh() {
       header.gstin = company.gstNumber || company.gstin || company.gstIn || ''
     }
 
-    await loadSchemaReview()
+    await Promise.all([loadSchemaReview(), loadDrafts()])
   } catch (error) {
     feedback.failed('GST Returns refresh failed', error)
   }
@@ -258,6 +277,36 @@ function buildGstr3BPayload() {
   }
 }
 
+function buildActivePayload() {
+  return activeForm.value === 'gstr1' ? buildGstr1Payload() : buildGstr3BPayload()
+}
+
+function applyDraftPayload(form: GstForm, payload: any) {
+  activeForm.value = form
+  Object.assign(header, payload.header || {})
+
+  if (form === 'gstr1') {
+    b2bRows.value = ensureRows((payload.b2BInvoices || payload.b2bInvoices || []).map((row: any) => ({
+      ...row,
+      invoiceDate: row.invoiceDate ? String(row.invoiceDate).slice(0, 10) : today.toISOString().slice(0, 10)
+    })), newB2BRow)
+    b2cRows.value = ensureRows(payload.b2CSummaries || payload.b2cSummaries || [], newB2CRow)
+    hsnRows.value = ensureRows(payload.hsnSummaries || [], newHsnRow)
+    documentRows.value = ensureRows(payload.documentsIssued || [], newDocumentRow)
+    nilRows.value = ensureRows(payload.nilRatedSupplies || [], newNilRow)
+  } else {
+    Object.assign(supplies, payload.supplies || {})
+    Object.assign(interStateSupplies, payload.interStateSupplies || {})
+    Object.assign(itc, payload.itc || {})
+    Object.assign(inwardSupplies, payload.inwardSupplies || {})
+    Object.assign(interestLateFee, payload.interestLateFee || {})
+  }
+}
+
+function ensureRows(rows: any[], factory: () => any) {
+  return rows.length ? rows : [factory()]
+}
+
 function normalizeDateRow(row: any) {
   return {
     ...row,
@@ -285,6 +334,156 @@ async function downloadSchemaReview() {
     feedback.failed('GST schema review download failed', error)
   } finally {
     schemaReviewLoading.value = false
+  }
+}
+
+async function loadDrafts() {
+  draftLoading.value = true
+  try {
+    drafts.value = await api.list<any>('gst-returns/drafts')
+  } catch (error) {
+    feedback.failed('GST draft list failed', error)
+  } finally {
+    draftLoading.value = false
+  }
+}
+
+async function saveDraft() {
+  draftLoading.value = true
+  try {
+    const body = {
+      form: activeForm.value,
+      title: draftTitle.value,
+      companyId: workspace.companyId.value || companies.value[0]?.id || null,
+      payload: buildActivePayload()
+    }
+
+    const saved = selectedDraftId.value
+      ? await api.update<any>('gst-returns/drafts', selectedDraftId.value, body as any)
+      : await api.create<any>('gst-returns/drafts', body as any)
+
+    selectedDraft.value = saved
+    selectedDraftId.value = saved.id
+    draftTitle.value = saved.title || draftTitle.value
+    await Promise.all([loadDrafts(), loadDraftAudit(saved.id)])
+    feedback.notify('GST draft saved', `${activeLabel.value} draft was saved with audit history.`)
+  } catch (error) {
+    feedback.failed('GST draft save failed', error)
+  } finally {
+    draftLoading.value = false
+  }
+}
+
+async function loadDraft(id?: string) {
+  const draftId = id || selectedDraftId.value
+  if (!draftId) {
+    selectedDraft.value = null
+    draftAudit.value = []
+    return
+  }
+
+  draftLoading.value = true
+  try {
+    const draft = await api.get<any>(`gst-returns/drafts/${draftId}`)
+    selectedDraft.value = draft
+    selectedDraftId.value = draft.id
+    draftTitle.value = draft.title || ''
+    const payload = JSON.parse(draft.payloadJson || '{}')
+    applyDraftPayload(draft.form === 'gstr3b' ? 'gstr3b' : 'gstr1', payload)
+    preview.value = null
+    await loadDraftAudit(draft.id)
+    feedback.notify('GST draft loaded', `${draft.title || draft.returnPeriod} loaded.`)
+  } catch (error) {
+    feedback.failed('GST draft load failed', error)
+  } finally {
+    draftLoading.value = false
+  }
+}
+
+async function newDraft() {
+  selectedDraftId.value = ''
+  selectedDraft.value = null
+  draftAudit.value = []
+  draftTitle.value = ''
+  preview.value = null
+}
+
+async function deleteDraft() {
+  if (!selectedDraftId.value || !confirm('Delete this GST draft? Filed drafts cannot be deleted.')) {
+    return
+  }
+
+  draftLoading.value = true
+  try {
+    await api.remove('gst-returns/drafts', selectedDraftId.value)
+    feedback.notify('GST draft deleted', 'Draft was removed and audit entry was recorded.')
+    await newDraft()
+    await loadDrafts()
+  } catch (error) {
+    feedback.failed('GST draft delete failed', error)
+  } finally {
+    draftLoading.value = false
+  }
+}
+
+async function markDraftFiled() {
+  if (!selectedDraftId.value || !confirm('Mark this GST draft as filed and lock it?')) {
+    return
+  }
+
+  draftLoading.value = true
+  try {
+    const response = await fetch(`${config.public.apiBase}/gst-returns/drafts/${selectedDraftId.value}/filed`, {
+      method: 'POST',
+      headers: api.authHeaders()
+    })
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null)
+      throw new Error(errorBody?.message || `Mark filed failed with status ${response.status}`)
+    }
+    selectedDraft.value = await response.json()
+    await Promise.all([loadDrafts(), loadDraftAudit(selectedDraftId.value)])
+    feedback.notify('GST draft locked', 'Draft is now marked filed and locked for audit.')
+  } catch (error) {
+    feedback.failed('GST mark filed failed', error)
+  } finally {
+    draftLoading.value = false
+  }
+}
+
+async function loadDraftAudit(id?: string) {
+  const draftId = id || selectedDraftId.value
+  if (!draftId) {
+    draftAudit.value = []
+    return
+  }
+
+  auditLoading.value = true
+  try {
+    draftAudit.value = await api.list<any>(`gst-returns/drafts/${draftId}/audit`)
+  } catch (error) {
+    feedback.failed('GST audit load failed', error)
+  } finally {
+    auditLoading.value = false
+  }
+}
+
+async function downloadDraft(format: 'json' | 'excel') {
+  if (!selectedDraftId.value) {
+    feedback.notify('No draft selected', 'Save or load a GST draft first.')
+    return
+  }
+
+  draftLoading.value = true
+  try {
+    const extension = format === 'json' ? 'json' : 'xlsx'
+    await downloadGetFile(`gst-returns/drafts/${selectedDraftId.value}/${format}`, `Garmetix-${activeLabel.value}-${header.returnPeriod}.${extension}`)
+    await loadDraftAudit(selectedDraftId.value)
+    feedback.notify('GST draft export ready', `Saved draft ${format.toUpperCase()} downloaded.`)
+  } catch (error) {
+    feedback.failed('GST draft export failed', error)
+  } finally {
+    draftLoading.value = false
   }
 }
 
@@ -435,6 +634,70 @@ onMounted(async () => {
         title="Separate manual GST module"
         description="This screen does not read Billing or Purchase data yet. Enter GST return values manually, generate export files, then verify them before portal upload/filing."
       />
+
+      <UCard class="planner-card gst-draft-card">
+        <template #header>
+          <div class="setup-list-header">
+            <div>
+              <h3>Saved GST Drafts & Audit Trail</h3>
+              <p>Save manual GSTR data before export. Filed drafts are locked and retained for audit.</p>
+            </div>
+            <div class="setup-tabs">
+              <UButton icon="i-lucide-plus" color="neutral" variant="subtle" label="New" :disabled="draftLoading" @click="newDraft" />
+              <UButton icon="i-lucide-save" color="primary" label="Save Draft" :loading="draftLoading" :disabled="selectedDraftLocked" @click="saveDraft" />
+              <UButton icon="i-lucide-lock" color="warning" variant="subtle" label="Mark Filed" :loading="draftLoading" :disabled="!selectedDraftId || selectedDraftLocked" @click="markDraftFiled" />
+            </div>
+          </div>
+        </template>
+
+        <div class="form-grid four compact-grid">
+          <UFormField label="Draft title">
+            <UInput v-model="draftTitle" placeholder="Example: April 2026 GSTR-1 draft" :disabled="selectedDraftLocked" />
+          </UFormField>
+          <UFormField label="Load draft">
+            <select v-model="selectedDraftId" class="native-select" @change="loadDraft(selectedDraftId)">
+              <option value="">Select saved draft</option>
+              <option v-for="draft in drafts" :key="draft.id" :value="draft.id">
+                {{ draft.form === 'gstr3b' ? 'GSTR-3B' : 'GSTR-1' }} / {{ draft.returnPeriod }} / {{ draft.gstin }} / {{ draft.status }}
+              </option>
+            </select>
+          </UFormField>
+          <UFormField label="Saved draft export">
+            <div class="button-row compact">
+              <UButton size="sm" icon="i-lucide-file-json" label="JSON" :disabled="!selectedDraftId" :loading="draftLoading" @click="downloadDraft('json')" />
+              <UButton size="sm" icon="i-lucide-file-spreadsheet" color="success" label="Excel" :disabled="!selectedDraftId" :loading="draftLoading" @click="downloadDraft('excel')" />
+            </div>
+          </UFormField>
+          <UFormField label="Draft status">
+            <div class="draft-status-line">
+              <UBadge :color="selectedDraftLocked ? 'warning' : 'primary'" variant="subtle">{{ selectedDraft?.status || 'Unsaved' }}</UBadge>
+              <UButton size="sm" icon="i-lucide-trash-2" color="error" variant="ghost" :disabled="!selectedDraftId || selectedDraftLocked" :loading="draftLoading" @click="deleteDraft" />
+            </div>
+          </UFormField>
+        </div>
+
+        <div v-if="selectedDraft" class="gst-draft-summary">
+          <div><span>Rows</span><strong>{{ selectedDraft.rowCount }}</strong></div>
+          <div><span>Taxable</span><strong>{{ money(selectedDraft.taxableValue) }}</strong></div>
+          <div><span>Tax</span><strong>{{ money(selectedDraft.integratedTax + selectedDraft.centralTax + selectedDraft.stateTax + selectedDraft.cess) }}</strong></div>
+          <div><span>Updated by</span><strong>{{ selectedDraft.updatedByUserName || 'System' }}</strong></div>
+        </div>
+
+        <div v-if="selectedDraftIssues.length" class="gst-issue-list compact">
+          <div v-for="issue in selectedDraftIssues" :key="`${issue.field}-${issue.message}`" class="gst-issue-row">
+            <strong>{{ issue.field }}</strong>
+            <span>{{ issue.message }}</span>
+          </div>
+        </div>
+
+        <div v-if="draftAudit.length" class="gst-audit-list">
+          <div class="setup-list-header small"><strong>Draft audit trail</strong><UBadge color="neutral" variant="subtle">{{ draftAudit.length }} events</UBadge></div>
+          <div v-for="entry in draftAudit" :key="entry.id" class="gst-audit-row">
+            <div><strong>{{ entry.action }}</strong><span>{{ entry.summary }}</span></div>
+            <small>{{ entry.actorName }} · {{ new Date(entry.createdAt).toLocaleString() }}</small>
+          </div>
+        </div>
+      </UCard>
 
       <UCard v-if="schemaReview" class="planner-card gst-schema-card">
         <template #header>

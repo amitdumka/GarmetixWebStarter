@@ -260,3 +260,7 @@ This module is intentionally not linked to Billing/Purchase yet. See `backend/GS
 ## GST Returns module
 
 Open `/gst-returns` for the standalone manual GST module. It supports GSTR-1 and GSTR-3B JSON/Excel generation, preview validation, and a portal/offline-utility schema review checklist. It is intentionally not linked to Billing/Purchase yet.
+
+- GST saved drafts and audit trail are available in `/gst-returns`. Apply migration `AddGstReturnDrafts` before testing saved drafts.
+
+- Reports page now supports Excel export, Save-as-PDF/print, and local cached report snapshots by report/filter/search.

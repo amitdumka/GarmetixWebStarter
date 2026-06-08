@@ -88,6 +88,12 @@ public static class AuditEndpoints
         rows.AddRange(ToDtos(await db.SalaryPayments.AsNoTracking()
             .Select(item => new AuditSource("Payroll", "Salary Payment", item.Id, item.VoucherNumber, item.CreatedAt, item.UpdatedAt, item.CreatedBy, item.Deleted))
             .ToListAsync(cancellationToken)));
+        rows.AddRange(ToDtos(await db.GstReturnDrafts.AsNoTracking()
+            .Select(item => new AuditSource("GST Returns", "GST Return Draft", item.Id, item.Title, item.CreatedAt, item.UpdatedAt, item.UpdatedByUserName, item.Deleted))
+            .ToListAsync(cancellationToken)));
+        rows.AddRange(ToDtos(await db.GstReturnAuditEntries.AsNoTracking()
+            .Select(item => new AuditSource("GST Returns", "GST Return Audit", item.Id, item.Action + " " + item.ReturnPeriod, item.CreatedAt, item.UpdatedAt, item.ActorName, item.Deleted))
+            .ToListAsync(cancellationToken)));
 
         if (!string.IsNullOrWhiteSpace(module) && !module.Equals("all", StringComparison.OrdinalIgnoreCase))
         {
