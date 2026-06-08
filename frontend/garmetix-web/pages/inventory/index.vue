@@ -4,6 +4,7 @@ import type { TableColumn } from '@nuxt/ui'
 
 const api = useGarmetixApi()
 const auth = useAuth()
+const workspace = useWorkspace()
 const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
 const canEdit = auth.canEdit
@@ -231,9 +232,10 @@ async function saveProduct() {
 }
 
 async function createProduct() {
-  const companyId = setupStatus.value?.companyId || companies.value[0]?.id
-  const storeGroupId = setupStatus.value?.storeGroupId || stores.value[0]?.storeGroupId
-  const storeId = setupStatus.value?.storeId || stores.value[0]?.id
+  const selectedStore = stores.value.find((store) => store.id === workspace.storeId.value)
+  const companyId = workspace.companyId.value || setupStatus.value?.companyId || selectedStore?.companyId || companies.value[0]?.id
+  const storeGroupId = workspace.storeGroupId.value || selectedStore?.storeGroupId || setupStatus.value?.storeGroupId || stores.value[0]?.storeGroupId
+  const storeId = workspace.storeId.value || setupStatus.value?.storeId || stores.value[0]?.id
 
   if (!companyId || !storeGroupId || !storeId) {
     throw new Error('Run quick setup before adding products.')

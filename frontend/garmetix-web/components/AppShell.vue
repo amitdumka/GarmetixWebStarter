@@ -22,6 +22,9 @@ useHead(() => ({
 }))
 
 const storeGroups = ref<any[]>([])
+const workspaceOptions = ref<any | null>(null)
+const workspaceCompanies = ref<any[]>([])
+const workspaceStores = ref<any[]>([])
 const colorMode = useColorMode()
 const logOpen = ref(false)
 const workspaceOpen = ref(false)
@@ -109,7 +112,13 @@ const navigationItems = computed(() => visibleModuleGroups.value.flatMap((group)
   }))
 ]))
 
-const allowedCompanies = computed(() => (props.companies || []).filter((company) =>
+const shellCompanies = computed(() => workspaceCompanies.value.length ? workspaceCompanies.value : (props.companies || []))
+const shellStores = computed(() => workspaceStores.value.length ? workspaceStores.value : (props.stores || []))
+const isCompanyLocked = computed(() => Boolean(workspaceOptions.value?.isCompanyLocked || auth.user.value?.companyId))
+const isStoreGroupLocked = computed(() => Boolean(workspaceOptions.value?.isStoreGroupLocked || auth.user.value?.storeGroupId))
+const isStoreLocked = computed(() => Boolean(workspaceOptions.value?.isStoreLocked || auth.user.value?.storeId))
+
+const allowedCompanies = computed(() => shellCompanies.value.filter((company) =>
   !auth.user.value?.companyId || company.id === auth.user.value.companyId))
 
 const companyOptions = computed(() =>
@@ -128,7 +137,7 @@ const storeGroupOptions = computed(() =>
     value: group.id
   })))
 
-const allowedStores = computed(() => (props.stores || []).filter((storeItem) =>
+const allowedStores = computed(() => shellStores.value.filter((storeItem) =>
   (!workspace.companyId.value || storeItem.companyId === workspace.companyId.value)
   && (!workspace.storeGroupId.value || storeItem.storeGroupId === workspace.storeGroupId.value)
   && (!auth.user.value?.storeId || storeItem.id === auth.user.value.storeId)))
@@ -142,7 +151,7 @@ const storeOptions = computed(() =>
 const companyValue = computed({
   get: () => workspace.companyId.value,
   set: (value: string) => {
-    workspace.selectCompany(value, auth.user.value, storeGroups.value, props.stores || [])
+    workspace.selectCompany(value, auth.user.value, storeGroups.value, shellStores.value)
     emit('workspaceChange')
   }
 })
@@ -150,7 +159,7 @@ const companyValue = computed({
 const storeGroupValue = computed({
   get: () => workspace.storeGroupId.value,
   set: (value: string) => {
-    workspace.selectStoreGroup(value, auth.user.value, props.stores || [])
+    workspace.selectStoreGroup(value, auth.user.value, shellStores.value)
     emit('workspaceChange')
   }
 })
@@ -164,7 +173,7 @@ const storeValue = computed({
 })
 
 const workingStoreName = computed(() => {
-  const store = (props.stores || []).find((item) => item.id === workspace.storeId.value)
+  const store = shellStores.value.find((item) => item.id === workspace.storeId.value)
 
   return store?.name || store?.storeName || 'No store selected'
 })
@@ -249,17 +258,37 @@ async function checkApiHealth() {
 
 async function loadWorkspaceOptions() {
   try {
-    storeGroups.value = await api.list<any>('store-groups')
+    const options = await api.get<any>('workspace/options')
+    workspaceOptions.value = options
+    workspaceCompanies.value = options?.companies || []
+    storeGroups.value = options?.storeGroups || []
+    workspaceStores.value = options?.stores || []
   } catch {
-    storeGroups.value = []
+    workspaceOptions.value = null
+    workspaceCompanies.value = []
+    workspaceStores.value = []
+    try {
+      storeGroups.value = await api.list<any>('store-groups')
+    } catch {
+      storeGroups.value = []
+    }
   }
 
-  workspace.initialize(auth.user.value, props.companies || [], storeGroups.value, props.stores || [])
+  workspace.initialize(auth.user.value, shellCompanies.value, storeGroups.value, shellStores.value)
+  if (workspaceOptions.value?.defaultCompanyId && !workspace.companyId.value) {
+    workspace.companyId.value = workspaceOptions.value.defaultCompanyId
+  }
+  if (workspaceOptions.value?.defaultStoreGroupId && !workspace.storeGroupId.value) {
+    workspace.storeGroupId.value = workspaceOptions.value.defaultStoreGroupId
+  }
+  if (workspaceOptions.value?.defaultStoreId && !workspace.storeId.value) {
+    workspace.storeId.value = workspaceOptions.value.defaultStoreId
+  }
 }
 
 watch(
   () => [auth.user.value?.id, props.companies, props.stores],
-  () => workspace.initialize(auth.user.value, props.companies || [], storeGroups.value, props.stores || []),
+  () => workspace.initialize(auth.user.value, shellCompanies.value, storeGroups.value, shellStores.value),
   { deep: true }
 )
 
@@ -363,21 +392,21 @@ onBeforeUnmount(() => {
               <USelect
                 v-model="companyValue"
                 :items="companyOptions"
-                :disabled="Boolean(auth.user.value?.companyId) || companyOptions.length < 2"
+                :disabled="isCompanyLocked || companyOptions.length < 2"
                 class="hidden md:flex w-40"
                 aria-label="Company"
               />
               <USelect
                 v-model="storeGroupValue"
                 :items="storeGroupOptions"
-                :disabled="Boolean(auth.user.value?.storeGroupId) || storeGroupOptions.length < 2"
+                :disabled="isStoreGroupLocked || storeGroupOptions.length < 2"
                 class="hidden lg:flex w-36"
                 aria-label="Store group"
               />
               <USelect
                 v-model="storeValue"
                 :items="storeOptions"
-                :disabled="Boolean(auth.user.value?.storeId) || storeOptions.length < 2"
+                :disabled="isStoreLocked || storeOptions.length < 2"
                 class="hidden xl:flex w-36"
                 aria-label="Store"
               />
@@ -489,7 +518,7 @@ onBeforeUnmount(() => {
           <USelect
             v-model="companyValue"
             :items="companyOptions"
-            :disabled="Boolean(auth.user.value?.companyId) || companyOptions.length < 2"
+            :disabled="isCompanyLocked || companyOptions.length < 2"
             placeholder="Select company"
           />
         </UFormField>
@@ -497,7 +526,7 @@ onBeforeUnmount(() => {
           <USelect
             v-model="storeGroupValue"
             :items="storeGroupOptions"
-            :disabled="Boolean(auth.user.value?.storeGroupId) || storeGroupOptions.length < 2"
+            :disabled="isStoreGroupLocked || storeGroupOptions.length < 2"
             placeholder="Select store group"
           />
         </UFormField>
@@ -505,7 +534,7 @@ onBeforeUnmount(() => {
           <USelect
             v-model="storeValue"
             :items="storeOptions"
-            :disabled="Boolean(auth.user.value?.storeId) || storeOptions.length < 2"
+            :disabled="isStoreLocked || storeOptions.length < 2"
             placeholder="Select store"
           />
         </UFormField>

@@ -13,6 +13,7 @@ const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
 
 const companies = ref<any[]>([])
+const storeGroups = ref<any[]>([])
 const stores = ref<any[]>([])
 const users = ref<any[]>([])
 const loading = ref(false)
@@ -68,13 +69,41 @@ const companyOptions = computed(() => [
   }))
 ])
 
+const groupOptions = computed(() => [
+  { value: '', label: 'No store group scope' },
+  ...storeGroups.value
+    .filter((group) => !form.companyId || group.companyId === form.companyId)
+    .map((group) => ({
+      value: group.id,
+      label: group.name || 'Store group'
+    }))
+])
+
 const storeOptions = computed(() => [
   { value: '', label: 'No store scope' },
-  ...stores.value.map((store) => ({
-    value: store.id,
-    label: store.name || 'Store'
-  }))
+  ...stores.value
+    .filter((store) => (!form.companyId || store.companyId === form.companyId) && (!form.storeGroupId || store.storeGroupId === form.storeGroupId))
+    .map((store) => ({
+      value: store.id,
+      label: store.name || 'Store'
+    }))
 ])
+
+
+watch(() => form.companyId, () => {
+  if (form.storeGroupId && !storeGroups.value.some((group) => group.id === form.storeGroupId && group.companyId === form.companyId)) {
+    form.storeGroupId = ''
+  }
+  if (form.storeId && !stores.value.some((store) => store.id === form.storeId && (!form.companyId || store.companyId === form.companyId))) {
+    form.storeId = ''
+  }
+})
+
+watch(() => form.storeGroupId, () => {
+  if (form.storeId && !stores.value.some((store) => store.id === form.storeId && (!form.storeGroupId || store.storeGroupId === form.storeGroupId))) {
+    form.storeId = ''
+  }
+})
 
 const metrics = computed(() => [
   {
@@ -203,14 +232,14 @@ async function refresh() {
 
   loading.value = true
   try {
-    const [companyRows, storeRows, userRows] = await Promise.all([
-      api.list<any>('companies'),
-      api.list<any>('stores'),
+    const [workspaceOptions, userRows] = await Promise.all([
+      api.get<any>('workspace/options'),
       api.get<any[]>('access/users')
     ])
 
-    companies.value = companyRows
-    stores.value = storeRows
+    companies.value = workspaceOptions?.companies || []
+    storeGroups.value = workspaceOptions?.storeGroups || []
+    stores.value = workspaceOptions?.stores || []
     users.value = userRows
   } catch (error) {
     feedback.failed('Access refresh failed', error)
@@ -222,9 +251,10 @@ async function refresh() {
 function resetForm() {
   Object.assign(form, emptyUser())
   const firstCompany = companies.value[0]
-  const firstStore = stores.value[0]
-  form.companyId = firstCompany?.id || ''
-  form.storeGroupId = firstStore?.storeGroupId || ''
+  const firstGroup = storeGroups.value.find((group) => group.companyId === firstCompany?.id) || storeGroups.value[0]
+  const firstStore = stores.value.find((store) => store.storeGroupId === firstGroup?.id) || stores.value[0]
+  form.companyId = firstCompany?.id || firstStore?.companyId || ''
+  form.storeGroupId = firstGroup?.id || firstStore?.storeGroupId || ''
   form.storeId = firstStore?.id || ''
 }
 
@@ -266,6 +296,7 @@ function askDelete(user: any) {
 
 function buildPayload(passwordOverride?: string) {
   const selectedStore = stores.value.find((item) => item.id === form.storeId)
+  const selectedGroup = storeGroups.value.find((item) => item.id === form.storeGroupId)
 
   return {
     name: String(form.name || '').trim(),
@@ -274,8 +305,8 @@ function buildPayload(passwordOverride?: string) {
     password: passwordOverride ?? (String(form.password || '').trim() || null),
     role: Number(form.role),
     userType: Number(form.userType),
-    companyId: form.companyId || selectedStore?.companyId || null,
-    storeGroupId: selectedStore?.storeGroupId || form.storeGroupId || null,
+    companyId: form.companyId || selectedStore?.companyId || selectedGroup?.companyId || null,
+    storeGroupId: form.storeGroupId || selectedStore?.storeGroupId || null,
     storeId: form.storeId || null,
     admin: Boolean(form.admin) || Number(form.role) === 0,
     appOperation: Number(form.appOperation)
@@ -391,6 +422,11 @@ function scopeLabel(user: any) {
   const store = stores.value.find((item) => item.id === user.storeId)
   if (store) {
     return store.name || 'Store'
+  }
+
+  const group = storeGroups.value.find((item) => item.id === user.storeGroupId)
+  if (group) {
+    return group.name || 'Store Group'
   }
 
   const company = companies.value.find((item) => item.id === user.companyId)
@@ -522,10 +558,13 @@ onMounted(async () => {
           <UFormField label="Company">
             <USelect v-model="form.companyId" :items="companyOptions" />
           </UFormField>
-          <UFormField label="Store">
-            <USelect v-model="form.storeId" :items="storeOptions" />
+          <UFormField label="Store group">
+            <USelect v-model="form.storeGroupId" :items="groupOptions" />
           </UFormField>
         </div>
+        <UFormField label="Store">
+          <USelect v-model="form.storeId" :items="storeOptions" />
+        </UFormField>
         <UCheckbox v-model="form.admin" label="Admin access" />
       </UiFormSlideover>
 

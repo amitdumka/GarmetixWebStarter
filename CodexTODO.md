@@ -13,10 +13,10 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 
 ## Company / Store / StoreGroup Permission Flow
 
-- [ ] Show Company, StoreGroup, and Store based on logged-in user permissions only.
-- [ ] Auto-select default company/store after login.
-- [ ] Add clean topbar flow to change company/store group/store.
-- [ ] Block module transactions when no valid working store is selected.
+- [x] Show Company, StoreGroup, and Store based on logged-in user permissions only. Added `/api/workspace/options` and server-side scope filtering.
+- [x] Auto-select default company/store after login. Workspace selector now initializes from allowed/default backend options.
+- [x] Add clean topbar flow to change company/store group/store. Topbar/mobile workspace modal uses allowed scoped options and locks assigned scopes.
+- [x] Block module transactions when no valid working store is selected. Billing, purchase, and quick-product validate the selected store against server-side user scope.
 
 ## Backup / Restore
 

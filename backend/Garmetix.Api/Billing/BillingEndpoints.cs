@@ -1,5 +1,6 @@
 using Garmetix.Api.Accounting;
 using Garmetix.Api.Auth;
+using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Inventory;
 using Garmetix.Infrastructure.Data;
@@ -23,12 +24,11 @@ public static class BillingEndpoints
         return group;
     }
 
-    private static async Task<IReadOnlyList<RecentInvoiceDto>> GetRecentSalesAsync(GarmetixDbContext db, int take = 25, CancellationToken cancellationToken = default)
+    private static async Task<IReadOnlyList<RecentInvoiceDto>> GetRecentSalesAsync(HttpContext context, GarmetixDbContext db, int take = 25, CancellationToken cancellationToken = default)
     {
         take = Math.Clamp(take, 1, 100);
 
-        return await db.SalesInvoices
-            .AsNoTracking()
+        return await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context)
             .OrderByDescending(invoice => invoice.OnDate)
             .ThenByDescending(invoice => invoice.CreatedAt)
             .Take(take)
@@ -46,9 +46,9 @@ public static class BillingEndpoints
             .ToListAsync(cancellationToken);
     }
 
-    private static async Task<IResult> GetReceiptAsync(Guid id, GarmetixDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> GetReceiptAsync(Guid id, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
     {
-        var invoice = await db.SalesInvoices.AsNoTracking().FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        var invoice = await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (invoice is null)
         {
             return Results.NotFound();
@@ -115,6 +115,7 @@ public static class BillingEndpoints
 
     private static async Task<IResult> CreateSaleAsync(
         PosSaleRequest request,
+        HttpContext context,
         GarmetixDbContext db,
         AccountingPostingService accounting,
         CancellationToken cancellationToken)
@@ -127,6 +128,13 @@ public static class BillingEndpoints
         if (request.Items.Any(item => item.Quantity <= 0))
         {
             return Results.BadRequest(new { message = "Item quantity must be greater than zero." });
+        }
+
+        var storeAllowed = await WorkspaceScope.ApplyTo(db.Stores.AsNoTracking(), context)
+            .AnyAsync(store => store.Id == request.StoreId && store.CompanyId == request.CompanyId && store.StoreGroupId == request.StoreGroupId, cancellationToken);
+        if (!storeAllowed)
+        {
+            return Results.BadRequest(new { message = "Selected billing store is outside your access scope." });
         }
 
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -144,7 +152,7 @@ public static class BillingEndpoints
 
         foreach (var requestItem in request.Items)
         {
-            var stock = await db.Stocks
+            var stock = await WorkspaceScope.ApplyTo(db.Stocks, context)
                 .Include(item => item.Product)
                 .FirstOrDefaultAsync(item =>
                     item.ProductId == requestItem.ProductId &&
@@ -264,13 +272,14 @@ public static class BillingEndpoints
     private static async Task<IResult> CancelSaleAsync(
         Guid id,
         CancelInvoiceRequest request,
+        HttpContext context,
         GarmetixDbContext db,
         AccountingPostingService accounting,
         CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
-        var invoice = await db.SalesInvoices.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        var invoice = await WorkspaceScope.ApplyTo(db.SalesInvoices, context).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (invoice is null)
         {
             return Results.NotFound();

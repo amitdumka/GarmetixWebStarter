@@ -3,6 +3,7 @@ using Garmetix.Core.Models.Authentication;
 using Garmetix.Core.Models.HRM;
 using Garmetix.Core.Models.Inventory;
 using Garmetix.Core.Models.Stores;
+using Garmetix.Core.Models.Base;
 using Garmetix.Api.Audit;
 using Garmetix.Api.Auth;
 using Garmetix.Api.Accounting;
@@ -15,6 +16,7 @@ using Garmetix.Api.OffBook;
 using Garmetix.Api.Payroll;
 using Garmetix.Api.Purchase;
 using Garmetix.Api.Setup;
+using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
 using Garmetix.Infrastructure;
 using Garmetix.Infrastructure.Data;
@@ -141,6 +143,7 @@ auth.MapGet("/me", (HttpContext context, GarmetixDbContext db, CancellationToken
 }).RequireAuthorization();
 
 app.MapSetupEndpoints();
+app.MapWorkspaceEndpoints();
 app.MapBillingEndpoints();
 app.MapPurchaseEndpoints();
 app.MapUserManagementEndpoints();
@@ -191,10 +194,14 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
     readPolicyName = readPolicyName == string.Empty ? policyName : readPolicyName;
     var group = app.MapGroup(route).WithTags(typeof(T).Name);
 
-    var list = group.MapGet("/", async (IGarmetixRepository repository, CancellationToken cancellationToken) =>
-        Results.Ok(await repository.ListAsync<T>(cancellationToken)));
-    var get = group.MapGet("/{id:guid}", async (Guid id, IGarmetixRepository repository, CancellationToken cancellationToken) =>
-        await repository.FindAsync<T>(id, cancellationToken) is { } entity ? Results.Ok(entity) : Results.NotFound());
+    var list = group.MapGet("/", async (GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken) =>
+        Results.Ok(await WorkspaceScope.ApplyTo(db.Set<T>().AsNoTracking(), context).ToListAsync(cancellationToken)));
+
+    var get = group.MapGet("/{id:guid}", async (Guid id, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken) =>
+        await WorkspaceScope.ApplyTo(db.Set<T>().AsNoTracking(), context).FirstOrDefaultAsync(entity => entity.Id == id, cancellationToken) is { } entity
+            ? Results.Ok(entity)
+            : Results.NotFound());
+
     if (readPolicyName is null)
     {
         list.RequireAuthorization();
@@ -206,16 +213,62 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         get.RequireAuthorization(readPolicyName);
     }
 
-    group.MapPost("/", async (T entity, IGarmetixRepository repository, CancellationToken cancellationToken) =>
-        Results.Created($"{route}/{entity.Id}", await repository.SaveAsync(entity, cancellationToken)))
-        .RequireAuthorization(policyName);
-    group.MapPut("/{id:guid}", async (Guid id, T entity, IGarmetixRepository repository, CancellationToken cancellationToken) =>
+    group.MapPost("/", async (T entity, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken) =>
+    {
+        if (!WorkspaceScope.CanWrite(entity, context, out var message))
+        {
+            return Results.BadRequest(new { message });
+        }
+
+        if (entity.Id == Guid.Empty)
+        {
+            entity.Id = Guid.NewGuid();
+        }
+
+        db.Set<T>().Add(entity);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Created($"{route}/{entity.Id}", entity);
+    }).RequireAuthorization(policyName);
+
+    group.MapPut("/{id:guid}", async (Guid id, T entity, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken) =>
     {
         entity.Id = id;
-        return Results.Ok(await repository.SaveAsync(entity, cancellationToken));
+        if (!await WorkspaceScope.ApplyTo(db.Set<T>().AsNoTracking(), context).AnyAsync(item => item.Id == id, cancellationToken))
+        {
+            return Results.NotFound();
+        }
+
+        if (!WorkspaceScope.CanWrite(entity, context, out var message))
+        {
+            return Results.BadRequest(new { message });
+        }
+
+        db.Entry(entity).State = EntityState.Modified;
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(entity);
     }).RequireAuthorization(policyName).RequireAuthorization(GarmetixPolicies.Edit);
-    group.MapDelete("/{id:guid}", async (Guid id, IGarmetixRepository repository, CancellationToken cancellationToken) =>
-        await repository.DeleteAsync<T>(id, cancellationToken) ? Results.NoContent() : Results.NotFound())
+
+    group.MapDelete("/{id:guid}", async (Guid id, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken) =>
+    {
+        var entity = await WorkspaceScope.ApplyTo(db.Set<T>(), context).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (entity is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (entity is BaseEntity softDeletable)
+        {
+            softDeletable.Deleted = true;
+            db.Entry(entity).State = EntityState.Modified;
+        }
+        else
+        {
+            db.Remove(entity);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.NoContent();
+    })
         .RequireAuthorization(policyName)
         .RequireAuthorization(GarmetixPolicies.Delete);
 

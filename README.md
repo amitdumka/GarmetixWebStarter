@@ -233,3 +233,8 @@ The model conversion made one bridge change: `AppUser` now implements `IEntity` 
 Date/time values are normalized before saving so PostgreSQL `timestamp without time zone` columns can accept values submitted from browsers and backend audit stamps.
 
 - Password reset email delivery through configurable SMTP. See `backend/Password-Reset-Email-Notes.md`.
+
+
+## Workspace permissions
+
+Company / StoreGroup / Store selector is now backed by `/api/workspace/options` and server-side scope checks. See `backend/Workspace-Permissions-Notes.md`.

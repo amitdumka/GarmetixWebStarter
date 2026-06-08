@@ -9,6 +9,7 @@ export type AuthUser = {
   storeGroupId?: string
   storeId?: string
   admin: boolean
+  appOperation?: string
 }
 
 export type AuthResponse = {

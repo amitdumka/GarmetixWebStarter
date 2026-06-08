@@ -1,5 +1,6 @@
 using Garmetix.Api.Accounting;
 using Garmetix.Api.Auth;
+using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Inventory;
 using Garmetix.Infrastructure.Data;
@@ -22,6 +23,7 @@ public static class PurchaseEndpoints
 
     private static async Task<IResult> CreateInwardAsync(
         PurchaseInwardRequest request,
+        HttpContext context,
         GarmetixDbContext db,
         AccountingPostingService accounting,
         CancellationToken cancellationToken)
@@ -39,6 +41,13 @@ public static class PurchaseEndpoints
         if (request.Items.Any(item => item.Quantity <= 0 || item.CostPrice < 0 || item.Mrp < 0))
         {
             return Results.BadRequest(new { message = "Quantity, cost price, and MRP must be valid." });
+        }
+
+        var storeAllowed = await WorkspaceScope.ApplyTo(db.Stores.AsNoTracking(), context)
+            .AnyAsync(store => store.Id == request.StoreId && store.CompanyId == request.CompanyId && store.StoreGroupId == request.StoreGroupId, cancellationToken);
+        if (!storeAllowed)
+        {
+            return Results.BadRequest(new { message = "Selected purchase store is outside your access scope." });
         }
 
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -103,7 +112,7 @@ public static class PurchaseEndpoints
                 CompanyId = request.CompanyId
             });
 
-            var stock = await db.Stocks.FirstOrDefaultAsync(item =>
+            var stock = await WorkspaceScope.ApplyTo(db.Stocks, context).FirstOrDefaultAsync(item =>
                 item.ProductId == product.Id &&
                 item.Barcode == barcode &&
                 item.StoreId == request.StoreId,
@@ -181,6 +190,11 @@ public static class PurchaseEndpoints
             DueDate = DateTime.Today.AddDays(45),
             CompanyId = request.CompanyId
         };
+
+        if (!WorkspaceScope.CanWrite(invoice, context, out var invoiceScopeMessage))
+        {
+            return Results.BadRequest(new { message = invoiceScopeMessage ?? "Selected company is outside your access scope." });
+        }
 
         db.PurchaseInvoices.Add(invoice);
         db.PurchaseInvoiceItems.AddRange(invoiceItems);
