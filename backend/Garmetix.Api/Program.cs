@@ -40,6 +40,7 @@ var connectionString = builder.Configuration.GetConnectionString("Default")
 
 builder.Services.AddGarmetixInfrastructure(connectionString);
 builder.Services.AddSingleton<JwtTokenService>();
+builder.Services.AddSingleton<PasswordResetTokenService>();
 builder.Services.AddScoped<MonthlyAttendanceService>();
 builder.Services.AddScoped<PayrollService>();
 builder.Services.AddScoped<AccountingPostingService>();
@@ -124,6 +125,9 @@ var auth = app.MapGroup("/api/auth").WithTags("Auth");
 auth.MapGet("/bootstrap-status", BootstrapStatusAsync).AllowAnonymous();
 auth.MapPost("/bootstrap-admin", BootstrapAdminAsync).AllowAnonymous();
 auth.MapPost("/login", LoginAsync).AllowAnonymous();
+auth.MapPost("/forgot-password", ForgotPasswordAsync).AllowAnonymous();
+auth.MapPost("/reset-password", ResetPasswordAsync).AllowAnonymous();
+auth.MapPost("/change-password", ChangePasswordAsync).RequireAuthorization();
 auth.MapGet("/me", (HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken) =>
 {
     var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
@@ -312,6 +316,116 @@ static async Task<IResult> BootstrapStatusAsync(GarmetixDbContext db, Cancellati
     {
         return Results.Ok(new BootstrapStatusResponse(false, false, false, ex.Message));
     }
+}
+
+
+static async Task<IResult> ForgotPasswordAsync(
+    ForgotPasswordRequest request,
+    GarmetixDbContext db,
+    PasswordResetTokenService resetTokens,
+    IWebHostEnvironment environment,
+    HttpContext httpContext,
+    CancellationToken cancellationToken)
+{
+    if (string.IsNullOrWhiteSpace(request.UserNameOrEmail))
+    {
+        return Results.BadRequest(new { message = "Username or email is required." });
+    }
+
+    var lookup = request.UserNameOrEmail.Trim();
+    var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(
+        item => item.UserName == lookup || item.Email == lookup,
+        cancellationToken);
+
+    // Keep the normal response generic so the login screen does not reveal whether a user exists.
+    const string genericMessage = "If the account exists, a password reset link will be available.";
+    if (user is null)
+    {
+        return Results.Ok(new ForgotPasswordResponse(genericMessage, null, null, null));
+    }
+
+    var token = resetTokens.CreateToken(user.Id);
+    var expiresAtUtc = resetTokens.ExpiresAtUtc;
+    var frontendBaseUrl = httpContext.Request.Headers.Origin.ToString();
+    if (string.IsNullOrWhiteSpace(frontendBaseUrl))
+    {
+        frontendBaseUrl = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}";
+    }
+    var resetUrl = $"{frontendBaseUrl.TrimEnd('/')}/?token={Uri.EscapeDataString(token)}";
+
+    if (environment.IsDevelopment())
+    {
+        return Results.Ok(new ForgotPasswordResponse(
+            "Development reset token generated. Copy the token or use the reset link shown in the login screen.",
+            token,
+            resetUrl,
+            expiresAtUtc));
+    }
+
+    // TODO: plug in email/SMS delivery here. The token is intentionally not returned outside Development.
+    return Results.Ok(new ForgotPasswordResponse(genericMessage, null, null, expiresAtUtc));
+}
+
+static async Task<IResult> ResetPasswordAsync(
+    ResetPasswordRequest request,
+    GarmetixDbContext db,
+    PasswordResetTokenService resetTokens,
+    CancellationToken cancellationToken)
+{
+    if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 6)
+    {
+        return Results.BadRequest(new { message = "New password must be at least 6 characters." });
+    }
+
+    if (!resetTokens.TryValidate(request.Token, out var userId, out var tokenMessage))
+    {
+        return Results.BadRequest(new { message = tokenMessage });
+    }
+
+    var user = await db.Users.FirstOrDefaultAsync(item => item.Id == userId, cancellationToken);
+    if (user is null)
+    {
+        return Results.BadRequest(new { message = "Reset token user was not found." });
+    }
+
+    user.Password = PasswordHasher.Hash(request.NewPassword);
+    await db.SaveChangesAsync(cancellationToken);
+
+    return Results.Ok(new { message = "Password reset successfully. You can login with the new password." });
+}
+
+static async Task<IResult> ChangePasswordAsync(
+    ChangePasswordRequest request,
+    HttpContext context,
+    GarmetixDbContext db,
+    CancellationToken cancellationToken)
+{
+    if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 6)
+    {
+        return Results.BadRequest(new { message = "New password must be at least 6 characters." });
+    }
+
+    var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    if (!Guid.TryParse(userId, out var id))
+    {
+        return Results.Unauthorized();
+    }
+
+    var user = await db.Users.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+    if (user is null)
+    {
+        return Results.NotFound(new { message = "Current user was not found." });
+    }
+
+    if (!PasswordHasher.Verify(request.CurrentPassword, user.Password))
+    {
+        return Results.BadRequest(new { message = "Current password is incorrect." });
+    }
+
+    user.Password = PasswordHasher.Hash(request.NewPassword);
+    await db.SaveChangesAsync(cancellationToken);
+
+    return Results.Ok(new { message = "Password changed successfully." });
 }
 
 static async Task<IResult> LoginAsync(LoginRequest request, GarmetixDbContext db, JwtTokenService tokens, CancellationToken cancellationToken)

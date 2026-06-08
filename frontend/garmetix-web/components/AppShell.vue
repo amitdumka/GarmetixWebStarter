@@ -25,6 +25,14 @@ const storeGroups = ref<any[]>([])
 const colorMode = useColorMode()
 const logOpen = ref(false)
 const workspaceOpen = ref(false)
+const profileOpen = ref(false)
+const profileMessage = ref('')
+const profileError = ref('')
+const passwordForm = reactive({
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
 const now = ref(new Date())
 const apiLive = ref<boolean | null>(null)
 let clockTimer: ReturnType<typeof setInterval> | undefined
@@ -187,6 +195,26 @@ const apiBadge = computed(() => {
 function logout() {
   auth.logout()
   navigateTo('/')
+}
+
+async function changeCurrentPassword() {
+  profileMessage.value = ''
+  profileError.value = ''
+
+  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+    profileError.value = 'New password and confirm password do not match.'
+    return
+  }
+
+  try {
+    const response = await auth.changePassword(passwordForm.currentPassword, passwordForm.newPassword)
+    profileMessage.value = response.message
+    passwordForm.currentPassword = ''
+    passwordForm.newPassword = ''
+    passwordForm.confirmPassword = ''
+  } catch (error: any) {
+    profileError.value = feedback.errorMessage(error, 'Could not change password.', 'Password change failed')
+  }
 }
 
 function formatLogDate(value: string) {
@@ -353,6 +381,14 @@ onBeforeUnmount(() => {
                 class="hidden xl:flex w-36"
                 aria-label="Store"
               />
+              <UTooltip text="Profile / change password">
+                <UButton
+                  color="neutral"
+                  variant="subtle"
+                  icon="i-lucide-user-cog"
+                  @click="profileOpen = true"
+                />
+              </UTooltip>
               <UTooltip text="Refresh data">
                 <UButton
                   color="neutral"
@@ -400,6 +436,51 @@ onBeforeUnmount(() => {
       @click="workspaceOpen = true"
     />
   </UTooltip>
+
+  <UModal v-model:open="profileOpen" title="User Profile" :ui="{ content: 'max-w-lg' }">
+    <template #body>
+      <div class="profile-summary">
+        <div>
+          <p class="profile-name">{{ auth.user.value?.name || auth.user.value?.userName }}</p>
+          <p>{{ auth.user.value?.email || '-' }}</p>
+        </div>
+        <UBadge color="primary" variant="subtle">{{ auth.user.value?.role || 'User' }}</UBadge>
+      </div>
+
+      <form class="form-grid" @submit.prevent="changeCurrentPassword">
+        <UFormField label="Current Password">
+          <UInput v-model="passwordForm.currentPassword" type="password" autocomplete="current-password" required />
+        </UFormField>
+        <UFormField label="New Password">
+          <UInput v-model="passwordForm.newPassword" type="password" autocomplete="new-password" required />
+        </UFormField>
+        <UFormField label="Confirm New Password">
+          <UInput v-model="passwordForm.confirmPassword" type="password" autocomplete="new-password" required />
+        </UFormField>
+
+        <UAlert
+          v-if="profileMessage"
+          color="success"
+          variant="subtle"
+          icon="i-lucide-check-circle"
+          :description="profileMessage"
+        />
+        <UAlert
+          v-if="profileError"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-circle-alert"
+          :description="profileError"
+        />
+      </form>
+    </template>
+    <template #footer>
+      <div class="modal-actions">
+        <UButton color="neutral" variant="outline" label="Close" @click="profileOpen = false" />
+        <UButton icon="i-lucide-key-round" label="Change Password" @click="changeCurrentPassword" />
+      </div>
+    </template>
+  </UModal>
 
   <UModal v-model:open="workspaceOpen" title="Working Store" :ui="{ content: 'max-w-lg' }">
     <template #body>

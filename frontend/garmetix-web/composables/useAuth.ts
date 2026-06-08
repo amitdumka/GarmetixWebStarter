@@ -24,6 +24,13 @@ export type BootstrapStatus = {
   message: string
 }
 
+export type ForgotPasswordResponse = {
+  message: string
+  resetToken?: string
+  resetUrl?: string
+  expiresAtUtc?: string
+}
+
 const user = ref<AuthUser | null>(null)
 const token = ref<string | null>(null)
 
@@ -83,6 +90,28 @@ export function useAuth() {
     return response
   }
 
+  async function forgotPassword(userNameOrEmail: string) {
+    return await $fetch<ForgotPasswordResponse>(`${authBase}/forgot-password`, {
+      method: 'POST',
+      body: { userNameOrEmail }
+    })
+  }
+
+  async function resetPassword(tokenValue: string, newPassword: string) {
+    return await $fetch<{ message: string }>(`${authBase}/reset-password`, {
+      method: 'POST',
+      body: { token: tokenValue, newPassword }
+    })
+  }
+
+  async function changePassword(currentPassword: string, newPassword: string) {
+    return await $fetch<{ message: string }>(`${authBase}/change-password`, {
+      method: 'POST',
+      headers: token.value ? { Authorization: `Bearer ${token.value}` } : undefined,
+      body: { currentPassword, newPassword }
+    })
+  }
+
   function logout() {
     useWorkspace().clear()
     token.value = null
@@ -111,6 +140,9 @@ export function useAuth() {
     login,
     bootstrapStatus,
     bootstrapAdmin,
+    forgotPassword,
+    resetPassword,
+    changePassword,
     logout
   }
 }

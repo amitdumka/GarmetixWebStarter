@@ -478,7 +478,7 @@ onMounted(async () => {
         <UiCrudEmptyState
           v-else
           title="No users found"
-          description="Create the first user after bootstrap admin is available."
+          description="Create users here after the first admin setup is complete."
           icon="i-lucide-shield-check"
           action-label="New User"
           @action="startCreate"

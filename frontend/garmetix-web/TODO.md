@@ -5,10 +5,11 @@
  d. Done: Downloadable professional voucher PDF.
 
 2. Cash Voucher :
- a. Implement cash voucher
- b. Use Transcation class .
- c. Seeder class has default transcastion entities 
- c. Print voucher in two copy page size a5 , both copy should be printed in A4 size, second reprint a5 size, a5 paper and make reprinted. option to sign also . same as vouhcer
+ a. Done: Implement cash voucher.
+ b. Done: Uses Transaction class for cash categories.
+ c. Done: Seeder class has default transaction entities.
+ d. Done: A4 two-copy and A5 single-copy printing with reprint and signature options.
+ e. Done: Downloadable professional cash voucher PDF.
 3. Login Page
  a. Admin is aviable messge need to removed 
  b. Forget password, change password and reset password

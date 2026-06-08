@@ -6,6 +6,7 @@ const api = useGarmetixApi()
 const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
+const config = useRuntimeConfig()
 const isAuthenticated = auth.isAuthenticated
 const canEdit = auth.canEdit
 const canDelete = auth.canDelete
@@ -22,6 +23,7 @@ const setupStatus = ref<any | null>(null)
 const loading = ref(false)
 const saving = ref(false)
 const deleting = ref(false)
+const downloadingPdf = ref(false)
 const search = ref('')
 const formOpen = ref(false)
 const deleteOpen = ref(false)
@@ -30,6 +32,7 @@ const selectedPrintVoucher = ref<any | null>(null)
 const editMode = ref<'create' | 'edit'>('create')
 const printFormat = ref<'a4-two' | 'a5-one'>('a4-two')
 const isReprint = ref(false)
+const includeSignatures = ref(true)
 
 const voucherTypeOptions = [
   { value: 0, label: 'Payment' },
@@ -344,7 +347,9 @@ async function confirmDelete() {
 
 function openPrint(voucher: any) {
   selectedPrintVoucher.value = voucher
+  printFormat.value = 'a4-two'
   isReprint.value = false
+  includeSignatures.value = true
 }
 
 function printCashVoucher() {
@@ -357,6 +362,44 @@ function printCashVoucher() {
   document.head.appendChild(style)
   window.print()
   window.setTimeout(() => style.remove(), 1000)
+}
+
+
+async function downloadCashVoucherPdf() {
+  if (!selectedPrintVoucher.value?.id) {
+    return
+  }
+
+  downloadingPdf.value = true
+  try {
+    const query = new URLSearchParams({
+      format: printFormat.value,
+      reprint: String(isReprint.value),
+      signatures: String(includeSignatures.value)
+    })
+    const response = await fetch(
+      `${config.public.apiBase}/cash-vouchers/${selectedPrintVoucher.value.id}/pdf?${query.toString()}`,
+      { headers: api.authHeaders() }
+    )
+    if (!response.ok) {
+      throw new Error(`Cash voucher PDF could not be generated (${response.status}).`)
+    }
+
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${selectedPrintVoucher.value.voucherNumber || 'cash-voucher'}.pdf`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    feedback.notify('Cash voucher PDF downloaded')
+  } catch (error) {
+    feedback.failed('Could not download cash voucher PDF', error)
+  } finally {
+    downloadingPdf.value = false
+  }
 }
 
 function voucherTypeLabel(value: number) {
@@ -580,6 +623,7 @@ onMounted(async () => {
               :label="isReprint ? 'Reprint marked' : 'Mark as reprint'"
               @click="isReprint = !isReprint"
             />
+            <UCheckbox v-model="includeSignatures" label="Signature lines" />
           </div>
 
           <div
@@ -645,7 +689,7 @@ onMounted(async () => {
                 <strong>{{ money(Number(selectedPrintVoucher.amount || 0)) }}</strong>
               </div>
 
-              <div class="voucher-signatures">
+              <div v-if="includeSignatures" class="voucher-signatures">
                 <div>Prepared by</div>
                 <div>Approved by</div>
                 <div>Paid by</div>
@@ -661,6 +705,14 @@ onMounted(async () => {
         <template #footer>
           <div class="modal-actions no-print">
             <UButton color="neutral" variant="outline" label="Close" @click="printOpen = false" />
+            <UButton
+              color="neutral"
+              variant="subtle"
+              icon="i-lucide-file-down"
+              label="Download PDF"
+              :loading="downloadingPdf"
+              @click="downloadCashVoucherPdf"
+            />
             <UButton icon="i-lucide-printer" label="Print" @click="printCashVoucher" />
           </div>
         </template>

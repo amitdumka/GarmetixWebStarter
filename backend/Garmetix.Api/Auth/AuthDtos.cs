@@ -19,3 +19,15 @@ public sealed record AuthUserDto(
 public sealed record AuthResponse(string Token, DateTime ExpiresAtUtc, AuthUserDto User);
 
 public sealed record BootstrapStatusResponse(bool DatabaseReady, bool HasUsers, bool HasAdmin, string Message);
+
+public sealed record ForgotPasswordRequest(string UserNameOrEmail);
+
+public sealed record ForgotPasswordResponse(
+    string Message,
+    string? ResetToken,
+    string? ResetUrl,
+    DateTime? ExpiresAtUtc);
+
+public sealed record ResetPasswordRequest(string Token, string NewPassword);
+
+public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);

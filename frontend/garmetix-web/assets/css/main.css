@@ -1635,3 +1635,20 @@ select {
     visibility: visible;
   }
 }
+
+.profile-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--ui-border);
+  border-radius: 1rem;
+  background: var(--ui-bg-muted);
+  margin-bottom: 1rem;
+}
+
+.profile-name {
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
