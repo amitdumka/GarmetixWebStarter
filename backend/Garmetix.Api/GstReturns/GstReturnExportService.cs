@@ -18,6 +18,15 @@ public static class GstReturnExportService
         PropertyNamingPolicy = null
     };
 
+    private static readonly HashSet<decimal> AllowedGstRates = new() { 0m, 0.1m, 0.25m, 1m, 1.5m, 3m, 5m, 6m, 7.5m, 12m, 18m, 28m };
+    private static readonly HashSet<string> ValidStateCodes = new()
+    {
+        "01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
+        "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+        "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31",
+        "32", "33", "34", "35", "36", "37", "38", "97"
+    };
+
     public static GstExportPreview PreviewGstr1(Gstr1ExportRequest request)
     {
         var issues = ValidateHeader(request.Header).ToList();
@@ -39,6 +48,7 @@ public static class GstReturnExportService
     public static GstExportPreview PreviewGstr3B(Gstr3BExportRequest request)
     {
         var issues = ValidateHeader(request.Header).ToList();
+        issues.AddRange(ValidateGstr3B(request));
         var supplies = request.Supplies;
         var itc = request.Itc;
         return new GstExportPreview(
@@ -258,6 +268,8 @@ public static class GstReturnExportService
                 request.NilRatedSupplies.Select(row => new[] { Clean(row.Description), Money(row.NilRated), Money(row.Exempted), Money(row.NonGst) }))
         };
 
+        sheets.Add(BuildPortalReviewChecklistSheet("GSTR-1"));
+
         return SimpleXlsxBuilder.Build(sheets);
     }
 
@@ -317,6 +329,8 @@ public static class GstReturnExportService
             })
         };
 
+        sheets.Add(BuildPortalReviewChecklistSheet("GSTR-3B"));
+
         return SimpleXlsxBuilder.Build(sheets);
     }
 
@@ -337,17 +351,225 @@ public static class GstReturnExportService
     {
         foreach (var row in request.B2BInvoices.Select((value, index) => (value, index)))
         {
+            var prefix = $"B2B[{row.index + 1}]";
             if (string.IsNullOrWhiteSpace(row.value.RecipientGstin) || !GstinPattern.IsMatch(row.value.RecipientGstin.Trim()))
             {
-                yield return new GstValidationIssue($"B2B[{row.index + 1}].RecipientGstin", "Recipient GSTIN is invalid.");
+                yield return new GstValidationIssue($"{prefix}.RecipientGstin", "Recipient GSTIN is invalid.");
             }
 
             if (string.IsNullOrWhiteSpace(row.value.InvoiceNumber))
             {
-                yield return new GstValidationIssue($"B2B[{row.index + 1}].InvoiceNumber", "Invoice number is required.");
+                yield return new GstValidationIssue($"{prefix}.InvoiceNumber", "Invoice number is required.");
+            }
+
+            foreach (var issue in ValidateTaxLine(prefix, request.Header.Gstin, row.value.PlaceOfSupply, row.value.Rate, row.value.TaxableValue, row.value.IntegratedTax, row.value.CentralTax, row.value.StateTax, row.value.Cess, row.value.InvoiceValue))
+            {
+                yield return issue;
+            }
+        }
+
+        foreach (var row in request.B2CSummaries.Select((value, index) => (value, index)))
+        {
+            var prefix = $"B2CS[{row.index + 1}]";
+            var type = Clean(row.value.Type).ToUpperInvariant();
+            if (type is not ("INTRA" or "INTER"))
+            {
+                yield return new GstValidationIssue($"{prefix}.Type", "B2C type should be INTRA or INTER.");
+            }
+
+            foreach (var issue in ValidateTaxLine(prefix, request.Header.Gstin, row.value.PlaceOfSupply, row.value.Rate, row.value.TaxableValue, row.value.IntegratedTax, row.value.CentralTax, row.value.StateTax, row.value.Cess, null))
+            {
+                yield return issue;
+            }
+        }
+
+        foreach (var row in request.HsnSummaries.Select((value, index) => (value, index)))
+        {
+            var prefix = $"HSN[{row.index + 1}]";
+            if (HasAnyAmount(row.value.TotalQuantity, row.value.TotalValue, row.value.TaxableValue, row.value.IntegratedTax, row.value.CentralTax, row.value.StateTax, row.value.Cess))
+            {
+                if (string.IsNullOrWhiteSpace(row.value.HsnCode))
+                {
+                    yield return new GstValidationIssue($"{prefix}.HsnCode", "HSN code is required when HSN amount/quantity is entered.");
+                }
+
+                if (string.IsNullOrWhiteSpace(row.value.Uqc))
+                {
+                    yield return new GstValidationIssue($"{prefix}.Uqc", "UQC is required when HSN amount/quantity is entered.");
+                }
+            }
+
+            foreach (var issue in ValidateNonNegative(prefix, ("TotalQuantity", row.value.TotalQuantity), ("TotalValue", row.value.TotalValue), ("TaxableValue", row.value.TaxableValue), ("IntegratedTax", row.value.IntegratedTax), ("CentralTax", row.value.CentralTax), ("StateTax", row.value.StateTax), ("Cess", row.value.Cess)))
+            {
+                yield return issue;
+            }
+
+            if (row.value.TotalValue > 0 && row.value.TotalValue + 1m < row.value.TaxableValue + row.value.IntegratedTax + row.value.CentralTax + row.value.StateTax + row.value.Cess)
+            {
+                yield return new GstValidationIssue($"{prefix}.TotalValue", "HSN total value should not be less than taxable value plus tax.");
+            }
+        }
+
+        foreach (var row in request.DocumentsIssued.Select((value, index) => (value, index)))
+        {
+            var prefix = $"Documents[{row.index + 1}]";
+            if (row.value.TotalNumber < 0 || row.value.CancelledNumber < 0)
+            {
+                yield return new GstValidationIssue(prefix, "Document total/cancelled numbers cannot be negative.");
+            }
+
+            if (row.value.CancelledNumber > row.value.TotalNumber)
+            {
+                yield return new GstValidationIssue($"{prefix}.CancelledNumber", "Cancelled document count cannot be greater than total document count.");
+            }
+        }
+
+        foreach (var row in request.NilRatedSupplies.Select((value, index) => (value, index)))
+        {
+            foreach (var issue in ValidateNonNegative($"Nil[{row.index + 1}]", ("NilRated", row.value.NilRated), ("Exempted", row.value.Exempted), ("NonGst", row.value.NonGst)))
+            {
+                yield return issue;
             }
         }
     }
+
+    private static IEnumerable<GstValidationIssue> ValidateGstr3B(Gstr3BExportRequest request)
+    {
+        var s = request.Supplies;
+        var interstate = request.InterStateSupplies;
+        var itc = request.Itc;
+        var inward = request.InwardSupplies;
+        var fee = request.InterestLateFee;
+
+        foreach (var issue in ValidateNonNegative("GSTR3B.3.1", ("OutwardTaxableValue", s.OutwardTaxableValue), ("OutwardIntegratedTax", s.OutwardIntegratedTax), ("OutwardCentralTax", s.OutwardCentralTax), ("OutwardStateTax", s.OutwardStateTax), ("OutwardCess", s.OutwardCess), ("ZeroRatedTaxableValue", s.ZeroRatedTaxableValue), ("ZeroRatedIntegratedTax", s.ZeroRatedIntegratedTax), ("NilExemptTaxableValue", s.NilExemptTaxableValue), ("NonGstTaxableValue", s.NonGstTaxableValue), ("ReverseChargeTaxableValue", s.ReverseChargeTaxableValue), ("ReverseChargeIntegratedTax", s.ReverseChargeIntegratedTax), ("ReverseChargeCentralTax", s.ReverseChargeCentralTax), ("ReverseChargeStateTax", s.ReverseChargeStateTax), ("ReverseChargeCess", s.ReverseChargeCess)))
+        {
+            yield return issue;
+        }
+
+        foreach (var issue in ValidateNonNegative("GSTR3B.3.2", ("UnregisteredTaxableValue", interstate.UnregisteredTaxableValue), ("UnregisteredIntegratedTax", interstate.UnregisteredIntegratedTax), ("CompositionTaxableValue", interstate.CompositionTaxableValue), ("CompositionIntegratedTax", interstate.CompositionIntegratedTax), ("UinTaxableValue", interstate.UinTaxableValue), ("UinIntegratedTax", interstate.UinIntegratedTax)))
+        {
+            yield return issue;
+        }
+
+        foreach (var issue in ValidateNonNegative("GSTR3B.4", ("ImportGoodsIntegratedTax", itc.ImportGoodsIntegratedTax), ("ImportGoodsCess", itc.ImportGoodsCess), ("ImportServicesIntegratedTax", itc.ImportServicesIntegratedTax), ("ReverseChargeIntegratedTax", itc.ReverseChargeIntegratedTax), ("ReverseChargeCentralTax", itc.ReverseChargeCentralTax), ("ReverseChargeStateTax", itc.ReverseChargeStateTax), ("ReverseChargeCess", itc.ReverseChargeCess), ("IsdIntegratedTax", itc.IsdIntegratedTax), ("IsdCentralTax", itc.IsdCentralTax), ("IsdStateTax", itc.IsdStateTax), ("IsdCess", itc.IsdCess), ("OtherIntegratedTax", itc.OtherIntegratedTax), ("OtherCentralTax", itc.OtherCentralTax), ("OtherStateTax", itc.OtherStateTax), ("OtherCess", itc.OtherCess), ("ReversalRule42IntegratedTax", itc.ReversalRule42IntegratedTax), ("ReversalRule42CentralTax", itc.ReversalRule42CentralTax), ("ReversalRule42StateTax", itc.ReversalRule42StateTax), ("ReversalRule42Cess", itc.ReversalRule42Cess), ("ReversalOtherIntegratedTax", itc.ReversalOtherIntegratedTax), ("ReversalOtherCentralTax", itc.ReversalOtherCentralTax), ("ReversalOtherStateTax", itc.ReversalOtherStateTax), ("ReversalOtherCess", itc.ReversalOtherCess), ("IneligibleIntegratedTax", itc.IneligibleIntegratedTax), ("IneligibleCentralTax", itc.IneligibleCentralTax), ("IneligibleStateTax", itc.IneligibleStateTax), ("IneligibleCess", itc.IneligibleCess)))
+        {
+            yield return issue;
+        }
+
+        foreach (var issue in ValidateNonNegative("GSTR3B.5", ("CompositionTaxableValue", inward.CompositionTaxableValue), ("CompositionIntegratedTax", inward.CompositionIntegratedTax), ("CompositionCentralTax", inward.CompositionCentralTax), ("CompositionStateTax", inward.CompositionStateTax), ("NilRatedTaxableValue", inward.NilRatedTaxableValue), ("NilRatedIntegratedTax", inward.NilRatedIntegratedTax), ("NilRatedCentralTax", inward.NilRatedCentralTax), ("NilRatedStateTax", inward.NilRatedStateTax), ("NonGstTaxableValue", inward.NonGstTaxableValue)))
+        {
+            yield return issue;
+        }
+
+        foreach (var issue in ValidateNonNegative("GSTR3B.InterestLateFee", ("IntegratedTaxInterest", fee.IntegratedTaxInterest), ("CentralTaxInterest", fee.CentralTaxInterest), ("StateTaxInterest", fee.StateTaxInterest), ("CessInterest", fee.CessInterest), ("CentralLateFee", fee.CentralLateFee), ("StateLateFee", fee.StateLateFee)))
+        {
+            yield return issue;
+        }
+
+        var netIgst = itc.ImportGoodsIntegratedTax + itc.ImportServicesIntegratedTax + itc.ReverseChargeIntegratedTax + itc.IsdIntegratedTax + itc.OtherIntegratedTax - itc.ReversalRule42IntegratedTax - itc.ReversalOtherIntegratedTax;
+        var netCgst = itc.ReverseChargeCentralTax + itc.IsdCentralTax + itc.OtherCentralTax - itc.ReversalRule42CentralTax - itc.ReversalOtherCentralTax;
+        var netSgst = itc.ReverseChargeStateTax + itc.IsdStateTax + itc.OtherStateTax - itc.ReversalRule42StateTax - itc.ReversalOtherStateTax;
+        var netCess = itc.ImportGoodsCess + itc.ReverseChargeCess + itc.IsdCess + itc.OtherCess - itc.ReversalRule42Cess - itc.ReversalOtherCess;
+        if (netIgst < 0 || netCgst < 0 || netSgst < 0 || netCess < 0)
+        {
+            yield return new GstValidationIssue("GSTR3B.4.NetItc", "Net ITC becomes negative after reversals. Review ITC/reversal values before export.");
+        }
+    }
+
+    private static IEnumerable<GstValidationIssue> ValidateTaxLine(string prefix, string supplierGstin, string placeOfSupply, decimal rate, decimal taxable, decimal integrated, decimal central, decimal state, decimal cess, decimal? invoiceValue)
+    {
+        foreach (var issue in ValidateNonNegative(prefix, ("Rate", rate), ("TaxableValue", taxable), ("IntegratedTax", integrated), ("CentralTax", central), ("StateTax", state), ("Cess", cess)))
+        {
+            yield return issue;
+        }
+
+        if (!AllowedGstRates.Contains(Round(rate)))
+        {
+            yield return new GstValidationIssue($"{prefix}.Rate", "GST rate should be one of the supported GST slab rates configured in this module.");
+        }
+
+        var expectedTax = Round(taxable * rate / 100m);
+        var actualTax = Round(integrated + central + state);
+        if (taxable > 0 && Math.Abs(expectedTax - actualTax) > 1m)
+        {
+            yield return new GstValidationIssue($"{prefix}.Tax", $"Tax split total {Money(actualTax)} does not match taxable value × rate {Money(expectedTax)}.");
+        }
+
+        var supplierState = GstinStateCode(supplierGstin);
+        var posState = PlaceOfSupplyStateCode(placeOfSupply);
+        if (!string.IsNullOrWhiteSpace(placeOfSupply) && posState is null)
+        {
+            yield return new GstValidationIssue($"{prefix}.PlaceOfSupply", "Place of supply should start with a valid 2-digit GST state code, for example 20-Jharkhand.");
+        }
+
+        if (supplierState is not null && posState is not null)
+        {
+            if (supplierState == posState)
+            {
+                if (integrated > 1m)
+                {
+                    yield return new GstValidationIssue($"{prefix}.IntegratedTax", "Intra-state supply usually should not have IGST.");
+                }
+
+                if (Math.Abs(central - state) > 1m)
+                {
+                    yield return new GstValidationIssue($"{prefix}.CentralStateTax", "Intra-state CGST and SGST should normally be equal.");
+                }
+            }
+            else if (central + state > 1m)
+            {
+                yield return new GstValidationIssue($"{prefix}.CentralStateTax", "Inter-state supply should normally use IGST instead of CGST/SGST.");
+            }
+        }
+
+        if (invoiceValue.HasValue && invoiceValue.Value > 0 && invoiceValue.Value + 1m < taxable + integrated + central + state + cess)
+        {
+            yield return new GstValidationIssue($"{prefix}.InvoiceValue", "Invoice value should not be less than taxable value plus tax/cess.");
+        }
+    }
+
+    private static IEnumerable<GstValidationIssue> ValidateNonNegative(string prefix, params (string Field, decimal Value)[] values)
+    {
+        foreach (var (field, value) in values)
+        {
+            if (value < 0)
+            {
+                yield return new GstValidationIssue($"{prefix}.{field}", "Amount cannot be negative.");
+            }
+        }
+    }
+
+    private static bool HasAnyAmount(params decimal[] values) => values.Any(value => value != 0);
+
+    private static string? GstinStateCode(string? gstin)
+    {
+        var clean = Clean(gstin).ToUpperInvariant();
+        return clean.Length >= 2 && ValidStateCodes.Contains(clean[..2]) ? clean[..2] : null;
+    }
+
+    private static string? PlaceOfSupplyStateCode(string? placeOfSupply)
+    {
+        var clean = Clean(placeOfSupply);
+        if (clean.Length < 2)
+        {
+            return null;
+        }
+
+        var code = clean[..2];
+        return ValidStateCodes.Contains(code) ? code : null;
+    }
+
+    private static XlsxSheet BuildPortalReviewChecklistSheet(string form) =>
+        new("Portal Review Checklist", new[] { "Check", "Status" }, new[]
+        {
+            new[] { "Export generated from standalone/manual GST module", "Yes" },
+            new[] { "GSTIN format validated", "Yes" },
+            new[] { "Return period MMYYYY validated", "Yes" },
+            new[] { "Negative values blocked", "Yes" },
+            new[] { "Tax slab and basic tax-split validation applied", form == "GSTR-1" ? "Yes" : "Summary level only" },
+            new[] { "Manual accountant/CA review before filing", "Required" },
+            new[] { "GST portal/offline utility test upload before production", "Required" }
+        });
 
     private static object TaxBlock(decimal taxable, decimal integrated, decimal central, decimal state, decimal cess) => new
     {

@@ -11,6 +11,8 @@ const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const activeForm = ref<GstForm>('gstr1')
 const preview = ref<any | null>(null)
+const schemaReview = ref<any | null>(null)
+const schemaReviewLoading = ref(false)
 const loading = ref(false)
 const today = new Date()
 const currentPeriod = `${String(today.getMonth() + 1).padStart(2, '0')}${today.getFullYear()}`
@@ -119,6 +121,8 @@ const interestLateFee = reactive({
 
 const activeLabel = computed(() => activeForm.value === 'gstr1' ? 'GSTR-1' : 'GSTR-3B')
 const previewIssues = computed(() => preview.value?.issues || [])
+const schemaWarnings = computed(() => schemaReview.value?.productionWarnings || [])
+const activeSchemaItems = computed(() => activeForm.value === 'gstr1' ? schemaReview.value?.gstr1 || [] : schemaReview.value?.gstr3B || [])
 
 async function refresh() {
   if (!auth.isAuthenticated.value) {
@@ -139,6 +143,8 @@ async function refresh() {
       header.tradeName = company.tradeName || company.shortName || header.legalName
       header.gstin = company.gstNumber || company.gstin || company.gstIn || ''
     }
+
+    await loadSchemaReview()
   } catch (error) {
     feedback.failed('GST Returns refresh failed', error)
   }
@@ -259,6 +265,29 @@ function normalizeDateRow(row: any) {
   }
 }
 
+async function loadSchemaReview() {
+  schemaReviewLoading.value = true
+  try {
+    schemaReview.value = await api.get<any>('gst-returns/schema-review')
+  } catch (error) {
+    feedback.failed('GST schema review failed', error)
+  } finally {
+    schemaReviewLoading.value = false
+  }
+}
+
+async function downloadSchemaReview() {
+  schemaReviewLoading.value = true
+  try {
+    await downloadGetFile('gst-returns/schema-review/excel', 'Garmetix-GST-Schema-Review.xlsx')
+    feedback.notify('GST review checklist ready', 'Schema review checklist downloaded.')
+  } catch (error) {
+    feedback.failed('GST schema review download failed', error)
+  } finally {
+    schemaReviewLoading.value = false
+  }
+}
+
 async function previewReturn() {
   loading.value = true
   preview.value = null
@@ -287,6 +316,30 @@ async function downloadReturn(format: 'json' | 'excel') {
   } finally {
     loading.value = false
   }
+}
+
+async function downloadGetFile(resource: string, fallback: string) {
+  const response = await fetch(`${config.public.apiBase}/${resource}`, {
+    headers: api.authHeaders()
+  })
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null)
+    throw new Error(errorBody?.message || `Download failed with status ${response.status}`)
+  }
+
+  const blob = await response.blob()
+  const disposition = response.headers.get('content-disposition') || ''
+  const match = disposition.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+  const fileName = match ? decodeURIComponent(match[1]) : fallback
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
 }
 
 async function downloadFile(resource: string, body: any) {
@@ -369,6 +422,7 @@ onMounted(async () => {
       >
         <template #actions>
           <UBadge color="error" variant="subtle">Urgent</UBadge>
+          <UButton icon="i-lucide-shield-check" color="warning" variant="subtle" label="Review" :loading="schemaReviewLoading" @click="downloadSchemaReview" />
           <UButton icon="i-lucide-file-json" color="primary" variant="subtle" label="JSON" :loading="loading" @click="downloadReturn('json')" />
           <UButton icon="i-lucide-file-spreadsheet" color="success" variant="subtle" label="Excel" :loading="loading" @click="downloadReturn('excel')" />
         </template>
@@ -381,6 +435,36 @@ onMounted(async () => {
         title="Separate manual GST module"
         description="This screen does not read Billing or Purchase data yet. Enter GST return values manually, generate export files, then verify them before portal upload/filing."
       />
+
+      <UCard v-if="schemaReview" class="planner-card gst-schema-card">
+        <template #header>
+          <div class="setup-list-header">
+            <div>
+              <h3>Portal / Offline Utility Readiness</h3>
+              <p>{{ schemaReview.reviewedOnUtc }} — manual portal validation still required before production filing.</p>
+            </div>
+            <div class="setup-tabs">
+              <UBadge color="warning" variant="subtle">Review required</UBadge>
+              <UButton size="sm" icon="i-lucide-download" label="Checklist Excel" :loading="schemaReviewLoading" @click="downloadSchemaReview" />
+            </div>
+          </div>
+        </template>
+
+        <div class="gst-schema-grid">
+          <div class="gst-schema-list">
+            <strong>{{ activeLabel }} mapping</strong>
+            <div v-for="item in activeSchemaItems" :key="`${item.section}-${item.exportKey}`" class="gst-schema-row">
+              <span>{{ item.section }}</span>
+              <code>{{ item.exportKey }}</code>
+              <UBadge color="success" variant="subtle">{{ item.status }}</UBadge>
+            </div>
+          </div>
+          <div class="gst-schema-list warning-list">
+            <strong>Production warnings</strong>
+            <p v-for="warning in schemaWarnings" :key="warning">{{ warning }}</p>
+          </div>
+        </div>
+      </UCard>
 
       <UCard class="planner-card">
         <template #header>

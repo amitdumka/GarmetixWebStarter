@@ -11,6 +11,16 @@ public static class GstReturnEndpoints
             .WithTags("GST Returns")
             .RequireAuthorization(GarmetixPolicies.Accounting);
 
+
+        group.MapGet("/schema-review", () =>
+            Results.Ok(GstReturnSchemaReviewService.Build()));
+
+        group.MapGet("/schema-review/excel", () =>
+        {
+            var bytes = GstReturnSchemaReviewService.BuildExcel();
+            return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Garmetix-GST-Schema-Review.xlsx");
+        });
+
         group.MapPost("/gstr1/preview", ([FromBody] Gstr1ExportRequest request) =>
             Results.Ok(GstReturnExportService.PreviewGstr1(Normalize(request))));
 

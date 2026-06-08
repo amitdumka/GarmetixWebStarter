@@ -255,3 +255,8 @@ A separate urgent GST Returns module is available at `/gst-returns`. It currentl
 
 This module is intentionally not linked to Billing/Purchase yet. See `backend/GST-Return-Notes.md`.
 
+
+
+## GST Returns module
+
+Open `/gst-returns` for the standalone manual GST module. It supports GSTR-1 and GSTR-3B JSON/Excel generation, preview validation, and a portal/offline-utility schema review checklist. It is intentionally not linked to Billing/Purchase yet.

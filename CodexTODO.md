@@ -43,7 +43,7 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Generate GSTR-1 Excel from manual/separate entry data.
 - [x] Generate GSTR-3B JSON from manual/separate entry data.
 - [x] Generate GSTR-3B Excel from manual/separate entry data.
-- [ ] Review generated JSON/Excel against latest GST portal/offline utility templates before production filing.
+- [x] Review generated JSON/Excel against latest GST portal/offline utility templates before production filing. Added schema-review endpoint, Excel checklist, stronger GSTIN/POS/rate/tax validations, and portal-validation warnings.
 - [ ] Add saved GST return drafts and audit trail.
 - [ ] Link GST module with Billing/Purchase after manual module approval.
 

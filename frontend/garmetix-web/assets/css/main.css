@@ -1910,3 +1910,49 @@ select {
     grid-template-columns: 1fr;
   }
 }
+
+.gst-schema-grid {
+  display: grid;
+  grid-template-columns: 1.35fr .9fr;
+  gap: 1rem;
+}
+
+.gst-schema-list {
+  display: grid;
+  gap: .65rem;
+}
+
+.gst-schema-list > strong {
+  color: rgb(var(--ui-text));
+}
+
+.gst-schema-row {
+  display: grid;
+  grid-template-columns: minmax(120px, .7fr) minmax(160px, 1fr) auto;
+  gap: .65rem;
+  align-items: center;
+  padding: .65rem;
+  border: 1px solid rgb(var(--ui-border));
+  border-radius: .8rem;
+  background: rgb(var(--ui-bg-muted));
+}
+
+.gst-schema-row code {
+  white-space: normal;
+  font-size: .78rem;
+}
+
+.warning-list p {
+  margin: 0;
+  padding: .65rem;
+  border-radius: .8rem;
+  background: color-mix(in srgb, rgb(var(--ui-warning)) 10%, transparent);
+  color: rgb(var(--ui-text-muted));
+}
+
+@media (max-width: 900px) {
+  .gst-schema-grid,
+  .gst-schema-row {
+    grid-template-columns: 1fr;
+  }
+}
