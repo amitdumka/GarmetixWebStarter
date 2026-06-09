@@ -19,6 +19,91 @@ public static class GstReturnEndpoints
         WriteIndented = false
     };
 
+
+    private static async Task EnsureGstDraftStorageAsync(
+        GarmetixDbContext db,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        var logger = loggerFactory.CreateLogger("GstDraftStorageRepair");
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync("""
+                CREATE TABLE IF NOT EXISTS "GstReturnDrafts" (
+                    "Id" uuid NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "Form" text NOT NULL DEFAULT '',
+                    "Gstin" text NOT NULL DEFAULT '',
+                    "ReturnPeriod" text NOT NULL DEFAULT '',
+                    "Title" text NOT NULL DEFAULT '',
+                    "Status" text NOT NULL DEFAULT 'Draft',
+                    "PayloadJson" text NOT NULL DEFAULT '{}',
+                    "LastPreviewIssuesJson" text NOT NULL DEFAULT '[]',
+                    "RowCount" integer NOT NULL DEFAULT 0,
+                    "TaxableValue" numeric(18,2) NOT NULL DEFAULT 0,
+                    "IntegratedTax" numeric(18,2) NOT NULL DEFAULT 0,
+                    "CentralTax" numeric(18,2) NOT NULL DEFAULT 0,
+                    "StateTax" numeric(18,2) NOT NULL DEFAULT 0,
+                    "Cess" numeric(18,2) NOT NULL DEFAULT 0,
+                    "CreatedByUserId" uuid NULL,
+                    "CreatedByUserName" text NOT NULL DEFAULT '',
+                    "UpdatedByUserId" uuid NULL,
+                    "UpdatedByUserName" text NOT NULL DEFAULT '',
+                    "FiledAt" timestamp without time zone NULL,
+                    "LockedAt" timestamp without time zone NULL,
+                    CONSTRAINT "PK_GstReturnDrafts" PRIMARY KEY ("Id")
+                );
+
+                CREATE TABLE IF NOT EXISTS "GstReturnAuditEntries" (
+                    "Id" uuid NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "DraftId" uuid NOT NULL,
+                    "Form" text NOT NULL DEFAULT '',
+                    "ReturnPeriod" text NOT NULL DEFAULT '',
+                    "Gstin" text NOT NULL DEFAULT '',
+                    "Action" text NOT NULL DEFAULT '',
+                    "Summary" text NOT NULL DEFAULT '',
+                    "ActorUserId" uuid NULL,
+                    "ActorName" text NOT NULL DEFAULT '',
+                    "DetailsJson" text NOT NULL DEFAULT '{}',
+                    CONSTRAINT "PK_GstReturnAuditEntries" PRIMARY KEY ("Id")
+                );
+
+                ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "Title" text NOT NULL DEFAULT '';
+                ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "LastPreviewIssuesJson" text NOT NULL DEFAULT '[]';
+                ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "CreatedByUserId" uuid NULL;
+                ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "CreatedByUserName" text NOT NULL DEFAULT '';
+                ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "UpdatedByUserId" uuid NULL;
+                ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "UpdatedByUserName" text NOT NULL DEFAULT '';
+                ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "FiledAt" timestamp without time zone NULL;
+                ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "LockedAt" timestamp without time zone NULL;
+
+                ALTER TABLE "GstReturnAuditEntries" ADD COLUMN IF NOT EXISTS "ActorUserId" uuid NULL;
+                ALTER TABLE "GstReturnAuditEntries" ADD COLUMN IF NOT EXISTS "ActorName" text NOT NULL DEFAULT '';
+                ALTER TABLE "GstReturnAuditEntries" ADD COLUMN IF NOT EXISTS "DetailsJson" text NOT NULL DEFAULT '{}';
+
+                CREATE INDEX IF NOT EXISTS "IX_GstReturnDrafts_CompanyId_Form_ReturnPeriod_Gstin" ON "GstReturnDrafts" ("CompanyId", "Form", "ReturnPeriod", "Gstin");
+                CREATE INDEX IF NOT EXISTS "IX_GstReturnDrafts_CompanyId_Status_UpdatedAt" ON "GstReturnDrafts" ("CompanyId", "Status", "UpdatedAt");
+                CREATE INDEX IF NOT EXISTS "IX_GstReturnAuditEntries_CompanyId_DraftId_CreatedAt" ON "GstReturnAuditEntries" ("CompanyId", "DraftId", "CreatedAt");
+                CREATE INDEX IF NOT EXISTS "IX_GstReturnAuditEntries_CompanyId_Form_ReturnPeriod" ON "GstReturnAuditEntries" ("CompanyId", "Form", "ReturnPeriod");
+                """, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "GST draft storage repair failed. The endpoint may still fail until database migrations are applied manually.");
+        }
+    }
+
     public static RouteGroupBuilder MapGstReturnEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/gst-returns")
@@ -197,6 +282,7 @@ public static class GstReturnEndpoints
         CancellationToken cancellationToken)
     {
         await DatabaseSchemaRepairService.RepairKnownSchemaDriftAsync(db, loggerFactory.CreateLogger("DatabaseSchemaRepair"), cancellationToken);
+        await EnsureGstDraftStorageAsync(db, loggerFactory, cancellationToken);
         var draft = await WorkspaceScope.ApplyTo(db.GstReturnDrafts, context)
             .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (draft is null)
@@ -432,8 +518,10 @@ public static class GstReturnEndpoints
         int? take,
         GarmetixDbContext db,
         HttpContext context,
+        ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
+        await EnsureGstDraftStorageAsync(db, loggerFactory, cancellationToken);
         var query = WorkspaceScope.ApplyTo(db.GstReturnDrafts.AsNoTracking(), context);
 
         if (!string.IsNullOrWhiteSpace(form) && !form.Equals("all", StringComparison.OrdinalIgnoreCase))
@@ -463,8 +551,9 @@ public static class GstReturnEndpoints
         return Results.Ok(rows.Select(ToSummary).ToList());
     }
 
-    private static async Task<IResult> GetDraftAsync(Guid id, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
+    private static async Task<IResult> GetDraftAsync(Guid id, GarmetixDbContext db, HttpContext context, ILoggerFactory loggerFactory, CancellationToken cancellationToken)
     {
+        await EnsureGstDraftStorageAsync(db, loggerFactory, cancellationToken);
         var draft = await WorkspaceScope.ApplyTo(db.GstReturnDrafts.AsNoTracking(), context)
             .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         return draft is null ? Results.NotFound() : Results.Ok(ToDetail(draft));
@@ -474,8 +563,10 @@ public static class GstReturnEndpoints
         GstReturnDraftSaveRequest request,
         GarmetixDbContext db,
         HttpContext context,
+        ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
+        await EnsureGstDraftStorageAsync(db, loggerFactory, cancellationToken);
         if (!TryBuildDraftState(request, out var state, out var error))
         {
             return Results.BadRequest(new { message = error });
@@ -527,8 +618,10 @@ public static class GstReturnEndpoints
         GstReturnDraftSaveRequest request,
         GarmetixDbContext db,
         HttpContext context,
+        ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
+        await EnsureGstDraftStorageAsync(db, loggerFactory, cancellationToken);
         if (!TryBuildDraftState(request, out var state, out var error))
         {
             return Results.BadRequest(new { message = error });
@@ -573,8 +666,9 @@ public static class GstReturnEndpoints
         return Results.Ok(ToDetail(draft));
     }
 
-    private static async Task<IResult> DeleteDraftAsync(Guid id, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
+    private static async Task<IResult> DeleteDraftAsync(Guid id, GarmetixDbContext db, HttpContext context, ILoggerFactory loggerFactory, CancellationToken cancellationToken)
     {
+        await EnsureGstDraftStorageAsync(db, loggerFactory, cancellationToken);
         var draft = await WorkspaceScope.ApplyTo(db.GstReturnDrafts, context)
             .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (draft is null)
@@ -593,8 +687,9 @@ public static class GstReturnEndpoints
         return Results.NoContent();
     }
 
-    private static async Task<IResult> MarkFiledAsync(Guid id, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
+    private static async Task<IResult> MarkFiledAsync(Guid id, GarmetixDbContext db, HttpContext context, ILoggerFactory loggerFactory, CancellationToken cancellationToken)
     {
+        await EnsureGstDraftStorageAsync(db, loggerFactory, cancellationToken);
         var draft = await WorkspaceScope.ApplyTo(db.GstReturnDrafts, context)
             .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (draft is null)
@@ -619,8 +714,9 @@ public static class GstReturnEndpoints
         return Results.Ok(ToDetail(draft));
     }
 
-    private static async Task<IResult> GetDraftAuditAsync(Guid id, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
+    private static async Task<IResult> GetDraftAuditAsync(Guid id, GarmetixDbContext db, HttpContext context, ILoggerFactory loggerFactory, CancellationToken cancellationToken)
     {
+        await EnsureGstDraftStorageAsync(db, loggerFactory, cancellationToken);
         var canReadDraft = await WorkspaceScope.ApplyTo(db.GstReturnDrafts.AsNoTracking(), context)
             .AnyAsync(item => item.Id == id, cancellationToken);
         if (!canReadDraft)
@@ -635,8 +731,9 @@ public static class GstReturnEndpoints
         return Results.Ok(rows.Select(ToAuditDto).ToList());
     }
 
-    private static async Task<IResult> ExportDraftJsonAsync(Guid id, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
+    private static async Task<IResult> ExportDraftJsonAsync(Guid id, GarmetixDbContext db, HttpContext context, ILoggerFactory loggerFactory, CancellationToken cancellationToken)
     {
+        await EnsureGstDraftStorageAsync(db, loggerFactory, cancellationToken);
         var draft = await WorkspaceScope.ApplyTo(db.GstReturnDrafts, context)
             .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (draft is null)
@@ -654,8 +751,9 @@ public static class GstReturnEndpoints
         return Results.File(bytes!, contentType!, FileName(DisplayForm(draft.Form).Replace("-", string.Empty), new GstReturnPeriodRequest(draft.Gstin, draft.ReturnPeriod, 0, 0, string.Empty, string.Empty), extension!));
     }
 
-    private static async Task<IResult> ExportDraftExcelAsync(Guid id, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
+    private static async Task<IResult> ExportDraftExcelAsync(Guid id, GarmetixDbContext db, HttpContext context, ILoggerFactory loggerFactory, CancellationToken cancellationToken)
     {
+        await EnsureGstDraftStorageAsync(db, loggerFactory, cancellationToken);
         var draft = await WorkspaceScope.ApplyTo(db.GstReturnDrafts, context)
             .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (draft is null)

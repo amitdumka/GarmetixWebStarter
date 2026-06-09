@@ -148,3 +148,7 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Add GSTR-3B draft-to-accounting posting endpoint with GST draft audit entry.
 - [x] Add GST Returns UI panel to refresh accounting summary and post current/saved GSTR-3B to accounting.
 - [x] Make database schema repair run even when auto-migration is disabled, so older Docker volumes are repaired before endpoints query newer tables.
+
+## Process Rule Update
+- [x] Every requested feature must be added to `CodexTODO.md` before/while implementation.
+- [x] Every bug/error raised by user must be added to `CodexISSUES.md` and marked fixed after the generated ZIP includes the fix.
