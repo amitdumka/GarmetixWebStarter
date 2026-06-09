@@ -25,7 +25,7 @@ public static class DatabaseSchemaRepairService
                 "ReturnPeriod" text NOT NULL DEFAULT '',
                 "Title" text NOT NULL DEFAULT '',
                 "Status" text NOT NULL DEFAULT 'Draft',
-                "PayloadJson" text NOT NULL DEFAULT '{}',
+                "PayloadJson" text NOT NULL DEFAULT '{{}}',
                 "LastPreviewIssuesJson" text NOT NULL DEFAULT '[]',
                 "RowCount" integer NOT NULL DEFAULT 0,
                 "TaxableValue" numeric(18,2) NOT NULL DEFAULT 0,
@@ -60,7 +60,7 @@ public static class DatabaseSchemaRepairService
                 "Summary" text NOT NULL DEFAULT '',
                 "ActorUserId" uuid NULL,
                 "ActorName" text NOT NULL DEFAULT '',
-                "DetailsJson" text NOT NULL DEFAULT '{}',
+                "DetailsJson" text NOT NULL DEFAULT '{{}}',
                 CONSTRAINT "PK_GstReturnAuditEntries" PRIMARY KEY ("Id")
             );
             """, cancellationToken);
@@ -77,7 +77,7 @@ public static class DatabaseSchemaRepairService
 
             ALTER TABLE "GstReturnAuditEntries" ADD COLUMN IF NOT EXISTS "ActorUserId" uuid NULL;
             ALTER TABLE "GstReturnAuditEntries" ADD COLUMN IF NOT EXISTS "ActorName" text NOT NULL DEFAULT '';
-            ALTER TABLE "GstReturnAuditEntries" ADD COLUMN IF NOT EXISTS "DetailsJson" text NOT NULL DEFAULT '{}';
+            ALTER TABLE "GstReturnAuditEntries" ADD COLUMN IF NOT EXISTS "DetailsJson" text NOT NULL DEFAULT '{{}}';
             """, cancellationToken);
 
         await db.Database.ExecuteSqlRawAsync("""
@@ -140,7 +140,7 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                     "ReturnPeriod" text NOT NULL DEFAULT '',
                     "Title" text NOT NULL DEFAULT '',
                     "Status" text NOT NULL DEFAULT 'Draft',
-                    "PayloadJson" text NOT NULL DEFAULT '{}',
+                    "PayloadJson" text NOT NULL DEFAULT '{{}}',
                     "LastPreviewIssuesJson" text NOT NULL DEFAULT '[]',
                     "RowCount" integer NOT NULL DEFAULT 0,
                     "TaxableValue" numeric(18,2) NOT NULL DEFAULT 0,
@@ -173,7 +173,7 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                     "Summary" text NOT NULL DEFAULT '',
                     "ActorUserId" uuid NULL,
                     "ActorName" text NOT NULL DEFAULT '',
-                    "DetailsJson" text NOT NULL DEFAULT '{}',
+                    "DetailsJson" text NOT NULL DEFAULT '{{}}',
                     CONSTRAINT "PK_GstReturnAuditEntries" PRIMARY KEY ("Id")
                 );
 

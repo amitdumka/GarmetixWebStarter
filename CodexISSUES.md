@@ -20,3 +20,20 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 ## Open
 
 - [ ] Developer machine validation still pending: `dotnet publish`, Nuxt production build, clean Docker install, permissions matrix, backup/restore, and fresh migration test.
+
+## FIXED - Database schema repair raw SQL FormatException
+
+- Status: Fixed
+- Area: Backend / Database schema repair
+- Reported from Docker logs: `System.FormatException: Input string was not in a correct format. Failure to parse near offset 582. Expected an ASCII digit.`
+- Root cause: `ExecuteSqlRawAsync` treats literal `{}` in SQL default strings as string-format placeholders. This made the repair fail before it could create tables such as `GstReturnDrafts` and `CommercialNotes`.
+- Fix: Escaped SQL default JSON braces as `{{}}` in schema repair SQL so PostgreSQL still receives `{}` while EF does not parse it as a format item.
+
+## FIXED - CommercialNotes table missing after repair failure
+
+- Status: Fixed
+- Area: Backend / Commercial Notes
+- Symptom: `/api/commercial-notes` failed with `42P01: relation "CommercialNotes" does not exist`.
+- Root cause: The schema repair stopped earlier due the raw SQL brace FormatException, so `CommercialNotes` and related commercial tables were never created in older Docker volumes.
+- Fix: Same raw SQL brace fix allows the existing idempotent repair to create `CommercialNotes`, `CustomerAdvanceReceipts`, `LoyaltyPrograms`, and `LoyaltyPointLedgers`.
+
