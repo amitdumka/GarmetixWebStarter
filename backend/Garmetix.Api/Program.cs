@@ -22,7 +22,10 @@ using Garmetix.Api.Numbering;
 using Garmetix.Api.Payroll;
 using Garmetix.Api.Purchase;
 using Garmetix.Api.ProductLookup;
+using Garmetix.Api.Production;
+using Garmetix.Api.Release;
 using Garmetix.Api.Setup;
+using Garmetix.Api.Validation;
 using Garmetix.Api.SecondarySync;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
@@ -37,10 +40,23 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var configuredCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+var configuredCorsOriginsCsv = builder.Configuration["Cors:AllowedOriginsCsv"] ?? string.Empty;
+var corsOrigins = configuredCorsOrigins
+    .Concat(configuredCorsOriginsCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+    .Where(origin => !string.IsNullOrWhiteSpace(origin))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
+
+if (corsOrigins.Length == 0)
+{
+    corsOrigins = ["http://localhost:3000"];
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("frontend", policy =>
-        policy.WithOrigins("http://localhost:3000")
+        policy.WithOrigins(corsOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod());
 });
@@ -122,6 +138,21 @@ using (var scope = app.Services.CreateScope())
     await DatabaseSchemaRepairService.RepairKnownSchemaDriftAsync(db, logger);
 }
 
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.TryAdd("X-Content-Type-Options", "nosniff");
+    context.Response.Headers.TryAdd("X-Frame-Options", "DENY");
+    context.Response.Headers.TryAdd("Referrer-Policy", "strict-origin-when-cross-origin");
+    context.Response.Headers.TryAdd("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+
+    if (context.Request.IsHttps)
+    {
+        context.Response.Headers.TryAdd("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    }
+
+    await next();
+});
+
 app.UseCors("frontend");
 app.UseAuthentication();
 app.UseAuthorization();
@@ -191,6 +222,10 @@ app.MapProductLookupEndpoints();
 app.MapInventoryProductMasterEndpoints();
 app.MapInventoryStockOperationEndpoints();
 app.MapOracleSecondarySyncEndpoints();
+app.MapDataConsistencyEndpoints();
+app.MapDataConsistencyRepairEndpoints();
+app.MapProductionReadinessEndpoints();
+app.MapReleaseStabilizationEndpoints();
 
 MapCrud<Company>(app, "/api/companies", GarmetixPolicies.CompanySetup, readPolicyName: null);
 MapCrud<StoreGroup>(app, "/api/store-groups", GarmetixPolicies.CompanySetup, readPolicyName: null);

@@ -105,6 +105,9 @@ const moduleGroups = [
       { to: '/import-export', label: 'Import Export', icon: 'i-lucide-file-down' },
       { to: '/audit', label: 'Audit', icon: 'i-lucide-history' },
       { to: '/system-health', label: 'System Health', icon: 'i-lucide-activity' },
+      { to: '/production-readiness', label: 'Production Readiness', icon: 'i-lucide-shield-check' },
+      { to: '/release-stabilization', label: 'Release Stabilization', icon: 'i-lucide-rocket' },
+      { to: '/data-consistency', label: 'Consistency & Repair', icon: 'i-lucide-shield-alert' },
       { to: '/oracle-sync', label: 'Oracle Sync', icon: 'i-lucide-database-zap' }
     ]
   }

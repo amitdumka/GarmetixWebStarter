@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 using Npgsql;
 
@@ -8,7 +10,45 @@ public sealed record BackupFileDto(
     string FileName,
     long SizeBytes,
     DateTime CreatedAtUtc,
-    string Source);
+    string Source,
+    string? Sha256 = null,
+    bool HasChecksum = false,
+    bool HasManifest = false);
+
+public sealed record BackupVerificationDto(
+    string FileName,
+    bool Exists,
+    bool HeaderValid,
+    bool ChecksumPresent,
+    bool ChecksumValid,
+    bool ManifestPresent,
+    long SizeBytes,
+    DateTime? CreatedAtUtc,
+    string? Sha256,
+    string Status,
+    string Message);
+
+public sealed record RestorePreflightDto(
+    string FileName,
+    bool HeaderValid,
+    bool PgRestoreReadable,
+    long SizeBytes,
+    string Status,
+    string Message,
+    string[] PreviewLines);
+
+public sealed record BackupManifestDto(
+    string FileName,
+    long SizeBytes,
+    DateTime CreatedAtUtc,
+    string Source,
+    string Database,
+    string Host,
+    int Port,
+    string Sha256,
+    string Format,
+    string Application,
+    string Stage);
 
 public sealed class DatabaseBackupService(
     IConfiguration configuration,
@@ -29,11 +69,15 @@ public sealed class DatabaseBackupService(
             .Select(path =>
             {
                 var file = new FileInfo(path);
+                var checksum = TryReadChecksum(path);
                 return new BackupFileDto(
                     file.Name,
                     file.Length,
                     file.CreationTimeUtc,
-                    SourceFromFileName(file.Name));
+                    SourceFromFileName(file.Name),
+                    checksum,
+                    !string.IsNullOrWhiteSpace(checksum),
+                    File.Exists(ManifestPath(path)));
             })
             .OrderByDescending(item => item.CreatedAtUtc)
             .ToList();
@@ -77,12 +121,92 @@ public sealed class DatabaseBackupService(
         {
             var path = ResolveBackupPath(fileName)
                 ?? throw new FileNotFoundException("Backup file was not found.");
+            DeleteFileIfExists(ChecksumPath(path));
+            DeleteFileIfExists(ManifestPath(path));
             File.Delete(path);
+            await Task.CompletedTask;
         }
         finally
         {
             operationLock.Release();
         }
+    }
+
+    public BackupVerificationDto VerifyBackup(string fileName)
+    {
+        var path = ResolveBackupPath(fileName);
+        if (path is null)
+        {
+            return new BackupVerificationDto(
+                fileName,
+                false,
+                false,
+                false,
+                false,
+                false,
+                0,
+                null,
+                null,
+                "missing",
+                "Backup file was not found.");
+        }
+
+        return VerifyBackupPath(path);
+    }
+
+    public async Task<RestorePreflightDto> PreviewRestoreAsync(
+        Stream uploadedFile,
+        string originalFileName,
+        CancellationToken cancellationToken)
+    {
+        await operationLock.WaitAsync(cancellationToken);
+        string? uploadedPath = null;
+        try
+        {
+            EnsureDirectory();
+            uploadedPath = Path.Combine(
+                options.Directory,
+                $"restore-preview-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.dump");
+
+            await using (var target = new FileStream(
+                uploadedPath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                81920,
+                FileOptions.Asynchronous))
+            {
+                await uploadedFile.CopyToAsync(target, cancellationToken);
+            }
+
+            ValidateDump(uploadedPath, originalFileName);
+            return await InspectDumpAsync(uploadedPath, Path.GetFileName(originalFileName), cancellationToken);
+        }
+        finally
+        {
+            if (uploadedPath is not null)
+            {
+                DeleteFileIfExists(uploadedPath);
+            }
+
+            operationLock.Release();
+        }
+    }
+
+    public async Task<RestorePreflightDto> PreviewLocalRestoreAsync(
+        string fileName,
+        CancellationToken cancellationToken)
+    {
+        var path = ResolveBackupPath(fileName)
+            ?? throw new FileNotFoundException("Backup file was not found.");
+        ValidateDump(path, fileName);
+        var verification = VerifyBackupPath(path);
+        if (verification.ChecksumPresent && !verification.ChecksumValid)
+        {
+            throw new InvalidOperationException("Backup checksum verification failed. Do not restore this file.");
+        }
+
+        return await InspectDumpAsync(path, fileName, cancellationToken);
     }
 
     public async Task<BackupFileDto> RestoreAsync(
@@ -112,6 +236,7 @@ public sealed class DatabaseBackupService(
             }
 
             ValidateDump(uploadedPath, originalFileName);
+            _ = await InspectDumpAsync(uploadedPath, Path.GetFileName(originalFileName), cancellationToken);
             var safetyBackup = await CreateBackupCoreAsync("pre-restore", cancellationToken);
             var connection = GetConnectionInfo();
 
@@ -203,12 +328,15 @@ public sealed class DatabaseBackupService(
         }
 
         ValidateDump(filePath, fileName);
+        var sha256 = await WriteChecksumSidecarAsync(filePath, cancellationToken);
+        await WriteManifestSidecarAsync(filePath, source, connection, sha256, cancellationToken);
         ApplyRetention();
         var file = new FileInfo(filePath);
         logger.LogInformation(
-            "Database backup {FileName} created with size {SizeBytes} bytes.",
+            "Database backup {FileName} created with size {SizeBytes} bytes and SHA256 {Sha256}.",
             file.Name,
-            file.Length);
+            file.Length,
+            sha256);
 
         if (googleDriveBackupService.IsEnabled && googleDriveBackupService.UploadOnBackup)
         {
@@ -225,7 +353,7 @@ public sealed class DatabaseBackupService(
             }
         }
 
-        return new BackupFileDto(file.Name, file.Length, file.CreationTimeUtc, source);
+        return new BackupFileDto(file.Name, file.Length, file.CreationTimeUtc, source, sha256, true, true);
     }
 
     private void ApplyRetention()
@@ -239,8 +367,76 @@ public sealed class DatabaseBackupService(
 
         foreach (var file in automaticFiles)
         {
+            DeleteFileIfExists(ChecksumPath(file.FullName));
+            DeleteFileIfExists(ManifestPath(file.FullName));
             file.Delete();
         }
+    }
+
+    private BackupVerificationDto VerifyBackupPath(string path)
+    {
+        var file = new FileInfo(path);
+        var checksum = TryReadChecksum(path);
+        var checksumValid = false;
+        if (!string.IsNullOrWhiteSpace(checksum))
+        {
+            checksumValid = string.Equals(
+                checksum,
+                ComputeSha256(path),
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        var headerValid = IsPgDumpHeader(path);
+        var manifestPresent = File.Exists(ManifestPath(path));
+        var status = headerValid && (!string.IsNullOrWhiteSpace(checksum) ? checksumValid : true)
+            ? "ok"
+            : "failed";
+        var message = status == "ok"
+            ? (checksumValid ? "Backup header and checksum are valid." : "Backup header is valid. Checksum sidecar is missing.")
+            : "Backup verification failed. Do not restore this file.";
+
+        return new BackupVerificationDto(
+            file.Name,
+            true,
+            headerValid,
+            !string.IsNullOrWhiteSpace(checksum),
+            checksumValid,
+            manifestPresent,
+            file.Length,
+            file.CreationTimeUtc,
+            checksum,
+            status,
+            message);
+    }
+
+    private async Task<RestorePreflightDto> InspectDumpAsync(
+        string path,
+        string displayFileName,
+        CancellationToken cancellationToken)
+    {
+        var result = await RunProcessAsync(
+            "pg_restore",
+            ["--list", path],
+            string.Empty,
+            cancellationToken);
+
+        var previewLines = result.Output
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+            .Take(25)
+            .ToArray();
+
+        var readable = result.ExitCode == 0 && previewLines.Length > 0;
+        var file = new FileInfo(path);
+        return new RestorePreflightDto(
+            displayFileName,
+            IsPgDumpHeader(path),
+            readable,
+            file.Length,
+            readable ? "ok" : "failed",
+            readable
+                ? "Backup can be read by pg_restore. Review the preview before restore."
+                : $"pg_restore could not read this backup. {LastUsefulLine(result.Error)}",
+            previewLines);
     }
 
     private void ValidateDump(string path, string originalFileName)
@@ -251,14 +447,19 @@ public sealed class DatabaseBackupService(
             throw new InvalidOperationException("The uploaded backup is empty or incomplete.");
         }
 
-        Span<byte> header = stackalloc byte[5];
-        using var stream = File.OpenRead(path);
-        _ = stream.Read(header);
-        if (!header.SequenceEqual("PGDMP"u8))
+        if (!IsPgDumpHeader(path))
         {
             throw new InvalidOperationException(
                 $"{Path.GetFileName(originalFileName)} is not a valid PostgreSQL custom-format backup.");
         }
+    }
+
+    private static bool IsPgDumpHeader(string path)
+    {
+        Span<byte> header = stackalloc byte[5];
+        using var stream = File.OpenRead(path);
+        _ = stream.Read(header);
+        return header.SequenceEqual("PGDMP"u8);
     }
 
     private ConnectionInfo GetConnectionInfo()
@@ -277,6 +478,73 @@ public sealed class DatabaseBackupService(
     private void EnsureDirectory()
     {
         Directory.CreateDirectory(options.Directory);
+    }
+
+    private async Task WriteManifestSidecarAsync(
+        string path,
+        string source,
+        ConnectionInfo connection,
+        string sha256,
+        CancellationToken cancellationToken)
+    {
+        var file = new FileInfo(path);
+        var manifest = new BackupManifestDto(
+            file.Name,
+            file.Length,
+            file.CreationTimeUtc,
+            source,
+            connection.Database,
+            connection.Host,
+            connection.Port,
+            sha256,
+            "PostgreSQL custom pg_dump",
+            "Garmetix",
+            "Stage5A");
+        var json = JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true });
+        await File.WriteAllTextAsync(ManifestPath(path), json, cancellationToken);
+    }
+
+    private static async Task<string> WriteChecksumSidecarAsync(
+        string path,
+        CancellationToken cancellationToken)
+    {
+        var hash = ComputeSha256(path);
+        await File.WriteAllTextAsync(ChecksumPath(path), $"{hash}  {Path.GetFileName(path)}{Environment.NewLine}", cancellationToken);
+        return hash;
+    }
+
+    private static string? TryReadChecksum(string dumpPath)
+    {
+        var path = ChecksumPath(dumpPath);
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        var firstToken = File.ReadLines(path)
+            .Select(line => line.Trim())
+            .FirstOrDefault(line => !string.IsNullOrWhiteSpace(line))?
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .FirstOrDefault();
+        return firstToken?.Length == 64 ? firstToken : null;
+    }
+
+    private static string ComputeSha256(string path)
+    {
+        using var sha256 = SHA256.Create();
+        using var stream = File.OpenRead(path);
+        return Convert.ToHexString(sha256.ComputeHash(stream)).ToLowerInvariant();
+    }
+
+    private static string ChecksumPath(string dumpPath) => $"{dumpPath}.sha256";
+    private static string ManifestPath(string dumpPath) => $"{dumpPath}.manifest.json";
+
+    private static void DeleteFileIfExists(string path)
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
     }
 
     private static async Task<ProcessResult> RunProcessAsync(
@@ -298,7 +566,11 @@ public sealed class DatabaseBackupService(
             startInfo.ArgumentList.Add(argument);
         }
 
-        startInfo.Environment["PGPASSWORD"] = password;
+        if (!string.IsNullOrEmpty(password))
+        {
+            startInfo.Environment["PGPASSWORD"] = password;
+        }
+
         using var process = Process.Start(startInfo)
             ?? throw new InvalidOperationException($"Could not start {fileName}.");
         var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);

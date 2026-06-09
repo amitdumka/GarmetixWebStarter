@@ -1,0 +1,604 @@
+<script setup lang="ts">
+import { h, resolveComponent } from 'vue'
+import type { TableColumn } from '@nuxt/ui'
+
+const api = useGarmetixApi()
+const auth = useAuth()
+const feedback = useUiFeedback()
+const isAuthenticated = auth.isAuthenticated
+const canEdit = auth.canEdit
+const canDelete = auth.canDelete
+
+const UBadge = resolveComponent('UBadge')
+const UButton = resolveComponent('UButton')
+
+const companies = ref<any[]>([])
+const storeGroups = ref<any[]>([])
+const stores = ref<any[]>([])
+const users = ref<any[]>([])
+const loading = ref(false)
+const saving = ref(false)
+const deleting = ref(false)
+const resetting = ref(false)
+const search = ref('')
+const formOpen = ref(false)
+const deleteOpen = ref(false)
+const resetOpen = ref(false)
+const editingUserId = ref('')
+const pendingDelete = ref<any | null>(null)
+const pendingReset = ref<any | null>(null)
+const resetPassword = ref('')
+
+const roleOptions = [
+  { value: 0, label: 'Admin' },
+  { value: 1, label: 'Store Manager' },
+  { value: 2, label: 'Salesman' },
+  { value: 3, label: 'Accountant' },
+  { value: 4, label: 'Remote Accountant' },
+  { value: 5, label: 'Member' },
+  { value: 6, label: 'Power User' }
+]
+
+const userTypeOptions = [
+  { value: 0, label: 'Admin' },
+  { value: 1, label: 'Owner' },
+  { value: 2, label: 'Store Manager' },
+  { value: 3, label: 'Sales' },
+  { value: 4, label: 'Accountant' },
+  { value: 5, label: 'CA' },
+  { value: 6, label: 'Guest' },
+  { value: 7, label: 'Power User' },
+  { value: 8, label: 'Employees' }
+]
+
+const appOperationOptions = [
+  { value: 0, label: 'Company' },
+  { value: 1, label: 'Store Group' },
+  { value: 2, label: 'Store' },
+  { value: 3, label: 'All' },
+  { value: 4, label: 'None' }
+]
+
+const form = reactive<any>(emptyUser())
+
+const companyOptions = computed(() => [
+  { value: '', label: 'No company scope' },
+  ...companies.value.map((company) => ({
+    value: company.id,
+    label: company.name || 'Company'
+  }))
+])
+
+const groupOptions = computed(() => [
+  { value: '', label: 'No store group scope' },
+  ...storeGroups.value
+    .filter((group) => !form.companyId || group.companyId === form.companyId)
+    .map((group) => ({
+      value: group.id,
+      label: group.name || 'Store group'
+    }))
+])
+
+const storeOptions = computed(() => [
+  { value: '', label: 'No store scope' },
+  ...stores.value
+    .filter((store) => (!form.companyId || store.companyId === form.companyId) && (!form.storeGroupId || store.storeGroupId === form.storeGroupId))
+    .map((store) => ({
+      value: store.id,
+      label: store.name || 'Store'
+    }))
+])
+
+
+watch(() => form.companyId, () => {
+  if (form.storeGroupId && !storeGroups.value.some((group) => group.id === form.storeGroupId && group.companyId === form.companyId)) {
+    form.storeGroupId = ''
+  }
+  if (form.storeId && !stores.value.some((store) => store.id === form.storeId && (!form.companyId || store.companyId === form.companyId))) {
+    form.storeId = ''
+  }
+})
+
+watch(() => form.storeGroupId, () => {
+  if (form.storeId && !stores.value.some((store) => store.id === form.storeId && (!form.storeGroupId || store.storeGroupId === form.storeGroupId))) {
+    form.storeId = ''
+  }
+})
+
+const metrics = computed(() => [
+  {
+    label: 'Users',
+    value: users.value.length,
+    meta: 'Active access records',
+    icon: 'i-lucide-users-round',
+    color: 'primary'
+  },
+  {
+    label: 'Admins',
+    value: users.value.filter((user) => user.admin || compact(user.role) === 'admin').length,
+    meta: 'High privilege users',
+    icon: 'i-lucide-shield-check',
+    color: 'success'
+  },
+  {
+    label: 'Store Scoped',
+    value: users.value.filter((user) => Boolean(user.storeId)).length,
+    meta: 'Bound to a store',
+    icon: 'i-lucide-store',
+    color: 'warning'
+  },
+  {
+    label: 'Roles',
+    value: new Set(users.value.map((user) => user.role)).size,
+    meta: 'Role groups in use',
+    icon: 'i-lucide-key-round',
+    color: 'neutral'
+  }
+])
+
+const rows = computed(() => users.value.map((user) => ({
+  id: user.id,
+  name: user.name || '-',
+  userName: user.userName || '-',
+  email: user.email || '-',
+  role: user.role || '-',
+  userType: user.userType || '-',
+  scope: scopeLabel(user),
+  admin: user.admin ? 'Yes' : 'No',
+  raw: user
+})))
+
+const filteredRows = computed(() => {
+  const term = search.value.trim().toLowerCase()
+  if (!term) {
+    return rows.value
+  }
+
+  return rows.value.filter((row) => JSON.stringify(row).toLowerCase().includes(term))
+})
+
+const columns: TableColumn<any>[] = [
+  { accessorKey: 'name', header: 'Name' },
+  { accessorKey: 'userName', header: 'Username' },
+  { accessorKey: 'email', header: 'Email' },
+  {
+    accessorKey: 'role',
+    header: 'Role',
+    cell: ({ row }) => h(UBadge, {
+      color: roleColor(row.original.role),
+      variant: 'subtle'
+    }, () => row.original.role)
+  },
+  { accessorKey: 'userType', header: 'User Type' },
+  { accessorKey: 'scope', header: 'Scope' },
+  {
+    accessorKey: 'admin',
+    header: 'Admin',
+    cell: ({ row }) => h(UBadge, {
+      color: row.original.admin === 'Yes' ? 'success' : 'neutral',
+      variant: 'subtle'
+    }, () => row.original.admin)
+  },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => h('div', { class: 'table-action-buttons' }, [
+      canEdit.value ? h(UButton, {
+        color: 'neutral',
+        variant: 'ghost',
+        icon: 'i-lucide-key-round',
+        label: 'Reset',
+        onClick: () => startReset(row.original.raw)
+      }) : null,
+      canEdit.value ? h(UButton, {
+        color: 'neutral',
+        variant: 'ghost',
+        icon: 'i-lucide-pencil',
+        label: 'Edit',
+        onClick: () => startEdit(row.original.raw)
+      }) : null,
+      canDelete.value ? h(UButton, {
+        color: 'error',
+        variant: 'ghost',
+        icon: 'i-lucide-trash-2',
+        label: 'Delete',
+        onClick: () => askDelete(row.original.raw)
+      }) : null
+    ].filter(Boolean))
+  }
+]
+
+function emptyUser() {
+  return {
+    id: '',
+    name: '',
+    userName: '',
+    email: '',
+    password: '',
+    role: 5,
+    userType: 6,
+    companyId: '',
+    storeGroupId: '',
+    storeId: '',
+    admin: false,
+    appOperation: 2
+  }
+}
+
+async function refresh() {
+  if (!auth.isAuthenticated.value) {
+    return
+  }
+
+  loading.value = true
+  try {
+    const [workspaceOptions, userRows] = await Promise.all([
+      api.get<any>('workspace/options'),
+      api.get<any[]>('access/users')
+    ])
+
+    companies.value = workspaceOptions?.companies || []
+    storeGroups.value = workspaceOptions?.storeGroups || []
+    stores.value = workspaceOptions?.stores || []
+    users.value = userRows
+  } catch (error) {
+    feedback.failed('Access refresh failed', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+function resetForm() {
+  Object.assign(form, emptyUser())
+  const firstCompany = companies.value[0]
+  const firstGroup = storeGroups.value.find((group) => group.companyId === firstCompany?.id) || storeGroups.value[0]
+  const firstStore = stores.value.find((store) => store.storeGroupId === firstGroup?.id) || stores.value[0]
+  form.companyId = firstCompany?.id || firstStore?.companyId || ''
+  form.storeGroupId = firstGroup?.id || firstStore?.storeGroupId || ''
+  form.storeId = firstStore?.id || ''
+}
+
+function startCreate() {
+  resetForm()
+  editingUserId.value = ''
+  formOpen.value = true
+}
+
+function startEdit(user: any) {
+  Object.assign(form, {
+    id: user.id,
+    name: user.name,
+    userName: user.userName,
+    email: user.email,
+    password: '',
+    role: roleValue(user.role),
+    userType: userTypeValue(user.userType),
+    companyId: user.companyId || '',
+    storeGroupId: user.storeGroupId || '',
+    storeId: user.storeId || '',
+    admin: Boolean(user.admin),
+    appOperation: appOperationValue(user.appOperation)
+  })
+  editingUserId.value = user.id
+  formOpen.value = true
+}
+
+function startReset(user: any) {
+  pendingReset.value = user
+  resetPassword.value = ''
+  resetOpen.value = true
+}
+
+function askDelete(user: any) {
+  pendingDelete.value = user
+  deleteOpen.value = true
+}
+
+function buildPayload(passwordOverride?: string) {
+  const selectedStore = stores.value.find((item) => item.id === form.storeId)
+  const selectedGroup = storeGroups.value.find((item) => item.id === form.storeGroupId)
+
+  return {
+    name: String(form.name || '').trim(),
+    userName: String(form.userName || '').trim(),
+    email: String(form.email || '').trim(),
+    password: passwordOverride ?? (String(form.password || '').trim() || null),
+    role: Number(form.role),
+    userType: Number(form.userType),
+    companyId: form.companyId || selectedStore?.companyId || selectedGroup?.companyId || null,
+    storeGroupId: form.storeGroupId || selectedStore?.storeGroupId || null,
+    storeId: form.storeId || null,
+    admin: Boolean(form.admin) || Number(form.role) === 0,
+    appOperation: Number(form.appOperation)
+  }
+}
+
+function payloadForUser(user: any, password: string) {
+  return {
+    name: user.name,
+    userName: user.userName,
+    email: user.email,
+    password,
+    role: roleValue(user.role),
+    userType: userTypeValue(user.userType),
+    companyId: user.companyId || null,
+    storeGroupId: user.storeGroupId || null,
+    storeId: user.storeId || null,
+    admin: Boolean(user.admin),
+    appOperation: appOperationValue(user.appOperation)
+  }
+}
+
+async function saveUser() {
+  saving.value = true
+  try {
+    const payload = buildPayload()
+    if (editingUserId.value) {
+      await api.update<any>('access/users', editingUserId.value, payload)
+      feedback.updated('User')
+    } else {
+      await api.create<any>('access/users', payload)
+      feedback.saved('User')
+    }
+
+    formOpen.value = false
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not save user', error)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function savePasswordReset() {
+  if (!pendingReset.value || !resetPassword.value) {
+    feedback.failed('Enter a new password')
+    return
+  }
+
+  resetting.value = true
+  try {
+    await api.update<any>('access/users', pendingReset.value.id, payloadForUser(pendingReset.value, resetPassword.value))
+    feedback.updated('Password')
+    resetOpen.value = false
+    pendingReset.value = null
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not reset password', error)
+  } finally {
+    resetting.value = false
+  }
+}
+
+async function confirmDelete() {
+  if (!pendingDelete.value) {
+    return
+  }
+
+  deleting.value = true
+  try {
+    await api.remove('access/users', pendingDelete.value.id)
+    feedback.deleted('User')
+    deleteOpen.value = false
+    pendingDelete.value = null
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not delete user', error)
+  } finally {
+    deleting.value = false
+  }
+}
+
+function roleValue(label: string) {
+  return roleOptions.find((item) => compact(item.label) === compact(label))?.value ?? 5
+}
+
+function userTypeValue(label: string) {
+  return userTypeOptions.find((item) => compact(item.label) === compact(label))?.value ?? 6
+}
+
+function appOperationValue(label: string) {
+  return appOperationOptions.find((item) => compact(item.label) === compact(label))?.value ?? 2
+}
+
+function roleColor(role: string) {
+  const key = compact(role)
+  if (key === 'admin' || key === 'poweruser') {
+    return 'success'
+  }
+
+  if (key.includes('accountant')) {
+    return 'warning'
+  }
+
+  return key === 'member' ? 'neutral' : 'primary'
+}
+
+function scopeLabel(user: any) {
+  if (compact(user.appOperation) === 'all') {
+    return 'All'
+  }
+
+  const store = stores.value.find((item) => item.id === user.storeId)
+  if (store) {
+    return store.name || 'Store'
+  }
+
+  const group = storeGroups.value.find((item) => item.id === user.storeGroupId)
+  if (group) {
+    return group.name || 'Store Group'
+  }
+
+  const company = companies.value.find((item) => item.id === user.companyId)
+  return company?.name || user.appOperation || 'None'
+}
+
+function compact(value: string) {
+  return String(value || '').replaceAll(' ', '').toLowerCase()
+}
+
+onMounted(async () => {
+  auth.restore()
+  await refresh()
+})
+</script>
+
+<template>
+  <AuthScreen v-if="!isAuthenticated" @authenticated="refresh" />
+
+  <AppShell
+    v-else
+    title="Access"
+    :companies="companies"
+    :stores="stores"
+    @refresh="refresh"
+  >
+    <section class="planner-dashboard">
+      <UiModulePageHeader
+        title="Access"
+        description="Manage users, roles, admin permission, and company/store access scope."
+        icon="i-lucide-shield-check"
+        primary-label="New User"
+        primary-icon="i-lucide-user-plus"
+        @primary="startCreate"
+      >
+        <template #actions>
+          <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
+            {{ loading ? 'Loading' : `${users.length} users` }}
+          </UBadge>
+          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
+        </template>
+      </UiModulePageHeader>
+
+      <div class="planner-metric-grid">
+        <UCard v-for="metric in metrics" :key="metric.label" class="planner-metric-card">
+          <div class="planner-metric-body">
+            <UAvatar :icon="metric.icon" :color="metric.color" variant="subtle" />
+            <div>
+              <p>{{ metric.label }}</p>
+              <strong>{{ metric.value }}</strong>
+              <span>{{ metric.meta }}</span>
+            </div>
+          </div>
+        </UCard>
+      </div>
+
+      <UCard class="planner-card">
+        <template #header>
+          <div class="setup-list-header">
+            <div>
+              <h3>Users & Roles</h3>
+              <p>Role-wise access with scoped company and store permissions.</p>
+            </div>
+            <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
+          </div>
+        </template>
+
+        <UiCrudToolbar
+          v-model:search="search"
+          search-placeholder="Search user, email, role, or scope"
+          :loading="loading"
+          refresh-label="Sync"
+          create-label="New User"
+          @refresh="refresh"
+          @create="startCreate"
+        />
+
+        <UTable
+          v-if="filteredRows.length"
+          :data="filteredRows"
+          :columns="columns"
+          :loading="loading"
+        />
+
+        <UiCrudEmptyState
+          v-else
+          title="No users found"
+          description="Create users here after the first admin setup is complete."
+          icon="i-lucide-shield-check"
+          action-label="New User"
+          @action="startCreate"
+        />
+      </UCard>
+
+      <UiFormSlideover
+        v-model:open="formOpen"
+        :title="editingUserId ? 'Edit User' : 'New User'"
+        :description="editingUserId ? 'Update role, scope, and optional password.' : 'Create a role-scoped application user.'"
+        submit-label="Save User"
+        :loading="saving"
+        @submit="saveUser"
+      >
+        <UFormField label="Name" required>
+          <UInput v-model="form.name" required />
+        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Username" required>
+            <UInput v-model="form.userName" required />
+          </UFormField>
+          <UFormField label="Email" required>
+            <UInput v-model="form.email" required type="email" />
+          </UFormField>
+        </div>
+        <UFormField :label="editingUserId ? 'New password' : 'Password'" :required="!editingUserId">
+          <UInput v-model="form.password" :required="!editingUserId" type="password" />
+        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Role">
+            <USelect v-model="form.role" :items="roleOptions" />
+          </UFormField>
+          <UFormField label="User type">
+            <USelect v-model="form.userType" :items="userTypeOptions" />
+          </UFormField>
+        </div>
+        <UFormField label="Operation scope">
+          <USelect v-model="form.appOperation" :items="appOperationOptions" />
+        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Company">
+            <USelect v-model="form.companyId" :items="companyOptions" />
+          </UFormField>
+          <UFormField label="Store group">
+            <USelect v-model="form.storeGroupId" :items="groupOptions" />
+          </UFormField>
+        </div>
+        <UFormField label="Store">
+          <USelect v-model="form.storeId" :items="storeOptions" />
+        </UFormField>
+        <UCheckbox v-model="form.admin" label="Admin access" />
+      </UiFormSlideover>
+
+      <UModal v-model:open="resetOpen" title="Reset Password" :ui="{ content: 'max-w-md' }">
+        <template #body>
+          <div class="modal-stack">
+            <UAlert
+              color="warning"
+              variant="subtle"
+              icon="i-lucide-key-round"
+              title="Password reset"
+              :description="`Set a new password for ${pendingReset?.userName || 'this user'}.`"
+            />
+            <UFormField label="New password" required>
+              <UInput v-model="resetPassword" required type="password" />
+            </UFormField>
+          </div>
+        </template>
+
+        <template #footer>
+          <div class="modal-actions">
+            <UButton color="neutral" variant="outline" label="Cancel" @click="resetOpen = false" />
+            <UButton icon="i-lucide-key-round" label="Reset Password" :loading="resetting" @click="savePasswordReset" />
+          </div>
+        </template>
+      </UModal>
+
+      <UiConfirmDeleteModal
+        v-model:open="deleteOpen"
+        title="Delete User"
+        :description="`Delete user ${pendingDelete?.userName || ''}?`"
+        :loading="deleting"
+        @confirm="confirmDelete"
+      />
+    </section>
+  </AppShell>
+</template>

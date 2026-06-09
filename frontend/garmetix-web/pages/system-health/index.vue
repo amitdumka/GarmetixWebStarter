@@ -22,6 +22,12 @@ const restoreOpen = ref(false)
 const restoring = ref(false)
 const restoreFile = ref<File | null>(null)
 const restoreConfirmation = ref('')
+const restorePreview = ref<any | null>(null)
+const previewingRestore = ref(false)
+const verifyingBackup = ref('')
+const previewingBackup = ref('')
+const verificationResult = ref<any | null>(null)
+const localRestorePreview = ref<any | null>(null)
 const cloudBackups = ref<any[]>([])
 const cloudStatus = ref<any | null>(null)
 const uploadingCloudBackup = ref('')
@@ -106,7 +112,11 @@ const backupRows = computed(() => backups.value.map((backup) => ({
   created: formatDateTime(backup.createdAtUtc),
   sourceLabel: backup.source === 'pre-restore'
     ? 'Safety'
-    : backup.source === 'scheduled' ? 'Scheduled' : 'Manual'
+    : backup.source === 'scheduled' ? 'Scheduled' : 'Manual',
+  integrityLabel: backup.hasChecksum && backup.hasManifest
+    ? 'Checksum + manifest'
+    : backup.hasChecksum ? 'Checksum only' : 'Legacy file',
+  checksumShort: backup.sha256 ? `${String(backup.sha256).slice(0, 10)}...` : '-'
 })))
 
 const cloudBackupRows = computed(() => cloudBackups.value.map((backup) => ({
@@ -206,6 +216,33 @@ async function deleteBackup(backup: any) {
   }
 }
 
+
+async function verifyBackup(backup: any) {
+  verifyingBackup.value = backup.fileName
+  verificationResult.value = null
+  try {
+    verificationResult.value = await api.get<any>(`backups/${encodeURIComponent(backup.fileName)}/verify`)
+    feedback.notify('Backup verification completed', verificationResult.value.message, verificationResult.value.status === 'ok' ? 'success' : 'warning')
+  } catch (error) {
+    feedback.failed('Could not verify backup', error)
+  } finally {
+    verifyingBackup.value = ''
+  }
+}
+
+async function previewLocalRestore(backup: any) {
+  previewingBackup.value = backup.fileName
+  localRestorePreview.value = null
+  try {
+    localRestorePreview.value = await api.create<any>(`backups/${encodeURIComponent(backup.fileName)}/restore/preview`, {})
+    feedback.notify('Restore preflight completed', localRestorePreview.value.message, localRestorePreview.value.status === 'ok' ? 'success' : 'warning')
+  } catch (error) {
+    feedback.failed('Could not run restore preflight', error)
+  } finally {
+    previewingBackup.value = ''
+  }
+}
+
 async function uploadBackupToDrive(backup: any) {
   uploadingCloudBackup.value = backup.fileName
   try {
@@ -289,12 +326,43 @@ async function restoreCloudBackup(backup: any) {
 function onRestoreFileChange(event: Event) {
   const input = event.target as HTMLInputElement
   restoreFile.value = input.files?.[0] || null
+  restorePreview.value = null
 }
 
 function beginRestore() {
   restoreFile.value = null
   restoreConfirmation.value = ''
+  restorePreview.value = null
   restoreOpen.value = true
+}
+
+async function previewUploadedRestore() {
+  if (!restoreFile.value) {
+    feedback.failed('Select a backup before preflight')
+    return
+  }
+
+  previewingRestore.value = true
+  restorePreview.value = null
+  try {
+    const form = new FormData()
+    form.append('file', restoreFile.value)
+    const response = await fetch(`${config.public.apiBase}/backups/restore/preview`, {
+      method: 'POST',
+      headers: api.authHeaders(),
+      body: form
+    })
+    if (!response.ok) {
+      throw new Error(await response.text())
+    }
+
+    restorePreview.value = await response.json()
+    feedback.notify('Restore preflight completed', restorePreview.value.message, restorePreview.value.status === 'ok' ? 'success' : 'warning')
+  } catch (error) {
+    feedback.failed('Restore preflight failed', error)
+  } finally {
+    previewingRestore.value = false
+  }
 }
 
 async function restoreDatabase() {
@@ -464,6 +532,7 @@ onMounted(async () => {
               { accessorKey: 'sourceLabel', header: 'Source' },
               { accessorKey: 'created', header: 'Created' },
               { accessorKey: 'size', header: 'Size' },
+              { accessorKey: 'integrityLabel', header: 'Integrity' },
               { id: 'actions', header: '' }
             ]"
           >
@@ -475,8 +544,32 @@ onMounted(async () => {
                 {{ row.original.sourceLabel }}
               </UBadge>
             </template>
+            <template #integrityLabel-cell="{ row }">
+              <div class="backup-integrity-cell">
+                <UBadge :color="row.original.hasChecksum ? 'success' : 'warning'" variant="subtle">
+                  {{ row.original.integrityLabel }}
+                </UBadge>
+                <small>{{ row.original.checksumShort }}</small>
+              </div>
+            </template>
             <template #actions-cell="{ row }">
               <div class="table-action-buttons">
+                <UButton
+                  color="success"
+                  variant="ghost"
+                  icon="i-lucide-shield-check"
+                  label="Verify"
+                  :loading="verifyingBackup === row.original.fileName"
+                  @click="verifyBackup(row.original)"
+                />
+                <UButton
+                  color="warning"
+                  variant="ghost"
+                  icon="i-lucide-list-checks"
+                  label="Preflight"
+                  :loading="previewingBackup === row.original.fileName"
+                  @click="previewLocalRestore(row.original)"
+                />
                 <UButton
                   color="neutral"
                   variant="ghost"
@@ -514,6 +607,27 @@ onMounted(async () => {
             action-label="Create Backup"
             @action="createBackup"
           />
+
+          <div v-if="verificationResult" class="mt-4">
+            <UAlert
+              :color="verificationResult.status === 'ok' ? 'success' : 'error'"
+              variant="subtle"
+              icon="i-lucide-shield-check"
+              :title="`Verification: ${verificationResult.fileName}`"
+              :description="`${verificationResult.message} SHA256: ${verificationResult.sha256 || 'missing'}`"
+            />
+          </div>
+
+          <div v-if="localRestorePreview" class="mt-4 restore-preview-box">
+            <UAlert
+              :color="localRestorePreview.status === 'ok' ? 'success' : 'error'"
+              variant="subtle"
+              icon="i-lucide-list-checks"
+              :title="`Restore preflight: ${localRestorePreview.fileName}`"
+              :description="localRestorePreview.message"
+            />
+            <pre>{{ localRestorePreview.previewLines?.join('\\n') }}</pre>
+          </div>
         </UCard>
 
         <UCard class="planner-card">
@@ -633,20 +747,68 @@ onMounted(async () => {
         <UFormField label="Type RESTORE to confirm" required>
           <UInput v-model="restoreConfirmation" autocomplete="off" placeholder="RESTORE" />
         </UFormField>
+        <div v-if="restorePreview" class="restore-preview-box">
+          <UAlert
+            :color="restorePreview.status === 'ok' ? 'success' : 'error'"
+            variant="subtle"
+            icon="i-lucide-list-checks"
+            :title="`Preflight: ${restorePreview.fileName}`"
+            :description="restorePreview.message"
+          />
+          <pre>{{ restorePreview.previewLines?.join('\\n') }}</pre>
+        </div>
       </div>
     </template>
     <template #footer>
       <div class="modal-actions">
         <UButton color="neutral" variant="outline" label="Cancel" :disabled="restoring" @click="restoreOpen = false" />
         <UButton
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-list-checks"
+          label="Preflight"
+          :loading="previewingRestore"
+          :disabled="!restoreFile"
+          @click="previewUploadedRestore"
+        />
+        <UButton
           color="error"
           icon="i-lucide-rotate-ccw"
           label="Restore Database"
           :loading="restoring"
-          :disabled="!restoreFile || restoreConfirmation !== 'RESTORE'"
+          :disabled="!restoreFile || restoreConfirmation !== 'RESTORE' || restorePreview?.status !== 'ok'"
           @click="restoreDatabase"
         />
       </div>
     </template>
   </UModal>
 </template>
+
+<style scoped>
+.backup-integrity-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.backup-integrity-cell small {
+  color: var(--ui-text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+.restore-preview-box {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.restore-preview-box pre {
+  max-height: 14rem;
+  overflow: auto;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  background: var(--ui-bg-muted);
+  color: var(--ui-text);
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+}
+</style>

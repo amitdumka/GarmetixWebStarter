@@ -1,0 +1,8 @@
+.env
+backups/*.sql
+backups/*.dump
+frontend/garmetix-web/node_modules/
+frontend/garmetix-web/.nuxt/
+frontend/garmetix-web/.output/
+backend/**/bin/
+backend/**/obj/

@@ -1,0 +1,15 @@
+# Example Caddy reverse proxy for Garmetix.
+# Replace the domain and start the app with docker-compose.prod.yml first.
+
+garmetix.example.com {
+  encode gzip zstd
+
+  header {
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    Referrer-Policy "strict-origin-when-cross-origin"
+  }
+
+  reverse_proxy /api/* localhost:3000
+  reverse_proxy localhost:3000
+}
