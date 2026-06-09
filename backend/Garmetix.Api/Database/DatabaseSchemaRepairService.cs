@@ -5,10 +5,97 @@ namespace Garmetix.Api.Database;
 
 public static class DatabaseSchemaRepairService
 {
-    public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
+    
+    public static async Task RepairGstReturnStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
+    {
+        // Keep this repair intentionally small and separate from the general schema repair.
+        // Older Docker volumes can have EF migration history marked as current while these
+        // GST draft tables are missing, so every GST draft endpoint calls this before querying.
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "GstReturnDrafts" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "CompanyId" uuid NOT NULL,
+                "CreatedBy" text NULL,
+                "Form" text NOT NULL DEFAULT '',
+                "Gstin" text NOT NULL DEFAULT '',
+                "ReturnPeriod" text NOT NULL DEFAULT '',
+                "Title" text NOT NULL DEFAULT '',
+                "Status" text NOT NULL DEFAULT 'Draft',
+                "PayloadJson" text NOT NULL DEFAULT '{}',
+                "LastPreviewIssuesJson" text NOT NULL DEFAULT '[]',
+                "RowCount" integer NOT NULL DEFAULT 0,
+                "TaxableValue" numeric(18,2) NOT NULL DEFAULT 0,
+                "IntegratedTax" numeric(18,2) NOT NULL DEFAULT 0,
+                "CentralTax" numeric(18,2) NOT NULL DEFAULT 0,
+                "StateTax" numeric(18,2) NOT NULL DEFAULT 0,
+                "Cess" numeric(18,2) NOT NULL DEFAULT 0,
+                "CreatedByUserId" uuid NULL,
+                "CreatedByUserName" text NOT NULL DEFAULT '',
+                "UpdatedByUserId" uuid NULL,
+                "UpdatedByUserName" text NOT NULL DEFAULT '',
+                "FiledAt" timestamp without time zone NULL,
+                "LockedAt" timestamp without time zone NULL,
+                CONSTRAINT "PK_GstReturnDrafts" PRIMARY KEY ("Id")
+            );
+            """, cancellationToken);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "GstReturnAuditEntries" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "CompanyId" uuid NOT NULL,
+                "CreatedBy" text NULL,
+                "DraftId" uuid NOT NULL,
+                "Form" text NOT NULL DEFAULT '',
+                "ReturnPeriod" text NOT NULL DEFAULT '',
+                "Gstin" text NOT NULL DEFAULT '',
+                "Action" text NOT NULL DEFAULT '',
+                "Summary" text NOT NULL DEFAULT '',
+                "ActorUserId" uuid NULL,
+                "ActorName" text NOT NULL DEFAULT '',
+                "DetailsJson" text NOT NULL DEFAULT '{}',
+                CONSTRAINT "PK_GstReturnAuditEntries" PRIMARY KEY ("Id")
+            );
+            """, cancellationToken);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "Title" text NOT NULL DEFAULT '';
+            ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "LastPreviewIssuesJson" text NOT NULL DEFAULT '[]';
+            ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "CreatedByUserId" uuid NULL;
+            ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "CreatedByUserName" text NOT NULL DEFAULT '';
+            ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "UpdatedByUserId" uuid NULL;
+            ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "UpdatedByUserName" text NOT NULL DEFAULT '';
+            ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "FiledAt" timestamp without time zone NULL;
+            ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "LockedAt" timestamp without time zone NULL;
+
+            ALTER TABLE "GstReturnAuditEntries" ADD COLUMN IF NOT EXISTS "ActorUserId" uuid NULL;
+            ALTER TABLE "GstReturnAuditEntries" ADD COLUMN IF NOT EXISTS "ActorName" text NOT NULL DEFAULT '';
+            ALTER TABLE "GstReturnAuditEntries" ADD COLUMN IF NOT EXISTS "DetailsJson" text NOT NULL DEFAULT '{}';
+            """, cancellationToken);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE INDEX IF NOT EXISTS "IX_GstReturnDrafts_CompanyId_Form_ReturnPeriod_Gstin" ON "GstReturnDrafts" ("CompanyId", "Form", "ReturnPeriod", "Gstin");
+            CREATE INDEX IF NOT EXISTS "IX_GstReturnDrafts_CompanyId_Status_UpdatedAt" ON "GstReturnDrafts" ("CompanyId", "Status", "UpdatedAt");
+            CREATE INDEX IF NOT EXISTS "IX_GstReturnAuditEntries_CompanyId_DraftId_CreatedAt" ON "GstReturnAuditEntries" ("CompanyId", "DraftId", "CreatedAt");
+            CREATE INDEX IF NOT EXISTS "IX_GstReturnAuditEntries_CompanyId_Form_ReturnPeriod" ON "GstReturnAuditEntries" ("CompanyId", "Form", "ReturnPeriod");
+            """, cancellationToken);
+
+        logger.LogInformation("GST return draft storage repair check completed.");
+    }
+
+public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
     {
         try
         {
+            await RepairGstReturnStorageAsync(db, logger, cancellationToken);
+
             // Some development databases may already have the migration recorded in
             // __EFMigrationsHistory but can still be missing columns when older ZIPs were
             // tested in between. These statements are idempotent and only add missing columns.

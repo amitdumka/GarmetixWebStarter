@@ -25,83 +25,26 @@ public static class GstReturnEndpoints
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
-        var logger = loggerFactory.CreateLogger("GstDraftStorageRepair");
-        try
+        await DatabaseSchemaRepairService.RepairGstReturnStorageAsync(
+            db,
+            loggerFactory.CreateLogger("GstDraftStorageRepair"),
+            cancellationToken);
+    }
+
+    private static bool IsMissingRelation(Exception ex)
+    {
+        for (var current = ex; current is not null; current = current.InnerException)
         {
-            await db.Database.ExecuteSqlRawAsync("""
-                CREATE TABLE IF NOT EXISTS "GstReturnDrafts" (
-                    "Id" uuid NOT NULL,
-                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
-                    "UpdatedAt" timestamp without time zone NULL,
-                    "Synced" boolean NOT NULL DEFAULT false,
-                    "Deleted" boolean NOT NULL DEFAULT false,
-                    "CompanyId" uuid NOT NULL,
-                    "CreatedBy" text NULL,
-                    "Form" text NOT NULL DEFAULT '',
-                    "Gstin" text NOT NULL DEFAULT '',
-                    "ReturnPeriod" text NOT NULL DEFAULT '',
-                    "Title" text NOT NULL DEFAULT '',
-                    "Status" text NOT NULL DEFAULT 'Draft',
-                    "PayloadJson" text NOT NULL DEFAULT '{}',
-                    "LastPreviewIssuesJson" text NOT NULL DEFAULT '[]',
-                    "RowCount" integer NOT NULL DEFAULT 0,
-                    "TaxableValue" numeric(18,2) NOT NULL DEFAULT 0,
-                    "IntegratedTax" numeric(18,2) NOT NULL DEFAULT 0,
-                    "CentralTax" numeric(18,2) NOT NULL DEFAULT 0,
-                    "StateTax" numeric(18,2) NOT NULL DEFAULT 0,
-                    "Cess" numeric(18,2) NOT NULL DEFAULT 0,
-                    "CreatedByUserId" uuid NULL,
-                    "CreatedByUserName" text NOT NULL DEFAULT '',
-                    "UpdatedByUserId" uuid NULL,
-                    "UpdatedByUserName" text NOT NULL DEFAULT '',
-                    "FiledAt" timestamp without time zone NULL,
-                    "LockedAt" timestamp without time zone NULL,
-                    CONSTRAINT "PK_GstReturnDrafts" PRIMARY KEY ("Id")
-                );
-
-                CREATE TABLE IF NOT EXISTS "GstReturnAuditEntries" (
-                    "Id" uuid NOT NULL,
-                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
-                    "UpdatedAt" timestamp without time zone NULL,
-                    "Synced" boolean NOT NULL DEFAULT false,
-                    "Deleted" boolean NOT NULL DEFAULT false,
-                    "CompanyId" uuid NOT NULL,
-                    "CreatedBy" text NULL,
-                    "DraftId" uuid NOT NULL,
-                    "Form" text NOT NULL DEFAULT '',
-                    "ReturnPeriod" text NOT NULL DEFAULT '',
-                    "Gstin" text NOT NULL DEFAULT '',
-                    "Action" text NOT NULL DEFAULT '',
-                    "Summary" text NOT NULL DEFAULT '',
-                    "ActorUserId" uuid NULL,
-                    "ActorName" text NOT NULL DEFAULT '',
-                    "DetailsJson" text NOT NULL DEFAULT '{}',
-                    CONSTRAINT "PK_GstReturnAuditEntries" PRIMARY KEY ("Id")
-                );
-
-                ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "Title" text NOT NULL DEFAULT '';
-                ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "LastPreviewIssuesJson" text NOT NULL DEFAULT '[]';
-                ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "CreatedByUserId" uuid NULL;
-                ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "CreatedByUserName" text NOT NULL DEFAULT '';
-                ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "UpdatedByUserId" uuid NULL;
-                ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "UpdatedByUserName" text NOT NULL DEFAULT '';
-                ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "FiledAt" timestamp without time zone NULL;
-                ALTER TABLE "GstReturnDrafts" ADD COLUMN IF NOT EXISTS "LockedAt" timestamp without time zone NULL;
-
-                ALTER TABLE "GstReturnAuditEntries" ADD COLUMN IF NOT EXISTS "ActorUserId" uuid NULL;
-                ALTER TABLE "GstReturnAuditEntries" ADD COLUMN IF NOT EXISTS "ActorName" text NOT NULL DEFAULT '';
-                ALTER TABLE "GstReturnAuditEntries" ADD COLUMN IF NOT EXISTS "DetailsJson" text NOT NULL DEFAULT '{}';
-
-                CREATE INDEX IF NOT EXISTS "IX_GstReturnDrafts_CompanyId_Form_ReturnPeriod_Gstin" ON "GstReturnDrafts" ("CompanyId", "Form", "ReturnPeriod", "Gstin");
-                CREATE INDEX IF NOT EXISTS "IX_GstReturnDrafts_CompanyId_Status_UpdatedAt" ON "GstReturnDrafts" ("CompanyId", "Status", "UpdatedAt");
-                CREATE INDEX IF NOT EXISTS "IX_GstReturnAuditEntries_CompanyId_DraftId_CreatedAt" ON "GstReturnAuditEntries" ("CompanyId", "DraftId", "CreatedAt");
-                CREATE INDEX IF NOT EXISTS "IX_GstReturnAuditEntries_CompanyId_Form_ReturnPeriod" ON "GstReturnAuditEntries" ("CompanyId", "Form", "ReturnPeriod");
-                """, cancellationToken);
+            var message = current.Message;
+            if (message.Contains("42P01", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("relation \"GstReturnDrafts\" does not exist", StringComparison.OrdinalIgnoreCase)
+                || message.Contains("relation \"GstReturnAuditEntries\" does not exist", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
         }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "GST draft storage repair failed. The endpoint may still fail until database migrations are applied manually.");
-        }
+
+        return false;
     }
 
     public static RouteGroupBuilder MapGstReturnEndpoints(this WebApplication app)
@@ -543,10 +486,22 @@ public static class GstReturnEndpoints
         }
 
         var limit = Math.Clamp(take ?? 50, 1, 200);
-        var rows = await query
-            .OrderByDescending(draft => draft.UpdatedAt ?? draft.CreatedAt)
-            .Take(limit)
-            .ToListAsync(cancellationToken);
+        List<GstReturnDraft> rows;
+        try
+        {
+            rows = await query
+                .OrderByDescending(draft => draft.UpdatedAt ?? draft.CreatedAt)
+                .Take(limit)
+                .ToListAsync(cancellationToken);
+        }
+        catch (Exception ex) when (IsMissingRelation(ex))
+        {
+            await EnsureGstDraftStorageAsync(db, loggerFactory, cancellationToken);
+            rows = await WorkspaceScope.ApplyTo(db.GstReturnDrafts.AsNoTracking(), context)
+                .OrderByDescending(draft => draft.UpdatedAt ?? draft.CreatedAt)
+                .Take(limit)
+                .ToListAsync(cancellationToken);
+        }
 
         return Results.Ok(rows.Select(ToSummary).ToList());
     }

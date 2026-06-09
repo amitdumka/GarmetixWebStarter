@@ -4,6 +4,7 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 
 ## Fixed
 
+- [x] GST Returns draft list still failed with `relation "GstReturnDrafts" does not exist` even after prior startup repair. Added a dedicated GST storage repair method, startup call, and endpoint retry before querying drafts.
 - [x] Docker publish compile error in `PasswordResetTokenService.cs` caused by missing parentheses around base64 padding switch expression. Fixed in `AllRemainingCore-CompileFix`.
 - [x] Docker publish compile errors in `WorkspaceScope.cs`, `SetupEndpoints.cs`, and `PurchaseEndpoints.cs`. Fixed enum qualification, unassigned local variable, and missing vendor payment method.
 - [x] API restart loop caused by EF Core `PendingModelChangesWarning` during startup auto-migration. Added runtime migration-warning handling and schema-drift repair.
