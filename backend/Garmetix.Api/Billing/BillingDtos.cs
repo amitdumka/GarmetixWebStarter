@@ -131,6 +131,11 @@ public sealed record ReceiptItemDto(
     decimal DiscountAmount,
     decimal TaxPercentage,
     decimal TaxAmount,
+    decimal? CgstAmount,
+    decimal? SgstAmount,
+    decimal? IgstAmount,
+    string? HsnCode,
+    string? Unit,
     decimal Amount);
 
 public sealed record ReceiptPaymentDto(

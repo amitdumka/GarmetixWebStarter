@@ -60,7 +60,8 @@ const moduleGroups = [
     items: [
       { to: '/', label: 'Overview', icon: 'i-lucide-layout-dashboard' },
       { to: '/reports', label: 'Reports', icon: 'i-lucide-file-text' },
-      { to: '/gst-returns', label: 'GST Returns', icon: 'i-lucide-file-json-2' }
+      { to: '/gst-returns', label: 'GST Returns', icon: 'i-lucide-file-json-2' },
+      { to: '/gst-reports', label: 'GST Reports', icon: 'i-lucide-table-properties' }
     ]
   },
   {

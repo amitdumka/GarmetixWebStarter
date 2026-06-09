@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using Garmetix.Api.Accounting;
 using Garmetix.Api.Database;
@@ -64,6 +66,12 @@ public static class GstReturnEndpoints
 
         group.MapGet("/from-books/gstr1", BuildGstr1FromBooksAsync);
         group.MapGet("/from-books/gstr3b", BuildGstr3BFromBooksAsync);
+        group.MapGet("/reports/hsn-summary", GetHsnSummaryReportAsync);
+        group.MapGet("/reports/hsn-summary/csv", DownloadHsnSummaryCsvAsync);
+        group.MapGet("/reports/tax-summary", GetTaxRateSummaryReportAsync);
+        group.MapGet("/reports/tax-summary/csv", DownloadTaxRateSummaryCsvAsync);
+        group.MapGet("/reports/invoice-register", GetInvoiceRegisterReportAsync);
+        group.MapGet("/reports/invoice-register/csv", DownloadInvoiceRegisterCsvAsync);
         group.MapGet("/accounting-summary", GetAccountingSummaryAsync);
         group.MapPost("/accounting-posting", PostAccountingAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/drafts/{id:guid}/accounting-posting", PostDraftAccountingAsync).RequireAuthorization(GarmetixPolicies.Edit);
@@ -294,6 +302,429 @@ public static class GstReturnEndpoints
         }
     }
 
+
+    private static async Task<IResult> GetHsnSummaryReportAsync(
+        Guid? companyId,
+        string returnPeriod,
+        string? direction,
+        GarmetixDbContext db,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var report = await BuildHsnSummaryReportAsync(companyId, returnPeriod, direction, db, context, cancellationToken);
+        return report.Match;
+    }
+
+    private static async Task<IResult> DownloadHsnSummaryCsvAsync(
+        Guid? companyId,
+        string returnPeriod,
+        string? direction,
+        GarmetixDbContext db,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var reportResult = await BuildHsnSummaryReportAsync(companyId, returnPeriod, direction, db, context, cancellationToken);
+        if (reportResult.Error is not null)
+        {
+            return reportResult.Error;
+        }
+
+        var report = reportResult.Report!;
+        var rows = new List<string[]>
+        {
+            new[] { "Serial", "Direction", "HSN", "Description", "UQC", "Rate", "Quantity", "Taxable", "CGST", "SGST", "IGST", "Tax", "Total" }
+        };
+        rows.AddRange(report.Rows.Select(row => new[]
+        {
+            row.SerialNumber.ToString(CultureInfo.InvariantCulture), row.Direction, row.HsnCode, row.Description, row.Uqc,
+            row.Rate.ToString("0.##", CultureInfo.InvariantCulture), row.Quantity.ToString("0.##", CultureInfo.InvariantCulture),
+            row.TaxableValue.ToString("0.00", CultureInfo.InvariantCulture), row.CgstAmount.ToString("0.00", CultureInfo.InvariantCulture),
+            row.SgstAmount.ToString("0.00", CultureInfo.InvariantCulture), row.IgstAmount.ToString("0.00", CultureInfo.InvariantCulture),
+            row.TaxAmount.ToString("0.00", CultureInfo.InvariantCulture), row.TotalValue.ToString("0.00", CultureInfo.InvariantCulture)
+        }));
+        return CsvFile(rows, $"Garmetix-HSN-Summary-{report.Direction}-{report.ReturnPeriod}.csv");
+    }
+
+    private static async Task<IResult> GetTaxRateSummaryReportAsync(
+        Guid? companyId,
+        string returnPeriod,
+        GarmetixDbContext db,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var report = await BuildTaxRateSummaryReportAsync(companyId, returnPeriod, db, context, cancellationToken);
+        return report.Match;
+    }
+
+    private static async Task<IResult> DownloadTaxRateSummaryCsvAsync(
+        Guid? companyId,
+        string returnPeriod,
+        GarmetixDbContext db,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var reportResult = await BuildTaxRateSummaryReportAsync(companyId, returnPeriod, db, context, cancellationToken);
+        if (reportResult.Error is not null)
+        {
+            return reportResult.Error;
+        }
+
+        var report = reportResult.Report!;
+        var rows = new List<string[]>
+        {
+            new[] { "Rate", "Sales Taxable", "Sales CGST", "Sales SGST", "Sales IGST", "Purchase Taxable", "Purchase CGST", "Purchase SGST", "Purchase IGST", "Net Tax Payable" }
+        };
+        rows.AddRange(report.Rows.Select(row => new[]
+        {
+            row.Rate.ToString("0.##", CultureInfo.InvariantCulture), row.SalesTaxableValue.ToString("0.00", CultureInfo.InvariantCulture),
+            row.SalesCgstAmount.ToString("0.00", CultureInfo.InvariantCulture), row.SalesSgstAmount.ToString("0.00", CultureInfo.InvariantCulture),
+            row.SalesIgstAmount.ToString("0.00", CultureInfo.InvariantCulture), row.PurchaseTaxableValue.ToString("0.00", CultureInfo.InvariantCulture),
+            row.PurchaseCgstAmount.ToString("0.00", CultureInfo.InvariantCulture), row.PurchaseSgstAmount.ToString("0.00", CultureInfo.InvariantCulture),
+            row.PurchaseIgstAmount.ToString("0.00", CultureInfo.InvariantCulture), row.NetTaxPayable.ToString("0.00", CultureInfo.InvariantCulture)
+        }));
+        return CsvFile(rows, $"Garmetix-GST-Tax-Summary-{report.ReturnPeriod}.csv");
+    }
+
+    private static async Task<IResult> GetInvoiceRegisterReportAsync(
+        Guid? companyId,
+        string returnPeriod,
+        string? direction,
+        GarmetixDbContext db,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var report = await BuildInvoiceRegisterReportAsync(companyId, returnPeriod, direction, db, context, cancellationToken);
+        return report.Match;
+    }
+
+    private static async Task<IResult> DownloadInvoiceRegisterCsvAsync(
+        Guid? companyId,
+        string returnPeriod,
+        string? direction,
+        GarmetixDbContext db,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var reportResult = await BuildInvoiceRegisterReportAsync(companyId, returnPeriod, direction, db, context, cancellationToken);
+        if (reportResult.Error is not null)
+        {
+            return reportResult.Error;
+        }
+
+        var report = reportResult.Report!;
+        var rows = new List<string[]>
+        {
+            new[] { "Direction", "Invoice", "Reference", "Date", "Party", "GSTIN", "Status", "Return", "Taxable", "CGST", "SGST", "IGST", "Tax", "Bill" }
+        };
+        rows.AddRange(report.Rows.Select(row => new[]
+        {
+            row.Direction, row.InvoiceNumber, row.ReferenceNumber ?? string.Empty, row.OnDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            row.PartyName, row.PartyGstin ?? string.Empty, row.InvoiceStatus, row.IsReturn ? "Yes" : "No",
+            row.TaxableValue.ToString("0.00", CultureInfo.InvariantCulture), row.CgstAmount.ToString("0.00", CultureInfo.InvariantCulture),
+            row.SgstAmount.ToString("0.00", CultureInfo.InvariantCulture), row.IgstAmount.ToString("0.00", CultureInfo.InvariantCulture),
+            row.TaxAmount.ToString("0.00", CultureInfo.InvariantCulture), row.BillAmount.ToString("0.00", CultureInfo.InvariantCulture)
+        }));
+        return CsvFile(rows, $"Garmetix-GST-Invoice-Register-{report.Direction}-{report.ReturnPeriod}.csv");
+    }
+
+    private static async Task<ReportResult<GstHsnSummaryReport>> BuildHsnSummaryReportAsync(
+        Guid? companyId,
+        string returnPeriod,
+        string? direction,
+        GarmetixDbContext db,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var scope = await ResolveGstReportScopeAsync(companyId, returnPeriod, db, context, cancellationToken);
+        if (scope.Error is not null)
+        {
+            return ReportResult<GstHsnSummaryReport>.Fail(scope.Error);
+        }
+
+        var normalizedDirection = NormalizeReportDirection(direction);
+        var rows = new List<GstHsnSummaryReportRow>();
+        if (normalizedDirection is "sales" or "both")
+        {
+            rows.AddRange(await BuildSalesHsnRowsAsync(scope.CompanyId, scope.Start, scope.End, db, context, cancellationToken));
+        }
+        if (normalizedDirection is "purchase" or "both")
+        {
+            rows.AddRange(await BuildPurchaseHsnRowsAsync(scope.CompanyId, scope.Start, scope.End, db, context, cancellationToken));
+        }
+
+        var ordered = rows
+            .GroupBy(row => new { row.Direction, row.HsnCode, row.Description, row.Uqc, row.Rate })
+            .OrderBy(group => group.Key.Direction)
+            .ThenBy(group => group.Key.HsnCode)
+            .ThenBy(group => group.Key.Rate)
+            .Select((group, index) => new GstHsnSummaryReportRow(
+                index + 1,
+                group.Key.Direction,
+                group.Key.HsnCode,
+                group.Key.Description,
+                group.Key.Uqc,
+                group.Key.Rate,
+                Round(group.Sum(row => row.Quantity)),
+                Round(group.Sum(row => row.TaxableValue)),
+                Round(group.Sum(row => row.CgstAmount)),
+                Round(group.Sum(row => row.SgstAmount)),
+                Round(group.Sum(row => row.IgstAmount)),
+                Round(group.Sum(row => row.TaxAmount)),
+                Round(group.Sum(row => row.TotalValue))))
+            .ToList();
+
+        var report = new GstHsnSummaryReport(
+            returnPeriod.Trim(), normalizedDirection, scope.Start, scope.End.AddDays(-1), ordered.Count,
+            Round(ordered.Sum(row => row.Quantity)), Round(ordered.Sum(row => row.TaxableValue)),
+            Round(ordered.Sum(row => row.CgstAmount)), Round(ordered.Sum(row => row.SgstAmount)), Round(ordered.Sum(row => row.IgstAmount)),
+            Round(ordered.Sum(row => row.TaxAmount)), Round(ordered.Sum(row => row.TotalValue)), ordered);
+        return ReportResult<GstHsnSummaryReport>.Ok(report);
+    }
+
+    private static async Task<ReportResult<GstTaxRateSummaryReport>> BuildTaxRateSummaryReportAsync(
+        Guid? companyId,
+        string returnPeriod,
+        GarmetixDbContext db,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var scope = await ResolveGstReportScopeAsync(companyId, returnPeriod, db, context, cancellationToken);
+        if (scope.Error is not null)
+        {
+            return ReportResult<GstTaxRateSummaryReport>.Fail(scope.Error);
+        }
+
+        var salesRows = await BuildSalesHsnRowsAsync(scope.CompanyId, scope.Start, scope.End, db, context, cancellationToken);
+        var purchaseRows = await BuildPurchaseHsnRowsAsync(scope.CompanyId, scope.Start, scope.End, db, context, cancellationToken);
+        var rates = salesRows.Select(row => row.Rate).Concat(purchaseRows.Select(row => row.Rate)).Distinct().OrderBy(rate => rate);
+        var rows = rates.Select(rate =>
+        {
+            var sales = salesRows.Where(row => row.Rate == rate).ToList();
+            var purchases = purchaseRows.Where(row => row.Rate == rate).ToList();
+            var salesTax = sales.Sum(row => row.CgstAmount + row.SgstAmount + row.IgstAmount);
+            var purchaseTax = purchases.Sum(row => row.CgstAmount + row.SgstAmount + row.IgstAmount);
+            return new GstTaxRateSummaryRow(
+                rate,
+                Round(sales.Sum(row => row.TaxableValue)), Round(sales.Sum(row => row.CgstAmount)), Round(sales.Sum(row => row.SgstAmount)), Round(sales.Sum(row => row.IgstAmount)),
+                Round(purchases.Sum(row => row.TaxableValue)), Round(purchases.Sum(row => row.CgstAmount)), Round(purchases.Sum(row => row.SgstAmount)), Round(purchases.Sum(row => row.IgstAmount)),
+                Round(salesTax - purchaseTax));
+        }).ToList();
+
+        var report = new GstTaxRateSummaryReport(
+            returnPeriod.Trim(), scope.Start, scope.End.AddDays(-1), rows.Count,
+            Round(rows.Sum(row => row.SalesTaxableValue)), Round(rows.Sum(row => row.SalesCgstAmount)), Round(rows.Sum(row => row.SalesSgstAmount)), Round(rows.Sum(row => row.SalesIgstAmount)),
+            Round(rows.Sum(row => row.PurchaseTaxableValue)), Round(rows.Sum(row => row.PurchaseCgstAmount)), Round(rows.Sum(row => row.PurchaseSgstAmount)), Round(rows.Sum(row => row.PurchaseIgstAmount)),
+            Round(rows.Sum(row => row.NetTaxPayable)), rows);
+        return ReportResult<GstTaxRateSummaryReport>.Ok(report);
+    }
+
+    private static async Task<ReportResult<GstInvoiceRegisterReport>> BuildInvoiceRegisterReportAsync(
+        Guid? companyId,
+        string returnPeriod,
+        string? direction,
+        GarmetixDbContext db,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var scope = await ResolveGstReportScopeAsync(companyId, returnPeriod, db, context, cancellationToken);
+        if (scope.Error is not null)
+        {
+            return ReportResult<GstInvoiceRegisterReport>.Fail(scope.Error);
+        }
+
+        var normalizedDirection = NormalizeReportDirection(direction);
+        var rows = new List<GstInvoiceRegisterRow>();
+        if (normalizedDirection is "sales" or "both")
+        {
+            var sales = await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context)
+                .Where(item => item.CompanyId == scope.CompanyId && item.OnDate >= scope.Start && item.OnDate < scope.End && item.InvoiceStatus != InvoiceStatus.Cancelled)
+                .OrderBy(item => item.OnDate)
+                .ThenBy(item => item.InvoiceNumber)
+                .ToListAsync(cancellationToken);
+            rows.AddRange(sales.Select(invoice =>
+            {
+                var sign = invoice.ReturnInvoice ? -1m : 1m;
+                return new GstInvoiceRegisterRow("Sales", invoice.InvoiceNumber, null, invoice.OnDate, invoice.CustomerName ?? "Walk-in Customer", invoice.CustomerGSTIN,
+                    invoice.InvoiceStatus.ToString(), invoice.ReturnInvoice, Round(sign * invoice.NetAmount), Round(sign * (invoice.CGSTAmount ?? invoice.TaxAmount / 2)),
+                    Round(sign * (invoice.SGSTAmount ?? invoice.TaxAmount / 2)), Round(sign * (invoice.IGSTAmount ?? 0)), Round(sign * invoice.TaxAmount), Round(sign * invoice.BillAmount));
+            }));
+        }
+        if (normalizedDirection is "purchase" or "both")
+        {
+            var purchases = await WorkspaceScope.ApplyTo(db.PurchaseInvoices.AsNoTracking(), context)
+                .Where(item => item.CompanyId == scope.CompanyId && item.OnDate >= scope.Start && item.OnDate < scope.End && item.InvoiceStatus != InvoiceStatus.Cancelled)
+                .OrderBy(item => item.OnDate)
+                .ThenBy(item => item.InvoiceNumber)
+                .ToListAsync(cancellationToken);
+            rows.AddRange(purchases.Select(invoice => new GstInvoiceRegisterRow("Purchase", invoice.InvoiceNumber, invoice.InwardNumber, invoice.OnDate, invoice.VendorName ?? "Vendor", invoice.VendorGSTIN,
+                invoice.InvoiceStatus.ToString(), invoice.ReturnInvoice, Round(invoice.NetAmount), Round(invoice.CGSTAmount ?? invoice.TaxAmount / 2),
+                Round(invoice.SGSTAmount ?? invoice.TaxAmount / 2), Round(invoice.IGSTAmount ?? 0), Round(invoice.TaxAmount), Round(invoice.BillAmount))));
+        }
+
+        var orderedRows = rows.OrderBy(row => row.OnDate).ThenBy(row => row.Direction).ThenBy(row => row.InvoiceNumber).ToList();
+        var report = new GstInvoiceRegisterReport(
+            returnPeriod.Trim(), normalizedDirection, scope.Start, scope.End.AddDays(-1), orderedRows.Count,
+            Round(orderedRows.Sum(row => row.TaxableValue)), Round(orderedRows.Sum(row => row.CgstAmount)), Round(orderedRows.Sum(row => row.SgstAmount)),
+            Round(orderedRows.Sum(row => row.IgstAmount)), Round(orderedRows.Sum(row => row.TaxAmount)), Round(orderedRows.Sum(row => row.BillAmount)), orderedRows);
+        return ReportResult<GstInvoiceRegisterReport>.Ok(report);
+    }
+
+    private static async Task<List<GstHsnSummaryReportRow>> BuildSalesHsnRowsAsync(
+        Guid companyId,
+        DateTime start,
+        DateTime end,
+        GarmetixDbContext db,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var invoices = await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context)
+            .Where(item => item.CompanyId == companyId && item.OnDate >= start && item.OnDate < end && item.InvoiceStatus != InvoiceStatus.Cancelled)
+            .ToListAsync(cancellationToken);
+        var invoiceIds = invoices.Select(item => item.Id).ToHashSet();
+        var invoiceLookup = invoices.ToDictionary(item => item.Id);
+        var items = await db.InvoiceItems.AsNoTracking()
+            .Include(item => item.Product)
+            .Where(item => invoiceIds.Contains(item.InvoiceId))
+            .ToListAsync(cancellationToken);
+        return items.Select(item =>
+        {
+            var invoice = invoiceLookup[item.InvoiceId];
+            var sign = invoice.ReturnInvoice ? -1m : 1m;
+            var igst = item.IGSTAmount ?? 0;
+            var cgst = item.CGSTAmount ?? 0;
+            var sgst = item.SGSTAmount ?? 0;
+            if (igst == 0 && cgst == 0 && sgst == 0)
+            {
+                SplitTax(item.TaxAmount, invoice.InterState, null, null, null, out igst, out cgst, out sgst);
+            }
+            return new GstHsnSummaryReportRow(0, "Sales", NormalizeHsn(item.HSNCode ?? item.Product?.HSNCode), item.ProductName ?? item.Product?.Name ?? item.Barcode,
+                UnitToUqc(item.Unit?.ToString()), item.TaxPercentage, Round(sign * item.BilledQuantity), Round(sign * item.BasePrice),
+                Round(sign * cgst), Round(sign * sgst), Round(sign * igst), Round(sign * item.TaxAmount), Round(sign * item.Amount));
+        }).ToList();
+    }
+
+    private static async Task<List<GstHsnSummaryReportRow>> BuildPurchaseHsnRowsAsync(
+        Guid companyId,
+        DateTime start,
+        DateTime end,
+        GarmetixDbContext db,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var invoices = await WorkspaceScope.ApplyTo(db.PurchaseInvoices.AsNoTracking(), context)
+            .Where(item => item.CompanyId == companyId && item.OnDate >= start && item.OnDate < end && item.InvoiceStatus != InvoiceStatus.Cancelled)
+            .ToListAsync(cancellationToken);
+        var invoiceIds = invoices.Select(item => item.Id).ToHashSet();
+        var invoiceLookup = invoices.ToDictionary(item => item.Id);
+        var items = await db.PurchaseInvoiceItems.AsNoTracking()
+            .Include(item => item.Product)
+            .Where(item => invoiceIds.Contains(item.InvoiceId))
+            .ToListAsync(cancellationToken);
+        return items.Select(item =>
+        {
+            var invoice = invoiceLookup[item.InvoiceId];
+            var igst = item.IGSTAmount ?? 0;
+            var cgst = item.CGSTAmount ?? 0;
+            var sgst = item.SGSTAmount ?? 0;
+            if (igst == 0 && cgst == 0 && sgst == 0)
+            {
+                SplitTax(item.TaxAmount, invoice.InterState, null, null, null, out igst, out cgst, out sgst);
+            }
+            return new GstHsnSummaryReportRow(0, "Purchase", NormalizeHsn(item.HSNCode ?? item.Product?.HSNCode), item.ProductName ?? item.Product?.Name ?? item.Barcode,
+                UnitToUqc(item.Unit?.ToString()), item.TaxPercentage, Round(item.BilledQuantity), Round(item.BasePrice),
+                Round(cgst), Round(sgst), Round(igst), Round(item.TaxAmount), Round(item.Amount));
+        }).ToList();
+    }
+
+    private static async Task<GstReportScope> ResolveGstReportScopeAsync(
+        Guid? companyId,
+        string returnPeriod,
+        GarmetixDbContext db,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        if (!TryPeriodRange(returnPeriod, out var start, out var end))
+        {
+            return GstReportScope.Fail(Results.BadRequest(new { message = "Return period must be MMYYYY, for example 042026." }));
+        }
+
+        var selectedCompanyId = companyId ?? WorkspaceScope.ClaimGuid(context, "companyId");
+        if (!selectedCompanyId.HasValue)
+        {
+            return GstReportScope.Fail(Results.BadRequest(new { message = "Select a company before generating GST reports." }));
+        }
+
+        var companyExists = await WorkspaceScope.ApplyTo(db.Companies.AsNoTracking(), context)
+            .AnyAsync(item => item.Id == selectedCompanyId.Value, cancellationToken);
+        if (!companyExists)
+        {
+            return GstReportScope.Fail(Results.BadRequest(new { message = "Selected company is outside your access scope." }));
+        }
+
+        return GstReportScope.Ok(selectedCompanyId.Value, start, end);
+    }
+
+    private static string NormalizeReportDirection(string? value)
+    {
+        var normalized = (value ?? "both").Trim().ToLowerInvariant();
+        return normalized is "sale" or "sales" or "outward" ? "sales"
+            : normalized is "purchase" or "purchases" or "inward" ? "purchase"
+            : "both";
+    }
+
+    private static string NormalizeHsn(string? value)
+    {
+        var cleaned = new string((value ?? string.Empty).Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
+        return string.IsNullOrWhiteSpace(cleaned) ? "0000" : cleaned;
+    }
+
+    private static string UnitToUqc(string? value)
+    {
+        var normalized = (value ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "meter" or "meters" or "metre" or "metres" or "mtr" => "MTR",
+            "kg" or "kilogram" or "kilograms" => "KGS",
+            "piece" or "pieces" or "pcs" or "pc" => "PCS",
+            "pair" or "pairs" => "PRS",
+            "set" or "sets" => "SET",
+            "nos" or "number" or "numbers" => "NOS",
+            _ => "NOS"
+        };
+    }
+
+    private static IResult CsvFile(IEnumerable<string[]> rows, string fileName)
+    {
+        var builder = new StringBuilder();
+        foreach (var row in rows)
+        {
+            builder.AppendLine(string.Join(',', row.Select(CsvCell)));
+        }
+        return Results.File(Encoding.UTF8.GetBytes(builder.ToString()), "text/csv", fileName);
+    }
+
+    private static string CsvCell(string? value)
+    {
+        value ??= string.Empty;
+        var escaped = value.Replace("\"", "\"\"");
+        return escaped.Contains(',') || escaped.Contains('"') || escaped.Contains('\n') || escaped.Contains('\r') ? $"\"{escaped}\"" : escaped;
+    }
+
+    private static decimal Round(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
+
+    private sealed record GstReportScope(Guid CompanyId, DateTime Start, DateTime End, IResult? Error)
+    {
+        public static GstReportScope Ok(Guid companyId, DateTime start, DateTime end) => new(companyId, start, end, null);
+        public static GstReportScope Fail(IResult error) => new(Guid.Empty, default, default, error);
+    }
+
+    private sealed record ReportResult<T>(T? Report, IResult? Error)
+    {
+        public IResult Match => Error ?? Results.Ok(Report);
+        public static ReportResult<T> Ok(T report) => new(report, null);
+        public static ReportResult<T> Fail(IResult error) => new(default, error);
+    }
+
     private static async Task<IResult> BuildGstr1FromBooksAsync(
         Guid? companyId,
         string returnPeriod,
@@ -343,7 +774,7 @@ public static class GstReturnEndpoints
 
             foreach (var line in invoiceItems)
             {
-                SplitTax(line.TaxAmount, interState, out var igst, out var cgst, out var sgst);
+                SplitTax(line.TaxAmount, interState, line.IGSTAmount, line.CGSTAmount, line.SGSTAmount, out var igst, out var cgst, out var sgst);
                 var taxable = line.BasePrice;
                 if (!string.IsNullOrWhiteSpace(invoice.CustomerGSTIN))
                 {
@@ -361,10 +792,11 @@ public static class GstReturnEndpoints
                         (existing?.CentralTax ?? 0) + cgst, (existing?.StateTax ?? 0) + sgst, 0);
                 }
 
-                var hsnCode = string.IsNullOrWhiteSpace(line.Product?.Barcode) ? "0000" : (line.Product?.Barcode ?? "0000");
-                var hsnKey = $"{hsnCode}|{line.TaxPercentage}";
+                var hsnCode = NormalizeHsn(line.HSNCode ?? line.Product?.HSNCode);
+                var uqc = UnitToUqc(line.Unit?.ToString());
+                var hsnKey = $"{hsnCode}|{line.TaxPercentage}|{uqc}";
                 hsnAccumulator.TryGetValue(hsnKey, out var hsn);
-                hsnAccumulator[hsnKey] = new Gstr1HsnSummaryRow(hsnAccumulator.Count + 1, hsnCode, line.Product?.Name ?? line.Barcode, "NOS",
+                hsnAccumulator[hsnKey] = new Gstr1HsnSummaryRow(hsnAccumulator.Count + 1, hsnCode, line.ProductName ?? line.Product?.Name ?? line.Barcode, uqc,
                     (hsn?.TotalQuantity ?? 0) + line.BilledQuantity, (hsn?.TotalValue ?? 0) + line.Amount,
                     (hsn?.TaxableValue ?? 0) + taxable, (hsn?.IntegratedTax ?? 0) + igst,
                     (hsn?.CentralTax ?? 0) + cgst, (hsn?.StateTax ?? 0) + sgst, 0);
@@ -440,11 +872,20 @@ public static class GstReturnEndpoints
 
     private static string? StateCode(string? gstin) => !string.IsNullOrWhiteSpace(gstin) && gstin.Trim().Length >= 2 ? gstin.Trim()[..2] : null;
 
-    private static void SplitTax(decimal tax, bool interState, out decimal igst, out decimal cgst, out decimal sgst)
+    private static void SplitTax(decimal tax, bool interState, decimal? storedIgst, decimal? storedCgst, decimal? storedSgst, out decimal igst, out decimal cgst, out decimal sgst)
     {
+        var hasStoredSplit = (storedIgst ?? 0) != 0 || (storedCgst ?? 0) != 0 || (storedSgst ?? 0) != 0;
+        if (hasStoredSplit)
+        {
+            igst = Math.Round(storedIgst ?? 0, 2);
+            cgst = Math.Round(storedCgst ?? 0, 2);
+            sgst = Math.Round(storedSgst ?? 0, 2);
+            return;
+        }
+
         if (interState)
         {
-            igst = tax;
+            igst = Math.Round(tax, 2);
             cgst = 0;
             sgst = 0;
             return;

@@ -16,6 +16,7 @@ const titleMap: Record<string, string> = {
   payroll: 'Payroll',
   reports: 'Reports',
   'gst-returns': 'GST Returns',
+  'gst-reports': 'GST Reports',
   audit: 'Audit',
   access: 'Access',
   'import-export': 'Import Export',

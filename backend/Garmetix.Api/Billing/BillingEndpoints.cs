@@ -267,6 +267,11 @@ public static class BillingEndpoints
                 item.DiscountAmount,
                 item.TaxPercentage,
                 item.TaxAmount,
+                item.CGSTAmount,
+                item.SGSTAmount,
+                item.IGSTAmount,
+                item.HSNCode ?? (item.Product != null ? item.Product.HSNCode : null),
+                item.Unit.HasValue ? item.Unit.Value.ToString() : null,
                 item.Amount))
             .ToListAsync(cancellationToken);
 
@@ -350,6 +355,11 @@ public static class BillingEndpoints
                 item.DiscountAmount,
                 item.TaxPercentage,
                 item.TaxAmount,
+                item.CGSTAmount,
+                item.SGSTAmount,
+                item.IGSTAmount,
+                item.HSNCode ?? (item.Product != null ? item.Product.HSNCode : null),
+                item.Unit.HasValue ? item.Unit.Value.ToString() : null,
                 item.Amount))
             .ToListAsync(cancellationToken);
 

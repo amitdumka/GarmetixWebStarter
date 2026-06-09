@@ -98,7 +98,7 @@ public static class PurchasePdfDocument
         foreach (var item in model.Items.Take(maxRows))
         {
             canvas.StrokeRect(left + 6, tableTop, bodyWidth - 12, rowHeight, 0.25, 0.82, 0.85, 0.88);
-            canvas.WrappedText(item.ProductName, left + 8, tableTop + 5, bodyWidth * (compact ? 0.39 : 0.36), 6.8, 1);
+            canvas.WrappedText(ItemPrintName(item), left + 8, tableTop + 5, bodyWidth * (compact ? 0.39 : 0.36), 6.8, compact ? 1 : 2);
             canvas.RightText(item.Quantity.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[2] - 4, tableTop + 5, 7, false, 0.08, 0.12, 0.18);
             canvas.RightText(item.Mrp.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[3] - 4, tableTop + 5, 7, false, 0.08, 0.12, 0.18);
             canvas.RightText(item.DiscountAmount.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[4] - 4, tableTop + 5, 7, false, 0.08, 0.12, 0.18);
@@ -182,15 +182,18 @@ public static class PurchasePdfDocument
 
         foreach (var item in model.Items)
         {
-            canvas.WrappedText(item.ProductName, left, top, bodyWidth, font, 2);
+            canvas.WrappedText(ItemPrintName(item), left, top, bodyWidth, font, 2);
             top += lineHeight * 1.7;
-            canvas.Text($"{item.Quantity:N2} x {item.Mrp:N2}", left, top, font, false, 0.08, 0.12, 0.18);
+            canvas.Text($"{item.Quantity:N2} x {item.Mrp:N2} | GST {item.TaxPercentage:N2}%", left, top, font, false, 0.08, 0.12, 0.18);
             canvas.RightText(item.Amount.ToString("N2", CultureInfo.InvariantCulture), left + bodyWidth, top, font, true, 0.08, 0.12, 0.18);
             top += lineHeight;
         }
 
         canvas.Line(left, top, left + bodyWidth, top, 0.4, 0.45, 0.49, 0.54);
         top += 6;
+        DrawThermalAmount(canvas, left, bodyWidth, ref top, "CGST", model.Items.Sum(item => item.CgstAmount ?? 0), font, lineHeight);
+        DrawThermalAmount(canvas, left, bodyWidth, ref top, "SGST", model.Items.Sum(item => item.SgstAmount ?? 0), font, lineHeight);
+        DrawThermalAmount(canvas, left, bodyWidth, ref top, "IGST", model.Items.Sum(item => item.IgstAmount ?? 0), font, lineHeight);
         DrawThermalAmount(canvas, left, bodyWidth, ref top, "Tax", model.TaxAmount, font, lineHeight);
         DrawThermalAmount(canvas, left, bodyWidth, ref top, "Freight", model.FreightAmount, font, lineHeight);
         DrawThermalAmount(canvas, left, bodyWidth, ref top, "Bill", model.BillAmount, font + 1, lineHeight, bold: true);
@@ -220,12 +223,16 @@ public static class PurchasePdfDocument
 
     private static void DrawTotals(PdfCanvas canvas, double left, double top, double width, PurchasePdfModel model)
     {
-        canvas.FillRect(left, top, width, 128, 0.95, 0.97, 0.98);
-        canvas.StrokeRect(left, top, width, 128, 0.4, 0.72, 0.75, 0.79);
+        const double boxHeight = 176;
+        canvas.FillRect(left, top, width, boxHeight, 0.95, 0.97, 0.98);
+        canvas.StrokeRect(left, top, width, boxHeight, 0.4, 0.72, 0.75, 0.79);
         var rowTop = top + 10;
         DrawAmount(canvas, left + 10, width - 20, rowTop, "MRP", model.MRP, 7); rowTop += 14;
         DrawAmount(canvas, left + 10, width - 20, rowTop, "Discount", model.DiscountAmount, 7); rowTop += 14;
         DrawAmount(canvas, left + 10, width - 20, rowTop, "Taxable", model.NetAmount, 7); rowTop += 14;
+        DrawAmount(canvas, left + 10, width - 20, rowTop, "CGST", model.Items.Sum(item => item.CgstAmount ?? 0), 7); rowTop += 14;
+        DrawAmount(canvas, left + 10, width - 20, rowTop, "SGST", model.Items.Sum(item => item.SgstAmount ?? 0), 7); rowTop += 14;
+        DrawAmount(canvas, left + 10, width - 20, rowTop, "IGST", model.Items.Sum(item => item.IgstAmount ?? 0), 7); rowTop += 14;
         DrawAmount(canvas, left + 10, width - 20, rowTop, "Tax", model.TaxAmount, 7); rowTop += 14;
         DrawAmount(canvas, left + 10, width - 20, rowTop, "Freight", model.FreightAmount, 7); rowTop += 14;
         DrawAmount(canvas, left + 10, width - 20, rowTop, "Round off", model.RoundOff, 7); rowTop += 15;
@@ -245,6 +252,16 @@ public static class PurchasePdfDocument
         canvas.Text(label, left, top, size, bold, 0.08, 0.12, 0.18);
         canvas.RightText(value.ToString("N2", CultureInfo.InvariantCulture), left + width, top, size, bold, 0.08, 0.12, 0.18);
         top += lineHeight;
+    }
+
+    private static string ItemPrintName(PurchaseReceiptItemDto item)
+    {
+        var details = string.Join(" | ", new[]
+        {
+            string.IsNullOrWhiteSpace(item.HsnCode) ? null : $"HSN {item.HsnCode}",
+            string.IsNullOrWhiteSpace(item.Unit) ? null : item.Unit
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+        return string.IsNullOrWhiteSpace(details) ? item.ProductName : $"{item.ProductName} ({details})";
     }
 
     private static string NormalizeFormat(string? value) => value?.Trim().ToLowerInvariant() switch

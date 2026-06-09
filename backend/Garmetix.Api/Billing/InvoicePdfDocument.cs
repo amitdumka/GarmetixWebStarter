@@ -110,7 +110,7 @@ public static class InvoicePdfDocument
         {
             canvas.StrokeRect(left + 6, tableTop, bodyWidth - 12, rowHeight, 0.25, 0.82, 0.85, 0.88);
             var x = left + 8;
-            canvas.WrappedText(item.ProductName, x, tableTop + 5, bodyWidth * (compact ? 0.39 : 0.36), 6.8, 1);
+            canvas.WrappedText(ItemPrintName(item), x, tableTop + 5, bodyWidth * (compact ? 0.39 : 0.36), 6.8, compact ? 1 : 2);
             canvas.RightText(item.Quantity.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[2] - 4, tableTop + 5, 7, false, 0.08, 0.12, 0.18);
             canvas.RightText(item.Mrp.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[3] - 4, tableTop + 5, 7, false, 0.08, 0.12, 0.18);
             canvas.RightText(item.DiscountAmount.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[4] - 4, tableTop + 5, 7, false, 0.08, 0.12, 0.18);
@@ -222,6 +222,9 @@ public static class InvoicePdfDocument
         top += 6;
         DrawThermalTotal(canvas, left, bodyWidth, top, "MRP", model.MRP, font); top += lineHeight;
         DrawThermalTotal(canvas, left, bodyWidth, top, "Discount", model.DiscountAmount, font); top += lineHeight;
+        DrawThermalTotal(canvas, left, bodyWidth, top, "CGST", model.Items.Sum(item => item.CgstAmount ?? 0), font); top += lineHeight;
+        DrawThermalTotal(canvas, left, bodyWidth, top, "SGST", model.Items.Sum(item => item.SgstAmount ?? 0), font); top += lineHeight;
+        DrawThermalTotal(canvas, left, bodyWidth, top, "IGST", model.Items.Sum(item => item.IgstAmount ?? 0), font); top += lineHeight;
         DrawThermalTotal(canvas, left, bodyWidth, top, "Tax", model.TaxAmount, font); top += lineHeight;
         DrawThermalTotal(canvas, left, bodyWidth, top, "Round off", model.RoundOff, font); top += lineHeight;
         DrawThermalTotal(canvas, left, bodyWidth, top, "Bill", model.BillAmount, font + 1, true); top += lineHeight + 2;
@@ -264,6 +267,9 @@ public static class InvoicePdfDocument
             ("MRP", model.MRP, false),
             ("Discount", model.DiscountAmount, false),
             ("Net taxable", model.NetAmount, false),
+            ("CGST", model.Items.Sum(item => item.CgstAmount ?? 0), false),
+            ("SGST", model.Items.Sum(item => item.SgstAmount ?? 0), false),
+            ("IGST", model.Items.Sum(item => item.IgstAmount ?? 0), false),
             ("Tax", model.TaxAmount, false),
             ("Round off", model.RoundOff, false),
             ("Bill amount", model.BillAmount, true),
@@ -286,6 +292,16 @@ public static class InvoicePdfDocument
     {
         canvas.Text(label, left, top, size, bold, 0.08, 0.12, 0.18);
         canvas.RightText(value.ToString("N2", CultureInfo.InvariantCulture), left + width, top, size, bold, 0.08, 0.12, 0.18);
+    }
+
+    private static string ItemPrintName(ReceiptItemDto item)
+    {
+        var details = string.Join(" | ", new[]
+        {
+            string.IsNullOrWhiteSpace(item.HsnCode) ? null : $"HSN {item.HsnCode}",
+            string.IsNullOrWhiteSpace(item.Unit) ? null : item.Unit
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+        return string.IsNullOrWhiteSpace(details) ? item.ProductName : $"{item.ProductName} ({details})";
     }
 
     private static string NormalizeFormat(string? value) => value?.Trim().ToLowerInvariant() switch
