@@ -207,3 +207,14 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [ ] Run real Oracle Cloud Free Tier connection test using wallet/TNS settings.
 - [ ] Connect one external app to Oracle hub and validate inbound event review/apply.
 - [ ] Enable auto-apply only for approved shared master entities after production ownership review.
+
+
+## Oracle Cloud Secondary Database Sync - v5
+
+- [x] Add Oracle external-app smoke test plan endpoint and UI support.
+- [x] Add guarded external-app smoke test that seeds a shared-master `Customer` event into Oracle and pulls it into Garmetix inbound review queue.
+- [x] Add scripts and SQL samples for an external app / SQL Developer smoke test.
+- [x] Keep smoke test safe by restricting default test to shared master data and review queue, not transactional/GST/accounting data.
+- [ ] Run the external-app smoke test against the real Oracle Cloud Free Tier database.
+- [ ] Connect a real second app and validate one actual inbound shared-master event.
+- [ ] Decide final auto-apply entities after real-app ownership review.

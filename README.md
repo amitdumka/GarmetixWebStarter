@@ -362,3 +362,16 @@ Shared master entities can be applied after review. Transactional, GST, stock, l
 Oracle Sync now includes a cloud-readiness panel and a trusted auto-apply policy for shared master data. PostgreSQL remains the primary transactional database. Oracle Cloud Free Tier can be used as a common hub for other apps.
 
 Auto-apply is intentionally allowlist based. Configure `ORACLE_SYNC_AUTO_APPLY_ENTITIES` and `ORACLE_SYNC_TRUSTED_SOURCES`, then keep `ORACLE_SYNC_APPLY_INBOUND_AUTOMATICALLY=false` until manual pull/apply testing is complete.
+
+
+### Oracle Sync v5 external-app smoke test
+
+The Oracle Sync admin page includes **External App Test**. It seeds one shared-master `Customer` event into the Oracle hub using `SOURCE_APPLICATION=ExternalAppSmokeTest`, pulls it back into the Garmetix inbound review queue, and leaves it for admin apply/reject review.
+
+Related files:
+
+- `backend/Oracle-Secondary-Sync-v5-External-App-Test-Notes.md`
+- `tools/oracle-external-app-simulator/README.md`
+- `tools/oracle-external-app-simulator/insert-sample-customer-event.sql`
+- `scripts/oracle-external-app-smoke-test.ps1`
+- `scripts/oracle-external-app-smoke-test.sh`

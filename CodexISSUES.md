@@ -44,3 +44,10 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 - Area: Backend / Oracle Secondary Sync
 - Symptom: Oracle ownership/apply code referenced helper methods such as `BuildOwnershipMatrix`, `ResolveOwnership`, `ShouldKeepLocalVersion`, and scalar copy helpers that were not present in the extracted v3 service file.
 - Fix: Restored the missing helper methods while implementing Oracle Sync v4 readiness and trusted auto-apply controls.
+
+
+## OPEN - Oracle external app test kit pending real credentials
+
+- Status: Open
+- Area: Oracle Secondary Sync
+- Note: Code and UI now provide a safe external-app smoke test, but a real Oracle Cloud Free Tier wallet/connection and one external connected app still need to be tested on the developer environment.

@@ -17,6 +17,7 @@ public static class OracleSecondarySyncEndpoints
         group.MapGet("/ownership", OwnershipAsync);
         group.MapGet("/cloud-readiness", CloudReadinessAsync);
         group.MapGet("/auto-apply-policy", AutoApplyPolicyAsync);
+        group.MapGet("/external-app-test-plan", ExternalAppTestPlanAsync);
         group.MapGet("/dead-letters", DeadLettersAsync);
         group.MapPost("/test", TestAsync);
         group.MapPost("/repair", RepairAsync);
@@ -25,6 +26,7 @@ public static class OracleSecondarySyncEndpoints
         group.MapPost("/inbound/{id:guid}/apply", ApplyInboundAsync);
         group.MapPost("/inbound/{id:guid}/reject", RejectInboundAsync);
         group.MapPost("/inbound/auto-apply", AutoApplyInboundAsync);
+        group.MapPost("/external-app-test", ExternalAppTestAsync);
         group.MapPost("/dead-letters/{id:guid}/retry", RetryDeadLetterAsync);
         group.MapPost("/dead-letters/{id:guid}/resolve", ResolveDeadLetterAsync);
 
@@ -66,6 +68,11 @@ public static class OracleSecondarySyncEndpoints
     private static IResult AutoApplyPolicyAsync(OracleSecondarySyncService service)
     {
         return Results.Ok(service.GetAutoApplyPolicy());
+    }
+
+    private static IResult ExternalAppTestPlanAsync(OracleSecondarySyncService service)
+    {
+        return Results.Ok(service.GetExternalAppTestPlan());
     }
 
     private static async Task<IResult> DeadLettersAsync(
@@ -149,6 +156,15 @@ public static class OracleSecondarySyncEndpoints
     {
         var result = await service.AutoApplyPendingInboundAsync(request.EntityName, request.Take, cancellationToken);
         return Results.Ok(result);
+    }
+
+    private static async Task<IResult> ExternalAppTestAsync(
+        OracleExternalAppSmokeTestRequest request,
+        OracleSecondarySyncService service,
+        CancellationToken cancellationToken)
+    {
+        var result = await service.RunExternalAppSmokeTestAsync(request, cancellationToken);
+        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
     }
 
     private static async Task<IResult> RetryDeadLetterAsync(

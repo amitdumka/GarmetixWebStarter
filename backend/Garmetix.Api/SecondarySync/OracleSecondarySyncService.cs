@@ -1,3 +1,4 @@
+using Garmetix.Core.Enums;
 using Garmetix.Core.Interfaces;
 using Garmetix.Core.Models.Accounting;
 using Garmetix.Core.Models.Authentication;
@@ -410,6 +411,182 @@ public sealed class OracleSecondarySyncService(
         return new OracleInboundApplyResult(true, "Inbound event rejected.", id, stored.Value.Row.EntityName, stored.Value.Row.EntityId, "Rejected");
     }
 
+
+    public OracleExternalAppTestPlanDto GetExternalAppTestPlan()
+    {
+        return new OracleExternalAppTestPlanDto(
+            true,
+            "Validate a real Oracle Cloud Free Tier connection and prove that one external app can write a shared-master event into the Oracle hub for Garmetix review/apply.",
+            [
+                "Configure ORACLE_SYNC_CONNECTION_STRING and wallet/TNS_ADMIN if using Autonomous Database.",
+                "Open /oracle-sync and run Test Oracle.",
+                "Run Repair Storage to create GARMETIX_SYNC_EVENTS, GARMETIX_SYNC_STATE, and GARMETIX_SYNC_DEAD_LETTERS.",
+                "Run External App Test to seed a Customer event with SourceApplication=ExternalAppSmokeTest.",
+                "Run Pull or let the test pull automatically.",
+                "Review the inbound queue and apply/reject the event according to the ownership matrix."
+            ],
+            [
+                "ORACLE_SYNC_ENABLED=true",
+                "ORACLE_SYNC_CONNECTION_STRING=User Id=...;Password=...;Data Source=...",
+                "ORACLE_SYNC_TNS_ADMIN=/app/secrets/oracle-wallet for Autonomous Database wallet connections",
+                "ORACLE_SYNC_DIRECTION=Bidirectional or PullFromOracle for inbound queue tests"
+            ],
+            [
+                "The test uses Customer by default because Customer is shared master data and inbound review is allowed.",
+                "The test source application is ExternalAppSmokeTest, which is never equal to GarmetixWeb, so pull logic treats it as external.",
+                "The test does not auto-apply to PostgreSQL; it queues the event for admin review unless auto-apply policy is explicitly enabled."
+            ],
+            [nameof(Customer), nameof(Vendor), nameof(Product), nameof(ProductCategory), nameof(ProductSubCategory), nameof(Employee)]);
+    }
+
+    public async Task<OracleExternalAppSmokeTestResult> RunExternalAppSmokeTestAsync(
+        OracleExternalAppSmokeTestRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var current = options.CurrentValue;
+        var steps = new List<OracleSmokeTestStep>();
+        var sourceApplication = string.IsNullOrWhiteSpace(request.SourceApplication)
+            ? "ExternalAppSmokeTest"
+            : request.SourceApplication.Trim();
+        var entityName = string.IsNullOrWhiteSpace(request.EntityName) ? nameof(Customer) : request.EntityName.Trim();
+        var entityId = Guid.TryParse(request.EntityId, out var parsedId) ? parsedId : Guid.NewGuid();
+
+        if (!SupportedEntities.ContainsKey(entityName))
+        {
+            return new OracleExternalAppSmokeTestResult(
+                false,
+                $"Entity '{entityName}' is not supported by Oracle Sync.",
+                sourceApplication,
+                entityName,
+                entityId.ToString("D"),
+                null,
+                false,
+                0,
+                0,
+                "Unsupported entity",
+                [new OracleSmokeTestStep("Validate entity", false, "Unsupported entity", entityName)]);
+        }
+
+        if (!IsSharedMasterEntity(entityName))
+        {
+            return new OracleExternalAppSmokeTestResult(
+                false,
+                "External app smoke test is limited to shared master entities so it does not create transactional or accounting data by accident.",
+                sourceApplication,
+                entityName,
+                entityId.ToString("D"),
+                null,
+                false,
+                0,
+                0,
+                "Entity is not shared master data",
+                [new OracleSmokeTestStep("Validate entity ownership", false, "Only shared master entities can be used for this test.", entityName)]);
+        }
+
+        if (string.IsNullOrWhiteSpace(current.ConnectionString))
+        {
+            return new OracleExternalAppSmokeTestResult(
+                false,
+                "Oracle connection string is not configured.",
+                sourceApplication,
+                entityName,
+                entityId.ToString("D"),
+                null,
+                false,
+                0,
+                0,
+                "Missing Oracle connection string",
+                [new OracleSmokeTestStep("Validate configuration", false, "Set ORACLE_SYNC_CONNECTION_STRING first.")]);
+        }
+
+        Guid? oracleEventId = null;
+        var pulledToInbound = 0;
+        var inboundCount = 0;
+
+        try
+        {
+            using var scope = scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<GarmetixDbContext>();
+            await OracleSecondarySyncLocalStore.RepairAsync(db, cancellationToken);
+            steps.Add(new OracleSmokeTestStep("Repair local sync storage", true, "Local Oracle sync state/inbound/dead-letter tables are ready."));
+
+            await using var oracleConnection = CreateConnection(current);
+            await oracleConnection.OpenAsync(cancellationToken);
+            steps.Add(new OracleSmokeTestStep("Connect to Oracle", true, "Oracle connection opened."));
+
+            if (request.RepairFirst || current.CreateOracleSchema)
+            {
+                await EnsureOracleSchemaAsync(oracleConnection, current, cancellationToken);
+                steps.Add(new OracleSmokeTestStep("Repair Oracle hub schema", true, "Oracle hub tables and indexes are ready."));
+            }
+
+            var versionUtc = DateTimeOffset.UtcNow;
+            var payloadJson = await BuildExternalAppSmokePayloadAsync(db, current, entityName, entityId, sourceApplication, versionUtc, cancellationToken);
+            var payloadHash = Hash(payloadJson);
+            oracleEventId = DeterministicGuid($"{current.TenantId}|{sourceApplication}|{entityName}|{entityId:D}|{versionUtc:O}|Upsert|{payloadHash}");
+
+            await UpsertOracleEventForSourceAsync(
+                oracleConnection,
+                current,
+                oracleEventId.Value,
+                sourceApplication,
+                entityName,
+                entityId,
+                "Upsert",
+                versionUtc,
+                payloadJson,
+                payloadHash,
+                cancellationToken);
+            steps.Add(new OracleSmokeTestStep("Seed external app event", true, $"Seeded {entityName} event {oracleEventId:D} from {sourceApplication}."));
+
+            if (request.PullAfterSeed)
+            {
+                var before = await OracleSecondarySyncLocalStore.GetInboundEventsAsync(db, 200, null, cancellationToken);
+                var pullResult = await RunOnceAsync(entityName, repairFirst: request.RepairFirst, directionOverride: "PullFromOracle", cancellationToken);
+                var after = await OracleSecondarySyncLocalStore.GetInboundEventsAsync(db, 200, null, cancellationToken);
+                inboundCount = after.Count;
+                pulledToInbound = Math.Max(0, after.Count - before.Count);
+                steps.Add(new OracleSmokeTestStep(
+                    "Pull seeded event",
+                    pullResult.Success,
+                    pullResult.Success
+                        ? $"Pull completed. {pullResult.TotalPulled} event(s) reported by sync run."
+                        : "Pull completed with errors.",
+                    pullResult.Error));
+            }
+
+            return new OracleExternalAppSmokeTestResult(
+                true,
+                "Oracle external app smoke test completed. Review the inbound queue before applying any pulled event.",
+                sourceApplication,
+                entityName,
+                entityId.ToString("D"),
+                oracleEventId?.ToString("D"),
+                true,
+                pulledToInbound,
+                inboundCount,
+                null,
+                steps);
+        }
+        catch (Exception ex) when (ex is OracleException or InvalidOperationException or TimeoutException or DbUpdateException or JsonException)
+        {
+            steps.Add(new OracleSmokeTestStep("External app smoke test failed", false, "The Oracle Free Tier / external-app test could not complete.", ex.Message));
+            logger.LogWarning(ex, "Oracle external app smoke test failed.");
+            return new OracleExternalAppSmokeTestResult(
+                false,
+                "Oracle external app smoke test failed.",
+                sourceApplication,
+                entityName,
+                entityId.ToString("D"),
+                oracleEventId?.ToString("D"),
+                oracleEventId is not null,
+                pulledToInbound,
+                inboundCount,
+                ex.Message,
+                steps);
+        }
+    }
+
     public async Task<OracleSecondarySyncRunResult> RunOnceAsync(
         string? entityName = null,
         bool repairFirst = true,
@@ -701,6 +878,222 @@ public sealed class OracleSecondarySyncService(
             await OracleSecondarySyncLocalStore.AddDeadLetterAsync(db, "PullFromOracle", null, "OracleHub", entityName, string.Empty, "Pull failed", null, ex.Message, cancellationToken);
             return new OracleEntitySyncResult(entityName, 0, 0, 0, null, ex.Message);
         }
+    }
+
+
+    private static async Task<string> BuildExternalAppSmokePayloadAsync(
+        GarmetixDbContext db,
+        OracleSecondarySyncOptions current,
+        string entityName,
+        Guid entityId,
+        string sourceApplication,
+        DateTimeOffset versionUtc,
+        CancellationToken cancellationToken)
+    {
+        var companyId = await db.Companies.IgnoreQueryFilters()
+            .OrderBy(company => company.CreatedAt)
+            .Select(company => company.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+        var storeGroupId = await db.StoreGroups.IgnoreQueryFilters()
+            .OrderBy(group => group.CreatedAt)
+            .Select(group => group.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+        var storeId = await db.Stores.IgnoreQueryFilters()
+            .OrderBy(store => store.CreatedAt)
+            .Select(store => store.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        object payload = entityName.Equals(nameof(Customer), StringComparison.OrdinalIgnoreCase)
+            ? new Customer
+            {
+                Id = entityId,
+                CompanyId = companyId,
+                Name = $"Oracle Smoke Customer {DateTime.UtcNow:yyyyMMddHHmmss}",
+                MobileNumber = "9999999999",
+                Email = "oracle-smoke@example.com",
+                Address = "Oracle External App Test Address",
+                City = "OracleCloud",
+                State = "Jharkhand",
+                Country = "India",
+                ZipCode = "814101",
+                Registred = true,
+                CreatedAt = versionUtc.UtcDateTime,
+                UpdatedAt = versionUtc.UtcDateTime,
+                Synced = true
+            }
+            : BuildGenericSharedMasterPayload(entityName, entityId, companyId, storeGroupId, storeId, versionUtc);
+
+        var envelope = new
+        {
+            tenantId = current.TenantId,
+            sourceApplication,
+            entityName,
+            entityId = entityId.ToString("D"),
+            operation = "Upsert",
+            versionUtc,
+            payload
+        };
+        return JsonSerializer.Serialize(envelope, JsonOptions);
+    }
+
+    private static object BuildGenericSharedMasterPayload(
+        string entityName,
+        Guid entityId,
+        Guid companyId,
+        Guid storeGroupId,
+        Guid storeId,
+        DateTimeOffset versionUtc)
+    {
+        if (entityName.Equals(nameof(Vendor), StringComparison.OrdinalIgnoreCase))
+        {
+            return new Vendor
+            {
+                Id = entityId,
+                CompanyId = companyId,
+                Name = $"Oracle Smoke Vendor {DateTime.UtcNow:yyyyMMddHHmmss}",
+                MobileNumber = "9999999999",
+                Address = "Oracle External App Test Address",
+                City = "OracleCloud",
+                Active = true,
+                CreatedAt = versionUtc.UtcDateTime,
+                UpdatedAt = versionUtc.UtcDateTime,
+                Synced = true
+            };
+        }
+
+        if (entityName.Equals(nameof(ProductCategory), StringComparison.OrdinalIgnoreCase))
+        {
+            return new ProductCategory
+            {
+                Id = entityId,
+                CompanyId = companyId,
+                Name = $"Oracle Smoke Category {DateTime.UtcNow:yyyyMMddHHmmss}",
+                CreatedAt = versionUtc.UtcDateTime,
+                UpdatedAt = versionUtc.UtcDateTime,
+                Synced = true
+            };
+        }
+
+        if (entityName.Equals(nameof(ProductSubCategory), StringComparison.OrdinalIgnoreCase))
+        {
+            return new ProductSubCategory
+            {
+                Id = entityId,
+                CompanyId = companyId,
+                Name = $"Oracle Smoke SubCategory {DateTime.UtcNow:yyyyMMddHHmmss}",
+                CreatedAt = versionUtc.UtcDateTime,
+                UpdatedAt = versionUtc.UtcDateTime,
+                Synced = true
+            };
+        }
+
+        if (entityName.Equals(nameof(Product), StringComparison.OrdinalIgnoreCase))
+        {
+            return new Product
+            {
+                Id = entityId,
+                CompanyId = companyId,
+                StoreGroupId = storeGroupId,
+                Name = $"Oracle Smoke Product {DateTime.UtcNow:yyyyMMddHHmmss}",
+                Barcode = $"OSM{DateTime.UtcNow:yyyyMMddHHmmss}",
+                MRP = 1,
+                TaxRate = 0,
+                Unit = Unit.Pcs,
+                CreatedAt = versionUtc.UtcDateTime,
+                UpdatedAt = versionUtc.UtcDateTime,
+                Synced = true
+            };
+        }
+
+        if (entityName.Equals(nameof(Employee), StringComparison.OrdinalIgnoreCase))
+        {
+            return new Employee
+            {
+                Id = entityId,
+                CompanyId = companyId,
+                StoreGroupId = storeGroupId,
+                StoreId = storeId,
+                FirstName = "Oracle",
+                LastName = $"Smoke {DateTime.UtcNow:HHmmss}",
+                Mobile = "9999999999",
+                Aadhar = "999999999999",
+                DateOfBirth = new DateTime(1990, 1, 1),
+                JoiningDate = versionUtc.UtcDateTime.Date,
+                Working = true,
+                CreatedAt = versionUtc.UtcDateTime,
+                UpdatedAt = versionUtc.UtcDateTime,
+                Synced = true
+            };
+        }
+
+        throw new InvalidOperationException($"Smoke-test payload builder is not implemented for {entityName}. Use Customer, Vendor, Product, ProductCategory, ProductSubCategory, or Employee.");
+    }
+
+    private static async Task UpsertOracleEventForSourceAsync(
+        OracleConnection connection,
+        OracleSecondarySyncOptions current,
+        Guid eventId,
+        string sourceApplication,
+        string entityName,
+        Guid entityId,
+        string operation,
+        DateTimeOffset versionUtc,
+        string payloadJson,
+        string payloadHash,
+        CancellationToken cancellationToken)
+    {
+        var prefix = BuildOracleSchemaPrefix(current.Schema);
+        await using var command = connection.CreateCommand();
+        command.BindByName = true;
+        command.CommandTimeout = current.CommandTimeoutSeconds;
+        command.CommandText = $"""
+            MERGE INTO {prefix}GARMETIX_SYNC_EVENTS target
+            USING (SELECT :P_EVENT_ID AS EVENT_ID FROM DUAL) source
+            ON (target.EVENT_ID = source.EVENT_ID)
+            WHEN MATCHED THEN UPDATE SET
+                PAYLOAD_JSON = :P_PAYLOAD_JSON,
+                PAYLOAD_HASH = :P_PAYLOAD_HASH,
+                VERSION_UTC = :P_VERSION_UTC,
+                SOURCE_APPLICATION = :P_SOURCE_APPLICATION,
+                APPLY_STATUS = 'Pending',
+                APPLY_ERROR = NULL,
+                APPLIED_UTC = NULL
+            WHEN NOT MATCHED THEN INSERT (
+                EVENT_ID,
+                TENANT_ID,
+                SOURCE_APPLICATION,
+                ENTITY_NAME,
+                ENTITY_ID,
+                OPERATION,
+                VERSION_UTC,
+                PAYLOAD_HASH,
+                PAYLOAD_JSON,
+                CREATED_UTC,
+                APPLY_STATUS
+            ) VALUES (
+                :P_EVENT_ID,
+                :P_TENANT_ID,
+                :P_SOURCE_APPLICATION,
+                :P_ENTITY_NAME,
+                :P_ENTITY_ID,
+                :P_OPERATION,
+                :P_VERSION_UTC,
+                :P_PAYLOAD_HASH,
+                :P_PAYLOAD_JSON,
+                SYS_EXTRACT_UTC(SYSTIMESTAMP),
+                'Pending'
+            )
+            """;
+        command.Parameters.Add(new OracleParameter("P_EVENT_ID", eventId.ToString("D")));
+        command.Parameters.Add(new OracleParameter("P_TENANT_ID", current.TenantId));
+        command.Parameters.Add(new OracleParameter("P_SOURCE_APPLICATION", sourceApplication));
+        command.Parameters.Add(new OracleParameter("P_ENTITY_NAME", entityName));
+        command.Parameters.Add(new OracleParameter("P_ENTITY_ID", entityId.ToString("D")));
+        command.Parameters.Add(new OracleParameter("P_OPERATION", operation));
+        command.Parameters.Add(new OracleParameter("P_VERSION_UTC", versionUtc.UtcDateTime));
+        command.Parameters.Add(new OracleParameter("P_PAYLOAD_HASH", payloadHash));
+        command.Parameters.Add(new OracleParameter("P_PAYLOAD_JSON", OracleDbType.Clob) { Value = payloadJson });
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private static OracleConnection CreateConnection(OracleSecondarySyncOptions current)

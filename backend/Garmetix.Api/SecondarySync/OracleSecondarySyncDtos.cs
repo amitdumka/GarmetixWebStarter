@@ -141,3 +141,37 @@ public sealed record OracleInboundAutoApplyResult(
     int Skipped,
     IReadOnlyList<OracleInboundApplyResult> Results);
 
+
+public sealed record OracleSmokeTestStep(
+    string Name,
+    bool Success,
+    string Message,
+    string? Error = null);
+
+public sealed record OracleExternalAppSmokeTestRequest(
+    string EntityName = "Customer",
+    string SourceApplication = "ExternalAppSmokeTest",
+    bool PullAfterSeed = true,
+    bool RepairFirst = true,
+    string? EntityId = null);
+
+public sealed record OracleExternalAppSmokeTestResult(
+    bool Success,
+    string Message,
+    string SourceApplication,
+    string EntityName,
+    string EntityId,
+    string? OracleEventId,
+    bool EventSeeded,
+    int PulledToInboundQueue,
+    int InboundQueueCount,
+    string? Error,
+    IReadOnlyList<OracleSmokeTestStep> Steps);
+
+public sealed record OracleExternalAppTestPlanDto(
+    bool CanRunFromGarmetix,
+    string Purpose,
+    string[] Steps,
+    string[] RequiredConfiguration,
+    string[] SafeDefaults,
+    string[] RecommendedEntities);
