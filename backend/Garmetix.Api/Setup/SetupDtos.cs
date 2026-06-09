@@ -38,7 +38,14 @@ public sealed record QuickProductRequest(
     Guid StoreId,
     Guid? ProductCategoryId,
     Guid? ProductSubCategoryId,
-    Guid? TaxId);
+    Guid? TaxId,
+    string? Descriptions = null,
+    string? HSNCode = null,
+    decimal? CostPrice = null,
+    Garmetix.Core.Enums.Unit? Unit = null,
+    Garmetix.Core.Enums.ProductType? ProductType = null,
+    Garmetix.Core.Enums.ProductGroup? ProductGroup = null,
+    Garmetix.Core.Enums.StockType? StockType = null);
 
 public sealed record AccountingDefaultsResponse(
     int LedgerGroupsCreated,

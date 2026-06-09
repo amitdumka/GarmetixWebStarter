@@ -227,3 +227,12 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Stage 2 backend posting foundation: populate sale/purchase item snapshots, calculate CGST/SGST/IGST split, create stock movement rows for sales, purchases, sales returns, exchanges, and purchase returns, store purchase payment allocations, preserve original purchase invoice values on cancellation.
 - [ ] Stage 3 UI completion: add full Product master form, customer/vendor picker, salesman selector, payment split form, card/UPI/cheque detail fields, apply advance/credit-note/loyalty redemption in billing, supplier invoice date/due date fields in purchase, and partial purchase return item-selection UI.
 - [ ] Stage 4 business hardening: sequence-safe invoice numbers, stock concurrency/row-locking, bill-level discount tax allocation, stock adjustment/transfer/physical count screens, stock valuation method, and automated test coverage.
+
+## Stage 3A Product Master - added 2026-06-08
+
+- Applied updated enum direction: obsolete `GarmentCategory` and legacy enum `ProductCategory`; added `ProductGroup`, corrected `ProductType.Readymade`, and added Tailoring/Trims/PromoItems/Shoes.
+- Added ProductGroup/StockType/category/subcategory metadata to inventory models and runtime schema repair.
+- Added `/api/inventory/product-master` endpoints for combined product + stock + product detail create/update.
+- Reworked Inventory page into Product Master UI with HSN, GST, group/type, category/subcategory, vendor, brand, style, color, cost, and stock type.
+- Pending validation: run `dotnet build`, `npm install`, and `npm run build` in the Windows/Docker dev environment.
+

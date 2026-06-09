@@ -28,6 +28,7 @@ namespace Garmetix.Core.Enums
         Barcode1D
     }
 
+    [Obsolete("Use ProductGroup")]
     public enum GarmentCategory
     { Fabric, ReadyMade, Accessories }
 
@@ -225,14 +226,75 @@ namespace Garmetix.Core.Enums
     public enum Permission
     { R, W, M, D, RW, RWM, RWMD, N, S }
 
+    [Obsolete("Use ProductType")]
     public enum ProductCategory
     { Fabric, Apparel, Accessories, Tailoring, Trims, PromoItems, Coupons, GiftVouchers, Others, SuitCovers, InnerWear, }
 
     /// <summary>
-    /// ProductType represents a type of a product
+    /// ProductType represents the commercial type of a product.
+    /// Keep explicit numeric values because ProductType is stored as an integer in existing databases.
     /// </summary>
     public enum ProductType
-    { Apparels, Clothing, Electronics, Fabric, Accessories, InnerWear, SuitCovers, FootWear, Readmade, Jewellery, Cosmetics, WinterWear, Others }
+    {
+        Apparels = 0,
+        Clothing = 1,
+        Electronics = 2,
+        Fabric = 3,
+        Accessories = 4,
+        InnerWear = 5,
+        SuitCovers = 6,
+        FootWear = 7,
+        Readymade = 8,
+        [Obsolete("Use Readymade")]
+        Readmade = Readymade,
+        Jewellery = 9,
+        Cosmetics = 10,
+        WinterWear = 11,
+        Tailoring = 12,
+        Trims = 13,
+        PromoItems = 14,
+        Shoes = 15,
+        Others = 16
+    }
+
+    /// <summary>
+    /// ProductGroup is the garment-specific merchandising group used for category grouping and filtering.
+    /// </summary>
+    public enum ProductGroup
+    {
+        Shirting = 0,
+        Suiting = 1,
+        Readymade = 2,
+        Sherwani = 3,
+        Suits = 4,
+        Blazers = 5,
+        Kurta = 6,
+        KurtaPajama = 7,
+        Pajama = 8,
+        Pagadi = 9,
+        Dupatta = 10,
+        PagadiDupattaSet = 11,
+        Brochs = 12,
+        Kalgi = 13,
+        Jodhpuri = 14,
+        WinterWear = 15,
+        InnerWear = 16,
+        Shoes = 17,
+        Nagra = 18,
+        Accessories = 19,
+        Others = 20
+    }
+
+    public enum StockType
+    {
+        Billed = 0,
+        Unbilled = 1,
+        Opening = 2,
+        Adjustment = 3,
+        Transfer = 4,
+        Damaged = 5,
+        Return = 6
+    }
 
     public enum PurchaseInvoiceType
     { Purchase, PurchaseReturn, }

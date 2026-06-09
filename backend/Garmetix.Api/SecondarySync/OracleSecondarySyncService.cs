@@ -20,6 +20,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using InventoryProductCategory = Garmetix.Core.Models.Inventory.ProductCategory;
+using InventoryProductSubCategory = Garmetix.Core.Models.Inventory.ProductSubCategory;
 
 namespace Garmetix.Api.SecondarySync;
 
@@ -43,8 +45,8 @@ public sealed class OracleSecondarySyncService(
         [nameof(Customer)] = typeof(Customer),
         [nameof(Vendor)] = typeof(Vendor),
         [nameof(Product)] = typeof(Product),
-        [nameof(ProductCategory)] = typeof(ProductCategory),
-        [nameof(ProductSubCategory)] = typeof(ProductSubCategory),
+        [nameof(InventoryProductCategory)] = typeof(InventoryProductCategory),
+        [nameof(InventoryProductSubCategory)] = typeof(InventoryProductSubCategory),
         [nameof(Stock)] = typeof(Stock),
         [nameof(Invoice)] = typeof(Invoice),
         [nameof(PurchaseInvoice)] = typeof(PurchaseInvoice),
@@ -436,7 +438,7 @@ public sealed class OracleSecondarySyncService(
                 "The test source application is ExternalAppSmokeTest, which is never equal to GarmetixWeb, so pull logic treats it as external.",
                 "The test does not auto-apply to PostgreSQL; it queues the event for admin review unless auto-apply policy is explicitly enabled."
             ],
-            [nameof(Customer), nameof(Vendor), nameof(Product), nameof(ProductCategory), nameof(ProductSubCategory), nameof(Employee)]);
+            [nameof(Customer), nameof(Vendor), nameof(Product), nameof(InventoryProductCategory), nameof(InventoryProductSubCategory), nameof(Employee)]);
     }
 
     public async Task<OracleExternalAppSmokeTestResult> RunExternalAppSmokeTestAsync(
@@ -961,9 +963,9 @@ public sealed class OracleSecondarySyncService(
             };
         }
 
-        if (entityName.Equals(nameof(ProductCategory), StringComparison.OrdinalIgnoreCase))
+        if (entityName.Equals(nameof(InventoryProductCategory), StringComparison.OrdinalIgnoreCase))
         {
-            return new ProductCategory
+            return new InventoryProductCategory
             {
                 Id = entityId,
                 CompanyId = companyId,
@@ -974,9 +976,9 @@ public sealed class OracleSecondarySyncService(
             };
         }
 
-        if (entityName.Equals(nameof(ProductSubCategory), StringComparison.OrdinalIgnoreCase))
+        if (entityName.Equals(nameof(InventoryProductSubCategory), StringComparison.OrdinalIgnoreCase))
         {
-            return new ProductSubCategory
+            return new InventoryProductSubCategory
             {
                 Id = entityId,
                 CompanyId = companyId,
@@ -1442,8 +1444,8 @@ public sealed class OracleSecondarySyncService(
             || entityName.Equals(nameof(Customer), StringComparison.OrdinalIgnoreCase)
             || entityName.Equals(nameof(Vendor), StringComparison.OrdinalIgnoreCase)
             || entityName.Equals(nameof(Product), StringComparison.OrdinalIgnoreCase)
-            || entityName.Equals(nameof(ProductCategory), StringComparison.OrdinalIgnoreCase)
-            || entityName.Equals(nameof(ProductSubCategory), StringComparison.OrdinalIgnoreCase)
+            || entityName.Equals(nameof(InventoryProductCategory), StringComparison.OrdinalIgnoreCase)
+            || entityName.Equals(nameof(InventoryProductSubCategory), StringComparison.OrdinalIgnoreCase)
             || entityName.Equals(nameof(Employee), StringComparison.OrdinalIgnoreCase);
     }
 
@@ -1625,9 +1627,12 @@ public sealed class OracleSecondarySyncService(
     {
         var updated = type.GetProperty("UpdatedAt");
         var created = type.GetProperty("CreatedAt");
-        var fallback = created is not null && created.PropertyType == typeof(DateTime)
-            ? Expression.Property(parameter, created)
-            : Expression.Constant(DateTime.MinValue);
+    //     var fallback = created is not null && created.PropertyType == typeof(DateTime)
+    //         ? Expression.Property(parameter, created)
+    //         : Expression.Constant(DateTime.MinValue);
+     Expression fallback = created is not null && created.PropertyType == typeof(DateTime)
+    ? Expression.Property(parameter, created)
+    : Expression.Constant(DateTime.MinValue);
 
         if (updated is null)
         {

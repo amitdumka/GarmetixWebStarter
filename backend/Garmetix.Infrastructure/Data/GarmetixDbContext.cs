@@ -33,9 +33,14 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Stock> Stocks => Set<Stock>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+    public DbSet<ProductDetail> ProductDetails => Set<ProductDetail>();
     public DbSet<Brand> Brands => Set<Brand>();
     public DbSet<ProductCategory> ProductCategories => Set<ProductCategory>();
     public DbSet<ProductSubCategory> ProductSubCategories => Set<ProductSubCategory>();
+    public DbSet<ProductAttribute> ProductAttributes => Set<ProductAttribute>();
+    public DbSet<ProductAttributeValue> ProductAttributeValues => Set<ProductAttributeValue>();
+    public DbSet<ProductTag> ProductTags => Set<ProductTag>();
+    public DbSet<ProductTagMapping> ProductTagMappings => Set<ProductTagMapping>();
     public DbSet<Tax> Taxes => Set<Tax>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Vendor> Vendors => Set<Vendor>();
@@ -130,7 +135,16 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
 
         modelBuilder.Entity<Company>().HasIndex(company => company.Name);
         modelBuilder.Entity<Store>().HasIndex(store => new { store.CompanyId, store.StoreGroupId, store.StoreCode }).IsUnique();
-        modelBuilder.Entity<Product>().HasIndex(product => product.Barcode);
+        modelBuilder.Entity<Product>().HasIndex(product => new { product.CompanyId, product.Barcode }).IsUnique(false);
+        modelBuilder.Entity<Product>().HasIndex(product => new { product.CompanyId, product.ProductGroup, product.ProductType });
+        modelBuilder.Entity<ProductCategory>().HasIndex(category => new { category.CompanyId, category.ProductGroup, category.Name }).IsUnique(false);
+        modelBuilder.Entity<ProductSubCategory>().HasIndex(category => new { category.CompanyId, category.CategoryId, category.Name }).IsUnique(false);
+        modelBuilder.Entity<ProductDetail>().HasIndex(detail => new { detail.CompanyId, detail.ProductId, detail.Barcode }).IsUnique(false);
+        modelBuilder.Entity<Brand>().HasIndex(brand => brand.BrandCode).IsUnique(false);
+        modelBuilder.Entity<ProductAttribute>().HasKey(attribute => attribute.Id);
+        modelBuilder.Entity<ProductAttributeValue>().HasKey(value => new { value.ProductId, value.AttributeId });
+        modelBuilder.Entity<ProductTag>().HasKey(tag => tag.Id);
+        modelBuilder.Entity<ProductTagMapping>().HasKey(mapping => new { mapping.ProductId, mapping.TagId });
         modelBuilder.Entity<StockMovement>().HasIndex(movement => new { movement.CompanyId, movement.StoreId, movement.ProductId, movement.OnDate });
         modelBuilder.Entity<StockMovement>().HasIndex(movement => new { movement.CompanyId, movement.SourceType, movement.SourceId });
         modelBuilder.Entity<Customer>().HasIndex(customer => new { customer.CompanyId, customer.GSTIN }).IsUnique(false);

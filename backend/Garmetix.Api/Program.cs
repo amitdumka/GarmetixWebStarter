@@ -16,6 +16,7 @@ using Garmetix.Api.Hr;
 using Garmetix.Api.GstReturns;
 using Garmetix.Api.Gstin;
 using Garmetix.Api.ImportExport;
+using Garmetix.Api.Inventory;
 using Garmetix.Api.OffBook;
 using Garmetix.Api.Payroll;
 using Garmetix.Api.Purchase;
@@ -185,6 +186,7 @@ app.MapGstReturnEndpoints();
 app.MapGstinEndpoints();
 app.MapCommercialEndpoints();
 app.MapProductLookupEndpoints();
+app.MapInventoryProductMasterEndpoints();
 app.MapOracleSecondarySyncEndpoints();
 
 MapCrud<Company>(app, "/api/companies", GarmetixPolicies.CompanySetup, readPolicyName: null);
@@ -192,6 +194,11 @@ MapCrud<StoreGroup>(app, "/api/store-groups", GarmetixPolicies.CompanySetup, rea
 MapCrud<Store>(app, "/api/stores", GarmetixPolicies.CompanySetup, readPolicyName: null);
 MapCrud<Product>(app, "/api/products", GarmetixPolicies.Inventory);
 MapCrud<Stock>(app, "/api/stocks", GarmetixPolicies.Inventory);
+MapCrud<Garmetix.Core.Models.Inventory.ProductCategory>(app, "/api/product-categories", GarmetixPolicies.Inventory);
+MapCrud<Garmetix.Core.Models.Inventory.ProductSubCategory>(app, "/api/product-sub-categories", GarmetixPolicies.Inventory);
+MapCrud<ProductDetail>(app, "/api/product-details", GarmetixPolicies.Inventory);
+MapCrud<Brand>(app, "/api/brands", GarmetixPolicies.Inventory);
+MapCrud<Tax>(app, "/api/taxes", GarmetixPolicies.Inventory);
 MapCrud<Customer>(app, "/api/customers", GarmetixPolicies.Billing);
 MapCrud<Vendor>(app, "/api/vendors", GarmetixPolicies.Purchase);
 MapCrud<Invoice>(app, "/api/sales-invoices", GarmetixPolicies.Billing);
