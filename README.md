@@ -307,3 +307,9 @@ dotnet ef database update --project backend/Garmetix.Infrastructure --startup-pr
 ### Runtime schema drift repair
 
 If an older PostgreSQL Docker volume is missing newer Customer/Vendor GSTIN columns, the API now runs a safe idempotent repair after auto-migration. See `backend/Database-Schema-Drift-Fix-Notes.md`.
+
+### Customer / Debit-Credit Note / Loyalty refinement
+
+This package separates Debit Note and Credit Note into their own module pages and keeps `/commercial-notes` as a register/summary only. It also adds a dedicated `/customers` module with create/edit form routes, GST status, credit balance, loyalty balance, and customer loyalty ledger links. Loyalty management now supports customer selection and manual point adjustment/redeem ledger entries.
+
+If an existing PostgreSQL volume is missing newer runtime tables, the API now performs defensive schema repair before Audit, Commercial Notes, Customer Advance, and Loyalty queries. Admins can also run `POST /api/database/repair`.

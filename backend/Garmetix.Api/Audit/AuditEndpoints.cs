@@ -1,4 +1,5 @@
 using Garmetix.Api.Auth;
+using Garmetix.Api.Database;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection;
@@ -29,8 +30,11 @@ public static class AuditEndpoints
         DateTime? to,
         string? search,
         GarmetixDbContext db,
+        ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
+        await DatabaseSchemaRepairService.RepairKnownSchemaDriftAsync(db, loggerFactory.CreateLogger("DatabaseSchemaRepair"), cancellationToken);
+
         var limit = Math.Clamp(take ?? 150, 1, 500);
         var rows = new List<AuditActivityDto>();
 
@@ -96,12 +100,20 @@ public static class AuditEndpoints
         rows.AddRange(ToDtos(await db.SalaryPayments.AsNoTracking()
             .Select(item => new AuditSource("Payroll", "Salary Payment", item.Id, item.VoucherNumber, item.CreatedAt, item.UpdatedAt, item.CreatedBy, item.Deleted))
             .ToListAsync(cancellationToken)));
-        rows.AddRange(ToDtos(await db.GstReturnDrafts.AsNoTracking()
-            .Select(item => new AuditSource("GST Returns", "GST Return Draft", item.Id, item.Title, item.CreatedAt, item.UpdatedAt, item.UpdatedByUserName, item.Deleted))
-            .ToListAsync(cancellationToken)));
-        rows.AddRange(ToDtos(await db.GstReturnAuditEntries.AsNoTracking()
-            .Select(item => new AuditSource("GST Returns", "GST Return Audit", item.Id, item.Action + " " + item.ReturnPeriod, item.CreatedAt, item.UpdatedAt, item.ActorName, item.Deleted))
-            .ToListAsync(cancellationToken)));
+        try
+        {
+            rows.AddRange(ToDtos(await db.GstReturnDrafts.AsNoTracking()
+                .Select(item => new AuditSource("GST Returns", "GST Return Draft", item.Id, item.Title, item.CreatedAt, item.UpdatedAt, item.UpdatedByUserName, item.Deleted))
+                .ToListAsync(cancellationToken)));
+            rows.AddRange(ToDtos(await db.GstReturnAuditEntries.AsNoTracking()
+                .Select(item => new AuditSource("GST Returns", "GST Return Audit", item.Id, item.Action + " " + item.ReturnPeriod, item.CreatedAt, item.UpdatedAt, item.ActorName, item.Deleted))
+                .ToListAsync(cancellationToken)));
+        }
+        catch (Exception)
+        {
+            // Keep the audit screen available even if an older database volume is still being repaired.
+            // The repair service above creates these tables idempotently for the next request.
+        }
 
         if (!string.IsNullOrWhiteSpace(module) && !module.Equals("all", StringComparison.OrdinalIgnoreCase))
         {

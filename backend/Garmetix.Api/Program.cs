@@ -140,6 +140,11 @@ app.MapGet("/", () => Results.Ok(new
     modules = new[] { "Company", "Store", "Inventory", "Billing", "Purchase", "Parties", "Voucher", "Cash Voucher", "HR", "Payroll" }
 }));
 app.MapGet("/api/health", HealthAsync).AllowAnonymous();
+app.MapPost("/api/database/repair", async (GarmetixDbContext db, ILoggerFactory loggerFactory, CancellationToken cancellationToken) =>
+{
+    await DatabaseSchemaRepairService.RepairKnownSchemaDriftAsync(db, loggerFactory.CreateLogger("DatabaseSchemaRepair"), cancellationToken);
+    return Results.Ok(new { message = "Database schema repair completed.", completedAtUtc = DateTimeOffset.UtcNow });
+}).RequireAuthorization(GarmetixPolicies.Admin);
 
 var auth = app.MapGroup("/api/auth").WithTags("Auth");
 auth.MapGet("/bootstrap-status", BootstrapStatusAsync).AllowAnonymous();

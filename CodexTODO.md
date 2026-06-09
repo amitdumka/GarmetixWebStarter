@@ -123,3 +123,14 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Add visible Sales Return menu and `/sales-return` page.
 - [x] Add visible Purchase Return menu and `/purchase-return` page.
 - [x] Repair missing runtime tables for GST drafts, commercial notes, customer advances, loyalty programs, and loyalty ledger when older PostgreSQL volumes report migrations as already applied.
+
+## Customer / Notes / Loyalty UI Refinement
+
+- [x] Split combined Debit/Credit Note entry into dedicated Debit Note and Credit Note menu pages.
+- [x] Added dedicated Debit Note entry/edit form routes: `/debit-notes/new` and `/debit-notes/{id}`.
+- [x] Added dedicated Credit Note entry/edit form routes: `/credit-notes/new` and `/credit-notes/{id}`.
+- [x] Converted `/commercial-notes` to a summary/register page only, not a mixed entry form.
+- [x] Added dedicated Customer module `/customers` with list, metrics, GST status, credit balance, and loyalty balance.
+- [x] Added dedicated customer create/edit form routes: `/customers/new` and `/customers/{id}`.
+- [x] Refined loyalty page with customer selection, loyalty summary, ledger, and manual point adjustment/redeem handling.
+- [x] Added defensive schema repair before Audit/Commercial/Loyalty endpoints so missing runtime tables are repaired before queries.

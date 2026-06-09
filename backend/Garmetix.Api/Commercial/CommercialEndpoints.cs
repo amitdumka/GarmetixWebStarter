@@ -1,5 +1,6 @@
 using Garmetix.Api.Accounting;
 using Garmetix.Api.Auth;
+using Garmetix.Api.Database;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Inventory;
@@ -20,6 +21,7 @@ public static class CommercialEndpoints
         notes.MapGet("/", ListNotesAsync);
         notes.MapGet("/{id:guid}", GetNoteAsync);
         notes.MapPost("/", CreateNoteAsync);
+        notes.MapPut("/{id:guid}", UpdateNoteAsync).RequireAuthorization(GarmetixPolicies.Edit);
         notes.MapGet("/{id:guid}/pdf", DownloadNotePdfAsync);
         notes.MapPost("/{id:guid}/mark-printed", MarkNotePrintedAsync);
 
@@ -36,14 +38,24 @@ public static class CommercialEndpoints
 
         loyalty.MapGet("/program", GetProgramAsync);
         loyalty.MapPost("/program", SaveProgramAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        loyalty.MapGet("/customers/{customerId:guid}", GetCustomerLoyaltySummaryAsync);
         loyalty.MapGet("/customers/{customerId:guid}/ledger", GetCustomerLoyaltyLedgerAsync);
+        loyalty.MapPost("/customers/{customerId:guid}/adjust", AdjustCustomerLoyaltyAsync).RequireAuthorization(GarmetixPolicies.Edit);
 
         return notes;
     }
 
-    private static async Task<IReadOnlyList<CommercialNoteRow>> ListNotesAsync(HttpContext context, GarmetixDbContext db, int take = 100, CancellationToken cancellationToken = default)
+    private static async Task<IReadOnlyList<CommercialNoteRow>> ListNotesAsync(HttpContext context, GarmetixDbContext db, ILoggerFactory loggerFactory, int take = 100, NoteType? noteType = null, CancellationToken cancellationToken = default)
     {
-        return await WorkspaceScope.ApplyTo(db.CommercialNotes.AsNoTracking(), context)
+        await EnsureCommercialSchemaAsync(db, loggerFactory, cancellationToken);
+
+        var query = WorkspaceScope.ApplyTo(db.CommercialNotes.AsNoTracking(), context);
+        if (noteType.HasValue)
+        {
+            query = query.Where(item => item.NoteType == noteType.Value);
+        }
+
+        return await query
             .OrderByDescending(item => item.OnDate)
             .ThenByDescending(item => item.CreatedAt)
             .Take(Math.Clamp(take, 1, 300))
@@ -66,14 +78,17 @@ public static class CommercialEndpoints
             .ToListAsync(cancellationToken);
     }
 
-    private static async Task<IResult> GetNoteAsync(Guid id, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> GetNoteAsync(Guid id, HttpContext context, GarmetixDbContext db, ILoggerFactory loggerFactory, CancellationToken cancellationToken)
     {
+        await EnsureCommercialSchemaAsync(db, loggerFactory, cancellationToken);
         var note = await WorkspaceScope.ApplyTo(db.CommercialNotes.AsNoTracking(), context).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         return note is null ? Results.NotFound() : Results.Ok(note);
     }
 
-    private static async Task<IResult> CreateNoteAsync(CommercialNoteRequest request, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> CreateNoteAsync(CommercialNoteRequest request, HttpContext context, GarmetixDbContext db, ILoggerFactory loggerFactory, CancellationToken cancellationToken)
     {
+        await EnsureCommercialSchemaAsync(db, loggerFactory, cancellationToken);
+
         if (request.Amount <= 0)
         {
             return Results.BadRequest(new { message = "Note amount must be greater than zero." });
@@ -122,8 +137,62 @@ public static class CommercialEndpoints
         return Results.Created($"/api/commercial-notes/{note.Id}", note);
     }
 
-    private static async Task<IResult> DownloadNotePdfAsync(Guid id, HttpContext context, GarmetixDbContext db, bool a5Slip = false, bool reprint = false, bool signatures = true, CancellationToken cancellationToken = default)
+    private static async Task<IResult> UpdateNoteAsync(Guid id, CommercialNoteRequest request, HttpContext context, GarmetixDbContext db, ILoggerFactory loggerFactory, CancellationToken cancellationToken)
     {
+        await EnsureCommercialSchemaAsync(db, loggerFactory, cancellationToken);
+
+        if (request.Amount <= 0)
+        {
+            return Results.BadRequest(new { message = "Note amount must be greater than zero." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.PartyName))
+        {
+            return Results.BadRequest(new { message = "Party name is required." });
+        }
+
+        var note = await WorkspaceScope.ApplyTo(db.CommercialNotes, context).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (note is null)
+        {
+            return Results.NotFound();
+        }
+
+        var storeAllowed = await WorkspaceScope.ApplyTo(db.Stores.AsNoTracking(), context)
+            .AnyAsync(store => store.Id == request.StoreId && store.CompanyId == request.CompanyId && store.StoreGroupId == request.StoreGroupId, cancellationToken);
+        if (!storeAllowed)
+        {
+            return Results.BadRequest(new { message = "Selected note store is outside your access scope." });
+        }
+
+        if (!string.Equals(note.SourceType, "Manual", StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.BadRequest(new { message = "Only manual debit/credit notes can be edited. Return-generated notes should remain linked to their source document." });
+        }
+
+        note.NoteType = request.NoteType;
+        note.PartyType = request.PartyType;
+        note.PartyId = request.PartyId;
+        note.CustomerId = request.CustomerId;
+        note.VendorId = request.VendorId;
+        note.PartyName = request.PartyName.Trim();
+        note.PartyGstin = string.IsNullOrWhiteSpace(request.PartyGstin) ? null : request.PartyGstin.Trim().ToUpperInvariant();
+        note.Reason = request.Reason?.Trim() ?? string.Empty;
+        note.TaxableAmount = Math.Max(request.TaxableAmount, 0);
+        note.TaxAmount = Math.Max(request.TaxAmount, 0);
+        note.Amount = request.Amount;
+        note.Remarks = request.Remarks;
+        note.CompanyId = request.CompanyId;
+        note.StoreGroupId = request.StoreGroupId;
+        note.StoreId = request.StoreId;
+        note.UpdatedAt = DateTime.Now;
+
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(note);
+    }
+
+    private static async Task<IResult> DownloadNotePdfAsync(Guid id, HttpContext context, GarmetixDbContext db, ILoggerFactory loggerFactory, bool a5Slip = false, bool reprint = false, bool signatures = true, CancellationToken cancellationToken = default)
+    {
+        await EnsureCommercialSchemaAsync(db, loggerFactory, cancellationToken);
         var note = await WorkspaceScope.ApplyTo(db.CommercialNotes.AsNoTracking(), context).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (note is null)
         {
@@ -156,8 +225,9 @@ public static class CommercialEndpoints
         return Results.File(pdf, "application/pdf", $"{safeNumber}-{(a5Slip ? "a5-slip" : "a4-two-copy")}.pdf");
     }
 
-    private static async Task<IResult> MarkNotePrintedAsync(Guid id, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> MarkNotePrintedAsync(Guid id, HttpContext context, GarmetixDbContext db, ILoggerFactory loggerFactory, CancellationToken cancellationToken)
     {
+        await EnsureCommercialSchemaAsync(db, loggerFactory, cancellationToken);
         var note = await WorkspaceScope.ApplyTo(db.CommercialNotes, context).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (note is null)
         {
@@ -169,8 +239,10 @@ public static class CommercialEndpoints
         return Results.Ok(new { note.Id, note.NoteNumber, note.Printed });
     }
 
-    private static async Task<IReadOnlyList<CustomerAdvanceReceiptRow>> ListAdvanceReceiptsAsync(HttpContext context, GarmetixDbContext db, int take = 100, CancellationToken cancellationToken = default)
+    private static async Task<IReadOnlyList<CustomerAdvanceReceiptRow>> ListAdvanceReceiptsAsync(HttpContext context, GarmetixDbContext db, ILoggerFactory loggerFactory, int take = 100, CancellationToken cancellationToken = default)
     {
+        await EnsureCommercialSchemaAsync(db, loggerFactory, cancellationToken);
+
         return await WorkspaceScope.ApplyTo(db.CustomerAdvanceReceipts.AsNoTracking(), context)
             .OrderByDescending(item => item.OnDate)
             .ThenByDescending(item => item.CreatedAt)
@@ -190,8 +262,10 @@ public static class CommercialEndpoints
             .ToListAsync(cancellationToken);
     }
 
-    private static async Task<IResult> CreateAdvanceReceiptAsync(CustomerAdvanceReceiptRequest request, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> CreateAdvanceReceiptAsync(CustomerAdvanceReceiptRequest request, HttpContext context, GarmetixDbContext db, ILoggerFactory loggerFactory, CancellationToken cancellationToken)
     {
+        await EnsureCommercialSchemaAsync(db, loggerFactory, cancellationToken);
+
         if (request.Amount <= 0)
         {
             return Results.BadRequest(new { message = "Advance receipt amount must be greater than zero." });
@@ -246,8 +320,9 @@ public static class CommercialEndpoints
         return Results.Created($"/api/customer-advances/{receipt.Id}", receipt);
     }
 
-    private static async Task<IResult> GetProgramAsync(HttpContext context, GarmetixDbContext db, Guid? storeId, CancellationToken cancellationToken)
+    private static async Task<IResult> GetProgramAsync(HttpContext context, GarmetixDbContext db, ILoggerFactory loggerFactory, Guid? storeId, CancellationToken cancellationToken)
     {
+        await EnsureCommercialSchemaAsync(db, loggerFactory, cancellationToken);
         var query = WorkspaceScope.ApplyTo(db.LoyaltyPrograms.AsNoTracking(), context);
         if (storeId.HasValue)
         {
@@ -258,8 +333,9 @@ public static class CommercialEndpoints
         return program is null ? Results.Ok(null) : Results.Ok(ToDto(program));
     }
 
-    private static async Task<IResult> SaveProgramAsync(LoyaltyProgramRequest request, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> SaveProgramAsync(LoyaltyProgramRequest request, HttpContext context, GarmetixDbContext db, ILoggerFactory loggerFactory, CancellationToken cancellationToken)
     {
+        await EnsureCommercialSchemaAsync(db, loggerFactory, cancellationToken);
         var storeAllowed = await WorkspaceScope.ApplyTo(db.Stores.AsNoTracking(), context)
             .AnyAsync(store => store.Id == request.StoreId && store.CompanyId == request.CompanyId && store.StoreGroupId == request.StoreGroupId, cancellationToken);
         if (!storeAllowed)
@@ -285,13 +361,85 @@ public static class CommercialEndpoints
         return Results.Ok(ToDto(program));
     }
 
-    private static async Task<IReadOnlyList<LoyaltyLedgerRow>> GetCustomerLoyaltyLedgerAsync(Guid customerId, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
+    private static async Task<IReadOnlyList<LoyaltyLedgerRow>> GetCustomerLoyaltyLedgerAsync(Guid customerId, HttpContext context, GarmetixDbContext db, ILoggerFactory loggerFactory, CancellationToken cancellationToken)
     {
+        await EnsureCommercialSchemaAsync(db, loggerFactory, cancellationToken);
+
         return await WorkspaceScope.ApplyTo(db.LoyaltyPointLedgers.AsNoTracking(), context)
             .Where(item => item.CustomerId == customerId)
             .OrderByDescending(item => item.OnDate)
             .Select(item => new LoyaltyLedgerRow(item.Id, item.OnDate, item.CustomerId, item.CustomerName, item.SourceType, item.SourceNumber, item.PointsIn, item.PointsOut, item.BalanceAfter, item.Remarks))
             .ToListAsync(cancellationToken);
+    }
+
+    private static async Task<IResult> GetCustomerLoyaltySummaryAsync(Guid customerId, HttpContext context, GarmetixDbContext db, ILoggerFactory loggerFactory, CancellationToken cancellationToken)
+    {
+        await EnsureCommercialSchemaAsync(db, loggerFactory, cancellationToken);
+
+        var customer = await WorkspaceScope.ApplyTo(db.Customers.AsNoTracking(), context)
+            .FirstOrDefaultAsync(item => item.Id == customerId, cancellationToken);
+        if (customer is null)
+        {
+            return Results.NotFound();
+        }
+
+        return Results.Ok(new CustomerLoyaltySummary(
+            customer.Id,
+            customer.Name,
+            customer.LoyaltyPoints,
+            customer.CreditBalance,
+            customer.Amount,
+            customer.BillCount));
+    }
+
+    private static async Task<IResult> AdjustCustomerLoyaltyAsync(Guid customerId, LoyaltyAdjustmentRequest request, HttpContext context, GarmetixDbContext db, ILoggerFactory loggerFactory, CancellationToken cancellationToken)
+    {
+        await EnsureCommercialSchemaAsync(db, loggerFactory, cancellationToken);
+
+        if (request.PointsIn <= 0 && request.PointsOut <= 0)
+        {
+            return Results.BadRequest(new { message = "Enter points to add or redeem." });
+        }
+
+        var storeAllowed = await WorkspaceScope.ApplyTo(db.Stores.AsNoTracking(), context)
+            .AnyAsync(store => store.Id == request.StoreId && store.CompanyId == request.CompanyId && store.StoreGroupId == request.StoreGroupId, cancellationToken);
+        if (!storeAllowed)
+        {
+            return Results.BadRequest(new { message = "Selected loyalty store is outside your access scope." });
+        }
+
+        var customer = await WorkspaceScope.ApplyTo(db.Customers, context).FirstOrDefaultAsync(item => item.Id == customerId, cancellationToken);
+        if (customer is null)
+        {
+            return Results.NotFound();
+        }
+
+        var pointsIn = Math.Max(request.PointsIn, 0);
+        var pointsOut = Math.Max(request.PointsOut, 0);
+        if (pointsOut > customer.LoyaltyPoints + pointsIn)
+        {
+            return Results.BadRequest(new { message = "Redeem points cannot exceed the customer's available loyalty balance." });
+        }
+
+        customer.LoyaltyPoints = Math.Max(0, customer.LoyaltyPoints + pointsIn - pointsOut);
+        db.LoyaltyPointLedgers.Add(new LoyaltyPointLedger
+        {
+            CustomerId = customer.Id,
+            CustomerName = customer.Name,
+            OnDate = DateTime.Now,
+            SourceType = "ManualAdjustment",
+            SourceNumber = pointsIn > 0 ? "LOY-ADD" : "LOY-REDEEM",
+            PointsIn = pointsIn,
+            PointsOut = pointsOut,
+            BalanceAfter = customer.LoyaltyPoints,
+            Remarks = request.Remarks,
+            CompanyId = request.CompanyId,
+            StoreGroupId = request.StoreGroupId,
+            StoreId = request.StoreId
+        });
+
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(new CustomerLoyaltySummary(customer.Id, customer.Name, customer.LoyaltyPoints, customer.CreditBalance, customer.Amount, customer.BillCount));
     }
 
     internal static async Task<CommercialNote> CreateCreditNoteFromSalesReturnAsync(Invoice returnInvoice, Customer customer, string? reason, GarmetixDbContext db, CancellationToken cancellationToken)
@@ -351,6 +499,11 @@ public static class CommercialEndpoints
         };
         db.CommercialNotes.Add(note);
         return note;
+    }
+
+    private static Task EnsureCommercialSchemaAsync(GarmetixDbContext db, ILoggerFactory loggerFactory, CancellationToken cancellationToken)
+    {
+        return DatabaseSchemaRepairService.RepairKnownSchemaDriftAsync(db, loggerFactory.CreateLogger("DatabaseSchemaRepair"), cancellationToken);
     }
 
     private static LoyaltyProgramDto ToDto(LoyaltyProgram program) => new(program.Id, program.CompanyId, program.StoreGroupId, program.StoreId, program.Enabled, program.Name, program.EarnPointsPerRupee, program.RedeemValuePerPoint, program.MinimumBillAmount, program.ExpiryDays);

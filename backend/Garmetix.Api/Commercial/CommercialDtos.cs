@@ -99,3 +99,20 @@ public sealed record LoyaltyLedgerRow(
     decimal PointsOut,
     decimal BalanceAfter,
     string? Remarks);
+
+
+public sealed record LoyaltyAdjustmentRequest(
+    Guid CompanyId,
+    Guid StoreGroupId,
+    Guid StoreId,
+    decimal PointsIn,
+    decimal PointsOut,
+    string? Remarks);
+
+public sealed record CustomerLoyaltySummary(
+    Guid CustomerId,
+    string CustomerName,
+    decimal LoyaltyPoints,
+    decimal CreditBalance,
+    decimal LifetimeBillAmount,
+    int BillCount);
