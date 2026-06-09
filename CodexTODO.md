@@ -117,3 +117,9 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Cache product lookup data locally in browser for better availability.
 - [x] Barcode lookup returns Name, Available Qty, MRP, TaxRate, Unit, Category, SubCategory, and HSNCode.
 - [x] Add invoice/voucher scan code on printable PDF and scan lookup endpoint to fetch invoice/voucher records.
+
+## Menu / Runtime Bug Fixes
+
+- [x] Add visible Sales Return menu and `/sales-return` page.
+- [x] Add visible Purchase Return menu and `/purchase-return` page.
+- [x] Repair missing runtime tables for GST drafts, commercial notes, customer advances, loyalty programs, and loyalty ledger when older PostgreSQL volumes report migrations as already applied.

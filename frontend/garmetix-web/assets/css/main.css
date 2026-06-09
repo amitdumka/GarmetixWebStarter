@@ -2156,3 +2156,36 @@ select {
     grid-template-columns: 1fr;
   }
 }
+
+.simple-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.simple-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+.simple-table th,
+.simple-table td {
+  padding: 0.85rem 0.9rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  text-align: left;
+  vertical-align: top;
+}
+
+.simple-table th {
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgb(100, 116, 139);
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.simple-table small {
+  display: block;
+  color: rgb(100, 116, 139);
+  margin-top: 0.15rem;
+}
