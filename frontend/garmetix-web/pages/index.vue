@@ -1,219 +1,219 @@
 <script setup lang="ts">
+import { h, resolveComponent } from 'vue'
+import type { TableColumn } from '@nuxt/ui'
+
 const api = useGarmetixApi()
 const auth = useAuth()
+const workspace = useWorkspace()
 const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
 
+const UBadge = resolveComponent('UBadge')
+const UButton = resolveComponent('UButton')
+
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
-const products = ref<any[]>([])
 const customers = ref<any[]>([])
 const vendors = ref<any[]>([])
-const invoices = ref<any[]>([])
-const vouchers = ref<any[]>([])
-const employees = ref<any[]>([])
+const activeType = ref<'customer' | 'vendor'>('customer')
+const search = ref('')
 const loading = ref(false)
-const setupStatus = ref<any | null>(null)
-const setupMessage = ref('')
-const canSeeAdmin = auth.canSeeAdmin
+const saving = ref(false)
+const formOpen = ref(false)
+const gstinChecking = ref(false)
+const gstinValidation = ref<any | null>(null)
 
-const setupForm = reactive({
-  companyName: 'Garmetix Company',
-  storeGroupName: 'Main Group',
-  storeName: 'Main Store',
-  contactNumber: '',
-  email: 'admin@garmetix.local',
-  city: 'Dumka',
-  state: 'Jharkhand',
-  zipCode: '814101'
+const partyForm = reactive<any>(emptyPartyForm())
+
+const typeOptions = [
+  { label: 'Customer', value: 'customer' },
+  { label: 'Vendor', value: 'vendor' }
+]
+
+const activeRows = computed(() => activeType.value === 'customer' ? customers.value : vendors.value)
+const filteredRows = computed(() => {
+  const term = search.value.trim().toLowerCase()
+  if (!term) return activeRows.value
+  return activeRows.value.filter((row) => JSON.stringify(row).toLowerCase().includes(term))
 })
 
-const needsSetup = computed(() => {
-  return setupStatus.value && (!setupStatus.value.hasCompany || !setupStatus.value.hasStore || !setupStatus.value.hasProductCategory || !setupStatus.value.hasTax)
-})
-
-const setupProgress = computed(() => {
-  if (!setupStatus.value) {
-    return 0
+const partyColumns: TableColumn<any>[] = [
+  { accessorKey: 'name', header: 'Name' },
+  { accessorKey: 'mobileNumber', header: 'Mobile' },
+  { accessorKey: 'gstin', header: 'GSTIN' },
+  {
+    accessorKey: 'gstVerified',
+    header: 'GST Status',
+    cell: ({ row }) => h(UBadge, {
+      color: row.original.gstVerified ? 'success' : (row.original.gstin ? 'warning' : 'neutral'),
+      variant: 'subtle'
+    }, () => row.original.gstVerified ? 'Verified' : (row.original.gstin ? 'Pending' : 'No GSTIN'))
+  },
+  {
+    accessorKey: 'gstMismatchAlert',
+    header: 'Alert',
+    cell: ({ row }) => row.original.gstMismatchAlert
+      ? h(UBadge, { color: 'warning', variant: 'subtle' }, () => 'Mismatch')
+      : h(UBadge, { color: 'neutral', variant: 'subtle' }, () => 'Clear')
+  },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => h(UButton, {
+      color: 'neutral',
+      variant: 'ghost',
+      icon: 'i-lucide-eye',
+      label: 'Details',
+      onClick: () => showDetails(row.original)
+    })
   }
-
-  const checks = [
-    setupStatus.value.hasCompany,
-    setupStatus.value.hasStoreGroup,
-    setupStatus.value.hasStore,
-    setupStatus.value.hasProductCategory,
-    setupStatus.value.hasTax
-  ]
-
-  return Math.round((checks.filter(Boolean).length / checks.length) * 100)
-})
-
-const setupChecks = computed(() => [
-  { label: 'Company', ready: Boolean(setupStatus.value?.hasCompany) },
-  { label: 'Store group', ready: Boolean(setupStatus.value?.hasStoreGroup) },
-  { label: 'Store', ready: Boolean(setupStatus.value?.hasStore) },
-  { label: 'Product category', ready: Boolean(setupStatus.value?.hasProductCategory) },
-  { label: 'Tax', ready: Boolean(setupStatus.value?.hasTax) }
-])
-
-const totalSales = computed(() => invoices.value.reduce((sum, invoice) => sum + moneyValue(invoice), 0))
+]
 
 const metrics = computed(() => [
   {
-    label: 'Sales',
-    value: money(totalSales.value),
-    meta: `${invoices.value.length} invoices`,
-    icon: 'i-lucide-receipt-indian-rupee',
+    label: 'Customers',
+    value: customers.value.length,
+    meta: `${customers.value.filter((item) => item.gstVerified).length} GST verified`,
+    icon: 'i-lucide-user-round',
     color: 'primary'
   },
   {
-    label: 'Inventory',
-    value: products.value.length,
-    meta: `${stores.value.length} stores`,
-    icon: 'i-lucide-boxes',
+    label: 'Vendors',
+    value: vendors.value.length,
+    meta: `${vendors.value.filter((item) => item.gstVerified).length} GST verified`,
+    icon: 'i-lucide-truck',
     color: 'success'
   },
   {
-    label: 'Vouchers',
-    value: vouchers.value.length,
-    meta: 'payments, receipts, expenses',
-    icon: 'i-lucide-banknote',
+    label: 'GST Alerts',
+    value: [...customers.value, ...vendors.value].filter((item) => item.gstMismatchAlert).length,
+    meta: 'Name/address mismatches',
+    icon: 'i-lucide-triangle-alert',
     color: 'warning'
-  },
-  {
-    label: 'People',
-    value: employees.value.length,
-    meta: 'HR and payroll records',
-    icon: 'i-lucide-users-round',
-    color: 'neutral'
   }
 ])
 
-const moduleCards = computed(() => {
-  const items = [
-    { to: '/billing', label: 'Billing', count: invoices.value.length, icon: 'i-lucide-receipt-indian-rupee', status: 'Live' },
-    { to: '/inventory', label: 'Inventory', count: products.value.length, icon: 'i-lucide-boxes', status: 'Live' },
-    { to: '/purchase', label: 'Purchase', count: products.value.length, icon: 'i-lucide-package-plus', status: 'Live' },
-    { to: '/parties', label: 'Parties', count: customers.value.length + vendors.value.length, icon: 'i-lucide-users-round', status: 'GSTIN' },
-    { to: '/vouchers', label: 'Vouchers', count: vouchers.value.length, icon: 'i-lucide-banknote', status: 'Live' },
-    { to: '/hr', label: 'HR', count: employees.value.length, icon: 'i-lucide-users-round', status: 'Attendance' }
-  ]
-
-  if (canSeeAdmin.value) {
-    items.push({ to: '/setup', label: 'Company', count: companies.value.length + stores.value.length, icon: 'i-lucide-building-2', status: needsSetup.value ? 'Required' : 'Ready' })
+function emptyPartyForm() {
+  return {
+    name: '',
+    mobileNumber: '',
+    gstin: '',
+    address: '',
+    city: 'Dumka',
+    state: 'Jharkhand',
+    country: 'India',
+    zipCode: '814101',
+    email: ''
   }
+}
 
-  return items
-})
-
-const currentWork = computed(() => [
-  { title: 'Nuxt UI dashboard shell', status: 'Done', type: 'Frontend', owner: 'Codex', due: 'Stage 1' },
-  { title: 'Reusable CRUD components', status: 'Done', type: 'Frontend', owner: 'Codex', due: 'Stage 2' },
-  { title: 'Core store module conversion', status: 'In Progress', type: 'Frontend', owner: 'Codex', due: 'Stage 3' },
-  { title: 'HR and payroll UI conversion', status: 'Pending', type: 'Frontend', owner: 'Codex', due: 'Stage 4' },
-  { title: 'Reports and deployment polish', status: 'Pending', type: 'Release', owner: 'Codex', due: 'Stage 6' }
-])
-
-const recentActivity = computed(() => {
-  const saleItems = invoices.value.slice(0, 5).map((invoice) => ({
-    label: invoice.invoiceNumber || invoice.billNo || 'Sales invoice',
-    meta: money(moneyValue(invoice)),
-    icon: 'i-lucide-receipt-indian-rupee',
-    to: '/billing'
-  }))
-
-  const setupItems = [
-    ...(canSeeAdmin.value ? [{ label: `${companies.value.length} companies configured`, meta: 'Company', icon: 'i-lucide-building-2', to: '/setup' }] : []),
-    { label: `${products.value.length} products available`, meta: 'Inventory', icon: 'i-lucide-boxes', to: '/inventory' },
-    { label: `${employees.value.length} employees registered`, meta: 'HR', icon: 'i-lucide-users-round', to: '/hr' }
-  ]
-
-  return [...saleItems, ...setupItems].slice(0, 8)
-})
+function startCreate(type = activeType.value) {
+  activeType.value = type
+  Object.assign(partyForm, emptyPartyForm())
+  gstinValidation.value = null
+  formOpen.value = true
+}
 
 async function refresh() {
-  if (!auth.isAuthenticated.value) {
-    return
-  }
-
+  if (!auth.isAuthenticated.value) return
   loading.value = true
   try {
-    setupStatus.value = await api.get<any>('setup/status')
-    const [companyRows, storeRows, productRows, invoiceRows, voucherRows, employeeRows, customerRows, vendorRows] = await Promise.all([
+    const [companyRows, storeRows, customerRows, vendorRows] = await Promise.all([
       api.list<any>('companies'),
       api.list<any>('stores'),
-      api.list<any>('products'),
-      api.get<any[]>('billing/sales/recent'),
-      api.list<any>('vouchers'),
-      api.list<any>('employees'),
       api.list<any>('customers'),
       api.list<any>('vendors')
     ])
-
     companies.value = companyRows
     stores.value = storeRows
-    products.value = productRows
-    invoices.value = invoiceRows
-    vouchers.value = voucherRows
-    employees.value = employeeRows
     customers.value = customerRows
     vendors.value = vendorRows
   } catch (error) {
-    feedback.failed('Dashboard refresh failed', error)
+    feedback.failed('Could not load parties', error)
   } finally {
     loading.value = false
   }
 }
 
-async function quickSetup() {
-  setupMessage.value = ''
+async function validateGstin() {
+  gstinValidation.value = null
+  if (!partyForm.gstin) {
+    feedback.notify('Enter GSTIN first', undefined, 'warning')
+    return
+  }
 
+  gstinChecking.value = true
   try {
-    const result = await api.create<any>('setup/quick-start', setupForm)
-    setupStatus.value = {
-      hasCompany: true,
-      hasStoreGroup: true,
-      hasStore: true,
-      hasProductCategory: true,
-      hasTax: true,
-      companyId: result.companyId,
-      storeGroupId: result.storeGroupId,
-      storeId: result.storeId
+    gstinValidation.value = await api.create<any>('gstin/validate-party', {
+      partyType: activeType.value === 'customer' ? 'Customer' : 'Vendor',
+      gstin: partyForm.gstin,
+      name: partyForm.name,
+      address: partyForm.address
+    })
+
+    if (gstinValidation.value.alerts?.length) {
+      feedback.notify('GSTIN alert', gstinValidation.value.alerts.join(' '), 'warning')
+    } else {
+      feedback.notify('GSTIN checked', gstinValidation.value.lookup?.isVerified ? 'GSTIN details verified.' : 'GSTIN format checked.', 'success')
     }
-    setupMessage.value = 'Company, store, product category, and GST tax are ready.'
-    feedback.saved('Setup')
+  } catch (error) {
+    feedback.failed('GSTIN lookup failed', error)
+  } finally {
+    gstinChecking.value = false
+  }
+}
+
+async function saveParty() {
+  saving.value = true
+  try {
+    const selectedStore = stores.value.find((store) => store.id === workspace.storeId.value)
+    const companyId = workspace.companyId.value || selectedStore?.companyId || companies.value[0]?.id
+    if (!companyId) {
+      throw new Error('Select a company before saving party.')
+    }
+
+    if (partyForm.gstin && !gstinValidation.value) {
+      await validateGstin()
+    }
+
+    const body: any = {
+      companyId,
+      name: partyForm.name,
+      mobileNumber: partyForm.mobileNumber || (activeType.value === 'customer' ? 'WALKIN' : 'NA'),
+      email: partyForm.email,
+      gstin: partyForm.gstin,
+      address: partyForm.address || 'Dumka',
+      city: partyForm.city || 'Dumka',
+      state: partyForm.state || 'Jharkhand',
+      country: partyForm.country || 'India',
+      zipCode: partyForm.zipCode || '814101'
+    }
+
+    if (activeType.value === 'vendor') {
+      body.active = true
+    }
+
+    await api.create<any>(activeType.value === 'customer' ? 'customers' : 'vendors', body)
+    feedback.saved(activeType.value === 'customer' ? 'Customer' : 'Vendor')
+    formOpen.value = false
     await refresh()
   } catch (error) {
-    feedback.failed('Setup save failed', error)
+    feedback.failed('Could not save party', error)
+  } finally {
+    saving.value = false
   }
 }
 
-function money(value: number) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0
-  }).format(value || 0)
-}
+function showDetails(row: any) {
+  const details = [
+    row.gstLegalName ? `Legal: ${row.gstLegalName}` : '',
+    row.gstTradeName ? `Trade: ${row.gstTradeName}` : '',
+    row.gstRegistrationStatus ? `Status: ${row.gstRegistrationStatus}` : '',
+    row.gstPrincipalAddress ? `Address: ${row.gstPrincipalAddress}` : '',
+    row.gstMismatchAlert ? `Alert: ${row.gstMismatchAlert}` : ''
+  ].filter(Boolean).join('\n')
 
-function moneyValue(invoice: any) {
-  return Number(invoice?.netAmount || invoice?.payableAmount || invoice?.grandTotal || invoice?.totalAmount || 0)
-}
-
-function statusColor(status: string) {
-  if (status === 'Done' || status === 'Ready' || status === 'Live') {
-    return 'success'
-  }
-
-  if (status === 'In Progress' || status === 'Attendance') {
-    return 'primary'
-  }
-
-  if (status === 'Required') {
-    return 'warning'
-  }
-
-  return 'neutral'
+  feedback.notify(row.name || 'Party', details || 'No GSTIN details stored.', row.gstMismatchAlert ? 'warning' : 'info')
 }
 
 onMounted(async () => {
@@ -227,34 +227,25 @@ onMounted(async () => {
 
   <AppShell
     v-else
-    title="Overview"
+    title="Parties"
     :companies="companies"
     :stores="stores"
     @refresh="refresh"
   >
     <section class="planner-dashboard">
       <UiModulePageHeader
-        title="All Stores"
-        description="Planner-style overview for sales, stock, setup, HR, and the next UI migration stages."
-        icon="i-lucide-store"
+        title="Customer / Vendor GSTIN"
+        description="Create parties with GSTIN lookup, name/address mismatch alerts, and stored GST verification details."
+        icon="i-lucide-users-round"
+        primary-label="New Customer"
+        primary-icon="i-lucide-plus"
+        @primary="startCreate('customer')"
       >
         <template #actions>
-          <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
-            {{ loading ? 'Loading' : 'Synced' }}
-          </UBadge>
+          <UButton color="neutral" variant="subtle" icon="i-lucide-truck" label="New Vendor" @click="startCreate('vendor')" />
           <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
         </template>
       </UiModulePageHeader>
-
-      <UAlert
-        v-if="needsSetup"
-        class="dashboard-alert"
-        color="warning"
-        variant="subtle"
-        icon="i-lucide-circle-alert"
-        title="First-run setup is incomplete"
-        description="Create the first company, store, product category, and GST tax before using live billing."
-      />
 
       <div class="planner-metric-grid">
         <UCard v-for="metric in metrics" :key="metric.label" class="planner-metric-card">
@@ -269,170 +260,112 @@ onMounted(async () => {
         </UCard>
       </div>
 
-      <div class="planner-workspace">
-        <div class="planner-main-column">
-          <UCard v-if="needsSetup && canSeeAdmin" class="planner-card">
-            <template #header>
-              <div class="planner-card-header">
-                <div>
-                  <h2>Quick Setup</h2>
-                  <p>{{ setupProgress }}% complete</p>
-                </div>
-                <UBadge color="warning" variant="subtle">Required</UBadge>
-              </div>
-            </template>
-
-            <form class="planner-setup-grid" @submit.prevent="quickSetup">
-              <UFormField label="Company">
-                <UInput v-model="setupForm.companyName" required />
-              </UFormField>
-              <UFormField label="Store group">
-                <UInput v-model="setupForm.storeGroupName" required />
-              </UFormField>
-              <UFormField label="Store">
-                <UInput v-model="setupForm.storeName" required />
-              </UFormField>
-              <UFormField label="Contact">
-                <UInput v-model="setupForm.contactNumber" />
-              </UFormField>
-              <UFormField label="Email">
-                <UInput v-model="setupForm.email" type="email" />
-              </UFormField>
-              <UFormField label="City">
-                <UInput v-model="setupForm.city" required />
-              </UFormField>
-              <UFormField label="State">
-                <UInput v-model="setupForm.state" required />
-              </UFormField>
-              <UFormField label="Zip">
-                <UInput v-model="setupForm.zipCode" required />
-              </UFormField>
-              <div class="planner-form-actions">
-                <UButton type="submit" icon="i-lucide-building-2" label="Create Setup" />
-              </div>
-            </form>
-
-            <UAlert
-              v-if="setupMessage"
-              class="mt-4"
-              color="success"
-              variant="subtle"
-              icon="i-lucide-check"
-              :description="setupMessage"
-            />
-          </UCard>
-
-          <UCard class="planner-card">
-            <template #header>
-              <div class="planner-card-header">
-                <div>
-                  <h2>Module Distribution</h2>
-                  <p>Operational screens ready for focused list and form workflows</p>
-                </div>
-                <UBadge color="primary" variant="subtle">Stage 3</UBadge>
-              </div>
-            </template>
-
-            <div class="planner-module-grid">
-              <UButton
-                v-for="item in moduleCards"
-                :key="item.to"
-                :to="item.to"
-                color="neutral"
-                variant="outline"
-                class="planner-module-button"
-              >
-                <span class="planner-module-icon">
-                  <UIcon :name="item.icon" class="size-5" />
-                </span>
-                <span>
-                  <strong>{{ item.label }}</strong>
-                  <small>{{ item.count }} records</small>
-                </span>
-                <UBadge :color="statusColor(item.status)" variant="subtle">{{ item.status }}</UBadge>
-              </UButton>
+      <UCard class="planner-card">
+        <template #header>
+          <div class="planner-card-header">
+            <div>
+              <h2>Party Register</h2>
+              <p>Search customer/vendor GSTIN, name, mobile, or mismatch alert.</p>
             </div>
-          </UCard>
+            <USegmentedControl v-model="activeType" :items="typeOptions" />
+          </div>
+        </template>
 
-          <UCard class="planner-card">
-            <template #header>
-              <div class="planner-card-header">
-                <div>
-                  <h2>Current Sprint</h2>
-                  <p>UI implementation stages tracked like the planner template</p>
-                </div>
-                <UButton v-if="canSeeAdmin" to="/setup" color="neutral" variant="ghost" icon="i-lucide-arrow-right" label="Open Company" />
-              </div>
-            </template>
+        <UiCrudToolbar
+          v-model:search="search"
+          search-placeholder="Search party, mobile, GSTIN"
+          :loading="loading"
+          create-label="New Party"
+          @refresh="refresh"
+          @create="startCreate(activeType)"
+        />
 
-            <div class="planner-table-wrap">
-              <table class="planner-table">
-                <thead>
-                  <tr>
-                    <th>Title</th>
-                    <th>Status</th>
-                    <th>Type</th>
-                    <th>Owner</th>
-                    <th>Due</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="item in currentWork" :key="item.title">
-                    <td>{{ item.title }}</td>
-                    <td><UBadge :color="statusColor(item.status)" variant="subtle">{{ item.status }}</UBadge></td>
-                    <td>{{ item.type }}</td>
-                    <td>{{ item.owner }}</td>
-                    <td>{{ item.due }}</td>
-                  </tr>
-                </tbody>
-              </table>
+        <UTable v-if="filteredRows.length" :data="filteredRows" :columns="partyColumns" :loading="loading" />
+        <UiCrudEmptyState
+          v-else
+          title="No parties found"
+          description="Create customers and vendors with GSTIN verification."
+          icon="i-lucide-users-round"
+          action-label="New Party"
+          @action="startCreate(activeType)"
+        />
+      </UCard>
+
+      <UiFormSlideover
+        v-model:open="formOpen"
+        :title="activeType === 'customer' ? 'New Customer' : 'New Vendor'"
+        description="GSTIN lookup will store legal name, trade name, address, state code, taxpayer type, status, and mismatch alerts."
+        submit-label="Save Party"
+        layout="modal"
+        content-class="w-[calc(100vw-2rem)] sm:max-w-3xl"
+        :loading="saving"
+        @submit="saveParty"
+      >
+        <div class="form-two-column">
+          <UFormField label="Party type">
+            <USelect v-model="activeType" :items="typeOptions" />
+          </UFormField>
+          <UFormField label="GSTIN">
+            <div class="inline-action-row">
+              <UInput v-model="partyForm.gstin" class="flex-1" placeholder="22AAAAA0000A1Z5" />
+              <UButton color="neutral" variant="subtle" icon="i-lucide-search-check" label="Check" :loading="gstinChecking" type="button" @click="validateGstin" />
             </div>
-          </UCard>
+          </UFormField>
         </div>
 
-        <aside class="planner-side-column">
-          <UCard class="planner-card">
-            <template #header>
-              <div class="planner-card-header">
-                <div>
-                  <h2>Setup Health</h2>
-                  <p>Required first-run data</p>
-                </div>
-                <strong>{{ setupProgress }}%</strong>
-              </div>
-            </template>
+        <UAlert
+          v-if="gstinValidation?.alerts?.length"
+          color="warning"
+          variant="subtle"
+          title="GSTIN alert"
+          :description="gstinValidation.alerts.join(' ')"
+        />
+        <UAlert
+          v-else-if="gstinValidation?.lookup"
+          color="success"
+          variant="subtle"
+          title="GSTIN checked"
+          :description="gstinValidation.lookup.isVerified ? 'GSTIN details fetched from configured provider.' : gstinValidation.lookup.message"
+        />
 
-            <div class="planner-progress">
-              <span :style="{ width: `${setupProgress}%` }" />
-            </div>
-            <div class="planner-check-list">
-              <div v-for="item in setupChecks" :key="item.label">
-                <UIcon :name="item.ready ? 'i-lucide-circle-check' : 'i-lucide-circle-alert'" class="size-4" />
-                <span>{{ item.label }}</span>
-              </div>
-            </div>
-          </UCard>
+        <div v-if="gstinValidation?.lookup" class="gstin-preview-card">
+          <strong>{{ gstinValidation.lookup.legalName || gstinValidation.lookup.tradeName || gstinValidation.lookup.gstin }}</strong>
+          <span>{{ gstinValidation.lookup.tradeName }}</span>
+          <span>{{ gstinValidation.lookup.principalAddress }}</span>
+          <span>{{ gstinValidation.lookup.status }} · {{ gstinValidation.lookup.taxpayerType }} · State {{ gstinValidation.lookup.stateCode }}</span>
+        </div>
 
-          <UCard class="planner-card">
-            <template #header>
-              <div class="planner-card-header">
-                <div>
-                  <h2>Recent Activity</h2>
-                  <p>Latest sales and master data counts</p>
-                </div>
-              </div>
-            </template>
-
-            <div class="planner-activity-list">
-              <NuxtLink v-for="item in recentActivity" :key="`${item.label}-${item.meta}`" :to="item.to">
-                <UAvatar :icon="item.icon" size="sm" color="primary" variant="subtle" />
-                <span>{{ item.label }}</span>
-                <small>{{ item.meta }}</small>
-              </NuxtLink>
-            </div>
-          </UCard>
-        </aside>
-      </div>
+        <UFormField label="Name" required>
+          <UInput v-model="partyForm.name" required />
+        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Mobile" required>
+            <UInput v-model="partyForm.mobileNumber" required />
+          </UFormField>
+          <UFormField label="Email">
+            <UInput v-model="partyForm.email" />
+          </UFormField>
+        </div>
+        <UFormField label="Address">
+          <UTextarea v-model="partyForm.address" :rows="3" />
+        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="City">
+            <UInput v-model="partyForm.city" />
+          </UFormField>
+          <UFormField label="State">
+            <UInput v-model="partyForm.state" />
+          </UFormField>
+        </div>
+        <div class="form-two-column">
+          <UFormField label="Zip code">
+            <UInput v-model="partyForm.zipCode" />
+          </UFormField>
+          <UFormField label="Country">
+            <UInput v-model="partyForm.country" />
+          </UFormField>
+        </div>
+      </UiFormSlideover>
     </section>
   </AppShell>
 </template>
