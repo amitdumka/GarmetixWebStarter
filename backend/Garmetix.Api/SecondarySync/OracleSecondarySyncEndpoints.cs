@@ -14,11 +14,14 @@ public static class OracleSecondarySyncEndpoints
         group.MapGet("/status", StatusAsync);
         group.MapGet("/history", HistoryAsync);
         group.MapGet("/inbound", InboundAsync);
+        group.MapGet("/ownership", OwnershipAsync);
         group.MapGet("/dead-letters", DeadLettersAsync);
         group.MapPost("/test", TestAsync);
         group.MapPost("/repair", RepairAsync);
         group.MapPost("/run", RunAsync);
         group.MapPost("/pull", PullAsync);
+        group.MapPost("/inbound/{id:guid}/apply", ApplyInboundAsync);
+        group.MapPost("/inbound/{id:guid}/reject", RejectInboundAsync);
         group.MapPost("/dead-letters/{id:guid}/retry", RetryDeadLetterAsync);
         group.MapPost("/dead-letters/{id:guid}/resolve", ResolveDeadLetterAsync);
 
@@ -45,6 +48,11 @@ public static class OracleSecondarySyncEndpoints
         CancellationToken cancellationToken)
     {
         return Results.Ok(await service.GetInboundEventsAsync(take ?? 50, status, cancellationToken));
+    }
+
+    private static IResult OwnershipAsync(OracleSecondarySyncService service)
+    {
+        return Results.Ok(service.GetOwnershipMatrix());
     }
 
     private static async Task<IResult> DeadLettersAsync(
@@ -98,6 +106,26 @@ public static class OracleSecondarySyncEndpoints
         CancellationToken cancellationToken)
     {
         var result = await service.RunOnceAsync(request.EntityName, request.RepairFirst, "PullFromOracle", cancellationToken);
+        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+    }
+
+    private static async Task<IResult> ApplyInboundAsync(
+        Guid id,
+        OracleInboundApplyRequest request,
+        OracleSecondarySyncService service,
+        CancellationToken cancellationToken)
+    {
+        var result = await service.ApplyInboundEventAsync(id, request.Force, request.Note, cancellationToken);
+        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+    }
+
+    private static async Task<IResult> RejectInboundAsync(
+        Guid id,
+        OracleInboundApplyRequest request,
+        OracleSecondarySyncService service,
+        CancellationToken cancellationToken)
+    {
+        var result = await service.RejectInboundEventAsync(id, request.Note, cancellationToken);
         return result.Success ? Results.Ok(result) : Results.BadRequest(result);
     }
 

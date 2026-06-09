@@ -368,6 +368,75 @@ public static class OracleSecondarySyncLocalStore
             reader.IsDBNull(13) ? null : reader.GetString(13));
     }
 
+
+    public static async Task<(OracleSyncInboundEventRow Row, string PayloadHash, string PayloadJson)?> GetInboundEventWithPayloadAsync(
+        GarmetixDbContext db,
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        await RepairAsync(db, cancellationToken);
+        var connection = db.Database.GetDbConnection();
+        var closeAfter = connection.State != ConnectionState.Open;
+        if (closeAfter) await connection.OpenAsync(cancellationToken);
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = """
+                SELECT "Id", "OracleEventId", "TenantId", "SourceApplication", "EntityName", "EntityId", "Operation", "VersionUtc", "ConflictPolicy", "Status", "Note", "PulledAtUtc", "AppliedAtUtc", "Error", "PayloadHash", "PayloadJson"
+                FROM "OracleSyncInboundEvents"
+                WHERE "Id" = @id;
+                """;
+            AddParameter(command, "id", id);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                return null;
+            }
+
+            var row = new OracleSyncInboundEventRow(
+                reader.GetGuid(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetString(3),
+                reader.GetString(4),
+                reader.GetString(5),
+                reader.GetString(6),
+                reader.GetDateTime(7),
+                reader.GetString(8),
+                reader.GetString(9),
+                reader.IsDBNull(10) ? null : reader.GetString(10),
+                reader.GetDateTime(11),
+                reader.IsDBNull(12) ? null : reader.GetDateTime(12),
+                reader.IsDBNull(13) ? null : reader.GetString(13));
+            return (row, reader.GetString(14), reader.GetString(15));
+        }
+        finally
+        {
+            if (closeAfter) await connection.CloseAsync();
+        }
+    }
+
+    public static async Task<bool> UpdateInboundEventStatusAsync(
+        GarmetixDbContext db,
+        Guid id,
+        string status,
+        string? note,
+        string? error,
+        bool setAppliedAt,
+        CancellationToken cancellationToken = default)
+    {
+        await RepairAsync(db, cancellationToken);
+        var affected = await db.Database.ExecuteSqlInterpolatedAsync($"""
+            UPDATE "OracleSyncInboundEvents"
+            SET "Status" = {status},
+                "Note" = {note},
+                "Error" = {error},
+                "AppliedAtUtc" = CASE WHEN {setAppliedAt} THEN {DateTime.UtcNow} ELSE "AppliedAtUtc" END
+            WHERE "Id" = {id};
+            """, cancellationToken);
+        return affected > 0;
+    }
+
     private static void AddParameter(IDbCommand command, string name, object? value)
     {
         var parameter = command.CreateParameter();

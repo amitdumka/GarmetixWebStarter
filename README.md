@@ -344,3 +344,15 @@ Configure with `ORACLE_SYNC_*` values in `.env`. See `backend/Oracle-Secondary-S
 Oracle secondary sync now supports safe bidirectional mode. Garmetix still treats PostgreSQL as the primary transaction store. External Oracle events are pulled into `OracleSyncInboundEvents` and failed/unsupported events go to `OracleSyncDeadLetters` until entity ownership and merge rules are approved.
 
 See `backend/Oracle-Secondary-Sync-v2-Notes.md`.
+
+### Oracle Secondary Sync v3
+
+Oracle Sync now includes an entity ownership matrix and explicit inbound apply/reject actions. Open `/oracle-sync` as an admin to review Oracle inbound events, apply shared master data, reject unwanted events, and inspect ownership rules.
+
+New endpoints:
+
+- `GET /api/oracle-sync/ownership`
+- `POST /api/oracle-sync/inbound/{id}/apply`
+- `POST /api/oracle-sync/inbound/{id}/reject`
+
+Shared master entities can be applied after review. Transactional, GST, stock, loyalty-ledger, and accounting entities remain blocked by default unless force-applied by admin.

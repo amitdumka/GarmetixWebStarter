@@ -15,6 +15,7 @@ const runResult = ref<any | null>(null)
 const history = ref<any[]>([])
 const inbound = ref<any[]>([])
 const deadLetters = ref<any[]>([])
+const ownership = ref<any[]>([])
 const selectedEntity = ref('')
 const selectedDirection = ref('')
 
@@ -65,16 +66,18 @@ async function refresh() {
   if (!auth.isAuthenticated.value || !auth.canSeeAdmin.value) return
   loading.value = true
   try {
-    const [nextStatus, nextHistory, nextInbound, nextDeadLetters] = await Promise.all([
+    const [nextStatus, nextHistory, nextInbound, nextDeadLetters, nextOwnership] = await Promise.all([
       api.get<any>('oracle-sync/status'),
       api.get<any[]>('oracle-sync/history?take=20'),
       api.get<any[]>('oracle-sync/inbound?take=20'),
-      api.get<any[]>('oracle-sync/dead-letters?take=20')
+      api.get<any[]>('oracle-sync/dead-letters?take=20'),
+      api.get<any[]>('oracle-sync/ownership')
     ])
     status.value = nextStatus
     history.value = nextHistory || []
     inbound.value = nextInbound || []
     deadLetters.value = nextDeadLetters || []
+    ownership.value = nextOwnership || []
   } catch (error) {
     feedback.failed('Could not load Oracle sync status', error)
   } finally {
@@ -141,6 +144,22 @@ async function pullNow() {
   }
 }
 
+async function inboundAction(id: string, action: 'apply' | 'reject', force = false) {
+  actioning.value = true
+  try {
+    await api.create<any>(`oracle-sync/inbound/${id}/${action}`, {
+      force,
+      note: action === 'apply' ? 'Applied from Oracle Sync review queue.' : 'Rejected from Oracle Sync review queue.'
+    })
+    feedback.saved(action === 'apply' ? 'Inbound event applied' : 'Inbound event rejected')
+    await refresh()
+  } catch (error) {
+    feedback.failed(action === 'apply' ? 'Inbound apply failed' : 'Inbound reject failed', error)
+  } finally {
+    actioning.value = false
+  }
+}
+
 async function deadLetterAction(id: string, action: 'retry' | 'resolve') {
   actioning.value = true
   try {
@@ -179,8 +198,8 @@ onMounted(async () => { auth.restore(); await refresh() })
       class="mt-4"
       color="primary"
       variant="subtle"
-      title="Oracle Sync v2"
-      description="Bidirectional mode is now supported safely: outbound changes are pushed to Oracle, while inbound external events are pulled into a local review/dead-letter queue before any destructive merge."
+      title="Oracle Sync v3"
+      description="Entity ownership rules are now visible. Shared masters can be applied from Oracle after review; Garmetix-owned transactional data remains blocked unless explicitly forced by an admin."
     />
 
     <div class="planner-metric-grid mt-4">
@@ -256,7 +275,7 @@ onMounted(async () => { auth.restore(); await refresh() })
       <template #header><strong>Inbound Oracle Review Queue</strong></template>
       <div class="planner-table-wrap">
         <table class="planner-table">
-          <thead><tr><th>Source</th><th>Entity</th><th>Operation</th><th>Status</th><th>Policy</th><th>Pulled</th><th>Note</th></tr></thead>
+          <thead><tr><th>Source</th><th>Entity</th><th>Operation</th><th>Status</th><th>Policy</th><th>Pulled</th><th>Note</th><th>Actions</th></tr></thead>
           <tbody>
             <tr v-for="row in inbound" :key="row.id">
               <td>{{ row.sourceApplication }}</td>
@@ -266,12 +285,41 @@ onMounted(async () => { auth.restore(); await refresh() })
               <td>{{ row.conflictPolicy }}</td>
               <td>{{ formatDate(row.pulledAtUtc) }}</td>
               <td>{{ row.note || row.error || '-' }}</td>
+              <td>
+                <div class="form-actions compact-actions">
+                  <UButton size="xs" color="success" variant="subtle" label="Apply" :loading="actioning" @click="inboundAction(row.id, 'apply')" />
+                  <UButton size="xs" color="neutral" variant="subtle" label="Reject" :loading="actioning" @click="inboundAction(row.id, 'reject')" />
+                </div>
+              </td>
             </tr>
-            <tr v-if="!inbound.length"><td colspan="7">No inbound events yet.</td></tr>
+            <tr v-if="!inbound.length"><td colspan="8">No inbound events yet.</td></tr>
           </tbody>
         </table>
       </div>
     </UCard>
+
+
+    <UCard class="planner-card mt-4">
+      <template #header><strong>Entity Ownership Matrix</strong></template>
+      <div class="planner-table-wrap">
+        <table class="planner-table">
+          <thead><tr><th>Entity</th><th>Owner</th><th>Inbound Mode</th><th>Conflict</th><th>Can Apply</th><th>Auto Allowed</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr v-for="row in ownership" :key="row.entityName">
+              <td>{{ row.entityName }}</td>
+              <td>{{ row.owner }}</td>
+              <td>{{ row.inboundMode }}</td>
+              <td>{{ row.conflictPolicy }}</td>
+              <td>{{ row.canApplyInbound ? 'Yes' : 'No' }}</td>
+              <td>{{ row.autoApplyAllowed ? 'Yes' : 'No' }}</td>
+              <td>{{ row.notes }}</td>
+            </tr>
+            <tr v-if="!ownership.length"><td colspan="7">No ownership rows loaded.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </UCard>
+
 
     <UCard class="planner-card mt-4">
       <template #header><strong>Open Dead Letters</strong></template>

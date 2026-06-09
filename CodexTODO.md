@@ -177,5 +177,21 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Add sync run history with pushed/pulled counts.
 - [x] Add API endpoints for history, inbound queue, dead letters, retry, and resolve.
 - [x] Refine Oracle Sync UI with bidirectional controls, inbound review queue, dead-letter actions, and sync history.
-- [ ] Define final entity ownership matrix with user guidance before enabling destructive Oracle-to-PostgreSQL merge.
-- [ ] Implement approved inbound merge rules per entity after ownership matrix is confirmed.
+- [x] Define entity ownership matrix for Oracle inbound sync and expose it in API/UI.
+- [x] Implement approved inbound merge rules for shared master data (`Company`, `StoreGroup`, `Store`, `Customer`, `Vendor`, `Product`, `ProductCategory`, `ProductSubCategory`, and `Employee`) with admin apply/reject review.
+- [x] Block transactional/GST/accounting/stock inbound overwrite by default unless admin explicitly forces apply.
+- [x] Add Oracle inbound apply/reject API endpoints and UI actions.
+- [ ] Test Oracle bidirectional sync against a real Oracle Cloud Free Tier Autonomous DB and connected external app.
+- [ ] After real-app testing, decide whether any entity should be auto-applied instead of manual review.
+
+
+## Oracle Cloud Secondary Database Sync - v3
+
+- [x] Added entity ownership matrix for Oracle common-hub integration.
+- [x] Added inbound apply/reject actions from Oracle review queue.
+- [x] Added conflict-aware apply behavior (`ManualReview`, `GarmetixWins`, `OracleWins`, `LatestWins`).
+- [x] Shared master data can be merged after admin review.
+- [x] Transactional, GST, stock, loyalty-ledger, and accounting entities remain blocked by ownership rules unless force-applied by admin.
+- [x] Added Oracle Sync UI ownership table and inbound queue action buttons.
+- [ ] Real Oracle Cloud + external app integration test.
+- [ ] Final auto-apply policy decision after production data ownership review.

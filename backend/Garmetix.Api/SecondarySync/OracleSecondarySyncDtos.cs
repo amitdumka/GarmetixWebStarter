@@ -88,3 +88,24 @@ public sealed record OracleSyncDeadLetterRow(
     DateTime UpdatedAtUtc);
 
 public sealed record OracleDeadLetterActionResult(bool Success, string Message);
+
+
+public sealed record OracleEntityOwnershipRow(
+    string EntityName,
+    string Owner,
+    string InboundMode,
+    string ConflictPolicy,
+    bool CanApplyInbound,
+    bool AutoApplyAllowed,
+    string Notes);
+
+public sealed record OracleInboundApplyRequest(bool Force = false, string? Note = null);
+
+public sealed record OracleInboundApplyResult(
+    bool Success,
+    string Message,
+    Guid InboundEventId,
+    string EntityName,
+    string EntityId,
+    string Status,
+    string? Error = null);

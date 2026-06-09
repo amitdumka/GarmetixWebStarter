@@ -11,6 +11,8 @@ using Garmetix.Models.DayOperations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Oracle.ManagedDataAccess.Client;
+using System.Collections;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Data;
 using System.Linq.Expressions;
 using System.Security.Cryptography;
@@ -40,6 +42,8 @@ public sealed class OracleSecondarySyncService(
         [nameof(Customer)] = typeof(Customer),
         [nameof(Vendor)] = typeof(Vendor),
         [nameof(Product)] = typeof(Product),
+        [nameof(ProductCategory)] = typeof(ProductCategory),
+        [nameof(ProductSubCategory)] = typeof(ProductSubCategory),
         [nameof(Stock)] = typeof(Stock),
         [nameof(Invoice)] = typeof(Invoice),
         [nameof(PurchaseInvoice)] = typeof(PurchaseInvoice),
@@ -164,6 +168,115 @@ public sealed class OracleSecondarySyncService(
         var db = scope.ServiceProvider.GetRequiredService<GarmetixDbContext>();
         var changed = await OracleSecondarySyncLocalStore.MarkDeadLetterResolvedAsync(db, id, cancellationToken);
         return new OracleDeadLetterActionResult(changed, changed ? "Dead-letter marked resolved." : "Dead-letter was not found.");
+    }
+
+    public IReadOnlyList<OracleEntityOwnershipRow> GetOwnershipMatrix()
+    {
+        var current = options.CurrentValue;
+        return BuildOwnershipMatrix(current).OrderBy(item => item.EntityName).ToArray();
+    }
+
+    public async Task<OracleInboundApplyResult> ApplyInboundEventAsync(Guid id, bool force = false, string? note = null, CancellationToken cancellationToken = default)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GarmetixDbContext>();
+        await OracleSecondarySyncLocalStore.RepairAsync(db, cancellationToken);
+        var stored = await OracleSecondarySyncLocalStore.GetInboundEventWithPayloadAsync(db, id, cancellationToken);
+        if (stored is null)
+        {
+            return new OracleInboundApplyResult(false, "Inbound event was not found.", id, string.Empty, string.Empty, "NotFound", "Not found");
+        }
+
+        var row = stored.Value.Row;
+        var ownership = ResolveOwnership(row.EntityName, options.CurrentValue);
+        if (!ownership.CanApplyInbound && !force)
+        {
+            var message = $"Inbound apply blocked by ownership rule: {ownership.Owner}/{ownership.InboundMode}.";
+            await OracleSecondarySyncLocalStore.UpdateInboundEventStatusAsync(db, id, "BlockedByOwnership", message, null, false, cancellationToken);
+            return new OracleInboundApplyResult(false, message, id, row.EntityName, row.EntityId, "BlockedByOwnership");
+        }
+
+        if (!SupportedEntities.TryGetValue(row.EntityName, out var entityType))
+        {
+            var message = $"Unsupported Oracle sync entity '{row.EntityName}'.";
+            await OracleSecondarySyncLocalStore.UpdateInboundEventStatusAsync(db, id, "DeadLetter", message, message, false, cancellationToken);
+            await OracleSecondarySyncLocalStore.AddDeadLetterAsync(db, "PullFromOracle", row.OracleEventId, row.SourceApplication, row.EntityName, row.EntityId, "Unsupported entity", stored.Value.PayloadJson, message, cancellationToken);
+            return new OracleInboundApplyResult(false, message, id, row.EntityName, row.EntityId, "DeadLetter", message);
+        }
+
+        try
+        {
+            if (!Guid.TryParse(row.EntityId, out var entityId))
+            {
+                throw new InvalidOperationException("Oracle event EntityId is not a valid GUID.");
+            }
+
+            var operation = row.Operation?.Trim() ?? "Upsert";
+            var existing = await db.FindAsync(entityType, new object?[] { entityId }, cancellationToken);
+            if (operation.Equals("Delete", StringComparison.OrdinalIgnoreCase))
+            {
+                if (existing is null)
+                {
+                    await OracleSecondarySyncLocalStore.UpdateInboundEventStatusAsync(db, id, "Ignored", note ?? "Delete ignored because local row was not found.", null, true, cancellationToken);
+                    return new OracleInboundApplyResult(true, "Delete ignored because local row was not found.", id, row.EntityName, row.EntityId, "Ignored");
+                }
+
+                SetPropertyIfExists(existing, "Deleted", true);
+                SetPropertyIfExists(existing, "UpdatedAt", DateTime.UtcNow);
+                await db.SaveChangesAsync(cancellationToken);
+                await OracleSecondarySyncLocalStore.UpdateInboundEventStatusAsync(db, id, "Applied", note ?? "Delete applied from Oracle inbound event.", null, true, cancellationToken);
+                return new OracleInboundApplyResult(true, "Delete applied from Oracle inbound event.", id, row.EntityName, row.EntityId, "Applied");
+            }
+
+            var payloadJson = ExtractEntityPayloadJson(stored.Value.PayloadJson);
+            var incoming = JsonSerializer.Deserialize(payloadJson, entityType, JsonOptions) as IEntity
+                ?? throw new InvalidOperationException("Inbound payload could not be converted to a Garmetix entity.");
+            incoming.Id = entityId;
+
+            if (existing is not null && !force && ShouldKeepLocalVersion(existing, incoming, options.CurrentValue.ConflictPolicy))
+            {
+                var keepMessage = "Local version is newer or GarmetixWins policy is active; inbound event kept for review.";
+                await OracleSecondarySyncLocalStore.UpdateInboundEventStatusAsync(db, id, "SkippedLocalWins", keepMessage, null, false, cancellationToken);
+                return new OracleInboundApplyResult(true, keepMessage, id, row.EntityName, row.EntityId, "SkippedLocalWins");
+            }
+
+            if (existing is null)
+            {
+                db.Add(incoming);
+            }
+            else
+            {
+                CopyScalarProperties(incoming, existing, entityType);
+            }
+
+            SetPropertyIfExists(existing ?? incoming, "Synced", true);
+            SetPropertyIfExists(existing ?? incoming, "UpdatedAt", DateTime.UtcNow);
+            await db.SaveChangesAsync(cancellationToken);
+            await OracleSecondarySyncLocalStore.UpdateInboundEventStatusAsync(db, id, "Applied", note ?? $"{row.EntityName} inbound event applied.", null, true, cancellationToken);
+            return new OracleInboundApplyResult(true, $"{row.EntityName} inbound event applied.", id, row.EntityName, row.EntityId, "Applied");
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or DbUpdateException)
+        {
+            logger.LogWarning(ex, "Could not apply Oracle inbound event {InboundEventId}.", id);
+            await OracleSecondarySyncLocalStore.UpdateInboundEventStatusAsync(db, id, "DeadLetter", note ?? "Inbound apply failed.", ex.Message, false, cancellationToken);
+            await OracleSecondarySyncLocalStore.AddDeadLetterAsync(db, "PullFromOracle", row.OracleEventId, row.SourceApplication, row.EntityName, row.EntityId, "Apply failed", stored.Value.PayloadJson, ex.Message, cancellationToken);
+            return new OracleInboundApplyResult(false, "Inbound apply failed.", id, row.EntityName, row.EntityId, "DeadLetter", ex.Message);
+        }
+    }
+
+    public async Task<OracleInboundApplyResult> RejectInboundEventAsync(Guid id, string? note = null, CancellationToken cancellationToken = default)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GarmetixDbContext>();
+        await OracleSecondarySyncLocalStore.RepairAsync(db, cancellationToken);
+        var stored = await OracleSecondarySyncLocalStore.GetInboundEventWithPayloadAsync(db, id, cancellationToken);
+        if (stored is null)
+        {
+            return new OracleInboundApplyResult(false, "Inbound event was not found.", id, string.Empty, string.Empty, "NotFound", "Not found");
+        }
+
+        await OracleSecondarySyncLocalStore.UpdateInboundEventStatusAsync(db, id, "Rejected", note ?? "Rejected by Garmetix user.", null, false, cancellationToken);
+        return new OracleInboundApplyResult(true, "Inbound event rejected.", id, stored.Value.Row.EntityName, stored.Value.Row.EntityId, "Rejected");
     }
 
     public async Task<OracleSecondarySyncRunResult> RunOnceAsync(
