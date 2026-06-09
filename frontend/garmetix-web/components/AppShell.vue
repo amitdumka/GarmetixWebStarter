@@ -69,6 +69,7 @@ const moduleGroups = [
       { to: '/billing', label: 'Billing', icon: 'i-lucide-receipt-indian-rupee' },
       { to: '/sales-return', label: 'Sales Return', icon: 'i-lucide-rotate-ccw' },
       { to: '/inventory', label: 'Inventory', icon: 'i-lucide-boxes' },
+      { to: '/stock-operations', label: 'Stock Ops', icon: 'i-lucide-arrow-left-right' },
       { to: '/purchase', label: 'Purchase', icon: 'i-lucide-package-plus' },
       { to: '/purchase-return', label: 'Purchase Return', icon: 'i-lucide-undo-2' },
       { to: '/customers', label: 'Customers', icon: 'i-lucide-user-round' },

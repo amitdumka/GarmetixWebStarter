@@ -2,6 +2,7 @@ using Garmetix.Api.Accounting;
 using Garmetix.Api.Auth;
 using Garmetix.Api.Commercial;
 using Garmetix.Api.Gstin;
+using Garmetix.Api.Numbering;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Inventory;
@@ -403,6 +404,7 @@ public static class BillingEndpoints
         PosSaleRequest request,
         HttpContext context,
         GarmetixDbContext db,
+        DocumentNumberService documentNumbers,
         AccountingPostingService accounting,
         GstinLookupService gstinLookup,
         CancellationToken cancellationToken)
@@ -430,7 +432,7 @@ public static class BillingEndpoints
             ? await gstinLookup.ValidatePartyAsync("Customer", request.CustomerGstin, request.CustomerName, null, cancellationToken)
             : null;
         var customer = await GetOrCreateCustomerAsync(request, db, gstinLookup, customerValidation, cancellationToken);
-        var invoiceNumber = await CreateInvoiceNumberAsync(request.StoreId, db, cancellationToken);
+        var invoiceNumber = await documentNumbers.NextSaleInvoiceAsync(request.CompanyId, request.StoreGroupId, request.StoreId, cancellationToken);
         var invoiceId = Guid.NewGuid();
 
         var invoiceItems = new List<InvoiceItem>();
@@ -445,6 +447,8 @@ public static class BillingEndpoints
 
         foreach (var requestItem in request.Items)
         {
+            await DocumentNumberGenerator.LockStockKeyAsync(db, request.CompanyId, request.StoreGroupId, request.StoreId, requestItem.ProductId, requestItem.Barcode, cancellationToken);
+
             var stock = await WorkspaceScope.ApplyTo(db.Stocks, context)
                 .Include(item => item.Product)
                 .FirstOrDefaultAsync(item =>
@@ -528,7 +532,27 @@ public static class BillingEndpoints
             totalQuantity += requestItem.Quantity;
         }
 
+        if (request.BillDiscountAmount < 0)
+        {
+            return Results.BadRequest(new { message = "Bill discount cannot be negative." });
+        }
+
         var totalDiscount = itemDiscount + request.BillDiscountAmount;
+        if (totalDiscount > grossMrp)
+        {
+            return Results.BadRequest(new { message = "Total discount cannot be greater than gross MRP." });
+        }
+
+        if (request.BillDiscountAmount > 0)
+        {
+            var allocatedTotals = ApplyBillDiscountToInvoiceItems(invoiceItems, request.BillDiscountAmount);
+            taxableAmount = allocatedTotals.TaxableAmount;
+            taxAmount = allocatedTotals.TaxAmount;
+            cgstAmount = allocatedTotals.CgstAmount;
+            sgstAmount = allocatedTotals.SgstAmount;
+            igstAmount = allocatedTotals.IgstAmount;
+        }
+
         var billAmount = Math.Round(grossMrp - totalDiscount, 0);
         var paymentDetails = NormalizeInvoicePayments(request, billAmount);
         var paidAmount = paymentDetails.Sum(item => item.Amount);
@@ -710,6 +734,7 @@ public static class BillingEndpoints
         SalesReturnRequest request,
         HttpContext context,
         GarmetixDbContext db,
+        DocumentNumberService documentNumbers,
         AccountingPostingService accounting,
         CancellationToken cancellationToken)
     {
@@ -733,6 +758,7 @@ public static class BillingEndpoints
             request.Reason,
             context,
             db,
+            documentNumbers,
             accounting,
             cancellationToken);
 
@@ -763,6 +789,7 @@ public static class BillingEndpoints
         SalesExchangeRequest request,
         HttpContext context,
         GarmetixDbContext db,
+        DocumentNumberService documentNumbers,
         AccountingPostingService accounting,
         CancellationToken cancellationToken)
     {
@@ -796,6 +823,7 @@ public static class BillingEndpoints
             string.IsNullOrWhiteSpace(request.Reason) ? "Exchange return" : request.Reason,
             context,
             db,
+            documentNumbers,
             accounting,
             cancellationToken);
 
@@ -810,7 +838,7 @@ public static class BillingEndpoints
         var customer = returnResult.Customer!;
         var storeGroupId = returnResult.StoreGroupId;
         var exchangeInvoiceId = Guid.NewGuid();
-        var invoiceNumber = await CreatePrefixedInvoiceNumberAsync(original.StoreId, "EX", db, cancellationToken);
+        var invoiceNumber = await documentNumbers.NextSalesExchangeAsync(original.CompanyId, storeGroupId, original.StoreId, cancellationToken);
         var exchangeItems = new List<InvoiceItem>();
         decimal grossMrp = 0;
         decimal itemDiscount = 0;
@@ -823,6 +851,8 @@ public static class BillingEndpoints
 
         foreach (var requestItem in request.NewItems)
         {
+            await DocumentNumberGenerator.LockStockKeyAsync(db, original.CompanyId, storeGroupId, original.StoreId, requestItem.ProductId, requestItem.Barcode, cancellationToken);
+
             var stock = await WorkspaceScope.ApplyTo(db.Stocks, context)
                 .Include(item => item.Product)
                 .FirstOrDefaultAsync(item =>
@@ -1005,6 +1035,7 @@ public static class BillingEndpoints
         string? reason,
         HttpContext context,
         GarmetixDbContext db,
+        DocumentNumberService documentNumbers,
         AccountingPostingService accounting,
         CancellationToken cancellationToken)
     {
@@ -1062,7 +1093,7 @@ public static class BillingEndpoints
         decimal discountAmount = 0;
         decimal creditAmount = 0;
         decimal reversedQuantity = 0;
-        var creditNoteNumber = await CreatePrefixedInvoiceNumberAsync(original.StoreId, "SR", db, cancellationToken);
+        var creditNoteNumber = await documentNumbers.NextSalesReturnAsync(original.CompanyId, storeGroupId, original.StoreId, cancellationToken);
 
         foreach (var requestItem in requestItems)
         {
@@ -1111,6 +1142,8 @@ public static class BillingEndpoints
                 BilledQuantity = requestItem.Quantity,
                 CompanyId = original.CompanyId
             });
+
+            await DocumentNumberGenerator.LockStockKeyAsync(db, original.CompanyId, storeGroupId, original.StoreId, originalItem.ProductId, originalItem.Barcode, cancellationToken);
 
             var stock = await db.Stocks.FirstOrDefaultAsync(stockItem =>
                 stockItem.ProductId == originalItem.ProductId &&
@@ -1239,17 +1272,6 @@ public static class BillingEndpoints
         var returnedQty = previousReturnedQty + currentReturnQuantity;
         var originalQty = originalItems.Sum(item => item.BilledQuantity);
         original.InvoiceStatus = returnedQty >= originalQty ? InvoiceStatus.Refunded : InvoiceStatus.PartiallyRefunded;
-    }
-
-    private static async Task<string> CreatePrefixedInvoiceNumberAsync(Guid storeId, string prefix, GarmetixDbContext db, CancellationToken cancellationToken)
-    {
-        var today = DateTime.Today;
-        var tomorrow = today.AddDays(1);
-        var count = await db.SalesInvoices.CountAsync(
-            item => item.StoreId == storeId && item.OnDate >= today && item.OnDate < tomorrow && item.InvoiceNumber.StartsWith(prefix + "-"),
-            cancellationToken);
-
-        return $"{prefix}-{today:yyyyMMdd}-{count + 1:0000}";
     }
 
     private sealed record SalesReturnCoreResult(
@@ -1543,6 +1565,69 @@ public static class BillingEndpoints
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
+
+    private static (decimal TaxableAmount, decimal TaxAmount, decimal CgstAmount, decimal SgstAmount, decimal IgstAmount) ApplyBillDiscountToInvoiceItems(
+        IReadOnlyList<InvoiceItem> items,
+        decimal billDiscountAmount)
+    {
+        if (items.Count == 0)
+        {
+            return (0, 0, 0, 0, 0);
+        }
+
+        billDiscountAmount = Math.Round(Math.Max(0, billDiscountAmount), 2);
+        var totalInclusiveBeforeBillDiscount = items.Sum(item => item.Amount);
+        if (billDiscountAmount <= 0 || totalInclusiveBeforeBillDiscount <= 0)
+        {
+            return (
+                items.Sum(item => item.BasePrice),
+                items.Sum(item => item.TaxAmount),
+                items.Sum(item => item.CGSTAmount ?? 0),
+                items.Sum(item => item.SGSTAmount ?? 0),
+                items.Sum(item => item.IGSTAmount ?? 0));
+        }
+
+        decimal allocatedSoFar = 0;
+        decimal taxableTotal = 0;
+        decimal taxTotal = 0;
+        decimal cgstTotal = 0;
+        decimal sgstTotal = 0;
+        decimal igstTotal = 0;
+
+        for (var index = 0; index < items.Count; index++)
+        {
+            var item = items[index];
+            var allocatedDiscount = index == items.Count - 1
+                ? billDiscountAmount - allocatedSoFar
+                : Math.Round(billDiscountAmount * item.Amount / totalInclusiveBeforeBillDiscount, 2);
+
+            allocatedDiscount = Math.Min(Math.Max(0, allocatedDiscount), item.Amount);
+            allocatedSoFar += allocatedDiscount;
+
+            var adjustedInclusive = Math.Max(0, item.Amount - allocatedDiscount);
+            var taxable = Math.Round(adjustedInclusive / (1 + (item.TaxPercentage / 100)), 2);
+            var tax = Math.Round(adjustedInclusive - taxable, 2);
+            var split = SplitGst(tax, item.TaxType);
+            var quantity = item.BilledQuantity <= 0 ? 1 : item.BilledQuantity;
+
+            item.DiscountAmount = Math.Round(item.DiscountAmount + (allocatedDiscount / quantity), 2);
+            item.BasePrice = taxable;
+            item.TaxAmount = tax;
+            item.CGSTAmount = split.Cgst;
+            item.SGSTAmount = split.Sgst;
+            item.IGSTAmount = split.Igst;
+            item.Amount = taxable + tax;
+
+            taxableTotal += taxable;
+            taxTotal += tax;
+            cgstTotal += split.Cgst;
+            sgstTotal += split.Sgst;
+            igstTotal += split.Igst;
+        }
+
+        return (taxableTotal, taxTotal, cgstTotal, sgstTotal, igstTotal);
+    }
+
     private static (decimal Cgst, decimal Sgst, decimal Igst) SplitGst(decimal totalTax, TaxType taxType)
     {
         totalTax = Math.Round(totalTax, 2);
@@ -1554,16 +1639,5 @@ public static class BillingEndpoints
             TaxType.GST => (Math.Round(totalTax / 2m, 2), totalTax - Math.Round(totalTax / 2m, 2), 0),
             _ => (0, 0, 0)
         };
-    }
-
-    private static async Task<string> CreateInvoiceNumberAsync(Guid storeId, GarmetixDbContext db, CancellationToken cancellationToken)
-    {
-        var today = DateTime.Today;
-        var tomorrow = today.AddDays(1);
-        var count = await db.SalesInvoices.CountAsync(
-            item => item.StoreId == storeId && item.OnDate >= today && item.OnDate < tomorrow,
-            cancellationToken);
-
-        return $"S-{today:yyyyMMdd}-{count + 1:0000}";
     }
 }
