@@ -487,6 +487,26 @@ async function downloadDraft(format: 'json' | 'excel') {
   }
 }
 
+async function loadFromBooks() {
+  loading.value = true
+  try {
+    const query = new URLSearchParams({ returnPeriod: header.returnPeriod })
+    if (workspace.companyId.value || companies.value[0]?.id) {
+      query.set('companyId', workspace.companyId.value || companies.value[0].id)
+    }
+    const endpoint = activeForm.value === 'gstr1' ? 'gst-returns/from-books/gstr1' : 'gst-returns/from-books/gstr3b'
+    const payload = await api.get<any>(`${endpoint}?${query.toString()}`)
+    applyDraftPayload(activeForm.value, payload)
+    preview.value = null
+    feedback.notify('GST data loaded from books', `${activeLabel.value} values were prepared from Billing/Purchase records.`)
+    await previewReturn()
+  } catch (error) {
+    feedback.failed('Could not load GST data from books', error)
+  } finally {
+    loading.value = false
+  }
+}
+
 async function previewReturn() {
   loading.value = true
   preview.value = null
@@ -621,6 +641,7 @@ onMounted(async () => {
       >
         <template #actions>
           <UBadge color="error" variant="subtle">Urgent</UBadge>
+          <UButton icon="i-lucide-database" color="neutral" variant="subtle" label="Load From Books" :loading="loading" @click="loadFromBooks" />
           <UButton icon="i-lucide-shield-check" color="warning" variant="subtle" label="Review" :loading="schemaReviewLoading" @click="downloadSchemaReview" />
           <UButton icon="i-lucide-file-json" color="primary" variant="subtle" label="JSON" :loading="loading" @click="downloadReturn('json')" />
           <UButton icon="i-lucide-file-spreadsheet" color="success" variant="subtle" label="Excel" :loading="loading" @click="downloadReturn('excel')" />
@@ -631,8 +652,8 @@ onMounted(async () => {
         icon="i-lucide-info"
         color="warning"
         variant="soft"
-        title="Separate manual GST module"
-        description="This screen does not read Billing or Purchase data yet. Enter GST return values manually, generate export files, then verify them before portal upload/filing."
+        title="GST return workspace"
+        description="You can enter GST values manually or use Load From Books to prepare GSTR values from Billing/Purchase records. Verify before portal upload/filing."
       />
 
       <UCard class="planner-card gst-draft-card">

@@ -23,6 +23,7 @@ public static class BillingEndpoints
         group.MapGet("/sales/{id:guid}/receipt", GetReceiptAsync);
         group.MapGet("/sales/{id:guid}/pdf", DownloadInvoicePdfAsync);
         group.MapPost("/sales/{id:guid}/returns", CreateSalesReturnAsync);
+        group.MapPost("/sales/{id:guid}/exchange", CreateSalesExchangeAsync);
         group.MapPost("/sales/{id:guid}/cancel", CancelSaleAsync).RequireAuthorization(GarmetixPolicies.Delete);
 
         return group;
@@ -460,6 +461,491 @@ public static class BillingEndpoints
             invoice.InvoiceStatus.ToString(),
             reversedQuantity,
             reversedAmount));
+    }
+
+    private static async Task<IResult> CreateSalesReturnAsync(
+        Guid id,
+        SalesReturnRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        AccountingPostingService accounting,
+        CancellationToken cancellationToken)
+    {
+        if (request.Items.Count == 0)
+        {
+            return Results.BadRequest(new { message = "Select at least one item to return." });
+        }
+
+        if (request.Items.Any(item => item.Quantity <= 0))
+        {
+            return Results.BadRequest(new { message = "Return quantity must be greater than zero." });
+        }
+
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var result = await CreateReturnCoreAsync(
+            id,
+            request.Items,
+            request.RefundAmount,
+            request.RefundPaymentMode,
+            request.BankAccountId,
+            request.Reason,
+            context,
+            db,
+            accounting,
+            cancellationToken);
+
+        if (!result.Success)
+        {
+            return result.ErrorStatus == StatusCodes.Status404NotFound
+                ? Results.NotFound()
+                : Results.BadRequest(new { message = result.ErrorMessage });
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return Results.Created($"/api/billing/sales/{result.ReturnInvoice!.Id}/receipt", new SalesReturnResponse(
+            result.ReturnInvoice.Id,
+            result.ReturnInvoice.InvoiceNumber,
+            result.OriginalInvoice!.Id,
+            result.OriginalInvoice.InvoiceNumber,
+            result.CreditAmount,
+            result.RefundedAmount,
+            result.StoreCreditAmount,
+            result.ReversedQuantity,
+            result.OriginalInvoice.InvoiceStatus.ToString()));
+    }
+
+    private static async Task<IResult> CreateSalesExchangeAsync(
+        Guid id,
+        SalesExchangeRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        AccountingPostingService accounting,
+        CancellationToken cancellationToken)
+    {
+        if (request.ReturnItems.Count == 0)
+        {
+            return Results.BadRequest(new { message = "Select returned item quantity before creating exchange." });
+        }
+
+        if (request.NewItems.Count == 0)
+        {
+            return Results.BadRequest(new { message = "Select replacement item before creating exchange." });
+        }
+
+        if (request.ReturnItems.Any(item => item.Quantity <= 0) || request.NewItems.Any(item => item.Quantity <= 0))
+        {
+            return Results.BadRequest(new { message = "Exchange quantities must be greater than zero." });
+        }
+
+        if (request.AdditionalPaidAmount > 0 && !request.AdditionalPaymentMode.HasValue)
+        {
+            return Results.BadRequest(new { message = "Select payment mode for additional exchange amount." });
+        }
+
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var returnResult = await CreateReturnCoreAsync(
+            id,
+            request.ReturnItems,
+            0,
+            null,
+            null,
+            string.IsNullOrWhiteSpace(request.Reason) ? "Exchange return" : request.Reason,
+            context,
+            db,
+            accounting,
+            cancellationToken);
+
+        if (!returnResult.Success)
+        {
+            return returnResult.ErrorStatus == StatusCodes.Status404NotFound
+                ? Results.NotFound()
+                : Results.BadRequest(new { message = returnResult.ErrorMessage });
+        }
+
+        var original = returnResult.OriginalInvoice!;
+        var customer = returnResult.Customer!;
+        var storeGroupId = returnResult.StoreGroupId;
+        var exchangeInvoiceId = Guid.NewGuid();
+        var invoiceNumber = await CreatePrefixedInvoiceNumberAsync(original.StoreId, "EX", db, cancellationToken);
+        var exchangeItems = new List<InvoiceItem>();
+        decimal grossMrp = 0;
+        decimal itemDiscount = 0;
+        decimal taxableAmount = 0;
+        decimal taxAmount = 0;
+        decimal totalQuantity = 0;
+
+        foreach (var requestItem in request.NewItems)
+        {
+            var stock = await WorkspaceScope.ApplyTo(db.Stocks, context)
+                .Include(item => item.Product)
+                .FirstOrDefaultAsync(item =>
+                    item.ProductId == requestItem.ProductId &&
+                    item.Barcode == requestItem.Barcode &&
+                    item.StoreId == original.StoreId,
+                    cancellationToken);
+
+            if (stock is null)
+            {
+                return Results.BadRequest(new { message = $"Stock not found for replacement barcode {requestItem.Barcode}." });
+            }
+
+            if (stock.CurrentStock < requestItem.Quantity)
+            {
+                return Results.BadRequest(new { message = $"Insufficient replacement stock for {requestItem.Barcode}. Available: {stock.CurrentStock}." });
+            }
+
+            var lineMrp = requestItem.Mrp * requestItem.Quantity;
+            var lineDiscount = requestItem.DiscountAmount * requestItem.Quantity;
+            var taxable = Math.Round((lineMrp - lineDiscount) / (1 + (stock.TaxRate / 100)), 2);
+            var tax = Math.Round(taxable * (stock.TaxRate / 100), 2);
+            var lineAmount = taxable + tax;
+
+            exchangeItems.Add(new InvoiceItem
+            {
+                InvoiceId = exchangeInvoiceId,
+                ProductId = requestItem.ProductId,
+                Barcode = requestItem.Barcode,
+                MRP = requestItem.Mrp,
+                DiscountAmount = requestItem.DiscountAmount,
+                BasePrice = taxable,
+                TaxPercentage = stock.TaxRate,
+                TaxAmount = tax,
+                Amount = lineAmount,
+                TaxType = stock.TaxType,
+                TaxId = stock.TaxId,
+                BilledQuantity = requestItem.Quantity,
+                CompanyId = original.CompanyId
+            });
+
+            stock.SoldQty += requestItem.Quantity;
+            stock.SoldValue += lineAmount;
+            grossMrp += lineMrp;
+            itemDiscount += lineDiscount;
+            taxableAmount += taxable;
+            taxAmount += tax;
+            totalQuantity += requestItem.Quantity;
+        }
+
+        var billAmount = Math.Round(grossMrp - itemDiscount, 0);
+        var creditApplied = Math.Min(customer.CreditBalance, billAmount);
+        var additionalDue = Math.Max(billAmount - creditApplied, 0);
+        var additionalPaid = Math.Min(Math.Max(request.AdditionalPaidAmount, 0), additionalDue);
+        customer.CreditBalance = Math.Max(0, customer.CreditBalance - creditApplied);
+        customer.Amount += Math.Max(billAmount - creditApplied, 0);
+        customer.BillCount += 1;
+
+        var exchangeInvoice = new Invoice
+        {
+            Id = exchangeInvoiceId,
+            InvoiceNumber = invoiceNumber,
+            OnDate = DateTime.Now,
+            ReturnInvoice = false,
+            OriginalInvoiceId = original.Id,
+            InvoiceType = InvoiceType.Regular,
+            InvoiceStatus = additionalPaid >= additionalDue ? InvoiceStatus.Paid : InvoiceStatus.PartiallyPaid,
+            MRP = grossMrp,
+            BasePrice = taxableAmount,
+            DiscountAmount = itemDiscount,
+            TaxAmount = taxAmount,
+            NetAmount = taxableAmount,
+            RoundOff = billAmount - (taxableAmount + taxAmount),
+            BillAmount = billAmount,
+            Quantity = totalQuantity,
+            ItemCount = exchangeItems.Count,
+            PaymentMode = additionalPaid > 0 ? request.AdditionalPaymentMode : null,
+            CustomerId = customer.Id,
+            CustomerName = customer.Name,
+            CustomerMobileNumber = customer.MobileNumber,
+            CustomerGSTIN = customer.GSTIN,
+            CreditSale = additionalPaid < additionalDue,
+            PaidAmount = additionalPaid,
+            BillDiscountAmount = 0,
+            StoreId = original.StoreId,
+            CompanyId = original.CompanyId
+        };
+
+        db.SalesInvoices.Add(exchangeInvoice);
+        db.InvoiceItems.AddRange(exchangeItems);
+        if (creditApplied > 0)
+        {
+            db.InvoicePayments.Add(new InvoicePayment
+            {
+                InvoiceId = exchangeInvoice.Id,
+                OnDate = DateTime.Now,
+                Amount = creditApplied,
+                PaymentMode = PaymentMode.CreditBalance,
+                ReferenceNumber = $"Exchange credit from {returnResult.ReturnInvoice!.InvoiceNumber}",
+                StoreId = original.StoreId,
+                CompanyId = original.CompanyId
+            });
+        }
+
+        if (additionalPaid > 0 && request.AdditionalPaymentMode.HasValue)
+        {
+            db.InvoicePayments.Add(new InvoicePayment
+            {
+                InvoiceId = exchangeInvoice.Id,
+                OnDate = DateTime.Now,
+                Amount = additionalPaid,
+                PaymentMode = request.AdditionalPaymentMode.Value,
+                ReferenceNumber = $"Exchange additional payment for {invoiceNumber}",
+                StoreId = original.StoreId,
+                CompanyId = original.CompanyId
+            });
+        }
+
+        await accounting.PostSalesInvoiceAsync(exchangeInvoice, customer, storeGroupId, request.BankAccountId, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return Results.Created($"/api/billing/sales/{exchangeInvoice.Id}/receipt", new SalesExchangeResponse(
+            returnResult.ReturnInvoice!.Id,
+            returnResult.ReturnInvoice.InvoiceNumber,
+            exchangeInvoice.Id,
+            exchangeInvoice.InvoiceNumber,
+            returnResult.CreditAmount,
+            creditApplied,
+            additionalPaid,
+            exchangeInvoice.BillAmount,
+            customer.CreditBalance));
+    }
+
+    private static async Task<SalesReturnCoreResult> CreateReturnCoreAsync(
+        Guid originalInvoiceId,
+        IReadOnlyList<SalesReturnItemRequest> requestItems,
+        decimal refundAmount,
+        PaymentMode? refundPaymentMode,
+        Guid? bankAccountId,
+        string? reason,
+        HttpContext context,
+        GarmetixDbContext db,
+        AccountingPostingService accounting,
+        CancellationToken cancellationToken)
+    {
+        var original = await WorkspaceScope.ApplyTo(db.SalesInvoices, context)
+            .FirstOrDefaultAsync(item => item.Id == originalInvoiceId, cancellationToken);
+        if (original is null)
+        {
+            return SalesReturnCoreResult.NotFound();
+        }
+
+        if (original.InvoiceStatus == InvoiceStatus.Cancelled || original.ReturnInvoice)
+        {
+            return SalesReturnCoreResult.BadRequest("Cannot return or exchange this invoice.");
+        }
+
+        if (refundAmount > 0 && !refundPaymentMode.HasValue)
+        {
+            return SalesReturnCoreResult.BadRequest("Select refund payment mode.");
+        }
+
+        var customer = await db.Customers.FirstOrDefaultAsync(item => item.Id == original.CustomerId, cancellationToken);
+        if (customer is null)
+        {
+            return SalesReturnCoreResult.BadRequest("Original invoice customer was not found.");
+        }
+
+        var storeGroupId = await db.Stores
+            .Where(item => item.Id == original.StoreId)
+            .Select(item => item.StoreGroupId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var originalItems = await db.InvoiceItems
+            .Where(item => item.InvoiceId == original.Id)
+            .ToListAsync(cancellationToken);
+
+        var returnInvoices = await db.SalesInvoices
+            .AsNoTracking()
+            .Where(item => item.OriginalInvoiceId == original.Id && item.ReturnInvoice && item.InvoiceStatus != InvoiceStatus.Cancelled)
+            .Select(item => item.Id)
+            .ToListAsync(cancellationToken);
+
+        var alreadyReturned = returnInvoices.Count == 0
+            ? new Dictionary<string, decimal>()
+            : await db.InvoiceItems
+                .Where(item => returnInvoices.Contains(item.InvoiceId))
+                .GroupBy(item => item.ProductId.ToString() + "|" + item.Barcode)
+                .Select(group => new { Key = group.Key, Quantity = group.Sum(item => item.BilledQuantity) })
+                .ToDictionaryAsync(item => item.Key, item => item.Quantity, cancellationToken);
+
+        var returnInvoiceId = Guid.NewGuid();
+        var returnItems = new List<InvoiceItem>();
+        decimal grossMrp = 0;
+        decimal taxableAmount = 0;
+        decimal taxAmount = 0;
+        decimal discountAmount = 0;
+        decimal creditAmount = 0;
+        decimal reversedQuantity = 0;
+
+        foreach (var requestItem in requestItems)
+        {
+            var originalItem = originalItems.FirstOrDefault(item => item.Id == requestItem.InvoiceItemId);
+            if (originalItem is null)
+            {
+                return SalesReturnCoreResult.BadRequest("One or more return items are not part of the selected invoice.");
+            }
+
+            var key = originalItem.ProductId.ToString() + "|" + originalItem.Barcode;
+            alreadyReturned.TryGetValue(key, out var previousReturnedQuantity);
+            var remainingQuantity = originalItem.BilledQuantity - previousReturnedQuantity;
+            if (requestItem.Quantity > remainingQuantity)
+            {
+                return SalesReturnCoreResult.BadRequest($"Return quantity for {originalItem.Barcode} exceeds remaining sold quantity {remainingQuantity}.");
+            }
+
+            var ratio = originalItem.BilledQuantity == 0 ? 0 : requestItem.Quantity / originalItem.BilledQuantity;
+            var lineMrp = originalItem.MRP * requestItem.Quantity;
+            var lineDiscount = originalItem.DiscountAmount * requestItem.Quantity;
+            var lineBase = Math.Round(originalItem.BasePrice * ratio, 2);
+            var lineTax = Math.Round(originalItem.TaxAmount * ratio, 2);
+            var lineAmount = Math.Round(originalItem.Amount * ratio, 2);
+
+            returnItems.Add(new InvoiceItem
+            {
+                InvoiceId = returnInvoiceId,
+                ProductId = originalItem.ProductId,
+                Barcode = originalItem.Barcode,
+                MRP = originalItem.MRP,
+                DiscountAmount = originalItem.DiscountAmount,
+                BasePrice = lineBase,
+                TaxPercentage = originalItem.TaxPercentage,
+                TaxAmount = lineTax,
+                Amount = lineAmount,
+                TaxType = originalItem.TaxType,
+                TaxId = originalItem.TaxId,
+                BilledQuantity = requestItem.Quantity,
+                CompanyId = original.CompanyId
+            });
+
+            var stock = await db.Stocks.FirstOrDefaultAsync(stockItem =>
+                stockItem.ProductId == originalItem.ProductId &&
+                stockItem.Barcode == originalItem.Barcode &&
+                stockItem.StoreId == original.StoreId,
+                cancellationToken);
+            if (stock is not null)
+            {
+                stock.SoldQty = Math.Max(0, stock.SoldQty - requestItem.Quantity);
+                stock.SoldValue = Math.Max(0, stock.SoldValue - lineAmount);
+            }
+
+            grossMrp += lineMrp;
+            discountAmount += lineDiscount;
+            taxableAmount += lineBase;
+            taxAmount += lineTax;
+            creditAmount += lineAmount;
+            reversedQuantity += requestItem.Quantity;
+        }
+
+        var billAmount = Math.Round(creditAmount, 0);
+        var refund = Math.Min(Math.Max(refundAmount, 0), billAmount);
+        var storeCredit = Math.Max(billAmount - refund, 0);
+        var creditNoteNumber = await CreatePrefixedInvoiceNumberAsync(original.StoreId, "SR", db, cancellationToken);
+        var returnInvoice = new Invoice
+        {
+            Id = returnInvoiceId,
+            InvoiceNumber = creditNoteNumber,
+            OnDate = DateTime.Now,
+            ReturnInvoice = true,
+            OriginalInvoiceId = original.Id,
+            InvoiceType = InvoiceType.Return,
+            InvoiceStatus = refund >= billAmount ? InvoiceStatus.Refunded : InvoiceStatus.PartiallyRefunded,
+            MRP = grossMrp,
+            BasePrice = taxableAmount,
+            DiscountAmount = discountAmount,
+            TaxAmount = taxAmount,
+            NetAmount = taxableAmount,
+            RoundOff = billAmount - (taxableAmount + taxAmount),
+            BillAmount = billAmount,
+            Quantity = reversedQuantity,
+            ItemCount = returnItems.Count,
+            PaymentMode = refund > 0 ? refundPaymentMode : null,
+            CustomerId = customer.Id,
+            CustomerName = customer.Name,
+            CustomerMobileNumber = customer.MobileNumber,
+            CustomerGSTIN = customer.GSTIN,
+            CreditSale = false,
+            PaidAmount = refund,
+            BillDiscountAmount = 0,
+            StoreId = original.StoreId,
+            CompanyId = original.CompanyId
+        };
+
+        db.SalesInvoices.Add(returnInvoice);
+        db.InvoiceItems.AddRange(returnItems);
+        if (refund > 0 && refundPaymentMode.HasValue)
+        {
+            db.InvoicePayments.Add(new InvoicePayment
+            {
+                InvoiceId = returnInvoice.Id,
+                OnDate = DateTime.Now,
+                Amount = refund,
+                PaymentMode = refundPaymentMode.Value,
+                StoreId = original.StoreId,
+                CompanyId = original.CompanyId,
+                ReferenceNumber = string.IsNullOrWhiteSpace(reason) ? "Sales return refund" : reason
+            });
+        }
+
+        customer.Amount = Math.Max(0, customer.Amount - billAmount);
+        customer.CreditBalance += storeCredit;
+        await UpdateOriginalReturnStatusAsync(original, originalItems, reversedQuantity, db, cancellationToken);
+        await accounting.PostSalesReturnAsync(returnInvoice, customer, storeGroupId, refund, refundPaymentMode, bankAccountId, cancellationToken);
+
+        return SalesReturnCoreResult.Ok(original, returnInvoice, customer, storeGroupId, billAmount, refund, storeCredit, reversedQuantity);
+    }
+
+    private static async Task UpdateOriginalReturnStatusAsync(
+        Invoice original,
+        IReadOnlyList<InvoiceItem> originalItems,
+        decimal currentReturnQuantity,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var returnInvoiceIds = await db.SalesInvoices
+            .AsNoTracking()
+            .Where(item => item.OriginalInvoiceId == original.Id && item.ReturnInvoice && item.InvoiceStatus != InvoiceStatus.Cancelled)
+            .Select(item => item.Id)
+            .ToListAsync(cancellationToken);
+
+        var previousReturnedQty = returnInvoiceIds.Count == 0
+            ? 0
+            : await db.InvoiceItems
+                .Where(item => returnInvoiceIds.Contains(item.InvoiceId))
+                .SumAsync(item => item.BilledQuantity, cancellationToken);
+        var returnedQty = previousReturnedQty + currentReturnQuantity;
+        var originalQty = originalItems.Sum(item => item.BilledQuantity);
+        original.InvoiceStatus = returnedQty >= originalQty ? InvoiceStatus.Refunded : InvoiceStatus.PartiallyRefunded;
+    }
+
+    private static async Task<string> CreatePrefixedInvoiceNumberAsync(Guid storeId, string prefix, GarmetixDbContext db, CancellationToken cancellationToken)
+    {
+        var today = DateTime.Today;
+        var tomorrow = today.AddDays(1);
+        var count = await db.SalesInvoices.CountAsync(
+            item => item.StoreId == storeId && item.OnDate >= today && item.OnDate < tomorrow && item.InvoiceNumber.StartsWith(prefix + "-"),
+            cancellationToken);
+
+        return $"{prefix}-{today:yyyyMMdd}-{count + 1:0000}";
+    }
+
+    private sealed record SalesReturnCoreResult(
+        bool Success,
+        int ErrorStatus,
+        string ErrorMessage,
+        Invoice? OriginalInvoice,
+        Invoice? ReturnInvoice,
+        Customer? Customer,
+        Guid StoreGroupId,
+        decimal CreditAmount,
+        decimal RefundedAmount,
+        decimal StoreCreditAmount,
+        decimal ReversedQuantity)
+    {
+        public static SalesReturnCoreResult NotFound() => new(false, StatusCodes.Status404NotFound, "Original invoice was not found.", null, null, null, Guid.Empty, 0, 0, 0, 0);
+        public static SalesReturnCoreResult BadRequest(string message) => new(false, StatusCodes.Status400BadRequest, message, null, null, null, Guid.Empty, 0, 0, 0, 0);
+        public static SalesReturnCoreResult Ok(Invoice originalInvoice, Invoice returnInvoice, Customer customer, Guid storeGroupId, decimal creditAmount, decimal refundedAmount, decimal storeCreditAmount, decimal reversedQuantity) => new(true, StatusCodes.Status200OK, string.Empty, originalInvoice, returnInvoice, customer, storeGroupId, creditAmount, refundedAmount, storeCreditAmount, reversedQuantity);
     }
 
     private static async Task<Customer> GetOrCreateCustomerAsync(

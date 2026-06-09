@@ -275,3 +275,12 @@ Customer and Vendor creation now supports GSTIN lookup/validation through a conf
 
 - Purchase invoices now support **vendor payment voucher** creation from outstanding balance.
 - Billing invoices now support **partial sales return / credit note** with selected-item stock reversal and customer store-credit adjustment.
+
+## Latest completion batch
+
+This package also includes:
+
+- Sales exchange flow with linked return credit note and replacement invoice.
+- GST Returns Load From Books for GSTR-1 and GSTR-3B.
+- Audit filters, entity field details, and CSV export.
+- Developer validation checklist under `backend/Developer-Validation-Checklist.md`.

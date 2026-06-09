@@ -27,6 +27,11 @@ const returnOpen = ref(false)
 const returning = ref(false)
 const pendingReturnInvoice = ref<any | null>(null)
 const returnLines = ref<any[]>([])
+const exchangeOpen = ref(false)
+const exchanging = ref(false)
+const pendingExchangeInvoice = ref<any | null>(null)
+const exchangeReturnLines = ref<any[]>([])
+const exchangeCart = ref<any[]>([])
 const downloadingInvoicePdf = ref(false)
 const setupStatus = ref<any | null>(null)
 const saleGstinValidation = ref<any | null>(null)
@@ -65,6 +70,7 @@ const invoiceCopyOptions = [
 
 const saleForm = reactive<any>(emptySaleForm())
 const returnForm = reactive<any>(emptyReturnForm())
+const exchangeForm = reactive<any>(emptyExchangeForm())
 const saleCart = ref<any[]>([])
 
 const receiptOpen = computed({
@@ -87,6 +93,7 @@ const productOptions = computed(() => [
 const selectedProduct = computed(() => products.value.find((item) => item.id === saleForm.selectedProductId))
 const requiresBankAccount = computed(() => Number(saleForm.paidAmount || 0) > 0 && Number(saleForm.paymentMode) !== 0)
 const returnRefundRequiresBank = computed(() => Number(returnForm.refundAmount || 0) > 0 && Number(returnForm.refundPaymentMode) !== 0)
+const exchangeRequiresBank = computed(() => Number(exchangeForm.additionalPaidAmount || 0) > 0 && Number(exchangeForm.additionalPaymentMode) !== 0)
 
 const bankAccountOptions = computed(() => bankAccounts.value.map((account) => ({
   value: account.id,
@@ -99,6 +106,9 @@ const cartTotal = computed(() => {
 
 const payableTotal = computed(() => Math.max(cartTotal.value - Number(saleForm.billDiscountAmount || 0), 0))
 const returnTotal = computed(() => returnLines.value.reduce((sum, item) => sum + lineTotal({ mrp: item.mrp, discountAmount: item.discountAmount, quantity: item.returnQuantity }), 0))
+const exchangeReturnTotal = computed(() => exchangeReturnLines.value.reduce((sum, item) => sum + lineTotal({ mrp: item.mrp, discountAmount: item.discountAmount, quantity: item.returnQuantity }), 0))
+const exchangeNewTotal = computed(() => exchangeCart.value.reduce((sum, item) => sum + lineTotal(item), 0))
+const exchangeNetDue = computed(() => Math.max(exchangeNewTotal.value - exchangeReturnTotal.value, 0))
 
 const invoiceSummary = computed(() => {
   return invoices.value.reduce((summary, invoice) => {
@@ -209,6 +219,13 @@ const columns: TableColumn<any>[] = [
           label: 'Return',
           onClick: () => askSalesReturn(invoice)
         }))
+        actions.push(h(UButton, {
+          color: 'primary',
+          variant: 'ghost',
+          icon: 'i-lucide-repeat-2',
+          label: 'Exchange',
+          onClick: () => askExchange(invoice)
+        }))
       }
 
       if (canDelete.value && invoice.invoiceStatus !== 'Cancelled') {
@@ -230,6 +247,18 @@ function emptyReturnForm() {
   return {
     refundAmount: 0,
     refundPaymentMode: 0,
+    bankAccountId: null,
+    reason: ''
+  }
+}
+
+function emptyExchangeForm() {
+  return {
+    selectedProductId: '',
+    quantity: 1,
+    lineDiscount: 0,
+    additionalPaidAmount: 0,
+    additionalPaymentMode: 0,
     bankAccountId: null,
     reason: ''
   }
@@ -469,6 +498,103 @@ async function confirmSalesReturn() {
   }
 }
 
+async function askExchange(invoice: any) {
+  try {
+    const receipt = await api.get<any>(`billing/sales/${invoice.id}/receipt`)
+    pendingExchangeInvoice.value = invoice
+    exchangeReturnLines.value = (receipt.items || []).map((item: any) => ({
+      invoiceItemId: item.id,
+      productName: item.productName,
+      barcode: item.barcode,
+      quantity: Number(item.quantity || 0),
+      returnQuantity: 0,
+      mrp: Number(item.mrp || 0),
+      discountAmount: Number(item.discountAmount || 0)
+    }))
+    exchangeCart.value = []
+    Object.assign(exchangeForm, emptyExchangeForm())
+    exchangeOpen.value = true
+  } catch (error) {
+    feedback.failed('Could not load invoice items for exchange', error)
+  }
+}
+
+function addExchangeItem() {
+  const product = products.value.find((item) => item.id === exchangeForm.selectedProductId)
+  if (!product) {
+    feedback.notify('Product missing', 'Select replacement product first.', 'warning')
+    return
+  }
+
+  exchangeCart.value.push({
+    productId: product.id,
+    name: product.name,
+    barcode: product.barcode,
+    quantity: Number(exchangeForm.quantity || 0),
+    mrp: Number(product.mrp || 0),
+    discountAmount: Number(exchangeForm.lineDiscount || 0)
+  })
+  exchangeForm.selectedProductId = ''
+  exchangeForm.quantity = 1
+  exchangeForm.lineDiscount = 0
+  exchangeForm.additionalPaidAmount = exchangeNetDue.value
+}
+
+function removeExchangeItem(index: number) {
+  exchangeCart.value.splice(index, 1)
+  exchangeForm.additionalPaidAmount = exchangeNetDue.value
+}
+
+async function confirmExchange() {
+  if (!pendingExchangeInvoice.value) {
+    return
+  }
+
+  exchanging.value = true
+  try {
+    const returnItems = exchangeReturnLines.value
+      .filter((item) => Number(item.returnQuantity || 0) > 0)
+      .map((item) => ({ invoiceItemId: item.invoiceItemId, quantity: Number(item.returnQuantity || 0) }))
+
+    if (returnItems.length === 0) {
+      throw new Error('Enter return quantity for at least one original item.')
+    }
+
+    if (exchangeCart.value.length === 0) {
+      throw new Error('Add at least one replacement item.')
+    }
+
+    if (exchangeRequiresBank.value && !exchangeForm.bankAccountId) {
+      throw new Error('Select bank account for additional non-cash payment.')
+    }
+
+    const response = await api.create<any>(`billing/sales/${pendingExchangeInvoice.value.id}/exchange`, {
+      additionalPaidAmount: Number(exchangeForm.additionalPaidAmount || 0),
+      additionalPaymentMode: Number(exchangeForm.additionalPaidAmount || 0) > 0 ? Number(exchangeForm.additionalPaymentMode) : null,
+      bankAccountId: exchangeRequiresBank.value ? exchangeForm.bankAccountId : null,
+      reason: exchangeForm.reason,
+      returnItems,
+      newItems: exchangeCart.value.map((item) => ({
+        productId: item.productId,
+        barcode: item.barcode,
+        quantity: Number(item.quantity || 0),
+        mrp: Number(item.mrp || 0),
+        discountAmount: Number(item.discountAmount || 0)
+      }))
+    })
+
+    feedback.saved(`Exchange ${response.exchangeInvoiceNumber || ''}`.trim())
+    exchangeOpen.value = false
+    pendingExchangeInvoice.value = null
+    await viewReceipt(response.exchangeInvoiceId)
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not create exchange', error)
+  } finally {
+    exchanging.value = false
+  }
+}
+
 function clampReturnQuantity(item: any) {
   const value = Number(item.returnQuantity || 0)
   item.returnQuantity = Math.min(Math.max(value, 0), Number(item.quantity || 0))
@@ -605,6 +731,18 @@ watch(() => returnForm.refundPaymentMode, () => {
 watch(() => returnForm.refundAmount, () => {
   if (returnRefundRequiresBank.value && !returnForm.bankAccountId) {
     returnForm.bankAccountId = bankAccounts.value[0]?.id || null
+  }
+})
+
+watch(() => exchangeForm.additionalPaymentMode, () => {
+  if (exchangeRequiresBank.value && !exchangeForm.bankAccountId) {
+    exchangeForm.bankAccountId = bankAccounts.value[0]?.id || null
+  }
+})
+
+watch(() => exchangeForm.additionalPaidAmount, () => {
+  if (exchangeRequiresBank.value && !exchangeForm.bankAccountId) {
+    exchangeForm.bankAccountId = bankAccounts.value[0]?.id || null
   }
 })
 </script>
@@ -933,6 +1071,105 @@ watch(() => returnForm.refundAmount, () => {
           <span>Return value</span><strong>{{ money(returnTotal) }}</strong>
           <span>Refund now</span><strong>{{ money(Number(returnForm.refundAmount || 0)) }}</strong>
           <span>Store credit</span><strong>{{ money(Math.max(returnTotal - Number(returnForm.refundAmount || 0), 0)) }}</strong>
+        </div>
+      </UiFormSlideover>
+
+      <UiFormSlideover
+        v-model:open="exchangeOpen"
+        title="Exchange Item"
+        :description="`Return selected items and create replacement bill for ${pendingExchangeInvoice?.invoiceNumber || 'invoice'}.`"
+        submit-label="Create Exchange"
+        layout="modal"
+        content-class="w-[calc(100vw-2rem)] sm:max-w-6xl xl:max-w-7xl"
+        :loading="exchanging"
+        @submit="confirmExchange"
+      >
+        <UAlert
+          color="primary"
+          variant="subtle"
+          title="Exchange flow"
+          description="Returned items create store credit, replacement items create a new invoice, and any extra payable amount is collected as additional payment."
+        />
+
+        <USeparator label="Original items to return" />
+        <div class="planner-table-wrap">
+          <table class="planner-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Sold</th>
+                <th>Return</th>
+                <th>Credit</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in exchangeReturnLines" :key="item.invoiceItemId">
+                <td>{{ item.productName }}<br><small>{{ item.barcode }}</small></td>
+                <td>{{ item.quantity }}</td>
+                <td>
+                  <UInput v-model="item.returnQuantity" min="0" :max="item.quantity" step="1" type="number" @blur="clampReturnQuantity(item)" />
+                </td>
+                <td>{{ money(lineTotal({ mrp: item.mrp, discountAmount: item.discountAmount, quantity: item.returnQuantity })) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <USeparator label="Replacement items" />
+        <UFormField label="Replacement product">
+          <USelect v-model="exchangeForm.selectedProductId" :items="productOptions" />
+        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Quantity">
+            <UInput v-model="exchangeForm.quantity" min="1" type="number" />
+          </UFormField>
+          <UFormField label="Line discount">
+            <UInput v-model="exchangeForm.lineDiscount" min="0" step="0.01" type="number" />
+          </UFormField>
+        </div>
+        <UButton color="neutral" variant="subtle" icon="i-lucide-plus" label="Add Replacement" type="button" @click="addExchangeItem" />
+
+        <div class="planner-table-wrap">
+          <table class="planner-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Qty</th>
+                <th>Total</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(item, index) in exchangeCart" :key="`${item.productId}-${index}`">
+                <td>{{ item.name }}<br><small>{{ item.barcode }}</small></td>
+                <td>{{ item.quantity }}</td>
+                <td>{{ money(lineTotal(item)) }}</td>
+                <td><UButton color="error" variant="ghost" icon="i-lucide-x" size="xs" type="button" @click="removeExchangeItem(index)" /></td>
+              </tr>
+              <tr v-if="exchangeCart.length === 0"><td colspan="4">No replacement items</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <USeparator label="Additional payment" />
+        <div class="form-two-column">
+          <UFormField label="Additional paid">
+            <UInput v-model="exchangeForm.additionalPaidAmount" min="0" step="0.01" type="number" />
+          </UFormField>
+          <UFormField label="Payment mode">
+            <USelect v-model="exchangeForm.additionalPaymentMode" :items="paymentModeOptions" />
+          </UFormField>
+        </div>
+        <UFormField v-if="exchangeRequiresBank" label="Bank account" required>
+          <USelect v-model="exchangeForm.bankAccountId" :items="bankAccountOptions" placeholder="Select bank account" />
+        </UFormField>
+        <UFormField label="Reason / remarks">
+          <UTextarea v-model="exchangeForm.reason" :rows="3" />
+        </UFormField>
+        <div class="payroll-summary">
+          <span>Return credit</span><strong>{{ money(exchangeReturnTotal) }}</strong>
+          <span>Replacement bill</span><strong>{{ money(exchangeNewTotal) }}</strong>
+          <span>Net extra due</span><strong>{{ money(exchangeNetDue) }}</strong>
         </div>
       </UiFormSlideover>
 

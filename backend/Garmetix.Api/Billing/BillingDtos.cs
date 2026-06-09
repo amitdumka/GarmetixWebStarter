@@ -112,3 +112,30 @@ public sealed record SalesReturnResponse(
     decimal StoreCreditAmount,
     decimal ReversedQuantity,
     string OriginalInvoiceStatus);
+
+public sealed record ExchangeSaleItemRequest(
+    Guid ProductId,
+    string Barcode,
+    decimal Quantity,
+    decimal Mrp,
+    decimal DiscountAmount);
+
+public sealed record SalesExchangeRequest(
+    decimal AdditionalPaidAmount,
+    PaymentMode? AdditionalPaymentMode,
+    Guid? BankAccountId,
+    string? Reason,
+    IReadOnlyList<SalesReturnItemRequest> ReturnItems,
+    IReadOnlyList<ExchangeSaleItemRequest> NewItems);
+
+public sealed record SalesExchangeResponse(
+    Guid ReturnInvoiceId,
+    string CreditNoteNumber,
+    Guid ExchangeInvoiceId,
+    string ExchangeInvoiceNumber,
+    decimal CreditAmount,
+    decimal AppliedCreditAmount,
+    decimal AdditionalPaidAmount,
+    decimal NewInvoiceAmount,
+    decimal RemainingStoreCreditAmount);
+

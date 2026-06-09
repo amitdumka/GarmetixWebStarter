@@ -3,6 +3,7 @@ using System.Text.Json;
 using Garmetix.Api.Auth;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Models.GstReturns;
+using Garmetix.Core.Enums;
 using Garmetix.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -30,6 +31,9 @@ public static class GstReturnEndpoints
             var bytes = GstReturnSchemaReviewService.BuildExcel();
             return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Garmetix-GST-Schema-Review.xlsx");
         });
+
+        group.MapGet("/from-books/gstr1", BuildGstr1FromBooksAsync);
+        group.MapGet("/from-books/gstr3b", BuildGstr3BFromBooksAsync);
 
         group.MapGet("/drafts", ListDraftsAsync);
         group.MapGet("/drafts/{id:guid}", GetDraftAsync);
@@ -100,6 +104,166 @@ public static class GstReturnEndpoints
         });
 
         return group;
+    }
+
+    private static async Task<IResult> BuildGstr1FromBooksAsync(
+        Guid? companyId,
+        string returnPeriod,
+        GarmetixDbContext db,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        if (!TryPeriodRange(returnPeriod, out var start, out var end))
+        {
+            return Results.BadRequest(new { message = "Return period must be MMYYYY, for example 042026." });
+        }
+
+        var selectedCompanyId = companyId ?? WorkspaceScope.ClaimGuid(context, "companyId");
+        if (!selectedCompanyId.HasValue)
+        {
+            return Results.BadRequest(new { message = "Select a company before generating GST from books." });
+        }
+
+        var company = await WorkspaceScope.ApplyTo(db.Companies.AsNoTracking(), context)
+            .FirstOrDefaultAsync(item => item.Id == selectedCompanyId.Value, cancellationToken);
+        if (company is null)
+        {
+            return Results.BadRequest(new { message = "Selected company is outside your access scope." });
+        }
+
+        var invoices = await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context)
+            .Where(item => item.CompanyId == company.Id && item.OnDate >= start && item.OnDate < end && item.InvoiceStatus != InvoiceStatus.Cancelled)
+            .ToListAsync(cancellationToken);
+        var invoiceIds = invoices.Select(item => item.Id).ToList();
+        var items = await db.InvoiceItems.AsNoTracking()
+            .Include(item => item.Product)
+            .Where(item => invoiceIds.Contains(item.InvoiceId))
+            .ToListAsync(cancellationToken);
+        var itemLookup = items.GroupBy(item => item.InvoiceId).ToDictionary(group => group.Key, group => group.ToList());
+        var companyStateCode = StateCode(company.GSTIN);
+
+        var b2b = new List<Gstr1B2BInvoiceRow>();
+        var b2cAccumulator = new Dictionary<string, Gstr1B2CSummaryRow>();
+        var hsnAccumulator = new Dictionary<string, Gstr1HsnSummaryRow>();
+
+        foreach (var invoice in invoices)
+        {
+            itemLookup.TryGetValue(invoice.Id, out var invoiceItems);
+            invoiceItems ??= new List<Garmetix.Core.Models.Inventory.InvoiceItem>();
+            var recipientState = StateCode(invoice.CustomerGSTIN) ?? companyStateCode ?? "20";
+            var interState = companyStateCode is not null && recipientState != companyStateCode;
+
+            foreach (var line in invoiceItems)
+            {
+                SplitTax(line.TaxAmount, interState, out var igst, out var cgst, out var sgst);
+                var taxable = line.BasePrice;
+                if (!string.IsNullOrWhiteSpace(invoice.CustomerGSTIN))
+                {
+                    b2b.Add(new Gstr1B2BInvoiceRow(
+                        invoice.CustomerGSTIN!, invoice.CustomerName ?? "Customer", invoice.InvoiceNumber, invoice.OnDate, recipientState,
+                        "N", invoice.ReturnInvoice ? "Credit Note" : "Regular", invoice.BillAmount, line.TaxPercentage,
+                        taxable, igst, cgst, sgst, 0, string.Empty));
+                }
+                else
+                {
+                    var key = $"B2C|{recipientState}|{line.TaxPercentage}";
+                    b2cAccumulator.TryGetValue(key, out var existing);
+                    b2cAccumulator[key] = new Gstr1B2CSummaryRow("B2CS", recipientState, string.Empty, line.TaxPercentage,
+                        (existing?.TaxableValue ?? 0) + taxable, (existing?.IntegratedTax ?? 0) + igst,
+                        (existing?.CentralTax ?? 0) + cgst, (existing?.StateTax ?? 0) + sgst, 0);
+                }
+
+                var hsnCode = string.IsNullOrWhiteSpace(line.Product?.Barcode) ? "0000" : (line.Product?.Barcode ?? "0000");
+                var hsnKey = $"{hsnCode}|{line.TaxPercentage}";
+                hsnAccumulator.TryGetValue(hsnKey, out var hsn);
+                hsnAccumulator[hsnKey] = new Gstr1HsnSummaryRow(hsnAccumulator.Count + 1, hsnCode, line.Product?.Name ?? line.Barcode, "NOS",
+                    (hsn?.TotalQuantity ?? 0) + line.BilledQuantity, (hsn?.TotalValue ?? 0) + line.Amount,
+                    (hsn?.TaxableValue ?? 0) + taxable, (hsn?.IntegratedTax ?? 0) + igst,
+                    (hsn?.CentralTax ?? 0) + cgst, (hsn?.StateTax ?? 0) + sgst, 0);
+            }
+        }
+
+        var orderedInvoices = invoices.OrderBy(item => item.InvoiceNumber).ToList();
+        return Results.Ok(new Gstr1ExportRequest(
+            HeaderFromCompany(company.GSTIN, returnPeriod, company.Name, company.Name, invoices.Sum(item => item.BillAmount)),
+            b2b,
+            b2cAccumulator.Values.ToList(),
+            hsnAccumulator.Values.Select((row, index) => row with { SerialNumber = index + 1 }).ToList(),
+            new[] { new Gstr1DocumentIssuedRow(1, "Invoices for outward supply", orderedInvoices.FirstOrDefault()?.InvoiceNumber ?? string.Empty, orderedInvoices.LastOrDefault()?.InvoiceNumber ?? string.Empty, invoices.Count, invoices.Count(item => item.InvoiceStatus == InvoiceStatus.Cancelled)) },
+            Array.Empty<Gstr1NilRatedRow>()));
+    }
+
+    private static async Task<IResult> BuildGstr3BFromBooksAsync(
+        Guid? companyId,
+        string returnPeriod,
+        GarmetixDbContext db,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        if (!TryPeriodRange(returnPeriod, out var start, out var end))
+        {
+            return Results.BadRequest(new { message = "Return period must be MMYYYY, for example 042026." });
+        }
+
+        var selectedCompanyId = companyId ?? WorkspaceScope.ClaimGuid(context, "companyId");
+        if (!selectedCompanyId.HasValue)
+        {
+            return Results.BadRequest(new { message = "Select a company before generating GST from books." });
+        }
+
+        var company = await WorkspaceScope.ApplyTo(db.Companies.AsNoTracking(), context)
+            .FirstOrDefaultAsync(item => item.Id == selectedCompanyId.Value, cancellationToken);
+        if (company is null)
+        {
+            return Results.BadRequest(new { message = "Selected company is outside your access scope." });
+        }
+
+        var sales = await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context)
+            .Where(item => item.CompanyId == company.Id && item.OnDate >= start && item.OnDate < end && item.InvoiceStatus != InvoiceStatus.Cancelled)
+            .ToListAsync(cancellationToken);
+        var purchases = await WorkspaceScope.ApplyTo(db.PurchaseInvoices.AsNoTracking(), context)
+            .Where(item => item.CompanyId == company.Id && item.OnDate >= start && item.OnDate < end && item.InvoiceStatus != InvoiceStatus.Cancelled)
+            .ToListAsync(cancellationToken);
+
+        return Results.Ok(new Gstr3BExportRequest(
+            HeaderFromCompany(company.GSTIN, returnPeriod, company.Name, company.Name, sales.Sum(item => item.BillAmount)),
+            new Gstr3BSuppliesSummary(sales.Sum(item => item.NetAmount), sales.Sum(item => item.IGSTAmount ?? 0), sales.Sum(item => item.CGSTAmount ?? item.TaxAmount / 2), sales.Sum(item => item.SGSTAmount ?? item.TaxAmount / 2), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+            new Gstr3BInterStateSupply(0, 0, 0, 0, 0, 0),
+            new Gstr3BItcSummary(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, purchases.Sum(item => item.IGSTAmount ?? 0), purchases.Sum(item => item.CGSTAmount ?? item.TaxAmount / 2), purchases.Sum(item => item.SGSTAmount ?? item.TaxAmount / 2), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+            new Gstr3BInwardSummary(0, 0, 0, 0, 0, 0, 0, 0, 0),
+            new Gstr3BInterestLateFee(0, 0, 0, 0, 0, 0)));
+    }
+
+    private static GstReturnPeriodRequest HeaderFromCompany(string? gstin, string returnPeriod, string legalName, string tradeName, decimal currentTurnover) =>
+        new(gstin ?? string.Empty, returnPeriod, currentTurnover, currentTurnover, legalName, tradeName);
+
+    private static bool TryPeriodRange(string period, out DateTime start, out DateTime end)
+    {
+        start = default;
+        end = default;
+        if (string.IsNullOrWhiteSpace(period) || period.Length != 6 || !int.TryParse(period[..2], out var month) || !int.TryParse(period[2..], out var year) || month is < 1 or > 12)
+        {
+            return false;
+        }
+        start = new DateTime(year, month, 1);
+        end = start.AddMonths(1);
+        return true;
+    }
+
+    private static string? StateCode(string? gstin) => !string.IsNullOrWhiteSpace(gstin) && gstin.Trim().Length >= 2 ? gstin.Trim()[..2] : null;
+
+    private static void SplitTax(decimal tax, bool interState, out decimal igst, out decimal cgst, out decimal sgst)
+    {
+        if (interState)
+        {
+            igst = tax;
+            cgst = 0;
+            sgst = 0;
+            return;
+        }
+        igst = 0;
+        cgst = Math.Round(tax / 2, 2);
+        sgst = Math.Round(tax - cgst, 2);
     }
 
     private static async Task<IResult> ListDraftsAsync(

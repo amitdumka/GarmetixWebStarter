@@ -1,6 +1,7 @@
 using Garmetix.Api.Auth;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Reflection;
 
 namespace Garmetix.Api.Audit;
 
@@ -13,6 +14,7 @@ public static class AuditEndpoints
             .RequireAuthorization(GarmetixPolicies.Admin);
 
         group.MapGet("/recent", RecentAsync);
+        group.MapGet("/{entityId:guid}", DetailAsync);
 
         return group;
     }
@@ -20,6 +22,12 @@ public static class AuditEndpoints
     private static async Task<IResult> RecentAsync(
         int? take,
         string? module,
+        string? action,
+        string? actor,
+        string? entity,
+        DateTime? from,
+        DateTime? to,
+        string? search,
         GarmetixDbContext db,
         CancellationToken cancellationToken)
     {
@@ -100,11 +108,105 @@ public static class AuditEndpoints
             rows = rows.Where(item => item.Module.Equals(module, StringComparison.OrdinalIgnoreCase)).ToList();
         }
 
+        if (!string.IsNullOrWhiteSpace(action) && !action.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            rows = rows.Where(item => item.Action.Equals(action, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(actor))
+        {
+            rows = rows.Where(item => item.Actor.Contains(actor.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(entity))
+        {
+            rows = rows.Where(item => item.Entity.Contains(entity.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        if (from.HasValue)
+        {
+            rows = rows.Where(item => item.OnDate >= from.Value).ToList();
+        }
+
+        if (to.HasValue)
+        {
+            rows = rows.Where(item => item.OnDate <= to.Value.Date.AddDays(1).AddTicks(-1)).ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            rows = rows.Where(item =>
+                item.Module.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                item.Entity.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                item.Reference.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                item.Action.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                item.Actor.Contains(term, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
         return Results.Ok(rows
             .OrderByDescending(item => item.OnDate)
             .ThenBy(item => item.Module)
             .Take(limit)
             .ToList());
+    }
+
+    private static async Task<IResult> DetailAsync(Guid entityId, GarmetixDbContext db, CancellationToken cancellationToken)
+    {
+        foreach (var entityType in db.Model.GetEntityTypes().Where(item => item.ClrType.GetProperty("Id")?.PropertyType == typeof(Guid)))
+        {
+            var entity = await db.FindAsync(entityType.ClrType, new object?[] { entityId }, cancellationToken);
+            if (entity is null)
+            {
+                continue;
+            }
+
+            var fields = entityType.ClrType
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Where(property => IsSimple(property.PropertyType))
+                .Select(property => new AuditFieldDto(property.Name, property.GetValue(entity)?.ToString() ?? string.Empty))
+                .OrderBy(field => field.Name)
+                .ToList();
+
+            var createdAt = ReadDateTime(entity, "CreatedAt");
+            var updatedAt = ReadDateTime(entity, "UpdatedAt");
+            var deleted = ReadBool(entity, "Deleted");
+            var changedFields = new List<AuditFieldChangeDto>
+            {
+                new("CreatedAt", string.Empty, createdAt?.ToString("s") ?? string.Empty),
+                new("UpdatedAt", createdAt?.ToString("s") ?? string.Empty, updatedAt?.ToString("s") ?? string.Empty),
+                new("Deleted", "False", deleted.ToString())
+            };
+
+            return Results.Ok(new AuditDetailDto(
+                entityType.ClrType.Name,
+                entityId,
+                createdAt,
+                updatedAt,
+                deleted,
+                fields,
+                changedFields));
+        }
+
+        return Results.NotFound();
+    }
+
+    private static bool IsSimple(Type type)
+    {
+        type = Nullable.GetUnderlyingType(type) ?? type;
+        return type.IsPrimitive || type.IsEnum || type == typeof(string) || type == typeof(decimal) || type == typeof(Guid) || type == typeof(DateTime);
+    }
+
+    private static DateTime? ReadDateTime(object entity, string propertyName)
+    {
+        var value = entity.GetType().GetProperty(propertyName)?.GetValue(entity);
+        return value is DateTime date ? date : null;
+    }
+
+    private static bool ReadBool(object entity, string propertyName)
+    {
+        var value = entity.GetType().GetProperty(propertyName)?.GetValue(entity);
+        return value is bool flag && flag;
     }
 
     private static IEnumerable<AuditActivityDto> ToDtos(IEnumerable<AuditSource> sources)
@@ -148,3 +250,16 @@ public sealed record AuditActivityDto(
     string Action,
     DateTime OnDate,
     string Actor);
+
+public sealed record AuditDetailDto(
+    string Entity,
+    Guid EntityId,
+    DateTime? CreatedAt,
+    DateTime? UpdatedAt,
+    bool Deleted,
+    IReadOnlyList<AuditFieldDto> Fields,
+    IReadOnlyList<AuditFieldChangeDto> ChangedFields);
+
+public sealed record AuditFieldDto(string Name, string Value);
+
+public sealed record AuditFieldChangeDto(string Field, string Before, string After);

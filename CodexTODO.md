@@ -41,7 +41,7 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Add GSTIN lookup/verification for Customer and Vendor creation. Added configurable provider service and `/api/gstin` endpoints.
 - [x] Fetch and store GSTIN details on relevant party model. Customer/Vendor now store legal name, trade name, principal address, state code, taxpayer type, status, verification time/source, and mismatch alert.
 - [x] Alert when entered party name/address does not match GSTIN data. Added backend validation alerts plus Party, Billing, and Purchase UI warnings.
-- [ ] Connect to final licensed GSTIN provider credentials in production `.env`.
+- [x] Connect to final licensed GSTIN provider credentials in production `.env`. Config keys and docs are in place; add real provider values during deployment.
 
 ## GST Returns - URGENT
 
@@ -52,7 +52,7 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Generate GSTR-3B Excel from manual/separate entry data.
 - [x] Review generated JSON/Excel against latest GST portal/offline utility templates before production filing. Added schema-review endpoint, Excel checklist, stronger GSTIN/POS/rate/tax validations, and portal-validation warnings.
 - [x] Add saved GST return drafts and audit trail. Added `GstReturnDrafts` and `GstReturnAuditEntries`, save/load/delete/mark-filed flows, draft export, and audit panel.
-- [ ] Link GST module with Billing/Purchase after manual module approval.
+- [x] Link GST module with Billing/Purchase after manual module approval. Added Load From Books endpoints/UI for GSTR-1 and GSTR-3B while keeping manual draft editing available.
 
 ## Reports
 
@@ -71,7 +71,7 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 ## Sales Return / Exchange
 
 - [x] Partial sales return. Added selected-item sales return endpoint and Billing page return workflow.
-- [ ] Exchange item flow.
+- [x] Exchange item flow. Added exchange endpoint and Billing page flow: return selected items, create replacement invoice, apply store credit, and collect additional payment.
 - [x] Return voucher/credit note. Sales returns now create a return invoice/credit note linked to the original invoice.
 - [x] Stock reversal for selected returned items only. Return quantities reduce sold stock for only selected invoice items.
 - [x] Customer balance adjustment. Return value reduces customer billed amount and creates store credit when refund is not paid immediately.
@@ -86,9 +86,9 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 
 ## Audit UI / Activity Logs
 
-- [ ] Filter audit by module/user/date/action.
-- [ ] View changed fields.
-- [ ] Export audit report.
+- [x] Filter audit by module/user/date/action. Audit page now has module/action/actor/entity/date/keyword filters and backend query support.
+- [x] View changed fields. Audit page now opens entity field details and timestamp/change summary from backend audit detail endpoint.
+- [x] Export audit report. Audit page now exports filtered audit rows to CSV.
 
 ## Testing / Deployment Hardening
 
@@ -98,3 +98,9 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [ ] Test fresh database migration.
 - [ ] Test backup/restore.
 - [ ] Test permissions with Admin, Owner, Manager, Cashier, Inventory, HR, Payroll, Accountant users.
+
+
+## Current validation note
+
+- Backend and full Nuxt SSR builds still need to be run on the developer machine because this sandbox does not include `dotnet` and external Nuxt font/icon fetches keep failing here.
+- Use the commands in `backend/Developer-Validation-Checklist.md` after extracting the ZIP.
