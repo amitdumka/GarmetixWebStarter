@@ -196,7 +196,9 @@ public static class SetupEndpoints
             StoreId = request.StoreId
         };
 
-        if (!WorkspaceScope.CanWrite(product, context, out var productScopeMessage) || !WorkspaceScope.CanWrite(stock, context, out var stockScopeMessage))
+        var productWritable = WorkspaceScope.CanWrite(product, context, out var productScopeMessage);
+        var stockWritable = WorkspaceScope.CanWrite(stock, context, out var stockScopeMessage);
+        if (!productWritable || !stockWritable)
         {
             return Results.BadRequest(new { message = productScopeMessage ?? stockScopeMessage ?? "Selected company/store is outside your access scope." });
         }

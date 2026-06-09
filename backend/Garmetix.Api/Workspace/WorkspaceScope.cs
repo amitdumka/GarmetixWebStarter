@@ -201,7 +201,7 @@ public static class WorkspaceScope
         var isAdminClaim = bool.TryParse(principal.FindFirst("admin")?.Value, out var admin) && admin;
         var isAdminRole = principal.IsInRole(LoginRole.Admin.ToString());
         var isOwner = string.Equals(principal.FindFirst("userType")?.Value, UserType.Owner.ToString(), StringComparison.OrdinalIgnoreCase);
-        var isAllOperation = string.Equals(principal.FindFirst(AppOperationClaim)?.Value, AppOperation.All.ToString(), StringComparison.OrdinalIgnoreCase);
+        var isAllOperation = string.Equals(principal.FindFirst(AppOperationClaim)?.Value, Garmetix.Core.Enums.AppOperation.All.ToString(), StringComparison.OrdinalIgnoreCase);
 
         return isAdminClaim || isAdminRole || isOwner || isAllOperation;
     }
