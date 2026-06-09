@@ -17,3 +17,10 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 ## Open
 
 - [ ] Developer machine validation still pending: `dotnet publish`, Nuxt production build, clean Docker install, permissions matrix, backup/restore, and fresh migration test.
+
+## Fixed - GST accounting integration publish compile error
+
+- Status: Fixed
+- Reported from Docker publish: `AccountingPostingService.cs` missing helper methods/constants.
+- Fix: added `BuildTaxLedgerRowAsync`, `ResolvePostingStoreAsync`, `GstAccountingReference`, and `DeterministicGuid`.
+- Package: `GarmetixWebStarter-GstAccountingIntegration-BuildFix.zip`
