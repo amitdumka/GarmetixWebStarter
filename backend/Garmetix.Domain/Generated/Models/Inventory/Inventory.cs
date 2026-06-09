@@ -101,6 +101,7 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Descriptions")] public string? Descriptions { get; set; }
         [Display(Name = "MRP")] public decimal MRP { get; set; }
         [Display(Name = "Tax Rate")] public decimal TaxRate { get; set; }
+        [Display(Name = "HSN Code")] public string? HSNCode { get; set; }
         //TODO: Need to use Basic Rate Calucator Static Function need to be create in toolkit
         [Display(Name = "Basic Rate", AutoGenerateField = false)] public decimal BasicPrice => MRP / (1 + (TaxRate / 100));
         [Display(Name = "Unit")] public Unit Unit { get; set; }
@@ -116,6 +117,29 @@ namespace Garmetix.Core.Models.Inventory
         [NotMapped]
         public string DisplayText => $"{Name} ({Barcode})";
 
+    }
+
+
+
+    public class StockMovement : StoreBase
+    {
+        [Display(Name = "Stock", AutoGenerateField = false)] public Guid? StockId { get; set; }
+        [Display(Name = "Product", AutoGenerateField = false)] public Guid ProductId { get; set; }
+        [Display(Name = "Barcode")] public required string Barcode { get; set; } = string.Empty;
+        [Display(Name = "Movement Type")] public required string MovementType { get; set; } = string.Empty;
+        [Display(Name = "Quantity In")] public decimal QuantityIn { get; set; }
+        [Display(Name = "Quantity Out")] public decimal QuantityOut { get; set; }
+        [Display(Name = "Cost Price")] public decimal CostPrice { get; set; }
+        [Display(Name = "MRP")] public decimal MRP { get; set; }
+        [Display(Name = "Tax Rate")] public decimal TaxRate { get; set; }
+        [Display(Name = "HSN Code")] public string? HSNCode { get; set; }
+        [Display(Name = "Source Type")] public string? SourceType { get; set; }
+        [Display(Name = "Source", AutoGenerateField = false)] public Guid? SourceId { get; set; }
+        [Display(Name = "Source Number")] public string? SourceNumber { get; set; }
+        [Display(Name = "Remarks")] public string? Remarks { get; set; }
+        [Display(Name = "Movement Date")] public DateTime OnDate { get; set; } = DateTime.Now;
+        public virtual Product? Product { get; set; }
+        public virtual Stock? Stock { get; set; }
     }
 
     public class ProductCategory : CompanyBase

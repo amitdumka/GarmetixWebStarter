@@ -15,7 +15,9 @@ public sealed record PurchaseInwardRequest(
     PaymentMode PaymentMode,
     Guid? BankAccountId,
     decimal FrightAmount,
-    IReadOnlyList<PurchaseInwardItemRequest> Items);
+    IReadOnlyList<PurchaseInwardItemRequest> Items,
+    DateTime? SupplierInvoiceDate = null,
+    DateTime? DueDate = null);
 
 public sealed record PurchaseInwardItemRequest(
     Guid? ProductId,
@@ -27,7 +29,9 @@ public sealed record PurchaseInwardItemRequest(
     decimal DiscountAmount,
     Guid? TaxId,
     Guid? ProductCategoryId,
-    Guid? ProductSubCategoryId);
+    Guid? ProductSubCategoryId,
+    string? HsnCode = null,
+    Unit? ProductUnit = null);
 
 public sealed record PurchaseInwardResponse(
     Guid PurchaseInvoiceId,
@@ -128,3 +132,11 @@ public sealed record VendorPaymentVoucherResponse(
     decimal PaidAmount,
     decimal BalanceAmount,
     string InvoiceStatus);
+
+public sealed record PurchasePaymentDto(
+    Guid Id,
+    DateTime OnDate,
+    decimal Amount,
+    string PaymentMode,
+    string? ReferenceNumber,
+    Guid? VoucherId);

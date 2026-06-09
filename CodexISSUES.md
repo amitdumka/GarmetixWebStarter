@@ -51,3 +51,9 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 - Status: Open
 - Area: Oracle Secondary Sync
 - Note: Code and UI now provide a safe external-app smoke test, but a real Oracle Cloud Free Tier wallet/connection and one external connected app still need to be tested on the developer environment.
+
+## OPEN - Sale/Purchase/Inventory production hardening pending UI and concurrency work
+
+- Status: Open
+- Area: Sale / Purchase / Inventory
+- Note: Model alignment and backend posting foundation has started, but full UI completion, sequence-safe invoice numbering, stock concurrency protection, stock adjustment/transfer/count, and item-wise purchase return UI remain pending.

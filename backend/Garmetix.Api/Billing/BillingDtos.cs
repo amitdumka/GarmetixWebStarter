@@ -13,7 +13,20 @@ public sealed record PosSaleRequest(
     Guid? BankAccountId,
     decimal PaidAmount,
     decimal BillDiscountAmount,
-    IReadOnlyList<PosSaleItemRequest> Items);
+    IReadOnlyList<PosSaleItemRequest> Items,
+    Guid? CustomerId = null,
+    Guid? SalesmanId = null,
+    IReadOnlyList<InvoicePaymentDetailRequest>? Payments = null);
+
+public sealed record InvoicePaymentDetailRequest(
+    PaymentMode PaymentMode,
+    decimal Amount,
+    Guid? BankAccountId,
+    string? ReferenceNumber,
+    string? GatewayReference,
+    string? SettlementStatus,
+    string? AdjustmentSourceType,
+    Guid? AdjustmentSourceId);
 
 public sealed record PosSaleItemRequest(
     Guid ProductId,

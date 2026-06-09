@@ -32,6 +32,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
 
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Stock> Stocks => Set<Stock>();
+    public DbSet<StockMovement> StockMovements => Set<StockMovement>();
     public DbSet<Brand> Brands => Set<Brand>();
     public DbSet<ProductCategory> ProductCategories => Set<ProductCategory>();
     public DbSet<ProductSubCategory> ProductSubCategories => Set<ProductSubCategory>();
@@ -43,6 +44,9 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
     public DbSet<PurchaseInvoiceItem> PurchaseInvoiceItems => Set<PurchaseInvoiceItem>();
     public DbSet<InvoicePayment> InvoicePayments => Set<InvoicePayment>();
+    public DbSet<CardPayment> CardPayments => Set<CardPayment>();
+    public DbSet<VendorPayment> VendorPayments => Set<VendorPayment>();
+    public DbSet<PurchasePayment> PurchasePayments => Set<PurchasePayment>();
     public DbSet<CommercialNote> CommercialNotes => Set<CommercialNote>();
     public DbSet<CustomerAdvanceReceipt> CustomerAdvanceReceipts => Set<CustomerAdvanceReceipt>();
     public DbSet<LoyaltyProgram> LoyaltyPrograms => Set<LoyaltyProgram>();
@@ -127,10 +131,18 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<Company>().HasIndex(company => company.Name);
         modelBuilder.Entity<Store>().HasIndex(store => new { store.CompanyId, store.StoreGroupId, store.StoreCode }).IsUnique();
         modelBuilder.Entity<Product>().HasIndex(product => product.Barcode);
+        modelBuilder.Entity<StockMovement>().HasIndex(movement => new { movement.CompanyId, movement.StoreId, movement.ProductId, movement.OnDate });
+        modelBuilder.Entity<StockMovement>().HasIndex(movement => new { movement.CompanyId, movement.SourceType, movement.SourceId });
         modelBuilder.Entity<Customer>().HasIndex(customer => new { customer.CompanyId, customer.GSTIN }).IsUnique(false);
         modelBuilder.Entity<Vendor>().HasIndex(vendor => new { vendor.CompanyId, vendor.GSTIN }).IsUnique(false);
         modelBuilder.Entity<Invoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.StoreId, invoice.InvoiceNumber }).IsUnique(false);
         modelBuilder.Entity<PurchaseInvoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.VendorId, invoice.InvoiceNumber }).IsUnique(false);
+        modelBuilder.Entity<PurchaseInvoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.StoreId, invoice.InwardNumber }).IsUnique(false);
+        modelBuilder.Entity<PurchasePayment>().HasIndex(payment => new { payment.CompanyId, payment.StoreId, payment.PurchaseInvoiceId, payment.OnDate });
+        modelBuilder.Entity<PurchasePayment>().HasIndex(payment => new { payment.CompanyId, payment.VendorId, payment.OnDate });
+        modelBuilder.Entity<InvoicePayment>().HasIndex(payment => new { payment.CompanyId, payment.StoreId, payment.InvoiceId, payment.OnDate });
+        modelBuilder.Entity<CardPayment>().HasIndex(payment => new { payment.CompanyId, payment.StoreId, payment.InvoiceId, payment.OnDate });
+        modelBuilder.Entity<VendorPayment>().HasIndex(payment => new { payment.CompanyId, payment.VendorId, payment.OnDate });
         modelBuilder.Entity<CommercialNote>().HasIndex(note => new { note.CompanyId, note.StoreId, note.NoteNumber }).IsUnique(false);
         modelBuilder.Entity<CommercialNote>().HasIndex(note => new { note.CompanyId, note.PartyType, note.PartyName });
         modelBuilder.Entity<CustomerAdvanceReceipt>().HasIndex(receipt => new { receipt.CompanyId, receipt.StoreId, receipt.ReceiptNumber }).IsUnique(false);

@@ -218,3 +218,12 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [ ] Run the external-app smoke test against the real Oracle Cloud Free Tier database.
 - [ ] Connect a real second app and validate one actual inbound shared-master event.
 - [ ] Decide final auto-apply entities after real-app ownership review.
+
+## Sale / Purchase / Inventory Production Hardening
+
+- [x] Export Sale/Purchase/Inventory model/UI/data-layer audit report to PDF. Added `Garmetix_Sale_Purchase_Inventory_Model_Audit_Report.pdf` as a separate handoff document.
+- [x] Stage 1 model alignment foundation: add Product HSN field, PurchaseInvoice StoreGroup/Store/SupplierInvoiceDate fields, InvoiceItem product/HSN/unit/category/GST split snapshots, extended InvoicePayment/CardPayment/VendorPayment fields, PurchasePayment allocation model, and StockMovement model.
+- [x] Stage 1 database repair foundation: add idempotent schema repair for the new product, purchase, invoice item, payment, purchase payment, and stock movement columns/tables so older PostgreSQL volumes can upgrade safely.
+- [x] Stage 2 backend posting foundation: populate sale/purchase item snapshots, calculate CGST/SGST/IGST split, create stock movement rows for sales, purchases, sales returns, exchanges, and purchase returns, store purchase payment allocations, preserve original purchase invoice values on cancellation.
+- [ ] Stage 3 UI completion: add full Product master form, customer/vendor picker, salesman selector, payment split form, card/UPI/cheque detail fields, apply advance/credit-note/loyalty redemption in billing, supplier invoice date/due date fields in purchase, and partial purchase return item-selection UI.
+- [ ] Stage 4 business hardening: sequence-safe invoice numbers, stock concurrency/row-locking, bill-level discount tax allocation, stock adjustment/transfer/physical count screens, stock valuation method, and automated test coverage.

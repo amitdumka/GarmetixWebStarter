@@ -61,7 +61,7 @@ public static class ProductLookupEndpoints
                 item.Id,
                 item.Product != null ? item.Product.Name : item.Barcode,
                 item.Barcode,
-                item.HSNCode,
+                item.HSNCode ?? item.Product!.HSNCode,
                 item.PurchaseQty - item.SoldQty,
                 item.MRP,
                 item.TaxRate,

@@ -150,14 +150,15 @@ public static class PurchaseEndpoints
 
         var company = await db.Companies.AsNoTracking().FirstOrDefaultAsync(item => item.Id == invoice.CompanyId, cancellationToken);
         var sourceJournal = await db.JournalEntries.AsNoTracking().FirstOrDefaultAsync(item => item.SourceType == "PurchaseInvoice" && item.SourceId == invoice.Id, cancellationToken);
-        var storeName = sourceJournal is null
-            ? "Purchase Store"
-            : await db.Stores.AsNoTracking().Where(item => item.Id == sourceJournal.StoreId).Select(item => item.Name).FirstOrDefaultAsync(cancellationToken) ?? "Purchase Store";
+        var resolvedStoreId = invoice.StoreId ?? sourceJournal?.StoreId;
+        var storeName = resolvedStoreId.HasValue
+            ? await db.Stores.AsNoTracking().Where(item => item.Id == resolvedStoreId.Value).Select(item => item.Name).FirstOrDefaultAsync(cancellationToken) ?? "Purchase Store"
+            : "Purchase Store";
 
         var items = await db.PurchaseInvoiceItems.AsNoTracking()
             .Where(item => item.InvoiceId == invoice.Id)
             .Join(db.Products.AsNoTracking(), item => item.ProductId, product => product.Id, (item, product) => new PurchaseReceiptItemDto(
-                product.Name,
+                item.ProductName ?? product.Name,
                 item.Barcode,
                 item.BilledQuantity,
                 item.MRP,
@@ -249,6 +250,9 @@ public static class PurchaseEndpoints
         decimal discountAmount = 0;
         decimal taxableAmount = 0;
         decimal taxAmount = 0;
+        decimal cgstAmount = 0;
+        decimal sgstAmount = 0;
+        decimal igstAmount = 0;
         decimal totalQuantity = 0;
 
         foreach (var requestItem in request.Items)
@@ -277,17 +281,28 @@ public static class PurchaseEndpoints
             var taxable = Math.Round(lineNet / (1 + (tax.CompositeRate / 100)), 2);
             var taxValue = Math.Round(taxable * (tax.CompositeRate / 100), 2);
             var lineAmount = taxable + taxValue;
+            var split = SplitGst(taxValue, tax.TaxType);
+            var hsnCode = string.IsNullOrWhiteSpace(requestItem.HsnCode) ? product.HSNCode : requestItem.HsnCode.Trim();
+            var unit = requestItem.ProductUnit ?? product.Unit;
 
             invoiceItems.Add(new PurchaseInvoiceItem
             {
                 InvoiceId = invoiceId,
                 ProductId = product.Id,
                 Barcode = barcode,
+                ProductName = product.Name,
+                HSNCode = hsnCode,
+                Unit = unit,
+                ProductCategoryId = product.ProductCategoryId,
+                ProductSubCategoryId = product.ProductSubCategoryId,
                 MRP = requestItem.Mrp,
                 DiscountAmount = lineDiscount,
                 BasePrice = taxable,
                 TaxPercentage = tax.CompositeRate,
                 TaxAmount = taxValue,
+                CGSTAmount = split.Cgst,
+                SGSTAmount = split.Sgst,
+                IGSTAmount = split.Igst,
                 Amount = lineAmount,
                 TaxType = tax.TaxType,
                 TaxId = tax.Id,
@@ -307,7 +322,8 @@ public static class PurchaseEndpoints
                 {
                     ProductId = product.Id,
                     Barcode = barcode,
-                    Unit = Unit.Pcs,
+                    Unit = unit,
+                    HSNCode = hsnCode,
                     PurchaseQty = requestItem.Quantity,
                     CostPrice = requestItem.CostPrice,
                     MRP = requestItem.Mrp,
@@ -328,16 +344,47 @@ public static class PurchaseEndpoints
                 stock.TaxRate = tax.CompositeRate;
                 stock.TaxType = tax.TaxType;
                 stock.TaxId = tax.Id;
+                stock.HSNCode = string.IsNullOrWhiteSpace(hsnCode) ? stock.HSNCode : hsnCode;
+                stock.Unit = unit;
             }
+
+            db.StockMovements.Add(new StockMovement
+            {
+                StockId = stock.Id,
+                ProductId = product.Id,
+                Barcode = barcode,
+                MovementType = "PurchaseIn",
+                QuantityIn = requestItem.Quantity,
+                CostPrice = requestItem.CostPrice,
+                MRP = requestItem.Mrp,
+                TaxRate = tax.CompositeRate,
+                HSNCode = hsnCode,
+                SourceType = "PurchaseInvoice",
+                SourceId = invoiceId,
+                SourceNumber = invoiceNumber,
+                Remarks = "Purchase inward",
+                OnDate = DateTime.Now,
+                CompanyId = request.CompanyId,
+                StoreGroupId = request.StoreGroupId,
+                StoreId = request.StoreId
+            });
 
             product.MRP = requestItem.Mrp;
             product.TaxRate = tax.CompositeRate;
             product.TaxType = tax.TaxType;
+            if (!string.IsNullOrWhiteSpace(hsnCode))
+            {
+                product.HSNCode = hsnCode;
+            }
+            product.Unit = unit;
 
             grossMrp += lineMrp;
             discountAmount += lineDiscount;
             taxableAmount += taxable;
             taxAmount += taxValue;
+            cgstAmount += split.Cgst;
+            sgstAmount += split.Sgst;
+            igstAmount += split.Igst;
             totalQuantity += requestItem.Quantity;
         }
 
@@ -360,6 +407,10 @@ public static class PurchaseEndpoints
             BasePrice = taxableAmount,
             DiscountAmount = discountAmount,
             TaxAmount = taxAmount,
+            CGSTAmount = cgstAmount,
+            SGSTAmount = sgstAmount,
+            IGSTAmount = igstAmount,
+            InterState = igstAmount > 0,
             NetAmount = taxableAmount + taxAmount,
             RoundOff = billAmount - netAmount,
             BillAmount = billAmount,
@@ -370,7 +421,10 @@ public static class PurchaseEndpoints
             VendorName = vendor.Name,
             VendorGSTIN = vendor.GSTIN,
             FrightAmount = request.FrightAmount,
-            DueDate = DateTime.Today.AddDays(45),
+            SupplierInvoiceDate = request.SupplierInvoiceDate,
+            DueDate = request.DueDate ?? DateTime.Today.AddDays(45),
+            StoreGroupId = request.StoreGroupId,
+            StoreId = request.StoreId,
             CompanyId = request.CompanyId
         };
 
@@ -381,6 +435,23 @@ public static class PurchaseEndpoints
 
         db.PurchaseInvoices.Add(invoice);
         db.PurchaseInvoiceItems.AddRange(invoiceItems);
+        if (paidAmount > 0)
+        {
+            db.PurchasePayments.Add(new PurchasePayment
+            {
+                PurchaseInvoiceId = invoice.Id,
+                VendorId = vendor.Id,
+                OnDate = DateTime.Now,
+                Amount = paidAmount,
+                PaymentMode = request.PaymentMode,
+                BankAccountId = request.BankAccountId,
+                ReferenceNumber = invoice.InvoiceNumber,
+                Remarks = "Purchase inward payment",
+                CompanyId = request.CompanyId,
+                StoreGroupId = request.StoreGroupId,
+                StoreId = request.StoreId
+            });
+        }
 
         vendor.BillCount += 1;
         vendor.BillAmount += billAmount;
@@ -443,8 +514,8 @@ public static class PurchaseEndpoints
 
         var sourceJournal = await db.JournalEntries.AsNoTracking()
             .FirstOrDefaultAsync(entry => entry.SourceType == "PurchaseInvoice" && entry.SourceId == invoice.Id, cancellationToken);
-        var storeGroupId = sourceJournal?.StoreGroupId ?? WorkspaceScope.ClaimGuid(context, "storeGroupId") ?? Guid.Empty;
-        var storeId = sourceJournal?.StoreId ?? WorkspaceScope.ClaimGuid(context, "storeId") ?? Guid.Empty;
+        var storeGroupId = invoice.StoreGroupId ?? sourceJournal?.StoreGroupId ?? WorkspaceScope.ClaimGuid(context, "storeGroupId") ?? Guid.Empty;
+        var storeId = invoice.StoreId ?? sourceJournal?.StoreId ?? WorkspaceScope.ClaimGuid(context, "storeId") ?? Guid.Empty;
         if (storeGroupId == Guid.Empty || storeId == Guid.Empty)
         {
             return Results.BadRequest(new { message = "Could not determine purchase store for vendor payment." });
@@ -495,6 +566,21 @@ public static class PurchaseEndpoints
         }
 
         db.Vouchers.Add(voucher);
+        db.PurchasePayments.Add(new PurchasePayment
+        {
+            PurchaseInvoiceId = invoice.Id,
+            VendorId = vendor.Id,
+            OnDate = DateTime.Now,
+            Amount = paymentAmount,
+            PaymentMode = request.PaymentMode,
+            BankAccountId = request.BankAccountId,
+            ReferenceNumber = string.IsNullOrWhiteSpace(request.SlipNumber) ? voucher.VoucherNumber : request.SlipNumber.Trim(),
+            VoucherId = voucher.Id,
+            Remarks = voucher.Remarks,
+            CompanyId = invoice.CompanyId,
+            StoreGroupId = storeGroupId,
+            StoreId = storeId
+        });
         vendor.Paid += paymentAmount;
 
         var newPaidAmount = existingPaidAmount + paymentAmount;
@@ -540,8 +626,8 @@ public static class PurchaseEndpoints
 
         var sourceJournal = await db.JournalEntries.AsNoTracking()
             .FirstOrDefaultAsync(entry => entry.SourceType == "PurchaseInvoice" && entry.SourceId == invoice.Id, cancellationToken);
-        var storeGroupId = sourceJournal?.StoreGroupId ?? WorkspaceScope.ClaimGuid(context, "storeGroupId") ?? Guid.Empty;
-        var storeId = sourceJournal?.StoreId ?? WorkspaceScope.ClaimGuid(context, "storeId") ?? Guid.Empty;
+        var storeGroupId = invoice.StoreGroupId ?? sourceJournal?.StoreGroupId ?? WorkspaceScope.ClaimGuid(context, "storeGroupId") ?? Guid.Empty;
+        var storeId = invoice.StoreId ?? sourceJournal?.StoreId ?? WorkspaceScope.ClaimGuid(context, "storeId") ?? Guid.Empty;
         if (storeGroupId == Guid.Empty || storeId == Guid.Empty)
         {
             return Results.BadRequest(new { message = "Could not determine purchase store for stock reversal." });
@@ -565,6 +651,26 @@ public static class PurchaseEndpoints
             if (stock is not null)
             {
                 stock.PurchaseQty = Math.Max(stock.PurchaseQty - item.BilledQuantity, 0);
+                db.StockMovements.Add(new StockMovement
+                {
+                    StockId = stock.Id,
+                    ProductId = stock.ProductId,
+                    Barcode = stock.Barcode,
+                    MovementType = "PurchaseReturnOut",
+                    QuantityOut = item.BilledQuantity,
+                    CostPrice = stock.CostPrice,
+                    MRP = stock.MRP,
+                    TaxRate = stock.TaxRate,
+                    HSNCode = item.HSNCode ?? stock.HSNCode,
+                    SourceType = "PurchaseReturn",
+                    SourceId = invoice.Id,
+                    SourceNumber = invoice.InvoiceNumber,
+                    Remarks = string.IsNullOrWhiteSpace(request.Reason) ? "Purchase return/cancel" : request.Reason,
+                    OnDate = DateTime.Now,
+                    CompanyId = invoice.CompanyId,
+                    StoreGroupId = storeGroupId,
+                    StoreId = storeId
+                });
                 reversedQuantity += item.BilledQuantity;
             }
         }
@@ -591,13 +697,9 @@ public static class PurchaseEndpoints
 
         await accounting.PostPurchaseInvoiceCancellationAsync(invoice, vendor, storeGroupId, storeId, originalPaidAmount, originalPaymentMode, bankAccountId, cancellationToken);
 
+        // Keep original purchase values for audit and print history. Reversal is represented by status, stock movement, debit note, and accounting reversal.
         invoice.InvoiceStatus = InvoiceStatus.Cancelled;
         invoice.PaymentMode = null;
-        invoice.BillAmount = 0;
-        invoice.NetAmount = 0;
-        invoice.TaxAmount = 0;
-        invoice.RoundOff = 0;
-        invoice.FrightAmount = 0;
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -715,7 +817,8 @@ public static class PurchaseEndpoints
             MRP = requestItem.Mrp,
             TaxRate = tax.CompositeRate,
             TaxType = tax.TaxType,
-            Unit = Unit.Pcs,
+            HSNCode = string.IsNullOrWhiteSpace(requestItem.HsnCode) ? null : requestItem.HsnCode.Trim(),
+            Unit = requestItem.ProductUnit ?? Unit.Pcs,
             ProductType = ProductType.Apparels,
             ProductCategoryId = categoryId,
             ProductSubCategoryId = subCategoryId,
@@ -756,6 +859,16 @@ public static class PurchaseEndpoints
             return new Dictionary<Guid, decimal>();
         }
 
+        var purchasePayments = await db.PurchasePayments.AsNoTracking()
+            .Where(payment => invoiceIds.Contains(payment.PurchaseInvoiceId))
+            .Select(payment => new { InvoiceId = payment.PurchaseInvoiceId, Amount = payment.Amount })
+            .ToListAsync(cancellationToken);
+
+        if (purchasePayments.Count > 0)
+        {
+            return purchasePayments.GroupBy(row => row.InvoiceId).ToDictionary(group => group.Key, group => group.Sum(row => row.Amount));
+        }
+
         var rows = await db.JournalLines.AsNoTracking()
             .Where(line => line.JournalEntry != null
                 && line.JournalEntry.SourceType == "PurchaseInvoice"
@@ -766,11 +879,11 @@ public static class PurchaseEndpoints
             .Select(line => new
             {
                 InvoiceId = line.JournalEntry!.SourceId!.Value,
-                line.Debit
+                Amount = line.Debit
             })
             .ToListAsync(cancellationToken);
 
-        return rows.GroupBy(row => row.InvoiceId).ToDictionary(group => group.Key, group => group.Sum(row => row.Debit));
+        return rows.GroupBy(row => row.InvoiceId).ToDictionary(group => group.Key, group => group.Sum(row => row.Amount));
     }
 
     private static async Task<decimal> GetPaidAmountAsync(Guid invoiceId, GarmetixDbContext db, CancellationToken cancellationToken)
@@ -799,6 +912,20 @@ public static class PurchaseEndpoints
             cancellationToken);
 
         return $"PV-{today:yyyyMMdd}-{count + 1:0000}";
+    }
+
+
+    private static (decimal Cgst, decimal Sgst, decimal Igst) SplitGst(decimal totalTax, TaxType taxType)
+    {
+        totalTax = Math.Round(totalTax, 2);
+        return taxType switch
+        {
+            TaxType.IGST => (0, 0, totalTax),
+            TaxType.CGST => (totalTax, 0, 0),
+            TaxType.SGST => (0, totalTax, 0),
+            TaxType.GST => (Math.Round(totalTax / 2m, 2), totalTax - Math.Round(totalTax / 2m, 2), 0),
+            _ => (0, 0, 0)
+        };
     }
 
     private static string NormalizePdfFormat(string? value) => value?.Trim().ToLowerInvariant() switch

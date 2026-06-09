@@ -171,6 +171,9 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Inward Number")] public required string InwardNumber { get; set; }
         [Display(Name = "Inward Date")] public DateTime InwardDate { get; set; } = DateTime.Now.AddDays(-1);
         [Display(Name = "Fright Amount")] public decimal FrightAmount { get; set; } = 0;
+        [Display(Name = "Supplier Invoice Date")] public DateTime? SupplierInvoiceDate { get; set; }
+        [Display(Name = "Store Group", AutoGenerateField = false)] public Guid? StoreGroupId { get; set; }
+        [Display(Name = "Store", AutoGenerateField = false)] public Guid? StoreId { get; set; }
         [Display(Name = "Vendor", AutoGenerateField = false)] public virtual Vendor? Vendor { get; set; }
         [Display(Name = "Due Date")] public DateTime DueDate { get; set; } = DateTime.Today.AddDays(45);
     }
@@ -221,6 +224,11 @@ namespace Garmetix.Core.Models.Inventory
 
         [Display(Name = "Payment Mode")] public PaymentMode PaymentMode { get; set; }
         [Display(Name = "Store", AutoGenerateField = false)] public Guid StoreId { get; set; }
+        [Display(Name = "Bank Account", AutoGenerateField = false)] public Guid? BankAccountId { get; set; }
+        [Display(Name = "Adjustment Source Type")] public string? AdjustmentSourceType { get; set; }
+        [Display(Name = "Adjustment Source", AutoGenerateField = false)] public Guid? AdjustmentSourceId { get; set; }
+        [Display(Name = "Gateway Reference")] public string? GatewayReference { get; set; }
+        [Display(Name = "Settlement Status")] public string? SettlementStatus { get; set; }
     }
 
     public class CardPayment : CompanyBase
@@ -235,6 +243,11 @@ namespace Garmetix.Core.Models.Inventory
 
         [Display(Name = "Bank Name")] public string? BankName { get; set; }
         [Display(Name = "Store", AutoGenerateField = false)] public Guid StoreId { get; set; }
+        [Display(Name = "Bank Account", AutoGenerateField = false)] public Guid? BankAccountId { get; set; }
+        [Display(Name = "Masked Card Number")] public string? MaskedCardNumber { get; set; }
+        [Display(Name = "Approval Code")] public string? ApprovalCode { get; set; }
+        [Display(Name = "Gateway Reference")] public string? GatewayReference { get; set; }
+        [Display(Name = "Settlement Reference")] public string? SettlementReference { get; set; }
     }
 
     public class VendorPayment : CompanyBase
@@ -245,8 +258,28 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Cheque Number")] public string? ChequeNumber { get; set; }
         [Display(Name = "Date")] public DateTime OnDate { get; set; }
         [Display(Name = "Invoice", AutoGenerateField = false)] public Guid InvoiceId { get; set; }
+        [Display(Name = "Purchase Invoice", AutoGenerateField = false)] public Guid? PurchaseInvoiceId { get; set; }
+        [Display(Name = "Payment Mode")] public PaymentMode PaymentMode { get; set; } = PaymentMode.Cash;
+        [Display(Name = "Bank Account", AutoGenerateField = false)] public Guid? BankAccountId { get; set; }
+        [Display(Name = "Reference Number")] public string? ReferenceNumber { get; set; }
         [Display(Name = "Invoice", AutoGenerateField = false)] public virtual Invoice? Invoice { get; set; }
+        [Display(Name = "Purchase Invoice", AutoGenerateField = false)] public virtual PurchaseInvoice? PurchaseInvoice { get; set; }
         [Display(Name = "Vendor", AutoGenerateField = false)] public virtual Vendor? Vendor { get; set; }
+    }
+
+    public class PurchasePayment : StoreBase
+    {
+        [Display(Name = "Purchase Invoice", AutoGenerateField = false)] public Guid PurchaseInvoiceId { get; set; }
+        [Display(Name = "Vendor", AutoGenerateField = false)] public Guid VendorId { get; set; }
+        [Display(Name = "Date")] public DateTime OnDate { get; set; } = DateTime.Now;
+        [Display(Name = "Amount")] public decimal Amount { get; set; }
+        [Display(Name = "Payment Mode")] public PaymentMode PaymentMode { get; set; } = PaymentMode.Cash;
+        [Display(Name = "Bank Account", AutoGenerateField = false)] public Guid? BankAccountId { get; set; }
+        [Display(Name = "Reference Number")] public string? ReferenceNumber { get; set; }
+        [Display(Name = "Voucher", AutoGenerateField = false)] public Guid? VoucherId { get; set; }
+        [Display(Name = "Remarks")] public string? Remarks { get; set; }
+        public virtual PurchaseInvoice? PurchaseInvoice { get; set; }
+        public virtual Vendor? Vendor { get; set; }
     }
 
     //TODO: need to make it robust so no need to store in db which can be calculated
@@ -256,12 +289,20 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Invoice", AutoGenerateField = false)] public Guid InvoiceId { get; set; }
         [Display(Name = "Product", AutoGenerateField = false)] public Guid ProductId { get; set; }
         [Display(Name = "Barcode")] public required string Barcode { get; set; }
+        [Display(Name = "Product Name Snapshot")] public string? ProductName { get; set; }
+        [Display(Name = "HSN Code Snapshot")] public string? HSNCode { get; set; }
+        [Display(Name = "Unit Snapshot")] public Unit? Unit { get; set; }
+        [Display(Name = "Product Category Snapshot", AutoGenerateField = false)] public Guid? ProductCategoryId { get; set; }
+        [Display(Name = "Product Sub Category Snapshot", AutoGenerateField = false)] public Guid? ProductSubCategoryId { get; set; }
 
         [Display(Name = "MRP")] public decimal MRP { get; set; }
         [Display(Name = "Discount Amount")] public decimal DiscountAmount { get; set; }
         [Display(Name = "Base Price")] public decimal BasePrice { get; set; }
         [Display(Name = "Tax Percentage")] public decimal TaxPercentage { get; set; }
         [Display(Name = "Tax Amount")] public decimal TaxAmount { get; set; }
+        [Display(Name = "CGST Amount")] public decimal? CGSTAmount { get; set; }
+        [Display(Name = "SGST Amount")] public decimal? SGSTAmount { get; set; }
+        [Display(Name = "IGST Amount")] public decimal? IGSTAmount { get; set; }
         [Display(Name = "Amount")] public decimal Amount { get; set; }
 
         [Display(Name = "Tax Type")] public TaxType TaxType { get; set; }

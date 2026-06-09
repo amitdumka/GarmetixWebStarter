@@ -86,7 +86,7 @@ public static class BillingEndpoints
             .OrderBy(item => item.CreatedAt)
             .Select(item => new ReceiptItemDto(
                 item.Id,
-                item.Product != null ? item.Product.Name : item.Barcode,
+                item.ProductName ?? (item.Product != null ? item.Product.Name : item.Barcode),
                 item.Barcode,
                 item.BilledQuantity,
                 item.MRP,
@@ -166,7 +166,7 @@ public static class BillingEndpoints
             .OrderBy(item => item.CreatedAt)
             .Select(item => new ReceiptItemDto(
                 item.Id,
-                item.Product != null ? item.Product.Name : item.Barcode,
+                item.ProductName ?? (item.Product != null ? item.Product.Name : item.Barcode),
                 item.Barcode,
                 item.BilledQuantity,
                 item.MRP,
@@ -259,6 +259,9 @@ public static class BillingEndpoints
         decimal itemDiscount = 0;
         decimal taxableAmount = 0;
         decimal taxAmount = 0;
+        decimal cgstAmount = 0;
+        decimal sgstAmount = 0;
+        decimal igstAmount = 0;
         decimal totalQuantity = 0;
 
         foreach (var requestItem in request.Items)
@@ -286,17 +289,26 @@ public static class BillingEndpoints
             var taxable = Math.Round((lineMrp - lineDiscount) / (1 + (stock.TaxRate / 100)), 2);
             var tax = Math.Round(taxable * (stock.TaxRate / 100), 2);
             var lineAmount = taxable + tax;
+            var split = SplitGst(tax, stock.TaxType);
 
             invoiceItems.Add(new InvoiceItem
             {
                 InvoiceId = invoiceId,
                 ProductId = requestItem.ProductId,
                 Barcode = requestItem.Barcode,
+                ProductName = stock.Product?.Name,
+                HSNCode = stock.HSNCode ?? stock.Product?.HSNCode,
+                Unit = stock.Unit,
+                ProductCategoryId = stock.Product?.ProductCategoryId,
+                ProductSubCategoryId = stock.Product?.ProductSubCategoryId,
                 MRP = requestItem.Mrp,
                 DiscountAmount = requestItem.DiscountAmount,
                 BasePrice = taxable,
                 TaxPercentage = stock.TaxRate,
                 TaxAmount = tax,
+                CGSTAmount = split.Cgst,
+                SGSTAmount = split.Sgst,
+                IGSTAmount = split.Igst,
                 Amount = lineAmount,
                 TaxType = stock.TaxType,
                 TaxId = stock.TaxId,
@@ -306,11 +318,34 @@ public static class BillingEndpoints
 
             stock.SoldQty += requestItem.Quantity;
             stock.SoldValue += lineAmount;
+            db.StockMovements.Add(new StockMovement
+            {
+                StockId = stock.Id,
+                ProductId = stock.ProductId,
+                Barcode = stock.Barcode,
+                MovementType = "SaleOut",
+                QuantityOut = requestItem.Quantity,
+                CostPrice = stock.CostPrice,
+                MRP = requestItem.Mrp,
+                TaxRate = stock.TaxRate,
+                HSNCode = stock.HSNCode ?? stock.Product?.HSNCode,
+                SourceType = "SalesInvoice",
+                SourceId = invoiceId,
+                SourceNumber = invoiceNumber,
+                Remarks = "POS sale",
+                OnDate = DateTime.Now,
+                CompanyId = request.CompanyId,
+                StoreGroupId = request.StoreGroupId,
+                StoreId = request.StoreId
+            });
 
             grossMrp += lineMrp;
             itemDiscount += lineDiscount;
             taxableAmount += taxable;
             taxAmount += tax;
+            cgstAmount += split.Cgst;
+            sgstAmount += split.Sgst;
+            igstAmount += split.Igst;
             totalQuantity += requestItem.Quantity;
         }
 
@@ -329,6 +364,10 @@ public static class BillingEndpoints
             BasePrice = taxableAmount,
             DiscountAmount = totalDiscount,
             TaxAmount = taxAmount,
+            CGSTAmount = cgstAmount,
+            SGSTAmount = sgstAmount,
+            IGSTAmount = igstAmount,
+            InterState = igstAmount > 0,
             NetAmount = taxableAmount,
             RoundOff = billAmount - (taxableAmount + taxAmount),
             BillAmount = billAmount,
@@ -339,6 +378,9 @@ public static class BillingEndpoints
             CustomerName = customer.Name,
             CustomerMobileNumber = customer.MobileNumber,
             CustomerGSTIN = customer.GSTIN,
+            B2BSale = !string.IsNullOrWhiteSpace(customer.GSTIN),
+            SaleInvoiceType = !string.IsNullOrWhiteSpace(customer.GSTIN) ? SaleInvoiceType.B2B : SaleInvoiceType.B2C,
+            SalemanId = request.SalesmanId ?? Guid.Empty,
             CreditSale = paidAmount < billAmount,
             PaidAmount = paidAmount,
             BillDiscountAmount = request.BillDiscountAmount,
@@ -349,18 +391,7 @@ public static class BillingEndpoints
         db.SalesInvoices.Add(invoice);
         db.InvoiceItems.AddRange(invoiceItems);
 
-        if (paidAmount > 0)
-        {
-            db.InvoicePayments.Add(new InvoicePayment
-            {
-                InvoiceId = invoice.Id,
-                OnDate = DateTime.Now,
-                Amount = paidAmount,
-                PaymentMode = request.PaymentMode,
-                StoreId = request.StoreId,
-                CompanyId = request.CompanyId
-            });
-        }
+        AddInvoicePayments(invoice, request, paidAmount, db);
 
         customer.BillCount += 1;
         customer.Amount += billAmount;
@@ -576,6 +607,9 @@ public static class BillingEndpoints
         decimal itemDiscount = 0;
         decimal taxableAmount = 0;
         decimal taxAmount = 0;
+        decimal cgstAmount = 0;
+        decimal sgstAmount = 0;
+        decimal igstAmount = 0;
         decimal totalQuantity = 0;
 
         foreach (var requestItem in request.NewItems)
@@ -603,17 +637,26 @@ public static class BillingEndpoints
             var taxable = Math.Round((lineMrp - lineDiscount) / (1 + (stock.TaxRate / 100)), 2);
             var tax = Math.Round(taxable * (stock.TaxRate / 100), 2);
             var lineAmount = taxable + tax;
+            var split = SplitGst(tax, stock.TaxType);
 
             exchangeItems.Add(new InvoiceItem
             {
                 InvoiceId = exchangeInvoiceId,
                 ProductId = requestItem.ProductId,
                 Barcode = requestItem.Barcode,
+                ProductName = stock.Product?.Name,
+                HSNCode = stock.HSNCode ?? stock.Product?.HSNCode,
+                Unit = stock.Unit,
+                ProductCategoryId = stock.Product?.ProductCategoryId,
+                ProductSubCategoryId = stock.Product?.ProductSubCategoryId,
                 MRP = requestItem.Mrp,
                 DiscountAmount = requestItem.DiscountAmount,
                 BasePrice = taxable,
                 TaxPercentage = stock.TaxRate,
                 TaxAmount = tax,
+                CGSTAmount = split.Cgst,
+                SGSTAmount = split.Sgst,
+                IGSTAmount = split.Igst,
                 Amount = lineAmount,
                 TaxType = stock.TaxType,
                 TaxId = stock.TaxId,
@@ -623,10 +666,33 @@ public static class BillingEndpoints
 
             stock.SoldQty += requestItem.Quantity;
             stock.SoldValue += lineAmount;
+            db.StockMovements.Add(new StockMovement
+            {
+                StockId = stock.Id,
+                ProductId = stock.ProductId,
+                Barcode = stock.Barcode,
+                MovementType = "ExchangeSaleOut",
+                QuantityOut = requestItem.Quantity,
+                CostPrice = stock.CostPrice,
+                MRP = requestItem.Mrp,
+                TaxRate = stock.TaxRate,
+                HSNCode = stock.HSNCode ?? stock.Product?.HSNCode,
+                SourceType = "SalesExchange",
+                SourceId = exchangeInvoiceId,
+                SourceNumber = invoiceNumber,
+                Remarks = "Exchange replacement sale",
+                OnDate = DateTime.Now,
+                CompanyId = original.CompanyId,
+                StoreGroupId = storeGroupId,
+                StoreId = original.StoreId
+            });
             grossMrp += lineMrp;
             itemDiscount += lineDiscount;
             taxableAmount += taxable;
             taxAmount += tax;
+            cgstAmount += split.Cgst;
+            sgstAmount += split.Sgst;
+            igstAmount += split.Igst;
             totalQuantity += requestItem.Quantity;
         }
 
@@ -646,11 +712,15 @@ public static class BillingEndpoints
             ReturnInvoice = false,
             OriginalInvoiceId = original.Id,
             InvoiceType = InvoiceType.Regular,
-            InvoiceStatus = additionalPaid >= additionalDue ? InvoiceStatus.Paid : InvoiceStatus.PartiallyPaid,
+            InvoiceStatus = (creditApplied + additionalPaid) >= billAmount ? InvoiceStatus.Paid : InvoiceStatus.PartiallyPaid,
             MRP = grossMrp,
             BasePrice = taxableAmount,
             DiscountAmount = itemDiscount,
             TaxAmount = taxAmount,
+            CGSTAmount = cgstAmount,
+            SGSTAmount = sgstAmount,
+            IGSTAmount = igstAmount,
+            InterState = igstAmount > 0,
             NetAmount = taxableAmount,
             RoundOff = billAmount - (taxableAmount + taxAmount),
             BillAmount = billAmount,
@@ -662,7 +732,7 @@ public static class BillingEndpoints
             CustomerMobileNumber = customer.MobileNumber,
             CustomerGSTIN = customer.GSTIN,
             CreditSale = additionalPaid < additionalDue,
-            PaidAmount = additionalPaid,
+            PaidAmount = creditApplied + additionalPaid,
             BillDiscountAmount = 0,
             StoreId = original.StoreId,
             CompanyId = original.CompanyId
@@ -679,6 +749,8 @@ public static class BillingEndpoints
                 Amount = creditApplied,
                 PaymentMode = PaymentMode.CreditBalance,
                 ReferenceNumber = $"Exchange credit from {returnResult.ReturnInvoice!.InvoiceNumber}",
+                AdjustmentSourceType = "SalesReturnCredit",
+                AdjustmentSourceId = returnResult.ReturnInvoice!.Id,
                 StoreId = original.StoreId,
                 CompanyId = original.CompanyId
             });
@@ -693,6 +765,7 @@ public static class BillingEndpoints
                 Amount = additionalPaid,
                 PaymentMode = request.AdditionalPaymentMode.Value,
                 ReferenceNumber = $"Exchange additional payment for {invoiceNumber}",
+                BankAccountId = request.BankAccountId,
                 StoreId = original.StoreId,
                 CompanyId = original.CompanyId
             });
@@ -780,6 +853,7 @@ public static class BillingEndpoints
         decimal discountAmount = 0;
         decimal creditAmount = 0;
         decimal reversedQuantity = 0;
+        var creditNoteNumber = await CreatePrefixedInvoiceNumberAsync(original.StoreId, "SR", db, cancellationToken);
 
         foreach (var requestItem in requestItems)
         {
@@ -809,11 +883,19 @@ public static class BillingEndpoints
                 InvoiceId = returnInvoiceId,
                 ProductId = originalItem.ProductId,
                 Barcode = originalItem.Barcode,
+                ProductName = originalItem.ProductName,
+                HSNCode = originalItem.HSNCode,
+                Unit = originalItem.Unit,
+                ProductCategoryId = originalItem.ProductCategoryId,
+                ProductSubCategoryId = originalItem.ProductSubCategoryId,
                 MRP = originalItem.MRP,
                 DiscountAmount = originalItem.DiscountAmount,
                 BasePrice = lineBase,
                 TaxPercentage = originalItem.TaxPercentage,
                 TaxAmount = lineTax,
+                CGSTAmount = Math.Round((originalItem.CGSTAmount ?? 0) * ratio, 2),
+                SGSTAmount = Math.Round((originalItem.SGSTAmount ?? 0) * ratio, 2),
+                IGSTAmount = Math.Round((originalItem.IGSTAmount ?? 0) * ratio, 2),
                 Amount = lineAmount,
                 TaxType = originalItem.TaxType,
                 TaxId = originalItem.TaxId,
@@ -830,6 +912,26 @@ public static class BillingEndpoints
             {
                 stock.SoldQty = Math.Max(0, stock.SoldQty - requestItem.Quantity);
                 stock.SoldValue = Math.Max(0, stock.SoldValue - lineAmount);
+                db.StockMovements.Add(new StockMovement
+                {
+                    StockId = stock.Id,
+                    ProductId = stock.ProductId,
+                    Barcode = stock.Barcode,
+                    MovementType = "SalesReturnIn",
+                    QuantityIn = requestItem.Quantity,
+                    CostPrice = stock.CostPrice,
+                    MRP = originalItem.MRP,
+                    TaxRate = originalItem.TaxPercentage,
+                    HSNCode = originalItem.HSNCode ?? stock.HSNCode,
+                    SourceType = "SalesReturn",
+                    SourceId = returnInvoiceId,
+                    SourceNumber = creditNoteNumber,
+                    Remarks = string.IsNullOrWhiteSpace(reason) ? "Sales return" : reason,
+                    OnDate = DateTime.Now,
+                    CompanyId = original.CompanyId,
+                    StoreGroupId = storeGroupId,
+                    StoreId = original.StoreId
+                });
             }
 
             grossMrp += lineMrp;
@@ -843,7 +945,6 @@ public static class BillingEndpoints
         var billAmount = Math.Round(creditAmount, 0);
         var refund = Math.Min(Math.Max(refundAmount, 0), billAmount);
         var storeCredit = Math.Max(billAmount - refund, 0);
-        var creditNoteNumber = await CreatePrefixedInvoiceNumberAsync(original.StoreId, "SR", db, cancellationToken);
         var returnInvoice = new Invoice
         {
             Id = returnInvoiceId,
@@ -857,6 +958,10 @@ public static class BillingEndpoints
             BasePrice = taxableAmount,
             DiscountAmount = discountAmount,
             TaxAmount = taxAmount,
+            CGSTAmount = returnItems.Sum(item => item.CGSTAmount ?? 0),
+            SGSTAmount = returnItems.Sum(item => item.SGSTAmount ?? 0),
+            IGSTAmount = returnItems.Sum(item => item.IGSTAmount ?? 0),
+            InterState = returnItems.Sum(item => item.IGSTAmount ?? 0) > 0,
             NetAmount = taxableAmount,
             RoundOff = billAmount - (taxableAmount + taxAmount),
             BillAmount = billAmount,
@@ -886,7 +991,10 @@ public static class BillingEndpoints
                 PaymentMode = refundPaymentMode.Value,
                 StoreId = original.StoreId,
                 CompanyId = original.CompanyId,
-                ReferenceNumber = string.IsNullOrWhiteSpace(reason) ? "Sales return refund" : reason
+                ReferenceNumber = string.IsNullOrWhiteSpace(reason) ? "Sales return refund" : reason,
+                BankAccountId = bankAccountId,
+                AdjustmentSourceType = "SalesReturn",
+                AdjustmentSourceId = returnInvoice.Id
             });
         }
 
@@ -962,10 +1070,12 @@ public static class BillingEndpoints
     {
         var mobile = string.IsNullOrWhiteSpace(request.CustomerMobileNumber) ? "WALKIN" : request.CustomerMobileNumber.Trim();
         var gstin = GstinLookupService.NormalizeGstin(request.CustomerGstin);
-        var customer = await db.Customers.FirstOrDefaultAsync(
-            item => item.CompanyId == request.CompanyId &&
-                ((!string.IsNullOrWhiteSpace(gstin) && item.GSTIN == gstin) || item.MobileNumber == mobile),
-            cancellationToken);
+        var customer = request.CustomerId.HasValue
+            ? await db.Customers.FirstOrDefaultAsync(item => item.CompanyId == request.CompanyId && item.Id == request.CustomerId.Value, cancellationToken)
+            : await db.Customers.FirstOrDefaultAsync(
+                item => item.CompanyId == request.CompanyId &&
+                    ((!string.IsNullOrWhiteSpace(gstin) && item.GSTIN == gstin) || item.MobileNumber == mobile),
+                cancellationToken);
 
         if (customer is not null)
         {
@@ -1002,6 +1112,59 @@ public static class BillingEndpoints
 
         db.Customers.Add(customer);
         return customer;
+    }
+
+
+    private static void AddInvoicePayments(Invoice invoice, PosSaleRequest request, decimal paidAmount, GarmetixDbContext db)
+    {
+        if (paidAmount <= 0)
+        {
+            return;
+        }
+
+        var details = request.Payments is { Count: > 0 }
+            ? request.Payments.Where(item => item.Amount > 0).ToList()
+            : new List<InvoicePaymentDetailRequest> { new(request.PaymentMode, paidAmount, request.BankAccountId, null, null, null, null, null) };
+
+        var remaining = paidAmount;
+        foreach (var payment in details)
+        {
+            if (remaining <= 0)
+            {
+                break;
+            }
+
+            var amount = Math.Min(payment.Amount, remaining);
+            db.InvoicePayments.Add(new InvoicePayment
+            {
+                InvoiceId = invoice.Id,
+                OnDate = DateTime.Now,
+                Amount = amount,
+                PaymentMode = payment.PaymentMode,
+                ReferenceNumber = payment.ReferenceNumber,
+                BankAccountId = payment.BankAccountId,
+                GatewayReference = payment.GatewayReference,
+                SettlementStatus = payment.SettlementStatus,
+                AdjustmentSourceType = payment.AdjustmentSourceType,
+                AdjustmentSourceId = payment.AdjustmentSourceId,
+                StoreId = invoice.StoreId,
+                CompanyId = invoice.CompanyId
+            });
+            remaining -= amount;
+        }
+    }
+
+    private static (decimal Cgst, decimal Sgst, decimal Igst) SplitGst(decimal totalTax, TaxType taxType)
+    {
+        totalTax = Math.Round(totalTax, 2);
+        return taxType switch
+        {
+            TaxType.IGST => (0, 0, totalTax),
+            TaxType.CGST => (totalTax, 0, 0),
+            TaxType.SGST => (0, totalTax, 0),
+            TaxType.GST => (Math.Round(totalTax / 2m, 2), totalTax - Math.Round(totalTax / 2m, 2), 0),
+            _ => (0, 0, 0)
+        };
     }
 
     private static async Task<string> CreateInvoiceNumberAsync(Guid storeId, GarmetixDbContext db, CancellationToken cancellationToken)
