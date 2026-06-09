@@ -375,3 +375,17 @@ Related files:
 - `tools/oracle-external-app-simulator/insert-sample-customer-event.sql`
 - `scripts/oracle-external-app-smoke-test.ps1`
 - `scripts/oracle-external-app-smoke-test.sh`
+
+## Stage 5C — Release Stabilization
+
+This package adds final go-live support:
+
+- Admin page: `/release-stabilization`
+- API: `GET /api/release-stabilization/smoke-checks`
+- API: `POST /api/release-stabilization/demo-data/seed`
+- Linux smoke test: `scripts/linux/smoke-test.sh .env.production`
+- Windows smoke test: `scripts/windows/smoke-test.ps1 -EnvFile .env.production`
+- Operator manual: `Operator-User-Manual.md`
+- Go-live checklist: `GoLive-Smoke-Test-Checklist.md`
+
+Use this stage after production readiness and backup/restore hardening are configured.

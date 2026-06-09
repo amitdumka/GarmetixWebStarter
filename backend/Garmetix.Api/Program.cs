@@ -16,11 +16,16 @@ using Garmetix.Api.Hr;
 using Garmetix.Api.GstReturns;
 using Garmetix.Api.Gstin;
 using Garmetix.Api.ImportExport;
+using Garmetix.Api.Inventory;
 using Garmetix.Api.OffBook;
+using Garmetix.Api.Numbering;
 using Garmetix.Api.Payroll;
 using Garmetix.Api.Purchase;
 using Garmetix.Api.ProductLookup;
+using Garmetix.Api.Production;
+using Garmetix.Api.Release;
 using Garmetix.Api.Setup;
+using Garmetix.Api.Validation;
 using Garmetix.Api.SecondarySync;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
@@ -35,10 +40,23 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var configuredCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+var configuredCorsOriginsCsv = builder.Configuration["Cors:AllowedOriginsCsv"] ?? string.Empty;
+var corsOrigins = configuredCorsOrigins
+    .Concat(configuredCorsOriginsCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+    .Where(origin => !string.IsNullOrWhiteSpace(origin))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
+
+if (corsOrigins.Length == 0)
+{
+    corsOrigins = ["http://localhost:3000"];
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("frontend", policy =>
-        policy.WithOrigins("http://localhost:3000")
+        policy.WithOrigins(corsOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod());
 });
@@ -56,6 +74,7 @@ builder.Services.AddScoped<PasswordResetEmailService>();
 builder.Services.AddScoped<MonthlyAttendanceService>();
 builder.Services.AddScoped<PayrollService>();
 builder.Services.AddScoped<AccountingPostingService>();
+builder.Services.AddScoped<DocumentNumberService>();
 builder.Services.Configure<PayrollAutomationOptions>(builder.Configuration.GetSection("PayrollAutomation"));
 builder.Services.AddHostedService<PayrollAutomationHostedService>();
 builder.Services.Configure<BackupOptions>(builder.Configuration.GetSection("Backup"));
@@ -118,6 +137,21 @@ using (var scope = app.Services.CreateScope())
 
     await DatabaseSchemaRepairService.RepairKnownSchemaDriftAsync(db, logger);
 }
+
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.TryAdd("X-Content-Type-Options", "nosniff");
+    context.Response.Headers.TryAdd("X-Frame-Options", "DENY");
+    context.Response.Headers.TryAdd("Referrer-Policy", "strict-origin-when-cross-origin");
+    context.Response.Headers.TryAdd("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+
+    if (context.Request.IsHttps)
+    {
+        context.Response.Headers.TryAdd("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    }
+
+    await next();
+});
 
 app.UseCors("frontend");
 app.UseAuthentication();
@@ -185,13 +219,24 @@ app.MapGstReturnEndpoints();
 app.MapGstinEndpoints();
 app.MapCommercialEndpoints();
 app.MapProductLookupEndpoints();
+app.MapInventoryProductMasterEndpoints();
+app.MapInventoryStockOperationEndpoints();
 app.MapOracleSecondarySyncEndpoints();
+app.MapDataConsistencyEndpoints();
+app.MapDataConsistencyRepairEndpoints();
+app.MapProductionReadinessEndpoints();
+app.MapReleaseStabilizationEndpoints();
 
 MapCrud<Company>(app, "/api/companies", GarmetixPolicies.CompanySetup, readPolicyName: null);
 MapCrud<StoreGroup>(app, "/api/store-groups", GarmetixPolicies.CompanySetup, readPolicyName: null);
 MapCrud<Store>(app, "/api/stores", GarmetixPolicies.CompanySetup, readPolicyName: null);
 MapCrud<Product>(app, "/api/products", GarmetixPolicies.Inventory);
 MapCrud<Stock>(app, "/api/stocks", GarmetixPolicies.Inventory);
+MapCrud<Garmetix.Core.Models.Inventory.ProductCategory>(app, "/api/product-categories", GarmetixPolicies.Inventory);
+MapCrud<Garmetix.Core.Models.Inventory.ProductSubCategory>(app, "/api/product-sub-categories", GarmetixPolicies.Inventory);
+MapCrud<ProductDetail>(app, "/api/product-details", GarmetixPolicies.Inventory);
+MapCrud<Brand>(app, "/api/brands", GarmetixPolicies.Inventory);
+MapCrud<Tax>(app, "/api/taxes", GarmetixPolicies.Inventory);
 MapCrud<Customer>(app, "/api/customers", GarmetixPolicies.Billing);
 MapCrud<Vendor>(app, "/api/vendors", GarmetixPolicies.Purchase);
 MapCrud<Invoice>(app, "/api/sales-invoices", GarmetixPolicies.Billing);
