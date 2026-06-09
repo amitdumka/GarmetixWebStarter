@@ -66,6 +66,7 @@ public sealed record ReceiptDto(
     IReadOnlyList<ReceiptPaymentDto> Payments);
 
 public sealed record ReceiptItemDto(
+    Guid Id,
     string ProductName,
     string Barcode,
     decimal Quantity,
@@ -89,3 +90,25 @@ public sealed record CancelInvoiceResponse(
     string InvoiceStatus,
     decimal ReversedQuantity,
     decimal ReversedAmount);
+
+public sealed record SalesReturnItemRequest(
+    Guid InvoiceItemId,
+    decimal Quantity);
+
+public sealed record SalesReturnRequest(
+    decimal RefundAmount,
+    PaymentMode? RefundPaymentMode,
+    Guid? BankAccountId,
+    string? Reason,
+    IReadOnlyList<SalesReturnItemRequest> Items);
+
+public sealed record SalesReturnResponse(
+    Guid ReturnInvoiceId,
+    string CreditNoteNumber,
+    Guid OriginalInvoiceId,
+    string OriginalInvoiceNumber,
+    decimal CreditAmount,
+    decimal RefundedAmount,
+    decimal StoreCreditAmount,
+    decimal ReversedQuantity,
+    string OriginalInvoiceStatus);

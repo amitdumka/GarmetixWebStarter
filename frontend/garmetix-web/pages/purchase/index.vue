@@ -30,6 +30,9 @@ const search = ref('')
 const formOpen = ref(false)
 const cancelOpen = ref(false)
 const cancelling = ref(false)
+const paymentOpen = ref(false)
+const payingVendor = ref(false)
+const pendingPaymentInvoice = ref<any | null>(null)
 const downloadingPurchasePdf = ref(false)
 const purchasePrintFormat = ref<'a4' | 'a5' | 'thermal-2' | 'thermal-3'>('a4')
 const purchaseCopyType = ref<'store' | 'supplier' | 'office' | 'duplicate'>('store')
@@ -62,6 +65,7 @@ const purchaseCopyOptions = [
 ]
 
 const purchaseForm = reactive<any>(emptyPurchaseForm())
+const paymentVoucherForm = reactive<any>(emptyPaymentVoucherForm())
 const purchaseCart = ref<any[]>([])
 
 const productOptions = computed(() => [
@@ -77,6 +81,7 @@ const categoryOptions = computed(() => purchaseLookup.value.categories?.map((ite
 const subCategoryOptions = computed(() => purchaseLookup.value.subCategories?.map((item: any) => ({ value: item.id, label: item.name })) || [])
 const taxOptions = computed(() => purchaseLookup.value.taxes?.map((item: any) => ({ value: item.id, label: `${item.name || 'GST'} - ${Number(item.rate || 0).toFixed(2)}%` })) || [])
 const requiresBankAccount = computed(() => Number(purchaseForm.paidAmount || 0) > 0 && Number(purchaseForm.paymentMode) !== 0)
+const paymentVoucherRequiresBank = computed(() => Number(paymentVoucherForm.amount || 0) > 0 && Number(paymentVoucherForm.paymentMode) !== 0)
 
 const bankAccountOptions = computed(() => bankAccounts.value.map((account) => ({
   value: account.id,
@@ -197,6 +202,16 @@ const columns: TableColumn<any>[] = [
         })
       ]
 
+      if (invoice.invoiceStatus !== 'Cancelled' && Number(invoice.balanceAmount || 0) > 0) {
+        actions.push(h(UButton, {
+          color: 'success',
+          variant: 'ghost',
+          icon: 'i-lucide-wallet-cards',
+          label: 'Pay',
+          onClick: () => askVendorPayment(invoice)
+        }))
+      }
+
       if (canDelete.value && invoice.invoiceStatus !== 'Cancelled') {
         actions.push(h(UButton, {
           color: 'error',
@@ -211,6 +226,17 @@ const columns: TableColumn<any>[] = [
     }
   }
 ]
+
+function emptyPaymentVoucherForm() {
+  return {
+    amount: 0,
+    paymentMode: 0,
+    bankAccountId: null,
+    paymentDetails: '',
+    slipNumber: '',
+    remarks: ''
+  }
+}
 
 function emptyPurchaseForm() {
   return {
@@ -420,6 +446,47 @@ async function viewReceipt(invoiceId: string) {
   }
 }
 
+
+function askVendorPayment(invoice: any) {
+  pendingPaymentInvoice.value = invoice
+  Object.assign(paymentVoucherForm, emptyPaymentVoucherForm())
+  paymentVoucherForm.amount = Number(invoice.balanceAmount || 0)
+  paymentVoucherForm.paymentMode = 0
+  paymentVoucherForm.bankAccountId = null
+  paymentOpen.value = true
+}
+
+async function confirmVendorPayment() {
+  if (!pendingPaymentInvoice.value) {
+    return
+  }
+
+  payingVendor.value = true
+  try {
+    if (paymentVoucherRequiresBank.value && !paymentVoucherForm.bankAccountId) {
+      throw new Error('Select bank account for non-cash vendor payment.')
+    }
+
+    const response = await api.create<any>(`purchase/invoices/${pendingPaymentInvoice.value.id}/payment-voucher`, {
+      amount: Number(paymentVoucherForm.amount || 0),
+      paymentMode: Number(paymentVoucherForm.paymentMode),
+      bankAccountId: paymentVoucherRequiresBank.value ? paymentVoucherForm.bankAccountId : null,
+      paymentDetails: paymentVoucherForm.paymentDetails,
+      slipNumber: paymentVoucherForm.slipNumber,
+      remarks: paymentVoucherForm.remarks
+    })
+
+    feedback.saved(`Payment voucher ${response.voucherNumber || ''}`.trim())
+    paymentOpen.value = false
+    pendingPaymentInvoice.value = null
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not create vendor payment voucher', error)
+  } finally {
+    payingVendor.value = false
+  }
+}
+
 function askCancel(invoice: any) {
   if (invoice.invoiceStatus === 'Cancelled') {
     return
@@ -535,6 +602,18 @@ watch(() => purchaseForm.paymentMode, () => {
 watch(() => purchaseForm.paidAmount, () => {
   if (requiresBankAccount.value && !purchaseForm.bankAccountId) {
     purchaseForm.bankAccountId = bankAccounts.value[0]?.id || null
+  }
+})
+
+watch(() => paymentVoucherForm.paymentMode, () => {
+  if (paymentVoucherRequiresBank.value && !paymentVoucherForm.bankAccountId) {
+    paymentVoucherForm.bankAccountId = bankAccounts.value[0]?.id || null
+  }
+})
+
+watch(() => paymentVoucherForm.amount, () => {
+  if (paymentVoucherRequiresBank.value && !paymentVoucherForm.bankAccountId) {
+    paymentVoucherForm.bankAccountId = bankAccounts.value[0]?.id || null
   }
 })
 </script>
@@ -837,6 +916,45 @@ watch(() => purchaseForm.paidAmount, () => {
           </div>
         </template>
       </UModal>
+
+
+      <UiFormSlideover
+        v-model:open="paymentOpen"
+        title="Vendor Payment Voucher"
+        :description="`Create payment voucher for ${pendingPaymentInvoice?.invoiceNumber || 'purchase invoice'}.`"
+        submit-label="Create Voucher"
+        layout="modal"
+        content-class="sm:max-w-xl"
+        :loading="payingVendor"
+        @submit="confirmVendorPayment"
+      >
+        <UAlert
+          color="primary"
+          variant="subtle"
+          title="Outstanding payment"
+          :description="`Balance: ${money(Number(pendingPaymentInvoice?.balanceAmount || 0))}`"
+        />
+        <UFormField label="Amount">
+          <UInput v-model="paymentVoucherForm.amount" min="0" step="0.01" type="number" />
+        </UFormField>
+        <UFormField label="Payment mode">
+          <USelect v-model="paymentVoucherForm.paymentMode" :items="paymentModeOptions" />
+        </UFormField>
+        <UFormField v-if="paymentVoucherRequiresBank" label="Bank account" required>
+          <USelect v-model="paymentVoucherForm.bankAccountId" :items="bankAccountOptions" placeholder="Select bank account" />
+        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Slip / cheque / UTR">
+            <UInput v-model="paymentVoucherForm.slipNumber" />
+          </UFormField>
+          <UFormField label="Payment details">
+            <UInput v-model="paymentVoucherForm.paymentDetails" />
+          </UFormField>
+        </div>
+        <UFormField label="Remarks">
+          <UTextarea v-model="paymentVoucherForm.remarks" :rows="3" />
+        </UFormField>
+      </UiFormSlideover>
 
       <UiConfirmDeleteModal
         v-model:open="cancelOpen"

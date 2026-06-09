@@ -65,24 +65,24 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 
 - [x] Purchase invoice list and detail/print view. Added `/api/purchase/invoices/recent`, receipt/PDF endpoints, and Purchase page view/print/download modal.
 - [x] Purchase return/cancellation with stock reversal. Added cancel endpoint that reverses inward stock and purchase accounting posting.
-- [ ] Vendor payment voucher creation from purchase payment.
+- [x] Vendor payment voucher creation from purchase payment. Added purchase invoice payment-voucher endpoint and Purchase page Pay action that creates regular vendor payment vouchers with accounting posting.
 - [x] Better tax/category selector in purchase inward form. Added tax/category/subcategory lookup and selectors for new inward products.
 
 ## Sales Return / Exchange
 
-- [ ] Partial sales return.
+- [x] Partial sales return. Added selected-item sales return endpoint and Billing page return workflow.
 - [ ] Exchange item flow.
-- [ ] Return voucher/credit note.
-- [ ] Stock reversal for selected returned items only.
-- [ ] Customer balance adjustment.
+- [x] Return voucher/credit note. Sales returns now create a return invoice/credit note linked to the original invoice.
+- [x] Stock reversal for selected returned items only. Return quantities reduce sold stock for only selected invoice items.
+- [x] Customer balance adjustment. Return value reduces customer billed amount and creates store credit when refund is not paid immediately.
 
 ## Import / Export
 
-- [ ] CSV/Excel import UI.
-- [ ] Export UI.
-- [ ] Validation preview before import.
-- [ ] Error report download.
-- [ ] Admin import/export endpoint polish.
+- [x] CSV import UI. Existing Import Export page supports CSV upload, preview, validation, and commit flow.
+- [x] Export UI. Existing Import Export page supports module export and template download.
+- [x] Validation preview before import. Existing import flow supports validate-only mode with row preview and errors.
+- [x] Error report download. Added CSV error report download from validation/import errors.
+- [x] Admin import/export endpoint polish. Existing admin-protected endpoints expose module metadata, templates, exports, validate-only import, and committed import.
 
 ## Audit UI / Activity Logs
 

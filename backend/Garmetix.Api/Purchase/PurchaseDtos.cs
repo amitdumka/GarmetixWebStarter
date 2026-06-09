@@ -110,3 +110,21 @@ public sealed record PurchaseLookupOptionsDto(
 public sealed record PurchaseLookupOptionDto(Guid Id, string Name);
 
 public sealed record PurchaseTaxOptionDto(Guid Id, string Name, decimal Rate, string TaxType);
+
+public sealed record VendorPaymentVoucherRequest(
+    decimal Amount,
+    PaymentMode PaymentMode,
+    Guid? BankAccountId,
+    string? PaymentDetails,
+    string? SlipNumber,
+    string? Remarks);
+
+public sealed record VendorPaymentVoucherResponse(
+    Guid VoucherId,
+    string VoucherNumber,
+    Guid PurchaseInvoiceId,
+    string PurchaseInvoiceNumber,
+    decimal Amount,
+    decimal PaidAmount,
+    decimal BalanceAmount,
+    string InvoiceStatus);

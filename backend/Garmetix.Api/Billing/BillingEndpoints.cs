@@ -22,6 +22,7 @@ public static class BillingEndpoints
         group.MapGet("/sales/recent", GetRecentSalesAsync);
         group.MapGet("/sales/{id:guid}/receipt", GetReceiptAsync);
         group.MapGet("/sales/{id:guid}/pdf", DownloadInvoicePdfAsync);
+        group.MapPost("/sales/{id:guid}/returns", CreateSalesReturnAsync);
         group.MapPost("/sales/{id:guid}/cancel", CancelSaleAsync).RequireAuthorization(GarmetixPolicies.Delete);
 
         return group;
@@ -82,6 +83,7 @@ public static class BillingEndpoints
             .Where(item => item.InvoiceId == id)
             .OrderBy(item => item.CreatedAt)
             .Select(item => new ReceiptItemDto(
+                item.Id,
                 item.Product != null ? item.Product.Name : item.Barcode,
                 item.Barcode,
                 item.BilledQuantity,
@@ -161,6 +163,7 @@ public static class BillingEndpoints
             .Where(item => item.InvoiceId == id)
             .OrderBy(item => item.CreatedAt)
             .Select(item => new ReceiptItemDto(
+                item.Id,
                 item.Product != null ? item.Product.Name : item.Barcode,
                 item.Barcode,
                 item.BilledQuantity,

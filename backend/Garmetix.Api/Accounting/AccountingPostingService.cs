@@ -803,6 +803,122 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
             cancellationToken);
     }
 
+
+
+    public async Task PostVendorPaymentVoucherAsync(
+        Voucher voucher,
+        Vendor vendor,
+        Guid storeGroupId,
+        Guid storeId,
+        Guid? bankAccountId,
+        CancellationToken cancellationToken)
+    {
+        if (voucher.Amount <= 0)
+        {
+            throw new ArgumentException("Vendor payment amount must be greater than zero.");
+        }
+
+        var party = await EnsureVendorPartyAsync(vendor, cancellationToken);
+        var vendorLedgerId = party.LedgerId;
+        var settlementLedger = await ResolveSettlementLedgerAsync(voucher.CompanyId, voucher.PaymentMode, bankAccountId, cancellationToken);
+        voucher.PartyId = party.Id;
+        voucher.LedgerId = vendorLedgerId;
+        voucher.IsParty = true;
+        voucher.StoreGroupId = storeGroupId;
+        voucher.StoreId = storeId;
+
+        var lines = new List<JournalLineDraft>
+        {
+            new(vendorLedgerId, party.Id, voucher.Amount, 0, voucher.Particulars),
+            new(settlementLedger.Id, null, 0, voucher.Amount, voucher.Particulars)
+        };
+
+        await UpsertInvoiceBankTransactionAsync(
+            voucher.CompanyId,
+            voucher.PaymentMode,
+            bankAccountId,
+            TransactionType.Withdraw,
+            voucher.OnDate,
+            voucher.VoucherNumber,
+            voucher.Particulars,
+            voucher.Amount,
+            vendor.Name,
+            cancellationToken);
+
+        await RepostSourceJournalAsync(
+            "VendorPaymentVoucher",
+            voucher.Id,
+            voucher.VoucherNumber,
+            voucher.OnDate,
+            voucher.VoucherNumber,
+            voucher.Particulars,
+            voucher.CompanyId,
+            storeGroupId,
+            storeId,
+            lines,
+            cancellationToken);
+    }
+
+    public async Task PostSalesReturnAsync(
+        Invoice returnInvoice,
+        Customer customer,
+        Guid storeGroupId,
+        decimal refundAmount,
+        PaymentMode? refundPaymentMode,
+        Guid? bankAccountId,
+        CancellationToken cancellationToken)
+    {
+        var party = await EnsureCustomerPartyAsync(customer, cancellationToken);
+        var customerLedgerId = party.LedgerId;
+        var salesLedger = await EnsureNamedLedgerAsync(returnInvoice.CompanyId, "Sales", "Sales Accounts", LedgerCategory.SalesAccounts, LedgerType.Sale, cancellationToken);
+        var outputGstLedger = await EnsureNamedLedgerAsync(returnInvoice.CompanyId, "Output GST", "Duties & Taxes", LedgerCategory.DutiesAndTaxes, LedgerType.DutyAndTax, cancellationToken);
+        var roundOffLedger = await EnsureNamedLedgerAsync(returnInvoice.CompanyId, "Round Off", "Indirect Income", LedgerCategory.IndirectIncome, LedgerType.Income, cancellationToken);
+
+        var lines = new List<JournalLineDraft>
+        {
+            new(salesLedger.Id, null, returnInvoice.NetAmount, 0, $"Sales return {returnInvoice.InvoiceNumber}"),
+            new(customerLedgerId, party.Id, 0, returnInvoice.BillAmount, $"Credit note {returnInvoice.InvoiceNumber}")
+        };
+
+        if (returnInvoice.TaxAmount > 0)
+        {
+            lines.Add(new(outputGstLedger.Id, null, returnInvoice.TaxAmount, 0, $"Return tax {returnInvoice.InvoiceNumber}"));
+        }
+
+        AddRoundOff(lines, roundOffLedger.Id, returnInvoice.RoundOff * -1, isSale: true, returnInvoice.InvoiceNumber);
+
+        if (refundAmount > 0 && refundPaymentMode.HasValue)
+        {
+            var settlementLedger = await ResolveSettlementLedgerAsync(returnInvoice.CompanyId, refundPaymentMode.Value, bankAccountId, cancellationToken);
+            lines.Add(new(customerLedgerId, party.Id, refundAmount, 0, $"Return refund {returnInvoice.InvoiceNumber}"));
+            lines.Add(new(settlementLedger.Id, null, 0, refundAmount, $"Return refund {returnInvoice.InvoiceNumber}"));
+            await UpsertInvoiceBankTransactionAsync(
+                returnInvoice.CompanyId,
+                refundPaymentMode.Value,
+                bankAccountId,
+                TransactionType.Withdraw,
+                returnInvoice.OnDate,
+                $"SR-{returnInvoice.InvoiceNumber}",
+                $"Return refund {returnInvoice.InvoiceNumber}",
+                refundAmount,
+                customer.Name,
+                cancellationToken);
+        }
+
+        await RepostSourceJournalAsync(
+            "SalesReturn",
+            returnInvoice.Id,
+            $"SR-{returnInvoice.InvoiceNumber}",
+            returnInvoice.OnDate,
+            returnInvoice.InvoiceNumber,
+            $"Sales return {returnInvoice.InvoiceNumber}",
+            returnInvoice.CompanyId,
+            storeGroupId,
+            returnInvoice.StoreId,
+            lines,
+            cancellationToken);
+    }
+
     public async Task PostSalaryPaymentAsync(
         SalaryPayment payment,
         CancellationToken cancellationToken)

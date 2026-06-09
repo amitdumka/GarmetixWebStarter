@@ -23,6 +23,7 @@ public static class PurchaseEndpoints
         group.MapGet("/invoices/{id:guid}/receipt", GetReceiptAsync);
         group.MapGet("/invoices/{id:guid}/pdf", DownloadPurchasePdfAsync);
         group.MapPost("/inward", CreateInwardAsync);
+        group.MapPost("/invoices/{id:guid}/payment-voucher", CreateVendorPaymentVoucherAsync);
         group.MapPost("/invoices/{id:guid}/cancel", CancelPurchaseAsync).RequireAuthorization(GarmetixPolicies.Delete);
 
         return group;
@@ -665,6 +666,18 @@ public static class PurchaseEndpoints
         }
 
         return string.Join(", ", new[] { company.Address, company.City, company.State, company.ZipCode }.Where(value => !string.IsNullOrWhiteSpace(value)));
+    }
+
+
+    private static async Task<string> CreateVendorPaymentVoucherNumberAsync(Guid companyId, GarmetixDbContext db, CancellationToken cancellationToken)
+    {
+        var today = DateTime.Today;
+        var tomorrow = today.AddDays(1);
+        var count = await db.Vouchers.CountAsync(
+            item => item.CompanyId == companyId && item.OnDate >= today && item.OnDate < tomorrow && item.VoucherNumber.StartsWith("PV-"),
+            cancellationToken);
+
+        return $"PV-{today:yyyyMMdd}-{count + 1:0000}";
     }
 
     private static string NormalizePdfFormat(string? value) => value?.Trim().ToLowerInvariant() switch

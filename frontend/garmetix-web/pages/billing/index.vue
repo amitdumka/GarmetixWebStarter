@@ -23,6 +23,10 @@ const pendingCancel = ref<any | null>(null)
 const loading = ref(false)
 const saving = ref(false)
 const cancelling = ref(false)
+const returnOpen = ref(false)
+const returning = ref(false)
+const pendingReturnInvoice = ref<any | null>(null)
+const returnLines = ref<any[]>([])
 const downloadingInvoicePdf = ref(false)
 const setupStatus = ref<any | null>(null)
 const saleGstinValidation = ref<any | null>(null)
@@ -60,6 +64,7 @@ const invoiceCopyOptions = [
 ]
 
 const saleForm = reactive<any>(emptySaleForm())
+const returnForm = reactive<any>(emptyReturnForm())
 const saleCart = ref<any[]>([])
 
 const receiptOpen = computed({
@@ -81,6 +86,7 @@ const productOptions = computed(() => [
 
 const selectedProduct = computed(() => products.value.find((item) => item.id === saleForm.selectedProductId))
 const requiresBankAccount = computed(() => Number(saleForm.paidAmount || 0) > 0 && Number(saleForm.paymentMode) !== 0)
+const returnRefundRequiresBank = computed(() => Number(returnForm.refundAmount || 0) > 0 && Number(returnForm.refundPaymentMode) !== 0)
 
 const bankAccountOptions = computed(() => bankAccounts.value.map((account) => ({
   value: account.id,
@@ -92,6 +98,7 @@ const cartTotal = computed(() => {
 })
 
 const payableTotal = computed(() => Math.max(cartTotal.value - Number(saleForm.billDiscountAmount || 0), 0))
+const returnTotal = computed(() => returnLines.value.reduce((sum, item) => sum + lineTotal({ mrp: item.mrp, discountAmount: item.discountAmount, quantity: item.returnQuantity }), 0))
 
 const invoiceSummary = computed(() => {
   return invoices.value.reduce((summary, invoice) => {
@@ -194,6 +201,16 @@ const columns: TableColumn<any>[] = [
         })
       ]
 
+      if (invoice.invoiceStatus !== 'Cancelled' && invoice.invoiceStatus !== 'Refunded' && !String(invoice.invoiceNumber || '').startsWith('SR-')) {
+        actions.push(h(UButton, {
+          color: 'warning',
+          variant: 'ghost',
+          icon: 'i-lucide-rotate-ccw',
+          label: 'Return',
+          onClick: () => askSalesReturn(invoice)
+        }))
+      }
+
       if (canDelete.value && invoice.invoiceStatus !== 'Cancelled') {
         actions.push(h(UButton, {
           color: 'error',
@@ -208,6 +225,15 @@ const columns: TableColumn<any>[] = [
     }
   }
 ]
+
+function emptyReturnForm() {
+  return {
+    refundAmount: 0,
+    refundPaymentMode: 0,
+    bankAccountId: null,
+    reason: ''
+  }
+}
 
 function emptySaleForm() {
   return {
@@ -383,6 +409,71 @@ async function viewReceipt(invoiceId: string) {
   }
 }
 
+
+async function askSalesReturn(invoice: any) {
+  try {
+    const receipt = await api.get<any>(`billing/sales/${invoice.id}/receipt`)
+    pendingReturnInvoice.value = invoice
+    returnLines.value = (receipt.items || []).map((item: any) => ({
+      invoiceItemId: item.id,
+      productName: item.productName,
+      barcode: item.barcode,
+      quantity: Number(item.quantity || 0),
+      returnQuantity: 0,
+      mrp: Number(item.mrp || 0),
+      discountAmount: Number(item.discountAmount || 0)
+    }))
+    Object.assign(returnForm, emptyReturnForm())
+    returnOpen.value = true
+  } catch (error) {
+    feedback.failed('Could not load invoice items for return', error)
+  }
+}
+
+async function confirmSalesReturn() {
+  if (!pendingReturnInvoice.value) {
+    return
+  }
+
+  returning.value = true
+  try {
+    const items = returnLines.value
+      .filter((item) => Number(item.returnQuantity || 0) > 0)
+      .map((item) => ({ invoiceItemId: item.invoiceItemId, quantity: Number(item.returnQuantity || 0) }))
+
+    if (items.length === 0) {
+      throw new Error('Enter return quantity for at least one item.')
+    }
+
+    if (returnRefundRequiresBank.value && !returnForm.bankAccountId) {
+      throw new Error('Select bank account for non-cash refund.')
+    }
+
+    const response = await api.create<any>(`billing/sales/${pendingReturnInvoice.value.id}/returns`, {
+      refundAmount: Number(returnForm.refundAmount || 0),
+      refundPaymentMode: Number(returnForm.refundAmount || 0) > 0 ? Number(returnForm.refundPaymentMode) : null,
+      bankAccountId: returnRefundRequiresBank.value ? returnForm.bankAccountId : null,
+      reason: returnForm.reason,
+      items
+    })
+
+    feedback.saved(`Credit note ${response.creditNoteNumber || ''}`.trim())
+    returnOpen.value = false
+    pendingReturnInvoice.value = null
+    await viewReceipt(response.returnInvoiceId)
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not create sales return', error)
+  } finally {
+    returning.value = false
+  }
+}
+
+function clampReturnQuantity(item: any) {
+  const value = Number(item.returnQuantity || 0)
+  item.returnQuantity = Math.min(Math.max(value, 0), Number(item.quantity || 0))
+}
+
 function askCancel(invoice: any) {
   if (invoice.invoiceStatus === 'Cancelled') {
     return
@@ -502,6 +593,18 @@ watch(() => saleForm.paymentMode, () => {
 watch(() => saleForm.paidAmount, () => {
   if (requiresBankAccount.value && !saleForm.bankAccountId) {
     saleForm.bankAccountId = bankAccounts.value[0]?.id || null
+  }
+})
+
+watch(() => returnForm.refundPaymentMode, () => {
+  if (returnRefundRequiresBank.value && !returnForm.bankAccountId) {
+    returnForm.bankAccountId = bankAccounts.value[0]?.id || null
+  }
+})
+
+watch(() => returnForm.refundAmount, () => {
+  if (returnRefundRequiresBank.value && !returnForm.bankAccountId) {
+    returnForm.bankAccountId = bankAccounts.value[0]?.id || null
   }
 })
 </script>
@@ -772,6 +875,66 @@ watch(() => saleForm.paidAmount, () => {
           </div>
         </template>
       </UModal>
+
+
+      <UiFormSlideover
+        v-model:open="returnOpen"
+        title="Sales Return / Credit Note"
+        :description="`Create partial return for ${pendingReturnInvoice?.invoiceNumber || 'invoice'}.`"
+        submit-label="Create Credit Note"
+        layout="modal"
+        content-class="w-[calc(100vw-2rem)] sm:max-w-4xl"
+        :loading="returning"
+        @submit="confirmSalesReturn"
+      >
+        <UAlert
+          color="warning"
+          variant="subtle"
+          title="Partial return"
+          description="Returned quantity will reverse sold stock. Refund amount is optional; any balance becomes customer store credit."
+        />
+        <div class="planner-table-wrap">
+          <table class="planner-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Sold</th>
+                <th>Return</th>
+                <th>Approx credit</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in returnLines" :key="item.invoiceItemId">
+                <td>{{ item.productName }}<br><small>{{ item.barcode }}</small></td>
+                <td>{{ item.quantity }}</td>
+                <td>
+                  <UInput v-model="item.returnQuantity" min="0" :max="item.quantity" step="1" type="number" @blur="clampReturnQuantity(item)" />
+                </td>
+                <td>{{ money(lineTotal({ mrp: item.mrp, discountAmount: item.discountAmount, quantity: item.returnQuantity })) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="form-two-column">
+          <UFormField label="Refund amount">
+            <UInput v-model="returnForm.refundAmount" min="0" step="0.01" type="number" />
+          </UFormField>
+          <UFormField label="Refund mode">
+            <USelect v-model="returnForm.refundPaymentMode" :items="paymentModeOptions" />
+          </UFormField>
+        </div>
+        <UFormField v-if="returnRefundRequiresBank" label="Bank account" required>
+          <USelect v-model="returnForm.bankAccountId" :items="bankAccountOptions" placeholder="Select bank account" />
+        </UFormField>
+        <UFormField label="Reason / remarks">
+          <UTextarea v-model="returnForm.reason" :rows="3" />
+        </UFormField>
+        <div class="payroll-summary">
+          <span>Return value</span><strong>{{ money(returnTotal) }}</strong>
+          <span>Refund now</span><strong>{{ money(Number(returnForm.refundAmount || 0)) }}</strong>
+          <span>Store credit</span><strong>{{ money(Math.max(returnTotal - Number(returnForm.refundAmount || 0), 0)) }}</strong>
+        </div>
+      </UiFormSlideover>
 
       <UiConfirmDeleteModal
         v-model:open="cancelOpen"
