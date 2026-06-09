@@ -338,3 +338,9 @@ The API includes an admin-only Oracle secondary sync module for using Oracle Clo
 - Manual run: `POST /api/oracle-sync/run`
 
 Configure with `ORACLE_SYNC_*` values in `.env`. See `backend/Oracle-Secondary-Sync-Notes.md`.
+
+### Oracle Sync v2
+
+Oracle secondary sync now supports safe bidirectional mode. Garmetix still treats PostgreSQL as the primary transaction store. External Oracle events are pulled into `OracleSyncInboundEvents` and failed/unsupported events go to `OracleSyncDeadLetters` until entity ownership and merge rules are approved.
+
+See `backend/Oracle-Secondary-Sync-v2-Notes.md`.

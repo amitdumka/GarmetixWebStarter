@@ -1,4 +1,5 @@
 using Garmetix.Api.Auth;
+using Garmetix.Infrastructure.Data;
 
 namespace Garmetix.Api.SecondarySync;
 
@@ -11,9 +12,15 @@ public static class OracleSecondarySyncEndpoints
             .RequireAuthorization(GarmetixPolicies.Admin);
 
         group.MapGet("/status", StatusAsync);
+        group.MapGet("/history", HistoryAsync);
+        group.MapGet("/inbound", InboundAsync);
+        group.MapGet("/dead-letters", DeadLettersAsync);
         group.MapPost("/test", TestAsync);
         group.MapPost("/repair", RepairAsync);
         group.MapPost("/run", RunAsync);
+        group.MapPost("/pull", PullAsync);
+        group.MapPost("/dead-letters/{id:guid}/retry", RetryDeadLetterAsync);
+        group.MapPost("/dead-letters/{id:guid}/resolve", ResolveDeadLetterAsync);
 
         return group;
     }
@@ -21,6 +28,32 @@ public static class OracleSecondarySyncEndpoints
     private static IResult StatusAsync(OracleSecondarySyncService service)
     {
         return Results.Ok(service.GetStatus());
+    }
+
+    private static async Task<IResult> HistoryAsync(
+        int? take,
+        OracleSecondarySyncService service,
+        CancellationToken cancellationToken)
+    {
+        return Results.Ok(await service.GetHistoryAsync(take ?? 25, cancellationToken));
+    }
+
+    private static async Task<IResult> InboundAsync(
+        int? take,
+        string? status,
+        OracleSecondarySyncService service,
+        CancellationToken cancellationToken)
+    {
+        return Results.Ok(await service.GetInboundEventsAsync(take ?? 50, status, cancellationToken));
+    }
+
+    private static async Task<IResult> DeadLettersAsync(
+        int? take,
+        bool? includeResolved,
+        OracleSecondarySyncService service,
+        CancellationToken cancellationToken)
+    {
+        return Results.Ok(await service.GetDeadLettersAsync(take ?? 50, includeResolved ?? false, cancellationToken));
     }
 
     private static async Task<IResult> TestAsync(
@@ -55,7 +88,34 @@ public static class OracleSecondarySyncEndpoints
         OracleSecondarySyncService service,
         CancellationToken cancellationToken)
     {
-        var result = await service.RunOnceAsync(request.EntityName, request.RepairFirst, cancellationToken);
+        var result = await service.RunOnceAsync(request.EntityName, request.RepairFirst, request.Direction, cancellationToken);
         return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+    }
+
+    private static async Task<IResult> PullAsync(
+        OracleSecondarySyncRunRequest request,
+        OracleSecondarySyncService service,
+        CancellationToken cancellationToken)
+    {
+        var result = await service.RunOnceAsync(request.EntityName, request.RepairFirst, "PullFromOracle", cancellationToken);
+        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+    }
+
+    private static async Task<IResult> RetryDeadLetterAsync(
+        Guid id,
+        OracleSecondarySyncService service,
+        CancellationToken cancellationToken)
+    {
+        var result = await service.RetryDeadLetterAsync(id, cancellationToken);
+        return result.Success ? Results.Ok(result) : Results.NotFound(result);
+    }
+
+    private static async Task<IResult> ResolveDeadLetterAsync(
+        Guid id,
+        OracleSecondarySyncService service,
+        CancellationToken cancellationToken)
+    {
+        var result = await service.ResolveDeadLetterAsync(id, cancellationToken);
+        return result.Success ? Results.Ok(result) : Results.NotFound(result);
     }
 }

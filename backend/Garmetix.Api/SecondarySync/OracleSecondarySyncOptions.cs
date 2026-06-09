@@ -11,9 +11,14 @@ public sealed class OracleSecondarySyncOptions
     public string TenantId { get; set; } = "garmetix-default";
     public string SourceApplication { get; set; } = "GarmetixWeb";
     public string Direction { get; set; } = "PushToOracle";
+    public string ConflictPolicy { get; set; } = "ManualReview";
     public bool CreateOracleSchema { get; set; } = true;
     public bool PushDeletedRows { get; set; } = true;
     public int CommandTimeoutSeconds { get; set; } = 60;
+    public string WalletDirectory { get; set; } = string.Empty;
+    public string TnsAdmin { get; set; } = string.Empty;
+    public bool PullExternalEvents { get; set; } = true;
+    public bool ApplyInboundAutomatically { get; set; } = false;
     public string[] EntityNames { get; set; } = [];
     public string EntityNamesCsv { get; set; } = string.Empty;
 }

@@ -164,3 +164,18 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Add local sync checkpoint/run tables so repeated syncs do not resend every row unnecessarily.
 - [x] Add admin UI page `/oracle-sync` for status, connection test, repair, and manual sync.
 - [x] Document Oracle sync setup and next guided step for bidirectional/conflict-controlled sync.
+
+## Oracle Cloud Secondary Database Sync - v2
+
+- [x] Add pending Oracle Sync v2 items to TODO: bidirectional sync, conflict rules, Oracle wallet setup, monitoring UI, retry/dead-letter support, and broader sync history.
+- [x] Add bidirectional sync direction support (`PushToOracle`, `PullFromOracle`, `Bidirectional`) while keeping PostgreSQL as the primary transactional store.
+- [x] Add conflict policy configuration: `ManualReview`, `GarmetixWins`, `OracleWins`, and `LatestWins`.
+- [x] Add Oracle wallet/TNS_ADMIN configuration for Oracle Autonomous Database Free Tier.
+- [x] Add inbound Oracle event pull into local review queue instead of directly overwriting Garmetix data.
+- [x] Add local inbound queue table for Oracle events from other apps.
+- [x] Add local dead-letter table for failed push/pull rows and unsupported external entities.
+- [x] Add sync run history with pushed/pulled counts.
+- [x] Add API endpoints for history, inbound queue, dead letters, retry, and resolve.
+- [x] Refine Oracle Sync UI with bidirectional controls, inbound review queue, dead-letter actions, and sync history.
+- [ ] Define final entity ownership matrix with user guidance before enabling destructive Oracle-to-PostgreSQL merge.
+- [ ] Implement approved inbound merge rules per entity after ownership matrix is confirmed.

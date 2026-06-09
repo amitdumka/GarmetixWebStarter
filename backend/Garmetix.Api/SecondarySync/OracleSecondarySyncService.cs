@@ -67,22 +67,27 @@ public sealed class OracleSecondarySyncService(
     {
         var current = options.CurrentValue;
         var hasOracleConnection = !string.IsNullOrWhiteSpace(current.ConnectionString);
+        var wallet = !string.IsNullOrWhiteSpace(current.WalletDirectory) || !string.IsNullOrWhiteSpace(current.TnsAdmin);
         return new OracleSecondarySyncStatusDto(
             current.Enabled,
             current.Enabled && hasOracleConnection,
             hasOracleConnection,
             current.Direction,
+            current.ConflictPolicy,
             current.TenantId,
             current.SourceApplication,
             current.IntervalSeconds,
             current.BatchSize,
             current.Schema,
+            wallet,
+            current.PullExternalEvents,
+            current.ApplyInboundAutomatically,
             GetConfiguredEntityNames(current).ToArray(),
             lastRun?.FinishedAtUtc.ToString("O"),
             lastRun?.Success == true ? lastRun.FinishedAtUtc.ToString("O") : null,
             lastRun?.Error,
             isRunning,
-            "PostgreSQL is primary. Oracle Cloud is a secondary shared sync hub for connected apps. Current implementation is push-first; inbound conflict resolution is intentionally reserved for a later guided step.");
+            "PostgreSQL is primary. Oracle Cloud is a secondary shared hub. Push sync is active; inbound Oracle events are pulled into a local review/dead-letter queue before any destructive merge.");
     }
 
     public async Task<OracleConnectionTestResult> TestConnectionAsync(CancellationToken cancellationToken = default)
@@ -124,30 +129,68 @@ public sealed class OracleSecondarySyncService(
         }
     }
 
+    public async Task<IReadOnlyList<OracleSyncHistoryRow>> GetHistoryAsync(int take = 25, CancellationToken cancellationToken = default)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GarmetixDbContext>();
+        return await OracleSecondarySyncLocalStore.GetRunsAsync(db, take, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<OracleSyncInboundEventRow>> GetInboundEventsAsync(int take = 50, string? status = null, CancellationToken cancellationToken = default)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GarmetixDbContext>();
+        return await OracleSecondarySyncLocalStore.GetInboundEventsAsync(db, take, status, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<OracleSyncDeadLetterRow>> GetDeadLettersAsync(int take = 50, bool includeResolved = false, CancellationToken cancellationToken = default)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GarmetixDbContext>();
+        return await OracleSecondarySyncLocalStore.GetDeadLettersAsync(db, take, includeResolved, cancellationToken);
+    }
+
+    public async Task<OracleDeadLetterActionResult> RetryDeadLetterAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GarmetixDbContext>();
+        var changed = await OracleSecondarySyncLocalStore.RetryDeadLetterAsync(db, id, cancellationToken);
+        return new OracleDeadLetterActionResult(changed, changed ? "Dead-letter marked for retry/review." : "Dead-letter was not found.");
+    }
+
+    public async Task<OracleDeadLetterActionResult> ResolveDeadLetterAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GarmetixDbContext>();
+        var changed = await OracleSecondarySyncLocalStore.MarkDeadLetterResolvedAsync(db, id, cancellationToken);
+        return new OracleDeadLetterActionResult(changed, changed ? "Dead-letter marked resolved." : "Dead-letter was not found.");
+    }
+
     public async Task<OracleSecondarySyncRunResult> RunOnceAsync(
         string? entityName = null,
         bool repairFirst = true,
+        string? directionOverride = null,
         CancellationToken cancellationToken = default)
     {
         var current = options.CurrentValue;
+        var direction = string.IsNullOrWhiteSpace(directionOverride) ? current.Direction : directionOverride.Trim();
         var startedAt = DateTimeOffset.UtcNow;
         var runId = Guid.NewGuid();
         if (isRunning)
         {
-            return new OracleSecondarySyncRunResult(false, "Oracle sync is already running.", startedAt, DateTimeOffset.UtcNow, 0, [], "Already running");
+            return new OracleSecondarySyncRunResult(false, "Oracle sync is already running.", startedAt, DateTimeOffset.UtcNow, 0, 0, [], "Already running");
         }
 
         if (string.IsNullOrWhiteSpace(current.ConnectionString))
         {
-            var result = new OracleSecondarySyncRunResult(false, "Oracle sync is not configured.", startedAt, DateTimeOffset.UtcNow, 0, [], "Missing Oracle connection string");
+            var result = new OracleSecondarySyncRunResult(false, "Oracle sync is not configured.", startedAt, DateTimeOffset.UtcNow, 0, 0, [], "Missing Oracle connection string");
             lastRun = result;
             return result;
         }
 
-        if (!string.Equals(current.Direction, "PushToOracle", StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(current.Direction, "PushOnly", StringComparison.OrdinalIgnoreCase))
+        if (!IsSupportedDirection(direction))
         {
-            var result = new OracleSecondarySyncRunResult(false, "Only PushToOracle direction is enabled in this safe first version.", startedAt, DateTimeOffset.UtcNow, 0, [], "Unsupported direction");
+            var result = new OracleSecondarySyncRunResult(false, $"Unsupported Oracle sync direction '{direction}'.", startedAt, DateTimeOffset.UtcNow, 0, 0, [], "Unsupported direction");
             lastRun = result;
             return result;
         }
@@ -167,25 +210,40 @@ public sealed class OracleSecondarySyncService(
             }
 
             var results = new List<OracleEntitySyncResult>();
-            var entityTypes = ResolveEntityTypes(current, entityName);
-            foreach (var entityType in entityTypes)
+            if (ShouldPush(direction))
             {
-                var method = typeof(OracleSecondarySyncService)
-                    .GetMethod(nameof(PushEntityAsync), System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
-                    ?? throw new MissingMethodException(nameof(PushEntityAsync));
-                var generic = method.MakeGenericMethod(entityType);
-                var task = (Task<OracleEntitySyncResult>)generic.Invoke(this, [db, oracleConnection, current, cancellationToken])!;
-                results.Add(await task);
+                var entityTypes = ResolveEntityTypes(current, entityName);
+                foreach (var entityType in entityTypes)
+                {
+                    var method = typeof(OracleSecondarySyncService)
+                        .GetMethod(nameof(PushEntityAsync), System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                        ?? throw new MissingMethodException(nameof(PushEntityAsync));
+                    var generic = method.MakeGenericMethod(entityType);
+                    var task = (Task<OracleEntitySyncResult>)generic.Invoke(this, [db, oracleConnection, current, cancellationToken])!;
+                    results.Add(await task);
+                }
             }
 
-            var total = results.Sum(item => item.Pushed);
+            if (ShouldPull(direction) && current.PullExternalEvents)
+            {
+                var entityNames = string.IsNullOrWhiteSpace(entityName)
+                    ? GetConfiguredEntityNames(current).ToArray()
+                    : [entityName.Trim()];
+                foreach (var item in entityNames)
+                {
+                    results.Add(await PullEntityEventsAsync(db, oracleConnection, current, item, cancellationToken));
+                }
+            }
+
+            var totalPushed = results.Sum(item => item.Pushed);
+            var totalPulled = results.Sum(item => item.Pulled);
             var finishedAt = DateTimeOffset.UtcNow;
             var success = results.All(item => string.IsNullOrWhiteSpace(item.Error));
             var message = success
-                ? $"Oracle secondary sync completed. {total} event(s) pushed."
-                : "Oracle secondary sync completed with one or more entity errors.";
+                ? $"Oracle sync completed. {totalPushed} pushed, {totalPulled} pulled."
+                : "Oracle sync completed with one or more entity errors.";
             var error = success ? null : string.Join(" | ", results.Where(item => !string.IsNullOrWhiteSpace(item.Error)).Select(item => $"{item.EntityName}: {item.Error}"));
-            var result = new OracleSecondarySyncRunResult(success, message, startedAt, finishedAt, total, results, error);
+            var result = new OracleSecondarySyncRunResult(success, message, startedAt, finishedAt, totalPushed, totalPulled, results, error);
             lastRun = result;
 
             await OracleSecondarySyncLocalStore.SetStateAsync(db, "oracle:lastRunUtc", finishedAt.ToString("O"), cancellationToken);
@@ -194,14 +252,14 @@ public sealed class OracleSecondarySyncService(
                 await OracleSecondarySyncLocalStore.SetStateAsync(db, "oracle:lastSuccessUtc", finishedAt.ToString("O"), cancellationToken);
             }
             await OracleSecondarySyncLocalStore.SetStateAsync(db, "oracle:lastError", error, cancellationToken);
-            await OracleSecondarySyncLocalStore.AddRunAsync(db, runId, startedAt, finishedAt, success, total, message, error, cancellationToken);
+            await OracleSecondarySyncLocalStore.AddRunAsync(db, runId, startedAt, finishedAt, success, totalPushed, totalPulled, message, error, cancellationToken);
 
             return result;
         }
         catch (Exception ex) when (ex is OracleException or InvalidOperationException or DbUpdateException or TimeoutException)
         {
             var finishedAt = DateTimeOffset.UtcNow;
-            var result = new OracleSecondarySyncRunResult(false, "Oracle secondary sync failed.", startedAt, finishedAt, 0, [], ex.Message);
+            var result = new OracleSecondarySyncRunResult(false, "Oracle secondary sync failed.", startedAt, finishedAt, 0, 0, [], ex.Message);
             lastRun = result;
             logger.LogError(ex, "Oracle secondary sync failed.");
             try
@@ -210,7 +268,7 @@ public sealed class OracleSecondarySyncService(
                 var db = scope.ServiceProvider.GetRequiredService<GarmetixDbContext>();
                 await OracleSecondarySyncLocalStore.SetStateAsync(db, "oracle:lastRunUtc", finishedAt.ToString("O"), cancellationToken);
                 await OracleSecondarySyncLocalStore.SetStateAsync(db, "oracle:lastError", ex.Message, cancellationToken);
-                await OracleSecondarySyncLocalStore.AddRunAsync(db, runId, startedAt, finishedAt, false, 0, result.Message, ex.Message, cancellationToken);
+                await OracleSecondarySyncLocalStore.AddRunAsync(db, runId, startedAt, finishedAt, false, 0, 0, result.Message, ex.Message, cancellationToken);
             }
             catch (Exception stateEx)
             {
@@ -290,22 +348,125 @@ public sealed class OracleSecondarySyncService(
 
             if (maxVersion is not null)
             {
-                // Keep a small overlap because several rows can have the same UpdatedAt timestamp.
                 var nextCheckpoint = maxVersion.Value.AddSeconds(-1);
                 await OracleSecondarySyncLocalStore.SetStateAsync(db, checkpointKey, nextCheckpoint.ToString("O"), cancellationToken);
             }
 
-            return new OracleEntitySyncResult(entityName, rows.Count, pushed, maxVersion?.ToString("O"));
+            return new OracleEntitySyncResult(entityName, rows.Count, pushed, 0, maxVersion?.ToString("O"));
         }
         catch (Exception ex) when (ex is OracleException or InvalidOperationException or DbUpdateException)
         {
-            logger.LogWarning(ex, "Oracle sync failed for entity {EntityName}.", entityName);
-            return new OracleEntitySyncResult(entityName, 0, 0, null, ex.Message);
+            logger.LogWarning(ex, "Oracle push sync failed for entity {EntityName}.", entityName);
+            await OracleSecondarySyncLocalStore.AddDeadLetterAsync(db, "PushToOracle", null, current.SourceApplication, entityName, string.Empty, "Push failed", null, ex.Message, cancellationToken);
+            return new OracleEntitySyncResult(entityName, 0, 0, 0, null, ex.Message);
+        }
+    }
+
+    private async Task<OracleEntitySyncResult> PullEntityEventsAsync(
+        GarmetixDbContext db,
+        OracleConnection oracleConnection,
+        OracleSecondarySyncOptions current,
+        string entityName,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var checkpointKey = $"oracle:pull-checkpoint:{entityName}:createdUtc";
+            var checkpointValue = await OracleSecondarySyncLocalStore.GetStateAsync(db, checkpointKey, cancellationToken);
+            var checkpointUtc = ParseDateTimeOffset(checkpointValue) ?? DateTimeOffset.MinValue;
+            var batchSize = Math.Clamp(current.BatchSize, 1, 5000);
+            var prefix = BuildOracleSchemaPrefix(current.Schema);
+
+            await using var command = oracleConnection.CreateCommand();
+            command.BindByName = true;
+            command.CommandTimeout = current.CommandTimeoutSeconds;
+            command.CommandText = $"""
+                SELECT EVENT_ID, TENANT_ID, SOURCE_APPLICATION, ENTITY_NAME, ENTITY_ID, OPERATION, VERSION_UTC, PAYLOAD_HASH, PAYLOAD_JSON, CREATED_UTC
+                FROM {prefix}GARMETIX_SYNC_EVENTS
+                WHERE TENANT_ID = :P_TENANT_ID
+                  AND SOURCE_APPLICATION <> :P_SOURCE_APPLICATION
+                  AND ENTITY_NAME = :P_ENTITY_NAME
+                  AND CREATED_UTC > :P_CREATED_AFTER
+                ORDER BY CREATED_UTC
+                FETCH FIRST {batchSize} ROWS ONLY
+                """;
+            command.Parameters.Add(new OracleParameter("P_TENANT_ID", current.TenantId));
+            command.Parameters.Add(new OracleParameter("P_SOURCE_APPLICATION", current.SourceApplication));
+            command.Parameters.Add(new OracleParameter("P_ENTITY_NAME", entityName));
+            command.Parameters.Add(new OracleParameter("P_CREATED_AFTER", checkpointUtc.UtcDateTime));
+
+            var pulled = 0;
+            var scanned = 0;
+            DateTimeOffset? maxCreated = null;
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                scanned++;
+                var oracleEventId = Convert.ToString(reader["EVENT_ID"]) ?? string.Empty;
+                var tenantId = Convert.ToString(reader["TENANT_ID"]) ?? current.TenantId;
+                var sourceApplication = Convert.ToString(reader["SOURCE_APPLICATION"]) ?? "ExternalApp";
+                var rowEntityName = Convert.ToString(reader["ENTITY_NAME"]) ?? entityName;
+                var entityId = Convert.ToString(reader["ENTITY_ID"]) ?? string.Empty;
+                var operation = Convert.ToString(reader["OPERATION"]) ?? "Upsert";
+                var versionUtc = ToUtcDateTime(reader["VERSION_UTC"]);
+                var payloadHash = Convert.ToString(reader["PAYLOAD_HASH"]) ?? string.Empty;
+                var payloadJson = Convert.ToString(reader["PAYLOAD_JSON"]) ?? string.Empty;
+                var createdUtc = ToUtcDateTime(reader["CREATED_UTC"]);
+
+                if (!SupportedEntities.ContainsKey(rowEntityName))
+                {
+                    await OracleSecondarySyncLocalStore.AddDeadLetterAsync(db, "PullFromOracle", oracleEventId, sourceApplication, rowEntityName, entityId, "Unsupported entity", payloadJson, "Entity is not configured in Garmetix sync map.", cancellationToken);
+                    await UpdateOracleApplyStatusAsync(oracleConnection, current, oracleEventId, "DeadLetter", "Unsupported entity in receiving Garmetix app.", cancellationToken);
+                    continue;
+                }
+
+                var (status, note) = BuildInboundDecision(current, rowEntityName, operation);
+                var localRow = new OracleSyncInboundEventRow(
+                    Guid.NewGuid(),
+                    oracleEventId,
+                    tenantId,
+                    sourceApplication,
+                    rowEntityName,
+                    entityId,
+                    operation,
+                    versionUtc,
+                    current.ConflictPolicy,
+                    status,
+                    note,
+                    DateTime.UtcNow,
+                    null,
+                    null);
+
+                await OracleSecondarySyncLocalStore.AddInboundEventAsync(db, localRow, payloadHash, payloadJson, cancellationToken);
+                await UpdateOracleApplyStatusAsync(oracleConnection, current, oracleEventId, status, note, cancellationToken);
+                pulled++;
+                var createdOffset = new DateTimeOffset(createdUtc, TimeSpan.Zero);
+                maxCreated = maxCreated is null || createdOffset > maxCreated.Value ? createdOffset : maxCreated;
+            }
+
+            if (maxCreated is not null)
+            {
+                await OracleSecondarySyncLocalStore.SetStateAsync(db, checkpointKey, maxCreated.Value.AddSeconds(-1).ToString("O"), cancellationToken);
+            }
+
+            return new OracleEntitySyncResult(entityName, scanned, 0, pulled, maxCreated?.ToString("O"));
+        }
+        catch (Exception ex) when (ex is OracleException or InvalidOperationException or DbUpdateException)
+        {
+            logger.LogWarning(ex, "Oracle pull sync failed for entity {EntityName}.", entityName);
+            await OracleSecondarySyncLocalStore.AddDeadLetterAsync(db, "PullFromOracle", null, "OracleHub", entityName, string.Empty, "Pull failed", null, ex.Message, cancellationToken);
+            return new OracleEntitySyncResult(entityName, 0, 0, 0, null, ex.Message);
         }
     }
 
     private static OracleConnection CreateConnection(OracleSecondarySyncOptions current)
     {
+        var tnsAdmin = !string.IsNullOrWhiteSpace(current.TnsAdmin) ? current.TnsAdmin : current.WalletDirectory;
+        if (!string.IsNullOrWhiteSpace(tnsAdmin))
+        {
+            Environment.SetEnvironmentVariable("TNS_ADMIN", tnsAdmin);
+        }
+
         return new OracleConnection(current.ConnectionString);
     }
 
@@ -343,8 +504,26 @@ public sealed class OracleSecondarySyncService(
             )
             """, cancellationToken);
 
+        await CreateOracleTableIfMissingAsync(connection, current, "GARMETIX_SYNC_DEAD_LETTERS", $"""
+            CREATE TABLE {prefix}GARMETIX_SYNC_DEAD_LETTERS (
+                ID VARCHAR2(36) NOT NULL,
+                EVENT_ID VARCHAR2(36) NULL,
+                TENANT_ID VARCHAR2(100) NOT NULL,
+                SOURCE_APPLICATION VARCHAR2(100) NOT NULL,
+                ENTITY_NAME VARCHAR2(100) NOT NULL,
+                ENTITY_ID VARCHAR2(36) NULL,
+                REASON VARCHAR2(400) NOT NULL,
+                ERROR CLOB NULL,
+                PAYLOAD_JSON CLOB NULL,
+                CREATED_UTC TIMESTAMP DEFAULT SYS_EXTRACT_UTC(SYSTIMESTAMP) NOT NULL,
+                RESOLVED_UTC TIMESTAMP NULL,
+                CONSTRAINT PK_GARMETIX_SYNC_DEAD PRIMARY KEY (ID)
+            )
+            """, cancellationToken);
+
         await CreateOracleIndexIfMissingAsync(connection, current, "IX_GARMETIX_SYNC_EVENTS_01", $"CREATE INDEX {prefix}IX_GARMETIX_SYNC_EVENTS_01 ON {prefix}GARMETIX_SYNC_EVENTS (TENANT_ID, ENTITY_NAME, VERSION_UTC)", cancellationToken);
         await CreateOracleIndexIfMissingAsync(connection, current, "IX_GARMETIX_SYNC_EVENTS_02", $"CREATE INDEX {prefix}IX_GARMETIX_SYNC_EVENTS_02 ON {prefix}GARMETIX_SYNC_EVENTS (TENANT_ID, APPLY_STATUS, CREATED_UTC)", cancellationToken);
+        await CreateOracleIndexIfMissingAsync(connection, current, "IX_GARMETIX_SYNC_EVENTS_03", $"CREATE INDEX {prefix}IX_GARMETIX_SYNC_EVENTS_03 ON {prefix}GARMETIX_SYNC_EVENTS (TENANT_ID, SOURCE_APPLICATION, CREATED_UTC)", cancellationToken);
     }
 
     private static async Task CreateOracleTableIfMissingAsync(
@@ -473,11 +652,33 @@ public sealed class OracleSecondarySyncService(
         command.Parameters.Add(new OracleParameter("P_OPERATION", operation));
         command.Parameters.Add(new OracleParameter("P_VERSION_UTC", versionUtc.UtcDateTime));
         command.Parameters.Add(new OracleParameter("P_PAYLOAD_HASH", payloadHash));
-        var payloadParameter = new OracleParameter("P_PAYLOAD_JSON", OracleDbType.Clob)
-        {
-            Value = payloadJson
-        };
-        command.Parameters.Add(payloadParameter);
+        command.Parameters.Add(new OracleParameter("P_PAYLOAD_JSON", OracleDbType.Clob) { Value = payloadJson });
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task UpdateOracleApplyStatusAsync(
+        OracleConnection connection,
+        OracleSecondarySyncOptions current,
+        string oracleEventId,
+        string status,
+        string? error,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(oracleEventId)) return;
+        var prefix = BuildOracleSchemaPrefix(current.Schema);
+        await using var command = connection.CreateCommand();
+        command.BindByName = true;
+        command.CommandTimeout = current.CommandTimeoutSeconds;
+        command.CommandText = $"""
+            UPDATE {prefix}GARMETIX_SYNC_EVENTS
+            SET APPLY_STATUS = :P_STATUS,
+                APPLY_ERROR = :P_ERROR,
+                APPLIED_UTC = SYS_EXTRACT_UTC(SYSTIMESTAMP)
+            WHERE EVENT_ID = :P_EVENT_ID
+            """;
+        command.Parameters.Add(new OracleParameter("P_STATUS", status));
+        command.Parameters.Add(new OracleParameter("P_ERROR", OracleDbType.Clob) { Value = (object?)error ?? DBNull.Value });
+        command.Parameters.Add(new OracleParameter("P_EVENT_ID", oracleEventId));
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -510,6 +711,44 @@ public sealed class OracleSecondarySyncService(
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .Select(name => name.Trim())
             .Where(name => SupportedEntities.ContainsKey(name));
+    }
+
+    private static bool IsSupportedDirection(string value)
+    {
+        return string.Equals(value, "PushToOracle", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "PushOnly", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "PullFromOracle", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "PullOnly", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "Bidirectional", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "TwoWay", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ShouldPush(string value)
+    {
+        return string.Equals(value, "PushToOracle", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "PushOnly", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "Bidirectional", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "TwoWay", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ShouldPull(string value)
+    {
+        return string.Equals(value, "PullFromOracle", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "PullOnly", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "Bidirectional", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "TwoWay", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static (string Status, string Note) BuildInboundDecision(OracleSecondarySyncOptions current, string entityName, string operation)
+    {
+        var policy = string.IsNullOrWhiteSpace(current.ConflictPolicy) ? "ManualReview" : current.ConflictPolicy.Trim();
+        return policy.ToLowerInvariant() switch
+        {
+            "garmetixwins" => ("IgnoredByGarmetix", "GarmetixWins policy: external Oracle event stored for audit but not applied."),
+            "oraclewins" => ("PendingReview", "OracleWins policy selected. Event is ready for guided review/apply once ownership mapping is finalized."),
+            "latestwins" => ("PendingReview", "LatestWins policy selected. Event is queued until local-vs-Oracle version comparison rules are confirmed."),
+            _ => ("PendingReview", $"ManualReview policy: {entityName} {operation} event pulled from Oracle and held for review.")
+        };
     }
 
     private static Expression<Func<T, bool>> BuildChangedSinceExpression<T>(DateTime sinceUtc)
@@ -577,6 +816,20 @@ public sealed class OracleSecondarySyncService(
     private static DateTimeOffset? ParseDateTimeOffset(string? value)
     {
         return DateTimeOffset.TryParse(value, out var parsed) ? parsed.ToUniversalTime() : null;
+    }
+
+    private static DateTime ToUtcDateTime(object value)
+    {
+        var dateTime = value switch
+        {
+            DateTime dt => dt,
+            DateTimeOffset dto => dto.UtcDateTime,
+            _ => DateTime.TryParse(Convert.ToString(value), out var parsed) ? parsed : DateTime.UtcNow
+        };
+
+        return dateTime.Kind == DateTimeKind.Unspecified
+            ? DateTime.SpecifyKind(dateTime, DateTimeKind.Utc)
+            : dateTime.ToUniversalTime();
     }
 
     private static string Hash(string value)
