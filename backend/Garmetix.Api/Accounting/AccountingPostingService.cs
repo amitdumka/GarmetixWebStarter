@@ -3,6 +3,8 @@ using Garmetix.Core.Models.Accounting;
 using Garmetix.Core.Models.HRM;
 using Garmetix.Core.Models.Inventory;
 using Garmetix.Infrastructure.Data;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 
 namespace Garmetix.Api.Accounting;
@@ -22,6 +24,147 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         PaymentMode.Cheque,
         PaymentMode.DemandDraft
     ];
+
+
+    public async Task<GstAccountingBridgeSummary> GetGstAccountingBridgeSummaryAsync(
+        Guid companyId,
+        string returnPeriod,
+        DateTime periodStart,
+        DateTime periodEndExclusive,
+        CancellationToken cancellationToken)
+    {
+        var outputRow = await BuildTaxLedgerRowAsync(companyId, "Output GST", periodStart, periodEndExclusive, creditPositive: true, "Output tax liability from posted sales/returns", cancellationToken);
+        var inputRow = await BuildTaxLedgerRowAsync(companyId, "Input GST", periodStart, periodEndExclusive, creditPositive: false, "Input tax credit from posted purchases/returns", cancellationToken);
+        var outputTax = Math.Max(0, outputRow.NetAmount);
+        var inputTax = Math.Max(0, inputRow.NetAmount);
+        var netPayable = Math.Max(0, outputTax - inputTax);
+        var creditCarryForward = Math.Max(0, inputTax - outputTax);
+        var reference = GstAccountingReference(returnPeriod);
+        var existing = await db.JournalEntries.AsNoTracking()
+            .FirstOrDefaultAsync(entry => entry.CompanyId == companyId
+                && entry.SourceType == "GstReturnAccounting"
+                && entry.ReferenceNumber == reference,
+                cancellationToken);
+
+        var status = existing is not null
+            ? "Posted"
+            : netPayable > 0
+                ? "Payable"
+                : creditCarryForward > 0
+                    ? "Credit Carry Forward"
+                    : "No GST Payable";
+
+        return new GstAccountingBridgeSummary(
+            companyId,
+            returnPeriod,
+            periodStart,
+            periodEndExclusive,
+            outputTax,
+            inputTax,
+            netPayable,
+            creditCarryForward,
+            0,
+            existing is not null,
+            existing?.Id,
+            existing?.EntryNumber,
+            status,
+            [outputRow, inputRow]);
+    }
+
+    public async Task<GstAccountingPostResult> PostGstAccountingSettlementAsync(
+        GstAccountingPostRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request.CompanyId == Guid.Empty)
+        {
+            throw new ArgumentException("Company is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.ReturnPeriod))
+        {
+            throw new ArgumentException("GST return period is required.");
+        }
+
+        var outputTax = Math.Round(Math.Max(0, request.OutputTax), 2, MidpointRounding.AwayFromZero);
+        var inputTax = Math.Round(Math.Max(0, request.InputTax), 2, MidpointRounding.AwayFromZero);
+        var interestLateFee = Math.Round(Math.Max(0, request.InterestLateFee), 2, MidpointRounding.AwayFromZero);
+        var netPayable = Math.Round(Math.Max(0, outputTax - inputTax), 2, MidpointRounding.AwayFromZero);
+        var creditCarryForward = Math.Round(Math.Max(0, inputTax - outputTax), 2, MidpointRounding.AwayFromZero);
+
+        if (outputTax == 0 && inputTax == 0 && interestLateFee == 0)
+        {
+            throw new InvalidOperationException("No GST tax/ITC/fee amount is available for accounting posting.");
+        }
+
+        var storeInfo = await ResolvePostingStoreAsync(request.CompanyId, request.StoreGroupId, request.StoreId, cancellationToken);
+        var outputLedger = await EnsureNamedLedgerAsync(request.CompanyId, "Output GST", "Duties & Taxes", LedgerCategory.DutiesAndTaxes, LedgerType.DutyAndTax, cancellationToken);
+        var inputLedger = await EnsureNamedLedgerAsync(request.CompanyId, "Input GST", "Duties & Taxes", LedgerCategory.DutiesAndTaxes, LedgerType.DutyAndTax, cancellationToken);
+        var payableLedger = await EnsureNamedLedgerAsync(request.CompanyId, "GST Payable", "Duties & Taxes", LedgerCategory.DutiesAndTaxes, LedgerType.CurrentLiability, cancellationToken);
+        var carryForwardLedger = await EnsureNamedLedgerAsync(request.CompanyId, "GST Credit Carry Forward", "Current Assets", LedgerCategory.CurrentAssets, LedgerType.CurrentAsset, cancellationToken);
+        var interestLedger = await EnsureNamedLedgerAsync(request.CompanyId, "GST Interest & Late Fee", "Indirect Expenses", LedgerCategory.IndirectExpenses, LedgerType.Expenses, cancellationToken);
+
+        var narration = string.IsNullOrWhiteSpace(request.Narration)
+            ? $"GST accounting settlement for {request.ReturnPeriod}"
+            : request.Narration.Trim();
+        var lines = new List<JournalLineDraft>();
+
+        if (outputTax > 0)
+        {
+            lines.Add(new(outputLedger.Id, null, outputTax, 0, $"Transfer output GST for {request.ReturnPeriod}"));
+        }
+
+        if (inputTax > 0)
+        {
+            lines.Add(new(inputLedger.Id, null, 0, inputTax, $"Set off input GST credit for {request.ReturnPeriod}"));
+        }
+
+        if (netPayable > 0)
+        {
+            lines.Add(new(payableLedger.Id, null, 0, netPayable, $"GST payable for {request.ReturnPeriod}"));
+        }
+
+        if (creditCarryForward > 0)
+        {
+            lines.Add(new(carryForwardLedger.Id, null, creditCarryForward, 0, $"GST credit carry forward for {request.ReturnPeriod}"));
+        }
+
+        if (interestLateFee > 0)
+        {
+            lines.Add(new(interestLedger.Id, null, interestLateFee, 0, $"GST interest/late fee for {request.ReturnPeriod}"));
+            lines.Add(new(payableLedger.Id, null, 0, interestLateFee, $"GST interest/late fee payable for {request.ReturnPeriod}"));
+        }
+
+        var reference = GstAccountingReference(request.ReturnPeriod);
+        var journal = await RepostSourceJournalAsync(
+            "GstReturnAccounting",
+            request.DraftId ?? DeterministicGuid($"{request.CompanyId:N}|{request.ReturnPeriod}"),
+            $"GST-{request.ReturnPeriod}",
+            request.OnDate ?? DateTime.Now,
+            reference,
+            narration,
+            request.CompanyId,
+            storeInfo.StoreGroupId,
+            storeInfo.StoreId,
+            lines,
+            cancellationToken);
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        return new GstAccountingPostResult(
+            journal.Id,
+            journal.EntryNumber,
+            reference,
+            outputTax,
+            inputTax,
+            netPayable,
+            creditCarryForward,
+            interestLateFee,
+            netPayable > 0
+                ? $"GST payable of {netPayable:0.00} posted to GST Payable."
+                : creditCarryForward > 0
+                    ? $"GST credit carry forward of {creditCarryForward:0.00} posted."
+                    : "GST output/input transfer posted with no net payable.");
+    }
 
     public async Task<AccountingPostResult> SaveVoucherAsync(
         VoucherSaveRequest request,
@@ -1387,7 +1530,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         return ledger;
     }
 
-    private async Task RepostSourceJournalAsync(
+    private async Task<JournalEntry> RepostSourceJournalAsync(
         string sourceType,
         Guid sourceId,
         string entryNumber,
@@ -1454,6 +1597,8 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
                 StoreGroupId = storeGroupId,
                 StoreId = storeId
             }));
+
+        return existing;
     }
 
     private static void AddRoundOff(

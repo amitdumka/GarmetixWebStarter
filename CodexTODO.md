@@ -134,3 +134,17 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Added dedicated customer create/edit form routes: `/customers/new` and `/customers/{id}`.
 - [x] Refined loyalty page with customer selection, loyalty summary, ledger, and manual point adjustment/redeem handling.
 - [x] Added defensive schema repair before Audit/Commercial/Loyalty endpoints so missing runtime tables are repaired before queries.
+
+## Project Workflow Rules
+
+- [x] Every new feature request must be added to this `CodexTODO.md` before or while implementing it.
+- [x] Every bug/error raised by the user must be added to `CodexISSUES.md` and marked fixed only after the fix is included in a generated ZIP.
+
+## GST Accounting Service Integration
+
+- [x] Connect GST Return module with accounting service without removing manual GST draft flow.
+- [x] Add GST accounting summary/reconciliation endpoint using accounting ledgers (`Output GST`, `Input GST`).
+- [x] Add GST settlement journal posting for GSTR-3B output tax, input ITC, credit carry-forward, interest, and late fee.
+- [x] Add GSTR-3B draft-to-accounting posting endpoint with GST draft audit entry.
+- [x] Add GST Returns UI panel to refresh accounting summary and post current/saved GSTR-3B to accounting.
+- [x] Make database schema repair run even when auto-migration is disabled, so older Docker volumes are repaired before endpoints query newer tables.

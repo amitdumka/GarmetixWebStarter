@@ -313,3 +313,15 @@ If an older PostgreSQL Docker volume is missing newer Customer/Vendor GSTIN colu
 This package separates Debit Note and Credit Note into their own module pages and keeps `/commercial-notes` as a register/summary only. It also adds a dedicated `/customers` module with create/edit form routes, GST status, credit balance, loyalty balance, and customer loyalty ledger links. Loyalty management now supports customer selection and manual point adjustment/redeem ledger entries.
 
 If an existing PostgreSQL volume is missing newer runtime tables, the API now performs defensive schema repair before Audit, Commercial Notes, Customer Advance, and Loyalty queries. Admins can also run `POST /api/database/repair`.
+
+## Latest: GST Accounting Integration
+
+The GST Returns module is now connected with accounting service posting while keeping manual GST draft/export separate:
+
+- GST accounting summary from `Output GST` and `Input GST` ledgers.
+- GSTR-3B settlement journal posting.
+- Saved GSTR-3B draft can be posted to accounting with audit entry.
+- Startup schema repair now runs even when auto-migration is disabled.
+- Project tracking now uses `CodexTODO.md` for requested features and `CodexISSUES.md` for bugs/errors.
+
+See `backend/GST-Accounting-Integration-Notes.md`.

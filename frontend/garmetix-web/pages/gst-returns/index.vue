@@ -22,6 +22,9 @@ const draftAudit = ref<any[]>([])
 const draftTitle = ref('')
 const draftLoading = ref(false)
 const auditLoading = ref(false)
+const accountingSummary = ref<any | null>(null)
+const accountingLoading = ref(false)
+const accountingPosting = ref<any | null>(null)
 const today = new Date()
 const currentPeriod = `${String(today.getMonth() + 1).padStart(2, '0')}${today.getFullYear()}`
 
@@ -591,6 +594,90 @@ async function downloadFile(resource: string, body: any) {
   URL.revokeObjectURL(url)
 }
 
+
+async function loadAccountingSummary() {
+  accountingLoading.value = true
+  try {
+    const query = new URLSearchParams({ returnPeriod: header.returnPeriod })
+    if (workspace.companyId.value || companies.value[0]?.id) {
+      query.set('companyId', workspace.companyId.value || companies.value[0].id)
+    }
+    accountingSummary.value = await api.get<any>(`gst-returns/accounting-summary?${query.toString()}`)
+    feedback.notify('GST accounting summary loaded', accountingSummary.value.status || 'Accounting balances are ready.')
+  } catch (error) {
+    feedback.failed('GST accounting summary failed', error)
+  } finally {
+    accountingLoading.value = false
+  }
+}
+
+async function postCurrentGstr3BToAccounting() {
+  if (activeForm.value !== 'gstr3b') {
+    feedback.notify('GSTR-3B required', 'Accounting settlement posting is available for GSTR-3B only.')
+    return
+  }
+
+  if (!confirm('Post GST accounting settlement journal for this GSTR-3B period? Existing posting for the same period will be replaced.')) {
+    return
+  }
+
+  accountingLoading.value = true
+  try {
+    const companyId = workspace.companyId.value || companies.value[0]?.id
+    if (!companyId) {
+      throw new Error('Select a company before posting GST accounting.')
+    }
+    accountingPosting.value = await api.create<any>('gst-returns/accounting-posting', {
+      companyId,
+      storeGroupId: workspace.storeGroupId.value || null,
+      storeId: workspace.storeId.value || null,
+      returnPeriod: header.returnPeriod,
+      onDate: new Date().toISOString(),
+      outputTax: gstr3BOutputTax.value,
+      inputTax: gstr3BInputTax.value,
+      interestLateFee: gstr3BInterestLateFee.value,
+      narration: `GST settlement for ${header.returnPeriod}`,
+      draftId: selectedDraftId.value || null
+    } as any)
+    await loadAccountingSummary()
+    feedback.notify('GST accounting posted', accountingPosting.value.message || 'GST settlement journal posted.')
+  } catch (error) {
+    feedback.failed('GST accounting post failed', error)
+  } finally {
+    accountingLoading.value = false
+  }
+}
+
+async function postSavedDraftToAccounting() {
+  if (!selectedDraftId.value) {
+    feedback.notify('No draft selected', 'Save or load a GSTR-3B draft first.')
+    return
+  }
+
+  if (activeForm.value !== 'gstr3b') {
+    feedback.notify('GSTR-3B required', 'Only GSTR-3B drafts can be posted to accounting.')
+    return
+  }
+
+  if (!confirm('Post selected GSTR-3B draft to accounting? Existing posting for this draft/period will be replaced.')) {
+    return
+  }
+
+  accountingLoading.value = true
+  try {
+    const query = new URLSearchParams()
+    if (workspace.storeGroupId.value) query.set('storeGroupId', workspace.storeGroupId.value)
+    if (workspace.storeId.value) query.set('storeId', workspace.storeId.value)
+    accountingPosting.value = await api.create<any>(`gst-returns/drafts/${selectedDraftId.value}/accounting-posting${query.toString() ? `?${query.toString()}` : ''}`, {} as any)
+    await Promise.all([loadDraft(selectedDraftId.value), loadAccountingSummary()])
+    feedback.notify('GST draft posted', accountingPosting.value.message || 'GST draft accounting journal posted.')
+  } catch (error) {
+    feedback.failed('GST draft accounting post failed', error)
+  } finally {
+    accountingLoading.value = false
+  }
+}
+
 function money(value: number) {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
@@ -613,6 +700,27 @@ const gstr3BTotals = computed(() => ({
   taxable: numeric(supplies.outwardTaxableValue) + numeric(supplies.zeroRatedTaxableValue) + numeric(supplies.nilExemptTaxableValue) + numeric(supplies.nonGstTaxableValue) + numeric(supplies.reverseChargeTaxableValue),
   tax: numeric(supplies.outwardIntegratedTax) + numeric(supplies.outwardCentralTax) + numeric(supplies.outwardStateTax) + numeric(supplies.outwardCess)
 }))
+
+
+const gstr3BOutputTax = computed(() =>
+  numeric(supplies.outwardIntegratedTax) + numeric(supplies.outwardCentralTax) + numeric(supplies.outwardStateTax) + numeric(supplies.outwardCess)
+  + numeric(supplies.reverseChargeIntegratedTax) + numeric(supplies.reverseChargeCentralTax) + numeric(supplies.reverseChargeStateTax) + numeric(supplies.reverseChargeCess))
+
+const gstr3BInputTax = computed(() => {
+  const available = numeric(itc.importGoodsIntegratedTax) + numeric(itc.importGoodsCess)
+    + numeric(itc.importServicesIntegratedTax)
+    + numeric(itc.reverseChargeIntegratedTax) + numeric(itc.reverseChargeCentralTax) + numeric(itc.reverseChargeStateTax) + numeric(itc.reverseChargeCess)
+    + numeric(itc.isdIntegratedTax) + numeric(itc.isdCentralTax) + numeric(itc.isdStateTax) + numeric(itc.isdCess)
+    + numeric(itc.otherIntegratedTax) + numeric(itc.otherCentralTax) + numeric(itc.otherStateTax) + numeric(itc.otherCess)
+  const reversals = numeric(itc.reversalRule42IntegratedTax) + numeric(itc.reversalRule42CentralTax) + numeric(itc.reversalRule42StateTax) + numeric(itc.reversalRule42Cess)
+    + numeric(itc.reversalOtherIntegratedTax) + numeric(itc.reversalOtherCentralTax) + numeric(itc.reversalOtherStateTax) + numeric(itc.reversalOtherCess)
+    + numeric(itc.ineligibleIntegratedTax) + numeric(itc.ineligibleCentralTax) + numeric(itc.ineligibleStateTax) + numeric(itc.ineligibleCess)
+  return Math.max(0, available - reversals)
+})
+
+const gstr3BInterestLateFee = computed(() =>
+  numeric(interestLateFee.integratedTaxInterest) + numeric(interestLateFee.centralTaxInterest) + numeric(interestLateFee.stateTaxInterest) + numeric(interestLateFee.cessInterest)
+  + numeric(interestLateFee.centralLateFee) + numeric(interestLateFee.stateLateFee))
 
 onMounted(async () => {
   auth.restore()
@@ -642,6 +750,7 @@ onMounted(async () => {
         <template #actions>
           <UBadge color="error" variant="subtle">Urgent</UBadge>
           <UButton icon="i-lucide-database" color="neutral" variant="subtle" label="Load From Books" :loading="loading" @click="loadFromBooks" />
+          <UButton icon="i-lucide-scale" color="neutral" variant="subtle" label="Accounting" :loading="accountingLoading" @click="loadAccountingSummary" />
           <UButton icon="i-lucide-shield-check" color="warning" variant="subtle" label="Review" :loading="schemaReviewLoading" @click="downloadSchemaReview" />
           <UButton icon="i-lucide-file-json" color="primary" variant="subtle" label="JSON" :loading="loading" @click="downloadReturn('json')" />
           <UButton icon="i-lucide-file-spreadsheet" color="success" variant="subtle" label="Excel" :loading="loading" @click="downloadReturn('excel')" />
@@ -655,6 +764,63 @@ onMounted(async () => {
         title="GST return workspace"
         description="You can enter GST values manually or use Load From Books to prepare GSTR values from Billing/Purchase records. Verify before portal upload/filing."
       />
+
+
+      <UCard class="planner-card gst-accounting-card">
+        <template #header>
+          <div class="setup-list-header">
+            <div>
+              <h3>GST Accounting Bridge</h3>
+              <p>Reconcile GSTR-3B tax/ITC with accounting ledgers and post the GST settlement journal.</p>
+            </div>
+            <div class="setup-tabs">
+              <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" label="Refresh Accounting" :loading="accountingLoading" @click="loadAccountingSummary" />
+              <UButton icon="i-lucide-book-check" color="primary" label="Post Current GSTR-3B" :loading="accountingLoading" :disabled="activeForm !== 'gstr3b'" @click="postCurrentGstr3BToAccounting" />
+              <UButton icon="i-lucide-file-lock-2" color="warning" variant="subtle" label="Post Saved Draft" :loading="accountingLoading" :disabled="activeForm !== 'gstr3b' || !selectedDraftId" @click="postSavedDraftToAccounting" />
+            </div>
+          </div>
+        </template>
+
+        <UAlert
+          v-if="activeForm !== 'gstr3b'"
+          icon="i-lucide-info"
+          color="neutral"
+          variant="soft"
+          title="Accounting posting uses GSTR-3B"
+          description="GSTR-1 remains for outward supply reporting. GST payable / ITC setoff accounting is posted from GSTR-3B values."
+        />
+
+        <div class="planner-metric-grid compact">
+          <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-arrow-up-right" color="error" variant="subtle" /><div><p>Current Output Tax</p><strong>{{ money(gstr3BOutputTax) }}</strong><span>From active GSTR-3B fields</span></div></div></UCard>
+          <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-arrow-down-left" color="success" variant="subtle" /><div><p>Current Input Tax</p><strong>{{ money(gstr3BInputTax) }}</strong><span>Net eligible ITC</span></div></div></UCard>
+          <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-landmark" color="warning" variant="subtle" /><div><p>Ledger Net Payable</p><strong>{{ money(accountingSummary?.netPayable || 0) }}</strong><span>{{ accountingSummary?.status || 'Refresh accounting' }}</span></div></div></UCard>
+          <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-wallet-cards" color="primary" variant="subtle" /><div><p>Credit Carry Forward</p><strong>{{ money(accountingSummary?.creditCarryForward || 0) }}</strong><span>Input GST excess</span></div></div></UCard>
+        </div>
+
+        <div v-if="accountingSummary" class="responsive-table-wrap compact">
+          <table class="data-table compact">
+            <thead><tr><th>Ledger</th><th>Debit</th><th>Credit</th><th>Net</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr v-for="row in accountingSummary.ledgerRows" :key="row.ledgerName">
+                <td>{{ row.ledgerName }}</td>
+                <td>{{ money(row.debit) }}</td>
+                <td>{{ money(row.credit) }}</td>
+                <td>{{ money(row.netAmount) }}</td>
+                <td>{{ row.meaning }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <UAlert
+          v-if="accountingPosting"
+          icon="i-lucide-check-circle-2"
+          color="success"
+          variant="soft"
+          title="Accounting journal posted"
+          :description="`${accountingPosting.entryNumber} / ${accountingPosting.referenceNumber}: ${accountingPosting.message}`"
+        />
+      </UCard>
 
       <UCard class="planner-card gst-draft-card">
         <template #header>

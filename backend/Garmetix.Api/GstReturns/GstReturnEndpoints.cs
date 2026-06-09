@@ -1,5 +1,7 @@
 using System.Security.Claims;
 using System.Text.Json;
+using Garmetix.Api.Accounting;
+using Garmetix.Api.Database;
 using Garmetix.Api.Auth;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Models.GstReturns;
@@ -34,6 +36,9 @@ public static class GstReturnEndpoints
 
         group.MapGet("/from-books/gstr1", BuildGstr1FromBooksAsync);
         group.MapGet("/from-books/gstr3b", BuildGstr3BFromBooksAsync);
+        group.MapGet("/accounting-summary", GetAccountingSummaryAsync);
+        group.MapPost("/accounting-posting", PostAccountingAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapPost("/drafts/{id:guid}/accounting-posting", PostDraftAccountingAsync).RequireAuthorization(GarmetixPolicies.Edit);
 
         group.MapGet("/drafts", ListDraftsAsync);
         group.MapGet("/drafts/{id:guid}", GetDraftAsync);
@@ -104,6 +109,160 @@ public static class GstReturnEndpoints
         });
 
         return group;
+    }
+
+
+    private static async Task<IResult> GetAccountingSummaryAsync(
+        Guid? companyId,
+        string returnPeriod,
+        GarmetixDbContext db,
+        HttpContext context,
+        AccountingPostingService accounting,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        await DatabaseSchemaRepairService.RepairKnownSchemaDriftAsync(db, loggerFactory.CreateLogger("DatabaseSchemaRepair"), cancellationToken);
+        if (!TryPeriodRange(returnPeriod, out var start, out var end))
+        {
+            return Results.BadRequest(new { message = "Return period must be MMYYYY, for example 042026." });
+        }
+
+        var selectedCompanyId = companyId ?? WorkspaceScope.ClaimGuid(context, "companyId");
+        if (!selectedCompanyId.HasValue)
+        {
+            return Results.BadRequest(new { message = "Select a company before GST accounting reconciliation." });
+        }
+
+        var companyExists = await WorkspaceScope.ApplyTo(db.Companies.AsNoTracking(), context)
+            .AnyAsync(item => item.Id == selectedCompanyId.Value, cancellationToken);
+        if (!companyExists)
+        {
+            return Results.BadRequest(new { message = "Selected company is outside your access scope." });
+        }
+
+        return Results.Ok(await accounting.GetGstAccountingBridgeSummaryAsync(selectedCompanyId.Value, returnPeriod.Trim(), start, end, cancellationToken));
+    }
+
+    private static async Task<IResult> PostAccountingAsync(
+        [FromBody] GstAccountingPostRequest request,
+        GarmetixDbContext db,
+        HttpContext context,
+        AccountingPostingService accounting,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        await DatabaseSchemaRepairService.RepairKnownSchemaDriftAsync(db, loggerFactory.CreateLogger("DatabaseSchemaRepair"), cancellationToken);
+        if (!TryPeriodRange(request.ReturnPeriod, out _, out _))
+        {
+            return Results.BadRequest(new { message = "Return period must be MMYYYY, for example 042026." });
+        }
+
+        var companyExists = await WorkspaceScope.ApplyTo(db.Companies.AsNoTracking(), context)
+            .AnyAsync(item => item.Id == request.CompanyId, cancellationToken);
+        if (!companyExists)
+        {
+            return Results.BadRequest(new { message = "Selected company is outside your access scope." });
+        }
+
+        var scopeProbe = new Garmetix.Core.Models.Accounting.JournalEntry
+        {
+            CompanyId = request.CompanyId,
+            StoreGroupId = request.StoreGroupId ?? Guid.Empty,
+            StoreId = request.StoreId ?? Guid.Empty
+        };
+        if (!WorkspaceScope.CanWrite(scopeProbe, context, out var scopeMessage))
+        {
+            return Results.BadRequest(new { message = scopeMessage });
+        }
+
+        try
+        {
+            return Results.Ok(await accounting.PostGstAccountingSettlementAsync(request, cancellationToken));
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> PostDraftAccountingAsync(
+        Guid id,
+        Guid? storeGroupId,
+        Guid? storeId,
+        DateTime? onDate,
+        GarmetixDbContext db,
+        HttpContext context,
+        AccountingPostingService accounting,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        await DatabaseSchemaRepairService.RepairKnownSchemaDriftAsync(db, loggerFactory.CreateLogger("DatabaseSchemaRepair"), cancellationToken);
+        var draft = await WorkspaceScope.ApplyTo(db.GstReturnDrafts, context)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (draft is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (draft.Form != "gstr3b")
+        {
+            return Results.BadRequest(new { message = "Accounting settlement posting is supported for GSTR-3B drafts only." });
+        }
+
+        Gstr3BExportRequest? parsed;
+        try
+        {
+            parsed = JsonSerializer.Deserialize<Gstr3BExportRequest>(draft.PayloadJson, JsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            return Results.BadRequest(new { message = $"Saved draft payload is invalid JSON: {ex.Message}" });
+        }
+
+        if (parsed is null)
+        {
+            return Results.BadRequest(new { message = "Saved GSTR-3B draft payload is empty." });
+        }
+
+        var normalized = Normalize(parsed);
+        var request = new GstAccountingPostRequest(
+            draft.CompanyId,
+            storeGroupId ?? WorkspaceScope.ClaimGuid(context, "storeGroupId"),
+            storeId ?? WorkspaceScope.ClaimGuid(context, "storeId"),
+            draft.ReturnPeriod,
+            onDate,
+            TotalOutputTax(normalized),
+            TotalInputTax(normalized),
+            TotalInterestLateFee(normalized),
+            $"GST accounting settlement from {DisplayForm(draft.Form)} draft {draft.Title}",
+            draft.Id);
+
+        var scopeProbe = new Garmetix.Core.Models.Accounting.JournalEntry
+        {
+            CompanyId = request.CompanyId,
+            StoreGroupId = request.StoreGroupId ?? Guid.Empty,
+            StoreId = request.StoreId ?? Guid.Empty
+        };
+        if (!WorkspaceScope.CanWrite(scopeProbe, context, out var scopeMessage))
+        {
+            return Results.BadRequest(new { message = scopeMessage });
+        }
+
+        try
+        {
+            var result = await accounting.PostGstAccountingSettlementAsync(request, cancellationToken);
+            draft.Status = draft.LockedAt.HasValue ? draft.Status : "Accounting Posted";
+            var actor = Actor(context);
+            draft.UpdatedByUserId = actor.Id;
+            draft.UpdatedByUserName = actor.Name;
+            AddAudit(db, draft, "Posted Accounting", $"Posted GST accounting settlement journal {result.EntryNumber} for {draft.ReturnPeriod}.", context, result);
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Ok(result);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
     }
 
     private static async Task<IResult> BuildGstr1FromBooksAsync(
@@ -763,6 +922,36 @@ public static class GstReturnEndpoints
         entry.ActorName,
         entry.CreatedAt,
         entry.DetailsJson);
+
+
+    private static decimal TotalOutputTax(Gstr3BExportRequest request) =>
+        Math.Round(
+            request.Supplies.OutwardIntegratedTax + request.Supplies.OutwardCentralTax + request.Supplies.OutwardStateTax + request.Supplies.OutwardCess +
+            request.Supplies.ReverseChargeIntegratedTax + request.Supplies.ReverseChargeCentralTax + request.Supplies.ReverseChargeStateTax + request.Supplies.ReverseChargeCess,
+            2,
+            MidpointRounding.AwayFromZero);
+
+    private static decimal TotalInputTax(Gstr3BExportRequest request)
+    {
+        var available =
+            request.Itc.ImportGoodsIntegratedTax + request.Itc.ImportGoodsCess +
+            request.Itc.ImportServicesIntegratedTax +
+            request.Itc.ReverseChargeIntegratedTax + request.Itc.ReverseChargeCentralTax + request.Itc.ReverseChargeStateTax + request.Itc.ReverseChargeCess +
+            request.Itc.IsdIntegratedTax + request.Itc.IsdCentralTax + request.Itc.IsdStateTax + request.Itc.IsdCess +
+            request.Itc.OtherIntegratedTax + request.Itc.OtherCentralTax + request.Itc.OtherStateTax + request.Itc.OtherCess;
+        var reversals =
+            request.Itc.ReversalRule42IntegratedTax + request.Itc.ReversalRule42CentralTax + request.Itc.ReversalRule42StateTax + request.Itc.ReversalRule42Cess +
+            request.Itc.ReversalOtherIntegratedTax + request.Itc.ReversalOtherCentralTax + request.Itc.ReversalOtherStateTax + request.Itc.ReversalOtherCess +
+            request.Itc.IneligibleIntegratedTax + request.Itc.IneligibleCentralTax + request.Itc.IneligibleStateTax + request.Itc.IneligibleCess;
+        return Math.Round(Math.Max(0, available - reversals), 2, MidpointRounding.AwayFromZero);
+    }
+
+    private static decimal TotalInterestLateFee(Gstr3BExportRequest request) =>
+        Math.Round(
+            request.InterestLateFee.IntegratedTaxInterest + request.InterestLateFee.CentralTaxInterest + request.InterestLateFee.StateTaxInterest + request.InterestLateFee.CessInterest +
+            request.InterestLateFee.CentralLateFee + request.InterestLateFee.StateLateFee,
+            2,
+            MidpointRounding.AwayFromZero);
 
     private static readonly Gstr3BSuppliesSummary EmptySupplies = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     private static readonly Gstr3BInterStateSupply EmptyInterState = new(0, 0, 0, 0, 0, 0);

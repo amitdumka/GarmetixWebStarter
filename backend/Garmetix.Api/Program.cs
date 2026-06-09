@@ -103,12 +103,15 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 
-if (app.Configuration.GetValue<bool>("Database:AutoMigrate"))
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<GarmetixDbContext>();
     var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DatabaseStartup");
-    db.Database.Migrate();
+    if (app.Configuration.GetValue<bool>("Database:AutoMigrate"))
+    {
+        db.Database.Migrate();
+    }
+
     await DatabaseSchemaRepairService.RepairKnownSchemaDriftAsync(db, logger);
 }
 

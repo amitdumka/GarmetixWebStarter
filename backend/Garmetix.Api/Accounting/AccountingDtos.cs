@@ -94,3 +94,50 @@ public sealed record BankStatementRow(
     decimal Credit,
     decimal Balance,
     bool Reconciled);
+
+public sealed record GstAccountingBridgeSummary(
+    Guid CompanyId,
+    string ReturnPeriod,
+    DateTime PeriodStart,
+    DateTime PeriodEndExclusive,
+    decimal OutputTax,
+    decimal InputTax,
+    decimal NetPayable,
+    decimal CreditCarryForward,
+    decimal InterestLateFee,
+    bool AlreadyPosted,
+    Guid? JournalEntryId,
+    string? JournalEntryNumber,
+    string Status,
+    IReadOnlyList<GstAccountingLedgerRow> LedgerRows);
+
+public sealed record GstAccountingLedgerRow(
+    string LedgerName,
+    decimal Debit,
+    decimal Credit,
+    decimal NetAmount,
+    string Meaning);
+
+public sealed record GstAccountingPostRequest(
+    Guid CompanyId,
+    Guid? StoreGroupId,
+    Guid? StoreId,
+    string ReturnPeriod,
+    DateTime? OnDate,
+    decimal OutputTax,
+    decimal InputTax,
+    decimal InterestLateFee,
+    string? Narration,
+    Guid? DraftId);
+
+public sealed record GstAccountingPostResult(
+    Guid JournalEntryId,
+    string EntryNumber,
+    string ReferenceNumber,
+    decimal OutputTax,
+    decimal InputTax,
+    decimal NetPayable,
+    decimal CreditCarryForward,
+    decimal InterestLateFee,
+    string Message);
+
