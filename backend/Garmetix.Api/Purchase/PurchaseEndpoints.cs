@@ -1,5 +1,6 @@
 using Garmetix.Api.Accounting;
 using Garmetix.Api.Auth;
+using Garmetix.Api.Commercial;
 using Garmetix.Api.Gstin;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
@@ -581,6 +582,11 @@ public static class PurchaseEndpoints
             vendor.BillCount = Math.Max(vendor.BillCount - 1, 0);
             vendor.BillAmount = Math.Max(vendor.BillAmount - invoice.BillAmount, 0);
             vendor.Paid = Math.Max(vendor.Paid - originalPaidAmount, 0);
+        }
+
+        if (vendor is not null)
+        {
+            await CommercialEndpoints.CreateDebitNoteFromPurchaseReturnAsync(invoice, vendor, request.Reason, storeGroupId, storeId, db, cancellationToken);
         }
 
         await accounting.PostPurchaseInvoiceCancellationAsync(invoice, vendor, storeGroupId, storeId, originalPaidAmount, originalPaymentMode, bankAccountId, cancellationToken);

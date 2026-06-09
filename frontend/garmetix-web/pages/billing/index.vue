@@ -6,6 +6,7 @@ const api = useGarmetixApi()
 const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
+const productLookup = useProductLookup()
 const config = useRuntimeConfig()
 const isAuthenticated = auth.isAuthenticated
 const canDelete = auth.canDelete
@@ -16,6 +17,7 @@ const UButton = resolveComponent('UButton')
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const products = ref<any[]>([])
+const productSearchOptions = ref<any[]>([])
 const invoices = ref<any[]>([])
 const bankAccounts = ref<any[]>([])
 const selectedReceipt = ref<any | null>(null)
@@ -89,6 +91,8 @@ const productOptions = computed(() => [
     label: `${product.name || 'Product'} - ${product.barcode || 'No barcode'}`
   }))
 ])
+
+const saleProductSuggestions = computed(() => productSearchOptions.value.map((item) => `${item.barcode} | ${item.name} | Qty ${Number(item.availableQty || 0)} | MRP ${Number(item.mrp || 0)}`))
 
 const selectedProduct = computed(() => products.value.find((item) => item.id === saleForm.selectedProductId))
 const requiresBankAccount = computed(() => Number(saleForm.paidAmount || 0) > 0 && Number(saleForm.paymentMode) !== 0)
@@ -255,6 +259,8 @@ function emptyReturnForm() {
 function emptyExchangeForm() {
   return {
     selectedProductId: '',
+    productSearch: '',
+    barcodeScan: '',
     quantity: 1,
     lineDiscount: 0,
     additionalPaidAmount: 0,
@@ -273,6 +279,8 @@ function emptySaleForm() {
     paidAmount: 0,
     billDiscountAmount: 0,
     selectedProductId: '',
+    productSearch: '',
+    barcodeScan: '',
     quantity: 1,
     lineDiscount: 0,
     bankAccountId: null
@@ -298,6 +306,7 @@ async function refresh() {
     companies.value = companyRows
     stores.value = storeRows
     products.value = productRows
+    productLookup.saveCache(productRows.map((product: any) => ({ productId: product.id, name: product.name, barcode: product.barcode, availableQty: product.currentStock || 0, mrp: product.mrp || 0, taxRate: product.taxRate || 0, taxType: String(product.taxType || 'GST'), unit: String(product.unit || 'Pcs'), category: product.productCategoryName || '', subCategory: product.productSubCategoryName || '' })))
     invoices.value = invoiceRows
     bankAccounts.value = bankAccountRows
   } catch (error) {
@@ -312,6 +321,54 @@ function startCreate() {
   saleCart.value = []
   saleGstinValidation.value = null
   saleOpen.value = true
+}
+
+
+async function lookupSaleProduct() {
+  const query = String(saleForm.barcodeScan || saleForm.productSearch || '').trim()
+  if (!query) {
+    feedback.notify('Barcode required', 'Scan barcode or enter product name/barcode first.', 'warning')
+    return
+  }
+
+  const item = query.includes('|')
+    ? productSearchOptions.value.find((row) => `${row.barcode} | ${row.name} | Qty ${Number(row.availableQty || 0)} | MRP ${Number(row.mrp || 0)}` === query)
+    : await productLookup.byBarcode(query, workspace.storeId.value || undefined) || (await productLookup.searchProducts(query, workspace.storeId.value || undefined))[0]
+
+  if (!item) {
+    feedback.notify('Product not found', 'No cached or server product matched this barcode/search.', 'warning')
+    return
+  }
+
+  applyLookupProductToSale(item)
+}
+
+async function refreshSaleSuggestions(value?: string) {
+  const query = String(value || saleForm.productSearch || saleForm.barcodeScan || '').trim()
+  productSearchOptions.value = await productLookup.searchProducts(query, workspace.storeId.value || undefined)
+}
+
+function applyLookupProductToSale(item: any) {
+  if (!products.value.some((product) => product.id === item.productId)) {
+    products.value.push({
+      id: item.productId,
+      name: item.name,
+      barcode: item.barcode,
+      mrp: item.mrp,
+      taxRate: item.taxRate,
+      unit: item.unit,
+      productCategoryName: item.category,
+      productSubCategoryName: item.subCategory
+    })
+  }
+
+  saleForm.selectedProductId = item.productId
+  saleForm.productSearch = `${item.barcode} | ${item.name}`
+  saleForm.barcodeScan = item.barcode
+  if (!Number(saleForm.lineDiscount || 0)) {
+    saleForm.lineDiscount = 0
+  }
+  feedback.notify('Product loaded', `${item.name} | Available ${Number(item.availableQty || 0)} | MRP ${money(Number(item.mrp || 0))} | GST ${Number(item.taxRate || 0)}%`, 'success')
 }
 
 function addToCart() {
@@ -330,6 +387,8 @@ function addToCart() {
   })
 
   saleForm.selectedProductId = ''
+  saleForm.productSearch = ''
+  saleForm.barcodeScan = ''
   saleForm.quantity = 1
   saleForm.lineDiscount = 0
   saleForm.paidAmount = payableTotal.value
@@ -860,9 +919,27 @@ watch(() => exchangeForm.additionalPaidAmount, () => {
 
         <USeparator label="Item" />
 
-        <UFormField label="Product">
-          <USelect v-model="saleForm.selectedProductId" :items="productOptions" />
-        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Barcode scan">
+            <div class="inline-action-row">
+              <UInput v-model="saleForm.barcodeScan" class="flex-1" placeholder="Scan barcode" @keyup.enter="lookupSaleProduct" />
+              <UButton color="neutral" variant="subtle" icon="i-lucide-scan-barcode" label="Fetch" type="button" @click="lookupSaleProduct" />
+            </div>
+          </UFormField>
+          <UFormField label="Product autocomplete">
+            <UInput v-model="saleForm.productSearch" list="sale-product-cache" placeholder="Type name, barcode, HSN" @input="refreshSaleSuggestions(saleForm.productSearch)" @change="lookupSaleProduct" />
+            <datalist id="sale-product-cache">
+              <option v-for="option in saleProductSuggestions" :key="option" :value="option" />
+            </datalist>
+          </UFormField>
+        </div>
+        <UAlert
+          v-if="selectedProduct"
+          color="neutral"
+          variant="subtle"
+          title="Selected product"
+          :description="`${selectedProduct.name || selectedProduct.barcode} | Barcode ${selectedProduct.barcode} | MRP ${money(Number(selectedProduct.mrp || 0))} | GST ${Number(selectedProduct.taxRate || 0)}%`"
+        />
         <div class="form-two-column">
           <UFormField label="Quantity">
             <UInput v-model="saleForm.quantity" min="1" type="number" />

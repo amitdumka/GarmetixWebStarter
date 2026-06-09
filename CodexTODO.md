@@ -104,3 +104,16 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 
 - Backend and full Nuxt SSR builds still need to be run on the developer machine because this sandbox does not include `dotnet` and external Nuxt font/icon fetches keep failing here.
 - Use the commands in `backend/Developer-Validation-Checklist.md` after extracting the ZIP.
+
+## Commercial Notes / Advance / Loyalty / Barcode - URGENT
+
+- [x] Add Debit Note and Credit Note module for customers/vendors/manual parties.
+- [x] Create debit/credit notes automatically from sales returns and purchase returns when amount is not adjusted immediately.
+- [x] Allow manual Debit/Credit Note entry for any party.
+- [x] Print Debit/Credit Note on A4 and A5 slip/two-copy style PDF.
+- [x] Add advance payment receipt from customer and store it as customer credit balance.
+- [x] Introduce store-level loyalty program and implement automatic points on sales with proportional reversal on returns.
+- [x] Replace sale/purchase product dropdown workflow with barcode scan + autocomplete product lookup.
+- [x] Cache product lookup data locally in browser for better availability.
+- [x] Barcode lookup returns Name, Available Qty, MRP, TaxRate, Unit, Category, SubCategory, and HSNCode.
+- [x] Add invoice/voucher scan code on printable PDF and scan lookup endpoint to fetch invoice/voucher records.

@@ -288,3 +288,18 @@ This package also includes:
 ### Runtime migration fix
 
 This package includes a fix for the API restart loop caused by EF Core `PendingModelChangesWarning` during startup auto-migration. See `backend/Runtime-Migration-Fix-Notes.md`.
+
+## Latest commercial workflow additions
+
+- Debit/Credit Note module: `/commercial-notes`
+- Customer advance receipts: `/commercial-notes`
+- Loyalty program setup: `/loyalty`
+- Product barcode/autocomplete lookup API: `/api/product-lookup`
+- Document scan lookup API: `/api/scan/{code}`
+- Printable invoice/voucher/note PDFs include a scan code for quick lookup.
+
+Run migrations after this update:
+
+```bash
+dotnet ef database update --project backend/Garmetix.Infrastructure --startup-project backend/Garmetix.Api
+```

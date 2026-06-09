@@ -71,6 +71,8 @@ const moduleGroups = [
       { to: '/purchase', label: 'Purchase', icon: 'i-lucide-package-plus' },
       { to: '/parties', label: 'Parties', icon: 'i-lucide-users-round' },
       { to: '/vouchers', label: 'Vouchers', icon: 'i-lucide-banknote' },
+      { to: '/commercial-notes', label: 'Debit/Credit Notes', icon: 'i-lucide-file-plus-2' },
+      { to: '/loyalty', label: 'Loyalty', icon: 'i-lucide-gift' },
       { to: '/accounting', label: 'Accounting', icon: 'i-lucide-landmark' },
       { to: '/petty-cash', label: 'Petty Cash', icon: 'i-lucide-circle-dollar-sign' }
     ]

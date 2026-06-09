@@ -133,6 +133,8 @@ public static class VoucherPdfDocument
             }
         }
 
+        canvas.CenteredText($"Scan code: {model.VoucherNumber}", left + 8, top + height - 28, width - 16, 6.8, true, 0.08, 0.12, 0.18);
+
         var footer = string.Join(" | ", new[]
         {
             model.CompanyAddress,

@@ -6,6 +6,7 @@ const api = useGarmetixApi()
 const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
+const productLookup = useProductLookup()
 const config = useRuntimeConfig()
 const isAuthenticated = auth.isAuthenticated
 const canDelete = auth.canDelete
@@ -16,6 +17,7 @@ const UButton = resolveComponent('UButton')
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const products = ref<any[]>([])
+const purchaseProductSearchOptions = ref<any[]>([])
 const purchaseInvoices = ref<any[]>([])
 const purchaseLookup = ref<any>({ categories: [], subCategories: [], taxes: [] })
 const bankAccounts = ref<any[]>([])
@@ -75,6 +77,8 @@ const productOptions = computed(() => [
     label: `${product.name || 'Product'} - ${product.barcode || 'No barcode'}`
   }))
 ])
+
+const purchaseProductSuggestions = computed(() => purchaseProductSearchOptions.value.map((item) => `${item.barcode} | ${item.name} | Qty ${Number(item.availableQty || 0)} | MRP ${Number(item.mrp || 0)}`))
 
 const selectedPurchaseProduct = computed(() => products.value.find((item) => item.id === purchaseForm.selectedProductId))
 const categoryOptions = computed(() => purchaseLookup.value.categories?.map((item: any) => ({ value: item.id, label: item.name })) || [])
@@ -249,6 +253,7 @@ function emptyPurchaseForm() {
     paidAmount: 0,
     frightAmount: 0,
     selectedProductId: '',
+    productSearch: '',
     productName: '',
     barcode: '',
     quantity: 1,
@@ -282,6 +287,7 @@ async function refresh() {
     companies.value = companyRows
     stores.value = storeRows
     products.value = productRows
+    productLookup.saveCache(productRows.map((product: any) => ({ productId: product.id, name: product.name, barcode: product.barcode, availableQty: product.currentStock || 0, mrp: product.mrp || 0, taxRate: product.taxRate || 0, taxType: String(product.taxType || 'GST'), unit: String(product.unit || 'Pcs'), category: product.productCategoryName || '', subCategory: product.productSubCategoryName || '' })))
     purchaseInvoices.value = purchaseRows
     bankAccounts.value = bankAccountRows
     purchaseLookup.value = lookupRows
@@ -297,6 +303,56 @@ function startCreate() {
   purchaseCart.value = []
   vendorGstinValidation.value = null
   formOpen.value = true
+}
+
+
+async function lookupPurchaseProduct() {
+  const query = String(purchaseForm.barcode || purchaseForm.productSearch || '').trim()
+  if (!query) {
+    feedback.notify('Barcode required', 'Scan barcode or enter product name/barcode first.', 'warning')
+    return
+  }
+
+  const item = query.includes('|')
+    ? purchaseProductSearchOptions.value.find((row) => `${row.barcode} | ${row.name} | Qty ${Number(row.availableQty || 0)} | MRP ${Number(row.mrp || 0)}` === query)
+    : await productLookup.byBarcode(query, workspace.storeId.value || undefined) || (await productLookup.searchProducts(query, workspace.storeId.value || undefined))[0]
+
+  if (!item) {
+    feedback.notify('Product not found', 'No cached or server product matched this barcode/search.', 'warning')
+    return
+  }
+
+  applyLookupProductToPurchase(item)
+}
+
+async function refreshPurchaseSuggestions(value?: string) {
+  const query = String(value || purchaseForm.productSearch || purchaseForm.barcode || '').trim()
+  purchaseProductSearchOptions.value = await productLookup.searchProducts(query, workspace.storeId.value || undefined)
+}
+
+function applyLookupProductToPurchase(item: any) {
+  if (!products.value.some((product) => product.id === item.productId)) {
+    products.value.push({
+      id: item.productId,
+      name: item.name,
+      barcode: item.barcode,
+      mrp: item.mrp,
+      taxRate: item.taxRate,
+      unit: item.unit,
+      productCategoryName: item.category,
+      productSubCategoryName: item.subCategory
+    })
+  }
+
+  purchaseForm.selectedProductId = item.productId
+  purchaseForm.productSearch = `${item.barcode} | ${item.name}`
+  purchaseForm.productName = item.name
+  purchaseForm.barcode = item.barcode
+  purchaseForm.mrp = Number(item.mrp || 0)
+  purchaseForm.taxId = item.taxId || purchaseForm.taxId
+  purchaseForm.productCategoryId = item.productCategoryId || purchaseForm.productCategoryId
+  purchaseForm.productSubCategoryId = item.productSubCategoryId || purchaseForm.productSubCategoryId
+  feedback.notify('Product loaded', `${item.name} | Available ${Number(item.availableQty || 0)} | MRP ${money(Number(item.mrp || 0))} | GST ${Number(item.taxRate || 0)}%`, 'success')
 }
 
 function addPurchaseItem() {
@@ -323,6 +379,7 @@ function addPurchaseItem() {
   })
 
   purchaseForm.selectedProductId = ''
+  purchaseForm.productSearch = ''
   purchaseForm.productName = ''
   purchaseForm.barcode = ''
   purchaseForm.quantity = 1
@@ -739,9 +796,27 @@ watch(() => paymentVoucherForm.amount, () => {
 
         <USeparator label="Item" />
 
-        <UFormField label="Existing product">
-          <USelect v-model="purchaseForm.selectedProductId" :items="productOptions" />
-        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Barcode scan">
+            <div class="inline-action-row">
+              <UInput v-model="purchaseForm.barcode" class="flex-1" placeholder="Scan barcode" @keyup.enter="lookupPurchaseProduct" />
+              <UButton color="neutral" variant="subtle" icon="i-lucide-scan-barcode" label="Fetch" type="button" @click="lookupPurchaseProduct" />
+            </div>
+          </UFormField>
+          <UFormField label="Product autocomplete">
+            <UInput v-model="purchaseForm.productSearch" list="purchase-product-cache" placeholder="Type name, barcode, HSN" @input="refreshPurchaseSuggestions(purchaseForm.productSearch)" @change="lookupPurchaseProduct" />
+            <datalist id="purchase-product-cache">
+              <option v-for="option in purchaseProductSuggestions" :key="option" :value="option" />
+            </datalist>
+          </UFormField>
+        </div>
+        <UAlert
+          v-if="selectedPurchaseProduct"
+          color="neutral"
+          variant="subtle"
+          title="Selected product"
+          :description="`${selectedPurchaseProduct.name || selectedPurchaseProduct.barcode} | Barcode ${selectedPurchaseProduct.barcode} | MRP ${money(Number(selectedPurchaseProduct.mrp || 0))} | GST ${Number(selectedPurchaseProduct.taxRate || 0)}%`"
+        />
         <div class="form-two-column">
           <UFormField label="Product name">
             <UInput v-model="purchaseForm.productName" :disabled="Boolean(purchaseForm.selectedProductId)" />

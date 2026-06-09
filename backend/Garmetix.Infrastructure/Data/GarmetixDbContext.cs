@@ -43,6 +43,10 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
     public DbSet<PurchaseInvoiceItem> PurchaseInvoiceItems => Set<PurchaseInvoiceItem>();
     public DbSet<InvoicePayment> InvoicePayments => Set<InvoicePayment>();
+    public DbSet<CommercialNote> CommercialNotes => Set<CommercialNote>();
+    public DbSet<CustomerAdvanceReceipt> CustomerAdvanceReceipts => Set<CustomerAdvanceReceipt>();
+    public DbSet<LoyaltyProgram> LoyaltyPrograms => Set<LoyaltyProgram>();
+    public DbSet<LoyaltyPointLedger> LoyaltyPointLedgers => Set<LoyaltyPointLedger>();
 
     public DbSet<Bank> Banks => Set<Bank>();
     public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
@@ -127,6 +131,12 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<Vendor>().HasIndex(vendor => new { vendor.CompanyId, vendor.GSTIN }).IsUnique(false);
         modelBuilder.Entity<Invoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.StoreId, invoice.InvoiceNumber }).IsUnique(false);
         modelBuilder.Entity<PurchaseInvoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.VendorId, invoice.InvoiceNumber }).IsUnique(false);
+        modelBuilder.Entity<CommercialNote>().HasIndex(note => new { note.CompanyId, note.StoreId, note.NoteNumber }).IsUnique(false);
+        modelBuilder.Entity<CommercialNote>().HasIndex(note => new { note.CompanyId, note.PartyType, note.PartyName });
+        modelBuilder.Entity<CustomerAdvanceReceipt>().HasIndex(receipt => new { receipt.CompanyId, receipt.StoreId, receipt.ReceiptNumber }).IsUnique(false);
+        modelBuilder.Entity<CustomerAdvanceReceipt>().HasIndex(receipt => new { receipt.CompanyId, receipt.CustomerId, receipt.OnDate });
+        modelBuilder.Entity<LoyaltyProgram>().HasIndex(program => new { program.CompanyId, program.StoreId });
+        modelBuilder.Entity<LoyaltyPointLedger>().HasIndex(entry => new { entry.CompanyId, entry.CustomerId, entry.OnDate });
         modelBuilder.Entity<Voucher>().HasIndex(voucher => new { voucher.CompanyId, voucher.StoreId, voucher.VoucherNumber }).IsUnique(false);
         modelBuilder.Entity<CashVoucher>().HasIndex(voucher => new { voucher.CompanyId, voucher.StoreId, voucher.VoucherNumber }).IsUnique(false);
         modelBuilder.Entity<JournalEntry>().HasIndex(entry => new { entry.CompanyId, entry.StoreId, entry.EntryNumber }).IsUnique(false);

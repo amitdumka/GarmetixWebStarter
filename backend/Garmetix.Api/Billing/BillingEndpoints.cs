@@ -1,5 +1,6 @@
 using Garmetix.Api.Accounting;
 using Garmetix.Api.Auth;
+using Garmetix.Api.Commercial;
 using Garmetix.Api.Gstin;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
@@ -363,6 +364,7 @@ public static class BillingEndpoints
 
         customer.BillCount += 1;
         customer.Amount += billAmount;
+        await LoyaltyService.AwardSalePointsAsync(invoice, customer, db, cancellationToken);
         await accounting.PostSalesInvoiceAsync(invoice, customer, request.StoreGroupId, request.BankAccountId, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
@@ -890,6 +892,9 @@ public static class BillingEndpoints
 
         customer.Amount = Math.Max(0, customer.Amount - billAmount);
         customer.CreditBalance += storeCredit;
+        var originalQuantity = originalItems.Sum(item => item.BilledQuantity);
+        await LoyaltyService.ReverseSalePointsAsync(original, customer, originalQuantity <= 0 ? 0 : reversedQuantity / originalQuantity, db, cancellationToken);
+        await CommercialEndpoints.CreateCreditNoteFromSalesReturnAsync(returnInvoice, customer, reason, db, cancellationToken);
         await UpdateOriginalReturnStatusAsync(original, originalItems, reversedQuantity, db, cancellationToken);
         await accounting.PostSalesReturnAsync(returnInvoice, customer, storeGroupId, refund, refundPaymentMode, bankAccountId, cancellationToken);
 
