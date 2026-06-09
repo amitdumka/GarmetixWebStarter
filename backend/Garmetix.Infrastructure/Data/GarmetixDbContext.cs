@@ -44,6 +44,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<Tax> Taxes => Set<Tax>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Vendor> Vendors => Set<Vendor>();
+    public DbSet<Salesman> Salesmen => Set<Salesman>();
     public DbSet<Invoice> SalesInvoices => Set<Invoice>();
     public DbSet<PurchaseInvoice> PurchaseInvoices => Set<PurchaseInvoice>();
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
@@ -149,6 +150,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<StockMovement>().HasIndex(movement => new { movement.CompanyId, movement.SourceType, movement.SourceId });
         modelBuilder.Entity<Customer>().HasIndex(customer => new { customer.CompanyId, customer.GSTIN }).IsUnique(false);
         modelBuilder.Entity<Vendor>().HasIndex(vendor => new { vendor.CompanyId, vendor.GSTIN }).IsUnique(false);
+        modelBuilder.Entity<Salesman>().HasIndex(salesman => new { salesman.CompanyId, salesman.StoreId, salesman.Name }).IsUnique(false);
         modelBuilder.Entity<Invoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.StoreId, invoice.InvoiceNumber }).IsUnique(false);
         modelBuilder.Entity<PurchaseInvoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.VendorId, invoice.InvoiceNumber }).IsUnique(false);
         modelBuilder.Entity<PurchaseInvoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.StoreId, invoice.InwardNumber }).IsUnique(false);

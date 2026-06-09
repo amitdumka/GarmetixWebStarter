@@ -147,7 +147,7 @@ namespace Garmetix.Core.Models.Inventory
     public class ProductCategory : CompanyBase
     {
         [Display(Name = "Category Name")] public string Name { get; set; } = string.Empty;
-        public ProductGroup? ProductGroup { get; set; } = Enums.ProductGroup.Shirting;
+        public ProductGroup? ProductGroup { get; set; } =Enums.ProductGroup.Shirting;
         public bool IsActive { get; set; } = true;
 
         [NotMapped]

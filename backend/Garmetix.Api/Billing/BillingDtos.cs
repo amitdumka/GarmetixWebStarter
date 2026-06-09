@@ -28,6 +28,50 @@ public sealed record InvoicePaymentDetailRequest(
     string? AdjustmentSourceType,
     Guid? AdjustmentSourceId);
 
+public sealed record BillingCustomerOptionDto(
+    Guid Id,
+    string Name,
+    string MobileNumber,
+    string? Gstin,
+    decimal CreditBalance,
+    decimal LoyaltyPoints,
+    decimal LifetimeBillAmount,
+    int BillCount,
+    string Label);
+
+public sealed record BillingSalesmanOptionDto(
+    Guid Id,
+    string Name,
+    Guid StoreId,
+    bool Active);
+
+public sealed record BillingAdjustmentOptionDto(
+    Guid Id,
+    string Number,
+    DateTime OnDate,
+    decimal Amount,
+    decimal AdjustedAmount,
+    decimal AvailableAmount,
+    string SourceType,
+    string? ReferenceNumber);
+
+public sealed record BillingLoyaltyProgramDto(
+    bool Enabled,
+    decimal RedeemValuePerPoint,
+    decimal EarnPointsPerRupee,
+    decimal MinimumBillAmount);
+
+public sealed record BillingOptionsDto(
+    IReadOnlyList<BillingCustomerOptionDto> Customers,
+    IReadOnlyList<BillingSalesmanOptionDto> Salesmen,
+    BillingLoyaltyProgramDto? LoyaltyProgram);
+
+public sealed record BillingCustomerProfileDto(
+    BillingCustomerOptionDto Customer,
+    IReadOnlyList<BillingAdjustmentOptionDto> CreditNotes,
+    IReadOnlyList<BillingAdjustmentOptionDto> AdvanceReceipts,
+    BillingLoyaltyProgramDto? LoyaltyProgram);
+
 public sealed record PosSaleItemRequest(
     Guid ProductId,
     string Barcode,
@@ -93,7 +137,10 @@ public sealed record ReceiptPaymentDto(
     DateTime OnDate,
     decimal Amount,
     string PaymentMode,
-    string? ReferenceNumber);
+    string? ReferenceNumber,
+    string? GatewayReference,
+    string? SettlementStatus,
+    string? AdjustmentSourceType);
 
 public sealed record CancelInvoiceRequest(string? Reason);
 
@@ -151,4 +198,3 @@ public sealed record SalesExchangeResponse(
     decimal AdditionalPaidAmount,
     decimal NewInvoiceAmount,
     decimal RemainingStoreCreditAmount);
-

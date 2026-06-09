@@ -1627,12 +1627,10 @@ public sealed class OracleSecondarySyncService(
     {
         var updated = type.GetProperty("UpdatedAt");
         var created = type.GetProperty("CreatedAt");
-    //     var fallback = created is not null && created.PropertyType == typeof(DateTime)
-    //         ? Expression.Property(parameter, created)
-    //         : Expression.Constant(DateTime.MinValue);
-     Expression fallback = created is not null && created.PropertyType == typeof(DateTime)
-    ? Expression.Property(parameter, created)
-    : Expression.Constant(DateTime.MinValue);
+        
+        Expression fallback = created is not null && created.PropertyType == typeof(DateTime)
+            ? Expression.Property(parameter, created)
+            : Expression.Constant(DateTime.MinValue);
 
         if (updated is null)
         {

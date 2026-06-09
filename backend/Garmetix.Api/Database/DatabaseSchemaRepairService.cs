@@ -127,6 +127,23 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                 CREATE INDEX IF NOT EXISTS "IX_Customers_CompanyId_GSTIN" ON "Customers" ("CompanyId", "GSTIN");
                 CREATE INDEX IF NOT EXISTS "IX_Vendors_CompanyId_GSTIN" ON "Vendors" ("CompanyId", "GSTIN");
 
+                CREATE TABLE IF NOT EXISTS "Salesmen" (
+                    "Id" uuid NOT NULL,
+                    "Name" text NOT NULL DEFAULT 'Manager',
+                    "EmployeeId" uuid NULL,
+                    "Active" boolean NOT NULL DEFAULT true,
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "StoreGroupId" uuid NOT NULL,
+                    "StoreId" uuid NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    CONSTRAINT "PK_Salesmen" PRIMARY KEY ("Id")
+                );
+                CREATE INDEX IF NOT EXISTS "IX_Salesmen_CompanyId_StoreId_Name" ON "Salesmen" ("CompanyId", "StoreId", "Name");
+
                 CREATE TABLE IF NOT EXISTS "GstReturnDrafts" (
                     "Id" uuid NOT NULL,
                     "CreatedAt" timestamp without time zone NOT NULL,

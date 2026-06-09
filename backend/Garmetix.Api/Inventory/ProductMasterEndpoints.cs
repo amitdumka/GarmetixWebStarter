@@ -255,7 +255,7 @@ public static class ProductMasterEndpoints
             CompanyId = scope.Value.CompanyId,
             StoreGroupId = scope.Value.StoreGroupId,
             StoreId = scope.Value.StoreId,
-            Barcode=barcode
+            Barcode = barcode
         };
 
         stock.Barcode = barcode;

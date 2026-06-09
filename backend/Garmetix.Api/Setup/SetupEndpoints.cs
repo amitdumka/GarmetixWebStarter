@@ -136,6 +136,19 @@ public static class SetupEndpoints
             db.Taxes.Add(tax);
         }
 
+        var salesman = await db.Salesmen.FirstOrDefaultAsync(item => item.CompanyId == company.Id && item.StoreId == store.Id && item.Name == "Manager", cancellationToken);
+        if (salesman is null)
+        {
+            db.Salesmen.Add(new Salesman
+            {
+                Name = "Manager",
+                Active = true,
+                CompanyId = company.Id,
+                StoreGroupId = storeGroup.Id,
+                StoreId = store.Id
+            });
+        }
+
         await db.SaveChangesAsync(cancellationToken);
         await EnsureAccountingDefaultsAsync(db, company, cancellationToken);
 

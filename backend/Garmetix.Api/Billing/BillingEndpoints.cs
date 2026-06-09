@@ -19,6 +19,9 @@ public static class BillingEndpoints
             .WithTags("Billing")
             .RequireAuthorization(GarmetixPolicies.Billing);
 
+        group.MapGet("/options", GetBillingOptionsAsync);
+        group.MapGet("/customers/search", SearchCustomersAsync);
+        group.MapGet("/customers/{customerId:guid}/profile", GetCustomerBillingProfileAsync);
         group.MapPost("/sales", CreateSaleAsync);
         group.MapGet("/sales/recent", GetRecentSalesAsync);
         group.MapGet("/sales/{id:guid}/receipt", GetReceiptAsync);
@@ -28,6 +31,176 @@ public static class BillingEndpoints
         group.MapPost("/sales/{id:guid}/cancel", CancelSaleAsync).RequireAuthorization(GarmetixPolicies.Delete);
 
         return group;
+    }
+
+
+    private static async Task<BillingOptionsDto> GetBillingOptionsAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        Guid? companyId = null,
+        Guid? storeId = null,
+        string? customerQuery = null,
+        int take = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var customers = await LoadCustomerOptionsAsync(context, db, companyId, customerQuery, Math.Clamp(take, 1, 100), cancellationToken);
+        var salesmenQuery = WorkspaceScope.ApplyTo(db.Salesmen.AsNoTracking(), context).Where(item => item.Active);
+        if (companyId.HasValue)
+        {
+            salesmenQuery = salesmenQuery.Where(item => item.CompanyId == companyId.Value);
+        }
+        if (storeId.HasValue)
+        {
+            salesmenQuery = salesmenQuery.Where(item => item.StoreId == storeId.Value);
+        }
+
+        var salesmen = await salesmenQuery
+            .OrderBy(item => item.Name)
+            .Take(100)
+            .Select(item => new BillingSalesmanOptionDto(item.Id, item.Name, item.StoreId, item.Active))
+            .ToListAsync(cancellationToken);
+
+        var loyaltyProgram = storeId.HasValue
+            ? await LoadLoyaltyProgramAsync(context, db, storeId.Value, cancellationToken)
+            : null;
+
+        return new BillingOptionsDto(customers, salesmen, loyaltyProgram);
+    }
+
+    private static async Task<IReadOnlyList<BillingCustomerOptionDto>> SearchCustomersAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        Guid? companyId = null,
+        string? q = null,
+        int take = 25,
+        CancellationToken cancellationToken = default)
+    {
+        return await LoadCustomerOptionsAsync(context, db, companyId, q, Math.Clamp(take, 1, 100), cancellationToken);
+    }
+
+    private static async Task<IResult> GetCustomerBillingProfileAsync(
+        Guid customerId,
+        HttpContext context,
+        GarmetixDbContext db,
+        Guid? storeId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var customer = await WorkspaceScope.ApplyTo(db.Customers.AsNoTracking(), context)
+            .Where(item => item.Id == customerId)
+            .Select(item => new BillingCustomerOptionDto(
+                item.Id,
+                item.Name,
+                item.MobileNumber,
+                item.GSTIN,
+                item.CreditBalance,
+                item.LoyaltyPoints,
+                item.Amount,
+                item.BillCount,
+                item.Name + " | " + item.MobileNumber + (item.GSTIN != null ? " | GSTIN " + item.GSTIN : string.Empty)))
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (customer is null)
+        {
+            return Results.NotFound();
+        }
+
+        var creditNotesQuery = WorkspaceScope.ApplyTo(db.CommercialNotes.AsNoTracking(), context)
+            .Where(item => item.CustomerId == customerId && item.NoteType == NoteType.CreditNote && !item.IsAdjusted && item.Amount > item.AdjustedAmount);
+        if (storeId.HasValue)
+        {
+            creditNotesQuery = creditNotesQuery.Where(item => item.StoreId == storeId.Value);
+        }
+
+        var creditNotes = await creditNotesQuery
+            .OrderBy(item => item.OnDate)
+            .Take(50)
+            .Select(item => new BillingAdjustmentOptionDto(
+                item.Id,
+                item.NoteNumber,
+                item.OnDate,
+                item.Amount,
+                item.AdjustedAmount,
+                item.Amount - item.AdjustedAmount,
+                item.SourceType,
+                item.SourceNumber))
+            .ToListAsync(cancellationToken);
+
+        var advanceQuery = WorkspaceScope.ApplyTo(db.CustomerAdvanceReceipts.AsNoTracking(), context)
+            .Where(item => item.CustomerId == customerId && item.AvailableAmount > 0);
+        if (storeId.HasValue)
+        {
+            advanceQuery = advanceQuery.Where(item => item.StoreId == storeId.Value);
+        }
+
+        var advanceReceipts = await advanceQuery
+            .OrderBy(item => item.OnDate)
+            .Take(50)
+            .Select(item => new BillingAdjustmentOptionDto(
+                item.Id,
+                item.ReceiptNumber,
+                item.OnDate,
+                item.Amount,
+                item.AdjustedAmount,
+                item.AvailableAmount,
+                "CustomerAdvanceReceipt",
+                item.ReferenceNumber))
+            .ToListAsync(cancellationToken);
+
+        var loyaltyProgram = storeId.HasValue
+            ? await LoadLoyaltyProgramAsync(context, db, storeId.Value, cancellationToken)
+            : null;
+
+        return Results.Ok(new BillingCustomerProfileDto(customer, creditNotes, advanceReceipts, loyaltyProgram));
+    }
+
+    private static async Task<IReadOnlyList<BillingCustomerOptionDto>> LoadCustomerOptionsAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        Guid? companyId,
+        string? query,
+        int take,
+        CancellationToken cancellationToken)
+    {
+        var customerQuery = WorkspaceScope.ApplyTo(db.Customers.AsNoTracking(), context);
+        if (companyId.HasValue)
+        {
+            customerQuery = customerQuery.Where(item => item.CompanyId == companyId.Value);
+        }
+
+        var term = query?.Trim();
+        if (!string.IsNullOrWhiteSpace(term))
+        {
+            var lowered = term.ToLower();
+            customerQuery = customerQuery.Where(item =>
+                item.Name.ToLower().Contains(lowered) ||
+                item.MobileNumber.ToLower().Contains(lowered) ||
+                (item.GSTIN != null && item.GSTIN.ToLower().Contains(lowered)));
+        }
+
+        return await customerQuery
+            .OrderBy(item => item.Name)
+            .ThenBy(item => item.MobileNumber)
+            .Take(take)
+            .Select(item => new BillingCustomerOptionDto(
+                item.Id,
+                item.Name,
+                item.MobileNumber,
+                item.GSTIN,
+                item.CreditBalance,
+                item.LoyaltyPoints,
+                item.Amount,
+                item.BillCount,
+                item.Name + " | " + item.MobileNumber + (item.GSTIN != null ? " | GSTIN " + item.GSTIN : string.Empty)))
+            .ToListAsync(cancellationToken);
+    }
+
+    private static async Task<BillingLoyaltyProgramDto?> LoadLoyaltyProgramAsync(HttpContext context, GarmetixDbContext db, Guid storeId, CancellationToken cancellationToken)
+    {
+        return await WorkspaceScope.ApplyTo(db.LoyaltyPrograms.AsNoTracking(), context)
+            .Where(item => item.StoreId == storeId && item.Enabled)
+            .OrderByDescending(item => item.UpdatedAt ?? item.CreatedAt)
+            .Select(item => new BillingLoyaltyProgramDto(item.Enabled, item.RedeemValuePerPoint, item.EarnPointsPerRupee, item.MinimumBillAmount))
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     private static async Task<IReadOnlyList<RecentInvoiceDto>> GetRecentSalesAsync(HttpContext context, GarmetixDbContext db, int take = 25, CancellationToken cancellationToken = default)
@@ -104,7 +277,10 @@ public static class BillingEndpoints
                 item.OnDate,
                 item.Amount,
                 item.PaymentMode.ToString(),
-                item.ReferenceNumber))
+                item.ReferenceNumber,
+                item.GatewayReference,
+                item.SettlementStatus,
+                item.AdjustmentSourceType))
             .ToListAsync(cancellationToken);
 
         var model = new InvoicePdfModel(
@@ -184,7 +360,10 @@ public static class BillingEndpoints
                 item.OnDate,
                 item.Amount,
                 item.PaymentMode.ToString(),
-                item.ReferenceNumber))
+                item.ReferenceNumber,
+                item.GatewayReference,
+                item.SettlementStatus,
+                item.AdjustmentSourceType))
             .ToListAsync(cancellationToken);
 
         return new ReceiptDto(
@@ -351,7 +530,32 @@ public static class BillingEndpoints
 
         var totalDiscount = itemDiscount + request.BillDiscountAmount;
         var billAmount = Math.Round(grossMrp - totalDiscount, 0);
-        var paidAmount = Math.Min(request.PaidAmount, billAmount);
+        var paymentDetails = NormalizeInvoicePayments(request, billAmount);
+        var paidAmount = paymentDetails.Sum(item => item.Amount);
+        if (paidAmount > billAmount)
+        {
+            return Results.BadRequest(new { message = "Payment total cannot be greater than bill amount." });
+        }
+
+        var invalidBankPayment = paymentDetails.FirstOrDefault(item => RequiresBankAccount(item.PaymentMode) && !item.BankAccountId.HasValue);
+        if (invalidBankPayment is not null)
+        {
+            return Results.BadRequest(new { message = $"Select bank account/reference account for {invalidBankPayment.PaymentMode} payment." });
+        }
+
+        if (request.SalesmanId.HasValue && request.SalesmanId.Value != Guid.Empty)
+        {
+            var salesmanAllowed = await WorkspaceScope.ApplyTo(db.Salesmen.AsNoTracking(), context)
+                .AnyAsync(item => item.Id == request.SalesmanId.Value && item.Active && item.StoreId == request.StoreId, cancellationToken);
+            if (!salesmanAllowed)
+            {
+                return Results.BadRequest(new { message = "Selected salesman is outside the billing store scope." });
+            }
+        }
+
+        var invoicePaymentMode = paymentDetails.Count > 1
+            ? PaymentMode.MixPayments
+            : paymentDetails.FirstOrDefault()?.PaymentMode ?? request.PaymentMode;
 
         var invoice = new Invoice
         {
@@ -373,7 +577,7 @@ public static class BillingEndpoints
             BillAmount = billAmount,
             Quantity = totalQuantity,
             ItemCount = invoiceItems.Count,
-            PaymentMode = request.PaymentMode,
+            PaymentMode = invoicePaymentMode,
             CustomerId = customer.Id,
             CustomerName = customer.Name,
             CustomerMobileNumber = customer.MobileNumber,
@@ -388,15 +592,20 @@ public static class BillingEndpoints
             CompanyId = request.CompanyId
         };
 
+        var paymentAdjustmentError = await ApplyInvoicePaymentAdjustmentsAsync(invoice, customer, paymentDetails, request.StoreGroupId, db, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(paymentAdjustmentError))
+        {
+            return Results.BadRequest(new { message = paymentAdjustmentError });
+        }
+
         db.SalesInvoices.Add(invoice);
         db.InvoiceItems.AddRange(invoiceItems);
-
-        AddInvoicePayments(invoice, request, paidAmount, db);
+        AddInvoicePayments(invoice, paymentDetails, db);
 
         customer.BillCount += 1;
         customer.Amount += billAmount;
         await LoyaltyService.AwardSalePointsAsync(invoice, customer, db, cancellationToken);
-        await accounting.PostSalesInvoiceAsync(invoice, customer, request.StoreGroupId, request.BankAccountId, cancellationToken);
+        await accounting.PostSalesInvoiceAsync(invoice, customer, request.StoreGroupId, FirstBankAccountId(paymentDetails), cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -1115,31 +1324,186 @@ public static class BillingEndpoints
     }
 
 
-    private static void AddInvoicePayments(Invoice invoice, PosSaleRequest request, decimal paidAmount, GarmetixDbContext db)
+
+    private sealed record NormalizedInvoicePayment(
+        PaymentMode PaymentMode,
+        decimal Amount,
+        Guid? BankAccountId,
+        string? ReferenceNumber,
+        string? GatewayReference,
+        string? SettlementStatus,
+        string? AdjustmentSourceType,
+        Guid? AdjustmentSourceId);
+
+    private static List<NormalizedInvoicePayment> NormalizeInvoicePayments(PosSaleRequest request, decimal billAmount)
     {
-        if (paidAmount <= 0)
+        IEnumerable<InvoicePaymentDetailRequest> sourcePayments = request.Payments is { Count: > 0 }
+            ? request.Payments
+            : request.PaidAmount > 0
+                ? new[] { new InvoicePaymentDetailRequest(request.PaymentMode, request.PaidAmount, request.BankAccountId, null, null, null, null, null) }
+                : Array.Empty<InvoicePaymentDetailRequest>();
+
+        var payments = new List<NormalizedInvoicePayment>();
+        foreach (var payment in sourcePayments.Where(item => item.Amount > 0))
         {
-            return;
+            var amount = Math.Round(payment.Amount, 2);
+            payments.Add(new NormalizedInvoicePayment(
+                payment.PaymentMode,
+                amount,
+                payment.BankAccountId,
+                Clean(payment.ReferenceNumber),
+                Clean(payment.GatewayReference),
+                Clean(payment.SettlementStatus),
+                Clean(payment.AdjustmentSourceType),
+                payment.AdjustmentSourceId));
         }
 
-        var details = request.Payments is { Count: > 0 }
-            ? request.Payments.Where(item => item.Amount > 0).ToList()
-            : new List<InvoicePaymentDetailRequest> { new(request.PaymentMode, paidAmount, request.BankAccountId, null, null, null, null, null) };
+        return payments;
+    }
 
-        var remaining = paidAmount;
-        foreach (var payment in details)
+    private static async Task<string?> ApplyInvoicePaymentAdjustmentsAsync(
+        Invoice invoice,
+        Customer customer,
+        IReadOnlyList<NormalizedInvoicePayment> payments,
+        Guid storeGroupId,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        foreach (var payment in payments.Where(IsAdjustmentPayment))
         {
-            if (remaining <= 0)
+            var sourceType = payment.AdjustmentSourceType ?? payment.PaymentMode.ToString();
+            var amount = payment.Amount;
+            if (amount <= 0)
             {
-                break;
+                continue;
             }
 
-            var amount = Math.Min(payment.Amount, remaining);
+            if (SourceMatches(sourceType, "CustomerCreditBalance") || SourceMatches(sourceType, "StoreCredit") || SourceMatches(sourceType, "SalesReturnCredit") || payment.PaymentMode == PaymentMode.CreditBalance)
+            {
+                if (customer.CreditBalance < amount)
+                {
+                    return $"Customer credit balance is only {customer.CreditBalance:N2}.";
+                }
+
+                customer.CreditBalance -= amount;
+                continue;
+            }
+
+            if (SourceMatches(sourceType, "CustomerAdvanceReceipt"))
+            {
+                if (!payment.AdjustmentSourceId.HasValue)
+                {
+                    return "Select an advance receipt before applying advance payment.";
+                }
+
+                var receipt = await db.CustomerAdvanceReceipts.FirstOrDefaultAsync(item =>
+                    item.Id == payment.AdjustmentSourceId.Value &&
+                    item.CompanyId == invoice.CompanyId &&
+                    item.CustomerId == customer.Id &&
+                    item.StoreId == invoice.StoreId,
+                    cancellationToken);
+                if (receipt is null)
+                {
+                    return "Selected customer advance receipt was not found.";
+                }
+
+                if (receipt.AvailableAmount < amount)
+                {
+                    return $"Advance receipt {receipt.ReceiptNumber} has only {receipt.AvailableAmount:N2} available.";
+                }
+
+                receipt.AdjustedAmount += amount;
+                receipt.AvailableAmount = Math.Max(0, receipt.AvailableAmount - amount);
+                customer.CreditBalance = Math.Max(0, customer.CreditBalance - amount);
+                continue;
+            }
+
+            if (SourceMatches(sourceType, "CreditNote"))
+            {
+                if (!payment.AdjustmentSourceId.HasValue)
+                {
+                    return "Select a credit note before applying credit note payment.";
+                }
+
+                var note = await db.CommercialNotes.FirstOrDefaultAsync(item =>
+                    item.Id == payment.AdjustmentSourceId.Value &&
+                    item.CompanyId == invoice.CompanyId &&
+                    item.CustomerId == customer.Id &&
+                    item.StoreId == invoice.StoreId &&
+                    item.NoteType == NoteType.CreditNote,
+                    cancellationToken);
+                if (note is null)
+                {
+                    return "Selected credit note was not found.";
+                }
+
+                var available = Math.Max(0, note.Amount - note.AdjustedAmount);
+                if (available < amount)
+                {
+                    return $"Credit note {note.NoteNumber} has only {available:N2} available.";
+                }
+
+                note.AdjustedAmount += amount;
+                note.IsAdjusted = note.AdjustedAmount >= note.Amount;
+                customer.CreditBalance = Math.Max(0, customer.CreditBalance - amount);
+                continue;
+            }
+
+            if (SourceMatches(sourceType, "LoyaltyRedemption"))
+            {
+                var program = await db.LoyaltyPrograms
+                    .Where(item => item.CompanyId == invoice.CompanyId && item.StoreId == invoice.StoreId && item.Enabled)
+                    .OrderByDescending(item => item.UpdatedAt ?? item.CreatedAt)
+                    .FirstOrDefaultAsync(cancellationToken);
+                if (program is null || program.RedeemValuePerPoint <= 0)
+                {
+                    return "Loyalty redemption is not enabled for this store.";
+                }
+
+                var pointsToRedeem = Math.Round(amount / program.RedeemValuePerPoint, 2);
+                if (pointsToRedeem <= 0)
+                {
+                    continue;
+                }
+
+                if (customer.LoyaltyPoints < pointsToRedeem)
+                {
+                    return $"Customer has only {customer.LoyaltyPoints:N2} loyalty points.";
+                }
+
+                customer.LoyaltyPoints -= pointsToRedeem;
+                db.LoyaltyPointLedgers.Add(new LoyaltyPointLedger
+                {
+                    CustomerId = customer.Id,
+                    CustomerName = customer.Name,
+                    OnDate = DateTime.Now,
+                    SourceType = "SaleInvoiceRedemption",
+                    SourceId = invoice.Id,
+                    SourceNumber = invoice.InvoiceNumber,
+                    PointsIn = 0,
+                    PointsOut = pointsToRedeem,
+                    BalanceAfter = customer.LoyaltyPoints,
+                    Remarks = "POS invoice loyalty redemption",
+                    CompanyId = invoice.CompanyId,
+                    StoreGroupId = storeGroupId,
+                    StoreId = invoice.StoreId
+                });
+                continue;
+            }
+        }
+
+        return null;
+    }
+
+    private static void AddInvoicePayments(Invoice invoice, IReadOnlyList<NormalizedInvoicePayment> payments, GarmetixDbContext db)
+    {
+        foreach (var payment in payments.Where(item => item.Amount > 0))
+        {
             db.InvoicePayments.Add(new InvoicePayment
             {
                 InvoiceId = invoice.Id,
                 OnDate = DateTime.Now,
-                Amount = amount,
+                Amount = payment.Amount,
                 PaymentMode = payment.PaymentMode,
                 ReferenceNumber = payment.ReferenceNumber,
                 BankAccountId = payment.BankAccountId,
@@ -1150,8 +1514,33 @@ public static class BillingEndpoints
                 StoreId = invoice.StoreId,
                 CompanyId = invoice.CompanyId
             });
-            remaining -= amount;
         }
+    }
+
+    private static bool IsAdjustmentPayment(NormalizedInvoicePayment payment)
+    {
+        return !string.IsNullOrWhiteSpace(payment.AdjustmentSourceType) ||
+            payment.PaymentMode is PaymentMode.CreditBalance or PaymentMode.CreditNote or PaymentMode.SaleReturn;
+    }
+
+    private static bool SourceMatches(string? sourceType, string expected)
+    {
+        return string.Equals(sourceType, expected, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool RequiresBankAccount(PaymentMode paymentMode)
+    {
+        return paymentMode is PaymentMode.Card or PaymentMode.UPI or PaymentMode.Wallets or PaymentMode.IMPS or PaymentMode.RTGS or PaymentMode.NEFT or PaymentMode.Cheque or PaymentMode.DemandDraft;
+    }
+
+    private static Guid? FirstBankAccountId(IReadOnlyList<NormalizedInvoicePayment> payments)
+    {
+        return payments.FirstOrDefault(item => item.BankAccountId.HasValue)?.BankAccountId;
+    }
+
+    private static string? Clean(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
     private static (decimal Cgst, decimal Sgst, decimal Igst) SplitGst(decimal totalTax, TaxType taxType)

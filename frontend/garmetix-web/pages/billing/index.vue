@@ -16,6 +16,8 @@ const UButton = resolveComponent('UButton')
 
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
+const customers = ref<any[]>([])
+const salesmen = ref<any[]>([])
 const products = ref<any[]>([])
 const productSearchOptions = ref<any[]>([])
 const invoices = ref<any[]>([])
@@ -38,6 +40,8 @@ const downloadingInvoicePdf = ref(false)
 const setupStatus = ref<any | null>(null)
 const saleGstinValidation = ref<any | null>(null)
 const saleGstinChecking = ref(false)
+const selectedCustomerProfile = ref<any | null>(null)
+const loadingCustomerProfile = ref(false)
 const search = ref('')
 const saleOpen = ref(false)
 const cancelOpen = ref(false)
@@ -46,16 +50,35 @@ const invoiceCopyType = ref<'customer' | 'office' | 'duplicate'>('customer')
 const invoiceReprint = ref(false)
 const invoiceSignatures = ref(true)
 
+const paymentModeValue = {
+  cash: 0,
+  card: 1,
+  upi: 2,
+  wallets: 3,
+  imps: 4,
+  rtgs: 5,
+  neft: 6,
+  cheque: 7,
+  demandDraft: 8,
+  creditNote: 9,
+  coupons: 11,
+  mixPayments: 12,
+  creditBalance: 15
+}
+
 const paymentModeOptions = [
-  { value: 0, label: 'Cash' },
-  { value: 1, label: 'Card' },
-  { value: 2, label: 'UPI' },
-  { value: 4, label: 'IMPS' },
-  { value: 5, label: 'RTGS' },
-  { value: 6, label: 'NEFT' },
-  { value: 7, label: 'Cheque' },
-  { value: 8, label: 'Demand Draft' }
+  { value: paymentModeValue.cash, label: 'Cash' },
+  { value: paymentModeValue.card, label: 'Card' },
+  { value: paymentModeValue.upi, label: 'UPI' },
+  { value: paymentModeValue.wallets, label: 'Wallet' },
+  { value: paymentModeValue.imps, label: 'IMPS' },
+  { value: paymentModeValue.rtgs, label: 'RTGS' },
+  { value: paymentModeValue.neft, label: 'NEFT' },
+  { value: paymentModeValue.cheque, label: 'Cheque' },
+  { value: paymentModeValue.demandDraft, label: 'Demand Draft' }
 ]
+
+const adjustmentPaymentModes = [paymentModeValue.creditBalance, paymentModeValue.creditNote, paymentModeValue.coupons]
 
 const invoicePrintFormatOptions = [
   { value: 'a4', label: 'A4 standard invoice' },
@@ -74,6 +97,7 @@ const saleForm = reactive<any>(emptySaleForm())
 const returnForm = reactive<any>(emptyReturnForm())
 const exchangeForm = reactive<any>(emptyExchangeForm())
 const saleCart = ref<any[]>([])
+const salePayments = ref<any[]>([])
 
 const receiptOpen = computed({
   get: () => Boolean(selectedReceipt.value),
@@ -94,6 +118,20 @@ const productOptions = computed(() => [
 
 const saleProductSuggestions = computed(() => productSearchOptions.value.map((item) => `${item.barcode} | ${item.name} | Qty ${Number(item.availableQty || 0)} | MRP ${Number(item.mrp || 0)}`))
 
+const customerOptions = computed(() => [
+  { value: null, label: 'Walk-in / new customer' },
+  ...customers.value.map((customer) => ({
+    value: customer.id,
+    label: customer.label || `${customer.name || 'Customer'} | ${customer.mobileNumber || ''}`
+  }))
+])
+
+const salesmanOptions = computed(() => [
+  { value: null, label: 'No salesman / counter sale' },
+  ...salesmen.value.map((salesman) => ({ value: salesman.id, label: salesman.name || 'Salesman' }))
+])
+
+const selectedCustomer = computed(() => customers.value.find((item) => item.id === saleForm.customerId))
 const selectedProduct = computed(() => products.value.find((item) => item.id === saleForm.selectedProductId))
 const requiresBankAccount = computed(() => Number(saleForm.paidAmount || 0) > 0 && Number(saleForm.paymentMode) !== 0)
 const returnRefundRequiresBank = computed(() => Number(returnForm.refundAmount || 0) > 0 && Number(returnForm.refundPaymentMode) !== 0)
@@ -103,6 +141,32 @@ const bankAccountOptions = computed(() => bankAccounts.value.map((account) => ({
   value: account.id,
   label: `${account.accountHolderName || 'Bank'} - ${account.accountNumber || ''}`.trim()
 })))
+
+const creditNoteOptions = computed(() => (selectedCustomerProfile.value?.creditNotes || []).map((note: any) => ({
+  value: note.id,
+  label: `${note.number} | Available ${money(Number(note.availableAmount || 0))}`
+})))
+
+const advanceReceiptOptions = computed(() => (selectedCustomerProfile.value?.advanceReceipts || []).map((advance: any) => ({
+  value: advance.id,
+  label: `${advance.number} | Available ${money(Number(advance.availableAmount || 0))}`
+})))
+
+const selectedCreditNote = computed(() => (selectedCustomerProfile.value?.creditNotes || []).find((note: any) => note.id === saleForm.creditNoteId))
+const selectedAdvanceReceipt = computed(() => (selectedCustomerProfile.value?.advanceReceipts || []).find((advance: any) => advance.id === saleForm.advanceReceiptId))
+
+const manualPaymentTotal = computed(() => salePayments.value.reduce((sum, item) => sum + Number(item.amount || 0), 0))
+const storeCreditPaymentAmount = computed(() => Math.min(Number(saleForm.storeCreditAmount || 0), Number(selectedCustomerProfile.value?.customer?.creditBalance || selectedCustomer.value?.creditBalance || 0)))
+const creditNotePaymentAmount = computed(() => Math.min(Number(saleForm.creditNoteAmount || 0), Number(selectedCreditNote.value?.availableAmount || 0)))
+const advancePaymentAmount = computed(() => Math.min(Number(saleForm.advanceAmount || 0), Number(selectedAdvanceReceipt.value?.availableAmount || 0)))
+const loyaltyRedeemValue = computed(() => {
+  const program = selectedCustomerProfile.value?.loyaltyProgram
+  const points = Math.min(Number(saleForm.loyaltyPointsToRedeem || 0), Number(selectedCustomerProfile.value?.customer?.loyaltyPoints || selectedCustomer.value?.loyaltyPoints || 0))
+  return Math.max(points * Number(program?.redeemValuePerPoint || 0), 0)
+})
+const adjustmentPaymentTotal = computed(() => storeCreditPaymentAmount.value + creditNotePaymentAmount.value + advancePaymentAmount.value + loyaltyRedeemValue.value)
+const paymentTotal = computed(() => manualPaymentTotal.value + adjustmentPaymentTotal.value)
+const paymentBalance = computed(() => Math.max(payableTotal.value - paymentTotal.value, 0))
 
 const cartTotal = computed(() => {
   return saleCart.value.reduce((sum, item) => sum + lineTotal(item), 0)
@@ -272,10 +336,12 @@ function emptyExchangeForm() {
 
 function emptySaleForm() {
   return {
+    customerId: null,
     customerName: 'Walk-in Customer',
     customerMobileNumber: '',
     customerGstin: '',
-    paymentMode: 0,
+    salesmanId: null,
+    paymentMode: paymentModeValue.cash,
     paidAmount: 0,
     billDiscountAmount: 0,
     selectedProductId: '',
@@ -283,7 +349,24 @@ function emptySaleForm() {
     barcodeScan: '',
     quantity: 1,
     lineDiscount: 0,
-    bankAccountId: null
+    bankAccountId: null,
+    storeCreditAmount: 0,
+    creditNoteId: null,
+    creditNoteAmount: 0,
+    advanceReceiptId: null,
+    advanceAmount: 0,
+    loyaltyPointsToRedeem: 0
+  }
+}
+
+function emptyPaymentRow(amount = 0) {
+  return {
+    paymentMode: paymentModeValue.cash,
+    amount,
+    bankAccountId: null,
+    referenceNumber: '',
+    gatewayReference: '',
+    settlementStatus: ''
   }
 }
 
@@ -295,12 +378,19 @@ async function refresh() {
   loading.value = true
   try {
     setupStatus.value = await api.get<any>('setup/status')
-    const [companyRows, storeRows, productRows, invoiceRows, bankAccountRows] = await Promise.all([
+    const selectedCompanyId = workspace.companyId.value || setupStatus.value?.companyId
+    const selectedStoreId = workspace.storeId.value || setupStatus.value?.storeId
+    const billingOptionQuery = new URLSearchParams()
+    if (selectedCompanyId) billingOptionQuery.set('companyId', selectedCompanyId)
+    if (selectedStoreId) billingOptionQuery.set('storeId', selectedStoreId)
+
+    const [companyRows, storeRows, productRows, invoiceRows, bankAccountRows, billingOptions] = await Promise.all([
       api.list<any>('companies'),
       api.list<any>('stores'),
       api.list<any>('products'),
       api.get<any[]>('billing/sales/recent?take=100'),
-      api.list<any>('bank-accounts')
+      api.list<any>('bank-accounts'),
+      api.get<any>(`billing/options?${billingOptionQuery.toString()}`)
     ])
 
     companies.value = companyRows
@@ -309,6 +399,8 @@ async function refresh() {
     productLookup.saveCache(productRows.map((product: any) => ({ productId: product.id, name: product.name, barcode: product.barcode, availableQty: product.currentStock || 0, mrp: product.mrp || 0, taxRate: product.taxRate || 0, taxType: String(product.taxType || 'GST'), unit: String(product.unit || 'Pcs'), category: product.productCategoryName || '', subCategory: product.productSubCategoryName || '' })))
     invoices.value = invoiceRows
     bankAccounts.value = bankAccountRows
+    customers.value = billingOptions?.customers || []
+    salesmen.value = billingOptions?.salesmen || []
   } catch (error) {
     feedback.failed('Billing refresh failed', error)
   } finally {
@@ -319,10 +411,146 @@ async function refresh() {
 function startCreate() {
   Object.assign(saleForm, emptySaleForm())
   saleCart.value = []
+  salePayments.value = [emptyPaymentRow(0)]
+  selectedCustomerProfile.value = null
   saleGstinValidation.value = null
   saleOpen.value = true
 }
 
+async function applySelectedCustomer() {
+  const customer = selectedCustomer.value
+  if (!customer) {
+    selectedCustomerProfile.value = null
+    saleForm.customerName = 'Walk-in Customer'
+    saleForm.customerMobileNumber = ''
+    saleForm.customerGstin = ''
+    resetCustomerAdjustments()
+    return
+  }
+
+  saleForm.customerName = customer.name || 'Walk-in Customer'
+  saleForm.customerMobileNumber = customer.mobileNumber || ''
+  saleForm.customerGstin = customer.gstin || ''
+  await loadCustomerProfile(customer.id)
+}
+
+async function loadCustomerProfile(customerId: string) {
+  if (!customerId) {
+    return
+  }
+
+  loadingCustomerProfile.value = true
+  try {
+    const query = new URLSearchParams()
+    const storeId = workspace.storeId.value || setupStatus.value?.storeId
+    if (storeId) query.set('storeId', storeId)
+    selectedCustomerProfile.value = await api.get<any>(`billing/customers/${customerId}/profile?${query.toString()}`)
+  } catch (error) {
+    selectedCustomerProfile.value = null
+    feedback.failed('Could not load customer billing profile', error)
+  } finally {
+    loadingCustomerProfile.value = false
+  }
+}
+
+function resetCustomerAdjustments() {
+  saleForm.storeCreditAmount = 0
+  saleForm.creditNoteId = null
+  saleForm.creditNoteAmount = 0
+  saleForm.advanceReceiptId = null
+  saleForm.advanceAmount = 0
+  saleForm.loyaltyPointsToRedeem = 0
+}
+
+function addPaymentRow() {
+  salePayments.value.push(emptyPaymentRow(paymentBalance.value))
+}
+
+function removePaymentRow(index: number) {
+  salePayments.value.splice(index, 1)
+  if (salePayments.value.length === 0) {
+    salePayments.value.push(emptyPaymentRow(paymentBalance.value))
+  }
+}
+
+function paymentRequiresBank(payment: any) {
+  return !adjustmentPaymentModes.includes(Number(payment.paymentMode)) && Number(payment.paymentMode) !== paymentModeValue.cash
+}
+
+function syncSingleCashPayment() {
+  if (salePayments.value.length === 1 && Number(salePayments.value[0].paymentMode) === paymentModeValue.cash) {
+    salePayments.value[0].amount = Math.max(payableTotal.value - adjustmentPaymentTotal.value, 0)
+  }
+}
+
+function buildSalePayments() {
+  const payments: any[] = salePayments.value
+    .filter((payment) => Number(payment.amount || 0) > 0)
+    .map((payment) => ({
+      paymentMode: Number(payment.paymentMode),
+      amount: Number(payment.amount || 0),
+      bankAccountId: paymentRequiresBank(payment) ? payment.bankAccountId : null,
+      referenceNumber: payment.referenceNumber || null,
+      gatewayReference: payment.gatewayReference || null,
+      settlementStatus: payment.settlementStatus || null,
+      adjustmentSourceType: null,
+      adjustmentSourceId: null
+    }))
+
+  if (storeCreditPaymentAmount.value > 0) {
+    payments.push({
+      paymentMode: paymentModeValue.creditBalance,
+      amount: storeCreditPaymentAmount.value,
+      bankAccountId: null,
+      referenceNumber: 'Customer credit balance',
+      gatewayReference: null,
+      settlementStatus: null,
+      adjustmentSourceType: 'CustomerCreditBalance',
+      adjustmentSourceId: null
+    })
+  }
+
+  if (creditNotePaymentAmount.value > 0 && saleForm.creditNoteId) {
+    payments.push({
+      paymentMode: paymentModeValue.creditNote,
+      amount: creditNotePaymentAmount.value,
+      bankAccountId: null,
+      referenceNumber: selectedCreditNote.value?.number || 'Credit note',
+      gatewayReference: null,
+      settlementStatus: null,
+      adjustmentSourceType: 'CreditNote',
+      adjustmentSourceId: saleForm.creditNoteId
+    })
+  }
+
+  if (advancePaymentAmount.value > 0 && saleForm.advanceReceiptId) {
+    payments.push({
+      paymentMode: paymentModeValue.creditBalance,
+      amount: advancePaymentAmount.value,
+      bankAccountId: null,
+      referenceNumber: selectedAdvanceReceipt.value?.number || 'Customer advance',
+      gatewayReference: null,
+      settlementStatus: null,
+      adjustmentSourceType: 'CustomerAdvanceReceipt',
+      adjustmentSourceId: saleForm.advanceReceiptId
+    })
+  }
+
+  if (loyaltyRedeemValue.value > 0) {
+    payments.push({
+      paymentMode: paymentModeValue.coupons,
+      amount: loyaltyRedeemValue.value,
+      bankAccountId: null,
+      referenceNumber: `${Number(saleForm.loyaltyPointsToRedeem || 0)} loyalty points`,
+      gatewayReference: null,
+      settlementStatus: null,
+      adjustmentSourceType: 'LoyaltyRedemption',
+      adjustmentSourceId: null
+    })
+  }
+
+  return payments
+}
 
 async function lookupSaleProduct() {
   const query = String(saleForm.barcodeScan || saleForm.productSearch || '').trim()
@@ -391,12 +619,12 @@ function addToCart() {
   saleForm.barcodeScan = ''
   saleForm.quantity = 1
   saleForm.lineDiscount = 0
-  saleForm.paidAmount = payableTotal.value
+  syncSingleCashPayment()
 }
 
 function removeCartItem(index: number) {
   saleCart.value.splice(index, 1)
-  saleForm.paidAmount = payableTotal.value
+  syncSingleCashPayment()
 }
 
 async function validateSaleGstin() {
@@ -443,8 +671,15 @@ async function submitSale() {
       throw new Error('Add at least one item to the bill.')
     }
 
-    if (requiresBankAccount.value && !saleForm.bankAccountId) {
-      throw new Error('Select bank account for non-cash payment.')
+    const payments = buildSalePayments()
+    const missingBankPayment = salePayments.value.find((payment) => Number(payment.amount || 0) > 0 && paymentRequiresBank(payment) && !payment.bankAccountId)
+    if (missingBankPayment) {
+      throw new Error('Select bank account for every non-cash payment row.')
+    }
+
+    const totalPaid = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0)
+    if (totalPaid > payableTotal.value) {
+      throw new Error('Payment total cannot be greater than payable amount.')
     }
 
     if (saleForm.customerGstin && !saleGstinValidation.value) {
@@ -455,13 +690,16 @@ async function submitSale() {
       companyId,
       storeGroupId,
       storeId,
+      customerId: saleForm.customerId || null,
+      salesmanId: saleForm.salesmanId || null,
       customerName: saleForm.customerName,
       customerMobileNumber: saleForm.customerMobileNumber,
       customerGstin: saleForm.customerGstin,
-      paymentMode: Number(saleForm.paymentMode),
-      bankAccountId: requiresBankAccount.value ? saleForm.bankAccountId : null,
-      paidAmount: Number(saleForm.paidAmount || 0),
+      paymentMode: payments.length > 1 ? paymentModeValue.mixPayments : Number(payments[0]?.paymentMode ?? paymentModeValue.cash),
+      bankAccountId: payments.find((payment) => payment.bankAccountId)?.bankAccountId || null,
+      paidAmount: totalPaid,
       billDiscountAmount: Number(saleForm.billDiscountAmount || 0),
+      payments,
       items: saleCart.value.map((item) => ({
         productId: item.productId,
         barcode: item.barcode,
@@ -769,6 +1007,24 @@ onMounted(async () => {
   await refresh()
 })
 
+watch(() => saleForm.customerId, async () => {
+  await applySelectedCustomer()
+})
+
+watch(() => saleForm.creditNoteId, () => {
+  saleForm.creditNoteAmount = selectedCreditNote.value?.availableAmount || 0
+  syncSingleCashPayment()
+})
+
+watch(() => saleForm.advanceReceiptId, () => {
+  saleForm.advanceAmount = selectedAdvanceReceipt.value?.availableAmount || 0
+  syncSingleCashPayment()
+})
+
+watch(() => [saleForm.storeCreditAmount, saleForm.creditNoteAmount, saleForm.advanceAmount, saleForm.loyaltyPointsToRedeem, saleForm.billDiscountAmount], () => {
+  syncSingleCashPayment()
+})
+
 watch(() => saleForm.paymentMode, () => {
   if (requiresBankAccount.value && !saleForm.bankAccountId) {
     saleForm.bankAccountId = bankAccounts.value[0]?.id || null
@@ -895,26 +1151,42 @@ watch(() => exchangeForm.additionalPaidAmount, () => {
         :loading="saving"
         @submit="submitSale"
       >
-        <UFormField label="Customer">
-          <UInput v-model="saleForm.customerName" />
-        </UFormField>
+        <USeparator label="Customer & salesman" />
         <div class="form-two-column">
+          <UFormField label="Existing customer">
+            <USelect v-model="saleForm.customerId" :items="customerOptions" placeholder="Walk-in / search customer" :loading="loadingCustomerProfile" />
+          </UFormField>
+          <UFormField label="Salesman">
+            <USelect v-model="saleForm.salesmanId" :items="salesmanOptions" placeholder="Counter sale" />
+          </UFormField>
+        </div>
+        <div class="form-two-column">
+          <UFormField label="Customer name">
+            <UInput v-model="saleForm.customerName" />
+          </UFormField>
           <UFormField label="Mobile">
             <UInput v-model="saleForm.customerMobileNumber" />
           </UFormField>
-          <UFormField label="Customer GSTIN">
-            <div class="inline-action-row">
-              <UInput v-model="saleForm.customerGstin" class="flex-1" placeholder="22AAAAA0000A1Z5" />
-              <UButton color="neutral" variant="subtle" icon="i-lucide-search-check" label="Check" type="button" :loading="saleGstinChecking" @click="validateSaleGstin" />
-            </div>
-          </UFormField>
         </div>
+        <UFormField label="Customer GSTIN">
+          <div class="inline-action-row">
+            <UInput v-model="saleForm.customerGstin" class="flex-1" placeholder="22AAAAA0000A1Z5" />
+            <UButton color="neutral" variant="subtle" icon="i-lucide-search-check" label="Check" type="button" :loading="saleGstinChecking" @click="validateSaleGstin" />
+          </div>
+        </UFormField>
         <UAlert
           v-if="saleGstinValidation?.alerts?.length"
           color="warning"
           variant="subtle"
           title="Customer GSTIN alert"
           :description="saleGstinValidation.alerts.join(' ')"
+        />
+        <UAlert
+          v-if="selectedCustomerProfile?.customer"
+          color="primary"
+          variant="subtle"
+          title="Customer balance"
+          :description="`Credit ${money(Number(selectedCustomerProfile.customer.creditBalance || 0))} | Loyalty ${Number(selectedCustomerProfile.customer.loyaltyPoints || 0)} pts | Bills ${selectedCustomerProfile.customer.billCount || 0}`"
         />
 
         <USeparator label="Item" />
@@ -978,24 +1250,74 @@ watch(() => exchangeForm.additionalPaidAmount, () => {
 
         <USeparator label="Payment" />
 
-        <UFormField label="Payment">
-          <USelect v-model="saleForm.paymentMode" :items="paymentModeOptions" />
+        <UFormField label="Bill discount">
+          <UInput v-model="saleForm.billDiscountAmount" min="0" step="0.01" type="number" @blur="syncSingleCashPayment" />
         </UFormField>
-        <UFormField v-if="requiresBankAccount" label="Bank account" required>
-          <USelect v-model="saleForm.bankAccountId" :items="bankAccountOptions" placeholder="Select bank account" />
-        </UFormField>
+
+        <USeparator label="Customer adjustments" />
         <div class="form-two-column">
-          <UFormField label="Bill discount">
-            <UInput v-model="saleForm.billDiscountAmount" min="0" step="0.01" type="number" />
+          <UFormField label="Use store credit balance">
+            <UInput v-model="saleForm.storeCreditAmount" min="0" :max="selectedCustomerProfile?.customer?.creditBalance || 0" step="0.01" type="number" @blur="syncSingleCashPayment" />
           </UFormField>
-          <UFormField label="Paid">
-            <UInput v-model="saleForm.paidAmount" min="0" step="0.01" type="number" />
+          <UFormField label="Redeem loyalty points">
+            <UInput v-model="saleForm.loyaltyPointsToRedeem" min="0" :max="selectedCustomerProfile?.customer?.loyaltyPoints || 0" step="0.01" type="number" @blur="syncSingleCashPayment" />
           </UFormField>
         </div>
+        <div class="form-two-column">
+          <UFormField label="Credit note">
+            <USelect v-model="saleForm.creditNoteId" :items="creditNoteOptions" placeholder="Select credit note" />
+          </UFormField>
+          <UFormField label="Credit note amount">
+            <UInput v-model="saleForm.creditNoteAmount" min="0" :max="selectedCreditNote?.availableAmount || 0" step="0.01" type="number" @blur="syncSingleCashPayment" />
+          </UFormField>
+        </div>
+        <div class="form-two-column">
+          <UFormField label="Advance receipt">
+            <USelect v-model="saleForm.advanceReceiptId" :items="advanceReceiptOptions" placeholder="Select advance receipt" />
+          </UFormField>
+          <UFormField label="Advance amount">
+            <UInput v-model="saleForm.advanceAmount" min="0" :max="selectedAdvanceReceipt?.availableAmount || 0" step="0.01" type="number" @blur="syncSingleCashPayment" />
+          </UFormField>
+        </div>
+
+        <USeparator label="Split payment rows" />
+        <div class="planner-table-wrap">
+          <table class="planner-table">
+            <thead>
+              <tr>
+                <th>Mode</th>
+                <th>Amount</th>
+                <th>Bank / ref</th>
+                <th>Gateway / settlement</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(payment, index) in salePayments" :key="`payment-${index}`">
+                <td><USelect v-model="payment.paymentMode" :items="paymentModeOptions" /></td>
+                <td><UInput v-model="payment.amount" min="0" step="0.01" type="number" /></td>
+                <td>
+                  <USelect v-if="paymentRequiresBank(payment)" v-model="payment.bankAccountId" :items="bankAccountOptions" placeholder="Bank account" />
+                  <UInput v-model="payment.referenceNumber" placeholder="Ref / UTR / cheque" />
+                </td>
+                <td>
+                  <UInput v-model="payment.gatewayReference" placeholder="Gateway reference" />
+                  <UInput v-model="payment.settlementStatus" placeholder="Settlement status" />
+                </td>
+                <td><UButton color="error" variant="ghost" icon="i-lucide-x" size="xs" type="button" @click="removePaymentRow(index)" /></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <UButton color="neutral" variant="subtle" icon="i-lucide-plus" label="Add Payment Row" type="button" @click="addPaymentRow" />
+
         <div class="payroll-summary">
           <span>Cart total</span><strong>{{ money(cartTotal) }}</strong>
           <span>Discount</span><strong>{{ money(Number(saleForm.billDiscountAmount || 0)) }}</strong>
           <span>Payable</span><strong>{{ money(payableTotal) }}</strong>
+          <span>Customer adjustments</span><strong>{{ money(adjustmentPaymentTotal) }}</strong>
+          <span>Manual payments</span><strong>{{ money(manualPaymentTotal) }}</strong>
+          <span>Balance / credit sale</span><strong>{{ money(paymentBalance) }}</strong>
         </div>
       </UiFormSlideover>
 
@@ -1060,6 +1382,20 @@ watch(() => exchangeForm.additionalPaidAmount, () => {
               <span>Bill amount</span><strong>{{ money(Number(selectedReceipt.billAmount || 0)) }}</strong>
               <span>Paid</span><strong>{{ money(Number(selectedReceipt.paidAmount || 0)) }}</strong>
               <span>Balance</span><strong>{{ money(Number(selectedReceipt.balanceAmount || 0)) }}</strong>
+            </div>
+
+            <div v-if="selectedReceipt.payments?.length" class="planner-table-wrap no-print">
+              <table class="planner-table">
+                <thead><tr><th>Payment</th><th>Amount</th><th>Reference</th><th>Source</th></tr></thead>
+                <tbody>
+                  <tr v-for="payment in selectedReceipt.payments" :key="`${payment.paymentMode}-${payment.amount}-${payment.referenceNumber}`">
+                    <td>{{ payment.paymentMode }}</td>
+                    <td>{{ money(Number(payment.amount || 0)) }}</td>
+                    <td>{{ payment.referenceNumber || payment.gatewayReference || '-' }}</td>
+                    <td>{{ payment.adjustmentSourceType || payment.settlementStatus || '-' }}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
             <div v-if="invoiceSignatures" class="invoice-signatures">
