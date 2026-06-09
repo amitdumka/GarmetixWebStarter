@@ -11,6 +11,7 @@ using Garmetix.Api.Automation;
 using Garmetix.Api.Backup;
 using Garmetix.Api.Commercial;
 using Garmetix.Api.Billing;
+using Garmetix.Api.Database;
 using Garmetix.Api.Hr;
 using Garmetix.Api.GstReturns;
 using Garmetix.Api.Gstin;
@@ -106,7 +107,9 @@ if (app.Configuration.GetValue<bool>("Database:AutoMigrate"))
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<GarmetixDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DatabaseStartup");
     db.Database.Migrate();
+    await DatabaseSchemaRepairService.RepairKnownSchemaDriftAsync(db, logger);
 }
 
 app.UseCors("frontend");

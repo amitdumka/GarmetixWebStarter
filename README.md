@@ -303,3 +303,7 @@ Run migrations after this update:
 ```bash
 dotnet ef database update --project backend/Garmetix.Infrastructure --startup-project backend/Garmetix.Api
 ```
+
+### Runtime schema drift repair
+
+If an older PostgreSQL Docker volume is missing newer Customer/Vendor GSTIN columns, the API now runs a safe idempotent repair after auto-migration. See `backend/Database-Schema-Drift-Fix-Notes.md`.
