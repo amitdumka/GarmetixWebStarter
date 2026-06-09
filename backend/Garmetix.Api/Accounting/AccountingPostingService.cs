@@ -947,6 +947,62 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
     }
 
 
+    public async Task PostPurchaseReturnAsync(
+        PurchaseInvoice invoice,
+        Vendor vendor,
+        Guid debitNoteId,
+        string debitNoteNumber,
+        Guid storeGroupId,
+        Guid storeId,
+        decimal taxableAmount,
+        decimal taxAmount,
+        decimal returnAmount,
+        string? reason,
+        CancellationToken cancellationToken)
+    {
+        if (returnAmount <= 0)
+        {
+            throw new ArgumentException("Purchase return amount must be greater than zero.");
+        }
+
+        var party = await EnsureVendorPartyAsync(vendor, cancellationToken);
+        var vendorLedgerId = party.LedgerId;
+        var purchaseLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Purchases", "Purchase Accounts", LedgerCategory.PurchaseAccounts, LedgerType.Purcahase, cancellationToken);
+        var inputGstLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Input GST", "Duties & Taxes", LedgerCategory.DutiesAndTaxes, LedgerType.DutyAndTax, cancellationToken);
+        var narration = string.IsNullOrWhiteSpace(reason)
+            ? $"Purchase return {invoice.InvoiceNumber}"
+            : reason.Trim();
+
+        var lines = new List<JournalLineDraft>
+        {
+            new(vendorLedgerId, party.Id, returnAmount, 0, $"Debit note {debitNoteNumber} against {invoice.InvoiceNumber}")
+        };
+
+        if (taxableAmount > 0)
+        {
+            lines.Add(new(purchaseLedger.Id, null, 0, taxableAmount, $"Purchase return taxable {invoice.InvoiceNumber}"));
+        }
+
+        if (taxAmount > 0)
+        {
+            lines.Add(new(inputGstLedger.Id, null, 0, taxAmount, $"Purchase return input GST reversal {invoice.InvoiceNumber}"));
+        }
+
+        await RepostSourceJournalAsync(
+            "PurchaseReturn",
+            debitNoteId,
+            $"PR-{debitNoteNumber}",
+            DateTime.Now,
+            invoice.InvoiceNumber,
+            narration,
+            invoice.CompanyId,
+            storeGroupId,
+            storeId,
+            lines,
+            cancellationToken);
+    }
+
+
 
     public async Task PostVendorPaymentVoucherAsync(
         Voucher voucher,

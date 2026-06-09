@@ -474,7 +474,34 @@ public static class CommercialEndpoints
         return note;
     }
 
-    internal static async Task<CommercialNote> CreateDebitNoteFromPurchaseReturnAsync(PurchaseInvoice purchaseInvoice, Vendor vendor, string? reason, Guid storeGroupId, Guid storeId, GarmetixDbContext db, CancellationToken cancellationToken)
+    internal static Task<CommercialNote> CreateDebitNoteFromPurchaseReturnAsync(PurchaseInvoice purchaseInvoice, Vendor vendor, string? reason, Guid storeGroupId, Guid storeId, GarmetixDbContext db, CancellationToken cancellationToken)
+    {
+        return CreateDebitNoteFromPurchaseReturnAsync(
+            purchaseInvoice,
+            vendor,
+            reason,
+            storeGroupId,
+            storeId,
+            purchaseInvoice.NetAmount,
+            purchaseInvoice.TaxAmount,
+            purchaseInvoice.BillAmount,
+            null,
+            db,
+            cancellationToken);
+    }
+
+    internal static async Task<CommercialNote> CreateDebitNoteFromPurchaseReturnAsync(
+        PurchaseInvoice purchaseInvoice,
+        Vendor vendor,
+        string? reason,
+        Guid storeGroupId,
+        Guid storeId,
+        decimal taxableAmount,
+        decimal taxAmount,
+        decimal amount,
+        string? itemSummary,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
     {
         var note = new CommercialNote
         {
@@ -489,10 +516,11 @@ public static class CommercialEndpoints
             SourceId = purchaseInvoice.Id,
             SourceNumber = purchaseInvoice.InvoiceNumber,
             Reason = string.IsNullOrWhiteSpace(reason) ? "Purchase return debit note" : reason,
-            TaxableAmount = purchaseInvoice.NetAmount,
-            TaxAmount = purchaseInvoice.TaxAmount,
-            Amount = purchaseInvoice.BillAmount,
+            TaxableAmount = Math.Round(Math.Max(taxableAmount, 0), 2),
+            TaxAmount = Math.Round(Math.Max(taxAmount, 0), 2),
+            Amount = Math.Round(Math.Max(amount, 0), 2),
             IsAdjusted = false,
+            Remarks = string.IsNullOrWhiteSpace(itemSummary) ? null : itemSummary,
             CompanyId = purchaseInvoice.CompanyId,
             StoreGroupId = storeGroupId,
             StoreId = storeId

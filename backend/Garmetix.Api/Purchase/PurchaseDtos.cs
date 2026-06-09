@@ -121,6 +121,62 @@ public sealed record CancelPurchaseInvoiceResponse(
     decimal ReversedQuantity,
     decimal ReversedAmount);
 
+
+public sealed record ReturnablePurchaseInvoiceDto(
+    Guid Id,
+    string InvoiceNumber,
+    string InwardNumber,
+    DateTime OnDate,
+    DateTime InwardDate,
+    Guid VendorId,
+    string VendorName,
+    string? VendorGstin,
+    decimal BillAmount,
+    decimal PaidAmount,
+    decimal BalanceAmount,
+    string InvoiceStatus,
+    IReadOnlyList<ReturnablePurchaseItemDto> Items);
+
+public sealed record ReturnablePurchaseItemDto(
+    Guid ItemId,
+    Guid ProductId,
+    string ProductName,
+    string Barcode,
+    string? HsnCode,
+    string Unit,
+    decimal PurchasedQuantity,
+    decimal AlreadyReturnedQuantity,
+    decimal ReturnableQuantity,
+    decimal UnitAmount,
+    decimal UnitTaxableAmount,
+    decimal UnitTaxAmount,
+    decimal UnitDiscountAmount,
+    decimal Mrp,
+    decimal TaxPercentage,
+    decimal? CgstAmount,
+    decimal? SgstAmount,
+    decimal? IgstAmount);
+
+public sealed record PartialPurchaseReturnRequest(
+    IReadOnlyList<PartialPurchaseReturnItemRequest> Items,
+    string? Reason,
+    DateTime? ReturnDate = null);
+
+public sealed record PartialPurchaseReturnItemRequest(
+    Guid ItemId,
+    decimal Quantity);
+
+public sealed record PartialPurchaseReturnResponse(
+    Guid PurchaseInvoiceId,
+    string InvoiceNumber,
+    Guid DebitNoteId,
+    string DebitNoteNumber,
+    decimal ReturnedQuantity,
+    decimal TaxableAmount,
+    decimal TaxAmount,
+    decimal ReturnAmount,
+    string InvoiceStatus);
+
 public sealed record PurchaseLookupOptionsDto(
     IReadOnlyList<PurchaseLookupOptionDto> Categories,
     IReadOnlyList<PurchaseSubCategoryOptionDto> SubCategories,
