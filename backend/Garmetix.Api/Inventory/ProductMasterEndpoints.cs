@@ -251,11 +251,11 @@ public static class ProductMasterEndpoints
         stock ??= new Stock
         {
             ProductId = product.Id,
+            Barcode = barcode,
             PurchaseQty = request.OpeningQuantity,
             CompanyId = scope.Value.CompanyId,
             StoreGroupId = scope.Value.StoreGroupId,
-            StoreId = scope.Value.StoreId,
-            Barcode = barcode
+            StoreId = scope.Value.StoreId
         };
 
         stock.Barcode = barcode;

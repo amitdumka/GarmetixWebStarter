@@ -22,6 +22,7 @@
  */
 
 using Garmetix.Core.Enums;
+using Enums = Garmetix.Core.Enums;
 using Garmetix.Core.Models.Base;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -108,7 +109,7 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Unit")] public Unit Unit { get; set; }
         [Display(Name = "Tax Type")] public TaxType TaxType { get; set; }
         [Display(Name = "Product Type")] public ProductType ProductType { get; set; } = ProductType.Fabric;
-        [Display(Name = "Product Group")] public ProductGroup ProductGroup { get; set; } = ProductGroup.Shirting;
+        [Display(Name = "Product Group")] public ProductGroup ProductGroup { get; set; } = Enums.ProductGroup.Shirting;
         [Display(Name = "Product Category", AutoGenerateField = false)] public Guid ProductCategoryId { get; set; }
         [Display(Name = "Product Sub Category", AutoGenerateField = false)] public Guid ProductSubCategoryId { get; set; }
         [Display(Name = "Product Category", AutoGenerateField = false)] public virtual ProductCategory? ProductCategory { get; set; }
@@ -147,7 +148,7 @@ namespace Garmetix.Core.Models.Inventory
     public class ProductCategory : CompanyBase
     {
         [Display(Name = "Category Name")] public string Name { get; set; } = string.Empty;
-        public ProductGroup? ProductGroup { get; set; } =Enums.ProductGroup.Shirting;
+        public ProductGroup? ProductGroup { get; set; } = Enums.ProductGroup.Shirting;
         public bool IsActive { get; set; } = true;
 
         [NotMapped]
