@@ -90,6 +90,13 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] View changed fields. Audit page now opens entity field details and timestamp/change summary from backend audit detail endpoint.
 - [x] Export audit report. Audit page now exports filtered audit rows to CSV.
 
+## Validation Automation
+
+- [x] Add repeatable Windows/Linux validation scripts for backend publish, Nuxt build, Docker compose build/up, API health, web health, and log capture.
+- [x] Add manual database repair helper scripts for Admin JWT based repair endpoint.
+- [x] Add `Makefile` shortcuts for Docker build/log/smoke tasks.
+- [x] Add validation output folder guidance and documentation.
+
 ## Testing / Deployment Hardening
 
 - [ ] Run full backend build on developer machine.

@@ -1,0 +1,6 @@
+# Anonymous/basic smoke endpoints
+GET http://localhost:5080/api/health
+GET http://localhost:5080/api/auth/bootstrap-status
+GET http://localhost:5080/api/setup/status
+GET http://localhost:5080/api/gst-returns/schema-review
+GET http://localhost:3000

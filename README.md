@@ -325,3 +325,30 @@ The GST Returns module is now connected with accounting service posting while ke
 - Project tracking now uses `CodexTODO.md` for requested features and `CodexISSUES.md` for bugs/errors.
 
 See `backend/GST-Accounting-Integration-Notes.md`.
+
+
+## Developer validation scripts
+
+Use these after extracting a new ZIP to check backend, frontend, Docker, API health, web health, and logs.
+
+Windows PowerShell:
+
+```powershell
+.\scripts\validate-local.ps1 -NoCacheApi
+```
+
+Linux / Mac:
+
+```bash
+./scripts/validate-local.sh --no-cache-api
+```
+
+For Docker-only troubleshooting:
+
+```bash
+docker compose down
+docker compose build --no-cache api
+docker compose up
+```
+
+Validation summaries and logs are saved in `validation-results/`. See `backend/Developer-Validation-Automation-Notes.md`.
