@@ -33,13 +33,15 @@ public static class PurchaseEndpoints
     private static async Task<PurchaseLookupOptionsDto> GetLookupOptionsAsync(HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
     {
         var categories = await WorkspaceScope.ApplyTo(db.ProductCategories.AsNoTracking(), context)
-            .OrderBy(item => item.Name)
+            .Where(item => item.IsActive)
+            .OrderBy(item => item.ProductGroup)
+            .ThenBy(item => item.Name)
             .Select(item => new PurchaseLookupOptionDto(item.Id, item.Name))
             .ToListAsync(cancellationToken);
 
         var subCategories = await WorkspaceScope.ApplyTo(db.ProductSubCategories.AsNoTracking(), context)
             .OrderBy(item => item.Name)
-            .Select(item => new PurchaseLookupOptionDto(item.Id, item.Name))
+            .Select(item => new PurchaseSubCategoryOptionDto(item.Id, item.Name, item.CategoryId))
             .ToListAsync(cancellationToken);
 
         var taxes = await WorkspaceScope.ApplyTo(db.Taxes.AsNoTracking(), context)
@@ -48,7 +50,27 @@ public static class PurchaseEndpoints
             .Select(item => new PurchaseTaxOptionDto(item.Id, string.IsNullOrWhiteSpace(item.Name) ? $"GST {item.CompositeRate:N2}%" : item.Name, item.CompositeRate, item.TaxType.ToString()))
             .ToListAsync(cancellationToken);
 
-        return new PurchaseLookupOptionsDto(categories, subCategories, taxes);
+        var vendors = await WorkspaceScope.ApplyTo(db.Vendors.AsNoTracking(), context)
+            .Where(item => item.Active)
+            .OrderBy(item => item.Name)
+            .Select(item => new PurchaseVendorOptionDto(
+                item.Id,
+                item.Name,
+                item.MobileNumber,
+                item.GSTIN,
+                item.BillAmount,
+                item.Paid,
+                item.BillAmount - item.Paid))
+            .ToListAsync(cancellationToken);
+
+        return new PurchaseLookupOptionsDto(
+            categories,
+            subCategories,
+            taxes,
+            vendors,
+            EnumOptions<Unit>(),
+            EnumOptions<ProductType>(),
+            EnumOptions<ProductGroup>());
     }
 
     private static async Task<IReadOnlyList<RecentPurchaseInvoiceDto>> GetRecentPurchaseInvoicesAsync(HttpContext context, GarmetixDbContext db, int take = 50, CancellationToken cancellationToken = default)
@@ -72,6 +94,9 @@ public static class PurchaseEndpoints
                 invoice.InwardNumber,
                 invoice.OnDate,
                 invoice.InwardDate,
+                invoice.SupplierInvoiceDate,
+                invoice.DueDate,
+                invoice.VendorId,
                 invoice.VendorName ?? "Supplier",
                 invoice.VendorGSTIN,
                 invoice.BillAmount,
@@ -160,15 +185,36 @@ public static class PurchaseEndpoints
             .Join(db.Products.AsNoTracking(), item => item.ProductId, product => product.Id, (item, product) => new PurchaseReceiptItemDto(
                 item.ProductName ?? product.Name,
                 item.Barcode,
+                string.IsNullOrWhiteSpace(item.HSNCode) ? product.HSNCode : item.HSNCode,
+                item.Unit.ToString(),
                 item.BilledQuantity,
                 item.MRP,
                 item.DiscountAmount,
                 item.TaxPercentage,
                 item.TaxAmount,
+                item.CGSTAmount,
+                item.SGSTAmount,
+                item.IGSTAmount,
                 item.Amount))
             .ToListAsync(cancellationToken);
 
-        var paidAmount = await GetPaidAmountAsync(invoice.Id, db, cancellationToken);
+        var payments = await db.PurchasePayments.AsNoTracking()
+            .Where(payment => payment.PurchaseInvoiceId == invoice.Id)
+            .OrderBy(payment => payment.OnDate)
+            .Select(payment => new PurchasePaymentDto(
+                payment.Id,
+                payment.OnDate,
+                payment.Amount,
+                payment.PaymentMode.ToString(),
+                payment.ReferenceNumber,
+                payment.VoucherId))
+            .ToListAsync(cancellationToken);
+
+        var paidAmount = payments.Sum(payment => payment.Amount);
+        if (paidAmount <= 0)
+        {
+            paidAmount = await GetPaidAmountAsync(invoice.Id, db, cancellationToken);
+        }
         if (invoice.InvoiceStatus == InvoiceStatus.Cancelled)
         {
             paidAmount = 0;
@@ -180,11 +226,14 @@ public static class PurchaseEndpoints
             invoice.InwardNumber,
             invoice.OnDate,
             invoice.InwardDate,
+            invoice.SupplierInvoiceDate,
+            invoice.DueDate,
             company?.Name ?? "Garmetix",
             BuildCompanyAddress(company),
             company?.ContactNumber ?? string.Empty,
             company?.GSTIN ?? string.Empty,
             storeName,
+            invoice.VendorId,
             invoice.VendorName ?? "Supplier",
             invoice.VendorGSTIN,
             invoice.MRP,
@@ -198,7 +247,8 @@ public static class PurchaseEndpoints
             Math.Max(invoice.BillAmount - paidAmount, 0),
             invoice.InvoiceStatus.ToString(),
             invoice.PaymentMode?.ToString() ?? "-",
-            items);
+            items,
+            payments);
     }
 
     private static async Task<IResult> CreateInwardAsync(
@@ -377,6 +427,14 @@ public static class PurchaseEndpoints
                 product.HSNCode = hsnCode;
             }
             product.Unit = unit;
+            if (requestItem.ProductType.HasValue)
+            {
+                product.ProductType = requestItem.ProductType.Value;
+            }
+            if (requestItem.ProductGroup.HasValue)
+            {
+                product.ProductGroup = requestItem.ProductGroup.Value;
+            }
 
             grossMrp += lineMrp;
             discountAmount += lineDiscount;
@@ -723,7 +781,15 @@ public static class PurchaseEndpoints
         var name = request.VendorName.Trim();
         var gstin = GstinLookupService.NormalizeGstin(request.VendorGstin);
 
-        var vendor = await db.Vendors.FirstOrDefaultAsync(
+        Vendor? vendor = null;
+        if (request.VendorId.HasValue && request.VendorId.Value != Guid.Empty)
+        {
+            vendor = await db.Vendors.FirstOrDefaultAsync(
+                item => item.Id == request.VendorId.Value && item.CompanyId == request.CompanyId,
+                cancellationToken);
+        }
+
+        vendor ??= await db.Vendors.FirstOrDefaultAsync(
             item => item.CompanyId == request.CompanyId &&
                 ((!string.IsNullOrWhiteSpace(gstin) && item.GSTIN == gstin) || item.MobileNumber == mobile || item.Name == name),
             cancellationToken);
@@ -819,7 +885,8 @@ public static class PurchaseEndpoints
             TaxType = tax.TaxType,
             HSNCode = string.IsNullOrWhiteSpace(requestItem.HsnCode) ? null : requestItem.HsnCode.Trim(),
             Unit = requestItem.ProductUnit ?? Unit.Pcs,
-            ProductType = ProductType.Apparels,
+            ProductType = requestItem.ProductType ?? ProductType.Apparels,
+            ProductGroup = requestItem.ProductGroup ?? ProductGroup.Shirting,
             ProductCategoryId = categoryId,
             ProductSubCategoryId = subCategoryId,
             CompanyId = request.CompanyId,
@@ -927,6 +994,13 @@ public static class PurchaseEndpoints
             _ => (0, 0, 0)
         };
     }
+
+    private static IReadOnlyList<PurchaseEnumOptionDto> EnumOptions<TEnum>() where TEnum : struct, Enum =>
+        Enum.GetValues<TEnum>()
+            .Select(value => new PurchaseEnumOptionDto(Convert.ToInt32(value), value.ToString()))
+            .GroupBy(option => option.Value)
+            .Select(group => group.First())
+            .ToList();
 
     private static string NormalizePdfFormat(string? value) => value?.Trim().ToLowerInvariant() switch
     {

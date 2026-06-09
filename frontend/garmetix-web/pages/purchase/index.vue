@@ -82,8 +82,16 @@ const purchaseProductSuggestions = computed(() => purchaseProductSearchOptions.v
 
 const selectedPurchaseProduct = computed(() => products.value.find((item) => item.id === purchaseForm.selectedProductId))
 const categoryOptions = computed(() => purchaseLookup.value.categories?.map((item: any) => ({ value: item.id, label: item.name })) || [])
-const subCategoryOptions = computed(() => purchaseLookup.value.subCategories?.map((item: any) => ({ value: item.id, label: item.name })) || [])
+const subCategoryOptions = computed(() => purchaseLookup.value.subCategories?.filter((item: any) => !purchaseForm.productCategoryId || item.categoryId === purchaseForm.productCategoryId)?.map((item: any) => ({ value: item.id, label: item.name })) || [])
 const taxOptions = computed(() => purchaseLookup.value.taxes?.map((item: any) => ({ value: item.id, label: `${item.name || 'GST'} - ${Number(item.rate || 0).toFixed(2)}%` })) || [])
+const vendorOptions = computed(() => [
+  { value: '', label: 'New supplier / manual entry' },
+  ...(purchaseLookup.value.vendors?.map((vendor: any) => ({ value: vendor.id, label: `${vendor.name || 'Supplier'}${vendor.gstin ? ` | ${vendor.gstin}` : ''}${Number(vendor.balanceAmount || 0) > 0 ? ` | Due ${money(Number(vendor.balanceAmount || 0))}` : ''}` })) || [])
+])
+const unitOptions = computed(() => purchaseLookup.value.units?.map((item: any) => ({ value: item.value, label: item.label })) || [])
+const productTypeOptions = computed(() => purchaseLookup.value.productTypes?.map((item: any) => ({ value: item.value, label: item.label })) || [])
+const productGroupOptions = computed(() => purchaseLookup.value.productGroups?.map((item: any) => ({ value: item.value, label: item.label })) || [])
+const selectedVendor = computed(() => purchaseLookup.value.vendors?.find((vendor: any) => vendor.id === purchaseForm.vendorId) || null)
 const requiresBankAccount = computed(() => Number(purchaseForm.paidAmount || 0) > 0 && Number(purchaseForm.paymentMode) !== 0)
 const paymentVoucherRequiresBank = computed(() => Number(paymentVoucherForm.amount || 0) > 0 && Number(paymentVoucherForm.paymentMode) !== 0)
 
@@ -244,11 +252,14 @@ function emptyPaymentVoucherForm() {
 
 function emptyPurchaseForm() {
   return {
+    vendorId: '',
     vendorName: 'Default Supplier',
     vendorMobileNumber: '',
     vendorGstin: '',
     invoiceNumber: '',
     inwardNumber: '',
+    supplierInvoiceDate: todayInputDate(),
+    dueDate: todayInputDate(45),
     paymentMode: 0,
     paidAmount: 0,
     frightAmount: 0,
@@ -256,6 +267,10 @@ function emptyPurchaseForm() {
     productSearch: '',
     productName: '',
     barcode: '',
+    hsnCode: '',
+    productUnit: 2,
+    productType: 0,
+    productGroup: 0,
     quantity: 1,
     costPrice: 0,
     mrp: 0,
@@ -265,6 +280,12 @@ function emptyPurchaseForm() {
     productSubCategoryId: '',
     bankAccountId: null
   }
+}
+
+function todayInputDate(offsetDays = 0) {
+  const date = new Date()
+  date.setDate(date.getDate() + offsetDays)
+  return date.toISOString().slice(0, 10)
 }
 
 async function refresh() {
@@ -287,7 +308,7 @@ async function refresh() {
     companies.value = companyRows
     stores.value = storeRows
     products.value = productRows
-    productLookup.saveCache(productRows.map((product: any) => ({ productId: product.id, name: product.name, barcode: product.barcode, availableQty: product.currentStock || 0, mrp: product.mrp || 0, taxRate: product.taxRate || 0, taxType: String(product.taxType || 'GST'), unit: String(product.unit || 'Pcs'), category: product.productCategoryName || '', subCategory: product.productSubCategoryName || '' })))
+    productLookup.saveCache(productRows.map((product: any) => ({ productId: product.id, name: product.name, barcode: product.barcode, hsnCode: product.hsnCode || product.HSNCode || '', availableQty: product.currentStock || 0, mrp: product.mrp || 0, taxRate: product.taxRate || 0, taxType: String(product.taxType || 'GST'), unit: String(product.unit || 'Pcs'), category: product.productCategoryName || product.categoryName || '', subCategory: product.productSubCategoryName || product.subCategoryName || '', taxId: product.taxId, productCategoryId: product.productCategoryId, productSubCategoryId: product.productSubCategoryId })))
     purchaseInvoices.value = purchaseRows
     bankAccounts.value = bankAccountRows
     purchaseLookup.value = lookupRows
@@ -303,6 +324,30 @@ function startCreate() {
   purchaseCart.value = []
   vendorGstinValidation.value = null
   formOpen.value = true
+}
+
+function applySelectedVendor() {
+  const vendor = selectedVendor.value
+  vendorGstinValidation.value = null
+  if (!vendor) {
+    return
+  }
+
+  purchaseForm.vendorName = vendor.name || purchaseForm.vendorName
+  purchaseForm.vendorMobileNumber = vendor.mobileNumber || ''
+  purchaseForm.vendorGstin = vendor.gstin || ''
+}
+
+function unitValue(unit: any, fallback = 2) {
+  if (typeof unit === 'number') return unit
+  const numeric = Number(unit)
+  if (!Number.isNaN(numeric) && String(unit).trim() !== '') return numeric
+  const match = unitOptions.value.find((option: any) => String(option.label).toLowerCase() === String(unit || '').toLowerCase())
+  return match?.value ?? fallback
+}
+
+function unitLabel(value: any) {
+  return unitOptions.value.find((option: any) => option.value === value)?.label || value || '-'
 }
 
 
@@ -338,7 +383,11 @@ function applyLookupProductToPurchase(item: any) {
       barcode: item.barcode,
       mrp: item.mrp,
       taxRate: item.taxRate,
+      hsnCode: item.hsnCode,
+      taxId: item.taxId,
       unit: item.unit,
+      productCategoryId: item.productCategoryId,
+      productSubCategoryId: item.productSubCategoryId,
       productCategoryName: item.category,
       productSubCategoryName: item.subCategory
     })
@@ -349,6 +398,8 @@ function applyLookupProductToPurchase(item: any) {
   purchaseForm.productName = item.name
   purchaseForm.barcode = item.barcode
   purchaseForm.mrp = Number(item.mrp || 0)
+  purchaseForm.hsnCode = item.hsnCode || purchaseForm.hsnCode
+  purchaseForm.productUnit = unitValue(item.unit, purchaseForm.productUnit)
   purchaseForm.taxId = item.taxId || purchaseForm.taxId
   purchaseForm.productCategoryId = item.productCategoryId || purchaseForm.productCategoryId
   purchaseForm.productSubCategoryId = item.productSubCategoryId || purchaseForm.productSubCategoryId
@@ -369,6 +420,10 @@ function addPurchaseItem() {
     productId: selected?.id || null,
     productName,
     barcode,
+    hsnCode: purchaseForm.hsnCode || '',
+    productUnit: Number(purchaseForm.productUnit ?? 2),
+    productType: Number(purchaseForm.productType ?? 0),
+    productGroup: Number(purchaseForm.productGroup ?? 0),
     quantity: Number(purchaseForm.quantity || 0),
     costPrice: Number(purchaseForm.costPrice || 0),
     mrp: Number(purchaseForm.mrp || selected?.mrp || 0),
@@ -382,6 +437,10 @@ function addPurchaseItem() {
   purchaseForm.productSearch = ''
   purchaseForm.productName = ''
   purchaseForm.barcode = ''
+  purchaseForm.hsnCode = ''
+  purchaseForm.productUnit = 2
+  purchaseForm.productType = 0
+  purchaseForm.productGroup = 0
   purchaseForm.quantity = 1
   purchaseForm.costPrice = 0
   purchaseForm.mrp = 0
@@ -453,11 +512,14 @@ async function submitPurchase() {
       companyId,
       storeGroupId,
       storeId,
+      vendorId: purchaseForm.vendorId || null,
       vendorName: purchaseForm.vendorName,
       vendorMobileNumber: purchaseForm.vendorMobileNumber,
       vendorGstin: purchaseForm.vendorGstin,
       invoiceNumber: purchaseForm.invoiceNumber,
       inwardNumber: purchaseForm.inwardNumber,
+      supplierInvoiceDate: purchaseForm.supplierInvoiceDate || null,
+      dueDate: purchaseForm.dueDate || null,
       paymentMode: Number(purchaseForm.paymentMode),
       bankAccountId: requiresBankAccount.value ? purchaseForm.bankAccountId : null,
       paidAmount: Number(purchaseForm.paidAmount || 0),
@@ -472,7 +534,11 @@ async function submitPurchase() {
         discountAmount: item.discountAmount,
         taxId: item.taxId,
         productCategoryId: item.productCategoryId,
-        productSubCategoryId: item.productSubCategoryId
+        productSubCategoryId: item.productSubCategoryId,
+        hsnCode: item.hsnCode,
+        productUnit: item.productUnit,
+        productType: item.productType,
+        productGroup: item.productGroup
       }))
     })
 
@@ -673,6 +739,14 @@ watch(() => paymentVoucherForm.amount, () => {
     paymentVoucherForm.bankAccountId = bankAccounts.value[0]?.id || null
   }
 })
+
+watch(() => purchaseForm.vendorId, () => applySelectedVendor())
+
+watch(() => purchaseForm.productCategoryId, () => {
+  if (purchaseForm.productSubCategoryId && !purchaseLookup.value.subCategories?.some((item: any) => item.id === purchaseForm.productSubCategoryId && (!item.categoryId || item.categoryId === purchaseForm.productCategoryId))) {
+    purchaseForm.productSubCategoryId = ''
+  }
+})
 </script>
 
 <template>
@@ -764,10 +838,18 @@ watch(() => paymentVoucherForm.amount, () => {
         :loading="saving"
         @submit="submitPurchase"
       >
-        <UFormField label="Vendor" required>
-          <UInput v-model="purchaseForm.vendorName" required />
+        <UFormField label="Existing vendor">
+          <USelect v-model="purchaseForm.vendorId" :items="vendorOptions" placeholder="Select vendor or keep manual" />
         </UFormField>
-        <div class="form-two-column">
+        <div v-if="selectedVendor" class="payroll-summary">
+          <span>Vendor bills</span><strong>{{ money(Number(selectedVendor.billAmount || 0)) }}</strong>
+          <span>Paid</span><strong>{{ money(Number(selectedVendor.paidAmount || 0)) }}</strong>
+          <span>Balance</span><strong>{{ money(Number(selectedVendor.balanceAmount || 0)) }}</strong>
+        </div>
+        <div class="form-three-column">
+          <UFormField label="Vendor" required>
+            <UInput v-model="purchaseForm.vendorName" required />
+          </UFormField>
           <UFormField label="Vendor mobile">
             <UInput v-model="purchaseForm.vendorMobileNumber" />
           </UFormField>
@@ -791,6 +873,14 @@ watch(() => paymentVoucherForm.amount, () => {
           </UFormField>
           <UFormField label="Inward number">
             <UInput v-model="purchaseForm.inwardNumber" />
+          </UFormField>
+        </div>
+        <div class="form-two-column">
+          <UFormField label="Supplier invoice date">
+            <UInput v-model="purchaseForm.supplierInvoiceDate" type="date" />
+          </UFormField>
+          <UFormField label="Due date">
+            <UInput v-model="purchaseForm.dueDate" type="date" />
           </UFormField>
         </div>
 
@@ -823,6 +913,20 @@ watch(() => paymentVoucherForm.amount, () => {
           </UFormField>
           <UFormField label="Barcode">
             <UInput v-model="purchaseForm.barcode" :disabled="Boolean(purchaseForm.selectedProductId)" />
+          </UFormField>
+        </div>
+        <div class="form-four-column">
+          <UFormField label="HSN">
+            <UInput v-model="purchaseForm.hsnCode" />
+          </UFormField>
+          <UFormField label="Unit">
+            <USelect v-model="purchaseForm.productUnit" :items="unitOptions" />
+          </UFormField>
+          <UFormField label="Product type">
+            <USelect v-model="purchaseForm.productType" :items="productTypeOptions" />
+          </UFormField>
+          <UFormField label="Product group">
+            <USelect v-model="purchaseForm.productGroup" :items="productGroupOptions" />
           </UFormField>
         </div>
         <div class="form-two-column">
@@ -859,6 +963,7 @@ watch(() => paymentVoucherForm.amount, () => {
             <thead>
               <tr>
                 <th>Item</th>
+                <th>HSN / Unit</th>
                 <th>Qty</th>
                 <th>Cost</th>
                 <th></th>
@@ -867,6 +972,7 @@ watch(() => paymentVoucherForm.amount, () => {
             <tbody>
               <tr v-for="(item, index) in purchaseCart" :key="`${item.barcode}-${index}`">
                 <td>{{ item.productName }}</td>
+                <td>{{ item.hsnCode || '-' }} / {{ unitLabel(item.productUnit) }}</td>
                 <td>{{ item.quantity }}</td>
                 <td>{{ money(lineTotal(item)) }}</td>
                 <td>
@@ -874,7 +980,7 @@ watch(() => paymentVoucherForm.amount, () => {
                 </td>
               </tr>
               <tr v-if="purchaseCart.length === 0">
-                <td colspan="4">No inward items</td>
+                <td colspan="5">No inward items</td>
               </tr>
             </tbody>
           </table>
@@ -924,6 +1030,8 @@ watch(() => paymentVoucherForm.amount, () => {
               <p>{{ selectedReceipt.storeName }}</p>
               <p>Purchase Invoice {{ selectedReceipt.invoiceNumber }} / Inward {{ selectedReceipt.inwardNumber }}</p>
               <p>{{ new Date(selectedReceipt.onDate).toLocaleString() }}</p>
+              <p v-if="selectedReceipt.supplierInvoiceDate">Supplier bill date: {{ new Date(selectedReceipt.supplierInvoiceDate).toLocaleDateString() }}</p>
+              <p>Due date: {{ new Date(selectedReceipt.dueDate).toLocaleDateString() }}</p>
             </header>
 
             <div class="receipt-customer">
@@ -935,18 +1043,22 @@ watch(() => paymentVoucherForm.amount, () => {
               <thead>
                 <tr>
                   <th>Item</th>
+                  <th>HSN</th>
+                  <th>Unit</th>
                   <th>Qty</th>
                   <th>MRP</th>
-                  <th>Tax</th>
+                  <th>GST</th>
                   <th>Amount</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="item in selectedReceipt.items" :key="`${item.barcode}-${item.productName}`">
                   <td>{{ item.productName }}</td>
+                  <td>{{ item.hsnCode || '-' }}</td>
+                  <td>{{ item.unit || '-' }}</td>
                   <td>{{ item.quantity }}</td>
                   <td>{{ money(Number(item.mrp || 0)) }}</td>
-                  <td>{{ money(Number(item.taxAmount || 0)) }}</td>
+                  <td>{{ money(Number(item.taxAmount || 0)) }}<br><small>CGST {{ money(Number(item.cgstAmount || 0)) }} / SGST {{ money(Number(item.sgstAmount || 0)) }} / IGST {{ money(Number(item.igstAmount || 0)) }}</small></td>
                   <td>{{ money(Number(item.amount || 0)) }}</td>
                 </tr>
               </tbody>
@@ -961,6 +1073,28 @@ watch(() => paymentVoucherForm.amount, () => {
               <span>Bill amount</span><strong>{{ money(Number(selectedReceipt.billAmount || 0)) }}</strong>
               <span>Paid</span><strong>{{ money(Number(selectedReceipt.paidAmount || 0)) }}</strong>
               <span>Balance</span><strong>{{ money(Number(selectedReceipt.balanceAmount || 0)) }}</strong>
+            </div>
+
+            <div v-if="selectedReceipt.payments?.length" class="planner-table-wrap no-print">
+              <h3>Purchase payment history</h3>
+              <table class="planner-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Mode</th>
+                    <th>Reference</th>
+                    <th>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="payment in selectedReceipt.payments" :key="payment.id">
+                    <td>{{ new Date(payment.onDate).toLocaleString() }}</td>
+                    <td>{{ payment.paymentMode }}</td>
+                    <td>{{ payment.referenceNumber || payment.voucherId || '-' }}</td>
+                    <td>{{ money(Number(payment.amount || 0)) }}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
             <div v-if="purchaseSignatures" class="invoice-signatures">

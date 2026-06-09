@@ -17,7 +17,8 @@ public sealed record PurchaseInwardRequest(
     decimal FrightAmount,
     IReadOnlyList<PurchaseInwardItemRequest> Items,
     DateTime? SupplierInvoiceDate = null,
-    DateTime? DueDate = null);
+    DateTime? DueDate = null,
+    Guid? VendorId = null);
 
 public sealed record PurchaseInwardItemRequest(
     Guid? ProductId,
@@ -31,7 +32,9 @@ public sealed record PurchaseInwardItemRequest(
     Guid? ProductCategoryId,
     Guid? ProductSubCategoryId,
     string? HsnCode = null,
-    Unit? ProductUnit = null);
+    Unit? ProductUnit = null,
+    ProductType? ProductType = null,
+    ProductGroup? ProductGroup = null);
 
 public sealed record PurchaseInwardResponse(
     Guid PurchaseInvoiceId,
@@ -50,6 +53,9 @@ public sealed record RecentPurchaseInvoiceDto(
     string InwardNumber,
     DateTime OnDate,
     DateTime InwardDate,
+    DateTime? SupplierInvoiceDate,
+    DateTime DueDate,
+    Guid VendorId,
     string VendorName,
     string? VendorGstin,
     decimal BillAmount,
@@ -67,11 +73,14 @@ public sealed record PurchaseReceiptDto(
     string InwardNumber,
     DateTime OnDate,
     DateTime InwardDate,
+    DateTime? SupplierInvoiceDate,
+    DateTime DueDate,
     string CompanyName,
     string CompanyAddress,
     string CompanyPhone,
     string CompanyGstin,
     string StoreName,
+    Guid VendorId,
     string VendorName,
     string? VendorGstin,
     decimal MRP,
@@ -85,16 +94,22 @@ public sealed record PurchaseReceiptDto(
     decimal BalanceAmount,
     string InvoiceStatus,
     string PaymentMode,
-    IReadOnlyList<PurchaseReceiptItemDto> Items);
+    IReadOnlyList<PurchaseReceiptItemDto> Items,
+    IReadOnlyList<PurchasePaymentDto> Payments);
 
 public sealed record PurchaseReceiptItemDto(
     string ProductName,
     string Barcode,
+    string? HsnCode,
+    string Unit,
     decimal Quantity,
     decimal Mrp,
     decimal DiscountAmount,
     decimal TaxPercentage,
     decimal TaxAmount,
+    decimal? CgstAmount,
+    decimal? SgstAmount,
+    decimal? IgstAmount,
     decimal Amount);
 
 public sealed record CancelPurchaseInvoiceRequest(string? Reason);
@@ -108,12 +123,29 @@ public sealed record CancelPurchaseInvoiceResponse(
 
 public sealed record PurchaseLookupOptionsDto(
     IReadOnlyList<PurchaseLookupOptionDto> Categories,
-    IReadOnlyList<PurchaseLookupOptionDto> SubCategories,
-    IReadOnlyList<PurchaseTaxOptionDto> Taxes);
+    IReadOnlyList<PurchaseSubCategoryOptionDto> SubCategories,
+    IReadOnlyList<PurchaseTaxOptionDto> Taxes,
+    IReadOnlyList<PurchaseVendorOptionDto> Vendors,
+    IReadOnlyList<PurchaseEnumOptionDto> Units,
+    IReadOnlyList<PurchaseEnumOptionDto> ProductTypes,
+    IReadOnlyList<PurchaseEnumOptionDto> ProductGroups);
 
 public sealed record PurchaseLookupOptionDto(Guid Id, string Name);
 
+public sealed record PurchaseSubCategoryOptionDto(Guid Id, string Name, Guid? CategoryId);
+
 public sealed record PurchaseTaxOptionDto(Guid Id, string Name, decimal Rate, string TaxType);
+
+public sealed record PurchaseVendorOptionDto(
+    Guid Id,
+    string Name,
+    string? MobileNumber,
+    string? GSTIN,
+    decimal BillAmount,
+    decimal PaidAmount,
+    decimal BalanceAmount);
+
+public sealed record PurchaseEnumOptionDto(int Value, string Label);
 
 public sealed record VendorPaymentVoucherRequest(
     decimal Amount,

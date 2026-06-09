@@ -309,6 +309,12 @@ select {
   gap: 12px;
 }
 
+.form-four-column {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .planner-setup-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1504,7 +1510,8 @@ select {
   }
 
   .form-two-column,
-  .form-three-column {
+  .form-three-column,
+  .form-four-column {
     grid-template-columns: 1fr;
   }
 
