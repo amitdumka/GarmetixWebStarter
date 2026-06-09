@@ -21,6 +21,7 @@ using Garmetix.Api.Payroll;
 using Garmetix.Api.Purchase;
 using Garmetix.Api.ProductLookup;
 using Garmetix.Api.Setup;
+using Garmetix.Api.SecondarySync;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
 using Garmetix.Infrastructure;
@@ -66,6 +67,9 @@ builder.Services.AddHttpClient("GoogleDriveBackup");
 builder.Services.AddSingleton<GoogleDriveBackupService>();
 builder.Services.AddSingleton<DatabaseBackupService>();
 builder.Services.AddHostedService<BackupAutomationHostedService>();
+builder.Services.Configure<OracleSecondarySyncOptions>(builder.Configuration.GetSection("OracleSync"));
+builder.Services.AddSingleton<OracleSecondarySyncService>();
+builder.Services.AddHostedService<OracleSecondarySyncHostedService>();
 
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "Garmetix";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "GarmetixWeb";
@@ -181,6 +185,7 @@ app.MapGstReturnEndpoints();
 app.MapGstinEndpoints();
 app.MapCommercialEndpoints();
 app.MapProductLookupEndpoints();
+app.MapOracleSecondarySyncEndpoints();
 
 MapCrud<Company>(app, "/api/companies", GarmetixPolicies.CompanySetup, readPolicyName: null);
 MapCrud<StoreGroup>(app, "/api/store-groups", GarmetixPolicies.CompanySetup, readPolicyName: null);

@@ -327,28 +327,14 @@ The GST Returns module is now connected with accounting service posting while ke
 See `backend/GST-Accounting-Integration-Notes.md`.
 
 
-## Developer validation scripts
+## Oracle Cloud Secondary Sync
 
-Use these after extracting a new ZIP to check backend, frontend, Docker, API health, web health, and logs.
+The API includes an admin-only Oracle secondary sync module for using Oracle Cloud as a shared hub database while PostgreSQL remains the primary Garmetix database.
 
-Windows PowerShell:
+- UI: `http://localhost:3000/oracle-sync`
+- Status: `GET /api/oracle-sync/status`
+- Test connection: `POST /api/oracle-sync/test`
+- Repair local/Oracle sync tables: `POST /api/oracle-sync/repair`
+- Manual run: `POST /api/oracle-sync/run`
 
-```powershell
-.\scripts\validate-local.ps1 -NoCacheApi
-```
-
-Linux / Mac:
-
-```bash
-./scripts/validate-local.sh --no-cache-api
-```
-
-For Docker-only troubleshooting:
-
-```bash
-docker compose down
-docker compose build --no-cache api
-docker compose up
-```
-
-Validation summaries and logs are saved in `validation-results/`. See `backend/Developer-Validation-Automation-Notes.md`.
+Configure with `ORACLE_SYNC_*` values in `.env`. See `backend/Oracle-Secondary-Sync-Notes.md`.

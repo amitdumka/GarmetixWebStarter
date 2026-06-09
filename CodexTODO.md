@@ -90,13 +90,6 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] View changed fields. Audit page now opens entity field details and timestamp/change summary from backend audit detail endpoint.
 - [x] Export audit report. Audit page now exports filtered audit rows to CSV.
 
-## Validation Automation
-
-- [x] Add repeatable Windows/Linux validation scripts for backend publish, Nuxt build, Docker compose build/up, API health, web health, and log capture.
-- [x] Add manual database repair helper scripts for Admin JWT based repair endpoint.
-- [x] Add `Makefile` shortcuts for Docker build/log/smoke tasks.
-- [x] Add validation output folder guidance and documentation.
-
 ## Testing / Deployment Hardening
 
 - [ ] Run full backend build on developer machine.
@@ -159,3 +152,15 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 ## Process Rule Update
 - [x] Every requested feature must be added to `CodexTODO.md` before/while implementation.
 - [x] Every bug/error raised by user must be added to `CodexISSUES.md` and marked fixed after the generated ZIP includes the fix.
+
+## Oracle Cloud Secondary Database Sync
+
+- [x] Add feature request to maintain Oracle Cloud Free Tier database as secondary shared sync hub.
+- [x] Keep PostgreSQL as primary transactional database and Oracle as common-ground secondary database for other apps.
+- [x] Add Oracle sync configuration and Docker/env variables.
+- [x] Add Oracle connection test, storage repair, and manual sync endpoints.
+- [x] Add background sync service with configurable interval and run-on-startup option.
+- [x] Add Oracle hub schema creation for `GARMETIX_SYNC_EVENTS` and `GARMETIX_SYNC_STATE`.
+- [x] Add local sync checkpoint/run tables so repeated syncs do not resend every row unnecessarily.
+- [x] Add admin UI page `/oracle-sync` for status, connection test, repair, and manual sync.
+- [x] Document Oracle sync setup and next guided step for bidirectional/conflict-controlled sync.

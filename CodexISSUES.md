@@ -37,8 +37,3 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 - Root cause: The schema repair stopped earlier due the raw SQL brace FormatException, so `CommercialNotes` and related commercial tables were never created in older Docker volumes.
 - Fix: Same raw SQL brace fix allows the existing idempotent repair to create `CommercialNotes`, `CustomerAdvanceReceipts`, `LoyaltyPrograms`, and `LoyaltyPointLedgers`.
 
-
-
-## Process / Validation Notes
-
-- [x] Added repeatable validation scripts to reduce manual Docker/build/debug steps when future bugs are reported.

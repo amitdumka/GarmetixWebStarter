@@ -102,7 +102,8 @@ const moduleGroups = [
       { to: '/access', label: 'Roles & Users', icon: 'i-lucide-shield-check' },
       { to: '/import-export', label: 'Import Export', icon: 'i-lucide-file-down' },
       { to: '/audit', label: 'Audit', icon: 'i-lucide-history' },
-      { to: '/system-health', label: 'System Health', icon: 'i-lucide-activity' }
+      { to: '/system-health', label: 'System Health', icon: 'i-lucide-activity' },
+      { to: '/oracle-sync', label: 'Oracle Sync', icon: 'i-lucide-database-zap' }
     ]
   }
 ]
