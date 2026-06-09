@@ -195,3 +195,15 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Added Oracle Sync UI ownership table and inbound queue action buttons.
 - [ ] Real Oracle Cloud + external app integration test.
 - [ ] Final auto-apply policy decision after production data ownership review.
+
+## Oracle Cloud Secondary Database Sync - v4
+
+- [x] Add Oracle Cloud Free Tier readiness checklist endpoint and UI panel.
+- [x] Add Oracle wallet/TNS readiness checks for Autonomous DB setup.
+- [x] Add trusted-source auto-apply policy matrix for shared master data.
+- [x] Add config keys for auto-apply entity allowlist and trusted source application allowlist.
+- [x] Add guarded auto-apply endpoint for pending inbound Oracle events.
+- [x] Keep transactional/GST/accounting/stock/ledger inbound overwrite blocked by default.
+- [ ] Run real Oracle Cloud Free Tier connection test using wallet/TNS settings.
+- [ ] Connect one external app to Oracle hub and validate inbound event review/apply.
+- [ ] Enable auto-apply only for approved shared master entities after production ownership review.

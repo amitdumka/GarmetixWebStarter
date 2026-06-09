@@ -37,3 +37,10 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 - Root cause: The schema repair stopped earlier due the raw SQL brace FormatException, so `CommercialNotes` and related commercial tables were never created in older Docker volumes.
 - Fix: Same raw SQL brace fix allows the existing idempotent repair to create `CommercialNotes`, `CustomerAdvanceReceipts`, `LoyaltyPrograms`, and `LoyaltyPointLedgers`.
 
+
+## FIXED - Oracle Sync v3 inbound ownership helpers missing
+
+- Status: Fixed
+- Area: Backend / Oracle Secondary Sync
+- Symptom: Oracle ownership/apply code referenced helper methods such as `BuildOwnershipMatrix`, `ResolveOwnership`, `ShouldKeepLocalVersion`, and scalar copy helpers that were not present in the extracted v3 service file.
+- Fix: Restored the missing helper methods while implementing Oracle Sync v4 readiness and trusted auto-apply controls.

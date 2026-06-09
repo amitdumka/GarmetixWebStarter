@@ -16,6 +16,9 @@ const history = ref<any[]>([])
 const inbound = ref<any[]>([])
 const deadLetters = ref<any[]>([])
 const ownership = ref<any[]>([])
+const readiness = ref<any | null>(null)
+const autoApplyPolicy = ref<any[]>([])
+const autoApplying = ref(false)
 const selectedEntity = ref('')
 const selectedDirection = ref('')
 
@@ -66,18 +69,22 @@ async function refresh() {
   if (!auth.isAuthenticated.value || !auth.canSeeAdmin.value) return
   loading.value = true
   try {
-    const [nextStatus, nextHistory, nextInbound, nextDeadLetters, nextOwnership] = await Promise.all([
+    const [nextStatus, nextHistory, nextInbound, nextDeadLetters, nextOwnership, nextReadiness, nextAutoApplyPolicy] = await Promise.all([
       api.get<any>('oracle-sync/status'),
       api.get<any[]>('oracle-sync/history?take=20'),
       api.get<any[]>('oracle-sync/inbound?take=20'),
       api.get<any[]>('oracle-sync/dead-letters?take=20'),
-      api.get<any[]>('oracle-sync/ownership')
+      api.get<any[]>('oracle-sync/ownership'),
+      api.get<any>('oracle-sync/cloud-readiness'),
+      api.get<any[]>('oracle-sync/auto-apply-policy')
     ])
     status.value = nextStatus
     history.value = nextHistory || []
     inbound.value = nextInbound || []
     deadLetters.value = nextDeadLetters || []
     ownership.value = nextOwnership || []
+    readiness.value = nextReadiness || null
+    autoApplyPolicy.value = nextAutoApplyPolicy || []
   } catch (error) {
     feedback.failed('Could not load Oracle sync status', error)
   } finally {
@@ -173,6 +180,22 @@ async function deadLetterAction(id: string, action: 'retry' | 'resolve') {
   }
 }
 
+async function autoApplyInbound() {
+  autoApplying.value = true
+  try {
+    const result = await api.create<any>('oracle-sync/inbound/auto-apply', {
+      entityName: selectedEntity.value || null,
+      take: 50
+    })
+    feedback.notify('Oracle auto-apply completed', `${result?.applied || 0} applied, ${result?.skipped || 0} skipped`, 'success')
+    await refresh()
+  } catch (error) {
+    feedback.failed('Oracle auto-apply failed', error)
+  } finally {
+    autoApplying.value = false
+  }
+}
+
 function formatDate(value: string) {
   return value ? new Date(value).toLocaleString('en-IN') : '-'
 }
@@ -190,6 +213,7 @@ onMounted(async () => { auth.restore(); await refresh() })
     >
       <template #actions>
         <UButton label="Pull" icon="i-lucide-download-cloud" color="neutral" variant="subtle" :loading="pulling" @click="pullNow" />
+        <UButton color="neutral" variant="subtle" label="Auto Apply" icon="i-lucide-shield-check" :loading="autoApplying" @click="autoApplyInbound" />
         <UButton label="Run Sync" icon="i-lucide-play" :loading="running" @click="runNow()" />
       </template>
     </UiModulePageHeader>
@@ -198,8 +222,8 @@ onMounted(async () => { auth.restore(); await refresh() })
       class="mt-4"
       color="primary"
       variant="subtle"
-      title="Oracle Sync v3"
-      description="Entity ownership rules are now visible. Shared masters can be applied from Oracle after review; Garmetix-owned transactional data remains blocked unless explicitly forced by an admin."
+      title="Oracle Sync v4"
+      description="Oracle Cloud readiness and trusted-source auto-apply policy are now visible. Auto-apply remains allowlist-based and blocked for transactional, GST, stock, loyalty ledger, and accounting data."
     />
 
     <div class="planner-metric-grid mt-4">
@@ -231,6 +255,7 @@ onMounted(async () => { auth.restore(); await refresh() })
           <UButton color="neutral" variant="subtle" label="Test Oracle" icon="i-lucide-plug-zap" :loading="testing" @click="testConnection" />
           <UButton color="neutral" variant="subtle" label="Repair Storage" icon="i-lucide-wrench" :loading="repairing" @click="repair" />
           <UButton color="neutral" variant="subtle" label="Pull Only" icon="i-lucide-download-cloud" :loading="pulling" @click="pullNow" />
+          <UButton color="neutral" variant="subtle" label="Auto Apply" icon="i-lucide-shield-check" :loading="autoApplying" @click="autoApplyInbound" />
           <UButton label="Run Now" icon="i-lucide-play" :loading="running" @click="runNow()" />
         </div>
         <UAlert v-if="testResult" class="mt-4" color="success" variant="subtle" title="Oracle connection test passed" :description="testResult.serverTimeUtc || testResult.message" />
@@ -270,6 +295,55 @@ onMounted(async () => { auth.restore(); await refresh() })
         </table>
       </div>
     </UCard>
+
+    <div class="page-grid two-column-layout mt-4">
+      <UCard class="planner-card">
+        <template #header><strong>Oracle Cloud Readiness</strong></template>
+        <dl class="planner-detail-list">
+          <div><dt>Connection string</dt><dd>{{ readiness?.connectionStringConfigured ? 'Configured' : 'Missing' }}</dd></div>
+          <div><dt>Wallet/TNS</dt><dd>{{ readiness?.walletOrTnsConfigured ? 'Configured' : 'Missing / optional for non-wallet DB' }}</dd></div>
+          <div><dt>Push allowed</dt><dd>{{ readiness?.directionAllowsPush ? 'Yes' : 'No' }}</dd></div>
+          <div><dt>Pull allowed</dt><dd>{{ readiness?.directionAllowsPull ? 'Yes' : 'No' }}</dd></div>
+          <div><dt>Auto apply</dt><dd>{{ readiness?.autoApplyConfigured ? 'Configured' : 'Disabled / not allowlisted' }}</dd></div>
+        </dl>
+        <UAlert
+          v-if="readiness?.warnings?.length"
+          class="mt-4"
+          color="warning"
+          variant="subtle"
+          title="Readiness warnings"
+          :description="readiness.warnings.join(' | ')"
+        />
+        <UAlert
+          v-if="readiness?.nextSteps?.length"
+          class="mt-4"
+          color="primary"
+          variant="subtle"
+          title="Next setup steps"
+          :description="readiness.nextSteps.join(' | ')"
+        />
+      </UCard>
+
+      <UCard class="planner-card">
+        <template #header><strong>Trusted Auto-Apply Policy</strong></template>
+        <p class="muted-copy">Auto-apply only works when global auto-apply is enabled, the entity is in the allowlist, ownership allows it, and the source app is trusted.</p>
+        <div class="planner-table-wrap mt-3">
+          <table class="planner-table">
+            <thead><tr><th>Entity</th><th>Configured</th><th>Allowed</th><th>Effective</th><th>Reason</th></tr></thead>
+            <tbody>
+              <tr v-for="row in autoApplyPolicy" :key="row.entityName">
+                <td>{{ row.entityName }}</td>
+                <td>{{ row.autoApplyConfigured ? 'Yes' : 'No' }}</td>
+                <td>{{ row.ownershipAllowsAutoApply ? 'Yes' : 'No' }}</td>
+                <td>{{ row.effectiveAutoApply ? 'Yes' : 'No' }}</td>
+                <td>{{ row.reason }}</td>
+              </tr>
+              <tr v-if="!autoApplyPolicy.length"><td colspan="5">No policy rows loaded.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </UCard>
+    </div>
 
     <UCard class="planner-card mt-4">
       <template #header><strong>Inbound Oracle Review Queue</strong></template>

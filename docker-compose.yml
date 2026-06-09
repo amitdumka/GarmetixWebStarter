@@ -49,6 +49,10 @@ services:
       OracleSync__PushDeletedRows: "${ORACLE_SYNC_PUSH_DELETED_ROWS:-true}"
       OracleSync__CommandTimeoutSeconds: "${ORACLE_SYNC_COMMAND_TIMEOUT_SECONDS:-60}"
       OracleSync__EntityNamesCsv: "${ORACLE_SYNC_ENTITY_NAMES:-}"
+      OracleSync__AutoApplyEntityNamesCsv: "${ORACLE_SYNC_AUTO_APPLY_ENTITIES:-}"
+      OracleSync__TrustedSourceApplicationsCsv: "${ORACLE_SYNC_TRUSTED_SOURCES:-}"
+      OracleSync__RequireTrustedSourceForAutoApply: "${ORACLE_SYNC_REQUIRE_TRUSTED_SOURCE_FOR_AUTO_APPLY:-true}"
+      OracleSync__AutoApplyBatchSize: "${ORACLE_SYNC_AUTO_APPLY_BATCH_SIZE:-50}"
     ports:
       - "5080:5080"
     volumes:

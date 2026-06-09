@@ -109,3 +109,35 @@ public sealed record OracleInboundApplyResult(
     string EntityId,
     string Status,
     string? Error = null);
+
+public sealed record OracleCloudReadinessDto(
+    bool Enabled,
+    bool ConnectionStringConfigured,
+    bool WalletOrTnsConfigured,
+    bool DirectionAllowsPull,
+    bool DirectionAllowsPush,
+    bool AutoApplyConfigured,
+    string[] AutoApplyEntityNames,
+    string[] TrustedSourceApplications,
+    IReadOnlyList<string> Warnings,
+    IReadOnlyList<string> NextSteps);
+
+public sealed record OracleAutoApplyPolicyRow(
+    string EntityName,
+    bool AutoApplyConfigured,
+    bool OwnershipAllowsAutoApply,
+    bool EffectiveAutoApply,
+    string InboundMode,
+    string ConflictPolicy,
+    string Reason);
+
+public sealed record OracleInboundAutoApplyRequest(string? EntityName = null, int? Take = null);
+
+public sealed record OracleInboundAutoApplyResult(
+    bool Success,
+    string Message,
+    int Scanned,
+    int Applied,
+    int Skipped,
+    IReadOnlyList<OracleInboundApplyResult> Results);
+

@@ -21,4 +21,10 @@ public sealed class OracleSecondarySyncOptions
     public bool ApplyInboundAutomatically { get; set; } = false;
     public string[] EntityNames { get; set; } = [];
     public string EntityNamesCsv { get; set; } = string.Empty;
+    public string[] AutoApplyEntityNames { get; set; } = [];
+    public string AutoApplyEntityNamesCsv { get; set; } = string.Empty;
+    public string[] TrustedSourceApplications { get; set; } = [];
+    public string TrustedSourceApplicationsCsv { get; set; } = string.Empty;
+    public bool RequireTrustedSourceForAutoApply { get; set; } = true;
+    public int AutoApplyBatchSize { get; set; } = 50;
 }

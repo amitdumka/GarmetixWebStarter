@@ -15,6 +15,8 @@ public static class OracleSecondarySyncEndpoints
         group.MapGet("/history", HistoryAsync);
         group.MapGet("/inbound", InboundAsync);
         group.MapGet("/ownership", OwnershipAsync);
+        group.MapGet("/cloud-readiness", CloudReadinessAsync);
+        group.MapGet("/auto-apply-policy", AutoApplyPolicyAsync);
         group.MapGet("/dead-letters", DeadLettersAsync);
         group.MapPost("/test", TestAsync);
         group.MapPost("/repair", RepairAsync);
@@ -22,6 +24,7 @@ public static class OracleSecondarySyncEndpoints
         group.MapPost("/pull", PullAsync);
         group.MapPost("/inbound/{id:guid}/apply", ApplyInboundAsync);
         group.MapPost("/inbound/{id:guid}/reject", RejectInboundAsync);
+        group.MapPost("/inbound/auto-apply", AutoApplyInboundAsync);
         group.MapPost("/dead-letters/{id:guid}/retry", RetryDeadLetterAsync);
         group.MapPost("/dead-letters/{id:guid}/resolve", ResolveDeadLetterAsync);
 
@@ -53,6 +56,16 @@ public static class OracleSecondarySyncEndpoints
     private static IResult OwnershipAsync(OracleSecondarySyncService service)
     {
         return Results.Ok(service.GetOwnershipMatrix());
+    }
+
+    private static IResult CloudReadinessAsync(OracleSecondarySyncService service)
+    {
+        return Results.Ok(service.GetCloudReadiness());
+    }
+
+    private static IResult AutoApplyPolicyAsync(OracleSecondarySyncService service)
+    {
+        return Results.Ok(service.GetAutoApplyPolicy());
     }
 
     private static async Task<IResult> DeadLettersAsync(
@@ -127,6 +140,15 @@ public static class OracleSecondarySyncEndpoints
     {
         var result = await service.RejectInboundEventAsync(id, request.Note, cancellationToken);
         return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+    }
+
+    private static async Task<IResult> AutoApplyInboundAsync(
+        OracleInboundAutoApplyRequest request,
+        OracleSecondarySyncService service,
+        CancellationToken cancellationToken)
+    {
+        var result = await service.AutoApplyPendingInboundAsync(request.EntityName, request.Take, cancellationToken);
+        return Results.Ok(result);
     }
 
     private static async Task<IResult> RetryDeadLetterAsync(

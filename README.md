@@ -356,3 +356,9 @@ New endpoints:
 - `POST /api/oracle-sync/inbound/{id}/reject`
 
 Shared master entities can be applied after review. Transactional, GST, stock, loyalty-ledger, and accounting entities remain blocked by default unless force-applied by admin.
+
+## Oracle Sync v4 - Readiness and trusted auto-apply
+
+Oracle Sync now includes a cloud-readiness panel and a trusted auto-apply policy for shared master data. PostgreSQL remains the primary transactional database. Oracle Cloud Free Tier can be used as a common hub for other apps.
+
+Auto-apply is intentionally allowlist based. Configure `ORACLE_SYNC_AUTO_APPLY_ENTITIES` and `ORACLE_SYNC_TRUSTED_SOURCES`, then keep `ORACLE_SYNC_APPLY_INBOUND_AUTOMATICALLY=false` until manual pull/apply testing is complete.

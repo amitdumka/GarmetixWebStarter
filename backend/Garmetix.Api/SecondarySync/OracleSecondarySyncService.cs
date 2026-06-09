@@ -176,6 +176,137 @@ public sealed class OracleSecondarySyncService(
         return BuildOwnershipMatrix(current).OrderBy(item => item.EntityName).ToArray();
     }
 
+    public OracleCloudReadinessDto GetCloudReadiness()
+    {
+        var current = options.CurrentValue;
+        var warnings = new List<string>();
+        var nextSteps = new List<string>();
+        var hasConnectionString = !string.IsNullOrWhiteSpace(current.ConnectionString);
+        var walletConfigured = !string.IsNullOrWhiteSpace(current.WalletDirectory) || !string.IsNullOrWhiteSpace(current.TnsAdmin);
+        var directionAllowsPush = ShouldPush(current.Direction);
+        var directionAllowsPull = ShouldPull(current.Direction);
+        var autoApplyEntities = GetConfiguredAutoApplyEntityNames(current).ToArray();
+        var trustedSources = GetTrustedSourceApplications(current).ToArray();
+
+        if (!current.Enabled)
+        {
+            warnings.Add("Oracle sync is disabled. Set ORACLE_SYNC_ENABLED=true after Oracle Free Tier connection details are configured.");
+        }
+
+        if (!hasConnectionString)
+        {
+            warnings.Add("Oracle connection string is missing.");
+            nextSteps.Add("Set ORACLE_SYNC_CONNECTION_STRING with the Oracle Cloud username/password and TNS alias or connect descriptor.");
+        }
+
+        if (!walletConfigured)
+        {
+            warnings.Add("Oracle wallet/TNS_ADMIN is not configured. Autonomous Database usually needs a wallet mount.");
+            nextSteps.Add("Download the Oracle Autonomous DB wallet, mount it into ./secrets/oracle-wallet, and set ORACLE_SYNC_TNS_ADMIN=/app/secrets/oracle-wallet.");
+        }
+
+        if (!directionAllowsPush && !directionAllowsPull)
+        {
+            warnings.Add($"Oracle sync direction '{current.Direction}' is not a supported push/pull direction.");
+        }
+
+        if (current.ApplyInboundAutomatically && autoApplyEntities.Length == 0)
+        {
+            warnings.Add("Auto-apply is enabled but no auto-apply entity allowlist is configured.");
+            nextSteps.Add("Set ORACLE_SYNC_AUTO_APPLY_ENTITIES to a comma-separated list such as Customer,Vendor,Product after production ownership approval.");
+        }
+
+        if (current.RequireTrustedSourceForAutoApply && current.ApplyInboundAutomatically && trustedSources.Length == 0)
+        {
+            warnings.Add("Auto-apply requires trusted sources, but no source allowlist is configured.");
+            nextSteps.Add("Set ORACLE_SYNC_TRUSTED_SOURCES to known external application names that are allowed to auto-apply shared master changes.");
+        }
+
+        if (warnings.Count == 0)
+        {
+            nextSteps.Add("Run Test Oracle, Repair Storage, Pull, then review inbound events before enabling auto-apply in production.");
+        }
+
+        return new OracleCloudReadinessDto(
+            current.Enabled,
+            hasConnectionString,
+            walletConfigured,
+            directionAllowsPull,
+            directionAllowsPush,
+            current.ApplyInboundAutomatically && autoApplyEntities.Length > 0,
+            autoApplyEntities,
+            trustedSources,
+            warnings,
+            nextSteps);
+    }
+
+    public IReadOnlyList<OracleAutoApplyPolicyRow> GetAutoApplyPolicy()
+    {
+        var current = options.CurrentValue;
+        var autoEntities = new HashSet<string>(GetConfiguredAutoApplyEntityNames(current), StringComparer.OrdinalIgnoreCase);
+        return BuildOwnershipMatrix(current)
+            .OrderBy(item => item.EntityName)
+            .Select(item =>
+            {
+                var configured = autoEntities.Contains(item.EntityName);
+                var effective = current.ApplyInboundAutomatically && configured && item.AutoApplyAllowed && item.CanApplyInbound;
+                var reason = effective
+                    ? "Auto-apply is effective for this shared master entity when the source application is trusted."
+                    : !current.ApplyInboundAutomatically
+                        ? "Global auto-apply is disabled."
+                        : !configured
+                            ? "Entity is not in the auto-apply allowlist."
+                            : !item.AutoApplyAllowed || !item.CanApplyInbound
+                                ? "Ownership rules block auto-apply for this entity."
+                                : "Auto-apply is not effective.";
+                return new OracleAutoApplyPolicyRow(item.EntityName, configured, item.AutoApplyAllowed && item.CanApplyInbound, effective, item.InboundMode, item.ConflictPolicy, reason);
+            })
+            .ToArray();
+    }
+
+    public async Task<OracleInboundAutoApplyResult> AutoApplyPendingInboundAsync(string? entityName = null, int? take = null, CancellationToken cancellationToken = default)
+    {
+        var current = options.CurrentValue;
+        var limit = Math.Clamp(take ?? current.AutoApplyBatchSize, 1, 500);
+        using var scope = scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<GarmetixDbContext>();
+        await OracleSecondarySyncLocalStore.RepairAsync(db, cancellationToken);
+
+        var pending = await OracleSecondarySyncLocalStore.GetInboundEventsAsync(db, limit, "PendingReview", cancellationToken);
+        var scanned = 0;
+        var applied = 0;
+        var skipped = 0;
+        var results = new List<OracleInboundApplyResult>();
+
+        foreach (var row in pending)
+        {
+            if (!string.IsNullOrWhiteSpace(entityName) && !row.EntityName.Equals(entityName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            scanned++;
+            if (!ShouldAutoApplyInbound(current, row.EntityName, row.SourceApplication))
+            {
+                skipped++;
+                continue;
+            }
+
+            var result = await ApplyInboundEventAsync(row.Id, force: false, note: "Auto-applied by Oracle Sync policy after trusted-source and ownership checks.", cancellationToken);
+            results.Add(result);
+            if (result.Success && result.Status.Equals("Applied", StringComparison.OrdinalIgnoreCase))
+            {
+                applied++;
+            }
+            else
+            {
+                skipped++;
+            }
+        }
+
+        return new OracleInboundAutoApplyResult(true, $"Auto-apply scanned {scanned} inbound event(s), applied {applied}, skipped {skipped}.", scanned, applied, skipped, results);
+    }
+
     public async Task<OracleInboundApplyResult> ApplyInboundEventAsync(Guid id, bool force = false, string? note = null, CancellationToken cancellationToken = default)
     {
         using var scope = scopeFactory.CreateScope();
@@ -850,6 +981,224 @@ public sealed class OracleSecondarySyncService(
             || string.Equals(value, "PullOnly", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "Bidirectional", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "TwoWay", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static IReadOnlyList<OracleEntityOwnershipRow> BuildOwnershipMatrix(OracleSecondarySyncOptions current)
+    {
+        var rows = new List<OracleEntityOwnershipRow>();
+        foreach (var entityName in SupportedEntities.Keys)
+        {
+            rows.Add(BuildOwnershipRow(entityName, current));
+        }
+
+        return rows;
+    }
+
+    private static OracleEntityOwnershipRow ResolveOwnership(string entityName, OracleSecondarySyncOptions current)
+    {
+        return BuildOwnershipRow(entityName, current);
+    }
+
+    private static OracleEntityOwnershipRow BuildOwnershipRow(string entityName, OracleSecondarySyncOptions current)
+    {
+        var normalized = entityName.Trim();
+        var sharedMaster = IsSharedMasterEntity(normalized);
+        var operationalMaster = normalized.Equals(nameof(LoyaltyProgram), StringComparison.OrdinalIgnoreCase);
+        var blockedTransactional = !sharedMaster && !operationalMaster;
+        var policy = string.IsNullOrWhiteSpace(current.ConflictPolicy) ? "ManualReview" : current.ConflictPolicy.Trim();
+
+        if (sharedMaster)
+        {
+            return new OracleEntityOwnershipRow(
+                normalized,
+                "SharedMaster",
+                "ReviewApply",
+                policy,
+                true,
+                true,
+                "Shared master data can be applied after admin review. Auto-apply is allowed only when the entity and source application are explicitly trusted.");
+        }
+
+        if (operationalMaster)
+        {
+            return new OracleEntityOwnershipRow(
+                normalized,
+                "GarmetixOperational",
+                "ReviewApply",
+                policy,
+                true,
+                false,
+                "Operational setup can be applied manually, but auto-apply is blocked until production ownership is approved.");
+        }
+
+        return new OracleEntityOwnershipRow(
+            normalized,
+            "GarmetixTransactional",
+            "BlockedByDefault",
+            policy,
+            false,
+            false,
+            "Transactional, accounting, GST, stock, and ledger data are protected from inbound overwrite unless an admin force-applies after review.");
+    }
+
+    private static bool IsSharedMasterEntity(string entityName)
+    {
+        return entityName.Equals(nameof(Company), StringComparison.OrdinalIgnoreCase)
+            || entityName.Equals(nameof(StoreGroup), StringComparison.OrdinalIgnoreCase)
+            || entityName.Equals(nameof(Store), StringComparison.OrdinalIgnoreCase)
+            || entityName.Equals(nameof(Customer), StringComparison.OrdinalIgnoreCase)
+            || entityName.Equals(nameof(Vendor), StringComparison.OrdinalIgnoreCase)
+            || entityName.Equals(nameof(Product), StringComparison.OrdinalIgnoreCase)
+            || entityName.Equals(nameof(ProductCategory), StringComparison.OrdinalIgnoreCase)
+            || entityName.Equals(nameof(ProductSubCategory), StringComparison.OrdinalIgnoreCase)
+            || entityName.Equals(nameof(Employee), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ShouldAutoApplyInbound(OracleSecondarySyncOptions current, string entityName, string sourceApplication)
+    {
+        if (!current.ApplyInboundAutomatically)
+        {
+            return false;
+        }
+
+        var ownership = ResolveOwnership(entityName, current);
+        if (!ownership.CanApplyInbound || !ownership.AutoApplyAllowed)
+        {
+            return false;
+        }
+
+        var autoEntities = new HashSet<string>(GetConfiguredAutoApplyEntityNames(current), StringComparer.OrdinalIgnoreCase);
+        if (!autoEntities.Contains(entityName))
+        {
+            return false;
+        }
+
+        if (!current.RequireTrustedSourceForAutoApply)
+        {
+            return true;
+        }
+
+        var trustedSources = new HashSet<string>(GetTrustedSourceApplications(current), StringComparer.OrdinalIgnoreCase);
+        return trustedSources.Contains(sourceApplication);
+    }
+
+    private static IEnumerable<string> GetConfiguredAutoApplyEntityNames(OracleSecondarySyncOptions current)
+    {
+        var csvNames = string.IsNullOrWhiteSpace(current.AutoApplyEntityNamesCsv)
+            ? Array.Empty<string>()
+            : current.AutoApplyEntityNamesCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var configuredArray = current.AutoApplyEntityNames ?? Array.Empty<string>();
+        var names = configuredArray.Length == 0 ? csvNames : configuredArray;
+        return names
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Trim())
+            .Where(name => SupportedEntities.ContainsKey(name) && IsSharedMasterEntity(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static IEnumerable<string> GetTrustedSourceApplications(OracleSecondarySyncOptions current)
+    {
+        var csvNames = string.IsNullOrWhiteSpace(current.TrustedSourceApplicationsCsv)
+            ? Array.Empty<string>()
+            : current.TrustedSourceApplicationsCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var configuredArray = current.TrustedSourceApplications ?? Array.Empty<string>();
+        var names = configuredArray.Length == 0 ? csvNames : configuredArray;
+        return names
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static bool ShouldKeepLocalVersion(object existing, object incoming, string? conflictPolicy)
+    {
+        var policy = string.IsNullOrWhiteSpace(conflictPolicy) ? "ManualReview" : conflictPolicy.Trim();
+        if (policy.Equals("OracleWins", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (policy.Equals("GarmetixWins", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (policy.Equals("LatestWins", StringComparison.OrdinalIgnoreCase))
+        {
+            return GetVersionUtc(existing) >= GetVersionUtc(incoming);
+        }
+
+        return false;
+    }
+
+    private static string ExtractEntityPayloadJson(string payloadJson)
+    {
+        using var document = JsonDocument.Parse(payloadJson);
+        if (document.RootElement.TryGetProperty("payload", out var payload))
+        {
+            return payload.GetRawText();
+        }
+
+        return payloadJson;
+    }
+
+    private static void CopyScalarProperties(object source, object target, Type type)
+    {
+        foreach (var property in type.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance))
+        {
+            if (!property.CanRead || !property.CanWrite || property.GetIndexParameters().Length > 0)
+            {
+                continue;
+            }
+
+            if (property.Name.Equals(nameof(IEntity.Id), StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (Attribute.IsDefined(property, typeof(NotMappedAttribute)) || !IsScalarProperty(property.PropertyType))
+            {
+                continue;
+            }
+
+            property.SetValue(target, property.GetValue(source));
+        }
+    }
+
+    private static bool IsScalarProperty(Type type)
+    {
+        var actualType = Nullable.GetUnderlyingType(type) ?? type;
+        return actualType.IsPrimitive
+            || actualType.IsEnum
+            || actualType == typeof(string)
+            || actualType == typeof(decimal)
+            || actualType == typeof(DateTime)
+            || actualType == typeof(DateTimeOffset)
+            || actualType == typeof(Guid)
+            || actualType == typeof(TimeSpan);
+    }
+
+    private static void SetPropertyIfExists(object row, string propertyName, object? value)
+    {
+        var property = row.GetType().GetProperty(propertyName);
+        if (property is null || !property.CanWrite)
+        {
+            return;
+        }
+
+        if (value is null)
+        {
+            property.SetValue(row, null);
+            return;
+        }
+
+        var targetType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+        if (targetType.IsInstanceOfType(value))
+        {
+            property.SetValue(row, value);
+            return;
+        }
+
+        property.SetValue(row, Convert.ChangeType(value, targetType));
     }
 
     private static (string Status, string Note) BuildInboundDecision(OracleSecondarySyncOptions current, string entityName, string operation)
