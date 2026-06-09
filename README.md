@@ -284,3 +284,7 @@ This package also includes:
 - GST Returns Load From Books for GSTR-1 and GSTR-3B.
 - Audit filters, entity field details, and CSV export.
 - Developer validation checklist under `backend/Developer-Validation-Checklist.md`.
+
+### Runtime migration fix
+
+This package includes a fix for the API restart loop caused by EF Core `PendingModelChangesWarning` during startup auto-migration. See `backend/Runtime-Migration-Fix-Notes.md`.
