@@ -2,6 +2,7 @@
 const api = useGarmetixApi()
 const auth = useAuth()
 const feedback = useUiFeedback()
+const route = useRoute()
 const isAuthenticated = auth.isAuthenticated
 
 const companies = ref<any[]>([])
@@ -133,6 +134,16 @@ const recentActivity = computed(() => {
   return [...saleItems, ...setupItems].slice(0, 8)
 })
 
+async function afterAuthenticated() {
+  const returnTo = Array.isArray(route.query.returnTo) ? route.query.returnTo[0] : route.query.returnTo
+  if (returnTo && returnTo !== '/') {
+    await navigateTo(returnTo)
+    return
+  }
+
+  await refresh()
+}
+
 async function refresh() {
   if (!auth.isAuthenticated.value) {
     return
@@ -225,7 +236,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <AuthScreen v-if="!isAuthenticated" @authenticated="refresh" />
+  <AuthScreen v-if="!isAuthenticated" @authenticated="afterAuthenticated" />
 
   <AppShell
     v-else

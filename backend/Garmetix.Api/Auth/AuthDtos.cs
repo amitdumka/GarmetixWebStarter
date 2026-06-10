@@ -32,3 +32,5 @@ public sealed record ForgotPasswordResponse(
 public sealed record ResetPasswordRequest(string Token, string NewPassword);
 
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
+
+public sealed record UpdateProfileRequest(string Name, string UserName, string Email);

@@ -23,6 +23,46 @@ useHead({
   title: 'Login'
 })
 
+const modeCopy = computed(() => {
+  if (authMode.value === 'bootstrap') {
+    return {
+      eyebrow: 'First-run setup',
+      title: 'Create first admin',
+      description: 'No admin user exists yet. Create the first protected administrator account.',
+      submit: 'Create admin and login',
+      icon: 'i-lucide-user-plus'
+    }
+  }
+
+  if (authMode.value === 'forgot') {
+    return {
+      eyebrow: 'Account recovery',
+      title: 'Forgot password',
+      description: 'Enter your username or email. A reset link is sent when email is configured.',
+      submit: 'Send reset link',
+      icon: 'i-lucide-mail-question'
+    }
+  }
+
+  if (authMode.value === 'reset') {
+    return {
+      eyebrow: 'Secure reset',
+      title: 'Reset password',
+      description: 'Paste your reset token and choose a new password.',
+      submit: 'Reset password',
+      icon: 'i-lucide-key-round'
+    }
+  }
+
+  return {
+    eyebrow: 'Welcome back',
+    title: 'Login to Garmetix',
+    description: 'Use your username or email to access store operations securely.',
+    submit: 'Login',
+    icon: 'i-lucide-log-in'
+  }
+})
+
 function switchMode(mode: 'login' | 'bootstrap' | 'forgot' | 'reset') {
   authMode.value = mode
   authError.value = ''
@@ -82,6 +122,13 @@ async function submitAuth() {
 }
 
 onMounted(async () => {
+  auth.restore()
+
+  if (route.query.expired || auth.sessionExpiredNotice.value) {
+    authStatus.value = 'Your login session expired. Please sign in again to continue.'
+    auth.sessionExpiredNotice.value = false
+  }
+
   const token = Array.isArray(route.query.token) ? route.query.token[0] : route.query.token
   if (token) {
     authForm.resetToken = token
@@ -94,7 +141,9 @@ onMounted(async () => {
     if (!token) {
       authMode.value = status.hasAdmin ? 'login' : 'bootstrap'
     }
-    authStatus.value = status.hasAdmin ? '' : status.message
+    if (!status.hasAdmin) {
+      authStatus.value = status.message
+    }
   } catch (error: any) {
     authStatus.value = feedback.errorMessage(error, 'Could not reach the API.', 'API status check failed')
   }
@@ -102,100 +151,107 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="auth-screen">
-    <UCard class="auth-card">
-      <template #header>
-        <div class="auth-heading">
-          <div class="ui-brand-mark">
-            <img class="ui-brand-logo" src="/garmetix-icon-512.png" alt="Garmetix" />
-          </div>
-          <div>
-            <p class="brand-title">Garmetix</p>
-            <p class="brand-subtitle">Secure store operations</p>
-          </div>
+  <div class="auth-screen auth-screen-polished">
+    <div class="auth-shell-grid">
+      <section class="auth-hero-panel">
+        <div class="ui-brand-mark auth-hero-logo">
+          <img class="ui-brand-logo" src="/garmetix-icon-512.png" alt="Garmetix" />
         </div>
-      </template>
+        <p class="auth-eyebrow">Garmetix Web</p>
+        <h1>Secure store management for garment businesses.</h1>
+        <p>
+          Billing, inventory, purchase, GST, HR, backup, reports and admin tools in one protected workspace.
+        </p>
+        <div class="auth-feature-list">
+          <span><UIcon name="i-lucide-shield-check" /> JWT protected sessions</span>
+          <span><UIcon name="i-lucide-store" /> Company and store scoped access</span>
+          <span><UIcon name="i-lucide-key-round" /> Self-service password recovery</span>
+        </div>
+      </section>
 
-      <div class="auth-mode">
-        <UButton
-          :color="authMode === 'login' ? 'primary' : 'neutral'"
-          :variant="authMode === 'login' ? 'solid' : 'subtle'"
-          block
-          label="Login"
-          @click="switchMode('login')"
-        />
-        <UButton
-          v-if="!hasAdmin"
-          :color="authMode === 'bootstrap' ? 'primary' : 'neutral'"
-          :variant="authMode === 'bootstrap' ? 'solid' : 'subtle'"
-          block
-          label="First Admin"
-          @click="switchMode('bootstrap')"
-        />
-        <UButton
-          :color="authMode === 'forgot' ? 'primary' : 'neutral'"
-          :variant="authMode === 'forgot' ? 'solid' : 'subtle'"
-          block
-          label="Forgot"
-          @click="switchMode('forgot')"
-        />
-        <UButton
-          :color="authMode === 'reset' ? 'primary' : 'neutral'"
-          :variant="authMode === 'reset' ? 'solid' : 'subtle'"
-          block
-          label="Reset"
-          @click="switchMode('reset')"
-        />
-      </div>
+      <UCard class="auth-card modern-auth-card">
+        <template #header>
+          <div class="auth-heading compact-auth-heading">
+            <div class="auth-heading-icon">
+              <UIcon :name="modeCopy.icon" class="h-6 w-6" />
+            </div>
+            <div>
+              <p class="auth-eyebrow">{{ modeCopy.eyebrow }}</p>
+              <h2>{{ modeCopy.title }}</h2>
+              <p>{{ modeCopy.description }}</p>
+            </div>
+          </div>
+        </template>
 
-      <form class="form-grid auth-form" @submit.prevent="submitAuth">
-        <UAlert
-          v-if="authStatus"
-          color="neutral"
-          variant="subtle"
-          icon="i-lucide-info"
-          :description="authStatus"
-        />
+        <form class="form-grid auth-form" @submit.prevent="submitAuth">
+          <UAlert
+            v-if="authStatus"
+            color="neutral"
+            variant="subtle"
+            icon="i-lucide-info"
+            :description="authStatus"
+          />
 
-        <UFormField v-if="authMode === 'bootstrap' && !hasAdmin" label="Name" name="adminName">
-          <UInput v-model="authForm.name" required />
-        </UFormField>
+          <UFormField v-if="authMode === 'bootstrap' && !hasAdmin" label="Name" name="adminName">
+            <UInput v-model="authForm.name" icon="i-lucide-user" required />
+          </UFormField>
 
-        <UFormField v-if="authMode !== 'reset'" label="Username or email" name="authUserName">
-          <UInput v-model="authForm.userName" autocomplete="username" required />
-        </UFormField>
+          <UFormField v-if="authMode !== 'reset'" label="Username or email" name="authUserName">
+            <UInput v-model="authForm.userName" icon="i-lucide-user-round" autocomplete="username" required />
+          </UFormField>
 
-        <UFormField v-if="authMode === 'bootstrap' && !hasAdmin" label="Email" name="authEmail">
-          <UInput v-model="authForm.email" autocomplete="email" required type="email" />
-        </UFormField>
+          <UFormField v-if="authMode === 'bootstrap' && !hasAdmin" label="Email" name="authEmail">
+            <UInput v-model="authForm.email" icon="i-lucide-mail" autocomplete="email" required type="email" />
+          </UFormField>
 
-        <UFormField v-if="authMode === 'login' || authMode === 'bootstrap'" label="Password" name="authPassword">
-          <UInput v-model="authForm.password" autocomplete="current-password" required type="password" />
-        </UFormField>
+          <UFormField v-if="authMode === 'login' || authMode === 'bootstrap'" label="Password" name="authPassword">
+            <UInput v-model="authForm.password" icon="i-lucide-lock-keyhole" autocomplete="current-password" required type="password" />
+          </UFormField>
 
-        <UFormField v-if="authMode === 'reset'" label="Reset Token" name="resetToken">
-          <UTextarea v-model="authForm.resetToken" required :rows="3" />
-        </UFormField>
+          <UFormField v-if="authMode === 'reset'" label="Reset Token" name="resetToken">
+            <UTextarea v-model="authForm.resetToken" required :rows="3" />
+          </UFormField>
 
-        <UFormField v-if="authMode === 'reset'" label="New Password" name="newPassword">
-          <UInput v-model="authForm.newPassword" autocomplete="new-password" required type="password" />
-        </UFormField>
+          <UFormField v-if="authMode === 'reset'" label="New Password" name="newPassword">
+            <UInput v-model="authForm.newPassword" icon="i-lucide-lock" autocomplete="new-password" required type="password" />
+          </UFormField>
 
-        <UAlert
-          v-if="authError"
-          color="error"
-          variant="subtle"
-          icon="i-lucide-circle-alert"
-          :description="authError"
-        />
+          <UAlert
+            v-if="authError"
+            color="error"
+            variant="subtle"
+            icon="i-lucide-circle-alert"
+            :description="authError"
+          />
 
-        <UButton
-          type="submit"
-          icon="i-lucide-shield-check"
-          :label="authMode === 'bootstrap' && !hasAdmin ? 'Create Admin' : authMode === 'forgot' ? 'Send Reset Link' : authMode === 'reset' ? 'Reset Password' : 'Login'"
-          block
-        />
-      </form>
-    </UCard>
+          <UButton
+            type="submit"
+            :icon="modeCopy.icon"
+            :label="modeCopy.submit"
+            size="lg"
+            block
+          />
+        </form>
+
+        <template #footer>
+          <div class="auth-link-row">
+            <UButton
+              v-if="authMode !== 'login'"
+              color="neutral"
+              variant="link"
+              size="sm"
+              icon="i-lucide-arrow-left"
+              label="Back to login"
+              @click="switchMode('login')"
+            />
+            <template v-else>
+              <UButton color="neutral" variant="link" size="sm" icon="i-lucide-mail-question" label="Forgot password?" @click="switchMode('forgot')" />
+              <UButton color="neutral" variant="link" size="sm" icon="i-lucide-key-round" label="Use reset token" @click="switchMode('reset')" />
+              <UButton v-if="!hasAdmin" color="neutral" variant="link" size="sm" icon="i-lucide-user-plus" label="Create first admin" @click="switchMode('bootstrap')" />
+            </template>
+          </div>
+        </template>
+      </UCard>
+    </div>
   </div>
 </template>

@@ -1,0 +1,181 @@
+
+> garmetix-web@2.2.0 build
+> nuxt build
+
+┌  Building Nuxt for production...
+│
+●  Nuxt 4.4.7 (with Nitro 2.13.4, Vite 7.3.5 and Vue 3.5.35)
+[warn] Could not fetch from `https://fonts.google.com/metadata/fonts`. Will retry in `1000ms`. `3` retries left.
+[warn] Could not fetch from `https://fonts.google.com/metadata/icons?key=material_symbols&incomplete=true`. Will retry in `1000ms`. `3` retries left.
+[warn] Could not fetch from `https://fonts.bunny.net/list`. Will retry in `1000ms`. `3` retries left.
+[info] Nuxt Icon server bundle mode is set to `local`
+│
+●  Nitro preset: node-server
+[info] Building client...
+[info] [36mvite v7.3.5 [32mbuilding client environment for production...[36m[39m
+[warn] [33m[plugin nuxt:module-preload-polyfill] Sourcemap is likely to be incorrect: a plugin (nuxt:module-preload-polyfill) was used to transform files, but didn't generate a sourcemap for the transformation. Consult the plugin documentation for help[39m
+[info] transforming...
+[warn] [33m[plugin @tailwindcss/vite:generate:build] Sourcemap is likely to be incorrect: a plugin (@tailwindcss/vite:generate:build) was used to transform files, but didn't generate a sourcemap for the transformation. Consult the plugin documentation for help[39m
+[warn] [33m[plugin @tailwindcss/vite:generate:build] Sourcemap is likely to be incorrect: a plugin (@tailwindcss/vite:generate:build) was used to transform files, but didn't generate a sourcemap for the transformation. Consult the plugin documentation for help[39m (x2)
+[warn] [33m[plugin @tailwindcss/vite:generate:build] Sourcemap is likely to be incorrect: a plugin (@tailwindcss/vite:generate:build) was used to transform files, but didn't generate a sourcemap for the transformation. Consult the plugin documentation for help[39m (x3)
+Could not fetch from `https://api.fontshare.com/v2/fonts`. Will retry in `1000ms`. `3` retries left.
+Could not fetch from `https://api.fontsource.org/v1/fonts`. Will retry in `1000ms`. `3` retries left.
+Could not fetch from `https://fonts.google.com/metadata/fonts`. Will retry in `1000ms`. `2` retries left.
+[warn] [33m[plugin @tailwindcss/vite:generate:build] Sourcemap is likely to be incorrect: a plugin (@tailwindcss/vite:generate:build) was used to transform files, but didn't generate a sourcemap for the transformation. Consult the plugin documentation for help[39m (x4)
+[warn] [33m[plugin @tailwindcss/vite:generate:build] Sourcemap is likely to be incorrect: a plugin (@tailwindcss/vite:generate:build) was used to transform files, but didn't generate a sourcemap for the transformation. Consult the plugin documentation for help[39m (x5)
+[warn] [33m[plugin @tailwindcss/vite:generate:build] Sourcemap is likely to be incorrect: a plugin (@tailwindcss/vite:generate:build) was used to transform files, but didn't generate a sourcemap for the transformation. Consult the plugin documentation for help[39m (x6)
+[warn] [33mnode_modules/@vueuse/core/dist/index.js (3362:0): A comment
+
+"/* #__PURE__ */"
+
+in "node_modules/@vueuse/core/dist/index.js" contains an annotation that Rollup cannot interpret due to the position of the comment. The comment will be removed to avoid issues.[39m
+[warn] [33mnode_modules/@vueuse/core/dist/index.js (5780:22): A comment
+
+"/* #__PURE__ */"
+
+in "node_modules/@vueuse/core/dist/index.js" contains an annotation that Rollup cannot interpret due to the position of the comment. The comment will be removed to avoid issues.[39m
+Could not fetch from `https://fonts.google.com/metadata/icons?key=material_symbols&incomplete=true`. Will retry in `1000ms`. `2` retries left.
+Could not fetch from `https://api.fontshare.com/v2/fonts`. Will retry in `1000ms`. `2` retries left.
+Could not fetch from `https://fonts.bunny.net/list`. Will retry in `1000ms`. `2` retries left.
+Could not fetch from `https://api.fontsource.org/v1/fonts`. Will retry in `1000ms`. `2` retries left.
+Could not fetch from `https://fonts.google.com/metadata/fonts`. Will retry in `1000ms`. `1` retries left.
+Could not fetch from `https://api.fontshare.com/v2/fonts`. Will retry in `1000ms`. `1` retries left.
+Could not fetch from `https://fonts.google.com/metadata/icons?key=material_symbols&incomplete=true`. Will retry in `1000ms`. `1` retries left.
+Could not fetch from `https://fonts.bunny.net/list`. Will retry in `1000ms`. `1` retries left.
+Could not initialize provider `google`. `unifont` will not be able to process fonts provided by this provider. FetchError: [GET] "https://fonts.google.com/metadata/fonts": <no response> fetch failed
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async $fetch2 (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/ofetch/dist/shared/ofetch.CWycOUEr.mjs:332:15)
+    ... 5 lines matching cause stack trace ...
+    at async createResolver (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/fontless/dist/index.mjs:295:18) {
+  [cause]: TypeError: fetch failed
+      at node:internal/deps/undici/undici:13510:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async $fetchRaw2 (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/ofetch/dist/shared/ofetch.CWycOUEr.mjs:274:26)
+      at async $fetch2 (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/ofetch/dist/shared/ofetch.CWycOUEr.mjs:332:15)
+      at async Object.getItem (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:813:17)
+      at async file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:488:22
+      at async file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:863:32
+      at async Promise.all (index 1)
+      at async createUnifont (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:860:2)
+      at async createResolver (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/fontless/dist/index.mjs:295:18) {
+    [cause]: Error: getaddrinfo EAI_AGAIN fonts.google.com
+        at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+        at GetAddrInfoReqWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -3001,
+      code: 'EAI_AGAIN',
+      syscall: 'getaddrinfo',
+      hostname: 'fonts.google.com'
+    }
+  }
+}
+Could not initialize provider `fontshare`. `unifont` will not be able to process fonts provided by this provider. FetchError: [GET] "https://api.fontshare.com/v2/fonts?offset=0&limit=100": <no response> fetch failed
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async $fetch2 (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/ofetch/dist/shared/ofetch.CWycOUEr.mjs:332:15)
+    ... 5 lines matching cause stack trace ...
+    at async createUnifont (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:860:2)
+    at async createResolver (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/fontless/dist/index.mjs:295:18) {
+  [cause]: TypeError: fetch failed
+      at node:internal/deps/undici/undici:13510:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async $fetchRaw2 (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/ofetch/dist/shared/ofetch.CWycOUEr.mjs:274:26)
+      at async $fetch2 (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/ofetch/dist/shared/ofetch.CWycOUEr.mjs:332:15)
+      at async file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:375:12
+      at async Object.getItem (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:813:17)
+      at async file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:370:16
+      at async file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:863:32
+      at async Promise.all (index 4)
+      at async createUnifont (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:860:2) {
+    [cause]: Error: getaddrinfo EAI_AGAIN api.fontshare.com
+        at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+        at GetAddrInfoReqWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -3001,
+      code: 'EAI_AGAIN',
+      syscall: 'getaddrinfo',
+      hostname: 'api.fontshare.com'
+    }
+  }
+}
+Could not fetch from `https://api.fontsource.org/v1/fonts`. Will retry in `1000ms`. `1` retries left.
+Could not initialize provider `googleicons`. `unifont` will not be able to process fonts provided by this provider. FetchError: [GET] "https://fonts.google.com/metadata/icons?key=material_symbols&incomplete=true": <no response> fetch failed
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async $fetch2 (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/ofetch/dist/shared/ofetch.CWycOUEr.mjs:332:15)
+    ... 5 lines matching cause stack trace ...
+    at async createUnifont (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:860:2)
+    at async createResolver (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/fontless/dist/index.mjs:295:18) {
+  [cause]: TypeError: fetch failed
+      at node:internal/deps/undici/undici:13510:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async $fetchRaw2 (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/ofetch/dist/shared/ofetch.CWycOUEr.mjs:274:26)
+      at async $fetch2 (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/ofetch/dist/shared/ofetch.CWycOUEr.mjs:332:15)
+      at async file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:572:16
+      at async Object.getItem (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:813:17)
+      at async file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:571:22
+      at async file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:863:32
+      at async Promise.all (index 2)
+      at async createUnifont (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:860:2) {
+    [cause]: Error: getaddrinfo EAI_AGAIN fonts.google.com
+        at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+        at GetAddrInfoReqWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -3001,
+      code: 'EAI_AGAIN',
+      syscall: 'getaddrinfo',
+      hostname: 'fonts.google.com'
+    }
+  }
+}
+Could not initialize provider `fontsource`. `unifont` will not be able to process fonts provided by this provider. FetchError: [GET] "https://api.fontsource.org/v1/fonts": <no response> fetch failed
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async $fetch2 (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/ofetch/dist/shared/ofetch.CWycOUEr.mjs:332:15)
+    ... 5 lines matching cause stack trace ...
+    at async createResolver (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/fontless/dist/index.mjs:295:18) {
+  [cause]: TypeError: fetch failed
+      at node:internal/deps/undici/undici:13510:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async $fetchRaw2 (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/ofetch/dist/shared/ofetch.CWycOUEr.mjs:274:26)
+      at async $fetch2 (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/ofetch/dist/shared/ofetch.CWycOUEr.mjs:332:15)
+      at async Object.getItem (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:813:17)
+      at async file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:420:16
+      at async file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:863:32
+      at async Promise.all (index 5)
+      at async createUnifont (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:860:2)
+      at async createResolver (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/fontless/dist/index.mjs:295:18) {
+    [cause]: Error: getaddrinfo EAI_AGAIN api.fontsource.org
+        at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+        at GetAddrInfoReqWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -3001,
+      code: 'EAI_AGAIN',
+      syscall: 'getaddrinfo',
+      hostname: 'api.fontsource.org'
+    }
+  }
+}
+Could not initialize provider `bunny`. `unifont` will not be able to process fonts provided by this provider. FetchError: [GET] "https://fonts.bunny.net/list": <no response> fetch failed
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async $fetch2 (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/ofetch/dist/shared/ofetch.CWycOUEr.mjs:332:15)
+    ... 5 lines matching cause stack trace ...
+    at async createResolver (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/fontless/dist/index.mjs:295:18) {
+  [cause]: TypeError: fetch failed
+      at node:internal/deps/undici/undici:13510:13
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async $fetchRaw2 (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/ofetch/dist/shared/ofetch.CWycOUEr.mjs:274:26)
+      at async $fetch2 (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/ofetch/dist/shared/ofetch.CWycOUEr.mjs:332:15)
+      at async Object.getItem (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:813:17)
+      at async file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:323:16
+      at async file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:863:32
+      at async Promise.all (index 3)
+      at async createUnifont (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/unifont/dist/index.mjs:860:2)
+      at async createResolver (file:///mnt/data/stage6f_work/frontend/garmetix-web/node_modules/fontless/dist/index.mjs:295:18) {
+    [cause]: Error: getaddrinfo EAI_AGAIN fonts.bunny.net
+        at GetAddrInfoReqWrap.onlookupall [as oncomplete] (node:dns:122:26)
+        at GetAddrInfoReqWrap.callbackTrampoline (node:internal/async_hooks:130:17) {
+      errno: -3001,
+      code: 'EAI_AGAIN',
+      syscall: 'getaddrinfo',
+      hostname: 'fonts.bunny.net'
+    }
+  }
+}
+[info] [32m✓[39m 1058 modules transformed.
+[error] [31m✗[39m Build failed in 27.50s
+│
+■  Nuxt build error: Error: [31m[vite:esbuild-transpile] The service was stopped: write EPIPE[39m

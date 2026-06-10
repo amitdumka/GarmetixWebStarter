@@ -100,6 +100,12 @@ const moduleGroups = [
     ]
   },
   {
+    label: 'Account',
+    items: [
+      { to: '/profile', label: 'My Profile', icon: 'i-lucide-user-cog' }
+    ]
+  },
+  {
     label: 'Help',
     items: [
       { to: '/about-us', label: 'About Us', icon: 'i-lucide-info' },
@@ -387,6 +393,15 @@ onBeforeUnmount(() => {
           <p>AKS Labs(India)</p>
           <p class="text-xs text-slate-500 dark:text-slate-400">{{ APP_STAGE }} · v{{ APP_VERSION }}</p>
           <UButton
+            color="neutral"
+            variant="ghost"
+            icon="i-lucide-user-cog"
+            :label="collapsed ? undefined : 'My Profile'"
+            :square="collapsed"
+            block
+            @click="navigateTo('/profile')"
+          />
+          <UButton
           color="neutral"
           variant="ghost"
           icon="i-lucide-log-out"
@@ -444,7 +459,7 @@ onBeforeUnmount(() => {
                   color="neutral"
                   variant="subtle"
                   icon="i-lucide-user-cog"
-                  @click="profileOpen = true"
+                  @click="navigateTo('/profile')"
                 />
               </UTooltip>
               <UTooltip text="Refresh data">

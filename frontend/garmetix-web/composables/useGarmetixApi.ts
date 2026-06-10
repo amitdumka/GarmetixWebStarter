@@ -12,8 +12,10 @@ export function useGarmetixApi() {
       return {}
     }
 
-    const token = localStorage.getItem('garmetix.token')
-    return token ? { Authorization: `Bearer ${token}` } : {}
+    const auth = useAuth()
+    auth.restore()
+    const sessionToken = auth.token.value || localStorage.getItem('garmetix.token')
+    return sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}
   }
 
   async function list<T>(resource: string) {
@@ -61,6 +63,11 @@ export function useGarmetixApi() {
         path,
         body: summarizeBody(body)
       }
+
+      if (error?.status === 401 || error?.statusCode === 401 || error?.response?.status === 401) {
+        useAuth().handleUnauthorized(true)
+      }
+
       throw error
     }
   }

@@ -34,13 +34,15 @@ export type ForgotPasswordResponse = {
 
 const user = ref<AuthUser | null>(null)
 const token = ref<string | null>(null)
+const expiresAtUtc = ref<string | null>(null)
+const sessionExpiredNotice = ref(false)
 
 export function useAuth() {
   const config = useRuntimeConfig()
   const apiBase = config.public.apiBase
   const authBase = apiBase.replace(/\/api$/, '/api/auth')
 
-  const isAuthenticated = computed(() => Boolean(token.value && user.value))
+  const isAuthenticated = computed(() => Boolean(token.value && user.value && !isSessionExpired()))
   const isOwner = computed(() => equals(user.value?.userType, 'Owner'))
   const isAdmin = computed(() => equals(user.value?.role, 'Admin') || Boolean(user.value?.admin))
   const canSeeAdmin = computed(() => isAdmin.value || isOwner.value)
@@ -50,10 +52,20 @@ export function useAuth() {
   function setSession(response: AuthResponse) {
     token.value = response.token
     user.value = response.user
+    expiresAtUtc.value = response.expiresAtUtc
+    sessionExpiredNotice.value = false
 
     if (import.meta.client) {
       localStorage.setItem('garmetix.token', response.token)
       localStorage.setItem('garmetix.user', JSON.stringify(response.user))
+      localStorage.setItem('garmetix.expiresAtUtc', response.expiresAtUtc)
+    }
+  }
+
+  function setUser(nextUser: AuthUser) {
+    user.value = nextUser
+    if (import.meta.client) {
+      localStorage.setItem('garmetix.user', JSON.stringify(nextUser))
     }
   }
 
@@ -63,8 +75,48 @@ export function useAuth() {
     }
 
     token.value = localStorage.getItem('garmetix.token')
+    expiresAtUtc.value = localStorage.getItem('garmetix.expiresAtUtc')
     const storedUser = localStorage.getItem('garmetix.user')
     user.value = storedUser ? JSON.parse(storedUser) : null
+
+    if (token.value && isSessionExpired()) {
+      clearSession(true)
+    }
+  }
+
+  function isSessionExpired() {
+    if (!expiresAtUtc.value) {
+      return Boolean(token.value)
+    }
+
+    const expiresAt = Date.parse(expiresAtUtc.value)
+    if (Number.isNaN(expiresAt)) {
+      return true
+    }
+
+    return expiresAt <= Date.now()
+  }
+
+  function hasStoredSession() {
+    if (!import.meta.client) {
+      return Boolean(token.value || user.value)
+    }
+
+    return Boolean(localStorage.getItem('garmetix.token') || localStorage.getItem('garmetix.user'))
+  }
+
+  function clearSession(expired = false) {
+    useWorkspace().clear()
+    token.value = null
+    user.value = null
+    expiresAtUtc.value = null
+    sessionExpiredNotice.value = expired
+
+    if (import.meta.client) {
+      localStorage.removeItem('garmetix.token')
+      localStorage.removeItem('garmetix.user')
+      localStorage.removeItem('garmetix.expiresAtUtc')
+    }
   }
 
   async function login(userName: string, password: string) {
@@ -105,6 +157,24 @@ export function useAuth() {
     })
   }
 
+  async function me() {
+    const profile = await $fetch<AuthUser>(`${authBase}/me`, {
+      headers: token.value ? { Authorization: `Bearer ${token.value}` } : undefined
+    })
+    setUser(profile)
+    return profile
+  }
+
+  async function updateProfile(name: string, userName: string, email: string) {
+    const profile = await $fetch<AuthUser>(`${authBase}/me`, {
+      method: 'PUT',
+      headers: token.value ? { Authorization: `Bearer ${token.value}` } : undefined,
+      body: { name, userName, email }
+    })
+    setUser(profile)
+    return profile
+  }
+
   async function changePassword(currentPassword: string, newPassword: string) {
     return await $fetch<{ message: string }>(`${authBase}/change-password`, {
       method: 'POST',
@@ -114,13 +184,15 @@ export function useAuth() {
   }
 
   function logout() {
-    useWorkspace().clear()
-    token.value = null
-    user.value = null
+    clearSession(false)
+  }
 
-    if (import.meta.client) {
-      localStorage.removeItem('garmetix.token')
-      localStorage.removeItem('garmetix.user')
+  function handleUnauthorized(redirectToLogin = true) {
+    clearSession(true)
+    if (redirectToLogin && import.meta.client) {
+      const route = useRoute()
+      const returnTo = route.path === '/' ? undefined : route.fullPath
+      navigateTo({ path: '/', query: { expired: '1', ...(returnTo ? { returnTo } : {}) } })
     }
   }
 
@@ -131,6 +203,8 @@ export function useAuth() {
   return {
     user,
     token,
+    expiresAtUtc,
+    sessionExpiredNotice,
     isAuthenticated,
     isOwner,
     isAdmin,
@@ -138,12 +212,19 @@ export function useAuth() {
     canEdit,
     canDelete,
     restore,
+    isSessionExpired,
+    hasStoredSession,
+    setSession,
+    setUser,
     login,
     bootstrapStatus,
     bootstrapAdmin,
     forgotPassword,
     resetPassword,
+    me,
+    updateProfile,
     changePassword,
-    logout
+    logout,
+    handleUnauthorized
   }
 }

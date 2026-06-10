@@ -5,11 +5,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "2.4.2";
-    public const string Stage = "Stage 6E";
-    public const string ReleaseName = "Public Info and Message Log Runtime Fixes";
+    public const string Version = "2.5.0";
+    public const string Stage = "Stage 6F";
+    public const string ReleaseName = "Auth UX, Session Guard and User Profile";
     public const string BuildDate = "2026-06-10";
-    public const string BuildCode = "GARMETIX-6E-20260610-242";
+    public const string BuildCode = "GARMETIX-6F-20260610-250";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -60,6 +60,11 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Modern login screen with one primary Login button and compact forgot/reset links",
+        "Global auth guard redirects expired or missing sessions to Login before protected pages render",
+        "API 401 handling now clears expired sessions and returns the user to Login",
+        "My Profile page with editable name, username, email and self-service password change",
+        "Profile changes never allow users to modify their own role, permission or workspace assignment",
         "Company, store group and store onboarding module",
         "AF/SS default data seeder module",
         "Application message logs with filters",
@@ -92,6 +97,7 @@ public static class AppInfoEndpoints
         new("Where do I onboard the first company?", "Use Admin > Onboarding. It creates company, store group, store, users, employees, manager salesman and optional basic masters.", "Onboarding"),
         new("Where do I seed AF/SS default data?", "Use Admin > AF/SS, select the target company/profile, then run the default data seed.", "Seeder"),
         new("Where can I see success or failure messages?", "Use Admin > Message Logs. You can filter by source, level, success/failure, search text and date range.", "Logs"),
+        new("How do I edit my own profile?", "Use Account > My Profile. You can change your name, username, email and password. Role, permissions and workspace assignment remain admin-controlled.", "Profile"),
         new("Where do I record legally Non-GST goods?", "Use Operations > Non-GST Goods. These documents are not hidden; they are recorded in a separate register, posted to visible accounting ledgers and excluded from GST reports because tax rate is zero/out-of-scope.", "Non-GST Goods"),
         new("What should I run after extracting a new package?", "Run dotnet build, npm ci, npm run build, and docker compose up --build from the extracted project.", "Deployment")
     ];

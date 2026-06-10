@@ -200,13 +200,8 @@ auth.MapPost("/login", LoginAsync).AllowAnonymous();
 auth.MapPost("/forgot-password", ForgotPasswordAsync).AllowAnonymous();
 auth.MapPost("/reset-password", ResetPasswordAsync).AllowAnonymous();
 auth.MapPost("/change-password", ChangePasswordAsync).RequireAuthorization();
-auth.MapGet("/me", (HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken) =>
-{
-    var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-    return Guid.TryParse(userId, out var id)
-        ? db.Users.AsNoTracking().Where(user => user.Id == id).Select(user => JwtTokenService.ToDto(user)).FirstOrDefaultAsync(cancellationToken)
-        : Task.FromResult<AuthUserDto?>(null);
-}).RequireAuthorization();
+auth.MapGet("/me", GetCurrentUserAsync).RequireAuthorization();
+auth.MapPut("/me", UpdateCurrentUserProfileAsync).RequireAuthorization();
 
 app.MapSetupEndpoints();
 app.MapWorkspaceEndpoints();
@@ -636,6 +631,68 @@ static async Task<IResult> ResetPasswordAsync(
     await db.SaveChangesAsync(cancellationToken);
 
     return Results.Ok(new { message = "Password reset successfully. You can login with the new password." });
+}
+
+
+static async Task<IResult> GetCurrentUserAsync(
+    HttpContext context,
+    GarmetixDbContext db,
+    CancellationToken cancellationToken)
+{
+    var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    if (!Guid.TryParse(userId, out var id))
+    {
+        return Results.Unauthorized();
+    }
+
+    var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+    return user is null
+        ? Results.NotFound(new { message = "Current user was not found." })
+        : Results.Ok(JwtTokenService.ToDto(user));
+}
+
+static async Task<IResult> UpdateCurrentUserProfileAsync(
+    UpdateProfileRequest request,
+    HttpContext context,
+    GarmetixDbContext db,
+    CancellationToken cancellationToken)
+{
+    if (string.IsNullOrWhiteSpace(request.Name)
+        || string.IsNullOrWhiteSpace(request.UserName)
+        || string.IsNullOrWhiteSpace(request.Email))
+    {
+        return Results.BadRequest(new { message = "Name, username, and email are required." });
+    }
+
+    var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    if (!Guid.TryParse(userId, out var id))
+    {
+        return Results.Unauthorized();
+    }
+
+    var user = await db.Users.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+    if (user is null)
+    {
+        return Results.NotFound(new { message = "Current user was not found." });
+    }
+
+    var normalizedUserName = request.UserName.Trim();
+    var normalizedEmail = request.Email.Trim();
+    var exists = await db.Users.AnyAsync(
+        item => item.Id != id && (item.UserName == normalizedUserName || item.Email == normalizedEmail),
+        cancellationToken);
+
+    if (exists)
+    {
+        return Results.Conflict(new { message = "A user with the same username or email already exists." });
+    }
+
+    user.Name = request.Name.Trim();
+    user.UserName = normalizedUserName;
+    user.Email = normalizedEmail;
+    await db.SaveChangesAsync(cancellationToken);
+
+    return Results.Ok(JwtTokenService.ToDto(user));
 }
 
 static async Task<IResult> ChangePasswordAsync(
