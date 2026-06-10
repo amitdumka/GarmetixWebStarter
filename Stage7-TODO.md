@@ -16,3 +16,10 @@
 ## Safety policy
 
 Do not remove old pages without explicit confirmation. Keep `NUXT_PUBLIC_DASHBOARD_SHELL=legacy` until the new dashboard shell is accepted in production.
+
+
+## Stage 7D / v3.3.0
+- Controlled `UDashboardSidebar` collapse state with Ctrl+B and header/topbar collapse buttons.
+- Refactored sidebar into primary navigation plus bottom utility navigation similar to Nuxt UI Dashboard template.
+- Added footer account dropdown with profile, dashboard, help, logs and logout actions.
+- Preserved `NUXT_PUBLIC_DASHBOARD_SHELL=legacy` revert option.

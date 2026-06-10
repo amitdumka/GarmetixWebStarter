@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { DropdownMenuItem, NavigationMenuItem } from '@nuxt/ui'
 import { APP_VERSION, APP_STAGE } from '~/utils/appVersion'
 
 type MenuItem = {
@@ -42,6 +43,8 @@ const workspaceCompanies = ref<any[]>([])
 const workspaceStores = ref<any[]>([])
 const commandOpen = ref(false)
 const workspaceOpen = ref(false)
+const sidebarOpen = ref(true)
+const sidebarCollapsed = ref(false)
 const searchTerm = ref('')
 const favoritePaths = ref<string[]>([])
 const recentPaths = ref<string[]>([])
@@ -163,13 +166,45 @@ const visibleGroups = computed(() => moduleGroups
   }))
   .filter((group) => group.items.length > 0))
 
-const navigationItems = computed(() => visibleGroups.value.flatMap((group) => [
-  { label: group.label, type: 'label' },
-  ...group.items.map((item) => ({
-    ...item,
+const navigationGroupIcons: Record<string, string> = {
+  Dashboards: 'i-lucide-layout-dashboard',
+  Operations: 'i-lucide-shopping-bag',
+  People: 'i-lucide-users-round',
+  'Off Book': 'i-lucide-wallet-cards',
+  Account: 'i-lucide-user-round',
+  Help: 'i-lucide-circle-help',
+  Admin: 'i-lucide-shield-check'
+}
+
+const primaryNavigationLabels = ['Dashboards', 'Operations', 'People', 'Off Book']
+const utilityNavigationLabels = ['Account', 'Help', 'Admin']
+
+function toNavigationChildren(group: MenuGroup): NavigationMenuItem[] {
+  return group.items.map((item) => ({
+    label: item.label,
+    icon: item.icon,
+    to: item.to,
     active: isActive(item.to)
   }))
-]))
+}
+
+function toNavigationGroup(group: MenuGroup): NavigationMenuItem {
+  return {
+    label: group.label,
+    icon: navigationGroupIcons[group.label] || 'i-lucide-circle',
+    active: group.items.some((item) => isActive(item.to)),
+    defaultOpen: ['Dashboards', 'Operations'].includes(group.label),
+    children: toNavigationChildren(group)
+  }
+}
+
+const navigationPrimaryItems = computed<NavigationMenuItem[]>(() => visibleGroups.value
+  .filter((group) => primaryNavigationLabels.includes(group.label))
+  .map((group) => toNavigationGroup(group)))
+
+const navigationUtilityItems = computed<NavigationMenuItem[]>(() => visibleGroups.value
+  .filter((group) => utilityNavigationLabels.includes(group.label))
+  .map((group) => toNavigationGroup(group)))
 
 const allVisibleItems = computed(() => visibleGroups.value.flatMap((group) => group.items.map((item) => ({ ...item, group: group.label }))))
 const commandItems = computed(() => {
@@ -204,6 +239,39 @@ const breadcrumbItems = computed(() => {
 })
 const currentPageIsFavorite = computed(() => favoritePaths.value.includes(route.path))
 const roleBadge = computed(() => auth.canSeeAdmin.value ? 'Admin/Owner view' : (auth.user.value?.role || auth.user.value?.userType || 'User'))
+const userDisplayName = computed(() => auth.user.value?.name || auth.user.value?.userName || 'Garmetix User')
+const userEmail = computed(() => auth.user.value?.email || 'Signed in')
+const userInitials = computed(() => {
+  const source = userDisplayName.value || 'GU'
+  return source
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || 'GU'
+})
+const sidebarStateLabel = computed(() => sidebarCollapsed.value ? 'Expand sidebar' : 'Collapse sidebar')
+const sidebarStateIcon = computed(() => sidebarCollapsed.value ? 'i-lucide-panel-left-open' : 'i-lucide-panel-left-close')
+const accountDropdownItems = computed<DropdownMenuItem[][]>(() => [
+  [
+    { label: userDisplayName.value, type: 'label' },
+    { label: userEmail.value, icon: 'i-lucide-mail', disabled: true }
+  ],
+  [
+    { label: 'My Profile', icon: 'i-lucide-user-cog', to: '/profile' },
+    { label: 'Smart Dashboard', icon: 'i-lucide-gauge', to: '/dashboard' },
+    { label: 'Dashboard Map', icon: 'i-lucide-map', to: '/dashboard/map' },
+    { label: 'Message Logs', icon: 'i-lucide-list-collapse', to: '/message-logs' }
+  ],
+  [
+    { label: 'About Garmetix', icon: 'i-lucide-info', to: '/about-us' },
+    { label: 'Contact Us', icon: 'i-lucide-message-circle', to: '/contact-us' },
+    { label: 'FAQ', icon: 'i-lucide-circle-help', to: '/faq' }
+  ],
+  [
+    { label: 'Logout', icon: 'i-lucide-log-out', color: 'error', onSelect: logout }
+  ]
+])
 
 const allowedCompanies = computed(() => shellCompanies.value.filter((company) =>
   !auth.user.value?.companyId || company.id === auth.user.value.companyId))
@@ -280,6 +348,10 @@ function logout() {
   navigateTo('/')
 }
 
+function toggleSidebarCollapsed() {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+}
+
 function openCommand() {
   searchTerm.value = ''
   commandOpen.value = true
@@ -319,6 +391,10 @@ function handleShellShortcut(event: KeyboardEvent) {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
     event.preventDefault()
     openCommand()
+  }
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'b') {
+    event.preventDefault()
+    sidebarCollapsed.value = !sidebarCollapsed.value
   }
 }
 
@@ -397,40 +473,75 @@ onBeforeUnmount(() => {
     <slot />
   </AppShellLegacy>
 
-  <UDashboardGroup v-else storage-key="garmetix-dashboard-v3">
+  <UDashboardGroup v-else storage-key="garmetix-dashboard-v3" unit="rem">
     <UDashboardSidebar
       id="garmetix-dashboard-sidebar"
+      v-model:open="sidebarOpen"
+      v-model:collapsed="sidebarCollapsed"
       collapsible
       resizable
-      :min-size="12"
-      :default-size="18"
-      :max-size="24"
+      :min-size="16"
+      :default-size="20"
+      :max-size="26"
+      :collapsed-size="4"
+      :toggle="{ color: 'neutral', variant: 'ghost', class: 'rounded-full' }"
       :ui="{ footer: 'border-t border-default' }"
     >
       <template #header="{ collapsed }">
-        <NuxtLink class="dashboard-brand" :to="dashboardHomePath">
-          <div class="dashboard-brand-mark">
-            <img class="ui-brand-logo" src="/garmetix-icon-512.png" alt="Garmetix" />
-          </div>
-          <div v-if="!collapsed" class="min-w-0">
-            <p class="dashboard-brand-title">Garmetix</p>
-            <p class="dashboard-brand-subtitle">Dashboard shell · v3.2</p>
-          </div>
-        </NuxtLink>
+        <div class="dashboard-sidebar-header" :class="{ collapsed }">
+          <NuxtLink class="dashboard-brand" :class="{ collapsed }" :to="dashboardHomePath">
+            <div class="dashboard-brand-mark">
+              <img class="ui-brand-logo" src="/garmetix-icon-512.png" alt="Garmetix" />
+            </div>
+            <div v-if="!collapsed" class="min-w-0">
+              <p class="dashboard-brand-title">Garmetix</p>
+              <p class="dashboard-brand-subtitle">Dashboard shell · v3.3</p>
+            </div>
+          </NuxtLink>
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="xs"
+            :icon="sidebarStateIcon"
+            :aria-label="sidebarStateLabel"
+            :title="`${sidebarStateLabel} · Ctrl+B`"
+            @click.stop="toggleSidebarCollapsed"
+          />
+        </div>
       </template>
 
       <template #default="{ collapsed }">
         <div class="dashboard-sidebar-stack">
           <UButton
             color="neutral"
-            variant="subtle"
+            variant="outline"
             icon="i-lucide-search"
             :label="collapsed ? undefined : 'Search menu'"
             :square="collapsed"
             block
             @click="openCommand"
+          >
+            <template v-if="!collapsed" #trailing>
+              <div class="dashboard-search-kbd">
+                <UKbd value="meta" variant="subtle" />
+                <UKbd value="K" variant="subtle" />
+              </div>
+            </template>
+          </UButton>
+
+          <UNavigationMenu
+            :collapsed="collapsed"
+            :items="navigationPrimaryItems"
+            orientation="vertical"
+            class="dashboard-sidebar-nav"
           />
-          <UNavigationMenu :collapsed="collapsed" :items="navigationItems" orientation="vertical" />
+
+          <UNavigationMenu
+            :collapsed="collapsed"
+            :items="navigationUtilityItems"
+            orientation="vertical"
+            class="dashboard-sidebar-utility"
+          />
         </div>
       </template>
 
@@ -449,8 +560,25 @@ onBeforeUnmount(() => {
             <p>{{ APP_STAGE }} · v{{ APP_VERSION }}</p>
             <p class="dashboard-revert-hint">Revert: set NUXT_PUBLIC_DASHBOARD_SHELL=legacy</p>
           </div>
-          <UButton color="neutral" variant="ghost" icon="i-lucide-user-cog" :label="collapsed ? undefined : 'My Profile'" :square="collapsed" block @click="navigateTo('/profile')" />
-          <UButton color="neutral" variant="ghost" icon="i-lucide-log-out" :label="collapsed ? undefined : 'Logout'" :square="collapsed" block @click="logout" />
+
+          <UDropdownMenu :items="accountDropdownItems" :ui="{ content: 'w-64' }">
+            <UButton
+              color="neutral"
+              variant="ghost"
+              class="dashboard-account-trigger"
+              :class="{ collapsed }"
+              :label="collapsed ? undefined : userDisplayName"
+              :square="collapsed"
+              block
+            >
+              <template #leading>
+                <UAvatar :alt="userDisplayName" size="sm" />
+              </template>
+              <template v-if="!collapsed" #trailing>
+                <UIcon name="i-lucide-chevrons-up-down" class="h-4 w-4 text-muted" />
+              </template>
+            </UButton>
+          </UDropdownMenu>
         </div>
       </template>
     </UDashboardSidebar>
@@ -459,7 +587,7 @@ onBeforeUnmount(() => {
       <template #header>
         <UDashboardNavbar :title="title">
           <template #leading>
-            <UDashboardSidebarCollapse />
+            <UDashboardSidebarCollapse :title="sidebarStateLabel" />
           </template>
 
           <template #right>
@@ -475,6 +603,9 @@ onBeforeUnmount(() => {
               <UButton color="neutral" variant="subtle" icon="i-lucide-list-collapse" aria-label="Message logs" @click="navigateTo('/message-logs')" />
               <USelect v-model="selectedTheme" :items="themeOptions" class="hidden sm:flex w-28" aria-label="Theme" />
               <UColorModeButton color="neutral" variant="ghost" />
+              <UDropdownMenu :items="accountDropdownItems" :ui="{ content: 'w-64' }">
+                <UButton color="neutral" variant="ghost" :avatar="{ alt: userDisplayName }" class="hidden sm:inline-flex" :label="userDisplayName" />
+              </UDropdownMenu>
             </div>
           </template>
         </UDashboardNavbar>

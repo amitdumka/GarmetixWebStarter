@@ -2,9 +2,9 @@
 
 ## Current version
 
-- Version: 3.2.0
-- Stage: Stage 7C
-- Build Code: GARMETIX-7C-20260610-320
+- Version: 3.3.0
+- Stage: Stage 7D
+- Build Code: GARMETIX-7D-20260610-330
 
 ## Main shell
 
@@ -39,3 +39,10 @@
 - Frontend: `frontend/garmetix-web/utils/appVersion.ts`
 - Backend: `backend/Garmetix.Api/AppInfo/AppInfoEndpoints.cs`
 - Runtime check: `/api/app-info/version`
+
+
+## Stage 7D / v3.3.0
+- Controlled `UDashboardSidebar` collapse state with Ctrl+B and header/topbar collapse buttons.
+- Refactored sidebar into primary navigation plus bottom utility navigation similar to Nuxt UI Dashboard template.
+- Added footer account dropdown with profile, dashboard, help, logs and logout actions.
+- Preserved `NUXT_PUBLIC_DASHBOARD_SHELL=legacy` revert option.

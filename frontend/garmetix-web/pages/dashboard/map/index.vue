@@ -27,10 +27,11 @@ const mainMenuGroups = [
 const templateChecklist = [
   'Nuxt UI dashboard-style shell is active by default.',
   'Legacy shell remains available with NUXT_PUBLIC_DASHBOARD_SHELL=legacy.',
-  'Sidebar is collapsible and resizable.',
-  'Topbar includes workspace, refresh, message logs, theme and dashboard actions.',
+  'Sidebar is controlled, collapsible, resizable and supports Ctrl/Cmd+B.',
+  'Topbar includes workspace, refresh, message logs, theme, dashboard actions and user menu.',
   'Command menu opens with Ctrl/Cmd + K.',
   'Favorites and recent pages are stored locally per browser.',
+  'Bottom utility navigation and footer account dropdown mirror Nuxt UI Dashboard template patterns.',
   'No major page was removed during Stage 7.'
 ]
 
@@ -58,7 +59,7 @@ onMounted(refresh)
     <section class="dashboard-v3-page">
       <div class="dashboard-v3-hero business">
         <div>
-          <UBadge color="primary" variant="subtle" icon="i-lucide-map">Stage 7C</UBadge>
+          <UBadge color="primary" variant="subtle" icon="i-lucide-map">Stage 7D</UBadge>
           <h1>Dashboard implementation map</h1>
           <p>Template alignment, dashboard routing, menu preservation and rollback notes for v{{ APP_VERSION }}.</p>
         </div>

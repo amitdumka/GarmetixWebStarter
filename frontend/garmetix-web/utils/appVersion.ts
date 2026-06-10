@@ -1,10 +1,11 @@
-export const APP_VERSION = '3.2.0'
-export const APP_STAGE = 'Stage 7C'
-export const APP_RELEASE_NAME = 'Dashboard UX Polish, Command Memory and Implementation Map'
+export const APP_VERSION = '3.3.0'
+export const APP_STAGE = 'Stage 7D'
+export const APP_RELEASE_NAME = 'Dashboard Sidebar Collapse and Footer Account Menu'
 export const APP_BUILD_DATE = '2026-06-10'
-export const APP_BUILD_CODE = 'GARMETIX-7C-20260610-320'
+export const APP_BUILD_CODE = 'GARMETIX-7D-20260610-330'
 
 export const APP_HIGHLIGHTS = [
+  'Stage 7D adds controlled collapsible sidebar, icon-only mode and footer account menu',
   'Stage 7C adds dashboard breadcrumbs, favorites, recent pages and Ctrl/Cmd+K command memory',
   'Dashboard Map page documents Stage 7 routing, preserved menu groups, version identity and revert policy',
   'Sidebar/topbar UX polished while keeping all current pages and legacy shell rollback',
