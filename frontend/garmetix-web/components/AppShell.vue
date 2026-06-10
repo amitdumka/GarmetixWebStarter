@@ -1,5 +1,20 @@
 <script setup lang="ts">
 import { APP_VERSION, APP_STAGE } from '~/utils/appVersion'
+
+type MenuItem = {
+  to: string
+  label: string
+  icon: string
+  roles?: string[]
+  adminOnly?: boolean
+  stage?: string
+}
+
+type MenuGroup = {
+  label: string
+  items: MenuItem[]
+}
+
 const props = defineProps<{
   title: string
   companies?: any[]
@@ -11,36 +26,30 @@ const emit = defineEmits<{
   workspaceChange: []
 }>()
 
+const config = useRuntimeConfig()
 const auth = useAuth()
 const api = useGarmetixApi()
 const workspace = useWorkspace()
 const route = useRoute()
+const colorMode = useColorMode()
 const feedback = useUiFeedback()
-const messageLogs = feedback.logs
 
-useHead(() => ({
-  title: props.title || 'Dashboard'
-}))
-
+const useLegacyShell = computed(() => config.public.dashboardShell === 'legacy')
 const storeGroups = ref<any[]>([])
 const workspaceOptions = ref<any | null>(null)
 const workspaceCompanies = ref<any[]>([])
 const workspaceStores = ref<any[]>([])
-const colorMode = useColorMode()
-const logOpen = ref(false)
+const commandOpen = ref(false)
 const workspaceOpen = ref(false)
-const profileOpen = ref(false)
-const profileMessage = ref('')
-const profileError = ref('')
-const passwordForm = reactive({
-  currentPassword: '',
-  newPassword: '',
-  confirmPassword: ''
-})
+const searchTerm = ref('')
 const now = ref(new Date())
 const apiLive = ref<boolean | null>(null)
 let clockTimer: ReturnType<typeof setInterval> | undefined
 let healthTimer: ReturnType<typeof setInterval> | undefined
+
+useHead(() => ({
+  title: props.title || 'Dashboard'
+}))
 
 const themeOptions = [
   { label: 'System', value: 'system' },
@@ -55,11 +64,13 @@ const selectedTheme = computed({
   }
 })
 
-const moduleGroups = [
+const moduleGroups: MenuGroup[] = [
   {
     label: 'Dashboards',
     items: [
-      { to: '/', label: 'Overview', icon: 'i-lucide-layout-dashboard' },
+      { to: '/dashboard/store-manager', label: 'Store Manager', icon: 'i-lucide-store', roles: ['storemanager', 'manager'] },
+      { to: '/dashboard/business', label: 'Owner / Admin', icon: 'i-lucide-chart-no-axes-combined', roles: ['owner', 'admin', 'accountant'] },
+      { to: '/', label: 'Legacy Overview', icon: 'i-lucide-layout-dashboard', stage: 'revert-safe' },
       { to: '/reports', label: 'Reports', icon: 'i-lucide-file-text' },
       { to: '/gst-returns', label: 'GST Returns', icon: 'i-lucide-file-json-2' },
       { to: '/gst-reports', label: 'GST Reports', icon: 'i-lucide-table-properties' }
@@ -116,29 +127,37 @@ const moduleGroups = [
   {
     label: 'Admin',
     items: [
-      { to: '/setup', label: 'Company', icon: 'i-lucide-building-2' },
-      { to: '/client-onboarding', label: 'Onboarding', icon: 'i-lucide-route' },
-      { to: '/af-ss', label: 'AF/SS', icon: 'i-lucide-database-backup' },
-      { to: '/message-logs', label: 'Message Logs', icon: 'i-lucide-list-collapse' },
-      { to: '/access', label: 'Roles & Users', icon: 'i-lucide-shield-check' },
-      { to: '/import-export', label: 'Import Export', icon: 'i-lucide-file-down' },
-      { to: '/audit', label: 'Audit', icon: 'i-lucide-history' },
-      { to: '/system-health', label: 'System Health', icon: 'i-lucide-activity' },
-      { to: '/production-readiness', label: 'Production Readiness', icon: 'i-lucide-shield-check' },
-      { to: '/release-stabilization', label: 'Release Stabilization', icon: 'i-lucide-rocket' },
-      { to: '/data-consistency', label: 'Consistency & Repair', icon: 'i-lucide-shield-alert' },
-      { to: '/oracle-sync', label: 'Oracle Sync', icon: 'i-lucide-database-zap' }
+      { to: '/setup', label: 'Company', icon: 'i-lucide-building-2', adminOnly: true },
+      { to: '/client-onboarding', label: 'Onboarding', icon: 'i-lucide-route', adminOnly: true },
+      { to: '/af-ss', label: 'AF/SS', icon: 'i-lucide-database-backup', adminOnly: true },
+      { to: '/message-logs', label: 'Message Logs', icon: 'i-lucide-list-collapse', adminOnly: true },
+      { to: '/access', label: 'Roles & Users', icon: 'i-lucide-shield-check', adminOnly: true },
+      { to: '/import-export', label: 'Import Export', icon: 'i-lucide-file-down', adminOnly: true },
+      { to: '/audit', label: 'Audit', icon: 'i-lucide-history', adminOnly: true },
+      { to: '/system-health', label: 'System Health', icon: 'i-lucide-activity', adminOnly: true },
+      { to: '/production-readiness', label: 'Production Readiness', icon: 'i-lucide-shield-check', adminOnly: true },
+      { to: '/release-stabilization', label: 'Release Stabilization', icon: 'i-lucide-rocket', adminOnly: true },
+      { to: '/data-consistency', label: 'Consistency & Repair', icon: 'i-lucide-shield-alert', adminOnly: true },
+      { to: '/oracle-sync', label: 'Oracle Sync', icon: 'i-lucide-database-zap', adminOnly: true }
     ]
   }
 ]
 
-function isActive(to: string) {
-  return to === '/' ? route.path === '/' : route.path.startsWith(to)
-}
+const shellCompanies = computed(() => workspaceCompanies.value.length ? workspaceCompanies.value : (props.companies || []))
+const shellStores = computed(() => workspaceStores.value.length ? workspaceStores.value : (props.stores || []))
+const isCompanyLocked = computed(() => Boolean(workspaceOptions.value?.isCompanyLocked || auth.user.value?.companyId))
+const isStoreGroupLocked = computed(() => Boolean(workspaceOptions.value?.isStoreGroupLocked || auth.user.value?.storeGroupId))
+const isStoreLocked = computed(() => Boolean(workspaceOptions.value?.isStoreLocked || auth.user.value?.storeId))
+const roleKey = computed(() => `${auth.user.value?.role || ''} ${auth.user.value?.userType || ''}`.toLowerCase())
+const isBusinessUser = computed(() => auth.canSeeAdmin.value || roleKey.value.includes('accountant'))
+const visibleGroups = computed(() => moduleGroups
+  .map((group) => ({
+    ...group,
+    items: group.items.filter((item) => isVisibleItem(item))
+  }))
+  .filter((group) => group.items.length > 0))
 
-const visibleModuleGroups = computed(() => moduleGroups.filter((group) => group.label !== 'Admin' || auth.canSeeAdmin.value))
-
-const navigationItems = computed(() => visibleModuleGroups.value.flatMap((group) => [
+const navigationItems = computed(() => visibleGroups.value.flatMap((group) => [
   { label: group.label, type: 'label' },
   ...group.items.map((item) => ({
     ...item,
@@ -146,41 +165,24 @@ const navigationItems = computed(() => visibleModuleGroups.value.flatMap((group)
   }))
 ]))
 
-const shellCompanies = computed(() => workspaceCompanies.value.length ? workspaceCompanies.value : (props.companies || []))
-const shellStores = computed(() => workspaceStores.value.length ? workspaceStores.value : (props.stores || []))
-const isCompanyLocked = computed(() => Boolean(workspaceOptions.value?.isCompanyLocked || auth.user.value?.companyId))
-const isStoreGroupLocked = computed(() => Boolean(workspaceOptions.value?.isStoreGroupLocked || auth.user.value?.storeGroupId))
-const isStoreLocked = computed(() => Boolean(workspaceOptions.value?.isStoreLocked || auth.user.value?.storeId))
+const allVisibleItems = computed(() => visibleGroups.value.flatMap((group) => group.items.map((item) => ({ ...item, group: group.label }))))
+const commandItems = computed(() => {
+  const term = searchTerm.value.trim().toLowerCase()
+  return (term ? allVisibleItems.value.filter((item) => `${item.group} ${item.label}`.toLowerCase().includes(term)) : allVisibleItems.value).slice(0, 18)
+})
 
 const allowedCompanies = computed(() => shellCompanies.value.filter((company) =>
   !auth.user.value?.companyId || company.id === auth.user.value.companyId))
-
-const companyOptions = computed(() =>
-  allowedCompanies.value.map((company) => ({
-    label: company.name || company.companyName || 'Company',
-    value: company.id
-  })))
-
+const companyOptions = computed(() => allowedCompanies.value.map((company) => ({ label: company.name || company.companyName || 'Company', value: company.id })))
 const allowedStoreGroups = computed(() => storeGroups.value.filter((group) =>
   (!workspace.companyId.value || group.companyId === workspace.companyId.value)
   && (!auth.user.value?.storeGroupId || group.id === auth.user.value.storeGroupId)))
-
-const storeGroupOptions = computed(() =>
-  allowedStoreGroups.value.map((group) => ({
-    label: group.name || 'Store group',
-    value: group.id
-  })))
-
+const storeGroupOptions = computed(() => allowedStoreGroups.value.map((group) => ({ label: group.name || 'Store group', value: group.id })))
 const allowedStores = computed(() => shellStores.value.filter((storeItem) =>
   (!workspace.companyId.value || storeItem.companyId === workspace.companyId.value)
   && (!workspace.storeGroupId.value || storeItem.storeGroupId === workspace.storeGroupId.value)
   && (!auth.user.value?.storeId || storeItem.id === auth.user.value.storeId)))
-
-const storeOptions = computed(() =>
-  allowedStores.value.map((storeItem) => ({
-    label: storeItem.name || storeItem.storeName || 'Store',
-    value: storeItem.id
-  })))
+const storeOptions = computed(() => allowedStores.value.map((storeItem) => ({ label: storeItem.name || storeItem.storeName || 'Store', value: storeItem.id })))
 
 const companyValue = computed({
   get: () => workspace.companyId.value,
@@ -189,7 +191,6 @@ const companyValue = computed({
     emit('workspaceChange')
   }
 })
-
 const storeGroupValue = computed({
   get: () => workspace.storeGroupId.value,
   set: (value: string) => {
@@ -197,7 +198,6 @@ const storeGroupValue = computed({
     emit('workspaceChange')
   }
 })
-
 const storeValue = computed({
   get: () => workspace.storeId.value,
   set: (value: string) => {
@@ -206,79 +206,52 @@ const storeValue = computed({
   }
 })
 
-const workingStoreName = computed(() => {
-  const store = shellStores.value.find((item) => item.id === workspace.storeId.value)
-
-  return store?.name || store?.storeName || 'No store selected'
-})
-
-const currentClock = computed(() => now.value.toLocaleTimeString('en-IN', {
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  hour12: true
-}))
-
-const currentDate = computed(() => now.value.toLocaleDateString('en-IN', {
-  day: '2-digit',
-  month: 'short',
-  year: 'numeric'
-}))
-
+const workingCompanyName = computed(() => shellCompanies.value.find((item) => item.id === workspace.companyId.value)?.name || 'All companies')
+const workingStoreName = computed(() => shellStores.value.find((item) => item.id === workspace.storeId.value)?.name || 'All permitted stores')
+const currentClock = computed(() => now.value.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }))
+const currentDate = computed(() => now.value.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }))
 const apiBadge = computed(() => {
   if (apiLive.value === null) {
     return { label: 'Checking', color: 'warning' as const, icon: 'i-lucide-loader-circle' }
   }
-
   return apiLive.value
     ? { label: 'API Live', color: 'success' as const, icon: 'i-lucide-wifi' }
     : { label: 'API Offline', color: 'error' as const, icon: 'i-lucide-wifi-off' }
 })
+
+function isVisibleItem(item: MenuItem) {
+  if (item.adminOnly && !auth.canSeeAdmin.value) {
+    return false
+  }
+  if (item.to === '/dashboard/business') {
+    return isBusinessUser.value
+  }
+  if (item.to === '/dashboard/store-manager') {
+    return true
+  }
+  if (!item.roles?.length) {
+    return true
+  }
+  return item.roles.some((role) => roleKey.value.includes(role)) || auth.canSeeAdmin.value
+}
+
+function isActive(to: string) {
+  return to === '/' ? route.path === '/' : route.path.startsWith(to)
+}
 
 function logout() {
   auth.logout()
   navigateTo('/')
 }
 
-async function changeCurrentPassword() {
-  profileMessage.value = ''
-  profileError.value = ''
-
-  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-    profileError.value = 'New password and confirm password do not match.'
-    return
-  }
-
-  try {
-    const response = await auth.changePassword(passwordForm.currentPassword, passwordForm.newPassword)
-    profileMessage.value = response.message
-    passwordForm.currentPassword = ''
-    passwordForm.newPassword = ''
-    passwordForm.confirmPassword = ''
-  } catch (error: any) {
-    profileError.value = feedback.errorMessage(error, 'Could not change password.', 'Password change failed')
-  }
+function openCommand() {
+  searchTerm.value = ''
+  commandOpen.value = true
 }
 
-function formatLogDate(value: string) {
-  return value ? new Date(value).toLocaleString() : '-'
-}
-
-async function copyLogDetails(entry: any) {
-  const text = [
-    entry.title,
-    entry.message,
-    entry.statusCode ? `Status: ${entry.statusCode}` : '',
-    entry.resource ? `Resource: ${entry.resource}` : '',
-    entry.details || ''
-  ].filter(Boolean).join('\n\n')
-
-  if (!import.meta.client || !navigator.clipboard) {
-    return
-  }
-
-  await navigator.clipboard.writeText(text)
-  feedback.notify('Message details copied', undefined, 'neutral')
+function goTo(path: string) {
+  commandOpen.value = false
+  navigateTo(path)
 }
 
 async function checkApiHealth() {
@@ -307,17 +280,10 @@ async function loadWorkspaceOptions() {
       storeGroups.value = []
     }
   }
-
   workspace.initialize(auth.user.value, shellCompanies.value, storeGroups.value, shellStores.value)
-  if (workspaceOptions.value?.defaultCompanyId && !workspace.companyId.value) {
-    workspace.companyId.value = workspaceOptions.value.defaultCompanyId
-  }
-  if (workspaceOptions.value?.defaultStoreGroupId && !workspace.storeGroupId.value) {
-    workspace.storeGroupId.value = workspaceOptions.value.defaultStoreGroupId
-  }
-  if (workspaceOptions.value?.defaultStoreId && !workspace.storeId.value) {
-    workspace.storeId.value = workspaceOptions.value.defaultStoreId
-  }
+  if (workspaceOptions.value?.defaultCompanyId && !workspace.companyId.value) workspace.companyId.value = workspaceOptions.value.defaultCompanyId
+  if (workspaceOptions.value?.defaultStoreGroupId && !workspace.storeGroupId.value) workspace.storeGroupId.value = workspaceOptions.value.defaultStoreGroupId
+  if (workspaceOptions.value?.defaultStoreId && !workspace.storeId.value) workspace.storeId.value = workspaceOptions.value.defaultStoreId
 }
 
 watch(
@@ -328,314 +294,152 @@ watch(
 
 onMounted(async () => {
   await loadWorkspaceOptions()
-  clockTimer = setInterval(() => {
-    now.value = new Date()
-  }, 1000)
-
+  clockTimer = setInterval(() => { now.value = new Date() }, 1000)
   checkApiHealth()
   healthTimer = setInterval(checkApiHealth, 60000)
 })
 
 onBeforeUnmount(() => {
-  if (clockTimer) {
-    clearInterval(clockTimer)
-  }
-
-  if (healthTimer) {
-    clearInterval(healthTimer)
-  }
+  if (clockTimer) clearInterval(clockTimer)
+  if (healthTimer) clearInterval(healthTimer)
 })
 </script>
 
 <template>
-  <UDashboardGroup storage-key="garmetix-dashboard">
+  <AppShellLegacy
+    v-if="useLegacyShell"
+    :title="title"
+    :companies="companies"
+    :stores="stores"
+    @refresh="emit('refresh')"
+    @workspace-change="emit('workspaceChange')"
+  >
+    <slot />
+  </AppShellLegacy>
+
+  <UDashboardGroup v-else storage-key="garmetix-dashboard-v3">
     <UDashboardSidebar
-      id="garmetix-sidebar"
+      id="garmetix-dashboard-sidebar"
       collapsible
       resizable
       :min-size="12"
-      :default-size="16"
-      :max-size="20"
+      :default-size="18"
+      :max-size="24"
       :ui="{ footer: 'border-t border-default' }"
     >
       <template #header="{ collapsed }">
-        <NuxtLink class="ui-brand" to="/">
-          <div class="ui-brand-mark">
+        <NuxtLink class="dashboard-brand" to="/dashboard/store-manager">
+          <div class="dashboard-brand-mark">
             <img class="ui-brand-logo" src="/garmetix-icon-512.png" alt="Garmetix" />
           </div>
           <div v-if="!collapsed" class="min-w-0">
-            <p class="ui-brand-title">Garmetix</p>
-            <p class="ui-brand-subtitle">Store management</p>
+            <p class="dashboard-brand-title">Garmetix</p>
+            <p class="dashboard-brand-subtitle">Dashboard shell · v3</p>
           </div>
         </NuxtLink>
       </template>
 
       <template #default="{ collapsed }">
-        <UNavigationMenu
-          :collapsed="collapsed"
-          :items="navigationItems"
-          orientation="vertical"
-        />
+        <div class="dashboard-sidebar-stack">
+          <UButton
+            color="neutral"
+            variant="subtle"
+            icon="i-lucide-search"
+            :label="collapsed ? undefined : 'Search menu'"
+            :square="collapsed"
+            block
+            @click="openCommand"
+          />
+          <UNavigationMenu :collapsed="collapsed" :items="navigationItems" orientation="vertical" />
+        </div>
       </template>
 
       <template #footer="{ collapsed }">
-        <div v-if="!collapsed" class="sidebar-stage-card">
-          <div class="sidebar-stage-card-header">
-            <span>{{ workingStoreName }}</span>
-            <UBadge size="xs" :color="apiBadge.color" variant="subtle" :icon="apiBadge.icon">
-              {{ apiBadge.label }}
-            </UBadge>
+        <div class="dashboard-sidebar-footer">
+          <div v-if="!collapsed" class="dashboard-scope-card">
+            <div class="dashboard-scope-row">
+              <span>{{ workingStoreName }}</span>
+              <UBadge size="xs" :color="apiBadge.color" variant="subtle" :icon="apiBadge.icon">{{ apiBadge.label }}</UBadge>
+            </div>
+            <p>{{ workingCompanyName }}</p>
+            <div class="dashboard-clock">
+              <strong>{{ currentClock }}</strong>
+              <span>{{ currentDate }}</span>
+            </div>
+            <p>{{ APP_STAGE }} · v{{ APP_VERSION }}</p>
+            <p class="dashboard-revert-hint">Revert: set NUXT_PUBLIC_DASHBOARD_SHELL=legacy</p>
           </div>
-          <div class="sidebar-status-clock">
-            <strong>{{ currentClock }}</strong>
-            <span>{{ currentDate }}</span>
-          </div>
-          <p>AKS Labs(India)</p>
-          <p class="text-xs text-slate-500 dark:text-slate-400">{{ APP_STAGE }} · v{{ APP_VERSION }}</p>
-          <UButton
-            color="neutral"
-            variant="ghost"
-            icon="i-lucide-user-cog"
-            :label="collapsed ? undefined : 'My Profile'"
-            :square="collapsed"
-            block
-            @click="navigateTo('/profile')"
-          />
-          <UButton
-          color="neutral"
-          variant="ghost"
-          icon="i-lucide-log-out"
-          :label="collapsed ? undefined : 'Logout'"
-          :square="collapsed"
-          block
-          @click="logout"
-        />
+          <UButton color="neutral" variant="ghost" icon="i-lucide-user-cog" :label="collapsed ? undefined : 'My Profile'" :square="collapsed" block @click="navigateTo('/profile')" />
+          <UButton color="neutral" variant="ghost" icon="i-lucide-log-out" :label="collapsed ? undefined : 'Logout'" :square="collapsed" block @click="logout" />
         </div>
-        
       </template>
     </UDashboardSidebar>
 
-    <UDashboardPanel id="garmetix-main">
+    <UDashboardPanel id="garmetix-dashboard-main">
       <template #header>
         <UDashboardNavbar :title="title">
           <template #leading>
             <UDashboardSidebarCollapse />
           </template>
+
           <template #right>
             <div class="dashboard-toolbar">
-              <UTooltip text="Working store">
-                <UButton
-                  color="neutral"
-                  variant="subtle"
-                  icon="i-lucide-building-2"
-                  class="xl:hidden"
-                  aria-label="Working store"
-                  @click="workspaceOpen = true"
-                />
-              </UTooltip>
-              <USelect
-                v-model="companyValue"
-                :items="companyOptions"
-                :disabled="isCompanyLocked || companyOptions.length < 2"
-                class="hidden md:flex w-40"
-                aria-label="Company"
-              />
-              <USelect
-                v-model="storeGroupValue"
-                :items="storeGroupOptions"
-                :disabled="isStoreGroupLocked || storeGroupOptions.length < 2"
-                class="hidden lg:flex w-36"
-                aria-label="Store group"
-              />
-              <USelect
-                v-model="storeValue"
-                :items="storeOptions"
-                :disabled="isStoreLocked || storeOptions.length < 2"
-                class="hidden xl:flex w-36"
-                aria-label="Store"
-              />
-              <UTooltip text="Profile / change password">
-                <UButton
-                  color="neutral"
-                  variant="subtle"
-                  icon="i-lucide-user-cog"
-                  @click="navigateTo('/profile')"
-                />
-              </UTooltip>
-              <UTooltip text="Refresh data">
-                <UButton
-                  color="neutral"
-                  variant="subtle"
-                  icon="i-lucide-refresh-cw"
-                  @click="emit('refresh')"
-                />
-              </UTooltip>
-              <UTooltip text="Message log">
-                <UButton
-                  color="neutral"
-                  variant="subtle"
-                  icon="i-lucide-list-collapse"
-                  :label="messageLogs.length ? String(messageLogs.length) : undefined"
-                  @click="logOpen = true"
-                />
-              </UTooltip>
-              <USelect
-                v-model="selectedTheme"
-                :items="themeOptions"
-                class="hidden sm:flex w-28"
-                aria-label="Theme"
-              />
-              <UTooltip text="Toggle theme">
-                <UColorModeButton color="neutral" variant="ghost" />
-              </UTooltip>
+              <UButton color="neutral" variant="subtle" icon="i-lucide-search" class="hidden md:inline-flex" label="Search" @click="openCommand" />
+              <UButton color="neutral" variant="subtle" icon="i-lucide-building-2" class="xl:hidden" aria-label="Workspace" @click="workspaceOpen = true" />
+              <USelect v-model="companyValue" :items="companyOptions" :disabled="isCompanyLocked || companyOptions.length < 2" class="hidden lg:flex w-44" aria-label="Company" />
+              <USelect v-model="storeGroupValue" :items="storeGroupOptions" :disabled="isStoreGroupLocked || storeGroupOptions.length < 2" class="hidden xl:flex w-40" aria-label="Store group" />
+              <USelect v-model="storeValue" :items="storeOptions" :disabled="isStoreLocked || storeOptions.length < 2" class="hidden 2xl:flex w-44" aria-label="Store" />
+              <UButton color="neutral" variant="subtle" icon="i-lucide-refresh-cw" aria-label="Refresh" @click="emit('refresh')" />
+              <UButton color="neutral" variant="subtle" icon="i-lucide-list-collapse" aria-label="Message logs" @click="navigateTo('/message-logs')" />
+              <USelect v-model="selectedTheme" :items="themeOptions" class="hidden sm:flex w-28" aria-label="Theme" />
+              <UColorModeButton color="neutral" variant="ghost" />
             </div>
           </template>
         </UDashboardNavbar>
       </template>
 
-      <div class="dashboard-content">
+      <div class="dashboard-template-content">
         <slot />
       </div>
     </UDashboardPanel>
   </UDashboardGroup>
 
-  <UTooltip text="Working store">
-    <UButton
-      color="primary"
-      variant="solid"
-      icon="i-lucide-building-2"
-      class="mobile-workspace-button xl:hidden"
-      aria-label="Working store"
-      @click="workspaceOpen = true"
-    />
-  </UTooltip>
-
-  <UModal v-model:open="profileOpen" title="User Profile" :ui="{ content: 'max-w-lg' }">
+  <UModal v-model:open="commandOpen" title="Search Garmetix" :ui="{ content: 'max-w-2xl' }">
     <template #body>
-      <div class="profile-summary">
-        <div>
-          <p class="profile-name">{{ auth.user.value?.name || auth.user.value?.userName }}</p>
-          <p>{{ auth.user.value?.email || '-' }}</p>
+      <div class="dashboard-command">
+        <UInput v-model="searchTerm" icon="i-lucide-search" placeholder="Search pages, reports, setup and operations..." autofocus />
+        <div class="dashboard-command-list">
+          <button v-for="item in commandItems" :key="item.to" class="dashboard-command-item" type="button" @click="goTo(item.to)">
+            <UIcon :name="item.icon" class="h-5 w-5" />
+            <span>
+              <strong>{{ item.label }}</strong>
+              <small>{{ item.group }}</small>
+            </span>
+            <UIcon name="i-lucide-arrow-right" class="h-4 w-4" />
+          </button>
         </div>
-        <UBadge color="primary" variant="subtle">{{ auth.user.value?.role || 'User' }}</UBadge>
-      </div>
-
-      <form class="form-grid" @submit.prevent="changeCurrentPassword">
-        <UFormField label="Current Password">
-          <UInput v-model="passwordForm.currentPassword" type="password" autocomplete="current-password" required />
-        </UFormField>
-        <UFormField label="New Password">
-          <UInput v-model="passwordForm.newPassword" type="password" autocomplete="new-password" required />
-        </UFormField>
-        <UFormField label="Confirm New Password">
-          <UInput v-model="passwordForm.confirmPassword" type="password" autocomplete="new-password" required />
-        </UFormField>
-
-        <UAlert
-          v-if="profileMessage"
-          color="success"
-          variant="subtle"
-          icon="i-lucide-check-circle"
-          :description="profileMessage"
-        />
-        <UAlert
-          v-if="profileError"
-          color="error"
-          variant="subtle"
-          icon="i-lucide-circle-alert"
-          :description="profileError"
-        />
-      </form>
-    </template>
-    <template #footer>
-      <div class="modal-actions">
-        <UButton color="neutral" variant="outline" label="Close" @click="profileOpen = false" />
-        <UButton icon="i-lucide-key-round" label="Change Password" @click="changeCurrentPassword" />
       </div>
     </template>
   </UModal>
 
-  <UModal v-model:open="workspaceOpen" title="Working Store" :ui="{ content: 'max-w-lg' }">
+  <UModal v-model:open="workspaceOpen" title="Workspace" :ui="{ content: 'max-w-lg' }">
     <template #body>
       <div class="form-grid">
         <UFormField label="Company">
-          <USelect
-            v-model="companyValue"
-            :items="companyOptions"
-            :disabled="isCompanyLocked || companyOptions.length < 2"
-            placeholder="Select company"
-          />
+          <USelect v-model="companyValue" :items="companyOptions" :disabled="isCompanyLocked || companyOptions.length < 2" placeholder="Select company" />
         </UFormField>
         <UFormField label="Store group">
-          <USelect
-            v-model="storeGroupValue"
-            :items="storeGroupOptions"
-            :disabled="isStoreGroupLocked || storeGroupOptions.length < 2"
-            placeholder="Select store group"
-          />
+          <USelect v-model="storeGroupValue" :items="storeGroupOptions" :disabled="isStoreGroupLocked || storeGroupOptions.length < 2" placeholder="Select store group" />
         </UFormField>
         <UFormField label="Store">
-          <USelect
-            v-model="storeValue"
-            :items="storeOptions"
-            :disabled="isStoreLocked || storeOptions.length < 2"
-            placeholder="Select store"
-          />
+          <USelect v-model="storeValue" :items="storeOptions" :disabled="isStoreLocked || storeOptions.length < 2" placeholder="Select store" />
         </UFormField>
       </div>
     </template>
     <template #footer>
       <div class="modal-actions">
         <UButton color="neutral" variant="outline" label="Close" @click="workspaceOpen = false" />
-        <UButton icon="i-lucide-check" label="Use Store" @click="workspaceOpen = false" />
-      </div>
-    </template>
-  </UModal>
-
-  <UModal v-model:open="logOpen" title="Message Log" :ui="{ content: 'max-w-3xl' }">
-    <template #body>
-      <div v-if="messageLogs.length" class="message-log-list">
-        <div v-for="entry in messageLogs" :key="entry.id" class="message-log-entry">
-          <div class="message-log-header">
-            <div class="message-log-title">
-              <UBadge :color="entry.color" variant="subtle">{{ entry.title }}</UBadge>
-              <UBadge v-if="entry.statusCode" color="neutral" variant="outline">
-                {{ entry.statusCode }}
-              </UBadge>
-              <span v-if="entry.resource">{{ entry.resource }}</span>
-            </div>
-            <div class="message-log-actions">
-              <span>{{ formatLogDate(entry.at) }}</span>
-              <UButton
-                v-if="entry.details"
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                icon="i-lucide-copy"
-                label="Copy"
-                @click="copyLogDetails(entry)"
-              />
-            </div>
-          </div>
-          <p>{{ entry.message }}</p>
-          <details v-if="entry.details" class="message-log-details">
-            <summary>Technical details</summary>
-            <pre>{{ entry.details }}</pre>
-          </details>
-        </div>
-      </div>
-      <UiCrudEmptyState
-        v-else
-        title="No messages"
-        description="Application messages and technical details will appear here."
-        icon="i-lucide-list-collapse"
-      />
-    </template>
-
-    <template #footer>
-      <div class="modal-actions">
-        <UButton color="neutral" variant="outline" label="Close" @click="logOpen = false" />
-        <UButton color="warning" variant="subtle" icon="i-lucide-trash-2" label="Clear Log" @click="feedback.clearLogs" />
+        <UButton icon="i-lucide-check" label="Use Workspace" @click="workspaceOpen = false" />
       </div>
     </template>
   </UModal>

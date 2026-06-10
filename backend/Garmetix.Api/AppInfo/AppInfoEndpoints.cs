@@ -5,11 +5,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "2.5.0";
-    public const string Stage = "Stage 6F";
-    public const string ReleaseName = "Auth UX, Session Guard and User Profile";
+    public const string Version = "3.0.0";
+    public const string Stage = "Stage 7A";
+    public const string ReleaseName = "Nuxt UI Dashboard Shell and Role Dashboards";
     public const string BuildDate = "2026-06-10";
-    public const string BuildCode = "GARMETIX-6F-20260610-250";
+    public const string BuildCode = "GARMETIX-7A-20260610-300";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -60,6 +60,11 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Nuxt UI dashboard-template style shell with collapsible sidebar, topbar, command search and dark-mode polish",
+        "Store Manager dashboard scoped to the logged-in user current store",
+        "Owner/Admin/Accountant dashboard with company, store-group and store-wise KPIs",
+        "All existing pages and menus preserved; legacy shell can be restored with NUXT_PUBLIC_DASHBOARD_SHELL=legacy",
+        "Stage 7 TODO and implementation map added for safe two-part dashboard migration",
         "Modern login screen with one primary Login button and compact forgot/reset links",
         "Global auth guard redirects expired or missing sessions to Login before protected pages render",
         "API 401 handling now clears expired sessions and returns the user to Login",

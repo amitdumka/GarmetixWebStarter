@@ -1,10 +1,15 @@
-export const APP_VERSION = '2.5.0'
-export const APP_STAGE = 'Stage 6F'
-export const APP_RELEASE_NAME = 'Auth UX, Session Guard and User Profile'
+export const APP_VERSION = '3.0.0'
+export const APP_STAGE = 'Stage 7A'
+export const APP_RELEASE_NAME = 'Nuxt UI Dashboard Shell and Role Dashboards'
 export const APP_BUILD_DATE = '2026-06-10'
-export const APP_BUILD_CODE = 'GARMETIX-6F-20260610-250'
+export const APP_BUILD_CODE = 'GARMETIX-7A-20260610-300'
 
 export const APP_HIGHLIGHTS = [
+  'Nuxt UI dashboard-template style shell with collapsible sidebar, topbar, command search and dark-mode polish',
+  'Store Manager dashboard scoped to the logged-in user current store',
+  'Owner/Admin/Accountant dashboard with company, store-group and store-wise KPIs',
+  'All existing pages and menus preserved; legacy shell can be restored with NUXT_PUBLIC_DASHBOARD_SHELL=legacy',
+  'Stage 7 TODO and implementation map added for safe two-part dashboard migration',
   'Modern login screen with one primary Login button and compact forgot/reset links',
   'Global auth guard redirects expired or missing sessions to Login before protected pages render',
   'API 401 handling now clears expired sessions and returns the user to Login',

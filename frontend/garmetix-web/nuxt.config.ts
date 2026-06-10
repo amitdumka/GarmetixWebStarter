@@ -21,7 +21,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     apiInternalBase: process.env.NUXT_API_INTERNAL_BASE || 'http://localhost:5080/api',
     public: {
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api'
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api',
+      dashboardShell: process.env.NUXT_PUBLIC_DASHBOARD_SHELL || 'dashboard'
     }
   },
   modules: ['@nuxt/ui'],

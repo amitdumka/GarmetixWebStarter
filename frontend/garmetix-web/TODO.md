@@ -27,3 +27,19 @@
 7. Print and Reporting
  a. invoice format should be indrustry standard, size a4,a5, and thermal 2" and 3" format
  b. Report should be in pdf and excel then print. Cache same or repteaed report.
+
+## Stage 7 Dashboard Migration
+
+### Stage 7A / v3.0.0
+- Added Nuxt UI Dashboard-template inspired shell.
+- Preserved previous shell in `components/AppShellLegacy.vue`.
+- Added Store Manager dashboard at `/dashboard/store-manager`.
+- Added Owner/Admin/Accountant dashboard at `/dashboard/business`.
+- Kept all current menu links/pages.
+- Revert option: set `NUXT_PUBLIC_DASHBOARD_SHELL=legacy`.
+
+### Stage 7B planned
+- Add richer dashboard charts and saved filters.
+- Add drill-down links from KPIs to reports.
+- Add command palette keyboard shortcut after local Nuxt UI build validation.
+- Add per-role dashboard widget configuration.
