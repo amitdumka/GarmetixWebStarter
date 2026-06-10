@@ -75,9 +75,9 @@ async function seedDefaults() {
       includeProducts: seedForm.includeProducts,
       resetDefaultUserPasswords: seedForm.resetDefaultUserPasswords
     })
-    feedback.success('AF/SS default data seeded')
+    feedback.success(result.value?.message || 'AF/SS default data seeded')
     seedForm.confirm = false
-    await refresh()
+    refresh().catch((error) => feedback.failed('Post-seed refresh failed', error))
   } catch (error) {
     feedback.failed('AF/SS seed failed', error)
   } finally {

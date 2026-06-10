@@ -125,9 +125,9 @@ async function submitOnboarding() {
   result.value = null
   try {
     result.value = await api.create<any>('client-onboarding/submit', form)
-    feedback.success('Company onboarded successfully')
+    feedback.success(result.value?.message || 'Company onboarded successfully')
     activeStep.value = steps.length - 1
-    await refresh()
+    refresh().catch((error) => feedback.failed('Post-save refresh failed', error))
   } catch (error) {
     feedback.failed('Company onboarding failed', error)
   } finally {

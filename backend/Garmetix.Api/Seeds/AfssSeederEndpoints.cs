@@ -1,4 +1,5 @@
 using Garmetix.Api.Auth;
+using Garmetix.Api.Messages;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -37,27 +38,61 @@ public static class AfssSeederEndpoints
         return Results.Ok(new AfssSeederOptionsDto(AfssDefaultSeederService.Profiles, companies, AfssDefaultSeederService.Comparison));
     }
 
-    private static async Task<IResult> SeedAsync(AfssSeedRequest request, GarmetixDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> SeedAsync(
+        AfssSeedRequest request,
+        GarmetixDbContext db,
+        ApplicationMessageLogService logs,
+        CancellationToken cancellationToken)
     {
+        var operationId = Guid.NewGuid();
         if (request.CompanyId == Guid.Empty)
         {
-            return Results.BadRequest(new { message = "Select a company before running AF/SS seed." });
+            const string message = "Select a company before running AF/SS seed.";
+            await logs.ErrorAsync("AFSSSeeder", "Seed", message, request, resource: "afss-seeder/seed", operationId: operationId, cancellationToken: cancellationToken);
+            return Results.BadRequest(new { message, operationId });
         }
 
         if (string.IsNullOrWhiteSpace(request.ProfileCode))
         {
-            return Results.BadRequest(new { message = "Select a seed profile." });
+            const string message = "Select a seed profile.";
+            await logs.ErrorAsync("AFSSSeeder", "Seed", message, request, companyId: request.CompanyId, resource: "afss-seeder/seed", operationId: operationId, cancellationToken: cancellationToken);
+            return Results.BadRequest(new { message, operationId });
         }
 
         try
         {
             var service = new AfssDefaultSeederService(db);
             var response = await service.SeedAsync(request, cancellationToken);
+            await logs.SuccessAsync(
+                "AFSSSeeder",
+                "Seed",
+                response.Message,
+                new { response.Target, response.Created, response.Notes, request.IncludeUsers, request.IncludeEmployees, request.IncludeProducts, request.ResetDefaultUserPasswords },
+                response.Target.CompanyId,
+                response.Target.StoreGroupId,
+                response.Target.StoreId,
+                resource: "afss-seeder/seed",
+                operationId: operationId,
+                cancellationToken: cancellationToken);
             return Results.Ok(response);
         }
         catch (InvalidOperationException ex)
         {
-            return Results.BadRequest(new { message = ex.Message });
+            await logs.ErrorAsync("AFSSSeeder", "Seed", ex.Message, request, companyId: request.CompanyId, resource: "afss-seeder/seed", operationId: operationId, cancellationToken: cancellationToken);
+            return Results.BadRequest(new { message = ex.Message, operationId });
+        }
+        catch (Exception ex)
+        {
+            await logs.ErrorAsync(
+                "AFSSSeeder",
+                "Seed",
+                "Unexpected error while running AF/SS seed.",
+                new { request, ex.Message, ExceptionType = ex.GetType().FullName, ex.StackTrace },
+                companyId: request.CompanyId,
+                resource: "afss-seeder/seed",
+                operationId: operationId,
+                cancellationToken: cancellationToken);
+            return Results.Problem("Unexpected error while running AF/SS seed. Check Message Logs for details.", statusCode: 500);
         }
     }
 }

@@ -103,6 +103,7 @@ const moduleGroups = [
       { to: '/setup', label: 'Company', icon: 'i-lucide-building-2' },
       { to: '/client-onboarding', label: 'Onboarding', icon: 'i-lucide-route' },
       { to: '/af-ss', label: 'AF/SS', icon: 'i-lucide-database-backup' },
+      { to: '/message-logs', label: 'Message Logs', icon: 'i-lucide-list-collapse' },
       { to: '/access', label: 'Roles & Users', icon: 'i-lucide-shield-check' },
       { to: '/import-export', label: 'Import Export', icon: 'i-lucide-file-down' },
       { to: '/audit', label: 'Audit', icon: 'i-lucide-history' },

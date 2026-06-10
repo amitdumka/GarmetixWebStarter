@@ -1,4 +1,5 @@
 using Garmetix.Api.Auth;
+using Garmetix.Api.Messages;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -35,17 +36,61 @@ public static class ClientOnboardingEndpoints
     private static async Task<IResult> SummaryAsync(GarmetixDbContext db, CancellationToken cancellationToken)
         => Results.Ok(await BuildSummaryAsync(db, cancellationToken));
 
-    private static async Task<IResult> SubmitAsync(ClientOnboardingRequest request, GarmetixDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> SubmitAsync(
+        ClientOnboardingRequest request,
+        GarmetixDbContext db,
+        ApplicationMessageLogService logs,
+        CancellationToken cancellationToken)
     {
+        var operationId = Guid.NewGuid();
         try
         {
             var service = new ClientOnboardingService(db);
             var response = await service.OnboardAsync(request, cancellationToken);
+            await logs.SuccessAsync(
+                "ClientOnboarding",
+                "Submit",
+                response.Message,
+                new { response.Target, response.Created, response.Notes, response.LoginHints },
+                response.Target.CompanyId,
+                response.Target.StoreGroupId,
+                response.Target.StoreId,
+                resource: "client-onboarding/submit",
+                operationId: operationId,
+                cancellationToken: cancellationToken);
             return Results.Ok(response);
         }
         catch (InvalidOperationException ex)
         {
-            return Results.BadRequest(new { message = ex.Message });
+            await logs.ErrorAsync(
+                "ClientOnboarding",
+                "Submit",
+                ex.Message,
+                new
+                {
+                    request.CompanyConfig.ClientCode,
+                    request.CompanyConfig.GroupCode,
+                    request.CompanyConfig.StoreCode,
+                    request.CompanyDetails.CompanyName,
+                    request.CompanyDetails.GSTIN,
+                    request.ClientDetails.Email
+                },
+                resource: "client-onboarding/submit",
+                operationId: operationId,
+                cancellationToken: cancellationToken);
+            return Results.BadRequest(new { message = ex.Message, operationId });
+        }
+        catch (Exception ex)
+        {
+            await logs.ErrorAsync(
+                "ClientOnboarding",
+                "Submit",
+                "Unexpected error while onboarding company.",
+                new { ex.Message, ExceptionType = ex.GetType().FullName, ex.StackTrace },
+                resource: "client-onboarding/submit",
+                operationId: operationId,
+                cancellationToken: cancellationToken);
+            return Results.Problem("Unexpected error while onboarding company. Check Message Logs for details.", statusCode: 500);
         }
     }
 
