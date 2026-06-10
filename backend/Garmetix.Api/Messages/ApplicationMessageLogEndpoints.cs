@@ -13,9 +13,7 @@ public static class ApplicationMessageLogEndpoints
 
         group.MapGet("/options", OptionsAsync);
         group.MapGet("", SearchAsync);
-        group.MapGet("/", SearchAsync);
         group.MapPost("", CreateAsync);
-        group.MapPost("/", CreateAsync);
 
         return group;
     }

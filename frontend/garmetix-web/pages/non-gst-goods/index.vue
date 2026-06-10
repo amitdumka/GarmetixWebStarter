@@ -165,7 +165,7 @@ async function postSale() {
       referenceNumber: nullIfEmpty(saleForm.referenceNumber),
       remarks: nullIfEmpty(saleForm.remarks),
       items: saleLines.value.map((line) => ({
-        stockId: line.stockId,
+        stockId: line.stockId || null,
         quantity: Number(line.quantity || 0),
         rate: Number(line.rate || 0),
         discountAmount: Number(line.discountAmount || 0)

@@ -1,8 +1,8 @@
-export const APP_VERSION = '2.4.0'
+export const APP_VERSION = '2.4.2'
 export const APP_STAGE = 'Stage 6E'
-export const APP_RELEASE_NAME = 'Multi-Item Non-GST Memo Reports'
+export const APP_RELEASE_NAME = 'Public Info and Message Log Runtime Fixes'
 export const APP_BUILD_DATE = '2026-06-10'
-export const APP_BUILD_CODE = 'GARMETIX-6E-20260610-240'
+export const APP_BUILD_CODE = 'GARMETIX-6E-20260610-242'
 
 export const APP_HIGHLIGHTS = [
   'Company, store group and store onboarding module',
@@ -16,5 +16,8 @@ export const APP_HIGHLIGHTS = [
   'Non-GST sale, purchase, profit and current stock reports',
   'Separate Non-GST stock flag and movement ledger',
   'Separate Non-GST goods reports and visible accounting postings',
-  'About Us, Contact Us and FAQ pages'
+  'About Us, Contact Us and FAQ pages',
+  'Runtime fix: removed duplicate app-info and message-log root routes',
+  'Runtime fix: Message Logs PostgreSQL filter query no longer uses untyped NULL parameters',
+  'Runtime fix: Non-GST sale sends null stock id instead of blank string and purchase auto-generates barcode when blank'
 ]

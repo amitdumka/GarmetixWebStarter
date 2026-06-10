@@ -277,6 +277,11 @@ public static class NonGstGoodsEndpoints
                         ? "Non-GST purchase memo posted. Multiple item stock rows are marked IsOFB and visible in the separate report."
                         : "Non-GST sale cash memo posted as visible Other Income and excluded from GST returns."));
             }
+            catch (InvalidOperationException ex)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Results.BadRequest(new { message = ex.Message });
+            }
             catch
             {
                 await transaction.RollbackAsync(cancellationToken);
@@ -495,8 +500,8 @@ public static class NonGstGoodsEndpoints
             throw new InvalidOperationException("Sale requires an existing Non-GST stock row.");
         }
 
-        var barcode = Clean(line.Barcode) ?? throw new InvalidOperationException("Barcode is required for new Non-GST purchase stock.");
-        var productName = Clean(line.ProductName) ?? barcode;
+        var barcode = Clean(line.Barcode) ?? GenerateNonGstBarcode(store);
+        var productName = Clean(line.ProductName) ?? $"Non-GST Item {barcode}";
         var product = await WorkspaceScope.ApplyTo(db.Products, context)
             .FirstOrDefaultAsync(item => item.Barcode == barcode, cancellationToken);
         var (categoryId, subCategoryId) = await EnsureNonGstProductCategoryAsync(db, store.CompanyId, cancellationToken);
@@ -554,6 +559,9 @@ public static class NonGstGoodsEndpoints
         }
         return stock;
     }
+
+    private static string GenerateNonGstBarcode(Store store)
+        => $"NG-{store.StoreCode ?? "STORE"}-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}"[..36];
 
     private static async Task<(Guid CategoryId, Guid SubCategoryId)> EnsureNonGstProductCategoryAsync(GarmetixDbContext db, Guid companyId, CancellationToken cancellationToken)
     {

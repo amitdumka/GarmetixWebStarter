@@ -5,11 +5,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "2.4.0";
+    public const string Version = "2.4.2";
     public const string Stage = "Stage 6E";
-    public const string ReleaseName = "Multi-Item Non-GST Memo Reports";
+    public const string ReleaseName = "Public Info and Message Log Runtime Fixes";
     public const string BuildDate = "2026-06-10";
-    public const string BuildCode = "GARMETIX-6E-20260610-240";
+    public const string BuildCode = "GARMETIX-6E-20260610-242";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -18,7 +18,6 @@ public static class AppInfoEndpoints
             .AllowAnonymous();
 
         group.MapGet("", Info);
-        group.MapGet("/", Info);
         group.MapGet("/version", VersionOnly);
         group.MapGet("/faq", Faq);
         group.MapGet("/contacts", Contacts);
@@ -72,7 +71,10 @@ public static class AppInfoEndpoints
         "Non-GST sale, purchase, profit and current stock reports",
         "Separate Non-GST stock flag and movement ledger",
         "Separate Non-GST goods reports and visible accounting postings",
-        "About Us, Contact Us and FAQ pages"
+        "About Us, Contact Us and FAQ pages",
+        "Runtime fix: removed duplicate app-info and message-log root routes",
+        "Runtime fix: Message Logs PostgreSQL filter query no longer uses untyped NULL parameters",
+        "Runtime fix: Non-GST sale sends null stock id instead of blank string and purchase auto-generates barcode when blank"
     ];
 
     private static readonly AppContactDto[] ContactItems =

@@ -108,28 +108,40 @@ public sealed class ApplicationMessageLogService(GarmetixDbContext db)
         }
 
         await using var command = connection.CreateCommand();
-        command.CommandText = """
-            SELECT "Id", "CreatedAtUtc", "Level", "Source", "EventName", "Message", "DetailsJson", "CompanyId", "StoreGroupId", "StoreId", "UserId", "UserName", "Resource", "OperationId", "Success"
-            FROM "ApplicationMessageLogs"
-            WHERE (@level IS NULL OR "Level" = @level)
-              AND (@source IS NULL OR "Source" = @source)
-              AND (@fromUtc IS NULL OR "CreatedAtUtc" >= @fromUtc)
-              AND (@toUtc IS NULL OR "CreatedAtUtc" <= @toUtc)
-              AND (@companyId IS NULL OR "CompanyId" = @companyId)
-              AND (@storeId IS NULL OR "StoreId" = @storeId)
-              AND (@success IS NULL OR "Success" = @success)
-              AND (@search IS NULL OR "Message" ILIKE @search OR "EventName" ILIKE @search OR "Source" ILIKE @search OR COALESCE("DetailsJson", '') ILIKE @search)
-            ORDER BY "CreatedAtUtc" DESC
-            LIMIT @take
-            """;
-        AddParameter(command, "level", string.IsNullOrWhiteSpace(query.Level) ? (object)DBNull.Value : query.Level.Trim());
-        AddParameter(command, "source", string.IsNullOrWhiteSpace(query.Source) ? (object)DBNull.Value : query.Source.Trim());
-        AddParameter(command, "fromUtc", query.FromUtc.HasValue ? DateTime.SpecifyKind(query.FromUtc.Value, DateTimeKind.Unspecified) : (object)DBNull.Value);
-        AddParameter(command, "toUtc", query.ToUtc.HasValue ? DateTime.SpecifyKind(query.ToUtc.Value, DateTimeKind.Unspecified) : (object)DBNull.Value);
-        AddParameter(command, "companyId", query.CompanyId.HasValue ? query.CompanyId.Value : (object)DBNull.Value);
-        AddParameter(command, "storeId", query.StoreId.HasValue ? query.StoreId.Value : (object)DBNull.Value);
-        AddParameter(command, "success", query.Success.HasValue ? query.Success.Value : (object)DBNull.Value);
-        AddParameter(command, "search", string.IsNullOrWhiteSpace(query.Search) ? (object)DBNull.Value : $"%{query.Search.Trim()}%");
+        command.CommandText = BuildSearchSql(query);
+
+        if (!string.IsNullOrWhiteSpace(query.Level))
+        {
+            AddParameter(command, "level", query.Level.Trim());
+        }
+        if (!string.IsNullOrWhiteSpace(query.Source))
+        {
+            AddParameter(command, "source", query.Source.Trim());
+        }
+        if (query.FromUtc.HasValue)
+        {
+            AddParameter(command, "fromUtc", DateTime.SpecifyKind(query.FromUtc.Value, DateTimeKind.Unspecified));
+        }
+        if (query.ToUtc.HasValue)
+        {
+            AddParameter(command, "toUtc", DateTime.SpecifyKind(query.ToUtc.Value, DateTimeKind.Unspecified));
+        }
+        if (query.CompanyId.HasValue && query.CompanyId.Value != Guid.Empty)
+        {
+            AddParameter(command, "companyId", query.CompanyId.Value);
+        }
+        if (query.StoreId.HasValue && query.StoreId.Value != Guid.Empty)
+        {
+            AddParameter(command, "storeId", query.StoreId.Value);
+        }
+        if (query.Success.HasValue)
+        {
+            AddParameter(command, "success", query.Success.Value);
+        }
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            AddParameter(command, "search", $"%{query.Search.Trim()}%");
+        }
         AddParameter(command, "take", take);
 
         var rows = new List<ApplicationMessageLogDto>();
@@ -155,6 +167,52 @@ public sealed class ApplicationMessageLogService(GarmetixDbContext db)
         }
 
         return rows;
+    }
+
+    private static string BuildSearchSql(ApplicationMessageLogQuery query)
+    {
+        var clauses = new List<string> { "1 = 1" };
+
+        if (!string.IsNullOrWhiteSpace(query.Level))
+        {
+            clauses.Add("\"Level\" = @level");
+        }
+        if (!string.IsNullOrWhiteSpace(query.Source))
+        {
+            clauses.Add("\"Source\" = @source");
+        }
+        if (query.FromUtc.HasValue)
+        {
+            clauses.Add("\"CreatedAtUtc\" >= @fromUtc");
+        }
+        if (query.ToUtc.HasValue)
+        {
+            clauses.Add("\"CreatedAtUtc\" <= @toUtc");
+        }
+        if (query.CompanyId.HasValue && query.CompanyId.Value != Guid.Empty)
+        {
+            clauses.Add("\"CompanyId\" = @companyId");
+        }
+        if (query.StoreId.HasValue && query.StoreId.Value != Guid.Empty)
+        {
+            clauses.Add("\"StoreId\" = @storeId");
+        }
+        if (query.Success.HasValue)
+        {
+            clauses.Add("\"Success\" = @success");
+        }
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            clauses.Add("(\"Message\" ILIKE @search OR \"EventName\" ILIKE @search OR \"Source\" ILIKE @search OR COALESCE(\"DetailsJson\", '') ILIKE @search)");
+        }
+
+        return $"""
+            SELECT "Id", "CreatedAtUtc", "Level", "Source", "EventName", "Message", "DetailsJson", "CompanyId", "StoreGroupId", "StoreId", "UserId", "UserName", "Resource", "OperationId", "Success"
+            FROM "ApplicationMessageLogs"
+            WHERE {string.Join(" AND ", clauses)}
+            ORDER BY "CreatedAtUtc" DESC
+            LIMIT @take
+            """;
     }
 
     public async Task<ApplicationMessageLogOptionsDto> OptionsAsync(CancellationToken cancellationToken = default)
