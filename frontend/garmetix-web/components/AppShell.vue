@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { APP_VERSION, APP_STAGE } from '~/utils/appVersion'
 const props = defineProps<{
   title: string
   companies?: any[]
@@ -95,6 +96,14 @@ const moduleGroups = [
     label: 'Off Book',
     items: [
       { to: '/cash-vouchers', label: 'Cash Vouchers', icon: 'i-lucide-wallet-cards' }
+    ]
+  },
+  {
+    label: 'Help',
+    items: [
+      { to: '/about-us', label: 'About Us', icon: 'i-lucide-info' },
+      { to: '/contact-us', label: 'Contact Us', icon: 'i-lucide-message-circle' },
+      { to: '/faq', label: 'FAQ', icon: 'i-lucide-circle-help' }
     ]
   },
   {
@@ -375,6 +384,7 @@ onBeforeUnmount(() => {
             <span>{{ currentDate }}</span>
           </div>
           <p>AKS Labs(India)</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400">{{ APP_STAGE }} · v{{ APP_VERSION }}</p>
           <UButton
           color="neutral"
           variant="ghost"
