@@ -8,11 +8,69 @@ public sealed record PosSaleRequest(
     Guid StoreId,
     string? CustomerName,
     string? CustomerMobileNumber,
+    string? CustomerGstin,
     PaymentMode PaymentMode,
     Guid? BankAccountId,
     decimal PaidAmount,
     decimal BillDiscountAmount,
-    IReadOnlyList<PosSaleItemRequest> Items);
+    IReadOnlyList<PosSaleItemRequest> Items,
+    Guid? CustomerId = null,
+    Guid? SalesmanId = null,
+    IReadOnlyList<InvoicePaymentDetailRequest>? Payments = null);
+
+public sealed record InvoicePaymentDetailRequest(
+    PaymentMode PaymentMode,
+    decimal Amount,
+    Guid? BankAccountId,
+    string? ReferenceNumber,
+    string? GatewayReference,
+    string? SettlementStatus,
+    string? AdjustmentSourceType,
+    Guid? AdjustmentSourceId);
+
+public sealed record BillingCustomerOptionDto(
+    Guid Id,
+    string Name,
+    string MobileNumber,
+    string? Gstin,
+    decimal CreditBalance,
+    decimal LoyaltyPoints,
+    decimal LifetimeBillAmount,
+    int BillCount,
+    string Label);
+
+public sealed record BillingSalesmanOptionDto(
+    Guid Id,
+    string Name,
+    Guid StoreId,
+    bool Active);
+
+public sealed record BillingAdjustmentOptionDto(
+    Guid Id,
+    string Number,
+    DateTime OnDate,
+    decimal Amount,
+    decimal AdjustedAmount,
+    decimal AvailableAmount,
+    string SourceType,
+    string? ReferenceNumber);
+
+public sealed record BillingLoyaltyProgramDto(
+    bool Enabled,
+    decimal RedeemValuePerPoint,
+    decimal EarnPointsPerRupee,
+    decimal MinimumBillAmount);
+
+public sealed record BillingOptionsDto(
+    IReadOnlyList<BillingCustomerOptionDto> Customers,
+    IReadOnlyList<BillingSalesmanOptionDto> Salesmen,
+    BillingLoyaltyProgramDto? LoyaltyProgram);
+
+public sealed record BillingCustomerProfileDto(
+    BillingCustomerOptionDto Customer,
+    IReadOnlyList<BillingAdjustmentOptionDto> CreditNotes,
+    IReadOnlyList<BillingAdjustmentOptionDto> AdvanceReceipts,
+    BillingLoyaltyProgramDto? LoyaltyProgram);
 
 public sealed record PosSaleItemRequest(
     Guid ProductId,
@@ -30,7 +88,8 @@ public sealed record PosSaleResponse(
     decimal PaidAmount,
     decimal BalanceAmount,
     int ItemCount,
-    decimal Quantity);
+    decimal Quantity,
+    IReadOnlyList<string> GstinAlerts);
 
 public sealed record RecentInvoiceDto(
     Guid Id,
@@ -64,6 +123,7 @@ public sealed record ReceiptDto(
     IReadOnlyList<ReceiptPaymentDto> Payments);
 
 public sealed record ReceiptItemDto(
+    Guid Id,
     string ProductName,
     string Barcode,
     decimal Quantity,
@@ -71,13 +131,21 @@ public sealed record ReceiptItemDto(
     decimal DiscountAmount,
     decimal TaxPercentage,
     decimal TaxAmount,
+    decimal? CgstAmount,
+    decimal? SgstAmount,
+    decimal? IgstAmount,
+    string? HsnCode,
+    string? Unit,
     decimal Amount);
 
 public sealed record ReceiptPaymentDto(
     DateTime OnDate,
     decimal Amount,
     string PaymentMode,
-    string? ReferenceNumber);
+    string? ReferenceNumber,
+    string? GatewayReference,
+    string? SettlementStatus,
+    string? AdjustmentSourceType);
 
 public sealed record CancelInvoiceRequest(string? Reason);
 
@@ -87,3 +155,51 @@ public sealed record CancelInvoiceResponse(
     string InvoiceStatus,
     decimal ReversedQuantity,
     decimal ReversedAmount);
+
+public sealed record SalesReturnItemRequest(
+    Guid InvoiceItemId,
+    decimal Quantity);
+
+public sealed record SalesReturnRequest(
+    decimal RefundAmount,
+    PaymentMode? RefundPaymentMode,
+    Guid? BankAccountId,
+    string? Reason,
+    IReadOnlyList<SalesReturnItemRequest> Items);
+
+public sealed record SalesReturnResponse(
+    Guid ReturnInvoiceId,
+    string CreditNoteNumber,
+    Guid OriginalInvoiceId,
+    string OriginalInvoiceNumber,
+    decimal CreditAmount,
+    decimal RefundedAmount,
+    decimal StoreCreditAmount,
+    decimal ReversedQuantity,
+    string OriginalInvoiceStatus);
+
+public sealed record ExchangeSaleItemRequest(
+    Guid ProductId,
+    string Barcode,
+    decimal Quantity,
+    decimal Mrp,
+    decimal DiscountAmount);
+
+public sealed record SalesExchangeRequest(
+    decimal AdditionalPaidAmount,
+    PaymentMode? AdditionalPaymentMode,
+    Guid? BankAccountId,
+    string? Reason,
+    IReadOnlyList<SalesReturnItemRequest> ReturnItems,
+    IReadOnlyList<ExchangeSaleItemRequest> NewItems);
+
+public sealed record SalesExchangeResponse(
+    Guid ReturnInvoiceId,
+    string CreditNoteNumber,
+    Guid ExchangeInvoiceId,
+    string ExchangeInvoiceNumber,
+    decimal CreditAmount,
+    decimal AppliedCreditAmount,
+    decimal AdditionalPaidAmount,
+    decimal NewInvoiceAmount,
+    decimal RemainingStoreCreditAmount);

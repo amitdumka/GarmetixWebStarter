@@ -23,7 +23,8 @@ public sealed class JwtTokenService(IConfiguration configuration)
             new(ClaimTypes.Name, user.UserName),
             new(ClaimTypes.Role, user.Role.ToString()),
             new("userType", user.UserType.ToString()),
-            new("admin", user.Admin.ToString())
+            new("admin", user.Admin.ToString()),
+            new("appOperation", user.AppOperation.ToString())
         };
 
         AddOptionalClaim(claims, "companyId", user.CompanyId);
@@ -59,7 +60,8 @@ public sealed class JwtTokenService(IConfiguration configuration)
             user.CompanyId,
             user.StoreGroupId,
             user.StoreId,
-            user.Admin);
+            user.Admin,
+            user.AppOperation.ToString());
     }
 
     private static void AddOptionalClaim(List<Claim> claims, string name, Guid? value)

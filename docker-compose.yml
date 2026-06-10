@@ -7,6 +7,8 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       Database__AutoMigrate: "true"
       ConnectionStrings__Default: Host=postgres;Port=5432;Database=garmetix;Username=garmetix;Password=garmetix_dev
+      PasswordReset__FrontendBaseUrl: http://localhost:3000
+      Email__Enabled: "false"
       PayrollAutomation__Enabled: "true"
       PayrollAutomation__TimeZoneId: Asia/Kolkata
       PayrollAutomation__RunHour: "2"
@@ -18,10 +20,44 @@ services:
       Backup__RunMinute: "30"
       Backup__RunOnStartup: "false"
       Backup__RetentionCount: "14"
+      GoogleDriveBackup__Enabled: "false"
+      GoogleDriveBackup__UploadOnBackup: "true"
+      GoogleDriveBackup__ServiceAccountJsonPath: /app/secrets/google-drive-service-account.json
+      GoogleDriveBackup__FolderId: ""
+      GoogleDriveBackup__RetentionCount: "30"
+      GstinLookup__Enabled: "${GSTIN_LOOKUP_ENABLED:-false}"
+      GstinLookup__BaseUrl: "${GSTIN_LOOKUP_BASE_URL:-}"
+      GstinLookup__UrlTemplate: "${GSTIN_LOOKUP_URL_TEMPLATE:-}"
+      GstinLookup__ApiKey: "${GSTIN_LOOKUP_API_KEY:-}"
+      GstinLookup__ApiKeyHeaderName: "${GSTIN_LOOKUP_API_KEY_HEADER:-x-api-key}"
+      GstinLookup__SourceName: "${GSTIN_LOOKUP_SOURCE_NAME:-Configured GSTIN Provider}"
+      OracleSync__Enabled: "${ORACLE_SYNC_ENABLED:-false}"
+      OracleSync__RunOnStartup: "${ORACLE_SYNC_RUN_ON_STARTUP:-false}"
+      OracleSync__IntervalSeconds: "${ORACLE_SYNC_INTERVAL_SECONDS:-300}"
+      OracleSync__BatchSize: "${ORACLE_SYNC_BATCH_SIZE:-250}"
+      OracleSync__ConnectionString: "${ORACLE_SYNC_CONNECTION_STRING:-}"
+      OracleSync__Schema: "${ORACLE_SYNC_SCHEMA:-}"
+      OracleSync__TenantId: "${ORACLE_SYNC_TENANT_ID:-garmetix-default}"
+      OracleSync__SourceApplication: "${ORACLE_SYNC_SOURCE_APPLICATION:-GarmetixWeb}"
+      OracleSync__Direction: "${ORACLE_SYNC_DIRECTION:-PushToOracle}"
+      OracleSync__ConflictPolicy: "${ORACLE_SYNC_CONFLICT_POLICY:-ManualReview}"
+      OracleSync__PullExternalEvents: "${ORACLE_SYNC_PULL_EXTERNAL_EVENTS:-true}"
+      OracleSync__ApplyInboundAutomatically: "${ORACLE_SYNC_APPLY_INBOUND_AUTOMATICALLY:-false}"
+      OracleSync__WalletDirectory: "${ORACLE_SYNC_WALLET_DIRECTORY:-}"
+      OracleSync__TnsAdmin: "${ORACLE_SYNC_TNS_ADMIN:-}"
+      OracleSync__CreateOracleSchema: "${ORACLE_SYNC_CREATE_SCHEMA:-true}"
+      OracleSync__PushDeletedRows: "${ORACLE_SYNC_PUSH_DELETED_ROWS:-true}"
+      OracleSync__CommandTimeoutSeconds: "${ORACLE_SYNC_COMMAND_TIMEOUT_SECONDS:-60}"
+      OracleSync__EntityNamesCsv: "${ORACLE_SYNC_ENTITY_NAMES:-}"
+      OracleSync__AutoApplyEntityNamesCsv: "${ORACLE_SYNC_AUTO_APPLY_ENTITIES:-}"
+      OracleSync__TrustedSourceApplicationsCsv: "${ORACLE_SYNC_TRUSTED_SOURCES:-}"
+      OracleSync__RequireTrustedSourceForAutoApply: "${ORACLE_SYNC_REQUIRE_TRUSTED_SOURCE_FOR_AUTO_APPLY:-true}"
+      OracleSync__AutoApplyBatchSize: "${ORACLE_SYNC_AUTO_APPLY_BATCH_SIZE:-50}"
     ports:
       - "5080:5080"
     volumes:
       - ./backups:/app/backups
+      - ./secrets:/app/secrets:ro
     restart: unless-stopped
     depends_on:
       - postgres

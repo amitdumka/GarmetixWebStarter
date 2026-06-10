@@ -6,6 +6,7 @@ type AccountingTab = 'trial' | 'ledgerBook' | 'ledgers' | 'parties' | 'bankAccou
 
 const api = useGarmetixApi()
 const auth = useAuth()
+const workspace = useWorkspace()
 const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
 const canEdit = auth.canEdit
@@ -120,7 +121,7 @@ const chequeForm = reactive<any>(emptyCheque())
 const vendorBankForm = reactive<any>(emptyVendorBank())
 const accountDetailForm = reactive<any>(emptyAccountDetail())
 
-const companyId = computed(() => setupStatus.value?.companyId || companies.value[0]?.id || '')
+const companyId = computed(() => workspace.companyId.value || setupStatus.value?.companyId || companies.value[0]?.id || '')
 const currentTab = computed(() => tabs.find((tab) => tab.key === activeTab.value) || tabs[0])
 const canCreate = computed(() => !['trial', 'ledgerBook'].includes(activeTab.value))
 const formTitle = computed(() => `${editMode.value === 'edit' ? 'Edit' : 'New'} ${singularLabel(activeTab.value)}`)
@@ -131,9 +132,9 @@ const partyOptions = computed(() => parties.value.map((item) => ({ value: item.i
 const bankOptions = computed(() => banks.value.map((item) => ({ value: item.id, label: item.name || 'Bank' })))
 const bankAccountOptions = computed(() => bankAccounts.value.map((item) => ({ value: item.id, label: bankAccountLabel(item) })))
 const vendorOptions = computed(() => vendors.value.map((item) => ({ value: item.id, label: item.name || item.vendorName || 'Vendor' })))
-const currentStore = computed(() => stores.value.find((item) => item.id === setupStatus.value?.storeId) || stores.value[0])
-const currentStoreGroupId = computed(() => setupStatus.value?.storeGroupId || currentStore.value?.storeGroupId || '')
-const currentStoreId = computed(() => setupStatus.value?.storeId || currentStore.value?.id || '')
+const currentStore = computed(() => stores.value.find((item) => item.id === workspace.storeId.value) || stores.value.find((item) => item.id === setupStatus.value?.storeId) || stores.value[0])
+const currentStoreGroupId = computed(() => workspace.storeGroupId.value || setupStatus.value?.storeGroupId || currentStore.value?.storeGroupId || '')
+const currentStoreId = computed(() => workspace.storeId.value || setupStatus.value?.storeId || currentStore.value?.id || '')
 const transactionLedgerOptions = computed(() => {
   const selectedBank = bankAccounts.value.find((item) => item.id === transactionForm.bankAccountId)
   return ledgerOptions.value.filter((item) => item.value !== selectedBank?.ledgerId)

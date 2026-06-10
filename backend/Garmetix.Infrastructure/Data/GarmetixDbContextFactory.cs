@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Design;
 
 namespace Garmetix.Infrastructure.Data;
@@ -12,6 +13,7 @@ public sealed class GarmetixDbContextFactory : IDesignTimeDbContextFactory<Garme
 
         var options = new DbContextOptionsBuilder<GarmetixDbContext>()
             .UseNpgsql(connectionString)
+            .ConfigureWarnings(warnings => warnings.Log(RelationalEventId.PendingModelChangesWarning))
             .Options;
 
         return new GarmetixDbContext(options);

@@ -974,6 +974,221 @@ namespace Garmetix.Infrastructure.Data.Migrations
                     b.ToTable("Users", (string)null);
                 });
 
+            modelBuilder.Entity("Garmetix.Core.Models.Authentication.PasswordResetToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("RequestIpAddress")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RequestUserAgent")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UsedAtUtc")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "ExpiresAtUtc");
+
+                    b.ToTable("PasswordResetTokens", (string)null);
+                });
+
+
+            modelBuilder.Entity("Garmetix.Core.Models.GstReturns.GstReturnDraft", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Cess")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("CentralTax")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CreatedByUserName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Deleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("FiledAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Form")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Gstin")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("IntegratedTax")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("LastPreviewIssuesJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("LockedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReturnPeriod")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("RowCount")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("StateTax")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Synced")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("TaxableValue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("UpdatedByUserName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "Form", "ReturnPeriod", "Gstin");
+
+                    b.HasIndex("CompanyId", "Status", "UpdatedAt");
+
+                    b.ToTable("GstReturnDrafts");
+                });
+
+            modelBuilder.Entity("Garmetix.Core.Models.GstReturns.GstReturnAuditEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Deleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("DetailsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("DraftId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Form")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Gstin")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReturnPeriod")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Synced")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "DraftId", "CreatedAt");
+
+                    b.HasIndex("CompanyId", "Form", "ReturnPeriod");
+
+                    b.ToTable("GstReturnAuditEntries");
+                });
+
             modelBuilder.Entity("Garmetix.Core.Models.HRM.Attendance", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1702,6 +1917,36 @@ namespace Garmetix.Infrastructure.Data.Migrations
                     b.Property<string>("GSTIN")
                         .HasColumnType("text");
 
+                    b.Property<string>("GSTLegalName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTTradeName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTPrincipalAddress")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTStateCode")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTTaxpayerType")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTRegistrationStatus")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("GSTVerified")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("GSTVerifiedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("GSTLookupSource")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTMismatchAlert")
+                        .HasColumnType("text");
+
                     b.Property<decimal>("LoyaltyPoints")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -1736,6 +1981,9 @@ namespace Garmetix.Infrastructure.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("PartyId");
+
+                    b.HasIndex("CompanyId", "GSTIN")
+                        .HasDatabaseName("IX_Customers_CompanyId_GSTIN");
 
                     b.ToTable("Customers");
                 });
@@ -2501,6 +2749,36 @@ namespace Garmetix.Infrastructure.Data.Migrations
                     b.Property<string>("GSTIN")
                         .HasColumnType("text");
 
+                    b.Property<string>("GSTLegalName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTTradeName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTPrincipalAddress")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTStateCode")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTTaxpayerType")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTRegistrationStatus")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("GSTVerified")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("GSTVerifiedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("GSTLookupSource")
+                        .HasColumnType("text");
+
+                    b.Property<string>("GSTMismatchAlert")
+                        .HasColumnType("text");
+
                     b.Property<string>("MobileNumber")
                         .IsRequired()
                         .HasColumnType("text");
@@ -2537,6 +2815,9 @@ namespace Garmetix.Infrastructure.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("PartyId");
+
+                    b.HasIndex("CompanyId", "GSTIN")
+                        .HasDatabaseName("IX_Vendors_CompanyId_GSTIN");
 
                     b.ToTable("Vendors");
                 });
@@ -3135,6 +3416,187 @@ namespace Garmetix.Infrastructure.Data.Migrations
                     b.Navigation("Employee");
 
                     b.Navigation("Ledger");
+                });
+
+            modelBuilder.Entity("Garmetix.Core.Models.Authentication.PasswordResetToken", b =>
+                {
+                    b.HasOne("Garmetix.Core.Models.Authentication.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+
+            modelBuilder.Entity("Garmetix.Core.Models.GstReturns.GstReturnDraft", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Cess")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("CentralTax")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CreatedByUserName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Deleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("FiledAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Form")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Gstin")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("IntegratedTax")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("LastPreviewIssuesJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("LockedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReturnPeriod")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("RowCount")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("StateTax")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Synced")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("TaxableValue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("UpdatedByUserName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "Form", "ReturnPeriod", "Gstin");
+
+                    b.HasIndex("CompanyId", "Status", "UpdatedAt");
+
+                    b.ToTable("GstReturnDrafts");
+                });
+
+            modelBuilder.Entity("Garmetix.Core.Models.GstReturns.GstReturnAuditEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Deleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("DetailsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("DraftId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Form")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Gstin")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReturnPeriod")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Synced")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "DraftId", "CreatedAt");
+
+                    b.HasIndex("CompanyId", "Form", "ReturnPeriod");
+
+                    b.ToTable("GstReturnAuditEntries");
                 });
 
             modelBuilder.Entity("Garmetix.Core.Models.HRM.Attendance", b =>

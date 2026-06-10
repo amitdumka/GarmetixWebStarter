@@ -22,9 +22,20 @@ useHead(() => ({
 }))
 
 const storeGroups = ref<any[]>([])
+const workspaceOptions = ref<any | null>(null)
+const workspaceCompanies = ref<any[]>([])
+const workspaceStores = ref<any[]>([])
 const colorMode = useColorMode()
 const logOpen = ref(false)
 const workspaceOpen = ref(false)
+const profileOpen = ref(false)
+const profileMessage = ref('')
+const profileError = ref('')
+const passwordForm = reactive({
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
 const now = ref(new Date())
 const apiLive = ref<boolean | null>(null)
 let clockTimer: ReturnType<typeof setInterval> | undefined
@@ -48,16 +59,27 @@ const moduleGroups = [
     label: 'Dashboards',
     items: [
       { to: '/', label: 'Overview', icon: 'i-lucide-layout-dashboard' },
-      { to: '/reports', label: 'Reports', icon: 'i-lucide-file-text' }
+      { to: '/reports', label: 'Reports', icon: 'i-lucide-file-text' },
+      { to: '/gst-returns', label: 'GST Returns', icon: 'i-lucide-file-json-2' },
+      { to: '/gst-reports', label: 'GST Reports', icon: 'i-lucide-table-properties' }
     ]
   },
   {
     label: 'Operations',
     items: [
       { to: '/billing', label: 'Billing', icon: 'i-lucide-receipt-indian-rupee' },
+      { to: '/sales-return', label: 'Sales Return', icon: 'i-lucide-rotate-ccw' },
       { to: '/inventory', label: 'Inventory', icon: 'i-lucide-boxes' },
+      { to: '/stock-operations', label: 'Stock Ops', icon: 'i-lucide-arrow-left-right' },
       { to: '/purchase', label: 'Purchase', icon: 'i-lucide-package-plus' },
+      { to: '/purchase-return', label: 'Purchase Return', icon: 'i-lucide-undo-2' },
+      { to: '/customers', label: 'Customers', icon: 'i-lucide-user-round' },
+      { to: '/parties', label: 'Parties / Vendors', icon: 'i-lucide-users-round' },
       { to: '/vouchers', label: 'Vouchers', icon: 'i-lucide-banknote' },
+      { to: '/debit-notes', label: 'Debit Notes', icon: 'i-lucide-file-minus-2' },
+      { to: '/credit-notes', label: 'Credit Notes', icon: 'i-lucide-file-plus-2' },
+      { to: '/commercial-notes', label: 'Commercial Summary', icon: 'i-lucide-files' },
+      { to: '/loyalty', label: 'Loyalty', icon: 'i-lucide-gift' },
       { to: '/accounting', label: 'Accounting', icon: 'i-lucide-landmark' },
       { to: '/petty-cash', label: 'Petty Cash', icon: 'i-lucide-circle-dollar-sign' }
     ]
@@ -79,10 +101,16 @@ const moduleGroups = [
     label: 'Admin',
     items: [
       { to: '/setup', label: 'Company', icon: 'i-lucide-building-2' },
+      { to: '/client-onboarding', label: 'Onboarding', icon: 'i-lucide-route' },
+      { to: '/af-ss', label: 'AF/SS', icon: 'i-lucide-database-backup' },
       { to: '/access', label: 'Roles & Users', icon: 'i-lucide-shield-check' },
       { to: '/import-export', label: 'Import Export', icon: 'i-lucide-file-down' },
       { to: '/audit', label: 'Audit', icon: 'i-lucide-history' },
-      { to: '/system-health', label: 'System Health', icon: 'i-lucide-activity' }
+      { to: '/system-health', label: 'System Health', icon: 'i-lucide-activity' },
+      { to: '/production-readiness', label: 'Production Readiness', icon: 'i-lucide-shield-check' },
+      { to: '/release-stabilization', label: 'Release Stabilization', icon: 'i-lucide-rocket' },
+      { to: '/data-consistency', label: 'Consistency & Repair', icon: 'i-lucide-shield-alert' },
+      { to: '/oracle-sync', label: 'Oracle Sync', icon: 'i-lucide-database-zap' }
     ]
   }
 ]
@@ -101,7 +129,13 @@ const navigationItems = computed(() => visibleModuleGroups.value.flatMap((group)
   }))
 ]))
 
-const allowedCompanies = computed(() => (props.companies || []).filter((company) =>
+const shellCompanies = computed(() => workspaceCompanies.value.length ? workspaceCompanies.value : (props.companies || []))
+const shellStores = computed(() => workspaceStores.value.length ? workspaceStores.value : (props.stores || []))
+const isCompanyLocked = computed(() => Boolean(workspaceOptions.value?.isCompanyLocked || auth.user.value?.companyId))
+const isStoreGroupLocked = computed(() => Boolean(workspaceOptions.value?.isStoreGroupLocked || auth.user.value?.storeGroupId))
+const isStoreLocked = computed(() => Boolean(workspaceOptions.value?.isStoreLocked || auth.user.value?.storeId))
+
+const allowedCompanies = computed(() => shellCompanies.value.filter((company) =>
   !auth.user.value?.companyId || company.id === auth.user.value.companyId))
 
 const companyOptions = computed(() =>
@@ -120,7 +154,7 @@ const storeGroupOptions = computed(() =>
     value: group.id
   })))
 
-const allowedStores = computed(() => (props.stores || []).filter((storeItem) =>
+const allowedStores = computed(() => shellStores.value.filter((storeItem) =>
   (!workspace.companyId.value || storeItem.companyId === workspace.companyId.value)
   && (!workspace.storeGroupId.value || storeItem.storeGroupId === workspace.storeGroupId.value)
   && (!auth.user.value?.storeId || storeItem.id === auth.user.value.storeId)))
@@ -134,7 +168,7 @@ const storeOptions = computed(() =>
 const companyValue = computed({
   get: () => workspace.companyId.value,
   set: (value: string) => {
-    workspace.selectCompany(value, auth.user.value, storeGroups.value, props.stores || [])
+    workspace.selectCompany(value, auth.user.value, storeGroups.value, shellStores.value)
     emit('workspaceChange')
   }
 })
@@ -142,7 +176,7 @@ const companyValue = computed({
 const storeGroupValue = computed({
   get: () => workspace.storeGroupId.value,
   set: (value: string) => {
-    workspace.selectStoreGroup(value, auth.user.value, props.stores || [])
+    workspace.selectStoreGroup(value, auth.user.value, shellStores.value)
     emit('workspaceChange')
   }
 })
@@ -156,7 +190,7 @@ const storeValue = computed({
 })
 
 const workingStoreName = computed(() => {
-  const store = (props.stores || []).find((item) => item.id === workspace.storeId.value)
+  const store = shellStores.value.find((item) => item.id === workspace.storeId.value)
 
   return store?.name || store?.storeName || 'No store selected'
 })
@@ -187,6 +221,26 @@ const apiBadge = computed(() => {
 function logout() {
   auth.logout()
   navigateTo('/')
+}
+
+async function changeCurrentPassword() {
+  profileMessage.value = ''
+  profileError.value = ''
+
+  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+    profileError.value = 'New password and confirm password do not match.'
+    return
+  }
+
+  try {
+    const response = await auth.changePassword(passwordForm.currentPassword, passwordForm.newPassword)
+    profileMessage.value = response.message
+    passwordForm.currentPassword = ''
+    passwordForm.newPassword = ''
+    passwordForm.confirmPassword = ''
+  } catch (error: any) {
+    profileError.value = feedback.errorMessage(error, 'Could not change password.', 'Password change failed')
+  }
 }
 
 function formatLogDate(value: string) {
@@ -221,17 +275,37 @@ async function checkApiHealth() {
 
 async function loadWorkspaceOptions() {
   try {
-    storeGroups.value = await api.list<any>('store-groups')
+    const options = await api.get<any>('workspace/options')
+    workspaceOptions.value = options
+    workspaceCompanies.value = options?.companies || []
+    storeGroups.value = options?.storeGroups || []
+    workspaceStores.value = options?.stores || []
   } catch {
-    storeGroups.value = []
+    workspaceOptions.value = null
+    workspaceCompanies.value = []
+    workspaceStores.value = []
+    try {
+      storeGroups.value = await api.list<any>('store-groups')
+    } catch {
+      storeGroups.value = []
+    }
   }
 
-  workspace.initialize(auth.user.value, props.companies || [], storeGroups.value, props.stores || [])
+  workspace.initialize(auth.user.value, shellCompanies.value, storeGroups.value, shellStores.value)
+  if (workspaceOptions.value?.defaultCompanyId && !workspace.companyId.value) {
+    workspace.companyId.value = workspaceOptions.value.defaultCompanyId
+  }
+  if (workspaceOptions.value?.defaultStoreGroupId && !workspace.storeGroupId.value) {
+    workspace.storeGroupId.value = workspaceOptions.value.defaultStoreGroupId
+  }
+  if (workspaceOptions.value?.defaultStoreId && !workspace.storeId.value) {
+    workspace.storeId.value = workspaceOptions.value.defaultStoreId
+  }
 }
 
 watch(
   () => [auth.user.value?.id, props.companies, props.stores],
-  () => workspace.initialize(auth.user.value, props.companies || [], storeGroups.value, props.stores || []),
+  () => workspace.initialize(auth.user.value, shellCompanies.value, storeGroups.value, shellStores.value),
   { deep: true }
 )
 
@@ -335,24 +409,32 @@ onBeforeUnmount(() => {
               <USelect
                 v-model="companyValue"
                 :items="companyOptions"
-                :disabled="Boolean(auth.user.value?.companyId) || companyOptions.length < 2"
+                :disabled="isCompanyLocked || companyOptions.length < 2"
                 class="hidden md:flex w-40"
                 aria-label="Company"
               />
               <USelect
                 v-model="storeGroupValue"
                 :items="storeGroupOptions"
-                :disabled="Boolean(auth.user.value?.storeGroupId) || storeGroupOptions.length < 2"
+                :disabled="isStoreGroupLocked || storeGroupOptions.length < 2"
                 class="hidden lg:flex w-36"
                 aria-label="Store group"
               />
               <USelect
                 v-model="storeValue"
                 :items="storeOptions"
-                :disabled="Boolean(auth.user.value?.storeId) || storeOptions.length < 2"
+                :disabled="isStoreLocked || storeOptions.length < 2"
                 class="hidden xl:flex w-36"
                 aria-label="Store"
               />
+              <UTooltip text="Profile / change password">
+                <UButton
+                  color="neutral"
+                  variant="subtle"
+                  icon="i-lucide-user-cog"
+                  @click="profileOpen = true"
+                />
+              </UTooltip>
               <UTooltip text="Refresh data">
                 <UButton
                   color="neutral"
@@ -401,6 +483,51 @@ onBeforeUnmount(() => {
     />
   </UTooltip>
 
+  <UModal v-model:open="profileOpen" title="User Profile" :ui="{ content: 'max-w-lg' }">
+    <template #body>
+      <div class="profile-summary">
+        <div>
+          <p class="profile-name">{{ auth.user.value?.name || auth.user.value?.userName }}</p>
+          <p>{{ auth.user.value?.email || '-' }}</p>
+        </div>
+        <UBadge color="primary" variant="subtle">{{ auth.user.value?.role || 'User' }}</UBadge>
+      </div>
+
+      <form class="form-grid" @submit.prevent="changeCurrentPassword">
+        <UFormField label="Current Password">
+          <UInput v-model="passwordForm.currentPassword" type="password" autocomplete="current-password" required />
+        </UFormField>
+        <UFormField label="New Password">
+          <UInput v-model="passwordForm.newPassword" type="password" autocomplete="new-password" required />
+        </UFormField>
+        <UFormField label="Confirm New Password">
+          <UInput v-model="passwordForm.confirmPassword" type="password" autocomplete="new-password" required />
+        </UFormField>
+
+        <UAlert
+          v-if="profileMessage"
+          color="success"
+          variant="subtle"
+          icon="i-lucide-check-circle"
+          :description="profileMessage"
+        />
+        <UAlert
+          v-if="profileError"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-circle-alert"
+          :description="profileError"
+        />
+      </form>
+    </template>
+    <template #footer>
+      <div class="modal-actions">
+        <UButton color="neutral" variant="outline" label="Close" @click="profileOpen = false" />
+        <UButton icon="i-lucide-key-round" label="Change Password" @click="changeCurrentPassword" />
+      </div>
+    </template>
+  </UModal>
+
   <UModal v-model:open="workspaceOpen" title="Working Store" :ui="{ content: 'max-w-lg' }">
     <template #body>
       <div class="form-grid">
@@ -408,7 +535,7 @@ onBeforeUnmount(() => {
           <USelect
             v-model="companyValue"
             :items="companyOptions"
-            :disabled="Boolean(auth.user.value?.companyId) || companyOptions.length < 2"
+            :disabled="isCompanyLocked || companyOptions.length < 2"
             placeholder="Select company"
           />
         </UFormField>
@@ -416,7 +543,7 @@ onBeforeUnmount(() => {
           <USelect
             v-model="storeGroupValue"
             :items="storeGroupOptions"
-            :disabled="Boolean(auth.user.value?.storeGroupId) || storeGroupOptions.length < 2"
+            :disabled="isStoreGroupLocked || storeGroupOptions.length < 2"
             placeholder="Select store group"
           />
         </UFormField>
@@ -424,7 +551,7 @@ onBeforeUnmount(() => {
           <USelect
             v-model="storeValue"
             :items="storeOptions"
-            :disabled="Boolean(auth.user.value?.storeId) || storeOptions.length < 2"
+            :disabled="isStoreLocked || storeOptions.length < 2"
             placeholder="Select store"
           />
         </UFormField>

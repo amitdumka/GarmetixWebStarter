@@ -7,6 +7,8 @@ const isAuthenticated = auth.isAuthenticated
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const products = ref<any[]>([])
+const customers = ref<any[]>([])
+const vendors = ref<any[]>([])
 const invoices = ref<any[]>([])
 const vouchers = ref<any[]>([])
 const employees = ref<any[]>([])
@@ -90,8 +92,11 @@ const metrics = computed(() => [
 const moduleCards = computed(() => {
   const items = [
     { to: '/billing', label: 'Billing', count: invoices.value.length, icon: 'i-lucide-receipt-indian-rupee', status: 'Live' },
+    { to: '/sales-return', label: 'Sales Return', count: invoices.value.length, icon: 'i-lucide-rotate-ccw', status: 'Credit Note' },
     { to: '/inventory', label: 'Inventory', count: products.value.length, icon: 'i-lucide-boxes', status: 'Live' },
     { to: '/purchase', label: 'Purchase', count: products.value.length, icon: 'i-lucide-package-plus', status: 'Live' },
+    { to: '/purchase-return', label: 'Purchase Return', count: products.value.length, icon: 'i-lucide-undo-2', status: 'Debit Note' },
+    { to: '/parties', label: 'Parties', count: customers.value.length + vendors.value.length, icon: 'i-lucide-users-round', status: 'GSTIN' },
     { to: '/vouchers', label: 'Vouchers', count: vouchers.value.length, icon: 'i-lucide-banknote', status: 'Live' },
     { to: '/hr', label: 'HR', count: employees.value.length, icon: 'i-lucide-users-round', status: 'Attendance' }
   ]
@@ -136,13 +141,15 @@ async function refresh() {
   loading.value = true
   try {
     setupStatus.value = await api.get<any>('setup/status')
-    const [companyRows, storeRows, productRows, invoiceRows, voucherRows, employeeRows] = await Promise.all([
+    const [companyRows, storeRows, productRows, invoiceRows, voucherRows, employeeRows, customerRows, vendorRows] = await Promise.all([
       api.list<any>('companies'),
       api.list<any>('stores'),
       api.list<any>('products'),
       api.get<any[]>('billing/sales/recent'),
       api.list<any>('vouchers'),
-      api.list<any>('employees')
+      api.list<any>('employees'),
+      api.list<any>('customers'),
+      api.list<any>('vendors')
     ])
 
     companies.value = companyRows
@@ -151,6 +158,8 @@ async function refresh() {
     invoices.value = invoiceRows
     vouchers.value = voucherRows
     employees.value = employeeRows
+    customers.value = customerRows
+    vendors.value = vendorRows
   } catch (error) {
     feedback.failed('Dashboard refresh failed', error)
   } finally {

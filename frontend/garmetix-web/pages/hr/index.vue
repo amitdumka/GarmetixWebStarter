@@ -6,6 +6,7 @@ type HrTab = 'employees' | 'attendance' | 'monthly'
 
 const api = useGarmetixApi()
 const auth = useAuth()
+const workspace = useWorkspace()
 const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
 const canEdit = auth.canEdit
@@ -444,9 +445,10 @@ function attendancePayload() {
 }
 
 function selectedScopeIds() {
-  const companyId = setupStatus.value?.companyId || companies.value[0]?.id
-  const storeGroupId = setupStatus.value?.storeGroupId || stores.value[0]?.storeGroupId
-  const storeId = setupStatus.value?.storeId || stores.value[0]?.id
+  const selectedStore = stores.value.find((store) => store.id === workspace.storeId.value)
+  const companyId = workspace.companyId.value || setupStatus.value?.companyId || selectedStore?.companyId || companies.value[0]?.id
+  const storeGroupId = workspace.storeGroupId.value || selectedStore?.storeGroupId || setupStatus.value?.storeGroupId || stores.value[0]?.storeGroupId
+  const storeId = workspace.storeId.value || setupStatus.value?.storeId || stores.value[0]?.id
 
   if (!companyId || !storeGroupId || !storeId) {
     throw new Error('Run quick setup before saving HR records.')
@@ -535,9 +537,9 @@ async function generateMonthlyAttendance() {
     const response = await api.create<any>('hr/monthly-attendance/generate', {
       year: Number(generateForm.year),
       month: Number(generateForm.month),
-      companyId: selectedStore?.companyId || setupStatus.value?.companyId || companies.value[0]?.id || null,
-      storeGroupId: selectedStore?.storeGroupId || setupStatus.value?.storeGroupId || null,
-      storeId: selectedStore?.id || null
+      companyId: selectedStore?.companyId || workspace.companyId.value || setupStatus.value?.companyId || companies.value[0]?.id || null,
+      storeGroupId: selectedStore?.storeGroupId || workspace.storeGroupId.value || setupStatus.value?.storeGroupId || null,
+      storeId: selectedStore?.id || workspace.storeId.value || null
     })
 
     feedback.notify('Monthly attendance generated', `${response.recordsCreated} created, ${response.recordsUpdated} updated.`)

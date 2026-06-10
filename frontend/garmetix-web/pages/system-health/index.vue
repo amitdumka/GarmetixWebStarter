@@ -22,6 +22,19 @@ const restoreOpen = ref(false)
 const restoring = ref(false)
 const restoreFile = ref<File | null>(null)
 const restoreConfirmation = ref('')
+const restorePreview = ref<any | null>(null)
+const previewingRestore = ref(false)
+const verifyingBackup = ref('')
+const previewingBackup = ref('')
+const verificationResult = ref<any | null>(null)
+const localRestorePreview = ref<any | null>(null)
+const cloudBackups = ref<any[]>([])
+const cloudStatus = ref<any | null>(null)
+const uploadingCloudBackup = ref('')
+const downloadingCloudBackup = ref('')
+const deletingCloudBackup = ref('')
+const restoringCloudBackup = ref('')
+const cloudRestoreConfirmation = ref('')
 
 const metrics = computed(() => [
   {
@@ -60,6 +73,15 @@ const metrics = computed(() => [
       : 'Automation disabled',
     icon: 'i-lucide-hard-drive-download',
     color: backupStatus.value?.enabled ? 'success' : 'warning'
+  },
+  {
+    label: 'Google Drive',
+    value: cloudStatus.value?.configured ? 'Ready' : 'Not configured',
+    meta: cloudStatus.value?.enabled
+      ? `${cloudBackups.value.length} online files`
+      : 'Cloud backup disabled',
+    icon: 'i-lucide-cloud-upload',
+    color: cloudStatus.value?.configured ? 'success' : cloudStatus.value?.enabled ? 'warning' : 'neutral'
   }
 ])
 
@@ -90,6 +112,19 @@ const backupRows = computed(() => backups.value.map((backup) => ({
   created: formatDateTime(backup.createdAtUtc),
   sourceLabel: backup.source === 'pre-restore'
     ? 'Safety'
+    : backup.source === 'scheduled' ? 'Scheduled' : 'Manual',
+  integrityLabel: backup.hasChecksum && backup.hasManifest
+    ? 'Checksum + manifest'
+    : backup.hasChecksum ? 'Checksum only' : 'Legacy file',
+  checksumShort: backup.sha256 ? `${String(backup.sha256).slice(0, 10)}...` : '-'
+})))
+
+const cloudBackupRows = computed(() => cloudBackups.value.map((backup) => ({
+  ...backup,
+  size: formatBytes(backup.sizeBytes),
+  created: formatDateTime(backup.createdAtUtc),
+  sourceLabel: backup.source === 'pre-restore'
+    ? 'Safety'
     : backup.source === 'scheduled' ? 'Scheduled' : 'Manual'
 })))
 
@@ -100,13 +135,14 @@ async function refresh() {
 
   loading.value = true
   try {
-    const [healthResponse, bootstrapResponse, companyRows, storeRows, backupRowsResponse, backupStatusResponse] = await Promise.all([
+    const [healthResponse, bootstrapResponse, companyRows, storeRows, backupRowsResponse, backupStatusResponse, cloudStatusResponse] = await Promise.all([
       $fetch<any>('/api/health'),
       $fetch<any>('/api/auth/bootstrap-status'),
       api.list<any>('companies'),
       api.list<any>('stores'),
       api.list<any>('backups'),
-      api.get<any>('backups/status')
+      api.get<any>('backups/status'),
+      api.get<any>('backups/cloud/status')
     ])
 
     health.value = healthResponse
@@ -115,6 +151,10 @@ async function refresh() {
     stores.value = storeRows
     backups.value = backupRowsResponse
     backupStatus.value = backupStatusResponse
+    cloudStatus.value = cloudStatusResponse
+    cloudBackups.value = cloudStatusResponse?.configured
+      ? await api.list<any>('backups/cloud')
+      : []
     lastChecked.value = new Date().toLocaleTimeString('en-IN')
   } catch (error) {
     feedback.failed('System health refresh failed', error)
@@ -176,15 +216,153 @@ async function deleteBackup(backup: any) {
   }
 }
 
+
+async function verifyBackup(backup: any) {
+  verifyingBackup.value = backup.fileName
+  verificationResult.value = null
+  try {
+    verificationResult.value = await api.get<any>(`backups/${encodeURIComponent(backup.fileName)}/verify`)
+    feedback.notify('Backup verification completed', verificationResult.value.message, verificationResult.value.status === 'ok' ? 'success' : 'warning')
+  } catch (error) {
+    feedback.failed('Could not verify backup', error)
+  } finally {
+    verifyingBackup.value = ''
+  }
+}
+
+async function previewLocalRestore(backup: any) {
+  previewingBackup.value = backup.fileName
+  localRestorePreview.value = null
+  try {
+    localRestorePreview.value = await api.create<any>(`backups/${encodeURIComponent(backup.fileName)}/restore/preview`, {})
+    feedback.notify('Restore preflight completed', localRestorePreview.value.message, localRestorePreview.value.status === 'ok' ? 'success' : 'warning')
+  } catch (error) {
+    feedback.failed('Could not run restore preflight', error)
+  } finally {
+    previewingBackup.value = ''
+  }
+}
+
+async function uploadBackupToDrive(backup: any) {
+  uploadingCloudBackup.value = backup.fileName
+  try {
+    await api.create<any>(`backups/${encodeURIComponent(backup.fileName)}/cloud`, {})
+    feedback.notify('Uploaded to Google Drive', backup.fileName)
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not upload backup to Google Drive', error)
+  } finally {
+    uploadingCloudBackup.value = ''
+  }
+}
+
+async function downloadCloudBackup(backup: any) {
+  downloadingCloudBackup.value = backup.id
+  try {
+    const response = await fetch(`${config.public.apiBase}/backups/cloud/${encodeURIComponent(backup.id)}/download`, {
+      headers: api.authHeaders()
+    })
+    if (!response.ok) {
+      throw new Error(await response.text())
+    }
+
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = backup.name
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    feedback.notify('Google Drive backup downloaded', backup.name)
+  } catch (error) {
+    feedback.failed('Could not download Google Drive backup', error)
+  } finally {
+    downloadingCloudBackup.value = ''
+  }
+}
+
+async function deleteCloudBackup(backup: any) {
+  deletingCloudBackup.value = backup.id
+  try {
+    await api.remove('backups/cloud', backup.id)
+    feedback.deleted('Google Drive backup')
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not delete Google Drive backup', error)
+  } finally {
+    deletingCloudBackup.value = ''
+  }
+}
+
+async function restoreCloudBackup(backup: any) {
+  if (cloudRestoreConfirmation.value !== 'RESTORE') {
+    feedback.failed('Type RESTORE before restoring from Google Drive')
+    return
+  }
+
+  restoringCloudBackup.value = backup.id
+  try {
+    const response = await fetch(`${config.public.apiBase}/backups/cloud/${encodeURIComponent(backup.id)}/restore?confirmation=RESTORE`, {
+      method: 'POST',
+      headers: api.authHeaders()
+    })
+    if (!response.ok) {
+      throw new Error(await response.text())
+    }
+
+    const result = await response.json()
+    cloudRestoreConfirmation.value = ''
+    feedback.notify('Database restored from Google Drive', `Safety backup: ${result.safetyBackup?.fileName || 'created'}`)
+    await refresh()
+  } catch (error) {
+    feedback.failed('Google Drive restore failed', error)
+  } finally {
+    restoringCloudBackup.value = ''
+  }
+}
+
 function onRestoreFileChange(event: Event) {
   const input = event.target as HTMLInputElement
   restoreFile.value = input.files?.[0] || null
+  restorePreview.value = null
 }
 
 function beginRestore() {
   restoreFile.value = null
   restoreConfirmation.value = ''
+  restorePreview.value = null
   restoreOpen.value = true
+}
+
+async function previewUploadedRestore() {
+  if (!restoreFile.value) {
+    feedback.failed('Select a backup before preflight')
+    return
+  }
+
+  previewingRestore.value = true
+  restorePreview.value = null
+  try {
+    const form = new FormData()
+    form.append('file', restoreFile.value)
+    const response = await fetch(`${config.public.apiBase}/backups/restore/preview`, {
+      method: 'POST',
+      headers: api.authHeaders(),
+      body: form
+    })
+    if (!response.ok) {
+      throw new Error(await response.text())
+    }
+
+    restorePreview.value = await response.json()
+    feedback.notify('Restore preflight completed', restorePreview.value.message, restorePreview.value.status === 'ok' ? 'success' : 'warning')
+  } catch (error) {
+    feedback.failed('Restore preflight failed', error)
+  } finally {
+    previewingRestore.value = false
+  }
 }
 
 async function restoreDatabase() {
@@ -354,6 +532,7 @@ onMounted(async () => {
               { accessorKey: 'sourceLabel', header: 'Source' },
               { accessorKey: 'created', header: 'Created' },
               { accessorKey: 'size', header: 'Size' },
+              { accessorKey: 'integrityLabel', header: 'Integrity' },
               { id: 'actions', header: '' }
             ]"
           >
@@ -365,8 +544,32 @@ onMounted(async () => {
                 {{ row.original.sourceLabel }}
               </UBadge>
             </template>
+            <template #integrityLabel-cell="{ row }">
+              <div class="backup-integrity-cell">
+                <UBadge :color="row.original.hasChecksum ? 'success' : 'warning'" variant="subtle">
+                  {{ row.original.integrityLabel }}
+                </UBadge>
+                <small>{{ row.original.checksumShort }}</small>
+              </div>
+            </template>
             <template #actions-cell="{ row }">
               <div class="table-action-buttons">
+                <UButton
+                  color="success"
+                  variant="ghost"
+                  icon="i-lucide-shield-check"
+                  label="Verify"
+                  :loading="verifyingBackup === row.original.fileName"
+                  @click="verifyBackup(row.original)"
+                />
+                <UButton
+                  color="warning"
+                  variant="ghost"
+                  icon="i-lucide-list-checks"
+                  label="Preflight"
+                  :loading="previewingBackup === row.original.fileName"
+                  @click="previewLocalRestore(row.original)"
+                />
                 <UButton
                   color="neutral"
                   variant="ghost"
@@ -374,6 +577,15 @@ onMounted(async () => {
                   label="Download"
                   :loading="downloadingBackup === row.original.fileName"
                   @click="downloadBackup(row.original)"
+                />
+                <UButton
+                  v-if="cloudStatus?.configured"
+                  color="primary"
+                  variant="ghost"
+                  icon="i-lucide-cloud-upload"
+                  label="Drive"
+                  :loading="uploadingCloudBackup === row.original.fileName"
+                  @click="uploadBackupToDrive(row.original)"
                 />
                 <UButton
                   color="error"
@@ -394,6 +606,125 @@ onMounted(async () => {
             icon="i-lucide-hard-drive-download"
             action-label="Create Backup"
             @action="createBackup"
+          />
+
+          <div v-if="verificationResult" class="mt-4">
+            <UAlert
+              :color="verificationResult.status === 'ok' ? 'success' : 'error'"
+              variant="subtle"
+              icon="i-lucide-shield-check"
+              :title="`Verification: ${verificationResult.fileName}`"
+              :description="`${verificationResult.message} SHA256: ${verificationResult.sha256 || 'missing'}`"
+            />
+          </div>
+
+          <div v-if="localRestorePreview" class="mt-4 restore-preview-box">
+            <UAlert
+              :color="localRestorePreview.status === 'ok' ? 'success' : 'error'"
+              variant="subtle"
+              icon="i-lucide-list-checks"
+              :title="`Restore preflight: ${localRestorePreview.fileName}`"
+              :description="localRestorePreview.message"
+            />
+            <pre>{{ localRestorePreview.previewLines?.join('\\n') }}</pre>
+          </div>
+        </UCard>
+
+        <UCard class="planner-card">
+          <template #header>
+            <div class="planner-card-header">
+              <div>
+                <h2>Google Drive Online Backup</h2>
+                <p>Upload local PostgreSQL backup files to your configured Google Drive folder and restore them when needed.</p>
+              </div>
+              <UBadge :color="cloudStatus?.configured ? 'success' : cloudStatus?.enabled ? 'warning' : 'neutral'" variant="subtle">
+                {{ cloudStatus?.configured ? 'Connected' : cloudStatus?.enabled ? 'Needs Setup' : 'Disabled' }}
+              </UBadge>
+            </div>
+          </template>
+
+          <UAlert
+            :color="cloudStatus?.configured ? 'success' : 'warning'"
+            variant="subtle"
+            icon="i-lucide-cloud"
+            :title="cloudStatus?.configured ? 'Google Drive backup is configured' : 'Google Drive backup is not configured'"
+            :description="cloudStatus?.configured
+              ? `Folder ${cloudStatus.folderId}. Upload on backup: ${cloudStatus.uploadOnBackup ? 'enabled' : 'manual only'}. Retention: ${cloudStatus.retentionCount}.`
+              : 'Add a service account JSON file, share the target Drive folder with that service account email, and set GoogleDriveBackup__Enabled=true.'"
+          />
+
+          <div v-if="cloudStatus?.lastError" class="mt-4">
+            <UAlert
+              color="error"
+              variant="subtle"
+              icon="i-lucide-triangle-alert"
+              title="Last Google Drive backup error"
+              :description="cloudStatus.lastError"
+            />
+          </div>
+
+          <div v-if="cloudStatus?.configured" class="mt-4 form-grid">
+            <UFormField label="Type RESTORE to enable cloud restore buttons">
+              <UInput v-model="cloudRestoreConfirmation" placeholder="RESTORE" autocomplete="off" />
+            </UFormField>
+          </div>
+
+          <UTable
+            v-if="cloudBackupRows.length"
+            class="mt-4"
+            :data="cloudBackupRows"
+            :columns="[
+              { accessorKey: 'name', header: 'Drive Backup' },
+              { accessorKey: 'sourceLabel', header: 'Source' },
+              { accessorKey: 'created', header: 'Created' },
+              { accessorKey: 'size', header: 'Size' },
+              { id: 'actions', header: '' }
+            ]"
+          >
+            <template #sourceLabel-cell="{ row }">
+              <UBadge
+                :color="row.original.source === 'pre-restore' ? 'warning' : row.original.source === 'scheduled' ? 'success' : 'primary'"
+                variant="subtle"
+              >
+                {{ row.original.sourceLabel }}
+              </UBadge>
+            </template>
+            <template #actions-cell="{ row }">
+              <div class="table-action-buttons">
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  icon="i-lucide-download"
+                  label="Download"
+                  :loading="downloadingCloudBackup === row.original.id"
+                  @click="downloadCloudBackup(row.original)"
+                />
+                <UButton
+                  color="warning"
+                  variant="ghost"
+                  icon="i-lucide-rotate-ccw"
+                  label="Restore"
+                  :disabled="cloudRestoreConfirmation !== 'RESTORE'"
+                  :loading="restoringCloudBackup === row.original.id"
+                  @click="restoreCloudBackup(row.original)"
+                />
+                <UButton
+                  color="error"
+                  variant="ghost"
+                  icon="i-lucide-trash-2"
+                  label="Delete"
+                  :loading="deletingCloudBackup === row.original.id"
+                  @click="deleteCloudBackup(row.original)"
+                />
+              </div>
+            </template>
+          </UTable>
+
+          <UiCrudEmptyState
+            v-else
+            title="No Google Drive backups"
+            description="Create a local backup first. If Google Drive is configured with upload-on-backup, it will upload automatically; otherwise use the Drive button from the local backup list."
+            icon="i-lucide-cloud-upload"
           />
         </UCard>
       </template>
@@ -416,20 +747,68 @@ onMounted(async () => {
         <UFormField label="Type RESTORE to confirm" required>
           <UInput v-model="restoreConfirmation" autocomplete="off" placeholder="RESTORE" />
         </UFormField>
+        <div v-if="restorePreview" class="restore-preview-box">
+          <UAlert
+            :color="restorePreview.status === 'ok' ? 'success' : 'error'"
+            variant="subtle"
+            icon="i-lucide-list-checks"
+            :title="`Preflight: ${restorePreview.fileName}`"
+            :description="restorePreview.message"
+          />
+          <pre>{{ restorePreview.previewLines?.join('\\n') }}</pre>
+        </div>
       </div>
     </template>
     <template #footer>
       <div class="modal-actions">
         <UButton color="neutral" variant="outline" label="Cancel" :disabled="restoring" @click="restoreOpen = false" />
         <UButton
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-list-checks"
+          label="Preflight"
+          :loading="previewingRestore"
+          :disabled="!restoreFile"
+          @click="previewUploadedRestore"
+        />
+        <UButton
           color="error"
           icon="i-lucide-rotate-ccw"
           label="Restore Database"
           :loading="restoring"
-          :disabled="!restoreFile || restoreConfirmation !== 'RESTORE'"
+          :disabled="!restoreFile || restoreConfirmation !== 'RESTORE' || restorePreview?.status !== 'ok'"
           @click="restoreDatabase"
         />
       </div>
     </template>
   </UModal>
 </template>
+
+<style scoped>
+.backup-integrity-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.backup-integrity-cell small {
+  color: var(--ui-text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+.restore-preview-box {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.restore-preview-box pre {
+  max-height: 14rem;
+  overflow: auto;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  background: var(--ui-bg-muted);
+  color: var(--ui-text);
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+}
+</style>

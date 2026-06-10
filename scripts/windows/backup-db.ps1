@@ -1,6 +1,7 @@
 param(
     [string]$OutputDirectory = "backups",
-    [string]$ComposeFile = "docker-compose.yml"
+    [string]$ComposeFile = "docker-compose.yml",
+    [string]$DatabaseService = "postgres"
 )
 
 . "$PSScriptRoot\common.ps1"
@@ -16,16 +17,34 @@ if (-not (Test-Path -LiteralPath $backupRoot)) {
     New-Item -ItemType Directory -Path $backupRoot | Out-Null
 }
 
-$timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-$backupPath = Join-Path $backupRoot "garmetix-$timestamp.sql"
+$timestamp = Get-Date -AsUTC -Format "yyyyMMdd-HHmmss"
+$fileName = "garmetix-manual-$timestamp.dump"
+$backupPath = Join-Path $backupRoot $fileName
+$containerPath = "/tmp/$fileName"
 $composeArgs = Get-GarmetixComposeArgs -ComposeFile $ComposeFile
 
-Write-Host "Creating PostgreSQL backup: $backupPath"
-& docker @composeArgs exec -T postgres pg_dump -U $dbUser -d $dbName | Set-Content -LiteralPath $backupPath -Encoding UTF8
-
+Write-Host "Creating PostgreSQL custom-format backup: $backupPath"
+& docker @composeArgs exec -T $DatabaseService pg_dump --format=custom --compress=6 --no-owner --no-privileges --username $dbUser --file $containerPath $dbName
 if ($LASTEXITCODE -ne 0) {
     throw "Database backup failed."
 }
 
+& docker @composeArgs cp "$DatabaseService`:$containerPath" $backupPath
+& docker @composeArgs exec -T $DatabaseService rm -f $containerPath
+
+$hash = Get-FileHash -Algorithm SHA256 -LiteralPath $backupPath
+"$($hash.Hash.ToLowerInvariant())  $fileName" | Set-Content -LiteralPath "$backupPath.sha256" -Encoding UTF8
+$manifest = [ordered]@{
+    fileName = $fileName
+    createdAtUtc = (Get-Date).ToUniversalTime().ToString("o")
+    source = "manual-powershell"
+    database = $dbName
+    service = $DatabaseService
+    format = "PostgreSQL custom pg_dump"
+    sha256 = $hash.Hash.ToLowerInvariant()
+}
+$manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath "$backupPath.manifest.json" -Encoding UTF8
+
 Write-Host "Backup complete."
 Write-Host $backupPath
+Write-Host "Checksum: $($hash.Hash.ToLowerInvariant())"

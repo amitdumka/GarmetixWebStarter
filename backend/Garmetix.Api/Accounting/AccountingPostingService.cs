@@ -3,6 +3,8 @@ using Garmetix.Core.Models.Accounting;
 using Garmetix.Core.Models.HRM;
 using Garmetix.Core.Models.Inventory;
 using Garmetix.Infrastructure.Data;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 
 namespace Garmetix.Api.Accounting;
@@ -22,6 +24,147 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         PaymentMode.Cheque,
         PaymentMode.DemandDraft
     ];
+
+
+    public async Task<GstAccountingBridgeSummary> GetGstAccountingBridgeSummaryAsync(
+        Guid companyId,
+        string returnPeriod,
+        DateTime periodStart,
+        DateTime periodEndExclusive,
+        CancellationToken cancellationToken)
+    {
+        var outputRow = await BuildTaxLedgerRowAsync(companyId, "Output GST", periodStart, periodEndExclusive, creditPositive: true, "Output tax liability from posted sales/returns", cancellationToken);
+        var inputRow = await BuildTaxLedgerRowAsync(companyId, "Input GST", periodStart, periodEndExclusive, creditPositive: false, "Input tax credit from posted purchases/returns", cancellationToken);
+        var outputTax = Math.Max(0, outputRow.NetAmount);
+        var inputTax = Math.Max(0, inputRow.NetAmount);
+        var netPayable = Math.Max(0, outputTax - inputTax);
+        var creditCarryForward = Math.Max(0, inputTax - outputTax);
+        var reference = GstAccountingReference(returnPeriod);
+        var existing = await db.JournalEntries.AsNoTracking()
+            .FirstOrDefaultAsync(entry => entry.CompanyId == companyId
+                && entry.SourceType == "GstReturnAccounting"
+                && entry.ReferenceNumber == reference,
+                cancellationToken);
+
+        var status = existing is not null
+            ? "Posted"
+            : netPayable > 0
+                ? "Payable"
+                : creditCarryForward > 0
+                    ? "Credit Carry Forward"
+                    : "No GST Payable";
+
+        return new GstAccountingBridgeSummary(
+            companyId,
+            returnPeriod,
+            periodStart,
+            periodEndExclusive,
+            outputTax,
+            inputTax,
+            netPayable,
+            creditCarryForward,
+            0,
+            existing is not null,
+            existing?.Id,
+            existing?.EntryNumber,
+            status,
+            [outputRow, inputRow]);
+    }
+
+    public async Task<GstAccountingPostResult> PostGstAccountingSettlementAsync(
+        GstAccountingPostRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request.CompanyId == Guid.Empty)
+        {
+            throw new ArgumentException("Company is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.ReturnPeriod))
+        {
+            throw new ArgumentException("GST return period is required.");
+        }
+
+        var outputTax = Math.Round(Math.Max(0, request.OutputTax), 2, MidpointRounding.AwayFromZero);
+        var inputTax = Math.Round(Math.Max(0, request.InputTax), 2, MidpointRounding.AwayFromZero);
+        var interestLateFee = Math.Round(Math.Max(0, request.InterestLateFee), 2, MidpointRounding.AwayFromZero);
+        var netPayable = Math.Round(Math.Max(0, outputTax - inputTax), 2, MidpointRounding.AwayFromZero);
+        var creditCarryForward = Math.Round(Math.Max(0, inputTax - outputTax), 2, MidpointRounding.AwayFromZero);
+
+        if (outputTax == 0 && inputTax == 0 && interestLateFee == 0)
+        {
+            throw new InvalidOperationException("No GST tax/ITC/fee amount is available for accounting posting.");
+        }
+
+        var storeInfo = await ResolvePostingStoreAsync(request.CompanyId, request.StoreGroupId, request.StoreId, cancellationToken);
+        var outputLedger = await EnsureNamedLedgerAsync(request.CompanyId, "Output GST", "Duties & Taxes", LedgerCategory.DutiesAndTaxes, LedgerType.DutyAndTax, cancellationToken);
+        var inputLedger = await EnsureNamedLedgerAsync(request.CompanyId, "Input GST", "Duties & Taxes", LedgerCategory.DutiesAndTaxes, LedgerType.DutyAndTax, cancellationToken);
+        var payableLedger = await EnsureNamedLedgerAsync(request.CompanyId, "GST Payable", "Duties & Taxes", LedgerCategory.DutiesAndTaxes, LedgerType.CurrentLiability, cancellationToken);
+        var carryForwardLedger = await EnsureNamedLedgerAsync(request.CompanyId, "GST Credit Carry Forward", "Current Assets", LedgerCategory.CurrentAssets, LedgerType.CurrentAsset, cancellationToken);
+        var interestLedger = await EnsureNamedLedgerAsync(request.CompanyId, "GST Interest & Late Fee", "Indirect Expenses", LedgerCategory.IndirectExpenses, LedgerType.Expenses, cancellationToken);
+
+        var narration = string.IsNullOrWhiteSpace(request.Narration)
+            ? $"GST accounting settlement for {request.ReturnPeriod}"
+            : request.Narration.Trim();
+        var lines = new List<JournalLineDraft>();
+
+        if (outputTax > 0)
+        {
+            lines.Add(new(outputLedger.Id, null, outputTax, 0, $"Transfer output GST for {request.ReturnPeriod}"));
+        }
+
+        if (inputTax > 0)
+        {
+            lines.Add(new(inputLedger.Id, null, 0, inputTax, $"Set off input GST credit for {request.ReturnPeriod}"));
+        }
+
+        if (netPayable > 0)
+        {
+            lines.Add(new(payableLedger.Id, null, 0, netPayable, $"GST payable for {request.ReturnPeriod}"));
+        }
+
+        if (creditCarryForward > 0)
+        {
+            lines.Add(new(carryForwardLedger.Id, null, creditCarryForward, 0, $"GST credit carry forward for {request.ReturnPeriod}"));
+        }
+
+        if (interestLateFee > 0)
+        {
+            lines.Add(new(interestLedger.Id, null, interestLateFee, 0, $"GST interest/late fee for {request.ReturnPeriod}"));
+            lines.Add(new(payableLedger.Id, null, 0, interestLateFee, $"GST interest/late fee payable for {request.ReturnPeriod}"));
+        }
+
+        var reference = GstAccountingReference(request.ReturnPeriod);
+        var journal = await RepostSourceJournalAsync(
+            "GstReturnAccounting",
+            request.DraftId ?? DeterministicGuid($"{request.CompanyId:N}|{request.ReturnPeriod}"),
+            $"GST-{request.ReturnPeriod}",
+            request.OnDate ?? DateTime.Now,
+            reference,
+            narration,
+            request.CompanyId,
+            storeInfo.StoreGroupId,
+            storeInfo.StoreId,
+            lines,
+            cancellationToken);
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        return new GstAccountingPostResult(
+            journal.Id,
+            journal.EntryNumber,
+            reference,
+            outputTax,
+            inputTax,
+            netPayable,
+            creditCarryForward,
+            interestLateFee,
+            netPayable > 0
+                ? $"GST payable of {netPayable:0.00} posted to GST Payable."
+                : creditCarryForward > 0
+                    ? $"GST credit carry forward of {creditCarryForward:0.00} posted."
+                    : "GST output/input transfer posted with no net payable.");
+    }
 
     public async Task<AccountingPostResult> SaveVoucherAsync(
         VoucherSaveRequest request,
@@ -731,6 +874,250 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
             cancellationToken);
     }
 
+    public async Task PostPurchaseInvoiceCancellationAsync(
+        PurchaseInvoice invoice,
+        Vendor? vendor,
+        Guid storeGroupId,
+        Guid storeId,
+        decimal originalPaidAmount,
+        PaymentMode? originalPaymentMode,
+        Guid? bankAccountId,
+        CancellationToken cancellationToken)
+    {
+        if (vendor is null)
+        {
+            return;
+        }
+
+        var party = await EnsureVendorPartyAsync(vendor, cancellationToken);
+        var vendorLedgerId = party.LedgerId;
+        var purchaseLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Purchases", "Purchase Accounts", LedgerCategory.PurchaseAccounts, LedgerType.Purcahase, cancellationToken);
+        var inputGstLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Input GST", "Duties & Taxes", LedgerCategory.DutiesAndTaxes, LedgerType.DutyAndTax, cancellationToken);
+        var freightLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Transport & Freight Charges", "Direct Expenses", LedgerCategory.DirectExpenses, LedgerType.Expenses, cancellationToken);
+        var roundOffLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Round Off", "Indirect Income", LedgerCategory.IndirectIncome, LedgerType.Income, cancellationToken);
+
+        var lines = new List<JournalLineDraft>
+        {
+            new(vendorLedgerId, party.Id, invoice.BillAmount, 0, $"Cancel purchase invoice {invoice.InvoiceNumber}"),
+            new(purchaseLedger.Id, null, 0, invoice.BasePrice, $"Cancel purchase invoice {invoice.InvoiceNumber}")
+        };
+
+        if (invoice.TaxAmount > 0)
+        {
+            lines.Add(new(inputGstLedger.Id, null, 0, invoice.TaxAmount, $"Cancel purchase tax {invoice.InvoiceNumber}"));
+        }
+
+        if (invoice.FrightAmount > 0)
+        {
+            lines.Add(new(freightLedger.Id, null, 0, invoice.FrightAmount, $"Cancel purchase freight {invoice.InvoiceNumber}"));
+        }
+
+        AddRoundOff(lines, roundOffLedger.Id, invoice.RoundOff * -1, isSale: false, invoice.InvoiceNumber);
+
+        if (originalPaidAmount > 0 && originalPaymentMode.HasValue)
+        {
+            var settlementLedger = await ResolveSettlementLedgerAsync(invoice.CompanyId, originalPaymentMode.Value, bankAccountId, cancellationToken);
+            lines.Add(new(settlementLedger.Id, null, originalPaidAmount, 0, $"Reverse purchase payment {invoice.InvoiceNumber}"));
+            lines.Add(new(vendorLedgerId, party.Id, 0, originalPaidAmount, $"Reverse purchase payment {invoice.InvoiceNumber}"));
+            await UpsertInvoiceBankTransactionAsync(
+                invoice.CompanyId,
+                originalPaymentMode.Value,
+                bankAccountId,
+                TransactionType.Deposit,
+                DateTime.Now,
+                $"PIC-{invoice.InvoiceNumber}",
+                $"Reverse purchase payment {invoice.InvoiceNumber}",
+                originalPaidAmount,
+                vendor.Name,
+                cancellationToken);
+        }
+
+        await RepostSourceJournalAsync(
+            "PurchaseInvoiceCancellation",
+            invoice.Id,
+            $"PIC-{invoice.InvoiceNumber}",
+            DateTime.Now,
+            invoice.InvoiceNumber,
+            $"Cancel purchase invoice {invoice.InvoiceNumber}",
+            invoice.CompanyId,
+            storeGroupId,
+            storeId,
+            lines,
+            cancellationToken);
+    }
+
+
+    public async Task PostPurchaseReturnAsync(
+        PurchaseInvoice invoice,
+        Vendor vendor,
+        Guid debitNoteId,
+        string debitNoteNumber,
+        Guid storeGroupId,
+        Guid storeId,
+        decimal taxableAmount,
+        decimal taxAmount,
+        decimal returnAmount,
+        string? reason,
+        CancellationToken cancellationToken)
+    {
+        if (returnAmount <= 0)
+        {
+            throw new ArgumentException("Purchase return amount must be greater than zero.");
+        }
+
+        var party = await EnsureVendorPartyAsync(vendor, cancellationToken);
+        var vendorLedgerId = party.LedgerId;
+        var purchaseLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Purchases", "Purchase Accounts", LedgerCategory.PurchaseAccounts, LedgerType.Purcahase, cancellationToken);
+        var inputGstLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Input GST", "Duties & Taxes", LedgerCategory.DutiesAndTaxes, LedgerType.DutyAndTax, cancellationToken);
+        var narration = string.IsNullOrWhiteSpace(reason)
+            ? $"Purchase return {invoice.InvoiceNumber}"
+            : reason.Trim();
+
+        var lines = new List<JournalLineDraft>
+        {
+            new(vendorLedgerId, party.Id, returnAmount, 0, $"Debit note {debitNoteNumber} against {invoice.InvoiceNumber}")
+        };
+
+        if (taxableAmount > 0)
+        {
+            lines.Add(new(purchaseLedger.Id, null, 0, taxableAmount, $"Purchase return taxable {invoice.InvoiceNumber}"));
+        }
+
+        if (taxAmount > 0)
+        {
+            lines.Add(new(inputGstLedger.Id, null, 0, taxAmount, $"Purchase return input GST reversal {invoice.InvoiceNumber}"));
+        }
+
+        await RepostSourceJournalAsync(
+            "PurchaseReturn",
+            debitNoteId,
+            $"PR-{debitNoteNumber}",
+            DateTime.Now,
+            invoice.InvoiceNumber,
+            narration,
+            invoice.CompanyId,
+            storeGroupId,
+            storeId,
+            lines,
+            cancellationToken);
+    }
+
+
+
+    public async Task PostVendorPaymentVoucherAsync(
+        Voucher voucher,
+        Vendor vendor,
+        Guid storeGroupId,
+        Guid storeId,
+        Guid? bankAccountId,
+        CancellationToken cancellationToken)
+    {
+        if (voucher.Amount <= 0)
+        {
+            throw new ArgumentException("Vendor payment amount must be greater than zero.");
+        }
+
+        var party = await EnsureVendorPartyAsync(vendor, cancellationToken);
+        var vendorLedgerId = party.LedgerId;
+        var settlementLedger = await ResolveSettlementLedgerAsync(voucher.CompanyId, voucher.PaymentMode, bankAccountId, cancellationToken);
+        voucher.PartyId = party.Id;
+        voucher.LedgerId = vendorLedgerId;
+        voucher.IsParty = true;
+        voucher.StoreGroupId = storeGroupId;
+        voucher.StoreId = storeId;
+
+        var lines = new List<JournalLineDraft>
+        {
+            new(vendorLedgerId, party.Id, voucher.Amount, 0, voucher.Particulars),
+            new(settlementLedger.Id, null, 0, voucher.Amount, voucher.Particulars)
+        };
+
+        await UpsertInvoiceBankTransactionAsync(
+            voucher.CompanyId,
+            voucher.PaymentMode,
+            bankAccountId,
+            TransactionType.Withdraw,
+            voucher.OnDate,
+            voucher.VoucherNumber,
+            voucher.Particulars,
+            voucher.Amount,
+            vendor.Name,
+            cancellationToken);
+
+        await RepostSourceJournalAsync(
+            "VendorPaymentVoucher",
+            voucher.Id,
+            voucher.VoucherNumber,
+            voucher.OnDate,
+            voucher.VoucherNumber,
+            voucher.Particulars,
+            voucher.CompanyId,
+            storeGroupId,
+            storeId,
+            lines,
+            cancellationToken);
+    }
+
+    public async Task PostSalesReturnAsync(
+        Invoice returnInvoice,
+        Customer customer,
+        Guid storeGroupId,
+        decimal refundAmount,
+        PaymentMode? refundPaymentMode,
+        Guid? bankAccountId,
+        CancellationToken cancellationToken)
+    {
+        var party = await EnsureCustomerPartyAsync(customer, cancellationToken);
+        var customerLedgerId = party.LedgerId;
+        var salesLedger = await EnsureNamedLedgerAsync(returnInvoice.CompanyId, "Sales", "Sales Accounts", LedgerCategory.SalesAccounts, LedgerType.Sale, cancellationToken);
+        var outputGstLedger = await EnsureNamedLedgerAsync(returnInvoice.CompanyId, "Output GST", "Duties & Taxes", LedgerCategory.DutiesAndTaxes, LedgerType.DutyAndTax, cancellationToken);
+        var roundOffLedger = await EnsureNamedLedgerAsync(returnInvoice.CompanyId, "Round Off", "Indirect Income", LedgerCategory.IndirectIncome, LedgerType.Income, cancellationToken);
+
+        var lines = new List<JournalLineDraft>
+        {
+            new(salesLedger.Id, null, returnInvoice.NetAmount, 0, $"Sales return {returnInvoice.InvoiceNumber}"),
+            new(customerLedgerId, party.Id, 0, returnInvoice.BillAmount, $"Credit note {returnInvoice.InvoiceNumber}")
+        };
+
+        if (returnInvoice.TaxAmount > 0)
+        {
+            lines.Add(new(outputGstLedger.Id, null, returnInvoice.TaxAmount, 0, $"Return tax {returnInvoice.InvoiceNumber}"));
+        }
+
+        AddRoundOff(lines, roundOffLedger.Id, returnInvoice.RoundOff * -1, isSale: true, returnInvoice.InvoiceNumber);
+
+        if (refundAmount > 0 && refundPaymentMode.HasValue)
+        {
+            var settlementLedger = await ResolveSettlementLedgerAsync(returnInvoice.CompanyId, refundPaymentMode.Value, bankAccountId, cancellationToken);
+            lines.Add(new(customerLedgerId, party.Id, refundAmount, 0, $"Return refund {returnInvoice.InvoiceNumber}"));
+            lines.Add(new(settlementLedger.Id, null, 0, refundAmount, $"Return refund {returnInvoice.InvoiceNumber}"));
+            await UpsertInvoiceBankTransactionAsync(
+                returnInvoice.CompanyId,
+                refundPaymentMode.Value,
+                bankAccountId,
+                TransactionType.Withdraw,
+                returnInvoice.OnDate,
+                $"SR-{returnInvoice.InvoiceNumber}",
+                $"Return refund {returnInvoice.InvoiceNumber}",
+                refundAmount,
+                customer.Name,
+                cancellationToken);
+        }
+
+        await RepostSourceJournalAsync(
+            "SalesReturn",
+            returnInvoice.Id,
+            $"SR-{returnInvoice.InvoiceNumber}",
+            returnInvoice.OnDate,
+            returnInvoice.InvoiceNumber,
+            $"Sales return {returnInvoice.InvoiceNumber}",
+            returnInvoice.CompanyId,
+            storeGroupId,
+            returnInvoice.StoreId,
+            lines,
+            cancellationToken);
+    }
+
     public async Task PostSalaryPaymentAsync(
         SalaryPayment payment,
         CancellationToken cancellationToken)
@@ -1167,6 +1554,115 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         }
     }
 
+    private sealed record PostingStoreScope(Guid StoreGroupId, Guid StoreId);
+
+    private async Task<GstAccountingLedgerRow> BuildTaxLedgerRowAsync(
+        Guid companyId,
+        string ledgerName,
+        DateTime periodStart,
+        DateTime periodEndExclusive,
+        bool creditPositive,
+        string meaning,
+        CancellationToken cancellationToken)
+    {
+        var totals = await db.JournalLines
+            .AsNoTracking()
+            .Where(line => line.CompanyId == companyId
+                && line.Ledger != null
+                && line.Ledger.Name == ledgerName
+                && line.JournalEntry != null
+                && line.JournalEntry.OnDate >= periodStart
+                && line.JournalEntry.OnDate < periodEndExclusive)
+            .GroupBy(_ => 1)
+            .Select(group => new
+            {
+                Debit = group.Sum(line => line.Debit),
+                Credit = group.Sum(line => line.Credit)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var debit = Math.Round(totals?.Debit ?? 0, 2, MidpointRounding.AwayFromZero);
+        var credit = Math.Round(totals?.Credit ?? 0, 2, MidpointRounding.AwayFromZero);
+        var net = creditPositive ? credit - debit : debit - credit;
+
+        return new GstAccountingLedgerRow(
+            ledgerName,
+            debit,
+            credit,
+            Math.Round(net, 2, MidpointRounding.AwayFromZero),
+            meaning);
+    }
+
+    private async Task<PostingStoreScope> ResolvePostingStoreAsync(
+        Guid companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        CancellationToken cancellationToken)
+    {
+        if (storeId.HasValue && storeId.Value != Guid.Empty)
+        {
+            var store = await db.Stores
+                .AsNoTracking()
+                .FirstOrDefaultAsync(item => item.Id == storeId.Value && item.CompanyId == companyId, cancellationToken);
+
+            if (store is null)
+            {
+                throw new InvalidOperationException("Selected store is not valid for this company.");
+            }
+
+            if (storeGroupId.HasValue && storeGroupId.Value != Guid.Empty && store.StoreGroupId != storeGroupId.Value)
+            {
+                throw new InvalidOperationException("Selected store does not belong to the selected store group.");
+            }
+
+            return new PostingStoreScope(store.StoreGroupId, store.Id);
+        }
+
+        if (storeGroupId.HasValue && storeGroupId.Value != Guid.Empty)
+        {
+            var store = await db.Stores
+                .AsNoTracking()
+                .Where(item => item.CompanyId == companyId && item.StoreGroupId == storeGroupId.Value && !item.Deleted)
+                .OrderBy(item => item.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (store is not null)
+            {
+                return new PostingStoreScope(store.StoreGroupId, store.Id);
+            }
+        }
+
+        var defaultStore = await db.Stores
+            .AsNoTracking()
+            .Where(item => item.CompanyId == companyId && !item.Deleted)
+            .OrderBy(item => item.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (defaultStore is null)
+        {
+            throw new InvalidOperationException("Create at least one store before posting GST accounting entries.");
+        }
+
+        return new PostingStoreScope(defaultStore.StoreGroupId, defaultStore.Id);
+    }
+
+    private static string GstAccountingReference(string returnPeriod)
+    {
+        var normalized = string.IsNullOrWhiteSpace(returnPeriod)
+            ? DateTime.Now.ToString("yyyyMM")
+            : returnPeriod.Trim().ToUpperInvariant().Replace(" ", string.Empty);
+
+        return $"GST-RET-{normalized}";
+    }
+
+    private static Guid DeterministicGuid(string seed)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(seed));
+        Span<byte> guidBytes = stackalloc byte[16];
+        bytes.AsSpan(0, 16).CopyTo(guidBytes);
+        return new Guid(guidBytes);
+    }
+
     private async Task<Ledger> EnsureNamedLedgerAsync(
         Guid companyId,
         string name,
@@ -1199,7 +1695,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         return ledger;
     }
 
-    private async Task RepostSourceJournalAsync(
+    private async Task<JournalEntry> RepostSourceJournalAsync(
         string sourceType,
         Guid sourceId,
         string entryNumber,
@@ -1266,6 +1762,8 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
                 StoreGroupId = storeGroupId,
                 StoreId = storeId
             }));
+
+        return existing;
     }
 
     private static void AddRoundOff(

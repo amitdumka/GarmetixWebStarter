@@ -3,6 +3,7 @@ type WorkspaceUser = {
   companyId?: string
   storeGroupId?: string
   storeId?: string
+  appOperation?: string
 }
 
 type WorkspaceRecord = {

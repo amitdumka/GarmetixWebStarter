@@ -1,4 +1,5 @@
 using Garmetix.Api.Auth;
+using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Accounting;
 using Garmetix.Core.Models.HRM;
@@ -27,17 +28,17 @@ public static class SetupEndpoints
         return group;
     }
 
-    private static async Task<SetupStatusResponse> GetStatusAsync(GarmetixDbContext db, CancellationToken cancellationToken)
+    private static async Task<SetupStatusResponse> GetStatusAsync(HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
     {
-        var company = await db.Companies.AsNoTracking().OrderBy(item => item.CreatedAt).FirstOrDefaultAsync(cancellationToken);
-        var storeGroup = await db.StoreGroups.AsNoTracking().OrderBy(item => item.CreatedAt).FirstOrDefaultAsync(cancellationToken);
-        var store = await db.Stores.AsNoTracking().OrderBy(item => item.CreatedAt).FirstOrDefaultAsync(cancellationToken);
+        var company = await WorkspaceScope.ApplyTo(db.Companies.AsNoTracking(), context).OrderBy(item => item.CreatedAt).FirstOrDefaultAsync(cancellationToken);
+        var storeGroup = await WorkspaceScope.ApplyTo(db.StoreGroups.AsNoTracking(), context).OrderBy(item => item.CreatedAt).FirstOrDefaultAsync(cancellationToken);
+        var store = await WorkspaceScope.ApplyTo(db.Stores.AsNoTracking(), context).OrderBy(item => item.CreatedAt).FirstOrDefaultAsync(cancellationToken);
 
         return new SetupStatusResponse(
             company is not null,
             storeGroup is not null,
             store is not null,
-            await db.ProductCategories.AnyAsync(cancellationToken),
+            await WorkspaceScope.ApplyTo(db.ProductCategories.AsNoTracking(), context).AnyAsync(cancellationToken),
             await db.Taxes.AnyAsync(cancellationToken),
             company?.Id,
             storeGroup?.Id,
@@ -135,13 +136,26 @@ public static class SetupEndpoints
             db.Taxes.Add(tax);
         }
 
+        var salesman = await db.Salesmen.FirstOrDefaultAsync(item => item.CompanyId == company.Id && item.StoreId == store.Id && item.Name == "Manager", cancellationToken);
+        if (salesman is null)
+        {
+            db.Salesmen.Add(new Salesman
+            {
+                Name = "Manager",
+                Active = true,
+                CompanyId = company.Id,
+                StoreGroupId = storeGroup.Id,
+                StoreId = store.Id
+            });
+        }
+
         await db.SaveChangesAsync(cancellationToken);
         await EnsureAccountingDefaultsAsync(db, company, cancellationToken);
 
         return Results.Ok(new QuickSetupResponse(company.Id, storeGroup.Id, store.Id, category.Id, subCategory.Id, tax.Id));
     }
 
-    private static async Task<IResult> QuickProductAsync(QuickProductRequest request, GarmetixDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> QuickProductAsync(QuickProductRequest request, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Barcode))
         {
@@ -170,10 +184,13 @@ public static class SetupEndpoints
             Name = request.Name.Trim(),
             Barcode = request.Barcode.Trim(),
             MRP = request.Mrp,
+            Descriptions = string.IsNullOrWhiteSpace(request.Descriptions) ? null : request.Descriptions.Trim(),
+            HSNCode = string.IsNullOrWhiteSpace(request.HSNCode) ? null : request.HSNCode.Trim(),
             TaxRate = tax.CompositeRate,
             TaxType = tax.TaxType,
-            Unit = Unit.Pcs,
-            ProductType = ProductType.Apparels,
+            Unit = request.Unit ?? Unit.Pcs,
+            ProductType = request.ProductType ?? ProductType.Fabric,
+            ProductGroup = request.ProductGroup ?? ProductGroup.Shirting,
             ProductCategoryId = categoryId,
             ProductSubCategoryId = subCategoryId,
             CompanyId = request.CompanyId,
@@ -184,16 +201,26 @@ public static class SetupEndpoints
         {
             ProductId = product.Id,
             Barcode = product.Barcode,
-            Unit = Unit.Pcs,
+            HSNCode = product.HSNCode,
+            Unit = product.Unit,
             PurchaseQty = request.OpeningQuantity,
+            CostPrice = request.CostPrice ?? 0,
             MRP = request.Mrp,
             TaxRate = tax.CompositeRate,
             TaxType = tax.TaxType,
             TaxId = tax.Id,
+            StockType = request.StockType ?? StockType.Billed,
             CompanyId = request.CompanyId,
             StoreGroupId = request.StoreGroupId,
             StoreId = request.StoreId
         };
+
+        var productWritable = WorkspaceScope.CanWrite(product, context, out var productScopeMessage);
+        var stockWritable = WorkspaceScope.CanWrite(stock, context, out var stockScopeMessage);
+        if (!productWritable || !stockWritable)
+        {
+            return Results.BadRequest(new { message = productScopeMessage ?? stockScopeMessage ?? "Selected company/store is outside your access scope." });
+        }
 
         db.Products.Add(product);
         db.Stocks.Add(stock);

@@ -22,6 +22,7 @@
  */
 
 using Garmetix.Core.Enums;
+using Enums = Garmetix.Core.Enums;
 using Garmetix.Core.Models.Base;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -76,6 +77,7 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Branded Product")] public bool BrandedProduct { get; set; } = true;
 
         [Display(Name = "Sold Value")] public decimal SoldValue { get; set; } = 0;
+        public StockType StockType { get; set; } = StockType.Billed;
 
         [JsonIgnore]
         [Display(Name = "Tax", AutoGenerateField = false)] public virtual Tax? Tax { get; set; }
@@ -101,11 +103,13 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Descriptions")] public string? Descriptions { get; set; }
         [Display(Name = "MRP")] public decimal MRP { get; set; }
         [Display(Name = "Tax Rate")] public decimal TaxRate { get; set; }
+        [Display(Name = "HSN")] public string? HSNCode { get; set; } = string.Empty;
         //TODO: Need to use Basic Rate Calucator Static Function need to be create in toolkit
         [Display(Name = "Basic Rate", AutoGenerateField = false)] public decimal BasicPrice => MRP / (1 + (TaxRate / 100));
         [Display(Name = "Unit")] public Unit Unit { get; set; }
         [Display(Name = "Tax Type")] public TaxType TaxType { get; set; }
         [Display(Name = "Product Type")] public ProductType ProductType { get; set; } = ProductType.Fabric;
+        [Display(Name = "Product Group")] public ProductGroup ProductGroup { get; set; } = Enums.ProductGroup.Shirting;
         [Display(Name = "Product Category", AutoGenerateField = false)] public Guid ProductCategoryId { get; set; }
         [Display(Name = "Product Sub Category", AutoGenerateField = false)] public Guid ProductSubCategoryId { get; set; }
         [Display(Name = "Product Category", AutoGenerateField = false)] public virtual ProductCategory? ProductCategory { get; set; }
@@ -118,13 +122,46 @@ namespace Garmetix.Core.Models.Inventory
 
     }
 
+
+
+    public class StockMovement : StoreBase
+    {
+        [Display(Name = "Stock", AutoGenerateField = false)] public Guid? StockId { get; set; }
+        [Display(Name = "Product", AutoGenerateField = false)] public Guid ProductId { get; set; }
+        [Display(Name = "Barcode")] public required string Barcode { get; set; } = string.Empty;
+        [Display(Name = "Movement Type")] public required string MovementType { get; set; } = string.Empty;
+        [Display(Name = "Quantity In")] public decimal QuantityIn { get; set; }
+        [Display(Name = "Quantity Out")] public decimal QuantityOut { get; set; }
+        [Display(Name = "Cost Price")] public decimal CostPrice { get; set; }
+        [Display(Name = "MRP")] public decimal MRP { get; set; }
+        [Display(Name = "Tax Rate")] public decimal TaxRate { get; set; }
+        [Display(Name = "HSN Code")] public string? HSNCode { get; set; }
+        [Display(Name = "Source Type")] public string? SourceType { get; set; }
+        [Display(Name = "Source", AutoGenerateField = false)] public Guid? SourceId { get; set; }
+        [Display(Name = "Source Number")] public string? SourceNumber { get; set; }
+        [Display(Name = "Remarks")] public string? Remarks { get; set; }
+        [Display(Name = "Movement Date")] public DateTime OnDate { get; set; } = DateTime.Now;
+        public virtual Product? Product { get; set; }
+        public virtual Stock? Stock { get; set; }
+    }
+
     public class ProductCategory : CompanyBase
     {
-        [Display(Name = "Category Name")] public required string Name { get; set; }
+        [Display(Name = "Category Name")] public string Name { get; set; } = string.Empty;
+        public ProductGroup? ProductGroup { get; set; } = Enums.ProductGroup.Shirting;
+        public bool IsActive { get; set; } = true;
+
+        [NotMapped]
+        public virtual ICollection<ProductSubCategory>? SubCategories { get; set; }
     }
+
     public class ProductSubCategory : CompanyBase
     {
-        [Display(Name = "Sub Category Name")] public required string Name { get; set; }
+        [Display(Name = "Sub Category Name")] public string Name { get; set; } = string.Empty;
+        public Guid? CategoryId { get; set; }
+
+        [NotMapped]
+        public virtual ProductCategory? Category { get; set; }
     }
 
     public class ProductDetail : CompanyBase
@@ -139,11 +176,46 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Product", AutoGenerateField = false)] public virtual Product? Product { get; set; }
     }
 
+    public class ProductAttribute
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public string Name { get; set; } = string.Empty;
+    }
+
+    public class ProductAttributeValue
+    {
+        public Guid ProductId { get; set; }
+        public Guid AttributeId { get; set; }
+        public string Value { get; set; } = string.Empty;
+    }
+
+    public class ProductTag
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public string Name { get; set; } = string.Empty;
+    }
+
+    public class ProductTagMapping
+    {
+        public Guid ProductId { get; set; }
+        public Guid TagId { get; set; }
+    }
+
     public class Brand : BaseEntity
     {
-
-        [Display(Name = "Brand Name")] public required string Name { get; set; }
-        [Display(Name = "Brand Code")] public required string BrandCode { get; set; }
+        [Display(Name = "Brand Name")] public string Name { get; set; } = string.Empty;
+        [Display(Name = "Brand Code")] public string BrandCode { get; set; } = string.Empty;
         [Display(Name = "Supplier", AutoGenerateField = false)] public Guid? SupplierId { get; set; } = null;
     }
+
+    public class DocumentSequence : CompanyBase
+    {
+        [Display(Name = "Document Type")] public string DocumentType { get; set; } = string.Empty;
+        [Display(Name = "Prefix")] public string Prefix { get; set; } = string.Empty;
+        [Display(Name = "Sequence Date")] public DateTime SequenceDate { get; set; } = DateTime.Today;
+        [Display(Name = "Last Number")] public int LastNumber { get; set; } = 0;
+        [Display(Name = "Store Group", AutoGenerateField = false)] public Guid? StoreGroupId { get; set; }
+        [Display(Name = "Store", AutoGenerateField = false)] public Guid? StoreId { get; set; }
+    }
+
 }

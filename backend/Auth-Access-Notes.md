@@ -72,3 +72,13 @@ POST /api/setup/quick-start
 ```
 
 This creates a company, store group, store, default product category, default product subcategory, and `GST 5` tax record.
+
+## Password Reset Email
+
+Forgot-password now supports production SMTP delivery.
+
+- Login screen: Forgot sends reset link/token by email when `Email:Enabled=true`.
+- Login screen: Reset accepts the token from email or the token query string from the link.
+- Profile menu: Change Password updates the current logged-in user password.
+
+See `Password-Reset-Email-Notes.md` for SMTP provider configuration.

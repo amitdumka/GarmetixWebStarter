@@ -63,7 +63,7 @@ The API uses JWT bearer authentication and role policies for each module. Create
 curl -X POST http://localhost:5080/api/auth/bootstrap-admin -H "Content-Type: application/json" -d "{\"name\":\"Garmetix Admin\",\"userName\":\"admin\",\"email\":\"admin@garmetix.local\",\"password\":\"change-me\"}"
 ```
 
-More details are in `backend/Auth-Access-Notes.md`.
+More details are in `backend/Auth-Access-Notes.md`. Forgot/reset password email delivery and one-time reset-token storage are documented in `backend/Password-Reset-Email-Notes.md`.
 
 ## First Run Setup
 
@@ -81,7 +81,7 @@ If `databaseReady` is `true`, frontend, proxy, API, and database connectivity ar
 
 ## Billing POS
 
-Billing now has its own Nuxt route at `/billing`. The page uses Nuxt UI sales KPI cards, searchable `UTable`, a POS slideover workflow, receipt modal, print action, cancel confirmation, and toast feedback. It calls `POST /api/billing/sales`, saves invoice/items/payment in one backend transaction, and updates stock sold quantity. More details are in `backend/Billing-Notes.md`.
+Billing now has its own Nuxt route at `/billing`. The page uses Nuxt UI sales KPI cards, searchable `UTable`, a POS slideover workflow, receipt modal, print/PDF actions, cancel confirmation, and toast feedback. It calls `POST /api/billing/sales`, saves invoice/items/payment in one backend transaction, and updates stock sold quantity. Invoice printing supports A4, A5, 2-inch thermal, 3-inch thermal, customer/office/duplicate copies, reprint mode, and optional signature lines. More details are in `backend/Billing-Notes.md`.
 
 ## Purchase Inward
 
@@ -231,3 +231,161 @@ EF Core setup details are in `backend/EF-Core-Next-Step.md`.
 The model conversion made one bridge change: `AppUser` now implements `IEntity` because it already has an `Id` and should participate in the same API/storage pattern.
 
 Date/time values are normalized before saving so PostgreSQL `timestamp without time zone` columns can accept values submitted from browsers and backend audit stamps.
+
+- Password reset email delivery through configurable SMTP. See `backend/Password-Reset-Email-Notes.md`.
+
+
+## Workspace permissions
+
+Company / StoreGroup / Store selector is now backed by `/api/workspace/options` and server-side scope checks. See `backend/Workspace-Permissions-Notes.md`.
+
+
+## Google Drive Online Backup
+
+Google Drive backup is optional and disabled by default. To enable it, create `./secrets/google-drive-service-account.json`, share the target Drive folder with that service account email, set `GOOGLE_DRIVE_BACKUP_ENABLED=true`, and set `GOOGLE_DRIVE_FOLDER_ID` in `.env`. Admin users can view/upload/download/delete/restore cloud backups from **System Health**. See `backend/Google-Drive-Backup-Notes.md`.
+
+### GST Returns standalone module
+
+A separate urgent GST Returns module is available at `/gst-returns`. It currently accepts manual return values and generates:
+
+- GSTR-1 JSON
+- GSTR-1 Excel
+- GSTR-3B JSON
+- GSTR-3B Excel
+
+This module is intentionally not linked to Billing/Purchase yet. See `backend/GST-Return-Notes.md`.
+
+
+
+## GST Returns module
+
+Open `/gst-returns` for the standalone manual GST module. It supports GSTR-1 and GSTR-3B JSON/Excel generation, preview validation, and a portal/offline-utility schema review checklist. It is intentionally not linked to Billing/Purchase yet.
+
+- GST saved drafts and audit trail are available in `/gst-returns`. Apply migration `AddGstReturnDrafts` before testing saved drafts.
+
+- Reports page now supports Excel export, Save-as-PDF/print, and local cached report snapshots by report/filter/search.
+
+### GSTIN verification
+
+Customer and Vendor creation now supports GSTIN lookup/validation through a configurable provider. Open `/parties` to verify GSTIN, store legal/trade name and address details, and see mismatch alerts before saving. Billing and Purchase forms also show GSTIN alerts. Configure `GSTIN_LOOKUP_*` values in `.env` before production use. See `backend/GSTIN-Verification-Notes.md`.
+- Purchase now has list/detail/print/PDF and cancellation with stock reversal; see `backend/Purchase-Print-Cancel-Notes.md`.
+
+
+### Latest workflow additions
+
+- Purchase invoices now support **vendor payment voucher** creation from outstanding balance.
+- Billing invoices now support **partial sales return / credit note** with selected-item stock reversal and customer store-credit adjustment.
+
+## Latest completion batch
+
+This package also includes:
+
+- Sales exchange flow with linked return credit note and replacement invoice.
+- GST Returns Load From Books for GSTR-1 and GSTR-3B.
+- Audit filters, entity field details, and CSV export.
+- Developer validation checklist under `backend/Developer-Validation-Checklist.md`.
+
+### Runtime migration fix
+
+This package includes a fix for the API restart loop caused by EF Core `PendingModelChangesWarning` during startup auto-migration. See `backend/Runtime-Migration-Fix-Notes.md`.
+
+## Latest commercial workflow additions
+
+- Debit/Credit Note module: `/commercial-notes`
+- Customer advance receipts: `/commercial-notes`
+- Loyalty program setup: `/loyalty`
+- Product barcode/autocomplete lookup API: `/api/product-lookup`
+- Document scan lookup API: `/api/scan/{code}`
+- Printable invoice/voucher/note PDFs include a scan code for quick lookup.
+
+Run migrations after this update:
+
+```bash
+dotnet ef database update --project backend/Garmetix.Infrastructure --startup-project backend/Garmetix.Api
+```
+
+### Runtime schema drift repair
+
+If an older PostgreSQL Docker volume is missing newer Customer/Vendor GSTIN columns, the API now runs a safe idempotent repair after auto-migration. See `backend/Database-Schema-Drift-Fix-Notes.md`.
+
+### Customer / Debit-Credit Note / Loyalty refinement
+
+This package separates Debit Note and Credit Note into their own module pages and keeps `/commercial-notes` as a register/summary only. It also adds a dedicated `/customers` module with create/edit form routes, GST status, credit balance, loyalty balance, and customer loyalty ledger links. Loyalty management now supports customer selection and manual point adjustment/redeem ledger entries.
+
+If an existing PostgreSQL volume is missing newer runtime tables, the API now performs defensive schema repair before Audit, Commercial Notes, Customer Advance, and Loyalty queries. Admins can also run `POST /api/database/repair`.
+
+## Latest: GST Accounting Integration
+
+The GST Returns module is now connected with accounting service posting while keeping manual GST draft/export separate:
+
+- GST accounting summary from `Output GST` and `Input GST` ledgers.
+- GSTR-3B settlement journal posting.
+- Saved GSTR-3B draft can be posted to accounting with audit entry.
+- Startup schema repair now runs even when auto-migration is disabled.
+- Project tracking now uses `CodexTODO.md` for requested features and `CodexISSUES.md` for bugs/errors.
+
+See `backend/GST-Accounting-Integration-Notes.md`.
+
+
+## Oracle Cloud Secondary Sync
+
+The API includes an admin-only Oracle secondary sync module for using Oracle Cloud as a shared hub database while PostgreSQL remains the primary Garmetix database.
+
+- UI: `http://localhost:3000/oracle-sync`
+- Status: `GET /api/oracle-sync/status`
+- Test connection: `POST /api/oracle-sync/test`
+- Repair local/Oracle sync tables: `POST /api/oracle-sync/repair`
+- Manual run: `POST /api/oracle-sync/run`
+
+Configure with `ORACLE_SYNC_*` values in `.env`. See `backend/Oracle-Secondary-Sync-Notes.md`.
+
+### Oracle Sync v2
+
+Oracle secondary sync now supports safe bidirectional mode. Garmetix still treats PostgreSQL as the primary transaction store. External Oracle events are pulled into `OracleSyncInboundEvents` and failed/unsupported events go to `OracleSyncDeadLetters` until entity ownership and merge rules are approved.
+
+See `backend/Oracle-Secondary-Sync-v2-Notes.md`.
+
+### Oracle Secondary Sync v3
+
+Oracle Sync now includes an entity ownership matrix and explicit inbound apply/reject actions. Open `/oracle-sync` as an admin to review Oracle inbound events, apply shared master data, reject unwanted events, and inspect ownership rules.
+
+New endpoints:
+
+- `GET /api/oracle-sync/ownership`
+- `POST /api/oracle-sync/inbound/{id}/apply`
+- `POST /api/oracle-sync/inbound/{id}/reject`
+
+Shared master entities can be applied after review. Transactional, GST, stock, loyalty-ledger, and accounting entities remain blocked by default unless force-applied by admin.
+
+## Oracle Sync v4 - Readiness and trusted auto-apply
+
+Oracle Sync now includes a cloud-readiness panel and a trusted auto-apply policy for shared master data. PostgreSQL remains the primary transactional database. Oracle Cloud Free Tier can be used as a common hub for other apps.
+
+Auto-apply is intentionally allowlist based. Configure `ORACLE_SYNC_AUTO_APPLY_ENTITIES` and `ORACLE_SYNC_TRUSTED_SOURCES`, then keep `ORACLE_SYNC_APPLY_INBOUND_AUTOMATICALLY=false` until manual pull/apply testing is complete.
+
+
+### Oracle Sync v5 external-app smoke test
+
+The Oracle Sync admin page includes **External App Test**. It seeds one shared-master `Customer` event into the Oracle hub using `SOURCE_APPLICATION=ExternalAppSmokeTest`, pulls it back into the Garmetix inbound review queue, and leaves it for admin apply/reject review.
+
+Related files:
+
+- `backend/Oracle-Secondary-Sync-v5-External-App-Test-Notes.md`
+- `tools/oracle-external-app-simulator/README.md`
+- `tools/oracle-external-app-simulator/insert-sample-customer-event.sql`
+- `scripts/oracle-external-app-smoke-test.ps1`
+- `scripts/oracle-external-app-smoke-test.sh`
+
+## Stage 5C — Release Stabilization
+
+This package adds final go-live support:
+
+- Admin page: `/release-stabilization`
+- API: `GET /api/release-stabilization/smoke-checks`
+- API: `POST /api/release-stabilization/demo-data/seed`
+- Linux smoke test: `scripts/linux/smoke-test.sh .env.production`
+- Windows smoke test: `scripts/windows/smoke-test.ps1 -EnvFile .env.production`
+- Operator manual: `Operator-User-Manual.md`
+- Go-live checklist: `GoLive-Smoke-Test-Checklist.md`
+
+Use this stage after production readiness and backup/restore hardening are configured.

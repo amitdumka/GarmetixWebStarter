@@ -1,8 +1,10 @@
 using Garmetix.Api.Auth;
+using Garmetix.Api.Accounting;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Accounting;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 
 namespace Garmetix.Api.OffBook;
 
@@ -32,6 +34,7 @@ public static class CashVoucherEndpoints
 
         group.MapGet("/", ListAsync);
         group.MapGet("/{id:guid}", GetAsync);
+        group.MapGet("/{id:guid}/pdf", DownloadPdfAsync);
         group.MapPost("/", CreateAsync);
         group.MapPut("/{id:guid}", UpdateAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapDelete("/{id:guid}", DeleteAsync).RequireAuthorization(GarmetixPolicies.Delete);
@@ -80,6 +83,67 @@ public static class CashVoucherEndpoints
             .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
 
         return voucher is null ? Results.NotFound() : Results.Ok(voucher);
+    }
+
+
+    private static async Task<IResult> DownloadPdfAsync(
+        Guid id,
+        string? format,
+        bool? reprint,
+        bool? signatures,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var voucher = await ApplyUserScope(db.CashVouchers.AsNoTracking(), context)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (voucher is null)
+        {
+            return Results.NotFound();
+        }
+
+        var company = await db.Companies.AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == voucher.CompanyId, cancellationToken);
+        var store = await db.Stores.AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == voucher.StoreId, cancellationToken);
+        var transaction = await db.Transactions.AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == voucher.TransactionId, cancellationToken);
+        var employee = voucher.EmployeeId.HasValue
+            ? await db.Employees.AsNoTracking().FirstOrDefaultAsync(item => item.Id == voucher.EmployeeId.Value, cancellationToken)
+            : null;
+
+        var document = new VoucherPdfModel(
+            company?.Name ?? "Garmetix",
+            FormatAddress(company?.Address, company?.City, company?.State, company?.ZipCode),
+            company?.ContactNumber ?? string.Empty,
+            company?.GSTIN ?? string.Empty,
+            store?.Name ?? "Store",
+            voucher.VoucherNumber,
+            voucher.OnDate,
+            $"{voucher.VoucherType} Cash",
+            voucher.PartyName,
+            voucher.Particulars,
+            voucher.Amount,
+            voucher.Remarks,
+            voucher.SlipNumber,
+            "Cash",
+            "Off-book cash voucher",
+            transaction?.Name ?? "Cash category",
+            employee?.StaffName ?? "-",
+            "-");
+
+        var pdf = VoucherPdfDocument.Build(
+            document,
+            string.Equals(format, "a5-one", StringComparison.OrdinalIgnoreCase),
+            reprint == true,
+            signatures != false);
+        var safeNumber = Regex.Replace(voucher.VoucherNumber, @"[^A-Za-z0-9_-]+", "-").Trim('-');
+        return Results.File(pdf, "application/pdf", $"{(safeNumber.Length > 0 ? safeNumber : "cash-voucher")}.pdf");
+    }
+
+    private static string FormatAddress(params string?[] parts)
+    {
+        return string.Join(", ", parts.Where(part => !string.IsNullOrWhiteSpace(part)).Select(part => part!.Trim()));
     }
 
     private static async Task<IResult> CreateAsync(
