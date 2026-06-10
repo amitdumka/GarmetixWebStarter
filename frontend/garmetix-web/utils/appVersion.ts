@@ -1,11 +1,11 @@
-export const APP_VERSION = '3.4.0'
-export const APP_STAGE = 'Stage 7E'
-export const APP_RELEASE_NAME = 'Dashboard Sidebar Status Cleanup'
+export const APP_VERSION = '3.5.0'
+export const APP_STAGE = 'Stage 7F'
+export const APP_RELEASE_NAME = 'Dashboard Sidebar Menu Cleanup'
 export const APP_BUILD_DATE = '2026-06-10'
-export const APP_BUILD_CODE = 'GARMETIX-7E-20260610-340'
+export const APP_BUILD_CODE = 'GARMETIX-7F-20260610-350'
 
 export const APP_HIGHLIGHTS = [
-  'Stage 7E removes bulky clock/store/API cards from the sidebar and moves them into compact topbar/context status controls',
+  'Stage 7F removes duplicate Help, Account, and Workspace entries from the main sidebar while keeping them in footer/status menus',
   'Stage 7D adds controlled collapsible sidebar, icon-only mode and footer account menu',
   'Stage 7C adds dashboard breadcrumbs, favorites, recent pages and Ctrl/Cmd+K command memory',
   'Dashboard Map page documents Stage 7 routing, preserved menu groups, version identity and revert policy',

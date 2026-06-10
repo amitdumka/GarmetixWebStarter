@@ -1,16 +1,10 @@
-## Stage 7E map
-
-- `AppShell.vue`: sidebar footer cleaned; topbar/status dropdown/context badges added.
-- `main.css`: compact Stage 7E sidebar/status styles added.
-- `AppInfoEndpoints.cs` and `appVersion.ts`: version updated to 3.4.0.
-
 # Stage 7 Implementation Map
 
 ## Current version
 
-- Version: 3.3.0
-- Stage: Stage 7D
-- Build Code: GARMETIX-7D-20260610-330
+- Version: 3.5.0
+- Stage: Stage 7F
+- Build Code: GARMETIX-7F-20260610-350
 
 ## Main shell
 
@@ -32,23 +26,23 @@
 - `GET /api/dashboard/store-manager`
 - `GET /api/dashboard/business`
 
-## Stage 7C UX additions
+## Stage 7 shell and menu changes
 
-- Breadcrumb/context bar inside `AppShell.vue`.
-- Favorites stored in browser localStorage key `garmetix.favoritePaths`.
-- Recent pages stored in browser localStorage key `garmetix.recentPaths`.
-- Command search opens with Ctrl/Cmd + K.
-- Dashboard Map page shows preserved menu groups, dashboard links and version identity.
+- Stage 7A: introduced Nuxt UI dashboard-style shell, sidebar, topbar and role dashboard routes.
+- Stage 7B: added smart `/dashboard` and deeper role/workspace dashboard KPIs.
+- Stage 7C: added breadcrumbs, favorites, recent pages, dashboard map and Ctrl/Cmd+K command search.
+- Stage 7D: added controlled `UDashboardSidebar` collapse state, footer account dropdown and primary/utility navigation.
+- Stage 7E: removed bulky sidebar status card and moved status to compact topbar/context/footer dropdowns.
+- Stage 7F: removed duplicate Help and Account groups from the main sidebar; removed standalone Workspace sidebar footer item; workspace remains available through Status & Workspace, context store button and topbar mobile action.
+
+## Footer/status destinations
+
+- Account footer dropdown keeps: My Profile, Smart Dashboard, Dashboard Map, Message Logs, About, Contact, FAQ, Logout.
+- Status & Workspace footer dropdown keeps: current store/company/time/API/version, Change workspace, System Health, Message Logs and About Version.
+- Main sidebar utility navigation now contains only Admin.
 
 ## Version identity
 
 - Frontend: `frontend/garmetix-web/utils/appVersion.ts`
 - Backend: `backend/Garmetix.Api/AppInfo/AppInfoEndpoints.cs`
 - Runtime check: `/api/app-info/version`
-
-
-## Stage 7D / v3.3.0
-- Controlled `UDashboardSidebar` collapse state with Ctrl+B and header/topbar collapse buttons.
-- Refactored sidebar into primary navigation plus bottom utility navigation similar to Nuxt UI Dashboard template.
-- Added footer account dropdown with profile, dashboard, help, logs and logout actions.
-- Preserved `NUXT_PUBLIC_DASHBOARD_SHELL=legacy` revert option.

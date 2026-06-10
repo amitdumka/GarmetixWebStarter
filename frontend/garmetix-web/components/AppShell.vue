@@ -119,20 +119,6 @@ const moduleGroups: MenuGroup[] = [
     ]
   },
   {
-    label: 'Account',
-    items: [
-      { to: '/profile', label: 'My Profile', icon: 'i-lucide-user-cog' }
-    ]
-  },
-  {
-    label: 'Help',
-    items: [
-      { to: '/about-us', label: 'About Us', icon: 'i-lucide-info' },
-      { to: '/contact-us', label: 'Contact Us', icon: 'i-lucide-message-circle' },
-      { to: '/faq', label: 'FAQ', icon: 'i-lucide-circle-help' }
-    ]
-  },
-  {
     label: 'Admin',
     items: [
       { to: '/setup', label: 'Company', icon: 'i-lucide-building-2', adminOnly: true },
@@ -171,13 +157,11 @@ const navigationGroupIcons: Record<string, string> = {
   Operations: 'i-lucide-shopping-bag',
   People: 'i-lucide-users-round',
   'Off Book': 'i-lucide-wallet-cards',
-  Account: 'i-lucide-user-round',
-  Help: 'i-lucide-circle-help',
   Admin: 'i-lucide-shield-check'
 }
 
 const primaryNavigationLabels = ['Dashboards', 'Operations', 'People', 'Off Book']
-const utilityNavigationLabels = ['Account', 'Help', 'Admin']
+const utilityNavigationLabels = ['Admin']
 
 function toNavigationChildren(group: MenuGroup): NavigationMenuItem[] {
   return group.items.map((item) => ({
@@ -511,7 +495,7 @@ onBeforeUnmount(() => {
             </div>
             <div v-if="!collapsed" class="min-w-0">
               <p class="dashboard-brand-title">Garmetix</p>
-              <p class="dashboard-brand-subtitle">Dashboard shell · v3.4</p>
+              <p class="dashboard-brand-subtitle">Dashboard shell · v3.5</p>
             </div>
           </NuxtLink>
           <UButton
@@ -563,10 +547,9 @@ onBeforeUnmount(() => {
 
       <template #footer="{ collapsed }">
         <div class="dashboard-sidebar-footer">
-          <div v-if="!collapsed" class="dashboard-sidebar-mini-actions">
-            <UButton color="neutral" variant="subtle" size="xs" icon="i-lucide-building-2" label="Workspace" block @click="workspaceOpen = true" />
+          <div v-if="!collapsed" class="dashboard-sidebar-mini-actions single">
             <UDropdownMenu :items="systemStatusDropdownItems" :ui="{ content: 'w-72' }">
-              <UButton color="neutral" variant="subtle" size="xs" :icon="apiBadge.icon" label="Status" block />
+              <UButton color="neutral" variant="subtle" size="xs" :icon="apiBadge.icon" label="Status & Workspace" block />
             </UDropdownMenu>
           </div>
 

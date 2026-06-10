@@ -5,11 +5,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "3.4.0";
-    public const string Stage = "Stage 7E";
-    public const string ReleaseName = "Dashboard Sidebar Status Cleanup";
+    public const string Version = "3.5.0";
+    public const string Stage = "Stage 7F";
+    public const string ReleaseName = "Dashboard Sidebar Menu Cleanup";
     public const string BuildDate = "2026-06-10";
-    public const string BuildCode = "GARMETIX-7E-20260610-340";
+    public const string BuildCode = "GARMETIX-7F-20260610-350";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -60,7 +60,7 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
-        "Stage 7E removes bulky clock/store/API cards from the sidebar and moves them into compact topbar/context status controls",
+        "Stage 7F removes duplicate Help, Account, and Workspace entries from the main sidebar while keeping them in footer/status menus",
         "Stage 7D adds controlled collapsible sidebar, icon-only collapsed mode and dashboard-template style footer account menu",
         "Stage 7C adds dashboard breadcrumbs, favorites, recent pages and Ctrl/Cmd+K command memory",
         "Dashboard Map page documents Stage 7 routing, preserved menu groups, version identity and revert policy",
