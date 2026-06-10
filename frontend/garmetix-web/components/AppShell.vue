@@ -8,6 +8,7 @@ type MenuItem = {
   roles?: string[]
   adminOnly?: boolean
   stage?: string
+  keywords?: string[]
 }
 
 type MenuGroup = {
@@ -42,6 +43,8 @@ const workspaceStores = ref<any[]>([])
 const commandOpen = ref(false)
 const workspaceOpen = ref(false)
 const searchTerm = ref('')
+const favoritePaths = ref<string[]>([])
+const recentPaths = ref<string[]>([])
 const now = ref(new Date())
 const apiLive = ref<boolean | null>(null)
 let clockTimer: ReturnType<typeof setInterval> | undefined
@@ -68,9 +71,10 @@ const moduleGroups: MenuGroup[] = [
   {
     label: 'Dashboards',
     items: [
-      { to: '/dashboard', label: 'Smart Dashboard', icon: 'i-lucide-gauge' },
-      { to: '/dashboard/store-manager', label: 'Store Manager', icon: 'i-lucide-store', roles: ['storemanager', 'manager'] },
-      { to: '/dashboard/business', label: 'Owner / Admin', icon: 'i-lucide-chart-no-axes-combined', roles: ['owner', 'admin', 'accountant'] },
+      { to: '/dashboard', label: 'Smart Dashboard', icon: 'i-lucide-gauge', keywords: ['home', 'landing', 'role dashboard'] },
+      { to: '/dashboard/map', label: 'Dashboard Map', icon: 'i-lucide-map', keywords: ['template', 'revert', 'menus', 'stage 7'] },
+      { to: '/dashboard/store-manager', label: 'Store Manager', icon: 'i-lucide-store', roles: ['storemanager', 'manager'], keywords: ['store', 'today', 'manager'] },
+      { to: '/dashboard/business', label: 'Owner / Admin', icon: 'i-lucide-chart-no-axes-combined', roles: ['owner', 'admin', 'accountant'], keywords: ['owner', 'admin', 'accountant', 'company'] },
       { to: '/', label: 'Legacy Overview', icon: 'i-lucide-layout-dashboard', stage: 'revert-safe' },
       { to: '/reports', label: 'Reports', icon: 'i-lucide-file-text' },
       { to: '/gst-returns', label: 'GST Returns', icon: 'i-lucide-file-json-2' },
@@ -170,8 +174,36 @@ const navigationItems = computed(() => visibleGroups.value.flatMap((group) => [
 const allVisibleItems = computed(() => visibleGroups.value.flatMap((group) => group.items.map((item) => ({ ...item, group: group.label }))))
 const commandItems = computed(() => {
   const term = searchTerm.value.trim().toLowerCase()
-  return (term ? allVisibleItems.value.filter((item) => `${item.group} ${item.label}`.toLowerCase().includes(term)) : allVisibleItems.value).slice(0, 18)
+  const source = term
+    ? allVisibleItems.value.filter((item) => `${item.group} ${item.label} ${(item.keywords || []).join(' ')}`.toLowerCase().includes(term))
+    : allVisibleItems.value
+  return source.slice(0, 18)
 })
+const favoriteItems = computed(() => favoritePaths.value
+  .map((path) => allVisibleItems.value.find((item) => item.to === path))
+  .filter(Boolean)
+  .slice(0, 8) as Array<MenuItem & { group: string }>)
+const recentItems = computed(() => recentPaths.value
+  .map((path) => allVisibleItems.value.find((item) => item.to === path))
+  .filter(Boolean)
+  .slice(0, 8) as Array<MenuItem & { group: string }>)
+const currentMenuItem = computed(() => allVisibleItems.value.find((item) => isActive(item.to)))
+const breadcrumbItems = computed(() => {
+  const current = currentMenuItem.value
+  if (!current) {
+    return [
+      { label: 'Garmetix', to: dashboardHomePath.value },
+      { label: props.title || 'Current page', to: route.path }
+    ]
+  }
+  return [
+    { label: 'Garmetix', to: dashboardHomePath.value },
+    { label: current.group, to: current.group === 'Dashboards' ? '/dashboard' : current.to },
+    { label: current.label, to: current.to }
+  ]
+})
+const currentPageIsFavorite = computed(() => favoritePaths.value.includes(route.path))
+const roleBadge = computed(() => auth.canSeeAdmin.value ? 'Admin/Owner view' : (auth.user.value?.role || auth.user.value?.userType || 'User'))
 
 const allowedCompanies = computed(() => shellCompanies.value.filter((company) =>
   !auth.user.value?.companyId || company.id === auth.user.value.companyId))
@@ -253,8 +285,46 @@ function openCommand() {
   commandOpen.value = true
 }
 
+function persistShellMemory() {
+  if (!import.meta.client) return
+  localStorage.setItem('garmetix.favoritePaths', JSON.stringify(favoritePaths.value))
+  localStorage.setItem('garmetix.recentPaths', JSON.stringify(recentPaths.value))
+}
+
+function loadShellMemory() {
+  if (!import.meta.client) return
+  try {
+    favoritePaths.value = JSON.parse(localStorage.getItem('garmetix.favoritePaths') || '[]')
+    recentPaths.value = JSON.parse(localStorage.getItem('garmetix.recentPaths') || '[]')
+  } catch {
+    favoritePaths.value = []
+    recentPaths.value = []
+  }
+}
+
+function rememberRoute(path = route.path) {
+  if (!path || path === '/') return
+  recentPaths.value = [path, ...recentPaths.value.filter((item) => item !== path)].slice(0, 10)
+  persistShellMemory()
+}
+
+function toggleFavorite(path = route.path) {
+  favoritePaths.value = favoritePaths.value.includes(path)
+    ? favoritePaths.value.filter((item) => item !== path)
+    : [path, ...favoritePaths.value].slice(0, 12)
+  persistShellMemory()
+}
+
+function handleShellShortcut(event: KeyboardEvent) {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+    event.preventDefault()
+    openCommand()
+  }
+}
+
 function goTo(path: string) {
   commandOpen.value = false
+  rememberRoute(path)
   navigateTo(path)
 }
 
@@ -297,15 +367,21 @@ watch(
 )
 
 onMounted(async () => {
+  loadShellMemory()
+  rememberRoute()
+  window.addEventListener('keydown', handleShellShortcut)
   await loadWorkspaceOptions()
   clockTimer = setInterval(() => { now.value = new Date() }, 1000)
   checkApiHealth()
   healthTimer = setInterval(checkApiHealth, 60000)
 })
 
+watch(() => route.path, (path) => rememberRoute(path))
+
 onBeforeUnmount(() => {
   if (clockTimer) clearInterval(clockTimer)
   if (healthTimer) clearInterval(healthTimer)
+  if (import.meta.client) window.removeEventListener('keydown', handleShellShortcut)
 })
 </script>
 
@@ -338,7 +414,7 @@ onBeforeUnmount(() => {
           </div>
           <div v-if="!collapsed" class="min-w-0">
             <p class="dashboard-brand-title">Garmetix</p>
-            <p class="dashboard-brand-subtitle">Dashboard shell · v3.1</p>
+            <p class="dashboard-brand-subtitle">Dashboard shell · v3.2</p>
           </div>
         </NuxtLink>
       </template>
@@ -390,6 +466,7 @@ onBeforeUnmount(() => {
             <div class="dashboard-toolbar">
               <UButton color="neutral" variant="subtle" icon="i-lucide-gauge" class="hidden lg:inline-flex" label="Dashboard" @click="navigateTo(dashboardHomePath)" />
               <UButton color="neutral" variant="subtle" icon="i-lucide-search" class="hidden md:inline-flex" label="Search" @click="openCommand" />
+              <UButton color="neutral" :variant="currentPageIsFavorite ? 'solid' : 'subtle'" :icon="currentPageIsFavorite ? 'i-lucide-star' : 'i-lucide-star-off'" class="hidden lg:inline-flex" :label="currentPageIsFavorite ? 'Saved' : 'Save'" @click="toggleFavorite()" />
               <UButton color="neutral" variant="subtle" icon="i-lucide-building-2" class="xl:hidden" aria-label="Workspace" @click="workspaceOpen = true" />
               <USelect v-model="companyValue" :items="companyOptions" :disabled="isCompanyLocked || companyOptions.length < 2" class="hidden lg:flex w-44" aria-label="Company" />
               <USelect v-model="storeGroupValue" :items="storeGroupOptions" :disabled="isStoreGroupLocked || storeGroupOptions.length < 2" class="hidden xl:flex w-40" aria-label="Store group" />
@@ -404,6 +481,19 @@ onBeforeUnmount(() => {
       </template>
 
       <div class="dashboard-template-content">
+        <div class="dashboard-context-bar">
+          <div class="dashboard-breadcrumbs" aria-label="Breadcrumb">
+            <NuxtLink v-for="(crumb, index) in breadcrumbItems" :key="`${crumb.to}-${index}`" :to="crumb.to">
+              <span>{{ crumb.label }}</span>
+              <UIcon v-if="index < breadcrumbItems.length - 1" name="i-lucide-chevron-right" class="h-3.5 w-3.5" />
+            </NuxtLink>
+          </div>
+          <div class="dashboard-context-actions">
+            <UBadge color="neutral" variant="subtle" icon="i-lucide-user-round">{{ roleBadge }}</UBadge>
+            <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-map" label="Map" @click="navigateTo('/dashboard/map')" />
+            <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-search" label="Ctrl K" @click="openCommand" />
+          </div>
+        </div>
         <slot />
       </div>
     </UDashboardPanel>
@@ -413,6 +503,26 @@ onBeforeUnmount(() => {
     <template #body>
       <div class="dashboard-command">
         <UInput v-model="searchTerm" icon="i-lucide-search" placeholder="Search pages, reports, setup and operations..." autofocus />
+        <div v-if="!searchTerm && favoriteItems.length" class="dashboard-command-section">
+          <h3>Favorites</h3>
+          <div class="dashboard-command-list compact">
+            <button v-for="item in favoriteItems" :key="`favorite-${item.to}`" class="dashboard-command-item" type="button" @click="goTo(item.to)">
+              <UIcon :name="item.icon" class="h-5 w-5" />
+              <span><strong>{{ item.label }}</strong><small>{{ item.group }}</small></span>
+              <UIcon name="i-lucide-star" class="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        <div v-if="!searchTerm && recentItems.length" class="dashboard-command-section">
+          <h3>Recent</h3>
+          <div class="dashboard-command-list compact">
+            <button v-for="item in recentItems" :key="`recent-${item.to}`" class="dashboard-command-item" type="button" @click="goTo(item.to)">
+              <UIcon :name="item.icon" class="h-5 w-5" />
+              <span><strong>{{ item.label }}</strong><small>{{ item.group }}</small></span>
+              <UIcon name="i-lucide-clock" class="h-4 w-4" />
+            </button>
+          </div>
+        </div>
         <div class="dashboard-command-list">
           <button v-for="item in commandItems" :key="item.to" class="dashboard-command-item" type="button" @click="goTo(item.to)">
             <UIcon :name="item.icon" class="h-5 w-5" />

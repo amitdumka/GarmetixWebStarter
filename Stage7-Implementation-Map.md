@@ -1,26 +1,41 @@
 # Stage 7 Implementation Map
 
-## Current package
+## Current version
 
-- Version: 3.1.0
-- Stage: Stage 7B
-- Build code: GARMETIX-7B-20260610-310
+- Version: 3.2.0
+- Stage: Stage 7C
+- Build Code: GARMETIX-7C-20260610-320
 
-## Frontend
+## Main shell
 
-- `components/AppShell.vue`: Nuxt UI dashboard shell, collapsible sidebar, topbar, smart dashboard shortcut.
-- `components/AppShellLegacy.vue`: preserved revert shell.
-- `pages/dashboard/index.vue`: role-aware smart landing page.
-- `pages/dashboard/store-manager/index.vue`: current-store dashboard with KPIs, quick actions, health signals, trend, recent sales, low stock.
-- `pages/dashboard/business/index.vue`: owner/admin/accountant dashboard with company/store-group KPIs, store table, store-group table and control queue.
-- `utils/appVersion.ts`: frontend version identity.
+- New shell: `frontend/garmetix-web/components/AppShell.vue`
+- Legacy shell: `frontend/garmetix-web/components/AppShellLegacy.vue`
+- Revert flag: `NUXT_PUBLIC_DASHBOARD_SHELL=legacy`
 
-## Backend
+## Dashboard routes
 
-- `Dashboard/DashboardDtos.cs`: dashboard records for metrics, trend, actions, health signals, store and store-group performance.
-- `Dashboard/DashboardEndpoints.cs`: `/api/dashboard/home`, `/api/dashboard/store-manager`, `/api/dashboard/business`.
-- `AppInfo/AppInfoEndpoints.cs`: backend version identity.
+- `/dashboard` — smart role-aware landing.
+- `/dashboard/store-manager` — current-store dashboard.
+- `/dashboard/business` — owner/admin/accountant dashboard.
+- `/dashboard/map` — Stage 7 implementation map and revert notes.
+- `/` — preserved legacy overview.
 
-## Revert
+## Backend dashboard routes
 
-Set `NUXT_PUBLIC_DASHBOARD_SHELL=legacy` before frontend build/restart to use the pre-Stage-7 shell.
+- `GET /api/dashboard/home`
+- `GET /api/dashboard/store-manager`
+- `GET /api/dashboard/business`
+
+## Stage 7C UX additions
+
+- Breadcrumb/context bar inside `AppShell.vue`.
+- Favorites stored in browser localStorage key `garmetix.favoritePaths`.
+- Recent pages stored in browser localStorage key `garmetix.recentPaths`.
+- Command search opens with Ctrl/Cmd + K.
+- Dashboard Map page shows preserved menu groups, dashboard links and version identity.
+
+## Version identity
+
+- Frontend: `frontend/garmetix-web/utils/appVersion.ts`
+- Backend: `backend/Garmetix.Api/AppInfo/AppInfoEndpoints.cs`
+- Runtime check: `/api/app-info/version`

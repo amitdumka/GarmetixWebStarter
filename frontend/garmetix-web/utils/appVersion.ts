@@ -1,10 +1,13 @@
-export const APP_VERSION = '3.1.0'
-export const APP_STAGE = 'Stage 7B'
-export const APP_RELEASE_NAME = 'Dashboard Analytics, Role Routing and Template Alignment'
+export const APP_VERSION = '3.2.0'
+export const APP_STAGE = 'Stage 7C'
+export const APP_RELEASE_NAME = 'Dashboard UX Polish, Command Memory and Implementation Map'
 export const APP_BUILD_DATE = '2026-06-10'
-export const APP_BUILD_CODE = 'GARMETIX-7B-20260610-310'
+export const APP_BUILD_CODE = 'GARMETIX-7C-20260610-320'
 
 export const APP_HIGHLIGHTS = [
+  'Stage 7C adds dashboard breadcrumbs, favorites, recent pages and Ctrl/Cmd+K command memory',
+  'Dashboard Map page documents Stage 7 routing, preserved menu groups, version identity and revert policy',
+  'Sidebar/topbar UX polished while keeping all current pages and legacy shell rollback',
   'Stage 7B role-aware /dashboard landing redirects users to the correct dashboard',
   'Dashboard shell now adds a smart dashboard menu item and topbar shortcut',
   'Store manager dashboard now includes quick actions and daily health signals',

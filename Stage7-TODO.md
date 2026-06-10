@@ -2,16 +2,17 @@
 
 ## Completed
 
-- Stage 7A: Nuxt UI dashboard-style shell, collapsible sidebar, topbar, current menus preserved, role dashboard starter pages.
-- Stage 7B: Smart dashboard landing, role-aware dashboard routing, quick actions, health signals, store-group performance.
+- Stage 7A: Nuxt UI Dashboard-style shell with collapsible sidebar/topbar and role dashboard routes.
+- Stage 7B: Smart `/dashboard` landing, store-manager dashboard, business dashboard, role/workspace analytics.
+- Stage 7C: Dashboard UX polish, breadcrumbs, favorites, recent pages, keyboard command search and Dashboard Map page.
 
-## Next candidates
+## Remaining candidates
 
-- Stage 7C: Replace simple CSS bar charts with Nuxt UI/Chart dashboard widgets once final analytics fields are stable.
-- Stage 7D: Add dashboard personalization per user: pinned modules, preferred dashboard, compact/sidebar default.
-- Stage 7E: Add notification center using message logs and stock/accounting alerts.
-- Stage 7F: Add exportable dashboard PDF/print summary.
+- Stage 7D: deeper widgets/charts for sales, purchase, profit, stock and GST health.
+- Stage 7E: dashboard personalization per role/user, saved filters and configurable cards.
+- Stage 7F: command palette actions beyond navigation, such as create sale, create purchase, open customer, open stock.
+- Stage 7G: notification center and dashboard alerts from message logs/system health.
 
-## Safe migration rule
+## Safety policy
 
-Do not remove major existing pages without explicit approval. Keep legacy layout available through `NUXT_PUBLIC_DASHBOARD_SHELL=legacy`.
+Do not remove old pages without explicit confirmation. Keep `NUXT_PUBLIC_DASHBOARD_SHELL=legacy` until the new dashboard shell is accepted in production.

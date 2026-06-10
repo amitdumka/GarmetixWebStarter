@@ -5,11 +5,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "3.1.0";
-    public const string Stage = "Stage 7B";
-    public const string ReleaseName = "Dashboard Analytics, Role Routing and Template Alignment";
+    public const string Version = "3.2.0";
+    public const string Stage = "Stage 7C";
+    public const string ReleaseName = "Dashboard UX Polish, Command Memory and Implementation Map";
     public const string BuildDate = "2026-06-10";
-    public const string BuildCode = "GARMETIX-7B-20260610-310";
+    public const string BuildCode = "GARMETIX-7C-20260610-320";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -60,6 +60,9 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stage 7C adds dashboard breadcrumbs, favorites, recent pages and Ctrl/Cmd+K command memory",
+        "Dashboard Map page documents Stage 7 routing, preserved menu groups, version identity and revert policy",
+        "Sidebar/topbar UX polished while keeping all current pages and legacy shell rollback",
         "Stage 7B role-aware /dashboard landing redirects users to the correct dashboard",
         "Dashboard shell now adds a smart dashboard menu item and topbar shortcut",
         "Store manager dashboard now includes quick actions and daily health signals",
