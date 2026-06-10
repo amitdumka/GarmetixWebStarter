@@ -472,8 +472,14 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                     "ProductName" text NOT NULL DEFAULT '',
                     "Quantity" numeric(18,2) NOT NULL DEFAULT 0,
                     "Rate" numeric(18,2) NOT NULL DEFAULT 0,
+                    "GrossAmount" numeric(18,2) NOT NULL DEFAULT 0,
                     "DiscountAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "TaxableAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "TaxRate" numeric(18,2) NOT NULL DEFAULT 0,
+                    "TaxAmount" numeric(18,2) NOT NULL DEFAULT 0,
                     "Amount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "CostRate" numeric(18,2) NOT NULL DEFAULT 0,
+                    "CostAmount" numeric(18,2) NOT NULL DEFAULT 0,
                     "CompanyId" uuid NOT NULL,
                     "CreatedBy" text NULL,
                     "CreatedAt" timestamp without time zone NOT NULL,
@@ -487,6 +493,13 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                 CREATE INDEX IF NOT EXISTS "IX_NonGstGoodsDocuments_CompanyId_StoreId_DocumentType_OnDate" ON "NonGstGoodsDocuments" ("CompanyId", "StoreId", "DocumentType", "OnDate");
                 CREATE INDEX IF NOT EXISTS "IX_NonGstGoodsDocuments_CompanyId_DocumentNumber" ON "NonGstGoodsDocuments" ("CompanyId", "DocumentNumber");
                 CREATE INDEX IF NOT EXISTS "IX_NonGstGoodsItems_CompanyId_DocumentId" ON "NonGstGoodsItems" ("CompanyId", "DocumentId");
+
+                ALTER TABLE IF EXISTS "NonGstGoodsItems" ADD COLUMN IF NOT EXISTS "GrossAmount" numeric(18,2) NOT NULL DEFAULT 0;
+                ALTER TABLE IF EXISTS "NonGstGoodsItems" ADD COLUMN IF NOT EXISTS "TaxableAmount" numeric(18,2) NOT NULL DEFAULT 0;
+                ALTER TABLE IF EXISTS "NonGstGoodsItems" ADD COLUMN IF NOT EXISTS "TaxRate" numeric(18,2) NOT NULL DEFAULT 0;
+                ALTER TABLE IF EXISTS "NonGstGoodsItems" ADD COLUMN IF NOT EXISTS "TaxAmount" numeric(18,2) NOT NULL DEFAULT 0;
+                ALTER TABLE IF EXISTS "NonGstGoodsItems" ADD COLUMN IF NOT EXISTS "CostRate" numeric(18,2) NOT NULL DEFAULT 0;
+                ALTER TABLE IF EXISTS "NonGstGoodsItems" ADD COLUMN IF NOT EXISTS "CostAmount" numeric(18,2) NOT NULL DEFAULT 0;
 
                 CREATE TABLE IF NOT EXISTS "StockMovements" (
                     "Id" uuid NOT NULL,

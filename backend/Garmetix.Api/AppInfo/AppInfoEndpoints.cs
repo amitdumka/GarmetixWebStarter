@@ -5,11 +5,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "2.3.2";
-    public const string Stage = "Stage 6D";
-    public const string ReleaseName = "Non-GST Goods Compile Fix";
+    public const string Version = "2.4.0";
+    public const string Stage = "Stage 6E";
+    public const string ReleaseName = "Multi-Item Non-GST Memo Reports";
     public const string BuildDate = "2026-06-10";
-    public const string BuildCode = "GARMETIX-6D-20260610-232";
+    public const string BuildCode = "GARMETIX-6E-20260610-240";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -68,6 +68,8 @@ public static class AppInfoEndpoints
         "Non-GST/out-of-scope goods purchase and sale module",
         "Buildfix: added missing Store namespace import for Docker publish",
         "Compile fix: resolved stock variable shadowing and ProductCategory ambiguity",
+        "Multi-item Non-GST purchase memo and sale cash memo with print view",
+        "Non-GST sale, purchase, profit and current stock reports",
         "Separate Non-GST stock flag and movement ledger",
         "Separate Non-GST goods reports and visible accounting postings",
         "About Us, Contact Us and FAQ pages"

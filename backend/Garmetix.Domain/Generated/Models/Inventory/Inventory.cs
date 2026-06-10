@@ -174,8 +174,14 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Product Name")] public string ProductName { get; set; } = string.Empty;
         [Display(Name = "Quantity")] public decimal Quantity { get; set; }
         [Display(Name = "Rate")] public decimal Rate { get; set; }
+        [Display(Name = "Gross Amount")] public decimal GrossAmount { get; set; }
         [Display(Name = "Discount Amount")] public decimal DiscountAmount { get; set; }
+        [Display(Name = "Taxable Amount")] public decimal TaxableAmount { get; set; }
+        [Display(Name = "Tax Rate")] public decimal TaxRate { get; set; }
+        [Display(Name = "Tax Amount")] public decimal TaxAmount { get; set; }
         [Display(Name = "Amount")] public decimal Amount { get; set; }
+        [Display(Name = "Cost Rate")] public decimal CostRate { get; set; }
+        [Display(Name = "Cost Amount")] public decimal CostAmount { get; set; }
         [JsonIgnore] public virtual NonGstGoodsDocument? Document { get; set; }
         [JsonIgnore] public virtual Product? Product { get; set; }
         [JsonIgnore] public virtual Stock? Stock { get; set; }
