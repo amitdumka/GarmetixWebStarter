@@ -1,27 +1,17 @@
 # Stage 7 TODO
 
-## Stage 7A — Done in v3.0.0
+## Completed
 
-- [x] Analyse Nuxt UI dashboard template and Nuxt UI v4 docs.
-- [x] Preserve existing pages and menus.
-- [x] Add v3 dashboard shell with collapsible sidebar and topbar.
-- [x] Add dark-mode polished dashboard CSS.
-- [x] Add command/search menu.
-- [x] Add Store Manager dashboard.
-- [x] Add Owner/Admin/Accountant dashboard.
-- [x] Add backend dashboard endpoints.
-- [x] Add legacy shell revert option.
-- [x] Update version identity to 3.0.0.
+- Stage 7A: Nuxt UI dashboard-style shell, collapsible sidebar, topbar, current menus preserved, role dashboard starter pages.
+- Stage 7B: Smart dashboard landing, role-aware dashboard routing, quick actions, health signals, store-group performance.
 
-## Stage 7B — Next
+## Next candidates
 
-- [ ] Add dashboard-level permission policies per role.
-- [ ] Add saved dashboard filters for date range, company, store group and store.
-- [ ] Add drill-down links from KPI cards to reports.
-- [ ] Add richer visual charts after confirming chart library/component preference.
-- [ ] Add command palette keyboard shortcut if stable with the installed Nuxt UI package.
-- [ ] Add dashboard widget settings per user.
-- [ ] Add daily/weekly/monthly dashboard modes.
-- [ ] Add Accountant dashboard cards: receivables, payables, cash, vouchers, GST readiness.
-- [ ] Add Owner dashboard cards: consolidated sales, profit, growth and store comparison.
-- [ ] Add Store Manager dashboard cards: opening/closing cash, attendance, customer due, stock alerts.
+- Stage 7C: Replace simple CSS bar charts with Nuxt UI/Chart dashboard widgets once final analytics fields are stable.
+- Stage 7D: Add dashboard personalization per user: pinned modules, preferred dashboard, compact/sidebar default.
+- Stage 7E: Add notification center using message logs and stock/accounting alerts.
+- Stage 7F: Add exportable dashboard PDF/print summary.
+
+## Safe migration rule
+
+Do not remove major existing pages without explicit approval. Keep legacy layout available through `NUXT_PUBLIC_DASHBOARD_SHELL=legacy`.

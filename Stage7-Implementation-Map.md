@@ -1,35 +1,26 @@
 # Stage 7 Implementation Map
 
+## Current package
+
+- Version: 3.1.0
+- Stage: Stage 7B
+- Build code: GARMETIX-7B-20260610-310
+
 ## Frontend
 
-| Area | Files |
-|---|---|
-| Dashboard shell | `frontend/garmetix-web/components/AppShell.vue` |
-| Revert shell | `frontend/garmetix-web/components/AppShellLegacy.vue` |
-| Store manager dashboard | `frontend/garmetix-web/pages/dashboard/store-manager/index.vue` |
-| Business dashboard | `frontend/garmetix-web/pages/dashboard/business/index.vue` |
-| Styling | `frontend/garmetix-web/assets/css/main.css` |
-| Runtime switch | `frontend/garmetix-web/nuxt.config.ts` |
-| Version | `frontend/garmetix-web/utils/appVersion.ts` |
+- `components/AppShell.vue`: Nuxt UI dashboard shell, collapsible sidebar, topbar, smart dashboard shortcut.
+- `components/AppShellLegacy.vue`: preserved revert shell.
+- `pages/dashboard/index.vue`: role-aware smart landing page.
+- `pages/dashboard/store-manager/index.vue`: current-store dashboard with KPIs, quick actions, health signals, trend, recent sales, low stock.
+- `pages/dashboard/business/index.vue`: owner/admin/accountant dashboard with company/store-group KPIs, store table, store-group table and control queue.
+- `utils/appVersion.ts`: frontend version identity.
 
 ## Backend
 
-| Area | Files |
-|---|---|
-| Dashboard DTOs | `backend/Garmetix.Api/Dashboard/DashboardDtos.cs` |
-| Dashboard endpoints | `backend/Garmetix.Api/Dashboard/DashboardEndpoints.cs` |
-| Endpoint mapping | `backend/Garmetix.Api/Program.cs` |
-| Version API | `backend/Garmetix.Api/AppInfo/AppInfoEndpoints.cs` |
+- `Dashboard/DashboardDtos.cs`: dashboard records for metrics, trend, actions, health signals, store and store-group performance.
+- `Dashboard/DashboardEndpoints.cs`: `/api/dashboard/home`, `/api/dashboard/store-manager`, `/api/dashboard/business`.
+- `AppInfo/AppInfoEndpoints.cs`: backend version identity.
 
-## Routes
+## Revert
 
-| Route | Purpose |
-|---|---|
-| `/dashboard/store-manager` | Store-scoped dashboard for store-manager style users |
-| `/dashboard/business` | Company/store-group dashboard for Owner/Admin/Accountant |
-| `/api/dashboard/store-manager` | Store dashboard data endpoint |
-| `/api/dashboard/business` | Business dashboard data endpoint |
-
-## Safety / Revert
-
-No existing page was deleted. Use `NUXT_PUBLIC_DASHBOARD_SHELL=legacy` to render the previous shell while keeping the new code available.
+Set `NUXT_PUBLIC_DASHBOARD_SHELL=legacy` before frontend build/restart to use the pre-Stage-7 shell.

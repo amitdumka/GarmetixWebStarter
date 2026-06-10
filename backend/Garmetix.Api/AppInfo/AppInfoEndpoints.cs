@@ -5,11 +5,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "3.0.0";
-    public const string Stage = "Stage 7A";
-    public const string ReleaseName = "Nuxt UI Dashboard Shell and Role Dashboards";
+    public const string Version = "3.1.0";
+    public const string Stage = "Stage 7B";
+    public const string ReleaseName = "Dashboard Analytics, Role Routing and Template Alignment";
     public const string BuildDate = "2026-06-10";
-    public const string BuildCode = "GARMETIX-7A-20260610-300";
+    public const string BuildCode = "GARMETIX-7B-20260610-310";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -60,6 +60,11 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stage 7B role-aware /dashboard landing redirects users to the correct dashboard",
+        "Dashboard shell now adds a smart dashboard menu item and topbar shortcut",
+        "Store manager dashboard now includes quick actions and daily health signals",
+        "Business dashboard now includes executive actions, health signals and store-group performance",
+        "Dashboard backend adds /api/dashboard/home and deeper role/workspace scoped KPIs",
         "Nuxt UI dashboard-template style shell with collapsible sidebar, topbar, command search and dark-mode polish",
         "Store Manager dashboard scoped to the logged-in user current store",
         "Owner/Admin/Accountant dashboard with company, store-group and store-wise KPIs",

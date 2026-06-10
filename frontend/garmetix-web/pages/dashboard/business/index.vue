@@ -91,6 +91,50 @@ onMounted(refresh)
         </UCard>
       </div>
 
+
+
+      <div class="dashboard-v3-insight-grid">
+        <UCard class="dashboard-v3-card">
+          <template #header>
+            <div class="dashboard-v3-card-header">
+              <div>
+                <h2>Executive actions</h2>
+                <p>Role-aware shortcuts for owner, admin and accountant users.</p>
+              </div>
+            </div>
+          </template>
+          <div class="dashboard-v3-action-grid">
+            <NuxtLink v-for="action in data?.quickActions || []" :key="action.to" :to="action.to" class="dashboard-v3-action-card">
+              <UIcon :name="action.icon" class="h-5 w-5" />
+              <span>
+                <strong>{{ action.label }}</strong>
+                <small>{{ action.description }}</small>
+              </span>
+              <UBadge v-if="action.attention" color="warning" variant="subtle">Check</UBadge>
+            </NuxtLink>
+          </div>
+        </UCard>
+
+        <UCard class="dashboard-v3-card">
+          <template #header>
+            <div class="dashboard-v3-card-header">
+              <div>
+                <h2>Business health</h2>
+                <p>Company and store-group level signals.</p>
+              </div>
+            </div>
+          </template>
+          <div class="dashboard-v3-health-grid">
+            <div v-for="signal in data?.healthSignals || []" :key="signal.label" class="dashboard-v3-health-card">
+              <UBadge :color="signal.color" variant="subtle" :icon="signal.icon">{{ signal.status }}</UBadge>
+              <strong>{{ signal.value }}</strong>
+              <span>{{ signal.label }}</span>
+              <small>{{ signal.description }}</small>
+            </div>
+          </div>
+        </UCard>
+      </div>
+
       <div class="dashboard-v3-grid business">
         <UCard class="dashboard-v3-card dashboard-v3-wide">
           <template #header>
@@ -146,6 +190,45 @@ onMounted(refresh)
                   <td>{{ money(store.stockValue) }}</td>
                   <td>{{ store.invoiceCount }}</td>
                   <td>{{ store.currentStockQty }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </UCard>
+
+
+
+        <UCard class="dashboard-v3-card dashboard-v3-wide">
+          <template #header>
+            <div class="dashboard-v3-card-header">
+              <div>
+                <h2>Store group performance</h2>
+                <p>Group-wise sales, purchase and stock visibility.</p>
+              </div>
+            </div>
+          </template>
+          <div class="planner-table-wrap">
+            <table class="planner-table">
+              <thead>
+                <tr>
+                  <th>Store Group</th>
+                  <th>Stores</th>
+                  <th>Sales</th>
+                  <th>Purchase</th>
+                  <th>Stock Value</th>
+                  <th>Invoices</th>
+                  <th>Stock Qty</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="group in data?.storeGroups || []" :key="group.storeGroupId">
+                  <td>{{ group.storeGroupName }}</td>
+                  <td>{{ group.storeCount }}</td>
+                  <td>{{ money(group.salesMonth) }}</td>
+                  <td>{{ money(group.purchaseMonth) }}</td>
+                  <td>{{ money(group.stockValue) }}</td>
+                  <td>{{ group.invoiceCount }}</td>
+                  <td>{{ group.currentStockQty }}</td>
                 </tr>
               </tbody>
             </table>

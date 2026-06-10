@@ -32,6 +32,39 @@ public sealed record StorePerformanceDto(
     int InvoiceCount,
     decimal CurrentStockQty);
 
+public sealed record StoreGroupPerformanceDto(
+    Guid StoreGroupId,
+    string StoreGroupName,
+    int StoreCount,
+    decimal SalesMonth,
+    decimal PurchaseMonth,
+    decimal StockValue,
+    int InvoiceCount,
+    decimal CurrentStockQty);
+
+public sealed record DashboardQuickActionDto(
+    string Label,
+    string Description,
+    string To,
+    string Icon,
+    string Color,
+    bool Attention);
+
+public sealed record DashboardHealthSignalDto(
+    string Label,
+    string Value,
+    string Status,
+    string Description,
+    string Icon,
+    string Color);
+
+public sealed record DashboardHomeDto(
+    string Route,
+    string DashboardType,
+    string Reason,
+    bool CanOpenBusinessDashboard,
+    bool CanOpenStoreManagerDashboard);
+
 public sealed record DashboardScopeDto(
     string ScopeType,
     Guid? CompanyId,
@@ -47,13 +80,18 @@ public sealed record StoreManagerDashboardDto(
     IReadOnlyList<DashboardTrendPointDto> Trend,
     IReadOnlyList<DashboardActivityDto> RecentSales,
     IReadOnlyList<DashboardActivityDto> StockAlerts,
-    IReadOnlyList<DashboardActivityDto> WorkQueue);
+    IReadOnlyList<DashboardActivityDto> WorkQueue,
+    IReadOnlyList<DashboardQuickActionDto> QuickActions,
+    IReadOnlyList<DashboardHealthSignalDto> HealthSignals);
 
 public sealed record BusinessDashboardDto(
     DashboardScopeDto Scope,
     IReadOnlyList<DashboardMetricDto> Metrics,
     IReadOnlyList<DashboardTrendPointDto> Trend,
     IReadOnlyList<StorePerformanceDto> Stores,
+    IReadOnlyList<StoreGroupPerformanceDto> StoreGroups,
     IReadOnlyList<DashboardActivityDto> RecentSales,
     IReadOnlyList<DashboardActivityDto> RecentPurchases,
-    IReadOnlyList<DashboardActivityDto> AdminQueue);
+    IReadOnlyList<DashboardActivityDto> AdminQueue,
+    IReadOnlyList<DashboardQuickActionDto> QuickActions,
+    IReadOnlyList<DashboardHealthSignalDto> HealthSignals);

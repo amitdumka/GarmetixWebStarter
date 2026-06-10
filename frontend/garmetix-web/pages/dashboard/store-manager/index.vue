@@ -88,6 +88,50 @@ onMounted(refresh)
         </UCard>
       </div>
 
+
+
+      <div class="dashboard-v3-insight-grid">
+        <UCard class="dashboard-v3-card">
+          <template #header>
+            <div class="dashboard-v3-card-header">
+              <div>
+                <h2>Quick actions</h2>
+                <p>Common store manager tasks.</p>
+              </div>
+            </div>
+          </template>
+          <div class="dashboard-v3-action-grid">
+            <NuxtLink v-for="action in data?.quickActions || []" :key="action.to" :to="action.to" class="dashboard-v3-action-card">
+              <UIcon :name="action.icon" class="h-5 w-5" />
+              <span>
+                <strong>{{ action.label }}</strong>
+                <small>{{ action.description }}</small>
+              </span>
+              <UBadge v-if="action.attention" color="warning" variant="subtle">Check</UBadge>
+            </NuxtLink>
+          </div>
+        </UCard>
+
+        <UCard class="dashboard-v3-card">
+          <template #header>
+            <div class="dashboard-v3-card-header">
+              <div>
+                <h2>Store health</h2>
+                <p>Signals for daily close.</p>
+              </div>
+            </div>
+          </template>
+          <div class="dashboard-v3-health-grid">
+            <div v-for="signal in data?.healthSignals || []" :key="signal.label" class="dashboard-v3-health-card">
+              <UBadge :color="signal.color" variant="subtle" :icon="signal.icon">{{ signal.status }}</UBadge>
+              <strong>{{ signal.value }}</strong>
+              <span>{{ signal.label }}</span>
+              <small>{{ signal.description }}</small>
+            </div>
+          </div>
+        </UCard>
+      </div>
+
       <div class="dashboard-v3-grid">
         <UCard class="dashboard-v3-card dashboard-v3-wide">
           <template #header>

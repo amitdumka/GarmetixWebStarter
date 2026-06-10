@@ -1,5 +1,7 @@
 using Garmetix.Api.Workspace;
+using Garmetix.Core.Enums;
 using Garmetix.Infrastructure.Data;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,10 +15,30 @@ public static class DashboardEndpoints
             .WithTags("Dashboard")
             .RequireAuthorization();
 
+        group.MapGet("/home", HomeAsync).WithName("GetDashboardHome");
         group.MapGet("/store-manager", StoreManagerAsync).WithName("GetStoreManagerDashboard");
         group.MapGet("/business", BusinessAsync).WithName("GetBusinessDashboard");
 
         return group;
+    }
+
+
+    private static Task<DashboardHomeDto> HomeAsync(HttpContext context)
+    {
+        var role = context.User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+        var userType = context.User.FindFirst("userType")?.Value ?? string.Empty;
+        var combined = $"{role} {userType}".ToLowerInvariant();
+        var canOpenBusiness = WorkspaceScope.HasFullAccess(context)
+            || combined.Contains("admin")
+            || combined.Contains("owner")
+            || combined.Contains("accountant");
+        var route = canOpenBusiness ? "/dashboard/business" : "/dashboard/store-manager";
+        var dashboardType = canOpenBusiness ? "Business" : "StoreManager";
+        var reason = canOpenBusiness
+            ? "Owner, admin and accountant users start with company/store-group dashboard."
+            : "Store scoped users start with the store manager dashboard.";
+
+        return Task.FromResult(new DashboardHomeDto(route, dashboardType, reason, canOpenBusiness, true));
     }
 
     private static async Task<StoreManagerDashboardDto> StoreManagerAsync(
@@ -44,6 +66,14 @@ public static class DashboardEndpoints
         var stockValue = await SumAsync(stocks.Select(item => (item.PurchaseQty - item.SoldQty) * item.CostPrice), cancellationToken);
         var lowStockCount = await stocks.CountAsync(item => (item.PurchaseQty - item.SoldQty) <= 3, cancellationToken);
         var todayInvoiceCount = await sales.CountAsync(item => item.OnDate >= today && item.OnDate < tomorrow, cancellationToken);
+        var dueInvoiceCount = await sales.CountAsync(item => item.BillAmount > item.PaidAmount, cancellationToken);
+        var activeStockCount = await stocks.CountAsync(item => (item.PurchaseQty - item.SoldQty) > 0, cancellationToken);
+        var nonGstSalesMonth = await SumAsync(FilterNonGst(WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context), companyId, storeGroupId, storeId)
+            .Where(item => item.DocumentType == NonGstGoodsDocumentType.Sale && item.OnDate >= monthStart)
+            .Select(item => item.NetAmount), cancellationToken);
+        var nonGstPurchaseMonth = await SumAsync(FilterNonGst(WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context), companyId, storeGroupId, storeId)
+            .Where(item => item.DocumentType == NonGstGoodsDocumentType.Purchase && item.OnDate >= monthStart)
+            .Select(item => item.NetAmount), cancellationToken);
 
         var trend = await TrendAsync(sales, purchases, rangeStart, today, cancellationToken);
         var scope = await ResolveScopeAsync(context, db, companyId, storeGroupId, storeId, "Current store", cancellationToken);
@@ -81,7 +111,24 @@ public static class DashboardEndpoints
         {
             new("Open billing", "Create store cash memo / invoice", string.Empty, DateTime.Now, "Action", "billing", null),
             new("Review low stock", $"{lowStockCount} item(s) need attention", string.Empty, DateTime.Now, lowStockCount > 0 ? "Required" : "Ready", "inventory", null),
-            new("Daily reports", "Check sales, stock, and petty cash", string.Empty, DateTime.Now, "Routine", "reports", null)
+            new("Daily reports", "Check sales, stock, and petty cash", string.Empty, DateTime.Now, "Routine", "reports", null),
+            new("Non-GST cash memo", "Record legally out-of-scope goods separately", string.Empty, DateTime.Now, "Separate", "non-gst-goods", null)
+        };
+
+        var quickActions = new List<DashboardQuickActionDto>
+        {
+            new("New sale", "Open billing for current store", "/billing", "i-lucide-receipt-indian-rupee", "primary", false),
+            new("Purchase inward", "Add new purchase stock", "/purchase", "i-lucide-package-plus", "warning", false),
+            new("Stock operations", "Adjust, transfer or count stock", "/stock-operations", "i-lucide-arrow-left-right", "neutral", lowStockCount > 0),
+            new("Non-GST memo", "Separate out-of-scope purchase/sale register", "/non-gst-goods", "i-lucide-file-warning", "neutral", false)
+        };
+
+        var healthSignals = new List<DashboardHealthSignalDto>
+        {
+            new("Low stock", lowStockCount.ToString(), lowStockCount > 0 ? "Needs attention" : "Healthy", "Items at or below qty 3.", "i-lucide-triangle-alert", lowStockCount > 0 ? "warning" : "success"),
+            new("Due invoices", dueInvoiceCount.ToString(), dueInvoiceCount > 0 ? "Collect" : "Clear", "Bills where paid amount is below bill amount.", "i-lucide-wallet-cards", dueInvoiceCount > 0 ? "warning" : "success"),
+            new("Active stock", activeStockCount.ToString(), "In stock", "Stock rows with positive current quantity.", "i-lucide-boxes", "neutral"),
+            new("Non-GST month", FormatMoney(nonGstSalesMonth - nonGstPurchaseMonth), "Separate register", "Non-GST sale minus purchase, excluded from GST return reports.", "i-lucide-file-warning", "primary")
         };
 
         return new StoreManagerDashboardDto(
@@ -97,7 +144,9 @@ public static class DashboardEndpoints
             trend,
             recentSales,
             stockAlerts,
-            workQueue);
+            workQueue,
+            quickActions,
+            healthSignals);
     }
 
     private static async Task<BusinessDashboardDto> BusinessAsync(
@@ -127,10 +176,19 @@ public static class DashboardEndpoints
         var customerCount = await customers.CountAsync(cancellationToken);
         var vendorCount = await vendors.CountAsync(cancellationToken);
         var invoiceCount = await sales.Where(item => item.OnDate >= monthStart).CountAsync(cancellationToken);
+        var dueInvoiceCount = await sales.CountAsync(item => item.BillAmount > item.PaidAmount, cancellationToken);
+        var lowStockCount = await stocks.CountAsync(item => (item.PurchaseQty - item.SoldQty) <= 3, cancellationToken);
+        var nonGstSalesMonth = await SumAsync(FilterNonGst(WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context), companyId, storeGroupId, storeId)
+            .Where(item => item.DocumentType == NonGstGoodsDocumentType.Sale && item.OnDate >= monthStart)
+            .Select(item => item.NetAmount), cancellationToken);
+        var nonGstPurchaseMonth = await SumAsync(FilterNonGst(WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context), companyId, storeGroupId, storeId)
+            .Where(item => item.DocumentType == NonGstGoodsDocumentType.Purchase && item.OnDate >= monthStart)
+            .Select(item => item.NetAmount), cancellationToken);
 
         var trend = await TrendAsync(sales, purchases, rangeStart, today, cancellationToken);
         var scope = await ResolveScopeAsync(context, db, companyId, storeGroupId, storeId, "Company / store group", cancellationToken);
         var storeRows = await StorePerformanceAsync(context, db, companyId, storeGroupId, storeId, monthStart, cancellationToken);
+        var storeGroupRows = await StoreGroupPerformanceAsync(context, db, companyId, storeGroupId, storeId, monthStart, cancellationToken);
 
         var recentSales = await sales
             .OrderByDescending(item => item.OnDate)
@@ -164,7 +222,24 @@ public static class DashboardEndpoints
         {
             new("Company performance", "Review store-wise sales, purchase, stock and margin", string.Empty, DateTime.Now, "Dashboard", "dashboard/business", null),
             new("GST reports", "Review GST before return filing", string.Empty, DateTime.Now, "Report", "gst-reports", null),
-            new("Data consistency", "Run summary before production close", string.Empty, DateTime.Now, "Control", "data-consistency", null)
+            new("Data consistency", "Run summary before production close", string.Empty, DateTime.Now, "Control", "data-consistency", null),
+            new("Message logs", "Audit onboarding, seeding and runtime messages", string.Empty, DateTime.Now, "Control", "message-logs", null)
+        };
+
+        var quickActions = new List<DashboardQuickActionDto>
+        {
+            new("Business dashboard", "Review group/store KPIs", "/dashboard/business", "i-lucide-chart-no-axes-combined", "primary", false),
+            new("GST reports", "Review tax summaries", "/gst-reports", "i-lucide-table-properties", "warning", false),
+            new("Message logs", "Search operational events", "/message-logs", "i-lucide-list-collapse", "neutral", false),
+            new("Consistency repair", "Run controlled checks before close", "/data-consistency", "i-lucide-shield-alert", "neutral", lowStockCount > 0 || dueInvoiceCount > 0)
+        };
+
+        var healthSignals = new List<DashboardHealthSignalDto>
+        {
+            new("Due invoices", dueInvoiceCount.ToString(), dueInvoiceCount > 0 ? "Collect" : "Clear", "Bills where paid amount is below bill amount.", "i-lucide-wallet-cards", dueInvoiceCount > 0 ? "warning" : "success"),
+            new("Low stock", lowStockCount.ToString(), lowStockCount > 0 ? "Review" : "Healthy", "Items at or below qty 3 across permitted stores.", "i-lucide-triangle-alert", lowStockCount > 0 ? "warning" : "success"),
+            new("Non-GST margin", FormatMoney(nonGstSalesMonth - nonGstPurchaseMonth), "Separate register", "Out-of-scope goods result; excluded from GST return reports.", "i-lucide-file-warning", "primary"),
+            new("Vendors", vendorCount.ToString(), "Active master", $"{customerCount} customers available for business operations.", "i-lucide-users", "neutral")
         };
 
         return new BusinessDashboardDto(
@@ -179,9 +254,12 @@ public static class DashboardEndpoints
             ],
             trend,
             storeRows,
+            storeGroupRows,
             recentSales,
             recentPurchases,
-            adminQueue);
+            adminQueue,
+            quickActions,
+            healthSignals);
     }
 
     private static IQueryable<Garmetix.Core.Models.Inventory.Invoice> FilterSales(
@@ -228,6 +306,30 @@ public static class DashboardEndpoints
 
     private static IQueryable<Garmetix.Core.Models.Inventory.Stock> FilterStocks(
         IQueryable<Garmetix.Core.Models.Inventory.Stock> query,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId)
+    {
+        if (companyId.HasValue)
+        {
+            query = query.Where(item => item.CompanyId == companyId.Value);
+        }
+
+        if (storeGroupId.HasValue)
+        {
+            query = query.Where(item => item.StoreGroupId == storeGroupId.Value);
+        }
+
+        if (storeId.HasValue)
+        {
+            query = query.Where(item => item.StoreId == storeId.Value);
+        }
+
+        return query;
+    }
+
+    private static IQueryable<Garmetix.Core.Models.Inventory.NonGstGoodsDocument> FilterNonGst(
+        IQueryable<Garmetix.Core.Models.Inventory.NonGstGoodsDocument> query,
         Guid? companyId,
         Guid? storeGroupId,
         Guid? storeId)
@@ -303,6 +405,68 @@ public static class DashboardEndpoints
                 .CountAsync(item => !item.Deleted && !item.ReturnInvoice && item.StoreId == store.Id && item.OnDate >= monthStart, cancellationToken);
 
             result.Add(new StorePerformanceDto(store.Id, store.Name, sales, purchases, stockValue, invoiceCount, currentStock));
+        }
+
+        return result;
+    }
+
+    private static async Task<IReadOnlyList<StoreGroupPerformanceDto>> StoreGroupPerformanceAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        DateTime monthStart,
+        CancellationToken cancellationToken)
+    {
+        var groups = WorkspaceScope.ApplyTo(db.StoreGroups.AsNoTracking(), context);
+        if (companyId.HasValue)
+        {
+            groups = groups.Where(item => item.CompanyId == companyId.Value);
+        }
+        if (storeGroupId.HasValue)
+        {
+            groups = groups.Where(item => item.Id == storeGroupId.Value);
+        }
+
+        var rows = await groups
+            .OrderBy(item => item.Name)
+            .Select(item => new { item.Id, item.Name })
+            .ToListAsync(cancellationToken);
+
+        var result = new List<StoreGroupPerformanceDto>();
+        foreach (var group in rows)
+        {
+            var stores = WorkspaceScope.ApplyTo(db.Stores.AsNoTracking(), context)
+                .Where(item => item.StoreGroupId == group.Id);
+            if (storeId.HasValue)
+            {
+                stores = stores.Where(item => item.Id == storeId.Value);
+            }
+
+            var storeIds = await stores.Select(item => item.Id).ToListAsync(cancellationToken);
+            if (storeIds.Count == 0)
+            {
+                result.Add(new StoreGroupPerformanceDto(group.Id, group.Name, 0, 0, 0, 0, 0, 0));
+                continue;
+            }
+
+            var sales = await SumAsync(db.SalesInvoices.AsNoTracking()
+                .Where(item => !item.Deleted && !item.ReturnInvoice && storeIds.Contains(item.StoreId) && item.OnDate >= monthStart)
+                .Select(item => item.BillAmount), cancellationToken);
+            var purchases = await SumAsync(db.PurchaseInvoices.AsNoTracking()
+                .Where(item => !item.Deleted && !item.ReturnInvoice && item.StoreId.HasValue && storeIds.Contains(item.StoreId.Value) && item.OnDate >= monthStart)
+                .Select(item => item.BillAmount), cancellationToken);
+            var stockValue = await SumAsync(db.Stocks.AsNoTracking()
+                .Where(item => !item.Deleted && storeIds.Contains(item.StoreId))
+                .Select(item => (item.PurchaseQty - item.SoldQty) * item.CostPrice), cancellationToken);
+            var currentStock = await SumAsync(db.Stocks.AsNoTracking()
+                .Where(item => !item.Deleted && storeIds.Contains(item.StoreId))
+                .Select(item => item.PurchaseQty - item.SoldQty), cancellationToken);
+            var invoiceCount = await db.SalesInvoices.AsNoTracking()
+                .CountAsync(item => !item.Deleted && !item.ReturnInvoice && storeIds.Contains(item.StoreId) && item.OnDate >= monthStart, cancellationToken);
+
+            result.Add(new StoreGroupPerformanceDto(group.Id, group.Name, storeIds.Count, sales, purchases, stockValue, invoiceCount, currentStock));
         }
 
         return result;

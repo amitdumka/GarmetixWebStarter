@@ -2768,7 +2768,105 @@ select {
   font-size: 12px;
 }
 
+
+.dashboard-v3-insight-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.dashboard-v3-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dashboard-v3-action-card {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  color: var(--ink);
+  text-decoration: none;
+  background: var(--panel);
+}
+
+.dashboard-v3-action-card:hover {
+  background: var(--panel-soft);
+}
+
+.dashboard-v3-action-card strong,
+.dashboard-v3-action-card small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-v3-action-card small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.dashboard-v3-health-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dashboard-v3-health-card {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  background: var(--panel);
+}
+
+.dashboard-v3-health-card strong {
+  color: var(--ink);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.dashboard-v3-health-card span {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.dashboard-v3-health-card small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.dashboard-v3-redirect {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.dashboard-v3-redirect h1,
+.dashboard-v3-redirect p {
+  margin: 0;
+}
+
+.dashboard-v3-redirect p {
+  margin: 6px 0 14px;
+  color: var(--muted);
+}
+
 @media (max-width: 1280px) {
+  .dashboard-v3-action-grid,
+  .dashboard-v3-health-grid,
   .dashboard-v3-metric-grid,
   .dashboard-v3-metric-grid.business {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2776,6 +2874,7 @@ select {
 }
 
 @media (max-width: 1024px) {
+  .dashboard-v3-insight-grid,
   .dashboard-v3-grid,
   .dashboard-v3-grid.business {
     grid-template-columns: 1fr;
@@ -2792,6 +2891,8 @@ select {
     flex-direction: column;
   }
 
+  .dashboard-v3-action-grid,
+  .dashboard-v3-health-grid,
   .dashboard-v3-metric-grid,
   .dashboard-v3-metric-grid.business {
     grid-template-columns: repeat(2, minmax(0, 1fr));

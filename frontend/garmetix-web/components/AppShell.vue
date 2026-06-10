@@ -68,6 +68,7 @@ const moduleGroups: MenuGroup[] = [
   {
     label: 'Dashboards',
     items: [
+      { to: '/dashboard', label: 'Smart Dashboard', icon: 'i-lucide-gauge' },
       { to: '/dashboard/store-manager', label: 'Store Manager', icon: 'i-lucide-store', roles: ['storemanager', 'manager'] },
       { to: '/dashboard/business', label: 'Owner / Admin', icon: 'i-lucide-chart-no-axes-combined', roles: ['owner', 'admin', 'accountant'] },
       { to: '/', label: 'Legacy Overview', icon: 'i-lucide-layout-dashboard', stage: 'revert-safe' },
@@ -150,6 +151,7 @@ const isStoreGroupLocked = computed(() => Boolean(workspaceOptions.value?.isStor
 const isStoreLocked = computed(() => Boolean(workspaceOptions.value?.isStoreLocked || auth.user.value?.storeId))
 const roleKey = computed(() => `${auth.user.value?.role || ''} ${auth.user.value?.userType || ''}`.toLowerCase())
 const isBusinessUser = computed(() => auth.canSeeAdmin.value || roleKey.value.includes('accountant'))
+const dashboardHomePath = computed(() => isBusinessUser.value ? '/dashboard/business' : '/dashboard/store-manager')
 const visibleGroups = computed(() => moduleGroups
   .map((group) => ({
     ...group,
@@ -236,7 +238,9 @@ function isVisibleItem(item: MenuItem) {
 }
 
 function isActive(to: string) {
-  return to === '/' ? route.path === '/' : route.path.startsWith(to)
+  if (to === '/') return route.path === '/'
+  if (to === '/dashboard') return route.path === '/dashboard'
+  return route.path.startsWith(to)
 }
 
 function logout() {
@@ -328,13 +332,13 @@ onBeforeUnmount(() => {
       :ui="{ footer: 'border-t border-default' }"
     >
       <template #header="{ collapsed }">
-        <NuxtLink class="dashboard-brand" to="/dashboard/store-manager">
+        <NuxtLink class="dashboard-brand" :to="dashboardHomePath">
           <div class="dashboard-brand-mark">
             <img class="ui-brand-logo" src="/garmetix-icon-512.png" alt="Garmetix" />
           </div>
           <div v-if="!collapsed" class="min-w-0">
             <p class="dashboard-brand-title">Garmetix</p>
-            <p class="dashboard-brand-subtitle">Dashboard shell · v3</p>
+            <p class="dashboard-brand-subtitle">Dashboard shell · v3.1</p>
           </div>
         </NuxtLink>
       </template>
@@ -384,6 +388,7 @@ onBeforeUnmount(() => {
 
           <template #right>
             <div class="dashboard-toolbar">
+              <UButton color="neutral" variant="subtle" icon="i-lucide-gauge" class="hidden lg:inline-flex" label="Dashboard" @click="navigateTo(dashboardHomePath)" />
               <UButton color="neutral" variant="subtle" icon="i-lucide-search" class="hidden md:inline-flex" label="Search" @click="openCommand" />
               <UButton color="neutral" variant="subtle" icon="i-lucide-building-2" class="xl:hidden" aria-label="Workspace" @click="workspaceOpen = true" />
               <USelect v-model="companyValue" :items="companyOptions" :disabled="isCompanyLocked || companyOptions.length < 2" class="hidden lg:flex w-44" aria-label="Company" />

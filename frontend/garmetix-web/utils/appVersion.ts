@@ -1,10 +1,15 @@
-export const APP_VERSION = '3.0.0'
-export const APP_STAGE = 'Stage 7A'
-export const APP_RELEASE_NAME = 'Nuxt UI Dashboard Shell and Role Dashboards'
+export const APP_VERSION = '3.1.0'
+export const APP_STAGE = 'Stage 7B'
+export const APP_RELEASE_NAME = 'Dashboard Analytics, Role Routing and Template Alignment'
 export const APP_BUILD_DATE = '2026-06-10'
-export const APP_BUILD_CODE = 'GARMETIX-7A-20260610-300'
+export const APP_BUILD_CODE = 'GARMETIX-7B-20260610-310'
 
 export const APP_HIGHLIGHTS = [
+  'Stage 7B role-aware /dashboard landing redirects users to the correct dashboard',
+  'Dashboard shell now adds a smart dashboard menu item and topbar shortcut',
+  'Store manager dashboard now includes quick actions and daily health signals',
+  'Business dashboard now includes executive actions, health signals and store-group performance',
+  'Dashboard backend adds /api/dashboard/home and deeper role/workspace scoped KPIs',
   'Nuxt UI dashboard-template style shell with collapsible sidebar, topbar, command search and dark-mode polish',
   'Store Manager dashboard scoped to the logged-in user current store',
   'Owner/Admin/Accountant dashboard with company, store-group and store-wise KPIs',
