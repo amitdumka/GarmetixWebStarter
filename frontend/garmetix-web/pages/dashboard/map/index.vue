@@ -59,7 +59,7 @@ onMounted(refresh)
     <section class="dashboard-v3-page">
       <div class="dashboard-v3-hero business">
         <div>
-          <UBadge color="primary" variant="subtle" icon="i-lucide-map">Stage 7D</UBadge>
+          <UBadge color="primary" variant="subtle" icon="i-lucide-map">Stage 7E</UBadge>
           <h1>Dashboard implementation map</h1>
           <p>Template alignment, dashboard routing, menu preservation and rollback notes for v{{ APP_VERSION }}.</p>
         </div>

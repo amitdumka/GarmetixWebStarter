@@ -3112,3 +3112,31 @@ select {
     justify-content: space-between;
   }
 }
+
+/* Stage 7E sidebar status cleanup */
+.dashboard-sidebar-mini-actions {
+  display: grid;
+  gap: 6px;
+  padding: 2px 0 8px;
+}
+
+.dashboard-context-workspace {
+  max-width: min(280px, 34vw);
+}
+
+.dashboard-context-workspace span,
+.dashboard-context-status span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-sidebar-footer {
+  gap: 6px;
+}
+
+@media (max-width: 900px) {
+  .dashboard-context-workspace {
+    max-width: 100%;
+  }
+}

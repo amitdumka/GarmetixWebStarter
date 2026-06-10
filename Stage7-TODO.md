@@ -1,3 +1,9 @@
+## Stage 7E completed
+
+- Removed bulky clock/store/API/version card from sidebar.
+- Moved status to compact topbar/context/footer controls.
+- Preserved collapsible sidebar and legacy shell revert option.
+
 # Stage 7 TODO
 
 ## Completed

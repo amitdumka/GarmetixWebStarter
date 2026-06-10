@@ -321,6 +321,22 @@ const apiBadge = computed(() => {
     : { label: 'API Offline', color: 'error' as const, icon: 'i-lucide-wifi-off' }
 })
 
+const systemStatusDropdownItems = computed<DropdownMenuItem[][]>(() => [
+  [
+    { label: workingStoreName.value, icon: 'i-lucide-store', disabled: true },
+    { label: workingCompanyName.value, icon: 'i-lucide-building-2', disabled: true },
+    { label: `${currentDate.value} · ${currentClock.value}`, icon: 'i-lucide-clock-3', disabled: true },
+    { label: apiBadge.value.label, icon: apiBadge.value.icon, disabled: true },
+    { label: `${APP_STAGE} · v${APP_VERSION}`, icon: 'i-lucide-badge-info', disabled: true }
+  ],
+  [
+    { label: 'Change workspace', icon: 'i-lucide-building-2', onSelect: () => { workspaceOpen.value = true } },
+    { label: 'System Health', icon: 'i-lucide-activity', to: '/system-health' },
+    { label: 'Message Logs', icon: 'i-lucide-list-collapse', to: '/message-logs' },
+    { label: 'About Version', icon: 'i-lucide-info', to: '/about-us' }
+  ]
+])
+
 function isVisibleItem(item: MenuItem) {
   if (item.adminOnly && !auth.canSeeAdmin.value) {
     return false
@@ -495,7 +511,7 @@ onBeforeUnmount(() => {
             </div>
             <div v-if="!collapsed" class="min-w-0">
               <p class="dashboard-brand-title">Garmetix</p>
-              <p class="dashboard-brand-subtitle">Dashboard shell · v3.3</p>
+              <p class="dashboard-brand-subtitle">Dashboard shell · v3.4</p>
             </div>
           </NuxtLink>
           <UButton
@@ -547,18 +563,11 @@ onBeforeUnmount(() => {
 
       <template #footer="{ collapsed }">
         <div class="dashboard-sidebar-footer">
-          <div v-if="!collapsed" class="dashboard-scope-card">
-            <div class="dashboard-scope-row">
-              <span>{{ workingStoreName }}</span>
-              <UBadge size="xs" :color="apiBadge.color" variant="subtle" :icon="apiBadge.icon">{{ apiBadge.label }}</UBadge>
-            </div>
-            <p>{{ workingCompanyName }}</p>
-            <div class="dashboard-clock">
-              <strong>{{ currentClock }}</strong>
-              <span>{{ currentDate }}</span>
-            </div>
-            <p>{{ APP_STAGE }} · v{{ APP_VERSION }}</p>
-            <p class="dashboard-revert-hint">Revert: set NUXT_PUBLIC_DASHBOARD_SHELL=legacy</p>
+          <div v-if="!collapsed" class="dashboard-sidebar-mini-actions">
+            <UButton color="neutral" variant="subtle" size="xs" icon="i-lucide-building-2" label="Workspace" block @click="workspaceOpen = true" />
+            <UDropdownMenu :items="systemStatusDropdownItems" :ui="{ content: 'w-72' }">
+              <UButton color="neutral" variant="subtle" size="xs" :icon="apiBadge.icon" label="Status" block />
+            </UDropdownMenu>
           </div>
 
           <UDropdownMenu :items="accountDropdownItems" :ui="{ content: 'w-64' }">
@@ -595,6 +604,10 @@ onBeforeUnmount(() => {
               <UButton color="neutral" variant="subtle" icon="i-lucide-gauge" class="hidden lg:inline-flex" label="Dashboard" @click="navigateTo(dashboardHomePath)" />
               <UButton color="neutral" variant="subtle" icon="i-lucide-search" class="hidden md:inline-flex" label="Search" @click="openCommand" />
               <UButton color="neutral" :variant="currentPageIsFavorite ? 'solid' : 'subtle'" :icon="currentPageIsFavorite ? 'i-lucide-star' : 'i-lucide-star-off'" class="hidden lg:inline-flex" :label="currentPageIsFavorite ? 'Saved' : 'Save'" @click="toggleFavorite()" />
+              <UDropdownMenu :items="systemStatusDropdownItems" :ui="{ content: 'w-72' }">
+                <UButton color="neutral" variant="subtle" :icon="apiBadge.icon" class="hidden xl:inline-flex" :label="apiBadge.label" />
+              </UDropdownMenu>
+              <UButton color="neutral" variant="ghost" icon="i-lucide-clock-3" class="hidden 2xl:inline-flex" :label="currentClock" aria-label="Current time" />
               <UButton color="neutral" variant="subtle" icon="i-lucide-building-2" class="xl:hidden" aria-label="Workspace" @click="workspaceOpen = true" />
               <USelect v-model="companyValue" :items="companyOptions" :disabled="isCompanyLocked || companyOptions.length < 2" class="hidden lg:flex w-44" aria-label="Company" />
               <USelect v-model="storeGroupValue" :items="storeGroupOptions" :disabled="isStoreGroupLocked || storeGroupOptions.length < 2" class="hidden xl:flex w-40" aria-label="Store group" />
@@ -620,6 +633,8 @@ onBeforeUnmount(() => {
             </NuxtLink>
           </div>
           <div class="dashboard-context-actions">
+            <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-store" :label="workingStoreName" class="dashboard-context-workspace" @click="workspaceOpen = true" />
+            <UBadge size="xs" :color="apiBadge.color" variant="subtle" :icon="apiBadge.icon" class="dashboard-context-status">{{ apiBadge.label }}</UBadge>
             <UBadge color="neutral" variant="subtle" icon="i-lucide-user-round">{{ roleBadge }}</UBadge>
             <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-map" label="Map" @click="navigateTo('/dashboard/map')" />
             <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-search" label="Ctrl K" @click="openCommand" />

@@ -1,3 +1,9 @@
+## Stage 7E map
+
+- `AppShell.vue`: sidebar footer cleaned; topbar/status dropdown/context badges added.
+- `main.css`: compact Stage 7E sidebar/status styles added.
+- `AppInfoEndpoints.cs` and `appVersion.ts`: version updated to 3.4.0.
+
 # Stage 7 Implementation Map
 
 ## Current version
