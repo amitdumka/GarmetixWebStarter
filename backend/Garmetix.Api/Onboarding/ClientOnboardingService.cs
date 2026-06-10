@@ -58,14 +58,17 @@ public sealed class ClientOnboardingService(GarmetixDbContext db)
             throw new InvalidOperationException($"A user already exists with email {request.ClientDetails.Email}.");
         }
 
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        var counters = new ClientOnboardingCounters();
-        var notes = new List<string>();
-
-        var ownerName = JoinName(request.ClientDetails.FirstName, request.ClientDetails.LastName);
-        var companyStartDate = (request.CompanyDetails.DateOfIncorporation ?? DateTime.Today).Date;
-        var company = new Company
+        var strategy = db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
         {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            var counters = new ClientOnboardingCounters();
+            var notes = new List<string>();
+
+            var ownerName = JoinName(request.ClientDetails.FirstName, request.ClientDetails.LastName);
+            var companyStartDate = (request.CompanyDetails.DateOfIncorporation ?? DateTime.Today).Date;
+            var company = new Company
+            {
             Id = Guid.NewGuid(),
             Name = request.CompanyDetails.CompanyName.Trim(),
             GSTIN = gstin,
@@ -191,7 +194,8 @@ public sealed class ClientOnboardingService(GarmetixDbContext db)
             ],
             notes);
 
-        return response;
+            return response;
+        });
     }
 
     private static void Validate(ClientOnboardingRequest request)

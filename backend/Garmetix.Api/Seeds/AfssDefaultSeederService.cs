@@ -119,9 +119,12 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
         };
         var counters = new AfssSeedCounters();
 
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var strategy = db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
-        var company = await db.Companies.FirstOrDefaultAsync(item => item.Id == request.CompanyId, cancellationToken);
+            var company = await db.Companies.FirstOrDefaultAsync(item => item.Id == request.CompanyId, cancellationToken);
         if (company is null)
         {
             throw new InvalidOperationException("Selected company was not found. Create/select a company before running AF/SS seed.");
@@ -157,14 +160,15 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
 
         var existing = await BuildExistingCountsAsync(company.Id, storeGroup.Id, store.Id, cancellationToken);
 
-        return new AfssSeedResponse(
-            "AF/SS default seed completed.",
-            DateTimeOffset.UtcNow,
-            profile,
-            new AfssSeedTargetDto(company.Id, company.Name, storeGroup.Id, storeGroup.Name, store.Id, store.Name),
-            counters.ToCreatedDto(),
-            existing,
-            notes);
+            return new AfssSeedResponse(
+                "AF/SS default seed completed.",
+                DateTimeOffset.UtcNow,
+                profile,
+                new AfssSeedTargetDto(company.Id, company.Name, storeGroup.Id, storeGroup.Name, store.Id, store.Name),
+                counters.ToCreatedDto(),
+                existing,
+                notes);
+        });
     }
 
     private static void PatchCompanyDefaults(Company company, AfssSeedProfileDto profile)
