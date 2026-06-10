@@ -77,6 +77,7 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Branded Product")] public bool BrandedProduct { get; set; } = true;
 
         [Display(Name = "Sold Value")] public decimal SoldValue { get; set; } = 0;
+        [Display(Name = "Non-GST / Out-of-Scope Stock")] public bool IsOFB { get; set; } = false;
         public StockType StockType { get; set; } = StockType.Billed;
 
         [JsonIgnore]
@@ -143,6 +144,41 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Movement Date")] public DateTime OnDate { get; set; } = DateTime.Now;
         public virtual Product? Product { get; set; }
         public virtual Stock? Stock { get; set; }
+    }
+
+
+    public class NonGstGoodsDocument : StoreBase
+    {
+        [Display(Name = "Document Number")] public string DocumentNumber { get; set; } = string.Empty;
+        [Display(Name = "Date")] public DateTime OnDate { get; set; } = DateTime.Now;
+        [Display(Name = "Document Type")] public NonGstGoodsDocumentType DocumentType { get; set; } = NonGstGoodsDocumentType.Sale;
+        [Display(Name = "Party Name")] public string PartyName { get; set; } = string.Empty;
+        [Display(Name = "Vendor", AutoGenerateField = false)] public Guid? VendorId { get; set; }
+        [Display(Name = "Customer", AutoGenerateField = false)] public Guid? CustomerId { get; set; }
+        [Display(Name = "Payment Mode")] public PaymentMode PaymentMode { get; set; } = PaymentMode.Cash;
+        [Display(Name = "Reference Number")] public string? ReferenceNumber { get; set; }
+        [Display(Name = "Gross Amount")] public decimal GrossAmount { get; set; }
+        [Display(Name = "Discount Amount")] public decimal DiscountAmount { get; set; }
+        [Display(Name = "Net Amount")] public decimal NetAmount { get; set; }
+        [Display(Name = "Ledger", AutoGenerateField = false)] public Guid? LedgerId { get; set; }
+        [Display(Name = "Remarks")] public string? Remarks { get; set; }
+        [JsonIgnore] public virtual ICollection<NonGstGoodsItem>? Items { get; set; }
+    }
+
+    public class NonGstGoodsItem : CompanyBase
+    {
+        [Display(Name = "Document", AutoGenerateField = false)] public Guid DocumentId { get; set; }
+        [Display(Name = "Product", AutoGenerateField = false)] public Guid ProductId { get; set; }
+        [Display(Name = "Stock", AutoGenerateField = false)] public Guid? StockId { get; set; }
+        [Display(Name = "Barcode")] public string Barcode { get; set; } = string.Empty;
+        [Display(Name = "Product Name")] public string ProductName { get; set; } = string.Empty;
+        [Display(Name = "Quantity")] public decimal Quantity { get; set; }
+        [Display(Name = "Rate")] public decimal Rate { get; set; }
+        [Display(Name = "Discount Amount")] public decimal DiscountAmount { get; set; }
+        [Display(Name = "Amount")] public decimal Amount { get; set; }
+        [JsonIgnore] public virtual NonGstGoodsDocument? Document { get; set; }
+        [JsonIgnore] public virtual Product? Product { get; set; }
+        [JsonIgnore] public virtual Stock? Stock { get; set; }
     }
 
     public class ProductCategory : CompanyBase

@@ -322,6 +322,7 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                 ALTER TABLE IF EXISTS "Products" ADD COLUMN IF NOT EXISTS "HSNCode" text NULL;
                 ALTER TABLE IF EXISTS "Products" ADD COLUMN IF NOT EXISTS "ProductGroup" integer NOT NULL DEFAULT 0;
                 ALTER TABLE IF EXISTS "Stocks" ADD COLUMN IF NOT EXISTS "StockType" integer NOT NULL DEFAULT 0;
+                ALTER TABLE IF EXISTS "Stocks" ADD COLUMN IF NOT EXISTS "IsOFB" boolean NOT NULL DEFAULT false;
                 ALTER TABLE IF EXISTS "ProductCategories" ADD COLUMN IF NOT EXISTS "ProductGroup" integer NULL DEFAULT 0;
                 ALTER TABLE IF EXISTS "ProductCategories" ADD COLUMN IF NOT EXISTS "IsActive" boolean NOT NULL DEFAULT true;
                 ALTER TABLE IF EXISTS "ProductSubCategories" ADD COLUMN IF NOT EXISTS "CategoryId" uuid NULL;
@@ -433,6 +434,59 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                     "Deleted" boolean NOT NULL DEFAULT false,
                     CONSTRAINT "PK_PurchasePayments" PRIMARY KEY ("Id")
                 );
+
+                
+
+                CREATE TABLE IF NOT EXISTS "NonGstGoodsDocuments" (
+                    "Id" uuid NOT NULL,
+                    "DocumentNumber" text NOT NULL DEFAULT '',
+                    "OnDate" timestamp without time zone NOT NULL,
+                    "DocumentType" integer NOT NULL DEFAULT 1,
+                    "PartyName" text NOT NULL DEFAULT '',
+                    "VendorId" uuid NULL,
+                    "CustomerId" uuid NULL,
+                    "PaymentMode" integer NOT NULL DEFAULT 0,
+                    "ReferenceNumber" text NULL,
+                    "GrossAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "DiscountAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "NetAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "LedgerId" uuid NULL,
+                    "Remarks" text NULL,
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "StoreGroupId" uuid NOT NULL,
+                    "StoreId" uuid NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL,
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    CONSTRAINT "PK_NonGstGoodsDocuments" PRIMARY KEY ("Id")
+                );
+
+                CREATE TABLE IF NOT EXISTS "NonGstGoodsItems" (
+                    "Id" uuid NOT NULL,
+                    "DocumentId" uuid NOT NULL,
+                    "ProductId" uuid NOT NULL,
+                    "StockId" uuid NULL,
+                    "Barcode" text NOT NULL DEFAULT '',
+                    "ProductName" text NOT NULL DEFAULT '',
+                    "Quantity" numeric(18,2) NOT NULL DEFAULT 0,
+                    "Rate" numeric(18,2) NOT NULL DEFAULT 0,
+                    "DiscountAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "Amount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL,
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    CONSTRAINT "PK_NonGstGoodsItems" PRIMARY KEY ("Id")
+                );
+
+                CREATE INDEX IF NOT EXISTS "IX_Stocks_CompanyId_StoreId_IsOFB" ON "Stocks" ("CompanyId", "StoreId", "IsOFB");
+                CREATE INDEX IF NOT EXISTS "IX_NonGstGoodsDocuments_CompanyId_StoreId_DocumentType_OnDate" ON "NonGstGoodsDocuments" ("CompanyId", "StoreId", "DocumentType", "OnDate");
+                CREATE INDEX IF NOT EXISTS "IX_NonGstGoodsDocuments_CompanyId_DocumentNumber" ON "NonGstGoodsDocuments" ("CompanyId", "DocumentNumber");
+                CREATE INDEX IF NOT EXISTS "IX_NonGstGoodsItems_CompanyId_DocumentId" ON "NonGstGoodsItems" ("CompanyId", "DocumentId");
 
                 CREATE TABLE IF NOT EXISTS "StockMovements" (
                     "Id" uuid NOT NULL,

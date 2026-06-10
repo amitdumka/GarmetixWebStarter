@@ -35,6 +35,7 @@ public static class ProductLookupEndpoints
         take = Math.Clamp(take, 1, 100);
         var term = query?.Trim().ToLowerInvariant();
         var stocks = WorkspaceScope.ApplyTo(db.Stocks.AsNoTracking(), context)
+            .Where(item => !item.IsOFB)
             .Include(item => item.Product)!
             .ThenInclude(product => product!.ProductCategory)
             .Include(item => item.Product)!

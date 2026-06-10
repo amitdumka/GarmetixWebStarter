@@ -93,6 +93,12 @@ namespace Garmetix.Core.Enums
     public enum InvoiceStatus
     { Pending, Paid, PartiallyPaid, Cancelled, Refunded, PartiallyRefunded, Overdue, Draft }
 
+    public enum NonGstGoodsDocumentType
+    {
+        Purchase,
+        Sale
+    }
+
     public enum LedgerCategory
     {
         Credit,

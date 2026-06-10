@@ -5,11 +5,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "2.2.0";
-    public const string Stage = "Stage 6C";
-    public const string ReleaseName = "Public Info Pages + Version Identity";
+    public const string Version = "2.3.2";
+    public const string Stage = "Stage 6D";
+    public const string ReleaseName = "Non-GST Goods Compile Fix";
     public const string BuildDate = "2026-06-10";
-    public const string BuildCode = "GARMETIX-6C-20260610-220";
+    public const string BuildCode = "GARMETIX-6D-20260610-232";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -65,6 +65,11 @@ public static class AppInfoEndpoints
         "AF/SS default data seeder module",
         "Application message logs with filters",
         "Version identity surfaced in About Us and API",
+        "Non-GST/out-of-scope goods purchase and sale module",
+        "Buildfix: added missing Store namespace import for Docker publish",
+        "Compile fix: resolved stock variable shadowing and ProductCategory ambiguity",
+        "Separate Non-GST stock flag and movement ledger",
+        "Separate Non-GST goods reports and visible accounting postings",
         "About Us, Contact Us and FAQ pages"
     ];
 
@@ -83,6 +88,7 @@ public static class AppInfoEndpoints
         new("Where do I onboard the first company?", "Use Admin > Onboarding. It creates company, store group, store, users, employees, manager salesman and optional basic masters.", "Onboarding"),
         new("Where do I seed AF/SS default data?", "Use Admin > AF/SS, select the target company/profile, then run the default data seed.", "Seeder"),
         new("Where can I see success or failure messages?", "Use Admin > Message Logs. You can filter by source, level, success/failure, search text and date range.", "Logs"),
+        new("Where do I record legally Non-GST goods?", "Use Operations > Non-GST Goods. These documents are not hidden; they are recorded in a separate register, posted to visible accounting ledgers and excluded from GST reports because tax rate is zero/out-of-scope.", "Non-GST Goods"),
         new("What should I run after extracting a new package?", "Run dotnet build, npm ci, npm run build, and docker compose up --build from the extracted project.", "Deployment")
     ];
 }

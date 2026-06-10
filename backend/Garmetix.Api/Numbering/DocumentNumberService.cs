@@ -37,6 +37,12 @@ public sealed class DocumentNumberService(GarmetixDbContext db)
 
     public Task<string> NextPhysicalStockCountAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
         => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "PhysicalStockCount", "PHY", DateTime.Today, cancellationToken);
+
+    public Task<string> NextNonGstPurchaseAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
+        => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "NonGstPurchase", "NGP", DateTime.Today, cancellationToken);
+
+    public Task<string> NextNonGstSaleAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
+        => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "NonGstSale", "NGS", DateTime.Today, cancellationToken);
 }
 
 public static class DocumentNumberGenerator
