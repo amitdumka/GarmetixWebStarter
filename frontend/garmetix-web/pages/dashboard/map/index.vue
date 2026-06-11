@@ -3,6 +3,7 @@ import { APP_VERSION, APP_STAGE, APP_BUILD_CODE } from '~/utils/appVersion'
 
 const api = useGarmetixApi()
 const feedback = useUiFeedback()
+const access = useAccessControl()
 
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
@@ -19,9 +20,8 @@ const mainMenuGroups = [
   { label: 'Dashboards', count: 8, description: 'Smart landing, store manager, business, reports and GST dashboards.' },
   { label: 'Operations', count: 17, description: 'Billing, inventory, purchase, returns, customers, vouchers and accounting.' },
   { label: 'People', count: 2, description: 'HR and payroll operations.' },
-  { label: 'Account', count: 1, description: 'Logged-in user profile and password management.' },
-  { label: 'Help', count: 3, description: 'About Us, Contact Us and FAQ pages with live version identity.' },
-  { label: 'Admin', count: 12, description: 'Setup, onboarding, logs, access, health, repair and integration tools.' }
+  { label: 'Admin', count: 12, description: 'Setup, onboarding, logs, access, health, repair and integration tools.' },
+  { label: 'Footer Account', count: 4, description: 'Profile, Help, Message Logs and Logout remain in the footer/user menus.' }
 ]
 
 const templateChecklist = [
@@ -32,8 +32,20 @@ const templateChecklist = [
   'Command menu opens with Ctrl/Cmd + K.',
   'Favorites and recent pages are stored locally per browser.',
   'Bottom utility navigation and footer account dropdown mirror Nuxt UI Dashboard template patterns.',
-  'No major page was removed during Stage 7.'
+  'No major page was removed during Stage 7.',
+  'Stage 7G adds one central access map used by menus and route guards.'
 ]
+
+const accessibleRouteRules = computed(() => access.routeRules.map((rule) => ({
+  ...rule,
+  allowed: access.canAccessPath(rule.path)
+})))
+
+const accessSummary = computed(() => {
+  const allowed = accessibleRouteRules.value.filter((rule) => rule.allowed).length
+  const total = accessibleRouteRules.value.length
+  return { allowed, total, hidden: total - allowed }
+})
 
 async function refresh() {
   loading.value = true
@@ -59,7 +71,7 @@ onMounted(refresh)
     <section class="dashboard-v3-page">
       <div class="dashboard-v3-hero business">
         <div>
-          <UBadge color="primary" variant="subtle" icon="i-lucide-map">Stage 7F</UBadge>
+          <UBadge color="primary" variant="subtle" icon="i-lucide-map">Stage 7G</UBadge>
           <h1>Dashboard implementation map</h1>
           <p>Template alignment, dashboard routing, menu preservation and rollback notes for v{{ APP_VERSION }}.</p>
         </div>
@@ -105,6 +117,30 @@ onMounted(refresh)
                 <UBadge color="neutral" variant="subtle" icon="i-lucide-panels-top-left">{{ group.count }} links</UBadge>
                 <strong>{{ group.label }}</strong>
                 <small>{{ group.description }}</small>
+              </div>
+            </div>
+          </UCard>
+
+
+          <UCard>
+            <template #header>
+              <div class="dashboard-v3-card-header">
+                <div>
+                  <h2>Permission-aware access map</h2>
+                  <p>Menus and route guards now use the same central access policy.</p>
+                </div>
+                <UBadge color="primary" variant="subtle">{{ accessSummary.allowed }}/{{ accessSummary.total }} visible</UBadge>
+              </div>
+            </template>
+            <div class="dashboard-access-matrix">
+              <div v-for="rule in accessibleRouteRules" :key="rule.path" class="dashboard-access-row" :class="{ denied: !rule.allowed }">
+                <div>
+                  <strong>{{ rule.label }}</strong>
+                  <small>{{ rule.module }} · {{ rule.path }}</small>
+                </div>
+                <UBadge :color="rule.allowed ? 'success' : 'neutral'" variant="subtle">
+                  {{ rule.allowed ? 'Visible' : 'Hidden' }}
+                </UBadge>
               </div>
             </div>
           </UCard>

@@ -1,4 +1,4 @@
-const publicPaths = new Set(['/'])
+const publicPaths = new Set(['/', '/access-denied'])
 
 export default defineNuxtRouteMiddleware((to) => {
   if (import.meta.server) {
@@ -19,5 +19,17 @@ export default defineNuxtRouteMiddleware((to) => {
     }
 
     return navigateTo({ path: '/', query })
+  }
+
+  const access = useAccessControl()
+  const decision = access.checkPath(to.path)
+  if (!decision.allowed) {
+    return navigateTo({
+      path: '/access-denied',
+      query: {
+        path: to.fullPath,
+        reason: decision.reason
+      }
+    })
   }
 })

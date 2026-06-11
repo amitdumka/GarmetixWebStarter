@@ -3140,3 +3140,39 @@ select {
     max-width: 100%;
   }
 }
+
+/* Stage 7G permission-aware dashboard access map */
+.dashboard-access-matrix {
+  display: grid;
+  gap: 8px;
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.dashboard-access-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--panel);
+}
+
+.dashboard-access-row.denied {
+  opacity: 0.68;
+  background: var(--panel-soft);
+}
+
+.dashboard-access-row strong,
+.dashboard-access-row small {
+  display: block;
+}
+
+.dashboard-access-row small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}

@@ -1,10 +1,11 @@
-export const APP_VERSION = '3.5.0'
-export const APP_STAGE = 'Stage 7F'
-export const APP_RELEASE_NAME = 'Dashboard Sidebar Menu Cleanup'
+export const APP_VERSION = '3.6.0'
+export const APP_STAGE = 'Stage 7G'
+export const APP_RELEASE_NAME = 'Permission-Aware Dashboard Access'
 export const APP_BUILD_DATE = '2026-06-10'
-export const APP_BUILD_CODE = 'GARMETIX-7F-20260610-350'
+export const APP_BUILD_CODE = 'GARMETIX-7G-20260610-360'
 
 export const APP_HIGHLIGHTS = [
+  'Stage 7G adds central permission-aware menu filtering, page guards and Access Denied routing',
   'Stage 7F removes duplicate Help, Account, and Workspace entries from the main sidebar while keeping them in footer/status menus',
   'Stage 7D adds controlled collapsible sidebar, icon-only mode and footer account menu',
   'Stage 7C adds dashboard breadcrumbs, favorites, recent pages and Ctrl/Cmd+K command memory',

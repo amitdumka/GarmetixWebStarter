@@ -2,20 +2,31 @@
 
 ## Completed
 
-- Stage 7A: Nuxt UI Dashboard-style shell with collapsible sidebar/topbar and role dashboard routes.
-- Stage 7B: Smart `/dashboard` landing, store-manager dashboard, business dashboard, role/workspace analytics.
-- Stage 7C: Dashboard UX polish, breadcrumbs, favorites, recent pages, keyboard command search and Dashboard Map page.
-- Stage 7D: controlled collapsible sidebar, icon-only mode, footer account dropdown and Nuxt UI Dashboard-style primary/utility navigation.
-- Stage 7E: removed bulky sidebar status card; moved clock/store/API/version status into compact topbar/context/footer surfaces.
-- Stage 7F: removed duplicate Help and Account groups from main sidebar; removed standalone Workspace footer item and kept workspace inside Status & Workspace dropdown.
+- Stage 7A: Nuxt UI Dashboard shell and role dashboards.
+- Stage 7B: Smart dashboard route and deeper dashboard analytics.
+- Stage 7C: Dashboard UX polish, favorites, recent pages, breadcrumbs and command search.
+- Stage 7D: True collapsible sidebar and footer account menu.
+- Stage 7E: Sidebar status cleanup and compact topbar/footer status surfaces.
+- Stage 7F: Removed duplicate Help, Account and Workspace entries from main sidebar.
+- Stage 7G: Permission-aware menus, command search and protected frontend routes.
 
-## Remaining candidates
+## Next recommended stages
 
-- Stage 7G: deeper widgets/charts for sales, purchase, profit, stock and GST health.
-- Stage 7H: dashboard personalization per role/user, saved filters and configurable cards.
-- Stage 7I: command palette actions beyond navigation, such as create sale, create purchase, open customer, open stock.
-- Stage 7J: notification center and dashboard alerts from message logs/system health.
+### Stage 7H — Runtime Build Fix Pass + Menu Permission Tuning
 
-## Safety policy
+- Run Docker build locally.
+- Fix any Nuxt/TypeScript compile issues from Stage 7G.
+- Adjust role mapping if any real user role needs more/less access.
+- Add an admin UI preview of menu visibility by role.
 
-Do not remove old pages without explicit confirmation. Keep `NUXT_PUBLIC_DASHBOARD_SHELL=legacy` until the new dashboard shell is accepted in production.
+### Stage 7I — Dashboard Widgets and Charts
+
+- Add sales/purchase/profit charts.
+- Add GST vs Non-GST split.
+- Add stock ageing and low-stock risk dashboard.
+- Add store-group and company comparison charts.
+
+### Stage 7J — Page Standardization
+
+- Convert old page headers/forms/tables to the newer dashboard shell style.
+- Standardize empty states, error states and loading skeletons.

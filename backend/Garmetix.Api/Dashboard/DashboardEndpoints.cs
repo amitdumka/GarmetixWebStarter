@@ -31,11 +31,12 @@ public static class DashboardEndpoints
         var canOpenBusiness = WorkspaceScope.HasFullAccess(context)
             || combined.Contains("admin")
             || combined.Contains("owner")
-            || combined.Contains("accountant");
+            || combined.Contains("accountant")
+            || combined.Contains("poweruser");
         var route = canOpenBusiness ? "/dashboard/business" : "/dashboard/store-manager";
         var dashboardType = canOpenBusiness ? "Business" : "StoreManager";
         var reason = canOpenBusiness
-            ? "Owner, admin and accountant users start with company/store-group dashboard."
+            ? "Owner, admin, power user and accountant users start with company/store-group dashboard."
             : "Store scoped users start with the store manager dashboard.";
 
         return Task.FromResult(new DashboardHomeDto(route, dashboardType, reason, canOpenBusiness, true));

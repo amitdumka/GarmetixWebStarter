@@ -5,11 +5,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "3.5.0";
-    public const string Stage = "Stage 7F";
-    public const string ReleaseName = "Dashboard Sidebar Menu Cleanup";
+    public const string Version = "3.6.0";
+    public const string Stage = "Stage 7G";
+    public const string ReleaseName = "Permission-Aware Dashboard Access";
     public const string BuildDate = "2026-06-10";
-    public const string BuildCode = "GARMETIX-7F-20260610-350";
+    public const string BuildCode = "GARMETIX-7G-20260610-360";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -60,6 +60,7 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stage 7G adds central permission-aware menu filtering, page guards and Access Denied routing",
         "Stage 7F removes duplicate Help, Account, and Workspace entries from the main sidebar while keeping them in footer/status menus",
         "Stage 7D adds controlled collapsible sidebar, icon-only collapsed mode and dashboard-template style footer account menu",
         "Stage 7C adds dashboard breadcrumbs, favorites, recent pages and Ctrl/Cmd+K command memory",

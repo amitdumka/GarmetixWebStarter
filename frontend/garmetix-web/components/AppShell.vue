@@ -35,6 +35,7 @@ const workspace = useWorkspace()
 const route = useRoute()
 const colorMode = useColorMode()
 const feedback = useUiFeedback()
+const access = useAccessControl()
 
 const useLegacyShell = computed(() => config.public.dashboardShell === 'legacy')
 const storeGroups = ref<any[]>([])
@@ -143,7 +144,7 @@ const isCompanyLocked = computed(() => Boolean(workspaceOptions.value?.isCompany
 const isStoreGroupLocked = computed(() => Boolean(workspaceOptions.value?.isStoreGroupLocked || auth.user.value?.storeGroupId))
 const isStoreLocked = computed(() => Boolean(workspaceOptions.value?.isStoreLocked || auth.user.value?.storeId))
 const roleKey = computed(() => `${auth.user.value?.role || ''} ${auth.user.value?.userType || ''}`.toLowerCase())
-const isBusinessUser = computed(() => auth.canSeeAdmin.value || roleKey.value.includes('accountant'))
+const isBusinessUser = computed(() => auth.canSeeAdmin.value || roleKey.value.includes('accountant') || roleKey.value.includes('poweruser') || roleKey.value.includes('remoteaccountant'))
 const dashboardHomePath = computed(() => isBusinessUser.value ? '/dashboard/business' : '/dashboard/store-manager')
 const visibleGroups = computed(() => moduleGroups
   .map((group) => ({
@@ -236,7 +237,7 @@ const userInitials = computed(() => {
 })
 const sidebarStateLabel = computed(() => sidebarCollapsed.value ? 'Expand sidebar' : 'Collapse sidebar')
 const sidebarStateIcon = computed(() => sidebarCollapsed.value ? 'i-lucide-panel-left-open' : 'i-lucide-panel-left-close')
-const accountDropdownItems = computed<DropdownMenuItem[][]>(() => [
+const accountDropdownItems = computed<DropdownMenuItem[][]>(() => sanitizeDropdownGroups([
   [
     { label: userDisplayName.value, type: 'label' },
     { label: userEmail.value, icon: 'i-lucide-mail', disabled: true }
@@ -255,7 +256,7 @@ const accountDropdownItems = computed<DropdownMenuItem[][]>(() => [
   [
     { label: 'Logout', icon: 'i-lucide-log-out', color: 'error', onSelect: logout }
   ]
-])
+]))
 
 const allowedCompanies = computed(() => shellCompanies.value.filter((company) =>
   !auth.user.value?.companyId || company.id === auth.user.value.companyId))
@@ -305,7 +306,7 @@ const apiBadge = computed(() => {
     : { label: 'API Offline', color: 'error' as const, icon: 'i-lucide-wifi-off' }
 })
 
-const systemStatusDropdownItems = computed<DropdownMenuItem[][]>(() => [
+const systemStatusDropdownItems = computed<DropdownMenuItem[][]>(() => sanitizeDropdownGroups([
   [
     { label: workingStoreName.value, icon: 'i-lucide-store', disabled: true },
     { label: workingCompanyName.value, icon: 'i-lucide-building-2', disabled: true },
@@ -319,9 +320,12 @@ const systemStatusDropdownItems = computed<DropdownMenuItem[][]>(() => [
     { label: 'Message Logs', icon: 'i-lucide-list-collapse', to: '/message-logs' },
     { label: 'About Version', icon: 'i-lucide-info', to: '/about-us' }
   ]
-])
+]))
 
 function isVisibleItem(item: MenuItem) {
+  if (!access.canAccessPath(item.to)) {
+    return false
+  }
   if (item.adminOnly && !auth.canSeeAdmin.value) {
     return false
   }
@@ -335,6 +339,12 @@ function isVisibleItem(item: MenuItem) {
     return true
   }
   return item.roles.some((role) => roleKey.value.includes(role)) || auth.canSeeAdmin.value
+}
+
+function sanitizeDropdownGroups(groups: DropdownMenuItem[][]): DropdownMenuItem[][] {
+  return groups
+    .map((group) => group.filter((item) => !('to' in item) || !item.to || access.canAccessPath(String(item.to))))
+    .filter((group) => group.length > 0)
 }
 
 function isActive(to: string) {
@@ -495,7 +505,7 @@ onBeforeUnmount(() => {
             </div>
             <div v-if="!collapsed" class="min-w-0">
               <p class="dashboard-brand-title">Garmetix</p>
-              <p class="dashboard-brand-subtitle">Dashboard shell · v3.5</p>
+              <p class="dashboard-brand-subtitle">Dashboard shell · v3.6</p>
             </div>
           </NuxtLink>
           <UButton
