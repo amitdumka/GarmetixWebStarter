@@ -246,6 +246,7 @@ const accountDropdownItems = computed<DropdownMenuItem[][]>(() => sanitizeDropdo
     { label: 'My Profile', icon: 'i-lucide-user-cog', to: '/profile' },
     { label: 'Smart Dashboard', icon: 'i-lucide-gauge', to: '/dashboard' },
     { label: 'Dashboard Map', icon: 'i-lucide-map', to: '/dashboard/map' },
+    { label: 'System Info', icon: 'i-lucide-monitor-cog', to: '/system-info' },
     { label: 'Message Logs', icon: 'i-lucide-list-collapse', to: '/message-logs' }
   ],
   [
@@ -316,6 +317,7 @@ const systemStatusDropdownItems = computed<DropdownMenuItem[][]>(() => sanitizeD
   ],
   [
     { label: 'Change workspace', icon: 'i-lucide-building-2', onSelect: () => { workspaceOpen.value = true } },
+    { label: 'System Info', icon: 'i-lucide-monitor-cog', to: '/system-info' },
     { label: 'System Health', icon: 'i-lucide-activity', to: '/system-health' },
     { label: 'Message Logs', icon: 'i-lucide-list-collapse', to: '/message-logs' },
     { label: 'About Version', icon: 'i-lucide-info', to: '/about-us' }
@@ -505,7 +507,7 @@ onBeforeUnmount(() => {
             </div>
             <div v-if="!collapsed" class="min-w-0">
               <p class="dashboard-brand-title">Garmetix</p>
-              <p class="dashboard-brand-subtitle">Dashboard shell · v3.6</p>
+              <p class="dashboard-brand-subtitle">Dashboard shell · v3.7</p>
             </div>
           </NuxtLink>
           <UButton

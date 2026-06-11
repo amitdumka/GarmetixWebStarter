@@ -1,10 +1,12 @@
-export const APP_VERSION = '3.6.0'
-export const APP_STAGE = 'Stage 7G'
-export const APP_RELEASE_NAME = 'Permission-Aware Dashboard Access'
+export const APP_VERSION = '3.8.0'
+export const APP_STAGE = 'Stage 7I'
+export const APP_RELEASE_NAME = 'Reusable Dashboard Components and Widget Polish'
 export const APP_BUILD_DATE = '2026-06-10'
-export const APP_BUILD_CODE = 'GARMETIX-7G-20260610-360'
+export const APP_BUILD_CODE = 'GARMETIX-7I-20260610-380'
 
 export const APP_HIGHLIGHTS = [
+  'Stage 7I refactors dashboard widgets into reusable Nuxt UI components with shared empty, loading, metric, chart, list and table states',
+  'Stage 7H adds System Info, version match checks, route audit and safer dashboard rollback visibility',
   'Stage 7G adds central permission-aware menu filtering, page guards and Access Denied routing',
   'Stage 7F removes duplicate Help, Account, and Workspace entries from the main sidebar while keeping them in footer/status menus',
   'Stage 7D adds controlled collapsible sidebar, icon-only mode and footer account menu',

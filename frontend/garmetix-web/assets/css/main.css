@@ -3176,3 +3176,16 @@ select {
   color: var(--muted);
   font-size: 12px;
 }
+
+/* Stage 7I reusable dashboard component polish */
+.dashboard-v3-skeleton-card {
+  min-height: 112px;
+}
+
+.dashboard-v3-full-row {
+  grid-column: 1 / -1;
+}
+
+.dashboard-v3-full-row {
+  min-width: 0;
+}

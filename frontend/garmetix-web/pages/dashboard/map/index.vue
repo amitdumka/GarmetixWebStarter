@@ -13,6 +13,7 @@ const dashboardLinks = [
   { label: 'Smart Dashboard', to: '/dashboard', icon: 'i-lucide-gauge', description: 'Role-aware landing page that routes users to the correct dashboard.' },
   { label: 'Store Manager Dashboard', to: '/dashboard/store-manager', icon: 'i-lucide-store', description: 'Current-store sales, stock, alerts and daily action view.' },
   { label: 'Owner / Admin Dashboard', to: '/dashboard/business', icon: 'i-lucide-chart-no-axes-combined', description: 'Company, store-group and store-level executive analytics.' },
+  { label: 'System Info', to: '/system-info', icon: 'i-lucide-monitor-cog', description: 'Version match, API status, shell mode and permission route audit.' },
   { label: 'Legacy Overview', to: '/', icon: 'i-lucide-layout-dashboard', description: 'Old dashboard page kept safely for rollback and comparison.' }
 ]
 
@@ -20,7 +21,7 @@ const mainMenuGroups = [
   { label: 'Dashboards', count: 8, description: 'Smart landing, store manager, business, reports and GST dashboards.' },
   { label: 'Operations', count: 17, description: 'Billing, inventory, purchase, returns, customers, vouchers and accounting.' },
   { label: 'People', count: 2, description: 'HR and payroll operations.' },
-  { label: 'Admin', count: 12, description: 'Setup, onboarding, logs, access, health, repair and integration tools.' },
+  { label: 'Admin', count: 13, description: 'Setup, onboarding, logs, access, system info, health, repair and integration tools.' },
   { label: 'Footer Account', count: 4, description: 'Profile, Help, Message Logs and Logout remain in the footer/user menus.' }
 ]
 
@@ -33,7 +34,8 @@ const templateChecklist = [
   'Favorites and recent pages are stored locally per browser.',
   'Bottom utility navigation and footer account dropdown mirror Nuxt UI Dashboard template patterns.',
   'No major page was removed during Stage 7.',
-  'Stage 7G adds one central access map used by menus and route guards.'
+  'Stage 7G adds one central access map used by menus and route guards.',
+  'Stage 7H adds System Info for version match, route audit and rollback visibility.'
 ]
 
 const accessibleRouteRules = computed(() => access.routeRules.map((rule) => ({

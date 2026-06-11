@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 
 namespace Garmetix.Api.AppInfo;
@@ -5,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "3.6.0";
-    public const string Stage = "Stage 7G";
-    public const string ReleaseName = "Permission-Aware Dashboard Access";
+    public const string Version = "3.8.0";
+    public const string Stage = "Stage 7I";
+    public const string ReleaseName = "Reusable Dashboard Components and Widget Polish";
     public const string BuildDate = "2026-06-10";
-    public const string BuildCode = "GARMETIX-7G-20260610-360";
+    public const string BuildCode = "GARMETIX-7I-20260610-380";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -21,6 +22,7 @@ public static class AppInfoEndpoints
         group.MapGet("/version", VersionOnly);
         group.MapGet("/faq", Faq);
         group.MapGet("/contacts", Contacts);
+        group.MapGet("/system", SystemInfo);
 
         return group;
     }
@@ -41,6 +43,25 @@ public static class AppInfoEndpoints
             assemblyVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString()
         });
 
+
+    private static IResult SystemInfo(IHostEnvironment environment)
+    {
+        var startedAt = Process.GetCurrentProcess().StartTime.ToUniversalTime();
+        var now = DateTime.UtcNow;
+        return Results.Ok(new AppSystemInfoDto(
+            ProductName,
+            Version,
+            Stage,
+            ReleaseName,
+            BuildDate,
+            BuildCode,
+            environment.EnvironmentName,
+            now.ToString("O"),
+            startedAt.ToString("O"),
+            Convert.ToInt64((now - startedAt).TotalSeconds),
+            Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? string.Empty));
+    }
+
     private static IResult Faq() => Results.Ok(FaqItems);
 
     private static IResult Contacts() => Results.Ok(ContactItems);
@@ -60,6 +81,8 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stage 7I refactors dashboard widgets into reusable Nuxt UI components with shared empty, loading, metric, chart, list and table states",
+        "Stage 7H adds System Info, version match checks, route audit and safer dashboard rollback visibility",
         "Stage 7G adds central permission-aware menu filtering, page guards and Access Denied routing",
         "Stage 7F removes duplicate Help, Account, and Workspace entries from the main sidebar while keeping them in footer/status menus",
         "Stage 7D adds controlled collapsible sidebar, icon-only collapsed mode and dashboard-template style footer account menu",

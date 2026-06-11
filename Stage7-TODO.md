@@ -9,24 +9,35 @@
 - Stage 7E: Sidebar status cleanup and compact topbar/footer status surfaces.
 - Stage 7F: Removed duplicate Help, Account and Workspace entries from main sidebar.
 - Stage 7G: Permission-aware menus, command search and protected frontend routes.
+- Stage 7H: System Info page, version match check and route audit.
+- Stage 7I: Reusable dashboard widget components, shared loading skeletons, empty states, metric cards, trend chart, item lists and performance tables.
 
 ## Next recommended stages
 
-### Stage 7H — Runtime Build Fix Pass + Menu Permission Tuning
+### Stage 7J — Runtime Build Fix Pass + Page Standardization
 
-- Run Docker build locally.
-- Fix any Nuxt/TypeScript compile issues from Stage 7G.
-- Adjust role mapping if any real user role needs more/less access.
-- Add an admin UI preview of menu visibility by role.
+- Run Docker build locally and fix any Nuxt/.NET compile/runtime errors.
+- Apply the reusable dashboard components to more pages where it improves consistency.
+- Standardize page headers, filter bars, empty states and table actions across older pages.
+- Replace repeated custom dashboard-style snippets with componentized UI blocks.
 
-### Stage 7I — Dashboard Widgets and Charts
+### Stage 7K — Dashboard Charts and Drilldowns
 
 - Add sales/purchase/profit charts.
 - Add GST vs Non-GST split.
 - Add stock ageing and low-stock risk dashboard.
-- Add store-group and company comparison charts.
+- Add store-group and company comparison drilldowns.
+- Add CSV/PDF export for dashboard widgets.
 
-### Stage 7J — Page Standardization
+### Stage 7L — User Preferences
 
-- Convert old page headers/forms/tables to the newer dashboard shell style.
-- Standardize empty states, error states and loading skeletons.
+- Add default landing dashboard preference.
+- Add favorite KPI/widget preferences.
+- Add collapsed sidebar preference persisted per user.
+- Add theme/accent preference persistence.
+
+## Revert Safety
+
+- Legacy shell remains available using `NUXT_PUBLIC_DASHBOARD_SHELL=legacy`.
+- Existing pages and routes remain preserved.
+- Stage 7I only refactors dashboard page presentation into reusable components; dashboard API contracts are unchanged.

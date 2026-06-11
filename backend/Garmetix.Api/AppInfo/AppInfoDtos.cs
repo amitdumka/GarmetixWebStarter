@@ -22,3 +22,17 @@ public sealed record AppFaqDto(
     string Question,
     string Answer,
     string Category);
+
+
+public sealed record AppSystemInfoDto(
+    string ProductName,
+    string Version,
+    string Stage,
+    string ReleaseName,
+    string BuildDate,
+    string BuildCode,
+    string Environment,
+    string ServerTimeUtc,
+    string ProcessStartedAtUtc,
+    long UptimeSeconds,
+    string AssemblyVersion);

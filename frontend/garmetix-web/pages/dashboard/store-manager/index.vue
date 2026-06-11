@@ -35,193 +35,77 @@ async function refresh() {
   }
 }
 
-function money(value: number) {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(value || 0))
-}
-
-function dateTime(value: string) {
-  return value ? new Date(value).toLocaleString('en-IN') : '-'
-}
-
-function statusColor(status: string) {
-  const value = String(status || '').toLowerCase()
-  if (value.includes('ready') || value.includes('paid') || value.includes('done')) return 'success'
-  if (value.includes('required') || value.includes('low')) return 'warning'
-  if (value.includes('cancel') || value.includes('fail')) return 'error'
-  return 'neutral'
-}
-
-function trendHeight(value: number, key: 'sales' | 'purchase') {
-  const rows = data.value?.trend || []
-  const max = Math.max(1, ...rows.map((row: any) => Number(row[key] || 0)))
-  return `${Math.max(6, Math.round((Number(value || 0) / max) * 100))}%`
-}
-
 onMounted(refresh)
 </script>
 
 <template>
   <AppShell title="Store Manager Dashboard" :companies="companies" :stores="stores" @refresh="refresh" @workspace-change="refresh">
     <section class="dashboard-v3-page">
-      <div class="dashboard-v3-hero">
-        <div>
-          <UBadge color="primary" variant="subtle" icon="i-lucide-store">Current Store</UBadge>
-          <h1>Store Manager Dashboard</h1>
-          <p>{{ data?.scope?.storeName || 'Store scoped operational dashboard' }} · {{ data?.scope?.companyName || 'Company' }}</p>
-        </div>
-        <div class="dashboard-v3-hero-actions">
-          <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">{{ loading ? 'Loading' : 'Live' }}</UBadge>
-          <UButton icon="i-lucide-refresh-cw" label="Refresh" :loading="loading" @click="refresh" />
-        </div>
-      </div>
+      <DashboardPageHero
+        badge="Current Store"
+        badge-icon="i-lucide-store"
+        title="Store Manager Dashboard"
+        :subtitle="`${data?.scope?.storeName || 'Store scoped operational dashboard'} · ${data?.scope?.companyName || 'Company'}`"
+        :loading="loading"
+        @refresh="refresh"
+      />
 
-      <div class="dashboard-v3-metric-grid">
-        <UCard v-for="metric in data?.metrics || []" :key="metric.label" class="dashboard-v3-metric-card">
-          <div class="dashboard-v3-metric-body">
-            <div>
-              <p>{{ metric.label }}</p>
-              <strong>{{ metric.displayValue }}</strong>
-              <span>{{ metric.caption }}</span>
-            </div>
-            <UBadge :color="metric.color" variant="subtle" :icon="metric.icon" />
-          </div>
-        </UCard>
-      </div>
-
-
+      <DashboardMetricGrid :metrics="data?.metrics || []" :loading="loading" />
 
       <div class="dashboard-v3-insight-grid">
-        <UCard class="dashboard-v3-card">
-          <template #header>
-            <div class="dashboard-v3-card-header">
-              <div>
-                <h2>Quick actions</h2>
-                <p>Common store manager tasks.</p>
-              </div>
-            </div>
-          </template>
-          <div class="dashboard-v3-action-grid">
-            <NuxtLink v-for="action in data?.quickActions || []" :key="action.to" :to="action.to" class="dashboard-v3-action-card">
-              <UIcon :name="action.icon" class="h-5 w-5" />
-              <span>
-                <strong>{{ action.label }}</strong>
-                <small>{{ action.description }}</small>
-              </span>
-              <UBadge v-if="action.attention" color="warning" variant="subtle">Check</UBadge>
-            </NuxtLink>
-          </div>
-        </UCard>
+        <DashboardActionGrid
+          title="Quick actions"
+          description="Common store manager tasks."
+          :actions="data?.quickActions || []"
+        />
 
-        <UCard class="dashboard-v3-card">
-          <template #header>
-            <div class="dashboard-v3-card-header">
-              <div>
-                <h2>Store health</h2>
-                <p>Signals for daily close.</p>
-              </div>
-            </div>
-          </template>
-          <div class="dashboard-v3-health-grid">
-            <div v-for="signal in data?.healthSignals || []" :key="signal.label" class="dashboard-v3-health-card">
-              <UBadge :color="signal.color" variant="subtle" :icon="signal.icon">{{ signal.status }}</UBadge>
-              <strong>{{ signal.value }}</strong>
-              <span>{{ signal.label }}</span>
-              <small>{{ signal.description }}</small>
-            </div>
-          </div>
-        </UCard>
+        <DashboardHealthGrid
+          title="Store health"
+          description="Signals for daily close."
+          :signals="data?.healthSignals || []"
+        />
       </div>
 
       <div class="dashboard-v3-grid">
-        <UCard class="dashboard-v3-card dashboard-v3-wide">
-          <template #header>
-            <div class="dashboard-v3-card-header">
-              <div>
-                <h2>7-day sales / purchase trend</h2>
-                <p>Operational movement for the selected store.</p>
-              </div>
-              <UBadge color="neutral" variant="subtle">Daily</UBadge>
-            </div>
-          </template>
-          <div class="dashboard-v3-chart">
-            <div v-for="point in data?.trend || []" :key="point.label" class="dashboard-v3-chart-day">
-              <div class="dashboard-v3-chart-bars">
-                <span class="sales" :style="{ height: trendHeight(point.sales, 'sales') }" />
-                <span class="purchase" :style="{ height: trendHeight(point.purchase, 'purchase') }" />
-              </div>
-              <small>{{ point.label }}</small>
-            </div>
-          </div>
-          <div class="dashboard-v3-legend">
-            <span><i class="sales" /> Sales</span>
-            <span><i class="purchase" /> Purchase</span>
-          </div>
-        </UCard>
+        <DashboardTrendChart
+          title="7-day sales / purchase trend"
+          description="Operational movement for the selected store."
+          :points="data?.trend || []"
+        />
 
-        <UCard class="dashboard-v3-card">
-          <template #header>
-            <div class="dashboard-v3-card-header">
-              <div>
-                <h2>Work queue</h2>
-                <p>Daily operating shortcuts.</p>
-              </div>
-            </div>
-          </template>
-          <div class="dashboard-v3-list">
-            <NuxtLink v-for="item in data?.workQueue || []" :key="item.title" :to="`/${item.resource}`" class="dashboard-v3-list-item">
-              <UIcon name="i-lucide-arrow-up-right" class="h-4 w-4" />
-              <span>
-                <strong>{{ item.title }}</strong>
-                <small>{{ item.subtitle }}</small>
-              </span>
-              <UBadge :color="statusColor(item.status)" variant="subtle">{{ item.status }}</UBadge>
-            </NuxtLink>
-          </div>
-        </UCard>
+        <DashboardItemList
+          title="Work queue"
+          description="Daily operating shortcuts."
+          :items="data?.workQueue || []"
+          icon="i-lucide-arrow-up-right"
+          item-to="dashboard"
+          empty-title="No pending work"
+          empty-description="Your daily work queue is clear for the selected store."
+        />
 
-        <UCard class="dashboard-v3-card">
-          <template #header>
-            <div class="dashboard-v3-card-header">
-              <div>
-                <h2>Recent sales</h2>
-                <p>Latest bills for the selected store.</p>
-              </div>
-            </div>
-          </template>
-          <div class="dashboard-v3-list">
-            <div v-for="item in data?.recentSales || []" :key="item.resourceId || item.title" class="dashboard-v3-list-item">
-              <UIcon name="i-lucide-receipt-indian-rupee" class="h-4 w-4" />
-              <span>
-                <strong>{{ item.title }}</strong>
-                <small>{{ item.subtitle }} · {{ dateTime(item.onDate) }}</small>
-              </span>
-              <strong>{{ item.amount }}</strong>
-            </div>
-          </div>
-        </UCard>
+        <DashboardItemList
+          title="Recent sales"
+          description="Latest bills for the selected store."
+          :items="data?.recentSales || []"
+          icon="i-lucide-receipt-indian-rupee"
+          :show-date="true"
+          empty-title="No recent sales"
+          empty-description="Recent sales will appear after billing activity is recorded."
+        />
 
-        <UCard class="dashboard-v3-card">
-          <template #header>
-            <div class="dashboard-v3-card-header">
-              <div>
-                <h2>Low stock alerts</h2>
-                <p>Items at or below reorder threshold.</p>
-              </div>
-              <UButton to="/inventory" size="xs" variant="ghost" icon="i-lucide-boxes" label="Inventory" />
-            </div>
+        <DashboardItemList
+          title="Low stock alerts"
+          description="Items at or below reorder threshold."
+          :items="data?.stockAlerts || []"
+          icon="i-lucide-triangle-alert"
+          amount-prefix="Qty "
+          empty-title="No low stock"
+          empty-description="All selected-store items are above the alert threshold."
+        >
+          <template #action>
+            <UButton to="/inventory" size="xs" variant="ghost" icon="i-lucide-boxes" label="Inventory" />
           </template>
-          <div class="dashboard-v3-list">
-            <div v-for="item in data?.stockAlerts || []" :key="item.resourceId || item.title" class="dashboard-v3-list-item">
-              <UIcon name="i-lucide-triangle-alert" class="h-4 w-4" />
-              <span>
-                <strong>{{ item.title }}</strong>
-                <small>{{ item.subtitle }}</small>
-              </span>
-              <UBadge color="warning" variant="subtle">Qty {{ item.amount }}</UBadge>
-            </div>
-            <UiCrudEmptyState v-if="!data?.stockAlerts?.length" title="No low stock" description="All selected-store items are above the alert threshold." icon="i-lucide-check-circle" />
-          </div>
-        </UCard>
+        </DashboardItemList>
       </div>
     </section>
   </AppShell>

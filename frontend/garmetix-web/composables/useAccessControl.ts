@@ -74,6 +74,7 @@ const routeRules: PageAccessRule[] = [
   { path: '/client-onboarding', label: 'Client Onboarding', module: 'Admin', roles: ['admin', 'owner'] },
   { path: '/af-ss', label: 'AF/SS Seeder', module: 'Admin', roles: ['admin', 'owner'] },
   { path: '/message-logs', label: 'Message Logs', module: 'Admin', roles: ['admin', 'owner'] },
+  { path: '/system-info', label: 'System Info', module: 'Admin', roles: ['admin', 'owner'] },
   { path: '/access', label: 'Roles & Users', module: 'Admin', roles: ['admin', 'owner'] },
   { path: '/import-export', label: 'Import Export', module: 'Admin', roles: ['admin', 'owner'] },
   { path: '/audit', label: 'Audit', module: 'Admin', roles: ['admin', 'owner'] },
