@@ -7,11 +7,11 @@ const search = ref('')
 const selectedCategory = ref('')
 
 const fallbackFaqs = [
-  { question: 'How do I know which code version is running?', answer: 'Open About Us and check Version, Stage, Build Date and Build Code. The same data is also available from /api/app-info/version.', category: 'Version' },
+  { question: 'How do I know which code version is running?', answer: 'Open About us and check the version, release, build date and build code. The same data is also available from /api/app-info/version.', category: 'Version' },
   { question: 'When should the version number change?', answer: 'Every packaged code change should update the central version constants in backend AppInfoEndpoints and frontend appVersion.ts.', category: 'Version' },
   { question: 'Where do I onboard the first company?', answer: 'Use Admin > Onboarding.', category: 'Onboarding' },
   { question: 'Where do I seed AF/SS default data?', answer: 'Use Admin > AF/SS.', category: 'Seeder' },
-  { question: 'Where can I see success or failure messages?', answer: 'Use Admin > Message Logs.', category: 'Logs' }
+  { question: 'Where can I see success or failure messages?', answer: 'Use Data > Message Logs.', category: 'Logs' }
 ]
 
 const faqs = computed(() => serverInfo.value?.faqs?.length ? serverInfo.value.faqs : fallbackFaqs)
@@ -54,7 +54,7 @@ onMounted(refresh)
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div class="space-y-2">
             <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Help center</p>
-            <h1 class="text-3xl font-bold text-slate-950 dark:text-white">Frequently Asked Questions</h1>
+            <h1 class="text-2xl font-bold text-slate-950 dark:text-white">Frequently asked questions</h1>
             <p class="max-w-3xl text-sm text-slate-500 dark:text-slate-400">
               Common questions for version identity, onboarding, seeding, logs and deployment.
             </p>

@@ -160,7 +160,7 @@ onMounted(refresh)
             <div class="flex items-center gap-3">
               <UIcon name="i-lucide-route" class="h-8 w-8 text-primary" />
               <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Stage 6A</p>
+                <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Client onboarding</p>
                 <h1 class="text-2xl font-bold text-slate-950 dark:text-white">First company onboarding</h1>
               </div>
             </div>

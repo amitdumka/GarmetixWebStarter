@@ -410,7 +410,7 @@ onMounted(async () => {
     <section class="planner-dashboard">
       <UiModulePageHeader
         title="Inventory"
-        description="Stage 3A Product Master: product type/group, HSN, GST, category, vendor, brand, style, color, and stock defaults."
+        description="Manage product type, group, HSN, GST, category, vendor, brand, style, color and stock defaults."
         icon="i-lucide-boxes"
         primary-label="New Product"
         primary-icon="i-lucide-package-plus"

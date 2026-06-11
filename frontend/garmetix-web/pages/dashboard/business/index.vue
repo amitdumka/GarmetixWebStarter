@@ -12,6 +12,12 @@ let autoRefreshTimer: ReturnType<typeof setInterval> | undefined
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 
+const companyDashboardTitle = computed(() => data.value?.scope?.companyName || 'Company Dashboard')
+const companyDashboardSubtitle = computed(() => {
+  const parts = [data.value?.period?.label || preferences.rangeLabel.value, data.value?.scope?.storeGroupName, data.value?.scope?.storeName].filter(Boolean)
+  return parts.length ? parts.join(' · ') : 'Company, store-group and store performance overview.'
+})
+
 const scopeQuery = computed(() => {
   const params = new URLSearchParams()
   if (workspace.companyId.value) params.set('companyId', workspace.companyId.value)
@@ -131,13 +137,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <AppShell title="Owner / Admin Dashboard" :companies="companies" :stores="stores" @refresh="refresh" @workspace-change="refresh">
+  <AppShell :title="companyDashboardTitle" :companies="companies" :stores="stores" @refresh="refresh" @workspace-change="refresh">
     <section class="dashboard-v3-page">
       <DashboardPageHero
-        :badge="userRole"
+        badge="Company"
         badge-icon="i-lucide-building-2"
-        title="Company & Store Group Dashboard"
-        :subtitle="`${data?.scope?.companyName || 'Company scope'} · ${data?.scope?.storeGroupName || 'Store group scope'} · ${data?.period?.label || preferences.rangeLabel.value}`"
+        :title="companyDashboardTitle"
+        :subtitle="companyDashboardSubtitle"
         :loading="loading"
         business
         @refresh="refresh"
@@ -166,8 +172,8 @@ onBeforeUnmount(() => {
       <DashboardMetricGrid :metrics="data?.metrics || []" :loading="loading" business />
 
       <DashboardExportActions
-        title="Business Dashboard"
-        file-name="business-dashboard"
+        :title="companyDashboardTitle"
+        file-name="company-dashboard"
         :data="data"
         :tables="exportTables"
         :loading="loading"
@@ -199,7 +205,7 @@ onBeforeUnmount(() => {
         />
 
         <DashboardHealthGrid
-          title="Business health"
+          title="Company health"
           description="Company and store-group level signals."
           :signals="data?.healthSignals || []"
         />
@@ -207,7 +213,7 @@ onBeforeUnmount(() => {
 
       <div class="dashboard-v3-grid business">
         <DashboardTrendChart
-          title="7-day business trend"
+          title="7-day company trend"
           description="Sales and purchase across permitted stores."
           :points="data?.trend || []"
         />

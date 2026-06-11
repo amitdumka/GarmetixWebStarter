@@ -223,7 +223,7 @@ onMounted(async () => {
       <UCard class="planner-card">
         <div class="consistency-header">
           <div>
-            <p class="eyebrow">Stage 4D</p>
+            <p class="eyebrow">Data consistency</p>
             <h1>Data Consistency Verification</h1>
             <p>Run production-readiness checks for stock, document numbers, GST totals, payments, and accounting journals.</p>
           </div>

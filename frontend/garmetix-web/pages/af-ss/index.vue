@@ -109,7 +109,7 @@ onMounted(refresh)
             <div class="flex items-center gap-3">
               <UIcon name="i-lucide-database-backup" class="h-8 w-8 text-primary" />
               <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Stage 5F</p>
+                <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">AF/SS seeder</p>
                 <h1 class="text-2xl font-bold text-slate-950 dark:text-white">AF/SS default seeder</h1>
               </div>
             </div>

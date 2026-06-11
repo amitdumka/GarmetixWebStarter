@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, NavigationMenuItem } from '@nuxt/ui'
-import { APP_VERSION, APP_STAGE } from '~/utils/appVersion'
+import { APP_VERSION, APP_RELEASE_NAME } from '~/utils/appVersion'
 
 type MenuItem = {
   to: string
@@ -75,35 +75,71 @@ const moduleGroups: MenuGroup[] = [
   {
     label: 'Dashboards',
     items: [
-      { to: '/dashboard', label: 'Smart Dashboard', icon: 'i-lucide-gauge', keywords: ['home', 'landing', 'role dashboard'] },
-      { to: '/dashboard/map', label: 'Dashboard Map', icon: 'i-lucide-map', keywords: ['template', 'revert', 'menus', 'stage 7'] },
-      { to: '/dashboard/store-manager', label: 'Store Manager', icon: 'i-lucide-store', roles: ['storemanager', 'manager'], keywords: ['store', 'today', 'manager'] },
-      { to: '/dashboard/business', label: 'Owner / Admin', icon: 'i-lucide-chart-no-axes-combined', roles: ['owner', 'admin', 'accountant'], keywords: ['owner', 'admin', 'accountant', 'company'] },
-      { to: '/', label: 'Legacy Overview', icon: 'i-lucide-layout-dashboard', stage: 'revert-safe' },
-      { to: '/reports', label: 'Reports', icon: 'i-lucide-file-text' },
+      { to: '/dashboard', label: 'Dashboard', icon: 'i-lucide-gauge', keywords: ['home', 'landing', 'role dashboard'] },
+      { to: '/dashboard/store-manager', label: 'Store', icon: 'i-lucide-store', roles: ['storemanager', 'manager'], keywords: ['store', 'today', 'manager'] },
+      { to: '/dashboard/business', label: 'Company', icon: 'i-lucide-chart-no-axes-combined', roles: ['owner', 'admin', 'accountant'], keywords: ['owner', 'admin', 'accountant', 'company'] },
+      { to: '/dashboard/map', label: 'Dashboard Map', icon: 'i-lucide-map', keywords: ['template', 'revert', 'menus', 'routes'] },
+      { to: '/', label: 'Legacy Overview', icon: 'i-lucide-layout-dashboard', keywords: ['old dashboard', 'overview', 'revert'] }
+    ]
+  },
+  {
+    label: 'Sales',
+    items: [
+      { to: '/billing', label: 'Billing', icon: 'i-lucide-receipt-indian-rupee' },
+      { to: '/sales-return', label: 'Sales Return', icon: 'i-lucide-rotate-ccw' }
+    ]
+  },
+  {
+    label: 'Purchase',
+    items: [
+      { to: '/purchase', label: 'Purchase', icon: 'i-lucide-package-plus' },
+      { to: '/purchase-return', label: 'Purchase Return', icon: 'i-lucide-undo-2' }
+    ]
+  },
+  {
+    label: 'Inventory',
+    items: [
+      { to: '/inventory', label: 'Product Master', icon: 'i-lucide-boxes' },
+      { to: '/stock-operations', label: 'Stock Operations', icon: 'i-lucide-arrow-left-right' }
+    ]
+  },
+  {
+    label: 'Accounting',
+    items: [
+      { to: '/accounting', label: 'Accounting', icon: 'i-lucide-landmark' },
+      { to: '/petty-cash', label: 'Petty Cash', icon: 'i-lucide-circle-dollar-sign' },
+      { to: '/vouchers', label: 'Vouchers', icon: 'i-lucide-banknote' },
+      { to: '/debit-notes', label: 'Debit Notes', icon: 'i-lucide-file-minus-2' },
+      { to: '/credit-notes', label: 'Credit Notes', icon: 'i-lucide-file-plus-2' },
+      { to: '/commercial-notes', label: 'Commercial Summary', icon: 'i-lucide-files' }
+    ]
+  },
+  {
+    label: 'CRM',
+    items: [
+      { to: '/customers', label: 'Customers', icon: 'i-lucide-user-round' },
+      { to: '/parties', label: 'Parties & Vendors', icon: 'i-lucide-users-round' },
+      { to: '/loyalty', label: 'Loyalty', icon: 'i-lucide-gift' }
+    ]
+  },
+  {
+    label: 'GST',
+    items: [
       { to: '/gst-returns', label: 'GST Returns', icon: 'i-lucide-file-json-2' },
       { to: '/gst-reports', label: 'GST Reports', icon: 'i-lucide-table-properties' }
     ]
   },
   {
-    label: 'Operations',
+    label: 'Reports',
     items: [
-      { to: '/billing', label: 'Billing', icon: 'i-lucide-receipt-indian-rupee' },
-      { to: '/sales-return', label: 'Sales Return', icon: 'i-lucide-rotate-ccw' },
-      { to: '/inventory', label: 'Inventory', icon: 'i-lucide-boxes' },
-      { to: '/stock-operations', label: 'Stock Ops', icon: 'i-lucide-arrow-left-right' },
+      { to: '/reports', label: 'Reports Center', icon: 'i-lucide-file-text' }
+    ]
+  },
+  {
+    label: 'Off Book',
+    items: [
       { to: '/non-gst-goods', label: 'Non-GST Goods', icon: 'i-lucide-file-warning' },
-      { to: '/purchase', label: 'Purchase', icon: 'i-lucide-package-plus' },
-      { to: '/purchase-return', label: 'Purchase Return', icon: 'i-lucide-undo-2' },
-      { to: '/customers', label: 'Customers', icon: 'i-lucide-user-round' },
-      { to: '/parties', label: 'Parties / Vendors', icon: 'i-lucide-users-round' },
-      { to: '/vouchers', label: 'Vouchers', icon: 'i-lucide-banknote' },
-      { to: '/debit-notes', label: 'Debit Notes', icon: 'i-lucide-file-minus-2' },
-      { to: '/credit-notes', label: 'Credit Notes', icon: 'i-lucide-file-plus-2' },
-      { to: '/commercial-notes', label: 'Commercial Summary', icon: 'i-lucide-files' },
-      { to: '/loyalty', label: 'Loyalty', icon: 'i-lucide-gift' },
-      { to: '/accounting', label: 'Accounting', icon: 'i-lucide-landmark' },
-      { to: '/petty-cash', label: 'Petty Cash', icon: 'i-lucide-circle-dollar-sign' }
+      { to: '/cash-vouchers', label: 'Cash Vouchers', icon: 'i-lucide-wallet-cards' }
     ]
   },
   {
@@ -114,27 +150,37 @@ const moduleGroups: MenuGroup[] = [
     ]
   },
   {
-    label: 'Off Book',
+    label: 'Admin',
     items: [
-      { to: '/cash-vouchers', label: 'Cash Vouchers', icon: 'i-lucide-wallet-cards' }
+      { to: '/setup', label: 'Company Setup', icon: 'i-lucide-building-2', adminOnly: true },
+      { to: '/client-onboarding', label: 'Onboarding', icon: 'i-lucide-route', adminOnly: true },
+      { to: '/af-ss', label: 'AF/SS Seeder', icon: 'i-lucide-database-backup', adminOnly: true },
+      { to: '/access', label: 'Roles & Users', icon: 'i-lucide-shield-check', adminOnly: true }
     ]
   },
   {
-    label: 'Admin',
+    label: 'Data',
     items: [
-      { to: '/setup', label: 'Company', icon: 'i-lucide-building-2', adminOnly: true },
-      { to: '/client-onboarding', label: 'Onboarding', icon: 'i-lucide-route', adminOnly: true },
-      { to: '/af-ss', label: 'AF/SS', icon: 'i-lucide-database-backup', adminOnly: true },
+      { to: '/import-export', label: 'Import / Export', icon: 'i-lucide-file-down', adminOnly: true },
+      { to: '/data-consistency', label: 'Data Consistency', icon: 'i-lucide-shield-alert', adminOnly: true },
       { to: '/message-logs', label: 'Message Logs', icon: 'i-lucide-list-collapse', adminOnly: true },
-      { to: '/ui-audit', label: 'UI Layout Audit', icon: 'i-lucide-ruler', adminOnly: true },
-      { to: '/access', label: 'Roles & Users', icon: 'i-lucide-shield-check', adminOnly: true },
-      { to: '/import-export', label: 'Import Export', icon: 'i-lucide-file-down', adminOnly: true },
-      { to: '/audit', label: 'Audit', icon: 'i-lucide-history', adminOnly: true },
+      { to: '/audit', label: 'Audit Trail', icon: 'i-lucide-history', adminOnly: true },
+      { to: '/ui-audit', label: 'UI Layout Audit', icon: 'i-lucide-ruler', adminOnly: true }
+    ]
+  },
+  {
+    label: 'Maintenance',
+    items: [
       { to: '/system-health', label: 'System Health', icon: 'i-lucide-activity', adminOnly: true },
       { to: '/production-readiness', label: 'Production Readiness', icon: 'i-lucide-shield-check', adminOnly: true },
       { to: '/release-stabilization', label: 'Release Stabilization', icon: 'i-lucide-rocket', adminOnly: true },
-      { to: '/data-consistency', label: 'Consistency & Repair', icon: 'i-lucide-shield-alert', adminOnly: true },
       { to: '/oracle-sync', label: 'Oracle Sync', icon: 'i-lucide-database-zap', adminOnly: true }
+    ]
+  },
+  {
+    label: 'System',
+    items: [
+      { to: '/system-info', label: 'System Info', icon: 'i-lucide-monitor-cog', adminOnly: true }
     ]
   }
 ]
@@ -156,14 +202,23 @@ const visibleGroups = computed(() => moduleGroups
 
 const navigationGroupIcons: Record<string, string> = {
   Dashboards: 'i-lucide-layout-dashboard',
-  Operations: 'i-lucide-shopping-bag',
-  People: 'i-lucide-users-round',
+  Sales: 'i-lucide-receipt-indian-rupee',
+  Purchase: 'i-lucide-package-plus',
+  Inventory: 'i-lucide-boxes',
+  Accounting: 'i-lucide-landmark',
+  CRM: 'i-lucide-users-round',
+  GST: 'i-lucide-file-json-2',
+  Reports: 'i-lucide-file-text',
   'Off Book': 'i-lucide-wallet-cards',
-  Admin: 'i-lucide-shield-check'
+  People: 'i-lucide-users-round',
+  Admin: 'i-lucide-shield-check',
+  Data: 'i-lucide-database',
+  Maintenance: 'i-lucide-wrench',
+  System: 'i-lucide-monitor-cog'
 }
 
-const primaryNavigationLabels = ['Dashboards', 'Operations', 'People', 'Off Book']
-const utilityNavigationLabels = ['Admin']
+const primaryNavigationLabels = ['Dashboards', 'Sales', 'Purchase', 'Inventory', 'Accounting', 'CRM', 'GST', 'Reports', 'Off Book', 'People']
+const utilityNavigationLabels = ['Admin', 'Data', 'Maintenance', 'System']
 
 function toNavigationChildren(group: MenuGroup): NavigationMenuItem[] {
   return group.items.map((item) => ({
@@ -179,7 +234,7 @@ function toNavigationGroup(group: MenuGroup): NavigationMenuItem {
     label: group.label,
     icon: navigationGroupIcons[group.label] || 'i-lucide-circle',
     active: group.items.some((item) => isActive(item.to)),
-    defaultOpen: ['Dashboards', 'Operations'].includes(group.label),
+    defaultOpen: group.items.some((item) => isActive(item.to)),
     children: toNavigationChildren(group)
   }
 }
@@ -244,15 +299,15 @@ const accountDropdownItems = computed<DropdownMenuItem[][]>(() => sanitizeDropdo
     { label: userEmail.value, icon: 'i-lucide-mail', disabled: true }
   ],
   [
-    { label: 'My Profile', icon: 'i-lucide-user-cog', to: '/profile' },
-    { label: 'Smart Dashboard', icon: 'i-lucide-gauge', to: '/dashboard' },
-    { label: 'Dashboard Map', icon: 'i-lucide-map', to: '/dashboard/map' },
-    { label: 'System Info', icon: 'i-lucide-monitor-cog', to: '/system-info' },
-    { label: 'Message Logs', icon: 'i-lucide-list-collapse', to: '/message-logs' }
+    { label: 'My profile', icon: 'i-lucide-user-cog', to: '/profile' },
+    { label: 'Dashboard', icon: 'i-lucide-gauge', to: '/dashboard' },
+    { label: 'Dashboard map', icon: 'i-lucide-map', to: '/dashboard/map' },
+    { label: 'System info', icon: 'i-lucide-monitor-cog', to: '/system-info' },
+    { label: 'Message logs', icon: 'i-lucide-list-collapse', to: '/message-logs' }
   ],
   [
     { label: 'About Garmetix', icon: 'i-lucide-info', to: '/about-us' },
-    { label: 'Contact Us', icon: 'i-lucide-message-circle', to: '/contact-us' },
+    { label: 'Contact us', icon: 'i-lucide-message-circle', to: '/contact-us' },
     { label: 'FAQ', icon: 'i-lucide-circle-help', to: '/faq' }
   ],
   [
@@ -314,15 +369,15 @@ const systemStatusDropdownItems = computed<DropdownMenuItem[][]>(() => sanitizeD
     { label: workingCompanyName.value, icon: 'i-lucide-building-2', disabled: true },
     { label: `${currentDate.value} · ${currentClock.value}`, icon: 'i-lucide-clock-3', disabled: true },
     { label: apiBadge.value.label, icon: apiBadge.value.icon, disabled: true },
-    { label: `${APP_STAGE} · v${APP_VERSION}`, icon: 'i-lucide-badge-info', disabled: true }
+    { label: `${APP_RELEASE_NAME} · v${APP_VERSION}`, icon: 'i-lucide-badge-info', disabled: true }
   ],
   [
     { label: 'Change workspace', icon: 'i-lucide-building-2', onSelect: () => { workspaceOpen.value = true } },
-    { label: 'System Info', icon: 'i-lucide-monitor-cog', to: '/system-info' },
+    { label: 'System info', icon: 'i-lucide-monitor-cog', to: '/system-info' },
     { label: 'UI Layout Audit', icon: 'i-lucide-ruler', to: '/ui-audit' },
     { label: 'System Health', icon: 'i-lucide-activity', to: '/system-health' },
-    { label: 'Message Logs', icon: 'i-lucide-list-collapse', to: '/message-logs' },
-    { label: 'About Version', icon: 'i-lucide-info', to: '/about-us' }
+    { label: 'Message logs', icon: 'i-lucide-list-collapse', to: '/message-logs' },
+    { label: 'About version', icon: 'i-lucide-info', to: '/about-us' }
   ]
 ]))
 
@@ -509,7 +564,7 @@ onBeforeUnmount(() => {
             </div>
             <div v-if="!collapsed" class="min-w-0">
               <p class="dashboard-brand-title">Garmetix</p>
-              <p class="dashboard-brand-subtitle">Dashboard shell · v{{ APP_VERSION }}</p>
+              <p class="dashboard-brand-subtitle">v{{ APP_VERSION }}</p>
             </div>
           </NuxtLink>
           <UButton
@@ -545,6 +600,7 @@ onBeforeUnmount(() => {
 
           <UNavigationMenu
             :collapsed="collapsed"
+            :key="`primary-${route.path}`"
             :items="navigationPrimaryItems"
             orientation="vertical"
             class="dashboard-sidebar-nav"
@@ -552,6 +608,7 @@ onBeforeUnmount(() => {
 
           <UNavigationMenu
             :collapsed="collapsed"
+            :key="`utility-${route.path}`"
             :items="navigationUtilityItems"
             orientation="vertical"
             class="dashboard-sidebar-utility"
@@ -563,7 +620,7 @@ onBeforeUnmount(() => {
         <div class="dashboard-sidebar-footer">
           <div v-if="!collapsed" class="dashboard-sidebar-mini-actions single">
             <UDropdownMenu :items="systemStatusDropdownItems" :ui="{ content: 'w-72' }">
-              <UButton color="neutral" variant="subtle" size="xs" :icon="apiBadge.icon" label="Status & Workspace" block />
+              <UButton color="neutral" variant="subtle" size="xs" :icon="apiBadge.icon" label="Status" block />
             </UDropdownMenu>
           </div>
 
@@ -697,7 +754,7 @@ onBeforeUnmount(() => {
     <template #footer>
       <div class="modal-actions">
         <UButton color="neutral" variant="outline" label="Close" @click="workspaceOpen = false" />
-        <UButton icon="i-lucide-check" label="Use Workspace" @click="workspaceOpen = false" />
+        <UButton icon="i-lucide-check" label="Use workspace" @click="workspaceOpen = false" />
       </div>
     </template>
   </UModal>

@@ -138,7 +138,7 @@ onMounted(refresh)
             <div class="flex items-center gap-3">
               <UIcon name="i-lucide-list-collapse" class="h-8 w-8 text-primary" />
               <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Stage 6B</p>
+                <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Message logs</p>
                 <h1 class="text-2xl font-bold text-slate-950 dark:text-white">Message logs</h1>
               </div>
             </div>

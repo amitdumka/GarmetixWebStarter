@@ -86,7 +86,7 @@ onMounted(refresh)
             <div class="flex items-center gap-3">
               <UIcon :name="statusIcon" class="h-8 w-8 text-primary" />
               <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Stage 5B</p>
+                <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Production readiness</p>
                 <h1 class="text-2xl font-bold text-slate-950 dark:text-white">Production environment hardening</h1>
               </div>
             </div>

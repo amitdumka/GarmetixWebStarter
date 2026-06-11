@@ -199,7 +199,7 @@ onMounted(async () => {
     <section class="planner-dashboard">
       <UiModulePageHeader
         title="Stock Operations"
-        description="Stage 4B: adjustment, transfer, and physical count posting through the stock movement ledger."
+        description="Post stock adjustments, transfers and physical counts through the stock movement ledger."
         icon="i-lucide-arrow-left-right"
         primary-label="Refresh"
         primary-icon="i-lucide-refresh-cw"
@@ -233,7 +233,7 @@ onMounted(async () => {
               <h2>Post Stock Operation</h2>
               <p>Use stock operations for non-sale/non-purchase changes so audit history stays complete.</p>
             </div>
-            <UBadge color="primary" variant="subtle">Stage 4B</UBadge>
+            <UBadge color="primary" variant="subtle">Stock operations</UBadge>
           </div>
         </template>
 

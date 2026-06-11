@@ -297,7 +297,7 @@ onMounted(async () => {
               <h2>Post Non-GST Goods</h2>
               <p>Purchase creates or updates IsOFB stock. Sale can include multiple stock rows in one cash memo.</p>
             </div>
-            <UBadge color="primary" variant="subtle">Stage 6E</UBadge>
+            <UBadge color="primary" variant="subtle">Non-GST goods</UBadge>
           </div>
         </template>
 

@@ -131,7 +131,7 @@ onMounted(async () => {
       <UCard class="planner-card">
         <div class="gst-report-header">
           <div>
-            <p class="eyebrow">Stage 4C</p>
+            <p class="eyebrow">GST reports</p>
             <h1>GST / HSN Reports</h1>
             <p>Book-based HSN summary, GST rate reconciliation, and invoice register using stored invoice item snapshots.</p>
           </div>

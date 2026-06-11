@@ -20,7 +20,7 @@ const pageRows = computed(() => access.routeRules.map((rule) => ({
   route: rule.path,
   module: rule.module,
   allowed: access.canAccessPath(rule.path),
-  status: rule.module === 'Dashboards' || rule.path === '/system-info' || rule.path === '/ui-audit' ? 'Stage 7 reviewed' : 'Needs visual pass'
+  status: rule.module === 'Dashboards' || rule.path === '/system-info' || rule.path === '/ui-audit' ? 'Reviewed' : 'Needs visual pass'
 })))
 
 const moduleSummary = computed(() => {
@@ -28,7 +28,7 @@ const moduleSummary = computed(() => {
   for (const row of pageRows.value) {
     const current = map.get(row.module) || { module: row.module, total: 0, reviewed: 0 }
     current.total++
-    if (row.status === 'Stage 7 reviewed') current.reviewed++
+    if (row.status === 'Reviewed') current.reviewed++
     map.set(row.module, current)
   }
   return [...map.values()]
@@ -45,10 +45,10 @@ function copyAuditPrompt() {
   <AppShell title="UI Layout Audit">
     <section class="dashboard-v3-page ui-audit-page">
       <DashboardPageHero
-        badge="Stage 7L"
+        badge="UI audit"
         badge-icon="i-lucide-ruler"
         title="UI Layout Audit"
-        subtitle="Track full-app spacing, padding, gap, responsiveness and overlap checks before moving into Stage 8 business features."
+        subtitle="Track full-app spacing, padding, gap, responsiveness and overlap checks before adding the next business feature set."
       />
 
       <div class="grid gap-4 md:grid-cols-3">
@@ -56,7 +56,7 @@ function copyAuditPrompt() {
           <div class="space-y-2">
             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{{ summary.module }}</p>
             <h2 class="text-2xl font-bold">{{ summary.reviewed }}/{{ summary.total }}</h2>
-            <p class="text-sm text-muted">Pages already reviewed during Stage 7 dashboard work.</p>
+            <p class="text-sm text-muted">Pages already reviewed during dashboard shell work.</p>
             <UProgress :model-value="Math.round((summary.reviewed / Math.max(summary.total, 1)) * 100)" />
           </div>
         </UCard>
@@ -109,7 +109,7 @@ function copyAuditPrompt() {
                 <td class="px-4 py-3 font-mono text-xs">{{ row.route }}</td>
                 <td class="px-4 py-3">{{ row.module }}</td>
                 <td class="px-4 py-3">
-                  <UBadge :color="row.status === 'Stage 7 reviewed' ? 'success' : 'warning'" variant="subtle">
+                  <UBadge :color="row.status === 'Reviewed' ? 'success' : 'warning'" variant="subtle">
                     {{ row.status }}
                   </UBadge>
                 </td>
@@ -123,8 +123,8 @@ function copyAuditPrompt() {
         color="primary"
         variant="subtle"
         icon="i-lucide-info"
-        title="Stage 7L guardrail"
-        description="This page does not remove or rewrite business pages. It creates the audit map and CSS guardrails; each older page can now be cleaned safely in Stage 8 without breaking routes."
+        title="Layout guardrail"
+        description="This page does not remove or rewrite business pages. It creates the audit map and CSS guardrails so older pages can be cleaned safely without breaking routes."
       />
     </section>
   </AppShell>

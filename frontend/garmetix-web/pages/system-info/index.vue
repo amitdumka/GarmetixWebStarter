@@ -99,7 +99,7 @@ onMounted(refresh)
     <section class="dashboard-v3-page">
       <div class="dashboard-v3-hero business">
         <div>
-          <UBadge color="primary" variant="subtle" icon="i-lucide-monitor-cog">Stage 7H</UBadge>
+          <UBadge color="primary" variant="subtle" icon="i-lucide-monitor-cog">System info</UBadge>
           <h1>System Info</h1>
           <p>Confirm frontend/backend version identity, shell mode, API status and permission route coverage before support or rollback.</p>
         </div>
@@ -116,14 +116,14 @@ onMounted(refresh)
           <div class="space-y-1">
             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted">Frontend</p>
             <h2 class="text-2xl font-bold">v{{ frontendVersion.version }}</h2>
-            <p class="text-sm text-muted">{{ frontendVersion.stage }} · {{ frontendVersion.buildCode }}</p>
+            <p class="text-sm text-muted">{{ frontendVersion.releaseName || frontendVersion.stage }} · {{ frontendVersion.buildCode }}</p>
           </div>
         </UCard>
         <UCard>
           <div class="space-y-1">
             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted">Backend</p>
             <h2 class="text-2xl font-bold">v{{ backendVersion.version }}</h2>
-            <p class="text-sm text-muted">{{ backendVersion.stage }} · {{ backendVersion.buildCode }}</p>
+            <p class="text-sm text-muted">{{ backendVersion.releaseName || backendVersion.stage }} · {{ backendVersion.buildCode }}</p>
           </div>
         </UCard>
         <UCard>
@@ -225,7 +225,7 @@ onMounted(refresh)
           </div>
         </template>
         <div class="space-y-3 text-sm text-muted">
-          <p>No Stage 7H page removes existing modules. This page only audits shell/version/access state.</p>
+          <p>No existing module is removed by this page. It only audits shell, version and access state.</p>
           <pre class="overflow-x-auto rounded-xl bg-slate-950 p-4 text-xs text-slate-100">NUXT_PUBLIC_DASHBOARD_SHELL=legacy</pre>
           <p>Use the legacy shell only for temporary rollback while keeping current pages and backend unchanged.</p>
         </div>

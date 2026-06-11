@@ -110,11 +110,11 @@ const moduleCards = computed(() => {
 })
 
 const currentWork = computed(() => [
-  { title: 'Nuxt UI dashboard shell', status: 'Done', type: 'Frontend', owner: 'Codex', due: 'Stage 1' },
-  { title: 'Reusable CRUD components', status: 'Done', type: 'Frontend', owner: 'Codex', due: 'Stage 2' },
-  { title: 'Core store module conversion', status: 'In Progress', type: 'Frontend', owner: 'Codex', due: 'Stage 3' },
-  { title: 'HR and payroll UI conversion', status: 'Pending', type: 'Frontend', owner: 'Codex', due: 'Stage 4' },
-  { title: 'Reports and deployment polish', status: 'Pending', type: 'Release', owner: 'Codex', due: 'Stage 6' }
+  { title: 'Nuxt UI dashboard shell', status: 'Done', type: 'Frontend', owner: 'Codex', due: 'Done' },
+  { title: 'Reusable CRUD components', status: 'Done', type: 'Frontend', owner: 'Codex', due: 'Done' },
+  { title: 'Core store module conversion', status: 'In Progress', type: 'Frontend', owner: 'Codex', due: 'In progress' },
+  { title: 'HR and payroll UI conversion', status: 'Pending', type: 'Frontend', owner: 'Codex', due: 'Pending' },
+  { title: 'Reports and deployment polish', status: 'Pending', type: 'Release', owner: 'Codex', due: 'Pending' }
 ])
 
 const recentActivity = computed(() => {
@@ -248,7 +248,7 @@ onMounted(async () => {
     <section class="planner-dashboard">
       <UiModulePageHeader
         title="All Stores"
-        description="Planner-style overview for sales, stock, setup, HR, and the next UI migration stages."
+        description="Planner-style overview for sales, stock, setup, HR and upcoming UI work."
         icon="i-lucide-store"
       >
         <template #actions>
@@ -342,7 +342,7 @@ onMounted(async () => {
                   <h2>Module Distribution</h2>
                   <p>Operational screens ready for focused list and form workflows</p>
                 </div>
-                <UBadge color="primary" variant="subtle">Stage 3</UBadge>
+                <UBadge color="primary" variant="subtle">Current focus</UBadge>
               </div>
             </template>
 
@@ -372,7 +372,7 @@ onMounted(async () => {
               <div class="planner-card-header">
                 <div>
                   <h2>Current Sprint</h2>
-                  <p>UI implementation stages tracked like the planner template</p>
+                  <p>UI implementation work tracked like the planner template</p>
                 </div>
                 <UButton v-if="canSeeAdmin" to="/setup" color="neutral" variant="ghost" icon="i-lucide-arrow-right" label="Open Company" />
               </div>

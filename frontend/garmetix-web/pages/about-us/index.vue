@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { APP_BUILD_CODE, APP_BUILD_DATE, APP_HIGHLIGHTS, APP_RELEASE_NAME, APP_STAGE, APP_VERSION } from '~/utils/appVersion'
+import { APP_BUILD_CODE, APP_BUILD_DATE, APP_HIGHLIGHTS, APP_RELEASE_NAME, APP_VERSION } from '~/utils/appVersion'
 
 const api = useGarmetixApi()
 const feedback = useUiFeedback()
@@ -10,11 +10,10 @@ const serverInfo = ref<any | null>(null)
 const versionRows = computed(() => [
   { label: 'Product', value: serverInfo.value?.productName || 'Garmetix' },
   { label: 'Version', value: serverInfo.value?.version || APP_VERSION },
-  { label: 'Stage', value: serverInfo.value?.stage || APP_STAGE },
   { label: 'Release', value: serverInfo.value?.releaseName || APP_RELEASE_NAME },
-  { label: 'Build Date', value: serverInfo.value?.buildDate || APP_BUILD_DATE },
-  { label: 'Build Code', value: serverInfo.value?.buildCode || APP_BUILD_CODE },
-  { label: 'API Environment', value: serverInfo.value?.environment || 'Not loaded' }
+  { label: 'Build date', value: serverInfo.value?.buildDate || APP_BUILD_DATE },
+  { label: 'Build code', value: serverInfo.value?.buildCode || APP_BUILD_CODE },
+  { label: 'API environment', value: serverInfo.value?.environment || 'Not loaded' }
 ])
 
 const highlights = computed(() => serverInfo.value?.highlights?.length ? serverInfo.value.highlights : APP_HIGHLIGHTS)
@@ -45,17 +44,17 @@ onMounted(refresh)
                 <UIcon name="i-lucide-shirt" class="h-8 w-8" />
               </div>
               <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{{ APP_STAGE }}</p>
-                <h1 class="text-3xl font-bold text-slate-950 dark:text-white">About Garmetix</h1>
+                <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">{{ serverInfo?.releaseName || APP_RELEASE_NAME }}</p>
+                <h1 class="text-2xl font-bold text-slate-950 dark:text-white">About Garmetix</h1>
               </div>
             </div>
             <p class="max-w-4xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Garmetix Web is a garment store management system for billing, purchase, inventory, GST reporting, customer/party management, stock operations, onboarding, seeding, backup and admin monitoring.
+              Garmetix is a garment store management system for billing, purchase, inventory, GST reporting, customer/party management, stock operations, onboarding, seeding, backup and admin monitoring.
             </p>
           </div>
           <div class="flex flex-col items-start gap-2 rounded-2xl border border-primary/20 bg-primary/5 p-4 lg:min-w-64">
-            <span class="text-xs font-semibold uppercase tracking-[0.25em] text-primary">Running Version</span>
-            <strong class="text-3xl text-slate-950 dark:text-white">v{{ serverInfo?.version || APP_VERSION }}</strong>
+            <span class="text-xs font-semibold uppercase tracking-[0.25em] text-primary">Running version</span>
+            <strong class="text-2xl text-slate-950 dark:text-white">v{{ serverInfo?.version || APP_VERSION }}</strong>
             <span class="text-xs text-slate-500">{{ serverInfo?.buildCode || APP_BUILD_CODE }}</span>
           </div>
         </div>

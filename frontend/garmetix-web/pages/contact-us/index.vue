@@ -8,7 +8,7 @@ const fallbackContacts = [
   { label: 'Business owner', value: 'Amit Kumar', type: 'person', note: 'Primary owner/contact for deployment decisions.' },
   { label: 'Email', value: 'ameetkrsah@gmail.com', type: 'email', note: 'Use for account, deployment and support communication.' },
   { label: 'Location', value: 'Dumka / Jamshedpur, Jharkhand, India', type: 'location', note: 'Business operating region.' },
-  { label: 'Product', value: 'Garmetix Web', type: 'product', note: 'Garment store management, billing, purchase, inventory, GST and SaaS admin.' }
+  { label: 'Product', value: 'Garmetix', type: 'product', note: 'Garment store management, billing, purchase, inventory, GST and SaaS admin.' }
 ]
 
 const contacts = computed(() => serverInfo.value?.contacts?.length ? serverInfo.value.contacts : fallbackContacts)
@@ -36,13 +36,13 @@ onMounted(refresh)
 </script>
 
 <template>
-  <AppShell title="Contact Us" @refresh="refresh">
+  <AppShell title="Contact us" @refresh="refresh">
     <div class="space-y-6">
       <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div class="flex items-center justify-between gap-4">
           <div class="space-y-2">
             <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Support & communication</p>
-            <h1 class="text-3xl font-bold text-slate-950 dark:text-white">Contact Us</h1>
+            <h1 class="text-2xl font-bold text-slate-950 dark:text-white">Contact us</h1>
             <p class="max-w-3xl text-sm text-slate-500 dark:text-slate-400">
               Use this page to find the current business and support contact details linked with this deployment.
             </p>

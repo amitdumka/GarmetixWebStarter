@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { APP_VERSION, APP_STAGE, APP_BUILD_CODE } from '~/utils/appVersion'
+import { APP_VERSION, APP_RELEASE_NAME, APP_BUILD_CODE } from '~/utils/appVersion'
 
 const api = useGarmetixApi()
 const feedback = useUiFeedback()
@@ -11,18 +11,24 @@ const loading = ref(false)
 
 const dashboardLinks = [
   { label: 'Smart Dashboard', to: '/dashboard', icon: 'i-lucide-gauge', description: 'Role-aware landing page that routes users to the correct dashboard.' },
-  { label: 'Store Manager Dashboard', to: '/dashboard/store-manager', icon: 'i-lucide-store', description: 'Current-store sales, stock, alerts and daily action view.' },
-  { label: 'Owner / Admin Dashboard', to: '/dashboard/business', icon: 'i-lucide-chart-no-axes-combined', description: 'Company, store-group and store-level executive analytics.' },
+  { label: 'Store Dashboard', to: '/dashboard/store-manager', icon: 'i-lucide-store', description: 'Current-store sales, stock, alerts and daily action view.' },
+  { label: 'Company Dashboard', to: '/dashboard/business', icon: 'i-lucide-chart-no-axes-combined', description: 'Company, store-group and store-level analytics.' },
   { label: 'System Info', to: '/system-info', icon: 'i-lucide-monitor-cog', description: 'Version match, API status, shell mode and permission route audit.' },
   { label: 'Legacy Overview', to: '/', icon: 'i-lucide-layout-dashboard', description: 'Old dashboard page kept safely for rollback and comparison.' }
 ]
 
 const mainMenuGroups = [
-  { label: 'Dashboards', count: 8, description: 'Smart landing, store manager, business, reports and GST dashboards.' },
-  { label: 'Operations', count: 17, description: 'Billing, inventory, purchase, returns, customers, vouchers and accounting.' },
-  { label: 'People', count: 2, description: 'HR and payroll operations.' },
-  { label: 'Admin', count: 13, description: 'Setup, onboarding, logs, access, system info, health, repair and integration tools.' },
-  { label: 'Footer Account', count: 4, description: 'Profile, Help, Message Logs and Logout remain in the footer/user menus.' }
+  { label: 'Dashboards', count: 5, description: 'Smart landing, store dashboard, company dashboard, dashboard map and legacy overview.' },
+  { label: 'Sales', count: 2, description: 'Billing and sales returns.' },
+  { label: 'Purchase', count: 2, description: 'Purchase and purchase returns.' },
+  { label: 'Inventory', count: 2, description: 'Product master and stock operations.' },
+  { label: 'Accounting', count: 6, description: 'Accounting, petty cash, vouchers, debit notes, credit notes and commercial summary.' },
+  { label: 'CRM', count: 3, description: 'Customers, vendors/parties and loyalty.' },
+  { label: 'GST', count: 2, description: 'GST returns and GST reports.' },
+  { label: 'Reports', count: 1, description: 'Reports center.' },
+  { label: 'Off Book', count: 2, description: 'Non-GST goods and cash vouchers.' },
+  { label: 'Admin, Data, Maintenance and System', count: 15, description: 'Administration, data tools, maintenance utilities and system info.' },
+  { label: 'Footer account', count: 4, description: 'Profile, help, message logs and logout remain in the footer/user menus.' }
 ]
 
 const templateChecklist = [
@@ -33,9 +39,9 @@ const templateChecklist = [
   'Command menu opens with Ctrl/Cmd + K.',
   'Favorites and recent pages are stored locally per browser.',
   'Bottom utility navigation and footer account dropdown mirror Nuxt UI Dashboard template patterns.',
-  'No major page was removed during Stage 7.',
-  'Stage 7G adds one central access map used by menus and route guards.',
-  'Stage 7H adds System Info for version match, route audit and rollback visibility.'
+  'No major page was removed during the dashboard migration.',
+  'One central access map is used by menus and route guards.',
+  'System Info shows version match, route audit and rollback visibility.'
 ]
 
 const accessibleRouteRules = computed(() => access.routeRules.map((rule) => ({
@@ -73,9 +79,9 @@ onMounted(refresh)
     <section class="dashboard-v3-page">
       <div class="dashboard-v3-hero business">
         <div>
-          <UBadge color="primary" variant="subtle" icon="i-lucide-map">Stage 7G</UBadge>
-          <h1>Dashboard implementation map</h1>
-          <p>Template alignment, dashboard routing, menu preservation and rollback notes for v{{ APP_VERSION }}.</p>
+          <UBadge color="primary" variant="subtle" icon="i-lucide-map">Dashboard map</UBadge>
+          <h1>Dashboard map</h1>
+          <p>Template alignment, dashboard routing, menu groups and rollback notes for v{{ APP_VERSION }}.</p>
         </div>
         <div class="dashboard-v3-hero-actions">
           <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">{{ loading ? 'Loading' : 'Ready' }}</UBadge>
@@ -160,7 +166,7 @@ onMounted(refresh)
             </template>
             <div class="profile-detail-grid">
               <div class="profile-detail-card"><span>Version</span><strong>{{ APP_VERSION }}</strong></div>
-              <div class="profile-detail-card"><span>Stage</span><strong>{{ APP_STAGE }}</strong></div>
+              <div class="profile-detail-card"><span>Release</span><strong>{{ APP_RELEASE_NAME }}</strong></div>
               <div class="profile-detail-card"><span>Build Code</span><strong>{{ APP_BUILD_CODE }}</strong></div>
             </div>
           </UCard>
@@ -169,7 +175,7 @@ onMounted(refresh)
             <template #header>
               <div class="dashboard-v3-card-header">
                 <div>
-                  <h2>Stage 7 safeguards</h2>
+                  <h2>Migration safeguards</h2>
                   <p>Revert and review options before removing any old page.</p>
                 </div>
               </div>

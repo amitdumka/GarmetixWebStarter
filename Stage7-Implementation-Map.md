@@ -2,9 +2,10 @@
 
 ## Current Version
 
-- Version: 3.11.0
-- Stage: Stage 7L
-- Build Code: GARMETIX-7L-20260610-3110
+- Version: 3.12.0
+- Stage: Stage 7M
+- Build Code: GARMETIX-7M-20260611-3120
+- Release: Pre-v4.0 UI Naming and Menu Cleanup
 
 ## Layout / Shell
 
@@ -16,15 +17,41 @@
 ## Dashboard Pages
 
 - `/dashboard` — smart role-based dashboard redirect.
-- `/dashboard/store-manager` — current-store dashboard.
-- `/dashboard/business` — owner/admin/accountant dashboard.
+- `/dashboard/store-manager` — Store dashboard, titled by the current store name when available.
+- `/dashboard/business` — Company dashboard, titled by the current company name when available.
 - `/dashboard/map` — dashboard route and access map.
 - `/system-info` — version, runtime and route audit.
 - `/ui-audit` — page spacing, padding, responsive overlap and industry-standard layout audit queue.
 
+## Sidebar Menu Structure
+
+- Dashboards: Dashboard, Store, Company, Dashboard Map, Legacy Overview.
+- Sales: Billing, Sales Return.
+- Purchase: Purchase, Purchase Return.
+- Inventory: Product Master, Stock Operations.
+- Accounting: Accounting, Petty Cash, Vouchers, Debit Notes, Credit Notes, Commercial Summary.
+- CRM: Customers, Parties & Vendors, Loyalty.
+- GST: GST Returns, GST Reports.
+- Reports: Reports Center.
+- Off Book: Non-GST Goods, Cash Vouchers.
+- People: HR, Payroll.
+- Admin: Company Setup, Onboarding, AF/SS Seeder, Roles & Users.
+- Data: Import / Export, Data Consistency, Message Logs, Audit Trail, UI Layout Audit.
+- Maintenance: System Health, Production Readiness, Release Stabilization, Oracle Sync.
+- System: System Info.
+
+## Visible UI Cleanup
+
+- Dashboard hero size reduced from large marketing-style heading to normal app page heading.
+- Sidebar brand subtitle changed from dashboard-shell text to version number only.
+- Footer status control renamed from Status & Workspace to Status.
+- Login page simplified to Garmetix branding without JWT/session helper badges.
+- Visible page headers no longer show internal stage numbers; module context names are used instead.
+- Sidebar groups default-open only when their route is active/current.
+
 ## Reusable Dashboard Components
 
-- `components/dashboard/PageHero.vue` — shared dashboard hero with badge, subtitle and refresh action.
+- `components/dashboard/PageHero.vue` — shared dashboard hero with compact heading, badge, subtitle and refresh action.
 - `components/dashboard/MetricGrid.vue` — shared KPI cards with loading skeletons.
 - `components/dashboard/ActionGrid.vue` — shared quick action cards.
 - `components/dashboard/HealthGrid.vue` — shared health/signal cards.
@@ -35,14 +62,6 @@
 - `components/dashboard/ExportActions.vue` — reusable dashboard snapshot card with JSON, CSV and print/PDF actions.
 - `components/dashboard/FilterBar.vue` — reusable dashboard date range, auto-refresh and preference control card.
 
-## Dashboard Preferences
-
-- `frontend/garmetix-web/composables/useDashboardPreferences.ts`
-  - Browser-local dashboard range preference.
-  - Today / 7 days / 30 days / this month / custom dates.
-  - Auto-refresh preference and interval.
-  - Query parameter builder for `from` and `to`.
-
 ## Backend Dashboard API
 
 - `backend/Garmetix.Api/Dashboard/DashboardDtos.cs`
@@ -50,18 +69,6 @@
 - `GET /api/dashboard/home`
 - `GET /api/dashboard/store-manager?from=YYYY-MM-DD&to=YYYY-MM-DD`
 - `GET /api/dashboard/business?from=YYYY-MM-DD&to=YYYY-MM-DD`
-- Dashboard payloads now include `revenueBreakdown`, `stockBreakdown` and `profitBreakdown`.
-
-## Stage 7K Dashboard Filter Map
-
-- `pages/dashboard/store-manager/index.vue`
-  - Adds filter card, date range query, saved preferences, auto-refresh and last refreshed state.
-- `pages/dashboard/business/index.vue`
-  - Adds the same filter/preference behavior for owner/admin/accountant dashboard.
-- `DashboardEndpoints.cs`
-  - Accepts optional `from` and `to` filters.
-  - Adds `DashboardPeriodDto` to dashboard payloads.
-  - Uses selected period for sales, purchases, invoices, Non-GST metrics, trends and performance tables.
 
 ## Version Identity
 
@@ -77,35 +84,4 @@ Set this before build/restart to use the old shell:
 NUXT_PUBLIC_DASHBOARD_SHELL=legacy
 ```
 
-Stage 7K does not remove any page and keeps existing dashboard routes intact.
-
-
-## Stage 7L Dashboard Charts and UI Audit Map
-
-- `backend/Garmetix.Api/Dashboard/DashboardDtos.cs`
-  - Adds `DashboardBreakdownDto`.
-  - Extends trend points with profit and Non-GST sales/purchase values.
-- `backend/Garmetix.Api/Dashboard/DashboardEndpoints.cs`
-  - Calculates GST sales, Non-GST sales, on-book stock, Non-GST stock, GST margin, Non-GST margin and total margin.
-- `frontend/garmetix-web/components/dashboard/BreakdownGrid.vue`
-  - Reusable visual breakdown panel with proportional bars.
-- `frontend/garmetix-web/pages/dashboard/store-manager/index.vue`
-  - Adds sales, stock and profit split panels.
-- `frontend/garmetix-web/pages/dashboard/business/index.vue`
-  - Adds revenue, stock valuation and profit split panels.
-- `frontend/garmetix-web/pages/ui-audit/index.vue`
-  - Adds full page-by-page UI layout audit queue.
-- `frontend/garmetix-web/assets/css/main.css`
-  - Adds Stage 7L responsive spacing and overlap guardrails.
-
-## Stage 7L v3.11.1 Docker Buildfix Map
-
-Changed:
-- `frontend/garmetix-web/Dockerfile`
-  - Adds build-stage `NODE_OPTIONS=--max-old-space-size=4096`.
-  - Adds `NUXT_TELEMETRY_DISABLED=1`.
-  - Adds runtime `NODE_OPTIONS=--max-old-space-size=1024`.
-- `frontend/garmetix-web/utils/appVersion.ts`
-  - Version bumped to 3.11.1.
-- `backend/Garmetix.Api/AppInfo/AppInfoEndpoints.cs`
-  - Version bumped to 3.11.1.
+Stage 7M does not remove any page and keeps existing dashboard routes intact.

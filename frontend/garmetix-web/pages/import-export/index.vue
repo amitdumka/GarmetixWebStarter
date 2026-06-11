@@ -365,7 +365,7 @@ onMounted(async () => {
               <h3>Import Preparation</h3>
               <p>Validate CSV shape before the write step.</p>
             </div>
-            <UBadge color="warning" variant="subtle">Validation stage</UBadge>
+            <UBadge color="warning" variant="subtle">Validation</UBadge>
           </div>
         </template>
 

@@ -11,6 +11,12 @@ let autoRefreshTimer: ReturnType<typeof setInterval> | undefined
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 
+const storeDashboardTitle = computed(() => data.value?.scope?.storeName || 'Store Dashboard')
+const storeDashboardSubtitle = computed(() => {
+  const parts = [data.value?.period?.label || preferences.rangeLabel.value, data.value?.scope?.companyName].filter(Boolean)
+  return parts.length ? parts.join(' · ') : 'Current store sales, stock and daily work queue.'
+})
+
 const scopeQuery = computed(() => {
   const params = new URLSearchParams()
   if (workspace.companyId.value) params.set('companyId', workspace.companyId.value)
@@ -111,13 +117,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <AppShell title="Store Manager Dashboard" :companies="companies" :stores="stores" @refresh="refresh" @workspace-change="refresh">
+  <AppShell :title="storeDashboardTitle" :companies="companies" :stores="stores" @refresh="refresh" @workspace-change="refresh">
     <section class="dashboard-v3-page">
       <DashboardPageHero
-        badge="Current Store"
+        badge="Store"
         badge-icon="i-lucide-store"
-        title="Store Manager Dashboard"
-        :subtitle="`${data?.scope?.storeName || 'Store scoped operational dashboard'} · ${data?.scope?.companyName || 'Company'} · ${data?.period?.label || preferences.rangeLabel.value}`"
+        :title="storeDashboardTitle"
+        :subtitle="storeDashboardSubtitle"
         :loading="loading"
         @refresh="refresh"
       />
@@ -145,8 +151,8 @@ onBeforeUnmount(() => {
       <DashboardMetricGrid :metrics="data?.metrics || []" :loading="loading" />
 
       <DashboardExportActions
-        title="Store Manager Dashboard"
-        file-name="store-manager-dashboard"
+        :title="storeDashboardTitle"
+        file-name="store-dashboard"
         :data="data"
         :tables="exportTables"
         :loading="loading"

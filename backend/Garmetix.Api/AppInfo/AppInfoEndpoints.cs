@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "3.11.1";
-    public const string Stage = "Stage 7L";
-    public const string ReleaseName = "Dashboard Charts and UI Layout Audit";
-    public const string BuildDate = "2026-06-10";
-    public const string BuildCode = "GARMETIX-7L-20260611-3111";
+    public const string Version = "3.12.0";
+    public const string Stage = "Stage 7M";
+    public const string ReleaseName = "Pre-v4.0 UI Naming and Menu Cleanup";
+    public const string BuildDate = "2026-06-11";
+    public const string BuildCode = "GARMETIX-7M-20260611-3120";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,47 +81,14 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
-        "Stage 7L buildfix raises Docker Nuxt build heap memory while keeping dashboard chart breakdowns and UI layout audit guardrails",
-        "Stage 7K adds dashboard date-range filters, saved browser preferences and auto-refresh controls",
-        "Stage 7J adds dashboard JSON export, CSV export and print/PDF snapshot tools",
-        "Stage 7I refactors dashboard widgets into reusable Nuxt UI components with shared empty, loading, metric, chart, list and table states",
-        "Stage 7H adds System Info, version match checks, route audit and safer dashboard rollback visibility",
-        "Stage 7G adds central permission-aware menu filtering, page guards and Access Denied routing",
-        "Stage 7F removes duplicate Help, Account, and Workspace entries from the main sidebar while keeping them in footer/status menus",
-        "Stage 7D adds controlled collapsible sidebar, icon-only collapsed mode and dashboard-template style footer account menu",
-        "Stage 7C adds dashboard breadcrumbs, favorites, recent pages and Ctrl/Cmd+K command memory",
-        "Dashboard Map page documents Stage 7 routing, preserved menu groups, version identity and revert policy",
-        "Sidebar/topbar UX polished while keeping all current pages and legacy shell rollback",
-        "Stage 7B role-aware /dashboard landing redirects users to the correct dashboard",
-        "Dashboard shell now adds a smart dashboard menu item and topbar shortcut",
-        "Store manager dashboard now includes quick actions and daily health signals",
-        "Business dashboard now includes executive actions, health signals and store-group performance",
-        "Dashboard backend adds /api/dashboard/home and deeper role/workspace scoped KPIs",
-        "Nuxt UI dashboard-template style shell with collapsible sidebar, topbar, command search and dark-mode polish",
-        "Store Manager dashboard scoped to the logged-in user current store",
-        "Owner/Admin/Accountant dashboard with company, store-group and store-wise KPIs",
-        "All existing pages and menus preserved; legacy shell can be restored with NUXT_PUBLIC_DASHBOARD_SHELL=legacy",
-        "Stage 7 TODO and implementation map added for safe two-part dashboard migration",
-        "Modern login screen with one primary Login button and compact forgot/reset links",
-        "Global auth guard redirects expired or missing sessions to Login before protected pages render",
-        "API 401 handling now clears expired sessions and returns the user to Login",
-        "My Profile page with editable name, username, email and self-service password change",
-        "Profile changes never allow users to modify their own role, permission or workspace assignment",
-        "Company, store group and store onboarding module",
-        "AF/SS default data seeder module",
-        "Application message logs with filters",
-        "Version identity surfaced in About Us and API",
-        "Non-GST/out-of-scope goods purchase and sale module",
-        "Buildfix: added missing Store namespace import for Docker publish",
-        "Compile fix: resolved stock variable shadowing and ProductCategory ambiguity",
-        "Multi-item Non-GST purchase memo and sale cash memo with print view",
-        "Non-GST sale, purchase, profit and current stock reports",
-        "Separate Non-GST stock flag and movement ledger",
-        "Separate Non-GST goods reports and visible accounting postings",
-        "About Us, Contact Us and FAQ pages",
-        "Runtime fix: removed duplicate app-info and message-log root routes",
-        "Runtime fix: Message Logs PostgreSQL filter query no longer uses untyped NULL parameters",
-        "Runtime fix: Non-GST sale sends null stock id instead of blank string and purchase auto-generates barcode when blank"
+        "Dashboard headings were reduced to a normal application size and rewritten with context-first names.",
+        "Sidebar menus were reorganized into industry-standard business groups: dashboards, sales, purchase, inventory, accounting, CRM, GST, reports and off-book operations.",
+        "Admin tools were split into admin, data, maintenance and system groups for easier navigation.",
+        "Visible release labels were cleaned up and replaced with module or context names.",
+        "The login screen was simplified by removing technical helper badges and using the product name Garmetix.",
+        "The sidebar brand subtitle now shows only the running version number.",
+        "Only the currently selected sidebar group opens by default so navigation stays compact.",
+        "The UI layout audit remains in place as the checklist before v4.0."
     ];
 
     private static readonly AppContactDto[] ContactItems =
@@ -129,7 +96,7 @@ public static class AppInfoEndpoints
         new("Business owner", "Amit Kumar", "person", "Primary owner/contact for deployment decisions."),
         new("Email", "ameetkrsah@gmail.com", "email", "Use for account, deployment and support communication."),
         new("Location", "Dumka / Jamshedpur, Jharkhand, India", "location", "Business operating region."),
-        new("Product", "Garmetix Web", "product", "Garment store management, billing, purchase, inventory, GST and SaaS admin.")
+        new("Product", "Garmetix", "product", "Garment store management, billing, purchase, inventory, GST and SaaS admin.")
     ];
 
     private static readonly AppFaqDto[] FaqItems =
