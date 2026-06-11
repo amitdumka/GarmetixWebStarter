@@ -2,9 +2,9 @@
 
 ## Current Version
 
-- Version: 3.10.0
-- Stage: Stage 7K
-- Build Code: GARMETIX-7K-20260610-3100
+- Version: 3.11.0
+- Stage: Stage 7L
+- Build Code: GARMETIX-7L-20260610-3110
 
 ## Layout / Shell
 
@@ -20,6 +20,7 @@
 - `/dashboard/business` — owner/admin/accountant dashboard.
 - `/dashboard/map` — dashboard route and access map.
 - `/system-info` — version, runtime and route audit.
+- `/ui-audit` — page spacing, padding, responsive overlap and industry-standard layout audit queue.
 
 ## Reusable Dashboard Components
 
@@ -27,7 +28,8 @@
 - `components/dashboard/MetricGrid.vue` — shared KPI cards with loading skeletons.
 - `components/dashboard/ActionGrid.vue` — shared quick action cards.
 - `components/dashboard/HealthGrid.vue` — shared health/signal cards.
-- `components/dashboard/TrendChart.vue` — shared sales/purchase bar trend.
+- `components/dashboard/TrendChart.vue` — shared sales/purchase/profit/Non-GST bar trend.
+- `components/dashboard/BreakdownGrid.vue` — shared GST vs Non-GST, stock split and profit split breakdown panels.
 - `components/dashboard/ItemList.vue` — shared recent activity/work queue/alert list.
 - `components/dashboard/DataTable.vue` — shared dashboard table with money/number formatting.
 - `components/dashboard/ExportActions.vue` — reusable dashboard snapshot card with JSON, CSV and print/PDF actions.
@@ -48,6 +50,7 @@
 - `GET /api/dashboard/home`
 - `GET /api/dashboard/store-manager?from=YYYY-MM-DD&to=YYYY-MM-DD`
 - `GET /api/dashboard/business?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- Dashboard payloads now include `revenueBreakdown`, `stockBreakdown` and `profitBreakdown`.
 
 ## Stage 7K Dashboard Filter Map
 
@@ -75,3 +78,22 @@ NUXT_PUBLIC_DASHBOARD_SHELL=legacy
 ```
 
 Stage 7K does not remove any page and keeps existing dashboard routes intact.
+
+
+## Stage 7L Dashboard Charts and UI Audit Map
+
+- `backend/Garmetix.Api/Dashboard/DashboardDtos.cs`
+  - Adds `DashboardBreakdownDto`.
+  - Extends trend points with profit and Non-GST sales/purchase values.
+- `backend/Garmetix.Api/Dashboard/DashboardEndpoints.cs`
+  - Calculates GST sales, Non-GST sales, on-book stock, Non-GST stock, GST margin, Non-GST margin and total margin.
+- `frontend/garmetix-web/components/dashboard/BreakdownGrid.vue`
+  - Reusable visual breakdown panel with proportional bars.
+- `frontend/garmetix-web/pages/dashboard/store-manager/index.vue`
+  - Adds sales, stock and profit split panels.
+- `frontend/garmetix-web/pages/dashboard/business/index.vue`
+  - Adds revenue, stock valuation and profit split panels.
+- `frontend/garmetix-web/pages/ui-audit/index.vue`
+  - Adds full page-by-page UI layout audit queue.
+- `frontend/garmetix-web/assets/css/main.css`
+  - Adds Stage 7L responsive spacing and overlap guardrails.

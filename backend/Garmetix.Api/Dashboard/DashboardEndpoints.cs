@@ -61,23 +61,28 @@ public static class DashboardEndpoints
         var purchases = FilterPurchases(WorkspaceScope.ApplyTo(db.PurchaseInvoices.AsNoTracking(), context), companyId, storeGroupId, storeId)
             .Where(item => !item.ReturnInvoice);
         var stocks = FilterStocks(WorkspaceScope.ApplyTo(db.Stocks.AsNoTracking().Include(item => item.Product), context), companyId, storeGroupId, storeId);
+        var nonGstDocuments = FilterNonGst(WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context), companyId, storeGroupId, storeId);
 
         var salesToday = await SumAsync(sales.Where(item => item.OnDate >= today && item.OnDate < tomorrow).Select(item => item.BillAmount), cancellationToken);
         var salesMonth = await SumAsync(sales.Where(item => item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive).Select(item => item.BillAmount), cancellationToken);
         var purchaseMonth = await SumAsync(purchases.Where(item => item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive).Select(item => item.BillAmount), cancellationToken);
         var stockValue = await SumAsync(stocks.Select(item => (item.PurchaseQty - item.SoldQty) * item.CostPrice), cancellationToken);
+        var onBookStockValue = await SumAsync(stocks.Where(item => !item.IsOFB).Select(item => (item.PurchaseQty - item.SoldQty) * item.CostPrice), cancellationToken);
+        var nonGstStockValue = await SumAsync(stocks.Where(item => item.IsOFB).Select(item => (item.PurchaseQty - item.SoldQty) * item.CostPrice), cancellationToken);
         var lowStockCount = await stocks.CountAsync(item => (item.PurchaseQty - item.SoldQty) <= 3, cancellationToken);
         var todayInvoiceCount = await sales.CountAsync(item => item.OnDate >= today && item.OnDate < tomorrow, cancellationToken);
         var dueInvoiceCount = await sales.CountAsync(item => item.BillAmount > item.PaidAmount, cancellationToken);
         var activeStockCount = await stocks.CountAsync(item => (item.PurchaseQty - item.SoldQty) > 0, cancellationToken);
-        var nonGstSalesMonth = await SumAsync(FilterNonGst(WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context), companyId, storeGroupId, storeId)
+        var nonGstSalesMonth = await SumAsync(nonGstDocuments
             .Where(item => item.DocumentType == NonGstGoodsDocumentType.Sale && item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive)
             .Select(item => item.NetAmount), cancellationToken);
-        var nonGstPurchaseMonth = await SumAsync(FilterNonGst(WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context), companyId, storeGroupId, storeId)
+        var nonGstPurchaseMonth = await SumAsync(nonGstDocuments
             .Where(item => item.DocumentType == NonGstGoodsDocumentType.Purchase && item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive)
             .Select(item => item.NetAmount), cancellationToken);
+        var gstMargin = salesMonth - purchaseMonth;
+        var nonGstMargin = nonGstSalesMonth - nonGstPurchaseMonth;
 
-        var trend = await TrendAsync(sales, purchases, period.FromDate, period.ToExclusive, cancellationToken);
+        var trend = await TrendAsync(sales, purchases, nonGstDocuments, period.FromDate, period.ToExclusive, cancellationToken);
         var scope = await ResolveScopeAsync(context, db, companyId, storeGroupId, storeId, "Current store", cancellationToken);
 
         var recentSales = await sales
@@ -150,6 +155,21 @@ public static class DashboardEndpoints
             workQueue,
             quickActions,
             healthSignals,
+            [
+                Breakdown("GST sales", salesMonth, "success", "i-lucide-receipt-indian-rupee", "Regular tax invoice sales"),
+                Breakdown("Non-GST sales", nonGstSalesMonth, "primary", "i-lucide-file-warning", "Separate register sales"),
+                Breakdown("Total sales", salesMonth + nonGstSalesMonth, "neutral", "i-lucide-sigma", "Combined visible sale activity")
+            ],
+            [
+                Breakdown("On-book stock", onBookStockValue, "success", "i-lucide-boxes", "Regular inventory valuation"),
+                Breakdown("Non-GST stock", nonGstStockValue, "primary", "i-lucide-package-open", "Separate stock valuation"),
+                Breakdown("Total stock", stockValue, "neutral", "i-lucide-warehouse", "Current stock valuation")
+            ],
+            [
+                Breakdown("GST margin", gstMargin, gstMargin >= 0 ? "success" : "error", "i-lucide-chart-no-axes-combined", "Sales minus purchase"),
+                Breakdown("Non-GST margin", nonGstMargin, nonGstMargin >= 0 ? "primary" : "error", "i-lucide-file-warning", "Separate register margin"),
+                Breakdown("Total margin", gstMargin + nonGstMargin, gstMargin + nonGstMargin >= 0 ? "success" : "error", "i-lucide-badge-indian-rupee", "Combined operational margin")
+            ],
             period.Dto);
     }
 
@@ -170,26 +190,31 @@ public static class DashboardEndpoints
         var purchases = FilterPurchases(WorkspaceScope.ApplyTo(db.PurchaseInvoices.AsNoTracking(), context), companyId, storeGroupId, storeId)
             .Where(item => !item.ReturnInvoice);
         var stocks = FilterStocks(WorkspaceScope.ApplyTo(db.Stocks.AsNoTracking(), context), companyId, storeGroupId, storeId);
+        var nonGstDocuments = FilterNonGst(WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context), companyId, storeGroupId, storeId);
         var customers = FilterCompany(WorkspaceScope.ApplyTo(db.Customers.AsNoTracking(), context), companyId);
         var vendors = FilterCompany(WorkspaceScope.ApplyTo(db.Vendors.AsNoTracking(), context), companyId);
 
         var salesMonth = await SumAsync(sales.Where(item => item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive).Select(item => item.BillAmount), cancellationToken);
         var purchaseMonth = await SumAsync(purchases.Where(item => item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive).Select(item => item.BillAmount), cancellationToken);
         var stockValue = await SumAsync(stocks.Select(item => (item.PurchaseQty - item.SoldQty) * item.CostPrice), cancellationToken);
+        var onBookStockValue = await SumAsync(stocks.Where(item => !item.IsOFB).Select(item => (item.PurchaseQty - item.SoldQty) * item.CostPrice), cancellationToken);
+        var nonGstStockValue = await SumAsync(stocks.Where(item => item.IsOFB).Select(item => (item.PurchaseQty - item.SoldQty) * item.CostPrice), cancellationToken);
         var grossMargin = salesMonth - purchaseMonth;
         var customerCount = await customers.CountAsync(cancellationToken);
         var vendorCount = await vendors.CountAsync(cancellationToken);
         var invoiceCount = await sales.Where(item => item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive).CountAsync(cancellationToken);
         var dueInvoiceCount = await sales.CountAsync(item => item.BillAmount > item.PaidAmount, cancellationToken);
         var lowStockCount = await stocks.CountAsync(item => (item.PurchaseQty - item.SoldQty) <= 3, cancellationToken);
-        var nonGstSalesMonth = await SumAsync(FilterNonGst(WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context), companyId, storeGroupId, storeId)
+        var nonGstSalesMonth = await SumAsync(nonGstDocuments
             .Where(item => item.DocumentType == NonGstGoodsDocumentType.Sale && item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive)
             .Select(item => item.NetAmount), cancellationToken);
-        var nonGstPurchaseMonth = await SumAsync(FilterNonGst(WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context), companyId, storeGroupId, storeId)
+        var nonGstPurchaseMonth = await SumAsync(nonGstDocuments
             .Where(item => item.DocumentType == NonGstGoodsDocumentType.Purchase && item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive)
             .Select(item => item.NetAmount), cancellationToken);
+        var gstMargin = salesMonth - purchaseMonth;
+        var nonGstMargin = nonGstSalesMonth - nonGstPurchaseMonth;
 
-        var trend = await TrendAsync(sales, purchases, period.FromDate, period.ToExclusive, cancellationToken);
+        var trend = await TrendAsync(sales, purchases, nonGstDocuments, period.FromDate, period.ToExclusive, cancellationToken);
         var scope = await ResolveScopeAsync(context, db, companyId, storeGroupId, storeId, "Company / store group", cancellationToken);
         var storeRows = await StorePerformanceAsync(context, db, companyId, storeGroupId, storeId, period.FromDate, period.ToExclusive, cancellationToken);
         var storeGroupRows = await StoreGroupPerformanceAsync(context, db, companyId, storeGroupId, storeId, period.FromDate, period.ToExclusive, cancellationToken);
@@ -266,6 +291,21 @@ public static class DashboardEndpoints
             adminQueue,
             quickActions,
             healthSignals,
+            [
+                Breakdown("GST sales", salesMonth, "success", "i-lucide-receipt-indian-rupee", "Regular tax invoice sales"),
+                Breakdown("Non-GST sales", nonGstSalesMonth, "primary", "i-lucide-file-warning", "Separate register sales"),
+                Breakdown("Total sales", salesMonth + nonGstSalesMonth, "neutral", "i-lucide-sigma", "Combined visible sale activity")
+            ],
+            [
+                Breakdown("On-book stock", onBookStockValue, "success", "i-lucide-boxes", "Regular inventory valuation"),
+                Breakdown("Non-GST stock", nonGstStockValue, "primary", "i-lucide-package-open", "Separate stock valuation"),
+                Breakdown("Total stock", stockValue, "neutral", "i-lucide-warehouse", "Current stock valuation")
+            ],
+            [
+                Breakdown("GST margin", grossMargin, grossMargin >= 0 ? "success" : "error", "i-lucide-chart-no-axes-combined", "Sales minus purchase"),
+                Breakdown("Non-GST margin", nonGstMargin, nonGstMargin >= 0 ? "primary" : "error", "i-lucide-file-warning", "Separate register margin"),
+                Breakdown("Total margin", grossMargin + nonGstMargin, grossMargin + nonGstMargin >= 0 ? "success" : "error", "i-lucide-badge-indian-rupee", "Combined operational margin")
+            ],
             period.Dto);
     }
 
@@ -484,6 +524,7 @@ public static class DashboardEndpoints
     private static async Task<IReadOnlyList<DashboardTrendPointDto>> TrendAsync(
         IQueryable<Garmetix.Core.Models.Inventory.Invoice> sales,
         IQueryable<Garmetix.Core.Models.Inventory.PurchaseInvoice> purchases,
+        IQueryable<Garmetix.Core.Models.Inventory.NonGstGoodsDocument> nonGstDocuments,
         DateTime periodStart,
         DateTime periodEndExclusive,
         CancellationToken cancellationToken)
@@ -504,14 +545,29 @@ public static class DashboardEndpoints
             .Where(item => item.OnDate >= rangeStart && item.OnDate < periodEndExclusive)
             .Select(item => new { item.OnDate, item.BillAmount })
             .ToListAsync(cancellationToken);
+        var nonGstRows = await nonGstDocuments
+            .Where(item => item.OnDate >= rangeStart && item.OnDate < periodEndExclusive)
+            .Select(item => new { item.OnDate, item.DocumentType, item.NetAmount })
+            .ToListAsync(cancellationToken);
 
         return Enumerable.Range(0, Math.Max(1, (periodEndExclusive.Date - rangeStart.Date).Days))
             .Select(offset => rangeStart.Date.AddDays(offset))
-            .Select(date => new DashboardTrendPointDto(
-                date.ToString("dd MMM"),
-                date,
-                salesRows.Where(item => item.OnDate.Date == date).Sum(item => item.BillAmount),
-                purchaseRows.Where(item => item.OnDate.Date == date).Sum(item => item.BillAmount)))
+            .Select(date =>
+            {
+                var daySales = salesRows.Where(item => item.OnDate.Date == date).Sum(item => item.BillAmount);
+                var dayPurchase = purchaseRows.Where(item => item.OnDate.Date == date).Sum(item => item.BillAmount);
+                var dayNonGstSales = nonGstRows.Where(item => item.OnDate.Date == date && item.DocumentType == NonGstGoodsDocumentType.Sale).Sum(item => item.NetAmount);
+                var dayNonGstPurchase = nonGstRows.Where(item => item.OnDate.Date == date && item.DocumentType == NonGstGoodsDocumentType.Purchase).Sum(item => item.NetAmount);
+
+                return new DashboardTrendPointDto(
+                    date.ToString("dd MMM"),
+                    date,
+                    daySales,
+                    dayPurchase,
+                    (daySales + dayNonGstSales) - (dayPurchase + dayNonGstPurchase),
+                    dayNonGstSales,
+                    dayNonGstPurchase);
+            })
             .ToList();
     }
 
@@ -603,6 +659,11 @@ public static class DashboardEndpoints
     private static async Task<decimal> SumAsync(IQueryable<decimal> values, CancellationToken cancellationToken)
     {
         return await values.Select(item => (decimal?)item).SumAsync(cancellationToken) ?? 0m;
+    }
+
+    private static DashboardBreakdownDto Breakdown(string label, decimal value, string color, string icon, string caption)
+    {
+        return new DashboardBreakdownDto(label, value, FormatMetric(value), color, icon, caption);
     }
 
     private static DashboardMetricDto Metric(string label, decimal value, string caption, string icon, string color)

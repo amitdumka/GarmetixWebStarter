@@ -12,7 +12,18 @@ public sealed record DashboardTrendPointDto(
     string Label,
     DateTime Date,
     decimal Sales,
-    decimal Purchase);
+    decimal Purchase,
+    decimal Profit,
+    decimal NonGstSales,
+    decimal NonGstPurchase);
+
+public sealed record DashboardBreakdownDto(
+    string Label,
+    decimal Value,
+    string DisplayValue,
+    string Color,
+    string Icon,
+    string Caption);
 
 public sealed record DashboardActivityDto(
     string Title,
@@ -90,6 +101,9 @@ public sealed record StoreManagerDashboardDto(
     IReadOnlyList<DashboardActivityDto> WorkQueue,
     IReadOnlyList<DashboardQuickActionDto> QuickActions,
     IReadOnlyList<DashboardHealthSignalDto> HealthSignals,
+    IReadOnlyList<DashboardBreakdownDto> RevenueBreakdown,
+    IReadOnlyList<DashboardBreakdownDto> StockBreakdown,
+    IReadOnlyList<DashboardBreakdownDto> ProfitBreakdown,
     DashboardPeriodDto Period);
 
 public sealed record BusinessDashboardDto(
@@ -103,4 +117,7 @@ public sealed record BusinessDashboardDto(
     IReadOnlyList<DashboardActivityDto> AdminQueue,
     IReadOnlyList<DashboardQuickActionDto> QuickActions,
     IReadOnlyList<DashboardHealthSignalDto> HealthSignals,
+    IReadOnlyList<DashboardBreakdownDto> RevenueBreakdown,
+    IReadOnlyList<DashboardBreakdownDto> StockBreakdown,
+    IReadOnlyList<DashboardBreakdownDto> ProfitBreakdown,
     DashboardPeriodDto Period);

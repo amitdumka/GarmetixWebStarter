@@ -152,6 +152,24 @@ onBeforeUnmount(() => {
         :loading="loading"
       />
 
+      <div class="dashboard-v3-insight-grid dashboard-v3-breakdown-grid">
+        <DashboardBreakdownGrid
+          title="Sales split"
+          description="Regular GST sales and separate Non-GST sales for the selected period."
+          :items="data?.revenueBreakdown || []"
+        />
+        <DashboardBreakdownGrid
+          title="Stock split"
+          description="Regular inventory and separate Non-GST stock valuation."
+          :items="data?.stockBreakdown || []"
+        />
+        <DashboardBreakdownGrid
+          title="Profit split"
+          description="Period margin separated by register for operational review."
+          :items="data?.profitBreakdown || []"
+        />
+      </div>
+
       <div class="dashboard-v3-insight-grid">
         <DashboardActionGrid
           title="Quick actions"

@@ -13,6 +13,7 @@
 - Stage 7I: Reusable dashboard widget components, shared loading skeletons, empty states, metric cards, trend chart, item lists and performance tables.
 - Stage 7J: Dashboard JSON/CSV export and browser print/PDF snapshot tools.
 - Stage 7K: Dashboard date-range filters, saved browser preferences, auto-refresh controls and layout audit TODO.
+- Stage 7L: Richer dashboard charts, GST vs Non-GST breakdowns, stock/profit split panels and UI Layout Audit page.
 
 ## Required UI Layout Audit Before Stage 8
 
@@ -29,15 +30,19 @@
 
 ### Stage 7L — Dashboard Charts and Drilldowns
 
-- Add richer sales/purchase/profit charts.
-- Add GST vs Non-GST split charts.
-- Add stock ageing and low-stock risk dashboard.
-- Add store-group and company comparison drilldowns.
-- Add widget-level CSV export where deeper drilldown data is needed.
+Completed in v3.11.0:
+
+- Added richer sales/purchase/profit chart support.
+- Added GST vs Non-GST sales split panels.
+- Added on-book vs Non-GST stock valuation split panels.
+- Added GST vs Non-GST profit split panels.
+- Added UI Layout Audit page and stronger CSS guardrails for overlap prevention.
+
+Remaining chart refinements can move to Stage 8 analytics after local runtime validation.
 
 ### Stage 7M — Page Layout Standardization
 
-- Complete the required UI layout audit page by page.
+- Use `/ui-audit` to complete the required UI layout audit page by page.
 - Standardize page headers, filter bars, empty states and table actions across older pages.
 - Replace repeated custom snippets with reusable Nuxt UI components.
 - Fix margin, padding, responsive spacing and overlap issues across the whole app.
@@ -53,4 +58,4 @@
 
 - Legacy shell remains available using `NUXT_PUBLIC_DASHBOARD_SHELL=legacy`.
 - Existing pages and routes remain preserved.
-- Stage 7K keeps dashboard shell and API contracts backward-compatible while adding optional `from` and `to` filters.
+- Stage 7L keeps dashboard shell and API contracts backward-compatible while adding optional chart/breakdown fields.

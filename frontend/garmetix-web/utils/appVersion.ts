@@ -1,10 +1,11 @@
-export const APP_VERSION = '3.10.0'
-export const APP_STAGE = 'Stage 7K'
-export const APP_RELEASE_NAME = 'Dashboard Filters, Preferences and Auto Refresh'
+export const APP_VERSION = '3.11.0'
+export const APP_STAGE = 'Stage 7L'
+export const APP_RELEASE_NAME = 'Dashboard Charts and UI Layout Audit'
 export const APP_BUILD_DATE = '2026-06-10'
-export const APP_BUILD_CODE = 'GARMETIX-7K-20260610-3100'
+export const APP_BUILD_CODE = 'GARMETIX-7L-20260610-3110'
 
 export const APP_HIGHLIGHTS = [
+  'Stage 7L adds richer dashboard chart breakdowns and a UI layout audit page for spacing, padding and overlap review',
   'Stage 7K adds dashboard date-range filters, saved browser preferences and auto-refresh controls',
   'Stage 7J adds dashboard JSON export, CSV export and print/PDF snapshot tools',
   'Stage 7I refactors dashboard widgets into reusable Nuxt UI components with shared empty, loading, metric, chart, list and table states',

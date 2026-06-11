@@ -3287,3 +3287,169 @@ select {
     margin-left: 0;
   }
 }
+
+/* Stage 7L dashboard charts and whole-app layout audit guardrails */
+.dashboard-v3-breakdown-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dashboard-breakdown-card {
+  min-width: 0;
+}
+
+.dashboard-breakdown-list {
+  display: grid;
+  gap: 14px;
+}
+
+.dashboard-breakdown-row {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.dashboard-breakdown-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.dashboard-breakdown-row-header > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dashboard-breakdown-row-header strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-breakdown-row small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.dashboard-breakdown-bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 65%, transparent);
+}
+
+.dashboard-breakdown-bar i {
+  display: block;
+  height: 100%;
+  min-width: 8px;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.dashboard-breakdown-bar[data-color="success"] i {
+  background: var(--ok);
+}
+
+.dashboard-breakdown-bar[data-color="warning"] i {
+  background: var(--warn);
+}
+
+.dashboard-breakdown-bar[data-color="error"] i {
+  background: var(--danger);
+}
+
+.dashboard-breakdown-bar[data-color="neutral"] i {
+  background: var(--muted);
+}
+
+.dashboard-v3-chart-bars.extended {
+  grid-template-columns: repeat(4, 8px);
+  gap: 4px;
+}
+
+.dashboard-v3-chart-bars .profit,
+.dashboard-v3-legend .profit {
+  background: #8b5cf6;
+}
+
+.dashboard-v3-chart-bars .profit.negative {
+  background: var(--danger);
+}
+
+.dashboard-v3-chart-bars .non-gst,
+.dashboard-v3-legend .non-gst {
+  background: #14b8a6;
+}
+
+.ui-audit-page {
+  --audit-gap: 18px;
+}
+
+.ui-audit-check-card {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+  background: var(--panel);
+}
+
+.ui-audit-check-card strong,
+.ui-audit-check-card p {
+  display: block;
+  margin: 0;
+}
+
+.ui-audit-check-card p {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.dashboard-content :where(.dashboard-v3-page, .planner-dashboard, .module-page, .system-info-page, .ui-audit-page) {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.dashboard-content :where(.u-card, [class*="rounded"], .planner-card, .dashboard-v3-card, .dashboard-export-card, .dashboard-filter-card) {
+  min-width: 0;
+}
+
+.dashboard-content :where(.planner-table-wrap, .overflow-x-auto) {
+  max-width: 100%;
+}
+
+.dashboard-content :where(.planner-table-wrap, .overflow-x-auto, .dashboard-access-matrix, .message-log-list) {
+  overscroll-behavior-x: contain;
+}
+
+.dashboard-content :where(.flex) {
+  min-width: 0;
+}
+
+.dashboard-content :where(.grid) > * {
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-v3-breakdown-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .dashboard-v3-chart-bars.extended {
+    grid-template-columns: repeat(4, 6px);
+    gap: 3px;
+  }
+
+  .dashboard-breakdown-row-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

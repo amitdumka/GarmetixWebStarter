@@ -126,6 +126,7 @@ const moduleGroups: MenuGroup[] = [
       { to: '/client-onboarding', label: 'Onboarding', icon: 'i-lucide-route', adminOnly: true },
       { to: '/af-ss', label: 'AF/SS', icon: 'i-lucide-database-backup', adminOnly: true },
       { to: '/message-logs', label: 'Message Logs', icon: 'i-lucide-list-collapse', adminOnly: true },
+      { to: '/ui-audit', label: 'UI Layout Audit', icon: 'i-lucide-ruler', adminOnly: true },
       { to: '/access', label: 'Roles & Users', icon: 'i-lucide-shield-check', adminOnly: true },
       { to: '/import-export', label: 'Import Export', icon: 'i-lucide-file-down', adminOnly: true },
       { to: '/audit', label: 'Audit', icon: 'i-lucide-history', adminOnly: true },
@@ -318,6 +319,7 @@ const systemStatusDropdownItems = computed<DropdownMenuItem[][]>(() => sanitizeD
   [
     { label: 'Change workspace', icon: 'i-lucide-building-2', onSelect: () => { workspaceOpen.value = true } },
     { label: 'System Info', icon: 'i-lucide-monitor-cog', to: '/system-info' },
+    { label: 'UI Layout Audit', icon: 'i-lucide-ruler', to: '/ui-audit' },
     { label: 'System Health', icon: 'i-lucide-activity', to: '/system-health' },
     { label: 'Message Logs', icon: 'i-lucide-list-collapse', to: '/message-logs' },
     { label: 'About Version', icon: 'i-lucide-info', to: '/about-us' }
