@@ -39,6 +39,24 @@ const storeGroupColumns = [
   { key: 'currentStockQty', label: 'Stock Qty', type: 'number' }
 ]
 
+
+const exportTables = computed(() => [
+  { name: 'Store Performance', rows: data.value?.stores || [], columns: storeColumns },
+  { name: 'Store Group Performance', rows: data.value?.storeGroups || [], columns: storeGroupColumns },
+  { name: 'Recent Sales', rows: data.value?.recentSales || [], columns: [
+    { key: 'title', label: 'Invoice' },
+    { key: 'description', label: 'Customer / Details' },
+    { key: 'amount', label: 'Amount' },
+    { key: 'date', label: 'Date' }
+  ]},
+  { name: 'Recent Purchases', rows: data.value?.recentPurchases || [], columns: [
+    { key: 'title', label: 'Invoice' },
+    { key: 'description', label: 'Vendor / Details' },
+    { key: 'amount', label: 'Amount' },
+    { key: 'date', label: 'Date' }
+  ]}
+])
+
 async function refresh() {
   loading.value = true
   try {
@@ -74,6 +92,14 @@ onMounted(refresh)
       />
 
       <DashboardMetricGrid :metrics="data?.metrics || []" :loading="loading" business />
+
+      <DashboardExportActions
+        title="Business Dashboard"
+        file-name="business-dashboard"
+        :data="data"
+        :tables="exportTables"
+        :loading="loading"
+      />
 
       <div class="dashboard-v3-insight-grid">
         <DashboardActionGrid

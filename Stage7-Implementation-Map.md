@@ -54,3 +54,18 @@ NUXT_PUBLIC_DASHBOARD_SHELL=legacy
 ```
 
 Stage 7I does not remove any page and does not change dashboard API contracts.
+
+## Stage 7J - Dashboard Export / Print Map
+
+- `frontend/garmetix-web/components/dashboard/ExportActions.vue`
+  - Reusable dashboard snapshot card with JSON, CSV and print/PDF actions.
+- `frontend/garmetix-web/pages/dashboard/store-manager/index.vue`
+  - Adds export actions for store manager dashboard data.
+- `frontend/garmetix-web/pages/dashboard/business/index.vue`
+  - Adds export actions for business dashboard data and performance tables.
+- `frontend/garmetix-web/assets/css/main.css`
+  - Adds print cleanup rules.
+- `frontend/garmetix-web/utils/appVersion.ts`
+  - Bumped to 3.9.0.
+- `backend/Garmetix.Api/AppInfo/AppInfoEndpoints.cs`
+  - Bumped to 3.9.0.

@@ -507,7 +507,7 @@ onBeforeUnmount(() => {
             </div>
             <div v-if="!collapsed" class="min-w-0">
               <p class="dashboard-brand-title">Garmetix</p>
-              <p class="dashboard-brand-subtitle">Dashboard shell · v3.7</p>
+              <p class="dashboard-brand-subtitle">Dashboard shell · v{{ APP_VERSION }}</p>
             </div>
           </NuxtLink>
           <UButton

@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "3.8.0";
-    public const string Stage = "Stage 7I";
-    public const string ReleaseName = "Reusable Dashboard Components and Widget Polish";
+    public const string Version = "3.9.0";
+    public const string Stage = "Stage 7J";
+    public const string ReleaseName = "Dashboard Export, Print and Snapshot Tools";
     public const string BuildDate = "2026-06-10";
-    public const string BuildCode = "GARMETIX-7I-20260610-380";
+    public const string BuildCode = "GARMETIX-7J-20260610-390";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,7 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stage 7J adds dashboard JSON export, CSV export and print/PDF snapshot tools",
         "Stage 7I refactors dashboard widgets into reusable Nuxt UI components with shared empty, loading, metric, chart, list and table states",
         "Stage 7H adds System Info, version match checks, route audit and safer dashboard rollback visibility",
         "Stage 7G adds central permission-aware menu filtering, page guards and Access Denied routing",

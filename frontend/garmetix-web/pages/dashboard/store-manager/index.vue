@@ -17,6 +17,26 @@ const scopeQuery = computed(() => {
   return query ? `?${query}` : ''
 })
 
+
+const exportTables = computed(() => [
+  { name: 'Recent Sales', rows: data.value?.recentSales || [], columns: [
+    { key: 'title', label: 'Invoice' },
+    { key: 'description', label: 'Customer / Details' },
+    { key: 'amount', label: 'Amount' },
+    { key: 'date', label: 'Date' }
+  ]},
+  { name: 'Low Stock Alerts', rows: data.value?.stockAlerts || [], columns: [
+    { key: 'title', label: 'Item' },
+    { key: 'description', label: 'Details' },
+    { key: 'amount', label: 'Quantity' }
+  ]},
+  { name: 'Work Queue', rows: data.value?.workQueue || [], columns: [
+    { key: 'title', label: 'Task' },
+    { key: 'description', label: 'Description' },
+    { key: 'amount', label: 'Value' }
+  ]}
+])
+
 async function refresh() {
   loading.value = true
   try {
@@ -51,6 +71,14 @@ onMounted(refresh)
       />
 
       <DashboardMetricGrid :metrics="data?.metrics || []" :loading="loading" />
+
+      <DashboardExportActions
+        title="Store Manager Dashboard"
+        file-name="store-manager-dashboard"
+        :data="data"
+        :tables="exportTables"
+        :loading="loading"
+      />
 
       <div class="dashboard-v3-insight-grid">
         <DashboardActionGrid

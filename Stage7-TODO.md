@@ -41,3 +41,17 @@
 - Legacy shell remains available using `NUXT_PUBLIC_DASHBOARD_SHELL=legacy`.
 - Existing pages and routes remain preserved.
 - Stage 7I only refactors dashboard page presentation into reusable components; dashboard API contracts are unchanged.
+
+## Stage 7J - Completed
+
+- Added dashboard JSON export.
+- Added dashboard CSV export.
+- Added dashboard print/PDF snapshot action.
+- Added reusable dashboard export component.
+
+## Suggested Stage 7K
+
+- Add dashboard date range filters.
+- Add auto-refresh settings.
+- Add saved dashboard preferences per browser/user.
+- Add chart polish for sales, purchase, stock and profit.

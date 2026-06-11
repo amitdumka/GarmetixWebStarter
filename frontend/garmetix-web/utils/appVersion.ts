@@ -1,10 +1,11 @@
-export const APP_VERSION = '3.8.0'
-export const APP_STAGE = 'Stage 7I'
-export const APP_RELEASE_NAME = 'Reusable Dashboard Components and Widget Polish'
+export const APP_VERSION = '3.9.0'
+export const APP_STAGE = 'Stage 7J'
+export const APP_RELEASE_NAME = 'Dashboard Export, Print and Snapshot Tools'
 export const APP_BUILD_DATE = '2026-06-10'
-export const APP_BUILD_CODE = 'GARMETIX-7I-20260610-380'
+export const APP_BUILD_CODE = 'GARMETIX-7J-20260610-390'
 
 export const APP_HIGHLIGHTS = [
+  'Stage 7J adds dashboard JSON export, CSV export and print/PDF snapshot tools',
   'Stage 7I refactors dashboard widgets into reusable Nuxt UI components with shared empty, loading, metric, chart, list and table states',
   'Stage 7H adds System Info, version match checks, route audit and safer dashboard rollback visibility',
   'Stage 7G adds central permission-aware menu filtering, page guards and Access Denied routing',
