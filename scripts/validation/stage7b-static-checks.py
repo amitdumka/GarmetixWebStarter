@@ -25,7 +25,7 @@ check('Dashboard home endpoint exists', 'MapGet("/home", HomeAsync)' in endpoint
 check('Quick action DTO exists', 'DashboardQuickActionDto' in dtos and 'quickActions' in store_page and 'quickActions' in business_page)
 check('Health signal DTO exists', 'DashboardHealthSignalDto' in dtos and 'healthSignals' in store_page and 'healthSignals' in business_page)
 check('Store group performance exists', 'StoreGroupPerformanceDto' in dtos and 'StoreGroupPerformanceAsync' in endpoints and 'storeGroups' in business_page)
-check('Legacy shell revert preserved', 'NUXT_PUBLIC_DASHBOARD_SHELL=legacy' in (root / 'Stage7-Implementation-Map.md').read_text())
+check('Legacy shell revert preserved', 'NUXT_PUBLIC_DASHBOARD_SHELL=legacy' in (root / 'docs/stages/stage-7/IMPLEMENTATION-MAP.md').read_text())
 
 failed = [name for name, ok in checks if not ok]
 for name, ok in checks:

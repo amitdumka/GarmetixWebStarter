@@ -11,8 +11,8 @@ REQUIRED = [
     "frontend/garmetix-web/public/docs/go-live-smoke-test-checklist.md",
     "scripts/linux/smoke-test.sh",
     "scripts/windows/smoke-test.ps1",
-    "Operator-User-Manual.md",
-    "GoLive-Smoke-Test-Checklist.md",
+    "docs/guides/Operator-User-Manual.md",
+    "docs/operations/release/GoLive-Smoke-Test-Checklist.md",
 ]
 
 missing = [path for path in REQUIRED if not (ROOT / path).exists()]

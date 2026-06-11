@@ -1,5 +1,7 @@
 # Garmetix Web Starter
 
+Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
+
 This starter converts the supplied MAUI model ZIP into a web-first structure:
 
 ```text
@@ -63,7 +65,7 @@ The API uses JWT bearer authentication and role policies for each module. Create
 curl -X POST http://localhost:5080/api/auth/bootstrap-admin -H "Content-Type: application/json" -d "{\"name\":\"Garmetix Admin\",\"userName\":\"admin\",\"email\":\"admin@garmetix.local\",\"password\":\"change-me\"}"
 ```
 
-More details are in `backend/Auth-Access-Notes.md`. Forgot/reset password email delivery and one-time reset-token storage are documented in `backend/Password-Reset-Email-Notes.md`.
+More details are in `docs/modules/auth-access/Auth-Access-Notes.md`. Forgot/reset password email delivery and one-time reset-token storage are documented in `docs/modules/auth-access/Password-Reset-Email-Notes.md`.
 
 ## First Run Setup
 
@@ -81,11 +83,11 @@ If `databaseReady` is `true`, frontend, proxy, API, and database connectivity ar
 
 ## Billing POS
 
-Billing now has its own Nuxt route at `/billing`. The page uses Nuxt UI sales KPI cards, searchable `UTable`, a POS slideover workflow, receipt modal, print/PDF actions, cancel confirmation, and toast feedback. It calls `POST /api/billing/sales`, saves invoice/items/payment in one backend transaction, and updates stock sold quantity. Invoice printing supports A4, A5, 2-inch thermal, 3-inch thermal, customer/office/duplicate copies, reprint mode, and optional signature lines. More details are in `backend/Billing-Notes.md`.
+Billing now has its own Nuxt route at `/billing`. The page uses Nuxt UI sales KPI cards, searchable `UTable`, a POS slideover workflow, receipt modal, print/PDF actions, cancel confirmation, and toast feedback. It calls `POST /api/billing/sales`, saves invoice/items/payment in one backend transaction, and updates stock sold quantity. Invoice printing supports A4, A5, 2-inch thermal, 3-inch thermal, customer/office/duplicate copies, reprint mode, and optional signature lines. More details are in `docs/modules/billing-sales/Billing-Notes.md`.
 
 ## Purchase Inward
 
-Purchase now has its own Nuxt route at `/purchase`. The page uses Nuxt UI purchase KPI cards, searchable `UTable`, and a purchase inward slideover workflow with item cart totals and toast feedback. It calls `POST /api/purchase/inward`, creates or reuses a vendor, creates missing products when name/barcode are supplied, saves the purchase invoice/items, and increases store stock purchase quantity. More details are in `backend/Purchase-Notes.md`.
+Purchase now has its own Nuxt route at `/purchase`. The page uses Nuxt UI purchase KPI cards, searchable `UTable`, and a purchase inward slideover workflow with item cart totals and toast feedback. It calls `POST /api/purchase/inward`, creates or reuses a vendor, creates missing products when name/barcode are supplied, saves the purchase invoice/items, and increases store stock purchase quantity. More details are in `docs/modules/purchase-inventory/Purchase-Notes.md`.
 
 ## Frontend Routing
 
@@ -93,7 +95,7 @@ The dashboard is now an overview page. Module navigation uses separate Nuxt page
 
 ## Nuxt UI Direction
 
-The frontend is staged for Nuxt 4 + Nuxt UI v4. Stage 1 adds the Nuxt UI module, wraps the app in `UApp`, and uses Nuxt UI dashboard layout components for the shared shell. Stage 2 adds reusable CRUD building blocks for page headers, toolbars, empty states, delete confirmation, form slideovers, and toast feedback. Stage 3 now uses the Nuxt Planner demo as the dashboard direction: grouped navigation, compact KPI cards, dense work tables, progress panels, and recent activity. The full staged migration list is in `Nuxt-UI-Implementation-Stages.md`.
+The frontend uses Nuxt 4 + Nuxt UI v4. The current implementation status and remaining work are maintained in `docs/planning/CURRENT-ROADMAP.md`; the original migration plan is archived under `docs/planning/archive/`.
 
 Dark mode is the default theme. Users can switch between Dark, Light, and System from the dashboard top bar, or use the theme icon button for quick toggling.
 
@@ -211,7 +213,7 @@ Windows helper scripts are available under `scripts/windows`:
 .\scripts\windows\backup-db.ps1
 ```
 
-Use `Deployment-Windows.md` for Windows hosting, Cloudflare Tunnel, restart, backup, and restore steps.
+Use `docs/operations/deployment/Windows.md` for Windows hosting, Cloudflare Tunnel, restart, backup, and restore steps.
 
 ## Production Deploy
 
@@ -222,27 +224,27 @@ cp .env.example .env
 docker compose -f docker-compose.prod.yml up --build -d
 ```
 
-Set `POSTGRES_PASSWORD` and `JWT_SIGNING_KEY` in `.env` before starting. Keep `NUXT_PUBLIC_API_BASE=/api` unless you intentionally expose the API on a separate public host. Full deployment, backup, restore, and update notes are in `Deployment-Linux-MacMini.md`.
+Set `POSTGRES_PASSWORD` and `JWT_SIGNING_KEY` in `.env` before starting. Keep `NUXT_PUBLIC_API_BASE=/api` unless you intentionally expose the API on a separate public host. Full deployment, backup, restore, and update notes are in `docs/operations/deployment/Linux-MacMini.md`.
 
 ## Migration Notes
 
-EF Core setup details are in `backend/EF-Core-Next-Step.md`.
+EF Core setup details are in `docs/modules/database-backup/EF-Core-Next-Step.md`.
 
 The model conversion made one bridge change: `AppUser` now implements `IEntity` because it already has an `Id` and should participate in the same API/storage pattern.
 
 Date/time values are normalized before saving so PostgreSQL `timestamp without time zone` columns can accept values submitted from browsers and backend audit stamps.
 
-- Password reset email delivery through configurable SMTP. See `backend/Password-Reset-Email-Notes.md`.
+- Password reset email delivery through configurable SMTP. See `docs/modules/auth-access/Password-Reset-Email-Notes.md`.
 
 
 ## Workspace permissions
 
-Company / StoreGroup / Store selector is now backed by `/api/workspace/options` and server-side scope checks. See `backend/Workspace-Permissions-Notes.md`.
+Company / StoreGroup / Store selector is now backed by `/api/workspace/options` and server-side scope checks. See `docs/modules/auth-access/Workspace-Permissions-Notes.md`.
 
 
 ## Google Drive Online Backup
 
-Google Drive backup is optional and disabled by default. To enable it, create `./secrets/google-drive-service-account.json`, share the target Drive folder with that service account email, set `GOOGLE_DRIVE_BACKUP_ENABLED=true`, and set `GOOGLE_DRIVE_FOLDER_ID` in `.env`. Admin users can view/upload/download/delete/restore cloud backups from **System Health**. See `backend/Google-Drive-Backup-Notes.md`.
+Google Drive backup is optional and disabled by default. To enable it, create `./secrets/google-drive-service-account.json`, share the target Drive folder with that service account email, set `GOOGLE_DRIVE_BACKUP_ENABLED=true`, and set `GOOGLE_DRIVE_FOLDER_ID` in `.env`. Admin users can view/upload/download/delete/restore cloud backups from **System Health**. See `docs/modules/database-backup/Google-Drive-Backup-Notes.md`.
 
 ### GST Returns standalone module
 
@@ -253,7 +255,7 @@ A separate urgent GST Returns module is available at `/gst-returns`. It currentl
 - GSTR-3B JSON
 - GSTR-3B Excel
 
-This module is intentionally not linked to Billing/Purchase yet. See `backend/GST-Return-Notes.md`.
+See `docs/modules/gst/GST-Return-Notes.md` for the GST return implementation history.
 
 
 
@@ -267,8 +269,8 @@ Open `/gst-returns` for the standalone manual GST module. It supports GSTR-1 and
 
 ### GSTIN verification
 
-Customer and Vendor creation now supports GSTIN lookup/validation through a configurable provider. Open `/parties` to verify GSTIN, store legal/trade name and address details, and see mismatch alerts before saving. Billing and Purchase forms also show GSTIN alerts. Configure `GSTIN_LOOKUP_*` values in `.env` before production use. See `backend/GSTIN-Verification-Notes.md`.
-- Purchase now has list/detail/print/PDF and cancellation with stock reversal; see `backend/Purchase-Print-Cancel-Notes.md`.
+Customer and Vendor creation now supports GSTIN lookup/validation through a configurable provider. Open `/parties` to verify GSTIN, store legal/trade name and address details, and see mismatch alerts before saving. Billing and Purchase forms also show GSTIN alerts. Configure `GSTIN_LOOKUP_*` values in `.env` before production use. See `docs/modules/gst/GSTIN-Verification-Notes.md`.
+- Purchase now has list/detail/print/PDF and cancellation with stock reversal; see `docs/modules/purchase-inventory/Purchase-Print-Cancel-Notes.md`.
 
 
 ### Latest workflow additions
@@ -283,11 +285,11 @@ This package also includes:
 - Sales exchange flow with linked return credit note and replacement invoice.
 - GST Returns Load From Books for GSTR-1 and GSTR-3B.
 - Audit filters, entity field details, and CSV export.
-- Developer validation checklist under `backend/Developer-Validation-Checklist.md`.
+- Developer validation checklist under `docs/operations/validation/Developer-Validation-Checklist.md`.
 
 ### Runtime migration fix
 
-This package includes a fix for the API restart loop caused by EF Core `PendingModelChangesWarning` during startup auto-migration. See `backend/Runtime-Migration-Fix-Notes.md`.
+This package includes a fix for the API restart loop caused by EF Core `PendingModelChangesWarning` during startup auto-migration. See `docs/modules/database-backup/Runtime-Migration-Fix-Notes.md`.
 
 ## Latest commercial workflow additions
 
@@ -306,7 +308,7 @@ dotnet ef database update --project backend/Garmetix.Infrastructure --startup-pr
 
 ### Runtime schema drift repair
 
-If an older PostgreSQL Docker volume is missing newer Customer/Vendor GSTIN columns, the API now runs a safe idempotent repair after auto-migration. See `backend/Database-Schema-Drift-Fix-Notes.md`.
+If an older PostgreSQL Docker volume is missing newer Customer/Vendor GSTIN columns, the API now runs a safe idempotent repair after auto-migration. See `docs/modules/database-backup/Database-Schema-Drift-Fix-Notes.md`.
 
 ### Customer / Debit-Credit Note / Loyalty refinement
 
@@ -322,9 +324,9 @@ The GST Returns module is now connected with accounting service posting while ke
 - GSTR-3B settlement journal posting.
 - Saved GSTR-3B draft can be posted to accounting with audit entry.
 - Startup schema repair now runs even when auto-migration is disabled.
-- Project tracking now uses `CodexTODO.md` for requested features and `CodexISSUES.md` for bugs/errors.
+- Project tracking is organized under `docs/planning/`. Start with `docs/planning/CURRENT-ROADMAP.md`.
 
-See `backend/GST-Accounting-Integration-Notes.md`.
+See `docs/modules/gst/GST-Accounting-Integration-Notes.md`.
 
 
 ## Oracle Cloud Secondary Sync
@@ -337,13 +339,13 @@ The API includes an admin-only Oracle secondary sync module for using Oracle Clo
 - Repair local/Oracle sync tables: `POST /api/oracle-sync/repair`
 - Manual run: `POST /api/oracle-sync/run`
 
-Configure with `ORACLE_SYNC_*` values in `.env`. See `backend/Oracle-Secondary-Sync-Notes.md`.
+Configure with `ORACLE_SYNC_*` values in `.env`. See `docs/modules/oracle-sync/Oracle-Secondary-Sync-Notes.md`.
 
 ### Oracle Sync v2
 
 Oracle secondary sync now supports safe bidirectional mode. Garmetix still treats PostgreSQL as the primary transaction store. External Oracle events are pulled into `OracleSyncInboundEvents` and failed/unsupported events go to `OracleSyncDeadLetters` until entity ownership and merge rules are approved.
 
-See `backend/Oracle-Secondary-Sync-v2-Notes.md`.
+See `docs/modules/oracle-sync/Oracle-Secondary-Sync-v2-Notes.md`.
 
 ### Oracle Secondary Sync v3
 
@@ -370,7 +372,7 @@ The Oracle Sync admin page includes **External App Test**. It seeds one shared-m
 
 Related files:
 
-- `backend/Oracle-Secondary-Sync-v5-External-App-Test-Notes.md`
+- `docs/modules/oracle-sync/Oracle-Secondary-Sync-v5-External-App-Test-Notes.md`
 - `tools/oracle-external-app-simulator/README.md`
 - `tools/oracle-external-app-simulator/insert-sample-customer-event.sql`
 - `scripts/oracle-external-app-smoke-test.ps1`
@@ -385,7 +387,7 @@ This package adds final go-live support:
 - API: `POST /api/release-stabilization/demo-data/seed`
 - Linux smoke test: `scripts/linux/smoke-test.sh .env.production`
 - Windows smoke test: `scripts/windows/smoke-test.ps1 -EnvFile .env.production`
-- Operator manual: `Operator-User-Manual.md`
-- Go-live checklist: `GoLive-Smoke-Test-Checklist.md`
+- Operator manual: `docs/guides/Operator-User-Manual.md`
+- Go-live checklist: `docs/operations/release/GoLive-Smoke-Test-Checklist.md`
 
 Use this stage after production readiness and backup/restore hardening are configured.

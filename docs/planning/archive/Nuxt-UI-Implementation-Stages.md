@@ -1,4 +1,6 @@
-# Nuxt UI Implementation Stages
+# Archived Nuxt UI Implementation Stages
+
+This early migration plan is retained for history. Stages 1-7 have advanced beyond the statuses recorded here. Use `../CURRENT-ROADMAP.md` and `../../stages/stage-7/IMPLEMENTATION-MAP.md` for current work.
 
 This is the staged frontend plan for moving Garmetix to Nuxt 4 + Nuxt UI v4.
 

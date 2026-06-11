@@ -1,3 +1,7 @@
+# Archived Frontend TODO
+
+This checklist is retained for history. The current roadmap is `../CURRENT-ROADMAP.md`, and completed-feature history is in `../MASTER-TODO.md`.
+
 1. Vouchers:
  a. Done: Slip number is visible for cash payment; other modes store "NA".
  b. Done: Responsive grouped entry layout for desktop and mobile.

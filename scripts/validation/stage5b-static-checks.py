@@ -24,7 +24,7 @@ checks = [
     ("infra/caddy/Caddyfile.example", "reverse_proxy"),
     ("infra/cloudflare/config.example.yml", "ingress"),
     ("deploy/systemd/garmetix.service", "docker compose"),
-    ("Production-Environment-Hardening.md", "Stage 5B"),
+    ("docs/operations/deployment/Production-Environment-Hardening.md", "Stage 5B"),
 ]
 
 errors = []

@@ -16,7 +16,7 @@ system_page = root / 'frontend/garmetix-web/pages/system-info/index.vue'
 access = root / 'frontend/garmetix-web/composables/useAccessControl.ts'
 shell = root / 'frontend/garmetix-web/components/AppShell.vue'
 map_page = root / 'frontend/garmetix-web/pages/dashboard/map/index.vue'
-notes = root / 'Stage7H-System-Info-Route-Audit-Notes.md'
+notes = root / 'docs/stages/stage-7/Stage7H-System-Info-Route-Audit-Notes.md'
 
 for path in [app_version, app_info, app_dtos, api_csproj, system_page, access, shell, map_page, notes]:
     check(f'{path.relative_to(root)} exists', path.exists())

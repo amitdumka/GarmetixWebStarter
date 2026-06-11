@@ -73,8 +73,8 @@ Added:
 
 Added:
 
-- `Operator-User-Manual.md`
-- `GoLive-Smoke-Test-Checklist.md`
+- `../../guides/Operator-User-Manual.md`
+- `../../operations/release/GoLive-Smoke-Test-Checklist.md`
 - public Nuxt copies under `frontend/garmetix-web/public/docs/`
 
 ## Recommended live rollout order

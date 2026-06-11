@@ -16,8 +16,8 @@ required = [
     'frontend/garmetix-web/pages/dashboard/business/index.vue',
     'frontend/garmetix-web/utils/appVersion.ts',
     'backend/Garmetix.Api/AppInfo/AppInfoEndpoints.cs',
-    'Stage7-TODO.md',
-    'Stage7-Implementation-Map.md',
+    'docs/stages/stage-7/TODO.md',
+    'docs/stages/stage-7/IMPLEMENTATION-MAP.md',
 ]
 
 for rel in required:
@@ -65,7 +65,7 @@ for token in ['3.8.0', 'Stage 7I', 'GARMETIX-7I-20260610-380']:
 if '"version": "3.8.0"' not in package_json:
     errors.append('Frontend package.json version was not updated to 3.8.0')
 
-if 'NUXT_PUBLIC_DASHBOARD_SHELL=legacy' not in (root / 'Stage7-Implementation-Map.md').read_text():
+if 'NUXT_PUBLIC_DASHBOARD_SHELL=legacy' not in (root / 'docs/stages/stage-7/IMPLEMENTATION-MAP.md').read_text():
     errors.append('Rollback instruction missing from implementation map')
 
 if errors:

@@ -35,7 +35,7 @@ check('navigation remounts per route', ':key="`primary-${route.path}`"' in app_s
 check('login technical badges removed', 'JWT protected sessions' not in auth and 'Self-service password recovery' not in auth and 'Garmetix Web' not in auth)
 check('store dashboard contextual title', 'storeDashboardTitle' in store_dash and 'badge="Store"' in store_dash)
 check('company dashboard contextual title', 'companyDashboardTitle' in company_dash and 'badge="Company"' in company_dash)
-check('ui audit before v4 todo retained', 'Required UI Layout Audit Before Stage 8 / v4.0' in (root/'Stage7-TODO.md').read_text())
+check('ui audit before v4 todo retained', 'Required UI Layout Audit Before Stage 8 / v4.0' in (root/'docs/stages/stage-7/TODO.md').read_text())
 check('visible stage labels removed from frontend pages', not re.search(r'>\s*Stage\s+[0-9][A-Z]?\s*<', '\n'.join(p.read_text(errors='ignore') for p in (frontend/'pages').rglob('*.vue'))))
 
 failed = [name for name, ok in checks if not ok]

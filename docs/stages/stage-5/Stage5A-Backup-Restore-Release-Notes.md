@@ -102,7 +102,7 @@ Both Windows and Linux/Mac scripts now generate or verify SHA256 sidecars.
 Added:
 
 ```text
-Production-Release-Checklist.md
+../../operations/release/Production-Release-Checklist.md
 ```
 
 Use it before moving a store to live usage.

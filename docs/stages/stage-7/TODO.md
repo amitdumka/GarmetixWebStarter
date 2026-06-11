@@ -1,5 +1,7 @@
 # Stage 7 TODO
 
+Stage 7 is complete through Stage 7M. Current implementation work is tracked in `../../planning/CURRENT-ROADMAP.md`.
+
 ## Completed
 
 - Stage 7A: Nuxt UI Dashboard shell and role dashboards.
@@ -54,12 +56,12 @@
 - Replace repeated custom snippets with reusable Nuxt UI components.
 - Fix margin, padding, responsive spacing and overlap issues across the whole app.
 
-### Stage 8B — User, Role and Permission Management / v4.1
+### Stage 8B - User, Role and Permission Hardening / v4.1
 
-- Add user list/create/edit screens.
-- Add role and permission assignment UI.
-- Add password reset and active/inactive controls.
-- Add audit logging for user administration changes.
+- Audit and refine the existing user list/create/edit screens.
+- Validate role, permission, company, store-group, and store assignment behavior.
+- Validate password reset and active/inactive controls.
+- Add deeper audit logging and automated permission-matrix coverage.
 
 ## Revert Safety
 

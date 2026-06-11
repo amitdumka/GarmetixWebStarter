@@ -11,8 +11,8 @@ checks = [
     ('Business dashboard filters', root/'frontend/garmetix-web/pages/dashboard/business/index.vue', ['DashboardFilterBar', "useDashboardPreferences('business-dashboard')", 'configureAutoRefresh', 'lastRefreshedAt']),
     ('Backend period filters', root/'backend/Garmetix.Api/Dashboard/DashboardEndpoints.cs', ['DateTime? from', 'DateTime? to', 'ResolvePeriod', 'period.FromDate', 'period.ToExclusive']),
     ('Dashboard period DTO', root/'backend/Garmetix.Api/Dashboard/DashboardDtos.cs', ['DashboardPeriodDto', 'DashboardPeriodDto Period']),
-    ('Stage 7 TODO layout audit', root/'Stage7-TODO.md', ['Required UI Layout Audit', 'proper outer margin and padding', 'overlaps the sidebar', 'industry-standard layout']),
-    ('Implementation map', root/'Stage7-Implementation-Map.md', ['Version: 3.10.0', 'Stage 7K Dashboard Filter Map', 'FilterBar.vue', 'useDashboardPreferences.ts'])
+    ('Stage 7 TODO layout audit', root/'docs/stages/stage-7/TODO.md', ['Required UI Layout Audit', 'proper outer margin and padding', 'overlaps the sidebar', 'industry-standard layout']),
+    ('Implementation map', root/'docs/stages/stage-7/IMPLEMENTATION-MAP.md', ['Version: 3.10.0', 'Stage 7K Dashboard Filter Map', 'FilterBar.vue', 'useDashboardPreferences.ts'])
 ]
 
 errors = []

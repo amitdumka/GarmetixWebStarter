@@ -135,11 +135,11 @@ This can be installed on Linux to start the Docker Compose stack after reboot.
 
 Added:
 
-- `Production-Environment-Hardening.md`
+- `../../operations/deployment/Production-Environment-Hardening.md`
 
 Updated:
 
-- `Production-Release-Checklist.md`
+- `../../operations/release/Production-Release-Checklist.md`
 
 ## Recommended first-run production flow
 

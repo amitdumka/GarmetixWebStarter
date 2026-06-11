@@ -1,4 +1,6 @@
-# Codex Issues - Garmetix Web
+# Garmetix Issues
+
+The current implementation order and non-defect enhancement work are maintained in `CURRENT-ROADMAP.md`.
 
 Use this file for every bug/error raised by the user. Mark an item `[x]` only after the fix is included in a generated ZIP.
 
@@ -19,7 +21,10 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 
 ## Open
 
-- [ ] Developer machine validation still pending: `dotnet publish`, Nuxt production build, clean Docker install, permissions matrix, backup/restore, and fresh migration test.
+- [ ] `GET /api/dashboard/home` is mapped in a way that discards its `DashboardHomeDto`; the live endpoint can return HTTP 200 with an empty body.
+- [ ] Backend Release build has nullable warnings in purchase receipt mapping and data-consistency number handling.
+- [ ] Nuxt production build succeeds but external font metadata providers can fail certificate validation and produce noisy fallback warnings.
+- [ ] Clean Docker install, fresh database migration, permissions matrix, and backup/restore drill remain pending.
 
 ## FIXED - Database schema repair raw SQL FormatException
 
@@ -52,8 +57,8 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 - Area: Oracle Secondary Sync
 - Note: Code and UI now provide a safe external-app smoke test, but a real Oracle Cloud Free Tier wallet/connection and one external connected app still need to be tested on the developer environment.
 
-## OPEN - Sale/Purchase/Inventory production hardening pending UI and concurrency work
+## OPEN - Sale/Purchase/Inventory final production hardening
 
 - Status: Open
 - Area: Sale / Purchase / Inventory
-- Note: Model alignment and backend posting foundation has started, but full UI completion, sequence-safe invoice numbering, stock concurrency protection, stock adjustment/transfer/count, and item-wise purchase return UI remain pending.
+- Note: Stage 3 UI and Stage 4 numbering/concurrency/stock-operation foundations are implemented. Remaining work is formal Purchase Return documents, exact ITC reversal, supplier refund settlement, formal stock-operation documents, movement-ledger authority, stock valuation, and automated reconciliation tests.

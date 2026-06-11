@@ -1,4 +1,6 @@
-# Codex TODO - Garmetix Web
+# Garmetix Master TODO
+
+Current implementation order is maintained in `CURRENT-ROADMAP.md`. This file preserves the complete requested-feature checklist and implementation history.
 
 Use this file as the running handoff checklist. When a task is completed, mark it with `[x]` and add a short note/date if useful.
 
@@ -92,8 +94,8 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 
 ## Testing / Deployment Hardening
 
-- [ ] Run full backend build on developer machine.
-- [ ] Run full Nuxt build on developer machine.
+- [x] Run full backend build on developer machine. Stage 7M Release build succeeds on 2026-06-11 with three warnings tracked in the current roadmap.
+- [x] Run full Nuxt build on developer machine. Stage 7M Nuxt production build succeeds on 2026-06-11 with external font-provider and dependency warnings tracked in the current roadmap.
 - [ ] Test Docker Compose clean install.
 - [ ] Test fresh database migration.
 - [ ] Test backup/restore.
@@ -102,8 +104,9 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 
 ## Current validation note
 
-- Backend and full Nuxt SSR builds still need to be run on the developer machine because this sandbox does not include `dotnet` and external Nuxt font/icon fetches keep failing here.
-- Use the commands in `backend/Developer-Validation-Checklist.md` after extracting the ZIP.
+- Backend and full Nuxt SSR builds pass locally for Stage 7M.
+- Remaining release validation is clean Docker installation, fresh database migration, backup/restore drill, and the complete role-permission matrix.
+- Use `docs/operations/validation/Developer-Validation-Checklist.md`.
 
 ## Commercial Notes / Advance / Loyalty / Barcode - URGENT
 
@@ -137,8 +140,8 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 
 ## Project Workflow Rules
 
-- [x] Every new feature request must be added to this `CodexTODO.md` before or while implementing it.
-- [x] Every bug/error raised by the user must be added to `CodexISSUES.md` and marked fixed only after the fix is included in a generated ZIP.
+- [x] Every new feature request must be added to `MASTER-TODO.md` before or while implementing it.
+- [x] Every bug/error raised by the user must be added to `ISSUES.md` and marked fixed only after the fix is validated.
 
 ## GST Accounting Service Integration
 
@@ -150,8 +153,8 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Make database schema repair run even when auto-migration is disabled, so older Docker volumes are repaired before endpoints query newer tables.
 
 ## Process Rule Update
-- [x] Every requested feature must be added to `CodexTODO.md` before/while implementation.
-- [x] Every bug/error raised by user must be added to `CodexISSUES.md` and marked fixed after the generated ZIP includes the fix.
+- [x] Every requested feature must be added to `MASTER-TODO.md` before or while implementing it.
+- [x] Every bug/error raised by the user must be added to `ISSUES.md` and marked fixed after validation.
 
 ## Oracle Cloud Secondary Database Sync
 
@@ -221,12 +224,14 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 
 ## Sale / Purchase / Inventory Production Hardening
 
-- [x] Export Sale/Purchase/Inventory model/UI/data-layer audit report to PDF. Added `Garmetix_Sale_Purchase_Inventory_Model_Audit_Report.pdf` as a separate handoff document.
+- [x] Export Sale/Purchase/Inventory model/UI/data-layer audit report to PDF. Stored under `docs/reports/`.
 - [x] Stage 1 model alignment foundation: add Product HSN field, PurchaseInvoice StoreGroup/Store/SupplierInvoiceDate fields, InvoiceItem product/HSN/unit/category/GST split snapshots, extended InvoicePayment/CardPayment/VendorPayment fields, PurchasePayment allocation model, and StockMovement model.
 - [x] Stage 1 database repair foundation: add idempotent schema repair for the new product, purchase, invoice item, payment, purchase payment, and stock movement columns/tables so older PostgreSQL volumes can upgrade safely.
 - [x] Stage 2 backend posting foundation: populate sale/purchase item snapshots, calculate CGST/SGST/IGST split, create stock movement rows for sales, purchases, sales returns, exchanges, and purchase returns, store purchase payment allocations, preserve original purchase invoice values on cancellation.
-- [ ] Stage 3 UI completion: add full Product master form, customer/vendor picker, salesman selector, payment split form, card/UPI/cheque detail fields, apply advance/credit-note/loyalty redemption in billing, supplier invoice date/due date fields in purchase, and partial purchase return item-selection UI.
-- [ ] Stage 4 business hardening: sequence-safe invoice numbers, stock concurrency/row-locking, bill-level discount tax allocation, stock adjustment/transfer/physical count screens, stock valuation method, and automated test coverage.
+- [x] Stage 3 UI completion: Product Master, customer/vendor picker, salesman selection, split payment UI, billing adjustments, purchase dates, and partial purchase return selection were implemented across Stages 3A-3D.
+- [x] Stage 4 core hardening: sequence-safe numbering, PostgreSQL stock locking, bill-discount tax allocation, stock adjustment/transfer/physical count UI, GST reports, consistency checks, and controlled repair were implemented across Stages 4A-4E.
+- [ ] Stage 8 inventory completion: formal stock-operation documents, authoritative movement-ledger balance, documented stock valuation method, and automated reconciliation/concurrency coverage.
+- [ ] Stage 8 purchase-return completion: formal Purchase Return header/items, exact item-level ITC reversal, vendor refund settlement, and dedicated return/debit-note print linkage.
 
 ## Stage 3A Product Master - added 2026-06-08
 
@@ -234,5 +239,17 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - Added ProductGroup/StockType/category/subcategory metadata to inventory models and runtime schema repair.
 - Added `/api/inventory/product-master` endpoints for combined product + stock + product detail create/update.
 - Reworked Inventory page into Product Master UI with HSN, GST, group/type, category/subcategory, vendor, brand, style, color, cost, and stock type.
-- Pending validation: run `dotnet build`, `npm install`, and `npm run build` in the Windows/Docker dev environment.
+- Validation completed through the Stage 7M backend and Nuxt production builds.
 
+## Stage 7M and Stage 8 Planning
+
+- [x] Complete Stage 7M Pre-v4.0 UI Naming and Menu Cleanup.
+- [x] Preserve the active grouped Nuxt UI shell and `NUXT_PUBLIC_DASHBOARD_SHELL=legacy` rollback.
+- [x] Keep Cash Vouchers separate under Off Book and regular vouchers under Accounting.
+- [ ] Complete Stage 8A full-page UI audit and standardization.
+- [ ] Complete Stage 8B role, permission, and user-administration hardening.
+- [ ] Complete Stage 8C purchase return and vendor settlement.
+- [ ] Complete Stage 8D inventory documents and valuation.
+- [ ] Complete Stage 8E accounting and payment hardening.
+- [ ] Complete Stage 8F automated tests and deep audit history.
+- [ ] Complete Stage 8G real integrations and production go-live validation.

@@ -6,7 +6,7 @@ root = Path(__file__).resolve().parents[2]
 app_shell = root / 'frontend/garmetix-web/components/AppShell.vue'
 version_file = root / 'frontend/garmetix-web/utils/appVersion.ts'
 app_info = root / 'backend/Garmetix.Api/AppInfo/AppInfoEndpoints.cs'
-todo = root / 'Stage7-TODO.md'
+todo = root / 'docs/stages/stage-7/TODO.md'
 
 checks = []
 

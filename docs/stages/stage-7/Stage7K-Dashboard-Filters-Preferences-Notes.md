@@ -31,7 +31,7 @@ Stage 7K continues the Stage 7 Nuxt UI dashboard rollout by adding practical das
 - Added dashboard period metadata to dashboard API payloads.
 - Dashboard KPIs, trends, recent activity and performance tables now use the selected period where relevant.
 - Added CSS for filter bar and spacing guardrails.
-- Updated `Stage7-TODO.md` with a required UI layout audit:
+- Updated `TODO.md` with a required UI layout audit:
   - margins
   - padding
   - gaps
@@ -53,8 +53,8 @@ Stage 7K continues the Stage 7 Nuxt UI dashboard rollout by adding practical das
 - `frontend/garmetix-web/utils/appVersion.ts`
 - `frontend/garmetix-web/package.json`
 - `frontend/garmetix-web/package-lock.json`
-- `Stage7-TODO.md`
-- `Stage7-Implementation-Map.md`
+- `TODO.md`
+- `IMPLEMENTATION-MAP.md`
 
 ## API behavior
 

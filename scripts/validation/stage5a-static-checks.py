@@ -30,7 +30,7 @@ checks = [
     (ROOT / 'scripts/linux/restore-db.sh', ['pg_restore --list', 'Type RESTORE']),
     (ROOT / 'scripts/windows/backup-db.ps1', ['--format=custom', 'Get-FileHash']),
     (ROOT / 'scripts/windows/restore-db.ps1', ['pg_restore --list', 'Checksum verification failed']),
-    (ROOT / 'Production-Release-Checklist.md', ['Restore drill', 'Data consistency check', 'Go-live rule']),
+    (ROOT / 'docs/operations/release/Production-Release-Checklist.md', ['Restore drill', 'Data consistency check', 'Go-live rule']),
 ]
 
 failures: list[str] = []

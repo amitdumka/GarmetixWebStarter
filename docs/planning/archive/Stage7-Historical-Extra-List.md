@@ -1,3 +1,7 @@
+# Archived Stage 7 Extra List
+
+This is a historical request/transcript and is not the current roadmap. Its outstanding items were reconciled into `../CURRENT-ROADMAP.md` and documented in `../TODO-RECONCILIATION.md`.
+
 Reuest to Do: Now Start Stage 7 and Version 3.0 onwards, https://dashboard-template.nuxt.dev/ github https://github.com/nuxt-ui-templates/dashboard, documentation https://ui.nuxt.com/docs/getting-started/installation/nuxt , mcp server details MCP server URL: https://ui.nuxt.com/mcp Authentication: None, Analysis the this web site for Nuxt ui4 theme template of "Dashboard" implement the "Dashboard" for main layout of the our web app/site . use dark mode color theme which is already there in current, Side bar, Top bar, menus and Side bar parts , collapsible sidebar, Keep all current menu and pages and Dashboard Page For " Store manger " which will data will be based on for his current store. and Second Dashboard page for Owner/Admin/Accountant which has Store Group wise and Company wise. based their role and premission . Ask before removing this major page. keep option to revert the page. Do in two stage/part. and Log in todo and map
 
 Thouaght to do : What I used from Nuxt UI Dashboard

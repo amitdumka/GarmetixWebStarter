@@ -17,7 +17,7 @@ Package: `Garmetix-Stage5B-ProductionHardening-v1.5.zip`
 - `backend/Garmetix.Api/Production/ProductionReadinessDtos.cs`
 - `frontend/garmetix-web/pages/production-readiness/index.vue`
 - `.env.production.example`
-- `Production-Environment-Hardening.md`
+- `../../operations/deployment/Production-Environment-Hardening.md`
 - `scripts/linux/generate-secrets.sh`
 - `scripts/linux/production-preflight.sh`
 - `scripts/linux/monitor-health.sh`

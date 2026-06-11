@@ -31,8 +31,8 @@ Continue Stage 7 after the Nuxt UI Dashboard shell and role dashboards. This sta
 - `frontend/garmetix-web/pages/dashboard/map/index.vue`
 - `frontend/garmetix-web/utils/appVersion.ts`
 - `backend/Garmetix.Api/AppInfo/AppInfoEndpoints.cs`
-- `Stage7-TODO.md`
-- `Stage7-Implementation-Map.md`
+- `TODO.md`
+- `IMPLEMENTATION-MAP.md`
 
 ## Revert / safety
 

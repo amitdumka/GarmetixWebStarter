@@ -28,7 +28,7 @@ expect('System status dropdown added', 'systemStatusDropdownItems' in shell_text
 expect('Topbar API status dropdown added', ':items="systemStatusDropdownItems"' in shell_text and ':label="apiBadge.label"' in shell_text)
 expect('Context bar workspace/status indicators added', 'dashboard-context-workspace' in shell_text and 'dashboard-context-status' in shell_text)
 expect('CSS for Stage 7E added', 'Stage 7E sidebar status cleanup' in css_text)
-expect('Legacy shell revert option preserved', 'NUXT_PUBLIC_DASHBOARD_SHELL=legacy' in (root / 'Stage7-TODO.md').read_text() or 'dashboardShell' in shell_text)
+expect('Legacy shell revert option preserved', 'NUXT_PUBLIC_DASHBOARD_SHELL=legacy' in (root / 'docs/stages/stage-7/TODO.md').read_text() or 'dashboardShell' in shell_text)
 
 failed = [name for name, ok in checks if not ok]
 for name, ok in checks:
