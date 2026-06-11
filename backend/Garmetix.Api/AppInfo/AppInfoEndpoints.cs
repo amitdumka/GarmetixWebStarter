@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "3.11.0";
+    public const string Version = "3.11.1";
     public const string Stage = "Stage 7L";
     public const string ReleaseName = "Dashboard Charts and UI Layout Audit";
     public const string BuildDate = "2026-06-10";
-    public const string BuildCode = "GARMETIX-7L-20260610-3110";
+    public const string BuildCode = "GARMETIX-7L-20260611-3111";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,7 +81,7 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
-        "Stage 7L adds richer dashboard chart breakdowns and a UI layout audit page for spacing, padding and overlap review",
+        "Stage 7L buildfix raises Docker Nuxt build heap memory while keeping dashboard chart breakdowns and UI layout audit guardrails",
         "Stage 7K adds dashboard date-range filters, saved browser preferences and auto-refresh controls",
         "Stage 7J adds dashboard JSON export, CSV export and print/PDF snapshot tools",
         "Stage 7I refactors dashboard widgets into reusable Nuxt UI components with shared empty, loading, metric, chart, list and table states",

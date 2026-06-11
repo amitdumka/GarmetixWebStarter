@@ -97,3 +97,15 @@ Stage 7K does not remove any page and keeps existing dashboard routes intact.
   - Adds full page-by-page UI layout audit queue.
 - `frontend/garmetix-web/assets/css/main.css`
   - Adds Stage 7L responsive spacing and overlap guardrails.
+
+## Stage 7L v3.11.1 Docker Buildfix Map
+
+Changed:
+- `frontend/garmetix-web/Dockerfile`
+  - Adds build-stage `NODE_OPTIONS=--max-old-space-size=4096`.
+  - Adds `NUXT_TELEMETRY_DISABLED=1`.
+  - Adds runtime `NODE_OPTIONS=--max-old-space-size=1024`.
+- `frontend/garmetix-web/utils/appVersion.ts`
+  - Version bumped to 3.11.1.
+- `backend/Garmetix.Api/AppInfo/AppInfoEndpoints.cs`
+  - Version bumped to 3.11.1.

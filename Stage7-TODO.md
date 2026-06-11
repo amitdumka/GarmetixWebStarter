@@ -59,3 +59,12 @@ Remaining chart refinements can move to Stage 8 analytics after local runtime va
 - Legacy shell remains available using `NUXT_PUBLIC_DASHBOARD_SHELL=legacy`.
 - Existing pages and routes remain preserved.
 - Stage 7L keeps dashboard shell and API contracts backward-compatible while adding optional chart/breakdown fields.
+
+## Stage 7L v3.11.1 Buildfix
+
+Completed:
+- Fixed Docker web build Node heap OOM by setting build-stage `NODE_OPTIONS=--max-old-space-size=4096`.
+
+Pending:
+- Run local `docker compose build --no-cache web` to confirm the Nuxt/Nitro build completes on the target machine.
+- If build still OOMs, increase Docker Desktop memory to 6GB or 8GB.
