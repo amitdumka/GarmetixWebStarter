@@ -58,6 +58,13 @@ public sealed record DashboardHealthSignalDto(
     string Icon,
     string Color);
 
+public sealed record DashboardPeriodDto(
+    string Label,
+    DateTime FromDate,
+    DateTime ToDate,
+    int Days,
+    string Preset);
+
 public sealed record DashboardHomeDto(
     string Route,
     string DashboardType,
@@ -82,7 +89,8 @@ public sealed record StoreManagerDashboardDto(
     IReadOnlyList<DashboardActivityDto> StockAlerts,
     IReadOnlyList<DashboardActivityDto> WorkQueue,
     IReadOnlyList<DashboardQuickActionDto> QuickActions,
-    IReadOnlyList<DashboardHealthSignalDto> HealthSignals);
+    IReadOnlyList<DashboardHealthSignalDto> HealthSignals,
+    DashboardPeriodDto Period);
 
 public sealed record BusinessDashboardDto(
     DashboardScopeDto Scope,
@@ -94,4 +102,5 @@ public sealed record BusinessDashboardDto(
     IReadOnlyList<DashboardActivityDto> RecentPurchases,
     IReadOnlyList<DashboardActivityDto> AdminQueue,
     IReadOnlyList<DashboardQuickActionDto> QuickActions,
-    IReadOnlyList<DashboardHealthSignalDto> HealthSignals);
+    IReadOnlyList<DashboardHealthSignalDto> HealthSignals,
+    DashboardPeriodDto Period);

@@ -6,6 +6,9 @@ const auth = useAuth()
 
 const loading = ref(false)
 const data = ref<any | null>(null)
+const preferences = useDashboardPreferences('business-dashboard')
+const lastRefreshedAt = ref<string | null>(null)
+let autoRefreshTimer: ReturnType<typeof setInterval> | undefined
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 
@@ -14,6 +17,7 @@ const scopeQuery = computed(() => {
   if (workspace.companyId.value) params.set('companyId', workspace.companyId.value)
   if (workspace.storeGroupId.value) params.set('storeGroupId', workspace.storeGroupId.value)
   if (workspace.storeId.value) params.set('storeId', workspace.storeId.value)
+  preferences.toQueryParams(params)
   const query = params.toString()
   return query ? `?${query}` : ''
 })
@@ -68,6 +72,7 @@ async function refresh() {
     data.value = dashboard
     companies.value = companyRows
     stores.value = storeRows
+    lastRefreshedAt.value = new Date().toISOString()
   } catch (error) {
     feedback.failed('Business dashboard load failed', error)
   } finally {
@@ -75,7 +80,54 @@ async function refresh() {
   }
 }
 
-onMounted(refresh)
+function configureAutoRefresh() {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer)
+    autoRefreshTimer = undefined
+  }
+  if (!preferences.autoRefresh.value) return
+  autoRefreshTimer = setInterval(() => {
+    if (!loading.value) refresh()
+  }, Math.max(30, Number(preferences.refreshIntervalSeconds.value || 60)) * 1000)
+}
+
+function applyPreset(value: string) {
+  preferences.applyPreset(value as any)
+  refresh()
+}
+
+function setRangeKey(value: string) {
+  preferences.rangeKey.value = value as any
+  preferences.save()
+}
+
+function setFromDate(value: string) {
+  preferences.fromDate.value = value
+  preferences.rangeKey.value = 'custom'
+  preferences.save()
+}
+
+function setToDate(value: string) {
+  preferences.toDate.value = value
+  preferences.rangeKey.value = 'custom'
+  preferences.save()
+}
+
+
+watch([preferences.autoRefresh, preferences.refreshIntervalSeconds], () => {
+  preferences.save()
+  configureAutoRefresh()
+})
+
+onMounted(() => {
+  preferences.load()
+  refresh()
+  configureAutoRefresh()
+})
+
+onBeforeUnmount(() => {
+  if (autoRefreshTimer) clearInterval(autoRefreshTimer)
+})
 </script>
 
 <template>
@@ -85,9 +137,29 @@ onMounted(refresh)
         :badge="userRole"
         badge-icon="i-lucide-building-2"
         title="Company & Store Group Dashboard"
-        :subtitle="`${data?.scope?.companyName || 'Company scope'} · ${data?.scope?.storeGroupName || 'Store group scope'}`"
+        :subtitle="`${data?.scope?.companyName || 'Company scope'} · ${data?.scope?.storeGroupName || 'Store group scope'} · ${data?.period?.label || preferences.rangeLabel.value}`"
         :loading="loading"
         business
+        @refresh="refresh"
+      />
+
+      <DashboardFilterBar
+        :range-key="preferences.rangeKey.value"
+        @update:range-key="setRangeKey"
+        :from-date="preferences.fromDate.value"
+        @update:from-date="setFromDate"
+        :to-date="preferences.toDate.value"
+        @update:to-date="setToDate"
+        :auto-refresh="preferences.autoRefresh.value"
+        @update:auto-refresh="preferences.autoRefresh.value = $event"
+        :refresh-interval-seconds="preferences.refreshIntervalSeconds.value"
+        @update:refresh-interval-seconds="preferences.refreshIntervalSeconds.value = $event"
+        title="Dashboard period and refresh"
+        :preset-options="preferences.presetOptions"
+        :refresh-interval-options="preferences.refreshIntervalOptions"
+        :last-refreshed-at="lastRefreshedAt"
+        :loading="loading"
+        @apply-preset="applyPreset"
         @refresh="refresh"
       />
 

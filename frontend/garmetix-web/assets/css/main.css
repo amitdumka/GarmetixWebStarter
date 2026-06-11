@@ -3208,3 +3208,82 @@ select {
     box-shadow: none !important;
   }
 }
+
+/* Stage 7K dashboard filters, preferences, and global spacing audit baseline */
+.dashboard-filter-card {
+  min-width: 0;
+}
+
+.dashboard-filter-layout {
+  display: grid;
+  gap: 14px;
+}
+
+.dashboard-filter-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dashboard-filter-title p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.dashboard-filter-title span {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.dashboard-filter-fields {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dashboard-filter-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+}
+
+.dashboard-filter-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Page layout audit guardrails: every major page should keep breathing room and avoid horizontal overlap. */
+.dashboard-content :where(.planner-dashboard, .module-page, .dashboard-v3-page, .system-info-page) {
+  min-width: 0;
+}
+
+.dashboard-content :where(.panel, .planner-card, .dashboard-v3-card, .u-card) {
+  min-width: 0;
+}
+
+.dashboard-content :where(table) {
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .dashboard-filter-title,
+  .dashboard-filter-fields,
+  .dashboard-filter-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-filter-actions {
+    margin-left: 0;
+  }
+}

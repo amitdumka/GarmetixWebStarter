@@ -48,12 +48,13 @@ public static class DashboardEndpoints
         [FromQuery] Guid? companyId,
         [FromQuery] Guid? storeGroupId,
         [FromQuery] Guid? storeId,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
         CancellationToken cancellationToken)
     {
         var today = DateTime.Today;
         var tomorrow = today.AddDays(1);
-        var monthStart = new DateTime(today.Year, today.Month, 1);
-        var rangeStart = today.AddDays(-6);
+        var period = ResolvePeriod(from, to);
 
         var sales = FilterSales(WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context), companyId, storeId)
             .Where(item => !item.ReturnInvoice);
@@ -62,24 +63,25 @@ public static class DashboardEndpoints
         var stocks = FilterStocks(WorkspaceScope.ApplyTo(db.Stocks.AsNoTracking().Include(item => item.Product), context), companyId, storeGroupId, storeId);
 
         var salesToday = await SumAsync(sales.Where(item => item.OnDate >= today && item.OnDate < tomorrow).Select(item => item.BillAmount), cancellationToken);
-        var salesMonth = await SumAsync(sales.Where(item => item.OnDate >= monthStart).Select(item => item.BillAmount), cancellationToken);
-        var purchaseMonth = await SumAsync(purchases.Where(item => item.OnDate >= monthStart).Select(item => item.BillAmount), cancellationToken);
+        var salesMonth = await SumAsync(sales.Where(item => item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive).Select(item => item.BillAmount), cancellationToken);
+        var purchaseMonth = await SumAsync(purchases.Where(item => item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive).Select(item => item.BillAmount), cancellationToken);
         var stockValue = await SumAsync(stocks.Select(item => (item.PurchaseQty - item.SoldQty) * item.CostPrice), cancellationToken);
         var lowStockCount = await stocks.CountAsync(item => (item.PurchaseQty - item.SoldQty) <= 3, cancellationToken);
         var todayInvoiceCount = await sales.CountAsync(item => item.OnDate >= today && item.OnDate < tomorrow, cancellationToken);
         var dueInvoiceCount = await sales.CountAsync(item => item.BillAmount > item.PaidAmount, cancellationToken);
         var activeStockCount = await stocks.CountAsync(item => (item.PurchaseQty - item.SoldQty) > 0, cancellationToken);
         var nonGstSalesMonth = await SumAsync(FilterNonGst(WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context), companyId, storeGroupId, storeId)
-            .Where(item => item.DocumentType == NonGstGoodsDocumentType.Sale && item.OnDate >= monthStart)
+            .Where(item => item.DocumentType == NonGstGoodsDocumentType.Sale && item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive)
             .Select(item => item.NetAmount), cancellationToken);
         var nonGstPurchaseMonth = await SumAsync(FilterNonGst(WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context), companyId, storeGroupId, storeId)
-            .Where(item => item.DocumentType == NonGstGoodsDocumentType.Purchase && item.OnDate >= monthStart)
+            .Where(item => item.DocumentType == NonGstGoodsDocumentType.Purchase && item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive)
             .Select(item => item.NetAmount), cancellationToken);
 
-        var trend = await TrendAsync(sales, purchases, rangeStart, today, cancellationToken);
+        var trend = await TrendAsync(sales, purchases, period.FromDate, period.ToExclusive, cancellationToken);
         var scope = await ResolveScopeAsync(context, db, companyId, storeGroupId, storeId, "Current store", cancellationToken);
 
         var recentSales = await sales
+            .Where(item => item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive)
             .OrderByDescending(item => item.OnDate)
             .ThenByDescending(item => item.CreatedAt)
             .Take(8)
@@ -129,15 +131,15 @@ public static class DashboardEndpoints
             new("Low stock", lowStockCount.ToString(), lowStockCount > 0 ? "Needs attention" : "Healthy", "Items at or below qty 3.", "i-lucide-triangle-alert", lowStockCount > 0 ? "warning" : "success"),
             new("Due invoices", dueInvoiceCount.ToString(), dueInvoiceCount > 0 ? "Collect" : "Clear", "Bills where paid amount is below bill amount.", "i-lucide-wallet-cards", dueInvoiceCount > 0 ? "warning" : "success"),
             new("Active stock", activeStockCount.ToString(), "In stock", "Stock rows with positive current quantity.", "i-lucide-boxes", "neutral"),
-            new("Non-GST month", FormatMoney(nonGstSalesMonth - nonGstPurchaseMonth), "Separate register", "Non-GST sale minus purchase, excluded from GST return reports.", "i-lucide-file-warning", "primary")
+            new("Non-GST period", FormatMoney(nonGstSalesMonth - nonGstPurchaseMonth), "Separate register", "Non-GST sale minus purchase, excluded from GST return reports.", "i-lucide-file-warning", "primary")
         };
 
         return new StoreManagerDashboardDto(
             scope,
             [
                 Metric("Today Sales", salesToday, "Current store collection", "i-lucide-receipt-indian-rupee", "success"),
-                Metric("Month Sales", salesMonth, "Current month billing", "i-lucide-trending-up", "primary"),
-                Metric("Month Purchase", purchaseMonth, "Current month inward", "i-lucide-package-plus", "warning"),
+                Metric("Period Sales", salesMonth, period.Dto.Label, "i-lucide-trending-up", "primary"),
+                Metric("Period Purchase", purchaseMonth, period.Dto.Label, "i-lucide-package-plus", "warning"),
                 Metric("Stock Value", stockValue, "Available stock cost", "i-lucide-boxes", "neutral"),
                 Metric("Invoices Today", todayInvoiceCount, "Bills created today", "i-lucide-file-check-2", "primary"),
                 Metric("Low Stock", lowStockCount, "Qty at or below 3", "i-lucide-triangle-alert", lowStockCount > 0 ? "warning" : "success")
@@ -147,7 +149,8 @@ public static class DashboardEndpoints
             stockAlerts,
             workQueue,
             quickActions,
-            healthSignals);
+            healthSignals,
+            period.Dto);
     }
 
     private static async Task<BusinessDashboardDto> BusinessAsync(
@@ -156,11 +159,11 @@ public static class DashboardEndpoints
         [FromQuery] Guid? companyId,
         [FromQuery] Guid? storeGroupId,
         [FromQuery] Guid? storeId,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
         CancellationToken cancellationToken)
     {
-        var today = DateTime.Today;
-        var monthStart = new DateTime(today.Year, today.Month, 1);
-        var rangeStart = today.AddDays(-6);
+        var period = ResolvePeriod(from, to);
 
         var sales = FilterSales(WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context), companyId, storeId)
             .Where(item => !item.ReturnInvoice);
@@ -170,28 +173,29 @@ public static class DashboardEndpoints
         var customers = FilterCompany(WorkspaceScope.ApplyTo(db.Customers.AsNoTracking(), context), companyId);
         var vendors = FilterCompany(WorkspaceScope.ApplyTo(db.Vendors.AsNoTracking(), context), companyId);
 
-        var salesMonth = await SumAsync(sales.Where(item => item.OnDate >= monthStart).Select(item => item.BillAmount), cancellationToken);
-        var purchaseMonth = await SumAsync(purchases.Where(item => item.OnDate >= monthStart).Select(item => item.BillAmount), cancellationToken);
+        var salesMonth = await SumAsync(sales.Where(item => item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive).Select(item => item.BillAmount), cancellationToken);
+        var purchaseMonth = await SumAsync(purchases.Where(item => item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive).Select(item => item.BillAmount), cancellationToken);
         var stockValue = await SumAsync(stocks.Select(item => (item.PurchaseQty - item.SoldQty) * item.CostPrice), cancellationToken);
         var grossMargin = salesMonth - purchaseMonth;
         var customerCount = await customers.CountAsync(cancellationToken);
         var vendorCount = await vendors.CountAsync(cancellationToken);
-        var invoiceCount = await sales.Where(item => item.OnDate >= monthStart).CountAsync(cancellationToken);
+        var invoiceCount = await sales.Where(item => item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive).CountAsync(cancellationToken);
         var dueInvoiceCount = await sales.CountAsync(item => item.BillAmount > item.PaidAmount, cancellationToken);
         var lowStockCount = await stocks.CountAsync(item => (item.PurchaseQty - item.SoldQty) <= 3, cancellationToken);
         var nonGstSalesMonth = await SumAsync(FilterNonGst(WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context), companyId, storeGroupId, storeId)
-            .Where(item => item.DocumentType == NonGstGoodsDocumentType.Sale && item.OnDate >= monthStart)
+            .Where(item => item.DocumentType == NonGstGoodsDocumentType.Sale && item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive)
             .Select(item => item.NetAmount), cancellationToken);
         var nonGstPurchaseMonth = await SumAsync(FilterNonGst(WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context), companyId, storeGroupId, storeId)
-            .Where(item => item.DocumentType == NonGstGoodsDocumentType.Purchase && item.OnDate >= monthStart)
+            .Where(item => item.DocumentType == NonGstGoodsDocumentType.Purchase && item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive)
             .Select(item => item.NetAmount), cancellationToken);
 
-        var trend = await TrendAsync(sales, purchases, rangeStart, today, cancellationToken);
+        var trend = await TrendAsync(sales, purchases, period.FromDate, period.ToExclusive, cancellationToken);
         var scope = await ResolveScopeAsync(context, db, companyId, storeGroupId, storeId, "Company / store group", cancellationToken);
-        var storeRows = await StorePerformanceAsync(context, db, companyId, storeGroupId, storeId, monthStart, cancellationToken);
-        var storeGroupRows = await StoreGroupPerformanceAsync(context, db, companyId, storeGroupId, storeId, monthStart, cancellationToken);
+        var storeRows = await StorePerformanceAsync(context, db, companyId, storeGroupId, storeId, period.FromDate, period.ToExclusive, cancellationToken);
+        var storeGroupRows = await StoreGroupPerformanceAsync(context, db, companyId, storeGroupId, storeId, period.FromDate, period.ToExclusive, cancellationToken);
 
         var recentSales = await sales
+            .Where(item => item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive)
             .OrderByDescending(item => item.OnDate)
             .ThenByDescending(item => item.CreatedAt)
             .Take(8)
@@ -206,6 +210,7 @@ public static class DashboardEndpoints
             .ToListAsync(cancellationToken);
 
         var recentPurchases = await purchases
+            .Where(item => item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive)
             .OrderByDescending(item => item.OnDate)
             .ThenByDescending(item => item.CreatedAt)
             .Take(8)
@@ -246,11 +251,11 @@ public static class DashboardEndpoints
         return new BusinessDashboardDto(
             scope,
             [
-                Metric("Month Sales", salesMonth, "All permitted stores", "i-lucide-trending-up", "success"),
-                Metric("Month Purchase", purchaseMonth, "All permitted stores", "i-lucide-package-plus", "warning"),
+                Metric("Period Sales", salesMonth, period.Dto.Label, "i-lucide-trending-up", "success"),
+                Metric("Period Purchase", purchaseMonth, period.Dto.Label, "i-lucide-package-plus", "warning"),
                 Metric("Gross Margin", grossMargin, "Sales minus purchase", "i-lucide-chart-no-axes-combined", grossMargin >= 0 ? "primary" : "error"),
                 Metric("Stock Value", stockValue, "Available stock cost", "i-lucide-boxes", "neutral"),
-                Metric("Invoices", invoiceCount, "Current month bills", "i-lucide-file-check-2", "primary"),
+                Metric("Invoices", invoiceCount, period.Dto.Label, "i-lucide-file-check-2", "primary"),
                 Metric("Customers", customerCount, $"{vendorCount} vendors", "i-lucide-users", "neutral")
             ],
             trend,
@@ -260,7 +265,8 @@ public static class DashboardEndpoints
             recentPurchases,
             adminQueue,
             quickActions,
-            healthSignals);
+            healthSignals,
+            period.Dto);
     }
 
     private static IQueryable<Garmetix.Core.Models.Inventory.Invoice> FilterSales(
@@ -365,7 +371,8 @@ public static class DashboardEndpoints
         Guid? companyId,
         Guid? storeGroupId,
         Guid? storeId,
-        DateTime monthStart,
+        DateTime periodStart,
+        DateTime periodEndExclusive,
         CancellationToken cancellationToken)
     {
         var stores = WorkspaceScope.ApplyTo(db.Stores.AsNoTracking(), context);
@@ -391,10 +398,10 @@ public static class DashboardEndpoints
         foreach (var store in rows)
         {
             var sales = await SumAsync(db.SalesInvoices.AsNoTracking()
-                .Where(item => !item.Deleted && !item.ReturnInvoice && item.StoreId == store.Id && item.OnDate >= monthStart)
+                .Where(item => !item.Deleted && !item.ReturnInvoice && item.StoreId == store.Id && item.OnDate >= periodStart && item.OnDate < periodEndExclusive)
                 .Select(item => item.BillAmount), cancellationToken);
             var purchases = await SumAsync(db.PurchaseInvoices.AsNoTracking()
-                .Where(item => !item.Deleted && !item.ReturnInvoice && item.StoreId == store.Id && item.OnDate >= monthStart)
+                .Where(item => !item.Deleted && !item.ReturnInvoice && item.StoreId == store.Id && item.OnDate >= periodStart && item.OnDate < periodEndExclusive)
                 .Select(item => item.BillAmount), cancellationToken);
             var stockValue = await SumAsync(db.Stocks.AsNoTracking()
                 .Where(item => !item.Deleted && item.StoreId == store.Id)
@@ -403,7 +410,7 @@ public static class DashboardEndpoints
                 .Where(item => !item.Deleted && item.StoreId == store.Id)
                 .Select(item => item.PurchaseQty - item.SoldQty), cancellationToken);
             var invoiceCount = await db.SalesInvoices.AsNoTracking()
-                .CountAsync(item => !item.Deleted && !item.ReturnInvoice && item.StoreId == store.Id && item.OnDate >= monthStart, cancellationToken);
+                .CountAsync(item => !item.Deleted && !item.ReturnInvoice && item.StoreId == store.Id && item.OnDate >= periodStart && item.OnDate < periodEndExclusive, cancellationToken);
 
             result.Add(new StorePerformanceDto(store.Id, store.Name, sales, purchases, stockValue, invoiceCount, currentStock));
         }
@@ -417,7 +424,8 @@ public static class DashboardEndpoints
         Guid? companyId,
         Guid? storeGroupId,
         Guid? storeId,
-        DateTime monthStart,
+        DateTime periodStart,
+        DateTime periodEndExclusive,
         CancellationToken cancellationToken)
     {
         var groups = WorkspaceScope.ApplyTo(db.StoreGroups.AsNoTracking(), context);
@@ -453,10 +461,10 @@ public static class DashboardEndpoints
             }
 
             var sales = await SumAsync(db.SalesInvoices.AsNoTracking()
-                .Where(item => !item.Deleted && !item.ReturnInvoice && storeIds.Contains(item.StoreId) && item.OnDate >= monthStart)
+                .Where(item => !item.Deleted && !item.ReturnInvoice && storeIds.Contains(item.StoreId) && item.OnDate >= periodStart && item.OnDate < periodEndExclusive)
                 .Select(item => item.BillAmount), cancellationToken);
             var purchases = await SumAsync(db.PurchaseInvoices.AsNoTracking()
-                .Where(item => !item.Deleted && !item.ReturnInvoice && item.StoreId.HasValue && storeIds.Contains(item.StoreId.Value) && item.OnDate >= monthStart)
+                .Where(item => !item.Deleted && !item.ReturnInvoice && item.StoreId.HasValue && storeIds.Contains(item.StoreId.Value) && item.OnDate >= periodStart && item.OnDate < periodEndExclusive)
                 .Select(item => item.BillAmount), cancellationToken);
             var stockValue = await SumAsync(db.Stocks.AsNoTracking()
                 .Where(item => !item.Deleted && storeIds.Contains(item.StoreId))
@@ -465,7 +473,7 @@ public static class DashboardEndpoints
                 .Where(item => !item.Deleted && storeIds.Contains(item.StoreId))
                 .Select(item => item.PurchaseQty - item.SoldQty), cancellationToken);
             var invoiceCount = await db.SalesInvoices.AsNoTracking()
-                .CountAsync(item => !item.Deleted && !item.ReturnInvoice && storeIds.Contains(item.StoreId) && item.OnDate >= monthStart, cancellationToken);
+                .CountAsync(item => !item.Deleted && !item.ReturnInvoice && storeIds.Contains(item.StoreId) && item.OnDate >= periodStart && item.OnDate < periodEndExclusive, cancellationToken);
 
             result.Add(new StoreGroupPerformanceDto(group.Id, group.Name, storeIds.Count, sales, purchases, stockValue, invoiceCount, currentStock));
         }
@@ -476,20 +484,28 @@ public static class DashboardEndpoints
     private static async Task<IReadOnlyList<DashboardTrendPointDto>> TrendAsync(
         IQueryable<Garmetix.Core.Models.Inventory.Invoice> sales,
         IQueryable<Garmetix.Core.Models.Inventory.PurchaseInvoice> purchases,
-        DateTime rangeStart,
-        DateTime today,
+        DateTime periodStart,
+        DateTime periodEndExclusive,
         CancellationToken cancellationToken)
     {
+        var totalDays = Math.Max(1, (periodEndExclusive.Date - periodStart.Date).Days);
+        var chartDays = Math.Min(totalDays, 31);
+        var rangeStart = periodEndExclusive.Date.AddDays(-chartDays);
+        if (rangeStart < periodStart.Date)
+        {
+            rangeStart = periodStart.Date;
+        }
+
         var salesRows = await sales
-            .Where(item => item.OnDate >= rangeStart)
+            .Where(item => item.OnDate >= rangeStart && item.OnDate < periodEndExclusive)
             .Select(item => new { item.OnDate, item.BillAmount })
             .ToListAsync(cancellationToken);
         var purchaseRows = await purchases
-            .Where(item => item.OnDate >= rangeStart)
+            .Where(item => item.OnDate >= rangeStart && item.OnDate < periodEndExclusive)
             .Select(item => new { item.OnDate, item.BillAmount })
             .ToListAsync(cancellationToken);
 
-        return Enumerable.Range(0, 7)
+        return Enumerable.Range(0, Math.Max(1, (periodEndExclusive.Date - rangeStart.Date).Days))
             .Select(offset => rangeStart.Date.AddDays(offset))
             .Select(date => new DashboardTrendPointDto(
                 date.ToString("dd MMM"),
@@ -531,6 +547,57 @@ public static class DashboardEndpoints
             company?.Name ?? "All permitted companies",
             group?.Name ?? "All permitted store groups",
             store?.Name ?? "All permitted stores");
+    }
+
+    private sealed record DashboardPeriod(DateTime FromDate, DateTime ToExclusive, DashboardPeriodDto Dto);
+
+    private static DashboardPeriod ResolvePeriod(DateTime? from, DateTime? to)
+    {
+        var today = DateTime.Today;
+        var defaultFrom = new DateTime(today.Year, today.Month, 1);
+        var fromDate = (from?.Date ?? defaultFrom);
+        var toDate = (to?.Date ?? today);
+
+        if (toDate < fromDate)
+        {
+            toDate = fromDate;
+        }
+
+        if ((toDate - fromDate).TotalDays > 365)
+        {
+            fromDate = toDate.AddDays(-365);
+        }
+
+        var toExclusive = toDate.AddDays(1);
+        var days = Math.Max(1, (toExclusive - fromDate).Days);
+        var preset = ResolvePreset(today, fromDate, toDate);
+        var label = fromDate == toDate
+            ? fromDate.ToString("dd MMM yyyy")
+            : $"{fromDate:dd MMM yyyy} - {toDate:dd MMM yyyy}";
+
+        return new DashboardPeriod(fromDate, toExclusive, new DashboardPeriodDto(label, fromDate, toDate, days, preset));
+    }
+
+    private static string ResolvePreset(DateTime today, DateTime fromDate, DateTime toDate)
+    {
+        if (fromDate == today && toDate == today)
+        {
+            return "today";
+        }
+        if (fromDate == today.AddDays(-6) && toDate == today)
+        {
+            return "7d";
+        }
+        if (fromDate == today.AddDays(-29) && toDate == today)
+        {
+            return "30d";
+        }
+        if (fromDate == new DateTime(today.Year, today.Month, 1) && toDate == today)
+        {
+            return "month";
+        }
+
+        return "custom";
     }
 
     private static async Task<decimal> SumAsync(IQueryable<decimal> values, CancellationToken cancellationToken)
