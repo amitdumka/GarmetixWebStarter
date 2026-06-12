@@ -1,0 +1,23 @@
+TODO List Operation of Garmetix
+
+
+
+1. Petty Cash Sheet
+   I. Issues /Pending work
+	a. While Adding new petty cash sheet, opening balance should be taken from yesterday closing balance. 
+	b. It should pre calculate the sheet data , it just need to be verified by user. it can change data. 
+	c. After Saving it should Print in A5 page size paper , Two Section mode, One Side income other side payment.
+	d. If pre calculated data and entered not matched then make alert to owner over email or notifications and message logs.
+	c. Page has widget that should Cash in hand, it should be last cash in hand rather than total of all Cash in hand .  
+   II. Working, : Edit and Save Working
+
+2. UI: 
+   I. Issues: When page load , it take time before i can use. it is slow in memory , need to cache or optimized 
+
+3.  Voucher:
+    I: Issues /Pending Work.
+	a. Voucher Number should  be changed as StoreCode/Date/VCHPTY/Numberic
+	b. print format need to be chnsaged.
+    II. woking all
+
+	
