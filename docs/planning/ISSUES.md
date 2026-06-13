@@ -6,6 +6,7 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 
 ## Fixed
 
+- [x] Accounting Party/Bank Account forms could submit internal ledger identifiers through full EF entity payloads, bank transactions exposed internal Party linkage, and HR/accounting dates could shift through UTC. Dedicated requests, server-owned ledger synchronization, hidden party linkage, wide forms, and local date serialization now cover these workflows.
 - [x] Salary payment save used the full EF entity payload, client-generated voucher numbers, UTC-shifted dates, and no authoritative advance/due pre-calculation. It now uses a dedicated request, local dates, server SPAY numbering, whole-rupee payments, and payroll-ledger preview values.
 - [x] Printable vouchers, invoices, Petty Cash and payroll documents could invoke `window.print()` on the dashboard DOM, producing incorrect or incomplete output. Printing now fetches the authenticated server PDF, validates its media type/size, and prints that PDF; new documents auto-print while edits do not.
 - [x] Printed documents had only text scan references and no consistent retrieval path. Stable QR tokens and a permission-aware Document Scanner now cover sale/purchase invoices, vouchers, cash vouchers, debit/credit notes, Petty Cash, payslips and salary payments.

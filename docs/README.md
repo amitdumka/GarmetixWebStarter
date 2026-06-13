@@ -17,6 +17,7 @@ This folder is the canonical home for project plans, implementation notes, valid
 - [Stage 8A Package 6 / v4.0.4 notes](stages/stage-8/Stage8A-Package6-Purchase-LocalDate-v4.0.4-Notes.md)
 - [Stage 8A Package 7 / v4.0.5 notes](stages/stage-8/Stage8A-Package7-DocumentQr-Print-Inventory-v4.0.5-Notes.md)
 - [Stage 8A Package 8 / v4.0.6 notes](stages/stage-8/Stage8A-Package8-Payroll-Payment-v4.0.6-Notes.md)
+- [Stage 8A Package 9 / v4.0.7 notes](stages/stage-8/Stage8A-Package9-Accounting-HR-v4.0.7-Notes.md)
 
 ## Categories
 

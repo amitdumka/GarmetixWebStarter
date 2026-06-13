@@ -76,13 +76,13 @@ public static class AccountingEndpoints
     }
 
     private static async Task<IResult> SavePartyAsync(
-        Party party,
+        PartySaveRequest request,
         AccountingPostingService service,
         CancellationToken cancellationToken)
     {
         try
         {
-            var saved = await service.SavePartyAsync(party, cancellationToken);
+            var saved = await service.SavePartyAsync(request, null, cancellationToken);
             return Results.Created($"/api/parties/{saved.Id}", saved);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
@@ -93,12 +93,19 @@ public static class AccountingEndpoints
 
     private static async Task<IResult> UpdatePartyAsync(
         Guid id,
-        Party party,
+        PartySaveRequest request,
         AccountingPostingService service,
         CancellationToken cancellationToken)
     {
-        party.Id = id;
-        return await SavePartyAsync(party, service, cancellationToken);
+        try
+        {
+            var saved = await service.SavePartyAsync(request, id, cancellationToken);
+            return Results.Ok(saved);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
     }
 
     private static async Task<IResult> DeletePartyAsync(
@@ -137,13 +144,13 @@ public static class AccountingEndpoints
     }
 
     private static async Task<IResult> SaveBankAccountAsync(
-        BankAccount account,
+        BankAccountSaveRequest request,
         AccountingPostingService service,
         CancellationToken cancellationToken)
     {
         try
         {
-            var saved = await service.SaveBankAccountAsync(account, cancellationToken);
+            var saved = await service.SaveBankAccountAsync(request, null, cancellationToken);
             return Results.Created($"/api/bank-accounts/{saved.Id}", saved);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
@@ -154,12 +161,19 @@ public static class AccountingEndpoints
 
     private static async Task<IResult> UpdateBankAccountAsync(
         Guid id,
-        BankAccount account,
+        BankAccountSaveRequest request,
         AccountingPostingService service,
         CancellationToken cancellationToken)
     {
-        account.Id = id;
-        return await SaveBankAccountAsync(account, service, cancellationToken);
+        try
+        {
+            var saved = await service.SaveBankAccountAsync(request, id, cancellationToken);
+            return Results.Ok(saved);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
     }
 
     private static async Task<IResult> DeleteBankAccountAsync(

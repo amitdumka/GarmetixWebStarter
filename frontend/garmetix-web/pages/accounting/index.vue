@@ -36,6 +36,7 @@ const selectedBankAccountId = ref('')
 const activeTab = ref<AccountingTab>('trial')
 const search = ref('')
 const loading = ref(false)
+const loadError = ref('')
 const saving = ref(false)
 const deleting = ref(false)
 const defaultsLoading = ref(false)
@@ -43,7 +44,6 @@ const formOpen = ref(false)
 const editMode = ref<'create' | 'edit'>('create')
 const deleteOpen = ref(false)
 const pendingDelete = ref<any | null>(null)
-const emptyGuid = '00000000-0000-0000-0000-000000000000'
 
 const ledgerTypeOptions = [
   { value: 0, label: 'Asset' },
@@ -128,13 +128,18 @@ const formTitle = computed(() => `${editMode.value === 'edit' ? 'Edit' : 'New'} 
 
 const ledgerGroupOptions = computed(() => ledgerGroups.value.map((item) => ({ value: item.id, label: item.name || 'Ledger Group' })))
 const ledgerOptions = computed(() => ledgers.value.map((item) => ({ value: item.id, label: item.name || 'Ledger' })))
-const partyOptions = computed(() => parties.value.map((item) => ({ value: item.id, label: item.name || 'Party' })))
 const bankOptions = computed(() => banks.value.map((item) => ({ value: item.id, label: item.name || 'Bank' })))
 const bankAccountOptions = computed(() => bankAccounts.value.map((item) => ({ value: item.id, label: bankAccountLabel(item) })))
 const vendorOptions = computed(() => vendors.value.map((item) => ({ value: item.id, label: item.name || item.vendorName || 'Vendor' })))
 const currentStore = computed(() => stores.value.find((item) => item.id === workspace.storeId.value) || stores.value.find((item) => item.id === setupStatus.value?.storeId) || stores.value[0])
 const currentStoreGroupId = computed(() => workspace.storeGroupId.value || setupStatus.value?.storeGroupId || currentStore.value?.storeGroupId || '')
 const currentStoreId = computed(() => workspace.storeId.value || setupStatus.value?.storeId || currentStore.value?.id || '')
+const formContentClass = computed(() => {
+  if (['transactions', 'cheques', 'vendorBanks', 'accountDetails'].includes(activeTab.value)) {
+    return 'w-[calc(100vw-2rem)] sm:max-w-5xl lg:max-w-6xl'
+  }
+  return 'w-[calc(100vw-2rem)] sm:max-w-3xl'
+})
 const transactionLedgerOptions = computed(() => {
   const selectedBank = bankAccounts.value.find((item) => item.id === transactionForm.bankAccountId)
   return ledgerOptions.value.filter((item) => item.value !== selectedBank?.ledgerId)
@@ -404,6 +409,7 @@ async function refresh() {
   }
 
   loading.value = true
+  loadError.value = ''
   try {
     setupStatus.value = await api.get<any>('setup/status')
     const [companyRows, storeRows, groupRows, ledgerRows, partyRows, bankRows, bankAccountRows, transactionRows, chequeRows, vendorBankRows, detailRows, vendorRows] = await Promise.all([
@@ -444,6 +450,7 @@ async function refresh() {
 
     await Promise.all([loadTrialBalance(), loadLedgerStatement(), loadBankStatement()])
   } catch (error) {
+    loadError.value = feedback.cleanMessage(error instanceof Error ? error.message : 'Please check the service and try again.')
     feedback.failed('Accounting refresh failed', error)
   } finally {
     loading.value = false
@@ -583,7 +590,7 @@ function buildPayload() {
       companyId: companyId.value,
       ledgerType: Number(ledgerForm.ledgerType),
       openingBalance: Number(ledgerForm.openingBalance || 0),
-      openingDate: toIso(ledgerForm.openingDate),
+      openingDate: toApiDate(ledgerForm.openingDate),
       isParty: Boolean(ledgerForm.isParty),
       ledgerGroup: null
     }
@@ -591,27 +598,31 @@ function buildPayload() {
 
   if (activeTab.value === 'parties') {
     return {
-      ...partyForm,
       companyId: companyId.value,
+      name: String(partyForm.name || '').trim(),
+      address: String(partyForm.address || '').trim() || null,
+      emailId: String(partyForm.emailId || '').trim() || null,
+      phone: String(partyForm.phone || '').trim() || null,
+      gstin: String(partyForm.gstin || '').trim().toUpperCase() || null,
+      pan: String(partyForm.pan || '').trim().toUpperCase() || null,
       category: Number(partyForm.category),
-      ledgerId: nullableGuid(partyForm.ledgerId) || emptyGuid,
-      ledger: null
     }
   }
 
   if (activeTab.value === 'bankAccounts') {
     return {
-      ...bankAccountForm,
       companyId: companyId.value,
+      accountNumber: String(bankAccountForm.accountNumber || '').trim(),
+      accountHolderName: String(bankAccountForm.accountHolderName || '').trim(),
       bankId: requiredGuid(bankAccountForm.bankId, 'Select bank.'),
-      ledgerId: nullableGuid(bankAccountForm.ledgerId) || emptyGuid,
       accountType: Number(bankAccountForm.accountType),
+      branch: String(bankAccountForm.branch || '').trim() || null,
+      ifsCode: String(bankAccountForm.ifsCode || '').trim().toUpperCase() || null,
       openingBalance: Number(bankAccountForm.openingBalance || 0),
       closingBalance: Number(bankAccountForm.closingBalance || 0),
-      openingDate: toIso(bankAccountForm.openingDate),
-      closingDate: nullableDate(bankAccountForm.closingDate),
-      bank: null,
-      ledger: null
+      openingDate: toApiDate(bankAccountForm.openingDate),
+      active: Boolean(bankAccountForm.active),
+      closingDate: nullableDate(bankAccountForm.closingDate)
     }
   }
 
@@ -623,8 +634,8 @@ function buildPayload() {
       storeId: requiredGuid(currentStoreId.value, 'Select store.'),
       bankAccountId: requiredGuid(transactionForm.bankAccountId, 'Select bank account.'),
       ledgerId: requiredGuid(transactionForm.ledgerId, 'Select contra ledger.'),
-      partyId: nullableGuid(transactionForm.partyId) || null,
-      onDate: toIso(transactionForm.onDate),
+      partyId: null,
+      onDate: toApiDate(transactionForm.onDate),
       transactionType: Number(transactionForm.transactionType),
       transactionMode: Number(transactionForm.transactionMode),
       amount: Number(transactionForm.amount || 0),
@@ -637,7 +648,7 @@ function buildPayload() {
       ...chequeForm,
       companyId: companyId.value,
       bankAccountId: requiredGuid(chequeForm.bankAccountId, 'Select bank account.'),
-      onDate: toIso(chequeForm.onDate),
+      onDate: toApiDate(chequeForm.onDate),
       chequeDate: nullableDate(chequeForm.chequeDate),
       amount: Number(chequeForm.amount || 0),
       cheequeNumber: chequeForm.chequeNumber,
@@ -653,7 +664,7 @@ function buildPayload() {
       bankId: requiredGuid(vendorBankForm.bankId, 'Select bank.'),
       ledgerId: requiredGuid(vendorBankForm.ledgerId, 'Select ledger.'),
       accountType: Number(vendorBankForm.accountType),
-      openingDate: toIso(vendorBankForm.openingDate),
+      openingDate: toApiDate(vendorBankForm.openingDate),
       closingDate: nullableDate(vendorBankForm.closingDate),
       openingBalance: Number(vendorBankForm.openingBalance || 0),
       closingBalance: Number(vendorBankForm.closingBalance || 0),
@@ -744,7 +755,7 @@ function emptyLedger() {
     name: '',
     ledgerGroupId: null,
     ledgerType: 4,
-    openingDate: new Date().toISOString().slice(0, 10),
+    openingDate: localDateInput(),
     openingBalance: 0,
     isParty: false
   }
@@ -760,7 +771,6 @@ function emptyParty() {
     gstin: '',
     pan: '',
     category: 6,
-    ledgerId: null
   }
 }
 
@@ -773,12 +783,11 @@ function emptyBankAccount() {
     accountType: 1,
     branch: '',
     ifsCode: '',
-    openingDate: new Date().toISOString().slice(0, 10),
+    openingDate: localDateInput(),
     active: true,
     closingDate: '',
     openingBalance: 0,
     closingBalance: 0,
-    ledgerId: null
   }
 }
 
@@ -786,11 +795,10 @@ function emptyTransaction() {
   return {
     id: '',
     bankAccountId: null,
-    onDate: new Date().toISOString().slice(0, 10),
+    onDate: localDateInput(),
     transactionType: 0,
     transactionMode: 4,
     ledgerId: null,
-    partyId: null,
     narration: '',
     reference: '',
     amount: 0,
@@ -803,8 +811,8 @@ function emptyCheque() {
     id: '',
     bankAccountId: null,
     chequeNumber: '',
-    onDate: new Date().toISOString().slice(0, 10),
-    chequeDate: new Date().toISOString().slice(0, 10),
+    onDate: localDateInput(),
+    chequeDate: localDateInput(),
     narration: '',
     chequeBank: '',
     amount: 0,
@@ -823,7 +831,7 @@ function emptyVendorBank() {
     accountType: 1,
     branch: '',
     ifsCode: '',
-    openingDate: new Date().toISOString().slice(0, 10),
+    openingDate: localDateInput(),
     active: true,
     closingDate: '',
     openingBalance: 0,
@@ -924,15 +932,20 @@ function optionLabel(options: { value: number, label: string }[], value: unknown
 }
 
 function dateInput(value: string | null | undefined) {
-  return value ? String(value).slice(0, 10) : new Date().toISOString().slice(0, 10)
+  return value ? String(value).slice(0, 10) : localDateInput()
 }
 
-function toIso(value: string) {
-  return new Date(`${value || new Date().toISOString().slice(0, 10)}T00:00:00`).toISOString()
+function localDateInput(date = new Date()) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+  return local.toISOString().slice(0, 10)
+}
+
+function toApiDate(value: string) {
+  return `${value || localDateInput()}T00:00:00`
 }
 
 function nullableDate(value: string | null | undefined) {
-  return value ? toIso(value) : null
+  return value ? toApiDate(value) : null
 }
 
 function nullableGuid(value: unknown) {
@@ -981,10 +994,6 @@ watch(() => transactionForm.bankAccountId, () => {
   }
 })
 
-watch(() => transactionForm.ledgerId, (ledgerId) => {
-  const party = parties.value.find((item) => item.ledgerId === ledgerId)
-  transactionForm.partyId = party?.id || null
-})
 </script>
 
 <template>
@@ -1026,13 +1035,19 @@ watch(() => transactionForm.ledgerId, (ledgerId) => {
         </UCard>
       </div>
 
-      <UCard class="planner-card">
-        <template #header>
+      <UiRegisterPanel
+        :title="currentTab.label"
+        :description="`${filteredRows.length} accounting records`"
+        :loading="loading"
+        :error="loadError"
+        :empty="filteredRows.length === 0"
+        empty-title="No accounting records found"
+        empty-description="Create accounting defaults or add the first record."
+        empty-icon="i-lucide-landmark"
+        @retry="refresh"
+      >
+        <template #actions>
           <div class="planner-card-header">
-            <div>
-              <h2>{{ currentTab.label }}</h2>
-              <p>{{ filteredRows.length }} rows</p>
-            </div>
             <div class="setup-tabs">
               <UButton
                 v-for="tab in tabs"
@@ -1065,22 +1080,10 @@ watch(() => transactionForm.ledgerId, (ledgerId) => {
           @create="canCreate ? startCreate() : undefined"
         />
 
-        <UTable
-          v-if="filteredRows.length"
-          :data="filteredRows"
-          :columns="columns"
-          :loading="loading"
-        />
-
-        <UiCrudEmptyState
-          v-else
-          title="No records found"
-          description="Create accounting defaults or add a new record."
-          icon="i-lucide-landmark"
-          :action-label="canCreate ? `New ${singularLabel(activeTab)}` : 'Seed Defaults'"
-          @action="canCreate ? startCreate() : seedDefaults()"
-        />
-      </UCard>
+        <div class="planner-table-wrap">
+          <UTable :data="filteredRows" :columns="columns" />
+        </div>
+      </UiRegisterPanel>
 
       <UCard class="planner-card">
         <template #header>
@@ -1112,6 +1115,8 @@ watch(() => transactionForm.ledgerId, (ledgerId) => {
         :title="formTitle"
         :description="`Save ${singularLabel(activeTab).toLowerCase()} details.`"
         :submit-label="editMode === 'edit' ? 'Update' : 'Save'"
+        layout="modal"
+        :content-class="formContentClass"
         :loading="saving"
         @submit="saveActiveForm"
       >
@@ -1210,9 +1215,6 @@ watch(() => transactionForm.ledgerId, (ledgerId) => {
           </UFormField>
           <UFormField label="Against ledger" required>
             <USelect v-model="transactionForm.ledgerId" :items="transactionLedgerOptions" placeholder="Select ledger" />
-          </UFormField>
-          <UFormField label="Party">
-            <USelect v-model="transactionForm.partyId" :items="partyOptions" placeholder="Auto from ledger when applicable" />
           </UFormField>
           <div class="form-two-column">
             <UFormField label="Date" required>

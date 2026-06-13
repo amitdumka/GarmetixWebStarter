@@ -527,7 +527,10 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         return linkedParty;
     }
 
-    public async Task<Party> SavePartyAsync(Party request, CancellationToken cancellationToken)
+    public async Task<Party> SavePartyAsync(
+        PartySaveRequest request,
+        Guid? partyId,
+        CancellationToken cancellationToken)
     {
         if (request.CompanyId == Guid.Empty)
         {
@@ -539,9 +542,14 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
             throw new ArgumentException("Party name is required.");
         }
 
-        var party = request.Id == Guid.Empty
+        var party = !partyId.HasValue || partyId.Value == Guid.Empty
             ? null
-            : await db.Parties.FirstOrDefaultAsync(item => item.Id == request.Id, cancellationToken);
+            : await db.Parties.FirstOrDefaultAsync(item => item.Id == partyId.Value, cancellationToken);
+
+        if (partyId.HasValue && party is null)
+        {
+            throw new InvalidOperationException("Party was not found.");
+        }
 
         party ??= new Party
         {
@@ -568,7 +576,10 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         return party;
     }
 
-    public async Task<BankAccount> SaveBankAccountAsync(BankAccount request, CancellationToken cancellationToken)
+    public async Task<BankAccount> SaveBankAccountAsync(
+        BankAccountSaveRequest request,
+        Guid? accountId,
+        CancellationToken cancellationToken)
     {
         if (request.CompanyId == Guid.Empty)
         {
@@ -590,9 +601,14 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
             throw new ArgumentException("Account holder name is required.");
         }
 
-        var account = request.Id == Guid.Empty
+        var account = !accountId.HasValue || accountId.Value == Guid.Empty
             ? null
-            : await db.BankAccounts.FirstOrDefaultAsync(item => item.Id == request.Id, cancellationToken);
+            : await db.BankAccounts.FirstOrDefaultAsync(item => item.Id == accountId.Value, cancellationToken);
+
+        if (accountId.HasValue && account is null)
+        {
+            throw new InvalidOperationException("Bank account was not found.");
+        }
 
         account ??= new BankAccount
         {
@@ -606,9 +622,9 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         account.AccountType = request.AccountType;
         account.Branch = request.Branch?.Trim();
         account.IFSCode = request.IFSCode?.Trim();
-        account.OpeningDate = request.OpeningDate;
+        account.OpeningDate = request.OpeningDate.Date;
         account.Active = request.Active;
-        account.ClosingDate = request.ClosingDate;
+        account.ClosingDate = request.ClosingDate?.Date;
         account.OpeningBalance = request.OpeningBalance;
         account.ClosingBalance = request.ClosingBalance;
         account.LedgerId = (await EnsureBankAccountLedgerAsync(account, cancellationToken)).Id;

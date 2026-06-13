@@ -2,6 +2,30 @@ using Garmetix.Core.Enums;
 
 namespace Garmetix.Api.Accounting;
 
+public sealed record PartySaveRequest(
+    Guid CompanyId,
+    string Name,
+    string? Address,
+    string? EmailId,
+    string? Phone,
+    string? GSTIN,
+    string? PAN,
+    PartyType Category);
+
+public sealed record BankAccountSaveRequest(
+    Guid CompanyId,
+    string AccountNumber,
+    string AccountHolderName,
+    Guid BankId,
+    AccountType AccountType,
+    string? Branch,
+    string? IFSCode,
+    DateTime OpeningDate,
+    bool Active,
+    DateTime? ClosingDate,
+    decimal OpeningBalance,
+    decimal ClosingBalance);
+
 public sealed record VoucherSaveRequest(
     Guid? Id,
     string VoucherNumber,
@@ -140,4 +164,3 @@ public sealed record GstAccountingPostResult(
     decimal CreditCarryForward,
     decimal InterestLateFee,
     string Message);
-

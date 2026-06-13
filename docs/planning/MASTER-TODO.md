@@ -28,6 +28,16 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Preserve local salary-payment dates without UTC previous-day conversion.
 - [x] Exclude deleted salary payments and advances from payroll due calculations.
 
+## Accounting and HR Hardening - 2026-06-14
+
+- [x] Replace Party and Bank Account entity binding with dedicated save requests that exclude internal ledger and navigation fields.
+- [x] Keep Party `LedgerId`, Ledger `IsParty`, and Bank Account `LedgerId` entirely server-owned.
+- [x] Show only the contra ledger for bank transactions and resolve linked Party records internally.
+- [x] Move accounting create/edit forms from a narrow drawer to responsive wide modal workspaces.
+- [x] Add retained retryable loading/error/empty states to Accounting and HR registers.
+- [x] Preserve selected HR attendance, employee, bank, cheque, ledger and account dates without UTC previous-day conversion.
+- [x] Replace the HR empty-value store option with an explicit all-stores sentinel.
+
 ## Auth / Login
 
 - [x] Remove "Admin is available" message.
