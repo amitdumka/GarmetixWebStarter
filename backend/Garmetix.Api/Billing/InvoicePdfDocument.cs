@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Garmetix.Api.ProductLookup;
 
 namespace Garmetix.Api.Billing;
 
@@ -23,7 +24,8 @@ public sealed record InvoicePdfModel(
     decimal PaidAmount,
     decimal BalanceAmount,
     IReadOnlyList<ReceiptItemDto> Items,
-    IReadOnlyList<ReceiptPaymentDto> Payments);
+    IReadOnlyList<ReceiptPaymentDto> Payments,
+    string DocumentCode);
 
 public static class InvoicePdfDocument
 {
@@ -73,11 +75,12 @@ public static class InvoicePdfDocument
         canvas.FillRect(left, top + 54, bodyWidth, 3, tealR, tealG, tealB);
         canvas.Text(model.CompanyName, left + 14, top + 10, compact ? 14 : 17, true, 1, 1, 1);
         canvas.WrappedText(model.CompanyAddress, left + 14, top + 30, bodyWidth * 0.58, compact ? 6.5 : 7.5, 2, false, 0.82, 0.88, 0.94);
-        canvas.Text("TAX INVOICE", left + bodyWidth - 118, top + 11, compact ? 12 : 14, true, 1, 1, 1);
-        canvas.Text(copy, left + bodyWidth - 118, top + 30, 8.5, false, 0.82, 0.88, 0.94);
+        canvas.Text("TAX INVOICE", left + bodyWidth - 190, top + 11, compact ? 12 : 14, true, 1, 1, 1);
+        canvas.Text(copy, left + bodyWidth - 190, top + 30, 8.5, false, 0.82, 0.88, 0.94);
+        canvas.Qr(model.DocumentCode, left + bodyWidth - 48, top + 5, 42);
         if (reprint)
         {
-            canvas.Text("REPRINT", left + bodyWidth - 118, top + 43, 8.5, true, 0.98, 0.45, 0.45);
+            canvas.Text("REPRINT", left + bodyWidth - 190, top + 43, 8.5, true, 0.98, 0.45, 0.45);
         }
 
         var infoTop = top + 68;
@@ -499,6 +502,9 @@ public static class InvoicePdfDocument
         {
             builder.Append(CultureInfo.InvariantCulture, $"{F(r)} {F(g)} {F(b)} RG {F(lineWidth)} w {F(x1)} {F(pageHeight - top1)} m {F(x2)} {F(pageHeight - top2)} l S\n");
         }
+
+        public void Qr(string payload, double left, double top, double size)
+            => DocumentCodeService.AppendPdfCommands(builder, pageHeight, left, top, size, payload);
 
         private static List<string> Wrap(string value, int maxLength, int maxLines)
         {

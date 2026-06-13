@@ -38,6 +38,7 @@ public static class PettyCashEndpoints
         group.MapGet("/", ListAsync);
         group.MapGet("/prepare", PrepareAsync);
         group.MapGet("/{id:guid}", GetAsync);
+        group.MapGet("/{id:guid}/pdf", DownloadPdfAsync);
         group.MapPost("/", SaveAsync);
         group.MapPut("/{id:guid}", UpdateAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapDelete("/{id:guid}", DeleteAsync).RequireAuthorization(GarmetixPolicies.Delete);
@@ -71,6 +72,27 @@ public static class PettyCashEndpoints
         var sheet = await ApplyUserScope(db.PettyCashSheets.AsNoTracking(), context)
             .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         return sheet is null ? Results.NotFound() : Results.Ok(sheet);
+    }
+
+    private static async Task<IResult> DownloadPdfAsync(
+        Guid id,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var sheet = await ApplyUserScope(db.PettyCashSheets.AsNoTracking(), context)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (sheet is null)
+        {
+            return Results.NotFound();
+        }
+
+        var store = await db.Stores.AsNoTracking().FirstOrDefaultAsync(item => item.Id == sheet.StoreId, cancellationToken);
+        var company = store is null
+            ? null
+            : await db.Companies.AsNoTracking().FirstOrDefaultAsync(item => item.Id == store.CompanyId, cancellationToken);
+        var pdf = PettyCashPdfDocument.Build(sheet, company?.Name ?? "Garmetix", store?.Name ?? "Store");
+        return Results.File(pdf, "application/pdf", $"petty-cash-{sheet.OnDate:yyyyMMdd}.pdf");
     }
 
     private static async Task<IResult> PrepareAsync(

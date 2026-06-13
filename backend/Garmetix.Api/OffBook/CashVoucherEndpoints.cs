@@ -130,7 +130,8 @@ public static class CashVoucherEndpoints
             "Off-book cash voucher",
             transaction?.Name ?? "Cash category",
             employee?.StaffName ?? "-",
-            "-");
+            "-",
+            Garmetix.Api.ProductLookup.DocumentCodeService.Create(Garmetix.Api.ProductLookup.DocumentCodeService.CashVoucher, voucher.Id));
 
         var pdf = VoucherPdfDocument.Build(
             document,

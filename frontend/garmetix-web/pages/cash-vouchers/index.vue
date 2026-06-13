@@ -6,6 +6,7 @@ const api = useGarmetixApi()
 const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
+const documentPrint = useServerDocumentPrint()
 const config = useRuntimeConfig()
 const isAuthenticated = auth.isAuthenticated
 const canEdit = auth.canEdit
@@ -288,7 +289,7 @@ function buildPayload() {
 
   return {
     voucherNumber: String(form.voucherNumber).trim(),
-    onDate: new Date(`${form.onDate}T00:00:00`).toISOString(),
+    onDate: `${form.onDate}T00:00:00`,
     voucherType: Number(form.voucherType),
     transactionId: normalizeGuid(form.transactionId),
     partyName: String(form.partyName).trim(),
@@ -307,15 +308,20 @@ async function saveCashVoucher() {
   saving.value = true
   try {
     const payload = buildPayload()
+    let createdVoucher: any | null = null
     if (editMode.value === 'edit' && form.id) {
       await api.update<any>('cash-vouchers', form.id, payload)
       feedback.updated('Cash voucher')
     } else {
-      await api.create<any>('cash-vouchers', payload)
+      createdVoucher = await api.create<any>('cash-vouchers', payload)
       feedback.saved('Cash voucher')
     }
     formOpen.value = false
     await refresh()
+    if (createdVoucher?.id) {
+      openPrint(createdVoucher)
+      await printCashVoucher()
+    }
   } catch (error) {
     feedback.failed('Could not save cash voucher', error)
   } finally {
@@ -352,16 +358,18 @@ function openPrint(voucher: any) {
   includeSignatures.value = true
 }
 
-function printCashVoucher() {
-  const style = document.createElement('style')
-  style.id = 'garmetix-cash-voucher-page-size'
-  style.textContent = printFormat.value === 'a5-one'
-    ? '@page { size: A5 portrait; margin: 8mm; }'
-    : '@page { size: A4 portrait; margin: 8mm; }'
-  document.getElementById(style.id)?.remove()
-  document.head.appendChild(style)
-  window.print()
-  window.setTimeout(() => style.remove(), 1000)
+async function printCashVoucher() {
+  if (!selectedPrintVoucher.value?.id) return
+  const query = new URLSearchParams({
+    format: printFormat.value,
+    reprint: String(isReprint.value),
+    signatures: String(includeSignatures.value)
+  })
+  try {
+    await documentPrint.printPdf(`cash-vouchers/${selectedPrintVoucher.value.id}/pdf?${query.toString()}`)
+  } catch (error) {
+    feedback.failed('Could not print cash voucher PDF', error)
+  }
 }
 
 

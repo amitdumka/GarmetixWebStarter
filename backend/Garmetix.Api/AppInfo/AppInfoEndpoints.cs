@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.0.4";
+    public const string Version = "4.0.5";
     public const string Stage = "Stage 8A";
-    public const string ReleaseName = "Purchase UI and Local Date Correction";
+    public const string ReleaseName = "Document QR, Factory Reset and Print Hardening";
     public const string BuildDate = "2026-06-13";
-    public const string BuildCode = "GARMETIX-8A-20260613-4004";
+    public const string BuildCode = "GARMETIX-8A-20260613-4005";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,11 +81,12 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
-        "Petty Cash now preserves the exact selected local date when creating or editing a sheet.",
-        "Purchase and Purchase Return date defaults no longer drift through UTC conversion.",
-        "Purchase uses the shared Stage 8 register with retry, search, status filters and responsive table handling.",
-        "Purchase Return uses a searchable responsive register and an extra-wide item-return workspace.",
-        "UI audit progress migrates from v4.0.3 and marks Purchase and Purchase Return reviewed without discarding notes.",
+        "Printable business documents now carry stable permission-aware QR codes.",
+        "Document Scanner resolves QR/barcode values to invoices, vouchers, notes, petty cash and payroll entries.",
+        "Industry-style server PDFs now cover Petty Cash, payslips and salary-payment slips.",
+        "New printable documents invoke server PDF printing while edits do not auto-print.",
+        "Factory reset creates a safety backup and preserves the current administrator and migration history.",
+        "Inventory and Stock Operations use standardized retryable registers and a wide product workspace.",
         "Frontend, backend, npm package and .NET assembly versions are synchronized for every release."
     ];
 

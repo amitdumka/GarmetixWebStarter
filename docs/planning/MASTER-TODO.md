@@ -34,6 +34,7 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 
 ## Backup / Restore
 
+- [x] Add guarded factory reset with typed confirmation, automatic safety backup, migration preservation, and current-admin preservation.
 - [x] Local backup and restore.
 - [x] Google Drive credential setup. Added service-account JSON configuration and Docker secret mount.
 - [x] Upload backups to Google Drive. Local manual/scheduled backups can upload automatically or manually from System Health.
@@ -42,6 +43,11 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 
 ## Billing / Invoice Printing
 
+- [x] Print a stable QR code on every invoice, purchase document, voucher, cash voucher, debit/credit note, petty-cash sheet, payslip, and salary-payment slip.
+- [x] Add a document scanner/search page that resolves QR and barcode values to the permitted entry page.
+- [x] Replace dashboard-DOM printing with authenticated server PDF printing and validate generated PDF page sizes/content.
+- [x] Trigger print only after newly creating printable vouchers/documents; editing must not auto-print.
+- [x] Add industry-standard printable payslip and salary-payment slip PDFs.
 - [x] Stage 8A Package 5 UI pass: shared retryable Billing/Sales Return registers, invoice status filtering, wide entry workspaces, and bank-linked non-cash refunds.
 - [x] Standard A4 invoice print layout. Added print/PDF format `a4` from Billing receipt modal.
 - [x] Standard A5 invoice print layout. Added print/PDF format `a5` from Billing receipt modal.

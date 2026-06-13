@@ -6,6 +6,7 @@ const api = useGarmetixApi()
 const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
+const documentPrint = useServerDocumentPrint()
 const config = useRuntimeConfig()
 const isAuthenticated = auth.isAuthenticated
 const canEdit = auth.canEdit
@@ -384,16 +385,21 @@ async function saveVoucher() {
   saving.value = true
   try {
     const payload = buildPayload()
+    let createdVoucher: any | null = null
     if (editMode.value === 'edit' && form.id) {
       await api.update<any>('vouchers', form.id, payload)
       feedback.updated('Voucher')
     } else {
-      await api.create<any>('vouchers', payload)
+      createdVoucher = await api.create<any>('vouchers', payload)
       feedback.saved('Voucher')
     }
 
     formOpen.value = false
     await refresh()
+    if (createdVoucher?.id) {
+      openPrintVoucher(createdVoucher)
+      await printVoucher()
+    }
   } catch (error) {
     feedback.failed('Could not save voucher', error)
   } finally {
@@ -413,16 +419,18 @@ function openPrintVoucher(voucher: any) {
   includeSignatures.value = true
 }
 
-function printVoucher() {
-  const style = document.createElement('style')
-  style.id = 'garmetix-voucher-page-size'
-  style.textContent = printFormat.value === 'a5-one'
-    ? '@page { size: A5 portrait; margin: 8mm; }'
-    : '@page { size: A4 portrait; margin: 8mm; }'
-  document.getElementById(style.id)?.remove()
-  document.head.appendChild(style)
-  window.print()
-  window.setTimeout(() => style.remove(), 1000)
+async function printVoucher() {
+  if (!selectedPrintVoucher.value?.id) return
+  const query = new URLSearchParams({
+    format: printFormat.value,
+    reprint: String(isReprint.value),
+    signatures: String(includeSignatures.value)
+  })
+  try {
+    await documentPrint.printPdf(`vouchers/${selectedPrintVoucher.value.id}/pdf?${query.toString()}`)
+  } catch (error) {
+    feedback.failed('Could not print voucher PDF', error)
+  }
 }
 
 async function downloadVoucherPdf() {

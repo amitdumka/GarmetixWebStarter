@@ -11,6 +11,8 @@ const canEdit = auth.canEdit
 const UBadge = resolveComponent('UBadge')
 
 const loading = ref(false)
+const loadError = ref('')
+const movementSearch = ref('')
 const posting = ref(false)
 const options = ref<any>({ products: [], stores: [], recentMovements: [] })
 const companies = ref<any[]>([])
@@ -51,6 +53,13 @@ const movementRows = computed(() => (options.value.recentMovements || []).map((i
   valueText: money(Number(item.mrp || 0) * (Number(item.quantityIn || 0) || Number(item.quantityOut || 0)))
 })))
 
+const filteredMovementRows = computed(() => {
+  const term = movementSearch.value.trim().toLowerCase()
+  return term
+    ? movementRows.value.filter((row: any) => JSON.stringify(row).toLowerCase().includes(term))
+    : movementRows.value
+})
+
 const columns: TableColumn<any>[] = [
   { accessorKey: 'onDateText', header: 'Date' },
   {
@@ -72,6 +81,7 @@ async function refresh() {
   }
 
   loading.value = true
+  loadError.value = ''
   try {
     const [companyRows, storeRows, optionRows] = await Promise.all([
       api.list<any>('companies'),
@@ -82,6 +92,7 @@ async function refresh() {
     stores.value = storeRows
     options.value = optionRows
   } catch (error) {
+    loadError.value = 'Stock-operation options and movement history could not be loaded. Try again.'
     feedback.failed('Stock operations refresh failed', error)
   } finally {
     loading.value = false
@@ -304,25 +315,30 @@ onMounted(async () => {
         </div>
       </UCard>
 
-      <UCard class="planner-card">
-        <template #header>
-          <div class="planner-card-header">
-            <div>
-              <h2>Recent Stock Movement Ledger</h2>
-              <p>Every adjustment, transfer, physical count, sale, purchase, and return should leave a movement row.</p>
-            </div>
+      <UiRegisterPanel
+        title="Recent Stock Movement Ledger"
+        description="Every adjustment, transfer, physical count, sale, purchase, and return should leave a movement row."
+        :loading="loading"
+        :error="loadError"
+        :empty="!filteredMovementRows.length"
+        empty-title="No stock movement found"
+        empty-description="Post an operation or create product opening stock to start the ledger."
+        empty-icon="i-lucide-history"
+        @retry="refresh"
+      >
+        <template #actions>
             <UBadge color="neutral" variant="subtle">{{ movementRows.length }} rows</UBadge>
-          </div>
         </template>
 
-        <UTable v-if="movementRows.length" :data="movementRows" :columns="columns" :loading="loading" />
-        <UiCrudEmptyState
-          v-else
-          title="No stock movement yet"
-          description="Post an operation or create product opening stock to start the ledger."
-          icon="i-lucide-history"
+        <UiCrudToolbar
+          v-model:search="movementSearch"
+          search-placeholder="Search product, barcode, store, reference, or remarks"
+          :loading="loading"
+          refresh-label="Refresh"
+          @refresh="refresh"
         />
-      </UCard>
+        <UTable v-if="filteredMovementRows.length" :data="filteredMovementRows" :columns="columns" :loading="loading" />
+      </UiRegisterPanel>
     </section>
   </AppShell>
 </template>

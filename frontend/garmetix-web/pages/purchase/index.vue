@@ -7,6 +7,7 @@ const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
 const productLookup = useProductLookup()
+const documentPrint = useServerDocumentPrint()
 const config = useRuntimeConfig()
 const isAuthenticated = auth.isAuthenticated
 const canDelete = auth.canDelete
@@ -558,6 +559,7 @@ async function submitPurchase() {
     }
     formOpen.value = false
     await viewReceipt(response.purchaseInvoiceId)
+    await printReceipt()
     await refresh()
   } catch (error) {
     feedback.failed('Could not save purchase inward', error)
@@ -655,20 +657,19 @@ async function confirmCancel() {
   }
 }
 
-function printReceipt() {
-  const style = document.createElement('style')
-  style.id = 'garmetix-purchase-page-size'
-  style.textContent = purchasePrintFormat.value === 'a5'
-    ? '@page { size: A5 portrait; margin: 7mm; }'
-    : purchasePrintFormat.value === 'thermal-2'
-      ? '@page { size: 58mm auto; margin: 2mm; }'
-      : purchasePrintFormat.value === 'thermal-3'
-        ? '@page { size: 80mm auto; margin: 3mm; }'
-        : '@page { size: A4 portrait; margin: 8mm; }'
-  document.getElementById(style.id)?.remove()
-  document.head.appendChild(style)
-  window.print()
-  window.setTimeout(() => style.remove(), 1000)
+async function printReceipt() {
+  if (!selectedReceipt.value?.id) return
+  const query = new URLSearchParams({
+    format: purchasePrintFormat.value,
+    copy: purchaseCopyType.value,
+    reprint: String(purchaseReprint.value),
+    signatures: String(purchaseSignatures.value)
+  })
+  try {
+    await documentPrint.printPdf(`purchase/invoices/${selectedReceipt.value.id}/pdf?${query.toString()}`)
+  } catch (error) {
+    feedback.failed('Could not print purchase PDF', error)
+  }
 }
 
 async function downloadPurchasePdf() {

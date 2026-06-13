@@ -4,10 +4,10 @@ Updated: 2026-06-13
 
 ## Current Baseline
 
-- Version: 4.0.4
+- Version: 4.0.5
 - Stage: Stage 8A
-- Release: Purchase UI and Local Date Correction
-- Build code: `GARMETIX-8A-20260613-4004`
+- Release: Document QR, Factory Reset and Print Hardening
+- Build code: `GARMETIX-8A-20260613-4005`
 - Branch: `Version3.0`
 - Pre-Stage 8 baseline commit: `470ba2e`
 
@@ -37,6 +37,7 @@ Stage 7M menu names, route compatibility, permission-aware navigation, Off Book 
 - [x] Package 4: standardize Loyalty and Petty Cash, widen daily-cash entry, preserve transaction calculation/A5 printing, and migrate audit progress to v4.0.2.
 - [x] Package 5: standardize Billing and Sales Return, preserve the wide invoice workspace, and require bank linkage for non-cash return refunds in v4.0.3.
 - [x] Package 6: fix local-date preservation in Petty Cash/Purchase Return and standardize Purchase and Purchase Return in v4.0.4.
+- [x] Package 7: standardize Inventory/Stock Operations, add universal document QR lookup, guarded factory reset, and server PDF print hardening in v4.0.5.
 - [ ] Complete every page in the `/ui-audit` queue.
 - [ ] Standardize page headers, filters, tables, actions, loading, error, and empty states.
 - [ ] Move large invoice, voucher, employee, purchase, payroll, and other master-detail forms to full pages or wide workspaces.

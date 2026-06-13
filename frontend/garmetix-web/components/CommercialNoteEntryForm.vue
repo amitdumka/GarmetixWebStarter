@@ -8,6 +8,7 @@ const api = useGarmetixApi()
 const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
+const documentPrint = useServerDocumentPrint()
 const router = useRouter()
 
 const isCredit = computed(() => props.noteType === 1)
@@ -157,8 +158,9 @@ async function save() {
       await api.update<any>('commercial-notes', props.noteId, body)
       feedback.saved(`${isCredit.value ? 'Credit' : 'Debit'} note updated`)
     } else {
-      await api.create<any>('commercial-notes', body)
+      const created = await api.create<any>('commercial-notes', body)
       feedback.saved(`${isCredit.value ? 'Credit' : 'Debit'} note created`)
+      await documentPrint.printPdf(`commercial-notes/${created.id}/pdf?a5Slip=false&signatures=true`)
     }
 
     await router.push(isCredit.value ? '/credit-notes' : '/debit-notes')

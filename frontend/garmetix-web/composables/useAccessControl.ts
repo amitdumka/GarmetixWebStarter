@@ -46,6 +46,7 @@ const routeRules: PageAccessRule[] = [
   { path: '/dashboard/store-manager', label: 'Store Dashboard', module: 'Dashboards', exact: true, roles: ['admin', 'owner', 'powerUser', 'storeManager', 'salesman'] },
   { path: '/dashboard/business', label: 'Company Dashboard', module: 'Dashboards', exact: true, roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant'] },
   { path: '/reports', label: 'Reports Center', module: 'Reports', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
+  { path: '/document-scan', label: 'Document Scanner', module: 'Reports', roles: ['authenticated'] },
   { path: '/gst-returns', label: 'GST Returns', module: 'GST', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant'] },
   { path: '/gst-reports', label: 'GST Reports', module: 'GST', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant'] },
 

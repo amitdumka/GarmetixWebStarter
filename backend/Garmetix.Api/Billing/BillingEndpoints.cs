@@ -309,7 +309,8 @@ public static class BillingEndpoints
             invoice.PaidAmount,
             invoice.BalanceAmount,
             items,
-            payments);
+            payments,
+            Garmetix.Api.ProductLookup.DocumentCodeService.Create(Garmetix.Api.ProductLookup.DocumentCodeService.SaleInvoice, invoice.Id));
 
         var pdf = InvoicePdfDocument.Build(
             model,

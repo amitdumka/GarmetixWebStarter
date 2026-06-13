@@ -6,6 +6,7 @@ const api = useGarmetixApi()
 const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
+const documentPrint = useServerDocumentPrint()
 const isAuthenticated = auth.isAuthenticated
 const canEdit = auth.canEdit
 const canDelete = auth.canDelete
@@ -307,6 +308,7 @@ function buildPayload() {
 async function saveSheet() {
   saving.value = true
   try {
+    const creating = editMode.value === 'create'
     const payload = buildPayload()
     let result: any
     if (editMode.value === 'edit' && form.id) {
@@ -322,8 +324,10 @@ async function saveSheet() {
     formOpen.value = false
     await refresh()
     printOpen.value = true
-    await nextTick()
-    window.setTimeout(printSheet, 250)
+    if (creating) {
+      await nextTick()
+      await printSheet()
+    }
   } catch (error) {
     feedback.failed('Could not save petty cash sheet', error)
   } finally {
@@ -337,50 +341,25 @@ function openPrint(sheet: any) {
   printOpen.value = true
 }
 
-function printSheet() {
+async function printSheet() {
   const sheet = selectedPrintSheet.value
-  if (!sheet) {
-    return
+  if (!sheet?.id) return
+  try {
+    await documentPrint.printPdf(`petty-cash-sheets/${sheet.id}/pdf`)
+  } catch (error) {
+    feedback.failed('Could not print petty cash PDF', error)
   }
+}
 
-  const printFrame = document.createElement('iframe')
-  printFrame.setAttribute('title', 'Petty cash print document')
-  printFrame.style.position = 'fixed'
-  printFrame.style.right = '0'
-  printFrame.style.bottom = '0'
-  printFrame.style.width = '1px'
-  printFrame.style.height = '1px'
-  printFrame.style.border = '0'
-  printFrame.style.opacity = '0'
-  document.body.appendChild(printFrame)
-
-  const cleanup = () => printFrame.remove()
-  printFrame.onload = () => {
-    const printWindow = printFrame.contentWindow
-    if (!printWindow) {
-      cleanup()
-      feedback.notify('Could not open the petty cash print document.', undefined, 'error')
-      return
-    }
-
-    printWindow.addEventListener('afterprint', cleanup, { once: true })
-    window.setTimeout(() => {
-      printWindow.focus()
-      printWindow.print()
-    }, 200)
-    window.setTimeout(cleanup, 30000)
+async function downloadSheetPdf() {
+  const sheet = selectedPrintSheet.value
+  if (!sheet?.id) return
+  try {
+    await documentPrint.downloadPdf(`petty-cash-sheets/${sheet.id}/pdf`, `petty-cash-${String(sheet.onDate || '').slice(0, 10)}.pdf`)
+    feedback.notify('Petty cash PDF downloaded')
+  } catch (error) {
+    feedback.failed('Could not download petty cash PDF', error)
   }
-
-  const printDocument = printFrame.contentDocument
-  if (!printDocument) {
-    cleanup()
-    feedback.notify('Could not prepare the petty cash print document.', undefined, 'error')
-    return
-  }
-
-  printDocument.open()
-  printDocument.write(buildPettyCashPrintHtml(sheet))
-  printDocument.close()
 }
 
 function buildPettyCashPrintHtml(sheet: any) {
@@ -1088,6 +1067,7 @@ watch(workspace.storeId, (value, previous) => {
         <template #footer>
           <div class="modal-actions petty-print-screen-only">
             <UButton color="neutral" variant="outline" label="Close" @click="printOpen = false" />
+            <UButton color="neutral" variant="subtle" icon="i-lucide-download" label="Download PDF" @click="downloadSheetPdf" />
             <UButton icon="i-lucide-printer" label="Print A5" @click="printSheet" />
           </div>
         </template>

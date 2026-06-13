@@ -17,6 +17,7 @@ public static class PayrollEndpoints
         group.MapPost("/payslips/generate-month", GeneratePayslipsAsync);
         group.MapGet("/payslips/recent", GetRecentPayslipsAsync);
         group.MapGet("/payslips/{id:guid}/print", GetPrintablePayslipAsync);
+        group.MapGet("/payslips/{id:guid}/pdf", DownloadPayslipPdfAsync);
 
         return group;
     }
@@ -29,6 +30,7 @@ public static class PayrollEndpoints
 
         group.MapGet("/", ListSalaryPaymentsAsync);
         group.MapGet("/{id:guid}", GetSalaryPaymentAsync);
+        group.MapGet("/{id:guid}/pdf", DownloadSalaryPaymentPdfAsync);
         group.MapPost("/", SaveSalaryPaymentAsync);
         group.MapPut("/{id:guid}", UpdateSalaryPaymentAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapDelete("/{id:guid}", DeleteSalaryPaymentAsync).RequireAuthorization(GarmetixPolicies.Delete);
@@ -66,6 +68,50 @@ public static class PayrollEndpoints
     {
         var payslip = await service.GetPrintablePayslipAsync(id, cancellationToken);
         return payslip is null ? Results.NotFound() : Results.Ok(payslip);
+    }
+
+    private static async Task<IResult> DownloadPayslipPdfAsync(
+        Guid id,
+        PayrollService service,
+        CancellationToken cancellationToken)
+    {
+        var payslip = await service.GetPrintablePayslipAsync(id, cancellationToken);
+        return payslip is null
+            ? Results.NotFound()
+            : Results.File(PayrollPdfDocument.BuildPayslip(payslip), "application/pdf", $"payslip-{payslip.Summary.MonthYear.Replace(' ', '-')}.pdf");
+    }
+
+    private static async Task<IResult> DownloadSalaryPaymentPdfAsync(
+        Guid id,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var payment = await db.SalaryPayments.AsNoTracking()
+            .Include(item => item.Employee)
+            .FirstOrDefaultAsync(item => item.Id == id && !item.Deleted, cancellationToken);
+        if (payment is null)
+        {
+            return Results.NotFound();
+        }
+
+        var company = await db.Companies.AsNoTracking().FirstOrDefaultAsync(item => item.Id == payment.CompanyId, cancellationToken);
+        var store = await db.Stores.AsNoTracking().FirstOrDefaultAsync(item => item.Id == payment.StoreId, cancellationToken);
+        var model = new SalaryPaymentPdfModel(
+            payment.Id,
+            company?.Name ?? "Garmetix",
+            string.Join(", ", new[] { company?.Address, company?.City, company?.State, company?.ZipCode }.Where(value => !string.IsNullOrWhiteSpace(value))),
+            store?.Name ?? "Store",
+            payment.Employee?.StaffName ?? "Employee",
+            payment.VoucherNumber,
+            payment.SalaryMonth,
+            payment.OnDate,
+            payment.GrossSalary,
+            payment.TotalDeductions,
+            payment.NetSalary,
+            payment.Amount,
+            payment.PaymentMode.ToString(),
+            payment.Remarks ?? string.Empty);
+        return Results.File(PayrollPdfDocument.BuildSalaryPayment(model), "application/pdf", $"{payment.VoucherNumber}.pdf");
     }
 
     private static async Task<List<SalaryPayment>> ListSalaryPaymentsAsync(GarmetixDbContext db, CancellationToken cancellationToken)

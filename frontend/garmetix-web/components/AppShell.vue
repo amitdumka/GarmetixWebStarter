@@ -132,7 +132,8 @@ const moduleGroups: MenuGroup[] = [
   {
     label: 'Reports',
     items: [
-      { to: '/reports', label: 'Reports Center', icon: 'i-lucide-file-text' }
+      { to: '/reports', label: 'Reports Center', icon: 'i-lucide-file-text' },
+      { to: '/document-scan', label: 'Document Scanner', icon: 'i-lucide-scan-qr-code', keywords: ['qr', 'barcode', 'voucher', 'invoice', 'payslip'] }
     ]
   },
   {

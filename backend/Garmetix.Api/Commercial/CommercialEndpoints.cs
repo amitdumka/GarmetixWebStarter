@@ -220,7 +220,8 @@ public static class CommercialEndpoints
             note.SourceType,
             string.Empty,
             string.Empty,
-            string.Empty);
+            string.Empty,
+            Garmetix.Api.ProductLookup.DocumentCodeService.Create(Garmetix.Api.ProductLookup.DocumentCodeService.CommercialNote, note.Id));
         var pdf = VoucherPdfDocument.Build(model, a5Slip, reprint, signatures);
         var safeNumber = Regex.Replace(note.NoteNumber, @"[^A-Za-z0-9_-]+", "-").Trim('-');
         return Results.File(pdf, "application/pdf", $"{safeNumber}-{(a5Slip ? "a5-slip" : "a4-two-copy")}.pdf");

@@ -273,7 +273,8 @@ public static class AccountingEndpoints
             employee?.StaffName ?? "-",
             bankAccount is null
                 ? "-"
-                : $"{bank?.Name ?? "Bank"} - {bankAccount.AccountHolderName} - {bankAccount.AccountNumber}");
+                : $"{bank?.Name ?? "Bank"} - {bankAccount.AccountHolderName} - {bankAccount.AccountNumber}",
+            Garmetix.Api.ProductLookup.DocumentCodeService.Create(Garmetix.Api.ProductLookup.DocumentCodeService.Voucher, voucher.Id));
 
         var pdf = VoucherPdfDocument.Build(
             document,

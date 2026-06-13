@@ -6,3 +6,4 @@ frontend/garmetix-web/.nuxt/
 frontend/garmetix-web/.output/
 backend/**/bin/
 backend/**/obj/
+test-artifacts/

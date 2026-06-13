@@ -6,6 +6,8 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 
 ## Fixed
 
+- [x] Printable vouchers, invoices, Petty Cash and payroll documents could invoke `window.print()` on the dashboard DOM, producing incorrect or incomplete output. Printing now fetches the authenticated server PDF, validates its media type/size, and prints that PDF; new documents auto-print while edits do not.
+- [x] Printed documents had only text scan references and no consistent retrieval path. Stable QR tokens and a permission-aware Document Scanner now cover sale/purchase invoices, vouchers, cash vouchers, debit/credit notes, Petty Cash, payslips and salary payments.
 - [x] Petty Cash create/edit changed a selected local date to the previous day in positive UTC-offset time zones. Removed UTC `toISOString()` conversion from the selected date, added local calendar defaults, and verified the June 13 form separately carries the June 12 closing balance.
 - [x] Petty-cash A5 printing was clipped after the first income/payment row and did not preserve report colors. Replaced modal-page printing with an isolated A5 landscape document containing all sheet values, totals, reconciliation, company/store identity, audit details, and signatures with exact print colors.
 - [x] Petty-cash save returned HTTP 500 after persisting the sheet when a reconciliation log contained nullable fields. Message-log inserts now use explicitly typed database parameters, and alert logging/email failure no longer invalidates a successful sheet save.

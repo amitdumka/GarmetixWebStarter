@@ -11,8 +11,9 @@ type AuditRoute = {
   module: string
 }
 
-const STORAGE_KEY = 'garmetix.ui-audit.v4.0.4'
+const STORAGE_KEY = 'garmetix.ui-audit.v4.0.5'
 const PREVIOUS_STORAGE_KEYS = [
+  'garmetix.ui-audit.v4.0.4',
   'garmetix.ui-audit.v4.0.3',
   'garmetix.ui-audit.v4.0.2',
   'garmetix.ui-audit.v4.0.1',
@@ -32,7 +33,12 @@ const REVIEWED_ROUTES = [
   '/billing',
   '/sales-return',
   '/purchase',
-  '/purchase-return'
+  '/purchase-return',
+  '/inventory',
+  '/stock-operations',
+  '/document-scan',
+  '/payroll',
+  '/system-health'
 ]
 
 function defaultStatus(route: AuditRoute): UiAuditStatus {

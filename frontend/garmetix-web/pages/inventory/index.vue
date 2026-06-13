@@ -12,6 +12,7 @@ const canDelete = auth.canDelete
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
+const NO_VENDOR_VALUE = '__none__'
 
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
@@ -29,6 +30,7 @@ const productOptions = ref<any>({
 })
 const setupStatus = ref<any | null>(null)
 const loading = ref(false)
+const loadError = ref('')
 const saving = ref(false)
 const deleting = ref(false)
 const search = ref('')
@@ -76,7 +78,7 @@ const productTypeOptions = computed(() => enumItems(productOptions.value.product
 const productGroupOptions = computed(() => enumItems(productOptions.value.productGroups))
 const stockTypeOptions = computed(() => enumItems(productOptions.value.stockTypes))
 const vendorOptions = computed(() => [
-  { value: '', label: 'No vendor selected' },
+  { value: NO_VENDOR_VALUE, label: 'No vendor selected' },
   ...(productOptions.value.vendors || []).map((item: any) => ({
     value: item.id,
     label: `${item.name || 'Vendor'}${item.gstin ? ` - ${item.gstin}` : ''}`
@@ -212,7 +214,7 @@ function emptyProduct() {
     styleCode: '',
     baseColor: '',
     brand: '',
-    vendorId: '',
+    vendorId: NO_VENDOR_VALUE,
     companyId: '',
     storeGroupId: '',
     storeId: ''
@@ -225,6 +227,7 @@ async function refresh() {
   }
 
   loading.value = true
+  loadError.value = ''
   try {
     setupStatus.value = await api.get<any>('setup/status')
     const [companyRows, storeRows, optionRows, productRows] = await Promise.all([
@@ -239,6 +242,7 @@ async function refresh() {
     productOptions.value = optionRows
     products.value = productRows
   } catch (error) {
+    loadError.value = 'Product master data could not be loaded. Check the selected workspace and try again.'
     feedback.failed('Inventory refresh failed', error)
   } finally {
     loading.value = false
@@ -266,7 +270,7 @@ function startEdit(product: any) {
     ...product,
     openingQuantity: Number(product.purchaseQty || 0),
     taxId: product.taxId || '',
-    vendorId: product.vendorId || '',
+    vendorId: product.vendorId || NO_VENDOR_VALUE,
     productCategoryId: product.productCategoryId || '',
     productSubCategoryId: product.productSubCategoryId || '',
     unit: Number(product.unit ?? 2),
@@ -325,7 +329,7 @@ function productPayload() {
     styleCode: nullIfEmpty(productForm.styleCode),
     baseColor: nullIfEmpty(productForm.baseColor),
     brand: nullIfEmpty(productForm.brand),
-    vendorId: productForm.vendorId || null,
+    vendorId: productForm.vendorId === NO_VENDOR_VALUE ? null : productForm.vendorId || null,
     companyId,
     storeGroupId,
     storeId
@@ -438,15 +442,19 @@ onMounted(async () => {
         </UCard>
       </div>
 
-      <UCard class="planner-card">
-        <template #header>
-          <div class="planner-card-header">
-            <div>
-              <h2>Product Master</h2>
-              <p>Maintain full garment product metadata before billing, purchase, and GST reporting.</p>
-            </div>
+      <UiRegisterPanel
+        title="Product Master"
+        description="Maintain full garment product metadata before billing, purchase, and GST reporting."
+        :loading="loading"
+        :error="loadError"
+        :empty="!filteredRows.length"
+        empty-title="No products found"
+        empty-description="Create the first product with HSN, product type/group, GST, and stock defaults."
+        empty-icon="i-lucide-package-search"
+        @retry="refresh"
+      >
+        <template #actions>
             <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
-          </div>
         </template>
 
         <UiCrudToolbar
@@ -466,25 +474,19 @@ onMounted(async () => {
           :loading="loading"
         />
 
-        <UiCrudEmptyState
-          v-else
-          title="No products found"
-          description="Create the first product with HSN, product type/group, GST, and stock defaults."
-          icon="i-lucide-package-search"
-          action-label="New Product"
-          @action="startCreate"
-        />
-      </UCard>
+      </UiRegisterPanel>
 
-      <UiFormSlideover
-        v-model:open="formOpen"
-        :title="editMode === 'create' ? 'New Product' : 'Edit Product'"
-        description="Maintain product master, classification, GST, vendor, and stock default data."
-        :submit-label="editMode === 'create' ? 'Save Product' : 'Update Product'"
-        :loading="saving"
-        @submit="saveProduct"
-      >
-        <div class="form-two-column">
+      <UModal v-model:open="formOpen" :title="editMode === 'create' ? 'New Product' : 'Edit Product'" :ui="{ content: 'sm:max-w-5xl xl:max-w-6xl' }">
+        <template #body>
+          <div class="form-grid">
+            <UAlert
+              color="info"
+              variant="subtle"
+              icon="i-lucide-package"
+              title="Product master and opening stock"
+              description="Maintain classification, GST, vendor, pricing, style, and opening stock in one workspace."
+            />
+            <div class="form-two-column">
           <UFormField label="Product name" required>
             <UInput v-model="productForm.name" required />
           </UFormField>
@@ -565,7 +567,15 @@ onMounted(async () => {
             <UInput v-model="productForm.baseColor" />
           </UFormField>
         </div>
-      </UiFormSlideover>
+          </div>
+        </template>
+        <template #footer>
+          <div class="modal-actions">
+            <UButton color="neutral" variant="outline" label="Cancel" :disabled="saving" @click="formOpen = false" />
+            <UButton icon="i-lucide-save" :label="editMode === 'create' ? 'Save Product' : 'Update Product'" :loading="saving" @click="saveProduct" />
+          </div>
+        </template>
+      </UModal>
 
       <UiConfirmDeleteModal
         v-model:open="deleteOpen"

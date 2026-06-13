@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Garmetix.Api.ProductLookup;
 
 namespace Garmetix.Api.Accounting;
 
@@ -21,7 +22,8 @@ public sealed record VoucherPdfModel(
     string? PaymentDetails,
     string LedgerName,
     string EmployeeName,
-    string BankAccount);
+    string BankAccount,
+    string DocumentCode);
 
 public static class VoucherPdfDocument
 {
@@ -74,10 +76,11 @@ public static class VoucherPdfDocument
         canvas.FillRect(left, top + 46, width, 3, tealR, tealG, tealB);
         canvas.Text(model.CompanyName, left + 12, top + 10, 15, true, 1, 1, 1);
         canvas.Text($"{model.StoreName} | ACCOUNTING VOUCHER", left + 12, top + 29, 8.5, false, 0.8, 0.86, 0.91);
-        canvas.Text(copyLabel, left + width - 84, top + 12, 9, true, 1, 1, 1);
+        canvas.Text(copyLabel, left + width - 142, top + 12, 9, true, 1, 1, 1);
+        canvas.Qr(model.DocumentCode, left + width - 42, top + 5, 36);
         if (reprint)
         {
-            canvas.Text("REPRINT", left + width - 85, top + 30, 8, true, 0.98, 0.45, 0.45);
+            canvas.Text("REPRINT", left + width - 142, top + 30, 8, true, 0.98, 0.45, 0.45);
         }
 
         var infoTop = top + 58;
@@ -317,6 +320,9 @@ public static class VoucherPdfDocument
         {
             builder.Append(CultureInfo.InvariantCulture, $"0.45 0.49 0.54 RG {F(lineWidth)} w [{dash}] 0 d {F(x1)} {F(pageHeight - top1)} m {F(x2)} {F(pageHeight - top2)} l S [] 0 d\n");
         }
+
+        public void Qr(string payload, double left, double top, double size)
+            => DocumentCodeService.AppendPdfCommands(builder, pageHeight, left, top, size, payload);
 
         private static List<string> Wrap(string value, int maxLength, int maxLines)
         {

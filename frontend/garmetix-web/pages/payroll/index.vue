@@ -9,6 +9,7 @@ const api = useGarmetixApi()
 const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
+const documentPrint = useServerDocumentPrint()
 const isAuthenticated = auth.isAuthenticated
 const canEdit = auth.canEdit
 const canDelete = auth.canDelete
@@ -314,6 +315,13 @@ const paymentColumns: TableColumn<any>[] = [
     id: 'actions',
     header: '',
     cell: ({ row }) => h('div', { class: 'table-action-buttons' }, [
+      h(UButton, {
+        color: 'primary',
+        variant: 'ghost',
+        icon: 'i-lucide-printer',
+        label: 'Print',
+        onClick: () => printSalaryPayment(row.original.raw)
+      }),
       canEdit.value ? h(UButton, {
         color: 'neutral',
         variant: 'ghost',
@@ -590,16 +598,20 @@ async function savePayment() {
       storeId
     }
 
+    let createdPayment: any | null = null
     if (editingPaymentId.value) {
       await api.update<any>('salary-payments', editingPaymentId.value, payload)
       feedback.updated('Salary payment')
     } else {
-      await api.create<any>('salary-payments', payload)
+      createdPayment = await api.create<any>('salary-payments', payload)
       feedback.saved('Salary payment')
     }
 
     formOpen.value = false
     await refresh()
+    if (createdPayment?.id) {
+      await printSalaryPayment(createdPayment)
+    }
   } catch (error) {
     feedback.failed('Could not save salary payment', error)
   } finally {
@@ -730,8 +742,33 @@ async function openPrintablePayslip(payslip: any) {
   }
 }
 
-function printPayslip() {
-  window.print()
+async function printPayslip() {
+  if (!selectedPayslip.value?.id) return
+  try {
+    await documentPrint.printPdf(`payroll/payslips/${selectedPayslip.value.id}/pdf`)
+  } catch (error) {
+    feedback.failed('Could not print payslip PDF', error)
+  }
+}
+
+async function printSalaryPayment(payment: any) {
+  if (!payment?.id) return
+  try {
+    await documentPrint.printPdf(`salary-payments/${payment.id}/pdf`)
+  } catch (error) {
+    feedback.failed('Could not print salary payment PDF', error)
+  }
+}
+
+async function downloadPayslip() {
+  if (!selectedPayslip.value?.id) return
+  try {
+    const fileName = `payslip-${selectedPayslip.value.monthYear || selectedPayslip.value.id}.pdf`
+    await documentPrint.downloadPdf(`payroll/payslips/${selectedPayslip.value.id}/pdf`, fileName)
+    feedback.notify('Payslip PDF downloaded')
+  } catch (error) {
+    feedback.failed('Could not download payslip PDF', error)
+  }
 }
 
 function sharePayslipEmail(payslip: any) {
@@ -1120,6 +1157,7 @@ onMounted(async () => {
             <UButton color="neutral" variant="outline" label="Close" @click="printOpen = false" />
             <UButton icon="i-lucide-mail" color="neutral" variant="subtle" label="Email" :disabled="!selectedPayslip" @click="selectedPayslip && sharePayslipEmail(selectedPayslip)" />
             <UButton icon="i-lucide-message-circle" color="success" variant="subtle" label="WhatsApp" :disabled="!selectedPayslip" @click="selectedPayslip && sharePayslipWhatsApp(selectedPayslip)" />
+            <UButton icon="i-lucide-download" color="neutral" variant="subtle" label="Download PDF" :disabled="!selectedPayslip" @click="downloadPayslip" />
             <UButton icon="i-lucide-printer" label="Print / PDF" :disabled="!printDetail" @click="printPayslip" />
           </div>
         </template>
