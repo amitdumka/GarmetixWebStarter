@@ -4,10 +4,10 @@ Updated: 2026-06-13
 
 ## Current Baseline
 
-- Version: 4.0.5
+- Version: 4.0.6
 - Stage: Stage 8A
-- Release: Document QR, Factory Reset and Print Hardening
-- Build code: `GARMETIX-8A-20260613-4005`
+- Release: Salary Payment Precalculation and SPAY Numbering
+- Build code: `GARMETIX-8A-20260613-4006`
 - Branch: `Version3.0`
 - Pre-Stage 8 baseline commit: `470ba2e`
 
@@ -38,6 +38,7 @@ Stage 7M menu names, route compatibility, permission-aware navigation, Off Book 
 - [x] Package 5: standardize Billing and Sales Return, preserve the wide invoice workspace, and require bank linkage for non-cash return refunds in v4.0.3.
 - [x] Package 6: fix local-date preservation in Petty Cash/Purchase Return and standardize Purchase and Purchase Return in v4.0.4.
 - [x] Package 7: standardize Inventory/Stock Operations, add universal document QR lookup, guarded factory reset, and server PDF print hardening in v4.0.5.
+- [x] Package 8: repair salary-payment saving, add advance/due/already-paid pre-calculation, whole-rupee payment rounding, and server-owned `StoreCode/YYYYMM/SPAY/series` numbering in v4.0.6.
 - [ ] Complete every page in the `/ui-audit` queue.
 - [ ] Standardize page headers, filters, tables, actions, loading, error, and empty states.
 - [ ] Move large invoice, voucher, employee, purchase, payroll, and other master-detail forms to full pages or wide workspaces.

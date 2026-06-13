@@ -1,5 +1,6 @@
 using Garmetix.Api.Accounting;
 using Garmetix.Api.Auth;
+using Garmetix.Api.Numbering;
 using Garmetix.Core.Models.HRM;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -31,6 +32,7 @@ public static class PayrollEndpoints
         group.MapGet("/", ListSalaryPaymentsAsync);
         group.MapGet("/{id:guid}", GetSalaryPaymentAsync);
         group.MapGet("/{id:guid}/pdf", DownloadSalaryPaymentPdfAsync);
+        group.MapPost("/preview", PreviewSalaryPaymentAsync);
         group.MapPost("/", SaveSalaryPaymentAsync);
         group.MapPut("/{id:guid}", UpdateSalaryPaymentAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapDelete("/{id:guid}", DeleteSalaryPaymentAsync).RequireAuthorization(GarmetixPolicies.Delete);
@@ -134,56 +136,84 @@ public static class PayrollEndpoints
     }
 
     private static async Task<IResult> SaveSalaryPaymentAsync(
-        SalaryPayment request,
+        SalaryPaymentUpsertRequest request,
         GarmetixDbContext db,
         AccountingPostingService accounting,
+        DocumentNumberService documentNumbers,
+        PayrollService payroll,
         CancellationToken cancellationToken)
     {
-        var validation = await ValidateSalaryPaymentAsync(request, db, cancellationToken);
+        var validation = await ValidateSalaryPaymentAsync(request, null, db, cancellationToken);
         if (validation is not null)
         {
             return validation;
         }
 
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        var payment = new SalaryPayment();
-        ApplySalaryPayment(payment, request);
-        payment.Deleted = false;
-        db.SalaryPayments.Add(payment);
-        await accounting.PostSalaryPaymentAsync(payment, cancellationToken);
-        await db.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
+        var outstandingValidation = await ValidateOutstandingSalaryAsync(request, null, payroll, cancellationToken);
+        if (outstandingValidation is not null)
+        {
+            return outstandingValidation;
+        }
 
-        return Results.Created($"/api/salary-payments/{payment.Id}", payment);
+        var strategy = db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            var payment = new SalaryPayment();
+            ApplySalaryPayment(payment, request);
+            payment.VoucherNumber = await documentNumbers.NextSalaryPaymentAsync(
+                request.CompanyId,
+                request.StoreGroupId,
+                request.StoreId,
+                request.OnDate,
+                cancellationToken);
+            payment.Deleted = false;
+            db.SalaryPayments.Add(payment);
+            await accounting.PostSalaryPaymentAsync(payment, cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            return Results.Created($"/api/salary-payments/{payment.Id}", payment);
+        });
     }
 
     private static async Task<IResult> UpdateSalaryPaymentAsync(
         Guid id,
-        SalaryPayment request,
+        SalaryPaymentUpsertRequest request,
         GarmetixDbContext db,
         AccountingPostingService accounting,
+        PayrollService payroll,
         CancellationToken cancellationToken)
     {
-        request.Id = id;
-        var validation = await ValidateSalaryPaymentAsync(request, db, cancellationToken);
+        var validation = await ValidateSalaryPaymentAsync(request, id, db, cancellationToken);
         if (validation is not null)
         {
             return validation;
         }
 
-        var payment = await db.SalaryPayments.FirstOrDefaultAsync(item => item.Id == id && !item.Deleted, cancellationToken);
-        if (payment is null)
+        var outstandingValidation = await ValidateOutstandingSalaryAsync(request, id, payroll, cancellationToken);
+        if (outstandingValidation is not null)
         {
-            return Results.NotFound();
+            return outstandingValidation;
         }
 
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        ApplySalaryPayment(payment, request);
-        await accounting.PostSalaryPaymentAsync(payment, cancellationToken);
-        await db.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
+        var strategy = db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            var payment = await db.SalaryPayments.FirstOrDefaultAsync(item => item.Id == id && !item.Deleted, cancellationToken);
+            if (payment is null)
+            {
+                return Results.NotFound();
+            }
 
-        return Results.Ok(payment);
+            ApplySalaryPayment(payment, request);
+            await accounting.PostSalaryPaymentAsync(payment, cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            return Results.Ok(payment);
+        });
     }
 
     private static async Task<IResult> DeleteSalaryPaymentAsync(
@@ -192,24 +222,29 @@ public static class PayrollEndpoints
         AccountingPostingService accounting,
         CancellationToken cancellationToken)
     {
-        var payment = await db.SalaryPayments.FirstOrDefaultAsync(item => item.Id == id && !item.Deleted, cancellationToken);
-        if (payment is null)
+        var strategy = db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
         {
-            return Results.NotFound();
-        }
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            var payment = await db.SalaryPayments.FirstOrDefaultAsync(item => item.Id == id && !item.Deleted, cancellationToken);
+            if (payment is null)
+            {
+                return Results.NotFound();
+            }
 
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-        payment.Deleted = true;
-        payment.UpdatedAt = DateTime.UtcNow;
-        await accounting.RemoveSalaryPaymentPostingAsync(payment.Id, cancellationToken);
-        await db.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
+            payment.Deleted = true;
+            payment.UpdatedAt = DateTime.UtcNow;
+            await accounting.RemoveSalaryPaymentPostingAsync(payment.Id, cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
 
-        return Results.NoContent();
+            return Results.NoContent();
+        });
     }
 
     private static async Task<IResult?> ValidateSalaryPaymentAsync(
-        SalaryPayment request,
+        SalaryPaymentUpsertRequest request,
+        Guid? paymentId,
         GarmetixDbContext db,
         CancellationToken cancellationToken)
     {
@@ -221,11 +256,6 @@ public static class PayrollEndpoints
         if (request.CompanyId == Guid.Empty || request.StoreGroupId == Guid.Empty || request.StoreId == Guid.Empty)
         {
             return Results.BadRequest(new { message = "Company, store group, and store are required." });
-        }
-
-        if (string.IsNullOrWhiteSpace(request.VoucherNumber))
-        {
-            return Results.BadRequest(new { message = "Voucher number is required." });
         }
 
         if (request.SalaryMonth < 200001 || request.SalaryMonth % 100 is < 1 or > 12)
@@ -243,33 +273,70 @@ public static class PayrollEndpoints
             return Results.BadRequest(new { message = "Select a valid employee." });
         }
 
-        var duplicate = await db.SalaryPayments.AnyAsync(
-            item => item.Id != request.Id &&
-                !item.Deleted &&
-                item.CompanyId == request.CompanyId &&
-                item.EmployeeId == request.EmployeeId &&
-                item.VoucherNumber == request.VoucherNumber,
-            cancellationToken);
-
-        if (duplicate)
+        if (request.SalaryPaySlipId.HasValue &&
+            !await db.SalaryPaySlips.AnyAsync(
+                item => item.Id == request.SalaryPaySlipId.Value && item.EmployeeId == request.EmployeeId && !item.Deleted,
+                cancellationToken))
         {
-            return Results.Conflict(new { message = "A salary payment with this voucher number already exists for the employee." });
+            return Results.BadRequest(new { message = "The selected payslip was not found for this employee." });
         }
 
         return null;
     }
 
-    private static void ApplySalaryPayment(SalaryPayment payment, SalaryPayment request)
+    private static async Task<IResult?> ValidateOutstandingSalaryAsync(
+        SalaryPaymentUpsertRequest request,
+        Guid? paymentId,
+        PayrollService payroll,
+        CancellationToken cancellationToken)
+    {
+        if (request.SalaryComponent != Garmetix.Core.Enums.SalaryComponent.NetSalary &&
+            !request.SalaryPaySlipId.HasValue)
+        {
+            return null;
+        }
+
+        try
+        {
+            var preview = await payroll.PreviewSalaryPaymentAsync(
+                new SalaryPaymentPreviewRequest(
+                    request.EmployeeId,
+                    request.SalaryMonth,
+                    request.SalaryPaySlipId,
+                    paymentId),
+                cancellationToken);
+            var requestedAmount = RoundRupee(request.Amount);
+            if (preview.RoundedPaidAmount <= 0)
+            {
+                return Results.Conflict(new { message = "This salary is already fully paid. No amount remains due." });
+            }
+
+            if (requestedAmount > preview.RoundedPaidAmount)
+            {
+                return Results.BadRequest(new
+                {
+                    message = $"Paid amount cannot exceed the outstanding salary of {preview.RoundedPaidAmount:0}."
+                });
+            }
+        }
+        catch (ArgumentException ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+
+        return null;
+    }
+
+    private static void ApplySalaryPayment(SalaryPayment payment, SalaryPaymentUpsertRequest request)
     {
         payment.EmployeeId = request.EmployeeId;
-        payment.VoucherNumber = request.VoucherNumber.Trim();
         payment.SalaryMonth = request.SalaryMonth;
-        payment.OnDate = request.OnDate;
+        payment.OnDate = request.OnDate.Date;
         payment.SalaryComponent = request.SalaryComponent;
-        payment.GrossSalary = request.GrossSalary;
-        payment.TotalDeductions = request.TotalDeductions;
-        payment.NetSalary = request.NetSalary;
-        payment.Amount = request.Amount;
+        payment.GrossSalary = RoundMoney(request.GrossSalary);
+        payment.TotalDeductions = RoundMoney(request.TotalDeductions);
+        payment.NetSalary = RoundMoney(request.NetSalary);
+        payment.Amount = RoundRupee(request.Amount);
         payment.PaymentMode = request.PaymentMode;
         payment.Remarks = request.Remarks?.Trim();
         payment.SalaryPaySlipId = request.SalaryPaySlipId;
@@ -277,5 +344,30 @@ public static class PayrollEndpoints
         payment.StoreGroupId = request.StoreGroupId;
         payment.StoreId = request.StoreId;
         payment.UpdatedAt = DateTime.UtcNow;
+    }
+
+    private static async Task<IResult> PreviewSalaryPaymentAsync(
+        SalaryPaymentPreviewRequest request,
+        PayrollService service,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Results.Ok(await service.PreviewSalaryPaymentAsync(request, cancellationToken));
+        }
+        catch (ArgumentException ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private static decimal RoundMoney(decimal value)
+    {
+        return Math.Round(value, 2, MidpointRounding.AwayFromZero);
+    }
+
+    private static decimal RoundRupee(decimal value)
+    {
+        return Math.Round(value, 0, MidpointRounding.AwayFromZero);
     }
 }

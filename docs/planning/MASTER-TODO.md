@@ -16,6 +16,18 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Revise voucher print defaults and accounting-document labels.
 - [x] Add short-lived API GET caching, longer master-data caching, in-flight request de-duplication, and write invalidation.
 
+## Payroll Payment Patch - 2026-06-13
+
+- [x] Replace direct SalaryPayment entity binding with a dedicated save request to prevent malformed navigation/identifier payloads.
+- [x] Pre-calculate base deductions, current-month salary advance, previous company due, already-paid amount, outstanding amount, and round-off.
+- [x] Include salary advance in total deductions and add previous company due to net payable.
+- [x] Keep calculated salary figures editable and round the final paid amount to whole rupees.
+- [x] Apply payroll round-off to due and carry-forward calculations so paise-only balances do not remain open.
+- [x] Reject duplicate or over-limit salary payments after the rounded outstanding salary is settled.
+- [x] Generate salary-payment vouchers server-side as `StoreCode/YYYYMM/SPAY/0001` using a monthly store sequence.
+- [x] Preserve local salary-payment dates without UTC previous-day conversion.
+- [x] Exclude deleted salary payments and advances from payroll due calculations.
+
 ## Auth / Login
 
 - [x] Remove "Admin is available" message.

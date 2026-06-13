@@ -6,6 +6,7 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 
 ## Fixed
 
+- [x] Salary payment save used the full EF entity payload, client-generated voucher numbers, UTC-shifted dates, and no authoritative advance/due pre-calculation. It now uses a dedicated request, local dates, server SPAY numbering, whole-rupee payments, and payroll-ledger preview values.
 - [x] Printable vouchers, invoices, Petty Cash and payroll documents could invoke `window.print()` on the dashboard DOM, producing incorrect or incomplete output. Printing now fetches the authenticated server PDF, validates its media type/size, and prints that PDF; new documents auto-print while edits do not.
 - [x] Printed documents had only text scan references and no consistent retrieval path. Stable QR tokens and a permission-aware Document Scanner now cover sale/purchase invoices, vouchers, cash vouchers, debit/credit notes, Petty Cash, payslips and salary payments.
 - [x] Petty Cash create/edit changed a selected local date to the previous day in positive UTC-offset time zones. Removed UTC `toISOString()` conversion from the selected date, added local calendar defaults, and verified the June 13 form separately carries the June 12 closing balance.

@@ -11,6 +11,7 @@ checks = [
     root / "scripts/validation/stage8a-package5-static-checks.py",
     root / "scripts/validation/stage8a-package6-static-checks.py",
     root / "scripts/validation/stage8a-package7-static-checks.py",
+    root / "scripts/validation/stage8a-package8-static-checks.py",
 ]
 
 for check in checks:

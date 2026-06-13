@@ -94,9 +94,9 @@ versions = {
     package.get("version", ""),
     package_lock.get("packages", {}).get("", {}).get("version", ""),
 }
-check("all runtime versions are 4.0.5", versions == {"4.0.5"})
-check("assembly and file versions are 4.0.5.0", assembly_match and file_match and assembly_match.group(1) == file_match.group(1) == "4.0.5.0")
-check("frontend and backend build codes match", "GARMETIX-8A-20260613-4005" in frontend_version and "GARMETIX-8A-20260613-4005" in backend_version)
+check("runtime versions remain synchronized after v4.0.5", len(versions) == 1 and next(iter(versions)) >= "4.0.5")
+check("assembly and file versions remain synchronized", assembly_match and file_match and assembly_match.group(1) == file_match.group(1))
+check("frontend and backend use a Stage 8A build code", "GARMETIX-8A-" in frontend_version and "GARMETIX-8A-" in backend_version)
 
 failed = [name for name, passed in checks if not passed]
 for name, passed in checks:

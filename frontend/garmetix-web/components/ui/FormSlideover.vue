@@ -7,6 +7,7 @@ const props = withDefaults(defineProps<{
   layout?: 'slideover' | 'modal'
   contentClass?: string
   bodyClass?: string
+  submitDisabled?: boolean
 }>(), {
   layout: 'slideover'
 })
@@ -48,6 +49,7 @@ const panelUi = computed(() => ({
           type="submit"
           icon="i-lucide-save"
           :loading="loading"
+          :disabled="submitDisabled"
           :label="submitLabel || 'Save'"
           @click="emit('submit')"
         />
@@ -75,6 +77,7 @@ const panelUi = computed(() => ({
           type="submit"
           icon="i-lucide-save"
           :loading="loading"
+          :disabled="submitDisabled"
           :label="submitLabel || 'Save'"
           @click="emit('submit')"
         />

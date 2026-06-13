@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.0.5";
+    public const string Version = "4.0.6";
     public const string Stage = "Stage 8A";
-    public const string ReleaseName = "Document QR, Factory Reset and Print Hardening";
+    public const string ReleaseName = "Salary Payment Precalculation and SPAY Numbering";
     public const string BuildDate = "2026-06-13";
-    public const string BuildCode = "GARMETIX-8A-20260613-4005";
+    public const string BuildCode = "GARMETIX-8A-20260613-4006";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,12 +81,13 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Salary payments now pre-calculate advance deductions, previous company dues and already-paid amounts.",
+        "Actual salary paid amounts are rounded to whole rupees and remain editable before saving.",
+        "Salary payment vouchers are generated server-side as StoreCode/YYYYMM/SPAY/series.",
+        "Salary-payment save requests use a dedicated contract instead of binding database navigation models.",
         "Printable business documents now carry stable permission-aware QR codes.",
         "Document Scanner resolves QR/barcode values to invoices, vouchers, notes, petty cash and payroll entries.",
         "Industry-style server PDFs now cover Petty Cash, payslips and salary-payment slips.",
-        "New printable documents invoke server PDF printing while edits do not auto-print.",
-        "Factory reset creates a safety backup and preserves the current administrator and migration history.",
-        "Inventory and Stock Operations use standardized retryable registers and a wide product workspace.",
         "Frontend, backend, npm package and .NET assembly versions are synchronized for every release."
     ];
 

@@ -1,3 +1,5 @@
+using Garmetix.Core.Enums;
+
 namespace Garmetix.Api.Payroll;
 
 public sealed record GeneratePayslipsRequest(
@@ -63,3 +65,38 @@ public sealed record PayslipPrintDto(
     decimal Deductions,
     decimal OtherDeductions,
     string? Remarks);
+
+public sealed record SalaryPaymentPreviewRequest(
+    Guid EmployeeId,
+    int SalaryMonth,
+    Guid? SalaryPaySlipId,
+    Guid? PaymentId);
+
+public sealed record SalaryPaymentPreviewDto(
+    Guid? SalaryPaySlipId,
+    decimal GrossSalary,
+    decimal BaseDeductions,
+    decimal SalaryAdvance,
+    decimal TotalDeductions,
+    decimal PreviousDue,
+    decimal NetPayable,
+    decimal AlreadyPaid,
+    decimal OutstandingAmount,
+    decimal RoundedPaidAmount,
+    decimal RoundOff);
+
+public sealed record SalaryPaymentUpsertRequest(
+    Guid EmployeeId,
+    int SalaryMonth,
+    DateTime OnDate,
+    SalaryComponent SalaryComponent,
+    decimal GrossSalary,
+    decimal TotalDeductions,
+    decimal NetSalary,
+    decimal Amount,
+    PaymentMode PaymentMode,
+    string? Remarks,
+    Guid? SalaryPaySlipId,
+    Guid CompanyId,
+    Guid StoreGroupId,
+    Guid StoreId);
