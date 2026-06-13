@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.0.2";
+    public const string Version = "4.0.3";
     public const string Stage = "Stage 8A";
-    public const string ReleaseName = "Loyalty and Petty Cash UI Standardization";
+    public const string ReleaseName = "Billing and Sales Return UI Standardization";
     public const string BuildDate = "2026-06-13";
-    public const string BuildCode = "GARMETIX-8A-20260613-4002";
+    public const string BuildCode = "GARMETIX-8A-20260613-4003";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,11 +81,11 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
-        "Loyalty setup now provides retryable store-level and customer-ledger error states.",
-        "Customer loyalty history is searchable with aligned points and balance values.",
-        "Petty Cash uses the shared Stage 8 register states while preserving carry-forward, reconciliation and A5 printing.",
-        "The daily petty-cash entry workspace is wider for practical review of cash-in and cash-out fields.",
-        "UI audit progress migrates from v4.0.1 and marks Loyalty and Petty Cash reviewed without discarding notes.",
+        "Billing now uses the shared Stage 8 register with retry, loading, empty, search and invoice-status filtering.",
+        "The invoice workflow retains its extra-wide workspace for products, customer adjustments and split payments.",
+        "Sales Return now uses a searchable responsive register and a wider item-return workspace.",
+        "Non-cash sales-return refunds require and post the selected bank account.",
+        "UI audit progress migrates from v4.0.2 and marks Billing and Sales Return reviewed without discarding notes.",
         "Frontend, backend, npm package and .NET assembly versions are synchronized for every release."
     ];
 

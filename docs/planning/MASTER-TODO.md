@@ -42,6 +42,7 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 
 ## Billing / Invoice Printing
 
+- [x] Stage 8A Package 5 UI pass: shared retryable Billing/Sales Return registers, invoice status filtering, wide entry workspaces, and bank-linked non-cash refunds.
 - [x] Standard A4 invoice print layout. Added print/PDF format `a4` from Billing receipt modal.
 - [x] Standard A5 invoice print layout. Added print/PDF format `a5` from Billing receipt modal.
 - [x] Thermal 2-inch receipt layout. Added print/PDF format `thermal-2` for 58mm receipts.

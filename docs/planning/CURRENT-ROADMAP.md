@@ -4,10 +4,10 @@ Updated: 2026-06-13
 
 ## Current Baseline
 
-- Version: 4.0.2
+- Version: 4.0.3
 - Stage: Stage 8A
-- Release: Loyalty and Petty Cash UI Standardization
-- Build code: `GARMETIX-8A-20260613-4002`
+- Release: Billing and Sales Return UI Standardization
+- Build code: `GARMETIX-8A-20260613-4003`
 - Branch: `Version3.0`
 - Pre-Stage 8 baseline commit: `470ba2e`
 
@@ -35,6 +35,7 @@ Stage 7M menu names, route compatibility, permission-aware navigation, Off Book 
 - [x] Package 2: standardize Commercial Notes and Customers, restore hidden primary actions, and synchronize all runtime version sources to v4.0.0.
 - [x] Package 3: standardize Parties and Vouchers, add retained sanitized errors, expose both party create actions, add voucher-type filtering, and migrate audit progress to v4.0.1.
 - [x] Package 4: standardize Loyalty and Petty Cash, widen daily-cash entry, preserve transaction calculation/A5 printing, and migrate audit progress to v4.0.2.
+- [x] Package 5: standardize Billing and Sales Return, preserve the wide invoice workspace, and require bank linkage for non-cash return refunds in v4.0.3.
 - [ ] Complete every page in the `/ui-audit` queue.
 - [ ] Standardize page headers, filters, tables, actions, loading, error, and empty states.
 - [ ] Move large invoice, voucher, employee, purchase, payroll, and other master-detail forms to full pages or wide workspaces.

@@ -13,6 +13,7 @@ This folder is the canonical home for project plans, implementation notes, valid
 - [Stage 8A Package 2 / v4.0.0 notes](stages/stage-8/Stage8A-Package2-Commercial-Customer-v4.0.0-Notes.md)
 - [Stage 8A Package 3 / v4.0.1 notes](stages/stage-8/Stage8A-Package3-Party-Voucher-v4.0.1-Notes.md)
 - [Stage 8A Package 4 / v4.0.2 notes](stages/stage-8/Stage8A-Package4-Loyalty-PettyCash-v4.0.2-Notes.md)
+- [Stage 8A Package 5 / v4.0.3 notes](stages/stage-8/Stage8A-Package5-Billing-SalesReturn-v4.0.3-Notes.md)
 
 ## Categories
 
