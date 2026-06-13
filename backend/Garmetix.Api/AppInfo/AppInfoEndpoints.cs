@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "3.12.0";
-    public const string Stage = "Stage 7M";
-    public const string ReleaseName = "Pre-v4.0 UI Naming and Menu Cleanup";
-    public const string BuildDate = "2026-06-11";
-    public const string BuildCode = "GARMETIX-7M-20260611-3120";
+    public const string Version = "4.0.0";
+    public const string Stage = "Stage 8A";
+    public const string ReleaseName = "UI Audit and Register Standardization";
+    public const string BuildDate = "2026-06-13";
+    public const string BuildCode = "GARMETIX-8A-20260613-4000";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,14 +81,12 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
-        "Dashboard headings were reduced to a normal application size and rewritten with context-first names.",
-        "Sidebar menus were reorganized into industry-standard business groups: dashboards, sales, purchase, inventory, accounting, CRM, GST, reports and off-book operations.",
-        "Admin tools were split into admin, data, maintenance and system groups for easier navigation.",
-        "Visible release labels were cleaned up and replaced with module or context names.",
-        "The login screen was simplified by removing technical helper badges and using the product name Garmetix.",
-        "The sidebar brand subtitle now shows only the running version number.",
-        "Only the currently selected sidebar group opens by default so navigation stays compact.",
-        "The UI layout audit remains in place as the checklist before v4.0."
+        "The UI audit is now an actionable page queue with persistent status, notes, filters and direct navigation.",
+        "Shared register states provide consistent loading, error, retry and empty experiences.",
+        "Credit Note, Debit Note, Commercial Note and Customer registers use the Stage 8 responsive layout.",
+        "Primary create actions remain visible when pages also provide secondary header actions.",
+        "Accounting and customer tables use searchable registers, aligned values and responsive action groups.",
+        "Frontend, backend, npm package and .NET assembly versions are synchronized for every release."
     ];
 
     private static readonly AppContactDto[] ContactItems =

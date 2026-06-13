@@ -1,15 +1,15 @@
 # Garmetix Current Roadmap
 
-Updated: 2026-06-12
+Updated: 2026-06-13
 
 ## Current Baseline
 
-- Version: 3.12.0
-- Stage: Stage 7M
-- Release: Pre-v4.0 UI Naming and Menu Cleanup
-- Build code: `GARMETIX-7M-20260611-3120`
+- Version: 4.0.0
+- Stage: Stage 8A
+- Release: UI Audit and Register Standardization
+- Build code: `GARMETIX-8A-20260613-4000`
 - Branch: `Version3.0`
-- Baseline commit: `6d440a5`
+- Pre-Stage 8 baseline commit: `470ba2e`
 
 Stage 7M menu names, route compatibility, permission-aware navigation, Off Book separation, and the legacy-shell rollback option are part of the baseline and must be preserved.
 
@@ -22,15 +22,17 @@ Stage 7M menu names, route compatibility, permission-aware navigation, Off Book 
 
 ## Priority 0 - Baseline Stabilization
 
-- [ ] Fix `GET /api/dashboard/home` returning an empty response body.
-- [ ] Resolve the nullable warnings in purchase receipt and data-consistency code.
-- [ ] Keep frontend, backend, package, release, and build-code versions synchronized.
+- [x] Fix `GET /api/dashboard/home` returning an empty response body.
+- [x] Resolve the nullable warnings in purchase receipt and data-consistency code.
+- [x] Keep frontend, backend, package, release, and build-code versions synchronized.
 - [ ] Remove build-time dependence on external font metadata or configure a reliable local/system-CA solution.
-- [ ] Add one current aggregate validation command instead of relying on version-specific historical scripts.
+- [x] Add one current aggregate validation command instead of relying on version-specific historical scripts.
 - [ ] Verify login, smart-dashboard routing, workspace selection, role navigation, and API health in Docker.
 
 ## Stage 8A / v4.0 - Full UI Audit and Standardization
 
+- [x] Package 1: make `/ui-audit` persistent/actionable and standardize the Credit Note and Debit Note registers with shared loading, error, empty, search, action, and responsive behavior.
+- [x] Package 2: standardize Commercial Notes and Customers, restore hidden primary actions, and synchronize all runtime version sources to v4.0.0.
 - [ ] Complete every page in the `/ui-audit` queue.
 - [ ] Standardize page headers, filters, tables, actions, loading, error, and empty states.
 - [ ] Move large invoice, voucher, employee, purchase, payroll, and other master-detail forms to full pages or wide workspaces.

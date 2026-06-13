@@ -1,6 +1,11 @@
 <script setup lang="ts">
 const access = useAccessControl()
 const feedback = useUiFeedback()
+const audit = useUiAuditProgress()
+const router = useRouter()
+const search = ref('')
+const moduleFilter = ref('All modules')
+const statusFilter = ref('All statuses')
 
 const checklist = [
   { area: 'Page shell', rule: 'Every page must render inside AppShell or an intentional public/auth shell.', priority: 'High' },
@@ -15,30 +20,89 @@ const checklist = [
   { area: 'Industry standard UI', rule: 'Keep actions grouped, primary action obvious, destructive actions separated and labels readable.', priority: 'High' }
 ]
 
-const pageRows = computed(() => access.routeRules.map((rule) => ({
-  page: rule.label,
-  route: rule.path,
-  module: rule.module,
-  allowed: access.canAccessPath(rule.path),
-  status: rule.module === 'Dashboards' || rule.path === '/system-info' || rule.path === '/ui-audit' ? 'Reviewed' : 'Needs visual pass'
-})))
+const statusOptions = [
+  { label: 'Needs visual pass', value: 'pending' },
+  { label: 'In progress', value: 'in-progress' },
+  { label: 'Reviewed', value: 'reviewed' }
+]
+
+const pageRows = computed(() => access.routeRules.map((rule) => {
+  const progress = audit.entries.value[rule.path] || { status: 'pending', note: '' }
+  return {
+    page: rule.label,
+    route: rule.path,
+    module: rule.module,
+    allowed: access.canAccessPath(rule.path),
+    status: progress.status,
+    note: progress.note,
+    reviewedAt: progress.reviewedAt
+  }
+}))
+
+const moduleOptions = computed(() => [
+  'All modules',
+  ...[...new Set(pageRows.value.map((row) => row.module))].sort()
+])
+
+const filteredRows = computed(() => {
+  const term = search.value.trim().toLowerCase()
+  return pageRows.value.filter((row) => {
+    const matchesSearch = !term || [row.page, row.route, row.module, row.note]
+      .some((value) => String(value || '').toLowerCase().includes(term))
+    const matchesModule = moduleFilter.value === 'All modules' || row.module === moduleFilter.value
+    const matchesStatus = statusFilter.value === 'All statuses' || row.status === statusFilter.value
+    return matchesSearch && matchesModule && matchesStatus
+  })
+})
 
 const moduleSummary = computed(() => {
   const map = new Map<string, { module: string, total: number, reviewed: number }>()
   for (const row of pageRows.value) {
     const current = map.get(row.module) || { module: row.module, total: 0, reviewed: 0 }
     current.total++
-    if (row.status === 'Reviewed') current.reviewed++
+    if (row.status === 'reviewed') current.reviewed++
     map.set(row.module, current)
   }
   return [...map.values()]
 })
+
+const totals = computed(() => ({
+  total: pageRows.value.length,
+  reviewed: pageRows.value.filter((row) => row.status === 'reviewed').length,
+  inProgress: pageRows.value.filter((row) => row.status === 'in-progress').length,
+  pending: pageRows.value.filter((row) => row.status === 'pending').length
+}))
+
+function statusLabel(status: string) {
+  return statusOptions.find((option) => option.value === status)?.label || status
+}
+
+function statusColor(status: string) {
+  if (status === 'reviewed') return 'success'
+  if (status === 'in-progress') return 'primary'
+  return 'warning'
+}
+
+function updateStatus(path: string, status: any) {
+  audit.update(path, { status })
+}
+
+function updateNote(path: string, note: string) {
+  audit.update(path, { note })
+}
 
 function copyAuditPrompt() {
   const text = checklist.map((item) => `- [${item.priority}] ${item.area}: ${item.rule}`).join('\n')
   navigator.clipboard?.writeText(text)
   feedback.notify('UI audit checklist copied')
 }
+
+function resetAudit() {
+  audit.reset(access.routeRules)
+  feedback.notify('UI audit progress reset to the Stage 8A baseline')
+}
+
+onMounted(() => audit.hydrate(access.routeRules))
 </script>
 
 <template>
@@ -51,12 +115,27 @@ function copyAuditPrompt() {
         subtitle="Track full-app spacing, padding, gap, responsiveness and overlap checks before adding the next business feature set."
       />
 
+      <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <UCard>
+          <div class="ui-audit-stat"><UIcon name="i-lucide-route" /><div><span>Total pages</span><strong>{{ totals.total }}</strong></div></div>
+        </UCard>
+        <UCard>
+          <div class="ui-audit-stat"><UIcon name="i-lucide-circle-check-big" class="text-success" /><div><span>Reviewed</span><strong>{{ totals.reviewed }}</strong></div></div>
+        </UCard>
+        <UCard>
+          <div class="ui-audit-stat"><UIcon name="i-lucide-loader-circle" class="text-primary" /><div><span>In progress</span><strong>{{ totals.inProgress }}</strong></div></div>
+        </UCard>
+        <UCard>
+          <div class="ui-audit-stat"><UIcon name="i-lucide-list-todo" class="text-warning" /><div><span>Pending</span><strong>{{ totals.pending }}</strong></div></div>
+        </UCard>
+      </div>
+
       <div class="grid gap-4 md:grid-cols-3">
         <UCard v-for="summary in moduleSummary" :key="summary.module">
           <div class="space-y-2">
             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{{ summary.module }}</p>
             <h2 class="text-2xl font-bold">{{ summary.reviewed }}/{{ summary.total }}</h2>
-            <p class="text-sm text-muted">Pages already reviewed during dashboard shell work.</p>
+            <p class="text-sm text-muted">Pages completed in the Stage 8A audit queue.</p>
             <UProgress :model-value="Math.round((summary.reviewed / Math.max(summary.total, 1)) * 100)" />
           </div>
         </UCard>
@@ -88,43 +167,86 @@ function copyAuditPrompt() {
 
       <UCard>
         <template #header>
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-route" class="size-5" />
-            <h2 class="font-semibold">Page-by-page audit queue</h2>
+          <div class="ui-audit-queue-header">
+            <div>
+              <div class="flex items-center gap-2">
+                <UIcon name="i-lucide-route" class="size-5" />
+                <h2 class="font-semibold">Page-by-page audit queue</h2>
+              </div>
+              <p>Progress and review notes are saved in this browser.</p>
+            </div>
+            <UButton color="neutral" variant="ghost" icon="i-lucide-rotate-ccw" label="Reset progress" @click="resetAudit" />
           </div>
         </template>
-        <div class="overflow-x-auto rounded-2xl border border-default">
+
+        <div class="ui-audit-filters">
+          <UInput v-model="search" icon="i-lucide-search" placeholder="Search pages or notes" />
+          <USelect v-model="moduleFilter" :items="moduleOptions" aria-label="Filter by module" />
+          <USelect
+            v-model="statusFilter"
+            :items="[
+              { label: 'All statuses', value: 'All statuses' },
+              ...statusOptions
+            ]"
+            aria-label="Filter by review status"
+          />
+        </div>
+
+        <div class="overflow-x-auto rounded-lg border border-default">
           <table class="min-w-full divide-y divide-default text-sm">
             <thead class="bg-muted/40">
               <tr>
                 <th class="px-4 py-3 text-left font-semibold">Page</th>
-                <th class="px-4 py-3 text-left font-semibold">Route</th>
                 <th class="px-4 py-3 text-left font-semibold">Module</th>
                 <th class="px-4 py-3 text-left font-semibold">Status</th>
+                <th class="px-4 py-3 text-left font-semibold">Review note</th>
+                <th class="px-4 py-3 text-right font-semibold">Page</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-default">
-              <tr v-for="row in pageRows" :key="row.route">
-                <td class="px-4 py-3 font-medium">{{ row.page }}</td>
-                <td class="px-4 py-3 font-mono text-xs">{{ row.route }}</td>
-                <td class="px-4 py-3">{{ row.module }}</td>
+              <tr v-for="row in filteredRows" :key="row.route">
                 <td class="px-4 py-3">
-                  <UBadge :color="row.status === 'Reviewed' ? 'success' : 'warning'" variant="subtle">
-                    {{ row.status }}
-                  </UBadge>
+                  <strong class="block">{{ row.page }}</strong>
+                  <span class="font-mono text-xs text-muted">{{ row.route }}</span>
                 </td>
+                <td class="px-4 py-3"><UBadge color="neutral" variant="subtle">{{ row.module }}</UBadge></td>
+                <td class="px-4 py-3">
+                  <USelect
+                    :model-value="row.status"
+                    :items="statusOptions"
+                    :color="statusColor(row.status)"
+                    class="min-w-40"
+                    :aria-label="`Audit status for ${row.page}`"
+                    @update:model-value="updateStatus(row.route, $event)"
+                  />
+                </td>
+                <td class="min-w-72 px-4 py-3">
+                  <UInput
+                    :model-value="row.note"
+                    placeholder="Spacing, mobile, table, or form note"
+                    :aria-label="`Audit note for ${row.page}`"
+                    @change="updateNote(row.route, ($event.target as HTMLInputElement).value)"
+                  />
+                </td>
+                <td class="px-4 py-3 text-right"><UButton size="sm" variant="soft" icon="i-lucide-arrow-up-right" label="Open" @click="router.push(row.route)" /></td>
               </tr>
             </tbody>
           </table>
         </div>
+        <UiCrudEmptyState
+          v-if="filteredRows.length === 0"
+          title="No pages match these filters"
+          description="Clear or change the filters to continue the audit."
+          icon="i-lucide-list-filter"
+        />
       </UCard>
 
       <UAlert
         color="primary"
         variant="subtle"
-        icon="i-lucide-info"
-        title="Layout guardrail"
-        description="This page does not remove or rewrite business pages. It creates the audit map and CSS guardrails so older pages can be cleaned safely without breaking routes."
+        icon="i-lucide-circle-check-big"
+        title="Stage 8A is underway"
+        :description="`${statusLabel('reviewed')}: ${totals.reviewed}. ${statusLabel('in-progress')}: ${totals.inProgress}. ${statusLabel('pending')}: ${totals.pending}.`"
       />
     </section>
   </AppShell>

@@ -15,7 +15,7 @@ public static class DashboardEndpoints
             .WithTags("Dashboard")
             .RequireAuthorization();
 
-        group.MapGet("/home", HomeAsync).WithName("GetDashboardHome");
+        group.MapGet("/home", Home).WithName("GetDashboardHome");
         group.MapGet("/store-manager", StoreManagerAsync).WithName("GetStoreManagerDashboard");
         group.MapGet("/business", BusinessAsync).WithName("GetBusinessDashboard");
 
@@ -23,7 +23,7 @@ public static class DashboardEndpoints
     }
 
 
-    private static Task<DashboardHomeDto> HomeAsync(HttpContext context)
+    private static DashboardHomeDto Home(HttpContext context)
     {
         var role = context.User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
         var userType = context.User.FindFirst("userType")?.Value ?? string.Empty;
@@ -39,7 +39,7 @@ public static class DashboardEndpoints
             ? "Owner, admin, power user and accountant users start with company/store-group dashboard."
             : "Store scoped users start with the store manager dashboard.";
 
-        return Task.FromResult(new DashboardHomeDto(route, dashboardType, reason, canOpenBusiness, true));
+        return new DashboardHomeDto(route, dashboardType, reason, canOpenBusiness, true);
     }
 
     private static async Task<StoreManagerDashboardDto> StoreManagerAsync(

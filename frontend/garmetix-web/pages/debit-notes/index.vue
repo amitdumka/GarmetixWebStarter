@@ -4,14 +4,29 @@ const auth = useAuth()
 const feedback = useUiFeedback()
 const router = useRouter()
 const notes = ref<any[]>([])
+const search = ref('')
 const loading = ref(false)
+const loadError = ref('')
+
+const filteredNotes = computed(() => {
+  const term = search.value.trim().toLowerCase()
+  if (!term) return notes.value
+  return notes.value.filter((note) => [
+    note.noteNumber,
+    note.partyName,
+    note.sourceType,
+    note.amount
+  ].some((value) => String(value ?? '').toLowerCase().includes(term)))
+})
 
 async function refresh() {
   if (!auth.isAuthenticated.value) return
   loading.value = true
+  loadError.value = ''
   try {
     notes.value = await api.get<any[]>('commercial-notes?take=150&noteType=0')
   } catch (error) {
+    loadError.value = error instanceof Error ? error.message : 'Please check the service and try again.'
     feedback.failed('Could not load debit notes', error)
   } finally {
     loading.value = false
@@ -44,25 +59,45 @@ onMounted(async () => { auth.restore(); await refresh() })
   <AppShell v-else title="Debit Notes" @refresh="refresh">
     <UiModulePageHeader
       title="Debit Notes"
-      description="Debit notes issued to vendor/supplier/party. New or edit opens a dedicated form page, not a modal."
+      description="Review vendor, supplier, and party debits with their source documents and settlement status."
       icon="i-lucide-file-minus-2"
       primary-label="New Debit Note"
       primary-icon="i-lucide-plus"
       @primary="router.push('/debit-notes/new')"
     />
-    <UCard class="planner-card mt-4">
-      <template #header><strong>Debit Note Register</strong></template>
+
+    <UiRegisterPanel
+      class="mt-4"
+      title="Debit Note Register"
+      :description="`${filteredNotes.length} of ${notes.length} debit notes`"
+      :loading="loading"
+      :error="loadError"
+      :empty="filteredNotes.length === 0"
+      :empty-title="search ? 'No matching debit notes' : 'No debit notes yet'"
+      :empty-description="search ? 'Try a different note number, party, source, or amount.' : 'Create the first debit note to begin this register.'"
+      empty-icon="i-lucide-file-minus-2"
+      @retry="refresh"
+    >
+      <template #actions>
+        <UiCrudToolbar
+          v-model:search="search"
+          search-placeholder="Search debit notes"
+          :loading="loading"
+          @refresh="refresh"
+        />
+      </template>
       <div class="planner-table-wrap">
         <table class="planner-table">
-          <thead><tr><th>No</th><th>Date</th><th>Party</th><th>Source</th><th>Amount</th><th>Adjusted</th><th></th></tr></thead>
+          <thead><tr><th>No</th><th>Date</th><th>Party</th><th>Source</th><th class="text-right">Amount</th><th>Adjusted</th><th class="text-right">Actions</th></tr></thead>
           <tbody>
-            <tr v-for="note in notes" :key="note.id">
-              <td>{{ note.noteNumber }}</td><td>{{ date(note.onDate) }}</td><td>{{ note.partyName }}</td><td>{{ note.sourceType }}</td><td>{{ money(note.amount) }}</td><td>{{ note.isAdjusted ? 'Yes' : 'No' }}</td>
-              <td class="inline-action-row"><UButton size="xs" label="Edit" variant="subtle" @click="router.push(`/debit-notes/${note.id}`)" /><UButton size="xs" label="A4" @click="download(note, false)" /><UButton size="xs" label="A5 Slip" variant="subtle" @click="download(note, true)" /></td>
+            <tr v-for="note in filteredNotes" :key="note.id">
+              <td class="font-medium">{{ note.noteNumber }}</td><td>{{ date(note.onDate) }}</td><td>{{ note.partyName || '-' }}</td><td>{{ note.sourceType || '-' }}</td><td class="text-right font-medium">{{ money(note.amount) }}</td>
+              <td><UBadge :color="note.isAdjusted ? 'success' : 'neutral'" variant="subtle">{{ note.isAdjusted ? 'Adjusted' : 'Open' }}</UBadge></td>
+              <td><div class="inline-action-row justify-end"><UButton size="xs" label="Edit" icon="i-lucide-pencil" variant="subtle" @click="router.push(`/debit-notes/${note.id}`)" /><UButton size="xs" label="A4 PDF" icon="i-lucide-file-down" @click="download(note, false)" /><UButton size="xs" label="A5 Slip" icon="i-lucide-receipt-text" variant="subtle" @click="download(note, true)" /></div></td>
             </tr>
           </tbody>
         </table>
       </div>
-    </UCard>
+    </UiRegisterPanel>
   </AppShell>
 </template>

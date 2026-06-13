@@ -1,16 +1,14 @@
-export const APP_VERSION = '3.12.0'
-export const APP_STAGE = 'Stage 7M'
-export const APP_RELEASE_NAME = 'Pre-v4.0 UI Naming and Menu Cleanup'
-export const APP_BUILD_DATE = '2026-06-11'
-export const APP_BUILD_CODE = 'GARMETIX-7M-20260611-3120'
+export const APP_VERSION = '4.0.0'
+export const APP_STAGE = 'Stage 8A'
+export const APP_RELEASE_NAME = 'UI Audit and Register Standardization'
+export const APP_BUILD_DATE = '2026-06-13'
+export const APP_BUILD_CODE = 'GARMETIX-8A-20260613-4000'
 
 export const APP_HIGHLIGHTS = [
-  'Dashboard headings were reduced to a normal application size and rewritten with context-first names.',
-  'Sidebar menus were reorganized into industry-standard business groups: dashboards, sales, purchase, inventory, accounting, CRM, GST, reports and off-book operations.',
-  'Admin tools were split into admin, data, maintenance and system groups for easier navigation.',
-  'Visible release labels were cleaned up and replaced with module or context names.',
-  'The login screen was simplified by removing technical helper badges and using the product name Garmetix.',
-  'The sidebar brand subtitle now shows only the running version number.',
-  'Only the currently selected sidebar group opens by default so navigation stays compact.',
-  'The UI layout audit remains in place as the checklist before v4.0.'
+  'The UI audit is now an actionable page queue with persistent status, notes, filters and direct navigation.',
+  'Shared register states provide consistent loading, error, retry and empty experiences.',
+  'Credit Note, Debit Note, Commercial Note and Customer registers use the Stage 8 responsive layout.',
+  'Primary create actions remain visible when pages also provide secondary header actions.',
+  'Accounting and customer tables use searchable registers, aligned values and responsive action groups.',
+  'Frontend, backend, npm package and .NET assembly versions are synchronized for every release.'
 ]

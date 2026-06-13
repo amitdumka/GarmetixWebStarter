@@ -9,6 +9,8 @@ This folder is the canonical home for project plans, implementation notes, valid
 - [Open and fixed issues](planning/ISSUES.md)
 - [Stage 7 implementation map](stages/stage-7/IMPLEMENTATION-MAP.md)
 - [Stage 7M release notes](stages/stage-7/Stage7M-PreStage8-UiNaming-Menu-Cleanup-Notes.md)
+- [Stage 8A Package 1 notes](stages/stage-8/Stage8A-Package1-UiAudit-Registers-Notes.md)
+- [Stage 8A Package 2 / v4.0.0 notes](stages/stage-8/Stage8A-Package2-Commercial-Customer-v4.0.0-Notes.md)
 
 ## Categories
 
@@ -28,4 +30,3 @@ This folder is the canonical home for project plans, implementation notes, valid
 5. Store long-lived implementation notes under the appropriate `modules/` folder.
 6. Do not add new TODO or stage-note files to the repository root.
 7. Keep `frontend/garmetix-web/public/docs/` only for documents served directly by the application.
-

@@ -510,7 +510,7 @@ public static class PurchaseEndpoints
                 item.ProductName ?? product.Name,
                 item.Barcode,
                 string.IsNullOrWhiteSpace(item.HSNCode) ? product.HSNCode : item.HSNCode,
-                item.Unit.ToString(),
+                (item.Unit ?? product.Unit).ToString(),
                 item.BilledQuantity,
                 item.MRP,
                 item.DiscountAmount,

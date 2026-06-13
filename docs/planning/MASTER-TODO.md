@@ -259,6 +259,8 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Preserve the active grouped Nuxt UI shell and `NUXT_PUBLIC_DASHBOARD_SHELL=legacy` rollback.
 - [x] Keep Cash Vouchers separate under Off Book and regular vouchers under Accounting.
 - [ ] Complete Stage 8A full-page UI audit and standardization.
+  - [x] Package 1: persistent UI audit queue and standardized Credit Note / Debit Note registers.
+  - [x] Package 2: standardized Commercial Notes / Customers and synchronized runtime identity to v4.0.0.
 - [ ] Complete Stage 8B role, permission, and user-administration hardening.
 - [ ] Complete Stage 8C purchase return and vendor settlement.
 - [ ] Complete Stage 8D inventory documents and valuation.
