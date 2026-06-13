@@ -610,6 +610,31 @@ function buildPettyCashPrintHtml(sheet: any) {
         text-transform: uppercase;
       }
       .closing strong { font-size: 11pt; }
+      .verification {
+        flex: 0 0 auto;
+        margin: 6px 8px 0;
+        padding: 6px 8px;
+        border: 1px solid #b7c4cf;
+        background: #f8fafb;
+      }
+      .verification-title {
+        color: #31465c;
+        font-size: 7pt;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+      .verification-fields {
+        display: grid;
+        grid-template-columns: 1fr 1fr 2fr;
+        gap: 14px;
+        margin-top: 10px;
+      }
+      .verification-field {
+        padding-bottom: 3px;
+        border-bottom: 1px solid #617181;
+        color: #667485;
+        font-size: 7pt;
+      }
       footer {
         flex: 1 1 auto;
         display: flex;
@@ -685,6 +710,15 @@ function buildPettyCashPrintHtml(sheet: any) {
       <section class="reconciliation">
         <div class="formula">Cash in hand = Total cash in - Total cash out</div>
         <div class="closing"><span>Closing cash</span><strong>${escapePrintHtml(money(cashInHand))}</strong></div>
+      </section>
+
+      <section class="verification">
+        <div class="verification-title">Physical Cash Verification</div>
+        <div class="verification-fields">
+          <div class="verification-field">Cash counted</div>
+          <div class="verification-field">Difference</div>
+          <div class="verification-field">Remarks</div>
+        </div>
       </section>
 
       <footer>

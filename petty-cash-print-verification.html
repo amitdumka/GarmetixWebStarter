@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
   <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -188,7 +188,31 @@
         text-transform: uppercase;
       }
       .closing strong { font-size: 11pt; }
-      footer {
+      .verification {
+        flex: 0 0 auto;
+        margin: 6px 8px 0;
+        padding: 6px 8px;
+        border: 1px solid #b7c4cf;
+        background: #f8fafb;
+      }
+      .verification-title {
+        color: #31465c;
+        font-size: 7pt;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+      .verification-fields {
+        display: grid;
+        grid-template-columns: 1fr 1fr 2fr;
+        gap: 14px;
+        margin-top: 10px;
+      }
+      .verification-field {
+        padding-bottom: 3px;
+        border-bottom: 1px solid #617181;
+        color: #667485;
+        font-size: 7pt;
+      }      footer {
         flex: 1 1 auto;
         display: flex;
         flex-direction: column;
@@ -235,10 +259,10 @@
       </header>
 
       <section class="summary">
-        <div class="summary-item"><span>Opening balance</span><strong>₹1,000.00</strong></div>
-        <div class="summary-item income"><span>Total cash in</span><strong>₹16,501.00</strong></div>
-        <div class="summary-item payment"><span>Total cash out</span><strong>₹4,385.00</strong></div>
-        <div class="summary-item balance"><span>Cash in hand</span><strong>₹12,116.00</strong></div>
+        <div class="summary-item"><span>Opening balance</span><strong>â‚¹1,000.00</strong></div>
+        <div class="summary-item income"><span>Total cash in</span><strong>â‚¹16,501.00</strong></div>
+        <div class="summary-item payment"><span>Total cash out</span><strong>â‚¹4,385.00</strong></div>
+        <div class="summary-item balance"><span>Cash in hand</span><strong>â‚¹12,116.00</strong></div>
       </section>
 
       <section class="columns">
@@ -250,34 +274,34 @@
     <tr>
       <td class="serial">1</td>
       <td>Opening balance</td>
-      <td class="amount">₹1,000.00</td>
+      <td class="amount">â‚¹1,000.00</td>
     </tr>
   
     <tr>
       <td class="serial">2</td>
       <td>Cash sales</td>
-      <td class="amount">₹12,000.00</td>
+      <td class="amount">â‚¹12,000.00</td>
     </tr>
   
     <tr>
       <td class="serial">3</td>
       <td>Cash receipts</td>
-      <td class="amount">₹2,000.00</td>
+      <td class="amount">â‚¹2,000.00</td>
     </tr>
   
     <tr>
       <td class="serial">4</td>
       <td>Due receipts</td>
-      <td class="amount">₹1,201.00</td>
+      <td class="amount">â‚¹1,201.00</td>
     </tr>
   
     <tr>
       <td class="serial">5</td>
       <td>Bank withdrawal</td>
-      <td class="amount">₹300.00</td>
+      <td class="amount">â‚¹300.00</td>
     </tr>
   </tbody>
-            <tfoot><tr><td colspan="2">Total Cash In</td><td class="amount">₹16,501.00</td></tr></tfoot>
+            <tfoot><tr><td colspan="2">Total Cash In</td><td class="amount">â‚¹16,501.00</td></tr></tfoot>
           </table>
         </div>
         <div class="panel payment">
@@ -288,43 +312,51 @@
     <tr>
       <td class="serial">1</td>
       <td>Expenses</td>
-      <td class="amount">₹500.00</td>
+      <td class="amount">â‚¹500.00</td>
     </tr>
   
     <tr>
       <td class="serial">2</td>
       <td>Cash payments</td>
-      <td class="amount">₹450.00</td>
+      <td class="amount">â‚¹450.00</td>
     </tr>
   
     <tr>
       <td class="serial">3</td>
       <td>Customer due / credit sales</td>
-      <td class="amount">₹200.00</td>
+      <td class="amount">â‚¹200.00</td>
     </tr>
   
     <tr>
       <td class="serial">4</td>
       <td>Bank deposit</td>
-      <td class="amount">₹235.00</td>
+      <td class="amount">â‚¹235.00</td>
     </tr>
   
     <tr>
       <td class="serial">5</td>
       <td>Non-cash sales</td>
-      <td class="amount">₹3,000.00</td>
+      <td class="amount">â‚¹3,000.00</td>
     </tr>
   </tbody>
-            <tfoot><tr><td colspan="2">Total Cash Out</td><td class="amount">₹4,385.00</td></tr></tfoot>
+            <tfoot><tr><td colspan="2">Total Cash Out</td><td class="amount">â‚¹4,385.00</td></tr></tfoot>
           </table>
         </div>
       </section>
 
       <section class="reconciliation">
         <div class="formula">Cash in hand = Total cash in - Total cash out</div>
-        <div class="closing"><span>Closing cash</span><strong>₹12,116.00</strong></div>
+        <div class="closing"><span>Closing cash</span><strong>â‚¹12,116.00</strong></div>
       </section>
 
+      <section class="verification">
+        <div class="verification-title">Physical Cash Verification</div>
+        <div class="verification-fields">
+          <div class="verification-field">Cash counted</div>
+          <div class="verification-field">Difference</div>
+          <div class="verification-field">Remarks</div>
+        </div>
+      </section>
       <footer>
         <div class="audit">
           <span>Prepared by: Admin</span>
