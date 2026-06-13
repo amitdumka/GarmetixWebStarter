@@ -4,6 +4,18 @@ Current implementation order is maintained in `CURRENT-ROADMAP.md`. This file pr
 
 Use this file as the running handoff checklist. When a task is completed, mark it with `[x]` and add a short note/date if useful.
 
+## Priority Operations Patch - 2026-06-12
+
+- [x] Carry each petty cash sheet opening balance from the previous day's closing cash in hand.
+- [x] Pre-calculate petty cash from daily invoice, voucher, and bank-cash activity while keeping values editable for verification.
+- [x] Compare entered petty-cash values with transaction-derived values and write owner-visible warning details to Message Logs.
+- [x] Email Owner/Admin users for petty-cash mismatches when SMTP delivery is enabled; email failure does not block saving.
+- [x] Open an A5 landscape, two-section Income/Payment print layout after petty-cash save.
+- [x] Show latest working-store cash in hand instead of summing historical closing balances.
+- [x] Generate voucher numbers server-side as `StoreCode/yyyyMM/0001`, using one monthly number series per store.
+- [x] Revise voucher print defaults and accounting-document labels.
+- [x] Add short-lived API GET caching, longer master-data caching, in-flight request de-duplication, and write invalidation.
+
 ## Auth / Login
 
 - [x] Remove "Admin is available" message.

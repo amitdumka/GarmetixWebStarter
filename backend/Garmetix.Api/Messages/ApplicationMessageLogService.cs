@@ -62,26 +62,37 @@ public sealed class ApplicationMessageLogService(GarmetixDbContext db)
             operationId,
             request.Success);
 
-        var sql = """
+        var connection = db.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
             INSERT INTO "ApplicationMessageLogs"
                 ("Id", "CreatedAtUtc", "Level", "Source", "EventName", "Message", "DetailsJson", "CompanyId", "StoreGroupId", "StoreId", "UserId", "UserName", "Resource", "OperationId", "Success")
             VALUES
-                ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11}, {12}, {13}, {14})
+                (@id, @createdAtUtc, @level, @source, @eventName, @message, @detailsJson, @companyId, @storeGroupId, @storeId, @userId, @userName, @resource, @operationId, @success)
             """;
 
-        var parameters = new object[]
-        {
-            entry.Id, entry.CreatedAtUtc, entry.Level, entry.Source, entry.EventName, entry.Message, entry.DetailsJson ?? (object)DBNull.Value,
-            entry.CompanyId.HasValue ? entry.CompanyId.Value : (object)DBNull.Value,
-            entry.StoreGroupId.HasValue ? entry.StoreGroupId.Value : (object)DBNull.Value,
-            entry.StoreId.HasValue ? entry.StoreId.Value : (object)DBNull.Value,
-            entry.UserId.HasValue ? entry.UserId.Value : (object)DBNull.Value,
-            entry.UserName ?? (object)DBNull.Value,
-            entry.Resource ?? (object)DBNull.Value,
-            entry.OperationId, entry.Success
-        };
+        AddParameter(command, "id", DbType.Guid, entry.Id);
+        AddParameter(command, "createdAtUtc", DbType.DateTime2, entry.CreatedAtUtc);
+        AddParameter(command, "level", DbType.String, entry.Level);
+        AddParameter(command, "source", DbType.String, entry.Source);
+        AddParameter(command, "eventName", DbType.String, entry.EventName);
+        AddParameter(command, "message", DbType.String, entry.Message);
+        AddParameter(command, "detailsJson", DbType.String, entry.DetailsJson);
+        AddParameter(command, "companyId", DbType.Guid, entry.CompanyId);
+        AddParameter(command, "storeGroupId", DbType.Guid, entry.StoreGroupId);
+        AddParameter(command, "storeId", DbType.Guid, entry.StoreId);
+        AddParameter(command, "userId", DbType.Guid, entry.UserId);
+        AddParameter(command, "userName", DbType.String, entry.UserName);
+        AddParameter(command, "resource", DbType.String, entry.Resource);
+        AddParameter(command, "operationId", DbType.Guid, entry.OperationId);
+        AddParameter(command, "success", DbType.Boolean, entry.Success);
 
-        await db.Database.ExecuteSqlRawAsync(sql, parameters, cancellationToken);
+        await command.ExecuteNonQueryAsync(cancellationToken);
 
         return entry;
     }
@@ -230,6 +241,15 @@ public sealed class ApplicationMessageLogService(GarmetixDbContext db)
         var parameter = command.CreateParameter();
         parameter.ParameterName = name;
         parameter.Value = value;
+        command.Parameters.Add(parameter);
+    }
+
+    private static void AddParameter(System.Data.Common.DbCommand command, string name, DbType type, object? value)
+    {
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = name;
+        parameter.DbType = type;
+        parameter.Value = value ?? DBNull.Value;
         command.Parameters.Add(parameter);
     }
 

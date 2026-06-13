@@ -4,6 +4,7 @@ import type { TableColumn } from '@nuxt/ui'
 
 const api = useGarmetixApi()
 const auth = useAuth()
+const workspace = useWorkspace()
 const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
 const canEdit = auth.canEdit
@@ -18,11 +19,16 @@ const sheets = ref<any[]>([])
 const loading = ref(false)
 const saving = ref(false)
 const deleting = ref(false)
+const calculating = ref(false)
 const search = ref('')
 const formOpen = ref(false)
 const deleteOpen = ref(false)
+const printOpen = ref(false)
 const editMode = ref<'create' | 'edit'>('create')
 const pendingDelete = ref<any | null>(null)
+const selectedPrintSheet = ref<any | null>(null)
+const preparation = ref<any | null>(null)
+const reconciliationDifferences = ref<any[]>([])
 
 const form = reactive<any>(emptySheet())
 
@@ -40,20 +46,24 @@ const filteredRows = computed(() => {
   return tableRows.value.filter((row) => JSON.stringify(row).toLowerCase().includes(term))
 })
 
+const latestSheet = computed(() => sheets.value
+  .filter((sheet) => !workspace.storeId.value || sheet.storeId === workspace.storeId.value)
+  .slice()
+  .sort((a, b) => String(b.onDate).localeCompare(String(a.onDate)))[0] || null)
+
 const cashSummary = computed(() => {
   return sheets.value.reduce((summary, sheet) => {
     summary.opening += Number(sheet.openingBalance || 0)
     summary.sales += Number(sheet.sales || 0)
     summary.receipts += Number(sheet.receipts || 0) + Number(sheet.dueReceipts || 0)
     summary.expenses += Number(sheet.expenses || 0) + Number(sheet.payments || 0)
-    summary.cashInHand += sheetCash(sheet)
     return summary
   }, {
     opening: 0,
     sales: 0,
     receipts: 0,
     expenses: 0,
-    cashInHand: 0
+    cashInHand: latestSheet.value ? sheetCash(latestSheet.value) : 0
   })
 })
 
@@ -82,7 +92,7 @@ const metrics = computed(() => [
   {
     label: 'Cash In Hand',
     value: money(cashSummary.value.cashInHand),
-    meta: 'Across cash sheets',
+    meta: latestSheet.value ? `Latest: ${formatDate(latestSheet.value.onDate)}` : 'No cash sheet yet',
     icon: 'i-lucide-wallet',
     color: cashSummary.value.cashInHand >= 0 ? 'neutral' : 'error'
   }
@@ -140,6 +150,13 @@ const columns: TableColumn<any>[] = [
     id: 'actions',
     header: '',
     cell: ({ row }) => h('div', { class: 'table-action-buttons' }, [
+      h(UButton, {
+        color: 'neutral',
+        variant: 'ghost',
+        icon: 'i-lucide-printer',
+        label: 'Print',
+        onClick: () => openPrint(row.original.raw)
+      }),
       canEdit.value ? h(UButton, {
         color: 'neutral',
         variant: 'ghost',
@@ -188,7 +205,9 @@ async function refresh() {
     const [companyRows, storeRows, sheetRows] = await Promise.all([
       api.list<any>('companies'),
       api.list<any>('stores'),
-      api.list<any>('petty-cash-sheets')
+      api.get<any[]>(workspace.storeId.value
+        ? `petty-cash-sheets?storeId=${encodeURIComponent(workspace.storeId.value)}`
+        : 'petty-cash-sheets')
     ])
 
     companies.value = companyRows
@@ -201,11 +220,14 @@ async function refresh() {
   }
 }
 
-function startCreate() {
+async function startCreate() {
   editMode.value = 'create'
   Object.assign(form, emptySheet())
-  form.storeId = stores.value[0]?.id || ''
+  form.storeId = workspace.storeId.value || stores.value[0]?.id || ''
+  preparation.value = null
+  reconciliationDifferences.value = []
   formOpen.value = true
+  await prepareSheet()
 }
 
 function startEdit(sheet: any) {
@@ -214,7 +236,40 @@ function startEdit(sheet: any) {
     ...sheet,
     onDate: String(sheet.onDate || new Date().toISOString()).slice(0, 10)
   })
+  preparation.value = null
+  reconciliationDifferences.value = []
   formOpen.value = true
+}
+
+async function prepareSheet() {
+  if (!form.storeId || !form.onDate || editMode.value !== 'create') {
+    return
+  }
+
+  calculating.value = true
+  try {
+    const result = await api.get<any>(
+      `petty-cash-sheets/prepare?storeId=${encodeURIComponent(form.storeId)}&onDate=${encodeURIComponent(form.onDate)}`
+    )
+    preparation.value = result
+    Object.assign(form, {
+      openingBalance: Number(result.openingBalance || 0),
+      sales: Number(result.sales || 0),
+      receipts: Number(result.receipts || 0),
+      dueReceipts: Number(result.dueReceipts || 0),
+      bankWithdrawal: Number(result.bankWithdrawal || 0),
+      expenses: Number(result.expenses || 0),
+      payments: Number(result.payments || 0),
+      customerDue: Number(result.customerDue || 0),
+      bankDeposit: Number(result.bankDeposit || 0),
+      nonCashSale: Number(result.nonCashSale || 0),
+      cashInHand: Number(result.cashInHand || 0)
+    })
+  } catch (error) {
+    feedback.failed('Could not calculate the petty cash sheet', error)
+  } finally {
+    calculating.value = false
+  }
 }
 
 function buildPayload() {
@@ -250,21 +305,411 @@ async function saveSheet() {
   saving.value = true
   try {
     const payload = buildPayload()
+    let result: any
     if (editMode.value === 'edit' && form.id) {
-      await api.update<any>('petty-cash-sheets', form.id, payload)
+      result = await api.update<any>('petty-cash-sheets', form.id, payload)
       feedback.updated('Petty cash sheet')
     } else {
-      await api.create<any>('petty-cash-sheets', payload)
+      result = await api.create<any>('petty-cash-sheets', payload)
       feedback.saved('Petty cash sheet')
     }
 
+    reconciliationDifferences.value = result?.differences || []
+    selectedPrintSheet.value = result?.sheet || payload
     formOpen.value = false
     await refresh()
+    printOpen.value = true
+    await nextTick()
+    window.setTimeout(printSheet, 250)
   } catch (error) {
     feedback.failed('Could not save petty cash sheet', error)
   } finally {
     saving.value = false
   }
+}
+
+function openPrint(sheet: any) {
+  selectedPrintSheet.value = sheet
+  reconciliationDifferences.value = []
+  printOpen.value = true
+}
+
+function printSheet() {
+  const sheet = selectedPrintSheet.value
+  if (!sheet) {
+    return
+  }
+
+  const printFrame = document.createElement('iframe')
+  printFrame.setAttribute('title', 'Petty cash print document')
+  printFrame.style.position = 'fixed'
+  printFrame.style.right = '0'
+  printFrame.style.bottom = '0'
+  printFrame.style.width = '1px'
+  printFrame.style.height = '1px'
+  printFrame.style.border = '0'
+  printFrame.style.opacity = '0'
+  document.body.appendChild(printFrame)
+
+  const cleanup = () => printFrame.remove()
+  printFrame.onload = () => {
+    const printWindow = printFrame.contentWindow
+    if (!printWindow) {
+      cleanup()
+      feedback.notify('Could not open the petty cash print document.', undefined, 'error')
+      return
+    }
+
+    printWindow.addEventListener('afterprint', cleanup, { once: true })
+    window.setTimeout(() => {
+      printWindow.focus()
+      printWindow.print()
+    }, 200)
+    window.setTimeout(cleanup, 30000)
+  }
+
+  const printDocument = printFrame.contentDocument
+  if (!printDocument) {
+    cleanup()
+    feedback.notify('Could not prepare the petty cash print document.', undefined, 'error')
+    return
+  }
+
+  printDocument.open()
+  printDocument.write(buildPettyCashPrintHtml(sheet))
+  printDocument.close()
+}
+
+function buildPettyCashPrintHtml(sheet: any) {
+  const store = stores.value.find((item) => item.id === sheet.storeId)
+  const company = companies.value.find((item) => item.id === store?.companyId)
+  const companyName = company?.name || 'Garmetix'
+  const selectedStoreName = store?.name || 'Store'
+  const storeCode = store?.storeCode ? `Code: ${store.storeCode}` : ''
+  const storeAddress = [store?.address, store?.city, store?.state, store?.zipCode]
+    .filter(Boolean)
+    .join(', ')
+  const incomeRows = [
+    ['Opening balance', sheet.openingBalance],
+    ['Cash sales', sheet.sales],
+    ['Cash receipts', sheet.receipts],
+    ['Due receipts', sheet.dueReceipts],
+    ['Bank withdrawal', sheet.bankWithdrawal]
+  ]
+  const paymentRows = [
+    ['Expenses', sheet.expenses],
+    ['Cash payments', sheet.payments],
+    ['Customer due / credit sales', sheet.customerDue],
+    ['Bank deposit', sheet.bankDeposit],
+    ['Non-cash sales', sheet.nonCashSale]
+  ]
+  const totalIncome = totalPrintIncome(sheet)
+  const totalPayment = totalPrintPayment(sheet)
+  const cashInHand = sheetCash(sheet)
+  const printedAt = new Date().toLocaleString('en-IN', {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  })
+  const sheetReference = String(sheet.id || '').slice(0, 8).toUpperCase()
+
+  const rowsHtml = (rows: any[][]) => rows.map(([label, value], index) => `
+    <tr>
+      <td class="serial">${index + 1}</td>
+      <td>${escapePrintHtml(label)}</td>
+      <td class="amount">${escapePrintHtml(money(Number(value || 0)))}</td>
+    </tr>
+  `).join('')
+
+  return `<!doctype html>
+  <html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Petty Cash Sheet - ${escapePrintHtml(selectedStoreName)} - ${escapePrintHtml(formatDate(sheet.onDate))}</title>
+    <style>
+      @page { size: A5 landscape; margin: 6mm; }
+      * {
+        box-sizing: border-box;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      html, body {
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        color: #172033;
+        background: #ffffff;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 9.5pt;
+      }
+      .sheet {
+        height: 136mm;
+        display: flex;
+        flex-direction: column;
+        border: 1.2px solid #17324d;
+        background: #ffffff;
+      }
+      .top-band {
+        height: 5px;
+        background: linear-gradient(90deg, #087f5b 0 50%, #e8590c 50% 100%);
+      }
+      header {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 16px;
+        align-items: center;
+        padding: 7px 10px 6px;
+        border-bottom: 1px solid #9fb0bf;
+      }
+      .identity {
+        display: grid;
+        grid-template-columns: 39px 1fr;
+        gap: 8px;
+        align-items: center;
+      }
+      .identity img {
+        width: 37px;
+        height: 37px;
+        object-fit: contain;
+      }
+      .company {
+        margin: 0;
+        color: #0b5d4a;
+        font-size: 15pt;
+        line-height: 1.05;
+      }
+      .store-name {
+        margin-top: 2px;
+        color: #172033;
+        font-size: 10pt;
+        font-weight: 700;
+      }
+      .store-detail {
+        margin-top: 1px;
+        color: #526172;
+        font-size: 7.5pt;
+      }
+      .document-title {
+        text-align: right;
+      }
+      .document-title h1 {
+        margin: 0;
+        color: #17324d;
+        font-size: 15pt;
+        line-height: 1.05;
+      }
+      .document-title p {
+        margin: 3px 0 0;
+        color: #526172;
+        font-size: 8pt;
+      }
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1px;
+        background: #b7c4cf;
+        border-bottom: 1px solid #9fb0bf;
+      }
+      .summary-item {
+        padding: 5px 8px;
+        background: #eef4f7;
+      }
+      .summary-item.income { background: #dff6ea; }
+      .summary-item.payment { background: #fff0e5; }
+      .summary-item.balance { background: #dceeff; }
+      .summary-item span {
+        display: block;
+        color: #5c6978;
+        font-size: 6.8pt;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+      .summary-item strong {
+        display: block;
+        margin-top: 2px;
+        color: #172033;
+        font-size: 10.5pt;
+      }
+      .columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 7px;
+        padding: 7px 8px 5px;
+      }
+      .panel {
+        border: 1px solid #9fb0bf;
+      }
+      .panel h2 {
+        margin: 0;
+        padding: 5px 7px;
+        color: #ffffff;
+        font-size: 9.5pt;
+        letter-spacing: 0;
+      }
+      .panel.income h2 { background: #087f5b; }
+      .panel.payment h2 { background: #d9480f; }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+      th, td {
+        padding: 3.6px 6px;
+        border-bottom: 1px solid #d7e0e7;
+        line-height: 1.15;
+      }
+      th {
+        color: #526172;
+        background: #f4f7f9;
+        font-size: 6.8pt;
+        text-transform: uppercase;
+      }
+      tr:nth-child(even) td { background: #f8fafb; }
+      .serial {
+        width: 24px;
+        color: #718096;
+        text-align: center;
+      }
+      .amount {
+        width: 105px;
+        text-align: right;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      tfoot td {
+        padding: 4.5px 6px;
+        border-bottom: 0;
+        font-size: 9pt;
+        font-weight: 700;
+      }
+      .income tfoot td { background: #dff6ea; color: #075b42; }
+      .payment tfoot td { background: #fff0e5; color: #a8380b; }
+      .reconciliation {
+        margin: 0 8px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        border: 1px solid #6ea8d6;
+        background: #eaf4ff;
+      }
+      .formula {
+        padding: 5px 7px;
+        color: #31465c;
+        font-size: 7.5pt;
+      }
+      .closing {
+        min-width: 180px;
+        padding: 5px 9px;
+        color: #ffffff;
+        background: #1769aa;
+        text-align: right;
+      }
+      .closing span {
+        margin-right: 10px;
+        font-size: 7pt;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+      .closing strong { font-size: 11pt; }
+      footer {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        padding: 6px 8px 5px;
+      }
+      .audit {
+        display: flex;
+        justify-content: space-between;
+        color: #667485;
+        font-size: 6.8pt;
+      }
+      .signatures {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 28px;
+        margin-top: 14px;
+      }
+      .signature {
+        padding-top: 3px;
+        border-top: 1px solid #617181;
+        color: #526172;
+        text-align: center;
+        font-size: 7pt;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="sheet">
+      <div class="top-band"></div>
+      <header>
+        <div class="identity">
+          <img src="${escapePrintHtml(new URL('/garmetix-logo.png', window.location.origin).href)}" alt="Garmetix">
+          <div>
+            <h2 class="company">${escapePrintHtml(companyName)}</h2>
+            <div class="store-name">${escapePrintHtml(selectedStoreName)} ${escapePrintHtml(storeCode)}</div>
+            ${storeAddress ? `<div class="store-detail">${escapePrintHtml(storeAddress)}</div>` : ''}
+          </div>
+        </div>
+        <div class="document-title">
+          <h1>Petty Cash Sheet</h1>
+          <p>${escapePrintHtml(formatDate(sheet.onDate))}${sheetReference ? ` &nbsp;|&nbsp; Ref: ${escapePrintHtml(sheetReference)}` : ''}</p>
+        </div>
+      </header>
+
+      <section class="summary">
+        <div class="summary-item"><span>Opening balance</span><strong>${escapePrintHtml(money(Number(sheet.openingBalance || 0)))}</strong></div>
+        <div class="summary-item income"><span>Total cash in</span><strong>${escapePrintHtml(money(totalIncome))}</strong></div>
+        <div class="summary-item payment"><span>Total cash out</span><strong>${escapePrintHtml(money(totalPayment))}</strong></div>
+        <div class="summary-item balance"><span>Cash in hand</span><strong>${escapePrintHtml(money(cashInHand))}</strong></div>
+      </section>
+
+      <section class="columns">
+        <div class="panel income">
+          <h2>Income / Cash In</h2>
+          <table>
+            <thead><tr><th class="serial">No.</th><th>Particulars</th><th class="amount">Amount</th></tr></thead>
+            <tbody>${rowsHtml(incomeRows)}</tbody>
+            <tfoot><tr><td colspan="2">Total Cash In</td><td class="amount">${escapePrintHtml(money(totalIncome))}</td></tr></tfoot>
+          </table>
+        </div>
+        <div class="panel payment">
+          <h2>Payment / Cash Out</h2>
+          <table>
+            <thead><tr><th class="serial">No.</th><th>Particulars</th><th class="amount">Amount</th></tr></thead>
+            <tbody>${rowsHtml(paymentRows)}</tbody>
+            <tfoot><tr><td colspan="2">Total Cash Out</td><td class="amount">${escapePrintHtml(money(totalPayment))}</td></tr></tfoot>
+          </table>
+        </div>
+      </section>
+
+      <section class="reconciliation">
+        <div class="formula">Cash in hand = Total cash in - Total cash out</div>
+        <div class="closing"><span>Closing cash</span><strong>${escapePrintHtml(money(cashInHand))}</strong></div>
+      </section>
+
+      <footer>
+        <div class="audit">
+          <span>Prepared by: ${escapePrintHtml(sheet.createdBy || auth.user.value?.name || 'System')}</span>
+          <span>Printed: ${escapePrintHtml(printedAt)}</span>
+        </div>
+        <div class="signatures">
+          <div class="signature">Prepared by</div>
+          <div class="signature">Verified by</div>
+          <div class="signature">Owner / Authorised Signatory</div>
+        </div>
+      </footer>
+    </main>
+  </body>
+  </html>`
+}
+
+function escapePrintHtml(value: unknown) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
 }
 
 function askDelete(sheet: any) {
@@ -326,6 +771,38 @@ function money(value: number) {
   }).format(value || 0)
 }
 
+function totalPrintIncome(sheet: any) {
+  return Number(sheet.openingBalance || 0) + Number(sheet.sales || 0) +
+    Number(sheet.receipts || 0) + Number(sheet.dueReceipts || 0) + Number(sheet.bankWithdrawal || 0)
+}
+
+function totalPrintPayment(sheet: any) {
+  return Number(sheet.expenses || 0) + Number(sheet.payments || 0) +
+    Number(sheet.customerDue || 0) + Number(sheet.bankDeposit || 0) + Number(sheet.nonCashSale || 0)
+}
+
+const printIncomeRows = computed(() => {
+  const sheet = selectedPrintSheet.value
+  return sheet ? [
+    ['Opening balance', sheet.openingBalance],
+    ['Sales', sheet.sales],
+    ['Receipts', sheet.receipts],
+    ['Due receipts', sheet.dueReceipts],
+    ['Bank withdrawal', sheet.bankWithdrawal]
+  ] : []
+})
+
+const printPaymentRows = computed(() => {
+  const sheet = selectedPrintSheet.value
+  return sheet ? [
+    ['Expenses', sheet.expenses],
+    ['Payments', sheet.payments],
+    ['Customer due', sheet.customerDue],
+    ['Bank deposit', sheet.bankDeposit],
+    ['Non-cash sale', sheet.nonCashSale]
+  ] : []
+})
+
 onMounted(async () => {
   auth.restore()
   await refresh()
@@ -334,6 +811,18 @@ onMounted(async () => {
 watch(calculatedCash, (value) => {
   form.cashInHand = roundMoney(value)
 }, { immediate: true })
+
+watch(() => [form.storeId, form.onDate], () => {
+  if (formOpen.value && editMode.value === 'create') {
+    prepareSheet()
+  }
+})
+
+watch(workspace.storeId, (value, previous) => {
+  if (value && value !== previous && auth.isAuthenticated.value) {
+    refresh()
+  }
+})
 </script>
 
 <template>
@@ -345,6 +834,7 @@ watch(calculatedCash, (value) => {
     :companies="companies"
     :stores="stores"
     @refresh="refresh"
+    @workspace-change="refresh"
   >
     <section class="planner-dashboard">
       <UiModulePageHeader
@@ -417,12 +907,32 @@ watch(calculatedCash, (value) => {
 
       <UiFormSlideover
         v-model:open="formOpen"
+        layout="modal"
         :title="editMode === 'create' ? 'New Petty Cash Sheet' : 'Edit Petty Cash Sheet'"
         description="Enter daily cash in, cash out, and calculated cash in hand."
         :submit-label="editMode === 'create' ? 'Save Sheet' : 'Update Sheet'"
         :loading="saving"
         @submit="saveSheet"
       >
+        <UAlert
+          v-if="preparation"
+          color="primary"
+          variant="subtle"
+          icon="i-lucide-calculator"
+          title="Pre-calculated from transactions"
+          :description="`${preparation.openingBalanceSource}. Verify and adjust any value before saving.`"
+        />
+        <div class="form-action-row">
+          <UButton
+            v-if="editMode === 'create'"
+            icon="i-lucide-refresh-cw"
+            color="neutral"
+            variant="outline"
+            label="Recalculate"
+            :loading="calculating"
+            @click="prepareSheet"
+          />
+        </div>
         <UFormField label="Store" required>
           <USelect v-model="form.storeId" :items="storeOptions" placeholder="Select store" />
         </UFormField>
@@ -486,6 +996,69 @@ watch(calculatedCash, (value) => {
         </div>
       </UiFormSlideover>
 
+      <UModal v-model:open="printOpen" title="Petty Cash Sheet" :ui="{ content: 'max-w-5xl' }">
+        <template #body>
+          <UAlert
+            v-if="reconciliationDifferences.length"
+            class="petty-print-screen-only"
+            color="warning"
+            variant="subtle"
+            icon="i-lucide-triangle-alert"
+            title="Transaction values do not match"
+            description="The sheet was saved and an owner alert was added to Message Logs."
+          />
+
+          <div v-if="selectedPrintSheet" class="petty-print-document">
+            <header>
+              <div>
+                <strong>Garmetix</strong>
+                <span>{{ storeName(selectedPrintSheet.storeId) }}</span>
+              </div>
+              <div>
+                <h2>Petty Cash Sheet</h2>
+                <span>{{ formatDate(selectedPrintSheet.onDate) }}</span>
+              </div>
+            </header>
+
+            <div class="petty-print-columns">
+              <section>
+                <h3>Income / Cash In</h3>
+                <div v-for="[label, value] in printIncomeRows" :key="String(label)" class="petty-print-row">
+                  <span>{{ label }}</span><strong>{{ money(Number(value || 0)) }}</strong>
+                </div>
+                <div class="petty-print-total">
+                  <span>Total Income</span><strong>{{ money(totalPrintIncome(selectedPrintSheet)) }}</strong>
+                </div>
+              </section>
+              <section>
+                <h3>Payment / Cash Out</h3>
+                <div v-for="[label, value] in printPaymentRows" :key="String(label)" class="petty-print-row">
+                  <span>{{ label }}</span><strong>{{ money(Number(value || 0)) }}</strong>
+                </div>
+                <div class="petty-print-total">
+                  <span>Total Payment</span><strong>{{ money(totalPrintPayment(selectedPrintSheet)) }}</strong>
+                </div>
+              </section>
+            </div>
+
+            <footer>
+              <div class="petty-cash-balance">
+                <span>Cash in hand</span><strong>{{ money(sheetCash(selectedPrintSheet)) }}</strong>
+              </div>
+              <div class="petty-signatures">
+                <span>Prepared by</span><span>Verified by</span><span>Owner</span>
+              </div>
+            </footer>
+          </div>
+        </template>
+        <template #footer>
+          <div class="modal-actions petty-print-screen-only">
+            <UButton color="neutral" variant="outline" label="Close" @click="printOpen = false" />
+            <UButton icon="i-lucide-printer" label="Print A5" @click="printSheet" />
+          </div>
+        </template>
+      </UModal>
+
       <UiConfirmDeleteModal
         v-model:open="deleteOpen"
         title="Delete Petty Cash Sheet"
@@ -496,3 +1069,107 @@ watch(calculatedCash, (value) => {
     </section>
   </AppShell>
 </template>
+
+<style>
+.form-action-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.petty-print-document {
+  color: #111827;
+  background: white;
+  border: 1px solid #94a3b8;
+  padding: 18px;
+  font-size: 12px;
+}
+
+.petty-print-document header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 3px solid #0f766e;
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+}
+
+.petty-print-document header > div {
+  display: grid;
+  gap: 2px;
+}
+
+.petty-print-document header > div:last-child {
+  text-align: right;
+}
+
+.petty-print-document h2,
+.petty-print-document h3 {
+  margin: 0;
+}
+
+.petty-print-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.petty-print-columns section {
+  border: 1px solid #94a3b8;
+}
+
+.petty-print-columns h3 {
+  padding: 7px 9px;
+  color: white;
+  background: #087f5b;
+}
+
+.petty-print-columns section:last-child h3 {
+  background: #d9480f;
+}
+
+.petty-print-row,
+.petty-print-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 9px;
+  border-top: 1px solid #cbd5e1;
+}
+
+.petty-print-total {
+  background: #ccfbf1;
+  font-size: 13px;
+}
+
+.petty-print-document footer {
+  margin-top: 12px;
+}
+
+.petty-cash-balance {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 10px;
+  color: white;
+  background: #0f766e;
+  font-size: 14px;
+}
+
+.petty-signatures {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 28px;
+}
+
+.petty-signatures span {
+  border-top: 1px solid #475569;
+  padding-top: 4px;
+  text-align: center;
+}
+
+@media print {
+  .petty-print-screen-only {
+    display: none !important;
+  }
+}
+</style>

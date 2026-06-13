@@ -6,6 +6,11 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 
 ## Fixed
 
+- [x] Petty-cash A5 printing was clipped after the first income/payment row and did not preserve report colors. Replaced modal-page printing with an isolated A5 landscape document containing all sheet values, totals, reconciliation, company/store identity, audit details, and signatures with exact print colors.
+- [x] Petty-cash save returned HTTP 500 after persisting the sheet when a reconciliation log contained nullable fields. Message-log inserts now use explicitly typed database parameters, and alert logging/email failure no longer invalidates a successful sheet save.
+- [x] Petty-cash opening balance, transaction pre-calculation, mismatch alerting, A5 printing, and latest cash-in-hand behavior were missing. Replaced generic CRUD with a dedicated daily-cash workflow and validated backend/frontend builds on 2026-06-12.
+- [x] Voucher numbering used a browser timestamp and did not follow the required accounting format. New voucher numbers are generated server-side as `StoreCode/yyyyMM/0001`, with one persistent monthly series per store.
+- [x] Repeated master-data and page GET requests delayed navigation. Added shared response caching and in-flight request de-duplication with cache invalidation after writes.
 - [x] Docker publish failed in `AccountingPostingService.cs` because GST/accounting helper methods were missing (`BuildTaxLedgerRowAsync`, `ResolvePostingStoreAsync`, `GstAccountingReference`, `DeterministicGuid`). Restored helpers and deterministic GST settlement reference generation.
 - [x] GST Returns draft list still failed on older PostgreSQL volumes with `relation "GstReturnDrafts" does not exist`. Added targeted GST draft storage repair inside all GST draft endpoints so the table is created before querying.
 - [x] GST Returns draft list still failed with `relation "GstReturnDrafts" does not exist` even after prior startup repair. Added a dedicated GST storage repair method, startup call, and endpoint retry before querying drafts.

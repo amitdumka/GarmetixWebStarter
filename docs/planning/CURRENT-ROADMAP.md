@@ -1,6 +1,6 @@
 # Garmetix Current Roadmap
 
-Updated: 2026-06-11
+Updated: 2026-06-12
 
 ## Current Baseline
 
@@ -12,6 +12,13 @@ Updated: 2026-06-11
 - Baseline commit: `6d440a5`
 
 Stage 7M menu names, route compatibility, permission-aware navigation, Off Book separation, and the legacy-shell rollback option are part of the baseline and must be preserved.
+
+## Completed Before Stage 8 - Operations Priority Patch
+
+- [x] Petty cash previous-day carry-forward, transaction pre-calculation, editable verification, mismatch logging/email, latest cash widget, and automatic A5 two-section printing.
+- [x] Server-owned voucher numbering using store code, year-month, and one monthly numeric sequence.
+- [x] Revised compact voucher print defaults and document labels.
+- [x] Shared frontend GET cache and in-flight request de-duplication to reduce repeated page-load work.
 
 ## Priority 0 - Baseline Stabilization
 
@@ -101,4 +108,3 @@ The following were explicitly requested in the older extra list and remain accep
 - notification/action UX,
 - loading, retry, and empty-state consistency,
 - documented shell revert and version history.
-

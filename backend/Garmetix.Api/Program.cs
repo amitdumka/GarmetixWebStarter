@@ -215,6 +215,7 @@ app.MapSalaryPaymentEndpoints();
 app.MapImportExportEndpoints();
 app.MapAuditEndpoints();
 app.MapAccountingEndpoints();
+app.MapPettyCashEndpoints();
 app.MapCashVoucherEndpoints();
 app.MapBackupEndpoints();
 app.MapGstReturnEndpoints();
@@ -262,7 +263,6 @@ MapCrud<BankStatementLine>(app, "/api/bank-statement-lines", GarmetixPolicies.Ac
 MapCrud<JournalEntry>(app, "/api/journal-entries", GarmetixPolicies.Accounting);
 MapCrud<JournalLine>(app, "/api/journal-lines", GarmetixPolicies.Accounting);
 MapCrud<Transaction>(app, "/api/transactions", GarmetixPolicies.Accounting);
-MapCrud<PettyCashSheet>(app, "/api/petty-cash-sheets", GarmetixPolicies.Accounting);
 MapCrud<DayBegin>(app, "/api/day-begins", GarmetixPolicies.Accounting);
 MapCrud<DayEnd>(app, "/api/day-ends", GarmetixPolicies.Accounting);
 MapCrud<Employee>(app, "/api/employees", GarmetixPolicies.Hr);

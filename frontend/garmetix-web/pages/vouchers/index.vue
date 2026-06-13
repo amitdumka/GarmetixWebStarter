@@ -32,7 +32,7 @@ const deleteOpen = ref(false)
 const selectedPrintVoucher = ref<any | null>(null)
 const pendingDelete = ref<any | null>(null)
 const editMode = ref<'create' | 'edit'>('create')
-const printFormat = ref<'a4-two' | 'a5-one'>('a4-two')
+const printFormat = ref<'a4-two' | 'a5-one'>('a5-one')
 const isReprint = ref(false)
 const includeSignatures = ref(true)
 
@@ -229,7 +229,7 @@ const columns: TableColumn<any>[] = [
 function emptyVoucher() {
   return {
     id: '',
-    voucherNumber: createVoucherNumber(),
+    voucherNumber: '',
     onDate: new Date().toISOString().slice(0, 10),
     voucherType: 0,
     partyName: '',
@@ -245,13 +245,6 @@ function emptyVoucher() {
     employeeId: null,
     accountNumber: null
   }
-}
-
-function createVoucherNumber() {
-  const date = new Date()
-  const stamp = date.toISOString().slice(0, 10).replaceAll('-', '')
-  const suffix = String(Date.now()).slice(-4)
-  return `V-${stamp}-${suffix}`
 }
 
 async function refresh() {
@@ -339,10 +332,6 @@ function buildPayload() {
     throw new Error('Run quick setup before saving vouchers.')
   }
 
-  if (!String(form.voucherNumber || '').trim()) {
-    throw new Error('Voucher number is required.')
-  }
-
   const partyLedger = parties.value.find((item) => item.ledgerId === form.ledgerId)
   if (!String(form.partyName || partyLedger?.name || '').trim()) {
     throw new Error('Enter party name before saving voucher.')
@@ -414,7 +403,7 @@ function askDelete(voucher: any) {
 
 function openPrintVoucher(voucher: any) {
   selectedPrintVoucher.value = voucher
-  printFormat.value = 'a4-two'
+  printFormat.value = 'a5-one'
   isReprint.value = false
   includeSignatures.value = true
 }
@@ -694,8 +683,12 @@ watch(() => form.paymentMode, () => {
         @submit="saveVoucher"
       >
         <div class="form-two-column">
-          <UFormField label="Voucher number" required>
-            <UInput v-model="form.voucherNumber" required />
+          <UFormField label="Voucher number">
+            <UInput
+              v-model="form.voucherNumber"
+              disabled
+              :placeholder="editMode === 'create' ? 'Generated after save' : ''"
+            />
           </UFormField>
           <UFormField label="Date" required>
             <UInput v-model="form.onDate" required type="date" />

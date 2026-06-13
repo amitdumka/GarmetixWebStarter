@@ -73,7 +73,7 @@ public static class VoucherPdfDocument
         canvas.FillRect(left, top, width, 46, navyR, navyG, navyB);
         canvas.FillRect(left, top + 46, width, 3, tealR, tealG, tealB);
         canvas.Text(model.CompanyName, left + 12, top + 10, 15, true, 1, 1, 1);
-        canvas.Text($"{model.StoreName} | {model.VoucherType} Voucher", left + 12, top + 29, 8.5, false, 0.8, 0.86, 0.91);
+        canvas.Text($"{model.StoreName} | ACCOUNTING VOUCHER", left + 12, top + 29, 8.5, false, 0.8, 0.86, 0.91);
         canvas.Text(copyLabel, left + width - 84, top + 12, 9, true, 1, 1, 1);
         if (reprint)
         {
@@ -84,7 +84,7 @@ public static class VoucherPdfDocument
         var columnWidth = (width - 12) / 4;
         DrawInfoBox(canvas, left + 6, infoTop, columnWidth, "Voucher No.", model.VoucherNumber);
         DrawInfoBox(canvas, left + 6 + columnWidth, infoTop, columnWidth, "Date", model.OnDate.ToString("dd MMM yyyy", CultureInfo.InvariantCulture));
-        DrawInfoBox(canvas, left + 6 + columnWidth * 2, infoTop, columnWidth, "Mode", model.PaymentMode);
+        DrawInfoBox(canvas, left + 6 + columnWidth * 2, infoTop, columnWidth, "Type / Mode", $"{model.VoucherType} / {model.PaymentMode}");
         DrawInfoBox(canvas, left + 6 + columnWidth * 3, infoTop, columnWidth, "Amount", $"INR {model.Amount:N2}");
 
         var tableTop = infoTop + 40;
@@ -133,7 +133,7 @@ public static class VoucherPdfDocument
             }
         }
 
-        canvas.CenteredText($"Scan code: {model.VoucherNumber}", left + 8, top + height - 28, width - 16, 6.8, true, 0.08, 0.12, 0.18);
+        canvas.CenteredText($"Document reference: {model.VoucherNumber}", left + 8, top + height - 28, width - 16, 6.8, true, 0.08, 0.12, 0.18);
 
         var footer = string.Join(" | ", new[]
         {

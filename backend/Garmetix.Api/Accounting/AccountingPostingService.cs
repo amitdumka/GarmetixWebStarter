@@ -3,13 +3,14 @@ using Garmetix.Core.Models.Accounting;
 using Garmetix.Core.Models.HRM;
 using Garmetix.Core.Models.Inventory;
 using Garmetix.Infrastructure.Data;
+using Garmetix.Api.Numbering;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 
 namespace Garmetix.Api.Accounting;
 
-public sealed class AccountingPostingService(GarmetixDbContext db)
+public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumberService documentNumbers)
 {
     private sealed record JournalLineDraft(Guid LedgerId, Guid? PartyId, decimal Debit, decimal Credit, string Narration);
 
@@ -186,7 +187,15 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         var cashOrBankLedger = await ResolveCashOrBankLedgerAsync(request, bankAccount, cancellationToken);
 
         var voucher = await ResolveVoucherAsync(request, cancellationToken);
-        voucher.VoucherNumber = request.VoucherNumber.Trim();
+        voucher.VoucherNumber = request.Id.HasValue
+            ? request.VoucherNumber.Trim()
+            : await documentNumbers.NextVoucherAsync(
+                request.CompanyId,
+                request.StoreGroupId,
+                request.StoreId,
+                request.VoucherType,
+                request.OnDate,
+                cancellationToken);
         voucher.OnDate = request.OnDate;
         voucher.VoucherType = request.VoucherType;
         voucher.PartyName = party?.Name ?? request.PartyName.Trim();
@@ -2135,7 +2144,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
 
     private static void ValidateVoucher(VoucherSaveRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.VoucherNumber))
+        if (request.Id.HasValue && string.IsNullOrWhiteSpace(request.VoucherNumber))
         {
             throw new ArgumentException("Voucher number is required.");
         }
