@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.0.7";
+    public const string Version = "4.0.8";
     public const string Stage = "Stage 8A";
-    public const string ReleaseName = "Accounting and HR Workflow Hardening";
+    public const string ReleaseName = "Reports and Data Operations UI Hardening";
     public const string BuildDate = "2026-06-14";
-    public const string BuildCode = "GARMETIX-8A-20260614-4007";
+    public const string BuildCode = "GARMETIX-8A-20260614-4008";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,13 +81,14 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Reports Center, GST Reports, Import Export, Audit Trail and Message Logs now use consistent retryable register states.",
+        "Reports Center date defaults preserve the local calendar date instead of converting through UTC.",
+        "Report, audit and data-operation failures remain visible with a direct retry action.",
+        "Large report tables stay inside responsive scroll containers while actions wrap across smaller screens.",
+        "Message Logs use compact operational panels and expandable technical details.",
+        "Party and bank-account ledgers remain server-owned and synchronized by the accounting service.",
         "Salary payments now pre-calculate advance deductions, previous company dues and already-paid amounts.",
-        "Actual salary paid amounts are rounded to whole rupees and remain editable before saving.",
-        "Salary payment vouchers are generated server-side as StoreCode/YYYYMM/SPAY/series.",
-        "Salary-payment save requests use a dedicated contract instead of binding database navigation models.",
         "Printable business documents now carry stable permission-aware QR codes.",
-        "Document Scanner resolves QR/barcode values to invoices, vouchers, notes, petty cash and payroll entries.",
-        "Industry-style server PDFs now cover Petty Cash, payslips and salary-payment slips.",
         "Frontend, backend, npm package and .NET assembly versions are synchronized for every release."
     ];
 

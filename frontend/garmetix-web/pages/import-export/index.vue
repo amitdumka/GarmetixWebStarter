@@ -9,6 +9,7 @@ const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const modules = ref<any[]>([])
 const loading = ref(false)
+const loadError = ref('')
 const downloading = ref('')
 const importing = ref(false)
 const selectedModule = ref('inventory')
@@ -98,6 +99,7 @@ async function refresh() {
   }
 
   loading.value = true
+  loadError.value = ''
   try {
     const [companyRows, storeRows, moduleRows] = await Promise.all([
       api.list<any>('companies'),
@@ -110,7 +112,7 @@ async function refresh() {
     modules.value = moduleRows
     selectedModule.value = moduleRows[0]?.key || 'inventory'
   } catch (error) {
-    feedback.failed('Import/export refresh failed', error)
+    loadError.value = feedback.errorMessage(error, 'Please check the service and try again.', 'Import/export refresh failed')
   } finally {
     loading.value = false
   }
@@ -322,8 +324,22 @@ onMounted(async () => {
         </UCard>
       </div>
 
-      <div class="import-export-grid">
-        <UCard v-for="item in modules" :key="item.key" class="planner-card">
+      <UiRegisterPanel
+        title="Data exports"
+        description="Download current data or a matching CSV template for each available module."
+        :loading="loading"
+        :error="loadError"
+        :empty="modules.length === 0"
+        empty-title="No export modules available"
+        empty-description="Refresh to load the modules available to this administrator."
+        empty-icon="i-lucide-database"
+        @retry="refresh"
+      >
+        <template #actions>
+          <UButton icon="i-lucide-download" label="Export All" :disabled="downloading !== ''" @click="exportAll" />
+        </template>
+        <div class="import-export-grid">
+          <UCard v-for="item in modules" :key="item.key" class="planner-card">
           <template #header>
             <div class="setup-list-header">
               <div class="setup-tabs-title">
@@ -355,8 +371,9 @@ onMounted(async () => {
               @click="downloadCsv(item.key, 'template')"
             />
           </div>
-        </UCard>
-      </div>
+          </UCard>
+        </div>
+      </UiRegisterPanel>
 
       <UCard class="planner-card">
         <template #header>

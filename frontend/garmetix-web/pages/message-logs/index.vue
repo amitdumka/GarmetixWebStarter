@@ -6,14 +6,16 @@ const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
 const canSeeAdmin = auth.canSeeAdmin
 const loading = ref(false)
+const loadError = ref('')
 const logs = ref<any[]>([])
 const options = ref<any | null>(null)
 const localLogs = feedback.logs
+const ALL_FILTER_VALUE = 'all'
 
 const filters = reactive({
-  level: '',
-  source: '',
-  success: '',
+  level: ALL_FILTER_VALUE,
+  source: ALL_FILTER_VALUE,
+  success: ALL_FILTER_VALUE,
   search: '',
   fromUtc: '',
   toUtc: '',
@@ -21,17 +23,17 @@ const filters = reactive({
 })
 
 const levelOptions = computed(() => [
-  { label: 'All levels', value: '' },
+  { label: 'All levels', value: ALL_FILTER_VALUE },
   ...(options.value?.levels || ['Info', 'Success', 'Warning', 'Error']).map((item: string) => ({ label: item, value: item }))
 ])
 
 const sourceOptions = computed(() => [
-  { label: 'All sources', value: '' },
+  { label: 'All sources', value: ALL_FILTER_VALUE },
   ...(options.value?.sources || []).map((item: string) => ({ label: item, value: item }))
 ])
 
 const successOptions = [
-  { label: 'All results', value: '' },
+  { label: 'All results', value: ALL_FILTER_VALUE },
   { label: 'Success only', value: 'true' },
   { label: 'Failed only', value: 'false' }
 ]
@@ -52,9 +54,9 @@ const filteredLocalLogs = computed(() => {
 
 function toQuery() {
   const params = new URLSearchParams()
-  if (filters.level) params.set('level', filters.level)
-  if (filters.source) params.set('source', filters.source)
-  if (filters.success) params.set('success', filters.success)
+  if (filters.level !== ALL_FILTER_VALUE) params.set('level', filters.level)
+  if (filters.source !== ALL_FILTER_VALUE) params.set('source', filters.source)
+  if (filters.success !== ALL_FILTER_VALUE) params.set('success', filters.success)
   if (filters.search.trim()) params.set('search', filters.search.trim())
   if (filters.fromUtc) params.set('fromUtc', new Date(filters.fromUtc).toISOString())
   if (filters.toUtc) params.set('toUtc', new Date(filters.toUtc).toISOString())
@@ -65,6 +67,7 @@ function toQuery() {
 async function refresh() {
   if (!auth.isAuthenticated.value || !auth.canSeeAdmin.value) return
   loading.value = true
+  loadError.value = ''
   try {
     const query = toQuery()
     const [opts, rows] = await Promise.all([
@@ -74,16 +77,16 @@ async function refresh() {
     options.value = opts
     logs.value = rows || []
   } catch (error) {
-    feedback.failed('Message logs load failed', error)
+    loadError.value = feedback.errorMessage(error, 'Please check the service and try again.', 'Message logs load failed')
   } finally {
     loading.value = false
   }
 }
 
 function resetFilters() {
-  filters.level = ''
-  filters.source = ''
-  filters.success = ''
+  filters.level = ALL_FILTER_VALUE
+  filters.source = ALL_FILTER_VALUE
+  filters.success = ALL_FILTER_VALUE
   filters.search = ''
   filters.fromUtc = ''
   filters.toUtc = ''
@@ -104,7 +107,7 @@ function badgeColor(entry: any) {
 
 async function copyDetails(entry: any) {
   const text = [
-    `${entry.level || entry.color || 'Info'} · ${entry.source || entry.title || 'Message'}`,
+    `${entry.level || entry.color || 'Info'} | ${entry.source || entry.title || 'Message'}`,
     entry.eventName || '',
     entry.message || '',
     entry.resource ? `Resource: ${entry.resource}` : '',
@@ -123,16 +126,16 @@ onMounted(refresh)
 
 <template>
   <AppShell title="Message Logs" @refresh="refresh">
-    <div v-if="!isAuthenticated" class="rounded-3xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+    <div v-if="!isAuthenticated" class="rounded-lg border border-dashed border-default p-8 text-center text-sm text-muted">
       Login as admin to view message logs.
     </div>
 
-    <div v-else-if="!canSeeAdmin" class="rounded-3xl border border-dashed border-amber-300 bg-amber-50 p-8 text-center text-sm text-amber-700 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+    <div v-else-if="!canSeeAdmin" class="rounded-lg border border-dashed border-warning/40 bg-warning/10 p-8 text-center text-sm text-warning">
       Message logs are available only for admin users.
     </div>
 
     <div v-else class="space-y-6">
-      <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <section class="rounded-lg border border-default bg-default p-5">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div class="space-y-3">
             <div class="flex items-center gap-3">
@@ -178,16 +181,23 @@ onMounted(refresh)
         </div>
       </UCard>
 
-      <UCard>
-        <template #header>
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-server-cog" class="h-5 w-5" />
-            <h2 class="font-semibold">Saved backend logs</h2>
-          </div>
+      <UiRegisterPanel
+        title="Saved backend logs"
+        description="Server-side operation results and detailed diagnostics."
+        :loading="loading"
+        :error="loadError"
+        :empty="logs.length === 0"
+        empty-title="No saved backend logs"
+        empty-description="Run an operation that produces a message log, then refresh this register."
+        empty-icon="i-lucide-list-collapse"
+        @retry="refresh"
+      >
+        <template #actions>
+          <UBadge color="neutral" variant="subtle">{{ logs.length }} loaded</UBadge>
         </template>
 
-        <div v-if="logs.length" class="space-y-3">
-          <article v-for="entry in logs" :key="entry.id" class="rounded-2xl border border-slate-200 p-4 text-sm dark:border-slate-800">
+        <div class="space-y-3">
+          <article v-for="entry in logs" :key="entry.id" class="rounded-lg border border-default p-4 text-sm">
             <div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
               <div class="space-y-1">
                 <div class="flex flex-wrap items-center gap-2">
@@ -203,14 +213,13 @@ onMounted(refresh)
                 <UButton v-if="entry.detailsJson" color="neutral" variant="ghost" size="xs" icon="i-lucide-copy" label="Copy" @click="copyDetails(entry)" />
               </div>
             </div>
-            <details v-if="entry.detailsJson" class="mt-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-950/50">
+            <details v-if="entry.detailsJson" class="mt-3 rounded-md bg-muted/40 p-3">
               <summary class="cursor-pointer font-medium">Details</summary>
               <pre class="mt-2 overflow-auto text-xs">{{ entry.detailsJson }}</pre>
             </details>
           </article>
         </div>
-        <UiCrudEmptyState v-else title="No saved backend logs" description="Run onboarding or AF/SS seeding, then refresh this page." icon="i-lucide-list-collapse" />
-      </UCard>
+      </UiRegisterPanel>
 
       <UCard>
         <template #header>
@@ -224,7 +233,7 @@ onMounted(refresh)
         </template>
 
         <div v-if="filteredLocalLogs.length" class="space-y-3">
-          <article v-for="entry in filteredLocalLogs" :key="entry.id" class="rounded-2xl border border-slate-200 p-4 text-sm dark:border-slate-800">
+          <article v-for="entry in filteredLocalLogs" :key="entry.id" class="rounded-lg border border-default p-4 text-sm">
             <div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
               <div class="space-y-1">
                 <div class="flex flex-wrap items-center gap-2">
@@ -239,7 +248,7 @@ onMounted(refresh)
                 <UButton v-if="entry.details" color="neutral" variant="ghost" size="xs" icon="i-lucide-copy" label="Copy" @click="copyDetails(entry)" />
               </div>
             </div>
-            <details v-if="entry.details" class="mt-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-950/50">
+            <details v-if="entry.details" class="mt-3 rounded-md bg-muted/40 p-3">
               <summary class="cursor-pointer font-medium">Technical details</summary>
               <pre class="mt-2 overflow-auto text-xs">{{ entry.details }}</pre>
             </details>

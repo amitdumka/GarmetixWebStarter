@@ -38,6 +38,18 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Preserve selected HR attendance, employee, bank, cheque, ledger and account dates without UTC previous-day conversion.
 - [x] Replace the HR empty-value store option with an explicit all-stores sentinel.
 
+## Reports and Data Operations UI Hardening - 2026-06-14
+
+- [x] Standardize Reports Center, GST Reports, Import/Export, Audit Trail, and Message Logs with shared retryable register states.
+- [x] Preserve local Indian calendar dates in the Reports Center default date range.
+- [x] Keep report and administrative load errors visible until a successful retry.
+- [x] Keep large reports and audit tables inside responsive, scrollable containers.
+- [x] Replace oversized Message Log panels with compact operational layouts and expandable technical details.
+- [x] Replace empty Message Log select values with explicit all-value sentinels so SSR does not fail.
+- [x] Pass the active workspace company to GST report and CSV requests.
+- [x] Keep API paths out of retained business-facing register errors while preserving details in browser logs.
+- [x] Mark all five Package 10 routes reviewed in the persistent UI audit queue.
+
 ## Auth / Login
 
 - [x] Remove "Admin is available" message.
@@ -293,6 +305,7 @@ Use this file as the running handoff checklist. When a task is completed, mark i
   - [x] Package 2: standardized Commercial Notes / Customers and synchronized runtime identity to v4.0.0.
   - [x] Package 3: standardized Parties / Vouchers, added voucher-type filtering and sanitized retryable register errors, and synchronized runtime identity to v4.0.1.
   - [x] Package 4: standardized Loyalty / Petty Cash, preserved daily-cash automation and A5 printing, and synchronized runtime identity to v4.0.2.
+  - [x] Package 10: standardized reporting and data-operation registers and synchronized runtime identity to v4.0.8.
 - [ ] Complete Stage 8B role, permission, and user-administration hardening.
 - [ ] Complete Stage 8C purchase return and vendor settlement.
 - [ ] Complete Stage 8D inventory documents and valuation.

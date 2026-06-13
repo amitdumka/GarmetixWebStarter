@@ -21,14 +21,15 @@ const employees = ref<any[]>([])
 const monthlyAttendance = ref<any[]>([])
 const payslips = ref<any[]>([])
 const loading = ref(false)
+const loadError = ref('')
 const cacheStatus = ref('No cached snapshot loaded')
 const cachedRows = ref<any[] | null>(null)
 const search = ref('')
 const reportKind = ref<ReportKind>('sales')
 const today = new Date()
 const filters = reactive({
-  fromDate: new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10),
-  toDate: today.toISOString().slice(0, 10)
+  fromDate: localDateInput(new Date(today.getFullYear(), today.getMonth(), 1)),
+  toDate: localDateInput(today)
 })
 
 const reportTabs = [
@@ -210,6 +211,7 @@ async function refresh() {
   }
 
   loading.value = true
+  loadError.value = ''
   try {
     const [companyRows, storeRows, salesRowsData, purchaseRowsData, productRows, stockRowsData, cashRows, employeeRows, monthlyRows, payslipRowsData] = await Promise.all([
       api.list<any>('companies'),
@@ -235,7 +237,7 @@ async function refresh() {
     monthlyAttendance.value = monthlyRows
     payslips.value = payslipRowsData
   } catch (error) {
-    feedback.failed('Reports refresh failed', error)
+    loadError.value = feedback.errorMessage(error, 'Please check the service and try again.', 'Reports refresh failed')
   } finally {
     loading.value = false
   }
@@ -458,6 +460,13 @@ function csvCell(value: any) {
     : text
 }
 
+function localDateInput(date = new Date()) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 onMounted(async () => {
   auth.restore()
   await refresh()
@@ -530,18 +539,20 @@ onMounted(async () => {
         </UCard>
       </div>
 
-      <UCard class="planner-card">
-        <template #header>
-          <div class="setup-list-header">
-            <div>
-              <h3>{{ activeLabel }} Report</h3>
-              <p>{{ filters.fromDate }} to {{ filters.toDate }}</p>
-            </div>
-            <div class="setup-tabs">
-              <UBadge color="neutral" variant="subtle">{{ activeRows.length }} rows</UBadge>
-              <UBadge v-if="cachedRows" color="warning" variant="subtle">Cached</UBadge>
-            </div>
-          </div>
+      <UiRegisterPanel
+        :title="`${activeLabel} Report`"
+        :description="`${filters.fromDate} to ${filters.toDate}`"
+        :loading="loading"
+        :error="loadError"
+        :empty="activeRows.length === 0"
+        empty-title="No report data"
+        empty-description="Adjust filters or sync data to load this report."
+        empty-icon="i-lucide-file-text"
+        @retry="refresh"
+      >
+        <template #actions>
+          <UBadge color="neutral" variant="subtle">{{ activeRows.length }} rows</UBadge>
+          <UBadge v-if="cachedRows" color="warning" variant="subtle">Cached</UBadge>
         </template>
 
         <UiCrudToolbar
@@ -564,21 +575,10 @@ onMounted(async () => {
         </div>
 
         <UTable
-          v-if="activeRows.length"
           :data="activeRows"
           :columns="columns"
-          :loading="loading"
         />
-
-        <UiCrudEmptyState
-          v-else
-          title="No report data"
-          description="Adjust filters or sync data to load this report."
-          icon="i-lucide-file-text"
-          action-label="Refresh"
-          @action="refresh"
-        />
-      </UCard>
+      </UiRegisterPanel>
     </section>
   </AppShell>
 </template>

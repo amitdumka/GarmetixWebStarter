@@ -6,6 +6,8 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 
 ## Fixed
 
+- [x] Message Logs returned a Nuxt 500 because filter options used empty SelectItem values. Filters now use explicit all-value sentinels and omit those values from API queries.
+- [x] GST Reports returned HTTP 400 for a valid return period because report requests did not send the active company. Report and CSV queries now include the workspace company identifier.
 - [x] Accounting Party/Bank Account forms could submit internal ledger identifiers through full EF entity payloads, bank transactions exposed internal Party linkage, and HR/accounting dates could shift through UTC. Dedicated requests, server-owned ledger synchronization, hidden party linkage, wide forms, and local date serialization now cover these workflows.
 - [x] Salary payment save used the full EF entity payload, client-generated voucher numbers, UTC-shifted dates, and no authoritative advance/due pre-calculation. It now uses a dedicated request, local dates, server SPAY numbering, whole-rupee payments, and payroll-ledger preview values.
 - [x] Printable vouchers, invoices, Petty Cash and payroll documents could invoke `window.print()` on the dashboard DOM, producing incorrect or incomplete output. Printing now fetches the authenticated server PDF, validates its media type/size, and prints that PDF; new documents auto-print while edits do not.

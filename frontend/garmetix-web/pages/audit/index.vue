@@ -14,6 +14,7 @@ const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const activities = ref<any[]>([])
 const loading = ref(false)
+const loadError = ref('')
 const search = ref('')
 const selectedModule = ref('all')
 const selectedAction = ref('all')
@@ -170,6 +171,7 @@ async function refresh() {
   }
 
   loading.value = true
+  loadError.value = ''
   try {
     const query = new URLSearchParams({ take: '500' })
     if (selectedModule.value !== 'all') query.set('module', selectedModule.value)
@@ -189,7 +191,7 @@ async function refresh() {
     stores.value = storeRows
     activities.value = activityRows
   } catch (error) {
-    feedback.failed('Audit refresh failed', error)
+    loadError.value = feedback.errorMessage(error, 'Please check the service and try again.', 'Audit refresh failed')
   } finally {
     loading.value = false
   }
@@ -358,15 +360,19 @@ onMounted(async () => {
         </div>
       </UCard>
 
-      <UCard class="planner-card">
-        <template #header>
-          <div class="setup-list-header">
-            <div>
-              <h3>Activity Register</h3>
-              <p>Generated from existing record timestamps.</p>
-            </div>
-            <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
-          </div>
+      <UiRegisterPanel
+        title="Activity Register"
+        description="Created, updated, and deleted record activity matching the selected filters."
+        :loading="loading"
+        :error="loadError"
+        :empty="filteredRows.length === 0"
+        empty-title="No audit activity found"
+        empty-description="Change the filters or create and update records to populate this register."
+        empty-icon="i-lucide-history"
+        @retry="refresh"
+      >
+        <template #actions>
+          <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
         </template>
 
         <UiCrudToolbar
@@ -380,21 +386,10 @@ onMounted(async () => {
         />
 
         <UTable
-          v-if="filteredRows.length"
           :data="filteredRows"
           :columns="columns"
-          :loading="loading"
         />
-
-        <UiCrudEmptyState
-          v-else
-          title="No audit activity found"
-          description="Create or update records in modules to populate the activity feed."
-          icon="i-lucide-history"
-          action-label="Refresh"
-          @action="refresh"
-        />
-      </UCard>
+      </UiRegisterPanel>
       <UModal v-model:open="detailOpen" title="Audit Field Details" :ui="{ content: 'max-w-3xl' }">
         <template #body>
           <div v-if="detailLoading" class="empty-state-card">Loading field details...</div>
