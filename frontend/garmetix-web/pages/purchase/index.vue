@@ -29,6 +29,8 @@ const vendorGstinChecking = ref(false)
 const selectedReceipt = ref<any | null>(null)
 const pendingCancel = ref<any | null>(null)
 const search = ref('')
+const invoiceStatusFilter = ref('all')
+const loadError = ref('')
 const formOpen = ref(false)
 const cancelOpen = ref(false)
 const cancelling = ref(false)
@@ -167,6 +169,7 @@ const tableRows = computed(() => purchaseInvoices.value.map((invoice) => ({
   id: invoice.id,
   invoiceNumber: invoice.invoiceNumber || '-',
   inwardNumber: invoice.inwardNumber || '-',
+  onDate: formatDate(invoice.onDate || invoice.inwardDate),
   vendorName: invoice.vendorName || invoice.vendor?.name || '-',
   billAmount: money(Number(invoice.billAmount || invoice.totalAmount || invoice.netAmount || 0)),
   paidAmount: money(Number(invoice.paidAmount || 0)),
@@ -177,16 +180,18 @@ const tableRows = computed(() => purchaseInvoices.value.map((invoice) => ({
 
 const filteredRows = computed(() => {
   const term = search.value.trim().toLowerCase()
-  if (!term) {
-    return tableRows.value
-  }
-
-  return tableRows.value.filter((row) => JSON.stringify(row).toLowerCase().includes(term))
+  return tableRows.value.filter((row) => {
+    const matchesStatus = invoiceStatusFilter.value === 'all'
+      || String(row.status).toLowerCase() === invoiceStatusFilter.value
+    const matchesSearch = !term || JSON.stringify(row).toLowerCase().includes(term)
+    return matchesStatus && matchesSearch
+  })
 })
 
 const columns: TableColumn<any>[] = [
   { accessorKey: 'invoiceNumber', header: 'Invoice' },
   { accessorKey: 'inwardNumber', header: 'Inward' },
+  { accessorKey: 'onDate', header: 'Date' },
   { accessorKey: 'vendorName', header: 'Vendor' },
   { accessorKey: 'billAmount', header: 'Amount' },
   { accessorKey: 'paidAmount', header: 'Paid' },
@@ -285,7 +290,10 @@ function emptyPurchaseForm() {
 function todayInputDate(offsetDays = 0) {
   const date = new Date()
   date.setDate(date.getDate() + offsetDays)
-  return date.toISOString().slice(0, 10)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 async function refresh() {
@@ -294,6 +302,7 @@ async function refresh() {
   }
 
   loading.value = true
+  loadError.value = ''
   try {
     setupStatus.value = await api.get<any>('setup/status')
     const [companyRows, storeRows, productRows, purchaseRows, bankAccountRows, lookupRows] = await Promise.all([
@@ -313,6 +322,7 @@ async function refresh() {
     bankAccounts.value = bankAccountRows
     purchaseLookup.value = lookupRows
   } catch (error) {
+    loadError.value = feedback.cleanMessage(error instanceof Error ? error.message : 'Please check the service and try again.')
     feedback.failed('Purchase refresh failed', error)
   } finally {
     loading.value = false
@@ -758,6 +768,7 @@ watch(() => purchaseForm.productCategoryId, () => {
     :companies="companies"
     :stores="stores"
     @refresh="refresh"
+    @workspace-change="refresh"
   >
     <section class="planner-dashboard">
       <UiModulePageHeader
@@ -772,7 +783,6 @@ watch(() => purchaseForm.productCategoryId, () => {
           <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
             {{ loading ? 'Loading' : `${purchaseInvoices.length} invoices` }}
           </UBadge>
-          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
           <UButton icon="i-lucide-plus" label="New Inward" @click="startCreate" />
         </template>
       </UiModulePageHeader>
@@ -790,43 +800,47 @@ watch(() => purchaseForm.productCategoryId, () => {
         </UCard>
       </div>
 
-      <UCard class="planner-card">
-        <template #header>
-          <div class="planner-card-header">
-            <div>
-              <h2>Purchase Register</h2>
-              <p>Search supplier invoice, inward number, or vendor.</p>
-            </div>
-            <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
-          </div>
+      <UiRegisterPanel
+        title="Purchase Register"
+        :description="`${filteredRows.length} of ${purchaseInvoices.length} purchase invoices`"
+        :loading="loading"
+        :error="loadError"
+        :empty="filteredRows.length === 0"
+        :empty-title="search || invoiceStatusFilter !== 'all' ? 'No matching purchase invoices' : 'No purchase invoices yet'"
+        :empty-description="search || invoiceStatusFilter !== 'all' ? 'Change the search or status filter.' : 'Create the first inward invoice to begin stock receiving.'"
+        empty-icon="i-lucide-package-plus"
+        @retry="refresh"
+      >
+        <template #actions>
+          <UiCrudToolbar
+            v-model:search="search"
+            search-placeholder="Search invoice, inward, vendor"
+            :loading="loading"
+            refresh-label="Sync"
+            create-label="New Inward"
+            @refresh="refresh"
+            @create="startCreate"
+          >
+            <template #filters>
+              <USelect
+                v-model="invoiceStatusFilter"
+                :items="[
+                  { label: 'All statuses', value: 'all' },
+                  { label: 'Saved', value: 'saved' },
+                  { label: 'Cancelled', value: 'cancelled' },
+                  { label: 'Refunded', value: 'refunded' }
+                ]"
+                aria-label="Filter purchase status"
+                class="min-w-36"
+              />
+            </template>
+          </UiCrudToolbar>
         </template>
 
-        <UiCrudToolbar
-          v-model:search="search"
-          search-placeholder="Search invoice, inward, vendor"
-          :loading="loading"
-          refresh-label="Sync"
-          create-label="New Inward"
-          @refresh="refresh"
-          @create="startCreate"
-        />
-
-        <UTable
-          v-if="filteredRows.length"
-          :data="filteredRows"
-          :columns="columns"
-          :loading="loading"
-        />
-
-        <UiCrudEmptyState
-          v-else
-          title="No purchase invoices found"
-          description="Create the first inward invoice to begin stock receiving."
-          icon="i-lucide-package-plus"
-          action-label="New Inward"
-          @action="startCreate"
-        />
-      </UCard>
+        <div class="planner-table-wrap">
+          <UTable :data="filteredRows" :columns="columns" />
+        </div>
+      </UiRegisterPanel>
 
       <UiFormSlideover
         v-model:open="formOpen"

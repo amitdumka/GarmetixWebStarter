@@ -78,6 +78,7 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 
 ## Purchase
 
+- [x] Stage 8A Package 6 UI pass: shared retryable Purchase/Purchase Return registers, status filtering, wide return workspace, and timezone-neutral local date handling.
 - [x] Purchase invoice list and detail/print view. Added `/api/purchase/invoices/recent`, receipt/PDF endpoints, and Purchase page view/print/download modal.
 - [x] Purchase return/cancellation with stock reversal. Added cancel endpoint that reverses inward stock and purchase accounting posting.
 - [x] Vendor payment voucher creation from purchase payment. Added purchase invoice payment-voucher endpoint and Purchase page Pay action that creates regular vendor payment vouchers with accounting posting.

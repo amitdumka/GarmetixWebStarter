@@ -1,14 +1,14 @@
-export const APP_VERSION = '4.0.3'
+export const APP_VERSION = '4.0.4'
 export const APP_STAGE = 'Stage 8A'
-export const APP_RELEASE_NAME = 'Billing and Sales Return UI Standardization'
+export const APP_RELEASE_NAME = 'Purchase UI and Local Date Correction'
 export const APP_BUILD_DATE = '2026-06-13'
-export const APP_BUILD_CODE = 'GARMETIX-8A-20260613-4003'
+export const APP_BUILD_CODE = 'GARMETIX-8A-20260613-4004'
 
 export const APP_HIGHLIGHTS = [
-  'Billing now uses the shared Stage 8 register with retry, loading, empty, search and invoice-status filtering.',
-  'The invoice workflow retains its extra-wide workspace for products, customer adjustments and split payments.',
-  'Sales Return now uses a searchable responsive register and a wider item-return workspace.',
-  'Non-cash sales-return refunds require and post the selected bank account.',
-  'UI audit progress migrates from v4.0.2 and marks Billing and Sales Return reviewed without discarding notes.',
+  'Petty Cash now preserves the exact selected local date when creating or editing a sheet.',
+  'Purchase and Purchase Return date defaults no longer drift through UTC conversion.',
+  'Purchase uses the shared Stage 8 register with retry, search, status filters and responsive table handling.',
+  'Purchase Return uses a searchable responsive register and an extra-wide item-return workspace.',
+  'UI audit progress migrates from v4.0.3 and marks Purchase and Purchase Return reviewed without discarding notes.',
   'Frontend, backend, npm package and .NET assembly versions are synchronized for every release.'
 ]

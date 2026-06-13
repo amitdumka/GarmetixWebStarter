@@ -6,6 +6,7 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 
 ## Fixed
 
+- [x] Petty Cash create/edit changed a selected local date to the previous day in positive UTC-offset time zones. Removed UTC `toISOString()` conversion from the selected date, added local calendar defaults, and verified the June 13 form separately carries the June 12 closing balance.
 - [x] Petty-cash A5 printing was clipped after the first income/payment row and did not preserve report colors. Replaced modal-page printing with an isolated A5 landscape document containing all sheet values, totals, reconciliation, company/store identity, audit details, and signatures with exact print colors.
 - [x] Petty-cash save returned HTTP 500 after persisting the sheet when a reconciliation log contained nullable fields. Message-log inserts now use explicitly typed database parameters, and alert logging/email failure no longer invalidates a successful sheet save.
 - [x] Petty-cash opening balance, transaction pre-calculation, mismatch alerting, A5 printing, and latest cash-in-hand behavior were missing. Replaced generic CRUD with a dedicated daily-cash workflow and validated backend/frontend builds on 2026-06-12.

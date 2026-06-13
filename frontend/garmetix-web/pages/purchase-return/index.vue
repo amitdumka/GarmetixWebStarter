@@ -1,13 +1,20 @@
 <script setup lang="ts">
+import { h, resolveComponent } from 'vue'
+import type { TableColumn } from '@nuxt/ui'
+
 const api = useGarmetixApi()
 const auth = useAuth()
 const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
 
+const UBadge = resolveComponent('UBadge')
+const UButton = resolveComponent('UButton')
+
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const invoices = ref<any[]>([])
 const loading = ref(false)
+const loadError = ref('')
 const saving = ref(false)
 const returnLoading = ref(false)
 const search = ref('')
@@ -15,7 +22,7 @@ const returnOpen = ref(false)
 const pendingInvoice = ref<any | null>(null)
 const returnInvoice = ref<any | null>(null)
 const reason = ref('Partial purchase return')
-const returnDate = ref(new Date().toISOString().slice(0, 10))
+const returnDate = ref(localDateInput())
 const returnRows = ref<any[]>([])
 
 const filteredInvoices = computed(() => {
@@ -33,6 +40,43 @@ const selectedReturnRows = computed(() => returnRows.value
   .map((row) => ({ ...row, returnQuantity: decimal(row.returnQuantity) }))
   .filter((row) => row.returnQuantity > 0))
 
+const tableRows = computed(() => filteredInvoices.value.map((invoice) => ({
+  id: invoice.id,
+  invoiceNumber: invoice.invoiceNumber || '-',
+  inwardNumber: invoice.inwardNumber || '-',
+  onDate: formatDate(invoice.onDate || invoice.inwardDate),
+  vendorName: invoice.vendorName || 'Vendor',
+  billAmount: money(invoice.billAmount || invoice.totalAmount || invoice.netAmount),
+  balanceAmount: money(invoice.balanceAmount || 0),
+  invoiceStatus: invoice.invoiceStatus || 'Saved',
+  raw: invoice
+})))
+
+const columns: TableColumn<any>[] = [
+  { accessorKey: 'invoiceNumber', header: 'Invoice' },
+  { accessorKey: 'inwardNumber', header: 'Inward' },
+  { accessorKey: 'onDate', header: 'Date' },
+  { accessorKey: 'vendorName', header: 'Vendor' },
+  { accessorKey: 'billAmount', header: 'Amount' },
+  { accessorKey: 'balanceAmount', header: 'Balance' },
+  {
+    accessorKey: 'invoiceStatus',
+    header: 'Status',
+    cell: ({ row }) => h(UBadge, { color: 'success', variant: 'subtle' }, () => row.original.invoiceStatus)
+  },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => h(UButton, {
+      icon: 'i-lucide-undo-2',
+      color: 'warning',
+      variant: 'subtle',
+      label: 'Return Items',
+      onClick: () => openReturn(row.original.raw)
+    })
+  }
+]
+
 const returnSummary = computed(() => {
   return selectedReturnRows.value.reduce((summary, row) => {
     const quantity = Math.min(row.returnQuantity, decimal(row.returnableQuantity))
@@ -47,6 +91,7 @@ const returnSummary = computed(() => {
 async function refresh() {
   if (!auth.isAuthenticated.value) return
   loading.value = true
+  loadError.value = ''
   try {
     const [companyRows, storeRows, invoiceRows] = await Promise.all([
       api.list<any>('companies'),
@@ -57,6 +102,7 @@ async function refresh() {
     stores.value = storeRows
     invoices.value = invoiceRows
   } catch (error) {
+    loadError.value = feedback.cleanMessage(error instanceof Error ? error.message : 'Please check the service and try again.')
     feedback.failed('Could not load purchase returns', error)
   } finally {
     loading.value = false
@@ -66,7 +112,7 @@ async function refresh() {
 async function openReturn(invoice: any) {
   pendingInvoice.value = invoice
   reason.value = 'Partial purchase return'
-  returnDate.value = new Date().toISOString().slice(0, 10)
+  returnDate.value = localDateInput()
   returnRows.value = []
   returnInvoice.value = null
   returnOpen.value = true
@@ -114,7 +160,7 @@ async function submitReturn() {
     const response = await api.create<any>(`purchase/invoices/${pendingInvoice.value.id}/partial-return`, {
       items,
       reason: reason.value || 'Partial purchase return',
-      returnDate: returnDate.value ? new Date(returnDate.value).toISOString() : null
+      returnDate: returnDate.value ? `${returnDate.value}T00:00:00` : null
     })
     feedback.notify('Purchase return saved', `Debit note ${response.debitNoteNumber || ''} created for ${money(response.returnAmount || 0)}.`, 'success')
     pendingInvoice.value = null
@@ -146,12 +192,26 @@ function formatDate(value: string) {
   return value ? new Date(value).toLocaleDateString('en-IN') : '-'
 }
 
+function localDateInput(date = new Date()) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 onMounted(refresh)
 </script>
 
 <template>
   <AuthScreen v-if="!isAuthenticated" @authenticated="refresh" />
-  <AppShell v-else title="Purchase Return" :companies="companies" :stores="stores" @refresh="refresh">
+  <AppShell
+    v-else
+    title="Purchase Return"
+    :companies="companies"
+    :stores="stores"
+    @refresh="refresh"
+    @workspace-change="refresh"
+  >
     <section class="planner-dashboard">
       <UiModulePageHeader
         title="Purchase Return / Debit Note"
@@ -160,61 +220,34 @@ onMounted(refresh)
       >
         <template #actions>
           <UBadge color="neutral" variant="subtle">{{ filteredInvoices.length }} returnable purchases</UBadge>
-          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
         </template>
       </UiModulePageHeader>
 
-      <UCard class="planner-card">
-        <template #header>
-          <div class="planner-card-header">
-            <div>
-              <h2>Returnable Purchase Invoices</h2>
-              <p>Select an inward invoice and return only the selected items/quantities.</p>
-            </div>
-            <UInput v-model="search" icon="i-lucide-search" placeholder="Search invoice, inward, or supplier" />
-          </div>
+      <UiRegisterPanel
+        title="Returnable Purchase Invoices"
+        :description="`${tableRows.length} purchases available for item-wise return`"
+        :loading="loading"
+        :error="loadError"
+        :empty="tableRows.length === 0"
+        :empty-title="search ? 'No matching returnable purchases' : 'No returnable purchase invoices'"
+        :empty-description="search ? 'Change the invoice, inward, or supplier search.' : 'Purchase inward invoices will appear here for item-wise return processing.'"
+        empty-icon="i-lucide-undo-2"
+        @retry="refresh"
+      >
+        <template #actions>
+          <UiCrudToolbar
+            v-model:search="search"
+            search-placeholder="Search invoice, inward, or supplier"
+            :loading="loading"
+            refresh-label="Sync"
+            @refresh="refresh"
+          />
         </template>
 
-        <div v-if="filteredInvoices.length" class="simple-table-wrap">
-          <table class="simple-table">
-            <thead>
-              <tr>
-                <th>Invoice</th>
-                <th>Inward</th>
-                <th>Date</th>
-                <th>Vendor</th>
-                <th>Amount</th>
-                <th>Balance</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="invoice in filteredInvoices" :key="invoice.id">
-                <td>{{ invoice.invoiceNumber || '-' }}</td>
-                <td>{{ invoice.inwardNumber || '-' }}</td>
-                <td>{{ formatDate(invoice.onDate || invoice.inwardDate) }}</td>
-                <td>{{ invoice.vendorName || 'Vendor' }}</td>
-                <td>{{ money(invoice.billAmount || invoice.totalAmount || invoice.netAmount) }}</td>
-                <td>{{ money(invoice.balanceAmount || 0) }}</td>
-                <td><UBadge color="success" variant="subtle">{{ invoice.invoiceStatus || 'Saved' }}</UBadge></td>
-                <td class="text-right">
-                  <UButton icon="i-lucide-undo-2" color="warning" variant="subtle" label="Return Items" @click="openReturn(invoice)" />
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="planner-table-wrap">
+          <UTable :data="tableRows" :columns="columns" />
         </div>
-
-        <UiCrudEmptyState
-          v-else
-          title="No returnable purchase invoices"
-          description="Purchase inward invoices will appear here for item-wise return processing."
-          icon="i-lucide-undo-2"
-          action-label="Refresh"
-          @action="refresh"
-        />
-      </UCard>
+      </UiRegisterPanel>
 
       <UiFormSlideover
         v-model:open="returnOpen"
@@ -222,7 +255,7 @@ onMounted(refresh)
         :description="`Return selected items from ${pendingInvoice?.invoiceNumber || 'purchase invoice'} and create a vendor debit note.`"
         submit-label="Save Purchase Return"
         layout="modal"
-        content-class="w-[calc(100vw-2rem)] sm:max-w-6xl"
+        content-class="w-[calc(100vw-2rem)] sm:max-w-6xl xl:max-w-7xl"
         :loading="saving"
         @submit="submitReturn"
       >
@@ -239,23 +272,11 @@ onMounted(refresh)
             description="Only selected quantities will be reversed from stock. The original purchase invoice values remain for audit history, and a debit note is created for the return value."
           />
 
-          <div class="grid gap-3 md:grid-cols-4">
-            <UCard variant="subtle">
-              <p class="text-xs text-muted">Supplier</p>
-              <p class="font-semibold">{{ returnInvoice?.vendorName || pendingInvoice?.vendorName || '-' }}</p>
-            </UCard>
-            <UCard variant="subtle">
-              <p class="text-xs text-muted">Invoice</p>
-              <p class="font-semibold">{{ returnInvoice?.invoiceNumber || pendingInvoice?.invoiceNumber || '-' }}</p>
-            </UCard>
-            <UCard variant="subtle">
-              <p class="text-xs text-muted">Original Amount</p>
-              <p class="font-semibold">{{ money(returnInvoice?.billAmount || pendingInvoice?.billAmount || 0) }}</p>
-            </UCard>
-            <UCard variant="subtle">
-              <p class="text-xs text-muted">Return Amount</p>
-              <p class="font-semibold">{{ money(returnSummary.amount) }}</p>
-            </UCard>
+          <div class="payroll-summary">
+            <span>Supplier</span><strong>{{ returnInvoice?.vendorName || pendingInvoice?.vendorName || '-' }}</strong>
+            <span>Invoice</span><strong>{{ returnInvoice?.invoiceNumber || pendingInvoice?.invoiceNumber || '-' }}</strong>
+            <span>Original amount</span><strong>{{ money(returnInvoice?.billAmount || pendingInvoice?.billAmount || 0) }}</strong>
+            <span>Return amount</span><strong>{{ money(returnSummary.amount) }}</strong>
           </div>
 
           <div class="grid gap-3 md:grid-cols-[1fr_180px]">
@@ -269,7 +290,7 @@ onMounted(refresh)
 
           <div class="flex flex-wrap items-center justify-between gap-2">
             <div class="text-sm text-muted">
-              Selected Qty: <strong>{{ returnSummary.quantity.toFixed(2) }}</strong> · Taxable: <strong>{{ money(returnSummary.taxable) }}</strong> · Tax: <strong>{{ money(returnSummary.tax) }}</strong>
+              Selected Qty: <strong>{{ returnSummary.quantity.toFixed(2) }}</strong> | Taxable: <strong>{{ money(returnSummary.taxable) }}</strong> | Tax: <strong>{{ money(returnSummary.tax) }}</strong>
             </div>
             <div class="flex gap-2">
               <UButton color="neutral" variant="subtle" icon="i-lucide-check-check" label="Return All Available" @click="selectAllReturnable" />
@@ -295,7 +316,7 @@ onMounted(refresh)
                 <tr v-for="row in returnRows" :key="row.itemId">
                   <td>
                     <div class="font-medium">{{ row.productName || 'Item' }}</div>
-                    <div class="text-xs text-muted">Unit: {{ row.unit || '-' }} · Tax {{ row.taxPercentage || 0 }}%</div>
+                    <div class="text-xs text-muted">Unit: {{ row.unit || '-' }} | Tax {{ row.taxPercentage || 0 }}%</div>
                   </td>
                   <td>
                     <div>{{ row.barcode || '-' }}</div>

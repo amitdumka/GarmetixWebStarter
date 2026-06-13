@@ -180,7 +180,7 @@ function emptySheet() {
   return {
     id: '',
     storeId: '',
-    onDate: new Date().toISOString().slice(0, 10),
+    onDate: localDateInput(),
     openingBalance: 0,
     sales: 0,
     receipts: 0,
@@ -282,7 +282,7 @@ function buildPayload() {
 
   const payload: any = {
     storeId: form.storeId,
-    onDate: new Date(`${form.onDate}T00:00:00`).toISOString(),
+    onDate: `${form.onDate}T00:00:00`,
     openingBalance: Number(form.openingBalance || 0),
     sales: Number(form.sales || 0),
     receipts: Number(form.receipts || 0),
@@ -798,6 +798,13 @@ function roundMoney(value: number) {
 
 function formatDate(value: string) {
   return value ? new Date(value).toLocaleDateString() : '-'
+}
+
+function localDateInput(date = new Date()) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function money(value: number) {
