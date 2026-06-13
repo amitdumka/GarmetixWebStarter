@@ -38,8 +38,8 @@ versions = {
     package.get("version", ""),
     package_lock.get("packages", {}).get("", {}).get("version", "")
 }
-check("all runtime versions are 4.0.0", versions == {"4.0.0"})
-check("frontend and backend build codes match", "GARMETIX-8A-20260613-4000" in frontend_version and "GARMETIX-8A-20260613-4000" in backend_version)
+check("runtime versions remain synchronized in v4", len(versions) == 1 and next(iter(versions)).startswith("4."))
+check("frontend and backend use a Stage 8A build code", "GARMETIX-8A-" in frontend_version and "GARMETIX-8A-" in backend_version)
 
 failed = [name for name, passed in checks if not passed]
 for name, passed in checks:

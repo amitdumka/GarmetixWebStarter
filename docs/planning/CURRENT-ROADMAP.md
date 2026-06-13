@@ -4,10 +4,10 @@ Updated: 2026-06-13
 
 ## Current Baseline
 
-- Version: 4.0.0
+- Version: 4.0.1
 - Stage: Stage 8A
-- Release: UI Audit and Register Standardization
-- Build code: `GARMETIX-8A-20260613-4000`
+- Release: Party and Voucher Register Standardization
+- Build code: `GARMETIX-8A-20260613-4001`
 - Branch: `Version3.0`
 - Pre-Stage 8 baseline commit: `470ba2e`
 
@@ -33,6 +33,7 @@ Stage 7M menu names, route compatibility, permission-aware navigation, Off Book 
 
 - [x] Package 1: make `/ui-audit` persistent/actionable and standardize the Credit Note and Debit Note registers with shared loading, error, empty, search, action, and responsive behavior.
 - [x] Package 2: standardize Commercial Notes and Customers, restore hidden primary actions, and synchronize all runtime version sources to v4.0.0.
+- [x] Package 3: standardize Parties and Vouchers, add retained sanitized errors, expose both party create actions, add voucher-type filtering, and migrate audit progress to v4.0.1.
 - [ ] Complete every page in the `/ui-audit` queue.
 - [ ] Standardize page headers, filters, tables, actions, loading, error, and empty states.
 - [ ] Move large invoice, voucher, employee, purchase, payroll, and other master-detail forms to full pages or wide workspaces.

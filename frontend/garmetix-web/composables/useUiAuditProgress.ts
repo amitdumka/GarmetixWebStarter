@@ -11,11 +11,22 @@ type AuditRoute = {
   module: string
 }
 
-const STORAGE_KEY = 'garmetix.ui-audit.v4.0.0'
+const STORAGE_KEY = 'garmetix.ui-audit.v4.0.1'
+const PREVIOUS_STORAGE_KEYS = ['garmetix.ui-audit.v4.0.0']
+const REVIEWED_ROUTES = [
+  '/system-info',
+  '/ui-audit',
+  '/credit-notes',
+  '/debit-notes',
+  '/commercial-notes',
+  '/customers',
+  '/parties',
+  '/vouchers'
+]
 
 function defaultStatus(route: AuditRoute): UiAuditStatus {
   return route.module === 'Dashboards'
-    || ['/system-info', '/ui-audit', '/credit-notes', '/debit-notes', '/commercial-notes', '/customers'].includes(route.path)
+    || REVIEWED_ROUTES.includes(route.path)
     ? 'reviewed'
     : 'pending'
 }
@@ -39,6 +50,17 @@ export function useUiAuditProgress() {
           note: '',
           reviewedAt: status === 'reviewed' ? new Date().toISOString() : undefined
         }
+      } else if (
+        defaultStatus(route) === 'reviewed'
+        && next[route.path].status === 'pending'
+        && !next[route.path].note
+        && !next[route.path].reviewedAt
+      ) {
+        next[route.path] = {
+          ...next[route.path],
+          status: 'reviewed',
+          reviewedAt: new Date().toISOString()
+        }
       }
     }
     entries.value = next
@@ -47,7 +69,10 @@ export function useUiAuditProgress() {
   function hydrate(routes: AuditRoute[]) {
     if (import.meta.client && !hydrated.value) {
       try {
-        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
+        const stored = localStorage.getItem(STORAGE_KEY)
+          || PREVIOUS_STORAGE_KEYS.map((key) => localStorage.getItem(key)).find(Boolean)
+          || '{}'
+        const saved = JSON.parse(stored)
         if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
           entries.value = saved
         }

@@ -27,6 +27,8 @@ const saving = ref(false)
 const deleting = ref(false)
 const downloadingPdf = ref(false)
 const search = ref('')
+const voucherTypeFilter = ref('all')
+const loadError = ref('')
 const formOpen = ref(false)
 const deleteOpen = ref(false)
 const selectedPrintVoucher = ref<any | null>(null)
@@ -103,11 +105,12 @@ const printOpen = computed({
 
 const filteredRows = computed(() => {
   const term = search.value.trim().toLowerCase()
-  if (!term) {
-    return tableRows.value
-  }
-
-  return tableRows.value.filter((row) => JSON.stringify(row).toLowerCase().includes(term))
+  return tableRows.value.filter((row) => {
+    const matchesType = voucherTypeFilter.value === 'all'
+      || String(row.raw.voucherType) === voucherTypeFilter.value
+    const matchesSearch = !term || JSON.stringify(row).toLowerCase().includes(term)
+    return matchesType && matchesSearch
+  })
 })
 
 const voucherSummary = computed(() => {
@@ -253,6 +256,7 @@ async function refresh() {
   }
 
   loading.value = true
+  loadError.value = ''
   try {
     setupStatus.value = await api.get<any>('setup/status')
     const query = new URLSearchParams()
@@ -290,6 +294,7 @@ async function refresh() {
       bankAccounts.value = refreshedBankAccounts
     }
   } catch (error) {
+    loadError.value = feedback.cleanMessage(error instanceof Error ? error.message : 'Please check the service and try again.')
     feedback.failed('Vouchers refresh failed', error)
   } finally {
     loading.value = false
@@ -616,7 +621,6 @@ watch(() => form.paymentMode, () => {
           <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
             {{ loading ? 'Loading' : `${vouchers.length} vouchers` }}
           </UBadge>
-          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
           <UButton icon="i-lucide-plus" label="New Voucher" @click="startCreate" />
         </template>
       </UiModulePageHeader>
@@ -634,43 +638,47 @@ watch(() => form.paymentMode, () => {
         </UCard>
       </div>
 
-      <UCard class="planner-card">
-        <template #header>
-          <div class="planner-card-header">
-            <div>
-              <h2>Voucher Register</h2>
-              <p>Search voucher number, party name, particulars, or payment mode.</p>
-            </div>
-            <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
-          </div>
+      <UiRegisterPanel
+        title="Voucher Register"
+        :description="`${filteredRows.length} of ${vouchers.length} vouchers`"
+        :loading="loading"
+        :error="loadError"
+        :empty="filteredRows.length === 0"
+        :empty-title="search || voucherTypeFilter !== 'all' ? 'No matching vouchers' : 'No vouchers yet'"
+        :empty-description="search || voucherTypeFilter !== 'all' ? 'Change the search or voucher-type filter.' : 'Create the first payment, receipt, or expense voucher.'"
+        empty-icon="i-lucide-banknote"
+        @retry="refresh"
+      >
+        <template #actions>
+          <UiCrudToolbar
+            v-model:search="search"
+            search-placeholder="Search voucher, party, particulars"
+            :loading="loading"
+            refresh-label="Sync"
+            create-label="New Voucher"
+            @refresh="refresh"
+            @create="startCreate"
+          >
+            <template #filters>
+              <USelect
+                v-model="voucherTypeFilter"
+                :items="[
+                  { label: 'All vouchers', value: 'all' },
+                  { label: 'Payments', value: '0' },
+                  { label: 'Receipts', value: '1' },
+                  { label: 'Expenses', value: '2' }
+                ]"
+                aria-label="Filter voucher type"
+                class="min-w-36"
+              />
+            </template>
+          </UiCrudToolbar>
         </template>
 
-        <UiCrudToolbar
-          v-model:search="search"
-          search-placeholder="Search voucher, party, particulars"
-          :loading="loading"
-          refresh-label="Sync"
-          create-label="New Voucher"
-          @refresh="refresh"
-          @create="startCreate"
-        />
-
-        <UTable
-          v-if="filteredRows.length"
-          :data="filteredRows"
-          :columns="columns"
-          :loading="loading"
-        />
-
-        <UiCrudEmptyState
-          v-else
-          title="No vouchers found"
-          description="Create the first payment, receipt, or expense voucher."
-          icon="i-lucide-banknote"
-          action-label="New Voucher"
-          @action="startCreate"
-        />
-      </UCard>
+        <div class="planner-table-wrap">
+          <UTable :data="filteredRows" :columns="columns" />
+        </div>
+      </UiRegisterPanel>
 
       <UiFormSlideover
         v-model:open="formOpen"

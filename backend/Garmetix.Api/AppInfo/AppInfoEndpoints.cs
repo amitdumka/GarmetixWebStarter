@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.0.0";
+    public const string Version = "4.0.1";
     public const string Stage = "Stage 8A";
-    public const string ReleaseName = "UI Audit and Register Standardization";
+    public const string ReleaseName = "Party and Voucher Register Standardization";
     public const string BuildDate = "2026-06-13";
-    public const string BuildCode = "GARMETIX-8A-20260613-4000";
+    public const string BuildCode = "GARMETIX-8A-20260613-4001";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,11 +81,11 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
-        "The UI audit is now an actionable page queue with persistent status, notes, filters and direct navigation.",
-        "Shared register states provide consistent loading, error, retry and empty experiences.",
-        "Credit Note, Debit Note, Commercial Note and Customer registers use the Stage 8 responsive layout.",
-        "Primary create actions remain visible when pages also provide secondary header actions.",
-        "Accounting and customer tables use searchable registers, aligned values and responsive action groups.",
+        "Party and Voucher registers now use the shared Stage 8 loading, error, retry and empty-state layout.",
+        "Customer and Vendor creation actions remain visible together in the Party page header.",
+        "Voucher registers support Payment, Receipt and Expense filtering alongside full-text search.",
+        "Register errors are sanitized for users while detailed failures remain available in Message Log.",
+        "UI audit progress migrates from v4.0.0 and marks Parties and Vouchers reviewed without discarding notes.",
         "Frontend, backend, npm package and .NET assembly versions are synchronized for every release."
     ];
 

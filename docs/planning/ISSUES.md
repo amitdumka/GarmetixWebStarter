@@ -29,6 +29,7 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 - [ ] `GET /api/dashboard/home` is mapped in a way that discards its `DashboardHomeDto`; the live endpoint can return HTTP 200 with an empty body.
 - [ ] Backend Release build has nullable warnings in purchase receipt mapping and data-consistency number handling.
 - [ ] Nuxt production build succeeds but external font metadata providers can fail certificate validation and produce noisy fallback warnings.
+- [ ] Authenticated Nuxt pages log `Hydration completed but contains mismatches`; the current register workflows render and operate correctly, but the shared SSR/auth shell needs a dedicated hydration audit.
 - [ ] Clean Docker install, fresh database migration, permissions matrix, and backup/restore drill remain pending.
 
 ## FIXED - Database schema repair raw SQL FormatException
