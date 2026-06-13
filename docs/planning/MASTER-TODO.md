@@ -262,6 +262,7 @@ Use this file as the running handoff checklist. When a task is completed, mark i
   - [x] Package 1: persistent UI audit queue and standardized Credit Note / Debit Note registers.
   - [x] Package 2: standardized Commercial Notes / Customers and synchronized runtime identity to v4.0.0.
   - [x] Package 3: standardized Parties / Vouchers, added voucher-type filtering and sanitized retryable register errors, and synchronized runtime identity to v4.0.1.
+  - [x] Package 4: standardized Loyalty / Petty Cash, preserved daily-cash automation and A5 printing, and synchronized runtime identity to v4.0.2.
 - [ ] Complete Stage 8B role, permission, and user-administration hardening.
 - [ ] Complete Stage 8C purchase return and vendor settlement.
 - [ ] Complete Stage 8D inventory documents and valuation.

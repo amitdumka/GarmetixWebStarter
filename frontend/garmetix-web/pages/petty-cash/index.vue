@@ -17,6 +17,7 @@ const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const sheets = ref<any[]>([])
 const loading = ref(false)
+const loadError = ref('')
 const saving = ref(false)
 const deleting = ref(false)
 const calculating = ref(false)
@@ -201,6 +202,7 @@ async function refresh() {
   }
 
   loading.value = true
+  loadError.value = ''
   try {
     const [companyRows, storeRows, sheetRows] = await Promise.all([
       api.list<any>('companies'),
@@ -214,6 +216,7 @@ async function refresh() {
     stores.value = storeRows
     sheets.value = sheetRows.sort((a, b) => String(b.onDate).localeCompare(String(a.onDate)))
   } catch (error) {
+    loadError.value = feedback.cleanMessage(error instanceof Error ? error.message : 'Please check the service and try again.')
     feedback.failed('Petty cash refresh failed', error)
   } finally {
     loading.value = false
@@ -883,7 +886,6 @@ watch(workspace.storeId, (value, previous) => {
           <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
             {{ loading ? 'Loading' : `${sheets.length} sheets` }}
           </UBadge>
-          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
           <UButton icon="i-lucide-plus" label="New Sheet" @click="startCreate" />
         </template>
       </UiModulePageHeader>
@@ -901,43 +903,33 @@ watch(workspace.storeId, (value, previous) => {
         </UCard>
       </div>
 
-      <UCard class="planner-card">
-        <template #header>
-          <div class="planner-card-header">
-            <div>
-              <h2>Cash Register</h2>
-              <p>Search by store, date, or creator and review daily cash position.</p>
-            </div>
-            <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
-          </div>
+      <UiRegisterPanel
+        title="Cash Register"
+        :description="`${filteredRows.length} of ${sheets.length} daily cash sheets`"
+        :loading="loading"
+        :error="loadError"
+        :empty="filteredRows.length === 0"
+        :empty-title="search ? 'No matching cash sheets' : 'No petty cash sheets yet'"
+        :empty-description="search ? 'Try a different store, date, amount, or cash value.' : 'Create the first daily cash sheet for a store.'"
+        empty-icon="i-lucide-wallet"
+        @retry="refresh"
+      >
+        <template #actions>
+          <UiCrudToolbar
+            v-model:search="search"
+            search-placeholder="Search store, date, or amount"
+            :loading="loading"
+            refresh-label="Sync"
+            create-label="New Sheet"
+            @refresh="refresh"
+            @create="startCreate"
+          />
         </template>
 
-        <UiCrudToolbar
-          v-model:search="search"
-          search-placeholder="Search store or date"
-          :loading="loading"
-          refresh-label="Sync"
-          create-label="New Sheet"
-          @refresh="refresh"
-          @create="startCreate"
-        />
-
-        <UTable
-          v-if="filteredRows.length"
-          :data="filteredRows"
-          :columns="columns"
-          :loading="loading"
-        />
-
-        <UiCrudEmptyState
-          v-else
-          title="No petty cash sheets found"
-          description="Create the first daily cash sheet for a store."
-          icon="i-lucide-wallet"
-          action-label="New Sheet"
-          @action="startCreate"
-        />
-      </UCard>
+        <div class="planner-table-wrap">
+          <UTable :data="filteredRows" :columns="columns" />
+        </div>
+      </UiRegisterPanel>
 
       <UiFormSlideover
         v-model:open="formOpen"
@@ -945,6 +937,7 @@ watch(workspace.storeId, (value, previous) => {
         :title="editMode === 'create' ? 'New Petty Cash Sheet' : 'Edit Petty Cash Sheet'"
         description="Enter daily cash in, cash out, and calculated cash in hand."
         :submit-label="editMode === 'create' ? 'Save Sheet' : 'Update Sheet'"
+        content-class="w-[calc(100vw-2rem)] sm:max-w-4xl lg:max-w-5xl"
         :loading="saving"
         @submit="saveSheet"
       >
