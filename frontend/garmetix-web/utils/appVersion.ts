@@ -1,10 +1,14 @@
-export const APP_VERSION = '4.0.9'
+export const APP_VERSION = '4.0.10'
 export const APP_STAGE = 'Stage 8A'
-export const APP_RELEASE_NAME = 'Product Save and Persistent Message Logging'
+export const APP_RELEASE_NAME = 'Off Book Cash Voucher UI Hardening'
 export const APP_BUILD_DATE = '2026-06-14'
-export const APP_BUILD_CODE = 'GARMETIX-8A-20260614-4009'
+export const APP_BUILD_CODE = 'GARMETIX-8A-20260614-4010'
 
 export const APP_HIGHLIGHTS = [
+  'Cash Voucher register now retains load failures with direct retry behavior and a voucher-type filter.',
+  'Cash Voucher create and edit dates now preserve the selected local calendar date without UTC conversion.',
+  'Cash Voucher entry remains a wide workspace and continues to stay completely outside ledgers, journals, banks and regular vouchers.',
+  'Browser console errors and warnings are now persisted in Message Logs with page context.',
   'Product Master create and edit transactions now run inside the configured PostgreSQL retry execution strategy.',
   'Unhandled API exceptions are saved with trace and stack details while users receive a safe operation reference.',
   'Failed API responses and successful state-changing API requests are persisted automatically in Message Logs.',

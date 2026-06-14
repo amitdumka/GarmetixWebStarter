@@ -22,10 +22,12 @@ const employees = ref<any[]>([])
 const cashVouchers = ref<any[]>([])
 const setupStatus = ref<any | null>(null)
 const loading = ref(false)
+const loadError = ref('')
 const saving = ref(false)
 const deleting = ref(false)
 const downloadingPdf = ref(false)
 const search = ref('')
+const voucherTypeFilter = ref('__all__')
 const formOpen = ref(false)
 const deleteOpen = ref(false)
 const pendingDelete = ref<any | null>(null)
@@ -39,6 +41,10 @@ const voucherTypeOptions = [
   { value: 0, label: 'Payment' },
   { value: 1, label: 'Receipt' },
   { value: 2, label: 'Expense' }
+]
+const voucherTypeFilterOptions = [
+  { value: '__all__', label: 'All voucher types' },
+  ...voucherTypeOptions
 ]
 
 const form = reactive<any>(emptyCashVoucher())
@@ -87,9 +93,12 @@ const tableRows = computed(() => cashVouchers.value.map((voucher) => ({
 
 const filteredRows = computed(() => {
   const term = search.value.trim().toLowerCase()
-  return term
-    ? tableRows.value.filter((row) => JSON.stringify(row).toLowerCase().includes(term))
-    : tableRows.value
+  return tableRows.value.filter((row) => {
+    const matchesSearch = !term || JSON.stringify(row).toLowerCase().includes(term)
+    const matchesType = voucherTypeFilter.value === '__all__'
+      || Number(row.raw.voucherType) === Number(voucherTypeFilter.value)
+    return matchesSearch && matchesType
+  })
 })
 
 const summary = computed(() => cashVouchers.value.reduce((result, voucher) => {
@@ -182,7 +191,7 @@ function emptyCashVoucher() {
   return {
     id: '',
     voucherNumber: createVoucherNumber(),
-    onDate: new Date().toISOString().slice(0, 10),
+    onDate: localDateValue(),
     voucherType: 0,
     transactionId: null,
     partyName: '',
@@ -195,7 +204,7 @@ function emptyCashVoucher() {
 }
 
 function createVoucherNumber() {
-  const stamp = new Date().toISOString().slice(0, 10).replaceAll('-', '')
+  const stamp = localDateValue().replaceAll('-', '')
   return `CV-${stamp}-${String(Date.now()).slice(-4)}`
 }
 
@@ -203,6 +212,7 @@ async function refresh() {
   if (!auth.isAuthenticated.value) return
 
   loading.value = true
+  loadError.value = ''
   try {
     setupStatus.value = await api.get<any>('setup/status')
     const query = new URLSearchParams()
@@ -234,6 +244,7 @@ async function refresh() {
       transactions.value = await api.list<any>('transactions')
     }
   } catch (error) {
+    loadError.value = 'Cash voucher records could not be loaded. Check the selected workspace and try again.'
     feedback.failed('Cash vouchers refresh failed', error)
   } finally {
     loading.value = false
@@ -252,7 +263,7 @@ function startEdit(voucher: any) {
   editMode.value = 'edit'
   Object.assign(form, {
     ...voucher,
-    onDate: String(voucher.onDate || new Date().toISOString()).slice(0, 10),
+    onDate: dateInputValue(voucher.onDate),
     transaction: null,
     employee: null,
     ledger: null,
@@ -452,7 +463,26 @@ function normalizeGuid(value: unknown) {
 }
 
 function formatDate(value: string) {
-  return value ? new Date(value).toLocaleDateString('en-IN') : '-'
+  const date = parseLocalDate(value)
+  return date ? date.toLocaleDateString('en-IN') : '-'
+}
+
+function localDateValue(date = new Date()) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function dateInputValue(value: unknown) {
+  const text = String(value || '')
+  return /^\d{4}-\d{2}-\d{2}/.test(text) ? text.slice(0, 10) : localDateValue()
+}
+
+function parseLocalDate(value: unknown) {
+  const text = dateInputValue(value)
+  const [year, month, day] = text.split('-').map(Number)
+  return year && month && day ? new Date(year, month - 1, day) : null
 }
 
 function money(value: number) {
@@ -522,15 +552,19 @@ onMounted(async () => {
         </UCard>
       </div>
 
-      <UCard class="planner-card">
-        <template #header>
-          <div class="planner-card-header">
-            <div>
-              <h2>Cash Voucher Register</h2>
-              <p>Search voucher number, category, person, issuer, or particulars.</p>
-            </div>
+      <UiRegisterPanel
+        title="Cash Voucher Register"
+        description="Search voucher number, category, person, issuer, particulars, or voucher type."
+        :loading="loading"
+        :error="loadError"
+        :empty="!filteredRows.length"
+        empty-title="No cash vouchers found"
+        empty-description="Create the first independent off-book cash record."
+        empty-icon="i-lucide-wallet-cards"
+        @retry="refresh"
+      >
+        <template #actions>
             <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
-          </div>
         </template>
 
         <UiCrudToolbar
@@ -541,19 +575,19 @@ onMounted(async () => {
           create-label="New Cash Voucher"
           @refresh="refresh"
           @create="startCreate"
-        />
+        >
+          <template #filters>
+            <USelect
+              v-model="voucherTypeFilter"
+              :items="voucherTypeFilterOptions"
+              aria-label="Filter cash vouchers by type"
+              class="min-w-44"
+            />
+          </template>
+        </UiCrudToolbar>
 
         <UTable v-if="filteredRows.length" :data="filteredRows" :columns="columns" :loading="loading" />
-
-        <UiCrudEmptyState
-          v-else
-          title="No cash vouchers found"
-          description="Create the first independent off-book cash record."
-          icon="i-lucide-wallet-cards"
-          action-label="New Cash Voucher"
-          @action="startCreate"
-        />
-      </UCard>
+      </UiRegisterPanel>
 
       <UiFormSlideover
         v-model:open="formOpen"

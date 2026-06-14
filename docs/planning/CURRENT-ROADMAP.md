@@ -4,10 +4,10 @@ Updated: 2026-06-14
 
 ## Current Baseline
 
-- Version: 4.0.9
+- Version: 4.0.10
 - Stage: Stage 8A
-- Release: Product Save and Persistent Message Logging
-- Build code: `GARMETIX-8A-20260614-4009`
+- Release: Off Book Cash Voucher UI Hardening
+- Build code: `GARMETIX-8A-20260614-4010`
 - Branch: `Version3.0`
 - Pre-Stage 8 baseline commit: `470ba2e`
 
@@ -42,6 +42,7 @@ Stage 7M menu names, route compatibility, permission-aware navigation, Off Book 
 - [x] Package 9: harden Accounting and HR with server-owned Party/Bank ledger linkage, wide accounting forms, retained register errors, hidden internal party linkage, and timezone-neutral local dates in v4.0.7.
 - [x] Package 10: standardize Reports, GST Reports, Import/Export, Audit Trail, and Message Logs with retryable register states, responsive data surfaces, and local-date-safe report defaults in v4.0.8.
 - [x] Package 11: repair Product Master retryable transactions and persist API failures/write events plus frontend messages and unhandled errors in Message Logs in v4.0.9.
+- [x] Package 12: standardize Cash Vouchers with retained retry errors, type filtering, wide entry, local-date preservation, and explicit Off Book separation in v4.0.10.
 - [ ] Complete every page in the `/ui-audit` queue.
 - [ ] Standardize page headers, filters, tables, actions, loading, error, and empty states.
 - [ ] Move large invoice, voucher, employee, purchase, payroll, and other master-detail forms to full pages or wide workspaces.

@@ -20,6 +20,7 @@ This folder is the canonical home for project plans, implementation notes, valid
 - [Stage 8A Package 9 / v4.0.7 notes](stages/stage-8/Stage8A-Package9-Accounting-HR-v4.0.7-Notes.md)
 - [Stage 8A Package 10 / v4.0.8 notes](stages/stage-8/Stage8A-Package10-Reports-DataOps-v4.0.8-Notes.md)
 - [Stage 8A Package 11 / v4.0.9 notes](stages/stage-8/Stage8A-Package11-Product-MessageLogs-v4.0.9-Notes.md)
+- [Stage 8A Package 12 / v4.0.10 notes](stages/stage-8/Stage8A-Package12-CashVoucher-v4.0.10-Notes.md)
 
 ## Categories
 

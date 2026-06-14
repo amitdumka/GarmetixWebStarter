@@ -306,6 +306,8 @@ Use this file as the running handoff checklist. When a task is completed, mark i
   - [x] Package 3: standardized Parties / Vouchers, added voucher-type filtering and sanitized retryable register errors, and synchronized runtime identity to v4.0.1.
   - [x] Package 4: standardized Loyalty / Petty Cash, preserved daily-cash automation and A5 printing, and synchronized runtime identity to v4.0.2.
   - [x] Package 10: standardized reporting and data-operation registers and synchronized runtime identity to v4.0.8.
+  - [x] Package 11: repaired Product Master transactions and centralized persistent API, frontend, browser, and background-service Message Logs in v4.0.9.
+  - [x] Package 12: standardized Cash Vouchers with retained errors, type filtering, local dates, and preserved Off Book isolation in v4.0.10.
 - [ ] Complete Stage 8B role, permission, and user-administration hardening.
 - [ ] Complete Stage 8C purchase return and vendor settlement.
 - [ ] Complete Stage 8D inventory documents and valuation.
