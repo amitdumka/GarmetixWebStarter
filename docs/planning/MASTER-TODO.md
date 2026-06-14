@@ -310,6 +310,7 @@ Use this file as the running handoff checklist. When a task is completed, mark i
   - [x] Package 12: standardized Cash Vouchers with retained errors, type filtering, local dates, and preserved Off Book isolation in v4.0.10.
   - [x] Package 13: completed independent Off Book Non-GST sale, purchase, stock, settlement, server PDF, QR lookup, and regular-book exclusion in v4.0.11.
   - [x] Package 14: standardized Company Setup, Client Onboarding, AF/SS Defaults, and Roles & Users with retryable states, responsive tables, wide forms, local-date-safe setup records, and cleaned business copy in v4.0.12.
+  - [x] Package 15: standardized Production Readiness, Release Stabilization, Data Consistency, and Oracle Sync with retained failures, retry actions, loading states, responsive surfaces, and safe Oracle filter values in v4.0.13.
 - [ ] Complete Stage 8B role, permission, and user-administration hardening.
 - [ ] Complete Stage 8C purchase return and vendor settlement.
 - [ ] Complete Stage 8D inventory documents and valuation.

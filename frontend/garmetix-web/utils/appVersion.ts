@@ -1,10 +1,13 @@
-export const APP_VERSION = '4.0.12'
+export const APP_VERSION = '4.0.13'
 export const APP_STAGE = 'Stage 8A'
-export const APP_RELEASE_NAME = 'Admin Workspace Standardization'
+export const APP_RELEASE_NAME = 'Maintenance Workspace Standardization'
 export const APP_BUILD_DATE = '2026-06-14'
-export const APP_BUILD_CODE = 'GARMETIX-8A-20260614-4012'
+export const APP_BUILD_CODE = 'GARMETIX-8A-20260614-4013'
 
 export const APP_HIGHLIGHTS = [
+  'Production Readiness, Release Stabilization, Data Consistency and Oracle Sync now retain load failures with direct retry actions.',
+  'Maintenance workspaces now use shared page headers, loading skeletons, responsive data surfaces and clearer operational copy.',
+  'Oracle Sync selectors use safe internal all-value sentinels and no longer create invalid empty SelectItem values.',
   'Company Setup and Roles and Users now use retryable registers, responsive tables and wide modal workspaces.',
   'Company, store-group and store dates preserve the selected local calendar date without UTC conversion.',
   'Company Onboarding and AF/SS Defaults now provide retained load failures, retry actions and responsive loading states.',

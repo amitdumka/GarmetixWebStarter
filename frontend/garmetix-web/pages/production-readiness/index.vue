@@ -11,6 +11,9 @@ const readiness = ref<any | null>(null)
 const checklist = ref<any | null>(null)
 const loading = ref(false)
 const lastChecked = ref('')
+const loadError = ref('')
+
+useHead({ title: 'Production Readiness | Garmetix' })
 
 const statusColor = computed(() => {
   const status = readiness.value?.overallStatus
@@ -42,6 +45,7 @@ async function refresh() {
   }
 
   loading.value = true
+  loadError.value = ''
   try {
     const [summary, checklistResponse, companyRows, storeRows] = await Promise.all([
       api.get<any>('production-readiness/summary'),
@@ -55,7 +59,7 @@ async function refresh() {
     stores.value = storeRows
     lastChecked.value = new Date().toLocaleTimeString('en-IN')
   } catch (error) {
-    feedback.failed('Production readiness check failed', error)
+    loadError.value = feedback.errorMessage(error, 'Production readiness checks could not be loaded. Try again.', 'Production readiness check failed')
   } finally {
     loading.value = false
   }
@@ -80,20 +84,12 @@ onMounted(refresh)
     </div>
 
     <div v-else class="space-y-6">
-      <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div class="space-y-3">
-            <div class="flex items-center gap-3">
-              <UIcon :name="statusIcon" class="h-8 w-8 text-primary" />
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Production readiness</p>
-                <h1 class="text-2xl font-bold text-slate-950 dark:text-white">Production environment hardening</h1>
-              </div>
-            </div>
-            <p class="max-w-3xl text-sm text-slate-500 dark:text-slate-400">
-              Checks secrets, CORS, public URLs, SMTP, backups, off-site backup, Oracle auto-apply safety, reverse proxy headers, and log level before live deployment.
-            </p>
-          </div>
+      <UiModulePageHeader
+        title="Production Readiness"
+        description="Review deployment safeguards, backups, integrations, and service configuration before live operation."
+        :icon="statusIcon"
+      >
+        <template #actions>
           <div class="flex flex-wrap items-center gap-3">
             <UBadge :color="statusColor" variant="soft" size="lg">
               {{ readiness?.overallStatus || 'Not checked' }}
@@ -102,10 +98,24 @@ onMounted(refresh)
               Refresh
             </UButton>
           </div>
-        </div>
+        </template>
+      </UiModulePageHeader>
+
+      <UAlert
+        v-if="loadError"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-circle-alert"
+        title="Production readiness is unavailable"
+        :description="loadError"
+        :actions="[{ label: 'Try again', icon: 'i-lucide-refresh-cw', onClick: refresh }]"
+      />
+
+      <section v-if="loading && !readiness" class="grid gap-4 md:grid-cols-4">
+        <USkeleton v-for="row in 4" :key="row" class="h-28 w-full" />
       </section>
 
-      <section class="grid gap-4 md:grid-cols-4">
+      <section v-else class="grid gap-4 md:grid-cols-4">
         <UCard>
           <p class="text-sm text-slate-500 dark:text-slate-400">Environment</p>
           <p class="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{{ readiness?.environment || '-' }}</p>
@@ -146,11 +156,17 @@ onMounted(refresh)
         description="Run one final backup/restore preflight and a data consistency scan before first live billing."
       />
 
-      <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div class="border-b border-slate-200 p-5 dark:border-slate-800">
-          <h2 class="text-lg font-semibold text-slate-950 dark:text-white">Readiness checks</h2>
-          <p class="text-sm text-slate-500 dark:text-slate-400">Last checked: {{ lastChecked || '-' }}</p>
-        </div>
+      <UiRegisterPanel
+        title="Readiness checks"
+        :description="`Last checked: ${lastChecked || '-'}`"
+        :loading="loading && !readiness"
+        :error="loadError && !readiness ? loadError : ''"
+        :empty="!loading && !loadError && !checkRows.length"
+        empty-title="No readiness result"
+        empty-description="Run the checks to review production safeguards."
+        empty-icon="i-lucide-shield-check"
+        @retry="refresh"
+      >
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
             <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/40 dark:text-slate-400">
@@ -172,13 +188,10 @@ onMounted(refresh)
                 <td class="px-4 py-3 text-slate-600 dark:text-slate-300">{{ check.message }}</td>
                 <td class="px-4 py-3 text-slate-500 dark:text-slate-400">{{ check.fixHint }}</td>
               </tr>
-              <tr v-if="!checkRows.length">
-                <td colspan="5" class="px-4 py-8 text-center text-slate-500">No readiness result loaded.</td>
-              </tr>
             </tbody>
           </table>
         </div>
-      </section>
+      </UiRegisterPanel>
 
       <section class="grid gap-4 lg:grid-cols-2">
         <UCard>
@@ -199,15 +212,13 @@ onMounted(refresh)
         <UCard>
           <template #header>
             <div class="flex items-center gap-2">
-              <UIcon name="i-lucide-terminal" class="h-5 w-5" />
-              <h2 class="font-semibold">Useful commands</h2>
+              <UIcon name="i-lucide-clipboard-check" class="h-5 w-5" />
+              <h2 class="font-semibold">Final verification</h2>
             </div>
           </template>
-          <pre class="overflow-x-auto rounded-2xl bg-slate-950 p-4 text-xs text-slate-100">cp .env.production.example .env.production
-scripts/linux/generate-secrets.sh .env.production
-scripts/linux/production-preflight.sh .env.production
-docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
-scripts/linux/monitor-health.sh .env.production</pre>
+          <p class="text-sm text-slate-600 dark:text-slate-300">
+            Confirm a successful backup and restore test, secure public access, message delivery, and a clean data consistency scan before enabling live billing.
+          </p>
         </UCard>
       </section>
     </div>

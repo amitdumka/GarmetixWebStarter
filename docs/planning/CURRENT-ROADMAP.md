@@ -4,10 +4,10 @@ Updated: 2026-06-14
 
 ## Current Baseline
 
-- Version: 4.0.12
+- Version: 4.0.13
 - Stage: Stage 8A
-- Release: Admin Workspace Standardization
-- Build code: `GARMETIX-8A-20260614-4012`
+- Release: Maintenance Workspace Standardization
+- Build code: `GARMETIX-8A-20260614-4013`
 - Branch: `Version3.0`
 - Pre-Stage 8 baseline commit: `470ba2e`
 
@@ -45,6 +45,7 @@ Stage 7M menu names, route compatibility, permission-aware navigation, Off Book 
 - [x] Package 12: standardize Cash Vouchers with retained retry errors, type filtering, wide entry, local-date preservation, and explicit Off Book separation in v4.0.10.
 - [x] Package 13: separate Non-GST sale, purchase, stock, settlement, PDF and QR workflows from regular accounting, GST, billing, purchase and inventory in v4.0.11.
 - [x] Package 14: standardize Company Setup, Client Onboarding, AF/SS Defaults, and Roles & Users with retryable states, wide forms, responsive tables, local dates, and business-facing copy in v4.0.12.
+- [x] Package 15: standardize Production Readiness, Release Stabilization, Data Consistency, and Oracle Sync with retained retry errors, loading states, responsive data surfaces, and safe select values in v4.0.13.
 - [ ] Complete every page in the `/ui-audit` queue.
 - [ ] Standardize page headers, filters, tables, actions, loading, error, and empty states.
 - [ ] Move large invoice, voucher, employee, purchase, payroll, and other master-detail forms to full pages or wide workspaces.

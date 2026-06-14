@@ -13,6 +13,9 @@ const loading = ref(false)
 const seeding = ref(false)
 const includeTrainingTransactions = ref(false)
 const lastChecked = ref('')
+const loadError = ref('')
+
+useHead({ title: 'Release Stabilization | Garmetix' })
 
 const statusColor = computed(() => {
   const status = smoke.value?.overallStatus
@@ -34,6 +37,7 @@ async function refresh() {
   }
 
   loading.value = true
+  loadError.value = ''
   try {
     const [summary, companyRows, storeRows] = await Promise.all([
       api.get<any>('release-stabilization/smoke-checks'),
@@ -45,7 +49,7 @@ async function refresh() {
     stores.value = storeRows
     lastChecked.value = new Date().toLocaleTimeString('en-IN')
   } catch (error) {
-    feedback.failed('Release smoke check failed', error)
+    loadError.value = feedback.errorMessage(error, 'Release checks could not be loaded. Try again.', 'Release smoke check failed')
   } finally {
     loading.value = false
   }
@@ -86,20 +90,12 @@ onMounted(refresh)
     </div>
 
     <div v-else class="space-y-6">
-      <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div class="space-y-3">
-            <div class="flex items-center gap-3">
-              <UIcon name="i-lucide-rocket" class="h-8 w-8 text-primary" />
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Release stabilization</p>
-                <h1 class="text-2xl font-bold text-slate-950 dark:text-white">Final release stabilization</h1>
-              </div>
-            </div>
-            <p class="max-w-3xl text-sm text-slate-500 dark:text-slate-400">
-              Run go-live smoke checks, prepare demo/training master data, and use the operator manual before first production billing.
-            </p>
-          </div>
+      <UiModulePageHeader
+        title="Release Stabilization"
+        description="Run final service checks and prepare a controlled training workspace before release."
+        icon="i-lucide-rocket"
+      >
+        <template #actions>
           <div class="flex flex-wrap items-center gap-3">
             <UBadge :color="statusColor" variant="soft" size="lg">
               {{ smoke?.overallStatus || 'Not checked' }}
@@ -108,10 +104,24 @@ onMounted(refresh)
               Refresh smoke checks
             </UButton>
           </div>
-        </div>
+        </template>
+      </UiModulePageHeader>
+
+      <UAlert
+        v-if="loadError"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-circle-alert"
+        title="Release checks are unavailable"
+        :description="loadError"
+        :actions="[{ label: 'Try again', icon: 'i-lucide-refresh-cw', onClick: refresh }]"
+      />
+
+      <section v-if="loading && !smoke" class="grid gap-4 md:grid-cols-4">
+        <USkeleton v-for="row in 4" :key="row" class="h-28 w-full" />
       </section>
 
-      <section class="grid gap-4 md:grid-cols-4">
+      <section v-else class="grid gap-4 md:grid-cols-4">
         <UCard>
           <p class="text-sm text-slate-500 dark:text-slate-400">Passed</p>
           <p class="mt-2 text-2xl font-semibold text-emerald-600">{{ smoke?.passed ?? 0 }}</p>
@@ -153,11 +163,17 @@ onMounted(refresh)
       />
 
       <section class="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
-        <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div class="border-b border-slate-200 p-5 dark:border-slate-800">
-            <h2 class="text-lg font-semibold text-slate-950 dark:text-white">Smoke checks</h2>
-            <p class="text-sm text-slate-500 dark:text-slate-400">Covers database, setup masters, stock, HSN readiness, and backup path visibility.</p>
-          </div>
+        <UiRegisterPanel
+          title="Release checks"
+          description="Covers database access, setup masters, stock, tax readiness, and backup availability."
+          :loading="loading && !smoke"
+          :error="loadError && !smoke ? loadError : ''"
+          :empty="!loading && !loadError && !smokeRows.length"
+          empty-title="No release result"
+          empty-description="Run the release checks to review this environment."
+          empty-icon="i-lucide-list-checks"
+          @retry="refresh"
+        >
           <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
               <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/40 dark:text-slate-400">
@@ -177,13 +193,10 @@ onMounted(refresh)
                   <td class="px-4 py-3 text-slate-600 dark:text-slate-300">{{ check.message }}</td>
                   <td class="px-4 py-3 text-slate-500 dark:text-slate-400">{{ check.fixHint }}</td>
                 </tr>
-                <tr v-if="!smokeRows.length">
-                  <td colspan="5" class="px-4 py-8 text-center text-slate-500">No smoke result loaded.</td>
-                </tr>
               </tbody>
             </table>
           </div>
-        </div>
+        </UiRegisterPanel>
 
         <UCard>
           <template #header>
@@ -196,7 +209,7 @@ onMounted(refresh)
             <p>
               Creates missing demo company, store, product category, GST rates, customer, vendor, salesman, and three product/stock rows.
             </p>
-            <UCheckbox v-model="includeTrainingTransactions" label="Request training transactions" help="v1.6 logs this request but does not auto-create invoices." />
+            <UCheckbox v-model="includeTrainingTransactions" label="Request training transactions" help="Records the request for a supervised training-data setup." />
             <UButton icon="i-lucide-sparkles" color="primary" :loading="seeding" @click="seedDemoData">
               Seed demo data
             </UButton>
@@ -232,13 +245,13 @@ onMounted(refresh)
         <UCard>
           <template #header>
             <div class="flex items-center gap-2">
-              <UIcon name="i-lucide-terminal" class="h-5 w-5" />
-              <h2 class="font-semibold">CLI smoke test</h2>
+              <UIcon name="i-lucide-shield-check" class="h-5 w-5" />
+              <h2 class="font-semibold">Release approval</h2>
             </div>
           </template>
-          <pre class="overflow-x-auto rounded-2xl bg-slate-950 p-4 text-xs text-slate-100">scripts/linux/smoke-test.sh .env.production
-# Optional authenticated checks:
-GARMETIX_SMOKE_USER=admin GARMETIX_SMOKE_PASSWORD='password' scripts/linux/smoke-test.sh .env.production</pre>
+          <p class="text-sm text-slate-600 dark:text-slate-300">
+            Approve release only after the checks are clean, a fresh backup exists, and one supervised billing, purchase, return, and closing cycle has passed.
+          </p>
         </UCard>
       </section>
     </div>

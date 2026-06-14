@@ -6,6 +6,8 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 
 ## Fixed
 
+- [x] Oracle Sync entity and direction filters used forbidden empty SelectItem values and could fail while rendering. They now use an internal all-value sentinel that is converted to null before API calls.
+- [x] Production Readiness, Release Stabilization, Data Consistency, and Oracle Sync discarded load failures into transient notifications. Package 15 retains sanitized errors with direct retry actions and initial loading states.
 - [x] Company, store-group, and store start/end dates could move to the previous day because Setup converted local dates through UTC. Setup now sends the selected local calendar date directly.
 - [x] Core Admin pages discarded load failures into transient notifications, used narrow master forms, and exposed legacy implementation/source-file wording. Package 14 adds retained retry actions, wide forms, responsive tables/loading states, and business-facing copy.
 - [x] Opening the Roles & Users form returned a Nuxt 500 because no-scope options used forbidden empty SelectItem values. Access scope selectors now use an explicit internal sentinel and convert it back to null in API payloads.

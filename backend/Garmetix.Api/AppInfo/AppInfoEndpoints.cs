@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.0.12";
+    public const string Version = "4.0.13";
     public const string Stage = "Stage 8A";
-    public const string ReleaseName = "Admin Workspace Standardization";
+    public const string ReleaseName = "Maintenance Workspace Standardization";
     public const string BuildDate = "2026-06-14";
-    public const string BuildCode = "GARMETIX-8A-20260614-4012";
+    public const string BuildCode = "GARMETIX-8A-20260614-4013";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
