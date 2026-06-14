@@ -1,5 +1,6 @@
 using System.Data;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,6 +8,16 @@ namespace Garmetix.Api.Messages;
 
 public sealed class ApplicationMessageLogService(GarmetixDbContext db)
 {
+    private const int MaxShortTextLength = 500;
+    private const int MaxMessageLength = 4000;
+    private const int MaxDetailsLength = 50000;
+    private static readonly Regex BearerTokenPattern = new(
+        @"(Bearer\s+)[A-Za-z0-9._~+/=-]+",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex SensitiveJsonPattern = new(
+        "(\"(?:password|token|secret|authorization|apiKey|api_key)\"\\s*:\\s*)\"[^\"]*\"",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     public const string LevelInfo = "Info";
     public const string LevelSuccess = "Success";
     public const string LevelWarning = "Warning";
@@ -49,16 +60,16 @@ public sealed class ApplicationMessageLogService(GarmetixDbContext db)
             Guid.NewGuid(),
             DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified),
             NormalizeLevel(request.Level, request.Success),
-            NormalizeText(request.Source, "General"),
-            NormalizeText(request.EventName, "Message"),
-            NormalizeText(request.Message, "Message logged."),
-            NormalizeDetails(request.DetailsJson),
+            NormalizeText(request.Source, "General", MaxShortTextLength),
+            NormalizeText(request.EventName, "Message", MaxShortTextLength),
+            NormalizeText(request.Message, "Message logged.", MaxMessageLength),
+            NormalizeDetails(request.DetailsJson, MaxDetailsLength),
             request.CompanyId,
             request.StoreGroupId,
             request.StoreId,
             request.UserId,
-            string.IsNullOrWhiteSpace(request.UserName) ? null : request.UserName.Trim(),
-            string.IsNullOrWhiteSpace(request.Resource) ? null : request.Resource.Trim(),
+            NormalizeOptionalText(request.UserName, MaxShortTextLength),
+            NormalizeOptionalText(request.Resource, MaxShortTextLength),
             operationId,
             request.Success);
 
@@ -106,6 +117,8 @@ public sealed class ApplicationMessageLogService(GarmetixDbContext db)
         Guid? companyId = null, Guid? storeGroupId = null, Guid? storeId = null, Guid? userId = null, string? userName = null,
         string? resource = null, Guid? operationId = null, CancellationToken cancellationToken = default)
         => WriteAsync(new ApplicationMessageLogCreateRequest(LevelError, source, eventName, message, Serialize(details), companyId, storeGroupId, storeId, userId, userName, resource, operationId, false), cancellationToken);
+
+    public static string? SerializeDetails(object? details) => Serialize(details);
 
     public async Task<IReadOnlyList<ApplicationMessageLogDto>> SearchAsync(ApplicationMessageLogQuery query, CancellationToken cancellationToken = default)
     {
@@ -267,11 +280,23 @@ public sealed class ApplicationMessageLogService(GarmetixDbContext db)
             : LevelInfo;
     }
 
-    private static string NormalizeText(string value, string fallback)
-        => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+    private static string NormalizeText(string value, string fallback, int maxLength)
+        => Truncate(Redact(string.IsNullOrWhiteSpace(value) ? fallback : value.Trim()), maxLength);
 
-    private static string? NormalizeDetails(string? details)
-        => string.IsNullOrWhiteSpace(details) ? null : details.Trim();
+    private static string? NormalizeOptionalText(string? value, int maxLength)
+        => string.IsNullOrWhiteSpace(value) ? null : Truncate(Redact(value.Trim()), maxLength);
+
+    private static string? NormalizeDetails(string? details, int maxLength)
+        => string.IsNullOrWhiteSpace(details) ? null : Truncate(Redact(details.Trim()), maxLength);
+
+    private static string Truncate(string value, int maxLength)
+        => value.Length <= maxLength ? value : value[..maxLength];
+
+    private static string Redact(string value)
+    {
+        var withoutBearer = BearerTokenPattern.Replace(value, "$1[hidden]");
+        return SensitiveJsonPattern.Replace(withoutBearer, "$1\"[hidden]\"");
+    }
 
     private static string? Serialize(object? details)
     {

@@ -82,6 +82,9 @@ builder.Services.AddScoped<PayrollService>();
 builder.Services.AddScoped<AccountingPostingService>();
 builder.Services.AddScoped<DocumentNumberService>();
 builder.Services.AddScoped<ApplicationMessageLogService>();
+builder.Services.AddSingleton<PersistentApplicationLogQueue>();
+builder.Services.AddSingleton<ILoggerProvider, PersistentApplicationLoggerProvider>();
+builder.Services.AddHostedService<PersistentApplicationLogHostedService>();
 builder.Services.Configure<PayrollAutomationOptions>(builder.Configuration.GetSection("PayrollAutomation"));
 builder.Services.AddHostedService<PayrollAutomationHostedService>();
 builder.Services.Configure<BackupOptions>(builder.Configuration.GetSection("Backup"));
@@ -162,6 +165,7 @@ app.Use(async (context, next) =>
 
 app.UseCors("frontend");
 app.UseAuthentication();
+app.UseMiddleware<ApplicationMessageLogMiddleware>();
 app.UseAuthorization();
 app.Use(async (context, next) =>
 {

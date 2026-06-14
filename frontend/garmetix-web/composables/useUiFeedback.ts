@@ -1,3 +1,5 @@
+import { persistClientMessageLog, redactSensitiveDetails } from '~/utils/applicationMessageLog'
+
 type ToastColor = 'success' | 'error' | 'warning' | 'info' | 'neutral'
 
 type UiLogEntry = {
@@ -74,19 +76,30 @@ export function useUiFeedback() {
     statusCode?: number,
     resource?: string
   ) {
+    const entry = {
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      at: new Date().toISOString(),
+      title: sanitizeMessage(title),
+      message: sanitizeMessage(message),
+      details: details ? sanitizeDetails(details) : undefined,
+      color,
+      statusCode,
+      resource: resource ? sanitizeMessage(resource) : undefined
+    }
+
     logs.value = [
-      {
-        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        at: new Date().toISOString(),
-        title: sanitizeMessage(title),
-        message: sanitizeMessage(message),
-        details: details ? sanitizeDetails(details) : undefined,
-        color,
-        statusCode,
-        resource: resource ? sanitizeMessage(resource) : undefined
-      },
+      entry,
       ...logs.value
     ].slice(0, 100)
+
+    void persistClientMessageLog({
+      level: logLevel(color),
+      eventName: entry.title || 'UI Message',
+      message: entry.message || entry.title || 'UI message recorded.',
+      detailsJson: entry.details,
+      resource: entry.resource,
+      success: color !== 'error' && color !== 'warning'
+    })
   }
 
   function clearLogs() {
@@ -193,7 +206,14 @@ export function useUiFeedback() {
   }
 
   function sanitizeDetails(value: string) {
-    return sanitizeMessage(value)
+    return redactSensitiveDetails(sanitizeMessage(value))
+  }
+
+  function logLevel(color: ToastColor) {
+    if (color === 'error') return 'Error'
+    if (color === 'warning') return 'Warning'
+    if (color === 'success') return 'Success'
+    return 'Info'
   }
 
   function safeStringify(value: unknown) {

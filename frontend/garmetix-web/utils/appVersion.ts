@@ -1,10 +1,15 @@
-export const APP_VERSION = '4.0.8'
+export const APP_VERSION = '4.0.9'
 export const APP_STAGE = 'Stage 8A'
-export const APP_RELEASE_NAME = 'Reports and Data Operations UI Hardening'
+export const APP_RELEASE_NAME = 'Product Save and Persistent Message Logging'
 export const APP_BUILD_DATE = '2026-06-14'
-export const APP_BUILD_CODE = 'GARMETIX-8A-20260614-4008'
+export const APP_BUILD_CODE = 'GARMETIX-8A-20260614-4009'
 
 export const APP_HIGHLIGHTS = [
+  'Product Master create and edit transactions now run inside the configured PostgreSQL retry execution strategy.',
+  'Unhandled API exceptions are saved with trace and stack details while users receive a safe operation reference.',
+  'Failed API responses and successful state-changing API requests are persisted automatically in Message Logs.',
+  'Frontend notifications, action failures, Vue errors, browser errors and unhandled promise rejections are persisted.',
+  'Sensitive tokens, passwords, authorization values and secrets are redacted from frontend diagnostics.',
   'Reports Center, GST Reports, Import Export, Audit Trail and Message Logs now use consistent retryable register states.',
   'Reports Center date defaults preserve the local Indian calendar date instead of converting through UTC.',
   'Report, audit and data-operation failures remain visible with a direct retry action.',

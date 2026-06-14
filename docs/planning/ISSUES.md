@@ -6,6 +6,8 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 
 ## Fixed
 
+- [x] Product Master create/edit returned HTTP 500 because manually opened transactions ran outside the configured Npgsql retry execution strategy. Both operations now execute their full transaction through `CreateExecutionStrategy()`.
+- [x] API exceptions, failed responses, write events, frontend messages, browser errors, and background-service logs were not consistently persisted. Central middleware, an authenticated client sink, browser handlers, and a bounded application logger queue now write them to Message Logs with sensitive-value redaction.
 - [x] Message Logs returned a Nuxt 500 because filter options used empty SelectItem values. Filters now use explicit all-value sentinels and omit those values from API queries.
 - [x] GST Reports returned HTTP 400 for a valid return period because report requests did not send the active company. Report and CSV queries now include the workspace company identifier.
 - [x] Accounting Party/Bank Account forms could submit internal ledger identifiers through full EF entity payloads, bank transactions exposed internal Party linkage, and HR/accounting dates could shift through UTC. Dedicated requests, server-owned ledger synchronization, hidden party linkage, wide forms, and local date serialization now cover these workflows.

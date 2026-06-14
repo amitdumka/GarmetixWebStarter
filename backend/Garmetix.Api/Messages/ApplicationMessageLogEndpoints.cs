@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Garmetix.Api.Auth;
+using Garmetix.Api.Workspace;
 
 namespace Garmetix.Api.Messages;
 
@@ -14,6 +15,10 @@ public static class ApplicationMessageLogEndpoints
         group.MapGet("/options", OptionsAsync);
         group.MapGet("", SearchAsync);
         group.MapPost("", CreateAsync);
+
+        app.MapPost("/api/message-logs/client", CreateClientAsync)
+            .WithTags("Message Logs")
+            .RequireAuthorization();
 
         return group;
     }
@@ -53,4 +58,33 @@ public static class ApplicationMessageLogEndpoints
 
         return Results.Ok(saved);
     }
+
+    private static async Task<IResult> CreateClientAsync(
+        ClientApplicationMessageLogRequest request,
+        HttpContext context,
+        ApplicationMessageLogService logs,
+        CancellationToken cancellationToken)
+    {
+        var userId = ClaimGuid(context.User, ClaimTypes.NameIdentifier);
+        var userName = context.User.Identity?.Name ?? context.User.FindFirst(ClaimTypes.Name)?.Value;
+        var saved = await logs.WriteAsync(new ApplicationMessageLogCreateRequest(
+            request.Level,
+            "Frontend",
+            request.EventName,
+            request.Message,
+            request.DetailsJson,
+            WorkspaceScope.ClaimGuid(context, "companyId"),
+            WorkspaceScope.ClaimGuid(context, "storeGroupId"),
+            WorkspaceScope.ClaimGuid(context, "storeId"),
+            userId,
+            userName,
+            request.Resource,
+            null,
+            request.Success), cancellationToken);
+
+        return Results.Ok(new { saved.Id, saved.OperationId });
+    }
+
+    private static Guid? ClaimGuid(ClaimsPrincipal principal, string claimType)
+        => Guid.TryParse(principal.FindFirst(claimType)?.Value, out var value) ? value : null;
 }

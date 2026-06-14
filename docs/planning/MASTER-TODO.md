@@ -312,3 +312,12 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [ ] Complete Stage 8E accounting and payment hardening.
 - [ ] Complete Stage 8F automated tests and deep audit history.
 - [ ] Complete Stage 8G real integrations and production go-live validation.
+
+## Product Save and Central Message Logging - added 2026-06-14
+
+- [x] Reproduce and fix Product Master create/edit failures against the current PostgreSQL schema.
+- [x] Persist unhandled API exceptions and failed HTTP responses to Message Logs with trace, user, workspace, route, and status context.
+- [x] Persist successful state-changing API events without storing request bodies or credentials.
+- [x] Persist frontend action failures, UI messages, browser errors, and unhandled promise rejections to Message Logs.
+- [x] Persist Garmetix background-service and application `ILogger` messages through a bounded non-recursive queue.
+- [x] Keep Message Log diagnostic details restricted to authorized administrators while allowing authenticated users to submit their own client events.

@@ -98,6 +98,16 @@ public static class ProductMasterEndpoints
             return Results.BadRequest(new { message = validation });
         }
 
+        var strategy = db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(() => CreateInTransactionAsync(request, context, db, cancellationToken));
+    }
+
+    private static async Task<IResult> CreateInTransactionAsync(
+        ProductMasterRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
         var scope = await ResolveScopeAsync(request, context, db, cancellationToken);
@@ -215,6 +225,17 @@ public static class ProductMasterEndpoints
             return Results.BadRequest(new { message = validation });
         }
 
+        var strategy = db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(() => UpdateInTransactionAsync(id, request, context, db, cancellationToken));
+    }
+
+    private static async Task<IResult> UpdateInTransactionAsync(
+        Guid id,
+        ProductMasterRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
         var product = await WorkspaceScope.ApplyTo(db.Products, context)

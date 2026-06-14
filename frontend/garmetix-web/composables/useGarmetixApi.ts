@@ -159,7 +159,10 @@ export function useGarmetixApi() {
     const record = body as Record<string, unknown>
     const summary: Record<string, unknown> = {}
     for (const key of Object.keys(record).slice(0, 20)) {
-      summary[key] = key.toLowerCase().includes('password') ? '[hidden]' : record[key]
+      const normalizedKey = key.toLowerCase()
+      const sensitive = ['password', 'token', 'secret', 'authorization', 'apikey', 'api_key']
+        .some((part) => normalizedKey.includes(part))
+      summary[key] = sensitive ? '[hidden]' : record[key]
     }
 
     return summary
