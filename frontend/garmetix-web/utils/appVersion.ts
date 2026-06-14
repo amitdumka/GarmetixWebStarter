@@ -1,8 +1,8 @@
-export const APP_VERSION = '4.0.10'
+export const APP_VERSION = '4.0.11'
 export const APP_STAGE = 'Stage 8A'
-export const APP_RELEASE_NAME = 'Off Book Cash Voucher UI Hardening'
+export const APP_RELEASE_NAME = 'Independent Off Book Sale and Purchase'
 export const APP_BUILD_DATE = '2026-06-14'
-export const APP_BUILD_CODE = 'GARMETIX-8A-20260614-4010'
+export const APP_BUILD_CODE = 'GARMETIX-8A-20260614-4011'
 
 export const APP_HIGHLIGHTS = [
   'Cash Voucher register now retains load failures with direct retry behavior and a voucher-type filter.',

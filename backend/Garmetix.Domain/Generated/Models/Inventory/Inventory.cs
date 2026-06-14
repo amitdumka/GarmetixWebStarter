@@ -160,6 +160,8 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Gross Amount")] public decimal GrossAmount { get; set; }
         [Display(Name = "Discount Amount")] public decimal DiscountAmount { get; set; }
         [Display(Name = "Net Amount")] public decimal NetAmount { get; set; }
+        [Display(Name = "Paid Amount")] public decimal PaidAmount { get; set; }
+        [Display(Name = "Balance Amount")] public decimal BalanceAmount { get; set; }
         [Display(Name = "Ledger", AutoGenerateField = false)] public Guid? LedgerId { get; set; }
         [Display(Name = "Remarks")] public string? Remarks { get; set; }
         [JsonIgnore] public virtual ICollection<NonGstGoodsItem>? Items { get; set; }

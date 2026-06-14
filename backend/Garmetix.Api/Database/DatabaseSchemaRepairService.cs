@@ -500,6 +500,26 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                 ALTER TABLE IF EXISTS "NonGstGoodsItems" ADD COLUMN IF NOT EXISTS "TaxAmount" numeric(18,2) NOT NULL DEFAULT 0;
                 ALTER TABLE IF EXISTS "NonGstGoodsItems" ADD COLUMN IF NOT EXISTS "CostRate" numeric(18,2) NOT NULL DEFAULT 0;
                 ALTER TABLE IF EXISTS "NonGstGoodsItems" ADD COLUMN IF NOT EXISTS "CostAmount" numeric(18,2) NOT NULL DEFAULT 0;
+                ALTER TABLE IF EXISTS "NonGstGoodsDocuments" ADD COLUMN IF NOT EXISTS "PaidAmount" numeric(18,2) NOT NULL DEFAULT 0;
+                ALTER TABLE IF EXISTS "NonGstGoodsDocuments" ADD COLUMN IF NOT EXISTS "BalanceAmount" numeric(18,2) NOT NULL DEFAULT 0;
+
+                UPDATE "NonGstGoodsDocuments"
+                SET "PaidAmount" = "NetAmount",
+                    "BalanceAmount" = 0
+                WHERE "LedgerId" IS NOT NULL;
+
+                UPDATE "NonGstGoodsDocuments"
+                SET "LedgerId" = NULL;
+
+                DELETE FROM "JournalLines"
+                WHERE "JournalEntryId" IN (
+                    SELECT "Id"
+                    FROM "JournalEntries"
+                    WHERE "SourceType" IN ('NonGstPurchase', 'NonGstSale')
+                );
+
+                DELETE FROM "JournalEntries"
+                WHERE "SourceType" IN ('NonGstPurchase', 'NonGstSale');
 
                 CREATE TABLE IF NOT EXISTS "StockMovements" (
                     "Id" uuid NOT NULL,

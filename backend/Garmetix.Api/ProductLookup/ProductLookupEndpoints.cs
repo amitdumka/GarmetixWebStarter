@@ -150,6 +150,17 @@ public static class ProductLookupEndpoints
             }
         }
 
+        if (normalized.Contains("/NGP/") || normalized.Contains("/NGS/") || normalized.StartsWith("NGP-") || normalized.StartsWith("NGS-"))
+        {
+            var document = await WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context)
+                .OrderByDescending(item => item.OnDate)
+                .FirstOrDefaultAsync(item => item.DocumentNumber.ToUpper() == normalized || item.DocumentNumber.ToUpper().EndsWith(idPart), cancellationToken);
+            if (document is not null)
+            {
+                return Results.Ok(NonGstResult(normalized, document));
+            }
+        }
+
         var note = await WorkspaceScope.ApplyTo(db.CommercialNotes.AsNoTracking(), context)
             .OrderByDescending(item => item.OnDate)
             .FirstOrDefaultAsync(item => item.NoteNumber.ToUpper() == normalized || item.NoteNumber.ToUpper().EndsWith(idPart), cancellationToken);
@@ -237,8 +248,26 @@ public static class ProductLookupEndpoints
             return entity is null ? null : new(code, "SalaryPayment", entity.Id, entity.VoucherNumber, entity.OnDate, entity.Employee?.StaffName ?? "Employee", entity.Amount, $"/payroll?paymentId={entity.Id}");
         }
 
+        if (documentType == DocumentCodeService.NonGstGoods)
+        {
+            var entity = await WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context)
+                .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+            return entity is null ? null : NonGstResult(code, entity);
+        }
+
         return null;
     }
+
+    private static ScanLookupResult NonGstResult(string code, Garmetix.Core.Models.Inventory.NonGstGoodsDocument document)
+        => new(
+            code,
+            document.DocumentType == Garmetix.Core.Enums.NonGstGoodsDocumentType.Purchase ? "OffBookPurchase" : "OffBookSale",
+            document.Id,
+            document.DocumentNumber,
+            document.OnDate,
+            document.PartyName,
+            document.NetAmount,
+            $"/non-gst-goods?documentId={document.Id}");
 
     private static ScanLookupResult NoteResult(string code, Garmetix.Core.Models.Inventory.CommercialNote note)
         => new(

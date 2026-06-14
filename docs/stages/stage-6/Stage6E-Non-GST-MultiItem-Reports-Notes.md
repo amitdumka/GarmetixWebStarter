@@ -1,5 +1,7 @@
 # Stage 6E - Non-GST Multi-Item Memo, Print and Reports
 
+> Historical note: the accounting-posting behavior described in this Stage 6 document was superseded by Stage 8A Package 13 / v4.0.11. Non-GST sale, purchase, stock, and settlement now operate as a completely independent Off Book subsystem.
+
 Package: Garmetix-Stage6E-NonGstMultiItemReports-v2.4.zip
 Version: 2.4.0
 Stage: Stage 6E

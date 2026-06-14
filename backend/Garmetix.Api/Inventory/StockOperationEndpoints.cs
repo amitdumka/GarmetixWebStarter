@@ -33,6 +33,7 @@ public static class StockOperationEndpoints
 
         var storeNameById = stores.ToDictionary(item => item.Id, item => item.Name);
         var products = await WorkspaceScope.ApplyTo(db.Stocks.AsNoTracking(), context)
+            .Where(item => !item.IsOFB)
             .Include(item => item.Product)
             .OrderBy(item => item.Product != null ? item.Product.Name : item.Barcode)
             .ThenBy(item => item.Barcode)
@@ -81,6 +82,10 @@ public static class StockOperationEndpoints
         // Keep ordering on entity fields before projecting into StockMovementRowDto.
         // EF Core cannot translate OrderBy(new StockMovementRowDto(...).OnDate).
         return WorkspaceScope.ApplyTo(db.StockMovements.AsNoTracking(), context)
+            .Where(item =>
+                item.SourceType != "NonGstPurchase" &&
+                item.SourceType != "NonGstSale" &&
+                (!item.StockId.HasValue || !db.Stocks.Any(stock => stock.Id == item.StockId.Value && stock.IsOFB)))
             .Include(item => item.Product)
             .OrderByDescending(item => item.OnDate)
             .ThenByDescending(item => item.Id)
@@ -292,7 +297,8 @@ public static class StockOperationEndpoints
             item.StoreGroupId == toStore.StoreGroupId &&
             item.StoreId == toStore.Id &&
             item.ProductId == fromStock.ProductId &&
-            item.Barcode == fromStock.Barcode,
+            item.Barcode == fromStock.Barcode &&
+            !item.IsOFB,
             cancellationToken);
 
         if (toStock is null)
@@ -312,6 +318,7 @@ public static class StockOperationEndpoints
                 TaxId = fromStock.TaxId,
                 BrandedProduct = fromStock.BrandedProduct,
                 StockType = fromStock.StockType,
+                IsOFB = false,
                 CompanyId = fromStock.CompanyId,
                 StoreGroupId = toStore.StoreGroupId,
                 StoreId = toStore.Id
@@ -347,7 +354,7 @@ public static class StockOperationEndpoints
     {
         return await WorkspaceScope.ApplyTo(db.Stocks, context)
             .Include(item => item.Product)
-            .FirstOrDefaultAsync(item => item.Id == stockId, cancellationToken);
+            .FirstOrDefaultAsync(item => item.Id == stockId && !item.IsOFB, cancellationToken);
     }
 
     private static void AddMovement(

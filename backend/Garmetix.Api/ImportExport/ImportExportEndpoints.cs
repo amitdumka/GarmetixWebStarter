@@ -41,8 +41,11 @@ public static class ImportExportEndpoints
             async (db, cancellationToken) =>
             {
                 var rows = await db.Products.AsNoTracking()
+                    .Where(product =>
+                        !db.Stocks.Any(stock => stock.ProductId == product.Id) ||
+                        db.Stocks.Any(stock => stock.ProductId == product.Id && !stock.IsOFB))
                     .GroupJoin(
-                        db.Stocks.AsNoTracking(),
+                        db.Stocks.AsNoTracking().Where(stock => !stock.IsOFB),
                         product => product.Id,
                         stock => stock.ProductId,
                         (product, stocks) => new { product, stocks })
@@ -796,7 +799,8 @@ public static class ImportExportEndpoints
                 var stock = await db.Stocks.FirstOrDefaultAsync(item =>
                     item.ProductId == product.Id &&
                     item.Barcode == line.Barcode &&
-                    item.StoreId == line.StoreId,
+                    item.StoreId == line.StoreId &&
+                    !item.IsOFB,
                     cancellationToken);
 
                 if (stock is null)
@@ -809,7 +813,8 @@ public static class ImportExportEndpoints
                         CompanyId = line.CompanyId,
                         StoreGroupId = line.StoreGroupId,
                         StoreId = line.StoreId,
-                        TaxId = tax.Id
+                        TaxId = tax.Id,
+                        IsOFB = false
                     };
                     db.Stocks.Add(stock);
                 }
@@ -964,7 +969,7 @@ public static class ImportExportEndpoints
         var requiredStoreIds = requiredStock.Keys.Select(key => key.StoreId).Distinct().ToList();
         var stockRows = await db.Stocks
             .Include(item => item.Product)
-            .Where(item => requiredStoreIds.Contains(item.StoreId))
+            .Where(item => !item.IsOFB && requiredStoreIds.Contains(item.StoreId))
             .ToListAsync(cancellationToken);
 
         foreach (var group in drafts.GroupBy(item => new { item.CompanyId, item.StoreId, item.InvoiceNumber }))
@@ -1599,7 +1604,11 @@ public static class ImportExportEndpoints
                 result.Updated++;
             }
 
-            var stock = await db.Stocks.FirstOrDefaultAsync(item => item.StoreId == scope.StoreId && item.Barcode == barcode, cancellationToken);
+            var stock = await db.Stocks.FirstOrDefaultAsync(item =>
+                item.StoreId == scope.StoreId &&
+                item.Barcode == barcode &&
+                !item.IsOFB,
+                cancellationToken);
             stock ??= new Stock
             {
                 ProductId = product.Id,
@@ -1607,7 +1616,8 @@ public static class ImportExportEndpoints
                 CompanyId = scope.CompanyId,
                 StoreGroupId = scope.StoreGroupId,
                 StoreId = scope.StoreId,
-                TaxId = tax!.Id
+                TaxId = tax!.Id,
+                IsOFB = false
             };
 
             stock.ProductId = product.Id;

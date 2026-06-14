@@ -465,7 +465,8 @@ public static class BillingEndpoints
                 .FirstOrDefaultAsync(item =>
                     item.ProductId == requestItem.ProductId &&
                     item.Barcode == requestItem.Barcode &&
-                    item.StoreId == request.StoreId,
+                    item.StoreId == request.StoreId &&
+                    !item.IsOFB,
                     cancellationToken);
 
             if (stock is null)
@@ -702,7 +703,8 @@ public static class BillingEndpoints
             var stock = await db.Stocks.FirstOrDefaultAsync(stockItem =>
                 stockItem.ProductId == item.ProductId &&
                 stockItem.Barcode == item.Barcode &&
-                stockItem.StoreId == invoice.StoreId,
+                stockItem.StoreId == invoice.StoreId &&
+                !stockItem.IsOFB,
                 cancellationToken);
 
             if (stock is null)
@@ -869,7 +871,8 @@ public static class BillingEndpoints
                 .FirstOrDefaultAsync(item =>
                     item.ProductId == requestItem.ProductId &&
                     item.Barcode == requestItem.Barcode &&
-                    item.StoreId == original.StoreId,
+                    item.StoreId == original.StoreId &&
+                    !item.IsOFB,
                     cancellationToken);
 
             if (stock is null)
@@ -1159,7 +1162,8 @@ public static class BillingEndpoints
             var stock = await db.Stocks.FirstOrDefaultAsync(stockItem =>
                 stockItem.ProductId == originalItem.ProductId &&
                 stockItem.Barcode == originalItem.Barcode &&
-                stockItem.StoreId == original.StoreId,
+                stockItem.StoreId == original.StoreId &&
+                !stockItem.IsOFB,
                 cancellationToken);
             if (stock is not null)
             {

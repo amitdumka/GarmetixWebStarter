@@ -367,7 +367,8 @@ public static class PurchaseEndpoints
                 stock.StoreGroupId == storeGroupId &&
                 stock.StoreId == storeId &&
                 stock.ProductId == item.ProductId &&
-                stock.Barcode == item.Barcode,
+                stock.Barcode == item.Barcode &&
+                !stock.IsOFB,
                 cancellationToken);
 
             if (stock is null)
@@ -691,7 +692,8 @@ public static class PurchaseEndpoints
             var stock = await WorkspaceScope.ApplyTo(db.Stocks, context).FirstOrDefaultAsync(item =>
                 item.ProductId == product.Id &&
                 item.Barcode == barcode &&
-                item.StoreId == request.StoreId,
+                item.StoreId == request.StoreId &&
+                !item.IsOFB,
                 cancellationToken);
 
             if (stock is null)
@@ -708,6 +710,7 @@ public static class PurchaseEndpoints
                     TaxRate = tax.CompositeRate,
                     TaxType = tax.TaxType,
                     TaxId = tax.Id,
+                    IsOFB = false,
                     CompanyId = request.CompanyId,
                     StoreGroupId = request.StoreGroupId,
                     StoreId = request.StoreId
@@ -1039,7 +1042,8 @@ public static class PurchaseEndpoints
                 stock.StoreGroupId == storeGroupId &&
                 stock.StoreId == storeId &&
                 stock.ProductId == item.ProductId &&
-                stock.Barcode == item.Barcode,
+                stock.Barcode == item.Barcode &&
+                !stock.IsOFB,
                 cancellationToken);
 
             if (stock is not null)

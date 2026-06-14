@@ -6,7 +6,6 @@ public sealed record NonGstGoodsOptionsDto(
     IReadOnlyList<NonGstStockOptionDto> Stocks,
     IReadOnlyList<NonGstPartyOptionDto> Vendors,
     IReadOnlyList<NonGstPartyOptionDto> Customers,
-    IReadOnlyList<NonGstLedgerOptionDto> Ledgers,
     IReadOnlyList<NonGstDocumentRowDto> RecentDocuments);
 
 public sealed record NonGstStockOptionDto(
@@ -22,7 +21,6 @@ public sealed record NonGstStockOptionDto(
     string Label);
 
 public sealed record NonGstPartyOptionDto(Guid Id, string Name, string? Mobile, string? GSTIN);
-public sealed record NonGstLedgerOptionDto(Guid Id, string Name, string GroupName, string LedgerType);
 
 public sealed record NonGstGoodsRequest(
     DateTime? OnDate,
@@ -31,6 +29,7 @@ public sealed record NonGstGoodsRequest(
     string? PartyName,
     PaymentMode PaymentMode,
     string? ReferenceNumber,
+    decimal? PaidAmount,
     string? Remarks,
     IReadOnlyList<NonGstGoodsItemRequest> Items);
 
@@ -55,6 +54,8 @@ public sealed record NonGstGoodsResponse(
     decimal GrossAmount,
     decimal DiscountAmount,
     decimal NetAmount,
+    decimal PaidAmount,
+    decimal BalanceAmount,
     string Message);
 
 public sealed record NonGstDocumentRowDto(
@@ -68,6 +69,9 @@ public sealed record NonGstDocumentRowDto(
     decimal GrossAmount,
     decimal DiscountAmount,
     decimal NetAmount,
+    decimal PaidAmount,
+    decimal BalanceAmount,
+    string PaymentStatus,
     decimal CostAmount,
     decimal ProfitAmount,
     string? Remarks);
@@ -123,6 +127,9 @@ public sealed record NonGstPrintDto(
     decimal TaxableAmount,
     decimal TaxAmount,
     decimal NetAmount,
+    decimal PaidAmount,
+    decimal BalanceAmount,
+    string PaymentStatus,
     decimal CostAmount,
     decimal ProfitAmount,
     IReadOnlyList<NonGstPrintItemDto> Items);

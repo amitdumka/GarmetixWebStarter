@@ -1,21 +1,19 @@
 using Garmetix.Api.Auth;
 using Garmetix.Api.Numbering;
+using Garmetix.Api.ProductLookup;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
-using Garmetix.Core.Models.Accounting;
 using Garmetix.Core.Models.Inventory;
 using Garmetix.Core.Models.Stores;
 using InventoryProductCategory = Garmetix.Core.Models.Inventory.ProductCategory;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 
 namespace Garmetix.Api.NonGstGoods;
 
 public static class NonGstGoodsEndpoints
 {
-    private const string OtherIncomeLedgerName = "Other Income - Non GST Goods";
-    private const string NonGstPurchaseLedgerName = "Non GST Goods Purchase Clearing";
-
     public static RouteGroupBuilder MapNonGstGoodsEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/non-gst-goods")
@@ -24,9 +22,13 @@ public static class NonGstGoodsEndpoints
 
         group.MapGet("/options", OptionsAsync);
         group.MapGet("/report", ReportAsync);
+        group.MapGet("/documents/{id:guid}", GetDocumentAsync);
         group.MapGet("/documents/{id:guid}/print", PrintAsync);
+        group.MapGet("/documents/{id:guid}/pdf", DownloadPdfAsync);
         group.MapPost("/purchase", PurchaseAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/sale", SaleAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapPut("/documents/{id:guid}", UpdateAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapDelete("/documents/{id:guid}", DeleteAsync).RequireAuthorization(GarmetixPolicies.Delete);
         return group;
     }
 
@@ -73,17 +75,10 @@ public static class NonGstGoodsEndpoints
             .Take(200)
             .ToListAsync(cancellationToken);
 
-        var ledgers = await WorkspaceScope.ApplyTo(db.Ledgers.AsNoTracking(), context)
-            .Include(item => item.LedgerGroup)
-            .Where(item => item.Name == OtherIncomeLedgerName || item.Name == NonGstPurchaseLedgerName)
-            .OrderBy(item => item.Name)
-            .Select(item => new NonGstLedgerOptionDto(item.Id, item.Name, item.LedgerGroup != null ? item.LedgerGroup.Name : string.Empty, item.LedgerType.ToString()))
-            .ToListAsync(cancellationToken);
-
         var recent = await BuildDocumentQuery(context, db, DateTime.Today.AddDays(-30), DateTime.Today.AddDays(1), 25)
             .ToListAsync(cancellationToken);
 
-        return new NonGstGoodsOptionsDto(stocks, vendors, customers, ledgers, recent);
+        return new NonGstGoodsOptionsDto(stocks, vendors, customers, recent);
     }
 
     private static async Task<IResult> PurchaseAsync(
@@ -102,13 +97,31 @@ public static class NonGstGoodsEndpoints
         CancellationToken cancellationToken)
         => await PostAsync(NonGstGoodsDocumentType.Sale, request, context, db, documentNumbers, cancellationToken);
 
+    private static async Task<IResult> UpdateAsync(
+        Guid id,
+        NonGstGoodsRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        DocumentNumberService documentNumbers,
+        CancellationToken cancellationToken)
+    {
+        var existingType = await WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context)
+            .Where(item => item.Id == id)
+            .Select(item => (NonGstGoodsDocumentType?)item.DocumentType)
+            .FirstOrDefaultAsync(cancellationToken);
+        return existingType.HasValue
+            ? await PostAsync(existingType.Value, request, context, db, documentNumbers, cancellationToken, id)
+            : Results.NotFound(new { message = "Off Book document was not found." });
+    }
+
     private static async Task<IResult> PostAsync(
         NonGstGoodsDocumentType documentType,
         NonGstGoodsRequest request,
         HttpContext context,
         GarmetixDbContext db,
         DocumentNumberService documentNumbers,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? documentId = null)
     {
         if (request.Items is null || request.Items.Count == 0)
         {
@@ -127,38 +140,45 @@ public static class NonGstGoodsEndpoints
                     return Results.BadRequest(new { message = storeResult.ErrorMessage ?? "No store is available for this operation." });
                 }
                 var store = storeResult.Store;
-
-                var documentNumber = documentType == NonGstGoodsDocumentType.Purchase
-                    ? await documentNumbers.NextNonGstPurchaseAsync(store.CompanyId, store.StoreGroupId, store.Id, cancellationToken)
-                    : await documentNumbers.NextNonGstSaleAsync(store.CompanyId, store.StoreGroupId, store.Id, cancellationToken);
+                var onDate = request.OnDate?.Date ?? DateTime.Today;
 
                 var partyName = await ResolvePartyNameAsync(documentType, request, db, cancellationToken);
-                var ledger = documentType == NonGstGoodsDocumentType.Purchase
-                    ? await EnsureLedgerAsync(db, store.CompanyId, NonGstPurchaseLedgerName, "Non GST Goods", LedgerCategory.PurchaseAccounts, LedgerType.Purcahase, cancellationToken)
-                    : await EnsureLedgerAsync(db, store.CompanyId, OtherIncomeLedgerName, "Other Income", LedgerCategory.IndirectIncome, LedgerType.DirectIncome, cancellationToken);
-
-                var document = new NonGstGoodsDocument
+                NonGstGoodsDocument document;
+                if (documentId.HasValue)
                 {
-                    Id = Guid.NewGuid(),
-                    DocumentNumber = documentNumber,
-                    OnDate = request.OnDate?.Date ?? DateTime.Today,
-                    DocumentType = documentType,
-                    PartyName = partyName,
-                    VendorId = documentType == NonGstGoodsDocumentType.Purchase ? request.VendorId : null,
-                    CustomerId = documentType == NonGstGoodsDocumentType.Sale ? request.CustomerId : null,
-                    PaymentMode = request.PaymentMode,
-                    ReferenceNumber = Clean(request.ReferenceNumber),
-                    Remarks = Clean(request.Remarks),
-                    LedgerId = ledger.Id,
-                    CompanyId = store.CompanyId,
-                    StoreGroupId = store.StoreGroupId,
-                    StoreId = store.Id
-                };
-                db.NonGstGoodsDocuments.Add(document);
+                    document = await WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments, context)
+                        .FirstOrDefaultAsync(item => item.Id == documentId.Value, cancellationToken)
+                        ?? throw new InvalidOperationException("Off Book document was not found.");
+                    await ReverseDocumentStockAsync(document, db, cancellationToken);
+                }
+                else
+                {
+                    var documentNumber = documentType == NonGstGoodsDocumentType.Purchase
+                        ? await documentNumbers.NextNonGstPurchaseAsync(store.CompanyId, store.StoreGroupId, store.Id, onDate, cancellationToken)
+                        : await documentNumbers.NextNonGstSaleAsync(store.CompanyId, store.StoreGroupId, store.Id, onDate, cancellationToken);
+                    document = new NonGstGoodsDocument
+                    {
+                        Id = Guid.NewGuid(),
+                        DocumentNumber = documentNumber
+                    };
+                    db.NonGstGoodsDocuments.Add(document);
+                }
+
+                document.OnDate = onDate;
+                document.DocumentType = documentType;
+                document.PartyName = partyName;
+                document.VendorId = documentType == NonGstGoodsDocumentType.Purchase ? request.VendorId : null;
+                document.CustomerId = documentType == NonGstGoodsDocumentType.Sale ? request.CustomerId : null;
+                document.PaymentMode = request.PaymentMode;
+                document.ReferenceNumber = Clean(request.ReferenceNumber);
+                document.Remarks = Clean(request.Remarks);
+                document.LedgerId = null;
+                document.CompanyId = store.CompanyId;
+                document.StoreGroupId = store.StoreGroupId;
+                document.StoreId = store.Id;
 
                 decimal gross = 0;
                 decimal discount = 0;
-                decimal quantityTotal = 0;
 
                 foreach (var line in request.Items)
                 {
@@ -197,7 +217,6 @@ public static class NonGstGoodsEndpoints
 
                     gross += lineGross;
                     discount += lineDiscount;
-                    quantityTotal += line.Quantity;
 
                     if (documentType == NonGstGoodsDocumentType.Purchase)
                     {
@@ -259,12 +278,23 @@ public static class NonGstGoodsEndpoints
                 document.GrossAmount = Money(gross);
                 document.DiscountAmount = Money(discount);
                 document.NetAmount = Money(gross - discount);
+                document.PaidAmount = Money(request.PaidAmount ?? document.NetAmount);
+                if (document.PaidAmount < 0 || document.PaidAmount > document.NetAmount)
+                {
+                    return Results.BadRequest(new { message = "Paid amount must be between zero and the document net amount." });
+                }
+                document.BalanceAmount = Money(document.NetAmount - document.PaidAmount);
 
-                await PostVisibleAccountingAsync(db, document, ledger, quantityTotal, cancellationToken);
+                if (db.ChangeTracker.Entries<Stock>()
+                    .Any(entry => entry.Entity.IsOFB && entry.Entity.CurrentStock < 0))
+                {
+                    return Results.BadRequest(new { message = "The edited purchase quantity cannot be lower than quantity already sold." });
+                }
+
                 await db.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
 
-                return Results.Ok(new NonGstGoodsResponse(
+                var response = new NonGstGoodsResponse(
                     document.Id,
                     document.DocumentNumber,
                     document.DocumentType.ToString(),
@@ -273,9 +303,14 @@ public static class NonGstGoodsEndpoints
                     document.GrossAmount,
                     document.DiscountAmount,
                     document.NetAmount,
+                    document.PaidAmount,
+                    document.BalanceAmount,
                     documentType == NonGstGoodsDocumentType.Purchase
-                        ? "Non-GST purchase memo posted. Multiple item stock rows are marked IsOFB and visible in the separate report."
-                        : "Non-GST sale cash memo posted as visible Other Income and excluded from GST returns."));
+                        ? "Off Book purchase saved. Stock and payment remain outside regular purchase, GST and accounting books."
+                        : "Off Book sale saved. Stock and receipt remain outside regular sales, GST and accounting books.");
+                return documentId.HasValue
+                    ? Results.Ok(response)
+                    : Results.Created($"/api/non-gst-goods/documents/{document.Id}", response);
             }
             catch (InvalidOperationException ex)
             {
@@ -292,19 +327,163 @@ public static class NonGstGoodsEndpoints
 
     private sealed record StoreResolveResult(Store? Store, string? ErrorMessage);
 
+    private static async Task<IResult> GetDocumentAsync(
+        Guid id,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var document = await WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (document is null)
+        {
+            return Results.NotFound(new { message = "Off Book document was not found." });
+        }
+
+        var items = await db.NonGstGoodsItems.AsNoTracking()
+            .Where(item => item.DocumentId == id)
+            .OrderBy(item => item.CreatedAt)
+            .Select(item => new
+            {
+                item.Id,
+                item.StockId,
+                item.ProductId,
+                item.ProductName,
+                item.Barcode,
+                item.Quantity,
+                item.Rate,
+                item.DiscountAmount,
+                item.CostRate,
+                item.Amount
+            })
+            .ToListAsync(cancellationToken);
+
+        return Results.Ok(new
+        {
+            document.Id,
+            document.DocumentNumber,
+            document.OnDate,
+            document.DocumentType,
+            document.PartyName,
+            document.VendorId,
+            document.CustomerId,
+            document.PaymentMode,
+            document.ReferenceNumber,
+            document.GrossAmount,
+            document.DiscountAmount,
+            document.NetAmount,
+            document.PaidAmount,
+            document.BalanceAmount,
+            document.Remarks,
+            document.StoreId,
+            Items = items
+        });
+    }
+
+    private static async Task<IResult> DeleteAsync(
+        Guid id,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var strategy = db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            var document = await WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments, context)
+                .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+            if (document is null)
+            {
+                return Results.NotFound(new { message = "Off Book document was not found." });
+            }
+
+            await ReverseDocumentStockAsync(document, db, cancellationToken);
+            if (db.ChangeTracker.Entries<Stock>().Any(entry => entry.Entity.IsOFB && entry.Entity.CurrentStock < 0))
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return Results.BadRequest(new { message = "This purchase cannot be deleted because some of its stock has already been sold." });
+            }
+
+            db.NonGstGoodsDocuments.Remove(document);
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Results.NoContent();
+        });
+    }
+
+    private static async Task ReverseDocumentStockAsync(
+        NonGstGoodsDocument document,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var lines = await db.NonGstGoodsItems
+            .Where(item => item.DocumentId == document.Id)
+            .ToListAsync(cancellationToken);
+        var stockIds = lines.Where(item => item.StockId.HasValue).Select(item => item.StockId!.Value).Distinct().ToArray();
+        var stocks = await db.Stocks.Where(item => stockIds.Contains(item.Id)).ToDictionaryAsync(item => item.Id, cancellationToken);
+
+        foreach (var line in lines)
+        {
+            if (!line.StockId.HasValue || !stocks.TryGetValue(line.StockId.Value, out var stock))
+            {
+                continue;
+            }
+
+            if (document.DocumentType == NonGstGoodsDocumentType.Purchase)
+            {
+                stock.PurchaseQty -= line.Quantity;
+            }
+            else
+            {
+                stock.SoldQty = Math.Max(0, stock.SoldQty - line.Quantity);
+                stock.SoldValue = Math.Max(0, stock.SoldValue - line.Amount);
+            }
+        }
+
+        var movements = await db.StockMovements
+            .Where(item => item.SourceId == document.Id
+                && (item.SourceType == "NonGstPurchase" || item.SourceType == "NonGstSale"))
+            .ToListAsync(cancellationToken);
+        db.StockMovements.RemoveRange(movements);
+        db.NonGstGoodsItems.RemoveRange(lines);
+    }
+
     private static async Task<StoreResolveResult> ResolveDocumentStoreAsync(NonGstGoodsDocumentType documentType, NonGstGoodsRequest request, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
     {
-        Guid? storeId = request.Items.Select(item => item.StoreId).FirstOrDefault(item => item.HasValue && item.Value != Guid.Empty);
+        var requestedStoreIds = request.Items
+            .Where(item => item.StoreId.HasValue && item.StoreId.Value != Guid.Empty)
+            .Select(item => item.StoreId!.Value)
+            .Distinct()
+            .ToArray();
+        if (requestedStoreIds.Length > 1)
+        {
+            return new StoreResolveResult(null, "All Off Book document items must belong to the same store.");
+        }
+
+        Guid? storeId = requestedStoreIds.FirstOrDefault();
+        if (storeId == Guid.Empty)
+        {
+            storeId = null;
+        }
         if (!storeId.HasValue)
         {
-            var firstStockId = request.Items.Select(item => item.StockId).FirstOrDefault(item => item.HasValue && item.Value != Guid.Empty);
-            if (firstStockId.HasValue)
+            var stockIds = request.Items
+                .Where(item => item.StockId.HasValue && item.StockId.Value != Guid.Empty)
+                .Select(item => item.StockId!.Value)
+                .Distinct()
+                .ToArray();
+            if (stockIds.Length > 0)
             {
-                var stockStoreId = await WorkspaceScope.ApplyTo(db.Stocks.AsNoTracking(), context)
-                    .Where(item => item.Id == firstStockId.Value)
-                    .Select(item => (Guid?)item.StoreId)
-                    .FirstOrDefaultAsync(cancellationToken);
-                storeId = stockStoreId;
+                var stockStoreIds = await WorkspaceScope.ApplyTo(db.Stocks.AsNoTracking(), context)
+                    .Where(item => stockIds.Contains(item.Id) && item.IsOFB)
+                    .Select(item => item.StoreId)
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+                if (stockStoreIds.Count != 1)
+                {
+                    return new StoreResolveResult(null, "All selected Off Book stock items must belong to one permitted store.");
+                }
+                storeId = stockStoreIds[0];
             }
         }
 
@@ -372,6 +551,9 @@ public static class NonGstGoodsEndpoints
                 item.GrossAmount,
                 item.DiscountAmount,
                 item.NetAmount,
+                item.PaidAmount,
+                item.BalanceAmount,
+                item.BalanceAmount <= 0 ? "Paid" : item.PaidAmount > 0 ? "Partially Paid" : "Due",
                 db.NonGstGoodsItems.Where(line => line.DocumentId == item.Id).Sum(line => (decimal?)line.CostAmount) ?? 0,
                 item.DocumentType == NonGstGoodsDocumentType.Sale
                     ? item.NetAmount - (db.NonGstGoodsItems.Where(line => line.DocumentId == item.Id).Sum(line => (decimal?)line.CostAmount) ?? 0)
@@ -422,11 +604,42 @@ public static class NonGstGoodsEndpoints
 
     private static async Task<IResult> PrintAsync(Guid id, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
     {
+        var dto = await BuildPrintDtoAsync(id, context, db, cancellationToken);
+        return dto is null
+            ? Results.NotFound(new { message = "Off Book document was not found." })
+            : Results.Ok(dto);
+    }
+
+    private static async Task<IResult> DownloadPdfAsync(
+        Guid id,
+        string? format,
+        bool? reprint,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var dto = await BuildPrintDtoAsync(id, context, db, cancellationToken);
+        if (dto is null)
+        {
+            return Results.NotFound(new { message = "Off Book document was not found." });
+        }
+
+        var pdf = NonGstGoodsPdfDocument.Build(dto, format ?? "a4", reprint == true);
+        var safeNumber = Regex.Replace(dto.DocumentNumber, @"[^A-Za-z0-9_-]+", "-").Trim('-');
+        return Results.File(pdf, "application/pdf", $"{(safeNumber.Length > 0 ? safeNumber : "off-book-document")}.pdf");
+    }
+
+    private static async Task<NonGstPrintDto?> BuildPrintDtoAsync(
+        Guid id,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
         var document = await WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context)
             .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (document is null)
         {
-            return Results.NotFound(new { message = "Non-GST document was not found." });
+            return null;
         }
 
         var company = await db.Companies.AsNoTracking().FirstOrDefaultAsync(item => item.Id == document.CompanyId, cancellationToken);
@@ -469,17 +682,20 @@ public static class NonGstGoodsEndpoints
             store?.Address ?? string.Empty,
             store?.ContactNumber,
             store?.Email,
-            "Non-GST / out-of-scope document. GST rate 0%, CGST 0, SGST 0, IGST 0. Excluded from GST reports and shown in separate Non-GST reports.",
+            "OFF BOOK document. It does not create a regular sale, purchase, GST, ledger, journal, bank or voucher entry.",
             document.GrossAmount,
             document.DiscountAmount,
             items.Sum(item => item.TaxableAmount),
             items.Sum(item => item.TaxAmount),
             document.NetAmount,
+            document.PaidAmount,
+            document.BalanceAmount,
+            document.BalanceAmount <= 0 ? "Paid" : document.PaidAmount > 0 ? "Partially Paid" : "Due",
             items.Sum(item => item.CostAmount),
             document.DocumentType == NonGstGoodsDocumentType.Sale ? document.NetAmount - items.Sum(item => item.CostAmount) : 0,
             items);
 
-        return Results.Ok(dto);
+        return dto;
     }
 
     private static async Task<Stock> ResolveOrCreateNonGstStockAsync(NonGstGoodsDocumentType documentType, NonGstGoodsItemRequest line, Store store, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
@@ -491,6 +707,10 @@ public static class NonGstGoodsEndpoints
             if (selectedStock is null)
             {
                 throw new InvalidOperationException("Selected Non-GST stock was not found.");
+            }
+            if (!selectedStock.IsOFB || selectedStock.StoreId != store.Id)
+            {
+                throw new InvalidOperationException("Selected stock does not belong to this Off Book document store.");
             }
             return selectedStock;
         }
@@ -626,55 +846,6 @@ public static class NonGstGoodsEndpoints
             if (customer is not null) return customer.Name;
         }
         return Clean(request.PartyName) ?? (type == NonGstGoodsDocumentType.Purchase ? "Non-GST Supplier" : "Walk-in Customer");
-    }
-
-    private static async Task<Ledger> EnsureLedgerAsync(GarmetixDbContext db, Guid companyId, string ledgerName, string groupName, LedgerCategory category, LedgerType ledgerType, CancellationToken cancellationToken)
-    {
-        var ledger = await db.Ledgers.Include(item => item.LedgerGroup).FirstOrDefaultAsync(item => item.CompanyId == companyId && item.Name == ledgerName, cancellationToken);
-        if (ledger is not null) return ledger;
-        var group = await db.LedgerGroups.FirstOrDefaultAsync(item => item.CompanyId == companyId && item.Name == groupName, cancellationToken);
-        if (group is null)
-        {
-            group = new LedgerGroup { Id = Guid.NewGuid(), Name = groupName, Category = category, Remarks = "Created by Non-GST goods module", CompanyId = companyId };
-            db.LedgerGroups.Add(group);
-        }
-        ledger = new Ledger { Id = Guid.NewGuid(), Name = ledgerName, LedgerGroupId = group.Id, LedgerGroup = group, LedgerType = ledgerType, OpeningDate = DateTime.Today, OpeningBalance = 0, IsParty = false, CompanyId = companyId };
-        db.Ledgers.Add(ledger);
-        return ledger;
-    }
-
-    private static async Task PostVisibleAccountingAsync(GarmetixDbContext db, NonGstGoodsDocument document, Ledger ledger, decimal quantity, CancellationToken cancellationToken)
-    {
-        var cashLedger = await EnsureLedgerAsync(db, document.CompanyId, "Cash In Hand", "Cash", LedgerCategory.CashInHand, LedgerType.Cash, cancellationToken);
-        var entry = new JournalEntry
-        {
-            Id = Guid.NewGuid(),
-            EntryNumber = $"JE-{document.DocumentNumber}",
-            OnDate = document.OnDate,
-            SourceType = document.DocumentType == NonGstGoodsDocumentType.Purchase ? "NonGstPurchase" : "NonGstSale",
-            SourceId = document.Id,
-            ReferenceNumber = document.DocumentNumber,
-            Narration = document.DocumentType == NonGstGoodsDocumentType.Purchase
-                ? $"Visible non-GST goods purchase memo from {document.PartyName}; qty {quantity:0.##}"
-                : $"Visible non-GST goods sale cash memo / other income from {document.PartyName}; qty {quantity:0.##}",
-            Posted = true,
-            PostedAt = DateTime.Now,
-            CompanyId = document.CompanyId,
-            StoreGroupId = document.StoreGroupId,
-            StoreId = document.StoreId
-        };
-        db.JournalEntries.Add(entry);
-
-        if (document.DocumentType == NonGstGoodsDocumentType.Purchase)
-        {
-            db.JournalLines.Add(new JournalLine { Id = Guid.NewGuid(), JournalEntryId = entry.Id, LedgerId = ledger.Id, Debit = document.NetAmount, Credit = 0, Narration = "Non-GST goods purchase clearing", CompanyId = document.CompanyId, StoreGroupId = document.StoreGroupId, StoreId = document.StoreId });
-            db.JournalLines.Add(new JournalLine { Id = Guid.NewGuid(), JournalEntryId = entry.Id, LedgerId = cashLedger.Id, Debit = 0, Credit = document.NetAmount, Narration = "Payment for non-GST goods purchase", CompanyId = document.CompanyId, StoreGroupId = document.StoreGroupId, StoreId = document.StoreId });
-        }
-        else
-        {
-            db.JournalLines.Add(new JournalLine { Id = Guid.NewGuid(), JournalEntryId = entry.Id, LedgerId = cashLedger.Id, Debit = document.NetAmount, Credit = 0, Narration = "Receipt from non-GST goods sale", CompanyId = document.CompanyId, StoreGroupId = document.StoreGroupId, StoreId = document.StoreId });
-            db.JournalLines.Add(new JournalLine { Id = Guid.NewGuid(), JournalEntryId = entry.Id, LedgerId = ledger.Id, Debit = 0, Credit = document.NetAmount, Narration = "Other income - non-GST goods", CompanyId = document.CompanyId, StoreGroupId = document.StoreGroupId, StoreId = document.StoreId });
-        }
     }
 
     private static string? Clean(string? value)

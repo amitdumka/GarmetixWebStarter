@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.0.10";
+    public const string Version = "4.0.11";
     public const string Stage = "Stage 8A";
-    public const string ReleaseName = "Off Book Cash Voucher UI Hardening";
+    public const string ReleaseName = "Independent Off Book Sale and Purchase";
     public const string BuildDate = "2026-06-14";
-    public const string BuildCode = "GARMETIX-8A-20260614-4010";
+    public const string BuildCode = "GARMETIX-8A-20260614-4011";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -89,6 +89,8 @@ public static class AppInfoEndpoints
         "Party and bank-account ledgers remain server-owned and synchronized by the accounting service.",
         "Salary payments now pre-calculate advance deductions, previous company dues and already-paid amounts.",
         "Printable business documents now carry stable permission-aware QR codes.",
+        "Non-GST sale, purchase, stock, settlement and reporting now operate as an independent Off Book subsystem.",
+        "Regular billing, purchase, stock operations, imports and dashboard totals explicitly exclude Off Book stock.",
         "Frontend, backend, npm package and .NET assembly versions are synchronized for every release."
     ];
 
@@ -108,7 +110,7 @@ public static class AppInfoEndpoints
         new("Where do I seed AF/SS default data?", "Use Admin > AF/SS, select the target company/profile, then run the default data seed.", "Seeder"),
         new("Where can I see success or failure messages?", "Use Admin > Message Logs. You can filter by source, level, success/failure, search text and date range.", "Logs"),
         new("How do I edit my own profile?", "Use Account > My Profile. You can change your name, username, email and password. Role, permissions and workspace assignment remain admin-controlled.", "Profile"),
-        new("Where do I record legally Non-GST goods?", "Use Operations > Non-GST Goods. These documents are not hidden; they are recorded in a separate register, posted to visible accounting ledgers and excluded from GST reports because tax rate is zero/out-of-scope.", "Non-GST Goods"),
+        new("Where do I record Off Book Non-GST goods?", "Use Off Book > Non-GST Goods. Its sales, purchases, stock, settlements and PDFs are independent and do not create regular invoices, purchase bills, GST rows, ledgers, journals, vouchers or bank transactions.", "Non-GST Goods"),
         new("What should I run after extracting a new package?", "Run dotnet build, npm ci, npm run build, and docker compose up --build from the extracted project.", "Deployment")
     ];
 }
