@@ -57,6 +57,7 @@ namespace Garmetix.Core.Models.Authentication
         [Display(Name = "Store Group Id")] public Guid? StoreGroupId { get; set; }
         [Display(Name = "Store Id")] public Guid? StoreId { get; set; }
         [Display(Name = "Admin")] public bool Admin { get; set; } = false;
+        [Display(Name = "Active")] public bool IsActive { get; set; } = true;
         [Display(Name = "App Operation")] public AppOperation AppOperation { get; set; } = AppOperation.Store;
     }
 }

@@ -22,6 +22,7 @@ const loadError = ref('')
 const saving = ref(false)
 const deleting = ref(false)
 const resetting = ref(false)
+const statusUpdatingId = ref('')
 const search = ref('')
 const formOpen = ref(false)
 const deleteOpen = ref(false)
@@ -111,7 +112,7 @@ const metrics = computed(() => [
   {
     label: 'Users',
     value: users.value.length,
-    meta: 'Active access records',
+    meta: `${users.value.filter((user) => user.isActive).length} active`,
     icon: 'i-lucide-users-round',
     color: 'primary'
   },
@@ -130,11 +131,11 @@ const metrics = computed(() => [
     color: 'warning'
   },
   {
-    label: 'Roles',
-    value: new Set(users.value.map((user) => user.role)).size,
-    meta: 'Role groups in use',
-    icon: 'i-lucide-key-round',
-    color: 'neutral'
+    label: 'Inactive',
+    value: users.value.filter((user) => !user.isActive).length,
+    meta: 'Login blocked',
+    icon: 'i-lucide-user-x',
+    color: 'error'
   }
 ])
 
@@ -146,7 +147,7 @@ const rows = computed(() => users.value.map((user) => ({
   role: user.role || '-',
   userType: user.userType || '-',
   scope: scopeLabel(user),
-  admin: user.admin ? 'Yes' : 'No',
+  status: user.isActive ? 'Active' : 'Inactive',
   raw: user
 })))
 
@@ -174,12 +175,12 @@ const columns: TableColumn<any>[] = [
   { accessorKey: 'userType', header: 'User Type' },
   { accessorKey: 'scope', header: 'Scope' },
   {
-    accessorKey: 'admin',
-    header: 'Admin',
+    accessorKey: 'status',
+    header: 'Status',
     cell: ({ row }) => h(UBadge, {
-      color: row.original.admin === 'Yes' ? 'success' : 'neutral',
+      color: row.original.status === 'Active' ? 'success' : 'error',
       variant: 'subtle'
-    }, () => row.original.admin)
+    }, () => row.original.status)
   },
   {
     id: 'actions',
@@ -198,6 +199,14 @@ const columns: TableColumn<any>[] = [
         icon: 'i-lucide-pencil',
         label: 'Edit',
         onClick: () => startEdit(row.original.raw)
+      }) : null,
+      canEdit.value ? h(UButton, {
+        color: row.original.raw.isActive ? 'warning' : 'success',
+        variant: 'ghost',
+        icon: row.original.raw.isActive ? 'i-lucide-user-x' : 'i-lucide-user-check',
+        label: row.original.raw.isActive ? 'Deactivate' : 'Activate',
+        loading: statusUpdatingId.value === row.original.raw.id,
+        onClick: () => toggleUserStatus(row.original.raw)
       }) : null,
       canDelete.value ? h(UButton, {
         color: 'error',
@@ -222,7 +231,7 @@ function emptyUser() {
     companyId: NO_SCOPE,
     storeGroupId: NO_SCOPE,
     storeId: NO_SCOPE,
-    admin: false,
+    isActive: true,
     appOperation: 2
   }
 }
@@ -280,7 +289,7 @@ function startEdit(user: any) {
     companyId: user.companyId || NO_SCOPE,
     storeGroupId: user.storeGroupId || NO_SCOPE,
     storeId: user.storeId || NO_SCOPE,
-    admin: Boolean(user.admin),
+    isActive: Boolean(user.isActive),
     appOperation: appOperationValue(user.appOperation)
   })
   editingUserId.value = user.id
@@ -298,7 +307,7 @@ function askDelete(user: any) {
   deleteOpen.value = true
 }
 
-function buildPayload(passwordOverride?: string) {
+function buildPayload() {
   const selectedStore = stores.value.find((item) => item.id === form.storeId)
   const selectedGroup = storeGroups.value.find((item) => item.id === form.storeGroupId)
 
@@ -306,30 +315,14 @@ function buildPayload(passwordOverride?: string) {
     name: String(form.name || '').trim(),
     userName: String(form.userName || '').trim(),
     email: String(form.email || '').trim(),
-    password: passwordOverride ?? (String(form.password || '').trim() || null),
+    password: editingUserId.value ? null : (String(form.password || '').trim() || null),
     role: Number(form.role),
     userType: Number(form.userType),
     companyId: form.companyId !== NO_SCOPE ? form.companyId : (selectedStore?.companyId || selectedGroup?.companyId || null),
     storeGroupId: form.storeGroupId !== NO_SCOPE ? form.storeGroupId : (selectedStore?.storeGroupId || null),
     storeId: form.storeId !== NO_SCOPE ? form.storeId : null,
-    admin: Boolean(form.admin) || Number(form.role) === 0,
+    isActive: Boolean(form.isActive),
     appOperation: Number(form.appOperation)
-  }
-}
-
-function payloadForUser(user: any, password: string) {
-  return {
-    name: user.name,
-    userName: user.userName,
-    email: user.email,
-    password,
-    role: roleValue(user.role),
-    userType: userTypeValue(user.userType),
-    companyId: user.companyId || null,
-    storeGroupId: user.storeGroupId || null,
-    storeId: user.storeId || null,
-    admin: Boolean(user.admin),
-    appOperation: appOperationValue(user.appOperation)
   }
 }
 
@@ -362,7 +355,9 @@ async function savePasswordReset() {
 
   resetting.value = true
   try {
-    await api.update<any>('access/users', pendingReset.value.id, payloadForUser(pendingReset.value, resetPassword.value))
+    await api.create<any>(`access/users/${pendingReset.value.id}/reset-password`, {
+      newPassword: resetPassword.value
+    })
     feedback.updated('Password')
     resetOpen.value = false
     pendingReset.value = null
@@ -371,6 +366,21 @@ async function savePasswordReset() {
     feedback.failed('Could not reset password', error)
   } finally {
     resetting.value = false
+  }
+}
+
+async function toggleUserStatus(user: any) {
+  statusUpdatingId.value = user.id
+  try {
+    await api.create<any>(`access/users/${user.id}/status`, {
+      isActive: !user.isActive
+    })
+    feedback.updated(user.isActive ? 'User deactivated' : 'User activated')
+    await refresh()
+  } catch (error) {
+    feedback.failed(`Could not ${user.isActive ? 'deactivate' : 'activate'} user`, error)
+  } finally {
+    statusUpdatingId.value = ''
   }
 }
 
@@ -460,7 +470,7 @@ onMounted(async () => {
     <section class="planner-dashboard">
       <UiModulePageHeader
         title="Access"
-        description="Manage users, roles, admin permission, and company/store access scope."
+        description="Manage user identity, role, account status, password administration, and company/store access scope."
         icon="i-lucide-shield-check"
         primary-label="New User"
         primary-icon="i-lucide-user-plus"
@@ -524,7 +534,7 @@ onMounted(async () => {
         v-model:open="formOpen"
         layout="modal"
         :title="editingUserId ? 'Edit User' : 'New User'"
-        :description="editingUserId ? 'Update role, scope, and optional password.' : 'Create a role-scoped application user.'"
+        :description="editingUserId ? 'Update identity, role, status, and workspace scope.' : 'Create an active role-scoped application user.'"
         submit-label="Save User"
         :loading="saving"
         @submit="saveUser"
@@ -540,8 +550,8 @@ onMounted(async () => {
             <UInput v-model="form.email" required type="email" />
           </UFormField>
         </div>
-        <UFormField :label="editingUserId ? 'New password' : 'Password'" :required="!editingUserId">
-          <UInput v-model="form.password" :required="!editingUserId" type="password" />
+        <UFormField v-if="!editingUserId" label="Initial password" required>
+          <UInput v-model="form.password" required type="password" autocomplete="new-password" />
         </UFormField>
         <div class="form-two-column">
           <UFormField label="Role">
@@ -565,7 +575,14 @@ onMounted(async () => {
         <UFormField label="Store">
           <USelect v-model="form.storeId" :items="storeOptions" />
         </UFormField>
-        <UCheckbox v-model="form.admin" label="Admin access" />
+        <UCheckbox v-model="form.isActive" label="Active account" />
+        <UAlert
+          color="neutral"
+          variant="subtle"
+          icon="i-lucide-shield-check"
+          title="Admin access is role-controlled"
+          description="Selecting the Admin role sets the internal admin flag automatically. It cannot be enabled separately."
+        />
       </UiFormSlideover>
 
       <UModal v-model:open="resetOpen" title="Reset Password" :ui="{ content: 'max-w-md' }">

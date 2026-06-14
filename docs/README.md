@@ -29,6 +29,8 @@ This folder is the canonical home for project plans, implementation notes, valid
 - [Stage 8A Package 15 / v4.0.13 validation](stages/stage-8/Stage8A-Package15-MaintenanceWorkspaces-v4.0.13-Validation.md)
 - [Stage 8A Package 16 / v4.0.14 notes](stages/stage-8/Stage8A-Package16-UiAuditCompletion-v4.0.14-Notes.md)
 - [Stage 8A Package 16 / v4.0.14 validation](stages/stage-8/Stage8A-Package16-UiAuditCompletion-v4.0.14-Validation.md)
+- [Stage 8B Package 1 / v4.1.0 notes](stages/stage-8/Stage8B-Package1-UserLifecycle-v4.1.0-Notes.md)
+- [Stage 8B Package 1 / v4.1.0 validation](stages/stage-8/Stage8B-Package1-UserLifecycle-v4.1.0-Validation.md)
 
 ## Categories
 

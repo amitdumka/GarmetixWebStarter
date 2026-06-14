@@ -100,6 +100,9 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
             // __EFMigrationsHistory but can still be missing columns when older ZIPs were
             // tested in between. These statements are idempotent and only add missing columns.
             await db.Database.ExecuteSqlRawAsync("""
+                ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "IsActive" boolean NOT NULL DEFAULT true;
+                UPDATE "Users" SET "Admin" = ("Role" = 0);
+
                 ALTER TABLE "Customers" ADD COLUMN IF NOT EXISTS "GSTLegalName" text NULL;
                 ALTER TABLE "Customers" ADD COLUMN IF NOT EXISTS "GSTTradeName" text NULL;
                 ALTER TABLE "Customers" ADD COLUMN IF NOT EXISTS "GSTPrincipalAddress" text NULL;

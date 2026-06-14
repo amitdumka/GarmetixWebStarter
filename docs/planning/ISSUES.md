@@ -6,6 +6,7 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 
 ## Fixed
 
+- [x] Roles & Users exposed an independent Admin checkbox, had no active/inactive lifecycle, and changed passwords through the general edit payload. v4.1.0 derives Admin internally from role, adds dedicated activation and password-reset actions, blocks inactive sessions, protects the last active admin, and records security events.
 - [x] FAQ category filtering used a forbidden empty SelectItem value and could fail while rendering. It now uses an internal all-value sentinel that is converted only inside the page filter.
 - [x] GST Returns converted selected invoice and accounting dates through UTC, which could shift them to the previous day in India. It now sends local calendar date-time values without UTC conversion.
 - [x] GST Returns, Profile, About Garmetix, Contact Us, and Help and FAQ discarded load failures into transient messages. Package 16 retains sanitized errors with direct retry actions and loading states.

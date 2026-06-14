@@ -9,6 +9,7 @@ export type AuthUser = {
   storeGroupId?: string
   storeId?: string
   admin: boolean
+  isActive: boolean
   appOperation?: string
 }
 

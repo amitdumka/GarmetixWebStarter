@@ -165,6 +165,7 @@ app.Use(async (context, next) =>
 
 app.UseCors("frontend");
 app.UseAuthentication();
+app.UseMiddleware<ActiveUserMiddleware>();
 app.UseMiddleware<ApplicationMessageLogMiddleware>();
 app.UseAuthorization();
 app.Use(async (context, next) =>
@@ -510,7 +511,7 @@ static async Task<IResult> ForgotPasswordAsync(
 
     // Keep the normal response generic so the login screen does not reveal whether a user exists.
     const string genericMessage = "If the account exists, a password reset link has been sent to the registered email address.";
-    if (user is null)
+    if (user is null || !user.IsActive)
     {
         return Results.Ok(new ForgotPasswordResponse(genericMessage, null, null, null));
     }
@@ -630,6 +631,13 @@ static async Task<IResult> ResetPasswordAsync(
         storedToken.RevokedAtUtc = now;
         await db.SaveChangesAsync(cancellationToken);
         return Results.BadRequest(new { message = "Reset token user was not found." });
+    }
+
+    if (!user.IsActive)
+    {
+        storedToken.RevokedAtUtc = now;
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.BadRequest(new { message = "This account is inactive. Contact an Owner or Admin." });
     }
 
     user.Password = PasswordHasher.Hash(request.NewPassword);
@@ -770,6 +778,13 @@ static async Task<IResult> LoginAsync(LoginRequest request, GarmetixDbContext db
     if (user is null || !PasswordHasher.Verify(request.Password, user.Password))
     {
         return Results.Unauthorized();
+    }
+
+    if (!user.IsActive)
+    {
+        return Results.Json(
+            new { message = "This account is inactive. Contact an Owner or Admin." },
+            statusCode: StatusCodes.Status403Forbidden);
     }
 
     if (PasswordHasher.NeedsUpgrade(user.Password))

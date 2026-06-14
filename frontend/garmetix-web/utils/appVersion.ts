@@ -1,10 +1,15 @@
-export const APP_VERSION = '4.0.14'
-export const APP_STAGE = 'Stage 8A'
-export const APP_RELEASE_NAME = 'Stage 8A UI Audit Completion'
+export const APP_VERSION = '4.1.0'
+export const APP_STAGE = 'Stage 8B'
+export const APP_RELEASE_NAME = 'User Lifecycle Hardening'
 export const APP_BUILD_DATE = '2026-06-14'
-export const APP_BUILD_CODE = 'GARMETIX-8A-20260614-4014'
+export const APP_BUILD_CODE = 'GARMETIX-8B-20260614-4100'
 
 export const APP_HIGHLIGHTS = [
+  'User activation, deactivation, role assignment, password administration and deletion are now explicit audited workflows.',
+  'Inactive users are denied at login and immediately blocked from authenticated API requests.',
+  'Admin access is derived from the Admin role and can no longer be enabled through a separate user-facing flag.',
+  'Administrative password resets use a dedicated endpoint and revoke outstanding reset tokens.',
+  'The last active admin and the currently signed-in account are protected from accidental deactivation or deletion.',
   'The Stage 8A page audit queue is complete across operational, administration, maintenance, profile and help workspaces.',
   'GST Returns now preserves local invoice and accounting dates and retains setup, draft and review failures with direct retry actions.',
   'Profile, About Garmetix, Contact Us and Help and FAQ now use consistent headers, loading states and business-facing guidance.',

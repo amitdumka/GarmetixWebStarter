@@ -13,6 +13,7 @@ public sealed record UserListItemDto(
     Guid? StoreGroupId,
     Guid? StoreId,
     bool Admin,
+    bool IsActive,
     string AppOperation);
 
 public sealed record SaveUserRequest(
@@ -25,5 +26,9 @@ public sealed record SaveUserRequest(
     Guid? CompanyId,
     Guid? StoreGroupId,
     Guid? StoreId,
-    bool Admin,
+    bool IsActive,
     AppOperation AppOperation);
+
+public sealed record SetUserStatusRequest(bool IsActive);
+
+public sealed record AdminResetPasswordRequest(string NewPassword);

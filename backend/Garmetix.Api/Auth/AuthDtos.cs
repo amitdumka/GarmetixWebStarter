@@ -15,6 +15,7 @@ public sealed record AuthUserDto(
     Guid? StoreGroupId,
     Guid? StoreId,
     bool Admin,
+    bool IsActive,
     string AppOperation);
 
 public sealed record AuthResponse(string Token, DateTime ExpiresAtUtc, AuthUserDto User);

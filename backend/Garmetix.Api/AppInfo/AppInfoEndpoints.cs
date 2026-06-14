@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.0.14";
-    public const string Stage = "Stage 8A";
-    public const string ReleaseName = "Stage 8A UI Audit Completion";
+    public const string Version = "4.1.0";
+    public const string Stage = "Stage 8B";
+    public const string ReleaseName = "User Lifecycle Hardening";
     public const string BuildDate = "2026-06-14";
-    public const string BuildCode = "GARMETIX-8A-20260614-4014";
+    public const string BuildCode = "GARMETIX-8B-20260614-4100";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,11 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "User activation, deactivation, role assignment, password administration, and deletion are now explicit audited workflows.",
+        "Inactive users are denied at login and immediately blocked from authenticated API requests.",
+        "Admin access is derived from the Admin role and can no longer be enabled through a separate user-facing flag.",
+        "Administrative password resets use a dedicated endpoint and revoke outstanding reset tokens.",
+        "The last active admin and the currently signed-in account are protected from accidental deactivation or deletion.",
         "The Stage 8A page audit queue is complete across operational, administration, maintenance, profile, and help workspaces.",
         "GST Returns now preserves local invoice and accounting dates and retains setup, draft, and review failures with direct retry actions.",
         "Profile, About Garmetix, Contact Us, and Help and FAQ now use consistent headers, loading states, and business-facing guidance.",

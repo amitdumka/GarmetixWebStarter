@@ -313,6 +313,7 @@ Use this file as the running handoff checklist. When a task is completed, mark i
   - [x] Package 15: standardized Production Readiness, Release Stabilization, Data Consistency, and Oracle Sync with retained failures, retry actions, loading states, responsive surfaces, and safe Oracle filter values in v4.0.13.
   - [x] Package 16: standardized GST Returns, Profile, About Garmetix, Contact Us, and Help and FAQ; fixed local GST dates and FAQ filter values; and completed the Stage 8A audit queue in v4.0.14.
 - [ ] Complete Stage 8B role, permission, and user-administration hardening.
+  - [x] Package 1: added active/inactive user lifecycle, dedicated password administration, server-owned Admin role flags, last-admin safeguards, immediate inactive-session blocking, and security audit events in v4.1.0.
 - [ ] Complete Stage 8C purchase return and vendor settlement.
 - [ ] Complete Stage 8D inventory documents and valuation.
 - [ ] Complete Stage 8E accounting and payment hardening.
