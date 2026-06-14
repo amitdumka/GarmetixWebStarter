@@ -1,5 +1,3 @@
-using Garmetix.Core.Enums;
-
 namespace Garmetix.Api.Auth;
 
 public static class GarmetixPolicies
@@ -14,59 +12,4 @@ public static class GarmetixPolicies
     public const string Accounting = "Accounting";
     public const string Hr = "Hr";
     public const string Payroll = "Payroll";
-
-    public static readonly string[] AdminRoles =
-    [
-        LoginRole.Admin.ToString()
-    ];
-
-    public static readonly string[] EditRoles =
-    [
-        LoginRole.Admin.ToString(),
-        LoginRole.PowerUser.ToString(),
-        LoginRole.Accountant.ToString()
-    ];
-
-    public static readonly string[] DeleteRoles =
-    [
-        LoginRole.Admin.ToString()
-    ];
-
-    public static readonly string[] BillingRoles =
-    [
-        LoginRole.Admin.ToString(),
-        LoginRole.PowerUser.ToString(),
-        LoginRole.StoreManager.ToString(),
-        LoginRole.Salesman.ToString()
-    ];
-
-    public static readonly string[] InventoryRoles =
-    [
-        LoginRole.Admin.ToString(),
-        LoginRole.PowerUser.ToString(),
-        LoginRole.StoreManager.ToString()
-    ];
-
-    public static readonly string[] AccountingRoles =
-    [
-        LoginRole.Admin.ToString(),
-        LoginRole.PowerUser.ToString(),
-        LoginRole.Accountant.ToString(),
-        LoginRole.RemoteAccountant.ToString(),
-        LoginRole.StoreManager.ToString()
-    ];
-
-    public static readonly string[] HrRoles =
-    [
-        LoginRole.Admin.ToString(),
-        LoginRole.PowerUser.ToString(),
-        LoginRole.StoreManager.ToString()
-    ];
-
-    public static readonly string[] PayrollRoles =
-    [
-        LoginRole.Admin.ToString(),
-        LoginRole.PowerUser.ToString(),
-        LoginRole.Accountant.ToString()
-    ];
 }

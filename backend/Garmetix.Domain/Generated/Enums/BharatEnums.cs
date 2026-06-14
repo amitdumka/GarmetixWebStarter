@@ -178,7 +178,7 @@ namespace Garmetix.Core.Enums
     }
 
     public enum LoginRole
-    { Admin, StoreManager, Salesman, Accountant, RemoteAccountant, Member, PowerUser };
+    { Admin, StoreManager, Salesman, Accountant, RemoteAccountant, Member, PowerUser, HR, Payroll };
 
     public enum NotesType
     {

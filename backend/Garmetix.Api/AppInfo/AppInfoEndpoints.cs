@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.1.0";
+    public const string Version = "4.1.1";
     public const string Stage = "Stage 8B";
-    public const string ReleaseName = "User Lifecycle Hardening";
+    public const string ReleaseName = "Role Permission Matrix";
     public const string BuildDate = "2026-06-14";
-    public const string BuildCode = "GARMETIX-8B-20260614-4100";
+    public const string BuildCode = "GARMETIX-8B-20260614-4101";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,11 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "One server-owned permission matrix now drives Admin, entry, edit, delete, and operational module authorization.",
+        "The Access workspace displays the effective role matrix returned by the API.",
+        "Store Manager retains store-module view and entry access without Admin, global edit, or delete rights.",
+        "Dedicated HR and Payroll roles open only their assigned people module and land there after login.",
+        "Automated role tests cover Owner, Admin, Power User, Accountant, Store Manager, Salesman, HR, and Payroll permissions.",
         "User activation, deactivation, role assignment, password administration, and deletion are now explicit audited workflows.",
         "Inactive users are denied at login and immediately blocked from authenticated API requests.",
         "Admin access is derived from the Admin role and can no longer be enabled through a separate user-facing flag.",

@@ -27,6 +27,8 @@ async function resolveDashboard() {
 function chooseLocalDashboard() {
   auth.restore()
   const role = `${auth.user.value?.role || ''} ${auth.user.value?.userType || ''}`.toLowerCase()
+  if (role.includes('payroll')) return '/payroll'
+  if (role.includes('hr')) return '/hr'
   return auth.canSeeAdmin.value || role.includes('accountant') ? '/dashboard/business' : '/dashboard/store-manager'
 }
 

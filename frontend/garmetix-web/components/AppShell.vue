@@ -193,7 +193,11 @@ const isStoreGroupLocked = computed(() => Boolean(workspaceOptions.value?.isStor
 const isStoreLocked = computed(() => Boolean(workspaceOptions.value?.isStoreLocked || auth.user.value?.storeId))
 const roleKey = computed(() => `${auth.user.value?.role || ''} ${auth.user.value?.userType || ''}`.toLowerCase())
 const isBusinessUser = computed(() => auth.canSeeAdmin.value || roleKey.value.includes('accountant') || roleKey.value.includes('poweruser') || roleKey.value.includes('remoteaccountant'))
-const dashboardHomePath = computed(() => isBusinessUser.value ? '/dashboard/business' : '/dashboard/store-manager')
+const dashboardHomePath = computed(() => {
+  if (roleKey.value.includes('payroll')) return '/payroll'
+  if (roleKey.value.includes('hr')) return '/hr'
+  return isBusinessUser.value ? '/dashboard/business' : '/dashboard/store-manager'
+})
 const visibleGroups = computed(() => moduleGroups
   .map((group) => ({
     ...group,
@@ -368,9 +372,9 @@ const systemStatusDropdownItems = computed<DropdownMenuItem[][]>(() => sanitizeD
   [
     { label: workingStoreName.value, icon: 'i-lucide-store', disabled: true },
     { label: workingCompanyName.value, icon: 'i-lucide-building-2', disabled: true },
-    { label: `${currentDate.value} · ${currentClock.value}`, icon: 'i-lucide-clock-3', disabled: true },
+    { label: `${currentDate.value} | ${currentClock.value}`, icon: 'i-lucide-clock-3', disabled: true },
     { label: apiBadge.value.label, icon: apiBadge.value.icon, disabled: true },
-    { label: `${APP_RELEASE_NAME} · v${APP_VERSION}`, icon: 'i-lucide-badge-info', disabled: true }
+    { label: `${APP_RELEASE_NAME} | v${APP_VERSION}`, icon: 'i-lucide-badge-info', disabled: true }
   ],
   [
     { label: 'Change workspace', icon: 'i-lucide-building-2', onSelect: () => { workspaceOpen.value = true } },

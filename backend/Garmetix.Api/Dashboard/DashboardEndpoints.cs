@@ -28,6 +28,16 @@ public static class DashboardEndpoints
         var role = context.User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
         var userType = context.User.FindFirst("userType")?.Value ?? string.Empty;
         var combined = $"{role} {userType}".ToLowerInvariant();
+        if (string.Equals(role, LoginRole.HR.ToString(), StringComparison.OrdinalIgnoreCase))
+        {
+            return new DashboardHomeDto("/hr", "HR", "HR users start in attendance and employee operations.", false, false);
+        }
+
+        if (string.Equals(role, LoginRole.Payroll.ToString(), StringComparison.OrdinalIgnoreCase))
+        {
+            return new DashboardHomeDto("/payroll", "Payroll", "Payroll users start in salary and payslip operations.", false, false);
+        }
+
         var canOpenBusiness = WorkspaceScope.HasFullAccess(context)
             || combined.Contains("admin")
             || combined.Contains("owner")

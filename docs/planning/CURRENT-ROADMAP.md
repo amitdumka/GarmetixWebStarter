@@ -4,10 +4,10 @@ Updated: 2026-06-14
 
 ## Current Baseline
 
-- Version: 4.1.0
+- Version: 4.1.1
 - Stage: Stage 8B
-- Release: User Lifecycle Hardening
-- Build code: `GARMETIX-8B-20260614-4100`
+- Release: Role Permission Matrix
+- Build code: `GARMETIX-8B-20260614-4101`
 - Branch: `Version3.0`
 - Pre-Stage 8 baseline commit: `470ba2e`
 
@@ -59,11 +59,11 @@ Stage 7M menu names, route compatibility, permission-aware navigation, Off Book 
 - [ ] Verify permission-aware mobile sidebar, collapsed icon mode, active-menu state, command palette, footer menus, and topbar actions.
 - [ ] Implement a permission-aware notification/action dropdown without exposing technical noise.
 - [x] Audit and harden the existing user create/edit, role assignment, password reset, and active/inactive workflows in v4.1.0.
-- [ ] Test the complete server and frontend permission matrix.
-- [ ] Confirm StoreManager cannot access Admin and cannot edit/delete restricted records.
-- [ ] Confirm edit access is limited to approved roles and delete access to Owner/Admin.
+- [x] Centralize and test the server/frontend permission matrix in v4.1.1.
+- [x] Confirm StoreManager can view and enter permitted store records but cannot access Admin or edit/delete restricted records.
+- [x] Confirm edit access is limited to Owner, Admin, PowerUser, and Accountant, and delete access to Owner/Admin.
 - [x] Add explicit audit events for user creation/editing, role assignment, activation, deactivation, password administration, and deletion in v4.1.0.
-- [ ] Add automated access tests for Owner, Admin, PowerUser, Accountant, StoreManager, Salesman, HR, and Payroll roles.
+- [x] Add automated access tests for Owner, Admin, PowerUser, Accountant, StoreManager, Salesman, HR, and Payroll roles in v4.1.1.
 
 ## Stage 8C - Purchase Return and Vendor Settlement
 

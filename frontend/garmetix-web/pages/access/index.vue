@@ -17,6 +17,7 @@ const companies = ref<any[]>([])
 const storeGroups = ref<any[]>([])
 const stores = ref<any[]>([])
 const users = ref<any[]>([])
+const permissionMatrix = ref<any[]>([])
 const loading = ref(false)
 const loadError = ref('')
 const saving = ref(false)
@@ -39,7 +40,9 @@ const roleOptions = [
   { value: 3, label: 'Accountant' },
   { value: 4, label: 'Remote Accountant' },
   { value: 5, label: 'Member' },
-  { value: 6, label: 'Power User' }
+  { value: 6, label: 'Power User' },
+  { value: 7, label: 'HR' },
+  { value: 8, label: 'Payroll' }
 ]
 
 const userTypeOptions = [
@@ -160,6 +163,16 @@ const filteredRows = computed(() => {
   return rows.value.filter((row) => JSON.stringify(row).toLowerCase().includes(term))
 })
 
+const matrixRows = computed(() => permissionMatrix.value.map((profile) => ({
+  role: profile.role,
+  modules: Array.isArray(profile.modules) ? profile.modules.join(', ') : '-',
+  entry: Boolean(profile.entry),
+  edit: Boolean(profile.edit),
+  delete: Boolean(profile.delete),
+  adminWorkspace: Boolean(profile.adminWorkspace),
+  notes: profile.notes || ''
+})))
+
 const columns: TableColumn<any>[] = [
   { accessorKey: 'name', header: 'Name' },
   { accessorKey: 'userName', header: 'Username' },
@@ -219,6 +232,32 @@ const columns: TableColumn<any>[] = [
   }
 ]
 
+const matrixColumns: TableColumn<any>[] = [
+  { accessorKey: 'role', header: 'Role' },
+  { accessorKey: 'modules', header: 'Module Access' },
+  {
+    accessorKey: 'entry',
+    header: 'Entry',
+    cell: ({ row }) => permissionBadge(row.original.entry)
+  },
+  {
+    accessorKey: 'edit',
+    header: 'Edit',
+    cell: ({ row }) => permissionBadge(row.original.edit)
+  },
+  {
+    accessorKey: 'delete',
+    header: 'Delete',
+    cell: ({ row }) => permissionBadge(row.original.delete)
+  },
+  {
+    accessorKey: 'adminWorkspace',
+    header: 'Admin',
+    cell: ({ row }) => permissionBadge(row.original.adminWorkspace)
+  },
+  { accessorKey: 'notes', header: 'Scope Notes' }
+]
+
 function emptyUser() {
   return {
     id: '',
@@ -244,15 +283,17 @@ async function refresh() {
   loading.value = true
   loadError.value = ''
   try {
-    const [workspaceOptions, userRows] = await Promise.all([
+    const [workspaceOptions, userRows, matrix] = await Promise.all([
       api.get<any>('workspace/options'),
-      api.get<any[]>('access/users')
+      api.get<any[]>('access/users'),
+      api.get<any[]>('access/matrix')
     ])
 
     companies.value = workspaceOptions?.companies || []
     storeGroups.value = workspaceOptions?.storeGroups || []
     stores.value = workspaceOptions?.stores || []
     users.value = userRows
+    permissionMatrix.value = matrix
   } catch (error) {
     loadError.value = feedback.errorMessage(error, 'Users and access scopes could not be loaded. Try again.', 'Access refresh failed')
     feedback.failed('Access refresh failed', error)
@@ -428,6 +469,13 @@ function roleColor(role: string) {
   return key === 'member' ? 'neutral' : 'primary'
 }
 
+function permissionBadge(allowed: boolean) {
+  return h(UBadge, {
+    color: allowed ? 'success' : 'neutral',
+    variant: 'subtle'
+  }, () => allowed ? 'Allowed' : 'No')
+}
+
 function scopeLabel(user: any) {
   if (compact(user.appOperation) === 'all') {
     return 'All'
@@ -526,6 +574,29 @@ onMounted(async () => {
           <UTable
             :data="filteredRows"
             :columns="columns"
+          />
+        </div>
+      </UiRegisterPanel>
+
+      <UiRegisterPanel
+        title="Role Permission Matrix"
+        description="Server-enforced access rules for administration, module entry, edit, and delete operations."
+        :loading="loading"
+        :error="loadError"
+        :empty="!loading && !loadError && matrixRows.length === 0"
+        empty-title="Permission matrix unavailable"
+        empty-description="Refresh to load the current server authorization rules."
+        empty-icon="i-lucide-table-properties"
+        @retry="refresh"
+      >
+        <template #actions>
+          <UBadge color="primary" variant="subtle">{{ matrixRows.length }} roles</UBadge>
+        </template>
+
+        <div v-if="matrixRows.length" class="overflow-x-auto">
+          <UTable
+            :data="matrixRows"
+            :columns="matrixColumns"
           />
         </div>
       </UiRegisterPanel>

@@ -6,6 +6,7 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 
 ## Fixed
 
+- [x] Backend policies, frontend role routes, access imports, and the visible role model could drift independently. v4.1.1 centralizes server authorization, exposes the effective matrix in Roles & Users, adds HR/Payroll specialist roles, and verifies critical role boundaries with automated tests.
 - [x] Roles & Users exposed an independent Admin checkbox, had no active/inactive lifecycle, and changed passwords through the general edit payload. v4.1.0 derives Admin internally from role, adds dedicated activation and password-reset actions, blocks inactive sessions, protects the last active admin, and records security events.
 - [x] FAQ category filtering used a forbidden empty SelectItem value and could fail while rendering. It now uses an internal all-value sentinel that is converted only inside the page filter.
 - [x] GST Returns converted selected invoice and accounting dates through UTC, which could shift them to the previous day in India. It now sends local calendar date-time values without UTC conversion.
@@ -49,7 +50,8 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 - [ ] Backend Release build has nullable warnings in purchase receipt mapping and data-consistency number handling.
 - [ ] Nuxt production build succeeds but external font metadata providers can fail certificate validation and produce noisy fallback warnings.
 - [ ] Authenticated Nuxt pages log `Hydration completed but contains mismatches`; the current register workflows render and operate correctly, but the shared SSR/auth shell needs a dedicated hydration audit.
-- [ ] Clean Docker install, fresh database migration, permissions matrix, and backup/restore drill remain pending.
+- [ ] Clean Docker install, fresh database migration, and backup/restore drill remain pending.
+- [ ] Docker frontend installation reports nine high-severity transitive npm advisories; review dependency upgrades without applying an unreviewed breaking `npm audit fix --force`.
 
 ## FIXED - Database schema repair raw SQL FormatException
 

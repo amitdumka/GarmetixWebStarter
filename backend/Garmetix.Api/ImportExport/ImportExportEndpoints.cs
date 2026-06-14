@@ -307,7 +307,7 @@ public static class ImportExportEndpoints
             }),
         ["access"] = new(
             "Access",
-            ["Name", "UserName", "Email", "Password", "Role", "UserType", "Admin", "AppOperation", "CompanyCode", "StoreGroupCode", "StoreCode"],
+            ["Name", "UserName", "Email", "Password", "Role", "UserType", "IsActive", "AppOperation", "CompanyCode", "StoreGroupCode", "StoreCode"],
             async (db, cancellationToken) =>
             {
                 var rows = await db.Users.AsNoTracking()
@@ -324,7 +324,7 @@ public static class ImportExportEndpoints
                     "",
                     item.Role,
                     item.UserType,
-                    item.Admin,
+                    item.IsActive,
                     item.AppOperation,
                     item.CompanyId.HasValue && companies.TryGetValue(item.CompanyId.Value, out var company) ? company.Code : "",
                     item.StoreGroupId.HasValue && groups.TryGetValue(item.StoreGroupId.Value, out var group) ? group.GroupCode : "",
@@ -585,16 +585,20 @@ public static class ImportExportEndpoints
 
             var role = row.Enum("Role", LoginRole.Member, result);
             var userType = row.Enum("UserType", UserType.StoreManager, result);
-            var admin = row.Bool("Admin", role == LoginRole.Admin) || role == LoginRole.Admin;
+            var admin = role == LoginRole.Admin;
+            var isActive = row.Bool("IsActive", true);
             var appOperation = row.Enum("AppOperation", AppOperation.All, result);
             var scope = ResolveUserScope(row, companies, groups, stores, result);
 
-            if (user is not null && (user.Admin || user.Role == LoginRole.Admin) && !admin)
+            if (user is not null
+                && user.IsActive
+                && (user.Admin || user.Role == LoginRole.Admin)
+                && (!admin || !isActive))
             {
-                var adminCount = users.Count(item => item.Admin || item.Role == LoginRole.Admin);
+                var adminCount = users.Count(item => item.IsActive && (item.Admin || item.Role == LoginRole.Admin));
                 if (adminCount <= 1)
                 {
-                    result.Errors.Add(new ImportRowError(row.Line, "Admin", "Cannot remove admin access from the last admin user."));
+                    result.Errors.Add(new ImportRowError(row.Line, "Role", "Cannot remove or deactivate the last active admin user."));
                     continue;
                 }
             }
@@ -611,6 +615,7 @@ public static class ImportExportEndpoints
             user.Role = role;
             user.UserType = userType;
             user.Admin = admin;
+            user.IsActive = isActive;
             user.AppOperation = appOperation;
             user.CompanyId = scope.CompanyId;
             user.StoreGroupId = scope.StoreGroupId;

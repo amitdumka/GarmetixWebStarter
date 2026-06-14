@@ -122,16 +122,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy(GarmetixPolicies.Admin, policy => policy.RequireAssertion(IsAdminOrOwner));
-    options.AddPolicy(GarmetixPolicies.CompanySetup, policy => policy.RequireAssertion(IsAdminOrOwner));
-    options.AddPolicy(GarmetixPolicies.Edit, policy => policy.RequireAssertion(CanEdit));
-    options.AddPolicy(GarmetixPolicies.Delete, policy => policy.RequireAssertion(CanDelete));
-    options.AddPolicy(GarmetixPolicies.Billing, policy => policy.RequireRole(GarmetixPolicies.BillingRoles));
-    options.AddPolicy(GarmetixPolicies.Inventory, policy => policy.RequireRole(GarmetixPolicies.InventoryRoles));
-    options.AddPolicy(GarmetixPolicies.Purchase, policy => policy.RequireRole(GarmetixPolicies.InventoryRoles));
-    options.AddPolicy(GarmetixPolicies.Accounting, policy => policy.RequireRole(GarmetixPolicies.AccountingRoles));
-    options.AddPolicy(GarmetixPolicies.Hr, policy => policy.RequireRole(GarmetixPolicies.HrRoles));
-    options.AddPolicy(GarmetixPolicies.Payroll, policy => policy.RequireRole(GarmetixPolicies.PayrollRoles));
+    AddMatrixPolicy(options, GarmetixPolicies.Admin);
+    AddMatrixPolicy(options, GarmetixPolicies.CompanySetup);
+    AddMatrixPolicy(options, GarmetixPolicies.Edit);
+    AddMatrixPolicy(options, GarmetixPolicies.Delete);
+    AddMatrixPolicy(options, GarmetixPolicies.Billing);
+    AddMatrixPolicy(options, GarmetixPolicies.Inventory);
+    AddMatrixPolicy(options, GarmetixPolicies.Purchase);
+    AddMatrixPolicy(options, GarmetixPolicies.Accounting);
+    AddMatrixPolicy(options, GarmetixPolicies.Hr);
+    AddMatrixPolicy(options, GarmetixPolicies.Payroll);
 });
 
 var app = builder.Build();
@@ -214,6 +214,7 @@ app.MapWorkspaceEndpoints();
 app.MapBillingEndpoints();
 app.MapPurchaseEndpoints();
 app.MapUserManagementEndpoints();
+app.MapAccessMatrixEndpoints();
 app.MapHrEndpoints();
 app.MapPayrollEndpoints();
 app.MapSalaryPaymentEndpoints();
@@ -387,23 +388,10 @@ static async Task EnrichPartyGstinAsync<T>(T entity, GstinLookupService gstinLoo
     }
 }
 
-static bool IsAdminOrOwner(AuthorizationHandlerContext context)
-{
-    return context.User.IsInRole(LoginRole.Admin.ToString())
-        || string.Equals(context.User.FindFirst("userType")?.Value, UserType.Owner.ToString(), StringComparison.OrdinalIgnoreCase);
-}
-
-static bool CanEdit(AuthorizationHandlerContext context)
-{
-    return IsAdminOrOwner(context)
-        || context.User.IsInRole(LoginRole.PowerUser.ToString())
-        || context.User.IsInRole(LoginRole.Accountant.ToString());
-}
-
-static bool CanDelete(AuthorizationHandlerContext context)
-{
-    return IsAdminOrOwner(context);
-}
+static void AddMatrixPolicy(AuthorizationOptions options, string policyName)
+    => options.AddPolicy(
+        policyName,
+        policy => policy.RequireAssertion(context => AccessPermissionMatrix.CanAccessPolicy(context.User, policyName)));
 
 static async Task<IResult> BootstrapAdminAsync(BootstrapAdminRequest request, GarmetixDbContext db, JwtTokenService tokens, CancellationToken cancellationToken)
 {

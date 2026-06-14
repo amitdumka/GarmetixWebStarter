@@ -1,10 +1,15 @@
-export const APP_VERSION = '4.1.0'
+export const APP_VERSION = '4.1.1'
 export const APP_STAGE = 'Stage 8B'
-export const APP_RELEASE_NAME = 'User Lifecycle Hardening'
+export const APP_RELEASE_NAME = 'Role Permission Matrix'
 export const APP_BUILD_DATE = '2026-06-14'
-export const APP_BUILD_CODE = 'GARMETIX-8B-20260614-4100'
+export const APP_BUILD_CODE = 'GARMETIX-8B-20260614-4101'
 
 export const APP_HIGHLIGHTS = [
+  'One server-owned permission matrix now drives Admin, entry, edit, delete and operational module authorization.',
+  'The Access workspace displays the effective role matrix returned by the API.',
+  'Store Manager retains store-module view and entry access without Admin, global edit or delete rights.',
+  'Dedicated HR and Payroll roles open only their assigned people module and land there after login.',
+  'Automated role tests cover Owner, Admin, Power User, Accountant, Store Manager, Salesman, HR and Payroll permissions.',
   'User activation, deactivation, role assignment, password administration and deletion are now explicit audited workflows.',
   'Inactive users are denied at login and immediately blocked from authenticated API requests.',
   'Admin access is derived from the Admin role and can no longer be enabled through a separate user-facing flag.',

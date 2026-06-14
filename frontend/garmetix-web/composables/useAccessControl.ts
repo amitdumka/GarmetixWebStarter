@@ -8,6 +8,8 @@ export type AccessRole =
   | 'powerUser'
   | 'storeManager'
   | 'salesman'
+  | 'hr'
+  | 'payroll'
   | 'member'
   | 'authenticated'
 
@@ -36,6 +38,8 @@ const roleRank: Record<AccessRole, number> = {
   remoteAccountant: 65,
   storeManager: 55,
   salesman: 35,
+  hr: 34,
+  payroll: 33,
   member: 20,
   authenticated: 10
 }
@@ -67,8 +71,8 @@ const routeRules: PageAccessRule[] = [
   { path: '/accounting', label: 'Accounting', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
   { path: '/petty-cash', label: 'Petty Cash', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
 
-  { path: '/hr', label: 'HR', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
-  { path: '/payroll', label: 'Payroll', module: 'People', roles: ['admin', 'owner', 'powerUser', 'accountant'] },
+  { path: '/hr', label: 'HR', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
+  { path: '/payroll', label: 'Payroll', module: 'People', roles: ['admin', 'owner', 'powerUser', 'accountant', 'payroll'] },
   { path: '/cash-vouchers', label: 'Cash Vouchers', module: 'Off Book', roles: ['admin', 'owner', 'powerUser', 'accountant', 'storeManager'] },
 
   { path: '/setup', label: 'Company Setup', module: 'Admin', roles: ['admin', 'owner'] },
@@ -111,6 +115,8 @@ function rolesForUser(user: AuthUser | null): AccessRole[] {
   if (role === 'remoteaccountant') roles.add('remoteAccountant')
   if (role === 'storemanager' || userType === 'storemanager' || userType === 'manager') roles.add('storeManager')
   if (role === 'salesman' || userType === 'salesman') roles.add('salesman')
+  if (role === 'hr') roles.add('hr')
+  if (role === 'payroll') roles.add('payroll')
   if (role === 'member') roles.add('member')
 
   if (operation === 'all' && userType === 'owner') roles.add('owner')

@@ -10,6 +10,8 @@ const reason = computed(() => String(route.query.reason || 'You do not have acce
 const rule = computed(() => access.getPathRule(attemptedPath.value))
 const homePath = computed(() => {
   const roles = access.userRoles.value
+  if (roles.includes('payroll')) return '/payroll'
+  if (roles.includes('hr')) return '/hr'
   return roles.includes('admin') || roles.includes('owner') || roles.includes('accountant') || roles.includes('remoteAccountant')
     ? '/dashboard/business'
     : '/dashboard/store-manager'
