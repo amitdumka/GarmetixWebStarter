@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.0.13";
+    public const string Version = "4.0.14";
     public const string Stage = "Stage 8A";
-    public const string ReleaseName = "Maintenance Workspace Standardization";
+    public const string ReleaseName = "Stage 8A UI Audit Completion";
     public const string BuildDate = "2026-06-14";
-    public const string BuildCode = "GARMETIX-8A-20260614-4013";
+    public const string BuildCode = "GARMETIX-8A-20260614-4014";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,10 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "The Stage 8A page audit queue is complete across operational, administration, maintenance, profile, and help workspaces.",
+        "GST Returns now preserves local invoice and accounting dates and retains setup, draft, and review failures with direct retry actions.",
+        "Profile, About Garmetix, Contact Us, and Help and FAQ now use consistent headers, loading states, and business-facing guidance.",
+        "FAQ category filtering now uses a safe internal all-value sentinel instead of an invalid empty selector value.",
         "Company Setup and Roles and Users now use retryable registers, responsive tables and wide modal workspaces.",
         "Company, store-group and store dates preserve the selected local calendar date without UTC conversion.",
         "Company Onboarding and AF/SS Defaults now provide retained load failures, retry actions and responsive loading states.",
@@ -100,21 +104,21 @@ public static class AppInfoEndpoints
 
     private static readonly AppContactDto[] ContactItems =
     [
-        new("Business owner", "Amit Kumar", "person", "Primary owner/contact for deployment decisions."),
-        new("Email", "ameetkrsah@gmail.com", "email", "Use for account, deployment and support communication."),
+        new("Business owner", "Amit Kumar", "person", "Primary business owner and authorization contact."),
+        new("Email", "ameetkrsah@gmail.com", "email", "Use for account and support communication."),
         new("Location", "Dumka / Jamshedpur, Jharkhand, India", "location", "Business operating region."),
-        new("Product", "Garmetix", "product", "Garment store management, billing, purchase, inventory, GST and SaaS admin.")
+        new("Product", "Garmetix", "product", "Garment store management, billing, purchase, inventory, GST and controlled administration.")
     ];
 
     private static readonly AppFaqDto[] FaqItems =
     [
-        new("How do I know which code version is running?", "Open About Us and check the Version, Stage, Build Date and Build Code. The same data is also available from /api/app-info/version.", "Version"),
-        new("When should the version number change?", "Every packaged code change should update the central version constants in backend AppInfoEndpoints and frontend appVersion.ts so the UI and API identify the same release.", "Version"),
-        new("Where do I onboard the first company?", "Use Admin > Onboarding. It creates company, store group, store, users, employees, manager salesman and optional basic masters.", "Onboarding"),
-        new("Where do I seed AF/SS default data?", "Use Admin > AF/SS, select the target company/profile, then run the default data seed.", "Seeder"),
-        new("Where can I see success or failure messages?", "Use Admin > Message Logs. You can filter by source, level, success/failure, search text and date range.", "Logs"),
+        new("How do I know which Garmetix version is running?", "Open About Garmetix and check the Version, Stage, Build Date and Build Code.", "Version"),
+        new("Where do I create the first company?", "Use Admin > Company Onboarding. It creates the company, store group, store, initial users, employees and optional basic masters.", "Company"),
+        new("Where do I prepare AF/SS default data?", "Use Admin > AF/SS Defaults, select the target company and profile, then apply the required defaults.", "Company"),
+        new("Where can I see success or failure messages?", "Use Data > Message Logs. You can filter by source, level, success or failure, search text and date range.", "Logs"),
         new("How do I edit my own profile?", "Use Account > My Profile. You can change your name, username, email and password. Role, permissions and workspace assignment remain admin-controlled.", "Profile"),
+        new("How do I prepare a GST return?", "Use GST > GST Returns, choose Load From Books, review the prepared values, save a draft if needed and confirm the return before export or filing.", "GST"),
         new("Where do I record Off Book Non-GST goods?", "Use Off Book > Non-GST Goods. Its sales, purchases, stock, settlements and PDFs are independent and do not create regular invoices, purchase bills, GST rows, ledgers, journals, vouchers or bank transactions.", "Non-GST Goods"),
-        new("What should I run after extracting a new package?", "Run dotnet build, npm ci, npm run build, and docker compose up --build from the extracted project.", "Deployment")
+        new("What details should I include when requesting support?", "Include the page name, operation performed, approximate time, visible message, and the Version and Build Code shown in About Garmetix.", "Support")
     ];
 }

@@ -300,7 +300,7 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Complete Stage 7M Pre-v4.0 UI Naming and Menu Cleanup.
 - [x] Preserve the active grouped Nuxt UI shell and `NUXT_PUBLIC_DASHBOARD_SHELL=legacy` rollback.
 - [x] Keep Cash Vouchers separate under Off Book and regular vouchers under Accounting.
-- [ ] Complete Stage 8A full-page UI audit and standardization.
+- [x] Complete Stage 8A full-page UI audit and standardization.
   - [x] Package 1: persistent UI audit queue and standardized Credit Note / Debit Note registers.
   - [x] Package 2: standardized Commercial Notes / Customers and synchronized runtime identity to v4.0.0.
   - [x] Package 3: standardized Parties / Vouchers, added voucher-type filtering and sanitized retryable register errors, and synchronized runtime identity to v4.0.1.
@@ -311,6 +311,7 @@ Use this file as the running handoff checklist. When a task is completed, mark i
   - [x] Package 13: completed independent Off Book Non-GST sale, purchase, stock, settlement, server PDF, QR lookup, and regular-book exclusion in v4.0.11.
   - [x] Package 14: standardized Company Setup, Client Onboarding, AF/SS Defaults, and Roles & Users with retryable states, responsive tables, wide forms, local-date-safe setup records, and cleaned business copy in v4.0.12.
   - [x] Package 15: standardized Production Readiness, Release Stabilization, Data Consistency, and Oracle Sync with retained failures, retry actions, loading states, responsive surfaces, and safe Oracle filter values in v4.0.13.
+  - [x] Package 16: standardized GST Returns, Profile, About Garmetix, Contact Us, and Help and FAQ; fixed local GST dates and FAQ filter values; and completed the Stage 8A audit queue in v4.0.14.
 - [ ] Complete Stage 8B role, permission, and user-administration hardening.
 - [ ] Complete Stage 8C purchase return and vendor settlement.
 - [ ] Complete Stage 8D inventory documents and valuation.

@@ -6,6 +6,10 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 
 ## Fixed
 
+- [x] FAQ category filtering used a forbidden empty SelectItem value and could fail while rendering. It now uses an internal all-value sentinel that is converted only inside the page filter.
+- [x] GST Returns converted selected invoice and accounting dates through UTC, which could shift them to the previous day in India. It now sends local calendar date-time values without UTC conversion.
+- [x] GST Returns, Profile, About Garmetix, Contact Us, and Help and FAQ discarded load failures into transient messages. Package 16 retains sanitized errors with direct retry actions and loading states.
+- [x] Profile and GST review text contained inconsistent separators and obsolete standalone-module guidance, while help pages exposed developer-oriented deployment details. Package 16 uses current business-facing copy and ASCII-safe separators.
 - [x] Oracle Sync entity and direction filters used forbidden empty SelectItem values and could fail while rendering. They now use an internal all-value sentinel that is converted to null before API calls.
 - [x] Production Readiness, Release Stabilization, Data Consistency, and Oracle Sync discarded load failures into transient notifications. Package 15 retains sanitized errors with direct retry actions and initial loading states.
 - [x] Company, store-group, and store start/end dates could move to the previous day because Setup converted local dates through UTC. Setup now sends the selected local calendar date directly.

@@ -4,10 +4,10 @@ Updated: 2026-06-14
 
 ## Current Baseline
 
-- Version: 4.0.13
+- Version: 4.0.14
 - Stage: Stage 8A
-- Release: Maintenance Workspace Standardization
-- Build code: `GARMETIX-8A-20260614-4013`
+- Release: Stage 8A UI Audit Completion
+- Build code: `GARMETIX-8A-20260614-4014`
 - Branch: `Version3.0`
 - Pre-Stage 8 baseline commit: `470ba2e`
 
@@ -46,17 +46,18 @@ Stage 7M menu names, route compatibility, permission-aware navigation, Off Book 
 - [x] Package 13: separate Non-GST sale, purchase, stock, settlement, PDF and QR workflows from regular accounting, GST, billing, purchase and inventory in v4.0.11.
 - [x] Package 14: standardize Company Setup, Client Onboarding, AF/SS Defaults, and Roles & Users with retryable states, wide forms, responsive tables, local dates, and business-facing copy in v4.0.12.
 - [x] Package 15: standardize Production Readiness, Release Stabilization, Data Consistency, and Oracle Sync with retained retry errors, loading states, responsive data surfaces, and safe select values in v4.0.13.
-- [ ] Complete every page in the `/ui-audit` queue.
-- [ ] Standardize page headers, filters, tables, actions, loading, error, and empty states.
-- [ ] Move large invoice, voucher, employee, purchase, payroll, and other master-detail forms to full pages or wide workspaces.
-- [ ] Verify mobile sidebar drawer, collapsed icon mode, active-menu state, command palette, footer menus, and topbar actions.
-- [ ] Decide and implement a useful notification/action dropdown without exposing technical noise.
-- [ ] Check button wrapping, table overflow, modal spacing, and sidebar/topbar/footer overlap at mobile, tablet, and desktop sizes.
-- [ ] Replace repeated custom markup with shared Nuxt UI components where it reduces real duplication.
-- [ ] Remove stale visible implementation or migration text from business-facing pages.
+- [x] Package 16: complete GST Returns, Profile, About Garmetix, Contact Us, and Help and FAQ; close the Stage 8A page queue with local-date-safe GST preparation and retryable help/profile states in v4.0.14.
+- [x] Complete every page in the `/ui-audit` queue.
+- [x] Standardize page headers, filters, tables, actions, loading, error, and empty states.
+- [x] Move large invoice, voucher, employee, purchase, payroll, and other master-detail forms to full pages or wide workspaces.
+- [x] Check button wrapping, table overflow, modal spacing, and sidebar/topbar/footer overlap at mobile, tablet, and desktop sizes.
+- [x] Replace repeated custom markup with shared Nuxt UI components where it reduces real duplication.
+- [x] Remove stale visible implementation or migration text from business-facing pages.
 
 ## Stage 8B / v4.1 - Access and User Administration Hardening
 
+- [ ] Verify permission-aware mobile sidebar, collapsed icon mode, active-menu state, command palette, footer menus, and topbar actions.
+- [ ] Implement a permission-aware notification/action dropdown without exposing technical noise.
 - [ ] Audit the existing user create/edit, role assignment, password reset, and active/inactive workflows.
 - [ ] Test the complete server and frontend permission matrix.
 - [ ] Confirm StoreManager cannot access Admin and cannot edit/delete restricted records.

@@ -1,10 +1,14 @@
-export const APP_VERSION = '4.0.13'
+export const APP_VERSION = '4.0.14'
 export const APP_STAGE = 'Stage 8A'
-export const APP_RELEASE_NAME = 'Maintenance Workspace Standardization'
+export const APP_RELEASE_NAME = 'Stage 8A UI Audit Completion'
 export const APP_BUILD_DATE = '2026-06-14'
-export const APP_BUILD_CODE = 'GARMETIX-8A-20260614-4013'
+export const APP_BUILD_CODE = 'GARMETIX-8A-20260614-4014'
 
 export const APP_HIGHLIGHTS = [
+  'The Stage 8A page audit queue is complete across operational, administration, maintenance, profile and help workspaces.',
+  'GST Returns now preserves local invoice and accounting dates and retains setup, draft and review failures with direct retry actions.',
+  'Profile, About Garmetix, Contact Us and Help and FAQ now use consistent headers, loading states and business-facing guidance.',
+  'FAQ category filtering now uses a safe internal all-value sentinel instead of an invalid empty selector value.',
   'Production Readiness, Release Stabilization, Data Consistency and Oracle Sync now retain load failures with direct retry actions.',
   'Maintenance workspaces now use shared page headers, loading skeletons, responsive data surfaces and clearer operational copy.',
   'Oracle Sync selectors use safe internal all-value sentinels and no longer create invalid empty SelectItem values.',

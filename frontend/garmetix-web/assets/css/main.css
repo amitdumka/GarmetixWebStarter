@@ -210,6 +210,12 @@ select {
   gap: 12px;
 }
 
+.planner-metric-body > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
 .planner-metric-body p {
   margin: 0 0 6px;
   color: var(--muted);
@@ -222,6 +228,7 @@ select {
   color: var(--ink);
   font-size: 22px;
   line-height: 1.1;
+  overflow-wrap: anywhere;
 }
 
 .planner-metric-body span {
@@ -229,6 +236,8 @@ select {
   margin-top: 6px;
   color: var(--muted);
   font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .planner-workspace {
@@ -3511,6 +3520,12 @@ select {
 
   .ui-audit-filters > * {
     width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .gst-draft-summary {
+    grid-template-columns: 1fr;
   }
 }
 
