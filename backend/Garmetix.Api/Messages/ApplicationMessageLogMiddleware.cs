@@ -132,7 +132,8 @@ public sealed class ApplicationMessageLogMiddleware(
 
     private static bool ShouldSkip(HttpRequest request)
         => HttpMethods.IsOptions(request.Method)
-            || request.Path.StartsWithSegments("/api/message-logs");
+            || request.Path.StartsWithSegments("/api/message-logs")
+            || request.Path.StartsWithSegments("/api/notifications");
 
     private static bool ShouldLogResponse(HttpRequest request, int statusCode)
         => statusCode >= StatusCodes.Status400BadRequest

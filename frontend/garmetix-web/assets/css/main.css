@@ -3125,8 +3125,163 @@ select {
 /* Stage 7E sidebar status cleanup */
 .dashboard-sidebar-mini-actions {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
   padding: 2px 0 8px;
+}
+
+.dashboard-sidebar-mini-actions.collapsed {
+  grid-template-columns: 1fr;
+}
+
+.shell-notification-trigger {
+  position: relative;
+  min-width: 0;
+}
+
+.shell-notification-trigger > button {
+  width: 100%;
+}
+
+.shell-notification-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 17px;
+  height: 17px;
+  display: inline-grid;
+  place-items: center;
+  border: 2px solid var(--panel);
+  border-radius: 999px;
+  padding: 0 4px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.shell-notification-popover {
+  width: min(92vw, 430px);
+  padding: 0;
+  overflow: hidden;
+}
+
+.shell-notification-panel {
+  display: grid;
+  color: var(--ink);
+}
+
+.shell-notification-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  padding: 12px 14px;
+}
+
+.shell-notification-header strong,
+.shell-notification-header span {
+  display: block;
+}
+
+.shell-notification-header span {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.shell-notification-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  border-bottom: 1px solid var(--line);
+  padding: 10px;
+}
+
+.shell-notification-actions button {
+  min-width: 0;
+}
+
+.shell-notification-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.shell-notification-state.error {
+  color: #ef4444;
+}
+
+.shell-notification-list {
+  max-height: min(54vh, 430px);
+  overflow: auto;
+}
+
+.shell-notification-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 12px 14px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.shell-notification-item:last-child {
+  border-bottom: 0;
+}
+
+.shell-notification-item:hover {
+  background: var(--panel-soft);
+}
+
+.shell-notification-icon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.14);
+  color: #f59e0b;
+}
+
+.shell-notification-icon.error {
+  background: rgba(239, 68, 68, 0.14);
+  color: #ef4444;
+}
+
+.shell-notification-copy strong,
+.shell-notification-copy small,
+.shell-notification-copy time {
+  display: block;
+}
+
+.shell-notification-copy strong {
+  font-size: 13px;
+}
+
+.shell-notification-copy small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.shell-notification-copy time {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .dashboard-context-workspace {

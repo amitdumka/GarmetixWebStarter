@@ -6,6 +6,7 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 
 ## Fixed
 
+- [x] The shell exposed an administrator-only Message Logs topbar action to every role, had no business-facing notification menu, and its Nuxt UI panel structure suppressed the topbar/mobile menu trigger. v4.1.2 restores the topbar and mobile drawer, adds scoped notifications and permission-filtered quick actions, and persists collapsed navigation.
 - [x] Backend policies, frontend role routes, access imports, and the visible role model could drift independently. v4.1.1 centralizes server authorization, exposes the effective matrix in Roles & Users, adds HR/Payroll specialist roles, and verifies critical role boundaries with automated tests.
 - [x] Roles & Users exposed an independent Admin checkbox, had no active/inactive lifecycle, and changed passwords through the general edit payload. v4.1.0 derives Admin internally from role, adds dedicated activation and password-reset actions, blocks inactive sessions, protects the last active admin, and records security events.
 - [x] FAQ category filtering used a forbidden empty SelectItem value and could fail while rendering. It now uses an internal all-value sentinel that is converted only inside the page filter.

@@ -1,10 +1,14 @@
-export const APP_VERSION = '4.1.1'
+export const APP_VERSION = '4.1.2'
 export const APP_STAGE = 'Stage 8B'
-export const APP_RELEASE_NAME = 'Role Permission Matrix'
+export const APP_RELEASE_NAME = 'Permission-Aware Shell Notifications'
 export const APP_BUILD_DATE = '2026-06-14'
-export const APP_BUILD_CODE = 'GARMETIX-8B-20260614-4101'
+export const APP_BUILD_CODE = 'GARMETIX-8B-20260614-4102'
 
 export const APP_HIGHLIGHTS = [
+  'The dashboard shell now provides a role-filtered notification and quick-action menu in the topbar and sidebar.',
+  'Business notifications expose friendly summaries and permitted destinations without stack traces, payloads or runtime noise.',
+  'Mobile navigation closes after route changes, while collapsed-sidebar preference persists for each browser.',
+  'Topbar, footer, command palette and navigation actions now share the same route permission rules.',
   'One server-owned permission matrix now drives Admin, entry, edit, delete and operational module authorization.',
   'The Access workspace displays the effective role matrix returned by the API.',
   'Store Manager retains store-module view and entry access without Admin, global edit or delete rights.',

@@ -33,6 +33,8 @@ This folder is the canonical home for project plans, implementation notes, valid
 - [Stage 8B Package 1 / v4.1.0 validation](stages/stage-8/Stage8B-Package1-UserLifecycle-v4.1.0-Validation.md)
 - [Stage 8B Package 2 / v4.1.1 notes](stages/stage-8/Stage8B-Package2-PermissionMatrix-v4.1.1-Notes.md)
 - [Stage 8B Package 2 / v4.1.1 validation](stages/stage-8/Stage8B-Package2-PermissionMatrix-v4.1.1-Validation.md)
+- [Stage 8B Package 3 / v4.1.2 notes](stages/stage-8/Stage8B-Package3-ShellNotifications-v4.1.2-Notes.md)
+- [Stage 8B Package 3 / v4.1.2 validation](stages/stage-8/Stage8B-Package3-ShellNotifications-v4.1.2-Validation.md)
 
 ## Categories
 

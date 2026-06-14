@@ -493,9 +493,11 @@ onBeforeUnmount(() => {
         </UDashboardNavbar>
       </template>
 
-      <div class="dashboard-content">
-        <slot />
-      </div>
+      <template #body>
+        <div class="dashboard-content">
+          <slot />
+        </div>
+      </template>
     </UDashboardPanel>
   </UDashboardGroup>
 

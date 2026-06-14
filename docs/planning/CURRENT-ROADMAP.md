@@ -4,10 +4,10 @@ Updated: 2026-06-14
 
 ## Current Baseline
 
-- Version: 4.1.1
+- Version: 4.1.2
 - Stage: Stage 8B
-- Release: Role Permission Matrix
-- Build code: `GARMETIX-8B-20260614-4101`
+- Release: Permission-Aware Shell Notifications
+- Build code: `GARMETIX-8B-20260614-4102`
 - Branch: `Version3.0`
 - Pre-Stage 8 baseline commit: `470ba2e`
 
@@ -56,8 +56,8 @@ Stage 7M menu names, route compatibility, permission-aware navigation, Off Book 
 
 ## Stage 8B / v4.1 - Access and User Administration Hardening
 
-- [ ] Verify permission-aware mobile sidebar, collapsed icon mode, active-menu state, command palette, footer menus, and topbar actions.
-- [ ] Implement a permission-aware notification/action dropdown without exposing technical noise.
+- [x] Verify permission-aware mobile sidebar, collapsed icon mode, active-menu state, command palette, footer menus, and topbar actions in v4.1.2.
+- [x] Implement a permission-aware notification/action dropdown without exposing technical noise in v4.1.2.
 - [x] Audit and harden the existing user create/edit, role assignment, password reset, and active/inactive workflows in v4.1.0.
 - [x] Centralize and test the server/frontend permission matrix in v4.1.1.
 - [x] Confirm StoreManager can view and enter permitted store records but cannot access Admin or edit/delete restricted records.

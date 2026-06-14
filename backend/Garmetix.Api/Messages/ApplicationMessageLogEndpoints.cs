@@ -20,6 +20,10 @@ public static class ApplicationMessageLogEndpoints
             .WithTags("Message Logs")
             .RequireAuthorization();
 
+        app.MapGet("/api/notifications", NotificationsAsync)
+            .WithTags("Notifications")
+            .RequireAuthorization();
+
         return group;
     }
 
@@ -84,6 +88,45 @@ public static class ApplicationMessageLogEndpoints
 
         return Results.Ok(new { saved.Id, saved.OperationId });
     }
+
+    private static async Task<IResult> NotificationsAsync(
+        HttpContext context,
+        ApplicationMessageLogService logs,
+        int? take,
+        CancellationToken cancellationToken)
+    {
+        var privileged = AccessPermissionMatrix.IsAdminOrOwner(context.User);
+        var items = await logs.NotificationsAsync(
+            ClaimGuid(context.User, ClaimTypes.NameIdentifier),
+            WorkspaceScope.ClaimGuid(context, "companyId"),
+            WorkspaceScope.ClaimGuid(context, "storeId"),
+            privileged,
+            take ?? 12,
+            cancellationToken);
+
+        var visibleItems = items
+            .Where(item => CanAccessNotification(context.User, item.ActionPath))
+            .ToList();
+
+        return Results.Ok(new ApplicationNotificationSummaryDto(visibleItems.Count, visibleItems));
+    }
+
+    private static bool CanAccessNotification(ClaimsPrincipal user, string path)
+        => path switch
+        {
+            "/billing" or "/sales-return" or "/customers" or "/loyalty"
+                => AccessPermissionMatrix.CanAccessPolicy(user, GarmetixPolicies.Billing),
+            "/inventory" or "/stock-operations"
+                => AccessPermissionMatrix.CanAccessPolicy(user, GarmetixPolicies.Inventory),
+            "/purchase" or "/purchase-return"
+                => AccessPermissionMatrix.CanAccessPolicy(user, GarmetixPolicies.Purchase),
+            "/accounting" or "/petty-cash" or "/vouchers"
+                => AccessPermissionMatrix.CanAccessPolicy(user, GarmetixPolicies.Accounting),
+            "/hr" => AccessPermissionMatrix.CanAccessPolicy(user, GarmetixPolicies.Hr),
+            "/payroll" => AccessPermissionMatrix.CanAccessPolicy(user, GarmetixPolicies.Payroll),
+            "/access" or "/message-logs" => AccessPermissionMatrix.IsAdminOrOwner(user),
+            _ => true
+        };
 
     private static Guid? ClaimGuid(ClaimsPrincipal principal, string claimType)
         => Guid.TryParse(principal.FindFirst(claimType)?.Value, out var value) ? value : null;

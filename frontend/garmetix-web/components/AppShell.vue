@@ -17,6 +17,20 @@ type MenuGroup = {
   items: MenuItem[]
 }
 
+type ShellNotification = {
+  id: string
+  createdAtUtc: string
+  severity: string
+  title: string
+  message: string
+  actionPath: string
+}
+
+type ShellNotificationSummary = {
+  attentionCount: number
+  items: ShellNotification[]
+}
+
 const props = defineProps<{
   title: string
   companies?: any[]
@@ -49,10 +63,15 @@ const sidebarCollapsed = ref(false)
 const searchTerm = ref('')
 const favoritePaths = ref<string[]>([])
 const recentPaths = ref<string[]>([])
+const notifications = ref<ShellNotification[]>([])
+const notificationsLoading = ref(false)
+const notificationsError = ref('')
+const notificationsLastSeen = ref('')
 const now = ref(new Date())
 const apiLive = ref<boolean | null>(null)
 let clockTimer: ReturnType<typeof setInterval> | undefined
 let healthTimer: ReturnType<typeof setInterval> | undefined
+let notificationTimer: ReturnType<typeof setInterval> | undefined
 
 useHead(() => ({
   title: props.title || 'Dashboard'
@@ -268,6 +287,24 @@ const recentItems = computed(() => recentPaths.value
   .map((path) => allVisibleItems.value.find((item) => item.to === path))
   .filter(Boolean)
   .slice(0, 8) as Array<MenuItem & { group: string }>)
+const visibleNotifications = computed(() => notifications.value.filter((item) => access.canAccessPath(item.actionPath)))
+const unreadNotificationCount = computed(() => {
+  const lastSeen = notificationsLastSeen.value ? Date.parse(notificationsLastSeen.value) : 0
+  return visibleNotifications.value.filter((item) => {
+    const value = /(?:Z|[+-]\d{2}:\d{2})$/i.test(item.createdAtUtc) ? item.createdAtUtc : `${item.createdAtUtc}Z`
+    return Date.parse(value) > lastSeen
+  }).length
+})
+const notificationQuickActions = computed(() => [
+  { label: 'Logs', icon: 'i-lucide-list-collapse', to: '/message-logs' },
+  { label: 'Billing', icon: 'i-lucide-receipt-indian-rupee', to: '/billing' },
+  { label: 'Vouchers', icon: 'i-lucide-banknote', to: '/vouchers' },
+  { label: 'Inventory', icon: 'i-lucide-boxes', to: '/inventory' },
+  { label: 'Petty Cash', icon: 'i-lucide-circle-dollar-sign', to: '/petty-cash' },
+  { label: 'HR', icon: 'i-lucide-users-round', to: '/hr' },
+  { label: 'Payroll', icon: 'i-lucide-badge-indian-rupee', to: '/payroll' },
+  { label: 'Scan', icon: 'i-lucide-scan-qr-code', to: '/document-scan' }
+].filter((item) => access.canAccessPath(item.to)).slice(0, 6))
 const currentMenuItem = computed(() => allVisibleItems.value.find((item) => isActive(item.to)))
 const breadcrumbItems = computed(() => {
   const current = currentMenuItem.value
@@ -435,6 +472,7 @@ function persistShellMemory() {
   if (!import.meta.client) return
   localStorage.setItem('garmetix.favoritePaths', JSON.stringify(favoritePaths.value))
   localStorage.setItem('garmetix.recentPaths', JSON.stringify(recentPaths.value))
+  localStorage.setItem('garmetix.sidebar.collapsed', String(sidebarCollapsed.value))
 }
 
 function loadShellMemory() {
@@ -442,10 +480,16 @@ function loadShellMemory() {
   try {
     favoritePaths.value = JSON.parse(localStorage.getItem('garmetix.favoritePaths') || '[]')
     recentPaths.value = JSON.parse(localStorage.getItem('garmetix.recentPaths') || '[]')
+    sidebarCollapsed.value = localStorage.getItem('garmetix.sidebar.collapsed') === 'true'
+    notificationsLastSeen.value = localStorage.getItem(notificationLastSeenKey()) || ''
   } catch {
     favoritePaths.value = []
     recentPaths.value = []
   }
+}
+
+function notificationLastSeenKey() {
+  return `garmetix.notifications.lastSeen.${auth.user.value?.id || 'user'}`
 }
 
 function rememberRoute(path = route.path) {
@@ -487,6 +531,33 @@ async function checkApiHealth() {
   }
 }
 
+async function loadNotifications() {
+  notificationsLoading.value = true
+  notificationsError.value = ''
+  try {
+    const response = await api.get<ShellNotificationSummary>('notifications?take=12')
+    notifications.value = response?.items || []
+  } catch (error) {
+    notificationsError.value = feedback.errorMessage(error, 'Notifications could not be loaded.', 'Notification load failed')
+  } finally {
+    notificationsLoading.value = false
+  }
+}
+
+function markNotificationsViewed() {
+  const newest = visibleNotifications.value[0]?.createdAtUtc
+  notificationsLastSeen.value = newest || new Date().toISOString()
+  if (import.meta.client) {
+    localStorage.setItem(notificationLastSeenKey(), notificationsLastSeen.value)
+  }
+}
+
+function openNotificationPath(path: string) {
+  markNotificationsViewed()
+  rememberRoute(path)
+  navigateTo(path)
+}
+
 async function loadWorkspaceOptions() {
   try {
     const options = await api.get<any>('workspace/options')
@@ -519,18 +590,28 @@ watch(
 onMounted(async () => {
   loadShellMemory()
   rememberRoute()
+  if (window.matchMedia('(max-width: 900px)').matches) sidebarOpen.value = false
   window.addEventListener('keydown', handleShellShortcut)
   await loadWorkspaceOptions()
   clockTimer = setInterval(() => { now.value = new Date() }, 1000)
   checkApiHealth()
   healthTimer = setInterval(checkApiHealth, 60000)
+  loadNotifications()
+  notificationTimer = setInterval(loadNotifications, 60000)
 })
 
-watch(() => route.path, (path) => rememberRoute(path))
+watch(sidebarCollapsed, persistShellMemory)
+
+watch(() => route.path, (path) => {
+  rememberRoute(path)
+  commandOpen.value = false
+  if (import.meta.client && window.matchMedia('(max-width: 900px)').matches) sidebarOpen.value = false
+})
 
 onBeforeUnmount(() => {
   if (clockTimer) clearInterval(clockTimer)
   if (healthTimer) clearInterval(healthTimer)
+  if (notificationTimer) clearInterval(notificationTimer)
   if (import.meta.client) window.removeEventListener('keydown', handleShellShortcut)
 })
 </script>
@@ -578,7 +659,7 @@ onBeforeUnmount(() => {
             size="xs"
             :icon="sidebarStateIcon"
             :aria-label="sidebarStateLabel"
-            :title="`${sidebarStateLabel} · Ctrl+B`"
+            :title="`${sidebarStateLabel} | Ctrl+B`"
             @click.stop="toggleSidebarCollapsed"
           />
         </div>
@@ -623,9 +704,20 @@ onBeforeUnmount(() => {
 
       <template #footer="{ collapsed }">
         <div class="dashboard-sidebar-footer">
-          <div v-if="!collapsed" class="dashboard-sidebar-mini-actions single">
+          <div class="dashboard-sidebar-mini-actions" :class="{ collapsed }">
+            <ShellNotificationPopover
+              :items="visibleNotifications"
+              :actions="notificationQuickActions"
+              :loading="notificationsLoading"
+              :error="notificationsError"
+              :unread-count="unreadNotificationCount"
+              :compact="collapsed"
+              @refresh="loadNotifications"
+              @viewed="markNotificationsViewed"
+              @navigate="openNotificationPath"
+            />
             <UDropdownMenu :items="systemStatusDropdownItems" :ui="{ content: 'w-72' }">
-              <UButton color="neutral" variant="subtle" size="xs" :icon="apiBadge.icon" label="Status" block />
+              <UButton color="neutral" variant="subtle" size="xs" :icon="apiBadge.icon" :label="collapsed ? undefined : 'Status'" :square="collapsed" block />
             </UDropdownMenu>
           </div>
 
@@ -660,20 +752,29 @@ onBeforeUnmount(() => {
 
           <template #right>
             <div class="dashboard-toolbar">
-              <UButton color="neutral" variant="subtle" icon="i-lucide-gauge" class="hidden lg:inline-flex" label="Dashboard" @click="navigateTo(dashboardHomePath)" />
-              <UButton color="neutral" variant="subtle" icon="i-lucide-search" class="hidden md:inline-flex" label="Search" @click="openCommand" />
-              <UButton color="neutral" :variant="currentPageIsFavorite ? 'solid' : 'subtle'" :icon="currentPageIsFavorite ? 'i-lucide-star' : 'i-lucide-star-off'" class="hidden lg:inline-flex" :label="currentPageIsFavorite ? 'Saved' : 'Save'" @click="toggleFavorite()" />
+              <UButton color="neutral" variant="subtle" icon="i-lucide-gauge" class="hidden 2xl:inline-flex" label="Dashboard" @click="navigateTo(dashboardHomePath)" />
+              <UButton color="neutral" variant="subtle" icon="i-lucide-search" class="hidden xl:inline-flex" label="Search" @click="openCommand" />
+              <UButton color="neutral" :variant="currentPageIsFavorite ? 'solid' : 'subtle'" :icon="currentPageIsFavorite ? 'i-lucide-star' : 'i-lucide-star-off'" class="hidden 2xl:inline-flex" :label="currentPageIsFavorite ? 'Saved' : 'Save'" @click="toggleFavorite()" />
               <UDropdownMenu :items="systemStatusDropdownItems" :ui="{ content: 'w-72' }">
-                <UButton color="neutral" variant="subtle" :icon="apiBadge.icon" class="hidden xl:inline-flex" :label="apiBadge.label" />
+                <UButton color="neutral" variant="subtle" :icon="apiBadge.icon" class="hidden 2xl:inline-flex" :label="apiBadge.label" />
               </UDropdownMenu>
-              <UButton color="neutral" variant="ghost" icon="i-lucide-clock-3" class="hidden 2xl:inline-flex" :label="currentClock" aria-label="Current time" />
-              <UButton color="neutral" variant="subtle" icon="i-lucide-building-2" class="xl:hidden" aria-label="Workspace" @click="workspaceOpen = true" />
-              <USelect v-model="companyValue" :items="companyOptions" :disabled="isCompanyLocked || companyOptions.length < 2" class="hidden lg:flex w-44" aria-label="Company" />
-              <USelect v-model="storeGroupValue" :items="storeGroupOptions" :disabled="isStoreGroupLocked || storeGroupOptions.length < 2" class="hidden xl:flex w-40" aria-label="Store group" />
-              <USelect v-model="storeValue" :items="storeOptions" :disabled="isStoreLocked || storeOptions.length < 2" class="hidden 2xl:flex w-44" aria-label="Store" />
+              <UButton color="neutral" variant="subtle" icon="i-lucide-building-2" class="2xl:hidden" aria-label="Workspace" @click="workspaceOpen = true" />
+              <USelect v-model="companyValue" :items="companyOptions" :disabled="isCompanyLocked || companyOptions.length < 2" class="hidden 2xl:flex w-40" aria-label="Company" />
+              <USelect v-model="storeGroupValue" :items="storeGroupOptions" :disabled="isStoreGroupLocked || storeGroupOptions.length < 2" class="hidden min-[1900px]:flex w-36" aria-label="Store group" />
+              <USelect v-model="storeValue" :items="storeOptions" :disabled="isStoreLocked || storeOptions.length < 2" class="hidden min-[1900px]:flex w-40" aria-label="Store" />
               <UButton color="neutral" variant="subtle" icon="i-lucide-refresh-cw" aria-label="Refresh" @click="emit('refresh')" />
-              <UButton color="neutral" variant="subtle" icon="i-lucide-list-collapse" aria-label="Message logs" @click="navigateTo('/message-logs')" />
-              <USelect v-model="selectedTheme" :items="themeOptions" class="hidden sm:flex w-28" aria-label="Theme" />
+              <ShellNotificationPopover
+                :items="visibleNotifications"
+                :actions="notificationQuickActions"
+                :loading="notificationsLoading"
+                :error="notificationsError"
+                :unread-count="unreadNotificationCount"
+                compact
+                @refresh="loadNotifications"
+                @viewed="markNotificationsViewed"
+                @navigate="openNotificationPath"
+              />
+              <USelect v-model="selectedTheme" :items="themeOptions" class="hidden 2xl:flex w-28" aria-label="Theme" />
               <UColorModeButton color="neutral" variant="ghost" />
               <UDropdownMenu :items="accountDropdownItems" :ui="{ content: 'w-64' }">
                 <UButton color="neutral" variant="ghost" :avatar="{ alt: userDisplayName }" class="hidden sm:inline-flex" :label="userDisplayName" />
@@ -683,24 +784,26 @@ onBeforeUnmount(() => {
         </UDashboardNavbar>
       </template>
 
-      <div class="dashboard-template-content">
-        <div class="dashboard-context-bar">
-          <div class="dashboard-breadcrumbs" aria-label="Breadcrumb">
-            <NuxtLink v-for="(crumb, index) in breadcrumbItems" :key="`${crumb.to}-${index}`" :to="crumb.to">
-              <span>{{ crumb.label }}</span>
-              <UIcon v-if="index < breadcrumbItems.length - 1" name="i-lucide-chevron-right" class="h-3.5 w-3.5" />
-            </NuxtLink>
+      <template #body>
+        <div class="dashboard-template-content">
+          <div class="dashboard-context-bar">
+            <div class="dashboard-breadcrumbs" aria-label="Breadcrumb">
+              <NuxtLink v-for="(crumb, index) in breadcrumbItems" :key="`${crumb.to}-${index}`" :to="crumb.to">
+                <span>{{ crumb.label }}</span>
+                <UIcon v-if="index < breadcrumbItems.length - 1" name="i-lucide-chevron-right" class="h-3.5 w-3.5" />
+              </NuxtLink>
+            </div>
+            <div class="dashboard-context-actions">
+              <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-store" :label="workingStoreName" class="dashboard-context-workspace" @click="workspaceOpen = true" />
+              <UBadge size="xs" :color="apiBadge.color" variant="subtle" :icon="apiBadge.icon" class="dashboard-context-status">{{ apiBadge.label }}</UBadge>
+              <UBadge color="neutral" variant="subtle" icon="i-lucide-user-round">{{ roleBadge }}</UBadge>
+              <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-map" label="Map" @click="navigateTo('/dashboard/map')" />
+              <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-search" label="Ctrl K" @click="openCommand" />
+            </div>
           </div>
-          <div class="dashboard-context-actions">
-            <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-store" :label="workingStoreName" class="dashboard-context-workspace" @click="workspaceOpen = true" />
-            <UBadge size="xs" :color="apiBadge.color" variant="subtle" :icon="apiBadge.icon" class="dashboard-context-status">{{ apiBadge.label }}</UBadge>
-            <UBadge color="neutral" variant="subtle" icon="i-lucide-user-round">{{ roleBadge }}</UBadge>
-            <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-map" label="Map" @click="navigateTo('/dashboard/map')" />
-            <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-search" label="Ctrl K" @click="openCommand" />
-          </div>
+          <slot />
         </div>
-        <slot />
-      </div>
+      </template>
     </UDashboardPanel>
   </UDashboardGroup>
 
