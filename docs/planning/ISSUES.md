@@ -6,6 +6,9 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 
 ## Fixed
 
+- [x] Company, store-group, and store start/end dates could move to the previous day because Setup converted local dates through UTC. Setup now sends the selected local calendar date directly.
+- [x] Core Admin pages discarded load failures into transient notifications, used narrow master forms, and exposed legacy implementation/source-file wording. Package 14 adds retained retry actions, wide forms, responsive tables/loading states, and business-facing copy.
+- [x] Opening the Roles & Users form returned a Nuxt 500 because no-scope options used forbidden empty SelectItem values. Access scope selectors now use an explicit internal sentinel and convert it back to null in API payloads.
 - [x] Product Master create/edit returned HTTP 500 because manually opened transactions ran outside the configured Npgsql retry execution strategy. Both operations now execute their full transaction through `CreateExecutionStrategy()`.
 - [x] API exceptions, failed responses, write events, frontend messages, browser errors, and background-service logs were not consistently persisted. Central middleware, an authenticated client sink, browser handlers, and a bounded application logger queue now write them to Message Logs with sensitive-value redaction.
 - [x] Message Logs returned a Nuxt 500 because filter options used empty SelectItem values. Filters now use explicit all-value sentinels and omit those values from API queries.

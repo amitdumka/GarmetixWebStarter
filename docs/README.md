@@ -23,6 +23,8 @@ This folder is the canonical home for project plans, implementation notes, valid
 - [Stage 8A Package 12 / v4.0.10 notes](stages/stage-8/Stage8A-Package12-CashVoucher-v4.0.10-Notes.md)
 - [Stage 8A Package 13 / v4.0.11 notes](stages/stage-8/Stage8A-Package13-OffBookGoods-v4.0.11-Notes.md)
 - [Stage 8A Package 13 / v4.0.11 validation](stages/stage-8/Stage8A-Package13-OffBookGoods-v4.0.11-Validation.md)
+- [Stage 8A Package 14 / v4.0.12 notes](stages/stage-8/Stage8A-Package14-AdminWorkspaces-v4.0.12-Notes.md)
+- [Stage 8A Package 14 / v4.0.12 validation](stages/stage-8/Stage8A-Package14-AdminWorkspaces-v4.0.12-Validation.md)
 
 ## Categories
 

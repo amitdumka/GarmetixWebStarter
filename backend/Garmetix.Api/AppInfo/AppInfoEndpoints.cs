@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.0.11";
+    public const string Version = "4.0.12";
     public const string Stage = "Stage 8A";
-    public const string ReleaseName = "Independent Off Book Sale and Purchase";
+    public const string ReleaseName = "Admin Workspace Standardization";
     public const string BuildDate = "2026-06-14";
-    public const string BuildCode = "GARMETIX-8A-20260614-4011";
+    public const string BuildCode = "GARMETIX-8A-20260614-4012";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,10 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Company Setup and Roles and Users now use retryable registers, responsive tables and wide modal workspaces.",
+        "Company, store-group and store dates preserve the selected local calendar date without UTC conversion.",
+        "Company Onboarding and AF/SS Defaults now provide retained load failures, retry actions and responsive loading states.",
+        "Internal migration, source-file and legacy implementation notes are no longer exposed on Admin business pages.",
         "Reports Center, GST Reports, Import Export, Audit Trail and Message Logs now use consistent retryable register states.",
         "Reports Center date defaults preserve the local calendar date instead of converting through UTC.",
         "Report, audit and data-operation failures remain visible with a direct retry action.",

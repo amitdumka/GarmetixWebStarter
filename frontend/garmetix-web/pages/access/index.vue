@@ -11,12 +11,14 @@ const canDelete = auth.canDelete
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
+const NO_SCOPE = '__none__'
 
 const companies = ref<any[]>([])
 const storeGroups = ref<any[]>([])
 const stores = ref<any[]>([])
 const users = ref<any[]>([])
 const loading = ref(false)
+const loadError = ref('')
 const saving = ref(false)
 const deleting = ref(false)
 const resetting = ref(false)
@@ -62,7 +64,7 @@ const appOperationOptions = [
 const form = reactive<any>(emptyUser())
 
 const companyOptions = computed(() => [
-  { value: '', label: 'No company scope' },
+  { value: NO_SCOPE, label: 'No company scope' },
   ...companies.value.map((company) => ({
     value: company.id,
     label: company.name || 'Company'
@@ -70,9 +72,9 @@ const companyOptions = computed(() => [
 ])
 
 const groupOptions = computed(() => [
-  { value: '', label: 'No store group scope' },
+  { value: NO_SCOPE, label: 'No store group scope' },
   ...storeGroups.value
-    .filter((group) => !form.companyId || group.companyId === form.companyId)
+    .filter((group) => form.companyId === NO_SCOPE || group.companyId === form.companyId)
     .map((group) => ({
       value: group.id,
       label: group.name || 'Store group'
@@ -80,9 +82,9 @@ const groupOptions = computed(() => [
 ])
 
 const storeOptions = computed(() => [
-  { value: '', label: 'No store scope' },
+  { value: NO_SCOPE, label: 'No store scope' },
   ...stores.value
-    .filter((store) => (!form.companyId || store.companyId === form.companyId) && (!form.storeGroupId || store.storeGroupId === form.storeGroupId))
+    .filter((store) => (form.companyId === NO_SCOPE || store.companyId === form.companyId) && (form.storeGroupId === NO_SCOPE || store.storeGroupId === form.storeGroupId))
     .map((store) => ({
       value: store.id,
       label: store.name || 'Store'
@@ -91,17 +93,17 @@ const storeOptions = computed(() => [
 
 
 watch(() => form.companyId, () => {
-  if (form.storeGroupId && !storeGroups.value.some((group) => group.id === form.storeGroupId && group.companyId === form.companyId)) {
-    form.storeGroupId = ''
+  if (form.storeGroupId !== NO_SCOPE && !storeGroups.value.some((group) => group.id === form.storeGroupId && group.companyId === form.companyId)) {
+    form.storeGroupId = NO_SCOPE
   }
-  if (form.storeId && !stores.value.some((store) => store.id === form.storeId && (!form.companyId || store.companyId === form.companyId))) {
-    form.storeId = ''
+  if (form.storeId !== NO_SCOPE && !stores.value.some((store) => store.id === form.storeId && (form.companyId === NO_SCOPE || store.companyId === form.companyId))) {
+    form.storeId = NO_SCOPE
   }
 })
 
 watch(() => form.storeGroupId, () => {
-  if (form.storeId && !stores.value.some((store) => store.id === form.storeId && (!form.storeGroupId || store.storeGroupId === form.storeGroupId))) {
-    form.storeId = ''
+  if (form.storeId !== NO_SCOPE && !stores.value.some((store) => store.id === form.storeId && (form.storeGroupId === NO_SCOPE || store.storeGroupId === form.storeGroupId))) {
+    form.storeId = NO_SCOPE
   }
 })
 
@@ -217,9 +219,9 @@ function emptyUser() {
     password: '',
     role: 5,
     userType: 6,
-    companyId: '',
-    storeGroupId: '',
-    storeId: '',
+    companyId: NO_SCOPE,
+    storeGroupId: NO_SCOPE,
+    storeId: NO_SCOPE,
     admin: false,
     appOperation: 2
   }
@@ -231,6 +233,7 @@ async function refresh() {
   }
 
   loading.value = true
+  loadError.value = ''
   try {
     const [workspaceOptions, userRows] = await Promise.all([
       api.get<any>('workspace/options'),
@@ -242,6 +245,7 @@ async function refresh() {
     stores.value = workspaceOptions?.stores || []
     users.value = userRows
   } catch (error) {
+    loadError.value = feedback.errorMessage(error, 'Users and access scopes could not be loaded. Try again.', 'Access refresh failed')
     feedback.failed('Access refresh failed', error)
   } finally {
     loading.value = false
@@ -253,9 +257,9 @@ function resetForm() {
   const firstCompany = companies.value[0]
   const firstGroup = storeGroups.value.find((group) => group.companyId === firstCompany?.id) || storeGroups.value[0]
   const firstStore = stores.value.find((store) => store.storeGroupId === firstGroup?.id) || stores.value[0]
-  form.companyId = firstCompany?.id || firstStore?.companyId || ''
-  form.storeGroupId = firstGroup?.id || firstStore?.storeGroupId || ''
-  form.storeId = firstStore?.id || ''
+  form.companyId = firstCompany?.id || firstStore?.companyId || NO_SCOPE
+  form.storeGroupId = firstGroup?.id || firstStore?.storeGroupId || NO_SCOPE
+  form.storeId = firstStore?.id || NO_SCOPE
 }
 
 function startCreate() {
@@ -273,9 +277,9 @@ function startEdit(user: any) {
     password: '',
     role: roleValue(user.role),
     userType: userTypeValue(user.userType),
-    companyId: user.companyId || '',
-    storeGroupId: user.storeGroupId || '',
-    storeId: user.storeId || '',
+    companyId: user.companyId || NO_SCOPE,
+    storeGroupId: user.storeGroupId || NO_SCOPE,
+    storeId: user.storeId || NO_SCOPE,
     admin: Boolean(user.admin),
     appOperation: appOperationValue(user.appOperation)
   })
@@ -305,9 +309,9 @@ function buildPayload(passwordOverride?: string) {
     password: passwordOverride ?? (String(form.password || '').trim() || null),
     role: Number(form.role),
     userType: Number(form.userType),
-    companyId: form.companyId || selectedStore?.companyId || selectedGroup?.companyId || null,
-    storeGroupId: form.storeGroupId || selectedStore?.storeGroupId || null,
-    storeId: form.storeId || null,
+    companyId: form.companyId !== NO_SCOPE ? form.companyId : (selectedStore?.companyId || selectedGroup?.companyId || null),
+    storeGroupId: form.storeGroupId !== NO_SCOPE ? form.storeGroupId : (selectedStore?.storeGroupId || null),
+    storeId: form.storeId !== NO_SCOPE ? form.storeId : null,
     admin: Boolean(form.admin) || Number(form.role) === 0,
     appOperation: Number(form.appOperation)
   }
@@ -483,15 +487,19 @@ onMounted(async () => {
         </UCard>
       </div>
 
-      <UCard class="planner-card">
-        <template #header>
-          <div class="setup-list-header">
-            <div>
-              <h3>Users & Roles</h3>
-              <p>Role-wise access with scoped company and store permissions.</p>
-            </div>
-            <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
-          </div>
+      <UiRegisterPanel
+        title="Users & Roles"
+        description="Role-wise access with scoped company and store permissions."
+        :loading="loading"
+        :error="loadError"
+        :empty="!loading && !loadError && filteredRows.length === 0"
+        empty-title="No users found"
+        empty-description="Create users here after the first admin setup is complete."
+        empty-icon="i-lucide-shield-check"
+        @retry="refresh"
+      >
+        <template #actions>
+          <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
         </template>
 
         <UiCrudToolbar
@@ -504,25 +512,17 @@ onMounted(async () => {
           @create="startCreate"
         />
 
-        <UTable
-          v-if="filteredRows.length"
-          :data="filteredRows"
-          :columns="columns"
-          :loading="loading"
-        />
-
-        <UiCrudEmptyState
-          v-else
-          title="No users found"
-          description="Create users here after the first admin setup is complete."
-          icon="i-lucide-shield-check"
-          action-label="New User"
-          @action="startCreate"
-        />
-      </UCard>
+        <div v-if="filteredRows.length" class="overflow-x-auto">
+          <UTable
+            :data="filteredRows"
+            :columns="columns"
+          />
+        </div>
+      </UiRegisterPanel>
 
       <UiFormSlideover
         v-model:open="formOpen"
+        layout="modal"
         :title="editingUserId ? 'Edit User' : 'New User'"
         :description="editingUserId ? 'Update role, scope, and optional password.' : 'Create a role-scoped application user.'"
         submit-label="Save User"

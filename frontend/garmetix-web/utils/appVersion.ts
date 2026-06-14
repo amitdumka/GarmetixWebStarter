@@ -1,10 +1,14 @@
-export const APP_VERSION = '4.0.11'
+export const APP_VERSION = '4.0.12'
 export const APP_STAGE = 'Stage 8A'
-export const APP_RELEASE_NAME = 'Independent Off Book Sale and Purchase'
+export const APP_RELEASE_NAME = 'Admin Workspace Standardization'
 export const APP_BUILD_DATE = '2026-06-14'
-export const APP_BUILD_CODE = 'GARMETIX-8A-20260614-4011'
+export const APP_BUILD_CODE = 'GARMETIX-8A-20260614-4012'
 
 export const APP_HIGHLIGHTS = [
+  'Company Setup and Roles and Users now use retryable registers, responsive tables and wide modal workspaces.',
+  'Company, store-group and store dates preserve the selected local calendar date without UTC conversion.',
+  'Company Onboarding and AF/SS Defaults now provide retained load failures, retry actions and responsive loading states.',
+  'Internal migration, source-file and legacy implementation notes are no longer exposed on Admin business pages.',
   'Cash Voucher register now retains load failures with direct retry behavior and a voucher-type filter.',
   'Cash Voucher create and edit dates now preserve the selected local calendar date without UTC conversion.',
   'Cash Voucher entry remains a wide workspace and continues to stay completely outside ledgers, journals, banks and regular vouchers.',
