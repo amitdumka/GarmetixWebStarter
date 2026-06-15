@@ -2422,8 +2422,8 @@ select {
 
 .dashboard-sidebar-footer {
   display: grid;
-  gap: 8px;
-  padding-top: 10px;
+  gap: 6px;
+  padding: 2px 0 8px;
 }
 
 .dashboard-scope-card {
@@ -3045,18 +3045,6 @@ select {
   }
 }
 
-/* Stage 7E sidebar status cleanup */
-.dashboard-sidebar-mini-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-  padding: 2px 0 8px;
-}
-
-.dashboard-sidebar-mini-actions.collapsed {
-  grid-template-columns: 1fr;
-}
-
 .shell-notification-trigger {
   position: relative;
   min-width: 0;
@@ -3205,10 +3193,6 @@ select {
   margin-top: 5px;
   color: var(--muted);
   font-size: 11px;
-}
-
-.dashboard-sidebar-footer {
-  gap: 6px;
 }
 
 /* Stage 7G permission-aware dashboard access map */

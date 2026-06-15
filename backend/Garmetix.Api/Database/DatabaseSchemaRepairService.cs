@@ -825,6 +825,8 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                     "TotalMrpValue" numeric(18,2) NOT NULL DEFAULT 0,
                     "ItemCount" integer NOT NULL DEFAULT 0,
                     "PostedAt" timestamp without time zone NOT NULL,
+                    "AccountingStatus" text NOT NULL DEFAULT 'Pending',
+                    "JournalEntryId" uuid NULL,
                     "CompanyId" uuid NOT NULL,
                     "CreatedBy" text NULL,
                     "StoreGroupId" uuid NOT NULL,
@@ -906,6 +908,9 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                 CREATE INDEX IF NOT EXISTS "IX_StockMovements_CompanyId_SourceType_SourceId" ON "StockMovements" ("CompanyId", "SourceType", "SourceId");
                 CREATE INDEX IF NOT EXISTS "IX_StockOperationDocuments_CompanyId_StoreId_DocumentNumber" ON "StockOperationDocuments" ("CompanyId", "StoreId", "DocumentNumber");
                 CREATE INDEX IF NOT EXISTS "IX_StockOperationDocuments_CompanyId_OperationType_OnDate" ON "StockOperationDocuments" ("CompanyId", "OperationType", "OnDate");
+                ALTER TABLE "StockOperationDocuments" ADD COLUMN IF NOT EXISTS "AccountingStatus" text NOT NULL DEFAULT 'Pending';
+                ALTER TABLE "StockOperationDocuments" ADD COLUMN IF NOT EXISTS "JournalEntryId" uuid NULL;
+                CREATE INDEX IF NOT EXISTS "IX_StockOperationDocuments_CompanyId_JournalEntryId" ON "StockOperationDocuments" ("CompanyId", "JournalEntryId");
                 CREATE INDEX IF NOT EXISTS "IX_StockOperationItems_CompanyId_StockOperationDocumentId" ON "StockOperationItems" ("CompanyId", "StockOperationDocumentId");
                 CREATE INDEX IF NOT EXISTS "IX_StockOperationItems_CompanyId_ProductId_StockId" ON "StockOperationItems" ("CompanyId", "ProductId", "StockId");
                 """, cancellationToken);

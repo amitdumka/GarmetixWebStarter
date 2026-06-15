@@ -4,10 +4,10 @@ Updated: 2026-06-15
 
 ## Current Baseline
 
-- Version: 4.3.1
+- Version: 4.3.2
 - Stage: Stage 8D
-- Release: Movement Ledger and Weighted Average Valuation
-- Build code: `GARMETIX-8D-20260615-4310`
+- Release: Stock Operation Accounting and Write-offs
+- Build code: `GARMETIX-8D-20260615-4320`
 - Branch: `Version3.0`
 - Pre-Stage 8 baseline commit: `470ba2e`
 
@@ -79,7 +79,7 @@ Stage 7M menu names, route compatibility, permission-aware navigation, Off Book 
 - [x] Add formal Stock Adjustment, Transfer, and Physical Count header/detail documents in v4.3.0.
 - [x] Make the stock movement ledger the authoritative stock source in v4.3.1.
 - [x] Introduce and document weighted-average valuation in v4.3.1; evaluate FIFO only after that baseline is stable.
-- [ ] Post shortage, excess, write-off, and transfer accounting entries.
+- [x] Post shortage, excess, write-off, and transfer accounting entries in v4.3.2.
 - [ ] Add stock ageing, low-stock risk, valuation, and stock-reconciliation reports.
 - [ ] Add sequence and stock-concurrency tests, including negative-stock policy.
 

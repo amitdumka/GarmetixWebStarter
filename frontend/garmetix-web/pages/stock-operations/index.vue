@@ -44,6 +44,7 @@ const openedRouteDocumentId = ref('')
 const adjustmentForm = reactive({ stockId: '', direction: 'increase', quantity: 0, reason: '' })
 const transferForm = reactive({ fromStockId: '', toStoreId: '', quantity: 0, reason: '' })
 const countForm = reactive({ stockId: '', countedQuantity: 0, reason: '' })
+const writeOffForm = reactive({ stockId: '', quantity: 0, reason: '' })
 
 const stockOptions = computed(() => (options.value.products || []).map((item: any) => ({
   value: item.stockId,
@@ -55,6 +56,7 @@ const storeOptions = computed(() => (options.value.stores || []).map((item: any)
 const selectedAdjustmentStock = computed(() => findStock(adjustmentForm.stockId))
 const selectedTransferStock = computed(() => findStock(transferForm.fromStockId))
 const selectedCountStock = computed(() => findStock(countForm.stockId))
+const selectedWriteOffStock = computed(() => findStock(writeOffForm.stockId))
 const destinationStoreOptions = computed(() => storeOptions.value.filter((item: any) => item.value !== selectedTransferStock.value?.storeId))
 const selectedHasMovement = computed(() => (selectedDocument.value?.items || [])
   .some((item: any) => item.inMovementId || item.outMovementId))
@@ -103,7 +105,8 @@ const documentRows = computed(() => documents.value
     onDateText: formatDateTime(item.onDate),
     storePath: item.toStoreName ? `${item.fromStoreName || 'Store'} to ${item.toStoreName}` : item.fromStoreName || 'Store',
     totalQuantityText: Number(item.totalQuantity || 0).toFixed(2),
-    totalCostValueText: money(Number(item.totalCostValue || 0))
+    totalCostValueText: money(Number(item.totalCostValue || 0)),
+    accountingText: item.journalEntryNumber || item.accountingStatus || 'Pending'
   })))
 
 const movementRows = computed(() => (options.value.recentMovements || []).map((item: any) => ({
@@ -174,6 +177,14 @@ const documentColumns: TableColumn<any>[] = [
     accessorKey: 'status',
     header: 'Status',
     cell: ({ row }) => h(UBadge, { color: row.original.status === 'Verified' ? 'info' : 'success', variant: 'subtle' }, () => row.original.status)
+  },
+  {
+    accessorKey: 'accountingText',
+    header: 'Accounting',
+    cell: ({ row }) => h(UBadge, {
+      color: row.original.accountingStatus === 'Posted' ? 'success' : row.original.accountingStatus === 'Not Required' ? 'neutral' : 'warning',
+      variant: 'subtle'
+    }, () => row.original.accountingText)
   },
   {
     id: 'actions',
@@ -278,6 +289,26 @@ async function postPhysicalCount() {
   }
 }
 
+async function postWriteOff() {
+  posting.value = true
+  try {
+    const result = await api.create<any>('inventory/stock-operations/write-off', {
+      stockId: writeOffForm.stockId,
+      quantity: Number(writeOffForm.quantity || 0),
+      reason: nullIfEmpty(writeOffForm.reason)
+    })
+    feedback.saved('Stock write-off')
+    writeOffForm.quantity = 0
+    writeOffForm.reason = ''
+    await refresh()
+    await openDocument(result.documentId)
+  } catch (error) {
+    feedback.failed('Could not post stock write-off', error)
+  } finally {
+    posting.value = false
+  }
+}
+
 async function openDocument(id: string) {
   if (!id) return
   detailLoading.value = true
@@ -360,11 +391,14 @@ function movementColor(type: string) {
 function operationColor(type: string) {
   if (type === 'Transfer') return 'info'
   if (type === 'PhysicalCount') return 'warning'
+  if (type === 'WriteOff') return 'error'
   return 'primary'
 }
 
 function operationLabel(type: string) {
-  return type === 'PhysicalCount' ? 'Physical Count' : type
+  if (type === 'PhysicalCount') return 'Physical Count'
+  if (type === 'WriteOff') return 'Write-off'
+  return type
 }
 
 function money(value: number) {
@@ -410,7 +444,7 @@ onMounted(async () => {
     <section class="planner-dashboard">
       <UiModulePageHeader
         title="Stock Operations"
-        description="Post and review formal stock adjustment, transfer and physical-count documents with linked movement history."
+        description="Post and review formal stock adjustment, transfer, physical-count and write-off documents with linked movement and accounting history."
         icon="i-lucide-arrow-left-right"
         primary-label="Refresh"
         primary-icon="i-lucide-refresh-cw"
@@ -451,7 +485,8 @@ onMounted(async () => {
         <UTabs v-model="activeTab" :items="[
           { label: 'Adjustment', value: 'adjustment', icon: 'i-lucide-sliders-horizontal' },
           { label: 'Transfer', value: 'transfer', icon: 'i-lucide-arrow-left-right' },
-          { label: 'Physical Count', value: 'count', icon: 'i-lucide-clipboard-check' }
+          { label: 'Physical Count', value: 'count', icon: 'i-lucide-clipboard-check' },
+          { label: 'Write-off', value: 'writeoff', icon: 'i-lucide-package-x' }
         ]" />
 
         <div v-if="activeTab === 'adjustment'" class="form-grid mt-4">
@@ -460,8 +495,8 @@ onMounted(async () => {
           </UFormField>
           <UFormField label="Direction" required>
             <USelect v-model="adjustmentForm.direction" :items="[
-              { value: 'increase', label: 'Increase stock' },
-              { value: 'decrease', label: 'Decrease stock' }
+              { value: 'increase', label: 'Excess / increase stock' },
+              { value: 'decrease', label: 'Shortage / decrease stock' }
             ]" />
           </UFormField>
           <UFormField label="Quantity" required>
@@ -495,7 +530,7 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div v-else class="form-grid mt-4">
+        <div v-else-if="activeTab === 'count'" class="form-grid mt-4">
           <UFormField label="Stock item" required>
             <USelect v-model="countForm.stockId" :items="stockOptions" placeholder="Select counted stock" />
           </UFormField>
@@ -513,6 +548,22 @@ onMounted(async () => {
             </div>
           </div>
         </div>
+
+        <div v-else class="form-grid mt-4">
+          <UFormField label="Stock item" required>
+            <USelect v-model="writeOffForm.stockId" :items="stockOptions" placeholder="Select damaged or unusable stock" />
+          </UFormField>
+          <UFormField label="Write-off quantity" required>
+            <UInput v-model="writeOffForm.quantity" type="number" min="0" step="1" />
+          </UFormField>
+          <UFormField label="Reason" required>
+            <UTextarea v-model="writeOffForm.reason" :rows="2" placeholder="Damage, expiry, theft, quality rejection or disposal" />
+          </UFormField>
+          <div class="flex items-center justify-between gap-3">
+            <p class="text-sm text-muted">Available: {{ selectedWriteOffStock?.currentStock ?? '-' }}</p>
+            <UButton :disabled="!canEdit" :loading="posting" color="error" label="Post Write-off" icon="i-lucide-package-x" @click="postWriteOff" />
+          </div>
+        </div>
       </UCard>
 
       <UiRegisterPanel
@@ -522,7 +573,7 @@ onMounted(async () => {
         :error="loadError"
         :empty="!documentRows.length"
         empty-title="No stock operation document found"
-        empty-description="Post an adjustment, transfer or physical count to create the first formal document."
+        empty-description="Post an adjustment, transfer, physical count or write-off to create the first formal document."
         empty-icon="i-lucide-files"
         @retry="refresh"
       >
@@ -544,7 +595,8 @@ onMounted(async () => {
               { label: 'All operations', value: 'all' },
               { label: 'Adjustments', value: 'Adjustment' },
               { label: 'Transfers', value: 'Transfer' },
-              { label: 'Physical counts', value: 'PhysicalCount' }
+              { label: 'Physical counts', value: 'PhysicalCount' },
+              { label: 'Write-offs', value: 'WriteOff' }
             ]"
             aria-label="Filter stock operation type"
           />
@@ -646,6 +698,7 @@ onMounted(async () => {
               <span>Cost value</span><strong>{{ money(selectedDocument.totalCostValue) }}</strong>
               <span>MRP value</span><strong>{{ money(selectedDocument.totalMrpValue) }}</strong>
               <span>Movement link</span><strong>{{ selectedHasMovement ? 'Linked' : 'No movement required' }}</strong>
+              <span>Accounting</span><strong>{{ selectedDocument.journalEntryNumber || selectedDocument.accountingStatus || 'Pending' }}</strong>
             </div>
 
             <div class="planner-table-wrap">

@@ -49,6 +49,11 @@ public sealed record PhysicalStockCountRequest(
     decimal CountedQuantity,
     string? Reason);
 
+public sealed record StockWriteOffRequest(
+    Guid StockId,
+    decimal Quantity,
+    string? Reason);
+
 public sealed record StockOperationResponse(
     Guid DocumentId,
     string OperationNumber,
@@ -103,6 +108,9 @@ public sealed record StockOperationDocumentRowDto(
     decimal TotalCostValue,
     decimal TotalMrpValue,
     int ItemCount,
+    string AccountingStatus,
+    Guid? JournalEntryId,
+    string? JournalEntryNumber,
     string Reason);
 
 public sealed record StockOperationDocumentDetailDto(
@@ -119,6 +127,9 @@ public sealed record StockOperationDocumentDetailDto(
     decimal TotalCostValue,
     decimal TotalMrpValue,
     int ItemCount,
+    string AccountingStatus,
+    Guid? JournalEntryId,
+    string? JournalEntryNumber,
     string Reason,
     DateTime PostedAt,
     IReadOnlyList<StockOperationItemDto> Items);

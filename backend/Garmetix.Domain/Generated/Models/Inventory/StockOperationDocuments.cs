@@ -21,6 +21,8 @@ public class StockOperationDocument : StoreBase
     [Display(Name = "MRP Value")] public decimal TotalMrpValue { get; set; }
     [Display(Name = "Item Count")] public int ItemCount { get; set; }
     [Display(Name = "Posted At")] public DateTime PostedAt { get; set; } = DateTime.Now;
+    [Display(Name = "Accounting Status")] public string AccountingStatus { get; set; } = "Pending";
+    [Display(Name = "Journal Entry", AutoGenerateField = false)] public Guid? JournalEntryId { get; set; }
 
     [JsonIgnore]
     public virtual ICollection<StockOperationItem> Items { get; set; } = new List<StockOperationItem>();

@@ -12,10 +12,19 @@ namespace Garmetix.Api.Accounting;
 
 public sealed record VendorRefundPostingResult(Guid JournalEntryId, Guid? BankTransactionId);
 public sealed record PurchaseReturnTaxPosting(Guid ReversalId, string ProductName, string? HsnCode, decimal TaxAmount);
+public sealed record StockOperationAccountingResult(Guid JournalEntryId, string EntryNumber, decimal Amount);
 
 public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumberService documentNumbers)
 {
-    private sealed record JournalLineDraft(Guid LedgerId, Guid? PartyId, decimal Debit, decimal Credit, string Narration);
+    private sealed record JournalLineDraft(
+        Guid LedgerId,
+        Guid? PartyId,
+        decimal Debit,
+        decimal Credit,
+        string Narration,
+        Guid? StoreGroupId = null,
+        Guid? StoreId = null);
+    private sealed record StockAccountingStore(Guid Id, Guid StoreGroupId, string Name, string StoreCode);
 
     private static readonly PaymentMode[] BankPaymentModes =
     [
@@ -28,6 +37,135 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         PaymentMode.Cheque,
         PaymentMode.DemandDraft
     ];
+
+    public async Task<StockOperationAccountingResult?> PostStockOperationAsync(
+        StockOperationDocument document,
+        StockOperationAccountingKind kind,
+        decimal amount,
+        CancellationToken cancellationToken)
+    {
+        var plan = StockOperationAccountingCalculator.Create(kind, amount);
+        var accountingAmount = Math.Round(Math.Abs(amount), 2, MidpointRounding.AwayFromZero);
+        if (accountingAmount == 0)
+        {
+            return null;
+        }
+
+        var sourceStoreId = document.FromStoreId ?? document.StoreId;
+        var sourceStore = await db.Stores.AsNoTracking()
+            .Where(store => store.Id == sourceStoreId && store.CompanyId == document.CompanyId)
+            .Select(store => new StockAccountingStore(store.Id, store.StoreGroupId, store.Name, store.StoreCode))
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new InvalidOperationException("The source store for stock accounting was not found.");
+
+        var sourceInventory = await EnsureNamedLedgerAsync(
+            document.CompanyId,
+            InventoryLedgerName(sourceStore.StoreCode, sourceStore.Name),
+            "Stock-in-Hand",
+            LedgerCategory.Stock,
+            LedgerType.StockItem,
+            cancellationToken);
+
+        Ledger? destinationInventory = null;
+        StockAccountingStore? destinationStore = null;
+        if (plan.DestinationInventoryDebit > 0)
+        {
+            if (!document.ToStoreId.HasValue)
+            {
+                throw new InvalidOperationException("A destination store is required for transfer accounting.");
+            }
+
+            destinationStore = await db.Stores.AsNoTracking()
+                .Where(store => store.Id == document.ToStoreId.Value && store.CompanyId == document.CompanyId)
+                .Select(store => new StockAccountingStore(store.Id, store.StoreGroupId, store.Name, store.StoreCode))
+                .FirstOrDefaultAsync(cancellationToken)
+                ?? throw new InvalidOperationException("The destination store for stock accounting was not found.");
+
+            destinationInventory = await EnsureNamedLedgerAsync(
+                document.CompanyId,
+                InventoryLedgerName(destinationStore.StoreCode, destinationStore.Name),
+                "Stock-in-Hand",
+                LedgerCategory.Stock,
+                LedgerType.StockItem,
+                cancellationToken);
+        }
+
+        Ledger? stockGain = null;
+        if (plan.GainCredit > 0)
+        {
+            stockGain = await EnsureNamedLedgerAsync(
+                document.CompanyId,
+                "Stock Adjustment Gain",
+                "Indirect Income",
+                LedgerCategory.IndirectIncome,
+                LedgerType.Income,
+                cancellationToken);
+        }
+
+        Ledger? stockLoss = null;
+        if (plan.LossDebit > 0)
+        {
+            stockLoss = await EnsureNamedLedgerAsync(
+                document.CompanyId,
+                kind == StockOperationAccountingKind.WriteOff ? "Stock Write-off" : "Stock Shortage",
+                "Indirect Expenses",
+                LedgerCategory.IndirectExpenses,
+                LedgerType.Expenses,
+                cancellationToken);
+        }
+
+        var operationLabel = kind switch
+        {
+            StockOperationAccountingKind.Excess => "stock excess",
+            StockOperationAccountingKind.Shortage => "stock shortage",
+            StockOperationAccountingKind.WriteOff => "stock write-off",
+            StockOperationAccountingKind.Transfer => "inter-store stock transfer",
+            _ => "stock operation"
+        };
+        var lines = new List<JournalLineDraft>();
+        if (plan.SourceInventoryDebit > 0)
+        {
+            lines.Add(new(sourceInventory.Id, null, plan.SourceInventoryDebit, 0, $"{operationLabel}: inventory increase"));
+        }
+        if (plan.SourceInventoryCredit > 0)
+        {
+            lines.Add(new(sourceInventory.Id, null, 0, plan.SourceInventoryCredit, $"{operationLabel}: inventory reduction"));
+        }
+        if (plan.DestinationInventoryDebit > 0 && destinationInventory is not null && destinationStore is not null)
+        {
+            lines.Add(new(
+                destinationInventory.Id,
+                null,
+                plan.DestinationInventoryDebit,
+                0,
+                $"{operationLabel}: inventory received",
+                destinationStore.StoreGroupId,
+                destinationStore.Id));
+        }
+        if (plan.GainCredit > 0 && stockGain is not null)
+        {
+            lines.Add(new(stockGain.Id, null, 0, plan.GainCredit, $"{operationLabel}: gain recognized"));
+        }
+        if (plan.LossDebit > 0 && stockLoss is not null)
+        {
+            lines.Add(new(stockLoss.Id, null, plan.LossDebit, 0, $"{operationLabel}: loss recognized"));
+        }
+
+        var journal = await RepostSourceJournalAsync(
+            "StockOperationDocument",
+            document.Id,
+            $"JE-{document.DocumentNumber}",
+            document.OnDate,
+            document.DocumentNumber,
+            $"{operationLabel} posted from {document.DocumentNumber}. {document.Reason}".Trim(),
+            document.CompanyId,
+            sourceStore.StoreGroupId,
+            sourceStore.Id,
+            lines,
+            cancellationToken);
+
+        return new StockOperationAccountingResult(journal.Id, journal.EntryNumber, accountingAmount);
+    }
 
 
     public async Task<GstAccountingBridgeSummary> GetGstAccountingBridgeSummaryAsync(
@@ -1775,6 +1913,12 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         return $"GST-RET-{normalized}";
     }
 
+    private static string InventoryLedgerName(string? storeCode, string storeName)
+    {
+        var identity = string.IsNullOrWhiteSpace(storeCode) ? storeName.Trim() : storeCode.Trim().ToUpperInvariant();
+        return $"Inventory - {identity}";
+    }
+
     private static Guid DeterministicGuid(string seed)
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(seed));
@@ -1879,8 +2023,8 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
                 Credit = line.Credit,
                 Narration = line.Narration,
                 CompanyId = companyId,
-                StoreGroupId = storeGroupId,
-                StoreId = storeId
+                StoreGroupId = line.StoreGroupId ?? storeGroupId,
+                StoreId = line.StoreId ?? storeId
             }));
 
         return existing;

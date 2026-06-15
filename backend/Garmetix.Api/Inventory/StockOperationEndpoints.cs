@@ -1,4 +1,5 @@
 using Garmetix.Api.Auth;
+using Garmetix.Api.Accounting;
 using Garmetix.Api.Numbering;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Models.Inventory;
@@ -23,6 +24,7 @@ public static class StockOperationEndpoints
         group.MapPost("/adjustment", CreateAdjustmentAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/transfer", CreateTransferAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/physical-count", CreatePhysicalCountAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapPost("/write-off", CreateWriteOffAsync).RequireAuthorization(GarmetixPolicies.Edit);
 
         return group;
     }
@@ -148,6 +150,11 @@ public static class StockOperationEndpoints
                 item.TotalCostValue,
                 item.TotalMrpValue,
                 item.ItemCount,
+                item.AccountingStatus,
+                item.JournalEntryId,
+                item.JournalEntryId.HasValue
+                    ? db.JournalEntries.Where(entry => entry.Id == item.JournalEntryId.Value).Select(entry => entry.EntryNumber).FirstOrDefault()
+                    : null,
                 item.Reason))
             .ToListAsync(cancellationToken);
     }
@@ -194,6 +201,12 @@ public static class StockOperationEndpoints
                 item.InMovementId,
                 item.Reason))
             .ToListAsync(cancellationToken);
+        var journalEntryNumber = document.JournalEntryId.HasValue
+            ? await db.JournalEntries.AsNoTracking()
+                .Where(entry => entry.Id == document.JournalEntryId.Value)
+                .Select(entry => entry.EntryNumber)
+                .FirstOrDefaultAsync(cancellationToken)
+            : null;
 
         return Results.Ok(new StockOperationDocumentDetailDto(
             document.Id,
@@ -209,6 +222,9 @@ public static class StockOperationEndpoints
             document.TotalCostValue,
             document.TotalMrpValue,
             document.ItemCount,
+            document.AccountingStatus,
+            document.JournalEntryId,
+            journalEntryNumber,
             document.Reason,
             document.PostedAt,
             items));
@@ -252,6 +268,7 @@ public static class StockOperationEndpoints
         GarmetixDbContext db,
         DocumentNumberService documentNumbers,
         StockLedgerService stockLedger,
+        AccountingPostingService accounting,
         CancellationToken cancellationToken)
     {
         if (request.StockId == Guid.Empty)
@@ -318,6 +335,7 @@ public static class StockOperationEndpoints
             document,
             reason);
         var posting = await stockLedger.PostAsync(stock, movement, cancellationToken);
+        document.TotalCostValue = Math.Abs(posting.CostImpact);
         db.StockOperationItems.Add(CreateItem(
             document,
             stock,
@@ -338,6 +356,12 @@ public static class StockOperationEndpoints
             increase ? null : movement.Id,
             increase ? movement.Id : null,
             reason));
+        var accountingResult = await accounting.PostStockOperationAsync(
+            document,
+            increase ? StockOperationAccountingKind.Excess : StockOperationAccountingKind.Shortage,
+            posting.CostImpact,
+            cancellationToken);
+        ApplyAccountingResult(document, accountingResult);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
@@ -360,6 +384,7 @@ public static class StockOperationEndpoints
         GarmetixDbContext db,
         DocumentNumberService documentNumbers,
         StockLedgerService stockLedger,
+        AccountingPostingService accounting,
         CancellationToken cancellationToken)
     {
         if (request.StockId == Guid.Empty)
@@ -424,6 +449,7 @@ public static class StockOperationEndpoints
                 document,
                 reason);
             posting = await stockLedger.PostAsync(stock, movement, cancellationToken);
+            document.TotalCostValue = Math.Abs(posting.CostImpact);
         }
 
         db.StockOperationItems.Add(CreateItem(
@@ -448,6 +474,19 @@ public static class StockOperationEndpoints
             change.Difference < 0 ? movement?.Id : null,
             change.Difference > 0 ? movement?.Id : null,
             reason));
+        if (posting is null)
+        {
+            document.AccountingStatus = "Not Required";
+        }
+        else
+        {
+            var accountingResult = await accounting.PostStockOperationAsync(
+                document,
+                change.Difference > 0 ? StockOperationAccountingKind.Excess : StockOperationAccountingKind.Shortage,
+                posting.CostImpact,
+                cancellationToken);
+            ApplyAccountingResult(document, accountingResult);
+        }
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
@@ -464,12 +503,129 @@ public static class StockOperationEndpoints
             change.Difference == 0 ? "Physical count verified. No quantity movement was required." : "Physical stock count posted."));
     }
 
+    private static async Task<IResult> CreateWriteOffAsync(
+        StockWriteOffRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        DocumentNumberService documentNumbers,
+        StockLedgerService stockLedger,
+        AccountingPostingService accounting,
+        CancellationToken cancellationToken)
+    {
+        if (request.StockId == Guid.Empty)
+        {
+            return Results.BadRequest(new { message = "Select a stock item before posting write-off." });
+        }
+
+        if (request.Quantity <= 0)
+        {
+            return Results.BadRequest(new { message = "Write-off quantity must be greater than zero." });
+        }
+
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        var stock = await LoadScopedStockAsync(request.StockId, context, db, cancellationToken);
+        if (stock is null)
+        {
+            return Results.NotFound();
+        }
+
+        await DocumentNumberGenerator.LockStockKeyAsync(
+            db,
+            stock.CompanyId,
+            stock.StoreGroupId,
+            stock.StoreId,
+            stock.ProductId,
+            stock.Barcode,
+            cancellationToken);
+
+        StockQuantityChange change;
+        try
+        {
+            var snapshot = await stockLedger.GetSnapshotAsync(stock, cancellationToken);
+            change = StockOperationCalculator.Adjustment(snapshot.Quantity, request.Quantity, false);
+        }
+        catch (ArgumentException exception)
+        {
+            return Results.BadRequest(new { message = exception.Message });
+        }
+
+        var onDate = DateTime.Now;
+        var operationNumber = await documentNumbers.NextStockWriteOffAsync(
+            stock.CompanyId,
+            stock.StoreGroupId,
+            stock.StoreId,
+            onDate,
+            cancellationToken);
+        var reason = Clean(request.Reason) ?? "Damaged or unusable stock write-off";
+        var storeName = await db.Stores.AsNoTracking()
+            .Where(item => item.Id == stock.StoreId)
+            .Select(item => item.Name)
+            .FirstOrDefaultAsync(cancellationToken) ?? "Store";
+        var document = CreateDocument(
+            operationNumber,
+            onDate,
+            "WriteOff",
+            stock,
+            storeName,
+            null,
+            null,
+            request.Quantity,
+            reason);
+        db.StockOperationDocuments.Add(document);
+
+        var movement = CreateMovement(stock, "StockWriteOff", 0, request.Quantity, document, reason);
+        var posting = await stockLedger.PostAsync(stock, movement, cancellationToken);
+        document.TotalCostValue = Math.Abs(posting.CostImpact);
+        db.StockOperationItems.Add(CreateItem(
+            document,
+            stock,
+            stock.Id,
+            null,
+            stock.StoreId,
+            null,
+            posting.Before.Quantity,
+            null,
+            new StockQuantityChange(
+                posting.Before.Quantity,
+                0,
+                request.Quantity,
+                posting.After.Quantity,
+                -request.Quantity),
+            null,
+            null,
+            movement.Id,
+            null,
+            reason));
+        var accountingResult = await accounting.PostStockOperationAsync(
+            document,
+            StockOperationAccountingKind.WriteOff,
+            posting.CostImpact,
+            cancellationToken);
+        ApplyAccountingResult(document, accountingResult);
+
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return Results.Ok(new StockOperationResponse(
+            document.Id,
+            operationNumber,
+            stock.ProductId,
+            stock.Barcode,
+            stock.StoreId,
+            0,
+            request.Quantity,
+            stock.CurrentStock,
+            "StockWriteOff",
+            "Stock write-off posted."));
+    }
+
     private static async Task<IResult> CreateTransferAsync(
         StockTransferRequest request,
         HttpContext context,
         GarmetixDbContext db,
         DocumentNumberService documentNumbers,
         StockLedgerService stockLedger,
+        AccountingPostingService accounting,
         CancellationToken cancellationToken)
     {
         if (request.FromStockId == Guid.Empty || request.ToStoreId == Guid.Empty)
@@ -580,6 +736,7 @@ public static class StockOperationEndpoints
         var inMovement = CreateMovement(toStock, "StockTransferIn", request.Quantity, 0, document, $"Transfer from {fromStoreName}");
         inMovement.CostPrice = sourcePosting.Before.AverageCost;
         var destinationPosting = await stockLedger.PostAsync(toStock, inMovement, cancellationToken);
+        document.TotalCostValue = Math.Abs(sourcePosting.CostImpact);
         db.StockOperationItems.Add(CreateItem(
             document,
             fromStock,
@@ -600,6 +757,12 @@ public static class StockOperationEndpoints
             outMovement.Id,
             inMovement.Id,
             reason));
+        var accountingResult = await accounting.PostStockOperationAsync(
+            document,
+            StockOperationAccountingKind.Transfer,
+            sourcePosting.CostImpact,
+            cancellationToken);
+        ApplyAccountingResult(document, accountingResult);
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -740,4 +903,12 @@ public static class StockOperationEndpoints
     }
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static void ApplyAccountingResult(
+        StockOperationDocument document,
+        StockOperationAccountingResult? result)
+    {
+        document.JournalEntryId = result?.JournalEntryId;
+        document.AccountingStatus = result is null ? "Not Required" : "Posted";
+    }
 }

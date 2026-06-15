@@ -676,22 +676,17 @@ onBeforeUnmount(() => {
 
       <template #footer="{ collapsed }">
         <div class="dashboard-sidebar-footer">
-          <div class="dashboard-sidebar-mini-actions" :class="{ collapsed }">
-            <ShellNotificationPopover
-              :items="visibleNotifications"
-              :actions="notificationQuickActions"
-              :loading="notificationsLoading"
-              :error="notificationsError"
-              :unread-count="unreadNotificationCount"
-              :compact="collapsed"
-              @refresh="loadNotifications"
-              @viewed="markNotificationsViewed"
-              @navigate="openNotificationPath"
-            />
-            <UDropdownMenu :items="systemStatusDropdownItems" :ui="{ content: 'w-72' }">
-              <UButton color="neutral" variant="subtle" size="xs" :icon="apiBadge.icon" :label="collapsed ? undefined : 'Status'" :square="collapsed" block />
-            </UDropdownMenu>
-          </div>
+          <ShellNotificationPopover
+            :items="visibleNotifications"
+            :actions="notificationQuickActions"
+            :loading="notificationsLoading"
+            :error="notificationsError"
+            :unread-count="unreadNotificationCount"
+            :compact="collapsed"
+            @refresh="loadNotifications"
+            @viewed="markNotificationsViewed"
+            @navigate="openNotificationPath"
+          />
         </div>
       </template>
     </UDashboardSidebar>
