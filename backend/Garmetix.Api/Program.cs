@@ -233,6 +233,7 @@ app.MapCommercialEndpoints();
 app.MapProductLookupEndpoints();
 app.MapInventoryProductMasterEndpoints();
 app.MapInventoryStockOperationEndpoints();
+app.MapInventoryStockReportEndpoints();
 app.MapNonGstGoodsEndpoints();
 app.MapOracleSecondarySyncEndpoints();
 app.MapDataConsistencyEndpoints();

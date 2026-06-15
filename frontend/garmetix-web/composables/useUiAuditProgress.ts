@@ -47,6 +47,7 @@ const REVIEWED_ROUTES = [
   '/purchase-return',
   '/inventory',
   '/stock-operations',
+  '/stock-reports',
   '/document-scan',
   '/payroll',
   '/accounting',

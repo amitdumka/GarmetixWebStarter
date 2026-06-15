@@ -120,7 +120,8 @@ const moduleGroups: MenuGroup[] = [
     label: 'Inventory',
     items: [
       { to: '/inventory', label: 'Product Master', icon: 'i-lucide-boxes' },
-      { to: '/stock-operations', label: 'Stock Operations', icon: 'i-lucide-arrow-left-right' }
+      { to: '/stock-operations', label: 'Stock Operations', icon: 'i-lucide-arrow-left-right' },
+      { to: '/stock-reports', label: 'Stock Reports', icon: 'i-lucide-chart-column-stacked', keywords: ['ageing', 'low stock', 'valuation', 'reconciliation'] }
     ]
   },
   {
@@ -676,6 +677,17 @@ onBeforeUnmount(() => {
 
       <template #footer="{ collapsed }">
         <div class="dashboard-sidebar-footer">
+          <UDropdownMenu :items="systemStatusDropdownItems" :ui="{ content: 'w-72' }">
+            <UButton
+              color="neutral"
+              variant="ghost"
+              :icon="apiBadge.icon"
+              :label="collapsed ? undefined : 'Status'"
+              :square="collapsed"
+              block
+              aria-label="System status"
+            />
+          </UDropdownMenu>
           <ShellNotificationPopover
             :items="visibleNotifications"
             :actions="notificationQuickActions"

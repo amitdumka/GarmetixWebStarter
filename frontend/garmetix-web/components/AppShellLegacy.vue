@@ -72,6 +72,7 @@ const moduleGroups = [
       { to: '/sales-return', label: 'Sales Return', icon: 'i-lucide-rotate-ccw' },
       { to: '/inventory', label: 'Inventory', icon: 'i-lucide-boxes' },
       { to: '/stock-operations', label: 'Stock Ops', icon: 'i-lucide-arrow-left-right' },
+      { to: '/stock-reports', label: 'Stock Reports', icon: 'i-lucide-chart-column-stacked' },
       { to: '/non-gst-goods', label: 'Non-GST Goods', icon: 'i-lucide-file-warning' },
       { to: '/purchase', label: 'Purchase', icon: 'i-lucide-package-plus' },
       { to: '/purchase-return', label: 'Purchase Return', icon: 'i-lucide-undo-2' },

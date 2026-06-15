@@ -1,15 +1,20 @@
-export const APP_VERSION = '4.3.2'
+export const APP_VERSION = '4.3.3'
 export const APP_STAGE = 'Stage 8D'
-export const APP_RELEASE_NAME = 'Stock Operation Accounting and Write-offs'
+export const APP_RELEASE_NAME = 'Stock Intelligence Reports'
 export const APP_BUILD_DATE = '2026-06-15'
-export const APP_BUILD_CODE = 'GARMETIX-8D-20260615-4320'
+export const APP_BUILD_CODE = 'GARMETIX-8D-20260615-4330'
 
 export const APP_HIGHLIGHTS = [
+  'The sidebar footer again presents Status above Notifications as two full-width vertical actions.',
+  'Inventory now includes a dedicated Stock Reports workspace for receipt-age indicators, configurable low-stock risk, weighted-average valuation and ledger reconciliation.',
+  'Stock report age bands cover 0-30, 31-60, 61-90, 91-180 and 180+ days, plus no-receipt-history and out-of-stock states.',
+  'Stock Reports exposes Critical, Low, Watch and Healthy risk bands, pending stock-accounting documents, searchable filters and CSV export.',
+  'Ledger quantity and average cost are compared with the operational stock projection so rebuild mismatches remain visible by product and store.',
   'Stock excess, shortage, write-off and inter-store transfer documents now post balanced double-entry accounting at weighted-average cost.',
   'Store-wise Stock-in-Hand ledgers are created internally, with stock gains in Indirect Income and shortages/write-offs in Indirect Expenses.',
   'Stock Operations now includes a dedicated Write-off workflow with StoreCode/YYYYMM/WO/series numbering and linked movement and journal audit.',
   'Formal stock-operation documents now show Posted, Not Required or Pending accounting status and their linked journal number.',
-  'Notifications now occupy the single footer action in the sidebar, while service status remains in the top bar.',
+  'Status and Notifications are available as separate vertical actions in the sidebar footer.',
   'Regular stock movements now form the authoritative quantity and inventory-cost ledger, while Stock remains a rebuildable operational projection.',
   'Weighted-average valuation records running quantity, average cost, inventory value and cost impact for every regular stock movement.',
   'The Stock Operations workspace now includes valuation, projection reconciliation and movement running balances.',

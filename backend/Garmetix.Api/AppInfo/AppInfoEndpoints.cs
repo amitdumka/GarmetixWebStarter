@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.3.2";
+    public const string Version = "4.3.3";
     public const string Stage = "Stage 8D";
-    public const string ReleaseName = "Stock Operation Accounting and Write-offs";
+    public const string ReleaseName = "Stock Intelligence Reports";
     public const string BuildDate = "2026-06-15";
-    public const string BuildCode = "GARMETIX-8D-20260615-4320";
+    public const string BuildCode = "GARMETIX-8D-20260615-4330";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,11 +81,16 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "The sidebar footer again presents Status above Notifications as two full-width vertical actions.",
+        "Inventory now includes a dedicated Stock Reports workspace for receipt-age indicators, configurable low-stock risk, weighted-average valuation, and ledger reconciliation.",
+        "Stock report age bands cover 0-30, 31-60, 61-90, 91-180, and 180+ days, plus no-receipt-history and out-of-stock states.",
+        "Stock Reports exposes Critical, Low, Watch, and Healthy risk bands, pending stock-accounting documents, searchable filters, and CSV export.",
+        "Ledger quantity and average cost are compared with the operational stock projection so rebuild mismatches remain visible by product and store.",
         "Stock excess, shortage, write-off, and inter-store transfer documents now post balanced double-entry accounting at weighted-average cost.",
         "Store-wise Stock-in-Hand ledgers are created internally, with stock gains in Indirect Income and shortages/write-offs in Indirect Expenses.",
         "Stock Operations now includes a dedicated Write-off workflow with StoreCode/YYYYMM/WO/series numbering and linked movement and journal audit.",
         "Formal stock-operation documents now show Posted, Not Required, or Pending accounting status and their linked journal number.",
-        "Notifications now occupy the single footer action in the sidebar, while service status remains in the top bar.",
+        "Status and Notifications are available as separate vertical actions in the sidebar footer.",
         "Stock adjustments, transfers, and physical counts now create formal header and item documents with immutable product, store, quantity, and value snapshots.",
         "Every posted stock-operation document links its movement-ledger rows and uses server-owned StoreCode/YYYYMM/ADJ, ST, or PHY numbering.",
         "The Stock Operations workspace now includes a searchable document register, operation filter, wide audit detail, and direct QR download.",

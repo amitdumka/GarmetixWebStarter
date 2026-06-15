@@ -21,7 +21,7 @@ const mainMenuGroups = [
   { label: 'Dashboards', count: 5, description: 'Smart landing, store dashboard, company dashboard, dashboard map and legacy overview.' },
   { label: 'Sales', count: 2, description: 'Billing and sales returns.' },
   { label: 'Purchase', count: 2, description: 'Purchase and purchase returns.' },
-  { label: 'Inventory', count: 2, description: 'Product master and stock operations.' },
+  { label: 'Inventory', count: 3, description: 'Product master, stock operations and stock intelligence reports.' },
   { label: 'Accounting', count: 6, description: 'Accounting, petty cash, vouchers, debit notes, credit notes and commercial summary.' },
   { label: 'CRM', count: 3, description: 'Customers, vendors/parties and loyalty.' },
   { label: 'GST', count: 2, description: 'GST returns and GST reports.' },

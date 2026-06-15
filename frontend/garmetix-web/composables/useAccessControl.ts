@@ -58,6 +58,7 @@ const routeRules: PageAccessRule[] = [
   { path: '/sales-return', label: 'Sales Return', module: 'Sales', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'salesman'] },
   { path: '/inventory', label: 'Product Master', module: 'Inventory', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
   { path: '/stock-operations', label: 'Stock Operations', module: 'Inventory', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
+  { path: '/stock-reports', label: 'Stock Reports', module: 'Inventory', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
   { path: '/non-gst-goods', label: 'Non-GST Goods', module: 'Off Book', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
   { path: '/purchase', label: 'Purchase', module: 'Purchase', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
   { path: '/purchase-return', label: 'Purchase Return', module: 'Purchase', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },

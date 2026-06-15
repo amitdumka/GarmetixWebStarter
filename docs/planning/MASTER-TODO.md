@@ -325,6 +325,7 @@ Use this file as the running handoff checklist. When a task is completed, mark i
   - [x] Package 1: added formal adjustment, transfer, and physical-count documents, item snapshots, movement links, server numbering, QR lookup, and a searchable document register in v4.3.0.
   - [x] Package 2: made the regular movement ledger authoritative, added weighted-average valuation snapshots, repaired missing import/cancellation movements, added projection reconciliation, and covered valuation rules with tests in v4.3.1.
   - [x] Package 3: added balanced accounting for stock excess, shortage, write-off, and transfer; store-wise inventory ledgers; linked journal status; a formal write-off workflow; and the single sidebar-footer Notifications action in v4.3.2.
+  - [x] Package 4: restored vertical sidebar-footer Status and Notifications actions and added dedicated stock ageing, low-stock risk, weighted-average valuation, projection reconciliation, filtering, and CSV reporting in v4.3.3.
 - [ ] Complete Stage 8E accounting and payment hardening.
 - [ ] Complete Stage 8F automated tests and deep audit history.
 - [ ] Complete Stage 8G real integrations and production go-live validation.

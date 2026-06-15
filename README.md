@@ -107,6 +107,8 @@ Company Setup now has its own Nuxt route at `/setup`. The page manages companies
 
 Inventory now has its own Nuxt route at `/inventory`. The page uses Nuxt UI stock KPI cards, searchable `UTable`, product add/edit slideover forms, toast feedback, and delete confirmation. It shows purchase quantity, sold quantity, current stock, and MRP stock value.
 
+Inventory intelligence is available at `/stock-reports`, with receipt-age bands, configurable low-stock risk, authoritative weighted-average valuation, operational-projection reconciliation, workspace filters, and CSV export.
+
 ## Vouchers
 
 Vouchers now have their own Nuxt route at `/vouchers`. The page uses Nuxt UI payment, receipt, and expense KPI cards, searchable `UTable`, voucher add/edit slideover forms, toast feedback, and delete confirmation. Non-cash vouchers require a bank account and post bank transactions, statement lines, and cheque logs where applicable.
