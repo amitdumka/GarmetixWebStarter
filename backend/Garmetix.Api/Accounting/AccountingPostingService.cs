@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Garmetix.Api.Accounting;
 
 public sealed record VendorRefundPostingResult(Guid JournalEntryId, Guid? BankTransactionId);
+public sealed record PurchaseReturnTaxPosting(Guid ReversalId, string ProductName, string? HsnCode, decimal TaxAmount);
 
 public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumberService documentNumbers)
 {
@@ -901,7 +902,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
             cancellationToken);
     }
 
-    public async Task PostPurchaseInvoiceCancellationAsync(
+    public async Task<JournalEntry?> PostPurchaseInvoiceCancellationAsync(
         PurchaseInvoice invoice,
         Vendor? vendor,
         Guid storeGroupId,
@@ -909,11 +910,12 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         decimal originalPaidAmount,
         PaymentMode? originalPaymentMode,
         Guid? bankAccountId,
+        IReadOnlyList<PurchaseReturnTaxPosting> taxReversals,
         CancellationToken cancellationToken)
     {
         if (vendor is null)
         {
-            return;
+            return null;
         }
 
         var party = await EnsureVendorPartyAsync(vendor, cancellationToken);
@@ -929,9 +931,15 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
             new(purchaseLedger.Id, null, 0, invoice.BasePrice, $"Cancel purchase invoice {invoice.InvoiceNumber}")
         };
 
-        if (invoice.TaxAmount > 0)
+        foreach (var reversal in taxReversals.Where(item => item.TaxAmount > 0))
         {
-            lines.Add(new(inputGstLedger.Id, null, 0, invoice.TaxAmount, $"Cancel purchase tax {invoice.InvoiceNumber}"));
+            var hsn = string.IsNullOrWhiteSpace(reversal.HsnCode) ? string.Empty : $" | HSN {reversal.HsnCode}";
+            lines.Add(new(
+                inputGstLedger.Id,
+                null,
+                0,
+                reversal.TaxAmount,
+                $"ITC reversal {reversal.ProductName}{hsn} | Cancel {invoice.InvoiceNumber}"));
         }
 
         if (invoice.FrightAmount > 0)
@@ -959,7 +967,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
                 cancellationToken);
         }
 
-        await RepostSourceJournalAsync(
+        return await RepostSourceJournalAsync(
             "PurchaseInvoiceCancellation",
             invoice.Id,
             $"PIC-{invoice.InvoiceNumber}",
@@ -975,15 +983,15 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
 
 
     public async Task PostPurchaseReturnAsync(
+        PurchaseReturn purchaseReturn,
         PurchaseInvoice invoice,
         Vendor vendor,
-        Guid debitNoteId,
         string debitNoteNumber,
         Guid storeGroupId,
         Guid storeId,
         decimal taxableAmount,
-        decimal taxAmount,
         decimal returnAmount,
+        IReadOnlyList<PurchaseReturnTaxPosting> taxReversals,
         string? reason,
         CancellationToken cancellationToken)
     {
@@ -1010,23 +1018,37 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
             lines.Add(new(purchaseLedger.Id, null, 0, taxableAmount, $"Purchase return taxable {invoice.InvoiceNumber}"));
         }
 
-        if (taxAmount > 0)
+        foreach (var reversal in taxReversals.Where(item => item.TaxAmount > 0))
         {
-            lines.Add(new(inputGstLedger.Id, null, 0, taxAmount, $"Purchase return input GST reversal {invoice.InvoiceNumber}"));
+            var hsn = string.IsNullOrWhiteSpace(reversal.HsnCode) ? string.Empty : $" | HSN {reversal.HsnCode}";
+            lines.Add(new(
+                inputGstLedger.Id,
+                null,
+                0,
+                reversal.TaxAmount,
+                $"ITC reversal {reversal.ProductName}{hsn} | {purchaseReturn.ReturnNumber}"));
         }
 
-        await RepostSourceJournalAsync(
+        var journal = await RepostSourceJournalAsync(
             "PurchaseReturn",
-            debitNoteId,
-            $"PR-{debitNoteNumber}",
-            DateTime.Now,
-            invoice.InvoiceNumber,
+            purchaseReturn.Id,
+            $"PR-{purchaseReturn.ReturnNumber}",
+            purchaseReturn.OnDate,
+            debitNoteNumber,
             narration,
             invoice.CompanyId,
             storeGroupId,
             storeId,
             lines,
             cancellationToken);
+
+        purchaseReturn.JournalEntryId = journal.Id;
+        foreach (var reversal in db.PurchaseReturnItcReversals.Local.Where(item =>
+                     item.PurchaseReturnId == purchaseReturn.Id &&
+                     taxReversals.Any(posting => posting.ReversalId == item.Id)))
+        {
+            reversal.JournalEntryId = journal.Id;
+        }
     }
 
 

@@ -316,10 +316,11 @@ Use this file as the running handoff checklist. When a task is completed, mark i
   - [x] Package 1: added active/inactive user lifecycle, dedicated password administration, server-owned Admin role flags, last-admin safeguards, immediate inactive-session blocking, and security audit events in v4.1.0.
   - [x] Package 2: centralized backend authorization, displayed the effective role matrix, added HR/Payroll roles and specialist landing routes, hardened access import/export, and added ten role permission tests in v4.1.1.
   - [x] Package 3: completed permission-aware desktop/mobile shell behavior and added a scoped business notification and quick-action menu without technical log noise in v4.1.2.
-- [ ] Complete Stage 8C purchase return and vendor settlement.
+- [x] Complete Stage 8C purchase return and vendor settlement.
   - [x] Package 1: added formal purchase-return header/item records, server-owned return numbering, immutable purchase/tax snapshots, linked stock movements and debit notes, legacy return compatibility, and a searchable return register in v4.2.0.
   - [x] Package 2: added complete A4/A5 purchase-return/debit-note PDFs, stable QR lookup, automatic first print, direct reprint/download actions, and persistent print audit state in v4.2.1.
   - [x] Package 3: added vendor debit-note allocation, cash/bank refund receipts, mixed settlements, outstanding purchase allocation, settlement history, and linked voucher/journal/bank audit records in v4.2.2.
+  - [x] Package 4: added immutable item-level ITC reversal, exact GST component rounding, full return-to-stock-to-debit-note-to-journal reconciliation, audit entries, and a visible reconciliation workspace in v4.2.3.
 - [ ] Complete Stage 8D inventory documents and valuation.
 - [ ] Complete Stage 8E accounting and payment hardening.
 - [ ] Complete Stage 8F automated tests and deep audit history.

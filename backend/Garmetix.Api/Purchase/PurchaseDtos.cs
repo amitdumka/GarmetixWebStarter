@@ -206,7 +206,10 @@ public sealed record PurchaseReturnRegisterDto(
     string PrintStatus,
     decimal SettledAmount,
     decimal AvailableSettlementAmount,
-    string SettlementStatus);
+    string SettlementStatus,
+    decimal ItcReversalAmount,
+    string ItcReversalStatus,
+    Guid? JournalEntryId);
 
 public sealed record PurchaseReturnDetailDto(
     Guid Id,
@@ -238,7 +241,52 @@ public sealed record PurchaseReturnDetailDto(
     decimal SettledAmount,
     decimal AvailableSettlementAmount,
     string SettlementStatus,
+    decimal ItcReversalAmount,
+    string ItcReversalStatus,
+    Guid? JournalEntryId,
     IReadOnlyList<PurchaseReturnItemDto> Items);
+
+public sealed record PurchaseReturnItcReversalDto(
+    Guid Id,
+    Guid PurchaseReturnItemId,
+    Guid PurchaseInvoiceItemId,
+    string ProductName,
+    string? HsnCode,
+    decimal TaxRate,
+    decimal ReturnedQuantity,
+    decimal TaxableAmount,
+    decimal CgstAmount,
+    decimal SgstAmount,
+    decimal IgstAmount,
+    decimal TaxAmount,
+    Guid? JournalEntryId,
+    string Status);
+
+public sealed record PurchaseReturnReconciliationCheckDto(
+    string Key,
+    string Label,
+    bool Passed,
+    string Expected,
+    string Actual,
+    string? Reference);
+
+public sealed record PurchaseReturnReconciliationDto(
+    Guid PurchaseReturnId,
+    string ReturnNumber,
+    string Status,
+    Guid PurchaseInvoiceId,
+    Guid? DebitNoteId,
+    string? DebitNoteNumber,
+    Guid? JournalEntryId,
+    string? JournalEntryNumber,
+    decimal HeaderTaxAmount,
+    decimal ItemTaxAmount,
+    decimal ItcReversalAmount,
+    decimal JournalItcCreditAmount,
+    decimal StockQuantityOut,
+    decimal SettledAmount,
+    IReadOnlyList<PurchaseReturnItcReversalDto> Reversals,
+    IReadOnlyList<PurchaseReturnReconciliationCheckDto> Checks);
 
 public sealed record PurchaseReturnPrintRequest(bool Reprint = false);
 

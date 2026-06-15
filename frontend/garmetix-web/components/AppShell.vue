@@ -306,23 +306,7 @@ const notificationQuickActions = computed(() => [
   { label: 'Payroll', icon: 'i-lucide-badge-indian-rupee', to: '/payroll' },
   { label: 'Scan', icon: 'i-lucide-scan-qr-code', to: '/document-scan' }
 ].filter((item) => access.canAccessPath(item.to)).slice(0, 6))
-const currentMenuItem = computed(() => allVisibleItems.value.find((item) => isActive(item.to)))
-const breadcrumbItems = computed(() => {
-  const current = currentMenuItem.value
-  if (!current) {
-    return [
-      { label: 'Garmetix', to: dashboardHomePath.value },
-      { label: props.title || 'Current page', to: route.path }
-    ]
-  }
-  return [
-    { label: 'Garmetix', to: dashboardHomePath.value },
-    { label: current.group, to: current.group === 'Dashboards' ? '/dashboard' : current.to },
-    { label: current.label, to: current.to }
-  ]
-})
 const currentPageIsFavorite = computed(() => favoritePaths.value.includes(route.path))
-const roleBadge = computed(() => auth.canSeeAdmin.value ? 'Admin/Owner view' : (auth.user.value?.role || auth.user.value?.userType || 'User'))
 const userDisplayName = computed(() => auth.user.value?.name || auth.user.value?.userName || 'Garmetix User')
 const userEmail = computed(() => auth.user.value?.email || 'Signed in')
 const userInitials = computed(() => {
@@ -335,7 +319,6 @@ const userInitials = computed(() => {
     .join('') || 'GU'
 })
 const sidebarStateLabel = computed(() => sidebarCollapsed.value ? 'Expand sidebar' : 'Collapse sidebar')
-const sidebarStateIcon = computed(() => sidebarCollapsed.value ? 'i-lucide-panel-left-open' : 'i-lucide-panel-left-close')
 const accountDropdownItems = computed<DropdownMenuItem[][]>(() => sanitizeDropdownGroups([
   [
     { label: userDisplayName.value, type: 'label' },
@@ -458,10 +441,6 @@ function isActive(to: string) {
 function logout() {
   auth.logout()
   navigateTo('/')
-}
-
-function toggleSidebarCollapsed() {
-  sidebarCollapsed.value = !sidebarCollapsed.value
 }
 
 function openCommand() {
@@ -641,7 +620,7 @@ onBeforeUnmount(() => {
       :default-size="20"
       :max-size="26"
       :collapsed-size="4"
-      :toggle="{ color: 'neutral', variant: 'ghost', class: 'rounded-full' }"
+      :toggle="false"
       :ui="{ footer: 'border-t border-default' }"
     >
       <template #header="{ collapsed }">
@@ -655,15 +634,6 @@ onBeforeUnmount(() => {
               <p class="dashboard-brand-subtitle">v{{ APP_VERSION }}</p>
             </div>
           </NuxtLink>
-          <UButton
-            color="neutral"
-            variant="ghost"
-            size="xs"
-            :icon="sidebarStateIcon"
-            :aria-label="sidebarStateLabel"
-            :title="`${sidebarStateLabel} | Ctrl+B`"
-            @click.stop="toggleSidebarCollapsed"
-          />
         </div>
       </template>
 
@@ -722,25 +692,6 @@ onBeforeUnmount(() => {
               <UButton color="neutral" variant="subtle" size="xs" :icon="apiBadge.icon" :label="collapsed ? undefined : 'Status'" :square="collapsed" block />
             </UDropdownMenu>
           </div>
-
-          <UDropdownMenu :items="accountDropdownItems" :ui="{ content: 'w-64' }">
-            <UButton
-              color="neutral"
-              variant="ghost"
-              class="dashboard-account-trigger"
-              :class="{ collapsed }"
-              :label="collapsed ? undefined : userDisplayName"
-              :square="collapsed"
-              block
-            >
-              <template #leading>
-                <UAvatar :alt="userDisplayName" size="sm" />
-              </template>
-              <template v-if="!collapsed" #trailing>
-                <UIcon name="i-lucide-chevrons-up-down" class="h-4 w-4 text-muted" />
-              </template>
-            </UButton>
-          </UDropdownMenu>
         </div>
       </template>
     </UDashboardSidebar>
@@ -765,17 +716,6 @@ onBeforeUnmount(() => {
               <USelect v-model="storeGroupValue" :items="storeGroupOptions" :disabled="isStoreGroupLocked || storeGroupOptions.length < 2" class="hidden min-[1900px]:flex w-36" aria-label="Store group" />
               <USelect v-model="storeValue" :items="storeOptions" :disabled="isStoreLocked || storeOptions.length < 2" class="hidden min-[1900px]:flex w-40" aria-label="Store" />
               <UButton color="neutral" variant="subtle" icon="i-lucide-refresh-cw" aria-label="Refresh" @click="emit('refresh')" />
-              <ShellNotificationPopover
-                :items="visibleNotifications"
-                :actions="notificationQuickActions"
-                :loading="notificationsLoading"
-                :error="notificationsError"
-                :unread-count="unreadNotificationCount"
-                compact
-                @refresh="loadNotifications"
-                @viewed="markNotificationsViewed"
-                @navigate="openNotificationPath"
-              />
               <USelect v-model="selectedTheme" :items="themeOptions" class="hidden 2xl:flex w-28" aria-label="Theme" />
               <UColorModeButton color="neutral" variant="ghost" />
               <UDropdownMenu :items="accountDropdownItems" :ui="{ content: 'w-64' }">
@@ -788,21 +728,6 @@ onBeforeUnmount(() => {
 
       <template #body>
         <div class="dashboard-template-content">
-          <div class="dashboard-context-bar">
-            <div class="dashboard-breadcrumbs" aria-label="Breadcrumb">
-              <NuxtLink v-for="(crumb, index) in breadcrumbItems" :key="`${crumb.to}-${index}`" :to="crumb.to">
-                <span>{{ crumb.label }}</span>
-                <UIcon v-if="index < breadcrumbItems.length - 1" name="i-lucide-chevron-right" class="h-3.5 w-3.5" />
-              </NuxtLink>
-            </div>
-            <div class="dashboard-context-actions">
-              <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-store" :label="workingStoreName" class="dashboard-context-workspace" @click="workspaceOpen = true" />
-              <UBadge size="xs" :color="apiBadge.color" variant="subtle" :icon="apiBadge.icon" class="dashboard-context-status">{{ apiBadge.label }}</UBadge>
-              <UBadge color="neutral" variant="subtle" icon="i-lucide-user-round">{{ roleBadge }}</UBadge>
-              <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-map" label="Map" @click="navigateTo('/dashboard/map')" />
-              <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-search" label="Ctrl K" @click="openCommand" />
-            </div>
-          </div>
           <slot />
         </div>
       </template>

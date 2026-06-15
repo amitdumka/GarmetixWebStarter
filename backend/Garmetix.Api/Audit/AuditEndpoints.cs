@@ -59,6 +59,12 @@ public static class AuditEndpoints
         rows.AddRange(ToDtos(await db.PurchaseInvoices.AsNoTracking()
             .Select(item => new AuditSource("Purchase", "Purchase Invoice", item.Id, item.InvoiceNumber, item.CreatedAt, item.UpdatedAt, item.CreatedBy))
             .ToListAsync(cancellationToken)));
+        rows.AddRange(ToDtos(await db.PurchaseReturns.AsNoTracking()
+            .Select(item => new AuditSource("Purchase", "Purchase Return", item.Id, item.ReturnNumber, item.CreatedAt, item.UpdatedAt, item.CreatedBy, item.Deleted))
+            .ToListAsync(cancellationToken)));
+        rows.AddRange(ToDtos(await db.PurchaseReturnItcReversals.AsNoTracking()
+            .Select(item => new AuditSource("Purchase", "ITC Reversal", item.Id, item.ReturnNumber + " / " + item.ProductName, item.CreatedAt, item.UpdatedAt, item.CreatedBy, item.Deleted))
+            .ToListAsync(cancellationToken)));
         rows.AddRange(ToDtos(await db.Vouchers.AsNoTracking()
             .Select(item => new AuditSource("Vouchers", "Voucher", item.Id, item.VoucherNumber, item.CreatedAt, item.UpdatedAt, item.CreatedBy))
             .ToListAsync(cancellationToken)));

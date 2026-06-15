@@ -1,10 +1,14 @@
-export const APP_VERSION = '4.2.2'
+export const APP_VERSION = '4.2.3'
 export const APP_STAGE = 'Stage 8C'
-export const APP_RELEASE_NAME = 'Vendor Settlement'
+export const APP_RELEASE_NAME = 'Purchase Return ITC Reconciliation'
 export const APP_BUILD_DATE = '2026-06-15'
-export const APP_BUILD_CODE = 'GARMETIX-8C-20260615-4220'
+export const APP_BUILD_CODE = 'GARMETIX-8C-20260615-4230'
 
 export const APP_HIGHLIGHTS = [
+  'Purchase returns now persist an immutable ITC reversal row for every returned item, including HSN and exact CGST, SGST and IGST values.',
+  'Purchase return details now reconcile the return header, item snapshots, stock movement, debit note, Input GST journal and settlement state.',
+  'Full purchase cancellations use the same item-level ITC reversal and reconciliation links as partial returns.',
+  'The dashboard shell now has one header bar, one collapse control, one account menu and notifications in the sidebar footer.',
   'Vendor debit notes can now be allocated across one or more outstanding purchase invoices without duplicating their accounting journal.',
   'Actual supplier refunds create receipt vouchers and balanced cash or bank entries linked to the vendor, return, debit note, journal and bank transaction.',
   'Vendor settlements support adjustment-only, refund-only and mixed workflows with server-owned StoreCode/YYYYMM/VSET/series numbering.',

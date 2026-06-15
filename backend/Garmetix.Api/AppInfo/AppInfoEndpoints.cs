@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.2.2";
+    public const string Version = "4.2.3";
     public const string Stage = "Stage 8C";
-    public const string ReleaseName = "Vendor Settlement";
+    public const string ReleaseName = "Purchase Return ITC Reconciliation";
     public const string BuildDate = "2026-06-15";
-    public const string BuildCode = "GARMETIX-8C-20260615-4220";
+    public const string BuildCode = "GARMETIX-8C-20260615-4230";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,10 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Purchase returns now persist an immutable ITC reversal row for every returned item, including HSN and exact CGST, SGST, and IGST values.",
+        "Purchase return details now reconcile the return header, item snapshots, stock movement, debit note, Input GST journal, and settlement state.",
+        "Full purchase cancellations use the same item-level ITC reversal and reconciliation links as partial returns.",
+        "The dashboard shell now has one header bar, one collapse control, one account menu, and notifications in the sidebar footer.",
         "Vendor debit notes can now be allocated across one or more outstanding purchase invoices without duplicating their accounting journal.",
         "Actual supplier refunds create receipt vouchers and balanced cash or bank entries linked to the vendor, return, debit note, journal, and bank transaction.",
         "Vendor settlements support adjustment-only, refund-only, and mixed workflows with server-owned StoreCode/YYYYMM/VSET/series numbering.",

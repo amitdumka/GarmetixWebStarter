@@ -484,7 +484,7 @@ public static class CommercialEndpoints
             reason,
             storeGroupId,
             storeId,
-            purchaseInvoice.NetAmount,
+            purchaseInvoice.BasePrice,
             purchaseInvoice.TaxAmount,
             purchaseInvoice.BillAmount,
             null,

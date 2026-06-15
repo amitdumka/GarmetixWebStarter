@@ -79,6 +79,9 @@ public sealed class PurchaseReturnDocumentTests
             0,
             11_200,
             "Open",
+            1_200,
+            "Reconciled",
+            Guid.NewGuid(),
             items);
 
         var pdf = PurchaseReturnPdfDocument.Build(

@@ -485,6 +485,9 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                   ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "LastPrintedAt" timestamp without time zone NULL;
                   ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "SettledAmount" numeric(18,2) NOT NULL DEFAULT 0;
                   ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "SettlementStatus" text NOT NULL DEFAULT 'Open';
+                  ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "ItcReversalAmount" numeric(18,2) NOT NULL DEFAULT 0;
+                  ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "ItcReversalStatus" text NOT NULL DEFAULT 'Pending';
+                  ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "JournalEntryId" uuid NULL;
                   ALTER TABLE "PurchasePayments" ADD COLUMN IF NOT EXISTS "AdjustmentSourceType" text NULL;
                   ALTER TABLE "PurchasePayments" ADD COLUMN IF NOT EXISTS "AdjustmentSourceId" uuid NULL;
 
@@ -521,6 +524,38 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                     "Synced" boolean NOT NULL DEFAULT false,
                     "Deleted" boolean NOT NULL DEFAULT false,
                     CONSTRAINT "PK_PurchaseReturnItems" PRIMARY KEY ("Id")
+                );
+
+                CREATE TABLE IF NOT EXISTS "PurchaseReturnItcReversals" (
+                    "Id" uuid NOT NULL,
+                    "PurchaseReturnId" uuid NOT NULL,
+                    "PurchaseReturnItemId" uuid NOT NULL,
+                    "PurchaseInvoiceId" uuid NOT NULL,
+                    "PurchaseInvoiceItemId" uuid NOT NULL,
+                    "ReturnNumber" text NOT NULL DEFAULT '',
+                    "OriginalInvoiceNumber" text NOT NULL DEFAULT '',
+                    "OnDate" timestamp without time zone NOT NULL,
+                    "ProductId" uuid NOT NULL,
+                    "ProductName" text NOT NULL DEFAULT '',
+                    "HSNCode" text NULL,
+                    "TaxRate" numeric(18,2) NOT NULL DEFAULT 0,
+                    "ReturnedQuantity" numeric(18,2) NOT NULL DEFAULT 0,
+                    "TaxableAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "CGSTAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "SGSTAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "IGSTAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "TaxAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "JournalEntryId" uuid NULL,
+                    "Status" text NOT NULL DEFAULT 'Posted',
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "StoreGroupId" uuid NOT NULL,
+                    "StoreId" uuid NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    CONSTRAINT "PK_PurchaseReturnItcReversals" PRIMARY KEY ("Id")
                 );
 
                 CREATE TABLE IF NOT EXISTS "VendorSettlements" (
@@ -725,6 +760,9 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                 CREATE INDEX IF NOT EXISTS "IX_PurchaseReturns_CompanyId_PurchaseInvoiceId_OnDate" ON "PurchaseReturns" ("CompanyId", "PurchaseInvoiceId", "OnDate");
                 CREATE INDEX IF NOT EXISTS "IX_PurchaseReturnItems_CompanyId_PurchaseReturnId" ON "PurchaseReturnItems" ("CompanyId", "PurchaseReturnId");
                 CREATE INDEX IF NOT EXISTS "IX_PurchaseReturnItems_CompanyId_PurchaseInvoiceId_PurchaseInvoiceItemId" ON "PurchaseReturnItems" ("CompanyId", "PurchaseInvoiceId", "PurchaseInvoiceItemId");
+                CREATE INDEX IF NOT EXISTS "IX_PurchaseReturnItcReversals_CompanyId_PurchaseReturnId" ON "PurchaseReturnItcReversals" ("CompanyId", "PurchaseReturnId");
+                CREATE INDEX IF NOT EXISTS "IX_PurchaseReturnItcReversals_CompanyId_PurchaseInvoiceId_PurchaseInvoiceItemId" ON "PurchaseReturnItcReversals" ("CompanyId", "PurchaseInvoiceId", "PurchaseInvoiceItemId");
+                CREATE INDEX IF NOT EXISTS "IX_PurchaseReturnItcReversals_CompanyId_JournalEntryId" ON "PurchaseReturnItcReversals" ("CompanyId", "JournalEntryId");
                 CREATE INDEX IF NOT EXISTS "IX_StockMovements_CompanyId_StoreId_ProductId_OnDate" ON "StockMovements" ("CompanyId", "StoreId", "ProductId", "OnDate");
                 CREATE INDEX IF NOT EXISTS "IX_StockMovements_CompanyId_SourceType_SourceId" ON "StockMovements" ("CompanyId", "SourceType", "SourceId");
                 """, cancellationToken);

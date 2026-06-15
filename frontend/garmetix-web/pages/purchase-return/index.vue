@@ -30,6 +30,7 @@ const detailLoading = ref(false)
 const pendingInvoice = ref<any | null>(null)
 const returnInvoice = ref<any | null>(null)
 const selectedReturn = ref<any | null>(null)
+const reconciliation = ref<any | null>(null)
 const reason = ref('Partial purchase return')
 const returnDate = ref(localDateInput())
 const returnRows = ref<any[]>([])
@@ -59,6 +60,7 @@ const filteredReturns = computed(() => {
       item.debitNoteNumber,
       item.returnKind,
       item.status,
+      item.itcReversalStatus,
       item.printStatus
     ].some((value) => String(value || '').toLowerCase().includes(term)))
 })
@@ -92,6 +94,7 @@ const returnHistoryRows = computed(() => filteredReturns.value.map((item) => ({
   status: item.status || 'Posted',
   printStatus: item.printStatus || 'Not Printed',
   settlementStatus: item.settlementStatus || 'Open',
+  itcReversalStatus: item.itcReversalStatus || 'Pending',
   raw: item
 })))
 
@@ -133,6 +136,14 @@ const returnHistoryColumns: TableColumn<any>[] = [
     accessorKey: 'status',
     header: 'Status',
     cell: ({ row }) => h(UBadge, { color: 'success', variant: 'subtle' }, () => row.original.status)
+  },
+  {
+    accessorKey: 'itcReversalStatus',
+    header: 'ITC',
+    cell: ({ row }) => h(UBadge, {
+      color: row.original.itcReversalStatus === 'Reconciled' ? 'success' : 'warning',
+      variant: 'subtle'
+    }, () => row.original.itcReversalStatus)
   },
   {
     accessorKey: 'printStatus',
@@ -217,10 +228,16 @@ async function refresh() {
 
 async function openReturnDetail(item: any) {
   selectedReturn.value = item
+  reconciliation.value = null
   detailOpen.value = true
   detailLoading.value = true
   try {
-    selectedReturn.value = await api.get<any>(`purchase/returns/${item.id}`)
+    const [detail, reconciliationResult] = await Promise.all([
+      api.get<any>(`purchase/returns/${item.id}`),
+      api.get<any>(`purchase/returns/${item.id}/reconciliation`)
+    ])
+    selectedReturn.value = detail
+    reconciliation.value = reconciliationResult
   } catch (error) {
     feedback.failed('Could not load purchase return', error)
     detailOpen.value = false
@@ -411,7 +428,7 @@ onMounted(refresh)
     <section class="planner-dashboard">
       <UiModulePageHeader
         title="Purchase Return / Debit Note"
-        description="Create item-wise partial purchase returns, reverse selected stock, and issue vendor debit notes."
+        description="Create item-wise purchase returns with exact stock, debit-note, GST ITC, journal, and settlement reconciliation."
         icon="i-lucide-undo-2"
       >
         <template #actions>
@@ -609,10 +626,41 @@ onMounted(refresh)
               <span>Quantity</span><strong>{{ decimal(selectedReturn.quantity).toFixed(2) }}</strong>
               <span>Taxable</span><strong>{{ money(selectedReturn.taxableAmount) }}</strong>
               <span>GST reversal</span><strong>{{ money(selectedReturn.taxAmount) }}</strong>
+              <span>ITC posted</span><strong>{{ money(selectedReturn.itcReversalAmount) }}</strong>
+              <span>ITC status</span><strong>{{ selectedReturn.itcReversalStatus || 'Pending' }}</strong>
+              <span>Journal</span><strong>{{ reconciliation?.journalEntryNumber || 'Not linked' }}</strong>
               <span>Return amount</span><strong>{{ money(selectedReturn.returnAmount) }}</strong>
               <span>Settled amount</span><strong>{{ money(selectedReturn.settledAmount) }}</strong>
               <span>Available credit</span><strong>{{ money(selectedReturn.availableSettlementAmount) }}</strong>
               <span>Settlement</span><strong>{{ selectedReturn.settlementStatus || 'Open' }}</strong>
+            </div>
+
+            <UAlert
+              :color="reconciliation?.status === 'Reconciled' ? 'success' : 'warning'"
+              variant="subtle"
+              :icon="reconciliation?.status === 'Reconciled' ? 'i-lucide-badge-check' : 'i-lucide-triangle-alert'"
+              :title="`End-to-end reconciliation: ${reconciliation?.status || 'Not available'}`"
+              :description="reconciliation?.status === 'Reconciled'
+                ? 'Purchase return, stock, debit note, item GST, Input GST journal, and settlement controls agree.'
+                : 'Review the failed checks below before relying on this return for GST or ledger reporting.'"
+            />
+
+            <div v-if="reconciliation?.checks?.length" class="grid gap-2 md:grid-cols-2">
+              <div
+                v-for="check in reconciliation.checks"
+                :key="check.key"
+                class="flex items-start gap-3 rounded-md border border-default p-3"
+              >
+                <UIcon
+                  :name="check.passed ? 'i-lucide-circle-check' : 'i-lucide-circle-alert'"
+                  :class="check.passed ? 'mt-0.5 h-4 w-4 text-success' : 'mt-0.5 h-4 w-4 text-warning'"
+                />
+                <div class="min-w-0">
+                  <div class="font-medium">{{ check.label }}</div>
+                  <div class="text-xs text-muted">Expected {{ check.expected }} | Actual {{ check.actual }}</div>
+                  <div v-if="check.reference" class="truncate text-xs text-muted">{{ check.reference }}</div>
+                </div>
+              </div>
             </div>
 
             <div class="planner-table-wrap">
@@ -645,6 +693,38 @@ onMounted(refresh)
                     <td>{{ money(item.unitRate) }}</td>
                     <td>{{ money(item.taxAmount) }}</td>
                     <td>{{ money(item.returnAmount) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div v-if="reconciliation?.reversals?.length" class="planner-table-wrap">
+              <table class="planner-table">
+                <thead>
+                  <tr>
+                    <th>ITC Reversal Item</th>
+                    <th>HSN</th>
+                    <th>Qty</th>
+                    <th>Taxable</th>
+                    <th>CGST</th>
+                    <th>SGST</th>
+                    <th>IGST</th>
+                    <th>Total GST</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="item in reconciliation.reversals" :key="item.id">
+                    <td>
+                      <div class="font-medium">{{ item.productName }}</div>
+                      <div class="text-xs text-muted">GST {{ decimal(item.taxRate).toFixed(2) }}%</div>
+                    </td>
+                    <td>{{ item.hsnCode || '-' }}</td>
+                    <td>{{ decimal(item.returnedQuantity).toFixed(2) }}</td>
+                    <td>{{ money(item.taxableAmount) }}</td>
+                    <td>{{ money(item.cgstAmount) }}</td>
+                    <td>{{ money(item.sgstAmount) }}</td>
+                    <td>{{ money(item.igstAmount) }}</td>
+                    <td>{{ money(item.taxAmount) }}</td>
                   </tr>
                 </tbody>
               </table>

@@ -52,6 +52,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<PurchaseInvoice> PurchaseInvoices => Set<PurchaseInvoice>();
     public DbSet<PurchaseReturn> PurchaseReturns => Set<PurchaseReturn>();
     public DbSet<PurchaseReturnItem> PurchaseReturnItems => Set<PurchaseReturnItem>();
+    public DbSet<PurchaseReturnItcReversal> PurchaseReturnItcReversals => Set<PurchaseReturnItcReversal>();
     public DbSet<VendorSettlement> VendorSettlements => Set<VendorSettlement>();
     public DbSet<VendorSettlementAllocation> VendorSettlementAllocations => Set<VendorSettlementAllocation>();
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
@@ -170,6 +171,9 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<PurchaseReturn>().HasIndex(item => new { item.CompanyId, item.PurchaseInvoiceId, item.OnDate });
         modelBuilder.Entity<PurchaseReturnItem>().HasIndex(item => new { item.CompanyId, item.PurchaseReturnId });
         modelBuilder.Entity<PurchaseReturnItem>().HasIndex(item => new { item.CompanyId, item.PurchaseInvoiceId, item.PurchaseInvoiceItemId });
+        modelBuilder.Entity<PurchaseReturnItcReversal>().HasIndex(item => new { item.CompanyId, item.PurchaseReturnId });
+        modelBuilder.Entity<PurchaseReturnItcReversal>().HasIndex(item => new { item.CompanyId, item.PurchaseInvoiceId, item.PurchaseInvoiceItemId });
+        modelBuilder.Entity<PurchaseReturnItcReversal>().HasIndex(item => new { item.CompanyId, item.JournalEntryId });
         modelBuilder.Entity<VendorSettlement>().HasIndex(item => new { item.CompanyId, item.StoreId, item.SettlementNumber }).IsUnique(false);
         modelBuilder.Entity<VendorSettlement>().HasIndex(item => new { item.CompanyId, item.VendorId, item.OnDate });
         modelBuilder.Entity<VendorSettlement>().HasIndex(item => new { item.CompanyId, item.PurchaseReturnId });

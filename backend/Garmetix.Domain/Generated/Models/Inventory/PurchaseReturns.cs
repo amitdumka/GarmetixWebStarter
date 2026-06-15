@@ -34,6 +34,9 @@ public class PurchaseReturn : StoreBase
     [Display(Name = "Last Printed At")] public DateTime? LastPrintedAt { get; set; }
     [Display(Name = "Settled Amount")] public decimal SettledAmount { get; set; }
     [Display(Name = "Settlement Status")] public string SettlementStatus { get; set; } = "Open";
+    [Display(Name = "ITC Reversal Amount")] public decimal ItcReversalAmount { get; set; }
+    [Display(Name = "ITC Reversal Status")] public string ItcReversalStatus { get; set; } = "Pending";
+    [Display(Name = "Journal Entry", AutoGenerateField = false)] public Guid? JournalEntryId { get; set; }
 
     [JsonIgnore]
     public virtual PurchaseInvoice? PurchaseInvoice { get; set; }
@@ -43,6 +46,9 @@ public class PurchaseReturn : StoreBase
 
     [JsonIgnore]
     public virtual ICollection<VendorSettlement> Settlements { get; set; } = new List<VendorSettlement>();
+
+    [JsonIgnore]
+    public virtual ICollection<PurchaseReturnItcReversal> ItcReversals { get; set; } = new List<PurchaseReturnItcReversal>();
 }
 
 public class PurchaseReturnItem : CompanyBase
@@ -74,4 +80,30 @@ public class PurchaseReturnItem : CompanyBase
 
     [JsonIgnore]
     public virtual PurchaseReturn? PurchaseReturn { get; set; }
+}
+
+public class PurchaseReturnItcReversal : StoreBase
+{
+    [Display(Name = "Purchase Return", AutoGenerateField = false)] public Guid PurchaseReturnId { get; set; }
+    [Display(Name = "Purchase Return Item", AutoGenerateField = false)] public Guid PurchaseReturnItemId { get; set; }
+    [Display(Name = "Purchase Invoice", AutoGenerateField = false)] public Guid PurchaseInvoiceId { get; set; }
+    [Display(Name = "Purchase Invoice Item", AutoGenerateField = false)] public Guid PurchaseInvoiceItemId { get; set; }
+    [Display(Name = "Return Number")] public string ReturnNumber { get; set; } = string.Empty;
+    [Display(Name = "Original Invoice Number")] public string OriginalInvoiceNumber { get; set; } = string.Empty;
+    [Display(Name = "Reversal Date")] public DateTime OnDate { get; set; } = DateTime.Now;
+    [Display(Name = "Product", AutoGenerateField = false)] public Guid ProductId { get; set; }
+    [Display(Name = "Product Name")] public string ProductName { get; set; } = string.Empty;
+    [Display(Name = "HSN Code")] public string? HSNCode { get; set; }
+    [Display(Name = "Tax Rate")] public decimal TaxRate { get; set; }
+    [Display(Name = "Returned Quantity")] public decimal ReturnedQuantity { get; set; }
+    [Display(Name = "Taxable Amount")] public decimal TaxableAmount { get; set; }
+    [Display(Name = "CGST Reversed")] public decimal CGSTAmount { get; set; }
+    [Display(Name = "SGST Reversed")] public decimal SGSTAmount { get; set; }
+    [Display(Name = "IGST Reversed")] public decimal IGSTAmount { get; set; }
+    [Display(Name = "Total ITC Reversed")] public decimal TaxAmount { get; set; }
+    [Display(Name = "Journal Entry", AutoGenerateField = false)] public Guid? JournalEntryId { get; set; }
+    [Display(Name = "Status")] public string Status { get; set; } = "Posted";
+
+    [JsonIgnore] public virtual PurchaseReturn? PurchaseReturn { get; set; }
+    [JsonIgnore] public virtual PurchaseReturnItem? PurchaseReturnItem { get; set; }
 }
