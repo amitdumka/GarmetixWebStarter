@@ -412,7 +412,29 @@ public static class BillingEndpoints
         _ => "a4"
     };
 
-    private static async Task<IResult> CreateSaleAsync(
+    private static Task<IResult> CreateSaleAsync(
+        PosSaleRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        DocumentNumberService documentNumbers,
+        AccountingPostingService accounting,
+        GstinLookupService gstinLookup,
+        StockLedgerService stockLedger,
+        CancellationToken cancellationToken)
+    {
+        var strategy = db.Database.CreateExecutionStrategy();
+        return strategy.ExecuteAsync(() => CreateSaleCoreAsync(
+            request,
+            context,
+            db,
+            documentNumbers,
+            accounting,
+            gstinLookup,
+            stockLedger,
+            cancellationToken));
+    }
+
+    private static async Task<IResult> CreateSaleCoreAsync(
         PosSaleRequest request,
         HttpContext context,
         GarmetixDbContext db,
@@ -432,9 +454,14 @@ public static class BillingEndpoints
             return Results.BadRequest(new { message = "Item quantity must be greater than zero." });
         }
 
-        var storeAllowed = await WorkspaceScope.ApplyTo(db.Stores.AsNoTracking(), context)
-            .AnyAsync(store => store.Id == request.StoreId && store.CompanyId == request.CompanyId && store.StoreGroupId == request.StoreGroupId, cancellationToken);
-        if (!storeAllowed)
+        var billingStore = await WorkspaceScope.ApplyTo(db.Stores.AsNoTracking(), context)
+            .Where(store => store.Id == request.StoreId && store.CompanyId == request.CompanyId && store.StoreGroupId == request.StoreGroupId)
+            .Select(store => new
+            {
+                SupplierGstin = store.Company != null ? store.Company.GSTIN : string.Empty
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (billingStore is null)
         {
             return Results.BadRequest(new { message = "Selected billing store is outside your access scope." });
         }
@@ -445,6 +472,7 @@ public static class BillingEndpoints
             ? await gstinLookup.ValidatePartyAsync("Customer", request.CustomerGstin, request.CustomerName, null, cancellationToken)
             : null;
         var customer = await GetOrCreateCustomerAsync(request, db, gstinLookup, customerValidation, cancellationToken);
+        var interState = IsInterStateSupply(billingStore.SupplierGstin, customer.GSTIN);
         var invoiceNumber = await documentNumbers.NextSaleInvoiceAsync(request.CompanyId, request.StoreGroupId, request.StoreId, cancellationToken);
         var invoiceId = Guid.NewGuid();
 
@@ -487,7 +515,7 @@ public static class BillingEndpoints
             var taxable = Math.Round((lineMrp - lineDiscount) / (1 + (stock.TaxRate / 100)), 2);
             var tax = Math.Round(taxable * (stock.TaxRate / 100), 2);
             var lineAmount = taxable + tax;
-            var split = SplitGst(tax, stock.TaxType);
+            var split = SplitGst(tax, stock.TaxType, interState);
 
             invoiceItems.Add(new InvoiceItem
             {
@@ -557,7 +585,7 @@ public static class BillingEndpoints
 
         if (request.BillDiscountAmount > 0)
         {
-            var allocatedTotals = ApplyBillDiscountToInvoiceItems(invoiceItems, request.BillDiscountAmount);
+            var allocatedTotals = ApplyBillDiscountToInvoiceItems(invoiceItems, request.BillDiscountAmount, interState);
             taxableAmount = allocatedTotals.TaxableAmount;
             taxAmount = allocatedTotals.TaxAmount;
             cgstAmount = allocatedTotals.CgstAmount;
@@ -607,7 +635,7 @@ public static class BillingEndpoints
             CGSTAmount = cgstAmount,
             SGSTAmount = sgstAmount,
             IGSTAmount = igstAmount,
-            InterState = igstAmount > 0,
+            InterState = interState,
             NetAmount = taxableAmount,
             RoundOff = billAmount - (taxableAmount + taxAmount),
             BillAmount = billAmount,
@@ -659,7 +687,27 @@ public static class BillingEndpoints
             customerValidation?.Alerts ?? Array.Empty<string>()));
     }
 
-    private static async Task<IResult> CancelSaleAsync(
+    private static Task<IResult> CancelSaleAsync(
+        Guid id,
+        CancelInvoiceRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        AccountingPostingService accounting,
+        StockLedgerService stockLedger,
+        CancellationToken cancellationToken)
+    {
+        var strategy = db.Database.CreateExecutionStrategy();
+        return strategy.ExecuteAsync(() => CancelSaleCoreAsync(
+            id,
+            request,
+            context,
+            db,
+            accounting,
+            stockLedger,
+            cancellationToken));
+    }
+
+    private static async Task<IResult> CancelSaleCoreAsync(
         Guid id,
         CancelInvoiceRequest request,
         HttpContext context,
@@ -758,7 +806,29 @@ public static class BillingEndpoints
             reversedAmount));
     }
 
-    private static async Task<IResult> CreateSalesReturnAsync(
+    private static Task<IResult> CreateSalesReturnAsync(
+        Guid id,
+        SalesReturnRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        DocumentNumberService documentNumbers,
+        AccountingPostingService accounting,
+        StockLedgerService stockLedger,
+        CancellationToken cancellationToken)
+    {
+        var strategy = db.Database.CreateExecutionStrategy();
+        return strategy.ExecuteAsync(() => CreateSalesReturnCoreAsync(
+            id,
+            request,
+            context,
+            db,
+            documentNumbers,
+            accounting,
+            stockLedger,
+            cancellationToken));
+    }
+
+    private static async Task<IResult> CreateSalesReturnCoreAsync(
         Guid id,
         SalesReturnRequest request,
         HttpContext context,
@@ -815,7 +885,29 @@ public static class BillingEndpoints
             result.OriginalInvoice.InvoiceStatus.ToString()));
     }
 
-    private static async Task<IResult> CreateSalesExchangeAsync(
+    private static Task<IResult> CreateSalesExchangeAsync(
+        Guid id,
+        SalesExchangeRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        DocumentNumberService documentNumbers,
+        AccountingPostingService accounting,
+        StockLedgerService stockLedger,
+        CancellationToken cancellationToken)
+    {
+        var strategy = db.Database.CreateExecutionStrategy();
+        return strategy.ExecuteAsync(() => CreateSalesExchangeCoreAsync(
+            id,
+            request,
+            context,
+            db,
+            documentNumbers,
+            accounting,
+            stockLedger,
+            cancellationToken));
+    }
+
+    private static async Task<IResult> CreateSalesExchangeCoreAsync(
         Guid id,
         SalesExchangeRequest request,
         HttpContext context,
@@ -911,7 +1003,7 @@ public static class BillingEndpoints
             var taxable = Math.Round((lineMrp - lineDiscount) / (1 + (stock.TaxRate / 100)), 2);
             var tax = Math.Round(taxable * (stock.TaxRate / 100), 2);
             var lineAmount = taxable + tax;
-            var split = SplitGst(tax, stock.TaxType);
+            var split = SplitGst(tax, stock.TaxType, original.InterState);
 
             exchangeItems.Add(new InvoiceItem
             {
@@ -1432,17 +1524,6 @@ public static class BillingEndpoints
                 continue;
             }
 
-            if (SourceMatches(sourceType, "CustomerCreditBalance") || SourceMatches(sourceType, "StoreCredit") || SourceMatches(sourceType, "SalesReturnCredit") || payment.PaymentMode == PaymentMode.CreditBalance)
-            {
-                if (customer.CreditBalance < amount)
-                {
-                    return $"Customer credit balance is only {customer.CreditBalance:N2}.";
-                }
-
-                customer.CreditBalance -= amount;
-                continue;
-            }
-
             if (SourceMatches(sourceType, "CustomerAdvanceReceipt"))
             {
                 if (!payment.AdjustmentSourceId.HasValue)
@@ -1469,6 +1550,17 @@ public static class BillingEndpoints
                 receipt.AdjustedAmount += amount;
                 receipt.AvailableAmount = Math.Max(0, receipt.AvailableAmount - amount);
                 customer.CreditBalance = Math.Max(0, customer.CreditBalance - amount);
+                continue;
+            }
+
+            if (SourceMatches(sourceType, "CustomerCreditBalance") || SourceMatches(sourceType, "StoreCredit") || SourceMatches(sourceType, "SalesReturnCredit") || payment.PaymentMode == PaymentMode.CreditBalance)
+            {
+                if (customer.CreditBalance < amount)
+                {
+                    return $"Customer credit balance is only {customer.CreditBalance:N2}.";
+                }
+
+                customer.CreditBalance -= amount;
                 continue;
             }
 
@@ -1600,7 +1692,8 @@ public static class BillingEndpoints
 
     private static (decimal TaxableAmount, decimal TaxAmount, decimal CgstAmount, decimal SgstAmount, decimal IgstAmount) ApplyBillDiscountToInvoiceItems(
         IReadOnlyList<InvoiceItem> items,
-        decimal billDiscountAmount)
+        decimal billDiscountAmount,
+        bool interState)
     {
         if (items.Count == 0)
         {
@@ -1639,7 +1732,7 @@ public static class BillingEndpoints
             var adjustedInclusive = Math.Max(0, item.Amount - allocatedDiscount);
             var taxable = Math.Round(adjustedInclusive / (1 + (item.TaxPercentage / 100)), 2);
             var tax = Math.Round(adjustedInclusive - taxable, 2);
-            var split = SplitGst(tax, item.TaxType);
+            var split = SplitGst(tax, item.TaxType, interState);
             var quantity = item.BilledQuantity <= 0 ? 1 : item.BilledQuantity;
 
             item.DiscountAmount = Math.Round(item.DiscountAmount + (allocatedDiscount / quantity), 2);
@@ -1660,9 +1753,31 @@ public static class BillingEndpoints
         return (taxableTotal, taxTotal, cgstTotal, sgstTotal, igstTotal);
     }
 
-    private static (decimal Cgst, decimal Sgst, decimal Igst) SplitGst(decimal totalTax, TaxType taxType)
+    private static bool IsInterStateSupply(string? supplierGstin, string? customerGstin)
+    {
+        var supplierState = GstStateCode(supplierGstin);
+        var customerState = GstStateCode(customerGstin);
+        return supplierState is not null
+            && customerState is not null
+            && !string.Equals(supplierState, customerState, StringComparison.Ordinal);
+    }
+
+    private static string? GstStateCode(string? gstin)
+    {
+        var normalized = Regex.Replace(gstin ?? string.Empty, @"\s+", string.Empty).ToUpperInvariant();
+        return normalized.Length == 15 && normalized[0..2].All(char.IsDigit)
+            ? normalized[0..2]
+            : null;
+    }
+
+    private static (decimal Cgst, decimal Sgst, decimal Igst) SplitGst(decimal totalTax, TaxType taxType, bool interState = false)
     {
         totalTax = Math.Round(totalTax, 2);
+        if (interState && taxType is TaxType.GST or TaxType.CGST or TaxType.SGST or TaxType.IGST)
+        {
+            return (0, 0, totalTax);
+        }
+
         return taxType switch
         {
             TaxType.IGST => (0, 0, totalTax),

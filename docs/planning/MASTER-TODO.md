@@ -331,6 +331,15 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [ ] Complete Stage 8F automated tests and deep audit history.
 - [ ] Complete Stage 8G real integrations and production go-live validation.
 
+## Sales Invoice Stability - added 2026-06-16
+
+- [x] Replace the New Invoice modal with a stable full-page `/billing/new` workflow.
+- [x] Repair the PostgreSQL retry execution-strategy failure for sale create, cancel, return and exchange.
+- [x] Add mobile customer lookup, automatic customer creation, GSTIN/B2B/interstate handling and Manager default selection.
+- [x] Add resilient invoice drafts, percent/amount discounts, requested item columns and responsive payment controls.
+- [x] Round bill/payment totals, preserve customer balances and adjustments, and automatically print after creation.
+- [x] Reconcile the remaining June 15 operational TODO items into their implementation stages.
+
 ## Product Save and Central Message Logging - added 2026-06-14
 
 - [x] Reproduce and fix Product Master create/edit failures against the current PostgreSQL schema.

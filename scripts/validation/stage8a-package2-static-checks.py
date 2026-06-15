@@ -39,7 +39,15 @@ versions = {
     package_lock.get("packages", {}).get("", {}).get("version", "")
 }
 check("runtime versions remain synchronized in v4", len(versions) == 1 and next(iter(versions)).startswith("4."))
-check("frontend and backend use a Stage 8A build code", "GARMETIX-8A-" in frontend_version and "GARMETIX-8A-" in backend_version)
+frontend_build = re.search(r"APP_BUILD_CODE = '([^']+)'", frontend_version)
+backend_build = re.search(r'const string BuildCode = "([^"]+)"', backend_version)
+check(
+    "frontend and backend use the same Stage 8 build code",
+    frontend_build is not None
+    and backend_build is not None
+    and frontend_build.group(1) == backend_build.group(1)
+    and frontend_build.group(1).startswith("GARMETIX-8")
+)
 
 failed = [name for name, passed in checks if not passed]
 for name, passed in checks:

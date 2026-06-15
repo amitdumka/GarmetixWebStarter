@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.3.4";
-    public const string Stage = "Stage 8D";
-    public const string ReleaseName = "Stock Concurrency and Sequence Safety";
-    public const string BuildDate = "2026-06-15";
-    public const string BuildCode = "GARMETIX-8D-20260615-4340";
+    public const string Version = "4.3.5";
+    public const string Stage = "Stage 8D Priority Patch";
+    public const string ReleaseName = "Sales Invoice Stability";
+    public const string BuildDate = "2026-06-16";
+    public const string BuildCode = "GARMETIX-8D-20260616-4350";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,9 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Sales Invoice creation now uses a stable full page with draft recovery, mobile customer lookup, contextual payments, rounded totals, and automatic print after save.",
+        "Billing create, cancellation, return, and exchange transactions now run through the configured PostgreSQL retry execution strategy.",
+        "B2B interstate GST is derived from supplier and customer GSTIN state codes, with IGST applied to interstate GST supplies.",
         "The sidebar footer again presents Status above Notifications as two full-width vertical actions.",
         "Inventory now includes a dedicated Stock Reports workspace for receipt-age indicators, configurable low-stock risk, weighted-average valuation, and ledger reconciliation.",
         "Stock report age bands cover 0-30, 31-60, 61-90, 91-180, and 180+ days, plus no-receipt-history and out-of-stock states.",

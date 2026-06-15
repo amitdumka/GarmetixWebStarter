@@ -1,13 +1,13 @@
 # Garmetix Current Roadmap
 
-Updated: 2026-06-15
+Updated: 2026-06-16
 
 ## Current Baseline
 
-- Version: 4.3.4
-- Stage: Stage 8D
-- Release: Stock Concurrency and Sequence Safety
-- Build code: `GARMETIX-8D-20260615-4340`
+- Version: 4.3.5
+- Stage: Stage 8D Priority Patch
+- Release: Sales Invoice Stability
+- Build code: `GARMETIX-8D-20260616-4350`
 - Branch: `Version3.0`
 - Pre-Stage 8 baseline commit: `470ba2e`
 
@@ -19,6 +19,21 @@ Stage 7M menu names, route compatibility, permission-aware navigation, Off Book 
 - [x] Server-owned voucher numbering using store code, year-month, and one monthly numeric sequence.
 - [x] Revised compact voucher print defaults and document labels.
 - [x] Shared frontend GET cache and in-flight request de-duplication to reduce repeated page-load work.
+
+## Stage 8D Priority Patch / v4.3.5 - Sales Invoice Stability
+
+- [x] Replace the New Invoice dialog with a dedicated `/billing/new` workspace.
+- [x] Preserve incomplete invoice work in local draft storage and reset only after a successful save.
+- [x] Search customers by mobile without preloading the full customer master; automatically create unmatched customers when the invoice is saved.
+- [x] Keep GSTIN visible, preserve GSTIN checking and customer balances, and default the salesman to Manager.
+- [x] Support amount or percent line discounts and show the requested desktop/mobile item columns.
+- [x] Round the final bill and payment target to whole rupees and show the round-off amount.
+- [x] Hide customer adjustments by default and show payment fields according to the selected payment mode.
+- [x] Automatically print a newly saved invoice and keep the page ready for the next sale.
+- [x] Run sale create, cancel, return and exchange transactions through the configured PostgreSQL retry execution strategy.
+- [x] Determine B2B interstate supply from company/customer GSTIN state codes and split GST as IGST when required.
+- [x] Correct customer-advance adjustment precedence so an advance receipt is not consumed as generic store credit.
+- [x] Verify Docker runtime, desktop layout, 390px mobile layout and no horizontal overflow.
 
 ## Priority 0 - Baseline Stabilization
 

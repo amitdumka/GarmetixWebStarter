@@ -63,3 +63,22 @@ Date: 15-06-26
 						which make the page layout improper and not comfatable to use. 
 				   b. 	
 
+Implementation status updated 16-06-2026
+
+1. Sales Invoice: implemented in v4.3.5. Dedicated page, transaction save repair, customer mobile lookup,
+   automatic customer creation, GSTIN/B2B/interstate handling, Manager default, amount/percent discounts,
+   responsive item columns, hidden customer adjustments, rounded totals, contextual payment fields,
+   draft recovery, automatic first print, and reset for the next invoice are complete.
+2. Company responsive helper text: Stage 8F UI acceptance.
+3. Client onboarding and licensing: Final Security and Licensing stage.
+4. AF/SS controlled reseed and protected master administration: Final Security and Licensing stage.
+   The supplied password must not be hardcoded; use a deployment secret, hashed credential, forced rotation,
+   protected reset identity, and master-session-only visibility.
+5. Oracle status in System Health: Stage 8G External Integration.
+6. System Info header sizing: Stage 8F UI acceptance.
+7. Notification routing, read state and badge count: Stage 8F UI acceptance and tests.
+8. HR, employee identity, documents, advances, leave, PF, gratuity and lifecycle: People Operations stage.
+9. Cash Voucher on-book/off-book controlled conversion and owner audit: Stage 8E Accounting.
+10. Commercial Summary, Customer and Loyalty naming/UX: Stage 8E reporting plus Stage 8F UI acceptance.
+11. Duplicate scrollbar audit: Stage 8F global layout acceptance before final release.
+

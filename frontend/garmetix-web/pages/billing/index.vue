@@ -3,6 +3,7 @@ import { h, resolveComponent } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 
 const api = useGarmetixApi()
+const router = useRouter()
 const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
@@ -415,12 +416,7 @@ async function refresh() {
 }
 
 function startCreate() {
-  Object.assign(saleForm, emptySaleForm())
-  saleCart.value = []
-  salePayments.value = [emptyPaymentRow(0)]
-  selectedCustomerProfile.value = null
-  saleGstinValidation.value = null
-  saleOpen.value = true
+  void router.push('/billing/new')
 }
 
 async function applySelectedCustomer() {

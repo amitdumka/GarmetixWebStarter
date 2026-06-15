@@ -44,7 +44,7 @@ versions = {
 }
 check("runtime versions remain synchronized after v4.0.1", len(versions) == 1 and next(iter(versions)) >= "4.0.1")
 check("assembly and file versions remain synchronized", assembly_match and file_match and assembly_match.group(1) == file_match.group(1))
-check("frontend and backend use a Stage 8A build code", "GARMETIX-8A-" in frontend_version and "GARMETIX-8A-" in backend_version)
+check("frontend and backend use matching Stage 8 build codes", re.search(r"APP_BUILD_CODE = '([^']+)'", frontend_version).group(1) == re.search(r'const string BuildCode = "([^"]+)"', backend_version).group(1) and "GARMETIX-8" in frontend_version)
 
 failed = [name for name, passed in checks if not passed]
 for name, passed in checks:

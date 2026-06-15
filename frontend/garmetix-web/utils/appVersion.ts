@@ -1,10 +1,13 @@
-export const APP_VERSION = '4.3.4'
-export const APP_STAGE = 'Stage 8D'
-export const APP_RELEASE_NAME = 'Stock Concurrency and Sequence Safety'
-export const APP_BUILD_DATE = '2026-06-15'
-export const APP_BUILD_CODE = 'GARMETIX-8D-20260615-4340'
+export const APP_VERSION = '4.3.5'
+export const APP_STAGE = 'Stage 8D Priority Patch'
+export const APP_RELEASE_NAME = 'Sales Invoice Stability'
+export const APP_BUILD_DATE = '2026-06-16'
+export const APP_BUILD_CODE = 'GARMETIX-8D-20260616-4350'
 
 export const APP_HIGHLIGHTS = [
+  'Sales Invoice creation now uses a stable full page with draft recovery, mobile customer lookup, contextual payments, rounded totals and automatic print after save.',
+  'Billing create, cancellation, return and exchange transactions now run through the PostgreSQL retry execution strategy.',
+  'B2B interstate GST is derived from supplier and customer GSTIN state codes, with IGST applied to interstate GST supplies.',
   'Concurrent document numbering now requires an explicit transaction and is protected by both PostgreSQL advisory locking and one active sequence-row invariant.',
   'Stock transfers acquire source and destination locks in deterministic order before reading available quantity.',
   'New regular-stock outflows cannot create or deepen negative stock, while legacy negative history remains replayable and can be repaired by inward corrections.',
