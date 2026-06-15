@@ -29,6 +29,9 @@ public class PurchaseReturn : StoreBase
     [Display(Name = "Debit Note", AutoGenerateField = false)] public Guid? DebitNoteId { get; set; }
     [Display(Name = "Debit Note Number")] public string? DebitNoteNumber { get; set; }
     [Display(Name = "Item Count")] public int ItemCount { get; set; }
+    [Display(Name = "Printed")] public bool Printed { get; set; }
+    [Display(Name = "Print Count")] public int PrintCount { get; set; }
+    [Display(Name = "Last Printed At")] public DateTime? LastPrintedAt { get; set; }
 
     [JsonIgnore]
     public virtual PurchaseInvoice? PurchaseInvoice { get; set; }

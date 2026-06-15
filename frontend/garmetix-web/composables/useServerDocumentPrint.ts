@@ -36,17 +36,28 @@ export function useServerDocumentPrint() {
       frame.remove()
       URL.revokeObjectURL(url)
     }
-    frame.onload = () => {
-      window.setTimeout(() => {
-        try {
-          frame.contentWindow?.focus()
-          frame.contentWindow?.print()
-        } finally {
+
+    await new Promise<void>((resolve, reject) => {
+      frame.onerror = () => {
+        cleanup()
+        reject(new Error('The PDF print document could not be loaded.'))
+      }
+      frame.onload = () => {
+        window.setTimeout(() => {
+          try {
+            frame.contentWindow?.focus()
+            frame.contentWindow?.print()
+            resolve()
+          } catch (error) {
+            cleanup()
+            reject(error)
+            return
+          }
           window.setTimeout(cleanup, 30_000)
-        }
-      }, 500)
-    }
-    frame.src = url
+        }, 500)
+      }
+      frame.src = url
+    })
   }
 
   async function downloadPdf(path: string, fileName: string) {

@@ -8,6 +8,7 @@ public static class DocumentCodeService
 {
     public const string SaleInvoice = "SALE";
     public const string PurchaseInvoice = "PURCHASE";
+    public const string PurchaseReturn = "PURCHASERETURN";
     public const string Voucher = "VOUCHER";
     public const string CashVoucher = "CASH";
     public const string CommercialNote = "NOTE";

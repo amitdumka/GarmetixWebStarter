@@ -5,6 +5,8 @@ import type { TableColumn } from '@nuxt/ui'
 const api = useGarmetixApi()
 const auth = useAuth()
 const feedback = useUiFeedback()
+const documentPrint = useServerDocumentPrint()
+const route = useRoute()
 const isAuthenticated = auth.isAuthenticated
 
 const UBadge = resolveComponent('UBadge')
@@ -20,6 +22,7 @@ const saving = ref(false)
 const returnLoading = ref(false)
 const search = ref('')
 const returnSearch = ref('')
+const printStatusFilter = ref('all')
 const returnOpen = ref(false)
 const detailOpen = ref(false)
 const detailLoading = ref(false)
@@ -29,6 +32,9 @@ const selectedReturn = ref<any | null>(null)
 const reason = ref('Partial purchase return')
 const returnDate = ref(localDateInput())
 const returnRows = ref<any[]>([])
+const printFormat = ref<'a4' | 'a5'>('a4')
+const printBusy = ref(false)
+const openedRouteReturnId = ref('')
 
 const filteredInvoices = computed(() => {
   const term = search.value.trim().toLowerCase()
@@ -43,15 +49,17 @@ const filteredInvoices = computed(() => {
 
 const filteredReturns = computed(() => {
   const term = returnSearch.value.trim().toLowerCase()
-  if (!term) return purchaseReturns.value
-  return purchaseReturns.value.filter((item) => [
-    item.returnNumber,
-    item.originalInvoiceNumber,
-    item.vendorName,
-    item.debitNoteNumber,
-    item.returnKind,
-    item.status
-  ].some((value) => String(value || '').toLowerCase().includes(term)))
+  return purchaseReturns.value
+    .filter((item) => printStatusFilter.value === 'all' || String(item.printStatus || 'Not Printed') === printStatusFilter.value)
+    .filter((item) => !term || [
+      item.returnNumber,
+      item.originalInvoiceNumber,
+      item.vendorName,
+      item.debitNoteNumber,
+      item.returnKind,
+      item.status,
+      item.printStatus
+    ].some((value) => String(value || '').toLowerCase().includes(term)))
 })
 
 const selectedReturnRows = computed(() => returnRows.value
@@ -81,6 +89,7 @@ const returnHistoryRows = computed(() => filteredReturns.value.map((item) => ({
   returnAmount: money(item.returnAmount),
   debitNoteNumber: item.debitNoteNumber || '-',
   status: item.status || 'Posted',
+  printStatus: item.printStatus || 'Not Printed',
   raw: item
 })))
 
@@ -124,15 +133,32 @@ const returnHistoryColumns: TableColumn<any>[] = [
     cell: ({ row }) => h(UBadge, { color: 'success', variant: 'subtle' }, () => row.original.status)
   },
   {
+    accessorKey: 'printStatus',
+    header: 'Print',
+    cell: ({ row }) => h(UBadge, {
+      color: row.original.printStatus === 'Not Printed' ? 'warning' : 'neutral',
+      variant: 'subtle'
+    }, () => row.original.printStatus)
+  },
+  {
     id: 'actions',
     header: '',
-    cell: ({ row }) => h(UButton, {
-      icon: 'i-lucide-eye',
-      color: 'neutral',
-      variant: 'ghost',
-      'aria-label': `View ${row.original.returnNumber}`,
-      onClick: () => openReturnDetail(row.original.raw)
-    })
+    cell: ({ row }) => h('div', { class: 'flex justify-end gap-1' }, [
+      h(UButton, {
+        icon: 'i-lucide-printer',
+        color: 'primary',
+        variant: 'ghost',
+        'aria-label': `Print ${row.original.returnNumber}`,
+        onClick: () => printPurchaseReturn(row.original.raw)
+      }),
+      h(UButton, {
+        icon: 'i-lucide-eye',
+        color: 'neutral',
+        variant: 'ghost',
+        'aria-label': `View ${row.original.returnNumber}`,
+        onClick: () => openReturnDetail(row.original.raw)
+      })
+    ])
   }
 ]
 
@@ -162,6 +188,7 @@ async function refresh() {
     stores.value = storeRows
     invoices.value = invoiceRows
     purchaseReturns.value = returnRows
+    await openRoutePurchaseReturn()
   } catch (error) {
     loadError.value = feedback.cleanMessage(error instanceof Error ? error.message : 'Please check the service and try again.')
     feedback.failed('Could not load purchase returns', error)
@@ -182,6 +209,15 @@ async function openReturnDetail(item: any) {
   } finally {
     detailLoading.value = false
   }
+}
+
+async function openRoutePurchaseReturn() {
+  const returnId = String(route.query.returnId || '')
+  if (!returnId || openedRouteReturnId.value === returnId) return
+  const match = purchaseReturns.value.find((item) => item.id === returnId)
+  if (!match) return
+  openedRouteReturnId.value = returnId
+  await openReturnDetail(match)
 }
 
 async function openReturn(invoice: any) {
@@ -243,10 +279,77 @@ async function submitReturn() {
     returnRows.value = []
     returnOpen.value = false
     await refresh()
+    try {
+      await printPurchaseReturn({
+        id: response.purchaseReturnId,
+        returnNumber: response.returnNumber,
+        printed: false,
+        printCount: 0
+      }, false)
+    } catch {
+      feedback.notify('Return saved; print pending', 'The purchase return is safely saved. Open it from the register to print again.', 'warning')
+    }
   } catch (error) {
     feedback.failed('Could not create purchase return', error)
   } finally {
     saving.value = false
+  }
+}
+
+async function markPurchaseReturnPrinted(item: any, reprint: boolean) {
+  const result = await api.create<any>(`purchase/returns/${item.id}/mark-printed`, { reprint })
+  item.printed = result.printed
+  item.printCount = result.printCount
+  item.lastPrintedAt = result.lastPrintedAt
+  item.printStatus = result.printStatus
+  if (selectedReturn.value?.id === item.id) {
+    selectedReturn.value = { ...selectedReturn.value, ...result }
+  }
+}
+
+async function printPurchaseReturn(item: any, notify = true) {
+  if (!item?.id || printBusy.value) return
+  printBusy.value = true
+  const reprint = Boolean(item.printed || Number(item.printCount || 0) > 0)
+  const query = new URLSearchParams({
+    format: printFormat.value,
+    copy: 'store',
+    reprint: String(reprint),
+    signatures: 'true'
+  })
+  try {
+    await documentPrint.printPdf(`purchase/returns/${item.id}/pdf?${query.toString()}`)
+    await markPurchaseReturnPrinted(item, reprint)
+    if (notify) {
+      feedback.notify(reprint ? 'Purchase return reprint opened' : 'Purchase return print opened', `${item.returnNumber || 'Return document'} is ready in the print dialog.`, 'success')
+    }
+    await refresh()
+  } catch (error) {
+    if (notify) {
+      feedback.failed('Could not print purchase return PDF', error)
+    }
+    throw error
+  } finally {
+    printBusy.value = false
+  }
+}
+
+async function downloadPurchaseReturn(item: any) {
+  if (!item?.id || printBusy.value) return
+  printBusy.value = true
+  const query = new URLSearchParams({
+    format: printFormat.value,
+    copy: 'store',
+    reprint: String(Boolean(item.printed || Number(item.printCount || 0) > 0)),
+    signatures: 'true'
+  })
+  const fileName = `${String(item.returnNumber || 'purchase-return').replace(/[^a-z0-9_-]+/gi, '-')}-${printFormat.value}.pdf`
+  try {
+    await documentPrint.downloadPdf(`purchase/returns/${item.id}/pdf?${query.toString()}`, fileName)
+  } catch (error) {
+    feedback.failed('Could not download purchase return PDF', error)
+  } finally {
+    printBusy.value = false
   }
 }
 
@@ -305,19 +408,32 @@ onMounted(refresh)
         :loading="loading"
         :error="loadError"
         :empty="returnHistoryRows.length === 0"
-        :empty-title="returnSearch ? 'No matching purchase returns' : 'No purchase returns posted yet'"
-        :empty-description="returnSearch ? 'Change the return number, invoice, vendor, or debit-note search.' : 'New partial returns and purchase cancellations will be recorded here with immutable item and tax snapshots.'"
+        :empty-title="returnSearch || printStatusFilter !== 'all' ? 'No matching purchase returns' : 'No purchase returns posted yet'"
+        :empty-description="returnSearch || printStatusFilter !== 'all' ? 'Change the search or print-status filter.' : 'New partial returns and purchase cancellations will be recorded here with immutable item and tax snapshots.'"
         empty-icon="i-lucide-files"
         @retry="refresh"
       >
         <template #actions>
-          <UiCrudToolbar
-            v-model:search="returnSearch"
-            search-placeholder="Search return, invoice, vendor, debit note"
-            :loading="loading"
-            refresh-label="Sync"
-            @refresh="refresh"
-          />
+          <div class="flex flex-wrap items-center gap-2">
+            <USelect
+              v-model="printStatusFilter"
+              :items="[
+                { label: 'All print states', value: 'all' },
+                { label: 'Not Printed', value: 'Not Printed' },
+                { label: 'Printed', value: 'Printed' },
+                { label: 'Reprinted', value: 'Reprinted' }
+              ]"
+              class="w-40"
+              aria-label="Filter purchase returns by print status"
+            />
+            <UiCrudToolbar
+              v-model:search="returnSearch"
+              search-placeholder="Search return, invoice, vendor, debit note"
+              :loading="loading"
+              refresh-label="Sync"
+              @refresh="refresh"
+            />
+          </div>
         </template>
 
         <div class="planner-table-wrap">
@@ -470,6 +586,8 @@ onMounted(refresh)
             <div class="payroll-summary">
               <span>Return date</span><strong>{{ formatDate(selectedReturn.onDate) }}</strong>
               <span>Status</span><strong>{{ selectedReturn.status || 'Posted' }}</strong>
+              <span>Print status</span><strong>{{ selectedReturn.printStatus || 'Not Printed' }}</strong>
+              <span>Print count</span><strong>{{ selectedReturn.printCount || 0 }}</strong>
               <span>Quantity</span><strong>{{ decimal(selectedReturn.quantity).toFixed(2) }}</strong>
               <span>Taxable</span><strong>{{ money(selectedReturn.taxableAmount) }}</strong>
               <span>GST reversal</span><strong>{{ money(selectedReturn.taxAmount) }}</strong>
@@ -520,7 +638,34 @@ onMounted(refresh)
           </div>
         </template>
         <template #footer>
-          <UButton color="neutral" variant="outline" label="Close" @click="detailOpen = false" />
+          <div class="flex w-full flex-wrap items-center justify-between gap-2">
+            <UButton color="neutral" variant="outline" label="Close" @click="detailOpen = false" />
+            <div class="flex flex-wrap items-center gap-2">
+              <USelect
+                v-model="printFormat"
+                :items="[
+                  { label: 'A4 document', value: 'a4' },
+                  { label: 'A5 document', value: 'a5' }
+                ]"
+                class="w-36"
+                aria-label="Purchase return PDF paper size"
+              />
+              <UButton
+                icon="i-lucide-download"
+                color="neutral"
+                variant="subtle"
+                label="Download PDF"
+                :loading="printBusy"
+                @click="downloadPurchaseReturn(selectedReturn)"
+              />
+              <UButton
+                icon="i-lucide-printer"
+                :label="selectedReturn?.printed ? 'Reprint' : 'Print'"
+                :loading="printBusy"
+                @click="printPurchaseReturn(selectedReturn)"
+              />
+            </div>
+          </div>
         </template>
       </UModal>
     </section>

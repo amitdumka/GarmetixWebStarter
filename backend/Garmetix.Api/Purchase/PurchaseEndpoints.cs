@@ -3,6 +3,7 @@ using Garmetix.Api.Auth;
 using Garmetix.Api.Commercial;
 using Garmetix.Api.Gstin;
 using Garmetix.Api.Numbering;
+using Garmetix.Api.ProductLookup;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Accounting;
@@ -24,6 +25,8 @@ public static class PurchaseEndpoints
         group.MapGet("/invoices/recent", GetRecentPurchaseInvoicesAsync);
         group.MapGet("/returns/recent", GetRecentPurchaseReturnsAsync);
         group.MapGet("/returns/{id:guid}", GetPurchaseReturnAsync);
+        group.MapGet("/returns/{id:guid}/pdf", DownloadPurchaseReturnPdfAsync);
+        group.MapPost("/returns/{id:guid}/mark-printed", MarkPurchaseReturnPrintedAsync);
         group.MapGet("/invoices/{id:guid}/receipt", GetReceiptAsync);
         group.MapGet("/invoices/{id:guid}/returnable", GetReturnablePurchaseInvoiceAsync);
         group.MapGet("/invoices/{id:guid}/pdf", DownloadPurchasePdfAsync);
@@ -144,7 +147,11 @@ public static class PurchaseEndpoints
                 item.ItemCount,
                 item.DebitNoteId,
                 item.DebitNoteNumber,
-                item.Reason))
+                item.Reason,
+                item.Printed,
+                item.PrintCount,
+                item.LastPrintedAt,
+                item.PrintCount > 1 ? "Reprinted" : item.Printed ? "Printed" : "Not Printed"))
             .ToListAsync(cancellationToken);
     }
 
@@ -154,11 +161,101 @@ public static class PurchaseEndpoints
         GarmetixDbContext db,
         CancellationToken cancellationToken)
     {
+        var item = await LoadPurchaseReturnAsync(id, context, db, cancellationToken);
+        return item is null
+            ? Results.NotFound(new { message = "Purchase return was not found." })
+            : Results.Ok(item);
+    }
+
+    private static async Task<IResult> DownloadPurchaseReturnPdfAsync(
+        Guid id,
+        HttpContext context,
+        GarmetixDbContext db,
+        string? format,
+        string? copy,
+        bool reprint = false,
+        bool signatures = true,
+        CancellationToken cancellationToken = default)
+    {
+        var purchaseReturn = await LoadPurchaseReturnAsync(id, context, db, cancellationToken);
+        if (purchaseReturn is null)
+        {
+            return Results.NotFound(new { message = "Purchase return was not found." });
+        }
+
+        var scope = await WorkspaceScope.ApplyTo(db.PurchaseReturns.AsNoTracking(), context)
+            .Where(item => item.Id == id)
+            .Select(item => new { item.CompanyId, item.StoreId })
+            .FirstAsync(cancellationToken);
+        var company = await db.Companies.AsNoTracking().FirstOrDefaultAsync(item => item.Id == scope.CompanyId, cancellationToken);
+        var store = await db.Stores.AsNoTracking().FirstOrDefaultAsync(item => item.Id == scope.StoreId, cancellationToken);
+
+        var pdf = PurchaseReturnPdfDocument.Build(
+            new PurchaseReturnPdfModel(
+                purchaseReturn,
+                company?.Name ?? "Garmetix",
+                BuildCompanyAddress(company),
+                company?.ContactNumber ?? string.Empty,
+                company?.GSTIN ?? string.Empty,
+                store?.Name ?? "Store",
+                DocumentCodeService.Create(DocumentCodeService.PurchaseReturn, purchaseReturn.Id)),
+            format,
+            copy,
+            reprint,
+            signatures);
+
+        var safeNumber = new string(purchaseReturn.ReturnNumber.Where(character => char.IsLetterOrDigit(character) || character is '-' or '_').ToArray());
+        return Results.File(pdf, "application/pdf", $"{(safeNumber.Length > 0 ? safeNumber : "purchase-return")}-{NormalizePdfFormat(format)}.pdf");
+    }
+
+    private static async Task<IResult> MarkPurchaseReturnPrintedAsync(
+        Guid id,
+        PurchaseReturnPrintRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var purchaseReturn = await WorkspaceScope.ApplyTo(db.PurchaseReturns, context)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (purchaseReturn is null)
+        {
+            return Results.NotFound(new { message = "Purchase return was not found." });
+        }
+
+        purchaseReturn.Printed = true;
+        purchaseReturn.PrintCount = Math.Max(purchaseReturn.PrintCount, 0) + 1;
+        purchaseReturn.LastPrintedAt = DateTime.Now;
+        purchaseReturn.UpdatedAt = DateTime.Now;
+        if (purchaseReturn.DebitNoteId.HasValue)
+        {
+            var note = await db.CommercialNotes.FirstOrDefaultAsync(item => item.Id == purchaseReturn.DebitNoteId.Value, cancellationToken);
+            if (note is not null)
+            {
+                note.Printed = true;
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(new PurchaseReturnPrintResponse(
+            purchaseReturn.Id,
+            purchaseReturn.ReturnNumber,
+            purchaseReturn.Printed,
+            purchaseReturn.PrintCount,
+            purchaseReturn.LastPrintedAt.Value,
+            PurchaseReturnPrintStatus(purchaseReturn.Printed, purchaseReturn.PrintCount)));
+    }
+
+    private static async Task<PurchaseReturnDetailDto?> LoadPurchaseReturnAsync(
+        Guid id,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
         var item = await WorkspaceScope.ApplyTo(db.PurchaseReturns.AsNoTracking(), context)
             .FirstOrDefaultAsync(row => row.Id == id, cancellationToken);
         if (item is null)
         {
-            return Results.NotFound(new { message = "Purchase return was not found." });
+            return null;
         }
 
         var items = await db.PurchaseReturnItems.AsNoTracking()
@@ -188,7 +285,7 @@ public static class PurchaseEndpoints
                 row.Reason))
             .ToListAsync(cancellationToken);
 
-        return Results.Ok(new PurchaseReturnDetailDto(
+        return new PurchaseReturnDetailDto(
             item.Id,
             item.ReturnNumber,
             item.OnDate,
@@ -211,7 +308,11 @@ public static class PurchaseEndpoints
             item.DebitNoteId,
             item.DebitNoteNumber,
             item.Reason,
-            items));
+            item.Printed,
+            item.PrintCount,
+            item.LastPrintedAt,
+            PurchaseReturnPrintStatus(item.Printed, item.PrintCount),
+            items);
     }
 
     private static async Task<IResult> GetReceiptAsync(Guid id, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
@@ -1546,6 +1647,9 @@ public static class PurchaseEndpoints
     }
 
     private static string PurchaseReturnKey(Guid productId, string barcode) => $"{productId:N}|{barcode.Trim().ToUpperInvariant()}";
+
+    private static string PurchaseReturnPrintStatus(bool printed, int printCount)
+        => printCount > 1 ? "Reprinted" : printed ? "Printed" : "Not Printed";
 
     private static IReadOnlyList<PurchaseEnumOptionDto> EnumOptions<TEnum>() where TEnum : struct, Enum =>
         Enum.GetValues<TEnum>()

@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.2.0";
+    public const string Version = "4.2.1";
     public const string Stage = "Stage 8C";
-    public const string ReleaseName = "Formal Purchase Return Records";
+    public const string ReleaseName = "Purchase Return Documents";
     public const string BuildDate = "2026-06-15";
-    public const string BuildCode = "GARMETIX-8C-20260615-4200";
+    public const string BuildCode = "GARMETIX-8C-20260615-4210";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,10 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Purchase returns now generate colored A4 or A5 Purchase Return and Debit Note PDFs containing every returned item and exact GST reversal totals.",
+        "Each purchase-return document carries a stable QR code that opens the permitted return detail from Document Scanner.",
+        "New returns open their first print automatically, while print count, reprint state, and last print time remain auditable.",
+        "The Purchase Return register now filters print state and provides direct print, reprint, download, and detail actions.",
         "Purchase returns now persist formal return headers and item-level product, HSN, GST, quantity, rate, vendor, and original-purchase snapshots.",
         "New purchase return numbers use a server-owned StoreCode/YYYYMM/PR/series sequence.",
         "Partial returns and full purchase cancellations now link stock movements and debit notes to the formal return document.",

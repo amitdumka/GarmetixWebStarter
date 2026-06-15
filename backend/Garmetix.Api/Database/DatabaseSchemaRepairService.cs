@@ -459,9 +459,12 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                     "SGSTAmount" numeric(18,2) NOT NULL DEFAULT 0,
                     "IGSTAmount" numeric(18,2) NOT NULL DEFAULT 0,
                     "ReturnAmount" numeric(18,2) NOT NULL DEFAULT 0,
-                    "DebitNoteId" uuid NULL,
-                    "DebitNoteNumber" text NULL,
-                    "ItemCount" integer NOT NULL DEFAULT 0,
+                      "DebitNoteId" uuid NULL,
+                      "DebitNoteNumber" text NULL,
+                      "ItemCount" integer NOT NULL DEFAULT 0,
+                      "Printed" boolean NOT NULL DEFAULT false,
+                      "PrintCount" integer NOT NULL DEFAULT 0,
+                      "LastPrintedAt" timestamp without time zone NULL,
                     "CompanyId" uuid NOT NULL,
                     "CreatedBy" text NULL,
                     "StoreGroupId" uuid NOT NULL,
@@ -470,8 +473,12 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                     "UpdatedAt" timestamp without time zone NULL,
                     "Synced" boolean NOT NULL DEFAULT false,
                     "Deleted" boolean NOT NULL DEFAULT false,
-                    CONSTRAINT "PK_PurchaseReturns" PRIMARY KEY ("Id")
-                );
+                      CONSTRAINT "PK_PurchaseReturns" PRIMARY KEY ("Id")
+                  );
+
+                  ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "Printed" boolean NOT NULL DEFAULT false;
+                  ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "PrintCount" integer NOT NULL DEFAULT 0;
+                  ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "LastPrintedAt" timestamp without time zone NULL;
 
                 CREATE TABLE IF NOT EXISTS "PurchaseReturnItems" (
                     "Id" uuid NOT NULL,

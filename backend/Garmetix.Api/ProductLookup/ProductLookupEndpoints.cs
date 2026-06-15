@@ -169,6 +169,17 @@ public static class ProductLookupEndpoints
             return Results.Ok(NoteResult(normalized, note));
         }
 
+        if (normalized.Contains("/PR/"))
+        {
+            var purchaseReturn = await WorkspaceScope.ApplyTo(db.PurchaseReturns.AsNoTracking(), context)
+                .OrderByDescending(item => item.OnDate)
+                .FirstOrDefaultAsync(item => item.ReturnNumber.ToUpper() == normalized || item.ReturnNumber.ToUpper().EndsWith(idPart), cancellationToken);
+            if (purchaseReturn is not null)
+            {
+                return Results.Ok(PurchaseReturnResult(normalized, purchaseReturn));
+            }
+        }
+
         var salaryPayment = await WorkspaceScope.ApplyTo(db.SalaryPayments.AsNoTracking(), context)
             .Include(item => item.Employee)
             .OrderByDescending(item => item.OnDate)
@@ -199,6 +210,12 @@ public static class ProductLookupEndpoints
         {
             var entity = await WorkspaceScope.ApplyTo(db.PurchaseInvoices.AsNoTracking(), context).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
             return entity is null ? null : new(code, "PurchaseInvoice", entity.Id, entity.InvoiceNumber, entity.OnDate, entity.VendorName ?? "Supplier", entity.BillAmount, $"/purchase?invoiceId={entity.Id}");
+        }
+
+        if (documentType == DocumentCodeService.PurchaseReturn)
+        {
+            var entity = await WorkspaceScope.ApplyTo(db.PurchaseReturns.AsNoTracking(), context).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+            return entity is null ? null : PurchaseReturnResult(code, entity);
         }
 
         if (documentType == DocumentCodeService.Voucher)
@@ -279,4 +296,15 @@ public static class ProductLookupEndpoints
             note.PartyName,
             note.Amount,
             note.NoteType == Garmetix.Core.Enums.NoteType.CreditNote ? $"/credit-notes/{note.Id}" : $"/debit-notes/{note.Id}");
+
+    private static ScanLookupResult PurchaseReturnResult(string code, Garmetix.Core.Models.Inventory.PurchaseReturn purchaseReturn)
+        => new(
+            code,
+            "PurchaseReturn",
+            purchaseReturn.Id,
+            purchaseReturn.ReturnNumber,
+            purchaseReturn.OnDate,
+            purchaseReturn.VendorName,
+            purchaseReturn.ReturnAmount,
+            $"/purchase-return?returnId={purchaseReturn.Id}");
 }

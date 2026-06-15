@@ -1,10 +1,14 @@
-export const APP_VERSION = '4.2.0'
+export const APP_VERSION = '4.2.1'
 export const APP_STAGE = 'Stage 8C'
-export const APP_RELEASE_NAME = 'Formal Purchase Return Records'
+export const APP_RELEASE_NAME = 'Purchase Return Documents'
 export const APP_BUILD_DATE = '2026-06-15'
-export const APP_BUILD_CODE = 'GARMETIX-8C-20260615-4200'
+export const APP_BUILD_CODE = 'GARMETIX-8C-20260615-4210'
 
 export const APP_HIGHLIGHTS = [
+  'Purchase returns now generate colored A4 or A5 Purchase Return and Debit Note PDFs containing every returned item and exact GST reversal totals.',
+  'Each purchase-return document carries a stable QR code that opens the permitted return detail from Document Scanner.',
+  'New returns open their first print automatically, while print count, reprint state, and last print time remain auditable.',
+  'The Purchase Return register now filters print state and provides direct print, reprint, download, and detail actions.',
   'Purchase returns now persist formal return headers and immutable item-level product, HSN, GST, quantity, rate, vendor and original-purchase snapshots.',
   'New purchase return numbers use a server-owned StoreCode/YYYYMM/PR/series sequence.',
   'Partial returns and full purchase cancellations now link stock movements and debit notes to the formal return document.',

@@ -199,7 +199,11 @@ public sealed record PurchaseReturnRegisterDto(
     int ItemCount,
     Guid? DebitNoteId,
     string? DebitNoteNumber,
-    string Reason);
+    string Reason,
+    bool Printed,
+    int PrintCount,
+    DateTime? LastPrintedAt,
+    string PrintStatus);
 
 public sealed record PurchaseReturnDetailDto(
     Guid Id,
@@ -224,7 +228,21 @@ public sealed record PurchaseReturnDetailDto(
     Guid? DebitNoteId,
     string? DebitNoteNumber,
     string Reason,
+    bool Printed,
+    int PrintCount,
+    DateTime? LastPrintedAt,
+    string PrintStatus,
     IReadOnlyList<PurchaseReturnItemDto> Items);
+
+public sealed record PurchaseReturnPrintRequest(bool Reprint = false);
+
+public sealed record PurchaseReturnPrintResponse(
+    Guid Id,
+    string ReturnNumber,
+    bool Printed,
+    int PrintCount,
+    DateTime LastPrintedAt,
+    string PrintStatus);
 
 public sealed record PurchaseReturnItemDto(
     Guid Id,
