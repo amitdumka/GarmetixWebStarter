@@ -1,10 +1,15 @@
-export const APP_VERSION = '4.1.2'
-export const APP_STAGE = 'Stage 8B'
-export const APP_RELEASE_NAME = 'Permission-Aware Shell Notifications'
-export const APP_BUILD_DATE = '2026-06-14'
-export const APP_BUILD_CODE = 'GARMETIX-8B-20260614-4102'
+export const APP_VERSION = '4.2.0'
+export const APP_STAGE = 'Stage 8C'
+export const APP_RELEASE_NAME = 'Formal Purchase Return Records'
+export const APP_BUILD_DATE = '2026-06-15'
+export const APP_BUILD_CODE = 'GARMETIX-8C-20260615-4200'
 
 export const APP_HIGHLIGHTS = [
+  'Purchase returns now persist formal return headers and immutable item-level product, HSN, GST, quantity, rate, vendor and original-purchase snapshots.',
+  'New purchase return numbers use a server-owned StoreCode/YYYYMM/PR/series sequence.',
+  'Partial returns and full purchase cancellations now link stock movements and debit notes to the formal return document.',
+  'The Purchase Return workspace now includes a searchable return register and snapshot detail view.',
+  'Legacy stock-movement-only purchase returns remain included when calculating returnable quantities.',
   'The dashboard shell now provides a role-filtered notification and quick-action menu in the topbar and sidebar.',
   'Business notifications expose friendly summaries and permitted destinations without stack traces, payloads or runtime noise.',
   'Mobile navigation closes after route changes, while collapsed-sidebar preference persists for each browser.',

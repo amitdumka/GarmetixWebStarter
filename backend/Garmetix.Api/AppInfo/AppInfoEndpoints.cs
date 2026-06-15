@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.1.2";
-    public const string Stage = "Stage 8B";
-    public const string ReleaseName = "Permission-Aware Shell Notifications";
-    public const string BuildDate = "2026-06-14";
-    public const string BuildCode = "GARMETIX-8B-20260614-4102";
+    public const string Version = "4.2.0";
+    public const string Stage = "Stage 8C";
+    public const string ReleaseName = "Formal Purchase Return Records";
+    public const string BuildDate = "2026-06-15";
+    public const string BuildCode = "GARMETIX-8C-20260615-4200";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,11 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Purchase returns now persist formal return headers and item-level product, HSN, GST, quantity, rate, vendor, and original-purchase snapshots.",
+        "New purchase return numbers use a server-owned StoreCode/YYYYMM/PR/series sequence.",
+        "Partial returns and full purchase cancellations now link stock movements and debit notes to the formal return document.",
+        "The Purchase Return workspace now includes a searchable return register and snapshot detail view.",
+        "Legacy stock-movement-only purchase returns remain included when calculating returnable quantities.",
         "One server-owned permission matrix now drives Admin, entry, edit, delete, and operational module authorization.",
         "The Access workspace displays the effective role matrix returned by the API.",
         "Store Manager retains store-module view and entry access without Admin, global edit, or delete rights.",

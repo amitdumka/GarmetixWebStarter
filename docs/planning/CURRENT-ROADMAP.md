@@ -1,13 +1,13 @@
 # Garmetix Current Roadmap
 
-Updated: 2026-06-14
+Updated: 2026-06-15
 
 ## Current Baseline
 
-- Version: 4.1.2
-- Stage: Stage 8B
-- Release: Permission-Aware Shell Notifications
-- Build code: `GARMETIX-8B-20260614-4102`
+- Version: 4.2.0
+- Stage: Stage 8C
+- Release: Formal Purchase Return Records
+- Build code: `GARMETIX-8C-20260615-4200`
 - Branch: `Version3.0`
 - Pre-Stage 8 baseline commit: `470ba2e`
 
@@ -67,8 +67,8 @@ Stage 7M menu names, route compatibility, permission-aware navigation, Off Book 
 
 ## Stage 8C - Purchase Return and Vendor Settlement
 
-- [ ] Add formal Purchase Return and Purchase Return Item records.
-- [ ] Preserve product, HSN, GST, quantity, rate, reason, vendor, and original-purchase snapshots.
+- [x] Add formal Purchase Return and Purchase Return Item records in v4.2.0.
+- [x] Preserve product, HSN, GST, quantity, rate, reason, vendor, and original-purchase snapshots in v4.2.0.
 - [ ] Generate debit notes and printable/PDF return documents.
 - [ ] Add vendor refund, adjustment, and outstanding settlement workflows.
 - [ ] Implement exact item-level input-tax-credit reversal.

@@ -27,6 +27,9 @@ public sealed class DocumentNumberService(GarmetixDbContext db)
     public Task<string> NextPurchaseInwardAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
         => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "PurchaseInward", "INW", DateTime.Today, cancellationToken);
 
+    public Task<string> NextPurchaseReturnAsync(Guid companyId, Guid storeGroupId, Guid storeId, DateTime onDate, CancellationToken cancellationToken)
+        => NextStoreMonthlyAsync(companyId, storeGroupId, storeId, "PurchaseReturn", "PR", onDate, cancellationToken);
+
     public Task<string> NextVendorPaymentVoucherAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
         => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "VendorPaymentVoucher", "PV", DateTime.Today, cancellationToken);
 

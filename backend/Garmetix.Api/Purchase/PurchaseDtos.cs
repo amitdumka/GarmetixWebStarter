@@ -119,7 +119,9 @@ public sealed record CancelPurchaseInvoiceResponse(
     string InvoiceNumber,
     string InvoiceStatus,
     decimal ReversedQuantity,
-    decimal ReversedAmount);
+    decimal ReversedAmount,
+    Guid PurchaseReturnId,
+    string ReturnNumber);
 
 
 public sealed record ReturnablePurchaseInvoiceDto(
@@ -167,6 +169,8 @@ public sealed record PartialPurchaseReturnItemRequest(
     decimal Quantity);
 
 public sealed record PartialPurchaseReturnResponse(
+    Guid PurchaseReturnId,
+    string ReturnNumber,
     Guid PurchaseInvoiceId,
     string InvoiceNumber,
     Guid DebitNoteId,
@@ -176,6 +180,74 @@ public sealed record PartialPurchaseReturnResponse(
     decimal TaxAmount,
     decimal ReturnAmount,
     string InvoiceStatus);
+
+public sealed record PurchaseReturnRegisterDto(
+    Guid Id,
+    string ReturnNumber,
+    DateTime OnDate,
+    string ReturnKind,
+    string Status,
+    Guid PurchaseInvoiceId,
+    string OriginalInvoiceNumber,
+    Guid VendorId,
+    string VendorName,
+    string? VendorGstin,
+    decimal Quantity,
+    decimal TaxableAmount,
+    decimal TaxAmount,
+    decimal ReturnAmount,
+    int ItemCount,
+    Guid? DebitNoteId,
+    string? DebitNoteNumber,
+    string Reason);
+
+public sealed record PurchaseReturnDetailDto(
+    Guid Id,
+    string ReturnNumber,
+    DateTime OnDate,
+    string ReturnKind,
+    string Status,
+    Guid PurchaseInvoiceId,
+    string OriginalInvoiceNumber,
+    DateTime OriginalInvoiceDate,
+    DateTime? SupplierInvoiceDate,
+    Guid VendorId,
+    string VendorName,
+    string? VendorGstin,
+    decimal Quantity,
+    decimal TaxableAmount,
+    decimal TaxAmount,
+    decimal CgstAmount,
+    decimal SgstAmount,
+    decimal IgstAmount,
+    decimal ReturnAmount,
+    Guid? DebitNoteId,
+    string? DebitNoteNumber,
+    string Reason,
+    IReadOnlyList<PurchaseReturnItemDto> Items);
+
+public sealed record PurchaseReturnItemDto(
+    Guid Id,
+    Guid PurchaseInvoiceItemId,
+    Guid ProductId,
+    string ProductName,
+    string Barcode,
+    string? HsnCode,
+    string Unit,
+    decimal PurchasedQuantity,
+    decimal PreviouslyReturnedQuantity,
+    decimal ReturnedQuantity,
+    decimal Mrp,
+    decimal UnitRate,
+    decimal DiscountAmount,
+    decimal TaxableAmount,
+    decimal TaxRate,
+    decimal TaxAmount,
+    decimal CgstAmount,
+    decimal SgstAmount,
+    decimal IgstAmount,
+    decimal ReturnAmount,
+    string? Reason);
 
 public sealed record PurchaseLookupOptionsDto(
     IReadOnlyList<PurchaseLookupOptionDto> Categories,

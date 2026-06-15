@@ -13,14 +13,19 @@ const UButton = resolveComponent('UButton')
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const invoices = ref<any[]>([])
+const purchaseReturns = ref<any[]>([])
 const loading = ref(false)
 const loadError = ref('')
 const saving = ref(false)
 const returnLoading = ref(false)
 const search = ref('')
+const returnSearch = ref('')
 const returnOpen = ref(false)
+const detailOpen = ref(false)
+const detailLoading = ref(false)
 const pendingInvoice = ref<any | null>(null)
 const returnInvoice = ref<any | null>(null)
+const selectedReturn = ref<any | null>(null)
 const reason = ref('Partial purchase return')
 const returnDate = ref(localDateInput())
 const returnRows = ref<any[]>([])
@@ -34,6 +39,19 @@ const filteredInvoices = computed(() => {
       return [invoice.invoiceNumber, invoice.inwardNumber, invoice.vendorName, invoice.invoiceStatus]
         .some((value) => String(value || '').toLowerCase().includes(term))
     })
+})
+
+const filteredReturns = computed(() => {
+  const term = returnSearch.value.trim().toLowerCase()
+  if (!term) return purchaseReturns.value
+  return purchaseReturns.value.filter((item) => [
+    item.returnNumber,
+    item.originalInvoiceNumber,
+    item.vendorName,
+    item.debitNoteNumber,
+    item.returnKind,
+    item.status
+  ].some((value) => String(value || '').toLowerCase().includes(term)))
 })
 
 const selectedReturnRows = computed(() => returnRows.value
@@ -50,6 +68,20 @@ const tableRows = computed(() => filteredInvoices.value.map((invoice) => ({
   balanceAmount: money(invoice.balanceAmount || 0),
   invoiceStatus: invoice.invoiceStatus || 'Saved',
   raw: invoice
+})))
+
+const returnHistoryRows = computed(() => filteredReturns.value.map((item) => ({
+  id: item.id,
+  returnNumber: item.returnNumber || '-',
+  onDate: formatDate(item.onDate),
+  originalInvoiceNumber: item.originalInvoiceNumber || '-',
+  vendorName: item.vendorName || 'Vendor',
+  returnKind: item.returnKind || 'Partial',
+  quantity: decimal(item.quantity).toFixed(2),
+  returnAmount: money(item.returnAmount),
+  debitNoteNumber: item.debitNoteNumber || '-',
+  status: item.status || 'Posted',
+  raw: item
 })))
 
 const columns: TableColumn<any>[] = [
@@ -77,6 +109,33 @@ const columns: TableColumn<any>[] = [
   }
 ]
 
+const returnHistoryColumns: TableColumn<any>[] = [
+  { accessorKey: 'returnNumber', header: 'Return No.' },
+  { accessorKey: 'onDate', header: 'Date' },
+  { accessorKey: 'originalInvoiceNumber', header: 'Purchase Invoice' },
+  { accessorKey: 'vendorName', header: 'Vendor' },
+  { accessorKey: 'returnKind', header: 'Type' },
+  { accessorKey: 'quantity', header: 'Qty' },
+  { accessorKey: 'returnAmount', header: 'Amount' },
+  { accessorKey: 'debitNoteNumber', header: 'Debit Note' },
+  {
+    accessorKey: 'status',
+    header: 'Status',
+    cell: ({ row }) => h(UBadge, { color: 'success', variant: 'subtle' }, () => row.original.status)
+  },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => h(UButton, {
+      icon: 'i-lucide-eye',
+      color: 'neutral',
+      variant: 'ghost',
+      'aria-label': `View ${row.original.returnNumber}`,
+      onClick: () => openReturnDetail(row.original.raw)
+    })
+  }
+]
+
 const returnSummary = computed(() => {
   return selectedReturnRows.value.reduce((summary, row) => {
     const quantity = Math.min(row.returnQuantity, decimal(row.returnableQuantity))
@@ -93,19 +152,35 @@ async function refresh() {
   loading.value = true
   loadError.value = ''
   try {
-    const [companyRows, storeRows, invoiceRows] = await Promise.all([
+    const [companyRows, storeRows, invoiceRows, returnRows] = await Promise.all([
       api.list<any>('companies'),
       api.list<any>('stores'),
-      api.get<any[]>('purchase/invoices/recent')
+      api.get<any[]>('purchase/invoices/recent'),
+      api.get<any[]>('purchase/returns/recent')
     ])
     companies.value = companyRows
     stores.value = storeRows
     invoices.value = invoiceRows
+    purchaseReturns.value = returnRows
   } catch (error) {
     loadError.value = feedback.cleanMessage(error instanceof Error ? error.message : 'Please check the service and try again.')
     feedback.failed('Could not load purchase returns', error)
   } finally {
     loading.value = false
+  }
+}
+
+async function openReturnDetail(item: any) {
+  selectedReturn.value = item
+  detailOpen.value = true
+  detailLoading.value = true
+  try {
+    selectedReturn.value = await api.get<any>(`purchase/returns/${item.id}`)
+  } catch (error) {
+    feedback.failed('Could not load purchase return', error)
+    detailOpen.value = false
+  } finally {
+    detailLoading.value = false
   }
 }
 
@@ -162,7 +237,7 @@ async function submitReturn() {
       reason: reason.value || 'Partial purchase return',
       returnDate: returnDate.value ? `${returnDate.value}T00:00:00` : null
     })
-    feedback.notify('Purchase return saved', `Debit note ${response.debitNoteNumber || ''} created for ${money(response.returnAmount || 0)}.`, 'success')
+    feedback.notify('Purchase return saved', `${response.returnNumber || 'Return'} posted with debit note ${response.debitNoteNumber || ''} for ${money(response.returnAmount || 0)}.`, 'success')
     pendingInvoice.value = null
     returnInvoice.value = null
     returnRows.value = []
@@ -219,9 +294,36 @@ onMounted(refresh)
         icon="i-lucide-undo-2"
       >
         <template #actions>
+          <UBadge color="success" variant="subtle">{{ purchaseReturns.length }} posted returns</UBadge>
           <UBadge color="neutral" variant="subtle">{{ filteredInvoices.length }} returnable purchases</UBadge>
         </template>
       </UiModulePageHeader>
+
+      <UiRegisterPanel
+        title="Purchase Return Register"
+        :description="`${returnHistoryRows.length} of ${purchaseReturns.length} formal return documents`"
+        :loading="loading"
+        :error="loadError"
+        :empty="returnHistoryRows.length === 0"
+        :empty-title="returnSearch ? 'No matching purchase returns' : 'No purchase returns posted yet'"
+        :empty-description="returnSearch ? 'Change the return number, invoice, vendor, or debit-note search.' : 'New partial returns and purchase cancellations will be recorded here with immutable item and tax snapshots.'"
+        empty-icon="i-lucide-files"
+        @retry="refresh"
+      >
+        <template #actions>
+          <UiCrudToolbar
+            v-model:search="returnSearch"
+            search-placeholder="Search return, invoice, vendor, debit note"
+            :loading="loading"
+            refresh-label="Sync"
+            @refresh="refresh"
+          />
+        </template>
+
+        <div class="planner-table-wrap">
+          <UTable :data="returnHistoryRows" :columns="returnHistoryColumns" />
+        </div>
+      </UiRegisterPanel>
 
       <UiRegisterPanel
         title="Returnable Purchase Invoices"
@@ -350,6 +452,77 @@ onMounted(refresh)
           />
         </div>
       </UiFormSlideover>
+
+      <UModal v-model:open="detailOpen" title="Purchase Return Details" :ui="{ content: 'sm:max-w-5xl xl:max-w-6xl' }">
+        <template #body>
+          <div v-if="detailLoading" class="py-10 text-center text-sm text-muted">
+            Loading purchase return...
+          </div>
+          <div v-else-if="selectedReturn" class="space-y-4">
+            <UAlert
+              color="neutral"
+              variant="subtle"
+              icon="i-lucide-file-check-2"
+              :title="`${selectedReturn.returnNumber} / ${selectedReturn.returnKind}`"
+              :description="`${selectedReturn.vendorName} | Original purchase ${selectedReturn.originalInvoiceNumber} | Debit note ${selectedReturn.debitNoteNumber || 'not linked'}`"
+            />
+
+            <div class="payroll-summary">
+              <span>Return date</span><strong>{{ formatDate(selectedReturn.onDate) }}</strong>
+              <span>Status</span><strong>{{ selectedReturn.status || 'Posted' }}</strong>
+              <span>Quantity</span><strong>{{ decimal(selectedReturn.quantity).toFixed(2) }}</strong>
+              <span>Taxable</span><strong>{{ money(selectedReturn.taxableAmount) }}</strong>
+              <span>GST reversal</span><strong>{{ money(selectedReturn.taxAmount) }}</strong>
+              <span>Return amount</span><strong>{{ money(selectedReturn.returnAmount) }}</strong>
+            </div>
+
+            <div class="planner-table-wrap">
+              <table class="planner-table">
+                <thead>
+                  <tr>
+                    <th>Item Snapshot</th>
+                    <th>Barcode / HSN</th>
+                    <th>Purchased</th>
+                    <th>Previously Returned</th>
+                    <th>Returned</th>
+                    <th>Rate</th>
+                    <th>Tax</th>
+                    <th>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="item in selectedReturn.items || []" :key="item.id">
+                    <td>
+                      <div class="font-medium">{{ item.productName }}</div>
+                      <div class="text-xs text-muted">{{ item.unit || '-' }} | GST {{ decimal(item.taxRate).toFixed(2) }}%</div>
+                    </td>
+                    <td>
+                      <div>{{ item.barcode || '-' }}</div>
+                      <div class="text-xs text-muted">{{ item.hsnCode || 'No HSN' }}</div>
+                    </td>
+                    <td>{{ decimal(item.purchasedQuantity).toFixed(2) }}</td>
+                    <td>{{ decimal(item.previouslyReturnedQuantity).toFixed(2) }}</td>
+                    <td>{{ decimal(item.returnedQuantity).toFixed(2) }}</td>
+                    <td>{{ money(item.unitRate) }}</td>
+                    <td>{{ money(item.taxAmount) }}</td>
+                    <td>{{ money(item.returnAmount) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <UAlert
+              color="info"
+              variant="subtle"
+              title="Return reason"
+              :description="selectedReturn.reason || 'No reason recorded.'"
+            />
+          </div>
+        </template>
+        <template #footer>
+          <UButton color="neutral" variant="outline" label="Close" @click="detailOpen = false" />
+        </template>
+      </UModal>
     </section>
   </AppShell>
 </template>
