@@ -171,7 +171,12 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<NonGstGoodsDocument>().HasIndex(document => new { document.CompanyId, document.StoreId, document.DocumentType, document.OnDate });
         modelBuilder.Entity<NonGstGoodsDocument>().HasIndex(document => new { document.CompanyId, document.DocumentNumber }).IsUnique(false);
         modelBuilder.Entity<NonGstGoodsItem>().HasIndex(item => new { item.CompanyId, item.DocumentId });
-        modelBuilder.Entity<DocumentSequence>().HasIndex(sequence => new { sequence.CompanyId, sequence.StoreGroupId, sequence.StoreId, sequence.DocumentType, sequence.SequenceDate }).IsUnique(false);
+        modelBuilder.Entity<DocumentSequence>()
+            .HasIndex(sequence => new { sequence.CompanyId, sequence.StoreGroupId, sequence.StoreId, sequence.DocumentType, sequence.SequenceDate })
+            .HasDatabaseName("IX_DocumentSequences_Company_Store_Type_Date")
+            .IsUnique()
+            .AreNullsDistinct(false)
+            .HasFilter("\"Deleted\" = false");
         modelBuilder.Entity<Customer>().HasIndex(customer => new { customer.CompanyId, customer.GSTIN }).IsUnique(false);
         modelBuilder.Entity<Vendor>().HasIndex(vendor => new { vendor.CompanyId, vendor.GSTIN }).IsUnique(false);
         modelBuilder.Entity<Salesman>().HasIndex(salesman => new { salesman.CompanyId, salesman.StoreId, salesman.Name }).IsUnique(false);

@@ -1,10 +1,14 @@
-export const APP_VERSION = '4.3.3'
+export const APP_VERSION = '4.3.4'
 export const APP_STAGE = 'Stage 8D'
-export const APP_RELEASE_NAME = 'Stock Intelligence Reports'
+export const APP_RELEASE_NAME = 'Stock Concurrency and Sequence Safety'
 export const APP_BUILD_DATE = '2026-06-15'
-export const APP_BUILD_CODE = 'GARMETIX-8D-20260615-4330'
+export const APP_BUILD_CODE = 'GARMETIX-8D-20260615-4340'
 
 export const APP_HIGHLIGHTS = [
+  'Concurrent document numbering now requires an explicit transaction and is protected by both PostgreSQL advisory locking and one active sequence-row invariant.',
+  'Stock transfers acquire source and destination locks in deterministic order before reading available quantity.',
+  'New regular-stock outflows cannot create or deepen negative stock, while legacy negative history remains replayable and can be repaired by inward corrections.',
+  'PostgreSQL-backed tests now verify concurrent numbering, stock-lock blocking and transaction ownership against the production database engine.',
   'The sidebar footer again presents Status above Notifications as two full-width vertical actions.',
   'Inventory now includes a dedicated Stock Reports workspace for receipt-age indicators, configurable low-stock risk, weighted-average valuation and ledger reconciliation.',
   'Stock report age bands cover 0-30, 31-60, 61-90, 91-180 and 180+ days, plus no-receipt-history and out-of-stock states.',

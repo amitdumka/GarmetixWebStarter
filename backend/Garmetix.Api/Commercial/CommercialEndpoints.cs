@@ -107,35 +107,41 @@ public static class CommercialEndpoints
             return Results.BadRequest(new { message = "Selected note store is outside your access scope." });
         }
 
-        var note = new CommercialNote
+        var strategy = db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
         {
-            NoteNumber = await CreateNoteNumberAsync(request.CompanyId, request.StoreId, request.NoteType, db, cancellationToken),
-            NoteType = request.NoteType,
-            OnDate = DateTime.Now,
-            PartyType = request.PartyType,
-            PartyId = request.PartyId,
-            CustomerId = request.CustomerId,
-            VendorId = request.VendorId,
-            PartyName = request.PartyName.Trim(),
-            PartyGstin = string.IsNullOrWhiteSpace(request.PartyGstin) ? null : request.PartyGstin.Trim().ToUpperInvariant(),
-            SourceType = string.IsNullOrWhiteSpace(request.SourceType) ? "Manual" : request.SourceType.Trim(),
-            SourceId = request.SourceId,
-            SourceNumber = request.SourceNumber,
-            Reason = request.Reason?.Trim() ?? string.Empty,
-            TaxableAmount = Math.Max(request.TaxableAmount, 0),
-            TaxAmount = Math.Max(request.TaxAmount, 0),
-            Amount = request.Amount,
-            IsAdjusted = false,
-            AdjustedAmount = 0,
-            Remarks = request.Remarks,
-            CompanyId = request.CompanyId,
-            StoreGroupId = request.StoreGroupId,
-            StoreId = request.StoreId
-        };
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            var note = new CommercialNote
+            {
+                NoteNumber = await CreateNoteNumberAsync(request.CompanyId, request.StoreId, request.NoteType, db, cancellationToken),
+                NoteType = request.NoteType,
+                OnDate = DateTime.Now,
+                PartyType = request.PartyType,
+                PartyId = request.PartyId,
+                CustomerId = request.CustomerId,
+                VendorId = request.VendorId,
+                PartyName = request.PartyName.Trim(),
+                PartyGstin = string.IsNullOrWhiteSpace(request.PartyGstin) ? null : request.PartyGstin.Trim().ToUpperInvariant(),
+                SourceType = string.IsNullOrWhiteSpace(request.SourceType) ? "Manual" : request.SourceType.Trim(),
+                SourceId = request.SourceId,
+                SourceNumber = request.SourceNumber,
+                Reason = request.Reason?.Trim() ?? string.Empty,
+                TaxableAmount = Math.Max(request.TaxableAmount, 0),
+                TaxAmount = Math.Max(request.TaxAmount, 0),
+                Amount = request.Amount,
+                IsAdjusted = false,
+                AdjustedAmount = 0,
+                Remarks = request.Remarks,
+                CompanyId = request.CompanyId,
+                StoreGroupId = request.StoreGroupId,
+                StoreId = request.StoreId
+            };
 
-        db.CommercialNotes.Add(note);
-        await db.SaveChangesAsync(cancellationToken);
-        return Results.Created($"/api/commercial-notes/{note.Id}", note);
+            db.CommercialNotes.Add(note);
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Results.Created($"/api/commercial-notes/{note.Id}", note);
+        });
     }
 
     private static async Task<IResult> UpdateNoteAsync(Guid id, CommercialNoteRequest request, HttpContext context, GarmetixDbContext db, ILoggerFactory loggerFactory, CancellationToken cancellationToken)
@@ -280,46 +286,52 @@ public static class CommercialEndpoints
             return Results.BadRequest(new { message = "Selected receipt store is outside your access scope." });
         }
 
-        var mobile = string.IsNullOrWhiteSpace(request.CustomerMobileNumber) ? "ADVANCE" : request.CustomerMobileNumber.Trim();
-        var name = string.IsNullOrWhiteSpace(request.CustomerName) ? "Advance Customer" : request.CustomerName.Trim();
-        var customer = request.CustomerId.HasValue
-            ? await db.Customers.FirstOrDefaultAsync(item => item.Id == request.CustomerId.Value, cancellationToken)
-            : await db.Customers.FirstOrDefaultAsync(item => item.CompanyId == request.CompanyId && item.MobileNumber == mobile, cancellationToken);
-
-        if (customer is null)
+        var strategy = db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
         {
-            customer = new Customer
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            var mobile = string.IsNullOrWhiteSpace(request.CustomerMobileNumber) ? "ADVANCE" : request.CustomerMobileNumber.Trim();
+            var name = string.IsNullOrWhiteSpace(request.CustomerName) ? "Advance Customer" : request.CustomerName.Trim();
+            var customer = request.CustomerId.HasValue
+                ? await db.Customers.FirstOrDefaultAsync(item => item.Id == request.CustomerId.Value, cancellationToken)
+                : await db.Customers.FirstOrDefaultAsync(item => item.CompanyId == request.CompanyId && item.MobileNumber == mobile, cancellationToken);
+
+            if (customer is null)
             {
-                Name = name,
-                MobileNumber = mobile,
-                CompanyId = request.CompanyId
+                customer = new Customer
+                {
+                    Name = name,
+                    MobileNumber = mobile,
+                    CompanyId = request.CompanyId
+                };
+                db.Customers.Add(customer);
+            }
+
+            customer.CreditBalance += request.Amount;
+            var receipt = new CustomerAdvanceReceipt
+            {
+                ReceiptNumber = await CreateAdvanceReceiptNumberAsync(request.CompanyId, request.StoreId, db, cancellationToken),
+                OnDate = DateTime.Now,
+                CustomerId = customer.Id,
+                CustomerName = customer.Name,
+                CustomerMobileNumber = customer.MobileNumber,
+                Amount = request.Amount,
+                AdjustedAmount = 0,
+                AvailableAmount = request.Amount,
+                PaymentMode = request.PaymentMode,
+                BankAccountId = request.BankAccountId,
+                ReferenceNumber = request.ReferenceNumber,
+                Remarks = request.Remarks,
+                CompanyId = request.CompanyId,
+                StoreGroupId = request.StoreGroupId,
+                StoreId = request.StoreId
             };
-            db.Customers.Add(customer);
-        }
 
-        customer.CreditBalance += request.Amount;
-        var receipt = new CustomerAdvanceReceipt
-        {
-            ReceiptNumber = await CreateAdvanceReceiptNumberAsync(request.CompanyId, request.StoreId, db, cancellationToken),
-            OnDate = DateTime.Now,
-            CustomerId = customer.Id,
-            CustomerName = customer.Name,
-            CustomerMobileNumber = customer.MobileNumber,
-            Amount = request.Amount,
-            AdjustedAmount = 0,
-            AvailableAmount = request.Amount,
-            PaymentMode = request.PaymentMode,
-            BankAccountId = request.BankAccountId,
-            ReferenceNumber = request.ReferenceNumber,
-            Remarks = request.Remarks,
-            CompanyId = request.CompanyId,
-            StoreGroupId = request.StoreGroupId,
-            StoreId = request.StoreId
-        };
-
-        db.CustomerAdvanceReceipts.Add(receipt);
-        await db.SaveChangesAsync(cancellationToken);
-        return Results.Created($"/api/customer-advances/{receipt.Id}", receipt);
+            db.CustomerAdvanceReceipts.Add(receipt);
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Results.Created($"/api/customer-advances/{receipt.Id}", receipt);
+        });
     }
 
     private static async Task<IResult> GetProgramAsync(HttpContext context, GarmetixDbContext db, ILoggerFactory loggerFactory, Guid? storeId, CancellationToken cancellationToken)

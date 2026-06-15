@@ -662,6 +662,14 @@ public static class StockOperationEndpoints
             return Results.BadRequest(new { message = "Source and destination store cannot be same." });
         }
 
+        await DocumentNumberGenerator.LockStockKeysAsync(
+            db,
+            [
+                new StockLockKey(fromStock.CompanyId, fromStock.StoreGroupId, fromStock.StoreId, fromStock.ProductId, fromStock.Barcode),
+                new StockLockKey(fromStock.CompanyId, toStore.StoreGroupId, toStore.Id, fromStock.ProductId, fromStock.Barcode)
+            ],
+            cancellationToken);
+
         StockQuantityChange sourceChange;
         try
         {
@@ -672,9 +680,6 @@ public static class StockOperationEndpoints
         {
             return Results.BadRequest(new { message = exception.Message });
         }
-
-        await DocumentNumberGenerator.LockStockKeyAsync(db, fromStock.CompanyId, fromStock.StoreGroupId, fromStock.StoreId, fromStock.ProductId, fromStock.Barcode, cancellationToken);
-        await DocumentNumberGenerator.LockStockKeyAsync(db, fromStock.CompanyId, toStore.StoreGroupId, toStore.Id, fromStock.ProductId, fromStock.Barcode, cancellationToken);
 
         var toStock = await db.Stocks.FirstOrDefaultAsync(item =>
             item.CompanyId == fromStock.CompanyId &&

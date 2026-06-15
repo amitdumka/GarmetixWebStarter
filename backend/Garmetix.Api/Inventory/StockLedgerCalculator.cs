@@ -47,7 +47,7 @@ public static class StockLedgerCalculator
             throw new ArgumentException("Incoming stock cost cannot be negative.");
         }
 
-        if (!allowNegative && quantityOut > before.Quantity)
+        if (!allowNegative && quantityOut > 0 && quantityOut > before.Quantity)
         {
             throw new ArgumentException($"Insufficient ledger stock. Available quantity is {before.Quantity:0.##}.");
         }
