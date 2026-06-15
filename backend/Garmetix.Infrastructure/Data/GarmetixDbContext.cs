@@ -158,6 +158,10 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<ProductTagMapping>().HasKey(mapping => new { mapping.ProductId, mapping.TagId });
         modelBuilder.Entity<StockMovement>().HasIndex(movement => new { movement.CompanyId, movement.StoreId, movement.ProductId, movement.OnDate });
         modelBuilder.Entity<StockMovement>().HasIndex(movement => new { movement.CompanyId, movement.SourceType, movement.SourceId });
+        modelBuilder.Entity<Stock>().Property(stock => stock.CostPrice).HasPrecision(18, 4);
+        modelBuilder.Entity<StockMovement>().Property(movement => movement.CostPrice).HasPrecision(18, 4);
+        modelBuilder.Entity<StockMovement>().Property(movement => movement.AverageCostBefore).HasPrecision(18, 4);
+        modelBuilder.Entity<StockMovement>().Property(movement => movement.AverageCostAfter).HasPrecision(18, 4);
         modelBuilder.Entity<StockOperationDocument>().HasIndex(document => new { document.CompanyId, document.StoreId, document.DocumentNumber }).IsUnique(false);
         modelBuilder.Entity<StockOperationDocument>().HasIndex(document => new { document.CompanyId, document.OperationType, document.OnDate });
         modelBuilder.Entity<StockOperationItem>().HasIndex(item => new { item.CompanyId, item.StockOperationDocumentId });

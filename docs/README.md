@@ -45,6 +45,8 @@ This folder is the canonical home for project plans, implementation notes, valid
 - [Stage 8C Package 4 / v4.2.3 validation](stages/stage-8/Stage8C-Package4-PurchaseReturnItc-v4.2.3-Validation.md)
 - [Stage 8D Package 1 / v4.3.0 notes](stages/stage-8/Stage8D-Package1-FormalStockDocuments-v4.3.0-Notes.md)
 - [Stage 8D Package 1 / v4.3.0 validation](stages/stage-8/Stage8D-Package1-FormalStockDocuments-v4.3.0-Validation.md)
+- [Stage 8D Package 2 / v4.3.1 notes](stages/stage-8/Stage8D-Package2-LedgerValuation-v4.3.1-Notes.md)
+- [Stage 8D Package 2 / v4.3.1 validation](stages/stage-8/Stage8D-Package2-LedgerValuation-v4.3.1-Validation.md)
 
 ## Categories
 

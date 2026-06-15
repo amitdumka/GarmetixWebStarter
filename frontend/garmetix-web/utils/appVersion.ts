@@ -1,10 +1,13 @@
-export const APP_VERSION = '4.3.0'
+export const APP_VERSION = '4.3.1'
 export const APP_STAGE = 'Stage 8D'
-export const APP_RELEASE_NAME = 'Formal Stock Operation Documents'
+export const APP_RELEASE_NAME = 'Movement Ledger and Weighted Average Valuation'
 export const APP_BUILD_DATE = '2026-06-15'
-export const APP_BUILD_CODE = 'GARMETIX-8D-20260615-4300'
+export const APP_BUILD_CODE = 'GARMETIX-8D-20260615-4310'
 
 export const APP_HIGHLIGHTS = [
+  'Regular stock movements now form the authoritative quantity and inventory-cost ledger, while Stock remains a rebuildable operational projection.',
+  'Weighted-average valuation records running quantity, average cost, inventory value and cost impact for every regular stock movement.',
+  'The Stock Operations workspace now includes valuation, projection reconciliation and movement running balances.',
   'Stock adjustments, transfers and physical counts now create formal header and item documents with immutable product, store, quantity and value snapshots.',
   'Every posted stock-operation document links its movement-ledger rows and uses server-owned StoreCode/YYYYMM/ADJ, ST or PHY numbering.',
   'The Stock Operations workspace now includes a searchable document register, operation filter, wide audit detail and direct QR download.',

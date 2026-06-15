@@ -2,6 +2,7 @@ using Garmetix.Api.Accounting;
 using Garmetix.Api.Auth;
 using Garmetix.Api.Commercial;
 using Garmetix.Api.Gstin;
+using Garmetix.Api.Inventory;
 using Garmetix.Api.Numbering;
 using Garmetix.Api.ProductLookup;
 using Garmetix.Api.Workspace;
@@ -581,6 +582,7 @@ public static class PurchaseEndpoints
         GarmetixDbContext db,
         AccountingPostingService accounting,
         DocumentNumberService numbering,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         if (request.Items.Count == 0)
@@ -701,12 +703,8 @@ public static class PurchaseEndpoints
                 return Results.BadRequest(new { message = $"Stock row was not found for {item.ProductName ?? item.Barcode}." });
             }
 
-            if (stock.PurchaseQty < requestedQuantity)
-            {
-                return Results.BadRequest(new { message = $"Current inward quantity for {item.ProductName ?? item.Barcode} is lower than requested return quantity." });
-            }
-
-            if (stock.CurrentStock < requestedQuantity)
+            var stockSnapshot = await stockLedger.GetSnapshotAsync(stock, cancellationToken);
+            if (stockSnapshot.Quantity < requestedQuantity)
             {
                 return Results.BadRequest(new { message = $"Available stock for {item.ProductName ?? item.Barcode} is lower than requested return quantity." });
             }
@@ -728,8 +726,6 @@ public static class PurchaseEndpoints
             var lineSgst = taxResult.SgstAmount;
             var lineIgst = taxResult.IgstAmount;
             var lineDiscount = taxResult.DiscountAmount;
-
-            stock.PurchaseQty = Math.Max(stock.PurchaseQty - requestedQuantity, 0);
 
             var returnItem = new PurchaseReturnItem
             {
@@ -788,14 +784,12 @@ public static class PurchaseEndpoints
             db.PurchaseReturnItcReversals.Add(reversal);
             taxPostings.Add(new PurchaseReturnTaxPosting(reversal.Id, reversal.ProductName, reversal.HSNCode, reversal.TaxAmount));
 
-            db.StockMovements.Add(new StockMovement
+            await stockLedger.PostAsync(stock, new StockMovement
             {
-                StockId = stock.Id,
-                ProductId = stock.ProductId,
                 Barcode = stock.Barcode,
                 MovementType = "PurchaseReturnOut",
                 QuantityOut = requestedQuantity,
-                CostPrice = stock.CostPrice,
+                CostPrice = stockSnapshot.AverageCost,
                 MRP = stock.MRP,
                 TaxRate = item.TaxPercentage,
                 HSNCode = item.HSNCode ?? stock.HSNCode,
@@ -807,7 +801,7 @@ public static class PurchaseEndpoints
                 CompanyId = invoice.CompanyId,
                 StoreGroupId = storeGroupId,
                 StoreId = storeId
-            });
+            }, cancellationToken);
 
             returnedQuantity += requestedQuantity;
             taxableAmount += lineTaxable;
@@ -992,6 +986,7 @@ public static class PurchaseEndpoints
         DocumentNumberService documentNumbers,
         AccountingPostingService accounting,
         GstinLookupService gstinLookup,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.VendorName))
@@ -1112,8 +1107,8 @@ public static class PurchaseEndpoints
                     Barcode = barcode,
                     Unit = unit,
                     HSNCode = hsnCode,
-                    PurchaseQty = requestItem.Quantity,
-                    CostPrice = requestItem.CostPrice,
+                    PurchaseQty = 0,
+                    CostPrice = 0,
                     MRP = requestItem.Mrp,
                     TaxRate = tax.CompositeRate,
                     TaxType = tax.TaxType,
@@ -1127,8 +1122,6 @@ public static class PurchaseEndpoints
             }
             else
             {
-                stock.PurchaseQty += requestItem.Quantity;
-                stock.CostPrice = requestItem.CostPrice;
                 stock.MRP = requestItem.Mrp;
                 stock.TaxRate = tax.CompositeRate;
                 stock.TaxType = tax.TaxType;
@@ -1137,11 +1130,9 @@ public static class PurchaseEndpoints
                 stock.Unit = unit;
             }
 
-            db.StockMovements.Add(new StockMovement
+            await stockLedger.PostAsync(stock, new StockMovement
             {
-                StockId = stock.Id,
-                ProductId = product.Id,
-                Barcode = barcode,
+                Barcode = stock.Barcode,
                 MovementType = "PurchaseIn",
                 QuantityIn = requestItem.Quantity,
                 CostPrice = requestItem.CostPrice,
@@ -1156,7 +1147,7 @@ public static class PurchaseEndpoints
                 CompanyId = request.CompanyId,
                 StoreGroupId = request.StoreGroupId,
                 StoreId = request.StoreId
-            });
+            }, cancellationToken);
 
             product.MRP = requestItem.Mrp;
             product.TaxRate = tax.CompositeRate;
@@ -1408,6 +1399,7 @@ public static class PurchaseEndpoints
         GarmetixDbContext db,
         AccountingPostingService accounting,
         DocumentNumberService numbering,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -1556,15 +1548,13 @@ public static class PurchaseEndpoints
 
             if (stock is not null)
             {
-                stock.PurchaseQty = Math.Max(stock.PurchaseQty - item.BilledQuantity, 0);
-                db.StockMovements.Add(new StockMovement
+                var stockSnapshot = await stockLedger.GetSnapshotAsync(stock, cancellationToken);
+                await stockLedger.PostAsync(stock, new StockMovement
                 {
-                    StockId = stock.Id,
-                    ProductId = stock.ProductId,
                     Barcode = stock.Barcode,
                     MovementType = "PurchaseReturnOut",
                     QuantityOut = item.BilledQuantity,
-                    CostPrice = stock.CostPrice,
+                    CostPrice = stockSnapshot.AverageCost,
                     MRP = stock.MRP,
                     TaxRate = stock.TaxRate,
                     HSNCode = item.HSNCode ?? stock.HSNCode,
@@ -1576,7 +1566,7 @@ public static class PurchaseEndpoints
                     CompanyId = invoice.CompanyId,
                     StoreGroupId = storeGroupId,
                     StoreId = storeId
-                });
+                }, cancellationToken);
                 reversedQuantity += item.BilledQuantity;
             }
         }

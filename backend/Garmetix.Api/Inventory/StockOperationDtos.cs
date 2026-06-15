@@ -84,6 +84,10 @@ public sealed record StockMovementRowDto(
     decimal QuantityOut,
     decimal MRP,
     decimal CostPrice,
+    decimal QuantityAfter,
+    decimal AverageCostAfter,
+    decimal InventoryValueAfter,
+    string ValuationMethod,
     string? SourceNumber,
     string? Remarks);
 
@@ -144,3 +148,24 @@ public sealed record StockOperationItemDto(
     Guid? OutMovementId,
     Guid? InMovementId,
     string? Reason);
+
+public sealed record StockValuationSummaryDto(
+    string ValuationMethod,
+    int StockRows,
+    decimal TotalQuantity,
+    decimal TotalInventoryValue,
+    int ProjectionMismatchCount,
+    IReadOnlyList<StockValuationRowDto> Rows);
+
+public sealed record StockValuationRowDto(
+    Guid StockId,
+    Guid ProductId,
+    string ProductName,
+    string Barcode,
+    string StoreName,
+    decimal LedgerQuantity,
+    decimal ProjectedQuantity,
+    decimal AverageCost,
+    decimal InventoryValue,
+    DateTime? LastMovementAt,
+    string ProjectionStatus);

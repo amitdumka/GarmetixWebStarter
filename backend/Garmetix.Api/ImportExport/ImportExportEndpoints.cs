@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using Garmetix.Api.Accounting;
 using Garmetix.Api.Auth;
+using Garmetix.Api.Inventory;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Accounting;
 using Garmetix.Core.Models.Authentication;
@@ -379,6 +380,7 @@ public static class ImportExportEndpoints
         bool commit,
         GarmetixDbContext db,
         AccountingPostingService accounting,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         if (!Definitions.TryGetValue(module, out var definition))
@@ -440,10 +442,10 @@ public static class ImportExportEndpoints
                 await ImportAccessAsync(db, dataRows, commit, result, cancellationToken);
                 break;
             case "purchase":
-                await ImportPurchaseAsync(db, dataRows, commit, result, accounting, cancellationToken);
+                await ImportPurchaseAsync(db, dataRows, commit, result, accounting, stockLedger, cancellationToken);
                 break;
             case "billing":
-                await ImportBillingAsync(db, dataRows, commit, result, accounting, cancellationToken);
+                await ImportBillingAsync(db, dataRows, commit, result, accounting, stockLedger, cancellationToken);
                 break;
             case "payroll":
                 await ImportPayrollAsync(db, dataRows, commit, result, accounting, cancellationToken);
@@ -647,6 +649,7 @@ public static class ImportExportEndpoints
         bool commit,
         ImportResult result,
         AccountingPostingService accounting,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         var companies = await db.Companies.AsNoTracking().OrderBy(item => item.CreatedAt).ToListAsync(cancellationToken);
@@ -824,12 +827,25 @@ public static class ImportExportEndpoints
                     db.Stocks.Add(stock);
                 }
 
-                stock.PurchaseQty += line.Quantity;
-                stock.CostPrice = line.CostPrice;
                 stock.MRP = line.Mrp;
                 stock.TaxRate = tax.CompositeRate;
                 stock.TaxType = tax.TaxType;
                 stock.TaxId = tax.Id;
+                await stockLedger.PostAsync(stock, new StockMovement
+                {
+                    Barcode = stock.Barcode,
+                    MovementType = "PurchaseImportIn",
+                    QuantityIn = line.Quantity,
+                    CostPrice = line.CostPrice,
+                    MRP = line.Mrp,
+                    TaxRate = tax.CompositeRate,
+                    HSNCode = product.HSNCode,
+                    SourceType = "PurchaseInvoiceImport",
+                    SourceId = invoiceId,
+                    SourceNumber = first.InvoiceNumber,
+                    Remarks = "Imported purchase inward",
+                    OnDate = first.OnDate
+                }, cancellationToken);
 
                 product.MRP = line.Mrp;
                 product.TaxRate = tax.CompositeRate;
@@ -896,6 +912,7 @@ public static class ImportExportEndpoints
         bool commit,
         ImportResult result,
         AccountingPostingService accounting,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         var companies = await db.Companies.AsNoTracking().OrderBy(item => item.CreatedAt).ToListAsync(cancellationToken);
@@ -1004,10 +1021,11 @@ public static class ImportExportEndpoints
                 continue;
             }
 
-            if (stock.CurrentStock < stockNeed.Value)
+            var stockSnapshot = await stockLedger.GetSnapshotAsync(stock, cancellationToken);
+            if (stockSnapshot.Quantity < stockNeed.Value)
             {
                 var line = drafts.First(item => item.StoreId == stockNeed.Key.StoreId && item.Barcode.Equals(stockNeed.Key.Barcode, StringComparison.OrdinalIgnoreCase));
-                result.Errors.Add(new ImportRowError(line.Line, "Quantity", $"Insufficient stock for {line.Barcode}. Available: {stock.CurrentStock}."));
+                result.Errors.Add(new ImportRowError(line.Line, "Quantity", $"Insufficient stock for {line.Barcode}. Available: {stockSnapshot.Quantity}."));
             }
         }
 
@@ -1063,8 +1081,22 @@ public static class ImportExportEndpoints
                     CompanyId = line.CompanyId
                 });
 
-                stock.SoldQty += line.Quantity;
                 stock.SoldValue += lineAmount;
+                await stockLedger.PostAsync(stock, new StockMovement
+                {
+                    Barcode = stock.Barcode,
+                    MovementType = "SaleImportOut",
+                    QuantityOut = line.Quantity,
+                    CostPrice = stock.CostPrice,
+                    MRP = line.Mrp,
+                    TaxRate = stock.TaxRate,
+                    HSNCode = stock.HSNCode ?? product.HSNCode,
+                    SourceType = "SalesInvoiceImport",
+                    SourceId = invoiceId,
+                    SourceNumber = first.InvoiceNumber,
+                    Remarks = "Imported sales invoice",
+                    OnDate = first.OnDate
+                }, cancellationToken);
                 grossMrp += lineMrp;
                 itemDiscount += lineDiscount;
                 taxableAmount += taxable;

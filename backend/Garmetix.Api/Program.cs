@@ -81,6 +81,7 @@ builder.Services.AddScoped<MonthlyAttendanceService>();
 builder.Services.AddScoped<PayrollService>();
 builder.Services.AddScoped<AccountingPostingService>();
 builder.Services.AddScoped<DocumentNumberService>();
+builder.Services.AddScoped<StockLedgerService>();
 builder.Services.AddScoped<ApplicationMessageLogService>();
 builder.Services.AddSingleton<PersistentApplicationLogQueue>();
 builder.Services.AddSingleton<ILoggerProvider, PersistentApplicationLoggerProvider>();

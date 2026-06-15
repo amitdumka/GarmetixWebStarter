@@ -18,10 +18,20 @@ const loading = ref(false)
 const loadError = ref('')
 const movementSearch = ref('')
 const documentSearch = ref('')
+const valuationSearch = ref('')
+const valuationStatusFilter = ref('all')
 const operationTypeFilter = ref('all')
 const posting = ref(false)
 const options = ref<any>({ products: [], stores: [], recentMovements: [] })
 const documents = ref<any[]>([])
+const valuation = ref<any>({
+  valuationMethod: 'WeightedAverage',
+  stockRows: 0,
+  totalQuantity: 0,
+  totalInventoryValue: 0,
+  projectionMismatchCount: 0,
+  rows: []
+})
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const activeTab = ref('adjustment')
@@ -50,16 +60,30 @@ const selectedHasMovement = computed(() => (selectedDocument.value?.items || [])
   .some((item: any) => item.inMovementId || item.outMovementId))
 
 const metrics = computed(() => {
-  const productCount = options.value.products?.length || 0
-  const totalStock = (options.value.products || []).reduce((sum: number, item: any) => sum + Number(item.currentStock || 0), 0)
   const movements = options.value.recentMovements?.length || 0
   return [
-    { label: 'Stock rows', value: productCount, meta: 'Store-wise product stock', icon: 'i-lucide-boxes', color: 'primary' },
-    { label: 'Current stock', value: totalStock, meta: 'Across scoped stores', icon: 'i-lucide-warehouse', color: totalStock > 0 ? 'success' : 'warning' },
-    { label: 'Formal documents', value: documents.value.length, meta: 'Adjustment, transfer and count', icon: 'i-lucide-files', color: 'info' },
-    { label: 'Recent movements', value: movements, meta: 'Latest ledger rows', icon: 'i-lucide-history', color: 'neutral' }
+    { label: 'Ledger quantity', value: Number(valuation.value.totalQuantity || 0).toFixed(2), meta: `${valuation.value.stockRows || 0} stock rows`, icon: 'i-lucide-warehouse', color: 'primary' },
+    { label: 'Inventory value', value: money(Number(valuation.value.totalInventoryValue || 0)), meta: 'Weighted-average cost', icon: 'i-lucide-indian-rupee', color: 'success' },
+    { label: 'Projection checks', value: valuation.value.projectionMismatchCount || 0, meta: 'Rows requiring rebuild', icon: 'i-lucide-scale', color: valuation.value.projectionMismatchCount ? 'warning' : 'success' },
+    { label: 'Recent movements', value: movements, meta: `${documents.value.length} formal documents`, icon: 'i-lucide-history', color: 'neutral' }
   ]
 })
+
+const valuationRows = computed(() => (valuation.value.rows || [])
+  .filter((item: any) => valuationStatusFilter.value === 'all' || item.projectionStatus === valuationStatusFilter.value)
+  .filter((item: any) => {
+    const term = valuationSearch.value.trim().toLowerCase()
+    return !term || [item.productName, item.barcode, item.storeName, item.projectionStatus]
+      .some(value => String(value || '').toLowerCase().includes(term))
+  })
+  .map((item: any) => ({
+    ...item,
+    ledgerQuantityText: Number(item.ledgerQuantity || 0).toFixed(2),
+    projectedQuantityText: Number(item.projectedQuantity || 0).toFixed(2),
+    averageCostText: money(Number(item.averageCost || 0)),
+    inventoryValueText: money(Number(item.inventoryValue || 0)),
+    lastMovementText: item.lastMovementAt ? formatDateTime(item.lastMovementAt) : '-'
+  })))
 
 const documentRows = computed(() => documents.value
   .filter((item: any) => operationTypeFilter.value === 'all' || item.operationType === operationTypeFilter.value)
@@ -86,7 +110,9 @@ const movementRows = computed(() => (options.value.recentMovements || []).map((i
   ...item,
   onDateText: new Date(item.onDate).toLocaleString(),
   qty: Number(item.quantityIn || 0) > 0 ? `+${item.quantityIn}` : `-${item.quantityOut}`,
-  valueText: money(Number(item.mrp || 0) * (Number(item.quantityIn || 0) || Number(item.quantityOut || 0)))
+  balanceText: Number(item.quantityAfter || 0).toFixed(2),
+  averageCostText: money(Number(item.averageCostAfter || 0)),
+  inventoryValueText: money(Number(item.inventoryValueAfter || 0))
 })))
 
 const filteredMovementRows = computed(() => {
@@ -107,8 +133,30 @@ const columns: TableColumn<any>[] = [
   { accessorKey: 'barcode', header: 'Barcode' },
   { accessorKey: 'storeName', header: 'Store' },
   { accessorKey: 'qty', header: 'Qty' },
+  { accessorKey: 'balanceText', header: 'Balance' },
+  { accessorKey: 'averageCostText', header: 'Avg Cost' },
+  { accessorKey: 'inventoryValueText', header: 'Stock Value' },
   { accessorKey: 'sourceNumber', header: 'Reference' },
   { accessorKey: 'remarks', header: 'Remarks' }
+]
+
+const valuationColumns: TableColumn<any>[] = [
+  { accessorKey: 'productName', header: 'Product' },
+  { accessorKey: 'barcode', header: 'Barcode' },
+  { accessorKey: 'storeName', header: 'Store' },
+  { accessorKey: 'ledgerQuantityText', header: 'Ledger Qty' },
+  { accessorKey: 'projectedQuantityText', header: 'Projected Qty' },
+  { accessorKey: 'averageCostText', header: 'Average Cost' },
+  { accessorKey: 'inventoryValueText', header: 'Inventory Value' },
+  { accessorKey: 'lastMovementText', header: 'Last Movement' },
+  {
+    accessorKey: 'projectionStatus',
+    header: 'Projection',
+    cell: ({ row }) => h(UBadge, {
+      color: row.original.projectionStatus === 'Matched' ? 'success' : 'warning',
+      variant: 'subtle'
+    }, () => row.original.projectionStatus)
+  }
 ]
 
 const documentColumns: TableColumn<any>[] = [
@@ -148,16 +196,18 @@ async function refresh() {
   loading.value = true
   loadError.value = ''
   try {
-    const [companyRows, storeRows, optionRows, documentRows] = await Promise.all([
+    const [companyRows, storeRows, optionRows, documentRows, valuationRows] = await Promise.all([
       api.list<any>('companies'),
       api.list<any>('stores'),
       api.get<any>('inventory/stock-operations/options'),
-      api.get<any[]>('inventory/stock-operations/documents?take=150')
+      api.get<any[]>('inventory/stock-operations/documents?take=150'),
+      api.get<any>('inventory/stock-operations/valuation?take=500')
     ])
     companies.value = companyRows
     stores.value = storeRows
     options.value = optionRows
     documents.value = documentRows
+    valuation.value = valuationRows
     await openRouteDocument()
   } catch (error) {
     loadError.value = 'Stock-operation options and movement history could not be loaded. Try again.'
@@ -399,7 +449,7 @@ onMounted(async () => {
         </template>
 
         <UTabs v-model="activeTab" :items="[
-          { label: 'Adjustment', value: 'adjustment', icon: 'i-lucide-plus-minus' },
+          { label: 'Adjustment', value: 'adjustment', icon: 'i-lucide-sliders-horizontal' },
           { label: 'Transfer', value: 'transfer', icon: 'i-lucide-arrow-left-right' },
           { label: 'Physical Count', value: 'count', icon: 'i-lucide-clipboard-check' }
         ]" />
@@ -500,6 +550,45 @@ onMounted(async () => {
           />
         </div>
         <UTable v-if="documentRows.length" :data="documentRows" :columns="documentColumns" :loading="loading" />
+      </UiRegisterPanel>
+
+      <UiRegisterPanel
+        title="Stock Valuation and Ledger Reconciliation"
+        description="Ledger quantity and weighted-average valuation compared with the fast stock projection used by operational screens."
+        :loading="loading"
+        :error="loadError"
+        :empty="!valuationRows.length"
+        empty-title="No stock valuation rows found"
+        empty-description="Stock valuation appears after an opening, purchase, transfer or adjustment movement."
+        empty-icon="i-lucide-scale"
+        @retry="refresh"
+      >
+        <template #actions>
+          <UBadge :color="valuation.projectionMismatchCount ? 'warning' : 'success'" variant="subtle">
+            {{ valuation.projectionMismatchCount || 0 }} mismatches
+          </UBadge>
+          <UBadge color="info" variant="subtle">Weighted Average</UBadge>
+        </template>
+
+        <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_13rem]">
+          <UiCrudToolbar
+            v-model:search="valuationSearch"
+            search-placeholder="Search product, barcode, store or projection status"
+            :loading="loading"
+            refresh-label="Refresh"
+            @refresh="refresh"
+          />
+          <USelect
+            v-model="valuationStatusFilter"
+            :items="[
+              { label: 'All projection rows', value: 'all' },
+              { label: 'Matched', value: 'Matched' },
+              { label: 'Rebuild required', value: 'Rebuild Required' }
+            ]"
+            aria-label="Filter projection status"
+          />
+        </div>
+        <UTable v-if="valuationRows.length" :data="valuationRows" :columns="valuationColumns" :loading="loading" />
       </UiRegisterPanel>
 
       <UiRegisterPanel

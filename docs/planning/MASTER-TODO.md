@@ -323,6 +323,7 @@ Use this file as the running handoff checklist. When a task is completed, mark i
   - [x] Package 4: added immutable item-level ITC reversal, exact GST component rounding, full return-to-stock-to-debit-note-to-journal reconciliation, audit entries, and a visible reconciliation workspace in v4.2.3.
 - [ ] Complete Stage 8D inventory documents and valuation.
   - [x] Package 1: added formal adjustment, transfer, and physical-count documents, item snapshots, movement links, server numbering, QR lookup, and a searchable document register in v4.3.0.
+  - [x] Package 2: made the regular movement ledger authoritative, added weighted-average valuation snapshots, repaired missing import/cancellation movements, added projection reconciliation, and covered valuation rules with tests in v4.3.1.
 - [ ] Complete Stage 8E accounting and payment hardening.
 - [ ] Complete Stage 8F automated tests and deep audit history.
 - [ ] Complete Stage 8G real integrations and production go-live validation.

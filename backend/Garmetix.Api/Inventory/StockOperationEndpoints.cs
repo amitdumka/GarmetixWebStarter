@@ -19,6 +19,7 @@ public static class StockOperationEndpoints
         group.MapGet("/movements", MovementsAsync);
         group.MapGet("/documents", DocumentsAsync);
         group.MapGet("/documents/{id:guid}", DocumentAsync);
+        group.MapGet("/valuation", ValuationAsync);
         group.MapPost("/adjustment", CreateAdjustmentAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/transfer", CreateTransferAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/physical-count", CreatePhysicalCountAsync).RequireAuthorization(GarmetixPolicies.Edit);
@@ -77,6 +78,51 @@ public static class StockOperationEndpoints
         var rowCount = Math.Clamp(take ?? 50, 1, 200);
         return await MovementQuery(context, db, rowCount)
             .ToListAsync(cancellationToken);
+    }
+
+    private static async Task<StockValuationSummaryDto> ValuationAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        StockLedgerService stockLedger,
+        int? take,
+        CancellationToken cancellationToken)
+    {
+        var stocks = await WorkspaceScope.ApplyTo(db.Stocks.AsNoTracking(), context)
+            .Where(item => !item.IsOFB)
+            .Include(item => item.Product)
+            .OrderBy(item => item.Product != null ? item.Product.Name : item.Barcode)
+            .Take(Math.Clamp(take ?? 250, 1, 500))
+            .ToListAsync(cancellationToken);
+        var snapshots = await stockLedger.GetSnapshotsAsync(stocks, cancellationToken);
+        var storeNames = await WorkspaceScope.ApplyTo(db.Stores.AsNoTracking(), context)
+            .ToDictionaryAsync(item => item.Id, item => item.Name, cancellationToken);
+        var rows = stocks.Select(stock =>
+        {
+            var snapshot = snapshots[stock.Id];
+            var projected = stock.PurchaseQty - stock.SoldQty;
+            var matches = Math.Abs(snapshot.Quantity - projected) <= 0.01m
+                && Math.Abs(snapshot.AverageCost - stock.CostPrice) <= 0.01m;
+            return new StockValuationRowDto(
+                stock.Id,
+                stock.ProductId,
+                stock.Product?.Name ?? stock.Barcode,
+                stock.Barcode,
+                storeNames.GetValueOrDefault(stock.StoreId, "Store"),
+                snapshot.Quantity,
+                projected,
+                snapshot.AverageCost,
+                snapshot.InventoryValue,
+                snapshot.LastMovementAt,
+                matches ? "Matched" : "Rebuild Required");
+        }).ToList();
+
+        return new StockValuationSummaryDto(
+            "WeightedAverage",
+            rows.Count,
+            rows.Sum(item => item.LedgerQuantity),
+            rows.Sum(item => item.InventoryValue),
+            rows.Count(item => item.ProjectionStatus != "Matched"),
+            rows);
     }
 
     private static async Task<IReadOnlyList<StockOperationDocumentRowDto>> DocumentsAsync(
@@ -192,6 +238,10 @@ public static class StockOperationEndpoints
                 item.QuantityOut,
                 item.MRP,
                 item.CostPrice,
+                item.QuantityAfter,
+                item.AverageCostAfter,
+                item.InventoryValueAfter,
+                item.ValuationMethod,
                 item.SourceNumber,
                 item.Remarks));
     }
@@ -201,6 +251,7 @@ public static class StockOperationEndpoints
         HttpContext context,
         GarmetixDbContext db,
         DocumentNumberService documentNumbers,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         if (request.StockId == Guid.Empty)
@@ -232,7 +283,8 @@ public static class StockOperationEndpoints
         StockQuantityChange change;
         try
         {
-            change = StockOperationCalculator.Adjustment(stock.CurrentStock, request.Quantity, increase);
+            var snapshot = await stockLedger.GetSnapshotAsync(stock, cancellationToken);
+            change = StockOperationCalculator.Adjustment(snapshot.Quantity, request.Quantity, increase);
         }
         catch (ArgumentException exception)
         {
@@ -258,23 +310,14 @@ public static class StockOperationEndpoints
             reason);
         db.StockOperationDocuments.Add(document);
 
-        if (increase)
-        {
-            stock.PurchaseQty += request.Quantity;
-        }
-        else
-        {
-            stock.SoldQty += request.Quantity;
-        }
-
-        var movement = AddMovement(
-            db,
+        var movement = CreateMovement(
             stock,
             increase ? "StockAdjustmentIn" : "StockAdjustmentOut",
             change.QuantityIn,
             change.QuantityOut,
             document,
             reason);
+        var posting = await stockLedger.PostAsync(stock, movement, cancellationToken);
         db.StockOperationItems.Add(CreateItem(
             document,
             stock,
@@ -282,9 +325,14 @@ public static class StockOperationEndpoints
             null,
             stock.StoreId,
             null,
-            change.BeforeQuantity,
+            posting.Before.Quantity,
             null,
-            change,
+            new StockQuantityChange(
+                posting.Before.Quantity,
+                change.QuantityIn,
+                change.QuantityOut,
+                posting.After.Quantity,
+                posting.After.Quantity - posting.Before.Quantity),
             null,
             null,
             increase ? null : movement.Id,
@@ -311,6 +359,7 @@ public static class StockOperationEndpoints
         HttpContext context,
         GarmetixDbContext db,
         DocumentNumberService documentNumbers,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         if (request.StockId == Guid.Empty)
@@ -335,7 +384,8 @@ public static class StockOperationEndpoints
         StockQuantityChange change;
         try
         {
-            change = StockOperationCalculator.PhysicalCount(stock.CurrentStock, request.CountedQuantity);
+            var snapshot = await stockLedger.GetSnapshotAsync(stock, cancellationToken);
+            change = StockOperationCalculator.PhysicalCount(snapshot.Quantity, request.CountedQuantity);
         }
         catch (ArgumentException exception)
         {
@@ -362,26 +412,18 @@ public static class StockOperationEndpoints
         document.Status = change.Difference == 0 ? "Verified" : "Posted";
         db.StockOperationDocuments.Add(document);
 
-        if (change.Difference > 0)
-        {
-            stock.PurchaseQty += change.Difference;
-        }
-        else if (change.Difference < 0)
-        {
-            stock.SoldQty += Math.Abs(change.Difference);
-        }
-
         StockMovement? movement = null;
+        StockLedgerPosting? posting = null;
         if (change.Difference != 0)
         {
-            movement = AddMovement(
-                db,
+            movement = CreateMovement(
                 stock,
                 change.Difference > 0 ? "PhysicalCountGain" : "PhysicalCountLoss",
                 change.QuantityIn,
                 change.QuantityOut,
                 document,
                 reason);
+            posting = await stockLedger.PostAsync(stock, movement, cancellationToken);
         }
 
         db.StockOperationItems.Add(CreateItem(
@@ -393,7 +435,14 @@ public static class StockOperationEndpoints
             null,
             change.BeforeQuantity,
             request.CountedQuantity,
-            change,
+            posting is null
+                ? change
+                : new StockQuantityChange(
+                    posting.Before.Quantity,
+                    change.QuantityIn,
+                    change.QuantityOut,
+                    posting.After.Quantity,
+                    posting.After.Quantity - posting.Before.Quantity),
             null,
             null,
             change.Difference < 0 ? movement?.Id : null,
@@ -420,6 +469,7 @@ public static class StockOperationEndpoints
         HttpContext context,
         GarmetixDbContext db,
         DocumentNumberService documentNumbers,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         if (request.FromStockId == Guid.Empty || request.ToStoreId == Guid.Empty)
@@ -459,7 +509,8 @@ public static class StockOperationEndpoints
         StockQuantityChange sourceChange;
         try
         {
-            sourceChange = StockOperationCalculator.Transfer(fromStock.CurrentStock, request.Quantity);
+            var snapshot = await stockLedger.GetSnapshotAsync(fromStock, cancellationToken);
+            sourceChange = StockOperationCalculator.Transfer(snapshot.Quantity, request.Quantity);
         }
         catch (ArgumentException exception)
         {
@@ -503,7 +554,8 @@ public static class StockOperationEndpoints
             db.Stocks.Add(toStock);
         }
 
-        var destinationQuantityBefore = toStock.CurrentStock;
+        var destinationSnapshot = await stockLedger.GetSnapshotAsync(toStock, cancellationToken);
+        var destinationQuantityBefore = destinationSnapshot.Quantity;
         var onDate = DateTime.Now;
         var operationNumber = await documentNumbers.NextStockTransferAsync(fromStock.CompanyId, fromStock.StoreGroupId, fromStock.StoreId, onDate, cancellationToken);
         var reason = Clean(request.Reason) ?? $"Transfer to {toStore.Name}";
@@ -523,11 +575,11 @@ public static class StockOperationEndpoints
             reason);
         db.StockOperationDocuments.Add(document);
 
-        fromStock.SoldQty += request.Quantity;
-        toStock.PurchaseQty += request.Quantity;
-
-        var outMovement = AddMovement(db, fromStock, "StockTransferOut", 0, request.Quantity, document, reason);
-        var inMovement = AddMovement(db, toStock, "StockTransferIn", request.Quantity, 0, document, $"Transfer from {fromStoreName}");
+        var outMovement = CreateMovement(fromStock, "StockTransferOut", 0, request.Quantity, document, reason);
+        var sourcePosting = await stockLedger.PostAsync(fromStock, outMovement, cancellationToken);
+        var inMovement = CreateMovement(toStock, "StockTransferIn", request.Quantity, 0, document, $"Transfer from {fromStoreName}");
+        inMovement.CostPrice = sourcePosting.Before.AverageCost;
+        var destinationPosting = await stockLedger.PostAsync(toStock, inMovement, cancellationToken);
         db.StockOperationItems.Add(CreateItem(
             document,
             fromStock,
@@ -535,11 +587,16 @@ public static class StockOperationEndpoints
             toStock.Id,
             fromStock.StoreId,
             toStock.StoreId,
-            sourceChange.BeforeQuantity,
+            sourcePosting.Before.Quantity,
             null,
-            sourceChange,
+            new StockQuantityChange(
+                sourcePosting.Before.Quantity,
+                0,
+                request.Quantity,
+                sourcePosting.After.Quantity,
+                -request.Quantity),
             destinationQuantityBefore,
-            toStock.CurrentStock,
+            destinationPosting.After.Quantity,
             outMovement.Id,
             inMovement.Id,
             reason));
@@ -650,8 +707,7 @@ public static class StockOperationEndpoints
         };
     }
 
-    private static StockMovement AddMovement(
-        GarmetixDbContext db,
+    private static StockMovement CreateMovement(
         Stock stock,
         string movementType,
         decimal quantityIn,
@@ -680,7 +736,6 @@ public static class StockOperationEndpoints
             StoreGroupId = stock.StoreGroupId,
             StoreId = stock.StoreId
         };
-        db.StockMovements.Add(movement);
         return movement;
     }
 

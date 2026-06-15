@@ -2,6 +2,7 @@ using Garmetix.Api.Accounting;
 using Garmetix.Api.Auth;
 using Garmetix.Api.Commercial;
 using Garmetix.Api.Gstin;
+using Garmetix.Api.Inventory;
 using Garmetix.Api.Numbering;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
@@ -418,6 +419,7 @@ public static class BillingEndpoints
         DocumentNumberService documentNumbers,
         AccountingPostingService accounting,
         GstinLookupService gstinLookup,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         if (request.Items.Count == 0)
@@ -474,9 +476,10 @@ public static class BillingEndpoints
                 return Results.BadRequest(new { message = $"Stock not found for barcode {requestItem.Barcode}." });
             }
 
-            if (stock.CurrentStock < requestItem.Quantity)
+            var stockSnapshot = await stockLedger.GetSnapshotAsync(stock, cancellationToken);
+            if (stockSnapshot.Quantity < requestItem.Quantity)
             {
-                return Results.BadRequest(new { message = $"Insufficient stock for {requestItem.Barcode}. Available: {stock.CurrentStock}." });
+                return Results.BadRequest(new { message = $"Insufficient stock for {requestItem.Barcode}. Available: {stockSnapshot.Quantity}." });
             }
 
             var lineMrp = requestItem.Mrp * requestItem.Quantity;
@@ -511,16 +514,13 @@ public static class BillingEndpoints
                 CompanyId = request.CompanyId
             });
 
-            stock.SoldQty += requestItem.Quantity;
             stock.SoldValue += lineAmount;
-            db.StockMovements.Add(new StockMovement
+            await stockLedger.PostAsync(stock, new StockMovement
             {
-                StockId = stock.Id,
-                ProductId = stock.ProductId,
                 Barcode = stock.Barcode,
                 MovementType = "SaleOut",
                 QuantityOut = requestItem.Quantity,
-                CostPrice = stock.CostPrice,
+                CostPrice = stockSnapshot.AverageCost,
                 MRP = requestItem.Mrp,
                 TaxRate = stock.TaxRate,
                 HSNCode = stock.HSNCode ?? stock.Product?.HSNCode,
@@ -532,7 +532,7 @@ public static class BillingEndpoints
                 CompanyId = request.CompanyId,
                 StoreGroupId = request.StoreGroupId,
                 StoreId = request.StoreId
-            });
+            }, cancellationToken);
 
             grossMrp += lineMrp;
             itemDiscount += lineDiscount;
@@ -665,6 +665,7 @@ public static class BillingEndpoints
         HttpContext context,
         GarmetixDbContext db,
         AccountingPostingService accounting,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -712,8 +713,23 @@ public static class BillingEndpoints
                 continue;
             }
 
-            stock.SoldQty = Math.Max(0, stock.SoldQty - item.BilledQuantity);
             stock.SoldValue = Math.Max(0, stock.SoldValue - item.Amount);
+            var snapshot = await stockLedger.GetSnapshotAsync(stock, cancellationToken);
+            await stockLedger.PostAsync(stock, new StockMovement
+            {
+                Barcode = stock.Barcode,
+                MovementType = "SalesCancellationIn",
+                QuantityIn = item.BilledQuantity,
+                CostPrice = snapshot.AverageCost,
+                MRP = item.MRP,
+                TaxRate = item.TaxPercentage,
+                HSNCode = item.HSNCode ?? stock.HSNCode,
+                SourceType = "SalesInvoiceCancellation",
+                SourceId = invoice.Id,
+                SourceNumber = invoice.InvoiceNumber,
+                Remarks = string.IsNullOrWhiteSpace(request.Reason) ? "Sales invoice cancellation" : request.Reason,
+                OnDate = DateTime.Now
+            }, cancellationToken);
             reversedQuantity += item.BilledQuantity;
             reversedAmount += item.Amount;
         }
@@ -749,6 +765,7 @@ public static class BillingEndpoints
         GarmetixDbContext db,
         DocumentNumberService documentNumbers,
         AccountingPostingService accounting,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         if (request.Items.Count == 0)
@@ -773,6 +790,7 @@ public static class BillingEndpoints
             db,
             documentNumbers,
             accounting,
+            stockLedger,
             cancellationToken);
 
         if (!result.Success)
@@ -804,6 +822,7 @@ public static class BillingEndpoints
         GarmetixDbContext db,
         DocumentNumberService documentNumbers,
         AccountingPostingService accounting,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         if (request.ReturnItems.Count == 0)
@@ -838,6 +857,7 @@ public static class BillingEndpoints
             db,
             documentNumbers,
             accounting,
+            stockLedger,
             cancellationToken);
 
         if (!returnResult.Success)
@@ -880,9 +900,10 @@ public static class BillingEndpoints
                 return Results.BadRequest(new { message = $"Stock not found for replacement barcode {requestItem.Barcode}." });
             }
 
-            if (stock.CurrentStock < requestItem.Quantity)
+            var stockSnapshot = await stockLedger.GetSnapshotAsync(stock, cancellationToken);
+            if (stockSnapshot.Quantity < requestItem.Quantity)
             {
-                return Results.BadRequest(new { message = $"Insufficient replacement stock for {requestItem.Barcode}. Available: {stock.CurrentStock}." });
+                return Results.BadRequest(new { message = $"Insufficient replacement stock for {requestItem.Barcode}. Available: {stockSnapshot.Quantity}." });
             }
 
             var lineMrp = requestItem.Mrp * requestItem.Quantity;
@@ -917,16 +938,13 @@ public static class BillingEndpoints
                 CompanyId = original.CompanyId
             });
 
-            stock.SoldQty += requestItem.Quantity;
             stock.SoldValue += lineAmount;
-            db.StockMovements.Add(new StockMovement
+            await stockLedger.PostAsync(stock, new StockMovement
             {
-                StockId = stock.Id,
-                ProductId = stock.ProductId,
                 Barcode = stock.Barcode,
                 MovementType = "ExchangeSaleOut",
                 QuantityOut = requestItem.Quantity,
-                CostPrice = stock.CostPrice,
+                CostPrice = stockSnapshot.AverageCost,
                 MRP = requestItem.Mrp,
                 TaxRate = stock.TaxRate,
                 HSNCode = stock.HSNCode ?? stock.Product?.HSNCode,
@@ -938,7 +956,7 @@ public static class BillingEndpoints
                 CompanyId = original.CompanyId,
                 StoreGroupId = storeGroupId,
                 StoreId = original.StoreId
-            });
+            }, cancellationToken);
             grossMrp += lineMrp;
             itemDiscount += lineDiscount;
             taxableAmount += taxable;
@@ -1051,6 +1069,7 @@ public static class BillingEndpoints
         GarmetixDbContext db,
         DocumentNumberService documentNumbers,
         AccountingPostingService accounting,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         var original = await WorkspaceScope.ApplyTo(db.SalesInvoices, context)
@@ -1167,16 +1186,14 @@ public static class BillingEndpoints
                 cancellationToken);
             if (stock is not null)
             {
-                stock.SoldQty = Math.Max(0, stock.SoldQty - requestItem.Quantity);
                 stock.SoldValue = Math.Max(0, stock.SoldValue - lineAmount);
-                db.StockMovements.Add(new StockMovement
+                var stockSnapshot = await stockLedger.GetSnapshotAsync(stock, cancellationToken);
+                await stockLedger.PostAsync(stock, new StockMovement
                 {
-                    StockId = stock.Id,
-                    ProductId = stock.ProductId,
                     Barcode = stock.Barcode,
                     MovementType = "SalesReturnIn",
                     QuantityIn = requestItem.Quantity,
-                    CostPrice = stock.CostPrice,
+                    CostPrice = stockSnapshot.AverageCost,
                     MRP = originalItem.MRP,
                     TaxRate = originalItem.TaxPercentage,
                     HSNCode = originalItem.HSNCode ?? stock.HSNCode,
@@ -1188,7 +1205,7 @@ public static class BillingEndpoints
                     CompanyId = original.CompanyId,
                     StoreGroupId = storeGroupId,
                     StoreId = original.StoreId
-                });
+                }, cancellationToken);
             }
 
             grossMrp += lineMrp;
