@@ -54,6 +54,7 @@ This folder is the canonical home for project plans, implementation notes, valid
 - [Stage 8D Package 5 / v4.3.4 notes](stages/stage-8/Stage8D-Package5-Concurrency-v4.3.4-Notes.md)
 - [Stage 8D Package 5 / v4.3.4 validation](stages/stage-8/Stage8D-Package5-Concurrency-v4.3.4-Validation.md)
 - [Stage 8D Priority Patch / v4.3.5 sales invoice notes](stages/stage-8/Stage8D-PriorityPatch-SalesInvoice-v4.3.5-Notes.md)
+- [Stage 8E Package 1 / v4.3.6 cash voucher conversion notes](stages/stage-8/Stage8E-Package1-CashVoucherConversion-v4.3.6-Notes.md)
 - [June 15 operational TODO reconciliation](planning/OPERATIONAL-TODO-2026-06-15.md)
 
 ## Categories

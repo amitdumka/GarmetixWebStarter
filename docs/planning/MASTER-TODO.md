@@ -38,6 +38,15 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Preserve selected HR attendance, employee, bank, cheque, ledger and account dates without UTC previous-day conversion.
 - [x] Replace the HR empty-value store option with an explicit all-stores sentinel.
 
+## Cash Voucher Conversion Audit - 2026-06-16
+
+- [x] Restrict Off Book/on-book cash voucher conversion to Owner and Admin.
+- [x] Allow only cash payment, receipt, and expense accounting vouchers to move Off Book.
+- [x] Remove journal, bank statement, bank transaction, and cheque postings when a regular voucher moves Off Book.
+- [x] Keep converted source records as hidden audit rows instead of duplicating or destroying their history.
+- [x] Store immutable conversion direction, document numbers, amount, party, reason, operator, and timestamp.
+- [x] Block edit/delete of converted documents and show conversion history in the Cash Voucher workspace.
+
 ## Reports and Data Operations UI Hardening - 2026-06-14
 
 - [x] Standardize Reports Center, GST Reports, Import/Export, Audit Trail, and Message Logs with shared retryable register states.

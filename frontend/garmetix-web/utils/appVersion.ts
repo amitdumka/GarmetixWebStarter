@@ -1,10 +1,13 @@
-export const APP_VERSION = '4.3.5'
-export const APP_STAGE = 'Stage 8D Priority Patch'
-export const APP_RELEASE_NAME = 'Sales Invoice Stability'
+export const APP_VERSION = '4.3.6'
+export const APP_STAGE = 'Stage 8E Package 1'
+export const APP_RELEASE_NAME = 'Cash Voucher Conversion Audit'
 export const APP_BUILD_DATE = '2026-06-16'
-export const APP_BUILD_CODE = 'GARMETIX-8D-20260616-4350'
+export const APP_BUILD_CODE = 'GARMETIX-8E-20260616-4360'
 
 export const APP_HIGHLIGHTS = [
+  'Owner and Admin users can move eligible cash records between Off Book Cash Vouchers and regular accounting vouchers without duplicating the amount.',
+  'Every conversion retains source and destination numbers, direction, amount, reason, operator and timestamp in an immutable audit history.',
+  'Moving a regular cash voucher Off Book removes its journal postings and preserves the original source as an audit-only record.',
   'Sales Invoice creation now uses a stable full page with draft recovery, mobile customer lookup, contextual payments, rounded totals and automatic print after save.',
   'Billing create, cancellation, return and exchange transactions now run through the PostgreSQL retry execution strategy.',
   'B2B interstate GST is derived from supplier and customer GSTIN state codes, with IGST applied to interstate GST supplies.',

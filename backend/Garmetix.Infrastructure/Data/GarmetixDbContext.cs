@@ -82,6 +82,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<JournalLine> JournalLines => Set<JournalLine>();
     public DbSet<Voucher> Vouchers => Set<Voucher>();
     public DbSet<CashVoucher> CashVouchers => Set<CashVoucher>();
+    public DbSet<CashVoucherConversion> CashVoucherConversions => Set<CashVoucherConversion>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<Party> Parties => Set<Party>();
     public DbSet<PettyCashSheet> PettyCashSheets => Set<PettyCashSheet>();
@@ -119,6 +120,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<VoucherBase>().UseTpcMappingStrategy();
         modelBuilder.Entity<Voucher>().ToTable("Vouchers");
         modelBuilder.Entity<CashVoucher>().ToTable("CashVouchers");
+        modelBuilder.Entity<CashVoucherConversion>().ToTable("CashVoucherConversions");
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
@@ -208,6 +210,8 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<LoyaltyPointLedger>().HasIndex(entry => new { entry.CompanyId, entry.CustomerId, entry.OnDate });
         modelBuilder.Entity<Voucher>().HasIndex(voucher => new { voucher.CompanyId, voucher.StoreId, voucher.VoucherNumber }).IsUnique(false);
         modelBuilder.Entity<CashVoucher>().HasIndex(voucher => new { voucher.CompanyId, voucher.StoreId, voucher.VoucherNumber }).IsUnique(false);
+        modelBuilder.Entity<CashVoucherConversion>().HasIndex(item => new { item.CompanyId, item.StoreId, item.ConvertedAt });
+        modelBuilder.Entity<CashVoucherConversion>().HasIndex(item => new { item.CashVoucherId, item.VoucherId });
         modelBuilder.Entity<JournalEntry>().HasIndex(entry => new { entry.CompanyId, entry.StoreId, entry.EntryNumber }).IsUnique(false);
         modelBuilder.Entity<JournalLine>().HasIndex(line => new { line.CompanyId, line.LedgerId, line.JournalEntryId });
         modelBuilder.Entity<BankTransaction>().HasIndex(transaction => new { transaction.CompanyId, transaction.BankAccountId, transaction.OnDate });

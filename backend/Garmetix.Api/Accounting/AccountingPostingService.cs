@@ -322,11 +322,21 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         });
     }
 
+    public Task<AccountingPostResult> SaveVoucherInCurrentTransactionAsync(
+        VoucherSaveRequest request,
+        CancellationToken cancellationToken)
+        => SaveVoucherCoreAsync(request, cancellationToken);
+
     private async Task<AccountingPostResult> SaveVoucherCoreAsync(
         VoucherSaveRequest request,
         CancellationToken cancellationToken)
     {
         ValidateVoucher(request);
+        if (request.Id.HasValue
+            && await db.CashVoucherConversions.AnyAsync(item => item.VoucherId == request.Id.Value, cancellationToken))
+        {
+            throw new InvalidOperationException("Converted vouchers are immutable. Create a corrective voucher instead.");
+        }
 
         var employeeExists = await db.Employees.AnyAsync(item => item.Id == request.EmployeeId, cancellationToken);
         if (!employeeExists)

@@ -4,10 +4,10 @@ Updated: 2026-06-16
 
 ## Current Baseline
 
-- Version: 4.3.5
-- Stage: Stage 8D Priority Patch
-- Release: Sales Invoice Stability
-- Build code: `GARMETIX-8D-20260616-4350`
+- Version: 4.3.6
+- Stage: Stage 8E Package 1
+- Release: Cash Voucher Conversion Audit
+- Build code: `GARMETIX-8E-20260616-4360`
 - Branch: `Version3.0`
 - Pre-Stage 8 baseline commit: `470ba2e`
 
@@ -100,6 +100,9 @@ Stage 7M menu names, route compatibility, permission-aware navigation, Off Book 
 
 ## Stage 8E - Accounting and Payment Hardening
 
+- [x] Add Owner/Admin-only Off Book Cash Voucher conversion for eligible cash accounting vouchers in v4.3.6.
+- [x] Preserve immutable conversion reason, direction, operator, timestamp, amount, and source/destination document snapshots in v4.3.6.
+- [x] Remove regular accounting postings when moving a cash voucher Off Book and retain the source as an audit-only record in v4.3.6.
 - [ ] Post separate ledger lines for each split payment row.
 - [ ] Persist complete card, UPI, bank, cheque, account, and reference details.
 - [ ] Prevent duplicate application of advances, credit notes, loyalty value, and store credit.

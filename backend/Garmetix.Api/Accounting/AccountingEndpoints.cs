@@ -387,6 +387,11 @@ public static class AccountingEndpoints
             return Results.NotFound();
         }
 
+        if (await db.CashVoucherConversions.AnyAsync(item => item.VoucherId == id, cancellationToken))
+        {
+            return Results.Conflict(new { message = "Converted vouchers are retained for audit and cannot be deleted." });
+        }
+
         var journals = await db.JournalEntries
             .Include(entry => entry.Lines)
             .Where(entry => entry.SourceType == "Voucher" && entry.SourceId == id)

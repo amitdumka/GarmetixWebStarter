@@ -18,8 +18,8 @@ Posted invoices remain correction-controlled through cancel, return and exchange
 
 ## Stage 8E - Accounting and Payment Hardening
 
-- Add owner/admin-only conversion between Off Book Cash Voucher and eligible on-book cash receipt/payment voucher.
-- Preserve immutable source and destination links, conversion reason, operator, timestamp and approval audit.
+- [x] Add owner/admin-only conversion between Off Book Cash Voucher and eligible on-book cash receipt/payment/expense voucher in v4.3.6.
+- [x] Preserve immutable source and destination links, conversion reason, operator, timestamp and approval audit in v4.3.6.
 - Improve Customer, Loyalty and Commercial Summary naming and add customer/vendor due and payment summaries.
 - Complete per-payment ledger posting, bank/card/UPI/cheque details, duplicate-adjustment protection and reconciliation.
 

@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.3.5";
-    public const string Stage = "Stage 8D Priority Patch";
-    public const string ReleaseName = "Sales Invoice Stability";
+    public const string Version = "4.3.6";
+    public const string Stage = "Stage 8E Package 1";
+    public const string ReleaseName = "Cash Voucher Conversion Audit";
     public const string BuildDate = "2026-06-16";
-    public const string BuildCode = "GARMETIX-8D-20260616-4350";
+    public const string BuildCode = "GARMETIX-8E-20260616-4360";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,9 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Owner and Admin users can move eligible cash records between Off Book Cash Vouchers and regular accounting vouchers without duplicating the amount.",
+        "Every conversion retains source and destination numbers, direction, amount, reason, operator, and timestamp in an immutable audit history.",
+        "Moving a regular cash voucher Off Book removes its journal postings and preserves the original source as an audit-only record.",
         "Sales Invoice creation now uses a stable full page with draft recovery, mobile customer lookup, contextual payments, rounded totals, and automatic print after save.",
         "Billing create, cancellation, return, and exchange transactions now run through the configured PostgreSQL retry execution strategy.",
         "B2B interstate GST is derived from supplier and customer GSTIN state codes, with IGST applied to interstate GST supplies.",
