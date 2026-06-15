@@ -39,14 +39,14 @@ public sealed class DocumentNumberService(GarmetixDbContext db)
     public Task<string> NextVendorRefundVoucherAsync(Guid companyId, Guid storeGroupId, Guid storeId, DateTime onDate, CancellationToken cancellationToken)
         => NextStoreMonthlyAsync(companyId, storeGroupId, storeId, "VendorRefundVoucher", "VREF", onDate, cancellationToken);
 
-    public Task<string> NextStockAdjustmentAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
-        => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "StockAdjustment", "ADJ", DateTime.Today, cancellationToken);
+    public Task<string> NextStockAdjustmentAsync(Guid companyId, Guid storeGroupId, Guid storeId, DateTime onDate, CancellationToken cancellationToken)
+        => NextStoreMonthlyAsync(companyId, storeGroupId, storeId, "StockAdjustment", "ADJ", onDate, cancellationToken);
 
-    public Task<string> NextStockTransferAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
-        => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "StockTransfer", "ST", DateTime.Today, cancellationToken);
+    public Task<string> NextStockTransferAsync(Guid companyId, Guid storeGroupId, Guid storeId, DateTime onDate, CancellationToken cancellationToken)
+        => NextStoreMonthlyAsync(companyId, storeGroupId, storeId, "StockTransfer", "ST", onDate, cancellationToken);
 
-    public Task<string> NextPhysicalStockCountAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
-        => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "PhysicalStockCount", "PHY", DateTime.Today, cancellationToken);
+    public Task<string> NextPhysicalStockCountAsync(Guid companyId, Guid storeGroupId, Guid storeId, DateTime onDate, CancellationToken cancellationToken)
+        => NextStoreMonthlyAsync(companyId, storeGroupId, storeId, "PhysicalStockCount", "PHY", onDate, cancellationToken);
 
     public Task<string> NextNonGstPurchaseAsync(Guid companyId, Guid storeGroupId, Guid storeId, DateTime onDate, CancellationToken cancellationToken)
         => NextStoreMonthlyAsync(companyId, storeGroupId, storeId, "NonGstPurchase", "NGP", onDate, cancellationToken);

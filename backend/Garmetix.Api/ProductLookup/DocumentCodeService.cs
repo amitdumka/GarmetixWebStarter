@@ -16,6 +16,7 @@ public static class DocumentCodeService
     public const string Payslip = "PAYSLIP";
     public const string SalaryPayment = "SALARYPAY";
     public const string NonGstGoods = "OFFBOOKGOODS";
+    public const string StockOperation = "STOCKOPERATION";
 
     public static string Create(string documentType, Guid id)
         => $"GMX:{NormalizeType(documentType)}:{id:N}";

@@ -1,10 +1,14 @@
-export const APP_VERSION = '4.2.3'
-export const APP_STAGE = 'Stage 8C'
-export const APP_RELEASE_NAME = 'Purchase Return ITC Reconciliation'
+export const APP_VERSION = '4.3.0'
+export const APP_STAGE = 'Stage 8D'
+export const APP_RELEASE_NAME = 'Formal Stock Operation Documents'
 export const APP_BUILD_DATE = '2026-06-15'
-export const APP_BUILD_CODE = 'GARMETIX-8C-20260615-4230'
+export const APP_BUILD_CODE = 'GARMETIX-8D-20260615-4300'
 
 export const APP_HIGHLIGHTS = [
+  'Stock adjustments, transfers and physical counts now create formal header and item documents with immutable product, store, quantity and value snapshots.',
+  'Every posted stock-operation document links its movement-ledger rows and uses server-owned StoreCode/YYYYMM/ADJ, ST or PHY numbering.',
+  'The Stock Operations workspace now includes a searchable document register, operation filter, wide audit detail and direct QR download.',
+  'Universal document scanning now opens permitted stock-operation details by stable QR token or document number.',
   'Purchase returns now persist an immutable ITC reversal row for every returned item, including HSN and exact CGST, SGST and IGST values.',
   'Purchase return details now reconcile the return header, item snapshots, stock movement, debit note, Input GST journal and settlement state.',
   'Full purchase cancellations use the same item-level ITC reversal and reconciliation links as partial returns.',

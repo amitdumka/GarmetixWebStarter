@@ -161,6 +161,18 @@ public static class ProductLookupEndpoints
             }
         }
 
+        if (normalized.Contains("/ADJ/") || normalized.Contains("/ST/") || normalized.Contains("/PHY/")
+            || normalized.StartsWith("ADJ-") || normalized.StartsWith("ST-") || normalized.StartsWith("PHY-"))
+        {
+            var document = await WorkspaceScope.ApplyTo(db.StockOperationDocuments.AsNoTracking(), context)
+                .OrderByDescending(item => item.OnDate)
+                .FirstOrDefaultAsync(item => item.DocumentNumber.ToUpper() == normalized || item.DocumentNumber.ToUpper().EndsWith(idPart), cancellationToken);
+            if (document is not null)
+            {
+                return Results.Ok(StockOperationResult(normalized, document));
+            }
+        }
+
         var note = await WorkspaceScope.ApplyTo(db.CommercialNotes.AsNoTracking(), context)
             .OrderByDescending(item => item.OnDate)
             .FirstOrDefaultAsync(item => item.NoteNumber.ToUpper() == normalized || item.NoteNumber.ToUpper().EndsWith(idPart), cancellationToken);
@@ -272,8 +284,28 @@ public static class ProductLookupEndpoints
             return entity is null ? null : NonGstResult(code, entity);
         }
 
+        if (documentType == DocumentCodeService.StockOperation)
+        {
+            var entity = await WorkspaceScope.ApplyTo(db.StockOperationDocuments.AsNoTracking(), context)
+                .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+            return entity is null ? null : StockOperationResult(code, entity);
+        }
+
         return null;
     }
+
+    private static ScanLookupResult StockOperationResult(string code, Garmetix.Core.Models.Inventory.StockOperationDocument document)
+        => new(
+            code,
+            document.OperationType,
+            document.Id,
+            document.DocumentNumber,
+            document.OnDate,
+            document.ToStoreName is null
+                ? document.FromStoreName ?? "Stock Operation"
+                : $"{document.FromStoreName} to {document.ToStoreName}",
+            document.TotalCostValue,
+            $"/stock-operations?documentId={document.Id}");
 
     private static ScanLookupResult NonGstResult(string code, Garmetix.Core.Models.Inventory.NonGstGoodsDocument document)
         => new(

@@ -17,6 +17,8 @@ public static class StockOperationEndpoints
 
         group.MapGet("/options", OptionsAsync);
         group.MapGet("/movements", MovementsAsync);
+        group.MapGet("/documents", DocumentsAsync);
+        group.MapGet("/documents/{id:guid}", DocumentAsync);
         group.MapPost("/adjustment", CreateAdjustmentAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/transfer", CreateTransferAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/physical-count", CreatePhysicalCountAsync).RequireAuthorization(GarmetixPolicies.Edit);
@@ -75,6 +77,95 @@ public static class StockOperationEndpoints
         var rowCount = Math.Clamp(take ?? 50, 1, 200);
         return await MovementQuery(context, db, rowCount)
             .ToListAsync(cancellationToken);
+    }
+
+    private static async Task<IReadOnlyList<StockOperationDocumentRowDto>> DocumentsAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        int? take,
+        CancellationToken cancellationToken)
+    {
+        var rowCount = Math.Clamp(take ?? 100, 1, 250);
+        return await WorkspaceScope.ApplyTo(db.StockOperationDocuments.AsNoTracking(), context)
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .Take(rowCount)
+            .Select(item => new StockOperationDocumentRowDto(
+                item.Id,
+                item.DocumentNumber,
+                item.OnDate,
+                item.OperationType,
+                item.Status,
+                item.FromStoreName,
+                item.ToStoreName,
+                item.TotalQuantity,
+                item.TotalCostValue,
+                item.TotalMrpValue,
+                item.ItemCount,
+                item.Reason))
+            .ToListAsync(cancellationToken);
+    }
+
+    private static async Task<IResult> DocumentAsync(
+        Guid id,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var document = await WorkspaceScope.ApplyTo(db.StockOperationDocuments.AsNoTracking(), context)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (document is null)
+        {
+            return Results.NotFound(new { message = "Stock operation document was not found." });
+        }
+
+        var items = await db.StockOperationItems.AsNoTracking()
+            .Where(item => item.StockOperationDocumentId == document.Id)
+            .OrderBy(item => item.ProductName)
+            .Select(item => new StockOperationItemDto(
+                item.Id,
+                item.ProductId,
+                item.StockId,
+                item.DestinationStockId,
+                item.ProductName,
+                item.Barcode,
+                item.HSNCode,
+                item.Unit.ToString(),
+                item.SystemQuantity,
+                item.CountedQuantity,
+                item.QuantityIn,
+                item.QuantityOut,
+                item.QuantityDifference,
+                item.FromQuantityBefore,
+                item.FromQuantityAfter,
+                item.ToQuantityBefore,
+                item.ToQuantityAfter,
+                item.CostPrice,
+                item.MRP,
+                item.CostValue,
+                item.MrpValue,
+                item.OutMovementId,
+                item.InMovementId,
+                item.Reason))
+            .ToListAsync(cancellationToken);
+
+        return Results.Ok(new StockOperationDocumentDetailDto(
+            document.Id,
+            document.DocumentNumber,
+            document.OnDate,
+            document.OperationType,
+            document.Status,
+            document.FromStoreId,
+            document.FromStoreName,
+            document.ToStoreId,
+            document.ToStoreName,
+            document.TotalQuantity,
+            document.TotalCostValue,
+            document.TotalMrpValue,
+            document.ItemCount,
+            document.Reason,
+            document.PostedAt,
+            items));
     }
 
     private static IQueryable<StockMovementRowDto> MovementQuery(HttpContext context, GarmetixDbContext db, int take)
@@ -138,14 +229,34 @@ public static class StockOperationEndpoints
 
         await DocumentNumberGenerator.LockStockKeyAsync(db, stock.CompanyId, stock.StoreGroupId, stock.StoreId, stock.ProductId, stock.Barcode, cancellationToken);
 
-        if (!increase && stock.CurrentStock < request.Quantity)
+        StockQuantityChange change;
+        try
         {
-            return Results.BadRequest(new { message = $"Cannot reduce {request.Quantity:0.##}. Available stock is {stock.CurrentStock:0.##}." });
+            change = StockOperationCalculator.Adjustment(stock.CurrentStock, request.Quantity, increase);
+        }
+        catch (ArgumentException exception)
+        {
+            return Results.BadRequest(new { message = exception.Message });
         }
 
-        var operationNumber = await documentNumbers.NextStockAdjustmentAsync(stock.CompanyId, stock.StoreGroupId, stock.StoreId, cancellationToken);
-        var quantityIn = increase ? request.Quantity : 0;
-        var quantityOut = increase ? 0 : request.Quantity;
+        var onDate = DateTime.Now;
+        var operationNumber = await documentNumbers.NextStockAdjustmentAsync(stock.CompanyId, stock.StoreGroupId, stock.StoreId, onDate, cancellationToken);
+        var reason = Clean(request.Reason) ?? "Manual stock adjustment";
+        var storeName = await db.Stores.AsNoTracking()
+            .Where(item => item.Id == stock.StoreId)
+            .Select(item => item.Name)
+            .FirstOrDefaultAsync(cancellationToken) ?? "Store";
+        var document = CreateDocument(
+            operationNumber,
+            onDate,
+            "Adjustment",
+            stock,
+            storeName,
+            null,
+            null,
+            request.Quantity,
+            reason);
+        db.StockOperationDocuments.Add(document);
 
         if (increase)
         {
@@ -156,17 +267,40 @@ public static class StockOperationEndpoints
             stock.SoldQty += request.Quantity;
         }
 
-        AddMovement(db, stock, increase ? "StockAdjustmentIn" : "StockAdjustmentOut", quantityIn, quantityOut, "StockAdjustment", stock.Id, operationNumber, Clean(request.Reason) ?? "Manual stock adjustment");
+        var movement = AddMovement(
+            db,
+            stock,
+            increase ? "StockAdjustmentIn" : "StockAdjustmentOut",
+            change.QuantityIn,
+            change.QuantityOut,
+            document,
+            reason);
+        db.StockOperationItems.Add(CreateItem(
+            document,
+            stock,
+            stock.Id,
+            null,
+            stock.StoreId,
+            null,
+            change.BeforeQuantity,
+            null,
+            change,
+            null,
+            null,
+            increase ? null : movement.Id,
+            increase ? movement.Id : null,
+            reason));
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
         return Results.Ok(new StockOperationResponse(
+            document.Id,
             operationNumber,
             stock.ProductId,
             stock.Barcode,
             stock.StoreId,
-            quantityIn,
-            quantityOut,
+            change.QuantityIn,
+            change.QuantityOut,
             stock.CurrentStock,
             increase ? "StockAdjustmentIn" : "StockAdjustmentOut",
             "Stock adjustment posted."));
@@ -198,49 +332,87 @@ public static class StockOperationEndpoints
 
         await DocumentNumberGenerator.LockStockKeyAsync(db, stock.CompanyId, stock.StoreGroupId, stock.StoreId, stock.ProductId, stock.Barcode, cancellationToken);
 
-        var current = stock.CurrentStock;
-        var difference = request.CountedQuantity - current;
-        if (difference == 0)
+        StockQuantityChange change;
+        try
         {
-            return Results.Ok(new StockOperationResponse(
-                "NO-CHANGE",
-                stock.ProductId,
-                stock.Barcode,
-                stock.StoreId,
-                0,
-                0,
-                stock.CurrentStock,
-                "PhysicalCountNoChange",
-                "Physical count matched system stock. No movement posted."));
+            change = StockOperationCalculator.PhysicalCount(stock.CurrentStock, request.CountedQuantity);
+        }
+        catch (ArgumentException exception)
+        {
+            return Results.BadRequest(new { message = exception.Message });
         }
 
-        var operationNumber = await documentNumbers.NextPhysicalStockCountAsync(stock.CompanyId, stock.StoreGroupId, stock.StoreId, cancellationToken);
-        var quantityIn = difference > 0 ? difference : 0;
-        var quantityOut = difference < 0 ? Math.Abs(difference) : 0;
+        var onDate = DateTime.Now;
+        var operationNumber = await documentNumbers.NextPhysicalStockCountAsync(stock.CompanyId, stock.StoreGroupId, stock.StoreId, onDate, cancellationToken);
+        var reason = Clean(request.Reason) ?? $"Physical count set to {request.CountedQuantity:0.##}";
+        var storeName = await db.Stores.AsNoTracking()
+            .Where(item => item.Id == stock.StoreId)
+            .Select(item => item.Name)
+            .FirstOrDefaultAsync(cancellationToken) ?? "Store";
+        var document = CreateDocument(
+            operationNumber,
+            onDate,
+            "PhysicalCount",
+            stock,
+            storeName,
+            null,
+            null,
+            Math.Abs(change.Difference),
+            reason);
+        document.Status = change.Difference == 0 ? "Verified" : "Posted";
+        db.StockOperationDocuments.Add(document);
 
-        if (difference > 0)
+        if (change.Difference > 0)
         {
-            stock.PurchaseQty += difference;
+            stock.PurchaseQty += change.Difference;
         }
-        else
+        else if (change.Difference < 0)
         {
-            stock.SoldQty += Math.Abs(difference);
+            stock.SoldQty += Math.Abs(change.Difference);
         }
 
-        AddMovement(db, stock, difference > 0 ? "PhysicalCountGain" : "PhysicalCountLoss", quantityIn, quantityOut, "PhysicalCount", stock.Id, operationNumber, Clean(request.Reason) ?? $"Physical count set to {request.CountedQuantity:0.##}");
+        StockMovement? movement = null;
+        if (change.Difference != 0)
+        {
+            movement = AddMovement(
+                db,
+                stock,
+                change.Difference > 0 ? "PhysicalCountGain" : "PhysicalCountLoss",
+                change.QuantityIn,
+                change.QuantityOut,
+                document,
+                reason);
+        }
+
+        db.StockOperationItems.Add(CreateItem(
+            document,
+            stock,
+            stock.Id,
+            null,
+            stock.StoreId,
+            null,
+            change.BeforeQuantity,
+            request.CountedQuantity,
+            change,
+            null,
+            null,
+            change.Difference < 0 ? movement?.Id : null,
+            change.Difference > 0 ? movement?.Id : null,
+            reason));
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
         return Results.Ok(new StockOperationResponse(
+            document.Id,
             operationNumber,
             stock.ProductId,
             stock.Barcode,
             stock.StoreId,
-            quantityIn,
-            quantityOut,
+            change.QuantityIn,
+            change.QuantityOut,
             stock.CurrentStock,
-            difference > 0 ? "PhysicalCountGain" : "PhysicalCountLoss",
-            "Physical stock count posted."));
+            change.Difference > 0 ? "PhysicalCountGain" : change.Difference < 0 ? "PhysicalCountLoss" : "PhysicalCountNoChange",
+            change.Difference == 0 ? "Physical count verified. No quantity movement was required." : "Physical stock count posted."));
     }
 
     private static async Task<IResult> CreateTransferAsync(
@@ -284,9 +456,14 @@ public static class StockOperationEndpoints
             return Results.BadRequest(new { message = "Source and destination store cannot be same." });
         }
 
-        if (fromStock.CurrentStock < request.Quantity)
+        StockQuantityChange sourceChange;
+        try
         {
-            return Results.BadRequest(new { message = $"Cannot transfer {request.Quantity:0.##}. Available stock is {fromStock.CurrentStock:0.##}." });
+            sourceChange = StockOperationCalculator.Transfer(fromStock.CurrentStock, request.Quantity);
+        }
+        catch (ArgumentException exception)
+        {
+            return Results.BadRequest(new { message = exception.Message });
         }
 
         await DocumentNumberGenerator.LockStockKeyAsync(db, fromStock.CompanyId, fromStock.StoreGroupId, fromStock.StoreId, fromStock.ProductId, fromStock.Barcode, cancellationToken);
@@ -326,19 +503,52 @@ public static class StockOperationEndpoints
             db.Stocks.Add(toStock);
         }
 
-        var operationNumber = await documentNumbers.NextStockTransferAsync(fromStock.CompanyId, fromStock.StoreGroupId, fromStock.StoreId, cancellationToken);
+        var destinationQuantityBefore = toStock.CurrentStock;
+        var onDate = DateTime.Now;
+        var operationNumber = await documentNumbers.NextStockTransferAsync(fromStock.CompanyId, fromStock.StoreGroupId, fromStock.StoreId, onDate, cancellationToken);
         var reason = Clean(request.Reason) ?? $"Transfer to {toStore.Name}";
+        var fromStoreName = await db.Stores.AsNoTracking()
+            .Where(item => item.Id == fromStock.StoreId)
+            .Select(item => item.Name)
+            .FirstOrDefaultAsync(cancellationToken) ?? "Source Store";
+        var document = CreateDocument(
+            operationNumber,
+            onDate,
+            "Transfer",
+            fromStock,
+            fromStoreName,
+            toStore.Id,
+            toStore.Name,
+            request.Quantity,
+            reason);
+        db.StockOperationDocuments.Add(document);
 
         fromStock.SoldQty += request.Quantity;
         toStock.PurchaseQty += request.Quantity;
 
-        AddMovement(db, fromStock, "StockTransferOut", 0, request.Quantity, "StockTransfer", toStock.Id, operationNumber, reason);
-        AddMovement(db, toStock, "StockTransferIn", request.Quantity, 0, "StockTransfer", fromStock.Id, operationNumber, $"Transfer from store {fromStock.StoreId}");
+        var outMovement = AddMovement(db, fromStock, "StockTransferOut", 0, request.Quantity, document, reason);
+        var inMovement = AddMovement(db, toStock, "StockTransferIn", request.Quantity, 0, document, $"Transfer from {fromStoreName}");
+        db.StockOperationItems.Add(CreateItem(
+            document,
+            fromStock,
+            fromStock.Id,
+            toStock.Id,
+            fromStock.StoreId,
+            toStock.StoreId,
+            sourceChange.BeforeQuantity,
+            null,
+            sourceChange,
+            destinationQuantityBefore,
+            toStock.CurrentStock,
+            outMovement.Id,
+            inMovement.Id,
+            reason));
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
         return Results.Ok(new StockTransferResponse(
+            document.Id,
             operationNumber,
             fromStock.ProductId,
             fromStock.Barcode,
@@ -357,18 +567,99 @@ public static class StockOperationEndpoints
             .FirstOrDefaultAsync(item => item.Id == stockId && !item.IsOFB, cancellationToken);
     }
 
-    private static void AddMovement(
+    private static StockOperationDocument CreateDocument(
+        string documentNumber,
+        DateTime onDate,
+        string operationType,
+        Stock stock,
+        string fromStoreName,
+        Guid? toStoreId,
+        string? toStoreName,
+        decimal quantity,
+        string reason)
+    {
+        var absoluteQuantity = Math.Abs(quantity);
+        return new StockOperationDocument
+        {
+            DocumentNumber = documentNumber,
+            OnDate = onDate,
+            OperationType = operationType,
+            Status = "Posted",
+            FromStoreId = stock.StoreId,
+            FromStoreName = fromStoreName,
+            ToStoreId = toStoreId,
+            ToStoreName = toStoreName,
+            Reason = reason,
+            TotalQuantity = absoluteQuantity,
+            TotalCostValue = Math.Round(absoluteQuantity * stock.CostPrice, 2),
+            TotalMrpValue = Math.Round(absoluteQuantity * stock.MRP, 2),
+            ItemCount = 1,
+            PostedAt = onDate,
+            CompanyId = stock.CompanyId,
+            StoreGroupId = stock.StoreGroupId,
+            StoreId = stock.StoreId
+        };
+    }
+
+    private static StockOperationItem CreateItem(
+        StockOperationDocument document,
+        Stock stock,
+        Guid? stockId,
+        Guid? destinationStockId,
+        Guid? fromStoreId,
+        Guid? toStoreId,
+        decimal systemQuantity,
+        decimal? countedQuantity,
+        StockQuantityChange change,
+        decimal? toQuantityBefore,
+        decimal? toQuantityAfter,
+        Guid? outMovementId,
+        Guid? inMovementId,
+        string reason)
+    {
+        var absoluteQuantity = Math.Abs(change.Difference);
+        return new StockOperationItem
+        {
+            StockOperationDocumentId = document.Id,
+            ProductId = stock.ProductId,
+            StockId = stockId,
+            DestinationStockId = destinationStockId,
+            ProductName = stock.Product?.Name ?? stock.Barcode,
+            Barcode = stock.Barcode,
+            HSNCode = stock.HSNCode ?? stock.Product?.HSNCode,
+            Unit = stock.Unit,
+            FromStoreId = fromStoreId,
+            ToStoreId = toStoreId,
+            SystemQuantity = systemQuantity,
+            CountedQuantity = countedQuantity,
+            QuantityIn = change.QuantityIn,
+            QuantityOut = change.QuantityOut,
+            QuantityDifference = change.Difference,
+            FromQuantityBefore = change.BeforeQuantity,
+            FromQuantityAfter = change.AfterQuantity,
+            ToQuantityBefore = toQuantityBefore,
+            ToQuantityAfter = toQuantityAfter,
+            CostPrice = stock.CostPrice,
+            MRP = stock.MRP,
+            CostValue = Math.Round(absoluteQuantity * stock.CostPrice, 2),
+            MrpValue = Math.Round(absoluteQuantity * stock.MRP, 2),
+            OutMovementId = outMovementId,
+            InMovementId = inMovementId,
+            Reason = reason,
+            CompanyId = stock.CompanyId
+        };
+    }
+
+    private static StockMovement AddMovement(
         GarmetixDbContext db,
         Stock stock,
         string movementType,
         decimal quantityIn,
         decimal quantityOut,
-        string sourceType,
-        Guid? sourceId,
-        string sourceNumber,
+        StockOperationDocument document,
         string remarks)
     {
-        db.StockMovements.Add(new StockMovement
+        var movement = new StockMovement
         {
             StockId = stock.Id,
             ProductId = stock.ProductId,
@@ -380,15 +671,17 @@ public static class StockOperationEndpoints
             MRP = stock.MRP,
             TaxRate = stock.TaxRate,
             HSNCode = stock.HSNCode ?? stock.Product?.HSNCode,
-            SourceType = sourceType,
-            SourceId = sourceId,
-            SourceNumber = sourceNumber,
+            SourceType = "StockOperationDocument",
+            SourceId = document.Id,
+            SourceNumber = document.DocumentNumber,
             Remarks = remarks,
-            OnDate = DateTime.Now,
+            OnDate = document.OnDate,
             CompanyId = stock.CompanyId,
             StoreGroupId = stock.StoreGroupId,
             StoreId = stock.StoreId
-        });
+        };
+        db.StockMovements.Add(movement);
+        return movement;
     }
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

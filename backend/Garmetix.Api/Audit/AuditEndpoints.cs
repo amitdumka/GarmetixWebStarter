@@ -53,6 +53,9 @@ public static class AuditEndpoints
         rows.AddRange(ToDtos(await db.Stocks.AsNoTracking()
             .Select(item => new AuditSource("Inventory", "Stock", item.Id, item.Barcode, item.CreatedAt, item.UpdatedAt, item.CreatedBy))
             .ToListAsync(cancellationToken)));
+        rows.AddRange(ToDtos(await db.StockOperationDocuments.AsNoTracking()
+            .Select(item => new AuditSource("Inventory", "Stock Operation", item.Id, item.DocumentNumber, item.CreatedAt, item.UpdatedAt, item.CreatedBy, item.Deleted))
+            .ToListAsync(cancellationToken)));
         rows.AddRange(ToDtos(await db.SalesInvoices.AsNoTracking()
             .Select(item => new AuditSource("Billing", "Sales Invoice", item.Id, item.InvoiceNumber, item.CreatedAt, item.UpdatedAt, item.CreatedBy))
             .ToListAsync(cancellationToken)));

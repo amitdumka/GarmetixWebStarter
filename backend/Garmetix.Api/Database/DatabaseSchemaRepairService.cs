@@ -734,6 +734,70 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                     CONSTRAINT "PK_StockMovements" PRIMARY KEY ("Id")
                 );
 
+                CREATE TABLE IF NOT EXISTS "StockOperationDocuments" (
+                    "Id" uuid NOT NULL,
+                    "DocumentNumber" text NOT NULL DEFAULT '',
+                    "OnDate" timestamp without time zone NOT NULL,
+                    "OperationType" text NOT NULL DEFAULT '',
+                    "Status" text NOT NULL DEFAULT 'Posted',
+                    "FromStoreId" uuid NULL,
+                    "FromStoreName" text NULL,
+                    "ToStoreId" uuid NULL,
+                    "ToStoreName" text NULL,
+                    "Reason" text NOT NULL DEFAULT '',
+                    "TotalQuantity" numeric(18,2) NOT NULL DEFAULT 0,
+                    "TotalCostValue" numeric(18,2) NOT NULL DEFAULT 0,
+                    "TotalMrpValue" numeric(18,2) NOT NULL DEFAULT 0,
+                    "ItemCount" integer NOT NULL DEFAULT 0,
+                    "PostedAt" timestamp without time zone NOT NULL,
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "StoreGroupId" uuid NOT NULL,
+                    "StoreId" uuid NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    CONSTRAINT "PK_StockOperationDocuments" PRIMARY KEY ("Id")
+                );
+
+                CREATE TABLE IF NOT EXISTS "StockOperationItems" (
+                    "Id" uuid NOT NULL,
+                    "StockOperationDocumentId" uuid NOT NULL,
+                    "ProductId" uuid NOT NULL,
+                    "StockId" uuid NULL,
+                    "DestinationStockId" uuid NULL,
+                    "ProductName" text NOT NULL DEFAULT '',
+                    "Barcode" text NOT NULL DEFAULT '',
+                    "HSNCode" text NULL,
+                    "Unit" integer NOT NULL DEFAULT 0,
+                    "FromStoreId" uuid NULL,
+                    "ToStoreId" uuid NULL,
+                    "SystemQuantity" numeric(18,2) NOT NULL DEFAULT 0,
+                    "CountedQuantity" numeric(18,2) NULL,
+                    "QuantityIn" numeric(18,2) NOT NULL DEFAULT 0,
+                    "QuantityOut" numeric(18,2) NOT NULL DEFAULT 0,
+                    "QuantityDifference" numeric(18,2) NOT NULL DEFAULT 0,
+                    "FromQuantityBefore" numeric(18,2) NOT NULL DEFAULT 0,
+                    "FromQuantityAfter" numeric(18,2) NOT NULL DEFAULT 0,
+                    "ToQuantityBefore" numeric(18,2) NULL,
+                    "ToQuantityAfter" numeric(18,2) NULL,
+                    "CostPrice" numeric(18,2) NOT NULL DEFAULT 0,
+                    "MRP" numeric(18,2) NOT NULL DEFAULT 0,
+                    "CostValue" numeric(18,2) NOT NULL DEFAULT 0,
+                    "MrpValue" numeric(18,2) NOT NULL DEFAULT 0,
+                    "OutMovementId" uuid NULL,
+                    "InMovementId" uuid NULL,
+                    "Reason" text NULL,
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    CONSTRAINT "PK_StockOperationItems" PRIMARY KEY ("Id")
+                );
+
                 CREATE TABLE IF NOT EXISTS "DocumentSequences" (
                     "Id" uuid NOT NULL,
                     "DocumentType" text NOT NULL DEFAULT '',
@@ -765,6 +829,10 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                 CREATE INDEX IF NOT EXISTS "IX_PurchaseReturnItcReversals_CompanyId_JournalEntryId" ON "PurchaseReturnItcReversals" ("CompanyId", "JournalEntryId");
                 CREATE INDEX IF NOT EXISTS "IX_StockMovements_CompanyId_StoreId_ProductId_OnDate" ON "StockMovements" ("CompanyId", "StoreId", "ProductId", "OnDate");
                 CREATE INDEX IF NOT EXISTS "IX_StockMovements_CompanyId_SourceType_SourceId" ON "StockMovements" ("CompanyId", "SourceType", "SourceId");
+                CREATE INDEX IF NOT EXISTS "IX_StockOperationDocuments_CompanyId_StoreId_DocumentNumber" ON "StockOperationDocuments" ("CompanyId", "StoreId", "DocumentNumber");
+                CREATE INDEX IF NOT EXISTS "IX_StockOperationDocuments_CompanyId_OperationType_OnDate" ON "StockOperationDocuments" ("CompanyId", "OperationType", "OnDate");
+                CREATE INDEX IF NOT EXISTS "IX_StockOperationItems_CompanyId_StockOperationDocumentId" ON "StockOperationItems" ("CompanyId", "StockOperationDocumentId");
+                CREATE INDEX IF NOT EXISTS "IX_StockOperationItems_CompanyId_ProductId_StockId" ON "StockOperationItems" ("CompanyId", "ProductId", "StockId");
                 """, cancellationToken);
 
             logger.LogInformation("Known database schema drift repair check completed.");

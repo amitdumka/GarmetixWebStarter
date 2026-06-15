@@ -5,19 +5,31 @@ import type { TableColumn } from '@nuxt/ui'
 const api = useGarmetixApi()
 const auth = useAuth()
 const feedback = useUiFeedback()
+const config = useRuntimeConfig()
+const route = useRoute()
+const router = useRouter()
 const isAuthenticated = auth.isAuthenticated
 const canEdit = auth.canEdit
 
 const UBadge = resolveComponent('UBadge')
+const UButton = resolveComponent('UButton')
 
 const loading = ref(false)
 const loadError = ref('')
 const movementSearch = ref('')
+const documentSearch = ref('')
+const operationTypeFilter = ref('all')
 const posting = ref(false)
 const options = ref<any>({ products: [], stores: [], recentMovements: [] })
+const documents = ref<any[]>([])
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const activeTab = ref('adjustment')
+const detailOpen = ref(false)
+const detailLoading = ref(false)
+const qrBusy = ref(false)
+const selectedDocument = ref<any | null>(null)
+const openedRouteDocumentId = ref('')
 
 const adjustmentForm = reactive({ stockId: '', direction: 'increase', quantity: 0, reason: '' })
 const transferForm = reactive({ fromStockId: '', toStoreId: '', quantity: 0, reason: '' })
@@ -34,6 +46,8 @@ const selectedAdjustmentStock = computed(() => findStock(adjustmentForm.stockId)
 const selectedTransferStock = computed(() => findStock(transferForm.fromStockId))
 const selectedCountStock = computed(() => findStock(countForm.stockId))
 const destinationStoreOptions = computed(() => storeOptions.value.filter((item: any) => item.value !== selectedTransferStock.value?.storeId))
+const selectedHasMovement = computed(() => (selectedDocument.value?.items || [])
+  .some((item: any) => item.inMovementId || item.outMovementId))
 
 const metrics = computed(() => {
   const productCount = options.value.products?.length || 0
@@ -42,9 +56,31 @@ const metrics = computed(() => {
   return [
     { label: 'Stock rows', value: productCount, meta: 'Store-wise product stock', icon: 'i-lucide-boxes', color: 'primary' },
     { label: 'Current stock', value: totalStock, meta: 'Across scoped stores', icon: 'i-lucide-warehouse', color: totalStock > 0 ? 'success' : 'warning' },
+    { label: 'Formal documents', value: documents.value.length, meta: 'Adjustment, transfer and count', icon: 'i-lucide-files', color: 'info' },
     { label: 'Recent movements', value: movements, meta: 'Latest ledger rows', icon: 'i-lucide-history', color: 'neutral' }
   ]
 })
+
+const documentRows = computed(() => documents.value
+  .filter((item: any) => operationTypeFilter.value === 'all' || item.operationType === operationTypeFilter.value)
+  .filter((item: any) => {
+    const term = documentSearch.value.trim().toLowerCase()
+    return !term || [
+      item.documentNumber,
+      item.operationType,
+      item.status,
+      item.fromStoreName,
+      item.toStoreName,
+      item.reason
+    ].some(value => String(value || '').toLowerCase().includes(term))
+  })
+  .map((item: any) => ({
+    ...item,
+    onDateText: formatDateTime(item.onDate),
+    storePath: item.toStoreName ? `${item.fromStoreName || 'Store'} to ${item.toStoreName}` : item.fromStoreName || 'Store',
+    totalQuantityText: Number(item.totalQuantity || 0).toFixed(2),
+    totalCostValueText: money(Number(item.totalCostValue || 0))
+  })))
 
 const movementRows = computed(() => (options.value.recentMovements || []).map((item: any) => ({
   ...item,
@@ -75,6 +111,35 @@ const columns: TableColumn<any>[] = [
   { accessorKey: 'remarks', header: 'Remarks' }
 ]
 
+const documentColumns: TableColumn<any>[] = [
+  { accessorKey: 'documentNumber', header: 'Document No.' },
+  { accessorKey: 'onDateText', header: 'Date' },
+  {
+    accessorKey: 'operationType',
+    header: 'Operation',
+    cell: ({ row }) => h(UBadge, { color: operationColor(row.original.operationType), variant: 'subtle' }, () => operationLabel(row.original.operationType))
+  },
+  { accessorKey: 'storePath', header: 'Store / Transfer' },
+  { accessorKey: 'totalQuantityText', header: 'Qty' },
+  { accessorKey: 'totalCostValueText', header: 'Cost Value' },
+  {
+    accessorKey: 'status',
+    header: 'Status',
+    cell: ({ row }) => h(UBadge, { color: row.original.status === 'Verified' ? 'info' : 'success', variant: 'subtle' }, () => row.original.status)
+  },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => h(UButton, {
+      icon: 'i-lucide-eye',
+      color: 'neutral',
+      variant: 'ghost',
+      'aria-label': `View ${row.original.documentNumber}`,
+      onClick: () => openDocument(row.original.id)
+    })
+  }
+]
+
 async function refresh() {
   if (!auth.isAuthenticated.value) {
     return
@@ -83,14 +148,17 @@ async function refresh() {
   loading.value = true
   loadError.value = ''
   try {
-    const [companyRows, storeRows, optionRows] = await Promise.all([
+    const [companyRows, storeRows, optionRows, documentRows] = await Promise.all([
       api.list<any>('companies'),
       api.list<any>('stores'),
-      api.get<any>('inventory/stock-operations/options')
+      api.get<any>('inventory/stock-operations/options'),
+      api.get<any[]>('inventory/stock-operations/documents?take=150')
     ])
     companies.value = companyRows
     stores.value = storeRows
     options.value = optionRows
+    documents.value = documentRows
+    await openRouteDocument()
   } catch (error) {
     loadError.value = 'Stock-operation options and movement history could not be loaded. Try again.'
     feedback.failed('Stock operations refresh failed', error)
@@ -102,7 +170,7 @@ async function refresh() {
 async function postAdjustment() {
   posting.value = true
   try {
-    await api.create<any>('inventory/stock-operations/adjustment', {
+    const result = await api.create<any>('inventory/stock-operations/adjustment', {
       stockId: adjustmentForm.stockId,
       direction: adjustmentForm.direction,
       quantity: Number(adjustmentForm.quantity || 0),
@@ -112,6 +180,7 @@ async function postAdjustment() {
     adjustmentForm.quantity = 0
     adjustmentForm.reason = ''
     await refresh()
+    await openDocument(result.documentId)
   } catch (error) {
     feedback.failed('Could not post stock adjustment', error)
   } finally {
@@ -122,7 +191,7 @@ async function postAdjustment() {
 async function postTransfer() {
   posting.value = true
   try {
-    await api.create<any>('inventory/stock-operations/transfer', {
+    const result = await api.create<any>('inventory/stock-operations/transfer', {
       fromStockId: transferForm.fromStockId,
       toStoreId: transferForm.toStoreId,
       quantity: Number(transferForm.quantity || 0),
@@ -132,6 +201,7 @@ async function postTransfer() {
     transferForm.quantity = 0
     transferForm.reason = ''
     await refresh()
+    await openDocument(result.documentId)
   } catch (error) {
     feedback.failed('Could not post stock transfer', error)
   } finally {
@@ -142,7 +212,7 @@ async function postTransfer() {
 async function postPhysicalCount() {
   posting.value = true
   try {
-    await api.create<any>('inventory/stock-operations/physical-count', {
+    const result = await api.create<any>('inventory/stock-operations/physical-count', {
       stockId: countForm.stockId,
       countedQuantity: Number(countForm.countedQuantity || 0),
       reason: nullIfEmpty(countForm.reason)
@@ -150,10 +220,71 @@ async function postPhysicalCount() {
     feedback.saved('Physical count')
     countForm.reason = ''
     await refresh()
+    await openDocument(result.documentId)
   } catch (error) {
     feedback.failed('Could not post physical count', error)
   } finally {
     posting.value = false
+  }
+}
+
+async function openDocument(id: string) {
+  if (!id) return
+  detailLoading.value = true
+  detailOpen.value = true
+  try {
+    selectedDocument.value = await api.get<any>(`inventory/stock-operations/documents/${id}`)
+    openedRouteDocumentId.value = id
+    if (route.query.documentId !== id) {
+      await router.replace({ query: { ...route.query, documentId: id } })
+    }
+  } catch (error) {
+    detailOpen.value = false
+    feedback.failed('Could not load stock operation document', error)
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+async function openRouteDocument() {
+  const id = String(route.query.documentId || '')
+  if (!id || id === openedRouteDocumentId.value) return
+  await openDocument(id)
+}
+
+async function closeDocument() {
+  detailOpen.value = false
+  selectedDocument.value = null
+  openedRouteDocumentId.value = ''
+  const query = { ...route.query }
+  delete query.documentId
+  await router.replace({ query })
+}
+
+function handleDetailOpen(value: boolean) {
+  if (!value) void closeDocument()
+}
+
+async function downloadQr() {
+  if (!selectedDocument.value?.id) return
+  qrBusy.value = true
+  try {
+    const response = await fetch(
+      `${config.public.apiBase}/scan/qr/STOCKOPERATION/${selectedDocument.value.id}.svg`,
+      { headers: api.authHeaders() as HeadersInit }
+    )
+    if (!response.ok) throw new Error('QR code could not be generated.')
+    const blob = await response.blob()
+    const href = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = href
+    anchor.download = `${selectedDocument.value.documentNumber.replaceAll('/', '-')}-QR.svg`
+    anchor.click()
+    URL.revokeObjectURL(href)
+  } catch (error) {
+    feedback.failed('Could not download stock document QR', error)
+  } finally {
+    qrBusy.value = false
   }
 }
 
@@ -176,8 +307,23 @@ function movementColor(type: string) {
   return 'neutral'
 }
 
+function operationColor(type: string) {
+  if (type === 'Transfer') return 'info'
+  if (type === 'PhysicalCount') return 'warning'
+  return 'primary'
+}
+
+function operationLabel(type: string) {
+  return type === 'PhysicalCount' ? 'Physical Count' : type
+}
+
 function money(value: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(value || 0)
+}
+
+function formatDateTime(value: string) {
+  if (!value) return '-'
+  return new Date(value).toLocaleString('en-IN')
 }
 
 watch(() => transferForm.fromStockId, () => {
@@ -189,6 +335,10 @@ watch(() => transferForm.fromStockId, () => {
 
 watch(() => countForm.stockId, () => {
   useSelectedCurrentForCount()
+})
+
+watch(() => route.query.documentId, () => {
+  void openRouteDocument()
 })
 
 onMounted(async () => {
@@ -210,7 +360,7 @@ onMounted(async () => {
     <section class="planner-dashboard">
       <UiModulePageHeader
         title="Stock Operations"
-        description="Post stock adjustments, transfers and physical counts through the stock movement ledger."
+        description="Post and review formal stock adjustment, transfer and physical-count documents with linked movement history."
         icon="i-lucide-arrow-left-right"
         primary-label="Refresh"
         primary-icon="i-lucide-refresh-cw"
@@ -316,6 +466,43 @@ onMounted(async () => {
       </UCard>
 
       <UiRegisterPanel
+        title="Stock Operation Documents"
+        description="Formal posted records preserve quantity, value, store, product and movement references for audit."
+        :loading="loading"
+        :error="loadError"
+        :empty="!documentRows.length"
+        empty-title="No stock operation document found"
+        empty-description="Post an adjustment, transfer or physical count to create the first formal document."
+        empty-icon="i-lucide-files"
+        @retry="refresh"
+      >
+        <template #actions>
+          <UBadge color="primary" variant="subtle">{{ documentRows.length }} documents</UBadge>
+        </template>
+
+        <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_13rem]">
+          <UiCrudToolbar
+            v-model:search="documentSearch"
+            search-placeholder="Search document, operation, store, status or reason"
+            :loading="loading"
+            refresh-label="Refresh"
+            @refresh="refresh"
+          />
+          <USelect
+            v-model="operationTypeFilter"
+            :items="[
+              { label: 'All operations', value: 'all' },
+              { label: 'Adjustments', value: 'Adjustment' },
+              { label: 'Transfers', value: 'Transfer' },
+              { label: 'Physical counts', value: 'PhysicalCount' }
+            ]"
+            aria-label="Filter stock operation type"
+          />
+        </div>
+        <UTable v-if="documentRows.length" :data="documentRows" :columns="documentColumns" :loading="loading" />
+      </UiRegisterPanel>
+
+      <UiRegisterPanel
         title="Recent Stock Movement Ledger"
         description="Every adjustment, transfer, physical count, sale, purchase, and return should leave a movement row."
         :loading="loading"
@@ -339,6 +526,103 @@ onMounted(async () => {
         />
         <UTable v-if="filteredMovementRows.length" :data="filteredMovementRows" :columns="columns" :loading="loading" />
       </UiRegisterPanel>
+
+      <UModal
+        v-model:open="detailOpen"
+        title="Stock Operation Document"
+        :ui="{ content: 'sm:max-w-5xl xl:max-w-6xl' }"
+        @update:open="handleDetailOpen"
+      >
+        <template #body>
+          <div v-if="detailLoading" class="py-10 text-center text-sm text-muted">
+            Loading stock document...
+          </div>
+          <div v-else-if="selectedDocument" class="space-y-4">
+            <UAlert
+              color="neutral"
+              variant="subtle"
+              icon="i-lucide-file-check-2"
+              :title="`${selectedDocument.documentNumber} / ${operationLabel(selectedDocument.operationType)}`"
+              :description="selectedDocument.toStoreName
+                ? `${selectedDocument.fromStoreName || 'Store'} to ${selectedDocument.toStoreName}`
+                : selectedDocument.fromStoreName || 'Stock operation'"
+            />
+
+            <div class="payroll-summary">
+              <span>Operation date</span><strong>{{ formatDateTime(selectedDocument.onDate) }}</strong>
+              <span>Posted at</span><strong>{{ formatDateTime(selectedDocument.postedAt) }}</strong>
+              <span>Status</span><strong>{{ selectedDocument.status }}</strong>
+              <span>Items</span><strong>{{ selectedDocument.itemCount }}</strong>
+              <span>Total quantity</span><strong>{{ Number(selectedDocument.totalQuantity || 0).toFixed(2) }}</strong>
+              <span>Cost value</span><strong>{{ money(selectedDocument.totalCostValue) }}</strong>
+              <span>MRP value</span><strong>{{ money(selectedDocument.totalMrpValue) }}</strong>
+              <span>Movement link</span><strong>{{ selectedHasMovement ? 'Linked' : 'No movement required' }}</strong>
+            </div>
+
+            <div class="planner-table-wrap">
+              <table class="planner-table">
+                <thead>
+                  <tr>
+                    <th>Product Snapshot</th>
+                    <th>System</th>
+                    <th>Counted</th>
+                    <th>In</th>
+                    <th>Out</th>
+                    <th>Difference</th>
+                    <th>Source Before / After</th>
+                    <th>Destination Before / After</th>
+                    <th>Cost Value</th>
+                    <th>Movement Audit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="item in selectedDocument.items || []" :key="item.id">
+                    <td>
+                      <div class="font-medium">{{ item.productName }}</div>
+                      <div class="text-xs text-muted">{{ item.barcode }} | {{ item.hsnCode || 'No HSN' }} | {{ item.unit }}</div>
+                    </td>
+                    <td>{{ Number(item.systemQuantity || 0).toFixed(2) }}</td>
+                    <td>{{ item.countedQuantity == null ? '-' : Number(item.countedQuantity).toFixed(2) }}</td>
+                    <td>{{ Number(item.quantityIn || 0).toFixed(2) }}</td>
+                    <td>{{ Number(item.quantityOut || 0).toFixed(2) }}</td>
+                    <td>{{ Number(item.quantityDifference || 0).toFixed(2) }}</td>
+                    <td>{{ Number(item.fromQuantityBefore || 0).toFixed(2) }} / {{ Number(item.fromQuantityAfter || 0).toFixed(2) }}</td>
+                    <td>
+                      {{ item.toQuantityBefore == null ? '-' : `${Number(item.toQuantityBefore).toFixed(2)} / ${Number(item.toQuantityAfter || 0).toFixed(2)}` }}
+                    </td>
+                    <td>{{ money(item.costValue) }}</td>
+                    <td>
+                      <UBadge :color="item.inMovementId || item.outMovementId ? 'success' : 'neutral'" variant="subtle">
+                        {{ item.inMovementId || item.outMovementId ? 'Linked' : 'Not required' }}
+                      </UBadge>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <UAlert
+              color="info"
+              variant="subtle"
+              title="Reason"
+              :description="selectedDocument.reason || 'No reason recorded.'"
+            />
+          </div>
+        </template>
+        <template #footer>
+          <div class="flex w-full flex-wrap items-center justify-between gap-2">
+            <UButton color="neutral" variant="outline" label="Close" @click="closeDocument" />
+            <UButton
+              icon="i-lucide-qr-code"
+              color="neutral"
+              variant="subtle"
+              label="Download QR"
+              :loading="qrBusy"
+              @click="downloadQr"
+            />
+          </div>
+        </template>
+      </UModal>
     </section>
   </AppShell>
 </template>

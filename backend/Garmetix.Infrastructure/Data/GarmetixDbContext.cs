@@ -33,6 +33,8 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Stock> Stocks => Set<Stock>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+    public DbSet<StockOperationDocument> StockOperationDocuments => Set<StockOperationDocument>();
+    public DbSet<StockOperationItem> StockOperationItems => Set<StockOperationItem>();
     public DbSet<NonGstGoodsDocument> NonGstGoodsDocuments => Set<NonGstGoodsDocument>();
     public DbSet<NonGstGoodsItem> NonGstGoodsItems => Set<NonGstGoodsItem>();
     public DbSet<DocumentSequence> DocumentSequences => Set<DocumentSequence>();
@@ -156,6 +158,10 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<ProductTagMapping>().HasKey(mapping => new { mapping.ProductId, mapping.TagId });
         modelBuilder.Entity<StockMovement>().HasIndex(movement => new { movement.CompanyId, movement.StoreId, movement.ProductId, movement.OnDate });
         modelBuilder.Entity<StockMovement>().HasIndex(movement => new { movement.CompanyId, movement.SourceType, movement.SourceId });
+        modelBuilder.Entity<StockOperationDocument>().HasIndex(document => new { document.CompanyId, document.StoreId, document.DocumentNumber }).IsUnique(false);
+        modelBuilder.Entity<StockOperationDocument>().HasIndex(document => new { document.CompanyId, document.OperationType, document.OnDate });
+        modelBuilder.Entity<StockOperationItem>().HasIndex(item => new { item.CompanyId, item.StockOperationDocumentId });
+        modelBuilder.Entity<StockOperationItem>().HasIndex(item => new { item.CompanyId, item.ProductId, item.StockId });
         modelBuilder.Entity<Stock>().HasIndex(stock => new { stock.CompanyId, stock.StoreId, stock.IsOFB });
         modelBuilder.Entity<NonGstGoodsDocument>().HasIndex(document => new { document.CompanyId, document.StoreId, document.DocumentType, document.OnDate });
         modelBuilder.Entity<NonGstGoodsDocument>().HasIndex(document => new { document.CompanyId, document.DocumentNumber }).IsUnique(false);

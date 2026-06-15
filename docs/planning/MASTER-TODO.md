@@ -322,6 +322,7 @@ Use this file as the running handoff checklist. When a task is completed, mark i
   - [x] Package 3: added vendor debit-note allocation, cash/bank refund receipts, mixed settlements, outstanding purchase allocation, settlement history, and linked voucher/journal/bank audit records in v4.2.2.
   - [x] Package 4: added immutable item-level ITC reversal, exact GST component rounding, full return-to-stock-to-debit-note-to-journal reconciliation, audit entries, and a visible reconciliation workspace in v4.2.3.
 - [ ] Complete Stage 8D inventory documents and valuation.
+  - [x] Package 1: added formal adjustment, transfer, and physical-count documents, item snapshots, movement links, server numbering, QR lookup, and a searchable document register in v4.3.0.
 - [ ] Complete Stage 8E accounting and payment hardening.
 - [ ] Complete Stage 8F automated tests and deep audit history.
 - [ ] Complete Stage 8G real integrations and production go-live validation.

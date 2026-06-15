@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.2.3";
-    public const string Stage = "Stage 8C";
-    public const string ReleaseName = "Purchase Return ITC Reconciliation";
+    public const string Version = "4.3.0";
+    public const string Stage = "Stage 8D";
+    public const string ReleaseName = "Formal Stock Operation Documents";
     public const string BuildDate = "2026-06-15";
-    public const string BuildCode = "GARMETIX-8C-20260615-4230";
+    public const string BuildCode = "GARMETIX-8D-20260615-4300";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,10 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stock adjustments, transfers, and physical counts now create formal header and item documents with immutable product, store, quantity, and value snapshots.",
+        "Every posted stock-operation document links its movement-ledger rows and uses server-owned StoreCode/YYYYMM/ADJ, ST, or PHY numbering.",
+        "The Stock Operations workspace now includes a searchable document register, operation filter, wide audit detail, and direct QR download.",
+        "Universal document scanning now opens permitted stock-operation details by stable QR token or document number.",
         "Purchase returns now persist an immutable ITC reversal row for every returned item, including HSN and exact CGST, SGST, and IGST values.",
         "Purchase return details now reconcile the return header, item snapshots, stock movement, debit note, Input GST journal, and settlement state.",
         "Full purchase cancellations use the same item-level ITC reversal and reconciliation links as partial returns.",
