@@ -154,6 +154,8 @@ public static class DocumentNumberGenerator
         DateTime documentDate,
         CancellationToken cancellationToken)
     {
+        EnsureActiveTransaction(db, "Document number generation");
+
         var sequenceDate = documentDate.Date;
         var lockKey = $"seq|{companyId:N}|{storeGroupId?.ToString("N") ?? "company"}|{storeId?.ToString("N") ?? "company"}|{documentType}|{sequenceDate:yyyyMMdd}";
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({SequenceLockNamespace}, hashtext({lockKey}));", cancellationToken);
@@ -198,8 +200,63 @@ public static class DocumentNumberGenerator
         string barcode,
         CancellationToken cancellationToken)
     {
-        var cleanBarcode = string.IsNullOrWhiteSpace(barcode) ? "-" : barcode.Trim();
-        var lockKey = $"stock|{companyId:N}|{storeGroupId:N}|{storeId:N}|{productId:N}|{cleanBarcode}";
+        EnsureActiveTransaction(db, "Stock locking");
+        var lockKey = BuildStockLockKey(companyId, storeGroupId, storeId, productId, barcode);
         return db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({StockLockNamespace}, hashtext({lockKey}));", cancellationToken);
     }
+
+    public static async Task LockStockKeysAsync(
+        GarmetixDbContext db,
+        IEnumerable<StockLockKey> keys,
+        CancellationToken cancellationToken)
+    {
+        EnsureActiveTransaction(db, "Stock locking");
+
+        var orderedKeys = keys
+            .Select(key => new
+            {
+                LockKey = BuildStockLockKey(
+                    key.CompanyId,
+                    key.StoreGroupId,
+                    key.StoreId,
+                    key.ProductId,
+                    key.Barcode)
+            })
+            .GroupBy(item => item.LockKey, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .OrderBy(item => item.LockKey, StringComparer.Ordinal);
+
+        foreach (var item in orderedKeys)
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT pg_advisory_xact_lock({StockLockNamespace}, hashtext({item.LockKey}));",
+                cancellationToken);
+        }
+    }
+
+    private static string BuildStockLockKey(
+        Guid companyId,
+        Guid storeGroupId,
+        Guid storeId,
+        Guid productId,
+        string barcode)
+    {
+        var cleanBarcode = string.IsNullOrWhiteSpace(barcode) ? "-" : barcode.Trim();
+        return $"stock|{companyId:N}|{storeGroupId:N}|{storeId:N}|{productId:N}|{cleanBarcode}";
+    }
+
+    private static void EnsureActiveTransaction(GarmetixDbContext db, string operation)
+    {
+        if (db.Database.CurrentTransaction is null)
+        {
+            throw new InvalidOperationException($"{operation} requires an active database transaction.");
+        }
+    }
 }
+
+public readonly record struct StockLockKey(
+    Guid CompanyId,
+    Guid StoreGroupId,
+    Guid StoreId,
+    Guid ProductId,
+    string Barcode);

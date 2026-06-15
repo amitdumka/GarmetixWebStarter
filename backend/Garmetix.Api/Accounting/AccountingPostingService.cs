@@ -312,6 +312,20 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         VoucherSaveRequest request,
         CancellationToken cancellationToken)
     {
+        var strategy = db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            var result = await SaveVoucherCoreAsync(request, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return result;
+        });
+    }
+
+    private async Task<AccountingPostResult> SaveVoucherCoreAsync(
+        VoucherSaveRequest request,
+        CancellationToken cancellationToken)
+    {
         ValidateVoucher(request);
 
         var employeeExists = await db.Employees.AnyAsync(item => item.Id == request.EmployeeId, cancellationToken);

@@ -4,10 +4,10 @@ Updated: 2026-06-15
 
 ## Current Baseline
 
-- Version: 4.3.3
+- Version: 4.3.4
 - Stage: Stage 8D
-- Release: Stock Intelligence Reports
-- Build code: `GARMETIX-8D-20260615-4330`
+- Release: Stock Concurrency and Sequence Safety
+- Build code: `GARMETIX-8D-20260615-4340`
 - Branch: `Version3.0`
 - Pre-Stage 8 baseline commit: `470ba2e`
 
@@ -81,7 +81,7 @@ Stage 7M menu names, route compatibility, permission-aware navigation, Off Book 
 - [x] Introduce and document weighted-average valuation in v4.3.1; evaluate FIFO only after that baseline is stable.
 - [x] Post shortage, excess, write-off, and transfer accounting entries in v4.3.2.
 - [x] Add stock ageing, configurable low-stock risk, weighted-average valuation, and stock-reconciliation reports in v4.3.3.
-- [ ] Add sequence and stock-concurrency tests, including negative-stock policy.
+- [x] Add sequence and stock-concurrency tests, including negative-stock policy, in v4.3.4.
 
 ## Stage 8E - Accounting and Payment Hardening
 
