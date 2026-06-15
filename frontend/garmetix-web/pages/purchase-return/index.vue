@@ -7,6 +7,7 @@ const auth = useAuth()
 const feedback = useUiFeedback()
 const documentPrint = useServerDocumentPrint()
 const route = useRoute()
+const router = useRouter()
 const isAuthenticated = auth.isAuthenticated
 
 const UBadge = resolveComponent('UBadge')
@@ -90,6 +91,7 @@ const returnHistoryRows = computed(() => filteredReturns.value.map((item) => ({
   debitNoteNumber: item.debitNoteNumber || '-',
   status: item.status || 'Posted',
   printStatus: item.printStatus || 'Not Printed',
+  settlementStatus: item.settlementStatus || 'Open',
   raw: item
 })))
 
@@ -141,9 +143,25 @@ const returnHistoryColumns: TableColumn<any>[] = [
     }, () => row.original.printStatus)
   },
   {
+    accessorKey: 'settlementStatus',
+    header: 'Settlement',
+    cell: ({ row }) => h(UBadge, {
+      color: row.original.settlementStatus === 'Settled' ? 'success' : 'warning',
+      variant: 'subtle'
+    }, () => row.original.settlementStatus)
+  },
+  {
     id: 'actions',
     header: '',
     cell: ({ row }) => h('div', { class: 'flex justify-end gap-1' }, [
+      h(UButton, {
+        icon: 'i-lucide-hand-coins',
+        color: 'success',
+        variant: 'ghost',
+        'aria-label': `Settle ${row.original.returnNumber}`,
+        disabled: decimal(row.original.raw.availableSettlementAmount) <= 0,
+        onClick: () => router.push(`/vendor-settlements?returnId=${row.original.id}`)
+      }),
       h(UButton, {
         icon: 'i-lucide-printer',
         color: 'primary',
@@ -592,6 +610,9 @@ onMounted(refresh)
               <span>Taxable</span><strong>{{ money(selectedReturn.taxableAmount) }}</strong>
               <span>GST reversal</span><strong>{{ money(selectedReturn.taxAmount) }}</strong>
               <span>Return amount</span><strong>{{ money(selectedReturn.returnAmount) }}</strong>
+              <span>Settled amount</span><strong>{{ money(selectedReturn.settledAmount) }}</strong>
+              <span>Available credit</span><strong>{{ money(selectedReturn.availableSettlementAmount) }}</strong>
+              <span>Settlement</span><strong>{{ selectedReturn.settlementStatus || 'Open' }}</strong>
             </div>
 
             <div class="planner-table-wrap">
@@ -649,6 +670,14 @@ onMounted(refresh)
                 ]"
                 class="w-36"
                 aria-label="Purchase return PDF paper size"
+              />
+              <UButton
+                v-if="decimal(selectedReturn?.availableSettlementAmount) > 0"
+                icon="i-lucide-hand-coins"
+                color="success"
+                variant="subtle"
+                label="Settle Debit Note"
+                @click="router.push(`/vendor-settlements?returnId=${selectedReturn.id}`)"
               />
               <UButton
                 icon="i-lucide-download"

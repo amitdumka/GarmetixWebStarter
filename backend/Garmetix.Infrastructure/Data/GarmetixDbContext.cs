@@ -52,6 +52,8 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<PurchaseInvoice> PurchaseInvoices => Set<PurchaseInvoice>();
     public DbSet<PurchaseReturn> PurchaseReturns => Set<PurchaseReturn>();
     public DbSet<PurchaseReturnItem> PurchaseReturnItems => Set<PurchaseReturnItem>();
+    public DbSet<VendorSettlement> VendorSettlements => Set<VendorSettlement>();
+    public DbSet<VendorSettlementAllocation> VendorSettlementAllocations => Set<VendorSettlementAllocation>();
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
     public DbSet<PurchaseInvoiceItem> PurchaseInvoiceItems => Set<PurchaseInvoiceItem>();
     public DbSet<InvoicePayment> InvoicePayments => Set<InvoicePayment>();
@@ -168,6 +170,11 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<PurchaseReturn>().HasIndex(item => new { item.CompanyId, item.PurchaseInvoiceId, item.OnDate });
         modelBuilder.Entity<PurchaseReturnItem>().HasIndex(item => new { item.CompanyId, item.PurchaseReturnId });
         modelBuilder.Entity<PurchaseReturnItem>().HasIndex(item => new { item.CompanyId, item.PurchaseInvoiceId, item.PurchaseInvoiceItemId });
+        modelBuilder.Entity<VendorSettlement>().HasIndex(item => new { item.CompanyId, item.StoreId, item.SettlementNumber }).IsUnique(false);
+        modelBuilder.Entity<VendorSettlement>().HasIndex(item => new { item.CompanyId, item.VendorId, item.OnDate });
+        modelBuilder.Entity<VendorSettlement>().HasIndex(item => new { item.CompanyId, item.PurchaseReturnId });
+        modelBuilder.Entity<VendorSettlementAllocation>().HasIndex(item => new { item.CompanyId, item.VendorSettlementId });
+        modelBuilder.Entity<VendorSettlementAllocation>().HasIndex(item => new { item.CompanyId, item.PurchaseInvoiceId });
         modelBuilder.Entity<PurchasePayment>().HasIndex(payment => new { payment.CompanyId, payment.StoreId, payment.PurchaseInvoiceId, payment.OnDate });
         modelBuilder.Entity<PurchasePayment>().HasIndex(payment => new { payment.CompanyId, payment.VendorId, payment.OnDate });
         modelBuilder.Entity<InvoicePayment>().HasIndex(payment => new { payment.CompanyId, payment.StoreId, payment.InvoiceId, payment.OnDate });

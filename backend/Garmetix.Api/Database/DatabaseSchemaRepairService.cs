@@ -426,6 +426,8 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                     "BankAccountId" uuid NULL,
                     "ReferenceNumber" text NULL,
                     "VoucherId" uuid NULL,
+                    "AdjustmentSourceType" text NULL,
+                    "AdjustmentSourceId" uuid NULL,
                     "Remarks" text NULL,
                     "CompanyId" uuid NOT NULL,
                     "CreatedBy" text NULL,
@@ -465,6 +467,8 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                       "Printed" boolean NOT NULL DEFAULT false,
                       "PrintCount" integer NOT NULL DEFAULT 0,
                       "LastPrintedAt" timestamp without time zone NULL,
+                      "SettledAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                      "SettlementStatus" text NOT NULL DEFAULT 'Open',
                     "CompanyId" uuid NOT NULL,
                     "CreatedBy" text NULL,
                     "StoreGroupId" uuid NOT NULL,
@@ -479,6 +483,10 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                   ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "Printed" boolean NOT NULL DEFAULT false;
                   ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "PrintCount" integer NOT NULL DEFAULT 0;
                   ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "LastPrintedAt" timestamp without time zone NULL;
+                  ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "SettledAmount" numeric(18,2) NOT NULL DEFAULT 0;
+                  ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "SettlementStatus" text NOT NULL DEFAULT 'Open';
+                  ALTER TABLE "PurchasePayments" ADD COLUMN IF NOT EXISTS "AdjustmentSourceType" text NULL;
+                  ALTER TABLE "PurchasePayments" ADD COLUMN IF NOT EXISTS "AdjustmentSourceId" uuid NULL;
 
                 CREATE TABLE IF NOT EXISTS "PurchaseReturnItems" (
                     "Id" uuid NOT NULL,
@@ -514,6 +522,70 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                     "Deleted" boolean NOT NULL DEFAULT false,
                     CONSTRAINT "PK_PurchaseReturnItems" PRIMARY KEY ("Id")
                 );
+
+                CREATE TABLE IF NOT EXISTS "VendorSettlements" (
+                    "Id" uuid NOT NULL,
+                    "SettlementNumber" text NOT NULL DEFAULT '',
+                    "OnDate" timestamp without time zone NOT NULL,
+                    "VendorId" uuid NOT NULL,
+                    "VendorName" text NOT NULL DEFAULT '',
+                    "PurchaseReturnId" uuid NOT NULL,
+                    "ReturnNumber" text NOT NULL DEFAULT '',
+                    "DebitNoteId" uuid NOT NULL,
+                    "DebitNoteNumber" text NOT NULL DEFAULT '',
+                    "SettlementType" text NOT NULL DEFAULT 'Adjustment',
+                    "AdjustedAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "RefundAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "TotalAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "PaymentMode" integer NULL,
+                    "BankAccountId" uuid NULL,
+                    "ReferenceNumber" text NULL,
+                    "VoucherId" uuid NULL,
+                    "JournalEntryId" uuid NULL,
+                    "BankTransactionId" uuid NULL,
+                    "Status" text NOT NULL DEFAULT 'Posted',
+                    "Remarks" text NULL,
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "StoreGroupId" uuid NOT NULL,
+                    "StoreId" uuid NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    CONSTRAINT "PK_VendorSettlements" PRIMARY KEY ("Id")
+                );
+
+                CREATE TABLE IF NOT EXISTS "VendorSettlementAllocations" (
+                    "Id" uuid NOT NULL,
+                    "VendorSettlementId" uuid NOT NULL,
+                    "PurchaseInvoiceId" uuid NOT NULL,
+                    "PurchaseInvoiceNumber" text NOT NULL DEFAULT '',
+                    "Amount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    CONSTRAINT "PK_VendorSettlementAllocations" PRIMARY KEY ("Id")
+                );
+
+                CREATE INDEX IF NOT EXISTS "IX_VendorSettlements_CompanyId_StoreId_SettlementNumber" ON "VendorSettlements" ("CompanyId", "StoreId", "SettlementNumber");
+                CREATE INDEX IF NOT EXISTS "IX_VendorSettlements_CompanyId_VendorId_OnDate" ON "VendorSettlements" ("CompanyId", "VendorId", "OnDate");
+                CREATE INDEX IF NOT EXISTS "IX_VendorSettlements_CompanyId_PurchaseReturnId" ON "VendorSettlements" ("CompanyId", "PurchaseReturnId");
+                CREATE INDEX IF NOT EXISTS "IX_VendorSettlementAllocations_CompanyId_VendorSettlementId" ON "VendorSettlementAllocations" ("CompanyId", "VendorSettlementId");
+                CREATE INDEX IF NOT EXISTS "IX_VendorSettlementAllocations_CompanyId_PurchaseInvoiceId" ON "VendorSettlementAllocations" ("CompanyId", "PurchaseInvoiceId");
+
+                UPDATE "PurchaseReturns" AS purchase_return
+                SET "SettledAmount" = LEAST(note."AdjustedAmount", purchase_return."ReturnAmount"),
+                    "SettlementStatus" = CASE
+                        WHEN note."AdjustedAmount" <= 0 THEN 'Open'
+                        WHEN note."AdjustedAmount" >= purchase_return."ReturnAmount" THEN 'Settled'
+                        ELSE 'Partially Settled'
+                    END
+                FROM "CommercialNotes" AS note
+                WHERE purchase_return."DebitNoteId" = note."Id";
 
                 CREATE TABLE IF NOT EXISTS "NonGstGoodsDocuments" (
                     "Id" uuid NOT NULL,

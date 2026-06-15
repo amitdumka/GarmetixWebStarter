@@ -67,7 +67,7 @@ const notifications = ref<ShellNotification[]>([])
 const notificationsLoading = ref(false)
 const notificationsError = ref('')
 const notificationsLastSeen = ref('')
-const now = ref(new Date())
+const now = ref<Date | null>(null)
 const apiLive = ref<boolean | null>(null)
 let clockTimer: ReturnType<typeof setInterval> | undefined
 let healthTimer: ReturnType<typeof setInterval> | undefined
@@ -112,7 +112,8 @@ const moduleGroups: MenuGroup[] = [
     label: 'Purchase',
     items: [
       { to: '/purchase', label: 'Purchase', icon: 'i-lucide-package-plus' },
-      { to: '/purchase-return', label: 'Purchase Return', icon: 'i-lucide-undo-2' }
+      { to: '/purchase-return', label: 'Purchase Return', icon: 'i-lucide-undo-2' },
+      { to: '/vendor-settlements', label: 'Vendor Settlements', icon: 'i-lucide-hand-coins' }
     ]
   },
   {
@@ -394,8 +395,8 @@ const storeValue = computed({
 
 const workingCompanyName = computed(() => shellCompanies.value.find((item) => item.id === workspace.companyId.value)?.name || 'All companies')
 const workingStoreName = computed(() => shellStores.value.find((item) => item.id === workspace.storeId.value)?.name || 'All permitted stores')
-const currentClock = computed(() => now.value.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }))
-const currentDate = computed(() => now.value.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }))
+const currentClock = computed(() => now.value?.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) || '--:--')
+const currentDate = computed(() => now.value?.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) || '--')
 const apiBadge = computed(() => {
   if (apiLive.value === null) {
     return { label: 'Checking', color: 'warning' as const, icon: 'i-lucide-loader-circle' }
@@ -588,6 +589,7 @@ watch(
 )
 
 onMounted(async () => {
+  now.value = new Date()
   loadShellMemory()
   rememberRoute()
   if (window.matchMedia('(max-width: 900px)').matches) sidebarOpen.value = false

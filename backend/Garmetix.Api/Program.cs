@@ -213,6 +213,7 @@ app.MapSetupEndpoints();
 app.MapWorkspaceEndpoints();
 app.MapBillingEndpoints();
 app.MapPurchaseEndpoints();
+app.MapVendorSettlementEndpoints();
 app.MapUserManagementEndpoints();
 app.MapAccessMatrixEndpoints();
 app.MapHrEndpoints();

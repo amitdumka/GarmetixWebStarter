@@ -319,6 +319,7 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [ ] Complete Stage 8C purchase return and vendor settlement.
   - [x] Package 1: added formal purchase-return header/item records, server-owned return numbering, immutable purchase/tax snapshots, linked stock movements and debit notes, legacy return compatibility, and a searchable return register in v4.2.0.
   - [x] Package 2: added complete A4/A5 purchase-return/debit-note PDFs, stable QR lookup, automatic first print, direct reprint/download actions, and persistent print audit state in v4.2.1.
+  - [x] Package 3: added vendor debit-note allocation, cash/bank refund receipts, mixed settlements, outstanding purchase allocation, settlement history, and linked voucher/journal/bank audit records in v4.2.2.
 - [ ] Complete Stage 8D inventory documents and valuation.
 - [ ] Complete Stage 8E accounting and payment hardening.
 - [ ] Complete Stage 8F automated tests and deep audit history.

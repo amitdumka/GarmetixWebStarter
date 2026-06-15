@@ -33,6 +33,12 @@ public sealed class DocumentNumberService(GarmetixDbContext db)
     public Task<string> NextVendorPaymentVoucherAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
         => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "VendorPaymentVoucher", "PV", DateTime.Today, cancellationToken);
 
+    public Task<string> NextVendorSettlementAsync(Guid companyId, Guid storeGroupId, Guid storeId, DateTime onDate, CancellationToken cancellationToken)
+        => NextStoreMonthlyAsync(companyId, storeGroupId, storeId, "VendorSettlement", "VSET", onDate, cancellationToken);
+
+    public Task<string> NextVendorRefundVoucherAsync(Guid companyId, Guid storeGroupId, Guid storeId, DateTime onDate, CancellationToken cancellationToken)
+        => NextStoreMonthlyAsync(companyId, storeGroupId, storeId, "VendorRefundVoucher", "VREF", onDate, cancellationToken);
+
     public Task<string> NextStockAdjustmentAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
         => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "StockAdjustment", "ADJ", DateTime.Today, cancellationToken);
 

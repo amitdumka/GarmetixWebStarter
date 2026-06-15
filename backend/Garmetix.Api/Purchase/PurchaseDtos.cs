@@ -203,7 +203,10 @@ public sealed record PurchaseReturnRegisterDto(
     bool Printed,
     int PrintCount,
     DateTime? LastPrintedAt,
-    string PrintStatus);
+    string PrintStatus,
+    decimal SettledAmount,
+    decimal AvailableSettlementAmount,
+    string SettlementStatus);
 
 public sealed record PurchaseReturnDetailDto(
     Guid Id,
@@ -232,6 +235,9 @@ public sealed record PurchaseReturnDetailDto(
     int PrintCount,
     DateTime? LastPrintedAt,
     string PrintStatus,
+    decimal SettledAmount,
+    decimal AvailableSettlementAmount,
+    string SettlementStatus,
     IReadOnlyList<PurchaseReturnItemDto> Items);
 
 public sealed record PurchaseReturnPrintRequest(bool Reprint = false);
@@ -318,3 +324,107 @@ public sealed record PurchasePaymentDto(
     string PaymentMode,
     string? ReferenceNumber,
     Guid? VoucherId);
+
+public sealed record VendorSettlementRequest(
+    DateTime? OnDate,
+    decimal RefundAmount,
+    PaymentMode? PaymentMode,
+    Guid? BankAccountId,
+    string? ReferenceNumber,
+    string? Remarks,
+    IReadOnlyList<VendorSettlementAllocationRequest> Allocations);
+
+public sealed record VendorSettlementAllocationRequest(
+    Guid PurchaseInvoiceId,
+    decimal Amount);
+
+public sealed record VendorSettlementOptionDto(
+    Guid PurchaseReturnId,
+    string ReturnNumber,
+    Guid DebitNoteId,
+    string DebitNoteNumber,
+    Guid VendorId,
+    string VendorName,
+    decimal ReturnAmount,
+    decimal PreviouslySettledAmount,
+    decimal AvailableAmount,
+    string SettlementStatus,
+    IReadOnlyList<VendorOutstandingInvoiceDto> OutstandingInvoices);
+
+public sealed record VendorOutstandingInvoiceDto(
+    Guid PurchaseInvoiceId,
+    string InvoiceNumber,
+    DateTime OnDate,
+    DateTime DueDate,
+    decimal BillAmount,
+    decimal PaidAmount,
+    decimal OutstandingAmount,
+    string InvoiceStatus);
+
+public sealed record VendorSettlementRowDto(
+    Guid Id,
+    string SettlementNumber,
+    DateTime OnDate,
+    Guid VendorId,
+    string VendorName,
+    Guid PurchaseReturnId,
+    string ReturnNumber,
+    Guid DebitNoteId,
+    string DebitNoteNumber,
+    string SettlementType,
+    decimal AdjustedAmount,
+    decimal RefundAmount,
+    decimal TotalAmount,
+    string? PaymentMode,
+    Guid? BankAccountId,
+    string? ReferenceNumber,
+    Guid? VoucherId,
+    Guid? JournalEntryId,
+    Guid? BankTransactionId,
+    string Status,
+    string? Remarks);
+
+public sealed record VendorSettlementDetailDto(
+    Guid Id,
+    string SettlementNumber,
+    DateTime OnDate,
+    Guid VendorId,
+    string VendorName,
+    Guid PurchaseReturnId,
+    string ReturnNumber,
+    Guid DebitNoteId,
+    string DebitNoteNumber,
+    string SettlementType,
+    decimal AdjustedAmount,
+    decimal RefundAmount,
+    decimal TotalAmount,
+    string? PaymentMode,
+    Guid? BankAccountId,
+    string? BankAccountName,
+    string? ReferenceNumber,
+    Guid? VoucherId,
+    string? VoucherNumber,
+    Guid? JournalEntryId,
+    string? JournalEntryNumber,
+    Guid? BankTransactionId,
+    string Status,
+    string? Remarks,
+    IReadOnlyList<VendorSettlementAllocationDto> Allocations);
+
+public sealed record VendorSettlementAllocationDto(
+    Guid Id,
+    Guid PurchaseInvoiceId,
+    string PurchaseInvoiceNumber,
+    decimal Amount);
+
+public sealed record VendorSettlementResponse(
+    Guid Id,
+    string SettlementNumber,
+    string SettlementType,
+    decimal AdjustedAmount,
+    decimal RefundAmount,
+    decimal TotalAmount,
+    decimal RemainingAmount,
+    string SettlementStatus,
+    Guid? VoucherId,
+    string? VoucherNumber);

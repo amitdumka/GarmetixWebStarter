@@ -61,6 +61,7 @@ const routeRules: PageAccessRule[] = [
   { path: '/non-gst-goods', label: 'Non-GST Goods', module: 'Off Book', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
   { path: '/purchase', label: 'Purchase', module: 'Purchase', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
   { path: '/purchase-return', label: 'Purchase Return', module: 'Purchase', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
+  { path: '/vendor-settlements', label: 'Vendor Settlements', module: 'Purchase', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
   { path: '/customers', label: 'Customers', module: 'CRM', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'salesman'] },
   { path: '/parties', label: 'Parties & Vendors', module: 'CRM', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
   { path: '/vouchers', label: 'Vouchers', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },

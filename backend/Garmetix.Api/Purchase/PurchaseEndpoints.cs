@@ -151,7 +151,10 @@ public static class PurchaseEndpoints
                 item.Printed,
                 item.PrintCount,
                 item.LastPrintedAt,
-                item.PrintCount > 1 ? "Reprinted" : item.Printed ? "Printed" : "Not Printed"))
+                item.PrintCount > 1 ? "Reprinted" : item.Printed ? "Printed" : "Not Printed",
+                item.SettledAmount,
+                Math.Max(item.ReturnAmount - item.SettledAmount, 0),
+                item.SettlementStatus))
             .ToListAsync(cancellationToken);
     }
 
@@ -312,6 +315,9 @@ public static class PurchaseEndpoints
             item.PrintCount,
             item.LastPrintedAt,
             PurchaseReturnPrintStatus(item.Printed, item.PrintCount),
+            item.SettledAmount,
+            Math.Max(item.ReturnAmount - item.SettledAmount, 0),
+            item.SettlementStatus,
             items);
     }
 

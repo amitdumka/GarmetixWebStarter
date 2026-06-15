@@ -32,12 +32,17 @@ public class PurchaseReturn : StoreBase
     [Display(Name = "Printed")] public bool Printed { get; set; }
     [Display(Name = "Print Count")] public int PrintCount { get; set; }
     [Display(Name = "Last Printed At")] public DateTime? LastPrintedAt { get; set; }
+    [Display(Name = "Settled Amount")] public decimal SettledAmount { get; set; }
+    [Display(Name = "Settlement Status")] public string SettlementStatus { get; set; } = "Open";
 
     [JsonIgnore]
     public virtual PurchaseInvoice? PurchaseInvoice { get; set; }
 
     [JsonIgnore]
     public virtual ICollection<PurchaseReturnItem> Items { get; set; } = new List<PurchaseReturnItem>();
+
+    [JsonIgnore]
+    public virtual ICollection<VendorSettlement> Settlements { get; set; } = new List<VendorSettlement>();
 }
 
 public class PurchaseReturnItem : CompanyBase

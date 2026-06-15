@@ -10,6 +10,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Garmetix.Api.Accounting;
 
+public sealed record VendorRefundPostingResult(Guid JournalEntryId, Guid? BankTransactionId);
+
 public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumberService documentNumbers)
 {
     private sealed record JournalLineDraft(Guid LedgerId, Guid? PartyId, decimal Debit, decimal Credit, string Narration);
@@ -1081,6 +1083,77 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
             storeId,
             lines,
             cancellationToken);
+    }
+
+    public async Task<VendorRefundPostingResult> PostVendorRefundSettlementAsync(
+        VendorSettlement settlement,
+        Voucher voucher,
+        Vendor vendor,
+        CancellationToken cancellationToken)
+    {
+        if (settlement.RefundAmount <= 0)
+        {
+            throw new ArgumentException("Vendor refund amount must be greater than zero.");
+        }
+
+        if (!settlement.PaymentMode.HasValue)
+        {
+            throw new ArgumentException("Select a payment mode for the vendor refund.");
+        }
+
+        var party = await EnsureVendorPartyAsync(vendor, cancellationToken);
+        var vendorLedgerId = party.LedgerId;
+        var receiptLedger = await ResolveSettlementLedgerAsync(
+            settlement.CompanyId,
+            settlement.PaymentMode.Value,
+            settlement.BankAccountId,
+            cancellationToken);
+
+        voucher.PartyId = party.Id;
+        voucher.LedgerId = vendorLedgerId;
+        voucher.IsParty = true;
+        voucher.StoreGroupId = settlement.StoreGroupId;
+        voucher.StoreId = settlement.StoreId;
+
+        var lines = new List<JournalLineDraft>
+        {
+            new(receiptLedger.Id, null, settlement.RefundAmount, 0, voucher.Particulars),
+            new(vendorLedgerId, party.Id, 0, settlement.RefundAmount, voucher.Particulars)
+        };
+
+        await UpsertInvoiceBankTransactionAsync(
+            settlement.CompanyId,
+            settlement.PaymentMode.Value,
+            settlement.BankAccountId,
+            TransactionType.Deposit,
+            settlement.OnDate,
+            settlement.SettlementNumber,
+            voucher.Particulars,
+            settlement.RefundAmount,
+            vendor.Name,
+            cancellationToken);
+
+        var journal = await RepostSourceJournalAsync(
+            "VendorRefundSettlement",
+            settlement.Id,
+            settlement.SettlementNumber,
+            settlement.OnDate,
+            settlement.DebitNoteNumber,
+            voucher.Particulars,
+            settlement.CompanyId,
+            settlement.StoreGroupId,
+            settlement.StoreId,
+            lines,
+            cancellationToken);
+
+        var bankTransactionId = settlement.PaymentMode.Value == PaymentMode.Cash
+            ? null
+            : await db.BankTransactions
+                .Where(item => item.CompanyId == settlement.CompanyId && item.Reference == settlement.SettlementNumber)
+                .Select(item => (Guid?)item.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+        return new VendorRefundPostingResult(journal.Id, bankTransactionId);
     }
 
     public async Task PostSalesReturnAsync(

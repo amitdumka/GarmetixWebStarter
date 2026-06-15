@@ -277,6 +277,8 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Bank Account", AutoGenerateField = false)] public Guid? BankAccountId { get; set; }
         [Display(Name = "Reference Number")] public string? ReferenceNumber { get; set; }
         [Display(Name = "Voucher", AutoGenerateField = false)] public Guid? VoucherId { get; set; }
+        [Display(Name = "Adjustment Source Type")] public string? AdjustmentSourceType { get; set; }
+        [Display(Name = "Adjustment Source", AutoGenerateField = false)] public Guid? AdjustmentSourceId { get; set; }
         [Display(Name = "Remarks")] public string? Remarks { get; set; }
         public virtual PurchaseInvoice? PurchaseInvoice { get; set; }
         public virtual Vendor? Vendor { get; set; }

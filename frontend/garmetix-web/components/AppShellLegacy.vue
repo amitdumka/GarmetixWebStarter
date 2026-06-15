@@ -37,7 +37,7 @@ const passwordForm = reactive({
   newPassword: '',
   confirmPassword: ''
 })
-const now = ref(new Date())
+const now = ref<Date | null>(null)
 const apiLive = ref<boolean | null>(null)
 let clockTimer: ReturnType<typeof setInterval> | undefined
 let healthTimer: ReturnType<typeof setInterval> | undefined
@@ -75,6 +75,7 @@ const moduleGroups = [
       { to: '/non-gst-goods', label: 'Non-GST Goods', icon: 'i-lucide-file-warning' },
       { to: '/purchase', label: 'Purchase', icon: 'i-lucide-package-plus' },
       { to: '/purchase-return', label: 'Purchase Return', icon: 'i-lucide-undo-2' },
+      { to: '/vendor-settlements', label: 'Vendor Settlements', icon: 'i-lucide-hand-coins' },
       { to: '/customers', label: 'Customers', icon: 'i-lucide-user-round' },
       { to: '/parties', label: 'Parties / Vendors', icon: 'i-lucide-users-round' },
       { to: '/vouchers', label: 'Vouchers', icon: 'i-lucide-banknote' },
@@ -212,18 +213,18 @@ const workingStoreName = computed(() => {
   return store?.name || store?.storeName || 'No store selected'
 })
 
-const currentClock = computed(() => now.value.toLocaleTimeString('en-IN', {
+const currentClock = computed(() => now.value?.toLocaleTimeString('en-IN', {
   hour: '2-digit',
   minute: '2-digit',
   second: '2-digit',
   hour12: true
-}))
+}) || '--:--:--')
 
-const currentDate = computed(() => now.value.toLocaleDateString('en-IN', {
+const currentDate = computed(() => now.value?.toLocaleDateString('en-IN', {
   day: '2-digit',
   month: 'short',
   year: 'numeric'
-}))
+}) || '--')
 
 const apiBadge = computed(() => {
   if (apiLive.value === null) {
@@ -327,6 +328,7 @@ watch(
 )
 
 onMounted(async () => {
+  now.value = new Date()
   await loadWorkspaceOptions()
   clockTimer = setInterval(() => {
     now.value = new Date()

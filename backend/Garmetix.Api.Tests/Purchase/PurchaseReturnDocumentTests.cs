@@ -76,6 +76,9 @@ public sealed class PurchaseReturnDocumentTests
             0,
             null,
             "Not Printed",
+            0,
+            11_200,
+            "Open",
             items);
 
         var pdf = PurchaseReturnPdfDocument.Build(

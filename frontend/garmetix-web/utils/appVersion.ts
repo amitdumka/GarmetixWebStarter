@@ -1,10 +1,15 @@
-export const APP_VERSION = '4.2.1'
+export const APP_VERSION = '4.2.2'
 export const APP_STAGE = 'Stage 8C'
-export const APP_RELEASE_NAME = 'Purchase Return Documents'
+export const APP_RELEASE_NAME = 'Vendor Settlement'
 export const APP_BUILD_DATE = '2026-06-15'
-export const APP_BUILD_CODE = 'GARMETIX-8C-20260615-4210'
+export const APP_BUILD_CODE = 'GARMETIX-8C-20260615-4220'
 
 export const APP_HIGHLIGHTS = [
+  'Vendor debit notes can now be allocated across one or more outstanding purchase invoices without duplicating their accounting journal.',
+  'Actual supplier refunds create receipt vouchers and balanced cash or bank entries linked to the vendor, return, debit note, journal and bank transaction.',
+  'Vendor settlements support adjustment-only, refund-only and mixed workflows with server-owned StoreCode/YYYYMM/VSET/series numbering.',
+  'The dedicated Vendor Settlements workspace shows open debit-note credit, invoice allocation, refund receipt, settlement history and audit links.',
+  'Non-cash vendor refunds require a receiving bank account, while generated refund vouchers use StoreCode/YYYYMM/VREF/series numbering and printable QR receipts.',
   'Purchase returns now generate colored A4 or A5 Purchase Return and Debit Note PDFs containing every returned item and exact GST reversal totals.',
   'Each purchase-return document carries a stable QR code that opens the permitted return detail from Document Scanner.',
   'New returns open their first print automatically, while print count, reprint state, and last print time remain auditable.',
