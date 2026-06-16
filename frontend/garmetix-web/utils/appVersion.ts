@@ -1,10 +1,17 @@
-export const APP_VERSION = '4.3.6'
-export const APP_STAGE = 'Stage 8E Package 1'
-export const APP_RELEASE_NAME = 'Cash Voucher Conversion Audit'
+export const APP_VERSION = '4.3.8'
+export const APP_STAGE = 'Stage 8E Package 2 Hotfix 1'
+export const APP_RELEASE_NAME = 'Sales Return Salesman FK Hotfix'
 export const APP_BUILD_DATE = '2026-06-16'
-export const APP_BUILD_CODE = 'GARMETIX-8E-20260616-4360'
+export const APP_BUILD_CODE = 'GARMETIX-8E-20260616-4380'
 
 export const APP_HIGHLIGHTS = [
+  'Sales return invoices now carry a valid salesman reference from the original bill or active store fallback, preventing FK save failures.',
+  'Sales exchange replacement invoices and billing imports now also avoid blank salesman foreign keys.',
+  'Sales split payments now post separate settlement ledger and customer-credit rows for every collected payment line.',
+  'Cash, bank, cheque, card, UPI, credit note, advance, store-credit and loyalty rows are routed to their own settlement ledgers instead of one mixed-payment ledger.',
+  'Invoice payment rows now retain a structured payment-details JSON snapshot with mode, account, reference, gateway, cheque, card, UPI and adjustment metadata.',
+  'Duplicate use of the same advance receipt, credit note, store credit or loyalty redemption is rejected before balances are changed.',
+  'Nuxt font resolution now runs in local/no-provider mode so offline builds no longer depend on external font metadata.',
   'Owner and Admin users can move eligible cash records between Off Book Cash Vouchers and regular accounting vouchers without duplicating the amount.',
   'Every conversion retains source and destination numbers, direction, amount, reason, operator and timestamp in an immutable audit history.',
   'Moving a regular cash voucher Off Book removes its journal postings and preserves the original source as an audit-only record.',

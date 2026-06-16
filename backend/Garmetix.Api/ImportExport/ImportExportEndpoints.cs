@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using Garmetix.Api.Accounting;
 using Garmetix.Api.Auth;
 using Garmetix.Api.Inventory;
@@ -1029,6 +1030,27 @@ public static class ImportExportEndpoints
             }
         }
 
+        var salesmanCompanyIds = drafts.Select(item => item.CompanyId).Distinct().ToList();
+        var salesmanStoreIds = drafts.Select(item => item.StoreId).Distinct().ToList();
+        var defaultSalesmen = await db.Salesmen
+            .AsNoTracking()
+            .Where(item => item.Active && salesmanCompanyIds.Contains(item.CompanyId) && salesmanStoreIds.Contains(item.StoreId))
+            .OrderBy(item => item.Name)
+            .Select(item => new { item.Id, item.CompanyId, item.StoreId })
+            .ToListAsync(cancellationToken);
+        var defaultSalesmenByStore = defaultSalesmen
+            .GroupBy(item => (item.CompanyId, item.StoreId))
+            .ToDictionary(item => item.Key, item => item.First().Id);
+
+        foreach (var storeGroup in drafts.GroupBy(item => new { item.CompanyId, item.StoreId }))
+        {
+            if (!defaultSalesmenByStore.ContainsKey((storeGroup.Key.CompanyId, storeGroup.Key.StoreId)))
+            {
+                var firstLine = storeGroup.First();
+                result.Errors.Add(new ImportRowError(firstLine.Line, "Salesman", "Create or activate at least one salesman for this billing import store."));
+            }
+        }
+
         if (!commit || result.Errors.Count > 0)
         {
             if (!commit)
@@ -1044,6 +1066,7 @@ public static class ImportExportEndpoints
         {
             var first = group.First();
             var customer = await GetOrCreateImportCustomerAsync(db, first, cancellationToken);
+            var salesmanId = defaultSalesmenByStore[(first.CompanyId, first.StoreId)];
             var invoiceId = Guid.NewGuid();
             var invoiceItems = new List<InvoiceItem>();
             decimal grossMrp = 0;
@@ -1131,6 +1154,7 @@ public static class ImportExportEndpoints
                 CustomerId = customer.Id,
                 CustomerName = customer.Name,
                 CustomerMobileNumber = customer.MobileNumber,
+                SalemanId = salesmanId,
                 CreditSale = paidAmount < billAmount,
                 PaidAmount = paidAmount,
                 BillDiscountAmount = billDiscount,
@@ -1141,22 +1165,41 @@ public static class ImportExportEndpoints
             db.SalesInvoices.Add(invoice);
             db.InvoiceItems.AddRange(invoiceItems);
 
+            var paymentPostings = new List<SalesInvoicePaymentPosting>();
             if (paidAmount > 0)
             {
+                var paymentDetailsJson = JsonSerializer.Serialize(new Dictionary<string, object?>
+                {
+                    ["paymentMode"] = first.PaymentMode.ToString(),
+                    ["bankAccountId"] = first.BankAccountId,
+                    ["source"] = "ImportExport"
+                });
                 db.InvoicePayments.Add(new InvoicePayment
                 {
                     InvoiceId = invoice.Id,
                     OnDate = first.OnDate,
                     Amount = paidAmount,
                     PaymentMode = first.PaymentMode,
+                    BankAccountId = first.BankAccountId,
+                    PaymentDetailsJson = paymentDetailsJson,
                     StoreId = first.StoreId,
                     CompanyId = first.CompanyId
                 });
+                paymentPostings.Add(new SalesInvoicePaymentPosting(
+                    first.PaymentMode,
+                    paidAmount,
+                    first.BankAccountId,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    paymentDetailsJson));
             }
 
             customer.BillCount += 1;
             customer.Amount += billAmount;
-            await accounting.PostSalesInvoiceAsync(invoice, customer, first.StoreGroupId, first.BankAccountId, cancellationToken);
+            await accounting.PostSalesInvoiceAsync(invoice, customer, first.StoreGroupId, paymentPostings, cancellationToken);
             result.Created++;
         }
 

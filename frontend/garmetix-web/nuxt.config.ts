@@ -31,6 +31,21 @@ export default defineNuxtConfig({
     fallback: 'dark',
     classSuffix: ''
   },
+  fonts: {
+    provider: 'local',
+    providers: {
+      google: false,
+      googleicons: false,
+      bunny: false,
+      fontshare: false,
+      fontsource: false,
+      adobe: false,
+      npm: false
+    },
+    families: [
+      { name: 'Inter', provider: 'none' }
+    ]
+  },
   ui: {
     theme: {
       colors: ['primary', 'success', 'warning', 'error', 'neutral']

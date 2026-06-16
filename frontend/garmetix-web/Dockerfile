@@ -7,7 +7,7 @@ ENV NODE_OPTIONS=--max-old-space-size=4096
 ENV NUXT_TELEMETRY_DISABLED=1
 
 COPY frontend/garmetix-web/package*.json ./
-RUN npm install
+RUN npm ci
 COPY frontend/garmetix-web/ ./
 RUN npm run build
 

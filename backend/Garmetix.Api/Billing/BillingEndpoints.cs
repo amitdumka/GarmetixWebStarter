@@ -9,6 +9,7 @@ using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Inventory;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace Garmetix.Api.Billing;
@@ -607,14 +608,18 @@ public static class BillingEndpoints
             return Results.BadRequest(new { message = $"Select bank account/reference account for {invalidBankPayment.PaymentMode} payment." });
         }
 
-        if (request.SalesmanId.HasValue && request.SalesmanId.Value != Guid.Empty)
+        var salesmanId = await ResolveRequiredSalesmanIdAsync(
+            request.SalesmanId,
+            request.CompanyId,
+            request.StoreId,
+            context,
+            db,
+            cancellationToken);
+        if (salesmanId is null)
         {
-            var salesmanAllowed = await WorkspaceScope.ApplyTo(db.Salesmen.AsNoTracking(), context)
-                .AnyAsync(item => item.Id == request.SalesmanId.Value && item.Active && item.StoreId == request.StoreId, cancellationToken);
-            if (!salesmanAllowed)
-            {
-                return Results.BadRequest(new { message = "Selected salesman is outside the billing store scope." });
-            }
+            return Results.BadRequest(new { message = request.SalesmanId.HasValue && request.SalesmanId.Value != Guid.Empty
+                ? "Selected salesman is outside the billing store scope."
+                : "Create or activate at least one salesman for this billing store before saving invoices." });
         }
 
         var invoicePaymentMode = paymentDetails.Count > 1
@@ -648,7 +653,7 @@ public static class BillingEndpoints
             CustomerGSTIN = customer.GSTIN,
             B2BSale = !string.IsNullOrWhiteSpace(customer.GSTIN),
             SaleInvoiceType = !string.IsNullOrWhiteSpace(customer.GSTIN) ? SaleInvoiceType.B2B : SaleInvoiceType.B2C,
-            SalemanId = request.SalesmanId ?? Guid.Empty,
+            SalemanId = salesmanId.Value,
             CreditSale = paidAmount < billAmount,
             PaidAmount = paidAmount,
             BillDiscountAmount = request.BillDiscountAmount,
@@ -669,7 +674,7 @@ public static class BillingEndpoints
         customer.BillCount += 1;
         customer.Amount += billAmount;
         await LoyaltyService.AwardSalePointsAsync(invoice, customer, db, cancellationToken);
-        await accounting.PostSalesInvoiceAsync(invoice, customer, request.StoreGroupId, FirstBankAccountId(paymentDetails), cancellationToken);
+        await accounting.PostSalesInvoiceAsync(invoice, customer, request.StoreGroupId, ToAccountingPaymentPostings(paymentDetails), cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -731,8 +736,15 @@ public static class BillingEndpoints
 
         var originalPaidAmount = invoice.PaidAmount;
         var originalPaymentMode = invoice.PaymentMode;
+        var originalPaymentRows = await db.InvoicePayments
+            .AsNoTracking()
+            .Where(item => item.InvoiceId == invoice.Id && item.CompanyId == invoice.CompanyId)
+            .OrderBy(item => item.OnDate)
+            .ThenBy(item => item.Id)
+            .ToListAsync(cancellationToken);
         var originalBankAccountId = await db.BankTransactions
-            .Where(item => item.CompanyId == invoice.CompanyId && item.Reference == $"SI-{invoice.InvoiceNumber}")
+            .Where(item => item.CompanyId == invoice.CompanyId &&
+                (item.Reference == $"SI-{invoice.InvoiceNumber}" || item.Reference.StartsWith($"SI-{invoice.InvoiceNumber}-PAY-")))
             .Select(item => (Guid?)item.BankAccountId)
             .FirstOrDefaultAsync(cancellationToken);
         var storeGroupId = await db.Stores
@@ -794,7 +806,7 @@ public static class BillingEndpoints
         invoice.PaymentMode = null;
         invoice.CreditSale = false;
 
-        await accounting.PostSalesInvoiceCancellationAsync(invoice, customer, storeGroupId, originalPaidAmount, originalPaymentMode, originalBankAccountId, cancellationToken);
+        await accounting.PostSalesInvoiceCancellationAsync(invoice, customer, storeGroupId, originalPaidAmount, originalPaymentMode, originalBankAccountId, ToAccountingPaymentPostings(originalPaymentRows), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
@@ -964,6 +976,18 @@ public static class BillingEndpoints
         var storeGroupId = returnResult.StoreGroupId;
         var exchangeInvoiceId = Guid.NewGuid();
         var invoiceNumber = await documentNumbers.NextSalesExchangeAsync(original.CompanyId, storeGroupId, original.StoreId, cancellationToken);
+        var exchangeSalesmanId = await ResolveExistingOrFallbackSalesmanIdAsync(
+            original.SalemanId,
+            original.CompanyId,
+            original.StoreId,
+            context,
+            db,
+            cancellationToken);
+        if (exchangeSalesmanId is null)
+        {
+            return Results.BadRequest(new { message = "Original invoice salesman is missing and no active fallback salesman exists for this store." });
+        }
+
         var exchangeItems = new List<InvoiceItem>();
         decimal grossMrp = 0;
         decimal itemDiscount = 0;
@@ -1094,6 +1118,7 @@ public static class BillingEndpoints
             CustomerName = customer.Name,
             CustomerMobileNumber = customer.MobileNumber,
             CustomerGSTIN = customer.GSTIN,
+            SalemanId = exchangeSalesmanId.Value,
             CreditSale = additionalPaid < additionalDue,
             PaidAmount = creditApplied + additionalPaid,
             BillDiscountAmount = 0,
@@ -1101,40 +1126,53 @@ public static class BillingEndpoints
             CompanyId = original.CompanyId
         };
 
-        db.SalesInvoices.Add(exchangeInvoice);
-        db.InvoiceItems.AddRange(exchangeItems);
+        var exchangePaymentDetails = new List<NormalizedInvoicePayment>();
         if (creditApplied > 0)
         {
-            db.InvoicePayments.Add(new InvoicePayment
-            {
-                InvoiceId = exchangeInvoice.Id,
-                OnDate = DateTime.Now,
-                Amount = creditApplied,
-                PaymentMode = PaymentMode.CreditBalance,
-                ReferenceNumber = $"Exchange credit from {returnResult.ReturnInvoice!.InvoiceNumber}",
-                AdjustmentSourceType = "SalesReturnCredit",
-                AdjustmentSourceId = returnResult.ReturnInvoice!.Id,
-                StoreId = original.StoreId,
-                CompanyId = original.CompanyId
-            });
+            var reference = $"Exchange credit from {returnResult.ReturnInvoice!.InvoiceNumber}";
+            exchangePaymentDetails.Add(new NormalizedInvoicePayment(
+                PaymentMode.CreditBalance,
+                creditApplied,
+                null,
+                reference,
+                null,
+                null,
+                "SalesReturnCredit",
+                returnResult.ReturnInvoice!.Id,
+                JsonSerializer.Serialize(new Dictionary<string, object?>
+                {
+                    ["paymentMode"] = PaymentMode.CreditBalance.ToString(),
+                    ["referenceNumber"] = reference,
+                    ["adjustmentSourceType"] = "SalesReturnCredit",
+                    ["adjustmentSourceId"] = returnResult.ReturnInvoice!.Id
+                })));
         }
 
         if (additionalPaid > 0 && request.AdditionalPaymentMode.HasValue)
         {
-            db.InvoicePayments.Add(new InvoicePayment
-            {
-                InvoiceId = exchangeInvoice.Id,
-                OnDate = DateTime.Now,
-                Amount = additionalPaid,
-                PaymentMode = request.AdditionalPaymentMode.Value,
-                ReferenceNumber = $"Exchange additional payment for {invoiceNumber}",
-                BankAccountId = request.BankAccountId,
-                StoreId = original.StoreId,
-                CompanyId = original.CompanyId
-            });
+            var reference = $"Exchange additional payment for {invoiceNumber}";
+            exchangePaymentDetails.Add(new NormalizedInvoicePayment(
+                request.AdditionalPaymentMode.Value,
+                additionalPaid,
+                request.BankAccountId,
+                reference,
+                null,
+                null,
+                null,
+                null,
+                JsonSerializer.Serialize(new Dictionary<string, object?>
+                {
+                    ["paymentMode"] = request.AdditionalPaymentMode.Value.ToString(),
+                    ["bankAccountId"] = request.BankAccountId,
+                    ["referenceNumber"] = reference
+                })));
         }
 
-        await accounting.PostSalesInvoiceAsync(exchangeInvoice, customer, storeGroupId, request.BankAccountId, cancellationToken);
+        db.SalesInvoices.Add(exchangeInvoice);
+        db.InvoiceItems.AddRange(exchangeItems);
+        AddInvoicePayments(exchangeInvoice, exchangePaymentDetails, db);
+
+        await accounting.PostSalesInvoiceAsync(exchangeInvoice, customer, storeGroupId, ToAccountingPaymentPostings(exchangePaymentDetails), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
@@ -1211,6 +1249,18 @@ public static class BillingEndpoints
                 .ToDictionaryAsync(item => item.Key, item => item.Quantity, cancellationToken);
 
         var returnInvoiceId = Guid.NewGuid();
+        var returnSalesmanId = await ResolveExistingOrFallbackSalesmanIdAsync(
+            original.SalemanId,
+            original.CompanyId,
+            original.StoreId,
+            context,
+            db,
+            cancellationToken);
+        if (returnSalesmanId is null)
+        {
+            return SalesReturnCoreResult.BadRequest("Original invoice salesman is missing and no active fallback salesman exists for this store.");
+        }
+
         var returnItems = new List<InvoiceItem>();
         decimal grossMrp = 0;
         decimal taxableAmount = 0;
@@ -1338,6 +1388,7 @@ public static class BillingEndpoints
             CustomerName = customer.Name,
             CustomerMobileNumber = customer.MobileNumber,
             CustomerGSTIN = customer.GSTIN,
+            SalemanId = returnSalesmanId.Value,
             CreditSale = false,
             PaidAmount = refund,
             BillDiscountAmount = 0,
@@ -1373,6 +1424,61 @@ public static class BillingEndpoints
         await accounting.PostSalesReturnAsync(returnInvoice, customer, storeGroupId, refund, refundPaymentMode, bankAccountId, cancellationToken);
 
         return SalesReturnCoreResult.Ok(original, returnInvoice, customer, storeGroupId, billAmount, refund, storeCredit, reversedQuantity);
+    }
+
+    private static async Task<Guid?> ResolveRequiredSalesmanIdAsync(
+        Guid? requestedSalesmanId,
+        Guid companyId,
+        Guid storeId,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        if (requestedSalesmanId.HasValue && requestedSalesmanId.Value != Guid.Empty)
+        {
+            var salesmanAllowed = await WorkspaceScope.ApplyTo(db.Salesmen.AsNoTracking(), context)
+                .AnyAsync(item => item.Id == requestedSalesmanId.Value && item.Active && item.CompanyId == companyId && item.StoreId == storeId, cancellationToken);
+            return salesmanAllowed ? requestedSalesmanId.Value : null;
+        }
+
+        return await GetDefaultSalesmanIdAsync(companyId, storeId, context, db, cancellationToken);
+    }
+
+    private static async Task<Guid?> ResolveExistingOrFallbackSalesmanIdAsync(
+        Guid salesmanId,
+        Guid companyId,
+        Guid storeId,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        if (salesmanId != Guid.Empty)
+        {
+            var existingSalesman = await db.Salesmen
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .AnyAsync(item => item.Id == salesmanId && item.CompanyId == companyId && item.StoreId == storeId, cancellationToken);
+            if (existingSalesman)
+            {
+                return salesmanId;
+            }
+        }
+
+        return await GetDefaultSalesmanIdAsync(companyId, storeId, context, db, cancellationToken);
+    }
+
+    private static Task<Guid?> GetDefaultSalesmanIdAsync(
+        Guid companyId,
+        Guid storeId,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        return WorkspaceScope.ApplyTo(db.Salesmen.AsNoTracking(), context)
+            .Where(item => item.Active && item.CompanyId == companyId && item.StoreId == storeId)
+            .OrderBy(item => item.Name)
+            .Select(item => (Guid?)item.Id)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     private static async Task UpdateOriginalReturnStatusAsync(
@@ -1479,7 +1585,8 @@ public static class BillingEndpoints
         string? GatewayReference,
         string? SettlementStatus,
         string? AdjustmentSourceType,
-        Guid? AdjustmentSourceId);
+        Guid? AdjustmentSourceId,
+        string? PaymentDetailsJson);
 
     private static List<NormalizedInvoicePayment> NormalizeInvoicePayments(PosSaleRequest request, decimal billAmount)
     {
@@ -1501,7 +1608,8 @@ public static class BillingEndpoints
                 Clean(payment.GatewayReference),
                 Clean(payment.SettlementStatus),
                 Clean(payment.AdjustmentSourceType),
-                payment.AdjustmentSourceId));
+                payment.AdjustmentSourceId,
+                BuildPaymentDetailsJson(payment)));
         }
 
         return payments;
@@ -1515,9 +1623,15 @@ public static class BillingEndpoints
         GarmetixDbContext db,
         CancellationToken cancellationToken)
     {
+        var duplicateAdjustmentError = ValidateSingleUseAdjustmentRows(payments);
+        if (!string.IsNullOrWhiteSpace(duplicateAdjustmentError))
+        {
+            return duplicateAdjustmentError;
+        }
+
         foreach (var payment in payments.Where(IsAdjustmentPayment))
         {
-            var sourceType = payment.AdjustmentSourceType ?? payment.PaymentMode.ToString();
+            var sourceType = CanonicalAdjustmentSource(payment);
             var amount = payment.Amount;
             if (amount <= 0)
             {
@@ -1655,6 +1769,7 @@ public static class BillingEndpoints
                 BankAccountId = payment.BankAccountId,
                 GatewayReference = payment.GatewayReference,
                 SettlementStatus = payment.SettlementStatus,
+                PaymentDetailsJson = payment.PaymentDetailsJson,
                 AdjustmentSourceType = payment.AdjustmentSourceType,
                 AdjustmentSourceId = payment.AdjustmentSourceId,
                 StoreId = invoice.StoreId,
@@ -1666,7 +1781,7 @@ public static class BillingEndpoints
     private static bool IsAdjustmentPayment(NormalizedInvoicePayment payment)
     {
         return !string.IsNullOrWhiteSpace(payment.AdjustmentSourceType) ||
-            payment.PaymentMode is PaymentMode.CreditBalance or PaymentMode.CreditNote or PaymentMode.SaleReturn;
+            payment.PaymentMode is PaymentMode.CreditBalance or PaymentMode.CreditNote or PaymentMode.SaleReturn or PaymentMode.Coupons;
     }
 
     private static bool SourceMatches(string? sourceType, string expected)
@@ -1679,9 +1794,132 @@ public static class BillingEndpoints
         return paymentMode is PaymentMode.Card or PaymentMode.UPI or PaymentMode.Wallets or PaymentMode.IMPS or PaymentMode.RTGS or PaymentMode.NEFT or PaymentMode.Cheque or PaymentMode.DemandDraft;
     }
 
-    private static Guid? FirstBankAccountId(IReadOnlyList<NormalizedInvoicePayment> payments)
+    private static IReadOnlyList<SalesInvoicePaymentPosting> ToAccountingPaymentPostings(IReadOnlyList<NormalizedInvoicePayment> payments)
+        => payments
+            .Where(item => item.Amount > 0)
+            .Select(item => new SalesInvoicePaymentPosting(
+                item.PaymentMode,
+                item.Amount,
+                item.BankAccountId,
+                item.ReferenceNumber,
+                item.GatewayReference,
+                item.SettlementStatus,
+                item.AdjustmentSourceType,
+                item.AdjustmentSourceId,
+                item.PaymentDetailsJson))
+            .ToList();
+
+    private static IReadOnlyList<SalesInvoicePaymentPosting> ToAccountingPaymentPostings(IReadOnlyList<InvoicePayment> payments)
+        => payments
+            .Where(item => item.Amount > 0)
+            .Select(item => new SalesInvoicePaymentPosting(
+                item.PaymentMode,
+                item.Amount,
+                item.BankAccountId,
+                item.ReferenceNumber,
+                item.GatewayReference,
+                item.SettlementStatus,
+                item.AdjustmentSourceType,
+                item.AdjustmentSourceId,
+                item.PaymentDetailsJson))
+            .ToList();
+
+    private static string? ValidateSingleUseAdjustmentRows(IReadOnlyList<NormalizedInvoicePayment> payments)
     {
-        return payments.FirstOrDefault(item => item.BankAccountId.HasValue)?.BankAccountId;
+        var seen = new Dictionary<string, NormalizedInvoicePayment>(StringComparer.OrdinalIgnoreCase);
+        foreach (var payment in payments.Where(IsAdjustmentPayment))
+        {
+            var sourceType = CanonicalAdjustmentSource(payment);
+            if (!AdjustmentSourceRequiresSingleUse(sourceType))
+            {
+                continue;
+            }
+
+            var sourceId = payment.AdjustmentSourceId?.ToString("N") ?? "customer-balance";
+            var key = $"{sourceType}:{sourceId}";
+            if (seen.ContainsKey(key))
+            {
+                return $"Do not apply the same {FriendlyAdjustmentSource(sourceType)} more than once in one invoice.";
+            }
+
+            seen[key] = payment;
+        }
+
+        return null;
+    }
+
+    private static bool AdjustmentSourceRequiresSingleUse(string sourceType)
+    {
+        return SourceMatches(sourceType, "CustomerAdvanceReceipt") ||
+            SourceMatches(sourceType, "CreditNote") ||
+            SourceMatches(sourceType, "CustomerCreditBalance") ||
+            SourceMatches(sourceType, "StoreCredit") ||
+            SourceMatches(sourceType, "SalesReturnCredit") ||
+            SourceMatches(sourceType, "LoyaltyRedemption");
+    }
+
+    private static string CanonicalAdjustmentSource(NormalizedInvoicePayment payment)
+    {
+        if (!string.IsNullOrWhiteSpace(payment.AdjustmentSourceType))
+        {
+            return payment.AdjustmentSourceType.Trim();
+        }
+
+        return payment.PaymentMode switch
+        {
+            PaymentMode.CreditNote => "CreditNote",
+            PaymentMode.CreditBalance => "CustomerCreditBalance",
+            PaymentMode.SaleReturn => "SalesReturnCredit",
+            PaymentMode.Coupons => "LoyaltyRedemption",
+            _ => payment.PaymentMode.ToString()
+        };
+    }
+
+    private static string FriendlyAdjustmentSource(string sourceType)
+    {
+        if (SourceMatches(sourceType, "CustomerAdvanceReceipt")) return "advance receipt";
+        if (SourceMatches(sourceType, "CreditNote")) return "credit note";
+        if (SourceMatches(sourceType, "LoyaltyRedemption")) return "loyalty redemption";
+        return "customer credit/store credit";
+    }
+
+    private static string? BuildPaymentDetailsJson(InvoicePaymentDetailRequest payment)
+    {
+        var details = new Dictionary<string, object?>();
+        AddDetail(details, "paymentMode", payment.PaymentMode.ToString());
+        AddDetail(details, "bankAccountId", payment.BankAccountId);
+        AddDetail(details, "referenceNumber", Clean(payment.ReferenceNumber));
+        AddDetail(details, "gatewayReference", Clean(payment.GatewayReference));
+        AddDetail(details, "settlementStatus", Clean(payment.SettlementStatus));
+        AddDetail(details, "adjustmentSourceType", Clean(payment.AdjustmentSourceType));
+        AddDetail(details, "adjustmentSourceId", payment.AdjustmentSourceId);
+        AddDetail(details, "cardLastFour", Clean(payment.CardLastFour));
+        AddDetail(details, "cardAuthorizationCode", Clean(payment.CardAuthorizationCode));
+        AddDetail(details, "cardNetwork", Clean(payment.CardNetwork));
+        AddDetail(details, "upiVpa", Clean(payment.UpiVpa));
+        AddDetail(details, "walletProvider", Clean(payment.WalletProvider));
+        AddDetail(details, "bankReferenceNumber", Clean(payment.BankReferenceNumber));
+        AddDetail(details, "chequeNumber", Clean(payment.ChequeNumber));
+        AddDetail(details, "chequeDate", payment.ChequeDate?.ToString("O"));
+        AddDetail(details, "drawerBankName", Clean(payment.DrawerBankName));
+        AddDetail(details, "accountReference", Clean(payment.AccountReference));
+
+        return details.Count == 0 ? null : JsonSerializer.Serialize(details);
+    }
+
+    private static void AddDetail(IDictionary<string, object?> details, string key, object? value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        if (value is string text && string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        details[key] = value;
     }
 
     private static string? Clean(string? value)

@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.3.6";
-    public const string Stage = "Stage 8E Package 1";
-    public const string ReleaseName = "Cash Voucher Conversion Audit";
+    public const string Version = "4.3.8";
+    public const string Stage = "Stage 8E Package 2 Hotfix 1";
+    public const string ReleaseName = "Sales Return Salesman FK Hotfix";
     public const string BuildDate = "2026-06-16";
-    public const string BuildCode = "GARMETIX-8E-20260616-4360";
+    public const string BuildCode = "GARMETIX-8E-20260616-4380";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,11 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Sales split payments now post separate settlement ledger and customer-credit rows for every collected payment line.",
+        "Cash, bank, cheque, card, UPI, credit note, advance, store-credit and loyalty rows are routed to their own settlement ledgers instead of one mixed-payment ledger.",
+        "Invoice payment rows now retain a structured payment-details JSON snapshot with mode, account, reference, gateway, cheque, card, UPI, and adjustment metadata.",
+        "Duplicate use of the same advance receipt, credit note, store credit, or loyalty redemption is rejected before balances are changed.",
+        "Nuxt font resolution now runs in local/no-provider mode so offline builds no longer depend on external font metadata.",
         "Owner and Admin users can move eligible cash records between Off Book Cash Vouchers and regular accounting vouchers without duplicating the amount.",
         "Every conversion retains source and destination numbers, direction, amount, reason, operator, and timestamp in an immutable audit history.",
         "Moving a regular cash voucher Off Book removes its journal postings and preserves the original source as an audit-only record.",

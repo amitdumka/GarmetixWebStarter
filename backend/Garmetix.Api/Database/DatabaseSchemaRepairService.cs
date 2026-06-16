@@ -404,6 +404,7 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                 ALTER TABLE IF EXISTS "InvoicePayments" ADD COLUMN IF NOT EXISTS "AdjustmentSourceId" uuid NULL;
                 ALTER TABLE IF EXISTS "InvoicePayments" ADD COLUMN IF NOT EXISTS "GatewayReference" text NULL;
                 ALTER TABLE IF EXISTS "InvoicePayments" ADD COLUMN IF NOT EXISTS "SettlementStatus" text NULL;
+                ALTER TABLE IF EXISTS "InvoicePayments" ADD COLUMN IF NOT EXISTS "PaymentDetailsJson" text NULL;
 
                 ALTER TABLE IF EXISTS "CardPayments" ADD COLUMN IF NOT EXISTS "BankAccountId" uuid NULL;
                 ALTER TABLE IF EXISTS "CardPayments" ADD COLUMN IF NOT EXISTS "MaskedCardNumber" text NULL;

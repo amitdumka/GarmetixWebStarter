@@ -229,6 +229,7 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Adjustment Source", AutoGenerateField = false)] public Guid? AdjustmentSourceId { get; set; }
         [Display(Name = "Gateway Reference")] public string? GatewayReference { get; set; }
         [Display(Name = "Settlement Status")] public string? SettlementStatus { get; set; }
+        [Display(Name = "Payment Details Json")] public string? PaymentDetailsJson { get; set; }
     }
 
     public class CardPayment : CompanyBase

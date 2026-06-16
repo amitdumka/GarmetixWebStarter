@@ -4,10 +4,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);AD0001</NoWarn>
-    <Version>4.3.6</Version>
-    <AssemblyVersion>4.3.6.0</AssemblyVersion>
-    <FileVersion>4.3.6.0</FileVersion>
-    <InformationalVersion>4.3.6-stage8e-package1</InformationalVersion>
+    <Version>4.3.8</Version>
+    <AssemblyVersion>4.3.8.0</AssemblyVersion>
+    <FileVersion>4.3.8.0</FileVersion>
+    <InformationalVersion>4.3.8-stage8e-package2-hotfix1</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

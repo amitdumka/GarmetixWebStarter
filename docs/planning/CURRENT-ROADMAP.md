@@ -4,10 +4,10 @@ Updated: 2026-06-16
 
 ## Current Baseline
 
-- Version: 4.3.6
-- Stage: Stage 8E Package 1
-- Release: Cash Voucher Conversion Audit
-- Build code: `GARMETIX-8E-20260616-4360`
+- Version: 4.3.8
+- Stage: Stage 8E Package 2 Hotfix 1
+- Release: Sales Return Salesman FK Hotfix
+- Build code: `GARMETIX-8E-20260616-4380`
 - Branch: `Version3.0`
 - Pre-Stage 8 baseline commit: `470ba2e`
 
@@ -19,6 +19,14 @@ Stage 7M menu names, route compatibility, permission-aware navigation, Off Book 
 - [x] Server-owned voucher numbering using store code, year-month, and one monthly numeric sequence.
 - [x] Revised compact voucher print defaults and document labels.
 - [x] Shared frontend GET cache and in-flight request de-duplication to reduce repeated page-load work.
+
+
+## Stage 8E Package 2 Hotfix 1 / v4.3.8 - Sales Return FK Stability
+
+- [x] Fix sales return save failure caused by blank `SalesInvoices.SalemanId` on generated return invoices.
+- [x] Copy the original invoice salesman to return and exchange invoices, with active store fallback when old data has a missing/stale reference.
+- [x] Prevent regular billing and billing import from creating invoices with `Guid.Empty` salesman references.
+- [x] Replace billing import payment-details JSON string interpolation with serializer-based JSON to keep the code compile-safe.
 
 ## Stage 8D Priority Patch / v4.3.5 - Sales Invoice Stability
 
@@ -40,7 +48,7 @@ Stage 7M menu names, route compatibility, permission-aware navigation, Off Book 
 - [x] Fix `GET /api/dashboard/home` returning an empty response body.
 - [x] Resolve the nullable warnings in purchase receipt and data-consistency code.
 - [x] Keep frontend, backend, package, release, and build-code versions synchronized.
-- [ ] Remove build-time dependence on external font metadata or configure a reliable local/system-CA solution.
+- [x] Remove build-time dependence on external font metadata by pinning Nuxt font resolution to local/no-provider mode.
 - [x] Add one current aggregate validation command instead of relying on version-specific historical scripts.
 - [ ] Verify login, smart-dashboard routing, workspace selection, role navigation, and API health in Docker.
 
@@ -103,9 +111,9 @@ Stage 7M menu names, route compatibility, permission-aware navigation, Off Book 
 - [x] Add Owner/Admin-only Off Book Cash Voucher conversion for eligible cash accounting vouchers in v4.3.6.
 - [x] Preserve immutable conversion reason, direction, operator, timestamp, amount, and source/destination document snapshots in v4.3.6.
 - [x] Remove regular accounting postings when moving a cash voucher Off Book and retain the source as an audit-only record in v4.3.6.
-- [ ] Post separate ledger lines for each split payment row.
-- [ ] Persist complete card, UPI, bank, cheque, account, and reference details.
-- [ ] Prevent duplicate application of advances, credit notes, loyalty value, and store credit.
+- [x] Post separate ledger lines for each split payment row in v4.3.8.
+- [x] Persist structured payment detail snapshots for card, UPI, bank, cheque, account, reference, gateway, settlement and adjustment rows in v4.3.8.
+- [x] Prevent duplicate application of advances, credit notes, loyalty value, and store credit in v4.3.8.
 - [ ] Complete bank reconciliation and cheque issue/deposit/clear/bounce lifecycle auditing.
 - [ ] Add financial-year locking and stronger journal-balancing checks.
 - [ ] Harden automatic Party and Bank Account ledger synchronization.

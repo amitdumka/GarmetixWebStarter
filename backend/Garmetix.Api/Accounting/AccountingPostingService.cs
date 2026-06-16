@@ -13,6 +13,16 @@ namespace Garmetix.Api.Accounting;
 public sealed record VendorRefundPostingResult(Guid JournalEntryId, Guid? BankTransactionId);
 public sealed record PurchaseReturnTaxPosting(Guid ReversalId, string ProductName, string? HsnCode, decimal TaxAmount);
 public sealed record StockOperationAccountingResult(Guid JournalEntryId, string EntryNumber, decimal Amount);
+public sealed record SalesInvoicePaymentPosting(
+    PaymentMode PaymentMode,
+    decimal Amount,
+    Guid? BankAccountId,
+    string? ReferenceNumber,
+    string? GatewayReference,
+    string? SettlementStatus,
+    string? AdjustmentSourceType,
+    Guid? AdjustmentSourceId,
+    string? PaymentDetailsJson = null);
 
 public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumberService documentNumbers)
 {
@@ -878,7 +888,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         Invoice invoice,
         Customer customer,
         Guid storeGroupId,
-        Guid? bankAccountId,
+        IReadOnlyList<SalesInvoicePaymentPosting>? payments,
         CancellationToken cancellationToken)
     {
         var party = await EnsureCustomerPartyAsync(customer, cancellationToken);
@@ -886,6 +896,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         var salesLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Sales", "Sales Accounts", LedgerCategory.SalesAccounts, LedgerType.Sale, cancellationToken);
         var outputGstLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Output GST", "Duties & Taxes", LedgerCategory.DutiesAndTaxes, LedgerType.DutyAndTax, cancellationToken);
         var roundOffLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Round Off", "Indirect Income", LedgerCategory.IndirectIncome, LedgerType.Income, cancellationToken);
+        var paymentPostings = NormalizeSalesInvoicePaymentPostings(invoice, payments);
 
         var lines = new List<JournalLineDraft>
         {
@@ -900,22 +911,38 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
 
         AddRoundOff(lines, roundOffLedger.Id, invoice.RoundOff, isSale: true, invoice.InvoiceNumber);
 
-        if (invoice.PaidAmount > 0 && invoice.PaymentMode.HasValue)
+        for (var index = 0; index < paymentPostings.Count; index++)
         {
-            var settlementLedger = await ResolveSettlementLedgerAsync(invoice.CompanyId, invoice.PaymentMode.Value, bankAccountId, cancellationToken);
-            lines.Add(new(settlementLedger.Id, null, invoice.PaidAmount, 0, $"Sales receipt {invoice.InvoiceNumber}"));
-            lines.Add(new(customerLedgerId, party.Id, 0, invoice.PaidAmount, $"Sales receipt {invoice.InvoiceNumber}"));
-            await UpsertInvoiceBankTransactionAsync(
-                invoice.CompanyId,
-                invoice.PaymentMode.Value,
-                bankAccountId,
-                TransactionType.Deposit,
-                invoice.OnDate,
-                $"SI-{invoice.InvoiceNumber}",
-                $"Sales receipt {invoice.InvoiceNumber}",
-                invoice.PaidAmount,
-                customer.Name,
-                cancellationToken);
+            var payment = paymentPostings[index];
+            var amount = Math.Round(payment.Amount, 2, MidpointRounding.AwayFromZero);
+            if (amount <= 0)
+            {
+                continue;
+            }
+
+            var rowNumber = index + 1;
+            var narration = BuildSalesInvoicePaymentNarration(invoice, payment, rowNumber);
+            var sourceReference = BuildSalesInvoicePaymentSourceReference(invoice, rowNumber);
+            var settlementLedger = await ResolveSalesInvoiceSettlementLedgerAsync(invoice.CompanyId, payment, cancellationToken);
+
+            lines.Add(new(settlementLedger.Id, null, amount, 0, narration));
+            lines.Add(new(customerLedgerId, party.Id, 0, amount, narration));
+
+            if (BankPaymentModes.Contains(payment.PaymentMode))
+            {
+                await UpsertInvoiceBankTransactionAsync(
+                    invoice.CompanyId,
+                    payment.PaymentMode,
+                    payment.BankAccountId,
+                    TransactionType.Deposit,
+                    invoice.OnDate,
+                    sourceReference,
+                    narration,
+                    amount,
+                    customer.Name,
+                    cancellationToken,
+                    FirstNonEmpty(payment.ReferenceNumber, payment.GatewayReference));
+            }
         }
 
         await RepostSourceJournalAsync(
@@ -938,7 +965,8 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         Guid storeGroupId,
         decimal originalPaidAmount,
         PaymentMode? originalPaymentMode,
-        Guid? bankAccountId,
+        Guid? legacyBankAccountId,
+        IReadOnlyList<SalesInvoicePaymentPosting>? originalPayments,
         CancellationToken cancellationToken)
     {
         if (customer is null)
@@ -951,6 +979,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         var salesLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Sales", "Sales Accounts", LedgerCategory.SalesAccounts, LedgerType.Sale, cancellationToken);
         var outputGstLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Output GST", "Duties & Taxes", LedgerCategory.DutiesAndTaxes, LedgerType.DutyAndTax, cancellationToken);
         var roundOffLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Round Off", "Indirect Income", LedgerCategory.IndirectIncome, LedgerType.Income, cancellationToken);
+        var paymentPostings = NormalizeSalesInvoiceCancellationPaymentPostings(originalPaidAmount, originalPaymentMode, legacyBankAccountId, originalPayments);
 
         var lines = new List<JournalLineDraft>
         {
@@ -965,22 +994,38 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
 
         AddRoundOff(lines, roundOffLedger.Id, invoice.RoundOff * -1, isSale: true, invoice.InvoiceNumber);
 
-        if (originalPaidAmount > 0 && originalPaymentMode.HasValue)
+        for (var index = 0; index < paymentPostings.Count; index++)
         {
-            var settlementLedger = await ResolveSettlementLedgerAsync(invoice.CompanyId, originalPaymentMode.Value, bankAccountId, cancellationToken);
-            lines.Add(new(settlementLedger.Id, null, 0, originalPaidAmount, $"Reverse sales receipt {invoice.InvoiceNumber}"));
-            lines.Add(new(customerLedgerId, party.Id, originalPaidAmount, 0, $"Reverse sales receipt {invoice.InvoiceNumber}"));
-            await UpsertInvoiceBankTransactionAsync(
-                invoice.CompanyId,
-                originalPaymentMode.Value,
-                bankAccountId,
-                TransactionType.Withdraw,
-                DateTime.Now,
-                $"SIC-{invoice.InvoiceNumber}",
-                $"Reverse sales receipt {invoice.InvoiceNumber}",
-                originalPaidAmount,
-                customer.Name,
-                cancellationToken);
+            var payment = paymentPostings[index];
+            var amount = Math.Round(payment.Amount, 2, MidpointRounding.AwayFromZero);
+            if (amount <= 0)
+            {
+                continue;
+            }
+
+            var rowNumber = index + 1;
+            var narration = $"Reverse {BuildSalesInvoicePaymentNarration(invoice, payment, rowNumber)}";
+            var sourceReference = $"SIC-{invoice.InvoiceNumber}-PAY-{rowNumber:00}";
+            var settlementLedger = await ResolveSalesInvoiceSettlementLedgerAsync(invoice.CompanyId, payment, cancellationToken);
+
+            lines.Add(new(settlementLedger.Id, null, 0, amount, narration));
+            lines.Add(new(customerLedgerId, party.Id, amount, 0, narration));
+
+            if (BankPaymentModes.Contains(payment.PaymentMode))
+            {
+                await UpsertInvoiceBankTransactionAsync(
+                    invoice.CompanyId,
+                    payment.PaymentMode,
+                    payment.BankAccountId,
+                    TransactionType.Withdraw,
+                    DateTime.Now,
+                    sourceReference,
+                    narration,
+                    amount,
+                    customer.Name,
+                    cancellationToken,
+                    FirstNonEmpty(payment.ReferenceNumber, payment.GatewayReference));
+            }
         }
 
         await RepostSourceJournalAsync(
@@ -1704,6 +1749,155 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         return cashLedger;
     }
 
+    private static IReadOnlyList<SalesInvoicePaymentPosting> NormalizeSalesInvoicePaymentPostings(
+        Invoice invoice,
+        IReadOnlyList<SalesInvoicePaymentPosting>? payments)
+    {
+        var normalized = payments is null
+            ? new List<SalesInvoicePaymentPosting>()
+            : payments
+                .Where(item => item.Amount > 0)
+                .Select(item => item with { Amount = Math.Round(item.Amount, 2, MidpointRounding.AwayFromZero) })
+                .ToList();
+
+        if (normalized.Count == 0 && invoice.PaidAmount > 0 && invoice.PaymentMode.HasValue)
+        {
+            normalized.Add(new SalesInvoicePaymentPosting(
+                invoice.PaymentMode.Value,
+                invoice.PaidAmount,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null));
+        }
+
+        return normalized;
+    }
+
+    private static IReadOnlyList<SalesInvoicePaymentPosting> NormalizeSalesInvoiceCancellationPaymentPostings(
+        decimal originalPaidAmount,
+        PaymentMode? originalPaymentMode,
+        Guid? legacyBankAccountId,
+        IReadOnlyList<SalesInvoicePaymentPosting>? originalPayments)
+    {
+        var normalized = originalPayments is null
+            ? new List<SalesInvoicePaymentPosting>()
+            : originalPayments
+                .Where(item => item.Amount > 0)
+                .Select(item => item with { Amount = Math.Round(item.Amount, 2, MidpointRounding.AwayFromZero) })
+                .ToList();
+
+        if (normalized.Count == 0 && originalPaidAmount > 0 && originalPaymentMode.HasValue)
+        {
+            normalized.Add(new SalesInvoicePaymentPosting(
+                originalPaymentMode.Value,
+                originalPaidAmount,
+                legacyBankAccountId,
+                null,
+                null,
+                null,
+                null,
+                null));
+        }
+
+        return normalized;
+    }
+
+    private async Task<Ledger> ResolveSalesInvoiceSettlementLedgerAsync(
+        Guid companyId,
+        SalesInvoicePaymentPosting payment,
+        CancellationToken cancellationToken)
+    {
+        if (payment.PaymentMode == PaymentMode.Cash)
+        {
+            return await EnsureNamedLedgerAsync(companyId, "Cash In Hand", "Cash-in-Hand", LedgerCategory.CashInHand, LedgerType.Cash, cancellationToken);
+        }
+
+        if (BankPaymentModes.Contains(payment.PaymentMode))
+        {
+            return await ResolveSettlementLedgerAsync(companyId, payment.PaymentMode, payment.BankAccountId, cancellationToken);
+        }
+
+        var sourceType = CanonicalSalesInvoiceAdjustmentSource(payment);
+        if (SourceMatches(sourceType, "CustomerAdvanceReceipt"))
+        {
+            return await EnsureNamedLedgerAsync(companyId, "Customer Advances", "Current Liabilities", LedgerCategory.CurrentLiabilities, LedgerType.CurrentLiability, cancellationToken);
+        }
+
+        if (SourceMatches(sourceType, "CreditNote") ||
+            SourceMatches(sourceType, "CustomerCreditBalance") ||
+            SourceMatches(sourceType, "StoreCredit") ||
+            SourceMatches(sourceType, "SalesReturnCredit") ||
+            payment.PaymentMode is PaymentMode.CreditNote or PaymentMode.CreditBalance or PaymentMode.SaleReturn)
+        {
+            return await EnsureNamedLedgerAsync(companyId, "Customer Store Credit", "Current Liabilities", LedgerCategory.CurrentLiabilities, LedgerType.CurrentLiability, cancellationToken);
+        }
+
+        if (SourceMatches(sourceType, "LoyaltyRedemption") || payment.PaymentMode == PaymentMode.Coupons)
+        {
+            return await EnsureNamedLedgerAsync(companyId, "Loyalty Redemption Expense", "Indirect Expenses", LedgerCategory.IndirectExpenses, LedgerType.Expenses, cancellationToken);
+        }
+
+        return await EnsureNamedLedgerAsync(companyId, "Customer Payment Adjustments", "Current Liabilities", LedgerCategory.CurrentLiabilities, LedgerType.CurrentLiability, cancellationToken);
+    }
+
+    private static string BuildSalesInvoicePaymentSourceReference(Invoice invoice, int rowNumber)
+        => $"SI-{invoice.InvoiceNumber}-PAY-{rowNumber:00}";
+
+    private static string BuildSalesInvoicePaymentNarration(Invoice invoice, SalesInvoicePaymentPosting payment, int rowNumber)
+    {
+        var parts = new List<string>
+        {
+            $"Sales receipt {invoice.InvoiceNumber}",
+            $"row {rowNumber}",
+            payment.PaymentMode.ToString()
+        };
+
+        AddIfPresent(parts, "ref", payment.ReferenceNumber);
+        AddIfPresent(parts, "gateway", payment.GatewayReference);
+        AddIfPresent(parts, "status", payment.SettlementStatus);
+        AddIfPresent(parts, "source", payment.AdjustmentSourceType);
+        if (payment.AdjustmentSourceId.HasValue)
+        {
+            parts.Add($"sourceId {payment.AdjustmentSourceId.Value}");
+        }
+
+        return string.Join(" | ", parts);
+    }
+
+    private static string CanonicalSalesInvoiceAdjustmentSource(SalesInvoicePaymentPosting payment)
+    {
+        if (!string.IsNullOrWhiteSpace(payment.AdjustmentSourceType))
+        {
+            return payment.AdjustmentSourceType.Trim();
+        }
+
+        return payment.PaymentMode switch
+        {
+            PaymentMode.CreditNote => "CreditNote",
+            PaymentMode.CreditBalance => "CustomerCreditBalance",
+            PaymentMode.SaleReturn => "SalesReturnCredit",
+            PaymentMode.Coupons => "LoyaltyRedemption",
+            _ => payment.PaymentMode.ToString()
+        };
+    }
+
+    private static bool SourceMatches(string? sourceType, string expected)
+        => string.Equals(sourceType, expected, StringComparison.OrdinalIgnoreCase);
+
+    private static void AddIfPresent(ICollection<string> parts, string label, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            parts.Add($"{label} {value.Trim()}");
+        }
+    }
+
+    private static string? FirstNonEmpty(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim();
+
     private async Task<Ledger> ResolveSettlementLedgerAsync(
         Guid companyId,
         PaymentMode paymentMode,
@@ -1745,9 +1939,10 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         string narration,
         decimal amount,
         string personName,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? paymentReference = null)
     {
-        if (paymentMode == PaymentMode.Cash || amount <= 0)
+        if (!BankPaymentModes.Contains(paymentMode) || amount <= 0)
         {
             return;
         }
@@ -1787,7 +1982,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         }
 
         await UpsertManualStatementLineAsync(transaction, cancellationToken);
-        await UpsertInvoiceChequeLogAsync(transaction, bankAccount, paymentMode, cancellationToken);
+        await UpsertInvoiceChequeLogAsync(transaction, bankAccount, paymentMode, paymentReference, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         await RecalculateBankStatementBalancesAsync(bankAccount.Id, cancellationToken);
     }
@@ -1796,6 +1991,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         BankTransaction transaction,
         BankAccount bankAccount,
         PaymentMode paymentMode,
+        string? paymentReference,
         CancellationToken cancellationToken)
     {
         var existing = await db.ChequeLogs.FirstOrDefaultAsync(
@@ -1817,10 +2013,14 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
             CompanyId = transaction.CompanyId
         };
 
+        var chequeReference = string.IsNullOrWhiteSpace(paymentReference)
+            ? transaction.Reference ?? string.Empty
+            : paymentReference.Trim();
+
         existing.CompanyId = transaction.CompanyId;
         existing.BankAccountId = bankAccount.Id;
-        existing.ChequeNumber = transaction.Reference ?? string.Empty;
-        existing.CheequeNumber = existing.ChequeNumber;
+        existing.ChequeNumber = chequeReference;
+        existing.CheequeNumber = chequeReference;
         existing.OnDate = transaction.OnDate;
         existing.ChequeDate = transaction.OnDate;
         existing.Narration = transaction.Reference;
@@ -2301,10 +2501,14 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
             CompanyId = transaction.CompanyId
         };
 
+        var chequeReference = string.IsNullOrWhiteSpace(paymentReference)
+            ? transaction.Reference ?? string.Empty
+            : paymentReference.Trim();
+
         existing.CompanyId = transaction.CompanyId;
         existing.BankAccountId = bankAccount.Id;
-        existing.ChequeNumber = transaction.Reference ?? string.Empty;
-        existing.CheequeNumber = existing.ChequeNumber;
+        existing.ChequeNumber = chequeReference;
+        existing.CheequeNumber = chequeReference;
         existing.OnDate = transaction.OnDate;
         existing.ChequeDate = transaction.OnDate;
         existing.Narration = transaction.Reference;

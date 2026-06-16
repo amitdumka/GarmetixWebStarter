@@ -1,0 +1,13 @@
+.git
+**/.git
+**/node_modules
+**/.nuxt
+**/.output
+**/bin
+**/obj
+backups
+secrets/*.json
+.env.production
+deploy/macmini.env
+*.tar.gz
+*.zip
