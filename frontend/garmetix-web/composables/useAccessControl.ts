@@ -28,7 +28,7 @@ type AccessDecision = {
   matchedRule?: PageAccessRule
 }
 
-const PUBLIC_PATHS = new Set(['/'])
+const PUBLIC_PATHS = new Set<string>([])
 
 const roleRank: Record<AccessRole, number> = {
   admin: 100,
@@ -45,6 +45,7 @@ const roleRank: Record<AccessRole, number> = {
 }
 
 const routeRules: PageAccessRule[] = [
+  { path: '/', label: 'Legacy Overview', module: 'Dashboards', exact: true, roles: ['admin', 'owner'] },
   { path: '/dashboard', label: 'Smart Dashboard', module: 'Dashboards', exact: true, roles: ['authenticated'] },
   { path: '/dashboard/map', label: 'Dashboard Map', module: 'Dashboards', exact: true, roles: ['authenticated'] },
   { path: '/dashboard/store-manager', label: 'Store Dashboard', module: 'Dashboards', exact: true, roles: ['admin', 'owner', 'powerUser', 'storeManager', 'salesman'] },

@@ -34,6 +34,10 @@ checks = [
     root / "scripts/validation/stage8g-package8-static-checks.py",
     root / "scripts/validation/stage8g-package9-static-checks.py",
     root / "scripts/validation/stage8g-package9-npm-registry-hotfix-static-checks.py",
+    root / "scripts/validation/stage8h-package1-static-checks.py",
+    root / "scripts/validation/stage8h-package2-static-checks.py",
+    root / "scripts/validation/stage8h-package3-static-checks.py",
+    root / "scripts/validation/stage8h-package3-compile-hotfix-static-checks.py",
 ]
 
 for check in checks:

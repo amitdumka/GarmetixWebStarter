@@ -19,6 +19,7 @@ const bankAccounts = ref<any[]>([])
 const loading = ref(false)
 const saving = ref(false)
 const search = ref('')
+const formOpen = ref(false)
 const paymentType = ref<'invoice' | 'advance'>('invoice')
 const form = reactive<any>({
   purchaseInvoiceId: '',
@@ -137,6 +138,7 @@ async function savePayment() {
       })
     }
     feedback.notify('Vendor payment saved', undefined, 'success')
+    formOpen.value = false
     resetForm()
     await refresh()
   } catch (error) {
@@ -145,6 +147,12 @@ async function savePayment() {
     saving.value = false
   }
 }
+function startCreatePayment(type: 'invoice' | 'advance' = 'invoice') {
+  paymentType.value = type
+  resetForm()
+  formOpen.value = true
+}
+
 function resetForm() {
   form.purchaseInvoiceId = ''
   form.vendorId = ''
@@ -167,7 +175,7 @@ onMounted(async () => { auth.restore(); await refresh() })
   <AuthScreen v-if="!isAuthenticated" @authenticated="refresh" />
   <AppShell v-else title="Vendor Payments" :companies="companies" :stores="stores" @refresh="refresh" @workspace-change="refresh">
     <section class="planner-dashboard">
-      <UiModulePageHeader title="Vendor Payments" description="Record supplier invoice payments, advance payments and review vendor payment history." icon="i-lucide-hand-coins" primary-label="Save Payment" primary-icon="i-lucide-save" @primary="savePayment">
+      <UiModulePageHeader title="Vendor Payments" description="Record supplier invoice payments, advance payments and review vendor payment history." icon="i-lucide-hand-coins" primary-label="Add New Vendor Payment" primary-icon="i-lucide-plus" @primary="startCreatePayment()">
         <template #actions><UButton icon="i-lucide-refresh-cw" variant="subtle" :loading="loading" label="Refresh" @click="refresh" /></template>
       </UiModulePageHeader>
       <div class="planner-metric-grid">
@@ -177,8 +185,14 @@ onMounted(async () => { auth.restore(); await refresh() })
         <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-wallet-cards" color="warning" variant="subtle" /><div><p>Advance</p><strong>{{ money(summary.advance) }}</strong><span>Vendor advance</span></div></div></UCard>
       </div>
 
-      <UCard class="setup-card">
-        <template #header><h2 class="section-title">New vendor payment</h2></template>
+      <UiFormSlideover
+        v-model:open="formOpen"
+        title="Add New Vendor Payment"
+        description="Record supplier invoice payments or vendor advance payments."
+        submit-label="Save Vendor Payment"
+        :loading="saving"
+        @submit="savePayment"
+      >
         <div class="setup-tabs">
           <UButton label="Against invoice" icon="i-lucide-file-text" :color="paymentType === 'invoice' ? 'primary' : 'neutral'" :variant="paymentType === 'invoice' ? 'solid' : 'subtle'" @click="paymentType = 'invoice'" />
           <UButton label="Advance payment" icon="i-lucide-wallet" :color="paymentType === 'advance' ? 'primary' : 'neutral'" :variant="paymentType === 'advance' ? 'solid' : 'subtle'" @click="paymentType = 'advance'" />
@@ -195,11 +209,10 @@ onMounted(async () => { auth.restore(); await refresh() })
           <UFormField label="Payment details"><UInput v-model="form.paymentDetails" /></UFormField>
         </div>
         <UFormField label="Remarks"><UTextarea v-model="form.remarks" autoresize /></UFormField>
-        <div class="inline-action-row"><UButton icon="i-lucide-save" :loading="saving" label="Save Vendor Payment" @click="savePayment" /></div>
-      </UCard>
+      </UiFormSlideover>
 
       <UiRegisterPanel title="Vendor Payment Register" :description="`${filteredPayments.length} of ${payments.length} payments`" :loading="loading" :empty="filteredPayments.length === 0" empty-title="No vendor payments found" empty-description="Record invoice or advance payment to continue." empty-icon="i-lucide-hand-coins" @retry="refresh">
-        <template #actions><UiCrudToolbar v-model:search="search" search-placeholder="Search vendor, invoice, reference" refresh-label="Sync" :loading="loading" @refresh="refresh" /></template>
+        <template #actions><UiCrudToolbar v-model:search="search" search-placeholder="Search vendor, invoice, reference" refresh-label="Sync" create-label="Add Payment" :loading="loading" @refresh="refresh" @create="startCreatePayment()" /></template>
         <div class="planner-table-wrap"><UTable :data="filteredPayments" :columns="columns" /></div>
       </UiRegisterPanel>
     </section>

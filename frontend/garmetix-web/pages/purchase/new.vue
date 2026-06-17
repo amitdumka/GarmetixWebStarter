@@ -14,7 +14,7 @@ const saving = ref(false)
 const cart = ref<any[]>([])
 
 const form = reactive<any>({
-  vendorId: '',
+  vendorId: '__manual__',
   vendorName: 'Default Supplier',
   vendorMobileNumber: '',
   vendorGstin: '',
@@ -53,10 +53,10 @@ const paymentModeOptions = [
 ]
 
 const vendorOptions = computed(() => [
-  { value: '', label: 'New supplier / manual entry' },
+  { value: '__manual__', label: 'New supplier / manual entry' },
   ...(lookup.value.vendors?.map((vendor: any) => ({ value: vendor.id, label: `${vendor.name || 'Supplier'}${vendor.gstin ? ` | ${vendor.gstin}` : ''}` })) || [])
 ])
-const selectedVendor = computed(() => lookup.value.vendors?.find((vendor: any) => vendor.id === form.vendorId) || null)
+const selectedVendor = computed(() => form.vendorId === '__manual__' ? null : (lookup.value.vendors?.find((vendor: any) => vendor.id === form.vendorId) || null))
 const unitOptions = computed(() => lookup.value.units || [])
 const productTypeOptions = computed(() => lookup.value.productTypes || [])
 const productGroupOptions = computed(() => lookup.value.productGroups || [])
@@ -153,7 +153,7 @@ async function submitPurchase() {
       companyId,
       storeGroupId,
       storeId,
-      vendorId: form.vendorId || null,
+      vendorId: form.vendorId === '__manual__' ? null : (form.vendorId || null),
       vendorName: form.vendorName,
       vendorMobileNumber: form.vendorMobileNumber,
       vendorGstin: form.vendorGstin,

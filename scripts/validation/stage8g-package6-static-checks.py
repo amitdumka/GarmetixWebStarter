@@ -10,10 +10,10 @@ if missing:
     raise SystemExit(f'Missing Stage 8G Package 6 files: {missing}')
 frontend = (root / 'frontend/garmetix-web/utils/appVersion.ts').read_text()
 backend = (root / 'backend/Garmetix.Api/AppInfo/AppInfoEndpoints.cs').read_text()
-for token in ["APP_VERSION = '4.6.8'", 'Stage 8G Package 9 Final Go-Live Acceptance', 'GARMETIX-8G-20260617-4680']:
+for token in ["APP_VERSION = '4.7.2'", 'Stage 8H Package 3 Purchase and Voucher Crash Hotfix', 'GARMETIX-8H-20260617-4720']:
     if token not in frontend:
         raise SystemExit(f'Frontend version token missing: {token}')
-for token in ['Version = "4.6.8"', 'Stage 8G Package 9 Final Go-Live Acceptance', 'GARMETIX-8G-20260617-4680']:
+for token in ['Version = "4.7.2"', 'Stage 8H Package 3 Purchase and Voucher Crash Hotfix', 'GARMETIX-8H-20260617-4720']:
     if token not in backend:
         raise SystemExit(f'Backend version token missing: {token}')
 script = (root / 'scripts/linux/oracle-cloud-readiness-check.sh').read_text()

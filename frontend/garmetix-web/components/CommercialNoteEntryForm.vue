@@ -29,7 +29,7 @@ const form = reactive<any>({
   partyId: null,
   customerId: null,
   vendorId: null,
-  selectedPartyId: '',
+  selectedPartyId: '__manual__',
   partyName: '',
   partyGstin: '',
   taxableAmount: 0,
@@ -46,12 +46,12 @@ const partyTypeOptions = computed(() => isCredit.value
 
 const partyOptions = computed(() => {
   if (Number(form.partyType) === 0) {
-    return [{ value: '', label: 'Manual customer' }, ...customers.value.map((item) => ({ value: item.id, label: `${item.name} - ${item.mobileNumber || item.gstin || ''}` }))]
+    return [{ value: '__manual__', label: 'Manual customer' }, ...customers.value.map((item) => ({ value: item.id, label: `${item.name} - ${item.mobileNumber || item.gstin || ''}` }))]
   }
   if (Number(form.partyType) === 3 || Number(form.partyType) === 1) {
-    return [{ value: '', label: 'Manual vendor/supplier' }, ...vendors.value.map((item) => ({ value: item.id, label: `${item.name} - ${item.mobileNumber || item.gstin || ''}` }))]
+    return [{ value: '__manual__', label: 'Manual vendor/supplier' }, ...vendors.value.map((item) => ({ value: item.id, label: `${item.name} - ${item.mobileNumber || item.gstin || ''}` }))]
   }
-  return [{ value: '', label: 'Manual party' }]
+  return [{ value: '__manual__', label: 'Manual party' }]
 })
 
 function applyWorkspaceDefaults() {
@@ -65,7 +65,7 @@ function applyParty() {
   form.customerId = null
   form.vendorId = null
   form.partyId = null
-  if (!form.selectedPartyId) return
+  if (!form.selectedPartyId || form.selectedPartyId === '__manual__') return
 
   if (Number(form.partyType) === 0) {
     const customer = customers.value.find((item) => item.id === form.selectedPartyId)
@@ -111,7 +111,7 @@ async function loadData() {
         partyId: row.partyId || null,
         customerId: row.customerId || null,
         vendorId: row.vendorId || null,
-        selectedPartyId: row.customerId || row.vendorId || '',
+        selectedPartyId: row.customerId || row.vendorId || '__manual__',
         partyName: row.partyName || '',
         partyGstin: row.partyGstin || '',
         taxableAmount: row.taxableAmount || 0,

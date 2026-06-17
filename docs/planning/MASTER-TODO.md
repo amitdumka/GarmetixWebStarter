@@ -376,3 +376,5 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Stage 8G Package 7: added production security hardening and Docker log retention checks in v4.6.6.
 
 - [x] Stage 8G Package 9: added final go-live acceptance, role matrix, production release checklist and stage-completion script.
+
+- [x] Stage 8H Package 1: post-go-live acceptance stabilization for role/menu, HR/payroll, attendance, purchase inward and vendor-payment acceptance.

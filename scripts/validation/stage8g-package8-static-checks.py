@@ -10,7 +10,7 @@ if missing:
     raise SystemExit(f'Missing Stage 8G Package 8 files: {missing}')
 app = (root / 'frontend/garmetix-web/utils/appVersion.ts').read_text()
 api = (root / 'backend/Garmetix.Api/AppInfo/AppInfoEndpoints.cs').read_text()
-for token in ['4.6.8', 'Stage 8G Package 9 Final Go-Live Acceptance', 'GARMETIX-8G-20260617-4680']:
+for token in ['4.7.2', 'Stage 8H Package 3 Purchase and Voucher Crash Hotfix', 'GARMETIX-8H-20260617-4720']:
     if token not in app or token not in api:
         raise SystemExit(f'Current version token missing: {token}')
 shell = (root / 'frontend/garmetix-web/components/AppShell.vue').read_text()

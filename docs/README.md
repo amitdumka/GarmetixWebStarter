@@ -102,3 +102,5 @@ This folder is the canonical home for project plans, implementation notes, valid
 - [Stage 8G Package 9 / v4.6.8 final go-live acceptance notes](stages/stage-8/Stage8G-Package9-FinalGoLiveAcceptance-v4.6.8-Notes.md)
 - [Role Acceptance Matrix v4.6.8](operations/Role-Acceptance-Matrix-v4.6.8.md)
 - [Production Release Checklist v4.6.8](operations/Production-Release-Checklist-v4.6.8.md)
+
+- [Stage 8H Package 1 / v4.7.0 post-go-live acceptance notes](stages/stage-8/Stage8H-Package1-PostGoLiveAcceptance-v4.7.0-Notes.md)

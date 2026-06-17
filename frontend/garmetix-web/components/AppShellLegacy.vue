@@ -12,6 +12,7 @@ const emit = defineEmits<{
 }>()
 
 const auth = useAuth()
+const access = useAccessControl()
 const api = useGarmetixApi()
 const workspace = useWorkspace()
 const route = useRoute()
@@ -139,7 +140,12 @@ function isActive(to: string) {
   return to === '/' ? route.path === '/' : route.path.startsWith(to)
 }
 
-const visibleModuleGroups = computed(() => moduleGroups.filter((group) => group.label !== 'Admin' || auth.canSeeAdmin.value))
+const visibleModuleGroups = computed(() => moduleGroups
+  .map((group) => ({
+    ...group,
+    items: group.items.filter((item) => access.canAccessPath(item.to) && (item.to !== '/' || auth.canSeeAdmin.value))
+  }))
+  .filter((group) => group.items.length > 0 && (group.label !== 'Admin' || auth.canSeeAdmin.value)))
 
 const navigationItems = computed(() => visibleModuleGroups.value.flatMap((group) => [
   { label: group.label, type: 'label' },

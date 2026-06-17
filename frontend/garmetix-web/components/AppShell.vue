@@ -201,6 +201,7 @@ const moduleGroups: MenuGroup[] = [
       { to: '/backup-maintenance', label: 'Backup Maintenance', icon: 'i-lucide-hard-drive-download', adminOnly: true },
       { to: '/production-readiness', label: 'Production Readiness', icon: 'i-lucide-shield-check', adminOnly: true },
       { to: '/stage8g-completion', label: 'Stage 8G Completion', icon: 'i-lucide-flag', adminOnly: true },
+      { to: '/post-go-live-acceptance', label: 'Post-Go-Live Acceptance', icon: 'i-lucide-list-checks', adminOnly: true },
       { to: '/release-stabilization', label: 'Release Stabilization', icon: 'i-lucide-rocket', adminOnly: true },
       { to: '/oracle-sync', label: 'Oracle Sync', icon: 'i-lucide-database-zap', adminOnly: true }
     ]

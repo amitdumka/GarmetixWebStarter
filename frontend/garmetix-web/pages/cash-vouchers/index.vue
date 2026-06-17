@@ -242,33 +242,52 @@ async function refresh() {
   loading.value = true
   loadError.value = ''
   try {
-    setupStatus.value = await api.get<any>('setup/status')
+    try {
+      setupStatus.value = await api.get<any>('setup/status')
+    } catch {
+      setupStatus.value = null
+    }
+
     const query = new URLSearchParams()
     if (workspace.companyId.value) query.set('companyId', workspace.companyId.value)
     if (workspace.storeGroupId.value) query.set('storeGroupId', workspace.storeGroupId.value)
     if (workspace.storeId.value) query.set('storeId', workspace.storeId.value)
     const cashVoucherResource = query.size ? `cash-vouchers?${query.toString()}` : 'cash-vouchers'
 
-    const [companyRows, storeRows, voucherRows, transactionRows, employeeRows, ledgerRows] = await Promise.all([
-      api.list<any>('companies'),
-      api.list<any>('stores'),
-      api.get<any[]>(cashVoucherResource),
-      api.list<any>('transactions'),
-      api.list<any>('employees'),
-      api.list<any>('ledgers')
+    const voucherRows = await api.get<any[]>(cashVoucherResource)
+    cashVouchers.value = Array.isArray(voucherRows) ? voucherRows : []
+
+    const [companyRows, storeRows, transactionRows, employeeRows, ledgerRows] = await Promise.all([
+      safeList('companies'),
+      safeList('stores'),
+      safeList('transactions'),
+      safeList('employees'),
+      safeList('ledgers')
     ])
 
     companies.value = companyRows
     stores.value = storeRows
-    cashVouchers.value = voucherRows
     transactions.value = transactionRows
     employees.value = employeeRows
     ledgers.value = ledgerRows
 
+    if (!transactionOptions.value.length) {
+      const companyId = workspace.companyId.value || auth.user.value?.companyId || setupStatus.value?.companyId || companies.value[0]?.id
+      const resource = companyId
+        ? `setup/accounting-defaults?companyId=${companyId}`
+        : 'setup/accounting-defaults'
+      try {
+        await api.create<any>(resource, {})
+        transactions.value = await safeList('transactions')
+      } catch {
+        // Keep the register visible even if default cash categories cannot be repaired for this role.
+      }
+    }
+
     if (canConvert.value) {
       const [conversionRows, onBookRows] = await Promise.all([
-        api.get<any[]>(query.size ? `cash-vouchers/conversions?${query.toString()}` : 'cash-vouchers/conversions'),
-        api.get<any[]>(query.size ? `cash-vouchers/eligible-on-book?${query.toString()}` : 'cash-vouchers/eligible-on-book')
+        safeGetArray(query.size ? `cash-vouchers/conversions?${query.toString()}` : 'cash-vouchers/conversions'),
+        safeGetArray(query.size ? `cash-vouchers/eligible-on-book?${query.toString()}` : 'cash-vouchers/eligible-on-book')
       ])
       conversions.value = conversionRows
       eligibleOnBookVouchers.value = onBookRows
@@ -276,20 +295,29 @@ async function refresh() {
       conversions.value = []
       eligibleOnBookVouchers.value = []
     }
-
-    if (!transactionOptions.value.length) {
-      const companyId = workspace.companyId.value || auth.user.value?.companyId || setupStatus.value?.companyId || companies.value[0]?.id
-      const resource = companyId
-        ? `setup/accounting-defaults?companyId=${companyId}`
-        : 'setup/accounting-defaults'
-      await api.create<any>(resource, {})
-      transactions.value = await api.list<any>('transactions')
-    }
   } catch (error) {
     loadError.value = 'Cash voucher records could not be loaded. Check the selected workspace and try again.'
     feedback.failed('Cash vouchers refresh failed', error)
   } finally {
     loading.value = false
+  }
+}
+
+async function safeList(resource: string) {
+  try {
+    const rows = await api.list<any>(resource)
+    return Array.isArray(rows) ? rows : []
+  } catch {
+    return []
+  }
+}
+
+async function safeGetArray(resource: string) {
+  try {
+    const rows = await api.get<any[]>(resource)
+    return Array.isArray(rows) ? rows : []
+  } catch {
+    return []
   }
 }
 

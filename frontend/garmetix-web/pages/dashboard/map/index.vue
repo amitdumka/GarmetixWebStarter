@@ -17,8 +17,10 @@ const dashboardLinks = [
   { label: 'Legacy Overview', to: '/', icon: 'i-lucide-layout-dashboard', description: 'Old dashboard page kept safely for rollback and comparison.' }
 ]
 
+const visibleDashboardLinks = computed(() => dashboardLinks.filter((item) => access.canAccessPath(item.to)))
+
 const mainMenuGroups = [
-  { label: 'Dashboards', count: 5, description: 'Smart landing, store dashboard, company dashboard, dashboard map and legacy overview.' },
+  { label: 'Dashboards', count: 4, description: 'Smart landing, store dashboard, company dashboard and dashboard map. Legacy overview is admin/owner only.' },
   { label: 'Sales', count: 2, description: 'Billing and sales returns.' },
   { label: 'Purchase', count: 2, description: 'Purchase and purchase returns.' },
   { label: 'Inventory', count: 3, description: 'Product master, stock operations and stock intelligence reports.' },
@@ -101,7 +103,7 @@ onMounted(refresh)
               </div>
             </template>
             <div class="dashboard-map-menu-grid">
-              <NuxtLink v-for="item in dashboardLinks" :key="item.to" :to="item.to" class="dashboard-map-menu-card">
+              <NuxtLink v-for="item in visibleDashboardLinks" :key="item.to" :to="item.to" class="dashboard-map-menu-card">
                 <UIcon :name="item.icon" class="h-5 w-5" />
                 <span>
                   <strong>{{ item.label }}</strong>

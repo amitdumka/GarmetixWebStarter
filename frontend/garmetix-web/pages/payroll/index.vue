@@ -14,7 +14,7 @@ const isAuthenticated = auth.isAuthenticated
 const canEdit = auth.canEdit
 const canDelete = auth.canDelete
 const roleKey = computed(() => `${auth.user.value?.role || ''} ${auth.user.value?.userType || ''}`.toLowerCase())
-const canManageSalaryStructures = computed(() => auth.canSeeAdmin.value || ['poweruser', 'accountant', 'remoteaccountant', 'payroll'].some((role) => roleKey.value.includes(role)))
+const canManageSalaryStructures = computed(() => auth.canSeeAdmin.value || ['accountant', 'remoteaccountant', 'payroll'].some((role) => roleKey.value.includes(role)))
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
@@ -418,7 +418,7 @@ async function refresh() {
       api.list<any>('stores'),
       api.list<any>('employees'),
       api.list<any>('monthly-attendance'),
-      api.list<any>('salary-structures'),
+      canManageSalaryStructures.value ? api.list<any>('salary-structures') : Promise.resolve([]),
       api.list<any>('salary-payments'),
       api.get<any[]>('payroll/payslips/recent?take=250')
     ])
@@ -439,7 +439,7 @@ async function refresh() {
 
 function showTab(tab: PayrollTab) {
   if (tab === 'structures' && !canManageSalaryStructures.value) {
-    feedback.notify('Salary structures restricted', 'Only admin, owner, power user, accountant and payroll roles can access salary structures.', 'warning')
+    feedback.notify('Salary structures restricted', 'Only admin, owner, accountant and payroll roles can access salary structures.', 'warning')
     return
   }
   activeTab.value = tab

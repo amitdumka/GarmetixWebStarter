@@ -68,6 +68,8 @@ public static class AccessPermissionMatrix
                 Role(LoginRole.Admin),
                 Role(LoginRole.PowerUser),
                 Role(LoginRole.Accountant),
+                Role(LoginRole.RemoteAccountant),
+                Role(LoginRole.StoreManager),
                 Role(LoginRole.Payroll)
             ]
         };
@@ -78,8 +80,8 @@ public static class AccessPermissionMatrix
         Profile(Role(LoginRole.Admin), true, true, true, AllModules, "Full administration control."),
         Profile(Role(LoginRole.PowerUser), false, true, false, AllModules, "All operational modules without Admin or delete rights."),
         Profile(Role(LoginRole.Accountant), false, true, false, [GarmetixPolicies.Accounting, GarmetixPolicies.Payroll, "Reports", "GST"], "Accounting, payroll, reports, and GST operations."),
-        Profile(Role(LoginRole.RemoteAccountant), false, false, false, [GarmetixPolicies.Accounting, "Reports", "GST"], "Accounting review and entry without global edit/delete rights."),
-        Profile(Role(LoginRole.StoreManager), false, false, false, [GarmetixPolicies.Billing, GarmetixPolicies.Inventory, GarmetixPolicies.Purchase, GarmetixPolicies.Accounting, GarmetixPolicies.Hr, "Reports"], "Store views and new entries; no Admin, edit, or delete rights."),
+        Profile(Role(LoginRole.RemoteAccountant), false, false, false, [GarmetixPolicies.Accounting, GarmetixPolicies.Payroll, "Reports", "GST"], "Accounting review, salary payment review, reports, and GST without global edit/delete rights."),
+        Profile(Role(LoginRole.StoreManager), false, false, false, [GarmetixPolicies.Billing, GarmetixPolicies.Inventory, GarmetixPolicies.Purchase, GarmetixPolicies.Accounting, GarmetixPolicies.Hr, GarmetixPolicies.Payroll, "Reports"], "Store views, HR attendance, payslip/salary payment visibility, and new entries; no Admin, edit, or delete rights."),
         Profile(Role(LoginRole.Salesman), false, false, false, [GarmetixPolicies.Billing], "Billing and customer-facing entries."),
         Profile(Role(LoginRole.HR), false, false, false, [GarmetixPolicies.Hr], "HR and attendance entries."),
         Profile(Role(LoginRole.Payroll), false, false, false, [GarmetixPolicies.Payroll], "Payroll and salary processing entries."),

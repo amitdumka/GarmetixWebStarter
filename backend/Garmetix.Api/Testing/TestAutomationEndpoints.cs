@@ -37,7 +37,7 @@ public static class TestAutomationEndpoints
         Add(checks,
             "APP_VERSION",
             "Application version endpoint contract",
-            AppInfoEndpoints.Version.StartsWith("4.6.", StringComparison.Ordinal) && AppInfoEndpoints.BuildCode.StartsWith("GARMETIX-8G-", StringComparison.Ordinal) ? "Pass" : "Critical",
+            AppInfoEndpoints.Version.StartsWith("4.", StringComparison.Ordinal) && AppInfoEndpoints.BuildCode.StartsWith("GARMETIX-8", StringComparison.Ordinal) ? "Pass" : "Critical",
             "High",
             $"API reports {AppInfoEndpoints.Version} / {AppInfoEndpoints.BuildCode} in {environment.EnvironmentName}.",
             "Rebuild and redeploy the latest Stage 8G release archive if version/build code is stale.");

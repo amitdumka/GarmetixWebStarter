@@ -1,3 +1,29 @@
+## Stage 8H Package 3 Purchase and Voucher Crash Hotfix / v4.7.2
+
+- Fixed empty SelectItem crashes in Debit Note, Credit Note and New Purchase inward selectors by replacing empty-string option values with safe sentinels.
+- Hardened Cash Voucher refresh so list loading is not blocked by optional lookup/default repair failures.
+- Changed Vendor Payments add flow back to the standard sliding dialog used by other money-entry pages.
+- Version: 4.7.2
+- Build code: `GARMETIX-8H-20260617-4720`
+
+## Stage 8H Package 2 Access HR Payroll Purchase Stabilization / v4.7.1
+
+- Legacy Overview access hardened for admin/owner only, including direct `/` navigation and legacy shell menu filtering.
+- Payroll policy now supports store manager and remote accountant access for payslip/salary payment visibility.
+- Salary Structures tab remains restricted to admin/owner/accountant/remote-accountant/payroll roles.
+- HR Attendance Add Attendance action verified/restored.
+- Purchase inward full page and vendor payment page/list verified.
+- Version: 4.7.1
+- Build code: `GARMETIX-8H-20260617-4710`
+
+## Stage 8H Package 1 Post-Go-Live Acceptance Stabilization / v4.7.0
+
+- Added post-go-live acceptance center for the recent role/menu, HR/payroll, attendance, purchase inward and vendor-payment fixes.
+- Added Mac mini post-go-live acceptance script for health/readiness/smoke endpoints and manual role-check reminders.
+- Preserved Stage 8G final go-live baseline and npm registry hotfix.
+- Version: 4.7.0
+- Build code: `GARMETIX-8H-20260617-4700`
+
 ## Stage 8G Package 9 Final Go-Live Acceptance / v4.6.8
 
 - Added Stage 8G Completion admin page for final production sign-off.

@@ -1,8 +1,8 @@
-export const APP_VERSION = '4.6.8'
-export const APP_STAGE = 'Stage 8G Package 9 Final Go-Live Acceptance'
-export const APP_RELEASE_NAME = 'Final Go-Live Acceptance'
+export const APP_VERSION = '4.7.2'
+export const APP_STAGE = 'Stage 8H Package 3 Purchase and Voucher Crash Hotfix'
+export const APP_RELEASE_NAME = 'Post-Go-Live Acceptance Stabilization'
 export const APP_BUILD_DATE = '2026-06-17'
-export const APP_BUILD_CODE = 'GARMETIX-8G-20260617-4680'
+export const APP_BUILD_CODE = 'GARMETIX-8H-20260617-4720'
 
 export const APP_HIGHLIGHTS = [
   'Final go-live acceptance checklist and role matrix are included for admin sign-off before production cutover.',
