@@ -155,7 +155,7 @@ onMounted(async () => {
     <div class="auth-shell-grid">
       <section class="auth-hero-panel">
         <div class="ui-brand-mark auth-hero-logo">
-          <img class="ui-brand-logo" src="/garmetix-icon-512.png" alt="Garmetix" />
+          <img class="ui-brand-logo" src="/garmetix-logo.png" alt="Garmetix" />
         </div>
         <p class="auth-eyebrow">Garmetix</p>
         <h1>Secure store management for garment businesses.</h1>

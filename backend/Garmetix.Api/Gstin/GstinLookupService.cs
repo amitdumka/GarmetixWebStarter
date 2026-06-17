@@ -11,6 +11,58 @@ public sealed class GstinLookupService(HttpClient httpClient, IOptions<GstinLook
     private static readonly Regex GstinPattern = new(@"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private readonly GstinLookupOptions _options = options.Value;
 
+
+public GstinProviderStatusDto GetProviderStatus()
+{
+    var issues = new List<string>();
+    var recommendations = new List<string>();
+    var enabled = _options.Enabled;
+    var hasBaseUrl = !string.IsNullOrWhiteSpace(_options.BaseUrl) || Uri.TryCreate(_options.UrlTemplate, UriKind.Absolute, out _);
+    var hasSourceName = !string.IsNullOrWhiteSpace(_options.SourceName);
+    var hasApiKey = !string.IsNullOrWhiteSpace(_options.ApiKey);
+    var headerName = string.IsNullOrWhiteSpace(_options.ApiKeyHeaderName) ? "x-api-key" : _options.ApiKeyHeaderName.Trim();
+
+    if (!enabled)
+    {
+        issues.Add("GSTIN lookup provider is disabled. Only local format/state-code validation will run.");
+        recommendations.Add("Set GSTIN_LOOKUP_ENABLED=true after buying/configuring a GSTIN provider plan.");
+    }
+
+    if (enabled && !hasBaseUrl)
+    {
+        issues.Add("GSTIN provider base URL is missing.");
+        recommendations.Add("Set GSTIN_LOOKUP_BASE_URL or GSTIN_LOOKUP_URL_TEMPLATE in .env.production.");
+    }
+
+    if (enabled && !hasApiKey)
+    {
+        issues.Add("GSTIN provider API key is missing.");
+        recommendations.Add("Set GSTIN_LOOKUP_API_KEY and keep it outside source control.");
+    }
+
+    if (!hasSourceName || _options.SourceName.Contains("Configured", StringComparison.OrdinalIgnoreCase))
+    {
+        recommendations.Add("Set GSTIN_LOOKUP_SOURCE_NAME to the licensed provider name for audit visibility.");
+    }
+
+    if (string.IsNullOrWhiteSpace(headerName))
+    {
+        issues.Add("GSTIN API key header name is empty.");
+    }
+
+    var ready = enabled && hasBaseUrl && hasApiKey && issues.Count == 0;
+    return new GstinProviderStatusDto(
+        enabled,
+        ready,
+        SourceName(),
+        MaskUrl(_options.BaseUrl),
+        MaskUrl(_options.UrlTemplate),
+        headerName,
+        Math.Clamp(_options.TimeoutSeconds, 5, 60),
+        issues,
+        recommendations);
+}
+
     public async Task<GstinLookupResponse> LookupAsync(string? gstin, CancellationToken cancellationToken)
     {
         var normalized = NormalizeGstin(gstin);
@@ -24,7 +76,7 @@ public sealed class GstinLookupService(HttpClient httpClient, IOptions<GstinLook
             return new GstinLookupResponse(normalized, false, false, "Invalid", null, null, null, StateCode(normalized), null, "Local Validation", null, "GSTIN format is invalid.");
         }
 
-        if (!_options.Enabled || string.IsNullOrWhiteSpace(_options.BaseUrl))
+        if (!_options.Enabled || (string.IsNullOrWhiteSpace(_options.BaseUrl) && !Uri.TryCreate(_options.UrlTemplate, UriKind.Absolute, out _)))
         {
             return new GstinLookupResponse(
                 normalized,
@@ -222,6 +274,25 @@ public sealed class GstinLookupService(HttpClient httpClient, IOptions<GstinLook
     {
         return $"{baseUrl.TrimEnd('/')}/{path.TrimStart('/')}";
     }
+
+
+private static string MaskUrl(string? value)
+{
+    if (string.IsNullOrWhiteSpace(value))
+    {
+        return string.Empty;
+    }
+
+    var text = value.Trim();
+    if (Uri.TryCreate(text, UriKind.Absolute, out var uri))
+    {
+        return $"{uri.Scheme}://{uri.Host}{uri.AbsolutePath}";
+    }
+
+    return text.Replace("apikey=", "apikey=***", StringComparison.OrdinalIgnoreCase)
+        .Replace("api_key=", "api_key=***", StringComparison.OrdinalIgnoreCase)
+        .Replace("token=", "token=***", StringComparison.OrdinalIgnoreCase);
+}
 
     private string SourceName() => string.IsNullOrWhiteSpace(_options.SourceName) ? "Configured GSTIN Provider" : _options.SourceName.Trim();
 

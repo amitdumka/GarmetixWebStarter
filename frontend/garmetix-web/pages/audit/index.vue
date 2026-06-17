@@ -35,12 +35,14 @@ const moduleOptions = [
   { value: 'Inventory', label: 'Inventory' },
   { value: 'Billing', label: 'Billing' },
   { value: 'Purchase', label: 'Purchase' },
+  { value: 'Tailoring', label: 'Tailoring' },
   { value: 'Vouchers', label: 'Vouchers' },
   { value: 'Accounting', label: 'Accounting' },
   { value: 'Petty Cash', label: 'Petty Cash' },
   { value: 'HR', label: 'HR' },
   { value: 'Payroll', label: 'Payroll' },
-  { value: 'GST Returns', label: 'GST Returns' }
+  { value: 'GST Returns', label: 'GST Returns' },
+  { value: 'Security', label: 'Security' }
 ]
 
 const actionOptions = [
@@ -54,7 +56,7 @@ const metrics = computed(() => [
   {
     label: 'Activities',
     value: activities.value.length,
-    meta: 'Recent records',
+    meta: 'Persistent events',
     icon: 'i-lucide-history',
     color: 'primary'
   },
@@ -80,10 +82,10 @@ const metrics = computed(() => [
     color: 'error'
   },
   {
-    label: 'Modules',
-    value: new Set(activities.value.map((item) => item.module)).size,
-    meta: 'Touched areas',
-    icon: 'i-lucide-layout-grid',
+    label: 'Field Changes',
+    value: activities.value.reduce((total, item) => total + Number(item.changedFieldCount || 0), 0),
+    meta: 'Before/after values',
+    icon: 'i-lucide-list-checks',
     color: 'neutral'
   }
 ])
@@ -96,6 +98,10 @@ const rows = computed(() => activities.value.map((item) => ({
   action: item.action,
   actor: item.actor || 'System',
   entityId: item.entityId,
+  auditLogId: item.auditLogId,
+  changedFieldCount: item.changedFieldCount || 0,
+  requestPath: item.requestPath || '',
+  reason: item.reason || '',
   raw: item
 })))
 
@@ -152,6 +158,7 @@ const columns: TableColumn<any>[] = [
     }, () => row.original.action)
   },
   { accessorKey: 'actor', header: 'Actor' },
+  { accessorKey: 'changedFieldCount', header: 'Fields' },
   {
     id: 'actions',
     header: '',
@@ -159,8 +166,8 @@ const columns: TableColumn<any>[] = [
       color: 'neutral',
       variant: 'ghost',
       icon: 'i-lucide-list-tree',
-      label: 'Fields',
-      onClick: () => viewDetail(row.original.raw.entityId)
+      label: 'Details',
+      onClick: () => viewDetail(row.original.raw.auditLogId, row.original.raw.entityId)
     })
   }
 ]
@@ -197,10 +204,12 @@ async function refresh() {
   }
 }
 
-async function viewDetail(entityId: string) {
+async function viewDetail(auditLogId: string | null | undefined, entityId: string) {
   detailLoading.value = true
   try {
-    selectedDetail.value = await api.get<any>(`audit/${entityId}`)
+    selectedDetail.value = auditLogId
+      ? await api.get<any>(`audit/events/${auditLogId}`)
+      : await api.get<any>(`audit/${entityId}`)
   } catch (error) {
     feedback.failed('Could not load audit fields', error)
   } finally {
@@ -293,7 +302,7 @@ onMounted(async () => {
     <section class="planner-dashboard">
       <UiModulePageHeader
         title="Audit"
-        description="Review recent created and updated records across Garmetix modules."
+        description="Review persistent create, update and delete audit history with before/after field changes."
         icon="i-lucide-history"
         primary-label="Refresh"
         primary-icon="i-lucide-refresh-cw"
@@ -398,7 +407,14 @@ onMounted(async () => {
               color="neutral"
               variant="subtle"
               :title="`${selectedDetail.entity} / ${selectedDetail.entityId}`"
-              :description="`Created: ${formatDateTime(selectedDetail.createdAt)} | Updated: ${formatDateTime(selectedDetail.updatedAt)} | Deleted: ${selectedDetail.deleted}`"
+              :description="`Action: ${selectedDetail.action || '-'} | Actor: ${selectedDetail.actor || '-'} | Occurred: ${formatDateTime(selectedDetail.occurredAt || selectedDetail.updatedAt)}`"
+            />
+            <UAlert
+              v-if="selectedDetail.requestPath || selectedDetail.reason"
+              color="primary"
+              variant="subtle"
+              :title="selectedDetail.requestPath || 'Audit event context'"
+              :description="selectedDetail.reason || 'Request context was captured for this change.'"
             />
             <div class="planner-table-wrap">
               <table class="planner-table">

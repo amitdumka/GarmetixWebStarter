@@ -23,6 +23,10 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
   exit 1
 fi
 
+# shellcheck source=deploy/lib/env-file.sh
+source "${ROOT_DIR}/deploy/lib/env-file.sh"
+normalize_env_file "$CONFIG_FILE"
+
 # shellcheck disable=SC1090
 source "$CONFIG_FILE"
 
@@ -68,8 +72,7 @@ run_scp() {
 export DOMAIN PUBLIC_HTTPS_URL CLOUDFLARE_TUNNEL_ID="${CLOUDFLARE_TUNNEL_ID:-}" CLOUDFLARE_TUNNEL_TOKEN="${CLOUDFLARE_TUNNEL_TOKEN:-}"
 "${ROOT_DIR}/deploy/create-production-env.sh"
 
-# shellcheck source=deploy/lib/env-file.sh
-source "${ROOT_DIR}/deploy/lib/env-file.sh"
+normalize_env_file "${ROOT_DIR}/.env.production"
 set_env_var "${ROOT_DIR}/.env.production" DATABASE_SCHEMA_BOOTSTRAP_MODE "${DATABASE_SCHEMA_BOOTSTRAP_MODE}"
 set_env_var "${ROOT_DIR}/.env.production" RESET_DATABASE_ON_DEPLOY "${RESET_DATABASE_ON_DEPLOY}"
 

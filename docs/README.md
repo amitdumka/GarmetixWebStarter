@@ -80,3 +80,25 @@ This folder is the canonical home for project plans, implementation notes, valid
 - [Stage 8E Package 5 / v4.4.2 ledger synchronization notes](stages/stage-8/Stage8E-Package5-LedgerSynchronization-v4.4.2-Notes.md)
 
 - [Stage 8E Package 7 / v4.4.4 tailoring and alteration workflow notes](stages/stage-8/Stage8E-Package7-TailoringAlteration-v4.4.4-Notes.md)
+- [Stage 8E Package 7 Compile Hotfix 1 / v4.4.4 notes](stages/stage-8/Stage8E-Package7-CompileHotfix1-v4.4.4-Notes.md)
+
+- [Stage 8F Package 1 / v4.5.0 audit history foundation notes](stages/stage-8/Stage8F-Package1-AuditHistoryFoundation-v4.5.0-Notes.md)
+- [Stage 8F Package 2 / v4.5.1 automated smoke tests notes](stages/stage-8/Stage8F-Package2-AutomatedSmokeTests-v4.5.1-Notes.md)
+
+- [Stage 8G Package 1 / v4.6.0 backup restore maintenance notes](stages/stage-8/Stage8G-Package1-BackupRestoreMaintenance-v4.6.0-Notes.md)
+
+- [Stage 8G Package 2 / v4.6.1 go-live readiness notes](stages/stage-8/Stage8G-Package2-GoLiveReadiness-v4.6.1-Notes.md)
+
+- [Stage 8G Package 3 / v4.6.2 SMTP email delivery validation](stages/stage-8/Stage8G-Package3-SmtpEmailDeliveryValidation-v4.6.2-Notes.md)
+
+- [Stage 8G Package 4 / v4.6.3 Google Drive backup validation notes](stages/stage-8/Stage8G-Package4-GoogleDriveBackupValidation-v4.6.3-Notes.md)
+
+- [Stage 8G Package 5 / v4.6.4 GSTIN provider validation notes](stages/stage-8/Stage8G-Package5-GstinProviderValidation-v4.6.4-Notes.md)
+
+- [Stage 8G Package 6 / v4.6.5 Oracle Cloud sync validation notes](stages/stage-8/Stage8G-Package6-OracleCloudSyncValidation-v4.6.5-Notes.md)
+
+- [Stage 8G Package 7 / v4.6.6 production security hardening notes](stages/stage-8/Stage8G-Package7-ProductionSecurityHardening-v4.6.6-Notes.md)
+
+- [Stage 8G Package 9 / v4.6.8 final go-live acceptance notes](stages/stage-8/Stage8G-Package9-FinalGoLiveAcceptance-v4.6.8-Notes.md)
+- [Role Acceptance Matrix v4.6.8](operations/Role-Acceptance-Matrix-v4.6.8.md)
+- [Production Release Checklist v4.6.8](operations/Production-Release-Checklist-v4.6.8.md)

@@ -1,10 +1,26 @@
-export const APP_VERSION = '4.4.4'
-export const APP_STAGE = 'Stage 8E Package 7 Tailoring and Alteration Workflow'
-export const APP_RELEASE_NAME = 'Tailoring and Alteration Workflow'
+export const APP_VERSION = '4.6.8'
+export const APP_STAGE = 'Stage 8G Package 9 Final Go-Live Acceptance'
+export const APP_RELEASE_NAME = 'Final Go-Live Acceptance'
 export const APP_BUILD_DATE = '2026-06-17'
-export const APP_BUILD_CODE = 'GARMETIX-8E-20260617-4440'
+export const APP_BUILD_CODE = 'GARMETIX-8G-20260617-4680'
 
 export const APP_HIGHLIGHTS = [
+  'Final go-live acceptance checklist and role matrix are included for admin sign-off before production cutover.',
+  'Stage 8G completion script runs security, backup, SMTP, GSTIN, Oracle sync, and Docker readiness checks from one command.',
+  'Oracle Cloud sync readiness now checks wallet/TNS paths, external-app event review, auto-apply policy and dead-letter monitoring.',
+  'Backup Maintenance now validates Google Drive off-site backup configuration and supports uploading verified local backups to Drive.',
+  'Mac mini scripts now check Google Drive service-account JSON, folder id and off-site backup readiness before go-live.',
+  'Backup Maintenance Center now checks recent backup age, disk space, directory write access, checksum coverage, manifest coverage and stale restore temp files.',
+  'Backup cleanup can remove orphan checksum/manifest sidecars and temporary restore upload files without deleting valid backup dumps.',
+  'Backup verification can now run across all local backup files so admins can confirm restore safety before power failure or production cutover.',
+  'Linux/WSL scripts now include backup maintenance and direct PostgreSQL backup helpers for Mac mini operations.',
+  'Automated backend, frontend and production smoke-test scripts now ship with the release package.',
+  'The API exposes a test-automation manifest and runtime smoke endpoint for deployment validation.',
+  'Frontend smoke checks verify the public login page and proxied app-info endpoint without a browser driver.',
+  'Linux, WSL and Windows test runners can execute backend unit tests, Nuxt build checks and optional Docker health checks.',
+  'Persistent audit logs now capture create, update and delete operations from DbContext SaveChanges with actor, route, trace id and module classification.',
+  'Audit detail now shows before/after field values and changed-field counts while excluding sensitive password, token, API key and secret fields.',
+  'The Audit screen now reads real AuditLogEntries first, with legacy CreatedAt/UpdatedAt fallback for older rows before audit capture begins.',
   'Tailoring and alteration orders now follow order-delivery-invoice-payment SOP with delivery schedule, pending, delivered, invoiced, paid and completed status tracking.',
   'Readymade garment alteration can be assigned to tailoring vendors with customer-chargeable, in-house expense, or complimentary cost responsibility.',
   'Tailoring service items are reusable in orders and service invoice conversion, with default customer rate, vendor rate, HSN/SAC and active status.',

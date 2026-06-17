@@ -1,3 +1,101 @@
+## Stage 8G Package 9 Final Go-Live Acceptance / v4.6.8
+
+- Added Stage 8G Completion admin page for final production sign-off.
+- Added final Mac mini acceptance script covering health, app-info, production readiness, backup maintenance and runtime smoke endpoints.
+- Added role acceptance matrix script and documentation for Admin/Owner, Store Manager, Accountant, Power User and Normal User verification.
+- Added final production release checklist documentation.
+- Fixed runtime smoke version validation so it tracks the active Stage 8G build instead of stale v4.6.0 constants.
+- Stage 8G is now complete pending live-site sign-off on the Mac mini.
+- Version: 4.6.8
+- Build code: `GARMETIX-8G-20260617-4680`
+
+## Stage 8G Package 8 Access HR Payroll Purchase Stabilization / v4.6.7
+
+- Restricted Legacy Overview to admin/owner only.
+- Corrected HR/Payroll role visibility: payroll visible to store manager/accounting/power users while Salary Structures remains restricted.
+- Restored explicit Attendance add action.
+- Added full-page purchase inward entry at `/purchase/new`.
+- Added vendor payment page/register for invoice-linked and advance payments.
+- Improved production password-reset feedback when SMTP is not configured.
+- Version: 4.6.7
+- Build code: `GARMETIX-8G-20260617-4670`
+
+## Stage 8G Package 7 Production Security and Log Retention Hardening / v4.6.6
+
+- Added Mac mini production security hardening checks for HTTPS, secrets, CORS, localhost-only ports, Docker auto-start and public security headers.
+- Added Docker log-retention verification helper for API, web, Postgres and Cloudflare tunnel containers.
+- Hardened production preflight with CRLF-safe env loading, reset-database protection and log-retention checks.
+- Version: 4.6.6
+- Build code: `GARMETIX-8G-20260617-4660`
+
+## Stage 8G Package 6 Oracle Cloud Sync Validation / v4.6.5
+
+- Added Oracle Cloud wallet/TNS readiness script for Mac mini deployments.
+- Added go-live documentation for Oracle connection test, external-app event review/apply, auto-apply policy and dead-letter monitoring.
+- Added Oracle sync environment placeholders to production env examples.
+- Version: 4.6.5
+- Build code: `GARMETIX-8G-20260617-4650`
+
+## Stage 8G Package 5 GSTIN Provider Validation / v4.6.4
+
+- Added GSTIN provider status and admin test endpoints.
+- Added Production Readiness GSTIN provider validation panel.
+- Added Mac mini GSTIN readiness script and provider configuration documentation.
+- Version: 4.6.4
+- Build code: `GARMETIX-8G-20260617-4640`
+
+## Stage 8G Package 4 Google Drive Backup Validation / v4.6.3
+
+- Backup Maintenance now includes Google Drive off-site status, service-account identity, folder id, cloud backup count and upload action.
+- Added Mac mini Google Drive configuration check and latest-backup upload preparation scripts.
+- Fixed Google Drive download service duplicate local variable risk.
+- Version: 4.6.3
+- Build code: `GARMETIX-8G-20260617-4630`
+
+## Stage 8G Package 3 SMTP Email Delivery Validation / v4.6.2
+
+- Added admin-only SMTP diagnostics endpoints.
+- Added Production Readiness UI to review masked SMTP configuration and send a real test email.
+- Added operation notes for configuring SMTP in `.env.production`.
+- Version: 4.6.2
+- Build code: `GARMETIX-8G-20260617-4620`
+
+## Stage 8G Package 2 Go-Live Readiness and Branding Restore / v4.6.1
+
+- Restored the earlier provided Garmetix/Aadwika Fashion logo in the login/title experience and sidebar brand assets.
+- Replaced placeholder/generated app icon assets with the earlier provided branding set.
+- Added go-live readiness and backup-restore drill helper scripts for Mac mini Linux/WSL operations.
+- Version: 4.6.1
+- Build code: `GARMETIX-8G-20260617-4610`
+
+## Stage 8G Package 1 Backup Restore Maintenance / v4.6.0
+
+- Backup Maintenance Center added under Maintenance.
+- Local backup health now checks disk space, write access, recent backup age, checksum coverage, manifest coverage, orphan sidecars and restore temp files.
+- Admins can create backups, verify all backups and run safe cleanup from the UI.
+- Mac mini Linux/WSL helper scripts added for backup maintenance and direct PostgreSQL backups.
+- Version: 4.6.0
+- Build code: `GARMETIX-8G-20260617-4600`
+
+## Stage 8F Package 2 Automated Smoke Tests / v4.5.1
+
+- Added test-automation manifest and runtime smoke endpoints for deployment validation.
+- Added backend xUnit catalog contract tests covering backend, frontend, Docker and authenticated API smoke definitions.
+- Added Linux/WSL and Windows automated test runners for backend tests, Nuxt builds, optional frontend smoke and Docker health checks.
+- Added browserless frontend smoke script that checks the public login page, app-info version and test-automation manifest.
+- Hardened smoke scripts for CRLF-safe env loading and optional authenticated release/readiness checks.
+- Version: 4.5.1
+- Build code: `GARMETIX-8F-20260617-4510`
+
+## Stage 8F Package 1 Audit History Foundation / v4.5.0
+
+- Persistent AuditLogEntries capture create/update/delete from DbContext SaveChanges.
+- Audit events preserve actor, route, trace id, before/after snapshots and changed-field list.
+- Sensitive password/token/secret/API-key fields are excluded from snapshots.
+- Existing audit screen now reads real events first with legacy fallback for older rows.
+- Version: 4.5.0
+- Build code: `GARMETIX-8F-20260617-4500`
+
 # Garmetix Current Roadmap
 
 Updated: 2026-06-17

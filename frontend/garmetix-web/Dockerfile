@@ -7,18 +7,24 @@ ENV NODE_OPTIONS=--max-old-space-size=4096
 ENV NUXT_TELEMETRY_DISABLED=1
 
 COPY frontend/garmetix-web/package*.json ./
-RUN npm ci
+COPY frontend/garmetix-web/.npmrc ./
+RUN npm config set registry https://registry.npmjs.org/ \
+    && npm config set fetch-retries 5 \
+    && npm config set fetch-retry-mintimeout 20000 \
+    && npm config set fetch-retry-maxtimeout 120000 \
+    && npm ci --prefer-online --no-audit --no-fund
 COPY frontend/garmetix-web/ ./
 RUN npm run build
 
 FROM node:22-alpine
 WORKDIR /app
 ENV NODE_OPTIONS=--max-old-space-size=1024
-# Nuxt UI's local icon server bundle dynamically imports the Iconify collection at runtime.
-# Install it in the production image so login/dashboard icon requests do not call api.iconify.design
-# and do not fail with ERR_MODULE_NOT_FOUND.
-RUN npm install --no-save @iconify-json/lucide
 COPY --from=build /app/.output ./.output
+# Keep the local Lucide Iconify collection available at runtime for the custom
+# /api/_nuxt_icon/lucide.json handler. Copying from the build layer avoids
+# production image network installs and avoids Nuxt Icon's JSON import-attribute
+# runtime issue on Node 22.
+COPY --from=build /app/node_modules/@iconify-json ./node_modules/@iconify-json
 ENV HOST=0.0.0.0
 ENV PORT=3000
 EXPOSE 3000

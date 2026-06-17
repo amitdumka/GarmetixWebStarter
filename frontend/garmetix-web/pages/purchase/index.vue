@@ -331,6 +331,10 @@ async function refresh() {
 }
 
 function startCreate() {
+  navigateTo('/purchase/new')
+}
+
+function startInlineCreate() {
   Object.assign(purchaseForm, emptyPurchaseForm())
   purchaseCart.value = []
   vendorGstinValidation.value = null

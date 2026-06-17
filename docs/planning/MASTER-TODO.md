@@ -340,7 +340,7 @@ Use this file as the running handoff checklist. When a task is completed, mark i
   - [x] Package 5: hardened automatic Party and Bank Account ledger synchronization with health checks and repair workflow in v4.4.2.
   - [x] Package 6: added customer/vendor due dashboards, cash/payment summaries, and store-group comparison views in v4.4.3.
 - [ ] Complete Stage 8F automated tests and deep audit history.
-- [ ] Complete Stage 8G real integrations and production go-live validation.
+- [x] Complete Stage 8G real integrations and production go-live validation.
 
 ## Sales Invoice Stability - added 2026-06-16
 
@@ -361,6 +361,18 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Keep Message Log diagnostic details restricted to authorized administrators while allowing authenticated users to submit their own client events.
 
 
-## Stage 8E Package 7 / v4.4.4
+## Stage 8E Package 7 / v4.5.0
 
 - [x] Package 7: added tailoring/stitching and alteration workflow before Stage 8F, including orders, delivery, service invoice conversion, customer receipts, vendor payments, schedule/history, and in-house alteration profit impact.
+
+- [x] Stage 8G Package 1: added Backup Maintenance Center, verify-all, safe cleanup and Mac mini backup scripts.
+
+- [x] Stage 8G Package 4: added Google Drive off-site backup validation workflow.
+
+- [x] Stage 8G Package 5: added GSTIN provider validation workflow.
+
+- [x] Stage 8G Package 6: added Oracle Cloud wallet/TNS and external-app sync validation runbook and Mac mini readiness script.
+
+- [x] Stage 8G Package 7: added production security hardening and Docker log retention checks in v4.6.6.
+
+- [x] Stage 8G Package 9: added final go-live acceptance, role matrix, production release checklist and stage-completion script.

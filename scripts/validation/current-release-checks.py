@@ -20,6 +20,20 @@ checks = [
     root / "scripts/validation/stage8e-package5-static-checks.py",
     root / "scripts/validation/stage8e-package6-static-checks.py",
     root / "scripts/validation/stage8e-package7-static-checks.py",
+    root / "scripts/validation/stage8e-package7-compile-hotfix-static-checks.py",
+    root / "scripts/validation/stage8f-package1-static-checks.py",
+    root / "scripts/validation/stage8f-package2-static-checks.py",
+    root / "scripts/validation/stage8g-package1-static-checks.py",
+    root / "scripts/validation/stage8g-package1-compile-hotfix-static-checks.py",
+    root / "scripts/validation/stage8g-package2-static-checks.py",
+    root / "scripts/validation/stage8g-package3-static-checks.py",
+    root / "scripts/validation/stage8g-package4-static-checks.py",
+    root / "scripts/validation/stage8g-package5-static-checks.py",
+    root / "scripts/validation/stage8g-package6-static-checks.py",
+    root / "scripts/validation/stage8g-package7-static-checks.py",
+    root / "scripts/validation/stage8g-package8-static-checks.py",
+    root / "scripts/validation/stage8g-package9-static-checks.py",
+    root / "scripts/validation/stage8g-package9-npm-registry-hotfix-static-checks.py",
 ]
 
 for check in checks:

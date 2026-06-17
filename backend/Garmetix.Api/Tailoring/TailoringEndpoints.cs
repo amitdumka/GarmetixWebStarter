@@ -176,11 +176,14 @@ public static class TailoringEndpoints
 
     private static async Task<IReadOnlyList<TailoringVendorDto>> TailoringVendorsAsync(HttpContext context, GarmetixDbContext db, Guid? companyId = null, CancellationToken cancellationToken = default)
     {
+        // The current Vendor master does not yet have a VendorType column.
+        // Until a dedicated tailoring-vendor flag is added to the master data screen,
+        // expose active vendors for tailoring/alteration assignment and label them safely.
         var query = WorkspaceScope.ApplyTo(db.Vendors.AsNoTracking(), context)
-            .Where(item => item.VendorType == VendorType.Tailoring || item.VendorType == VendorType.InHouse);
+            .Where(item => item.Active && !item.Deleted);
         if (companyId.HasValue) query = query.Where(item => item.CompanyId == companyId.Value);
         return await query.OrderBy(item => item.Name)
-            .Select(item => new TailoringVendorDto(item.Id, item.Name, item.MobileNumber, item.VendorType.ToString(), item.Active, item.PartyId))
+            .Select(item => new TailoringVendorDto(item.Id, item.Name, item.MobileNumber, "Vendor", item.Active, item.PartyId))
             .ToListAsync(cancellationToken);
     }
 

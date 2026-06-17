@@ -664,6 +664,7 @@ onMounted(async () => {
           <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
             {{ loading ? 'Loading' : 'Ready' }}
           </UBadge>
+          <UButton v-if="activeTab === 'attendance'" icon="i-lucide-calendar-plus" color="primary" variant="solid" label="Add Attendance" @click="startAttendanceCreate" />
           <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
         </template>
       </UiModulePageHeader>

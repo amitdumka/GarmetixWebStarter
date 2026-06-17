@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.4.4";
-    public const string Stage = "Stage 8E Package 7 Tailoring and Alteration Workflow";
-    public const string ReleaseName = "Tailoring and Alteration Workflow";
+    public const string Version = "4.6.8";
+    public const string Stage = "Stage 8G Package 9 Final Go-Live Acceptance";
+    public const string ReleaseName = "Final Go-Live Acceptance";
     public const string BuildDate = "2026-06-17";
-    public const string BuildCode = "GARMETIX-8E-20260617-4440";
+    public const string BuildCode = "GARMETIX-8G-20260617-4680";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,10 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Automated backend, frontend and production smoke-test scripts now ship with the release package.",
+        "The API exposes a test-automation manifest and runtime smoke endpoint for deployment validation.",
+        "Frontend smoke checks verify the public login page and proxied app-info endpoint without a browser driver.",
+        "Linux, WSL and Windows test runners can execute backend unit tests, Nuxt build checks and optional Docker health checks.",
         "Tailoring and alteration orders now follow order-delivery-invoice-payment SOP with delivery schedule, pending, delivered, invoiced, paid and completed status tracking.",
         "Readymade garment alteration can be assigned to tailoring vendors with customer-chargeable, in-house expense, or complimentary cost responsibility.",
         "Tailoring service items are reusable in orders and service invoice conversion, with default customer rate, vendor rate, HSN/SAC and active status.",

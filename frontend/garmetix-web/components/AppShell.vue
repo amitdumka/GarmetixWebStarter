@@ -98,7 +98,7 @@ const moduleGroups: MenuGroup[] = [
       { to: '/dashboard/store-manager', label: 'Store', icon: 'i-lucide-store', roles: ['storemanager', 'manager'], keywords: ['store', 'today', 'manager'] },
       { to: '/dashboard/business', label: 'Company', icon: 'i-lucide-chart-no-axes-combined', roles: ['owner', 'admin', 'accountant'], keywords: ['owner', 'admin', 'accountant', 'company'] },
       { to: '/dashboard/map', label: 'Dashboard Map', icon: 'i-lucide-map', keywords: ['template', 'revert', 'menus', 'routes'] },
-      { to: '/', label: 'Legacy Overview', icon: 'i-lucide-layout-dashboard', keywords: ['old dashboard', 'overview', 'revert'] }
+      { to: '/', label: 'Legacy Overview', icon: 'i-lucide-layout-dashboard', roles: ['admin', 'owner'], keywords: ['old dashboard', 'overview', 'revert'] }
     ]
   },
   {
@@ -113,6 +113,8 @@ const moduleGroups: MenuGroup[] = [
     label: 'Purchase',
     items: [
       { to: '/purchase', label: 'Purchase', icon: 'i-lucide-package-plus' },
+      { to: '/purchase/new', label: 'New Inward', icon: 'i-lucide-file-plus-2', keywords: ['inward', 'supplier invoice', 'purchase bill'] },
+      { to: '/vendor-payments', label: 'Vendor Payments', icon: 'i-lucide-hand-coins', keywords: ['supplier payment', 'advance payment', 'purchase payment'] },
       { to: '/purchase-return', label: 'Purchase Return', icon: 'i-lucide-undo-2' },
       { to: '/vendor-settlements', label: 'Vendor Settlements', icon: 'i-lucide-hand-coins' }
     ]
@@ -196,7 +198,9 @@ const moduleGroups: MenuGroup[] = [
     label: 'Maintenance',
     items: [
       { to: '/system-health', label: 'System Health', icon: 'i-lucide-activity', adminOnly: true },
+      { to: '/backup-maintenance', label: 'Backup Maintenance', icon: 'i-lucide-hard-drive-download', adminOnly: true },
       { to: '/production-readiness', label: 'Production Readiness', icon: 'i-lucide-shield-check', adminOnly: true },
+      { to: '/stage8g-completion', label: 'Stage 8G Completion', icon: 'i-lucide-flag', adminOnly: true },
       { to: '/release-stabilization', label: 'Release Stabilization', icon: 'i-lucide-rocket', adminOnly: true },
       { to: '/oracle-sync', label: 'Oracle Sync', icon: 'i-lucide-database-zap', adminOnly: true }
     ]

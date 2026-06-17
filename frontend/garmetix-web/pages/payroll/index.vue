@@ -13,6 +13,8 @@ const documentPrint = useServerDocumentPrint()
 const isAuthenticated = auth.isAuthenticated
 const canEdit = auth.canEdit
 const canDelete = auth.canDelete
+const roleKey = computed(() => `${auth.user.value?.role || ''} ${auth.user.value?.userType || ''}`.toLowerCase())
+const canManageSalaryStructures = computed(() => auth.canSeeAdmin.value || ['poweruser', 'accountant', 'remoteaccountant', 'payroll'].some((role) => roleKey.value.includes(role)))
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
@@ -73,6 +75,12 @@ const tabs = [
   { key: 'structures' as const, label: 'Salary Structures', icon: 'i-lucide-badge-indian-rupee' },
   { key: 'payments' as const, label: 'Salary Payments', icon: 'i-lucide-credit-card' }
 ]
+const visibleTabs = computed(() => tabs.filter((tab) => tab.key !== 'structures' || canManageSalaryStructures.value))
+watch(canManageSalaryStructures, (allowed) => {
+  if (!allowed && activeTab.value === 'structures') {
+    activeTab.value = 'payslips'
+  }
+}, { immediate: true })
 
 const structureForm = reactive<any>(emptyStructure())
 const paymentForm = reactive<any>(emptyPayment())
@@ -430,6 +438,10 @@ async function refresh() {
 }
 
 function showTab(tab: PayrollTab) {
+  if (tab === 'structures' && !canManageSalaryStructures.value) {
+    feedback.notify('Salary structures restricted', 'Only admin, owner, power user, accountant and payroll roles can access salary structures.', 'warning')
+    return
+  }
   activeTab.value = tab
   search.value = ''
 }
@@ -970,7 +982,7 @@ watch(
           <div class="setup-list-header">
             <div class="setup-tabs">
               <UButton
-                v-for="tab in tabs"
+                v-for="tab in visibleTabs"
                 :key="tab.key"
                 :icon="tab.icon"
                 :color="activeTab === tab.key ? 'primary' : 'neutral'"

@@ -1,13 +1,9 @@
-using Garmetix.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace Garmetix.Infrastructure.Data.Migrations;
 
-[DbContext(typeof(GarmetixDbContext))]
-[Migration("20260617000000_InitialFreshSchema")]
 public partial class InitialFreshSchema : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

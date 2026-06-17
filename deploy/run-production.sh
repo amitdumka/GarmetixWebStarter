@@ -14,29 +14,13 @@ fi
 
 # shellcheck source=deploy/lib/env-file.sh
 source "${ROOT_DIR}/deploy/lib/env-file.sh"
+normalize_env_file .env.production
 
-dotenv_get() {
-  local key="$1" default_value="${2:-}" line value
-  line="$(grep -E "^${key}=" .env.production 2>/dev/null | tail -n 1 || true)"
-  if [[ -z "$line" ]]; then
-    printf '%s' "$default_value"
-    return
-  fi
-  value="${line#*=}"
-  value="${value%$'\r'}"
-  if [[ "${value:0:1}" == '"' && "${value: -1}" == '"' ]]; then
-    value="${value:1:${#value}-2}"
-  elif [[ "${value:0:1}" == "'" && "${value: -1}" == "'" ]]; then
-    value="${value:1:${#value}-2}"
-  fi
-  printf '%s' "${value:-$default_value}"
-}
-
-WEB_PORT="$(dotenv_get WEB_PORT 3000)"
-API_PORT="$(dotenv_get API_PORT 5080)"
-PUBLIC_DOMAIN="$(dotenv_get PUBLIC_DOMAIN "$DOMAIN")"
-CLOUDFLARE_TUNNEL_TOKEN="$(dotenv_get CLOUDFLARE_TUNNEL_TOKEN "")"
-RESET_DATABASE_ON_DEPLOY="$(dotenv_get RESET_DATABASE_ON_DEPLOY false)"
+WEB_PORT="$(dotenv_get .env.production WEB_PORT 3000)"
+API_PORT="$(dotenv_get .env.production API_PORT 5080)"
+PUBLIC_DOMAIN="$(dotenv_get .env.production PUBLIC_DOMAIN "$DOMAIN")"
+CLOUDFLARE_TUNNEL_TOKEN="$(dotenv_get .env.production CLOUDFLARE_TUNNEL_TOKEN "")"
+RESET_DATABASE_ON_DEPLOY="$(dotenv_get .env.production RESET_DATABASE_ON_DEPLOY false)"
 
 mkdir -p backups secrets
 chmod 700 secrets 2>/dev/null || true

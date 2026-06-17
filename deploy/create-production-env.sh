@@ -17,6 +17,9 @@ random_secret() {
 # shellcheck source=deploy/lib/env-file.sh
 source "${ROOT_DIR}/deploy/lib/env-file.sh"
 
+if [[ -f "$ENV_FILE" ]]; then
+  normalize_env_file "$ENV_FILE"
+fi
 
 if [[ ! -f "$ENV_FILE" ]]; then
   cat >"$ENV_FILE" <<EOF2
@@ -111,6 +114,7 @@ API_BASE_URL=${PUBLIC_HTTPS_URL}/api
 GARMETIX_SMOKE_USER=
 GARMETIX_SMOKE_PASSWORD=
 EOF2
+  normalize_env_file "$ENV_FILE"
   chmod_private_if_possible "$ENV_FILE"
 fi
 
@@ -128,4 +132,5 @@ if [[ -n "${CLOUDFLARE_TUNNEL_TOKEN:-}" ]]; then
   set_env_var "$ENV_FILE" CLOUDFLARE_TUNNEL_TOKEN "$CLOUDFLARE_TUNNEL_TOKEN"
 fi
 
+normalize_env_file "$ENV_FILE"
 echo "Created/updated ${ENV_FILE}"

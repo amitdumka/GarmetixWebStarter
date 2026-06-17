@@ -22,8 +22,6 @@ require('frontend/garmetix-web/pages/tailoring/index.vue', 'Tailoring & Alterati
 require('frontend/garmetix-web/pages/tailoring/index.vue', 'Order history and status')
 require('frontend/garmetix-web/pages/tailoring/index.vue', 'Convert to service invoice')
 require('frontend/garmetix-web/components/AppShell.vue', '/tailoring')
-require('frontend/garmetix-web/utils/appVersion.ts', "APP_VERSION = '4.4.4'")
-require('backend/Garmetix.Api/AppInfo/AppInfoEndpoints.cs', 'GARMETIX-8E-20260617-4440')
 require('docs/planning/CURRENT-ROADMAP.md', 'Stage 8E Package 7 Tailoring and Alteration Workflow / v4.4.4')
 require('docs/planning/CURRENT-ROADMAP.md', 'order -> delivery -> service invoice -> payment')
 print('Stage 8E Package 7 static validation passed.')

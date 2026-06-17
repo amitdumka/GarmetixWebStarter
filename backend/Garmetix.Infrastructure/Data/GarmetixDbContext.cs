@@ -1,5 +1,7 @@
 using System.Linq.Expressions;
+using System.Text.Json;
 using Garmetix.Core.Models.Accounting;
+using Garmetix.Core.Models.Audit;
 using Garmetix.Core.Models.Authentication;
 using Garmetix.Core.Models.Base;
 using Garmetix.Core.Models.HRM;
@@ -7,13 +9,14 @@ using Garmetix.Core.Models.GstReturns;
 using Garmetix.Core.Models.Inventory;
 using Garmetix.Core.Models.Stores;
 using Garmetix.Models.DayOperations;
+using Garmetix.Infrastructure.Audit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Garmetix.Infrastructure.Data;
 
-public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> options) : DbContext(options)
+public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> options, AuditActorContext? auditActorContext = null) : DbContext(options)
 {
     private static readonly ValueConverter<DateTime, DateTime> DateTimeKindConverter = new(
         value => NormalizeDateTime(value),
@@ -30,6 +33,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<GstReturnDraft> GstReturnDrafts => Set<GstReturnDraft>();
     public DbSet<GstReturnAuditEntry> GstReturnAuditEntries => Set<GstReturnAuditEntry>();
+    public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
 
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Stock> Stocks => Set<Stock>();
@@ -125,6 +129,11 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<GstReturnAuditEntry>().ToTable("GstReturnAuditEntries");
         modelBuilder.Entity<GstReturnAuditEntry>().HasIndex(entry => new { entry.CompanyId, entry.DraftId, entry.CreatedAt });
         modelBuilder.Entity<GstReturnAuditEntry>().HasIndex(entry => new { entry.CompanyId, entry.Form, entry.ReturnPeriod });
+        modelBuilder.Entity<AuditLogEntry>().ToTable("AuditLogEntries");
+        modelBuilder.Entity<AuditLogEntry>().HasIndex(entry => entry.OccurredAt);
+        modelBuilder.Entity<AuditLogEntry>().HasIndex(entry => new { entry.CompanyId, entry.StoreId, entry.OccurredAt });
+        modelBuilder.Entity<AuditLogEntry>().HasIndex(entry => new { entry.EntityName, entry.EntityId });
+        modelBuilder.Entity<AuditLogEntry>().HasIndex(entry => new { entry.Module, entry.Action, entry.OccurredAt });
         modelBuilder.Entity<VoucherBase>().UseTpcMappingStrategy();
         modelBuilder.Entity<Voucher>().ToTable("Vouchers");
         modelBuilder.Entity<CashVoucher>().ToTable("CashVouchers");
@@ -248,6 +257,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         PrepareEntitiesForSave();
         await ValidateFinancialYearLocksAsync(cancellationToken);
         ValidateChangedJournalLines();
+        AddAuditLogEntries();
         return await base.SaveChangesAsync(cancellationToken);
     }
 
@@ -256,6 +266,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         PrepareEntitiesForSave();
         ValidateFinancialYearLocks();
         ValidateChangedJournalLines();
+        AddAuditLogEntries();
         return base.SaveChanges();
     }
 
@@ -482,6 +493,298 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
             }
         }
     }
+
+
+    private void AddAuditLogEntries()
+    {
+        var auditEntries = BuildAuditLogEntries().ToList();
+        if (auditEntries.Count == 0)
+        {
+            return;
+        }
+
+        AuditLogEntries.AddRange(auditEntries);
+    }
+
+    private IEnumerable<AuditLogEntry> BuildAuditLogEntries()
+    {
+        var now = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
+        foreach (var entry in ChangeTracker.Entries()
+            .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .Where(entry => entry.Entity is not AuditLogEntry))
+        {
+            if (entry.Metadata.ClrType.Namespace?.StartsWith("Microsoft.", StringComparison.Ordinal) == true)
+            {
+                continue;
+            }
+
+            if (entry.Metadata.FindProperty("Id") is null)
+            {
+                continue;
+            }
+
+            var entityId = ReadEntityId(entry);
+            if (!entityId.HasValue)
+            {
+                continue;
+            }
+
+            var before = entry.State == EntityState.Added ? null : BuildAuditSnapshot(entry, originalValues: true);
+            var after = entry.State == EntityState.Deleted ? null : BuildAuditSnapshot(entry, originalValues: false);
+            var changes = BuildAuditChanges(entry, before, after).ToList();
+            var action = ResolveAuditAction(entry);
+
+            if (entry.State == EntityState.Modified && changes.Count == 0)
+            {
+                continue;
+            }
+
+            yield return new AuditLogEntry
+            {
+                Id = Guid.NewGuid(),
+                OccurredAt = now,
+                CreatedAt = now,
+                UpdatedAt = now,
+                Action = action,
+                Module = ResolveAuditModule(entry.Metadata.ClrType.Name),
+                EntityName = entry.Metadata.ClrType.Name,
+                EntityDisplayName = ToDisplayName(entry.Metadata.ClrType.Name),
+                EntityId = entityId.Value,
+                Reference = ResolveAuditReference(entry),
+                CompanyId = ReadGuidProperty(entry, nameof(CompanyBase.CompanyId)) ?? auditActorContext?.CompanyId,
+                StoreGroupId = ReadGuidProperty(entry, nameof(StoreBase.StoreGroupId)) ?? auditActorContext?.StoreGroupId,
+                StoreId = ReadGuidProperty(entry, nameof(StoreBase.StoreId)) ?? auditActorContext?.StoreId,
+                UserId = auditActorContext?.UserId,
+                UserName = FirstNonBlank(auditActorContext?.UserName, ReadStringProperty(entry, nameof(CompanyBase.CreatedBy)), "System"),
+                Source = "DbContext.SaveChanges",
+                RequestMethod = auditActorContext?.RequestMethod,
+                RequestPath = auditActorContext?.RequestPath,
+                IpAddress = auditActorContext?.IpAddress,
+                TraceIdentifier = auditActorContext?.TraceIdentifier,
+                Reason = ResolveAuditReason(entry),
+                BeforeJson = before is null ? null : JsonSerializer.Serialize(before),
+                AfterJson = after is null ? null : JsonSerializer.Serialize(after),
+                ChangesJson = JsonSerializer.Serialize(changes),
+                ChangedFieldCount = changes.Count
+            };
+        }
+    }
+
+    private static Guid? ReadEntityId(EntityEntry entry)
+    {
+        var value = entry.State == EntityState.Deleted
+            ? entry.Property("Id").OriginalValue
+            : entry.Property("Id").CurrentValue;
+        return value is Guid guid && guid != Guid.Empty ? guid : null;
+    }
+
+    private static IReadOnlyDictionary<string, string?> BuildAuditSnapshot(EntityEntry entry, bool originalValues)
+    {
+        var values = new SortedDictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var property in entry.Properties.Where(property => ShouldAuditProperty(property)))
+        {
+            var value = originalValues ? property.OriginalValue : property.CurrentValue;
+            values[property.Metadata.Name] = FormatAuditValue(value);
+        }
+
+        return values;
+    }
+
+    private static IEnumerable<AuditFieldChange> BuildAuditChanges(
+        EntityEntry entry,
+        IReadOnlyDictionary<string, string?>? before,
+        IReadOnlyDictionary<string, string?>? after)
+    {
+        if (entry.State == EntityState.Added && after is not null)
+        {
+            foreach (var item in after.Where(item => !string.IsNullOrWhiteSpace(item.Value)))
+            {
+                yield return new AuditFieldChange(item.Key, null, item.Value);
+            }
+            yield break;
+        }
+
+        if (entry.State == EntityState.Deleted && before is not null)
+        {
+            foreach (var item in before.Where(item => !string.IsNullOrWhiteSpace(item.Value)))
+            {
+                yield return new AuditFieldChange(item.Key, item.Value, null);
+            }
+            yield break;
+        }
+
+        if (before is null || after is null)
+        {
+            yield break;
+        }
+
+        foreach (var key in before.Keys.Union(after.Keys, StringComparer.OrdinalIgnoreCase).OrderBy(item => item, StringComparer.OrdinalIgnoreCase))
+        {
+            before.TryGetValue(key, out var oldValue);
+            after.TryGetValue(key, out var newValue);
+            if (!string.Equals(oldValue, newValue, StringComparison.Ordinal))
+            {
+                yield return new AuditFieldChange(key, oldValue, newValue);
+            }
+        }
+    }
+
+    private static bool ShouldAuditProperty(PropertyEntry property)
+    {
+        if (property.Metadata.IsShadowProperty())
+        {
+            return false;
+        }
+
+        var propertyName = property.Metadata.Name;
+        if (propertyName is nameof(BaseEntity.UpdatedAt) or nameof(BaseEntity.Synced))
+        {
+            return false;
+        }
+
+        if (IsSensitiveAuditProperty(propertyName))
+        {
+            return false;
+        }
+
+        var clrType = Nullable.GetUnderlyingType(property.Metadata.ClrType) ?? property.Metadata.ClrType;
+        return clrType.IsPrimitive
+            || clrType.IsEnum
+            || clrType == typeof(string)
+            || clrType == typeof(decimal)
+            || clrType == typeof(Guid)
+            || clrType == typeof(DateTime);
+    }
+
+    private static bool IsSensitiveAuditProperty(string propertyName)
+        => propertyName.Contains("Password", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Contains("Token", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Contains("Secret", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Contains("SigningKey", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Contains("ApiKey", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Contains("Api_Key", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Equals("Authorization", StringComparison.OrdinalIgnoreCase);
+
+    private static string ResolveAuditAction(EntityEntry entry)
+    {
+        if (entry.State == EntityState.Added)
+        {
+            return "Created";
+        }
+
+        if (entry.State == EntityState.Deleted)
+        {
+            return "Deleted";
+        }
+
+        if (entry.Metadata.FindProperty(nameof(BaseEntity.Deleted)) is not null
+            && entry.Property(nameof(BaseEntity.Deleted)).OriginalValue is false
+            && entry.Property(nameof(BaseEntity.Deleted)).CurrentValue is true)
+        {
+            return "Deleted";
+        }
+
+        return "Updated";
+    }
+
+    private static string ResolveAuditModule(string entityName)
+    {
+        if (entityName is "Company" or "Store" or "StoreGroup") return "Company";
+        if (entityName is "AppUser" or "PasswordResetToken") return "Security";
+        if (entityName.StartsWith("Tailoring", StringComparison.Ordinal)) return "Tailoring";
+        if (entityName is "Invoice" or "InvoiceItem" or "InvoicePayment" or "CardPayment" or "Customer" or "Salesman" or "CustomerAdvanceReceipt" or "LoyaltyProgram" or "LoyaltyPointLedger") return "Billing";
+        if (entityName.StartsWith("Purchase", StringComparison.Ordinal) || entityName is "Vendor" or "VendorSettlement" or "VendorSettlementAllocation" or "VendorPayment") return "Purchase";
+        if (entityName is "Stock" or "StockMovement" or "StockOperationDocument" or "StockOperationItem" or "NonGstGoodsDocument" or "NonGstGoodsItem" or "Product" or "ProductDetail" or "Brand" or "ProductCategory" or "ProductSubCategory" or "Tax") return "Inventory";
+        if (entityName.StartsWith("Gst", StringComparison.Ordinal)) return "GST Returns";
+        if (entityName is "Employee" or "EmployeeDetail" or "Attendance" or "MonthlyAttendance" or "TimeSheet") return "HR";
+        if (entityName is "SalaryStructure" or "SalaryPaySlip" or "SalaryPayment") return "Payroll";
+        if (entityName.Contains("Voucher", StringComparison.Ordinal) && entityName is not "CashVoucher" and not "CashVoucherConversion") return "Vouchers";
+        if (entityName is "PettyCashSheet" or "DayBegin" or "DayEnd") return "Petty Cash";
+        if (entityName is "JournalEntry" or "JournalLine" or "Ledger" or "LedgerGroup" or "Party" or "Bank" or "BankAccount" or "BankAccountDetail" or "VendorBankAccount" or "BankTransaction" or "BankStatementLine" or "ChequeLog" or "CommercialNote" or "CashVoucher" or "CashVoucherConversion" or "BankCashTranscation" or "FinancialYearLock") return "Accounting";
+        return "System";
+    }
+
+    private static string ResolveAuditReference(EntityEntry entry)
+    {
+        foreach (var propertyName in new[]
+        {
+            "InvoiceNumber", "DocumentNumber", "VoucherNumber", "OrderNumber", "ReturnNumber", "EntryNumber",
+            "SettlementNumber", "ReceiptNumber", "NoteNumber", "InwardNumber", "Barcode", "Name", "UserName",
+            "Email", "AccountNumber", "ChequeNumber", "ReferenceNumber", "Reference", "ServiceCode", "ServiceName", "Title"
+        })
+        {
+            var value = ReadStringProperty(entry, propertyName);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value!;
+            }
+        }
+
+        return ReadEntityId(entry)?.ToString() ?? string.Empty;
+    }
+
+    private static string? ResolveAuditReason(EntityEntry entry)
+    {
+        foreach (var propertyName in new[] { "Reason", "Remarks", "Narration", "LockReason", "UnlockReason", "CancelReason", "Description" })
+        {
+            var value = ReadStringProperty(entry, propertyName);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ReadStringProperty(EntityEntry entry, string propertyName)
+    {
+        if (entry.Metadata.FindProperty(propertyName) is null)
+        {
+            return null;
+        }
+
+        var value = entry.State == EntityState.Deleted
+            ? entry.Property(propertyName).OriginalValue
+            : entry.Property(propertyName).CurrentValue;
+        return value?.ToString();
+    }
+
+    private static string? FormatAuditValue(object? value)
+    {
+        return value switch
+        {
+            null => null,
+            DateTime dateTime => dateTime.ToString("yyyy-MM-dd HH:mm:ss"),
+            DateTimeOffset dateTimeOffset => dateTimeOffset.ToString("yyyy-MM-dd HH:mm:ss zzz"),
+            decimal number => number.ToString("0.##"),
+            _ => value.ToString()
+        };
+    }
+
+    private static string ToDisplayName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var chars = new List<char> { value[0] };
+        for (var i = 1; i < value.Length; i++)
+        {
+            if (char.IsUpper(value[i]) && !char.IsWhiteSpace(value[i - 1]))
+            {
+                chars.Add(' ');
+            }
+            chars.Add(value[i]);
+        }
+        return new string(chars.ToArray());
+    }
+
+    private static string FirstNonBlank(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+
+    private sealed record AuditFieldChange(string Field, string? Before, string? After);
 
     private void PrepareEntitiesForSave()
     {

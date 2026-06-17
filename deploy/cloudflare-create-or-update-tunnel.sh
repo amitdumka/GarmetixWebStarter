@@ -17,14 +17,18 @@ need jq
 source "${ROOT_DIR}/deploy/lib/env-file.sh"
 
 if [[ -f "${ROOT_DIR}/deploy/macmini.env" ]]; then
+  normalize_env_file "${ROOT_DIR}/deploy/macmini.env"
   # shellcheck disable=SC1091
   source "${ROOT_DIR}/deploy/macmini.env"
 fi
 if [[ -f "$ENV_FILE" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "$ENV_FILE"
-  set +a
+  normalize_env_file "$ENV_FILE"
+  : "${PUBLIC_DOMAIN:=$(dotenv_get "$ENV_FILE" PUBLIC_DOMAIN "")}"
+  : "${PUBLIC_HTTPS_URL:=$(dotenv_get "$ENV_FILE" PUBLIC_HTTPS_URL "")}"
+  : "${CLOUDFLARE_ACCOUNT_ID:=$(dotenv_get "$ENV_FILE" CLOUDFLARE_ACCOUNT_ID "")}"
+  : "${CLOUDFLARE_ZONE_ID:=$(dotenv_get "$ENV_FILE" CLOUDFLARE_ZONE_ID "")}"
+  : "${CLOUDFLARE_TUNNEL_ID:=$(dotenv_get "$ENV_FILE" CLOUDFLARE_TUNNEL_ID "")}"
+  : "${CLOUDFLARE_TUNNEL_TOKEN:=$(dotenv_get "$ENV_FILE" CLOUDFLARE_TUNNEL_TOKEN "")}"
 fi
 DOMAIN="${DOMAIN:-${PUBLIC_DOMAIN:-garmetix.aadwikafashion.in}}"
 TUNNEL_NAME="${CLOUDFLARE_TUNNEL_NAME:-garmetix-macmini}"

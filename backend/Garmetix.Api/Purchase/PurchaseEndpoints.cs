@@ -24,6 +24,7 @@ public static class PurchaseEndpoints
 
         group.MapGet("/lookup-options", GetLookupOptionsAsync);
         group.MapGet("/invoices/recent", GetRecentPurchaseInvoicesAsync);
+        group.MapGet("/payments/recent", GetRecentPurchasePaymentsAsync);
         group.MapGet("/returns/recent", GetRecentPurchaseReturnsAsync);
         group.MapGet("/returns/{id:guid}", GetPurchaseReturnAsync);
         group.MapGet("/returns/{id:guid}/reconciliation", GetPurchaseReturnReconciliationAsync);
@@ -35,6 +36,7 @@ public static class PurchaseEndpoints
         group.MapPost("/inward", CreateInwardAsync);
         group.MapPost("/invoices/{id:guid}/partial-return", CreatePartialPurchaseReturnAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/invoices/{id:guid}/payment-voucher", CreateVendorPaymentVoucherAsync);
+        group.MapPost("/payments/advance", CreateVendorAdvancePaymentAsync);
         group.MapPost("/invoices/{id:guid}/cancel", CancelPurchaseAsync).RequireAuthorization(GarmetixPolicies.Delete);
 
         return group;
@@ -1259,6 +1261,155 @@ public static class PurchaseEndpoints
             invoice.ItemCount,
             invoice.Quantity,
             vendorValidation?.Alerts ?? Array.Empty<string>()));
+    }
+
+
+    private static async Task<IReadOnlyList<PurchasePaymentRegisterDto>> GetRecentPurchasePaymentsAsync(HttpContext context, GarmetixDbContext db, int take = 100, CancellationToken cancellationToken = default)
+    {
+        var payments = await WorkspaceScope.ApplyTo(db.PurchasePayments.AsNoTracking(), context)
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .Take(Math.Clamp(take, 1, 300))
+            .ToListAsync(cancellationToken);
+
+        var invoiceIds = payments
+            .Where(item => item.PurchaseInvoiceId != Guid.Empty)
+            .Select(item => item.PurchaseInvoiceId)
+            .Distinct()
+            .ToArray();
+        var vendorIds = payments.Select(item => item.VendorId).Distinct().ToArray();
+
+        var invoices = invoiceIds.Length == 0
+            ? new Dictionary<Guid, string>()
+            : await db.PurchaseInvoices.AsNoTracking()
+                .Where(item => invoiceIds.Contains(item.Id))
+                .ToDictionaryAsync(item => item.Id, item => item.InvoiceNumber, cancellationToken);
+
+        var vendors = vendorIds.Length == 0
+            ? new Dictionary<Guid, string>()
+            : await db.Vendors.AsNoTracking()
+                .Where(item => vendorIds.Contains(item.Id))
+                .ToDictionaryAsync(item => item.Id, item => item.Name, cancellationToken);
+
+        return payments.Select(payment =>
+        {
+            invoices.TryGetValue(payment.PurchaseInvoiceId, out var invoiceNumber);
+            vendors.TryGetValue(payment.VendorId, out var vendorName);
+            var isAdvance = payment.PurchaseInvoiceId == Guid.Empty || string.Equals(payment.AdjustmentSourceType, "VendorAdvance", StringComparison.OrdinalIgnoreCase);
+            return new PurchasePaymentRegisterDto(
+                payment.Id,
+                payment.OnDate,
+                vendorName ?? "Vendor",
+                payment.VendorId,
+                isAdvance ? (Guid?)null : payment.PurchaseInvoiceId,
+                isAdvance ? "Advance" : invoiceNumber ?? "Purchase invoice",
+                isAdvance ? "Advance" : "Invoice",
+                payment.Amount,
+                payment.PaymentMode.ToString(),
+                payment.ReferenceNumber,
+                payment.Remarks,
+                payment.VoucherId);
+        }).ToList();
+    }
+
+    private static async Task<IResult> CreateVendorAdvancePaymentAsync(
+        VendorAdvancePaymentRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        DocumentNumberService documentNumbers,
+        AccountingPostingService accounting,
+        CancellationToken cancellationToken)
+    {
+        if (request.Amount <= 0)
+        {
+            return Results.BadRequest(new { message = "Advance payment amount must be greater than zero." });
+        }
+
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        var vendor = await WorkspaceScope.ApplyTo(db.Vendors, context)
+            .FirstOrDefaultAsync(item => item.Id == request.VendorId && item.Active, cancellationToken);
+        if (vendor is null)
+        {
+            return Results.BadRequest(new { message = "Select a valid active vendor." });
+        }
+
+        var companyId = WorkspaceScope.ClaimGuid(context, "companyId") ?? vendor.CompanyId;
+        var storeGroupId = WorkspaceScope.ClaimGuid(context, "storeGroupId") ?? Guid.Empty;
+        var storeId = WorkspaceScope.ClaimGuid(context, "storeId") ?? Guid.Empty;
+
+        if (storeGroupId == Guid.Empty || storeId == Guid.Empty)
+        {
+            var store = await WorkspaceScope.ApplyTo(db.Stores.AsNoTracking(), context)
+                .Where(item => item.CompanyId == companyId)
+                .OrderBy(item => item.Name)
+                .FirstOrDefaultAsync(cancellationToken);
+            storeGroupId = store?.StoreGroupId ?? storeGroupId;
+            storeId = store?.Id ?? storeId;
+        }
+
+        if (storeGroupId == Guid.Empty || storeId == Guid.Empty)
+        {
+            return Results.BadRequest(new { message = "Select workspace store before recording vendor advance payment." });
+        }
+
+        var voucherNumber = await documentNumbers.NextVendorPaymentVoucherAsync(companyId, storeGroupId, storeId, cancellationToken);
+        var particulars = string.IsNullOrWhiteSpace(request.PaymentDetails)
+            ? $"Vendor advance payment to {vendor.Name}"
+            : request.PaymentDetails.Trim();
+
+        var voucher = new Voucher
+        {
+            Id = Guid.NewGuid(),
+            VoucherNumber = voucherNumber,
+            OnDate = DateTime.Now,
+            VoucherType = VoucherType.Payment,
+            PartyName = vendor.Name,
+            Particulars = particulars,
+            Amount = request.Amount,
+            Remarks = string.IsNullOrWhiteSpace(request.Remarks) ? "Vendor advance payment" : request.Remarks.Trim(),
+            SlipNumber = string.IsNullOrWhiteSpace(request.SlipNumber) ? null : request.SlipNumber.Trim(),
+            PaymentMode = request.PaymentMode,
+            PaymentDetails = request.PaymentDetails,
+            AccountNumber = request.BankAccountId,
+            IsParty = true,
+            CompanyId = companyId,
+            StoreGroupId = storeGroupId,
+            StoreId = storeId
+        };
+
+        if (!WorkspaceScope.CanWrite(voucher, context, out var scopeMessage))
+        {
+            return Results.BadRequest(new { message = scopeMessage ?? "Selected company/store is outside your access scope." });
+        }
+
+        var payment = new PurchasePayment
+        {
+            PurchaseInvoiceId = Guid.Empty,
+            VendorId = vendor.Id,
+            OnDate = DateTime.Now,
+            Amount = request.Amount,
+            PaymentMode = request.PaymentMode,
+            BankAccountId = request.BankAccountId,
+            ReferenceNumber = string.IsNullOrWhiteSpace(request.SlipNumber) ? voucher.VoucherNumber : request.SlipNumber.Trim(),
+            VoucherId = voucher.Id,
+            AdjustmentSourceType = "VendorAdvance",
+            AdjustmentSourceId = vendor.Id,
+            Remarks = voucher.Remarks,
+            CompanyId = companyId,
+            StoreGroupId = storeGroupId,
+            StoreId = storeId
+        };
+
+        db.Vouchers.Add(voucher);
+        db.PurchasePayments.Add(payment);
+        vendor.Paid += request.Amount;
+
+        await accounting.PostVendorPaymentVoucherAsync(voucher, vendor, storeGroupId, storeId, request.BankAccountId, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return Results.Ok(new VendorAdvancePaymentResponse(payment.Id, voucher.Id, voucher.VoucherNumber, vendor.Id, vendor.Name, request.Amount));
     }
 
     private static async Task<IResult> CreateVendorPaymentVoucherAsync(

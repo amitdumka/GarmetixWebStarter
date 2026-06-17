@@ -61,6 +61,8 @@ const routeRules: PageAccessRule[] = [
   { path: '/stock-reports', label: 'Stock Reports', module: 'Inventory', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
   { path: '/non-gst-goods', label: 'Non-GST Goods', module: 'Off Book', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
   { path: '/purchase', label: 'Purchase', module: 'Purchase', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
+  { path: '/purchase/new', label: 'New Purchase Inward', module: 'Purchase', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
+  { path: '/vendor-payments', label: 'Vendor Payments', module: 'Purchase', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
   { path: '/purchase-return', label: 'Purchase Return', module: 'Purchase', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
   { path: '/vendor-settlements', label: 'Vendor Settlements', module: 'Purchase', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
   { path: '/customers', label: 'Customers', module: 'CRM', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'salesman'] },
@@ -75,7 +77,7 @@ const routeRules: PageAccessRule[] = [
   { path: '/petty-cash', label: 'Petty Cash', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
 
   { path: '/hr', label: 'HR', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
-  { path: '/payroll', label: 'Payroll', module: 'People', roles: ['admin', 'owner', 'powerUser', 'accountant', 'payroll'] },
+  { path: '/payroll', label: 'Payroll', module: 'People', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager', 'payroll'] },
   { path: '/cash-vouchers', label: 'Cash Vouchers', module: 'Off Book', roles: ['admin', 'owner', 'powerUser', 'accountant', 'storeManager'] },
 
   { path: '/setup', label: 'Company Setup', module: 'Admin', roles: ['admin', 'owner'] },

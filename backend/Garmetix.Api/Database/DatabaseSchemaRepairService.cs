@@ -130,6 +130,43 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                     ON "FinancialYearLocks" ("CompanyId", "StoreGroupId", "StoreId", "Active");
                 """, cancellationToken);
 
+            await db.Database.ExecuteSqlRawAsync("""
+                CREATE TABLE IF NOT EXISTS "AuditLogEntries" (
+                    "Id" uuid NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    "OccurredAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "Action" text NOT NULL DEFAULT '',
+                    "Module" text NOT NULL DEFAULT '',
+                    "EntityName" text NOT NULL DEFAULT '',
+                    "EntityDisplayName" text NOT NULL DEFAULT '',
+                    "EntityId" uuid NOT NULL,
+                    "Reference" text NOT NULL DEFAULT '',
+                    "CompanyId" uuid NULL,
+                    "StoreGroupId" uuid NULL,
+                    "StoreId" uuid NULL,
+                    "UserId" uuid NULL,
+                    "UserName" text NULL,
+                    "Source" text NOT NULL DEFAULT 'SaveChanges',
+                    "RequestMethod" text NULL,
+                    "RequestPath" text NULL,
+                    "IpAddress" text NULL,
+                    "Reason" text NULL,
+                    "BeforeJson" text NULL,
+                    "AfterJson" text NULL,
+                    "ChangesJson" text NULL,
+                    "ChangedFieldCount" integer NOT NULL DEFAULT 0,
+                    "TraceIdentifier" text NULL,
+                    CONSTRAINT "PK_AuditLogEntries" PRIMARY KEY ("Id")
+                );
+                CREATE INDEX IF NOT EXISTS "IX_AuditLogEntries_OccurredAt" ON "AuditLogEntries" ("OccurredAt");
+                CREATE INDEX IF NOT EXISTS "IX_AuditLogEntries_CompanyId_StoreId_OccurredAt" ON "AuditLogEntries" ("CompanyId", "StoreId", "OccurredAt");
+                CREATE INDEX IF NOT EXISTS "IX_AuditLogEntries_EntityName_EntityId" ON "AuditLogEntries" ("EntityName", "EntityId");
+                CREATE INDEX IF NOT EXISTS "IX_AuditLogEntries_Module_Action_OccurredAt" ON "AuditLogEntries" ("Module", "Action", "OccurredAt");
+                """, cancellationToken);
+
             // Some development databases may already have the migration recorded in
             // __EFMigrationsHistory but can still be missing columns when older ZIPs were
             // tested in between. These statements are idempotent and only add missing columns.

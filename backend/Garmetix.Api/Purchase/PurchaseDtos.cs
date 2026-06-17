@@ -347,6 +347,38 @@ public sealed record PurchaseVendorOptionDto(
 
 public sealed record PurchaseEnumOptionDto(int Value, string Label);
 
+
+public sealed record PurchasePaymentRegisterDto(
+    Guid Id,
+    DateTime OnDate,
+    string VendorName,
+    Guid VendorId,
+    Guid? PurchaseInvoiceId,
+    string PurchaseInvoiceNumber,
+    string PaymentKind,
+    decimal Amount,
+    string PaymentMode,
+    string? ReferenceNumber,
+    string? Remarks,
+    Guid? VoucherId);
+
+public sealed record VendorAdvancePaymentRequest(
+    Guid VendorId,
+    decimal Amount,
+    PaymentMode PaymentMode,
+    Guid? BankAccountId,
+    string? PaymentDetails,
+    string? SlipNumber,
+    string? Remarks);
+
+public sealed record VendorAdvancePaymentResponse(
+    Guid PaymentId,
+    Guid VoucherId,
+    string VoucherNumber,
+    Guid VendorId,
+    string VendorName,
+    decimal Amount);
+
 public sealed record VendorPaymentVoucherRequest(
     decimal Amount,
     PaymentMode PaymentMode,

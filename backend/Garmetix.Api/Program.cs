@@ -31,6 +31,7 @@ using Garmetix.Api.Production;
 using Garmetix.Api.Release;
 using Garmetix.Api.Setup;
 using Garmetix.Api.Tailoring;
+using Garmetix.Api.Testing;
 using Garmetix.Api.Seeds;
 using Garmetix.Api.Validation;
 using Garmetix.Api.SecondarySync;
@@ -193,6 +194,7 @@ app.Use(async (context, next) =>
 
 app.UseCors("frontend");
 app.UseAuthentication();
+app.UseMiddleware<AuditActorMiddleware>();
 app.UseMiddleware<ActiveUserMiddleware>();
 app.UseMiddleware<ApplicationMessageLogMiddleware>();
 app.UseAuthorization();
@@ -269,11 +271,13 @@ app.MapDataConsistencyRepairEndpoints();
 app.MapDatabaseMigrationEndpoints();
 app.MapDashboardEndpoints();
 app.MapProductionReadinessEndpoints();
+app.MapEmailDeliveryDiagnosticsEndpoints();
 app.MapReleaseStabilizationEndpoints();
 app.MapAfssSeederEndpoints();
 app.MapClientOnboardingEndpoints();
 app.MapApplicationMessageLogEndpoints();
 app.MapAppInfoEndpoints();
+app.MapTestAutomationEndpoints();
 
 MapCrud<Company>(app, "/api/companies", GarmetixPolicies.CompanySetup, readPolicyName: null);
 MapCrud<StoreGroup>(app, "/api/store-groups", GarmetixPolicies.CompanySetup, readPolicyName: null);
@@ -581,7 +585,11 @@ static async Task<IResult> ForgotPasswordAsync(
     }
 
     logger.LogWarning("Password reset email was requested for user {UserId}, but Email:Enabled is false.", user.Id);
-    return Results.Ok(new ForgotPasswordResponse(genericMessage, null, null, expiresAtUtc));
+    return Results.Ok(new ForgotPasswordResponse(
+        "Password reset email is not configured on this server. Ask an admin/owner to configure SMTP or reset the password from Roles & Users.",
+        null,
+        null,
+        expiresAtUtc));
 }
 
 static string BuildPasswordResetUrl(IConfiguration configuration, HttpContext httpContext, string token)
