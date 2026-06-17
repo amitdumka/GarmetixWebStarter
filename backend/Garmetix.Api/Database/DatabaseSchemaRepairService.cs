@@ -1067,6 +1067,27 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                     CONSTRAINT "PK_TailoringServiceItems" PRIMARY KEY ("Id")
                 );
 
+
+                CREATE TABLE IF NOT EXISTS "TailoringVendorServiceRates" (
+                    "Id" uuid NOT NULL,
+                    "VendorId" uuid NOT NULL,
+                    "ServiceItemId" uuid NOT NULL,
+                    "CustomerRate" numeric(18,2) NOT NULL DEFAULT 0,
+                    "VendorRate" numeric(18,2) NOT NULL DEFAULT 0,
+                    "EffectiveFrom" timestamp without time zone NULL,
+                    "Active" boolean NOT NULL DEFAULT true,
+                    "Remarks" text NULL,
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "StoreGroupId" uuid NOT NULL,
+                    "StoreId" uuid NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    CONSTRAINT "PK_TailoringVendorServiceRates" PRIMARY KEY ("Id")
+                );
+
                 CREATE TABLE IF NOT EXISTS "TailoringOrders" (
                     "Id" uuid NOT NULL,
                     "OrderNumber" text NOT NULL DEFAULT '',
@@ -1205,6 +1226,9 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
 
                 CREATE INDEX IF NOT EXISTS "IX_TailoringServiceItems_CompanyId_StoreId_ServiceCode" ON "TailoringServiceItems" ("CompanyId", "StoreId", "ServiceCode");
                 CREATE INDEX IF NOT EXISTS "IX_TailoringServiceItems_CompanyId_StoreId_Category_Active" ON "TailoringServiceItems" ("CompanyId", "StoreId", "Category", "Active");
+                CREATE INDEX IF NOT EXISTS "IX_TailoringVendorServiceRates_CompanyId_StoreId_VendorId_ServiceItemId_Active" ON "TailoringVendorServiceRates" ("CompanyId", "StoreId", "VendorId", "ServiceItemId", "Active");
+                CREATE INDEX IF NOT EXISTS "IX_TailoringVendorServiceRates_CompanyId_VendorId_ServiceItemId" ON "TailoringVendorServiceRates" ("CompanyId", "VendorId", "ServiceItemId");
+
                 CREATE INDEX IF NOT EXISTS "IX_TailoringOrders_CompanyId_StoreId_OrderNumber" ON "TailoringOrders" ("CompanyId", "StoreId", "OrderNumber");
                 CREATE INDEX IF NOT EXISTS "IX_TailoringOrders_CompanyId_StoreId_Status_ExpectedDeliveryDate" ON "TailoringOrders" ("CompanyId", "StoreId", "Status", "ExpectedDeliveryDate");
                 CREATE INDEX IF NOT EXISTS "IX_TailoringOrders_CompanyId_CustomerId_OnDate" ON "TailoringOrders" ("CompanyId", "CustomerId", "OnDate");

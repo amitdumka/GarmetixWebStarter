@@ -22,6 +22,21 @@ public class TailoringServiceItem : StoreBase
     [Display(Name = "Remarks")] public string? Remarks { get; set; }
 }
 
+
+public class TailoringVendorServiceRate : StoreBase
+{
+    [Display(Name = "Tailoring Vendor", AutoGenerateField = false)] public Guid VendorId { get; set; }
+    [Display(Name = "Service Item", AutoGenerateField = false)] public Guid ServiceItemId { get; set; }
+    [Display(Name = "Customer Rate Override")] public decimal CustomerRate { get; set; }
+    [Display(Name = "Vendor Work Rate")] public decimal VendorRate { get; set; }
+    [Display(Name = "Effective From")] public DateTime? EffectiveFrom { get; set; }
+    [Display(Name = "Active")] public bool Active { get; set; } = true;
+    [Display(Name = "Remarks")] public string? Remarks { get; set; }
+
+    [JsonIgnore] public virtual Vendor? Vendor { get; set; }
+    [JsonIgnore] public virtual TailoringServiceItem? ServiceItem { get; set; }
+}
+
 public class TailoringOrder : StoreBase
 {
     [Display(Name = "Order Number")] public string OrderNumber { get; set; } = string.Empty;

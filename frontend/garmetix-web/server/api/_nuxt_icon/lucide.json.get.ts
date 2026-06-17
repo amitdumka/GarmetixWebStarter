@@ -15,6 +15,37 @@ function loadLucideCollection() {
   return cachedCollection
 }
 
+function normalizeIconName(value: string) {
+  const trimmed = value.trim()
+  const withoutPrefix = trimmed.includes(':') ? trimmed.split(':').pop() || trimmed : trimmed
+  return withoutPrefix
+    .replace(/^i-lucide[-:]/, '')
+    .replace(/^lucide[-:]/, '')
+    .replace(/_/g, '-')
+}
+
+function addIcon(collection: any, icons: Record<string, unknown>, requestedName: string) {
+  const normalized = normalizeIconName(requestedName)
+  const candidates = [normalized, normalized.replace(/^circle-/, ''), normalized.replace(/-circle$/, '')]
+  for (const candidate of candidates) {
+    if (collection.icons?.[candidate]) {
+      icons[candidate] = collection.icons[candidate]
+      return
+    }
+    if (collection.aliases?.[candidate]) {
+      icons[candidate] = collection.aliases[candidate]
+      return
+    }
+  }
+
+  // Last-resort fallback prevents Nuxt Icon from throwing visible warnings for
+  // rarely requested aliases such as lucide:info while keeping the UI usable.
+  const fallback = collection.icons?.info || collection.icons?.['circle-help'] || collection.icons?.['circle-alert']
+  if (fallback) {
+    icons[normalized] = fallback
+  }
+}
+
 export default defineEventHandler((event) => {
   const collection = loadLucideCollection()
   const query = getQuery(event)
@@ -29,9 +60,7 @@ export default defineEventHandler((event) => {
 
   const icons: Record<string, unknown> = {}
   for (const iconName of requestedIcons) {
-    if (collection.icons?.[iconName]) {
-      icons[iconName] = collection.icons[iconName]
-    }
+    addIcon(collection, icons, iconName)
   }
 
   return {

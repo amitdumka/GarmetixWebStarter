@@ -37,7 +37,10 @@ checks = [
     root / "scripts/validation/stage8h-package1-static-checks.py",
     root / "scripts/validation/stage8h-package2-static-checks.py",
     root / "scripts/validation/stage8h-package3-static-checks.py",
+    root / "scripts/validation/stage8h-package4-tailoring-pro-static-checks.py",
     root / "scripts/validation/stage8h-package3-compile-hotfix-static-checks.py",
+    root / "scripts/validation/stage8h-package5-static-checks.py",
+    root / "scripts/validation/stage8h-package6-static-checks.py",
 ]
 
 for check in checks:

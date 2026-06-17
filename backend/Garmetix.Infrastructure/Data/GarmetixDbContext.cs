@@ -73,6 +73,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<LoyaltyProgram> LoyaltyPrograms => Set<LoyaltyProgram>();
     public DbSet<LoyaltyPointLedger> LoyaltyPointLedgers => Set<LoyaltyPointLedger>();
     public DbSet<TailoringServiceItem> TailoringServiceItems => Set<TailoringServiceItem>();
+    public DbSet<TailoringVendorServiceRate> TailoringVendorServiceRates => Set<TailoringVendorServiceRate>();
     public DbSet<TailoringOrder> TailoringOrders => Set<TailoringOrder>();
     public DbSet<TailoringOrderLine> TailoringOrderLines => Set<TailoringOrderLine>();
     public DbSet<TailoringCustomerReceipt> TailoringCustomerReceipts => Set<TailoringCustomerReceipt>();
@@ -218,6 +219,8 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<PurchasePayment>().HasIndex(payment => new { payment.CompanyId, payment.VendorId, payment.OnDate });
         modelBuilder.Entity<TailoringServiceItem>().HasIndex(item => new { item.CompanyId, item.StoreId, item.ServiceCode });
         modelBuilder.Entity<TailoringServiceItem>().HasIndex(item => new { item.CompanyId, item.StoreId, item.Category, item.Active });
+        modelBuilder.Entity<TailoringVendorServiceRate>().HasIndex(item => new { item.CompanyId, item.StoreId, item.VendorId, item.ServiceItemId, item.Active });
+        modelBuilder.Entity<TailoringVendorServiceRate>().HasIndex(item => new { item.CompanyId, item.VendorId, item.ServiceItemId });
         modelBuilder.Entity<TailoringOrder>().HasIndex(order => new { order.CompanyId, order.StoreId, order.OrderNumber }).IsUnique(false);
         modelBuilder.Entity<TailoringOrder>().HasIndex(order => new { order.CompanyId, order.StoreId, order.Status, order.ExpectedDeliveryDate });
         modelBuilder.Entity<TailoringOrder>().HasIndex(order => new { order.CompanyId, order.CustomerId, order.OnDate });

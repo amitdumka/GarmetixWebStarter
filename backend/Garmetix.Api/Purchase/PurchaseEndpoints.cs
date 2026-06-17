@@ -1022,9 +1022,10 @@ public static class PurchaseEndpoints
         var invoiceNumber = string.IsNullOrWhiteSpace(request.InvoiceNumber)
             ? await documentNumbers.NextPurchaseInvoiceAsync(request.CompanyId, request.StoreGroupId, request.StoreId, cancellationToken)
             : request.InvoiceNumber.Trim();
-        var inwardNumber = string.IsNullOrWhiteSpace(request.InwardNumber)
-            ? await documentNumbers.NextPurchaseInwardAsync(request.CompanyId, request.StoreGroupId, request.StoreId, cancellationToken)
-            : request.InwardNumber.Trim();
+        // Inward numbers are always server generated so users cannot accidentally
+        // duplicate or break the store/month/INW/series format.
+        var inwardNumber = await documentNumbers.NextPurchaseInwardAsync(
+            request.CompanyId, request.StoreGroupId, request.StoreId, cancellationToken);
         var invoiceId = Guid.NewGuid();
 
         var invoiceItems = new List<PurchaseInvoiceItem>();

@@ -104,3 +104,9 @@ This folder is the canonical home for project plans, implementation notes, valid
 - [Production Release Checklist v4.6.8](operations/Production-Release-Checklist-v4.6.8.md)
 
 - [Stage 8H Package 1 / v4.7.0 post-go-live acceptance notes](stages/stage-8/Stage8H-Package1-PostGoLiveAcceptance-v4.7.0-Notes.md)
+
+- [Stage 8H Package 4 / v4.7.3 tailoring and alteration pro notes](stages/stage-8/Stage8H-Package4-TailoringAlterationPro-v4.7.3-Notes.md)
+
+- [Stage 8H Package 5 / v4.7.4 tailoring vendor rates and icon reliability notes](stages/stage-8/Stage8H-Package5-TailoringVendorRatesIconReliability-v4.7.4-Notes.md)
+
+- [Stage 8H Package 6 / v4.7.5 purchase inward pro notes](stages/stage-8/Stage8H-Package6-PurchaseInwardPro-v4.7.5-Notes.md)

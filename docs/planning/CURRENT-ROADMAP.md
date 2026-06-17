@@ -1,3 +1,31 @@
+## Stage 8H Package 6 Purchase Inward Pro / v4.7.5
+
+- Purchase inward number is now always server generated as `StoreCode/yyyyMM/INW/series`.
+- Inward numbering uses store-wise monthly document sequence locks.
+- New Purchase Inward page includes product lookup, barcode lookup and inline new-product popup.
+- New products created during purchase entry are applied to the current inward line immediately.
+- Version: 4.7.5
+- Build code: `GARMETIX-8H-20260617-4750`
+
+## Stage 8H Package 5 Tailoring Vendor Rates and Icon Reliability / v4.7.4
+
+- Added tailoring/alteration vendor creation from the Tailoring workspace.
+- Added service-wise vendor rate matrix so the same item can have different rates per vendor.
+- Tailoring and alteration order forms apply the selected vendor rate automatically.
+- Hardened Lucide icon loading to stop missing-icon warnings such as `lucide:info`.
+- Version: 4.7.4
+- Build code: `GARMETIX-8H-20260617-4740`
+
+## Stage 8H Package 4 Tailoring and Alteration Pro / v4.7.3
+
+- Split tailoring/stitching and alteration into separate user workflows inside the Tailoring workspace.
+- Added customer mobile lookup, alteration source sale-invoice/item lookup, multi-line service orders and vendor assignment.
+- Service invoice conversion now applies 5% GST with taxable/tax breakup, discount and two-copy print payloads.
+- Added delivery overview for today, tomorrow, late, ready and completed work with Processing, Ready and Delivered status actions.
+- Added in-house alteration cost impact support so absorbed alteration cost is applied once to the linked source stock item.
+- Version: 4.7.3
+- Build code: `GARMETIX-8H-20260617-4730`
+
 ## Stage 8H Package 3 Purchase and Voucher Crash Hotfix / v4.7.2
 
 - Fixed empty SelectItem crashes in Debit Note, Credit Note and New Purchase inward selectors by replacing empty-string option values with safe sentinels.
