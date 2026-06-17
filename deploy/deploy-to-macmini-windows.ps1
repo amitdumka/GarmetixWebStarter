@@ -11,7 +11,7 @@
 
 .USAGE
   1. Copy deploy/macmini.env.example to deploy/macmini.env and edit Cloudflare values.
-  2. Set up SSH key login to amit@192.168.11.125.
+  2. Set up SSH key login to amit@192.168.11.126.
   3. Run:
        Set-ExecutionPolicy -Scope Process Bypass -Force
        .\deploy\deploy-to-macmini-windows.ps1
@@ -64,7 +64,7 @@ $RootDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $ConfigFullPath = if ([System.IO.Path]::IsPathRooted($ConfigPath)) { $ConfigPath } else { Join-Path $RootDir $ConfigPath }
 $cfg = Read-DotEnv $ConfigFullPath
 
-$ServerHost = if ($cfg.SERVER_HOST) { $cfg.SERVER_HOST } else { "192.168.11.125" }
+$ServerHost = if ($cfg.SERVER_HOST) { $cfg.SERVER_HOST } else { "192.168.11.126" }
 $ServerUser = if ($cfg.SERVER_USER) { $cfg.SERVER_USER } else { "amit" }
 $SshPort = if ($cfg.SSH_PORT) { $cfg.SSH_PORT } else { "22" }
 $RemoteAppDir = if ($cfg.REMOTE_APP_DIR) { $cfg.REMOTE_APP_DIR } else { "/opt/garmetix" }

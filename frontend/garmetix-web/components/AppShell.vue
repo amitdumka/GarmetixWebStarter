@@ -105,7 +105,8 @@ const moduleGroups: MenuGroup[] = [
     label: 'Sales',
     items: [
       { to: '/billing', label: 'Billing', icon: 'i-lucide-receipt-indian-rupee' },
-      { to: '/sales-return', label: 'Sales Return', icon: 'i-lucide-rotate-ccw' }
+      { to: '/sales-return', label: 'Sales Return', icon: 'i-lucide-rotate-ccw' },
+      { to: '/tailoring', label: 'Tailoring & Alteration', icon: 'i-lucide-scissors', keywords: ['stitching', 'alteration', 'tailor', 'delivery', 'service invoice'] }
     ]
   },
   {
@@ -128,6 +129,7 @@ const moduleGroups: MenuGroup[] = [
     label: 'Accounting',
     items: [
       { to: '/accounting', label: 'Accounting', icon: 'i-lucide-landmark' },
+      { to: '/financial-year-locks', label: 'FY Locks', icon: 'i-lucide-lock-keyhole' },
       { to: '/petty-cash', label: 'Petty Cash', icon: 'i-lucide-circle-dollar-sign' },
       { to: '/vouchers', label: 'Vouchers', icon: 'i-lucide-banknote' },
       { to: '/debit-notes', label: 'Debit Notes', icon: 'i-lucide-file-minus-2' },

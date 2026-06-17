@@ -22,6 +22,7 @@ Posted invoices remain correction-controlled through cancel, return and exchange
 - [x] Preserve immutable source and destination links, conversion reason, operator, timestamp and approval audit in v4.3.6.
 - Improve Customer, Loyalty and Commercial Summary naming and add customer/vendor due and payment summaries.
 - Complete per-payment ledger posting, bank/card/UPI/cheque details, duplicate-adjustment protection and reconciliation.
+- Harden Party and Bank Account ledger synchronization with status and repair workflow. [Done v4.4.2]
 
 ## Stage 8F - UI Acceptance and Automation
 

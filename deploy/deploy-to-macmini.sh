@@ -4,6 +4,18 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG_FILE="${ROOT_DIR}/deploy/macmini.env"
 
+if [[ "${EUID}" -eq 0 ]]; then
+  echo "Do not run this local WSL deploy script with sudo." >&2
+  echo "Run: ./deploy/deploy-to-macmini.sh" >&2
+  echo "The script uses sudo on the remote Mac mini only when needed." >&2
+  exit 1
+fi
+
+if [[ "$ROOT_DIR" == /mnt/c/* || "$ROOT_DIR" == /mnt/d/* || "$ROOT_DIR" == /mnt/e/* || "$ROOT_DIR" == /mnt/f/* ]]; then
+  echo "Notice: project is running from a Windows-mounted WSL path: $ROOT_DIR" >&2
+  echo "This patched deploy script avoids known sed/chmod failures, but copying the folder to ~/GarmetixWebStarter is still recommended." >&2
+fi
+
 if [[ ! -f "$CONFIG_FILE" ]]; then
   echo "Missing deploy/macmini.env. Create it first:" >&2
   echo "  cp deploy/macmini.env.example deploy/macmini.env" >&2
@@ -14,12 +26,14 @@ fi
 # shellcheck disable=SC1090
 source "$CONFIG_FILE"
 
-: "${SERVER_HOST:=192.168.11.125}"
+: "${SERVER_HOST:=192.168.11.126}"
 : "${SERVER_USER:=amit}"
 : "${SSH_PORT:=22}"
 : "${REMOTE_APP_DIR:=/opt/garmetix}"
 : "${DOMAIN:=garmetix.aadwikafashion.in}"
 : "${PUBLIC_HTTPS_URL:=https://${DOMAIN}}"
+: "${RESET_DATABASE_ON_DEPLOY:=false}"
+: "${DATABASE_SCHEMA_BOOTSTRAP_MODE:=FreshBaseline}"
 
 SSH_BASE=(-p "$SSH_PORT" -o StrictHostKeyChecking=accept-new)
 SCP_BASE=(-P "$SSH_PORT" -o StrictHostKeyChecking=accept-new)
@@ -54,6 +68,11 @@ run_scp() {
 export DOMAIN PUBLIC_HTTPS_URL CLOUDFLARE_TUNNEL_ID="${CLOUDFLARE_TUNNEL_ID:-}" CLOUDFLARE_TUNNEL_TOKEN="${CLOUDFLARE_TUNNEL_TOKEN:-}"
 "${ROOT_DIR}/deploy/create-production-env.sh"
 
+# shellcheck source=deploy/lib/env-file.sh
+source "${ROOT_DIR}/deploy/lib/env-file.sh"
+set_env_var "${ROOT_DIR}/.env.production" DATABASE_SCHEMA_BOOTSTRAP_MODE "${DATABASE_SCHEMA_BOOTSTRAP_MODE}"
+set_env_var "${ROOT_DIR}/.env.production" RESET_DATABASE_ON_DEPLOY "${RESET_DATABASE_ON_DEPLOY}"
+
 if [[ -n "${CLOUDFLARE_API_TOKEN:-}" && "${CLOUDFLARE_API_TOKEN}" != CHANGE_ME* ]]; then
   export CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_ZONE_ID CLOUDFLARE_TUNNEL_NAME="${CLOUDFLARE_TUNNEL_NAME:-garmetix-macmini}"
   "${ROOT_DIR}/deploy/cloudflare-create-or-update-tunnel.sh"
@@ -74,6 +93,13 @@ tar \
   --exclude='./backend/**/obj' \
   --exclude='./backups' \
   -czf "$ARCHIVE" .
+
+if [[ "${RESET_DATABASE_ON_DEPLOY,,}" == "true" || "${RESET_DATABASE_ON_DEPLOY,,}" == "yes" || "${RESET_DATABASE_ON_DEPLOY}" == "1" ]]; then
+  echo "A one-time clean database reset has been included in this release archive."
+  echo "Resetting local deploy flags to false to avoid accidental data loss on later redeploys from this folder."
+  set_env_var "${ROOT_DIR}/.env.production" RESET_DATABASE_ON_DEPLOY false
+  set_env_var "${CONFIG_FILE}" RESET_DATABASE_ON_DEPLOY false
+fi
 
 SUDO_PASS="${SUDO_PASSWORD:-}"
 if [[ -z "$SUDO_PASS" && -n "${SSH_PASSWORD:-}" && "${SSH_PASSWORD}" != CHANGE_ME* ]]; then
@@ -107,7 +133,7 @@ sudo_run chown -R "$USER:$USER" "$REMOTE_APP_DIR"
 tar -xzf "$REMOTE_ARCHIVE" -C "${REMOTE_APP_DIR}/releases/${RELEASE}"
 ln -sfn "${REMOTE_APP_DIR}/releases/${RELEASE}" "${REMOTE_APP_DIR}/current"
 cd "${REMOTE_APP_DIR}/current"
-chmod +x deploy/*.sh
+chmod +x deploy/*.sh 2>/dev/null || true
 ./deploy/run-production.sh
 rm -f "$REMOTE_ARCHIVE" /tmp/install-docker-ubuntu.sh
 EOS

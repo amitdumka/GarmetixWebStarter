@@ -39,6 +39,50 @@ const storeColumns = [
   { key: 'currentStockQty', label: 'Stock Qty', type: 'number' }
 ]
 
+
+const dueColumns = [
+  { key: 'partyName', label: 'Name' },
+  { key: 'billCount', label: 'Bills', type: 'number' },
+  { key: 'billAmount', label: 'Bill Amount', type: 'money' },
+  { key: 'paidAmount', label: 'Paid', type: 'money' },
+  { key: 'dueAmount', label: 'Due', type: 'money' },
+  { key: 'ageBucket', label: 'Age' }
+]
+
+const paymentModeColumns = [
+  { key: 'paymentMode', label: 'Mode' },
+  { key: 'salesCollection', label: 'Sales Collection', type: 'money' },
+  { key: 'purchasePayment', label: 'Purchase Payment', type: 'money' },
+  { key: 'voucherReceipt', label: 'Voucher Receipt', type: 'money' },
+  { key: 'voucherPayment', label: 'Voucher Payment', type: 'money' },
+  { key: 'netAmount', label: 'Net', type: 'money' },
+  { key: 'transactionCount', label: 'Rows', type: 'number' }
+]
+
+const storeGroupComparisonColumns = [
+  { key: 'storeGroupName', label: 'Store Group' },
+  { key: 'storeCount', label: 'Stores', type: 'number' },
+  { key: 'sales', label: 'Sales', type: 'money' },
+  { key: 'purchase', label: 'Purchase', type: 'money' },
+  { key: 'customerDue', label: 'Customer Due', type: 'money' },
+  { key: 'vendorDue', label: 'Vendor Due', type: 'money' },
+  { key: 'cashIn', label: 'In', type: 'money' },
+  { key: 'cashOut', label: 'Out', type: 'money' },
+  { key: 'netCash', label: 'Net Cash', type: 'money' }
+]
+
+const cashBreakdownItems = computed(() => [
+  { label: 'Cash In', value: data.value?.cashPaymentSummary?.cashIn || 0, displayValue: money(data.value?.cashPaymentSummary?.cashIn || 0), color: 'success', icon: 'i-lucide-arrow-down-left', caption: 'Cash sale collections and cash receipts.' },
+  { label: 'Cash Out', value: data.value?.cashPaymentSummary?.cashOut || 0, displayValue: money(data.value?.cashPaymentSummary?.cashOut || 0), color: 'warning', icon: 'i-lucide-arrow-up-right', caption: 'Cash purchase payments and cash vouchers.' },
+  { label: 'Bank / Digital In', value: data.value?.cashPaymentSummary?.bankIn || 0, displayValue: money(data.value?.cashPaymentSummary?.bankIn || 0), color: 'primary', icon: 'i-lucide-landmark', caption: 'Card, UPI, bank and wallet inflows.' },
+  { label: 'Bank / Digital Out', value: data.value?.cashPaymentSummary?.bankOut || 0, displayValue: money(data.value?.cashPaymentSummary?.bankOut || 0), color: 'neutral', icon: 'i-lucide-send', caption: 'Bank, UPI and non-cash outflows.' },
+  { label: 'Net Cash Flow', value: data.value?.cashPaymentSummary?.netCash || 0, displayValue: money(data.value?.cashPaymentSummary?.netCash || 0), color: (data.value?.cashPaymentSummary?.netCash || 0) >= 0 ? 'success' : 'error', icon: 'i-lucide-wallet', caption: 'Total collections less total payments.' }
+])
+
+function money(value: unknown) {
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(value || 0))
+}
+
 const storeGroupColumns = [
   { key: 'storeGroupName', label: 'Store Group' },
   { key: 'storeCount', label: 'Stores', type: 'number' },
@@ -53,6 +97,10 @@ const storeGroupColumns = [
 const exportTables = computed(() => [
   { name: 'Store Performance', rows: data.value?.stores || [], columns: storeColumns },
   { name: 'Store Group Performance', rows: data.value?.storeGroups || [], columns: storeGroupColumns },
+  { name: 'Store Group Cash / Due Comparison', rows: data.value?.storeGroupComparison || [], columns: storeGroupComparisonColumns },
+  { name: 'Customer Dues', rows: data.value?.customerDues || [], columns: dueColumns },
+  { name: 'Vendor Dues', rows: data.value?.vendorDues || [], columns: dueColumns },
+  { name: 'Payment Mode Summary', rows: data.value?.cashPaymentSummary?.paymentModes || [], columns: paymentModeColumns },
   { name: 'Recent Sales', rows: data.value?.recentSales || [], columns: [
     { key: 'title', label: 'Invoice' },
     { key: 'description', label: 'Customer / Details' },
@@ -197,6 +245,26 @@ onBeforeUnmount(() => {
         />
       </div>
 
+      <div class="dashboard-v3-insight-grid dashboard-v3-breakdown-grid">
+        <DashboardBreakdownGrid
+          title="Cash and payment summary"
+          description="Cash, bank and digital collection/payment movement for the selected period."
+          :items="cashBreakdownItems"
+        />
+        <DashboardDataTable
+          title="Customer dues"
+          description="Top customer outstanding balances across permitted stores."
+          :rows="data?.customerDues || []"
+          :columns="dueColumns"
+        />
+        <DashboardDataTable
+          title="Vendor dues"
+          description="Top vendor payable balances after recorded purchase payments."
+          :rows="data?.vendorDues || []"
+          :columns="dueColumns"
+        />
+      </div>
+
       <div class="dashboard-v3-insight-grid">
         <DashboardActionGrid
           title="Executive actions"
@@ -230,6 +298,20 @@ onBeforeUnmount(() => {
           description="Group-wise sales, purchase and stock visibility."
           :rows="data?.storeGroups || []"
           :columns="storeGroupColumns"
+        />
+
+        <DashboardDataTable
+          title="Store group cash / due comparison"
+          description="Compare sales, purchases, dues, collections, payments and stock by store group."
+          :rows="data?.storeGroupComparison || []"
+          :columns="storeGroupComparisonColumns"
+        />
+
+        <DashboardDataTable
+          title="Payment mode summary"
+          description="Sales collections, purchase payments and accounting voucher movement by mode."
+          :rows="data?.cashPaymentSummary?.paymentModes || []"
+          :columns="paymentModeColumns"
         />
 
         <DashboardItemList

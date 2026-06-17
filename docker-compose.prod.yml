@@ -8,6 +8,7 @@ services:
       ASPNETCORE_URLS: http://+:5080
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "${ASPNETCORE_FORWARDEDHEADERS_ENABLED:-true}"
       Database__AutoMigrate: "${DATABASE_AUTO_MIGRATE:-true}"
+      Database__SchemaBootstrapMode: "${DATABASE_SCHEMA_BOOTSTRAP_MODE:-FreshBaseline}"
       ConnectionStrings__Default: "Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       Cors__AllowedOriginsCsv: "${CORS_ALLOWED_ORIGINS:-http://localhost:3000}"
       Jwt__Issuer: "${JWT_ISSUER}"

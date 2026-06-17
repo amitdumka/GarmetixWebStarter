@@ -337,6 +337,8 @@ Use this file as the running handoff checklist. When a task is completed, mark i
   - [x] Package 4: restored vertical sidebar-footer Status and Notifications actions and added dedicated stock ageing, low-stock risk, weighted-average valuation, projection reconciliation, filtering, and CSV reporting in v4.3.3.
   - [x] Package 5: serialized sequence generation and stock transfers with transaction-scoped PostgreSQL locks, enforced one active sequence row, formalized negative-stock behavior, and added live PostgreSQL concurrency tests in v4.3.4.
 - [ ] Complete Stage 8E accounting and payment hardening.
+  - [x] Package 5: hardened automatic Party and Bank Account ledger synchronization with health checks and repair workflow in v4.4.2.
+  - [x] Package 6: added customer/vendor due dashboards, cash/payment summaries, and store-group comparison views in v4.4.3.
 - [ ] Complete Stage 8F automated tests and deep audit history.
 - [ ] Complete Stage 8G real integrations and production go-live validation.
 
@@ -357,3 +359,8 @@ Use this file as the running handoff checklist. When a task is completed, mark i
 - [x] Persist frontend action failures, UI messages, browser errors, and unhandled promise rejections to Message Logs.
 - [x] Persist Garmetix background-service and application `ILogger` messages through a bounded non-recursive queue.
 - [x] Keep Message Log diagnostic details restricted to authorized administrators while allowing authenticated users to submit their own client events.
+
+
+## Stage 8E Package 7 / v4.4.4
+
+- [x] Package 7: added tailoring/stitching and alteration workflow before Stage 8F, including orders, delivery, service invoice conversion, customer receipts, vendor payments, schedule/history, and in-house alteration profit impact.

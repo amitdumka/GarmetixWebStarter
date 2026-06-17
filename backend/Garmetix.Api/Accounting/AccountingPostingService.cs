@@ -472,8 +472,217 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
             .Where(line => line.BankAccountId == bankAccountId)
             .OrderByDescending(line => line.OnDate)
             .ThenByDescending(line => line.CreatedAt)
-            .Select(line => new BankStatementRow(line.Id, line.OnDate, line.Description, line.Reference, line.Debit, line.Credit, line.Balance, line.Reconciled))
+            .Select(line => new BankStatementRow(
+                line.Id,
+                line.OnDate,
+                line.Description,
+                line.Reference,
+                line.Debit,
+                line.Credit,
+                line.Balance,
+                line.Reconciled,
+                line.ReconciledAt,
+                line.ReconciledBy,
+                line.ReconciliationReference,
+                line.ReconciliationRemarks,
+                line.BankTransactionId))
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<BankReconciliationSummary> GetBankReconciliationAsync(
+        Guid bankAccountId,
+        DateTime? from,
+        DateTime? to,
+        CancellationToken cancellationToken)
+    {
+        var account = await db.BankAccounts.AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == bankAccountId, cancellationToken)
+            ?? throw new InvalidOperationException("Select a valid bank account.");
+
+        var query = db.BankStatementLines.AsNoTracking()
+            .Where(line => line.BankAccountId == bankAccountId);
+        if (from.HasValue)
+        {
+            query = query.Where(line => line.OnDate >= from.Value);
+        }
+
+        if (to.HasValue)
+        {
+            query = query.Where(line => line.OnDate <= to.Value);
+        }
+
+        var lines = await query
+            .OrderBy(line => line.OnDate)
+            .ThenBy(line => line.CreatedAt)
+            .ThenBy(line => line.Id)
+            .ToListAsync(cancellationToken);
+
+        var rows = lines.Select(line => new BankStatementRow(
+            line.Id,
+            line.OnDate,
+            line.Description,
+            line.Reference,
+            line.Debit,
+            line.Credit,
+            line.Balance,
+            line.Reconciled,
+            line.ReconciledAt,
+            line.ReconciledBy,
+            line.ReconciliationReference,
+            line.ReconciliationRemarks,
+            line.BankTransactionId)).ToList();
+
+        return new BankReconciliationSummary(
+            account.Id,
+            $"{account.AccountHolderName} - {account.AccountNumber}".Trim(' ', '-'),
+            lines.LastOrDefault()?.Balance ?? account.ClosingBalance,
+            lines.Where(line => !line.Reconciled).Sum(line => line.Debit),
+            lines.Where(line => !line.Reconciled).Sum(line => line.Credit),
+            lines.Where(line => line.Reconciled).Sum(line => line.Debit),
+            lines.Where(line => line.Reconciled).Sum(line => line.Credit),
+            lines.Count(line => !line.Reconciled),
+            lines.Count(line => line.Reconciled),
+            rows);
+    }
+
+    public async Task<BankStatementRow> ReconcileBankStatementLineAsync(
+        Guid statementLineId,
+        BankStatementReconcileRequest request,
+        string? reconciledBy,
+        CancellationToken cancellationToken)
+    {
+        var line = await db.BankStatementLines.FirstOrDefaultAsync(item => item.Id == statementLineId, cancellationToken)
+            ?? throw new InvalidOperationException("Bank statement line was not found.");
+
+        if (request.BankTransactionId.HasValue && request.BankTransactionId.Value != Guid.Empty)
+        {
+            var transaction = await db.BankTransactions.FirstOrDefaultAsync(
+                item => item.Id == request.BankTransactionId.Value && item.BankAccountId == line.BankAccountId,
+                cancellationToken)
+                ?? throw new InvalidOperationException("Select a valid transaction from the same bank account.");
+
+            line.BankTransactionId = transaction.Id;
+            transaction.Reconciled = true;
+            transaction.ReconciledAt = request.ReconciledAt ?? DateTime.Now;
+            transaction.ReconciledBy = reconciledBy;
+            transaction.ReconciliationReference = CleanText(request.ReconciliationReference) ?? line.Reference;
+            transaction.ReconciliationRemarks = CleanText(request.Remarks);
+        }
+
+        line.Reconciled = true;
+        line.ReconciledAt = request.ReconciledAt ?? DateTime.Now;
+        line.ReconciledBy = reconciledBy;
+        line.ReconciliationReference = CleanText(request.ReconciliationReference) ?? line.Reference;
+        line.ReconciliationRemarks = CleanText(request.Remarks);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return new BankStatementRow(
+            line.Id,
+            line.OnDate,
+            line.Description,
+            line.Reference,
+            line.Debit,
+            line.Credit,
+            line.Balance,
+            line.Reconciled,
+            line.ReconciledAt,
+            line.ReconciledBy,
+            line.ReconciliationReference,
+            line.ReconciliationRemarks,
+            line.BankTransactionId);
+    }
+
+    public async Task<BankStatementRow> UnreconcileBankStatementLineAsync(
+        Guid statementLineId,
+        string? remarks,
+        CancellationToken cancellationToken)
+    {
+        var line = await db.BankStatementLines.FirstOrDefaultAsync(item => item.Id == statementLineId, cancellationToken)
+            ?? throw new InvalidOperationException("Bank statement line was not found.");
+
+        if (line.BankTransactionId.HasValue)
+        {
+            var transaction = await db.BankTransactions.FirstOrDefaultAsync(item => item.Id == line.BankTransactionId.Value, cancellationToken);
+            if (transaction is not null)
+            {
+                transaction.Reconciled = false;
+                transaction.ReconciledAt = null;
+                transaction.ReconciledBy = null;
+                transaction.ReconciliationReference = null;
+                transaction.ReconciliationRemarks = CleanText(remarks);
+            }
+        }
+
+        line.Reconciled = false;
+        line.ReconciledAt = null;
+        line.ReconciledBy = null;
+        line.ReconciliationReference = null;
+        line.ReconciliationRemarks = CleanText(remarks);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return new BankStatementRow(
+            line.Id,
+            line.OnDate,
+            line.Description,
+            line.Reference,
+            line.Debit,
+            line.Credit,
+            line.Balance,
+            line.Reconciled,
+            line.ReconciledAt,
+            line.ReconciledBy,
+            line.ReconciliationReference,
+            line.ReconciliationRemarks,
+            line.BankTransactionId);
+    }
+
+    public async Task<ChequeLog> UpdateChequeLifecycleAsync(
+        Guid chequeLogId,
+        ChequeLifecycleRequest request,
+        CancellationToken cancellationToken)
+    {
+        var cheque = await db.ChequeLogs.FirstOrDefaultAsync(item => item.Id == chequeLogId, cancellationToken)
+            ?? throw new InvalidOperationException("Cheque log was not found.");
+
+        var status = NormalizeChequeStatus(request.Status);
+        var actionDate = request.ActionDate ?? DateTime.Now;
+        cheque.Status = status;
+        cheque.LifecycleRemarks = CleanText(request.Remarks);
+        if (request.BankTransactionId.HasValue && request.BankTransactionId.Value != Guid.Empty)
+        {
+            var transaction = await db.BankTransactions.FirstOrDefaultAsync(
+                item => item.Id == request.BankTransactionId.Value && item.BankAccountId == cheque.BankAccountId,
+                cancellationToken)
+                ?? throw new InvalidOperationException("Select a valid transaction from the same bank account.");
+            cheque.BankTransactionId = transaction.Id;
+        }
+
+        switch (status)
+        {
+            case "Issued":
+                cheque.CancelledAt = null;
+                cheque.BouncedAt = null;
+                break;
+            case "Deposited":
+                cheque.DepositedAt = actionDate;
+                cheque.CancelledAt = null;
+                break;
+            case "Cleared":
+                cheque.ClearedAt = actionDate;
+                cheque.BouncedAt = null;
+                cheque.CancelledAt = null;
+                break;
+            case "Bounced":
+                cheque.BouncedAt = actionDate;
+                cheque.ClearedAt = null;
+                break;
+            case "Cancelled":
+                cheque.CancelledAt = actionDate;
+                break;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return cheque;
     }
 
     public async Task<List<LedgerStatementRow>> GetLedgerStatementAsync(
@@ -700,6 +909,80 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         };
         db.Parties.Add(linkedParty);
         return linkedParty;
+    }
+
+
+    public async Task<LedgerSyncSummary> ValidateLedgerSynchronizationAsync(
+        Guid? companyId,
+        bool repair,
+        CancellationToken cancellationToken)
+    {
+        var issues = new List<LedgerSyncIssue>();
+        var repairedCount = 0;
+
+        var partyQuery = db.Parties.AsQueryable();
+        var bankQuery = db.BankAccounts.AsQueryable();
+        if (companyId.HasValue && companyId.Value != Guid.Empty)
+        {
+            partyQuery = partyQuery.Where(item => item.CompanyId == companyId.Value);
+            bankQuery = bankQuery.Where(item => item.CompanyId == companyId.Value);
+        }
+
+        var parties = await partyQuery.OrderBy(item => item.Name).ToListAsync(cancellationToken);
+        var bankAccounts = await bankQuery.OrderBy(item => item.AccountHolderName).ThenBy(item => item.AccountNumber).ToListAsync(cancellationToken);
+
+        foreach (var party in parties)
+        {
+            var issue = await GetPartyLedgerSyncIssueAsync(party, cancellationToken);
+            if (issue is null)
+            {
+                continue;
+            }
+
+            if (repair)
+            {
+                party.LedgerId = (await EnsurePartyLedgerAsync(party, cancellationToken)).Id;
+                repairedCount++;
+                issues.Add(issue with { Severity = "Repaired", FixAction = "Party ledger was created or relinked." });
+            }
+            else
+            {
+                issues.Add(issue);
+            }
+        }
+
+        foreach (var account in bankAccounts)
+        {
+            var issue = await GetBankAccountLedgerSyncIssueAsync(account, cancellationToken);
+            if (issue is null)
+            {
+                continue;
+            }
+
+            if (repair)
+            {
+                account.LedgerId = (await EnsureBankAccountLedgerAsync(account, cancellationToken)).Id;
+                repairedCount++;
+                issues.Add(issue with { Severity = "Repaired", FixAction = "Bank-account ledger was created or relinked." });
+            }
+            else
+            {
+                issues.Add(issue);
+            }
+        }
+
+        if (repair && repairedCount > 0)
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return new LedgerSyncSummary(
+            companyId,
+            parties.Count,
+            bankAccounts.Count,
+            issues.Count,
+            repairedCount,
+            issues);
     }
 
     public async Task<Party> SavePartyAsync(
@@ -1565,9 +1848,105 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         return party;
     }
 
-    private async Task<Ledger> EnsurePartyLedgerAsync(Party party, CancellationToken cancellationToken)
+
+    private async Task<LedgerSyncIssue?> GetPartyLedgerSyncIssueAsync(Party party, CancellationToken cancellationToken)
     {
-        var (groupName, category, ledgerType, remarks) = party.Category switch
+        var (_, _, expectedType, _) = GetPartyLedgerProfile(party.Category);
+        var entityName = string.IsNullOrWhiteSpace(party.Name) ? "Unnamed party" : party.Name.Trim();
+
+        if (party.LedgerId == Guid.Empty)
+        {
+            return new LedgerSyncIssue("Party", party.Id, entityName, null, "Critical", "Party is not linked to an accounting ledger.", "Run ledger sync repair.");
+        }
+
+        var ledger = await db.Ledgers.AsNoTracking().FirstOrDefaultAsync(item => item.Id == party.LedgerId, cancellationToken);
+        if (ledger is null)
+        {
+            return new LedgerSyncIssue("Party", party.Id, entityName, party.LedgerId, "Critical", "Party ledger link points to a missing ledger.", "Run ledger sync repair.");
+        }
+
+        if (ledger.CompanyId != party.CompanyId)
+        {
+            return new LedgerSyncIssue("Party", party.Id, entityName, party.LedgerId, "Critical", "Party ledger belongs to another company.", "Run ledger sync repair.");
+        }
+
+        if (!ledger.IsParty)
+        {
+            return new LedgerSyncIssue("Party", party.Id, entityName, party.LedgerId, "Critical", "Party is linked to a non-party ledger.", "Run ledger sync repair.");
+        }
+
+        if (ledger.LedgerType != expectedType)
+        {
+            return new LedgerSyncIssue("Party", party.Id, entityName, party.LedgerId, "Warning", $"Party ledger type is {ledger.LedgerType}; expected {expectedType}.", "Run ledger sync repair.");
+        }
+
+        var linkedElsewhere = await db.Parties.AsNoTracking().AnyAsync(
+            item => item.CompanyId == party.CompanyId
+                && item.LedgerId == ledger.Id
+                && item.Id != party.Id,
+            cancellationToken);
+        if (linkedElsewhere)
+        {
+            return new LedgerSyncIssue("Party", party.Id, entityName, party.LedgerId, "Critical", "Party ledger is also linked to another party.", "Run ledger sync repair to create a separate ledger.");
+        }
+
+        if (!ledger.Name.Equals(entityName, StringComparison.Ordinal))
+        {
+            return new LedgerSyncIssue("Party", party.Id, entityName, party.LedgerId, "Info", $"Ledger name is '{ledger.Name}', expected '{entityName}'.", "Run ledger sync repair to rename the linked ledger.");
+        }
+
+        return null;
+    }
+
+    private async Task<LedgerSyncIssue?> GetBankAccountLedgerSyncIssueAsync(BankAccount account, CancellationToken cancellationToken)
+    {
+        var entityName = BuildBankLedgerName(account);
+        if (account.LedgerId == Guid.Empty)
+        {
+            return new LedgerSyncIssue("BankAccount", account.Id, entityName, null, "Critical", "Bank account is not linked to an accounting ledger.", "Run ledger sync repair.");
+        }
+
+        var ledger = await db.Ledgers.AsNoTracking().FirstOrDefaultAsync(item => item.Id == account.LedgerId, cancellationToken);
+        if (ledger is null)
+        {
+            return new LedgerSyncIssue("BankAccount", account.Id, entityName, account.LedgerId, "Critical", "Bank account ledger link points to a missing ledger.", "Run ledger sync repair.");
+        }
+
+        if (ledger.CompanyId != account.CompanyId)
+        {
+            return new LedgerSyncIssue("BankAccount", account.Id, entityName, account.LedgerId, "Critical", "Bank account ledger belongs to another company.", "Run ledger sync repair.");
+        }
+
+        if (ledger.LedgerType != LedgerType.BankAccount)
+        {
+            return new LedgerSyncIssue("BankAccount", account.Id, entityName, account.LedgerId, "Critical", $"Bank account ledger type is {ledger.LedgerType}; expected BankAccount.", "Run ledger sync repair.");
+        }
+
+        var linkedElsewhere = await db.BankAccounts.AsNoTracking().AnyAsync(
+            item => item.CompanyId == account.CompanyId
+                && item.LedgerId == ledger.Id
+                && item.Id != account.Id,
+            cancellationToken);
+        if (linkedElsewhere)
+        {
+            return new LedgerSyncIssue("BankAccount", account.Id, entityName, account.LedgerId, "Critical", "Bank account ledger is also linked to another bank account.", "Run ledger sync repair to create a separate ledger.");
+        }
+
+        if (!ledger.Name.Equals(entityName, StringComparison.Ordinal))
+        {
+            return new LedgerSyncIssue("BankAccount", account.Id, entityName, account.LedgerId, "Info", $"Ledger name is '{ledger.Name}', expected '{entityName}'.", "Run ledger sync repair to rename the linked ledger.");
+        }
+
+        if (ledger.IsParty)
+        {
+            return new LedgerSyncIssue("BankAccount", account.Id, entityName, account.LedgerId, "Warning", "Bank account is linked to a party ledger flag.", "Run ledger sync repair.");
+        }
+
+        return null;
+    }
+
+    private static (string GroupName, LedgerCategory Category, LedgerType LedgerType, string Remarks) GetPartyLedgerProfile(PartyType category)
+        => category switch
         {
             PartyType.Customer or PartyType.Debitor => ("Customers", LedgerCategory.Customer, LedgerType.SundryDebtor, "Customer party ledgers"),
             PartyType.Vendor or PartyType.Supplier or PartyType.Creditor => ("Vendors", LedgerCategory.Vendor, LedgerType.SundryCreditor, "Vendor party ledgers"),
@@ -1575,14 +1954,55 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
             _ => ("No Group", LedgerCategory.UnCategory, LedgerType.Suspense, "Default group for uncategorized and temporary party ledgers")
         };
 
+    private async Task<bool> PartyLedgerIsLinkedElsewhereAsync(Guid ledgerId, Party party, CancellationToken cancellationToken)
+        => await db.Parties.AsNoTracking().AnyAsync(
+            item => item.CompanyId == party.CompanyId
+                && item.LedgerId == ledgerId
+                && (party.Id == Guid.Empty || item.Id != party.Id),
+            cancellationToken);
+
+    private async Task<bool> BankLedgerIsLinkedElsewhereAsync(Guid ledgerId, BankAccount account, CancellationToken cancellationToken)
+        => await db.BankAccounts.AsNoTracking().AnyAsync(
+            item => item.CompanyId == account.CompanyId
+                && item.LedgerId == ledgerId
+                && (account.Id == Guid.Empty || item.Id != account.Id),
+            cancellationToken);
+
+    private async Task<Ledger> EnsurePartyLedgerAsync(Party party, CancellationToken cancellationToken)
+    {
+        var (groupName, category, ledgerType, remarks) = GetPartyLedgerProfile(party.Category);
         var group = await EnsureLedgerGroupAsync(party.CompanyId, groupName, category, remarks, cancellationToken);
+        var ledgerName = party.Name.Trim();
         var ledger = party.LedgerId == Guid.Empty
             ? null
             : await db.Ledgers.FirstOrDefaultAsync(item => item.Id == party.LedgerId, cancellationToken);
 
-        ledger ??= await db.Ledgers.FirstOrDefaultAsync(
-            item => item.CompanyId == party.CompanyId && item.Name == party.Name && item.IsParty,
-            cancellationToken);
+        if (ledger is not null
+            && (ledger.CompanyId != party.CompanyId
+                || !ledger.IsParty
+                || await PartyLedgerIsLinkedElsewhereAsync(ledger.Id, party, cancellationToken)))
+        {
+            ledger = null;
+        }
+
+        if (ledger is null)
+        {
+            var candidates = await db.Ledgers
+                .Where(item => item.CompanyId == party.CompanyId
+                    && item.Name == ledgerName
+                    && item.IsParty
+                    && item.LedgerType == ledgerType)
+                .ToListAsync(cancellationToken);
+
+            foreach (var candidate in candidates)
+            {
+                if (!await PartyLedgerIsLinkedElsewhereAsync(candidate.Id, party, cancellationToken))
+                {
+                    ledger = candidate;
+                    break;
+                }
+            }
+        }
 
         ledger ??= new Ledger
         {
@@ -1592,7 +2012,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         };
 
         ledger.CompanyId = party.CompanyId;
-        ledger.Name = party.Name;
+        ledger.Name = ledgerName;
         ledger.LedgerGroupId = group.Id;
         ledger.LedgerType = ledgerType;
         ledger.IsParty = true;
@@ -1651,9 +2071,32 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
             ? null
             : await db.Ledgers.FirstOrDefaultAsync(item => item.Id == account.LedgerId, cancellationToken);
 
-        ledger ??= await db.Ledgers.FirstOrDefaultAsync(
-            item => item.CompanyId == account.CompanyId && item.Name == ledgerName && item.LedgerType == LedgerType.BankAccount,
-            cancellationToken);
+        if (ledger is not null
+            && (ledger.CompanyId != account.CompanyId
+                || ledger.LedgerType != LedgerType.BankAccount
+                || await BankLedgerIsLinkedElsewhereAsync(ledger.Id, account, cancellationToken)))
+        {
+            ledger = null;
+        }
+
+        if (ledger is null)
+        {
+            var candidates = await db.Ledgers
+                .Where(item => item.CompanyId == account.CompanyId
+                    && item.Name == ledgerName
+                    && item.LedgerType == LedgerType.BankAccount
+                    && !item.IsParty)
+                .ToListAsync(cancellationToken);
+
+            foreach (var candidate in candidates)
+            {
+                if (!await BankLedgerIsLinkedElsewhereAsync(candidate.Id, account, cancellationToken))
+                {
+                    ledger = candidate;
+                    break;
+                }
+            }
+        }
 
         ledger ??= new Ledger
         {
@@ -2025,6 +2468,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         existing.ChequeDate = transaction.OnDate;
         existing.Narration = transaction.Reference;
         existing.ChequeBank = bankAccount.AccountNumber;
+        existing.BankTransactionId = transaction.Id;
         existing.Amount = transaction.Amount;
         existing.PersonName = transaction.PersonName;
         existing.Status = transaction.TransactionType == TransactionType.Deposit ? "Deposited" : "Issued";
@@ -2501,9 +2945,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
             CompanyId = transaction.CompanyId
         };
 
-        var chequeReference = string.IsNullOrWhiteSpace(paymentReference)
-            ? transaction.Reference ?? string.Empty
-            : paymentReference.Trim();
+        var chequeReference = transaction.Reference ?? string.Empty;
 
         existing.CompanyId = transaction.CompanyId;
         existing.BankAccountId = bankAccount.Id;
@@ -2513,6 +2955,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         existing.ChequeDate = transaction.OnDate;
         existing.Narration = transaction.Reference;
         existing.ChequeBank = bankAccount.AccountNumber;
+        existing.BankTransactionId = transaction.Id;
         existing.Amount = transaction.Amount;
         existing.PersonName = transaction.PersonName;
         existing.Status = transaction.TransactionType == TransactionType.Deposit ? "Deposited" : "Issued";
@@ -2593,6 +3036,25 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         }
 
         bankAccount.ClosingBalance = balance;
+    }
+
+    private static string? CleanText(string? value)
+    {
+        var text = value?.Trim();
+        return string.IsNullOrWhiteSpace(text) ? null : text;
+    }
+
+    private static string NormalizeChequeStatus(string? value)
+    {
+        var text = value?.Trim();
+        return text switch
+        {
+            "Issued" or "Deposited" or "Cleared" or "Bounced" or "Cancelled" => text,
+            "Clear" or "Clearing" => "Cleared",
+            "Bounce" or "Returned" => "Bounced",
+            "Cancel" => "Cancelled",
+            _ => throw new ArgumentException("Cheque status must be Issued, Deposited, Cleared, Bounced, or Cancelled.")
+        };
     }
 
     private static TransactionMode ToTransactionMode(PaymentMode mode)

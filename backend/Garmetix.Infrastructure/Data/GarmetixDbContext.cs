@@ -8,6 +8,7 @@ using Garmetix.Core.Models.Inventory;
 using Garmetix.Core.Models.Stores;
 using Garmetix.Models.DayOperations;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Garmetix.Infrastructure.Data;
@@ -67,6 +68,12 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<CustomerAdvanceReceipt> CustomerAdvanceReceipts => Set<CustomerAdvanceReceipt>();
     public DbSet<LoyaltyProgram> LoyaltyPrograms => Set<LoyaltyProgram>();
     public DbSet<LoyaltyPointLedger> LoyaltyPointLedgers => Set<LoyaltyPointLedger>();
+    public DbSet<TailoringServiceItem> TailoringServiceItems => Set<TailoringServiceItem>();
+    public DbSet<TailoringOrder> TailoringOrders => Set<TailoringOrder>();
+    public DbSet<TailoringOrderLine> TailoringOrderLines => Set<TailoringOrderLine>();
+    public DbSet<TailoringCustomerReceipt> TailoringCustomerReceipts => Set<TailoringCustomerReceipt>();
+    public DbSet<TailoringVendorPayment> TailoringVendorPayments => Set<TailoringVendorPayment>();
+    public DbSet<TailoringOrderHistory> TailoringOrderHistories => Set<TailoringOrderHistory>();
 
     public DbSet<Bank> Banks => Set<Bank>();
     public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
@@ -76,6 +83,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<ChequeLog> ChequeLogs => Set<ChequeLog>();
     public DbSet<BankCashTranscation> BankCashTranscations => Set<BankCashTranscation>();
     public DbSet<BankStatementLine> BankStatementLines => Set<BankStatementLine>();
+    public DbSet<FinancialYearLock> FinancialYearLocks => Set<FinancialYearLock>();
     public DbSet<LedgerGroup> LedgerGroups => Set<LedgerGroup>();
     public DbSet<Ledger> Ledgers => Set<Ledger>();
     public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
@@ -199,6 +207,16 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<VendorSettlementAllocation>().HasIndex(item => new { item.CompanyId, item.PurchaseInvoiceId });
         modelBuilder.Entity<PurchasePayment>().HasIndex(payment => new { payment.CompanyId, payment.StoreId, payment.PurchaseInvoiceId, payment.OnDate });
         modelBuilder.Entity<PurchasePayment>().HasIndex(payment => new { payment.CompanyId, payment.VendorId, payment.OnDate });
+        modelBuilder.Entity<TailoringServiceItem>().HasIndex(item => new { item.CompanyId, item.StoreId, item.ServiceCode });
+        modelBuilder.Entity<TailoringServiceItem>().HasIndex(item => new { item.CompanyId, item.StoreId, item.Category, item.Active });
+        modelBuilder.Entity<TailoringOrder>().HasIndex(order => new { order.CompanyId, order.StoreId, order.OrderNumber }).IsUnique(false);
+        modelBuilder.Entity<TailoringOrder>().HasIndex(order => new { order.CompanyId, order.StoreId, order.Status, order.ExpectedDeliveryDate });
+        modelBuilder.Entity<TailoringOrder>().HasIndex(order => new { order.CompanyId, order.CustomerId, order.OnDate });
+        modelBuilder.Entity<TailoringOrder>().HasIndex(order => new { order.CompanyId, order.VendorId, order.Status });
+        modelBuilder.Entity<TailoringOrderLine>().HasIndex(line => new { line.CompanyId, line.TailoringOrderId });
+        modelBuilder.Entity<TailoringCustomerReceipt>().HasIndex(receipt => new { receipt.CompanyId, receipt.TailoringOrderId, receipt.OnDate });
+        modelBuilder.Entity<TailoringVendorPayment>().HasIndex(payment => new { payment.CompanyId, payment.TailoringOrderId, payment.OnDate });
+        modelBuilder.Entity<TailoringOrderHistory>().HasIndex(history => new { history.CompanyId, history.TailoringOrderId, history.EventDate });
         modelBuilder.Entity<InvoicePayment>().HasIndex(payment => new { payment.CompanyId, payment.StoreId, payment.InvoiceId, payment.OnDate });
         modelBuilder.Entity<CardPayment>().HasIndex(payment => new { payment.CompanyId, payment.StoreId, payment.InvoiceId, payment.OnDate });
         modelBuilder.Entity<VendorPayment>().HasIndex(payment => new { payment.CompanyId, payment.VendorId, payment.OnDate });
@@ -214,22 +232,255 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<CashVoucherConversion>().HasIndex(item => new { item.CashVoucherId, item.VoucherId });
         modelBuilder.Entity<JournalEntry>().HasIndex(entry => new { entry.CompanyId, entry.StoreId, entry.EntryNumber }).IsUnique(false);
         modelBuilder.Entity<JournalLine>().HasIndex(line => new { line.CompanyId, line.LedgerId, line.JournalEntryId });
+        modelBuilder.Entity<FinancialYearLock>().HasIndex(period => new { period.CompanyId, period.FinancialYear, period.PeriodStart, period.PeriodEnd });
+        modelBuilder.Entity<FinancialYearLock>().HasIndex(period => new { period.CompanyId, period.StoreGroupId, period.StoreId, period.Active });
         modelBuilder.Entity<BankTransaction>().HasIndex(transaction => new { transaction.CompanyId, transaction.BankAccountId, transaction.OnDate });
+        modelBuilder.Entity<BankTransaction>().HasIndex(transaction => new { transaction.CompanyId, transaction.BankAccountId, transaction.Reconciled });
         modelBuilder.Entity<BankStatementLine>().HasIndex(line => new { line.CompanyId, line.BankAccountId, line.OnDate });
+        modelBuilder.Entity<BankStatementLine>().HasIndex(line => new { line.CompanyId, line.BankAccountId, line.Reconciled });
         modelBuilder.Entity<ChequeLog>().HasIndex(cheque => new { cheque.CompanyId, cheque.BankAccountId, cheque.ChequeNumber });
+        modelBuilder.Entity<ChequeLog>().HasIndex(cheque => new { cheque.CompanyId, cheque.Status, cheque.OnDate });
         modelBuilder.Entity<Employee>().HasIndex(employee => new { employee.CompanyId, employee.StoreId, employee.Mobile });
     }
 
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         PrepareEntitiesForSave();
-        return base.SaveChangesAsync(cancellationToken);
+        await ValidateFinancialYearLocksAsync(cancellationToken);
+        ValidateChangedJournalLines();
+        return await base.SaveChangesAsync(cancellationToken);
     }
 
     public override int SaveChanges()
     {
         PrepareEntitiesForSave();
+        ValidateFinancialYearLocks();
+        ValidateChangedJournalLines();
         return base.SaveChanges();
+    }
+
+
+
+    private sealed record PeriodLockCandidate(
+        Guid CompanyId,
+        Guid? StoreGroupId,
+        Guid? StoreId,
+        DateTime OnDate,
+        string Domain,
+        string EntityName);
+
+    private async Task ValidateFinancialYearLocksAsync(CancellationToken cancellationToken)
+    {
+        var candidates = BuildPeriodLockCandidates().ToList();
+        if (candidates.Count == 0)
+        {
+            return;
+        }
+
+        var companyIds = candidates.Select(item => item.CompanyId).Distinct().ToList();
+        var minDate = candidates.Min(item => item.OnDate.Date);
+        var maxDate = candidates.Max(item => item.OnDate.Date);
+        var locks = await FinancialYearLocks.AsNoTracking()
+            .Where(item => item.Active
+                && companyIds.Contains(item.CompanyId)
+                && item.PeriodStart <= maxDate
+                && item.PeriodEnd >= minDate)
+            .ToListAsync(cancellationToken);
+
+        ThrowIfAnyPeriodLocked(candidates, locks);
+    }
+
+    private void ValidateFinancialYearLocks()
+    {
+        var candidates = BuildPeriodLockCandidates().ToList();
+        if (candidates.Count == 0)
+        {
+            return;
+        }
+
+        var companyIds = candidates.Select(item => item.CompanyId).Distinct().ToList();
+        var minDate = candidates.Min(item => item.OnDate.Date);
+        var maxDate = candidates.Max(item => item.OnDate.Date);
+        var locks = FinancialYearLocks.AsNoTracking()
+            .Where(item => item.Active
+                && companyIds.Contains(item.CompanyId)
+                && item.PeriodStart <= maxDate
+                && item.PeriodEnd >= minDate)
+            .ToList();
+
+        ThrowIfAnyPeriodLocked(candidates, locks);
+    }
+
+    private IEnumerable<PeriodLockCandidate> BuildPeriodLockCandidates()
+    {
+        foreach (var entry in ChangeTracker.Entries()
+            .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
+        {
+            if (entry.Entity is FinancialYearLock)
+            {
+                continue;
+            }
+
+            var domain = ClassifyFinancialPeriodDomain(entry.Metadata.ClrType.Name);
+            if (domain is null)
+            {
+                continue;
+            }
+
+            var companyId = ReadGuidProperty(entry, nameof(CompanyBase.CompanyId));
+            var onDate = ReadDateProperty(entry, "OnDate", "TransactionDate", "FiledAt", "LockedAt");
+            if (!companyId.HasValue || !onDate.HasValue)
+            {
+                continue;
+            }
+
+            yield return new PeriodLockCandidate(
+                companyId.Value,
+                ReadGuidProperty(entry, nameof(StoreBase.StoreGroupId)),
+                ReadGuidProperty(entry, nameof(StoreBase.StoreId)),
+                onDate.Value.Date,
+                domain,
+                entry.Metadata.ClrType.Name);
+        }
+    }
+
+    private static Guid? ReadGuidProperty(EntityEntry entry, string propertyName)
+    {
+        if (entry.Metadata.FindProperty(propertyName) is null)
+        {
+            return null;
+        }
+
+        var value = entry.State == EntityState.Deleted
+            ? entry.Property(propertyName).OriginalValue
+            : entry.Property(propertyName).CurrentValue;
+        return value is Guid guid && guid != Guid.Empty ? guid : null;
+    }
+
+    private static DateTime? ReadDateProperty(EntityEntry entry, params string[] propertyNames)
+    {
+        foreach (var propertyName in propertyNames)
+        {
+            if (entry.Metadata.FindProperty(propertyName) is null)
+            {
+                continue;
+            }
+
+            var value = entry.State == EntityState.Deleted
+                ? entry.Property(propertyName).OriginalValue
+                : entry.Property(propertyName).CurrentValue;
+            if (value is DateTime dateTime)
+            {
+                return dateTime.Date;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ClassifyFinancialPeriodDomain(string entityName)
+    {
+        if (entityName is "Invoice" or "InvoiceItem" or "InvoicePayment" or "CardPayment" or "CustomerAdvanceReceipt" or "LoyaltyProgram" or "LoyaltyPointLedger" or "TailoringOrder" or "TailoringOrderLine" or "TailoringCustomerReceipt")
+        {
+            return "Sales";
+        }
+
+        if (entityName.StartsWith("Purchase", StringComparison.Ordinal) || entityName is "VendorSettlement" or "VendorSettlementAllocation" or "VendorPayment" or "TailoringVendorPayment")
+        {
+            return "Purchase";
+        }
+
+        if (entityName is "Stock" or "StockMovement" or "StockOperationDocument" or "StockOperationItem" or "NonGstGoodsDocument" or "NonGstGoodsItem" or "Product" or "ProductDetail")
+        {
+            return "Inventory";
+        }
+
+        if (entityName is "GstReturnDraft" or "GstReturnAuditEntry")
+        {
+            return "GST";
+        }
+
+        if (entityName is "JournalEntry" or "JournalLine" or "Voucher" or "CashVoucher" or "CashVoucherConversion" or "BankTransaction" or "BankStatementLine" or "ChequeLog" or "CommercialNote" or "PettyCashSheet" or "BankCashTranscation")
+        {
+            return "Accounting";
+        }
+
+        return null;
+    }
+
+    private static void ThrowIfAnyPeriodLocked(IReadOnlyList<PeriodLockCandidate> candidates, IReadOnlyList<FinancialYearLock> locks)
+    {
+        foreach (var candidate in candidates)
+        {
+            var periodLock = locks.FirstOrDefault(item => PeriodLockApplies(item, candidate));
+            if (periodLock is null)
+            {
+                continue;
+            }
+
+            throw new InvalidOperationException(
+                $"Financial year/period '{periodLock.FinancialYear}' is locked for {candidate.Domain}. " +
+                $"{candidate.EntityName} dated {candidate.OnDate:yyyy-MM-dd} cannot be saved in a locked period. " +
+                "Unlock the period or post the correction in an open period.");
+        }
+    }
+
+    private static bool PeriodLockApplies(FinancialYearLock periodLock, PeriodLockCandidate candidate)
+    {
+        if (periodLock.CompanyId != candidate.CompanyId)
+        {
+            return false;
+        }
+
+        if (periodLock.StoreGroupId.HasValue && periodLock.StoreGroupId.Value != candidate.StoreGroupId)
+        {
+            return false;
+        }
+
+        if (periodLock.StoreId.HasValue && periodLock.StoreId.Value != candidate.StoreId)
+        {
+            return false;
+        }
+
+        var candidateDate = candidate.OnDate.Date;
+        if (periodLock.PeriodStart.Date > candidateDate || periodLock.PeriodEnd.Date < candidateDate)
+        {
+            return false;
+        }
+
+        return candidate.Domain switch
+        {
+            "Sales" => periodLock.LockSales,
+            "Purchase" => periodLock.LockPurchase,
+            "Inventory" => periodLock.LockInventory,
+            "GST" => periodLock.LockGst,
+            _ => periodLock.LockAccounting
+        };
+    }
+
+
+
+    private void ValidateChangedJournalLines()
+    {
+        foreach (var entry in ChangeTracker.Entries<JournalLine>()
+            .Where(entry => entry.State is EntityState.Added or EntityState.Modified))
+        {
+            var line = entry.Entity;
+            if (line.Debit < 0 || line.Credit < 0)
+            {
+                throw new InvalidOperationException("Journal line debit and credit amounts cannot be negative.");
+            }
+
+            if (line.Debit > 0 && line.Credit > 0)
+            {
+                throw new InvalidOperationException("A journal line cannot contain both debit and credit amounts.");
+            }
+
+            if (line.Debit == 0 && line.Credit == 0)
+            {
+                throw new InvalidOperationException("A journal line must contain either a debit or credit amount.");
+            }
+        }
     }
 
     private void PrepareEntitiesForSave()

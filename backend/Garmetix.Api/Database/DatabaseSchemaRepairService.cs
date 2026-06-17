@@ -96,6 +96,40 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
         {
             await RepairGstReturnStorageAsync(db, logger, cancellationToken);
 
+            await db.Database.ExecuteSqlRawAsync("""
+                CREATE TABLE IF NOT EXISTS "FinancialYearLocks" (
+                    "Id" uuid NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "FinancialYear" text NOT NULL DEFAULT '',
+                    "PeriodStart" timestamp without time zone NOT NULL,
+                    "PeriodEnd" timestamp without time zone NOT NULL,
+                    "StoreGroupId" uuid NULL,
+                    "StoreId" uuid NULL,
+                    "LockAccounting" boolean NOT NULL DEFAULT true,
+                    "LockSales" boolean NOT NULL DEFAULT true,
+                    "LockPurchase" boolean NOT NULL DEFAULT true,
+                    "LockInventory" boolean NOT NULL DEFAULT true,
+                    "LockGst" boolean NOT NULL DEFAULT true,
+                    "Active" boolean NOT NULL DEFAULT true,
+                    "LockedAt" timestamp without time zone NULL,
+                    "LockedBy" text NULL,
+                    "LockReason" text NULL,
+                    "UnlockedAt" timestamp without time zone NULL,
+                    "UnlockedBy" text NULL,
+                    "UnlockReason" text NULL,
+                    CONSTRAINT "PK_FinancialYearLocks" PRIMARY KEY ("Id")
+                );
+                CREATE INDEX IF NOT EXISTS "IX_FinancialYearLocks_CompanyId_FinancialYear_PeriodStart_PeriodEnd"
+                    ON "FinancialYearLocks" ("CompanyId", "FinancialYear", "PeriodStart", "PeriodEnd");
+                CREATE INDEX IF NOT EXISTS "IX_FinancialYearLocks_CompanyId_StoreGroupId_StoreId_Active"
+                    ON "FinancialYearLocks" ("CompanyId", "StoreGroupId", "StoreId", "Active");
+                """, cancellationToken);
+
             // Some development databases may already have the migration recorded in
             // __EFMigrationsHistory but can still be missing columns when older ZIPs were
             // tested in between. These statements are idempotent and only add missing columns.
@@ -952,6 +986,197 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                 CREATE INDEX IF NOT EXISTS "IX_StockMovements_CompanyId_SourceType_SourceId" ON "StockMovements" ("CompanyId", "SourceType", "SourceId");
                 CREATE INDEX IF NOT EXISTS "IX_StockOperationDocuments_CompanyId_StoreId_DocumentNumber" ON "StockOperationDocuments" ("CompanyId", "StoreId", "DocumentNumber");
                 CREATE INDEX IF NOT EXISTS "IX_StockOperationDocuments_CompanyId_OperationType_OnDate" ON "StockOperationDocuments" ("CompanyId", "OperationType", "OnDate");
+                ALTER TABLE "BankTransactions" ADD COLUMN IF NOT EXISTS "Reconciled" boolean NOT NULL DEFAULT false;
+                ALTER TABLE "BankTransactions" ADD COLUMN IF NOT EXISTS "ReconciledAt" timestamp without time zone NULL;
+                ALTER TABLE "BankTransactions" ADD COLUMN IF NOT EXISTS "ReconciledBy" text NULL;
+                ALTER TABLE "BankTransactions" ADD COLUMN IF NOT EXISTS "ReconciliationReference" text NULL;
+                ALTER TABLE "BankTransactions" ADD COLUMN IF NOT EXISTS "ReconciliationRemarks" text NULL;
+                ALTER TABLE "BankStatementLines" ADD COLUMN IF NOT EXISTS "ReconciledAt" timestamp without time zone NULL;
+                ALTER TABLE "BankStatementLines" ADD COLUMN IF NOT EXISTS "ReconciledBy" text NULL;
+                ALTER TABLE "BankStatementLines" ADD COLUMN IF NOT EXISTS "ReconciliationReference" text NULL;
+                ALTER TABLE "BankStatementLines" ADD COLUMN IF NOT EXISTS "ReconciliationRemarks" text NULL;
+                ALTER TABLE "ChequeLogs" ADD COLUMN IF NOT EXISTS "BankTransactionId" uuid NULL;
+                ALTER TABLE "ChequeLogs" ADD COLUMN IF NOT EXISTS "DepositedAt" timestamp without time zone NULL;
+                ALTER TABLE "ChequeLogs" ADD COLUMN IF NOT EXISTS "ClearedAt" timestamp without time zone NULL;
+                ALTER TABLE "ChequeLogs" ADD COLUMN IF NOT EXISTS "BouncedAt" timestamp without time zone NULL;
+                ALTER TABLE "ChequeLogs" ADD COLUMN IF NOT EXISTS "CancelledAt" timestamp without time zone NULL;
+                ALTER TABLE "ChequeLogs" ADD COLUMN IF NOT EXISTS "LifecycleRemarks" text NULL;
+                CREATE INDEX IF NOT EXISTS "IX_BankTransactions_CompanyId_BankAccountId_Reconciled" ON "BankTransactions" ("CompanyId", "BankAccountId", "Reconciled");
+                CREATE INDEX IF NOT EXISTS "IX_BankStatementLines_CompanyId_BankAccountId_Reconciled" ON "BankStatementLines" ("CompanyId", "BankAccountId", "Reconciled");
+                CREATE INDEX IF NOT EXISTS "IX_ChequeLogs_CompanyId_Status_OnDate" ON "ChequeLogs" ("CompanyId", "Status", "OnDate");
+
+
+
+                CREATE TABLE IF NOT EXISTS "TailoringServiceItems" (
+                    "Id" uuid NOT NULL,
+                    "ServiceCode" text NOT NULL DEFAULT '',
+                    "Name" text NOT NULL DEFAULT '',
+                    "Category" integer NOT NULL DEFAULT 0,
+                    "DefaultCustomerRate" numeric(18,2) NOT NULL DEFAULT 0,
+                    "DefaultVendorRate" numeric(18,2) NOT NULL DEFAULT 0,
+                    "TaxRate" numeric(18,2) NOT NULL DEFAULT 0,
+                    "HSNCode" text NULL,
+                    "ProductId" uuid NULL,
+                    "Active" boolean NOT NULL DEFAULT true,
+                    "Remarks" text NULL,
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "StoreGroupId" uuid NOT NULL,
+                    "StoreId" uuid NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    CONSTRAINT "PK_TailoringServiceItems" PRIMARY KEY ("Id")
+                );
+
+                CREATE TABLE IF NOT EXISTS "TailoringOrders" (
+                    "Id" uuid NOT NULL,
+                    "OrderNumber" text NOT NULL DEFAULT '',
+                    "OnDate" timestamp without time zone NOT NULL DEFAULT now(),
+                    "OrderType" integer NOT NULL DEFAULT 0,
+                    "Status" integer NOT NULL DEFAULT 1,
+                    "CustomerId" uuid NOT NULL,
+                    "CustomerName" text NOT NULL DEFAULT '',
+                    "CustomerMobileNumber" text NULL,
+                    "VendorId" uuid NULL,
+                    "VendorName" text NULL,
+                    "SourceInvoiceId" uuid NULL,
+                    "SourceInvoiceNumber" text NULL,
+                    "SourceInvoiceItemId" uuid NULL,
+                    "SourceProductId" uuid NULL,
+                    "SourceProductName" text NULL,
+                    "SourceBarcode" text NULL,
+                    "ExpectedDeliveryDate" timestamp without time zone NULL,
+                    "DeliveredAt" timestamp without time zone NULL,
+                    "MeasurementsJson" text NULL,
+                    "CustomerInstructions" text NULL,
+                    "InternalRemarks" text NULL,
+                    "CustomerChargeAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "VendorCostAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "InHouseExpenseAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "CustomerReceivedAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "VendorPaidAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "CustomerBalanceAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "VendorBalanceAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "ProfitImpactAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "ServiceInvoiceId" uuid NULL,
+                    "ServiceInvoiceNumber" text NULL,
+                    "ClosedAt" timestamp without time zone NULL,
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "StoreGroupId" uuid NOT NULL,
+                    "StoreId" uuid NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    CONSTRAINT "PK_TailoringOrders" PRIMARY KEY ("Id")
+                );
+
+                CREATE TABLE IF NOT EXISTS "TailoringOrderLines" (
+                    "Id" uuid NOT NULL,
+                    "TailoringOrderId" uuid NOT NULL,
+                    "ServiceItemId" uuid NULL,
+                    "ServiceName" text NOT NULL DEFAULT '',
+                    "Category" integer NOT NULL DEFAULT 0,
+                    "GarmentName" text NULL,
+                    "Barcode" text NULL,
+                    "Quantity" numeric(18,2) NOT NULL DEFAULT 1,
+                    "CustomerRate" numeric(18,2) NOT NULL DEFAULT 0,
+                    "VendorRate" numeric(18,2) NOT NULL DEFAULT 0,
+                    "DiscountAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "CustomerChargeAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "VendorCostAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "CostResponsibility" integer NOT NULL DEFAULT 0,
+                    "ExpectedDeliveryDate" timestamp without time zone NULL,
+                    "DeliveredAt" timestamp without time zone NULL,
+                    "Status" integer NOT NULL DEFAULT 1,
+                    "MeasurementsJson" text NULL,
+                    "Instructions" text NULL,
+                    "VendorRemarks" text NULL,
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    CONSTRAINT "PK_TailoringOrderLines" PRIMARY KEY ("Id")
+                );
+
+                CREATE TABLE IF NOT EXISTS "TailoringCustomerReceipts" (
+                    "Id" uuid NOT NULL,
+                    "TailoringOrderId" uuid NOT NULL,
+                    "OnDate" timestamp without time zone NOT NULL DEFAULT now(),
+                    "Amount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "PaymentMode" integer NOT NULL DEFAULT 0,
+                    "BankAccountId" uuid NULL,
+                    "ReferenceNumber" text NULL,
+                    "Remarks" text NULL,
+                    "InvoicePaymentId" uuid NULL,
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "StoreGroupId" uuid NOT NULL,
+                    "StoreId" uuid NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    CONSTRAINT "PK_TailoringCustomerReceipts" PRIMARY KEY ("Id")
+                );
+
+                CREATE TABLE IF NOT EXISTS "TailoringVendorPayments" (
+                    "Id" uuid NOT NULL,
+                    "TailoringOrderId" uuid NOT NULL,
+                    "VendorId" uuid NOT NULL,
+                    "OnDate" timestamp without time zone NOT NULL DEFAULT now(),
+                    "Amount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "PaymentMode" integer NOT NULL DEFAULT 0,
+                    "BankAccountId" uuid NULL,
+                    "ReferenceNumber" text NULL,
+                    "VoucherId" uuid NULL,
+                    "Remarks" text NULL,
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "StoreGroupId" uuid NOT NULL,
+                    "StoreId" uuid NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    CONSTRAINT "PK_TailoringVendorPayments" PRIMARY KEY ("Id")
+                );
+
+                CREATE TABLE IF NOT EXISTS "TailoringOrderHistories" (
+                    "Id" uuid NOT NULL,
+                    "TailoringOrderId" uuid NOT NULL,
+                    "EventDate" timestamp without time zone NOT NULL DEFAULT now(),
+                    "Action" text NOT NULL DEFAULT '',
+                    "FromStatus" integer NULL,
+                    "ToStatus" integer NULL,
+                    "Actor" text NULL,
+                    "Remarks" text NULL,
+                    "DetailsJson" text NULL,
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    CONSTRAINT "PK_TailoringOrderHistories" PRIMARY KEY ("Id")
+                );
+
+                CREATE INDEX IF NOT EXISTS "IX_TailoringServiceItems_CompanyId_StoreId_ServiceCode" ON "TailoringServiceItems" ("CompanyId", "StoreId", "ServiceCode");
+                CREATE INDEX IF NOT EXISTS "IX_TailoringServiceItems_CompanyId_StoreId_Category_Active" ON "TailoringServiceItems" ("CompanyId", "StoreId", "Category", "Active");
+                CREATE INDEX IF NOT EXISTS "IX_TailoringOrders_CompanyId_StoreId_OrderNumber" ON "TailoringOrders" ("CompanyId", "StoreId", "OrderNumber");
+                CREATE INDEX IF NOT EXISTS "IX_TailoringOrders_CompanyId_StoreId_Status_ExpectedDeliveryDate" ON "TailoringOrders" ("CompanyId", "StoreId", "Status", "ExpectedDeliveryDate");
+                CREATE INDEX IF NOT EXISTS "IX_TailoringOrders_CompanyId_CustomerId_OnDate" ON "TailoringOrders" ("CompanyId", "CustomerId", "OnDate");
+                CREATE INDEX IF NOT EXISTS "IX_TailoringOrders_CompanyId_VendorId_Status" ON "TailoringOrders" ("CompanyId", "VendorId", "Status");
+                CREATE INDEX IF NOT EXISTS "IX_TailoringOrderLines_CompanyId_TailoringOrderId" ON "TailoringOrderLines" ("CompanyId", "TailoringOrderId");
+                CREATE INDEX IF NOT EXISTS "IX_TailoringCustomerReceipts_CompanyId_TailoringOrderId_OnDate" ON "TailoringCustomerReceipts" ("CompanyId", "TailoringOrderId", "OnDate");
+                CREATE INDEX IF NOT EXISTS "IX_TailoringVendorPayments_CompanyId_TailoringOrderId_OnDate" ON "TailoringVendorPayments" ("CompanyId", "TailoringOrderId", "OnDate");
+                CREATE INDEX IF NOT EXISTS "IX_TailoringOrderHistories_CompanyId_TailoringOrderId_EventDate" ON "TailoringOrderHistories" ("CompanyId", "TailoringOrderId", "EventDate");
+
                 ALTER TABLE "StockOperationDocuments" ADD COLUMN IF NOT EXISTS "AccountingStatus" text NOT NULL DEFAULT 'Pending';
                 ALTER TABLE "StockOperationDocuments" ADD COLUMN IF NOT EXISTS "JournalEntryId" uuid NULL;
                 CREATE INDEX IF NOT EXISTS "IX_StockOperationDocuments_CompanyId_JournalEntryId" ON "StockOperationDocuments" ("CompanyId", "JournalEntryId");

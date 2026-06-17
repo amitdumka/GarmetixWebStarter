@@ -227,6 +227,11 @@ public static class DashboardEndpoints
         var scope = await ResolveScopeAsync(context, db, companyId, storeGroupId, storeId, "Company / store group", cancellationToken);
         var storeRows = await StorePerformanceAsync(context, db, companyId, storeGroupId, storeId, period.FromDate, period.ToExclusive, cancellationToken);
         var storeGroupRows = await StoreGroupPerformanceAsync(context, db, companyId, storeGroupId, storeId, period.FromDate, period.ToExclusive, cancellationToken);
+        var dashboardStoreIds = await ResolveStoreIdsAsync(context, db, companyId, storeGroupId, storeId, cancellationToken);
+        var customerDues = await CustomerDueDashboardAsync(sales, dashboardStoreIds, cancellationToken);
+        var vendorDues = await VendorDueDashboardAsync(purchases, db, cancellationToken);
+        var cashPaymentSummary = await CashPaymentSummaryAsync(context, db, companyId, storeGroupId, storeId, period.FromDate, period.ToExclusive, cancellationToken);
+        var storeGroupComparison = await StoreGroupComparisonDashboardAsync(context, db, companyId, storeGroupId, storeId, period.FromDate, period.ToExclusive, cancellationToken);
 
         var recentSales = await sales
             .Where(item => item.OnDate >= period.FromDate && item.OnDate < period.ToExclusive)
@@ -290,7 +295,9 @@ public static class DashboardEndpoints
                 Metric("Gross Margin", grossMargin, "Sales minus purchase", "i-lucide-chart-no-axes-combined", grossMargin >= 0 ? "primary" : "error"),
                 Metric("Stock Value", stockValue, "On-book stock cost", "i-lucide-boxes", "neutral"),
                 Metric("Invoices", invoiceCount, period.Dto.Label, "i-lucide-file-check-2", "primary"),
-                Metric("Customers", customerCount, $"{vendorCount} vendors", "i-lucide-users", "neutral")
+                Metric("Customer Due", customerDues.Sum(item => item.DueAmount), $"{customerDues.Sum(item => item.BillCount)} open bill(s)", "i-lucide-hand-coins", customerDues.Count > 0 ? "warning" : "success"),
+                Metric("Vendor Due", vendorDues.Sum(item => item.DueAmount), $"{vendorDues.Sum(item => item.BillCount)} open bill(s)", "i-lucide-receipt-text", vendorDues.Count > 0 ? "warning" : "success"),
+                Metric("Net Cash", cashPaymentSummary.NetCash, "Collections minus payments", "i-lucide-wallet", cashPaymentSummary.NetCash >= 0 ? "success" : "error")
             ],
             trend,
             storeRows,
@@ -312,7 +319,316 @@ public static class DashboardEndpoints
                 Breakdown("GST margin", grossMargin, grossMargin >= 0 ? "success" : "error", "i-lucide-chart-no-axes-combined", "Sales minus purchase"),
                 Breakdown("Off Book result", nonGstMargin, nonGstMargin >= 0 ? "primary" : "error", "i-lucide-file-warning", "Independent Non-GST sale minus purchase")
             ],
-            period.Dto);
+            period.Dto,
+            customerDues,
+            vendorDues,
+            cashPaymentSummary,
+            storeGroupComparison);
+    }
+
+
+    private static async Task<IReadOnlyList<PartyDueDashboardRowDto>> CustomerDueDashboardAsync(
+        IQueryable<Garmetix.Core.Models.Inventory.Invoice> sales,
+        IReadOnlyList<Guid> storeIds,
+        CancellationToken cancellationToken)
+    {
+        if (storeIds.Count > 0)
+        {
+            sales = sales.Where(item => storeIds.Contains(item.StoreId));
+        }
+
+        var rows = await sales
+            .Where(item => !item.Deleted && !item.ReturnInvoice && item.BillAmount > item.PaidAmount)
+            .Select(item => new
+            {
+                item.CustomerId,
+                PartyName = item.CustomerName ?? item.CustomerMobileNumber ?? "Walk-in customer",
+                Contact = item.CustomerMobileNumber ?? string.Empty,
+                item.InvoiceNumber,
+                item.BillAmount,
+                item.PaidAmount,
+                item.OnDate
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .GroupBy(item => new { item.CustomerId, item.PartyName, item.Contact })
+            .Select(group =>
+            {
+                var oldest = group.Min(item => item.OnDate);
+                return new PartyDueDashboardRowDto(
+                    "Customer",
+                    group.Key.CustomerId,
+                    group.Key.PartyName,
+                    group.Key.Contact,
+                    group.Count(),
+                    group.Sum(item => item.BillAmount),
+                    group.Sum(item => item.PaidAmount),
+                    group.Sum(item => Math.Max(0, item.BillAmount - item.PaidAmount)),
+                    oldest,
+                    DueAgeBucket(oldest));
+            })
+            .Where(item => item.DueAmount > 0)
+            .OrderByDescending(item => item.DueAmount)
+            .ThenBy(item => item.PartyName)
+            .Take(12)
+            .ToList();
+    }
+
+    private static async Task<IReadOnlyList<PartyDueDashboardRowDto>> VendorDueDashboardAsync(
+        IQueryable<Garmetix.Core.Models.Inventory.PurchaseInvoice> purchases,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var invoiceRows = await purchases
+            .Where(item => !item.Deleted && !item.ReturnInvoice && item.BillAmount > 0)
+            .Select(item => new
+            {
+                item.Id,
+                item.VendorId,
+                PartyName = item.VendorName ?? "Vendor",
+                Contact = item.VendorGSTIN ?? string.Empty,
+                item.InvoiceNumber,
+                item.BillAmount,
+                item.OnDate,
+                item.DueDate
+            })
+            .ToListAsync(cancellationToken);
+
+        if (invoiceRows.Count == 0)
+        {
+            return [];
+        }
+
+        var invoiceIds = invoiceRows.Select(item => item.Id).ToList();
+        var payments = await db.PurchasePayments.AsNoTracking()
+            .Where(item => invoiceIds.Contains(item.PurchaseInvoiceId) && !item.Deleted)
+            .GroupBy(item => item.PurchaseInvoiceId)
+            .Select(group => new { PurchaseInvoiceId = group.Key, PaidAmount = group.Sum(item => item.Amount) })
+            .ToDictionaryAsync(item => item.PurchaseInvoiceId, item => item.PaidAmount, cancellationToken);
+
+        return invoiceRows
+            .Select(item => new
+            {
+                item.VendorId,
+                item.PartyName,
+                item.Contact,
+                item.BillAmount,
+                PaidAmount = payments.TryGetValue(item.Id, out var paid) ? paid : 0m,
+                DueDate = item.DueDate == default ? item.OnDate : item.DueDate
+            })
+            .Where(item => item.BillAmount > item.PaidAmount)
+            .GroupBy(item => new { item.VendorId, item.PartyName, item.Contact })
+            .Select(group =>
+            {
+                var oldest = group.Min(item => item.DueDate);
+                return new PartyDueDashboardRowDto(
+                    "Vendor",
+                    group.Key.VendorId,
+                    group.Key.PartyName,
+                    group.Key.Contact,
+                    group.Count(),
+                    group.Sum(item => item.BillAmount),
+                    group.Sum(item => item.PaidAmount),
+                    group.Sum(item => Math.Max(0, item.BillAmount - item.PaidAmount)),
+                    oldest,
+                    DueAgeBucket(oldest));
+            })
+            .OrderByDescending(item => item.DueAmount)
+            .ThenBy(item => item.PartyName)
+            .Take(12)
+            .ToList();
+    }
+
+    private static async Task<CashPaymentSummaryDto> CashPaymentSummaryAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        DateTime periodStart,
+        DateTime periodEndExclusive,
+        CancellationToken cancellationToken)
+    {
+        var storeIds = await ResolveStoreIdsAsync(context, db, companyId, storeGroupId, storeId, cancellationToken);
+        var salesPayments = db.InvoicePayments.AsNoTracking()
+            .Where(item => !item.Deleted && item.OnDate >= periodStart && item.OnDate < periodEndExclusive);
+        var purchasePayments = db.PurchasePayments.AsNoTracking()
+            .Where(item => !item.Deleted && item.OnDate >= periodStart && item.OnDate < periodEndExclusive);
+        var vouchers = db.Vouchers.AsNoTracking()
+            .Where(item => !item.Deleted && item.OnDate >= periodStart && item.OnDate < periodEndExclusive);
+
+        if (companyId.HasValue)
+        {
+            salesPayments = salesPayments.Where(item => item.CompanyId == companyId.Value);
+            purchasePayments = purchasePayments.Where(item => item.CompanyId == companyId.Value);
+            vouchers = vouchers.Where(item => item.CompanyId == companyId.Value);
+        }
+
+        if (storeIds.Count > 0)
+        {
+            salesPayments = salesPayments.Where(item => storeIds.Contains(item.StoreId));
+            purchasePayments = purchasePayments.Where(item => storeIds.Contains(item.StoreId));
+            vouchers = vouchers.Where(item => storeIds.Contains(item.StoreId));
+        }
+
+        var salesRows = await salesPayments
+            .GroupBy(item => item.PaymentMode)
+            .Select(group => new { PaymentMode = group.Key, Amount = group.Sum(item => item.Amount), Count = group.Count() })
+            .ToListAsync(cancellationToken);
+        var purchaseRows = await purchasePayments
+            .GroupBy(item => item.PaymentMode)
+            .Select(group => new { PaymentMode = group.Key, Amount = group.Sum(item => item.Amount), Count = group.Count() })
+            .ToListAsync(cancellationToken);
+        var voucherRows = await vouchers
+            .GroupBy(item => new { item.PaymentMode, item.VoucherType })
+            .Select(group => new { group.Key.PaymentMode, group.Key.VoucherType, Amount = group.Sum(item => item.Amount), Count = group.Count() })
+            .ToListAsync(cancellationToken);
+
+        var modes = salesRows.Select(item => item.PaymentMode)
+            .Concat(purchaseRows.Select(item => item.PaymentMode))
+            .Concat(voucherRows.Select(item => item.PaymentMode))
+            .Distinct()
+            .OrderBy(item => item.ToString())
+            .ToList();
+
+        var paymentModes = modes.Select(mode =>
+        {
+            var salesAmount = salesRows.Where(item => item.PaymentMode == mode).Sum(item => item.Amount);
+            var purchaseAmount = purchaseRows.Where(item => item.PaymentMode == mode).Sum(item => item.Amount);
+            var voucherReceipt = voucherRows.Where(item => item.PaymentMode == mode && item.VoucherType == VoucherType.Receipt).Sum(item => item.Amount);
+            var voucherPayment = voucherRows.Where(item => item.PaymentMode == mode && item.VoucherType != VoucherType.Receipt).Sum(item => item.Amount);
+            var count = salesRows.Where(item => item.PaymentMode == mode).Sum(item => item.Count)
+                + purchaseRows.Where(item => item.PaymentMode == mode).Sum(item => item.Count)
+                + voucherRows.Where(item => item.PaymentMode == mode).Sum(item => item.Count);
+            return new PaymentModeSummaryDto(mode.ToString(), salesAmount, purchaseAmount, voucherReceipt, voucherPayment, salesAmount + voucherReceipt - purchaseAmount - voucherPayment, count);
+        }).ToList();
+
+        var cashIn = paymentModes.Where(item => string.Equals(item.PaymentMode, PaymentMode.Cash.ToString(), StringComparison.OrdinalIgnoreCase)).Sum(item => item.SalesCollection + item.VoucherReceipt);
+        var cashOut = paymentModes.Where(item => string.Equals(item.PaymentMode, PaymentMode.Cash.ToString(), StringComparison.OrdinalIgnoreCase)).Sum(item => item.PurchasePayment + item.VoucherPayment);
+        var bankIn = paymentModes.Where(item => !string.Equals(item.PaymentMode, PaymentMode.Cash.ToString(), StringComparison.OrdinalIgnoreCase)).Sum(item => item.SalesCollection + item.VoucherReceipt);
+        var bankOut = paymentModes.Where(item => !string.Equals(item.PaymentMode, PaymentMode.Cash.ToString(), StringComparison.OrdinalIgnoreCase)).Sum(item => item.PurchasePayment + item.VoucherPayment);
+
+        return new CashPaymentSummaryDto(cashIn, cashOut, bankIn, bankOut, cashIn + bankIn - cashOut - bankOut, paymentModes);
+    }
+
+    private static async Task<IReadOnlyList<StoreGroupComparisonViewDto>> StoreGroupComparisonDashboardAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        DateTime periodStart,
+        DateTime periodEndExclusive,
+        CancellationToken cancellationToken)
+    {
+        var groups = WorkspaceScope.ApplyTo(db.StoreGroups.AsNoTracking(), context);
+        if (companyId.HasValue)
+        {
+            groups = groups.Where(item => item.CompanyId == companyId.Value);
+        }
+        if (storeGroupId.HasValue)
+        {
+            groups = groups.Where(item => item.Id == storeGroupId.Value);
+        }
+
+        var groupRows = await groups.OrderBy(item => item.Name).Select(item => new { item.Id, item.Name }).ToListAsync(cancellationToken);
+        var result = new List<StoreGroupComparisonViewDto>();
+        foreach (var group in groupRows)
+        {
+            var storeQuery = WorkspaceScope.ApplyTo(db.Stores.AsNoTracking(), context).Where(item => item.StoreGroupId == group.Id);
+            if (storeId.HasValue)
+            {
+                storeQuery = storeQuery.Where(item => item.Id == storeId.Value);
+            }
+
+            var storeIds = await storeQuery.Select(item => item.Id).ToListAsync(cancellationToken);
+            if (storeIds.Count == 0)
+            {
+                result.Add(new StoreGroupComparisonViewDto(group.Id, group.Name, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+                continue;
+            }
+
+            var sales = await SumAsync(db.SalesInvoices.AsNoTracking()
+                .Where(item => !item.Deleted && !item.ReturnInvoice && storeIds.Contains(item.StoreId) && item.OnDate >= periodStart && item.OnDate < periodEndExclusive)
+                .Select(item => item.BillAmount), cancellationToken);
+            var purchase = await SumAsync(db.PurchaseInvoices.AsNoTracking()
+                .Where(item => !item.Deleted && !item.ReturnInvoice && item.StoreId.HasValue && storeIds.Contains(item.StoreId.Value) && item.OnDate >= periodStart && item.OnDate < periodEndExclusive)
+                .Select(item => item.BillAmount), cancellationToken);
+            var customerDue = await SumAsync(db.SalesInvoices.AsNoTracking()
+                .Where(item => !item.Deleted && !item.ReturnInvoice && storeIds.Contains(item.StoreId) && item.BillAmount > item.PaidAmount)
+                .Select(item => item.BillAmount - item.PaidAmount), cancellationToken);
+            var purchaseInvoices = await db.PurchaseInvoices.AsNoTracking()
+                .Where(item => !item.Deleted && !item.ReturnInvoice && item.StoreId.HasValue && storeIds.Contains(item.StoreId.Value))
+                .Select(item => new { item.Id, item.BillAmount })
+                .ToListAsync(cancellationToken);
+            var purchaseInvoiceIds = purchaseInvoices.Select(item => item.Id).ToList();
+            var purchasePaid = purchaseInvoiceIds.Count == 0
+                ? 0
+                : await SumAsync(db.PurchasePayments.AsNoTracking().Where(item => purchaseInvoiceIds.Contains(item.PurchaseInvoiceId) && !item.Deleted).Select(item => item.Amount), cancellationToken);
+            var vendorDue = Math.Max(0, purchaseInvoices.Sum(item => item.BillAmount) - purchasePaid);
+            var stockValue = await SumAsync(db.Stocks.AsNoTracking()
+                .Where(item => !item.Deleted && !item.IsOFB && storeIds.Contains(item.StoreId))
+                .Select(item => (item.PurchaseQty - item.SoldQty) * item.CostPrice), cancellationToken);
+            var cashIn = await SumAsync(db.InvoicePayments.AsNoTracking()
+                .Where(item => !item.Deleted && storeIds.Contains(item.StoreId) && item.OnDate >= periodStart && item.OnDate < periodEndExclusive)
+                .Select(item => item.Amount), cancellationToken)
+                + await SumAsync(db.Vouchers.AsNoTracking()
+                .Where(item => !item.Deleted && storeIds.Contains(item.StoreId) && item.VoucherType == VoucherType.Receipt && item.OnDate >= periodStart && item.OnDate < periodEndExclusive)
+                .Select(item => item.Amount), cancellationToken);
+            var cashOut = await SumAsync(db.PurchasePayments.AsNoTracking()
+                .Where(item => !item.Deleted && storeIds.Contains(item.StoreId) && item.OnDate >= periodStart && item.OnDate < periodEndExclusive)
+                .Select(item => item.Amount), cancellationToken)
+                + await SumAsync(db.Vouchers.AsNoTracking()
+                .Where(item => !item.Deleted && storeIds.Contains(item.StoreId) && item.VoucherType != VoucherType.Receipt && item.OnDate >= periodStart && item.OnDate < periodEndExclusive)
+                .Select(item => item.Amount), cancellationToken);
+
+            result.Add(new StoreGroupComparisonViewDto(group.Id, group.Name, storeIds.Count, sales, purchase, customerDue, vendorDue, cashIn, cashOut, cashIn - cashOut, stockValue));
+        }
+
+        return result.OrderByDescending(item => item.Sales).ThenBy(item => item.StoreGroupName).ToList();
+    }
+
+    private static async Task<IReadOnlyList<Guid>> ResolveStoreIdsAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        CancellationToken cancellationToken)
+    {
+        var stores = WorkspaceScope.ApplyTo(db.Stores.AsNoTracking(), context);
+        if (companyId.HasValue)
+        {
+            stores = stores.Where(item => item.CompanyId == companyId.Value);
+        }
+        if (storeGroupId.HasValue)
+        {
+            stores = stores.Where(item => item.StoreGroupId == storeGroupId.Value);
+        }
+        if (storeId.HasValue)
+        {
+            stores = stores.Where(item => item.Id == storeId.Value);
+        }
+
+        return await stores.Select(item => item.Id).Distinct().ToListAsync(cancellationToken);
+    }
+
+    private static string DueAgeBucket(DateTime? oldestDate)
+    {
+        if (!oldestDate.HasValue)
+        {
+            return "No date";
+        }
+
+        var days = Math.Max(0, (DateTime.Today - oldestDate.Value.Date).Days);
+        return days switch
+        {
+            <= 30 => "0-30 days",
+            <= 60 => "31-60 days",
+            <= 90 => "61-90 days",
+            _ => "90+ days"
+        };
     }
 
     private static IQueryable<Garmetix.Core.Models.Inventory.Invoice> FilterSales(

@@ -2,14 +2,14 @@
 
 Target server used by these scripts:
 
-- Server LAN IP: `192.168.11.125`
+- Server LAN IP: `192.168.11.126`
 - SSH user: `amit`
 - Public hostname: `garmetix.aadwikafashion.in`
 - Remote install folder: `/opt/garmetix`
 
 ## Why Cloudflare Tunnel
 
-`192.168.11.125` is a private LAN address. Public DNS cannot send Internet users directly to that IP. This package uses Cloudflare Tunnel so the Mac mini makes an outbound connection to Cloudflare and the site is published at `https://garmetix.aadwikafashion.in` without router port forwarding.
+`192.168.11.126` is a private LAN address. Public DNS cannot send Internet users directly to that IP. This package uses Cloudflare Tunnel so the Mac mini makes an outbound connection to Cloudflare and the site is published at `https://garmetix.aadwikafashion.in` without router port forwarding.
 
 ## One-time requirements
 
@@ -27,7 +27,7 @@ From the project root:
 ```bash
 cp deploy/macmini.env.example deploy/macmini.env
 nano deploy/macmini.env
-chmod +x deploy/*.sh
+chmod +x deploy/*.sh 2>/dev/null || true
 ./deploy/deploy-to-macmini.sh
 ```
 
@@ -42,7 +42,7 @@ CLOUDFLARE_ZONE_ID=your_zone_id_here
 
 The script will:
 
-1. SSH to `amit@192.168.11.125`.
+1. SSH to `amit@192.168.11.126`.
 2. Install Docker if missing.
 3. Start Docker if stopped.
 4. Create/update `.env.production` with strong generated database/JWT secrets.
@@ -111,3 +111,30 @@ sudo docker compose --env-file .env.production -f docker-compose.prod.yml -f dep
 - Do not commit or share `deploy/macmini.env` or `.env.production`.
 - Prefer SSH key login over password automation for production.
 - Cloudflare Tunnel does not require exposing PostgreSQL, API, or web ports to the public Internet.
+
+### Fix existing `.env.production` shell parsing error
+
+If you see `.env.production: line XX: GSTIN: command not found`, run:
+
+```bash
+cd /opt/garmetix/current
+./deploy/repair-production-env.sh
+./deploy/run-production.sh
+```
+
+The old env line `GSTIN_LOOKUP_SOURCE_NAME=Configured GSTIN Provider` must be quoted because Bash treats the middle word as a command when the file is sourced.
+
+## Prepared Cloudflare config in this ZIP
+
+This ZIP includes `deploy/macmini.env` prepared for:
+
+- Server: `amit@192.168.11.126`
+- Domain: `garmetix.aadwikafashion.in`
+- Zone ID: `0999019e81006bb9cdfa22e702f42374`
+- Tunnel name: `garmetix-macmini`
+
+The supplied Cloudflare Account ID contained placeholder text, so the script leaves it blank and tries to auto-detect it from the API token. If auto-detect fails, paste the real Account ID into `deploy/macmini.env`.
+
+## Clean fresh install baseline
+
+This package uses a clean EF Core schema baseline. Read `deploy/README-CLEAN-FRESH-INSTALL.md` before redeploying to a server that may contain real data.

@@ -76,6 +76,49 @@ public sealed record DashboardPeriodDto(
     int Days,
     string Preset);
 
+
+public sealed record PartyDueDashboardRowDto(
+    string PartyType,
+    Guid PartyId,
+    string PartyName,
+    string Contact,
+    int BillCount,
+    decimal BillAmount,
+    decimal PaidAmount,
+    decimal DueAmount,
+    DateTime? OldestBillDate,
+    string AgeBucket);
+
+public sealed record PaymentModeSummaryDto(
+    string PaymentMode,
+    decimal SalesCollection,
+    decimal PurchasePayment,
+    decimal VoucherReceipt,
+    decimal VoucherPayment,
+    decimal NetAmount,
+    int TransactionCount);
+
+public sealed record CashPaymentSummaryDto(
+    decimal CashIn,
+    decimal CashOut,
+    decimal BankIn,
+    decimal BankOut,
+    decimal NetCash,
+    IReadOnlyList<PaymentModeSummaryDto> PaymentModes);
+
+public sealed record StoreGroupComparisonViewDto(
+    Guid StoreGroupId,
+    string StoreGroupName,
+    int StoreCount,
+    decimal Sales,
+    decimal Purchase,
+    decimal CustomerDue,
+    decimal VendorDue,
+    decimal CashIn,
+    decimal CashOut,
+    decimal NetCash,
+    decimal StockValue);
+
 public sealed record DashboardHomeDto(
     string Route,
     string DashboardType,
@@ -120,4 +163,8 @@ public sealed record BusinessDashboardDto(
     IReadOnlyList<DashboardBreakdownDto> RevenueBreakdown,
     IReadOnlyList<DashboardBreakdownDto> StockBreakdown,
     IReadOnlyList<DashboardBreakdownDto> ProfitBreakdown,
-    DashboardPeriodDto Period);
+    DashboardPeriodDto Period,
+    IReadOnlyList<PartyDueDashboardRowDto> CustomerDues,
+    IReadOnlyList<PartyDueDashboardRowDto> VendorDues,
+    CashPaymentSummaryDto CashPaymentSummary,
+    IReadOnlyList<StoreGroupComparisonViewDto> StoreGroupComparison);

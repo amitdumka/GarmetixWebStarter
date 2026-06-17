@@ -1,4 +1,7 @@
 .env
+.env.production
+.env.production
+.env.example
 backups/*.sql
 backups/*.dump
 frontend/garmetix-web/node_modules/
@@ -7,3 +10,5 @@ frontend/garmetix-web/.output/
 backend/**/bin/
 backend/**/obj/
 test-artifacts/
+deploy/macmini.env
+

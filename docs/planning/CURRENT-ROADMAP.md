@@ -1,13 +1,64 @@
 # Garmetix Current Roadmap
 
-Updated: 2026-06-16
+Updated: 2026-06-17
+
+
+## Stage 8E Package 7 Tailoring and Alteration Workflow / v4.4.4
+
+- [x] Added tailoring/stitching orders with SOP: order -> delivery -> service invoice -> payment.
+- [x] Added readymade garment alteration workflow linked to tailoring vendors and original product/invoice context.
+- [x] Added reusable tailoring service items for stitching and alteration services.
+- [x] Added customer receipt, vendor payment, delivery schedule, pending/completed status and order history tracking.
+- [x] Added in-house alteration expense/profit impact tracking so product margin is reduced when alteration cost is absorbed by the store.
+- Version: 4.4.4
+- Release: Tailoring and Alteration Workflow
+- Build code: `GARMETIX-8E-20260617-4440`
+
+## Stage 8E Package 6 Due and Payment Dashboards / v4.4.3
+
+- Added business-dashboard customer due rows with bill count, billed amount, paid amount, due amount and age bucket.
+- Added vendor due rows calculated from purchase invoices less recorded purchase payments.
+- Added cash and payment summary across sales collections, purchase payments and accounting vouchers by payment mode.
+- Added store-group comparison view combining sales, purchase, customer due, vendor due, cash in/out, net cash and stock value.
+- Export actions now include customer dues, vendor dues, payment-mode summary and store-group cash/due comparison.
+
+## Stage 8E Package 5 Ledger Synchronization Hardening / v4.4.2
+
+- Added ledger synchronization health check and repair endpoints for party and bank-account ledger links.
+- Party ledgers are now protected against missing ledgers, wrong-company links, non-party ledgers, wrong ledger types, and shared ledger links.
+- Bank-account ledgers are now protected against missing ledgers, wrong-company links, wrong ledger types, shared ledger links, and ledger-name drift.
+- Added Accounting → Ledger Sync tab with issue counts, severity, fix action, and one-click repair.
+- Hardened party and bank-account save flows so new/edited masters relink only to safe, reusable ledgers or create a dedicated ledger.
+
+## Stage 8E Package 4 Financial Year Locking and Journal Validation / v4.4.1
+
+- Added Financial Year Locks API and workspace to close company/store periods safely.
+- Locked periods now block back-dated sales, purchase, inventory, GST and accounting changes at DbContext save time.
+- Added journal validation endpoint and UI summary for unbalanced entries, missing lines, negative amounts and mixed debit/credit lines.
+- Added journal-line save validation so new postings cannot persist invalid debit/credit line shapes.
+- Changed Mac mini deployment defaults so `RESET_DATABASE_ON_DEPLOY=false` is the safe default in `deploy/macmini.env`.
+
+## Stage 8E Package 3 Bank Reconciliation and Cheque Lifecycle / v4.4.0
+
+- Added bank reconciliation summary endpoint with open/reconciled debit-credit totals and statement-line reconciliation metadata.
+- Added statement-line reconcile and reopen actions with operator, timestamp, reference, remarks, and linked transaction preservation.
+- Added cheque lifecycle actions for Issued, Deposited, Cleared, Bounced, and Cancelled states with action timestamps and lifecycle remarks.
+- Added Accounting UI Bank Reconciliation tab, open-line metric, reconcile/reopen actions, and quick cheque clear/bounce actions.
+- Kept clean fresh-install schema baseline and WSL Mac mini Cloudflare deployment defaults.
+
+## Stage 8E Package 2 Clean Initial Migration / v4.3.9
+
+- Removed historical EF Core incremental migrations from the deploy package.
+- Added a single baseline migration marker: `20260617000000_InitialFreshSchema`.
+- Docker production defaults to `Database:SchemaBootstrapMode=FreshBaseline`, creating the schema from the current `GarmetixDbContext` model.
+- Added one-time PostgreSQL volume reset support for clean/fresh server installs.
 
 ## Current Baseline
 
-- Version: 4.3.8
-- Stage: Stage 8E Package 2 Hotfix 1
-- Release: Sales Return Salesman FK Hotfix
-- Build code: `GARMETIX-8E-20260616-4380`
+- Previous version: 4.4.3
+- Stage: Stage 8E Package 6
+- Release: Due and Payment Dashboards
+- Build code: `GARMETIX-8E-20260617-4430`
 - Branch: `Version3.0`
 - Pre-Stage 8 baseline commit: `470ba2e`
 
@@ -21,7 +72,19 @@ Stage 7M menu names, route compatibility, permission-aware navigation, Off Book 
 - [x] Shared frontend GET cache and in-flight request de-duplication to reduce repeated page-load work.
 
 
-## Stage 8E Package 2 Hotfix 1 / v4.3.8 - Sales Return FK Stability
+
+## Stage 8E Package 2 Deployment Runtime Hotfix / v4.3.9
+
+- [x] Hardened `20260614094500_SeparateNonGstGoodsFromBooks` for databases where `NonGstGoodsDocuments` is absent during migration replay.
+- [x] Prevented migration crash `42P01: relation "NonGstGoodsDocuments" does not exist` during Docker API startup.
+- [x] Added Nuxt Icon local server bundle for `lucide` icons to reduce runtime dependency on `api.iconify.design`.
+
+## Stage 8E Package 2 Compile Hotfix / v4.3.9 deploy package
+
+- [x] Fix backend publish failure in `AccountingPostingService.UpsertManualChequeLogAsync` caused by an out-of-scope `paymentReference` variable.
+- [x] Preserve invoice cheque payment reference handling in `UpsertInvoiceChequeLogAsync` while using the bank transaction reference for manual cheque logs.
+
+## Stage 8E Package 2 Hotfix 1 / v4.3.9 - Sales Return FK Stability
 
 - [x] Fix sales return save failure caused by blank `SalesInvoices.SalemanId` on generated return invoices.
 - [x] Copy the original invoice salesman to return and exchange invoices, with active store fallback when old data has a missing/stale reference.
@@ -111,13 +174,13 @@ Stage 7M menu names, route compatibility, permission-aware navigation, Off Book 
 - [x] Add Owner/Admin-only Off Book Cash Voucher conversion for eligible cash accounting vouchers in v4.3.6.
 - [x] Preserve immutable conversion reason, direction, operator, timestamp, amount, and source/destination document snapshots in v4.3.6.
 - [x] Remove regular accounting postings when moving a cash voucher Off Book and retain the source as an audit-only record in v4.3.6.
-- [x] Post separate ledger lines for each split payment row in v4.3.8.
-- [x] Persist structured payment detail snapshots for card, UPI, bank, cheque, account, reference, gateway, settlement and adjustment rows in v4.3.8.
-- [x] Prevent duplicate application of advances, credit notes, loyalty value, and store credit in v4.3.8.
-- [ ] Complete bank reconciliation and cheque issue/deposit/clear/bounce lifecycle auditing.
-- [ ] Add financial-year locking and stronger journal-balancing checks.
-- [ ] Harden automatic Party and Bank Account ledger synchronization.
-- [ ] Add customer/vendor due dashboards, cash/payment summaries, and store-group comparison views.
+- [x] Post separate ledger lines for each split payment row in v4.3.9.
+- [x] Persist structured payment detail snapshots for card, UPI, bank, cheque, account, reference, gateway, settlement and adjustment rows in v4.3.9.
+- [x] Prevent duplicate application of advances, credit notes, loyalty value, and store credit in v4.3.9.
+- [x] Complete bank reconciliation and cheque issue/deposit/clear/bounce lifecycle auditing in v4.4.0.
+- [x] Add financial-year locking and stronger journal-balancing checks in v4.4.1.
+- [x] Harden automatic Party and Bank Account ledger synchronization in v4.4.2.
+- [x] Add customer/vendor due dashboards, cash/payment summaries, and store-group comparison views in v4.4.3.
 
 ## Stage 8F - Audit and Automated Tests
 

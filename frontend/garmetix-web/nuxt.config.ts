@@ -46,6 +46,11 @@ export default defineNuxtConfig({
       { name: 'Inter', provider: 'none' }
     ]
   },
+  icon: {
+    serverBundle: {
+      collections: ['lucide']
+    }
+  },
   ui: {
     theme: {
       colors: ['primary', 'success', 'warning', 'error', 'neutral']

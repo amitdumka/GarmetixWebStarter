@@ -14,8 +14,12 @@ checks = [
     root / "scripts/validation/stage8a-package8-static-checks.py",
     root / "scripts/validation/stage8a-package9-static-checks.py",
     root / "scripts/validation/stage8a-package10-static-checks.py",
-    root / "scripts/validation/stage8e-package2-static-checks.py",
-    root / "scripts/validation/stage8e-package2-hotfix1-static-checks.py",
+    root / "scripts/validation/stage8e-package2-clean-initial-migration-static-checks.py",
+    root / "scripts/validation/stage8e-package3-static-checks.py",
+    root / "scripts/validation/stage8e-package4-static-checks.py",
+    root / "scripts/validation/stage8e-package5-static-checks.py",
+    root / "scripts/validation/stage8e-package6-static-checks.py",
+    root / "scripts/validation/stage8e-package7-static-checks.py",
 ]
 
 for check in checks:

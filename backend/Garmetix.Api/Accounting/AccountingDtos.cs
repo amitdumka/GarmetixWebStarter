@@ -117,7 +117,36 @@ public sealed record BankStatementRow(
     decimal Debit,
     decimal Credit,
     decimal Balance,
-    bool Reconciled);
+    bool Reconciled,
+    DateTime? ReconciledAt,
+    string? ReconciledBy,
+    string? ReconciliationReference,
+    string? ReconciliationRemarks,
+    Guid? BankTransactionId);
+
+public sealed record BankReconciliationSummary(
+    Guid BankAccountId,
+    string BankAccountName,
+    decimal StatementBalance,
+    decimal OpenDebit,
+    decimal OpenCredit,
+    decimal ReconciledDebit,
+    decimal ReconciledCredit,
+    int OpenLineCount,
+    int ReconciledLineCount,
+    IReadOnlyList<BankStatementRow> Lines);
+
+public sealed record BankStatementReconcileRequest(
+    Guid? BankTransactionId,
+    DateTime? ReconciledAt,
+    string? ReconciliationReference,
+    string? Remarks);
+
+public sealed record ChequeLifecycleRequest(
+    string Status,
+    DateTime? ActionDate,
+    string? Remarks,
+    Guid? BankTransactionId);
 
 public sealed record GstAccountingBridgeSummary(
     Guid CompanyId,
@@ -164,3 +193,82 @@ public sealed record GstAccountingPostResult(
     decimal CreditCarryForward,
     decimal InterestLateFee,
     string Message);
+
+public sealed record LedgerSyncIssue(
+    string Area,
+    Guid EntityId,
+    string EntityName,
+    Guid? LedgerId,
+    string Severity,
+    string Message,
+    string FixAction);
+
+public sealed record LedgerSyncSummary(
+    Guid? CompanyId,
+    int PartyCount,
+    int BankAccountCount,
+    int IssueCount,
+    int RepairedCount,
+    IReadOnlyList<LedgerSyncIssue> Issues);
+
+public sealed record FinancialYearLockSaveRequest(
+    Guid? Id,
+    Guid CompanyId,
+    Guid? StoreGroupId,
+    Guid? StoreId,
+    string FinancialYear,
+    DateTime PeriodStart,
+    DateTime PeriodEnd,
+    bool LockAccounting,
+    bool LockSales,
+    bool LockPurchase,
+    bool LockInventory,
+    bool LockGst,
+    string? Reason);
+
+public sealed record FinancialYearUnlockRequest(string? Reason);
+
+public sealed record FinancialYearLockRow(
+    Guid Id,
+    Guid CompanyId,
+    Guid? StoreGroupId,
+    Guid? StoreId,
+    string FinancialYear,
+    DateTime PeriodStart,
+    DateTime PeriodEnd,
+    bool Active,
+    bool LockAccounting,
+    bool LockSales,
+    bool LockPurchase,
+    bool LockInventory,
+    bool LockGst,
+    DateTime? LockedAt,
+    string? LockedBy,
+    string? LockReason,
+    DateTime? UnlockedAt,
+    string? UnlockedBy,
+    string? UnlockReason);
+
+public sealed record JournalValidationIssue(
+    Guid JournalEntryId,
+    string EntryNumber,
+    DateTime OnDate,
+    string SourceType,
+    string? ReferenceNumber,
+    decimal Debit,
+    decimal Credit,
+    decimal Difference,
+    string Severity,
+    string Message);
+
+public sealed record JournalValidationSummary(
+    Guid? CompanyId,
+    DateTime? From,
+    DateTime? To,
+    int CheckedEntries,
+    int IssueCount,
+    decimal TotalDebit,
+    decimal TotalCredit,
+    decimal Difference,
+    IReadOnlyList<JournalValidationIssue> Issues);
+

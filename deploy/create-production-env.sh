@@ -14,16 +14,9 @@ random_secret() {
   fi
 }
 
-set_env_var() {
-  local file="$1" key="$2" value="$3"
-  local escaped
-  escaped="$(printf '%s' "$value" | sed 's/[&/\\]/\\&/g')"
-  if grep -qE "^${key}=" "$file" 2>/dev/null; then
-    sed -i "s/^${key}=.*/${key}=${escaped}/" "$file"
-  else
-    printf '%s=%s\n' "$key" "$value" >>"$file"
-  fi
-}
+# shellcheck source=deploy/lib/env-file.sh
+source "${ROOT_DIR}/deploy/lib/env-file.sh"
+
 
 if [[ ! -f "$ENV_FILE" ]]; then
   cat >"$ENV_FILE" <<EOF2
@@ -47,6 +40,8 @@ PASSWORD_RESET_FRONTEND_BASE_URL=${PUBLIC_HTTPS_URL}
 CORS_ALLOWED_ORIGINS=${PUBLIC_HTTPS_URL}
 ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
 DATABASE_AUTO_MIGRATE=true
+DATABASE_SCHEMA_BOOTSTRAP_MODE=FreshBaseline
+RESET_DATABASE_ON_DEPLOY=false
 
 EMAIL_ENABLED=false
 EMAIL_HOST=
@@ -81,7 +76,7 @@ GSTIN_LOOKUP_BASE_URL=
 GSTIN_LOOKUP_URL_TEMPLATE=
 GSTIN_LOOKUP_API_KEY=
 GSTIN_LOOKUP_API_KEY_HEADER=x-api-key
-GSTIN_LOOKUP_SOURCE_NAME=Configured GSTIN Provider
+GSTIN_LOOKUP_SOURCE_NAME="Configured GSTIN Provider"
 
 ORACLE_SYNC_ENABLED=false
 ORACLE_SYNC_RUN_ON_STARTUP=false
@@ -116,7 +111,7 @@ API_BASE_URL=${PUBLIC_HTTPS_URL}/api
 GARMETIX_SMOKE_USER=
 GARMETIX_SMOKE_PASSWORD=
 EOF2
-  chmod 600 "$ENV_FILE"
+  chmod_private_if_possible "$ENV_FILE"
 fi
 
 set_env_var "$ENV_FILE" PUBLIC_DOMAIN "$DOMAIN"

@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.3.8";
-    public const string Stage = "Stage 8E Package 2 Hotfix 1";
-    public const string ReleaseName = "Sales Return Salesman FK Hotfix";
-    public const string BuildDate = "2026-06-16";
-    public const string BuildCode = "GARMETIX-8E-20260616-4380";
+    public const string Version = "4.4.4";
+    public const string Stage = "Stage 8E Package 7 Tailoring and Alteration Workflow";
+    public const string ReleaseName = "Tailoring and Alteration Workflow";
+    public const string BuildDate = "2026-06-17";
+    public const string BuildCode = "GARMETIX-8E-20260617-4440";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,13 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Tailoring and alteration orders now follow order-delivery-invoice-payment SOP with delivery schedule, pending, delivered, invoiced, paid and completed status tracking.",
+        "Readymade garment alteration can be assigned to tailoring vendors with customer-chargeable, in-house expense, or complimentary cost responsibility.",
+        "Tailoring service items are reusable in orders and service invoice conversion, with default customer rate, vendor rate, HSN/SAC and active status.",
+        "Customer receipts and vendor payments are linked back to the tailoring order so order history, balances and profit impact remain visible.",
+        "Bank reconciliation now tracks open and reconciled statement lines with operator, date, reference, and remarks.",
+        "Cheque logs now support an auditable lifecycle from issued/deposited through cleared, bounced, or cancelled with action timestamps.",
+        "Fresh production installs continue to create one clean schema baseline from the current DbContext model instead of replaying historical branch migrations.",
         "Sales split payments now post separate settlement ledger and customer-credit rows for every collected payment line.",
         "Cash, bank, cheque, card, UPI, credit note, advance, store-credit and loyalty rows are routed to their own settlement ledgers instead of one mixed-payment ledger.",
         "Invoice payment rows now retain a structured payment-details JSON snapshot with mode, account, reference, gateway, cheque, card, UPI, and adjustment metadata.",

@@ -21,6 +21,9 @@ public sealed class DocumentNumberService(GarmetixDbContext db)
     public Task<string> NextSalesExchangeAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
         => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "SalesExchange", "EX", DateTime.Today, cancellationToken);
 
+    public Task<string> NextTailoringOrderAsync(Guid companyId, Guid storeGroupId, Guid storeId, TailoringOrderType orderType, DateTime onDate, CancellationToken cancellationToken)
+        => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "TailoringOrder", orderType == TailoringOrderType.Alteration ? "ALT" : "TLR", onDate, cancellationToken);
+
     public Task<string> NextPurchaseInvoiceAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
         => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "PurchaseInvoice", "P", DateTime.Today, cancellationToken);
 

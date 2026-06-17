@@ -14,6 +14,10 @@ RUN npm run build
 FROM node:22-alpine
 WORKDIR /app
 ENV NODE_OPTIONS=--max-old-space-size=1024
+# Nuxt UI's local icon server bundle dynamically imports the Iconify collection at runtime.
+# Install it in the production image so login/dashboard icon requests do not call api.iconify.design
+# and do not fail with ERR_MODULE_NOT_FOUND.
+RUN npm install --no-save @iconify-json/lucide
 COPY --from=build /app/.output ./.output
 ENV HOST=0.0.0.0
 ENV PORT=3000

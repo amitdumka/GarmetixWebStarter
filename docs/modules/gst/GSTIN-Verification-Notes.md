@@ -44,7 +44,7 @@ GSTIN_LOOKUP_BASE_URL=https://provider.example.com/gstin
 GSTIN_LOOKUP_URL_TEMPLATE=
 GSTIN_LOOKUP_API_KEY=your-provider-api-key
 GSTIN_LOOKUP_API_KEY_HEADER=x-api-key
-GSTIN_LOOKUP_SOURCE_NAME=Your Provider Name
+GSTIN_LOOKUP_SOURCE_NAME="Your Provider Name"
 ```
 
 `GSTIN_LOOKUP_URL_TEMPLATE` is optional. Use it when your provider needs a custom URL shape, for example:

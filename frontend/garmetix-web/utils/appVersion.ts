@@ -1,10 +1,25 @@
-export const APP_VERSION = '4.3.8'
-export const APP_STAGE = 'Stage 8E Package 2 Hotfix 1'
-export const APP_RELEASE_NAME = 'Sales Return Salesman FK Hotfix'
-export const APP_BUILD_DATE = '2026-06-16'
-export const APP_BUILD_CODE = 'GARMETIX-8E-20260616-4380'
+export const APP_VERSION = '4.4.4'
+export const APP_STAGE = 'Stage 8E Package 7 Tailoring and Alteration Workflow'
+export const APP_RELEASE_NAME = 'Tailoring and Alteration Workflow'
+export const APP_BUILD_DATE = '2026-06-17'
+export const APP_BUILD_CODE = 'GARMETIX-8E-20260617-4440'
 
 export const APP_HIGHLIGHTS = [
+  'Tailoring and alteration orders now follow order-delivery-invoice-payment SOP with delivery schedule, pending, delivered, invoiced, paid and completed status tracking.',
+  'Readymade garment alteration can be assigned to tailoring vendors with customer-chargeable, in-house expense, or complimentary cost responsibility.',
+  'Tailoring service items are reusable in orders and service invoice conversion, with default customer rate, vendor rate, HSN/SAC and active status.',
+  'Customer receipts and vendor payments are linked back to the tailoring order so order history, balances and profit impact remain visible.',
+  'Business dashboard now shows customer dues, vendor dues, cash/payment summaries and store-group comparison views.',
+  'Payment-mode summary separates sales collections, purchase payments, voucher receipts and voucher payments for the selected period.',
+  'Store-group comparison now combines sales, purchase, due balances, cash in/out and stock value in one executive view.',
+  'Party and bank-account ledger synchronization now has a health check and one-click repair workflow in Accounting.',
+  'Party ledger links are protected from missing ledgers, wrong company links, shared party ledgers, non-party ledgers and wrong ledger types.',
+  'Bank account ledgers are validated for missing links, wrong company/type links, shared bank ledgers and name drift before posting.',
+  'Financial Year Locks now protect closed periods from back-dated sales, purchase, inventory, GST and accounting edits.',
+  'Journal validation checks expose unbalanced entries, missing lines, negative amounts and debit/credit misuse before period close.',
+  'The Mac mini deployment config now keeps RESET_DATABASE_ON_DEPLOY=false by default to prevent accidental PostgreSQL volume deletion.',
+  'Fresh production installs now create one clean schema baseline from the current DbContext model instead of replaying historical branch migrations.',
+  'Deployment supports a one-time PostgreSQL volume reset for failed test installs or new-server clean starts.',
   'Sales return invoices now carry a valid salesman reference from the original bill or active store fallback, preventing FK save failures.',
   'Sales exchange replacement invoices and billing imports now also avoid blank salesman foreign keys.',
   'Sales split payments now post separate settlement ledger and customer-credit rows for every collected payment line.',

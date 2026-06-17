@@ -2,7 +2,7 @@
 import { h, resolveComponent } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 
-type AccountingTab = 'trial' | 'ledgerBook' | 'ledgers' | 'parties' | 'bankAccounts' | 'transactions' | 'cheques' | 'vendorBanks' | 'accountDetails'
+type AccountingTab = 'trial' | 'ledgerBook' | 'ledgers' | 'parties' | 'bankAccounts' | 'transactions' | 'reconciliation' | 'ledgerSync' | 'cheques' | 'vendorBanks' | 'accountDetails'
 
 const api = useGarmetixApi()
 const auth = useAuth()
@@ -31,6 +31,9 @@ const vendors = ref<any[]>([])
 const trialBalance = ref<any[]>([])
 const ledgerStatement = ref<any[]>([])
 const bankStatement = ref<any[]>([])
+const bankReconciliation = ref<any | null>(null)
+const ledgerSyncSummary = ref<any | null>(null)
+const reconciling = ref(false)
 const selectedLedgerId = ref('')
 const selectedBankAccountId = ref('')
 const activeTab = ref<AccountingTab>('trial')
@@ -108,6 +111,8 @@ const tabs = [
   { key: 'parties' as const, label: 'Parties', icon: 'i-lucide-users' },
   { key: 'bankAccounts' as const, label: 'Bank Accounts', icon: 'i-lucide-landmark' },
   { key: 'transactions' as const, label: 'Bank Transactions', icon: 'i-lucide-arrow-left-right' },
+  { key: 'reconciliation' as const, label: 'Bank Reconciliation', icon: 'i-lucide-list-checks' },
+  { key: 'ledgerSync' as const, label: 'Ledger Sync', icon: 'i-lucide-link' },
   { key: 'cheques' as const, label: 'Cheque Log', icon: 'i-lucide-scroll-text' },
   { key: 'vendorBanks' as const, label: 'Vendor Banks', icon: 'i-lucide-wallet-cards' },
   { key: 'accountDetails' as const, label: 'Account Details', icon: 'i-lucide-key-round' }
@@ -123,7 +128,7 @@ const accountDetailForm = reactive<any>(emptyAccountDetail())
 
 const companyId = computed(() => workspace.companyId.value || setupStatus.value?.companyId || companies.value[0]?.id || '')
 const currentTab = computed(() => tabs.find((tab) => tab.key === activeTab.value) || tabs[0])
-const canCreate = computed(() => !['trial', 'ledgerBook'].includes(activeTab.value))
+const canCreate = computed(() => !['trial', 'ledgerBook', 'reconciliation', 'ledgerSync'].includes(activeTab.value))
 const formTitle = computed(() => `${editMode.value === 'edit' ? 'Edit' : 'New'} ${singularLabel(activeTab.value)}`)
 
 const ledgerGroupOptions = computed(() => ledgerGroups.value.map((item) => ({ value: item.id, label: item.name || 'Ledger Group' })))
@@ -149,7 +154,9 @@ const metrics = computed(() => [
   { label: 'Ledgers', value: ledgers.value.length, meta: 'Chart of accounts', icon: 'i-lucide-book-open', color: 'primary' },
   { label: 'Parties', value: parties.value.length, meta: 'Customer, vendor, employee', icon: 'i-lucide-users', color: 'success' },
   { label: 'Bank Balance', value: money(bankAccounts.value.reduce((sum, item) => sum + Number(item.closingBalance || item.openingBalance || 0), 0)), meta: 'All active accounts', icon: 'i-lucide-landmark', color: 'warning' },
-  { label: 'Cheques', value: chequeLogs.value.length, meta: 'Issued and deposited', icon: 'i-lucide-scroll-text', color: 'neutral' }
+  { label: 'Cheques', value: chequeLogs.value.length, meta: 'Issued and deposited', icon: 'i-lucide-scroll-text', color: 'neutral' },
+  { label: 'Open Bank Lines', value: bankReconciliation.value?.openLineCount || 0, meta: 'Pending reconciliation', icon: 'i-lucide-list-checks', color: 'error' },
+  { label: 'Ledger Sync Issues', value: ledgerSyncSummary.value?.issueCount || 0, meta: 'Party/bank ledger links', icon: 'i-lucide-link', color: ledgerSyncSummary.value?.issueCount ? 'error' : 'success' }
 ])
 
 const rows = computed(() => {
@@ -227,6 +234,33 @@ const rows = computed(() => {
       reference: item.reference || '-',
       person: item.personName || '-',
       amount: money(item.amount),
+      raw: item
+    }))
+  }
+
+  if (activeTab.value === 'reconciliation') {
+    return (bankReconciliation.value?.lines || bankStatement.value).map((item: any) => ({
+      id: item.id,
+      date: formatDate(item.onDate),
+      description: item.description || '-',
+      reference: item.reference || '-',
+      debit: money(item.debit),
+      credit: money(item.credit),
+      balance: money(item.balance),
+      status: item.reconciled ? 'Reconciled' : 'Open',
+      reconciledAt: item.reconciledAt ? formatDate(item.reconciledAt) : '-',
+      raw: item
+    }))
+  }
+
+  if (activeTab.value === 'ledgerSync') {
+    return (ledgerSyncSummary.value?.issues || []).map((item: any) => ({
+      id: item.entityId || `${item.area}-${item.entityName}`,
+      area: item.area || '-',
+      entity: item.entityName || '-',
+      severity: item.severity || '-',
+      message: item.message || '-',
+      action: item.fixAction || '-',
       raw: item
     }))
   }
@@ -348,6 +382,30 @@ const columns = computed<TableColumn<any>[]>(() => {
     ]
   }
 
+  if (activeTab.value === 'reconciliation') {
+    return [
+      { accessorKey: 'date', header: 'Date' },
+      { accessorKey: 'description', header: 'Description' },
+      { accessorKey: 'reference', header: 'Reference' },
+      { accessorKey: 'debit', header: 'Debit' },
+      { accessorKey: 'credit', header: 'Credit' },
+      { accessorKey: 'balance', header: 'Balance' },
+      { accessorKey: 'status', header: 'Status' },
+      { accessorKey: 'reconciledAt', header: 'Reconciled On' },
+      reconciliationActionColumn()
+    ]
+  }
+
+  if (activeTab.value === 'ledgerSync') {
+    return [
+      { accessorKey: 'area', header: 'Area' },
+      { accessorKey: 'entity', header: 'Party / Bank Account' },
+      { accessorKey: 'severity', header: 'Severity' },
+      { accessorKey: 'message', header: 'Issue' },
+      { accessorKey: 'action', header: 'Fix Action' }
+    ]
+  }
+
   if (activeTab.value === 'cheques') {
     return [
       { accessorKey: 'date', header: 'Date' },
@@ -390,18 +448,22 @@ const statementRows = computed(() => bankStatement.value.map((item) => ({
   debit: money(item.debit),
   credit: money(item.credit),
   balance: money(item.balance),
-  status: item.reconciled ? 'Reconciled' : 'Open'
+  status: item.reconciled ? 'Reconciled' : 'Open',
+  reconciledAt: item.reconciledAt ? formatDate(item.reconciledAt) : '-',
+  raw: item
 })))
 
-const statementColumns: TableColumn<any>[] = [
+const statementColumns = computed<TableColumn<any>[]>(() => [
   { accessorKey: 'date', header: 'Date' },
   { accessorKey: 'description', header: 'Description' },
   { accessorKey: 'reference', header: 'Reference' },
   { accessorKey: 'debit', header: 'Debit' },
   { accessorKey: 'credit', header: 'Credit' },
   { accessorKey: 'balance', header: 'Balance' },
-  { accessorKey: 'status', header: 'Status' }
-]
+  { accessorKey: 'status', header: 'Status' },
+  { accessorKey: 'reconciledAt', header: 'Reconciled On' },
+  reconciliationActionColumn()
+])
 
 async function refresh() {
   if (!auth.isAuthenticated.value) {
@@ -448,7 +510,7 @@ async function refresh() {
       selectedLedgerId.value = ledgers.value[0].id
     }
 
-    await Promise.all([loadTrialBalance(), loadLedgerStatement(), loadBankStatement()])
+    await Promise.all([loadTrialBalance(), loadLedgerStatement(), loadBankStatement(), loadLedgerSyncStatus()])
   } catch (error) {
     loadError.value = feedback.cleanMessage(error instanceof Error ? error.message : 'Please check the service and try again.')
     feedback.failed('Accounting refresh failed', error)
@@ -474,10 +536,31 @@ async function loadLedgerStatement() {
 async function loadBankStatement() {
   if (!selectedBankAccountId.value) {
     bankStatement.value = []
+    bankReconciliation.value = null
     return
   }
 
   bankStatement.value = await api.get<any[]>(`accounting/bank-statement/${selectedBankAccountId.value}`)
+  bankReconciliation.value = await api.get<any>(`accounting/bank-reconciliation/${selectedBankAccountId.value}`)
+}
+
+async function loadLedgerSyncStatus() {
+  const query = companyId.value ? `?companyId=${companyId.value}` : ''
+  ledgerSyncSummary.value = await api.get<any>(`accounting/ledger-sync/status${query}`)
+}
+
+async function repairLedgerSync() {
+  saving.value = true
+  try {
+    const query = companyId.value ? `?companyId=${companyId.value}` : ''
+    ledgerSyncSummary.value = await api.create<any>(`accounting/ledger-sync/repair${query}`, {})
+    feedback.saved(`Ledger sync repaired ${ledgerSyncSummary.value?.repairedCount || 0} link(s)`)
+    await refresh()
+  } catch (error) {
+    feedback.failed('Ledger sync repair failed', error)
+  } finally {
+    saving.value = false
+  }
 }
 
 async function seedDefaults() {
@@ -715,6 +798,95 @@ async function confirmDelete() {
   }
 }
 
+async function markStatementReconciled(item: any) {
+  if (!item?.id) {
+    return
+  }
+
+  reconciling.value = true
+  try {
+    await api.create<any>(`accounting/bank-statement-lines/${item.id}/reconcile`, {
+      bankTransactionId: item.bankTransactionId || null,
+      reconciledAt: toApiDate(localDateInput()),
+      reconciliationReference: item.reference || '',
+      remarks: 'Marked reconciled from accounting workspace'
+    })
+    feedback.saved('Bank reconciliation')
+    await loadBankStatement()
+  } catch (error) {
+    feedback.failed('Could not reconcile bank line', error)
+  } finally {
+    reconciling.value = false
+  }
+}
+
+async function undoStatementReconciliation(item: any) {
+  if (!item?.id) {
+    return
+  }
+
+  reconciling.value = true
+  try {
+    await api.create<any>(`accounting/bank-statement-lines/${item.id}/unreconcile`, { remarks: 'Reconciliation reopened from accounting workspace' })
+    feedback.saved('Reconciliation reopened')
+    await loadBankStatement()
+  } catch (error) {
+    feedback.failed('Could not reopen bank line', error)
+  } finally {
+    reconciling.value = false
+  }
+}
+
+async function updateChequeStatus(item: any, status: string) {
+  if (!item?.id) {
+    return
+  }
+
+  reconciling.value = true
+  try {
+    await api.create<any>(`accounting/cheque-logs/${item.id}/lifecycle`, {
+      status,
+      actionDate: toApiDate(localDateInput()),
+      remarks: `Marked ${status.toLowerCase()} from accounting workspace`,
+      bankTransactionId: item.bankTransactionId || null
+    })
+    feedback.saved('Cheque lifecycle')
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not update cheque lifecycle', error)
+  } finally {
+    reconciling.value = false
+  }
+}
+
+function reconciliationActionColumn(): TableColumn<any> {
+  return {
+    id: 'reconciliationActions',
+    header: '',
+    cell: ({ row }) => {
+      const item = row.original.raw
+      return h('div', { class: 'table-action-buttons' }, [
+        canEdit.value && !item.reconciled ? h(UButton, {
+          color: 'success',
+          variant: 'ghost',
+          icon: 'i-lucide-check-circle-2',
+          label: 'Reconcile',
+          loading: reconciling.value,
+          onClick: () => markStatementReconciled(item)
+        }) : null,
+        canEdit.value && item.reconciled ? h(UButton, {
+          color: 'warning',
+          variant: 'ghost',
+          icon: 'i-lucide-rotate-ccw',
+          label: 'Reopen',
+          loading: reconciling.value,
+          onClick: () => undoStatementReconciliation(item)
+        }) : null
+      ].filter(Boolean))
+    }
+  }
+}
+
 function statusColumn(): TableColumn<any> {
   return {
     accessorKey: 'status',
@@ -737,6 +909,22 @@ function actionColumn(): TableColumn<any> {
         icon: 'i-lucide-pencil',
         label: 'Edit',
         onClick: () => startEdit(row.original.raw)
+      }) : null,
+      activeTab.value === 'cheques' && canEdit.value ? h(UButton, {
+        color: 'success',
+        variant: 'ghost',
+        icon: 'i-lucide-badge-check',
+        label: 'Clear',
+        loading: reconciling.value,
+        onClick: () => updateChequeStatus(row.original.raw, 'Cleared')
+      }) : null,
+      activeTab.value === 'cheques' && canEdit.value ? h(UButton, {
+        color: 'warning',
+        variant: 'ghost',
+        icon: 'i-lucide-ban',
+        label: 'Bounce',
+        loading: reconciling.value,
+        onClick: () => updateChequeStatus(row.original.raw, 'Bounced')
       }) : null,
       canDelete.value ? h(UButton, {
         color: 'error',
@@ -868,6 +1056,8 @@ function endpointFor(tab: AccountingTab) {
     parties: 'parties',
     bankAccounts: 'bank-accounts',
     transactions: 'bank-transactions',
+    reconciliation: '',
+    ledgerSync: '',
     cheques: 'cheque-logs',
     vendorBanks: 'vendor-bank-accounts',
     accountDetails: 'bank-account-details',
@@ -883,6 +1073,8 @@ function singularLabel(tab: AccountingTab) {
     parties: 'Party',
     bankAccounts: 'Bank Account',
     transactions: 'Bank Transaction',
+    reconciliation: 'Bank Reconciliation',
+    ledgerSync: 'Ledger Sync',
     cheques: 'Cheque Log',
     vendorBanks: 'Vendor Bank Account',
     accountDetails: 'Bank Account Detail'
@@ -1067,8 +1259,23 @@ watch(() => transactionForm.bankAccountId, () => {
               class="w-72 max-w-full"
               placeholder="Select ledger"
             />
+            <USelect
+              v-if="activeTab === 'reconciliation'"
+              v-model="selectedBankAccountId"
+              :items="bankAccountOptions"
+              class="w-72 max-w-full"
+              placeholder="Select bank account"
+            />
           </div>
         </template>
+
+        <div v-if="activeTab === 'ledgerSync'" class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-default bg-muted/30 p-3 text-sm">
+          <div>
+            <strong>Ledger synchronization</strong>
+            <p class="text-muted">{{ ledgerSyncSummary?.partyCount || 0 }} parties · {{ ledgerSyncSummary?.bankAccountCount || 0 }} bank accounts · {{ ledgerSyncSummary?.issueCount || 0 }} issue(s)</p>
+          </div>
+          <UButton icon="i-lucide-wrench" label="Repair ledger links" :loading="saving" :disabled="!canEdit || !(ledgerSyncSummary?.issueCount || 0)" @click="repairLedgerSync" />
+        </div>
 
         <UiCrudToolbar
           v-model:search="search"
@@ -1090,7 +1297,7 @@ watch(() => transactionForm.bankAccountId, () => {
           <div class="planner-card-header">
             <div>
               <h2>Bank Statement</h2>
-              <p>{{ statementRows.length }} lines</p>
+              <p>{{ statementRows.length }} lines · {{ bankReconciliation?.openLineCount || 0 }} open · {{ bankReconciliation?.reconciledLineCount || 0 }} reconciled</p>
             </div>
             <USelect v-model="selectedBankAccountId" :items="bankAccountOptions" class="w-72 max-w-full" />
           </div>

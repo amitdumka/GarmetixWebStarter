@@ -75,3 +75,8 @@ This folder is the canonical home for project plans, implementation notes, valid
 5. Store long-lived implementation notes under the appropriate `modules/` folder.
 6. Do not add new TODO or stage-note files to the repository root.
 7. Keep `frontend/garmetix-web/public/docs/` only for documents served directly by the application.
+
+- [Stage 8E Package 6 / v4.4.3 due and payment dashboard notes](stages/stage-8/Stage8E-Package6-DuePaymentDashboards-v4.4.3-Notes.md)
+- [Stage 8E Package 5 / v4.4.2 ledger synchronization notes](stages/stage-8/Stage8E-Package5-LedgerSynchronization-v4.4.2-Notes.md)
+
+- [Stage 8E Package 7 / v4.4.4 tailoring and alteration workflow notes](stages/stage-8/Stage8E-Package7-TailoringAlteration-v4.4.4-Notes.md)

@@ -71,6 +71,7 @@ const routeRules: PageAccessRule[] = [
   { path: '/commercial-notes', label: 'Commercial Summary', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
   { path: '/loyalty', label: 'Loyalty', module: 'CRM', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'salesman'] },
   { path: '/accounting', label: 'Accounting', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
+  { path: '/financial-year-locks', label: 'Financial Year Locks', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant'] },
   { path: '/petty-cash', label: 'Petty Cash', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
 
   { path: '/hr', label: 'HR', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },

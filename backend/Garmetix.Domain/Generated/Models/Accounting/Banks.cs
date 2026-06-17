@@ -100,6 +100,11 @@ namespace Garmetix.Core.Models.Accounting
         [Display(Name = "Reference")] public string? Reference { get; set; } = string.Empty;
         [Display(Name = "Amount")] public decimal Amount { get; set; } = decimal.Zero;
         [Display(Name = "Person Name")] public string? PersonName { get; set; } = string.Empty;
+        [Display(Name = "Reconciled")] public bool Reconciled { get; set; } = false;
+        [Display(Name = "Reconciled At")] public DateTime? ReconciledAt { get; set; }
+        [Display(Name = "Reconciled By")] public string? ReconciledBy { get; set; }
+        [Display(Name = "Reconciliation Reference")] public string? ReconciliationReference { get; set; }
+        [Display(Name = "Reconciliation Remarks")] public string? ReconciliationRemarks { get; set; }
     }
 
     public class ChequeLog : CompanyBase
@@ -116,6 +121,12 @@ namespace Garmetix.Core.Models.Accounting
         [Display(Name = "Cheque Number")] public string CheequeNumber { get; set; } = string.Empty;
         [Display(Name = "Status")] public string? Status { get; set; } = string.Empty;
         [Display(Name = "In House")] public bool InHouse { get; set; } = false;
+        [Display(Name = "Bank Transaction", AutoGenerateField = false)] public Guid? BankTransactionId { get; set; }
+        [Display(Name = "Deposited At")] public DateTime? DepositedAt { get; set; }
+        [Display(Name = "Cleared At")] public DateTime? ClearedAt { get; set; }
+        [Display(Name = "Bounced At")] public DateTime? BouncedAt { get; set; }
+        [Display(Name = "Cancelled At")] public DateTime? CancelledAt { get; set; }
+        [Display(Name = "Lifecycle Remarks")] public string? LifecycleRemarks { get; set; }
     }
 
     public class BankCashTranscation : StoreBase

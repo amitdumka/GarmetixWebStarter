@@ -18,7 +18,7 @@ sudo apt install -y openssh-client sshpass tar curl jq
 cd /mnt/c/path/to/GarmetixWebStarter
 cp deploy/macmini.env.example deploy/macmini.env
 nano deploy/macmini.env
-chmod +x deploy/*.sh
+chmod +x deploy/*.sh 2>/dev/null || true
 ./deploy/deploy-to-macmini.sh
 ```
 
@@ -43,8 +43,8 @@ Requirements:
 
 ```powershell
 ssh-keygen -t ed25519 -C "garmetix-windows-deploy"
-type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh amit@192.168.11.125 "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys"
-ssh amit@192.168.11.125
+type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh amit@192.168.11.126 "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys"
+ssh amit@192.168.11.126
 ```
 
 After this, run:
@@ -55,7 +55,7 @@ After this, run:
 
 ## Important
 
-`192.168.11.125` is only your LAN IP. Public access should use Cloudflare Tunnel for:
+`192.168.11.126` is only your LAN IP. Public access should use Cloudflare Tunnel for:
 
 ```text
 garmetix.aadwikafashion.in

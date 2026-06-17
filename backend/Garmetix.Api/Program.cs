@@ -30,6 +30,7 @@ using Garmetix.Api.ProductLookup;
 using Garmetix.Api.Production;
 using Garmetix.Api.Release;
 using Garmetix.Api.Setup;
+using Garmetix.Api.Tailoring;
 using Garmetix.Api.Seeds;
 using Garmetix.Api.Validation;
 using Garmetix.Api.SecondarySync;
@@ -137,13 +138,39 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 
+const string FreshSchemaBaselineMigrationId = "20260617000000_InitialFreshSchema";
+const string FreshSchemaBaselineProductVersion = "10.0.8";
+
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<GarmetixDbContext>();
     var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DatabaseStartup");
     if (app.Configuration.GetValue<bool>("Database:AutoMigrate"))
     {
-        db.Database.Migrate();
+        var schemaBootstrapMode = app.Configuration["Database:SchemaBootstrapMode"] ?? "Migrate";
+        if (string.Equals(schemaBootstrapMode, "FreshBaseline", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(schemaBootstrapMode, "EnsureCreated", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(schemaBootstrapMode, "EnsureCreatedWithBaseline", StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogInformation("Creating database schema from current DbContext model using fresh baseline mode.");
+            await db.Database.EnsureCreatedAsync();
+            await db.Database.ExecuteSqlRawAsync("""
+                CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
+                    "MigrationId" character varying(150) NOT NULL,
+                    "ProductVersion" character varying(32) NOT NULL,
+                    CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId")
+                );
+                """);
+            await db.Database.ExecuteSqlRawAsync($"""
+                INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+                VALUES ('{FreshSchemaBaselineMigrationId}', '{FreshSchemaBaselineProductVersion}')
+                ON CONFLICT ("MigrationId") DO NOTHING;
+                """);
+        }
+        else
+        {
+            db.Database.Migrate();
+        }
     }
 
     await DatabaseSchemaRepairService.RepairKnownSchemaDriftAsync(db, logger);
@@ -213,6 +240,7 @@ auth.MapPut("/me", UpdateCurrentUserProfileAsync).RequireAuthorization();
 app.MapSetupEndpoints();
 app.MapWorkspaceEndpoints();
 app.MapBillingEndpoints();
+app.MapTailoringEndpoints();
 app.MapPurchaseEndpoints();
 app.MapVendorSettlementEndpoints();
 app.MapUserManagementEndpoints();
