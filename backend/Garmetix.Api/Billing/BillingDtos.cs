@@ -26,7 +26,17 @@ public sealed record InvoicePaymentDetailRequest(
     string? GatewayReference,
     string? SettlementStatus,
     string? AdjustmentSourceType,
-    Guid? AdjustmentSourceId);
+    Guid? AdjustmentSourceId,
+    string? CardLastFour = null,
+    string? CardAuthorizationCode = null,
+    string? CardNetwork = null,
+    string? UpiVpa = null,
+    string? WalletProvider = null,
+    string? BankReferenceNumber = null,
+    string? ChequeNumber = null,
+    DateTime? ChequeDate = null,
+    string? DrawerBankName = null,
+    string? AccountReference = null);
 
 public sealed record BillingCustomerOptionDto(
     Guid Id,

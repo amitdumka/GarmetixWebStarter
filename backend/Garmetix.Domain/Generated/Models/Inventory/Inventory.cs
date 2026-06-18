@@ -134,6 +134,14 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Quantity In")] public decimal QuantityIn { get; set; }
         [Display(Name = "Quantity Out")] public decimal QuantityOut { get; set; }
         [Display(Name = "Cost Price")] public decimal CostPrice { get; set; }
+        [Display(Name = "Quantity Before")] public decimal QuantityBefore { get; set; }
+        [Display(Name = "Quantity After")] public decimal QuantityAfter { get; set; }
+        [Display(Name = "Average Cost Before")] public decimal AverageCostBefore { get; set; }
+        [Display(Name = "Average Cost After")] public decimal AverageCostAfter { get; set; }
+        [Display(Name = "Inventory Value Before")] public decimal InventoryValueBefore { get; set; }
+        [Display(Name = "Inventory Value After")] public decimal InventoryValueAfter { get; set; }
+        [Display(Name = "Cost Impact")] public decimal CostImpact { get; set; }
+        [Display(Name = "Valuation Method")] public string ValuationMethod { get; set; } = "WeightedAverage";
         [Display(Name = "MRP")] public decimal MRP { get; set; }
         [Display(Name = "Tax Rate")] public decimal TaxRate { get; set; }
         [Display(Name = "HSN Code")] public string? HSNCode { get; set; }
@@ -160,6 +168,8 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Gross Amount")] public decimal GrossAmount { get; set; }
         [Display(Name = "Discount Amount")] public decimal DiscountAmount { get; set; }
         [Display(Name = "Net Amount")] public decimal NetAmount { get; set; }
+        [Display(Name = "Paid Amount")] public decimal PaidAmount { get; set; }
+        [Display(Name = "Balance Amount")] public decimal BalanceAmount { get; set; }
         [Display(Name = "Ledger", AutoGenerateField = false)] public Guid? LedgerId { get; set; }
         [Display(Name = "Remarks")] public string? Remarks { get; set; }
         [JsonIgnore] public virtual ICollection<NonGstGoodsItem>? Items { get; set; }

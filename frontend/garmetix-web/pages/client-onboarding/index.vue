@@ -6,6 +6,7 @@ const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
 const canSeeAdmin = auth.canSeeAdmin
 const loading = ref(false)
+const loadError = ref('')
 const submitting = ref(false)
 const options = ref<any | null>(null)
 const result = ref<any | null>(null)
@@ -81,8 +82,6 @@ const storeCategoryOptions = computed(() => mapEnumOptions(options.value?.storeC
 const appOperationOptions = computed(() => mapEnumOptions(options.value?.appOperations || []))
 const genderOptions = computed(() => mapEnumOptions(options.value?.genders || []))
 const summary = computed(() => options.value?.summary || {})
-const flowSteps = computed(() => options.value?.flowSteps || [])
-const modelMappingNotes = computed(() => options.value?.modelMappingNotes || [])
 const canSubmit = computed(() => form.isTermsAccepted && form.isPrivacyPolicyAccepted && !submitting.value)
 
 function mapEnumOptions(values: any[]) {
@@ -110,9 +109,11 @@ function applyCodeHints() {
 async function refresh() {
   if (!auth.isAuthenticated.value || !auth.canSeeAdmin.value) return
   loading.value = true
+  loadError.value = ''
   try {
     options.value = await api.get<any>('client-onboarding/options')
   } catch (error) {
+    loadError.value = feedback.errorMessage(error, 'Onboarding options could not be loaded. Try again.', 'Onboarding options load failed')
     feedback.failed('Onboarding options load failed', error)
   } finally {
     loading.value = false
@@ -144,7 +145,7 @@ onMounted(refresh)
 </script>
 
 <template>
-  <AppShell title="First Company Onboarding" @refresh="refresh">
+  <AppShell title="Company Onboarding" @refresh="refresh">
     <div v-if="!isAuthenticated" class="rounded-3xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
       Login as admin to onboard the first company.
     </div>
@@ -154,27 +155,32 @@ onMounted(refresh)
     </div>
 
     <div v-else class="space-y-6">
-      <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div class="space-y-3">
-            <div class="flex items-center gap-3">
-              <UIcon name="i-lucide-route" class="h-8 w-8 text-primary" />
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Stage 6A</p>
-                <h1 class="text-2xl font-bold text-slate-950 dark:text-white">First company onboarding</h1>
-              </div>
-            </div>
-            <p class="max-w-3xl text-sm text-slate-500 dark:text-slate-400">
-              Step-by-step setup for the first client company, owner user, store group, store, key people, and basic master structure. This follows the MAUI onboarding flow and writes to the current web data model.
-            </p>
-          </div>
-          <UButton icon="i-lucide-refresh-cw" :loading="loading" @click="refresh">
-            Refresh
-          </UButton>
-        </div>
-      </section>
+      <UiModulePageHeader
+        title="Company Onboarding"
+        description="Create a company, owner, store group, store, key staff, and the basic operating structure."
+        icon="i-lucide-route"
+      >
+        <template #actions>
+          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
+        </template>
+      </UiModulePageHeader>
 
-      <section class="grid gap-4 lg:grid-cols-[0.75fr_1.25fr]">
+      <UAlert
+        v-if="loadError"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-circle-alert"
+        title="Could not load onboarding"
+        :description="loadError"
+        :actions="[{ label: 'Try again', icon: 'i-lucide-refresh-cw', onClick: refresh }]"
+      />
+
+      <div v-else-if="loading" class="grid gap-4 lg:grid-cols-[0.75fr_1.25fr]">
+        <USkeleton class="h-80 w-full" />
+        <USkeleton class="h-[32rem] w-full" />
+      </div>
+
+      <section v-else class="grid gap-4 lg:grid-cols-[0.75fr_1.25fr]">
         <div class="space-y-4">
           <UCard>
             <template #header>
@@ -281,12 +287,12 @@ onMounted(refresh)
               <div class="grid gap-4 lg:grid-cols-2">
                 <div class="rounded-2xl bg-slate-50 p-4 text-sm dark:bg-slate-950/50">
                   <p class="font-semibold text-slate-950 dark:text-white">{{ form.companyDetails.companyName || 'Company name' }}</p>
-                  <p>{{ form.companyConfig.clientCode || '-' }} · GSTIN {{ form.companyDetails.gstin || '-' }}</p>
+                  <p>{{ form.companyConfig.clientCode || '-' }} | GSTIN {{ form.companyDetails.gstin || '-' }}</p>
                   <p>{{ form.addressDetails.city }}, {{ form.addressDetails.stateOrProvince }}</p>
                 </div>
                 <div class="rounded-2xl bg-slate-50 p-4 text-sm dark:bg-slate-950/50">
                   <p class="font-semibold text-slate-950 dark:text-white">{{ form.companyConfig.storeName || 'Main Store' }}</p>
-                  <p>Group: {{ form.companyConfig.groupCode || '-' }} · Store: {{ form.companyConfig.storeCode || '-' }}</p>
+                  <p>Group: {{ form.companyConfig.groupCode || '-' }} | Store: {{ form.companyConfig.storeCode || '-' }}</p>
                   <p>Owner: {{ form.clientDetails.firstName }} {{ form.clientDetails.lastName }}</p>
                 </div>
               </div>
@@ -337,20 +343,6 @@ onMounted(refresh)
         </UCard>
       </section>
 
-      <section class="grid gap-4 lg:grid-cols-2">
-        <UCard>
-          <template #header><h2 class="font-semibold">MAUI flow mapped</h2></template>
-          <ul class="list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
-            <li v-for="item in flowSteps" :key="item">{{ item }}</li>
-          </ul>
-        </UCard>
-        <UCard>
-          <template #header><h2 class="font-semibold">Model changes accommodated</h2></template>
-          <ul class="list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
-            <li v-for="item in modelMappingNotes" :key="item">{{ item }}</li>
-          </ul>
-        </UCard>
-      </section>
     </div>
   </AppShell>
 </template>

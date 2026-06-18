@@ -12,6 +12,9 @@ const profileMessage = ref('')
 const profileError = ref('')
 const passwordMessage = ref('')
 const passwordError = ref('')
+const loadError = ref('')
+
+useHead({ title: 'My Profile | Garmetix' })
 
 const profileForm = reactive({
   name: '',
@@ -36,6 +39,7 @@ function loadFormFromUser() {
 
 async function refresh() {
   loading.value = true
+  loadError.value = ''
   try {
     auth.restore()
     await auth.me()
@@ -47,7 +51,7 @@ async function refresh() {
     companies.value = companyRows
     stores.value = storeRows
   } catch (error) {
-    feedback.failed('Profile load failed', error)
+    loadError.value = feedback.errorMessage(error, 'Your account details could not be loaded. Try again.', 'Profile load failed')
   } finally {
     loading.value = false
   }
@@ -111,7 +115,21 @@ onMounted(refresh)
         </template>
       </UiModulePageHeader>
 
-      <div class="profile-detail-grid">
+      <UAlert
+        v-if="loadError"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-circle-alert"
+        title="Your profile is unavailable"
+        :description="loadError"
+        :actions="[{ label: 'Try again', icon: 'i-lucide-refresh-cw', onClick: refresh }]"
+      />
+
+      <div v-if="loading && !auth.user.value" class="profile-detail-grid">
+        <USkeleton v-for="row in 6" :key="row" class="h-24 w-full" />
+      </div>
+
+      <div v-else class="profile-detail-grid">
         <div class="profile-detail-card">
           <span>Name</span>
           <strong>{{ auth.user.value?.name || '-' }}</strong>
@@ -201,7 +219,7 @@ onMounted(refresh)
         variant="subtle"
         icon="i-lucide-shield-check"
         title="Security policy"
-        description="Role, permission, admin access, company, store group and store assignment are intentionally read-only on this page. Admin users can manage those values from Admin → Roles & Users."
+        description="Role, permission, admin access, company, store group and store assignment are read-only here. Admin users can manage them from Admin > Roles & Users."
       />
     </div>
   </AppShell>

@@ -3,15 +3,38 @@ using Garmetix.Core.Models.Accounting;
 using Garmetix.Core.Models.HRM;
 using Garmetix.Core.Models.Inventory;
 using Garmetix.Infrastructure.Data;
+using Garmetix.Api.Numbering;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 
 namespace Garmetix.Api.Accounting;
 
-public sealed class AccountingPostingService(GarmetixDbContext db)
+public sealed record VendorRefundPostingResult(Guid JournalEntryId, Guid? BankTransactionId);
+public sealed record PurchaseReturnTaxPosting(Guid ReversalId, string ProductName, string? HsnCode, decimal TaxAmount);
+public sealed record StockOperationAccountingResult(Guid JournalEntryId, string EntryNumber, decimal Amount);
+public sealed record SalesInvoicePaymentPosting(
+    PaymentMode PaymentMode,
+    decimal Amount,
+    Guid? BankAccountId,
+    string? ReferenceNumber,
+    string? GatewayReference,
+    string? SettlementStatus,
+    string? AdjustmentSourceType,
+    Guid? AdjustmentSourceId,
+    string? PaymentDetailsJson = null);
+
+public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumberService documentNumbers)
 {
-    private sealed record JournalLineDraft(Guid LedgerId, Guid? PartyId, decimal Debit, decimal Credit, string Narration);
+    private sealed record JournalLineDraft(
+        Guid LedgerId,
+        Guid? PartyId,
+        decimal Debit,
+        decimal Credit,
+        string Narration,
+        Guid? StoreGroupId = null,
+        Guid? StoreId = null);
+    private sealed record StockAccountingStore(Guid Id, Guid StoreGroupId, string Name, string StoreCode);
 
     private static readonly PaymentMode[] BankPaymentModes =
     [
@@ -24,6 +47,135 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         PaymentMode.Cheque,
         PaymentMode.DemandDraft
     ];
+
+    public async Task<StockOperationAccountingResult?> PostStockOperationAsync(
+        StockOperationDocument document,
+        StockOperationAccountingKind kind,
+        decimal amount,
+        CancellationToken cancellationToken)
+    {
+        var plan = StockOperationAccountingCalculator.Create(kind, amount);
+        var accountingAmount = Math.Round(Math.Abs(amount), 2, MidpointRounding.AwayFromZero);
+        if (accountingAmount == 0)
+        {
+            return null;
+        }
+
+        var sourceStoreId = document.FromStoreId ?? document.StoreId;
+        var sourceStore = await db.Stores.AsNoTracking()
+            .Where(store => store.Id == sourceStoreId && store.CompanyId == document.CompanyId)
+            .Select(store => new StockAccountingStore(store.Id, store.StoreGroupId, store.Name, store.StoreCode))
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new InvalidOperationException("The source store for stock accounting was not found.");
+
+        var sourceInventory = await EnsureNamedLedgerAsync(
+            document.CompanyId,
+            InventoryLedgerName(sourceStore.StoreCode, sourceStore.Name),
+            "Stock-in-Hand",
+            LedgerCategory.Stock,
+            LedgerType.StockItem,
+            cancellationToken);
+
+        Ledger? destinationInventory = null;
+        StockAccountingStore? destinationStore = null;
+        if (plan.DestinationInventoryDebit > 0)
+        {
+            if (!document.ToStoreId.HasValue)
+            {
+                throw new InvalidOperationException("A destination store is required for transfer accounting.");
+            }
+
+            destinationStore = await db.Stores.AsNoTracking()
+                .Where(store => store.Id == document.ToStoreId.Value && store.CompanyId == document.CompanyId)
+                .Select(store => new StockAccountingStore(store.Id, store.StoreGroupId, store.Name, store.StoreCode))
+                .FirstOrDefaultAsync(cancellationToken)
+                ?? throw new InvalidOperationException("The destination store for stock accounting was not found.");
+
+            destinationInventory = await EnsureNamedLedgerAsync(
+                document.CompanyId,
+                InventoryLedgerName(destinationStore.StoreCode, destinationStore.Name),
+                "Stock-in-Hand",
+                LedgerCategory.Stock,
+                LedgerType.StockItem,
+                cancellationToken);
+        }
+
+        Ledger? stockGain = null;
+        if (plan.GainCredit > 0)
+        {
+            stockGain = await EnsureNamedLedgerAsync(
+                document.CompanyId,
+                "Stock Adjustment Gain",
+                "Indirect Income",
+                LedgerCategory.IndirectIncome,
+                LedgerType.Income,
+                cancellationToken);
+        }
+
+        Ledger? stockLoss = null;
+        if (plan.LossDebit > 0)
+        {
+            stockLoss = await EnsureNamedLedgerAsync(
+                document.CompanyId,
+                kind == StockOperationAccountingKind.WriteOff ? "Stock Write-off" : "Stock Shortage",
+                "Indirect Expenses",
+                LedgerCategory.IndirectExpenses,
+                LedgerType.Expenses,
+                cancellationToken);
+        }
+
+        var operationLabel = kind switch
+        {
+            StockOperationAccountingKind.Excess => "stock excess",
+            StockOperationAccountingKind.Shortage => "stock shortage",
+            StockOperationAccountingKind.WriteOff => "stock write-off",
+            StockOperationAccountingKind.Transfer => "inter-store stock transfer",
+            _ => "stock operation"
+        };
+        var lines = new List<JournalLineDraft>();
+        if (plan.SourceInventoryDebit > 0)
+        {
+            lines.Add(new(sourceInventory.Id, null, plan.SourceInventoryDebit, 0, $"{operationLabel}: inventory increase"));
+        }
+        if (plan.SourceInventoryCredit > 0)
+        {
+            lines.Add(new(sourceInventory.Id, null, 0, plan.SourceInventoryCredit, $"{operationLabel}: inventory reduction"));
+        }
+        if (plan.DestinationInventoryDebit > 0 && destinationInventory is not null && destinationStore is not null)
+        {
+            lines.Add(new(
+                destinationInventory.Id,
+                null,
+                plan.DestinationInventoryDebit,
+                0,
+                $"{operationLabel}: inventory received",
+                destinationStore.StoreGroupId,
+                destinationStore.Id));
+        }
+        if (plan.GainCredit > 0 && stockGain is not null)
+        {
+            lines.Add(new(stockGain.Id, null, 0, plan.GainCredit, $"{operationLabel}: gain recognized"));
+        }
+        if (plan.LossDebit > 0 && stockLoss is not null)
+        {
+            lines.Add(new(stockLoss.Id, null, plan.LossDebit, 0, $"{operationLabel}: loss recognized"));
+        }
+
+        var journal = await RepostSourceJournalAsync(
+            "StockOperationDocument",
+            document.Id,
+            $"JE-{document.DocumentNumber}",
+            document.OnDate,
+            document.DocumentNumber,
+            $"{operationLabel} posted from {document.DocumentNumber}. {document.Reason}".Trim(),
+            document.CompanyId,
+            sourceStore.StoreGroupId,
+            sourceStore.Id,
+            lines,
+            cancellationToken);
+
+        return new StockOperationAccountingResult(journal.Id, journal.EntryNumber, accountingAmount);
+    }
 
 
     public async Task<GstAccountingBridgeSummary> GetGstAccountingBridgeSummaryAsync(
@@ -170,7 +322,31 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         VoucherSaveRequest request,
         CancellationToken cancellationToken)
     {
+        var strategy = db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            var result = await SaveVoucherCoreAsync(request, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return result;
+        });
+    }
+
+    public Task<AccountingPostResult> SaveVoucherInCurrentTransactionAsync(
+        VoucherSaveRequest request,
+        CancellationToken cancellationToken)
+        => SaveVoucherCoreAsync(request, cancellationToken);
+
+    private async Task<AccountingPostResult> SaveVoucherCoreAsync(
+        VoucherSaveRequest request,
+        CancellationToken cancellationToken)
+    {
         ValidateVoucher(request);
+        if (request.Id.HasValue
+            && await db.CashVoucherConversions.AnyAsync(item => item.VoucherId == request.Id.Value, cancellationToken))
+        {
+            throw new InvalidOperationException("Converted vouchers are immutable. Create a corrective voucher instead.");
+        }
 
         var employeeExists = await db.Employees.AnyAsync(item => item.Id == request.EmployeeId, cancellationToken);
         if (!employeeExists)
@@ -186,7 +362,15 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         var cashOrBankLedger = await ResolveCashOrBankLedgerAsync(request, bankAccount, cancellationToken);
 
         var voucher = await ResolveVoucherAsync(request, cancellationToken);
-        voucher.VoucherNumber = request.VoucherNumber.Trim();
+        voucher.VoucherNumber = request.Id.HasValue
+            ? request.VoucherNumber.Trim()
+            : await documentNumbers.NextVoucherAsync(
+                request.CompanyId,
+                request.StoreGroupId,
+                request.StoreId,
+                request.VoucherType,
+                request.OnDate,
+                cancellationToken);
         voucher.OnDate = request.OnDate;
         voucher.VoucherType = request.VoucherType;
         voucher.PartyName = party?.Name ?? request.PartyName.Trim();
@@ -288,8 +472,217 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
             .Where(line => line.BankAccountId == bankAccountId)
             .OrderByDescending(line => line.OnDate)
             .ThenByDescending(line => line.CreatedAt)
-            .Select(line => new BankStatementRow(line.Id, line.OnDate, line.Description, line.Reference, line.Debit, line.Credit, line.Balance, line.Reconciled))
+            .Select(line => new BankStatementRow(
+                line.Id,
+                line.OnDate,
+                line.Description,
+                line.Reference,
+                line.Debit,
+                line.Credit,
+                line.Balance,
+                line.Reconciled,
+                line.ReconciledAt,
+                line.ReconciledBy,
+                line.ReconciliationReference,
+                line.ReconciliationRemarks,
+                line.BankTransactionId))
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<BankReconciliationSummary> GetBankReconciliationAsync(
+        Guid bankAccountId,
+        DateTime? from,
+        DateTime? to,
+        CancellationToken cancellationToken)
+    {
+        var account = await db.BankAccounts.AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == bankAccountId, cancellationToken)
+            ?? throw new InvalidOperationException("Select a valid bank account.");
+
+        var query = db.BankStatementLines.AsNoTracking()
+            .Where(line => line.BankAccountId == bankAccountId);
+        if (from.HasValue)
+        {
+            query = query.Where(line => line.OnDate >= from.Value);
+        }
+
+        if (to.HasValue)
+        {
+            query = query.Where(line => line.OnDate <= to.Value);
+        }
+
+        var lines = await query
+            .OrderBy(line => line.OnDate)
+            .ThenBy(line => line.CreatedAt)
+            .ThenBy(line => line.Id)
+            .ToListAsync(cancellationToken);
+
+        var rows = lines.Select(line => new BankStatementRow(
+            line.Id,
+            line.OnDate,
+            line.Description,
+            line.Reference,
+            line.Debit,
+            line.Credit,
+            line.Balance,
+            line.Reconciled,
+            line.ReconciledAt,
+            line.ReconciledBy,
+            line.ReconciliationReference,
+            line.ReconciliationRemarks,
+            line.BankTransactionId)).ToList();
+
+        return new BankReconciliationSummary(
+            account.Id,
+            $"{account.AccountHolderName} - {account.AccountNumber}".Trim(' ', '-'),
+            lines.LastOrDefault()?.Balance ?? account.ClosingBalance,
+            lines.Where(line => !line.Reconciled).Sum(line => line.Debit),
+            lines.Where(line => !line.Reconciled).Sum(line => line.Credit),
+            lines.Where(line => line.Reconciled).Sum(line => line.Debit),
+            lines.Where(line => line.Reconciled).Sum(line => line.Credit),
+            lines.Count(line => !line.Reconciled),
+            lines.Count(line => line.Reconciled),
+            rows);
+    }
+
+    public async Task<BankStatementRow> ReconcileBankStatementLineAsync(
+        Guid statementLineId,
+        BankStatementReconcileRequest request,
+        string? reconciledBy,
+        CancellationToken cancellationToken)
+    {
+        var line = await db.BankStatementLines.FirstOrDefaultAsync(item => item.Id == statementLineId, cancellationToken)
+            ?? throw new InvalidOperationException("Bank statement line was not found.");
+
+        if (request.BankTransactionId.HasValue && request.BankTransactionId.Value != Guid.Empty)
+        {
+            var transaction = await db.BankTransactions.FirstOrDefaultAsync(
+                item => item.Id == request.BankTransactionId.Value && item.BankAccountId == line.BankAccountId,
+                cancellationToken)
+                ?? throw new InvalidOperationException("Select a valid transaction from the same bank account.");
+
+            line.BankTransactionId = transaction.Id;
+            transaction.Reconciled = true;
+            transaction.ReconciledAt = request.ReconciledAt ?? DateTime.Now;
+            transaction.ReconciledBy = reconciledBy;
+            transaction.ReconciliationReference = CleanText(request.ReconciliationReference) ?? line.Reference;
+            transaction.ReconciliationRemarks = CleanText(request.Remarks);
+        }
+
+        line.Reconciled = true;
+        line.ReconciledAt = request.ReconciledAt ?? DateTime.Now;
+        line.ReconciledBy = reconciledBy;
+        line.ReconciliationReference = CleanText(request.ReconciliationReference) ?? line.Reference;
+        line.ReconciliationRemarks = CleanText(request.Remarks);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return new BankStatementRow(
+            line.Id,
+            line.OnDate,
+            line.Description,
+            line.Reference,
+            line.Debit,
+            line.Credit,
+            line.Balance,
+            line.Reconciled,
+            line.ReconciledAt,
+            line.ReconciledBy,
+            line.ReconciliationReference,
+            line.ReconciliationRemarks,
+            line.BankTransactionId);
+    }
+
+    public async Task<BankStatementRow> UnreconcileBankStatementLineAsync(
+        Guid statementLineId,
+        string? remarks,
+        CancellationToken cancellationToken)
+    {
+        var line = await db.BankStatementLines.FirstOrDefaultAsync(item => item.Id == statementLineId, cancellationToken)
+            ?? throw new InvalidOperationException("Bank statement line was not found.");
+
+        if (line.BankTransactionId.HasValue)
+        {
+            var transaction = await db.BankTransactions.FirstOrDefaultAsync(item => item.Id == line.BankTransactionId.Value, cancellationToken);
+            if (transaction is not null)
+            {
+                transaction.Reconciled = false;
+                transaction.ReconciledAt = null;
+                transaction.ReconciledBy = null;
+                transaction.ReconciliationReference = null;
+                transaction.ReconciliationRemarks = CleanText(remarks);
+            }
+        }
+
+        line.Reconciled = false;
+        line.ReconciledAt = null;
+        line.ReconciledBy = null;
+        line.ReconciliationReference = null;
+        line.ReconciliationRemarks = CleanText(remarks);
+        await db.SaveChangesAsync(cancellationToken);
+
+        return new BankStatementRow(
+            line.Id,
+            line.OnDate,
+            line.Description,
+            line.Reference,
+            line.Debit,
+            line.Credit,
+            line.Balance,
+            line.Reconciled,
+            line.ReconciledAt,
+            line.ReconciledBy,
+            line.ReconciliationReference,
+            line.ReconciliationRemarks,
+            line.BankTransactionId);
+    }
+
+    public async Task<ChequeLog> UpdateChequeLifecycleAsync(
+        Guid chequeLogId,
+        ChequeLifecycleRequest request,
+        CancellationToken cancellationToken)
+    {
+        var cheque = await db.ChequeLogs.FirstOrDefaultAsync(item => item.Id == chequeLogId, cancellationToken)
+            ?? throw new InvalidOperationException("Cheque log was not found.");
+
+        var status = NormalizeChequeStatus(request.Status);
+        var actionDate = request.ActionDate ?? DateTime.Now;
+        cheque.Status = status;
+        cheque.LifecycleRemarks = CleanText(request.Remarks);
+        if (request.BankTransactionId.HasValue && request.BankTransactionId.Value != Guid.Empty)
+        {
+            var transaction = await db.BankTransactions.FirstOrDefaultAsync(
+                item => item.Id == request.BankTransactionId.Value && item.BankAccountId == cheque.BankAccountId,
+                cancellationToken)
+                ?? throw new InvalidOperationException("Select a valid transaction from the same bank account.");
+            cheque.BankTransactionId = transaction.Id;
+        }
+
+        switch (status)
+        {
+            case "Issued":
+                cheque.CancelledAt = null;
+                cheque.BouncedAt = null;
+                break;
+            case "Deposited":
+                cheque.DepositedAt = actionDate;
+                cheque.CancelledAt = null;
+                break;
+            case "Cleared":
+                cheque.ClearedAt = actionDate;
+                cheque.BouncedAt = null;
+                cheque.CancelledAt = null;
+                break;
+            case "Bounced":
+                cheque.BouncedAt = actionDate;
+                cheque.ClearedAt = null;
+                break;
+            case "Cancelled":
+                cheque.CancelledAt = actionDate;
+                break;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return cheque;
     }
 
     public async Task<List<LedgerStatementRow>> GetLedgerStatementAsync(
@@ -518,7 +911,84 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         return linkedParty;
     }
 
-    public async Task<Party> SavePartyAsync(Party request, CancellationToken cancellationToken)
+
+    public async Task<LedgerSyncSummary> ValidateLedgerSynchronizationAsync(
+        Guid? companyId,
+        bool repair,
+        CancellationToken cancellationToken)
+    {
+        var issues = new List<LedgerSyncIssue>();
+        var repairedCount = 0;
+
+        var partyQuery = db.Parties.AsQueryable();
+        var bankQuery = db.BankAccounts.AsQueryable();
+        if (companyId.HasValue && companyId.Value != Guid.Empty)
+        {
+            partyQuery = partyQuery.Where(item => item.CompanyId == companyId.Value);
+            bankQuery = bankQuery.Where(item => item.CompanyId == companyId.Value);
+        }
+
+        var parties = await partyQuery.OrderBy(item => item.Name).ToListAsync(cancellationToken);
+        var bankAccounts = await bankQuery.OrderBy(item => item.AccountHolderName).ThenBy(item => item.AccountNumber).ToListAsync(cancellationToken);
+
+        foreach (var party in parties)
+        {
+            var issue = await GetPartyLedgerSyncIssueAsync(party, cancellationToken);
+            if (issue is null)
+            {
+                continue;
+            }
+
+            if (repair)
+            {
+                party.LedgerId = (await EnsurePartyLedgerAsync(party, cancellationToken)).Id;
+                repairedCount++;
+                issues.Add(issue with { Severity = "Repaired", FixAction = "Party ledger was created or relinked." });
+            }
+            else
+            {
+                issues.Add(issue);
+            }
+        }
+
+        foreach (var account in bankAccounts)
+        {
+            var issue = await GetBankAccountLedgerSyncIssueAsync(account, cancellationToken);
+            if (issue is null)
+            {
+                continue;
+            }
+
+            if (repair)
+            {
+                account.LedgerId = (await EnsureBankAccountLedgerAsync(account, cancellationToken)).Id;
+                repairedCount++;
+                issues.Add(issue with { Severity = "Repaired", FixAction = "Bank-account ledger was created or relinked." });
+            }
+            else
+            {
+                issues.Add(issue);
+            }
+        }
+
+        if (repair && repairedCount > 0)
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
+        return new LedgerSyncSummary(
+            companyId,
+            parties.Count,
+            bankAccounts.Count,
+            issues.Count,
+            repairedCount,
+            issues);
+    }
+
+    public async Task<Party> SavePartyAsync(
+        PartySaveRequest request,
+        Guid? partyId,
+        CancellationToken cancellationToken)
     {
         if (request.CompanyId == Guid.Empty)
         {
@@ -530,9 +1000,14 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
             throw new ArgumentException("Party name is required.");
         }
 
-        var party = request.Id == Guid.Empty
+        var party = !partyId.HasValue || partyId.Value == Guid.Empty
             ? null
-            : await db.Parties.FirstOrDefaultAsync(item => item.Id == request.Id, cancellationToken);
+            : await db.Parties.FirstOrDefaultAsync(item => item.Id == partyId.Value, cancellationToken);
+
+        if (partyId.HasValue && party is null)
+        {
+            throw new InvalidOperationException("Party was not found.");
+        }
 
         party ??= new Party
         {
@@ -559,7 +1034,10 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         return party;
     }
 
-    public async Task<BankAccount> SaveBankAccountAsync(BankAccount request, CancellationToken cancellationToken)
+    public async Task<BankAccount> SaveBankAccountAsync(
+        BankAccountSaveRequest request,
+        Guid? accountId,
+        CancellationToken cancellationToken)
     {
         if (request.CompanyId == Guid.Empty)
         {
@@ -581,9 +1059,14 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
             throw new ArgumentException("Account holder name is required.");
         }
 
-        var account = request.Id == Guid.Empty
+        var account = !accountId.HasValue || accountId.Value == Guid.Empty
             ? null
-            : await db.BankAccounts.FirstOrDefaultAsync(item => item.Id == request.Id, cancellationToken);
+            : await db.BankAccounts.FirstOrDefaultAsync(item => item.Id == accountId.Value, cancellationToken);
+
+        if (accountId.HasValue && account is null)
+        {
+            throw new InvalidOperationException("Bank account was not found.");
+        }
 
         account ??= new BankAccount
         {
@@ -597,9 +1080,9 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         account.AccountType = request.AccountType;
         account.Branch = request.Branch?.Trim();
         account.IFSCode = request.IFSCode?.Trim();
-        account.OpeningDate = request.OpeningDate;
+        account.OpeningDate = request.OpeningDate.Date;
         account.Active = request.Active;
-        account.ClosingDate = request.ClosingDate;
+        account.ClosingDate = request.ClosingDate?.Date;
         account.OpeningBalance = request.OpeningBalance;
         account.ClosingBalance = request.ClosingBalance;
         account.LedgerId = (await EnsureBankAccountLedgerAsync(account, cancellationToken)).Id;
@@ -688,7 +1171,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         Invoice invoice,
         Customer customer,
         Guid storeGroupId,
-        Guid? bankAccountId,
+        IReadOnlyList<SalesInvoicePaymentPosting>? payments,
         CancellationToken cancellationToken)
     {
         var party = await EnsureCustomerPartyAsync(customer, cancellationToken);
@@ -696,6 +1179,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         var salesLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Sales", "Sales Accounts", LedgerCategory.SalesAccounts, LedgerType.Sale, cancellationToken);
         var outputGstLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Output GST", "Duties & Taxes", LedgerCategory.DutiesAndTaxes, LedgerType.DutyAndTax, cancellationToken);
         var roundOffLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Round Off", "Indirect Income", LedgerCategory.IndirectIncome, LedgerType.Income, cancellationToken);
+        var paymentPostings = NormalizeSalesInvoicePaymentPostings(invoice, payments);
 
         var lines = new List<JournalLineDraft>
         {
@@ -710,22 +1194,38 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
 
         AddRoundOff(lines, roundOffLedger.Id, invoice.RoundOff, isSale: true, invoice.InvoiceNumber);
 
-        if (invoice.PaidAmount > 0 && invoice.PaymentMode.HasValue)
+        for (var index = 0; index < paymentPostings.Count; index++)
         {
-            var settlementLedger = await ResolveSettlementLedgerAsync(invoice.CompanyId, invoice.PaymentMode.Value, bankAccountId, cancellationToken);
-            lines.Add(new(settlementLedger.Id, null, invoice.PaidAmount, 0, $"Sales receipt {invoice.InvoiceNumber}"));
-            lines.Add(new(customerLedgerId, party.Id, 0, invoice.PaidAmount, $"Sales receipt {invoice.InvoiceNumber}"));
-            await UpsertInvoiceBankTransactionAsync(
-                invoice.CompanyId,
-                invoice.PaymentMode.Value,
-                bankAccountId,
-                TransactionType.Deposit,
-                invoice.OnDate,
-                $"SI-{invoice.InvoiceNumber}",
-                $"Sales receipt {invoice.InvoiceNumber}",
-                invoice.PaidAmount,
-                customer.Name,
-                cancellationToken);
+            var payment = paymentPostings[index];
+            var amount = Math.Round(payment.Amount, 2, MidpointRounding.AwayFromZero);
+            if (amount <= 0)
+            {
+                continue;
+            }
+
+            var rowNumber = index + 1;
+            var narration = BuildSalesInvoicePaymentNarration(invoice, payment, rowNumber);
+            var sourceReference = BuildSalesInvoicePaymentSourceReference(invoice, rowNumber);
+            var settlementLedger = await ResolveSalesInvoiceSettlementLedgerAsync(invoice.CompanyId, payment, cancellationToken);
+
+            lines.Add(new(settlementLedger.Id, null, amount, 0, narration));
+            lines.Add(new(customerLedgerId, party.Id, 0, amount, narration));
+
+            if (BankPaymentModes.Contains(payment.PaymentMode))
+            {
+                await UpsertInvoiceBankTransactionAsync(
+                    invoice.CompanyId,
+                    payment.PaymentMode,
+                    payment.BankAccountId,
+                    TransactionType.Deposit,
+                    invoice.OnDate,
+                    sourceReference,
+                    narration,
+                    amount,
+                    customer.Name,
+                    cancellationToken,
+                    FirstNonEmpty(payment.ReferenceNumber, payment.GatewayReference));
+            }
         }
 
         await RepostSourceJournalAsync(
@@ -748,7 +1248,8 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         Guid storeGroupId,
         decimal originalPaidAmount,
         PaymentMode? originalPaymentMode,
-        Guid? bankAccountId,
+        Guid? legacyBankAccountId,
+        IReadOnlyList<SalesInvoicePaymentPosting>? originalPayments,
         CancellationToken cancellationToken)
     {
         if (customer is null)
@@ -761,6 +1262,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         var salesLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Sales", "Sales Accounts", LedgerCategory.SalesAccounts, LedgerType.Sale, cancellationToken);
         var outputGstLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Output GST", "Duties & Taxes", LedgerCategory.DutiesAndTaxes, LedgerType.DutyAndTax, cancellationToken);
         var roundOffLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Round Off", "Indirect Income", LedgerCategory.IndirectIncome, LedgerType.Income, cancellationToken);
+        var paymentPostings = NormalizeSalesInvoiceCancellationPaymentPostings(originalPaidAmount, originalPaymentMode, legacyBankAccountId, originalPayments);
 
         var lines = new List<JournalLineDraft>
         {
@@ -775,22 +1277,38 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
 
         AddRoundOff(lines, roundOffLedger.Id, invoice.RoundOff * -1, isSale: true, invoice.InvoiceNumber);
 
-        if (originalPaidAmount > 0 && originalPaymentMode.HasValue)
+        for (var index = 0; index < paymentPostings.Count; index++)
         {
-            var settlementLedger = await ResolveSettlementLedgerAsync(invoice.CompanyId, originalPaymentMode.Value, bankAccountId, cancellationToken);
-            lines.Add(new(settlementLedger.Id, null, 0, originalPaidAmount, $"Reverse sales receipt {invoice.InvoiceNumber}"));
-            lines.Add(new(customerLedgerId, party.Id, originalPaidAmount, 0, $"Reverse sales receipt {invoice.InvoiceNumber}"));
-            await UpsertInvoiceBankTransactionAsync(
-                invoice.CompanyId,
-                originalPaymentMode.Value,
-                bankAccountId,
-                TransactionType.Withdraw,
-                DateTime.Now,
-                $"SIC-{invoice.InvoiceNumber}",
-                $"Reverse sales receipt {invoice.InvoiceNumber}",
-                originalPaidAmount,
-                customer.Name,
-                cancellationToken);
+            var payment = paymentPostings[index];
+            var amount = Math.Round(payment.Amount, 2, MidpointRounding.AwayFromZero);
+            if (amount <= 0)
+            {
+                continue;
+            }
+
+            var rowNumber = index + 1;
+            var narration = $"Reverse {BuildSalesInvoicePaymentNarration(invoice, payment, rowNumber)}";
+            var sourceReference = $"SIC-{invoice.InvoiceNumber}-PAY-{rowNumber:00}";
+            var settlementLedger = await ResolveSalesInvoiceSettlementLedgerAsync(invoice.CompanyId, payment, cancellationToken);
+
+            lines.Add(new(settlementLedger.Id, null, 0, amount, narration));
+            lines.Add(new(customerLedgerId, party.Id, amount, 0, narration));
+
+            if (BankPaymentModes.Contains(payment.PaymentMode))
+            {
+                await UpsertInvoiceBankTransactionAsync(
+                    invoice.CompanyId,
+                    payment.PaymentMode,
+                    payment.BankAccountId,
+                    TransactionType.Withdraw,
+                    DateTime.Now,
+                    sourceReference,
+                    narration,
+                    amount,
+                    customer.Name,
+                    cancellationToken,
+                    FirstNonEmpty(payment.ReferenceNumber, payment.GatewayReference));
+            }
         }
 
         await RepostSourceJournalAsync(
@@ -874,7 +1392,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
             cancellationToken);
     }
 
-    public async Task PostPurchaseInvoiceCancellationAsync(
+    public async Task<JournalEntry?> PostPurchaseInvoiceCancellationAsync(
         PurchaseInvoice invoice,
         Vendor? vendor,
         Guid storeGroupId,
@@ -882,11 +1400,12 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         decimal originalPaidAmount,
         PaymentMode? originalPaymentMode,
         Guid? bankAccountId,
+        IReadOnlyList<PurchaseReturnTaxPosting> taxReversals,
         CancellationToken cancellationToken)
     {
         if (vendor is null)
         {
-            return;
+            return null;
         }
 
         var party = await EnsureVendorPartyAsync(vendor, cancellationToken);
@@ -902,9 +1421,15 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
             new(purchaseLedger.Id, null, 0, invoice.BasePrice, $"Cancel purchase invoice {invoice.InvoiceNumber}")
         };
 
-        if (invoice.TaxAmount > 0)
+        foreach (var reversal in taxReversals.Where(item => item.TaxAmount > 0))
         {
-            lines.Add(new(inputGstLedger.Id, null, 0, invoice.TaxAmount, $"Cancel purchase tax {invoice.InvoiceNumber}"));
+            var hsn = string.IsNullOrWhiteSpace(reversal.HsnCode) ? string.Empty : $" | HSN {reversal.HsnCode}";
+            lines.Add(new(
+                inputGstLedger.Id,
+                null,
+                0,
+                reversal.TaxAmount,
+                $"ITC reversal {reversal.ProductName}{hsn} | Cancel {invoice.InvoiceNumber}"));
         }
 
         if (invoice.FrightAmount > 0)
@@ -932,7 +1457,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
                 cancellationToken);
         }
 
-        await RepostSourceJournalAsync(
+        return await RepostSourceJournalAsync(
             "PurchaseInvoiceCancellation",
             invoice.Id,
             $"PIC-{invoice.InvoiceNumber}",
@@ -948,15 +1473,15 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
 
 
     public async Task PostPurchaseReturnAsync(
+        PurchaseReturn purchaseReturn,
         PurchaseInvoice invoice,
         Vendor vendor,
-        Guid debitNoteId,
         string debitNoteNumber,
         Guid storeGroupId,
         Guid storeId,
         decimal taxableAmount,
-        decimal taxAmount,
         decimal returnAmount,
+        IReadOnlyList<PurchaseReturnTaxPosting> taxReversals,
         string? reason,
         CancellationToken cancellationToken)
     {
@@ -983,23 +1508,37 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
             lines.Add(new(purchaseLedger.Id, null, 0, taxableAmount, $"Purchase return taxable {invoice.InvoiceNumber}"));
         }
 
-        if (taxAmount > 0)
+        foreach (var reversal in taxReversals.Where(item => item.TaxAmount > 0))
         {
-            lines.Add(new(inputGstLedger.Id, null, 0, taxAmount, $"Purchase return input GST reversal {invoice.InvoiceNumber}"));
+            var hsn = string.IsNullOrWhiteSpace(reversal.HsnCode) ? string.Empty : $" | HSN {reversal.HsnCode}";
+            lines.Add(new(
+                inputGstLedger.Id,
+                null,
+                0,
+                reversal.TaxAmount,
+                $"ITC reversal {reversal.ProductName}{hsn} | {purchaseReturn.ReturnNumber}"));
         }
 
-        await RepostSourceJournalAsync(
+        var journal = await RepostSourceJournalAsync(
             "PurchaseReturn",
-            debitNoteId,
-            $"PR-{debitNoteNumber}",
-            DateTime.Now,
-            invoice.InvoiceNumber,
+            purchaseReturn.Id,
+            $"PR-{purchaseReturn.ReturnNumber}",
+            purchaseReturn.OnDate,
+            debitNoteNumber,
             narration,
             invoice.CompanyId,
             storeGroupId,
             storeId,
             lines,
             cancellationToken);
+
+        purchaseReturn.JournalEntryId = journal.Id;
+        foreach (var reversal in db.PurchaseReturnItcReversals.Local.Where(item =>
+                     item.PurchaseReturnId == purchaseReturn.Id &&
+                     taxReversals.Any(posting => posting.ReversalId == item.Id)))
+        {
+            reversal.JournalEntryId = journal.Id;
+        }
     }
 
 
@@ -1056,6 +1595,77 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
             storeId,
             lines,
             cancellationToken);
+    }
+
+    public async Task<VendorRefundPostingResult> PostVendorRefundSettlementAsync(
+        VendorSettlement settlement,
+        Voucher voucher,
+        Vendor vendor,
+        CancellationToken cancellationToken)
+    {
+        if (settlement.RefundAmount <= 0)
+        {
+            throw new ArgumentException("Vendor refund amount must be greater than zero.");
+        }
+
+        if (!settlement.PaymentMode.HasValue)
+        {
+            throw new ArgumentException("Select a payment mode for the vendor refund.");
+        }
+
+        var party = await EnsureVendorPartyAsync(vendor, cancellationToken);
+        var vendorLedgerId = party.LedgerId;
+        var receiptLedger = await ResolveSettlementLedgerAsync(
+            settlement.CompanyId,
+            settlement.PaymentMode.Value,
+            settlement.BankAccountId,
+            cancellationToken);
+
+        voucher.PartyId = party.Id;
+        voucher.LedgerId = vendorLedgerId;
+        voucher.IsParty = true;
+        voucher.StoreGroupId = settlement.StoreGroupId;
+        voucher.StoreId = settlement.StoreId;
+
+        var lines = new List<JournalLineDraft>
+        {
+            new(receiptLedger.Id, null, settlement.RefundAmount, 0, voucher.Particulars),
+            new(vendorLedgerId, party.Id, 0, settlement.RefundAmount, voucher.Particulars)
+        };
+
+        await UpsertInvoiceBankTransactionAsync(
+            settlement.CompanyId,
+            settlement.PaymentMode.Value,
+            settlement.BankAccountId,
+            TransactionType.Deposit,
+            settlement.OnDate,
+            settlement.SettlementNumber,
+            voucher.Particulars,
+            settlement.RefundAmount,
+            vendor.Name,
+            cancellationToken);
+
+        var journal = await RepostSourceJournalAsync(
+            "VendorRefundSettlement",
+            settlement.Id,
+            settlement.SettlementNumber,
+            settlement.OnDate,
+            settlement.DebitNoteNumber,
+            voucher.Particulars,
+            settlement.CompanyId,
+            settlement.StoreGroupId,
+            settlement.StoreId,
+            lines,
+            cancellationToken);
+
+        var bankTransactionId = settlement.PaymentMode.Value == PaymentMode.Cash
+            ? null
+            : await db.BankTransactions
+                .Where(item => item.CompanyId == settlement.CompanyId && item.Reference == settlement.SettlementNumber)
+                .Select(item => (Guid?)item.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+        return new VendorRefundPostingResult(journal.Id, bankTransactionId);
     }
 
     public async Task PostSalesReturnAsync(
@@ -1238,9 +1848,105 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         return party;
     }
 
-    private async Task<Ledger> EnsurePartyLedgerAsync(Party party, CancellationToken cancellationToken)
+
+    private async Task<LedgerSyncIssue?> GetPartyLedgerSyncIssueAsync(Party party, CancellationToken cancellationToken)
     {
-        var (groupName, category, ledgerType, remarks) = party.Category switch
+        var (_, _, expectedType, _) = GetPartyLedgerProfile(party.Category);
+        var entityName = string.IsNullOrWhiteSpace(party.Name) ? "Unnamed party" : party.Name.Trim();
+
+        if (party.LedgerId == Guid.Empty)
+        {
+            return new LedgerSyncIssue("Party", party.Id, entityName, null, "Critical", "Party is not linked to an accounting ledger.", "Run ledger sync repair.");
+        }
+
+        var ledger = await db.Ledgers.AsNoTracking().FirstOrDefaultAsync(item => item.Id == party.LedgerId, cancellationToken);
+        if (ledger is null)
+        {
+            return new LedgerSyncIssue("Party", party.Id, entityName, party.LedgerId, "Critical", "Party ledger link points to a missing ledger.", "Run ledger sync repair.");
+        }
+
+        if (ledger.CompanyId != party.CompanyId)
+        {
+            return new LedgerSyncIssue("Party", party.Id, entityName, party.LedgerId, "Critical", "Party ledger belongs to another company.", "Run ledger sync repair.");
+        }
+
+        if (!ledger.IsParty)
+        {
+            return new LedgerSyncIssue("Party", party.Id, entityName, party.LedgerId, "Critical", "Party is linked to a non-party ledger.", "Run ledger sync repair.");
+        }
+
+        if (ledger.LedgerType != expectedType)
+        {
+            return new LedgerSyncIssue("Party", party.Id, entityName, party.LedgerId, "Warning", $"Party ledger type is {ledger.LedgerType}; expected {expectedType}.", "Run ledger sync repair.");
+        }
+
+        var linkedElsewhere = await db.Parties.AsNoTracking().AnyAsync(
+            item => item.CompanyId == party.CompanyId
+                && item.LedgerId == ledger.Id
+                && item.Id != party.Id,
+            cancellationToken);
+        if (linkedElsewhere)
+        {
+            return new LedgerSyncIssue("Party", party.Id, entityName, party.LedgerId, "Critical", "Party ledger is also linked to another party.", "Run ledger sync repair to create a separate ledger.");
+        }
+
+        if (!ledger.Name.Equals(entityName, StringComparison.Ordinal))
+        {
+            return new LedgerSyncIssue("Party", party.Id, entityName, party.LedgerId, "Info", $"Ledger name is '{ledger.Name}', expected '{entityName}'.", "Run ledger sync repair to rename the linked ledger.");
+        }
+
+        return null;
+    }
+
+    private async Task<LedgerSyncIssue?> GetBankAccountLedgerSyncIssueAsync(BankAccount account, CancellationToken cancellationToken)
+    {
+        var entityName = BuildBankLedgerName(account);
+        if (account.LedgerId == Guid.Empty)
+        {
+            return new LedgerSyncIssue("BankAccount", account.Id, entityName, null, "Critical", "Bank account is not linked to an accounting ledger.", "Run ledger sync repair.");
+        }
+
+        var ledger = await db.Ledgers.AsNoTracking().FirstOrDefaultAsync(item => item.Id == account.LedgerId, cancellationToken);
+        if (ledger is null)
+        {
+            return new LedgerSyncIssue("BankAccount", account.Id, entityName, account.LedgerId, "Critical", "Bank account ledger link points to a missing ledger.", "Run ledger sync repair.");
+        }
+
+        if (ledger.CompanyId != account.CompanyId)
+        {
+            return new LedgerSyncIssue("BankAccount", account.Id, entityName, account.LedgerId, "Critical", "Bank account ledger belongs to another company.", "Run ledger sync repair.");
+        }
+
+        if (ledger.LedgerType != LedgerType.BankAccount)
+        {
+            return new LedgerSyncIssue("BankAccount", account.Id, entityName, account.LedgerId, "Critical", $"Bank account ledger type is {ledger.LedgerType}; expected BankAccount.", "Run ledger sync repair.");
+        }
+
+        var linkedElsewhere = await db.BankAccounts.AsNoTracking().AnyAsync(
+            item => item.CompanyId == account.CompanyId
+                && item.LedgerId == ledger.Id
+                && item.Id != account.Id,
+            cancellationToken);
+        if (linkedElsewhere)
+        {
+            return new LedgerSyncIssue("BankAccount", account.Id, entityName, account.LedgerId, "Critical", "Bank account ledger is also linked to another bank account.", "Run ledger sync repair to create a separate ledger.");
+        }
+
+        if (!ledger.Name.Equals(entityName, StringComparison.Ordinal))
+        {
+            return new LedgerSyncIssue("BankAccount", account.Id, entityName, account.LedgerId, "Info", $"Ledger name is '{ledger.Name}', expected '{entityName}'.", "Run ledger sync repair to rename the linked ledger.");
+        }
+
+        if (ledger.IsParty)
+        {
+            return new LedgerSyncIssue("BankAccount", account.Id, entityName, account.LedgerId, "Warning", "Bank account is linked to a party ledger flag.", "Run ledger sync repair.");
+        }
+
+        return null;
+    }
+
+    private static (string GroupName, LedgerCategory Category, LedgerType LedgerType, string Remarks) GetPartyLedgerProfile(PartyType category)
+        => category switch
         {
             PartyType.Customer or PartyType.Debitor => ("Customers", LedgerCategory.Customer, LedgerType.SundryDebtor, "Customer party ledgers"),
             PartyType.Vendor or PartyType.Supplier or PartyType.Creditor => ("Vendors", LedgerCategory.Vendor, LedgerType.SundryCreditor, "Vendor party ledgers"),
@@ -1248,14 +1954,55 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
             _ => ("No Group", LedgerCategory.UnCategory, LedgerType.Suspense, "Default group for uncategorized and temporary party ledgers")
         };
 
+    private async Task<bool> PartyLedgerIsLinkedElsewhereAsync(Guid ledgerId, Party party, CancellationToken cancellationToken)
+        => await db.Parties.AsNoTracking().AnyAsync(
+            item => item.CompanyId == party.CompanyId
+                && item.LedgerId == ledgerId
+                && (party.Id == Guid.Empty || item.Id != party.Id),
+            cancellationToken);
+
+    private async Task<bool> BankLedgerIsLinkedElsewhereAsync(Guid ledgerId, BankAccount account, CancellationToken cancellationToken)
+        => await db.BankAccounts.AsNoTracking().AnyAsync(
+            item => item.CompanyId == account.CompanyId
+                && item.LedgerId == ledgerId
+                && (account.Id == Guid.Empty || item.Id != account.Id),
+            cancellationToken);
+
+    private async Task<Ledger> EnsurePartyLedgerAsync(Party party, CancellationToken cancellationToken)
+    {
+        var (groupName, category, ledgerType, remarks) = GetPartyLedgerProfile(party.Category);
         var group = await EnsureLedgerGroupAsync(party.CompanyId, groupName, category, remarks, cancellationToken);
+        var ledgerName = party.Name.Trim();
         var ledger = party.LedgerId == Guid.Empty
             ? null
             : await db.Ledgers.FirstOrDefaultAsync(item => item.Id == party.LedgerId, cancellationToken);
 
-        ledger ??= await db.Ledgers.FirstOrDefaultAsync(
-            item => item.CompanyId == party.CompanyId && item.Name == party.Name && item.IsParty,
-            cancellationToken);
+        if (ledger is not null
+            && (ledger.CompanyId != party.CompanyId
+                || !ledger.IsParty
+                || await PartyLedgerIsLinkedElsewhereAsync(ledger.Id, party, cancellationToken)))
+        {
+            ledger = null;
+        }
+
+        if (ledger is null)
+        {
+            var candidates = await db.Ledgers
+                .Where(item => item.CompanyId == party.CompanyId
+                    && item.Name == ledgerName
+                    && item.IsParty
+                    && item.LedgerType == ledgerType)
+                .ToListAsync(cancellationToken);
+
+            foreach (var candidate in candidates)
+            {
+                if (!await PartyLedgerIsLinkedElsewhereAsync(candidate.Id, party, cancellationToken))
+                {
+                    ledger = candidate;
+                    break;
+                }
+            }
+        }
 
         ledger ??= new Ledger
         {
@@ -1265,7 +2012,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         };
 
         ledger.CompanyId = party.CompanyId;
-        ledger.Name = party.Name;
+        ledger.Name = ledgerName;
         ledger.LedgerGroupId = group.Id;
         ledger.LedgerType = ledgerType;
         ledger.IsParty = true;
@@ -1324,9 +2071,32 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
             ? null
             : await db.Ledgers.FirstOrDefaultAsync(item => item.Id == account.LedgerId, cancellationToken);
 
-        ledger ??= await db.Ledgers.FirstOrDefaultAsync(
-            item => item.CompanyId == account.CompanyId && item.Name == ledgerName && item.LedgerType == LedgerType.BankAccount,
-            cancellationToken);
+        if (ledger is not null
+            && (ledger.CompanyId != account.CompanyId
+                || ledger.LedgerType != LedgerType.BankAccount
+                || await BankLedgerIsLinkedElsewhereAsync(ledger.Id, account, cancellationToken)))
+        {
+            ledger = null;
+        }
+
+        if (ledger is null)
+        {
+            var candidates = await db.Ledgers
+                .Where(item => item.CompanyId == account.CompanyId
+                    && item.Name == ledgerName
+                    && item.LedgerType == LedgerType.BankAccount
+                    && !item.IsParty)
+                .ToListAsync(cancellationToken);
+
+            foreach (var candidate in candidates)
+            {
+                if (!await BankLedgerIsLinkedElsewhereAsync(candidate.Id, account, cancellationToken))
+                {
+                    ledger = candidate;
+                    break;
+                }
+            }
+        }
 
         ledger ??= new Ledger
         {
@@ -1422,6 +2192,155 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         return cashLedger;
     }
 
+    private static IReadOnlyList<SalesInvoicePaymentPosting> NormalizeSalesInvoicePaymentPostings(
+        Invoice invoice,
+        IReadOnlyList<SalesInvoicePaymentPosting>? payments)
+    {
+        var normalized = payments is null
+            ? new List<SalesInvoicePaymentPosting>()
+            : payments
+                .Where(item => item.Amount > 0)
+                .Select(item => item with { Amount = Math.Round(item.Amount, 2, MidpointRounding.AwayFromZero) })
+                .ToList();
+
+        if (normalized.Count == 0 && invoice.PaidAmount > 0 && invoice.PaymentMode.HasValue)
+        {
+            normalized.Add(new SalesInvoicePaymentPosting(
+                invoice.PaymentMode.Value,
+                invoice.PaidAmount,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null));
+        }
+
+        return normalized;
+    }
+
+    private static IReadOnlyList<SalesInvoicePaymentPosting> NormalizeSalesInvoiceCancellationPaymentPostings(
+        decimal originalPaidAmount,
+        PaymentMode? originalPaymentMode,
+        Guid? legacyBankAccountId,
+        IReadOnlyList<SalesInvoicePaymentPosting>? originalPayments)
+    {
+        var normalized = originalPayments is null
+            ? new List<SalesInvoicePaymentPosting>()
+            : originalPayments
+                .Where(item => item.Amount > 0)
+                .Select(item => item with { Amount = Math.Round(item.Amount, 2, MidpointRounding.AwayFromZero) })
+                .ToList();
+
+        if (normalized.Count == 0 && originalPaidAmount > 0 && originalPaymentMode.HasValue)
+        {
+            normalized.Add(new SalesInvoicePaymentPosting(
+                originalPaymentMode.Value,
+                originalPaidAmount,
+                legacyBankAccountId,
+                null,
+                null,
+                null,
+                null,
+                null));
+        }
+
+        return normalized;
+    }
+
+    private async Task<Ledger> ResolveSalesInvoiceSettlementLedgerAsync(
+        Guid companyId,
+        SalesInvoicePaymentPosting payment,
+        CancellationToken cancellationToken)
+    {
+        if (payment.PaymentMode == PaymentMode.Cash)
+        {
+            return await EnsureNamedLedgerAsync(companyId, "Cash In Hand", "Cash-in-Hand", LedgerCategory.CashInHand, LedgerType.Cash, cancellationToken);
+        }
+
+        if (BankPaymentModes.Contains(payment.PaymentMode))
+        {
+            return await ResolveSettlementLedgerAsync(companyId, payment.PaymentMode, payment.BankAccountId, cancellationToken);
+        }
+
+        var sourceType = CanonicalSalesInvoiceAdjustmentSource(payment);
+        if (SourceMatches(sourceType, "CustomerAdvanceReceipt"))
+        {
+            return await EnsureNamedLedgerAsync(companyId, "Customer Advances", "Current Liabilities", LedgerCategory.CurrentLiabilities, LedgerType.CurrentLiability, cancellationToken);
+        }
+
+        if (SourceMatches(sourceType, "CreditNote") ||
+            SourceMatches(sourceType, "CustomerCreditBalance") ||
+            SourceMatches(sourceType, "StoreCredit") ||
+            SourceMatches(sourceType, "SalesReturnCredit") ||
+            payment.PaymentMode is PaymentMode.CreditNote or PaymentMode.CreditBalance or PaymentMode.SaleReturn)
+        {
+            return await EnsureNamedLedgerAsync(companyId, "Customer Store Credit", "Current Liabilities", LedgerCategory.CurrentLiabilities, LedgerType.CurrentLiability, cancellationToken);
+        }
+
+        if (SourceMatches(sourceType, "LoyaltyRedemption") || payment.PaymentMode == PaymentMode.Coupons)
+        {
+            return await EnsureNamedLedgerAsync(companyId, "Loyalty Redemption Expense", "Indirect Expenses", LedgerCategory.IndirectExpenses, LedgerType.Expenses, cancellationToken);
+        }
+
+        return await EnsureNamedLedgerAsync(companyId, "Customer Payment Adjustments", "Current Liabilities", LedgerCategory.CurrentLiabilities, LedgerType.CurrentLiability, cancellationToken);
+    }
+
+    private static string BuildSalesInvoicePaymentSourceReference(Invoice invoice, int rowNumber)
+        => $"SI-{invoice.InvoiceNumber}-PAY-{rowNumber:00}";
+
+    private static string BuildSalesInvoicePaymentNarration(Invoice invoice, SalesInvoicePaymentPosting payment, int rowNumber)
+    {
+        var parts = new List<string>
+        {
+            $"Sales receipt {invoice.InvoiceNumber}",
+            $"row {rowNumber}",
+            payment.PaymentMode.ToString()
+        };
+
+        AddIfPresent(parts, "ref", payment.ReferenceNumber);
+        AddIfPresent(parts, "gateway", payment.GatewayReference);
+        AddIfPresent(parts, "status", payment.SettlementStatus);
+        AddIfPresent(parts, "source", payment.AdjustmentSourceType);
+        if (payment.AdjustmentSourceId.HasValue)
+        {
+            parts.Add($"sourceId {payment.AdjustmentSourceId.Value}");
+        }
+
+        return string.Join(" | ", parts);
+    }
+
+    private static string CanonicalSalesInvoiceAdjustmentSource(SalesInvoicePaymentPosting payment)
+    {
+        if (!string.IsNullOrWhiteSpace(payment.AdjustmentSourceType))
+        {
+            return payment.AdjustmentSourceType.Trim();
+        }
+
+        return payment.PaymentMode switch
+        {
+            PaymentMode.CreditNote => "CreditNote",
+            PaymentMode.CreditBalance => "CustomerCreditBalance",
+            PaymentMode.SaleReturn => "SalesReturnCredit",
+            PaymentMode.Coupons => "LoyaltyRedemption",
+            _ => payment.PaymentMode.ToString()
+        };
+    }
+
+    private static bool SourceMatches(string? sourceType, string expected)
+        => string.Equals(sourceType, expected, StringComparison.OrdinalIgnoreCase);
+
+    private static void AddIfPresent(ICollection<string> parts, string label, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            parts.Add($"{label} {value.Trim()}");
+        }
+    }
+
+    private static string? FirstNonEmpty(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim();
+
     private async Task<Ledger> ResolveSettlementLedgerAsync(
         Guid companyId,
         PaymentMode paymentMode,
@@ -1463,9 +2382,10 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         string narration,
         decimal amount,
         string personName,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? paymentReference = null)
     {
-        if (paymentMode == PaymentMode.Cash || amount <= 0)
+        if (!BankPaymentModes.Contains(paymentMode) || amount <= 0)
         {
             return;
         }
@@ -1505,7 +2425,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         }
 
         await UpsertManualStatementLineAsync(transaction, cancellationToken);
-        await UpsertInvoiceChequeLogAsync(transaction, bankAccount, paymentMode, cancellationToken);
+        await UpsertInvoiceChequeLogAsync(transaction, bankAccount, paymentMode, paymentReference, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         await RecalculateBankStatementBalancesAsync(bankAccount.Id, cancellationToken);
     }
@@ -1514,6 +2434,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         BankTransaction transaction,
         BankAccount bankAccount,
         PaymentMode paymentMode,
+        string? paymentReference,
         CancellationToken cancellationToken)
     {
         var existing = await db.ChequeLogs.FirstOrDefaultAsync(
@@ -1535,14 +2456,19 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
             CompanyId = transaction.CompanyId
         };
 
+        var chequeReference = string.IsNullOrWhiteSpace(paymentReference)
+            ? transaction.Reference ?? string.Empty
+            : paymentReference.Trim();
+
         existing.CompanyId = transaction.CompanyId;
         existing.BankAccountId = bankAccount.Id;
-        existing.ChequeNumber = transaction.Reference ?? string.Empty;
-        existing.CheequeNumber = existing.ChequeNumber;
+        existing.ChequeNumber = chequeReference;
+        existing.CheequeNumber = chequeReference;
         existing.OnDate = transaction.OnDate;
         existing.ChequeDate = transaction.OnDate;
         existing.Narration = transaction.Reference;
         existing.ChequeBank = bankAccount.AccountNumber;
+        existing.BankTransactionId = transaction.Id;
         existing.Amount = transaction.Amount;
         existing.PersonName = transaction.PersonName;
         existing.Status = transaction.TransactionType == TransactionType.Deposit ? "Deposited" : "Issued";
@@ -1655,6 +2581,12 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         return $"GST-RET-{normalized}";
     }
 
+    private static string InventoryLedgerName(string? storeCode, string storeName)
+    {
+        var identity = string.IsNullOrWhiteSpace(storeCode) ? storeName.Trim() : storeCode.Trim().ToUpperInvariant();
+        return $"Inventory - {identity}";
+    }
+
     private static Guid DeterministicGuid(string seed)
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(seed));
@@ -1759,8 +2691,8 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
                 Credit = line.Credit,
                 Narration = line.Narration,
                 CompanyId = companyId,
-                StoreGroupId = storeGroupId,
-                StoreId = storeId
+                StoreGroupId = line.StoreGroupId ?? storeGroupId,
+                StoreId = line.StoreId ?? storeId
             }));
 
         return existing;
@@ -2013,14 +2945,17 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
             CompanyId = transaction.CompanyId
         };
 
+        var chequeReference = transaction.Reference ?? string.Empty;
+
         existing.CompanyId = transaction.CompanyId;
         existing.BankAccountId = bankAccount.Id;
-        existing.ChequeNumber = transaction.Reference ?? string.Empty;
-        existing.CheequeNumber = existing.ChequeNumber;
+        existing.ChequeNumber = chequeReference;
+        existing.CheequeNumber = chequeReference;
         existing.OnDate = transaction.OnDate;
         existing.ChequeDate = transaction.OnDate;
         existing.Narration = transaction.Reference;
         existing.ChequeBank = bankAccount.AccountNumber;
+        existing.BankTransactionId = transaction.Id;
         existing.Amount = transaction.Amount;
         existing.PersonName = transaction.PersonName;
         existing.Status = transaction.TransactionType == TransactionType.Deposit ? "Deposited" : "Issued";
@@ -2103,6 +3038,25 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
         bankAccount.ClosingBalance = balance;
     }
 
+    private static string? CleanText(string? value)
+    {
+        var text = value?.Trim();
+        return string.IsNullOrWhiteSpace(text) ? null : text;
+    }
+
+    private static string NormalizeChequeStatus(string? value)
+    {
+        var text = value?.Trim();
+        return text switch
+        {
+            "Issued" or "Deposited" or "Cleared" or "Bounced" or "Cancelled" => text,
+            "Clear" or "Clearing" => "Cleared",
+            "Bounce" or "Returned" => "Bounced",
+            "Cancel" => "Cancelled",
+            _ => throw new ArgumentException("Cheque status must be Issued, Deposited, Cleared, Bounced, or Cancelled.")
+        };
+    }
+
     private static TransactionMode ToTransactionMode(PaymentMode mode)
     {
         return mode switch
@@ -2135,7 +3089,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db)
 
     private static void ValidateVoucher(VoucherSaveRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.VoucherNumber))
+        if (request.Id.HasValue && string.IsNullOrWhiteSpace(request.VoucherNumber))
         {
             throw new ArgumentException("Voucher number is required.");
         }

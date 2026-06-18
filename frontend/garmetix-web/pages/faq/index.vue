@@ -1,29 +1,32 @@
 <script setup lang="ts">
 const api = useGarmetixApi()
 const feedback = useUiFeedback()
+const ALL_CATEGORIES = '__all__'
 const loading = ref(false)
 const serverInfo = ref<any | null>(null)
 const search = ref('')
-const selectedCategory = ref('')
+const selectedCategory = ref(ALL_CATEGORIES)
+const loadError = ref('')
+
+useHead({ title: 'Help & FAQ | Garmetix' })
 
 const fallbackFaqs = [
-  { question: 'How do I know which code version is running?', answer: 'Open About Us and check Version, Stage, Build Date and Build Code. The same data is also available from /api/app-info/version.', category: 'Version' },
-  { question: 'When should the version number change?', answer: 'Every packaged code change should update the central version constants in backend AppInfoEndpoints and frontend appVersion.ts.', category: 'Version' },
-  { question: 'Where do I onboard the first company?', answer: 'Use Admin > Onboarding.', category: 'Onboarding' },
-  { question: 'Where do I seed AF/SS default data?', answer: 'Use Admin > AF/SS.', category: 'Seeder' },
-  { question: 'Where can I see success or failure messages?', answer: 'Use Admin > Message Logs.', category: 'Logs' }
+  { question: 'How do I know which version is running?', answer: 'Open About Garmetix and check the version, release, build date, and build code.', category: 'Version' },
+  { question: 'Where do I create the first company?', answer: 'Use Admin > Company Onboarding to create the company, store group, store, and initial users.', category: 'Company' },
+  { question: 'Where do I prepare AF/SS defaults?', answer: 'Use Admin > AF/SS Defaults and select the target company before applying the defaults.', category: 'Company' },
+  { question: 'Where can I see success or failure messages?', answer: 'Use Data > Message Logs.', category: 'Logs' }
 ]
 
 const faqs = computed(() => serverInfo.value?.faqs?.length ? serverInfo.value.faqs : fallbackFaqs)
 const categoryOptions = computed(() => [
-  { label: 'All categories', value: '' },
+  { label: 'All categories', value: ALL_CATEGORIES },
   ...Array.from(new Set(faqs.value.map((item: any) => item.category))).map((category) => ({ label: category, value: category }))
 ])
 
 const filteredFaqs = computed(() => {
   const term = search.value.trim().toLowerCase()
   return faqs.value.filter((item: any) => {
-    if (selectedCategory.value && item.category !== selectedCategory.value) return false
+    if (selectedCategory.value !== ALL_CATEGORIES && item.category !== selectedCategory.value) return false
     if (term) {
       const text = `${item.question} ${item.answer} ${item.category}`.toLowerCase()
       if (!text.includes(term)) return false
@@ -34,11 +37,12 @@ const filteredFaqs = computed(() => {
 
 async function refresh() {
   loading.value = true
+  loadError.value = ''
   try {
     serverInfo.value = await api.get<any>('app-info')
   } catch (error) {
     serverInfo.value = null
-    feedback.failed('FAQ load failed', error)
+    loadError.value = feedback.errorMessage(error, 'Help topics could not be loaded. Try again.', 'FAQ load failed')
   } finally {
     loading.value = false
   }
@@ -48,20 +52,27 @@ onMounted(refresh)
 </script>
 
 <template>
-  <AppShell title="FAQ" @refresh="refresh">
+  <AppShell title="Help & FAQ" @refresh="refresh">
     <div class="space-y-6">
-      <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div class="space-y-2">
-            <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Help center</p>
-            <h1 class="text-3xl font-bold text-slate-950 dark:text-white">Frequently Asked Questions</h1>
-            <p class="max-w-3xl text-sm text-slate-500 dark:text-slate-400">
-              Common questions for version identity, onboarding, seeding, logs and deployment.
-            </p>
-          </div>
-          <UButton icon="i-lucide-refresh-cw" variant="subtle" :loading="loading" @click="refresh">Refresh</UButton>
-        </div>
-      </section>
+      <UiModulePageHeader
+        title="Help & FAQ"
+        description="Find guidance for accounts, company setup, daily operations, documents, Off Book records, and support."
+        icon="i-lucide-circle-help"
+      >
+        <template #actions>
+          <UButton icon="i-lucide-refresh-cw" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
+        </template>
+      </UiModulePageHeader>
+
+      <UAlert
+        v-if="loadError"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-circle-alert"
+        title="Help topics are unavailable"
+        :description="loadError"
+        :actions="[{ label: 'Try again', icon: 'i-lucide-refresh-cw', onClick: refresh }]"
+      />
 
       <UCard>
         <div class="grid gap-4 md:grid-cols-[1fr_260px]">
@@ -70,7 +81,10 @@ onMounted(refresh)
         </div>
       </UCard>
 
-      <div v-if="filteredFaqs.length" class="space-y-3">
+      <div v-if="loading && !serverInfo" class="space-y-3">
+        <USkeleton v-for="row in 5" :key="row" class="h-28 w-full" />
+      </div>
+      <div v-else-if="filteredFaqs.length" class="space-y-3">
         <UCard v-for="item in filteredFaqs" :key="item.question">
           <div class="space-y-2">
             <div class="flex flex-wrap items-center gap-2">

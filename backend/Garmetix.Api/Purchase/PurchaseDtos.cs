@@ -119,7 +119,9 @@ public sealed record CancelPurchaseInvoiceResponse(
     string InvoiceNumber,
     string InvoiceStatus,
     decimal ReversedQuantity,
-    decimal ReversedAmount);
+    decimal ReversedAmount,
+    Guid PurchaseReturnId,
+    string ReturnNumber);
 
 
 public sealed record ReturnablePurchaseInvoiceDto(
@@ -167,6 +169,8 @@ public sealed record PartialPurchaseReturnItemRequest(
     decimal Quantity);
 
 public sealed record PartialPurchaseReturnResponse(
+    Guid PurchaseReturnId,
+    string ReturnNumber,
     Guid PurchaseInvoiceId,
     string InvoiceNumber,
     Guid DebitNoteId,
@@ -176,6 +180,146 @@ public sealed record PartialPurchaseReturnResponse(
     decimal TaxAmount,
     decimal ReturnAmount,
     string InvoiceStatus);
+
+public sealed record PurchaseReturnRegisterDto(
+    Guid Id,
+    string ReturnNumber,
+    DateTime OnDate,
+    string ReturnKind,
+    string Status,
+    Guid PurchaseInvoiceId,
+    string OriginalInvoiceNumber,
+    Guid VendorId,
+    string VendorName,
+    string? VendorGstin,
+    decimal Quantity,
+    decimal TaxableAmount,
+    decimal TaxAmount,
+    decimal ReturnAmount,
+    int ItemCount,
+    Guid? DebitNoteId,
+    string? DebitNoteNumber,
+    string Reason,
+    bool Printed,
+    int PrintCount,
+    DateTime? LastPrintedAt,
+    string PrintStatus,
+    decimal SettledAmount,
+    decimal AvailableSettlementAmount,
+    string SettlementStatus,
+    decimal ItcReversalAmount,
+    string ItcReversalStatus,
+    Guid? JournalEntryId);
+
+public sealed record PurchaseReturnDetailDto(
+    Guid Id,
+    string ReturnNumber,
+    DateTime OnDate,
+    string ReturnKind,
+    string Status,
+    Guid PurchaseInvoiceId,
+    string OriginalInvoiceNumber,
+    DateTime OriginalInvoiceDate,
+    DateTime? SupplierInvoiceDate,
+    Guid VendorId,
+    string VendorName,
+    string? VendorGstin,
+    decimal Quantity,
+    decimal TaxableAmount,
+    decimal TaxAmount,
+    decimal CgstAmount,
+    decimal SgstAmount,
+    decimal IgstAmount,
+    decimal ReturnAmount,
+    Guid? DebitNoteId,
+    string? DebitNoteNumber,
+    string Reason,
+    bool Printed,
+    int PrintCount,
+    DateTime? LastPrintedAt,
+    string PrintStatus,
+    decimal SettledAmount,
+    decimal AvailableSettlementAmount,
+    string SettlementStatus,
+    decimal ItcReversalAmount,
+    string ItcReversalStatus,
+    Guid? JournalEntryId,
+    IReadOnlyList<PurchaseReturnItemDto> Items);
+
+public sealed record PurchaseReturnItcReversalDto(
+    Guid Id,
+    Guid PurchaseReturnItemId,
+    Guid PurchaseInvoiceItemId,
+    string ProductName,
+    string? HsnCode,
+    decimal TaxRate,
+    decimal ReturnedQuantity,
+    decimal TaxableAmount,
+    decimal CgstAmount,
+    decimal SgstAmount,
+    decimal IgstAmount,
+    decimal TaxAmount,
+    Guid? JournalEntryId,
+    string Status);
+
+public sealed record PurchaseReturnReconciliationCheckDto(
+    string Key,
+    string Label,
+    bool Passed,
+    string Expected,
+    string Actual,
+    string? Reference);
+
+public sealed record PurchaseReturnReconciliationDto(
+    Guid PurchaseReturnId,
+    string ReturnNumber,
+    string Status,
+    Guid PurchaseInvoiceId,
+    Guid? DebitNoteId,
+    string? DebitNoteNumber,
+    Guid? JournalEntryId,
+    string? JournalEntryNumber,
+    decimal HeaderTaxAmount,
+    decimal ItemTaxAmount,
+    decimal ItcReversalAmount,
+    decimal JournalItcCreditAmount,
+    decimal StockQuantityOut,
+    decimal SettledAmount,
+    IReadOnlyList<PurchaseReturnItcReversalDto> Reversals,
+    IReadOnlyList<PurchaseReturnReconciliationCheckDto> Checks);
+
+public sealed record PurchaseReturnPrintRequest(bool Reprint = false);
+
+public sealed record PurchaseReturnPrintResponse(
+    Guid Id,
+    string ReturnNumber,
+    bool Printed,
+    int PrintCount,
+    DateTime LastPrintedAt,
+    string PrintStatus);
+
+public sealed record PurchaseReturnItemDto(
+    Guid Id,
+    Guid PurchaseInvoiceItemId,
+    Guid ProductId,
+    string ProductName,
+    string Barcode,
+    string? HsnCode,
+    string Unit,
+    decimal PurchasedQuantity,
+    decimal PreviouslyReturnedQuantity,
+    decimal ReturnedQuantity,
+    decimal Mrp,
+    decimal UnitRate,
+    decimal DiscountAmount,
+    decimal TaxableAmount,
+    decimal TaxRate,
+    decimal TaxAmount,
+    decimal CgstAmount,
+    decimal SgstAmount,
+    decimal IgstAmount,
+    decimal ReturnAmount,
+    string? Reason);
 
 public sealed record PurchaseLookupOptionsDto(
     IReadOnlyList<PurchaseLookupOptionDto> Categories,
@@ -203,6 +347,38 @@ public sealed record PurchaseVendorOptionDto(
 
 public sealed record PurchaseEnumOptionDto(int Value, string Label);
 
+
+public sealed record PurchasePaymentRegisterDto(
+    Guid Id,
+    DateTime OnDate,
+    string VendorName,
+    Guid VendorId,
+    Guid? PurchaseInvoiceId,
+    string PurchaseInvoiceNumber,
+    string PaymentKind,
+    decimal Amount,
+    string PaymentMode,
+    string? ReferenceNumber,
+    string? Remarks,
+    Guid? VoucherId);
+
+public sealed record VendorAdvancePaymentRequest(
+    Guid VendorId,
+    decimal Amount,
+    PaymentMode PaymentMode,
+    Guid? BankAccountId,
+    string? PaymentDetails,
+    string? SlipNumber,
+    string? Remarks);
+
+public sealed record VendorAdvancePaymentResponse(
+    Guid PaymentId,
+    Guid VoucherId,
+    string VoucherNumber,
+    Guid VendorId,
+    string VendorName,
+    decimal Amount);
+
 public sealed record VendorPaymentVoucherRequest(
     decimal Amount,
     PaymentMode PaymentMode,
@@ -228,3 +404,107 @@ public sealed record PurchasePaymentDto(
     string PaymentMode,
     string? ReferenceNumber,
     Guid? VoucherId);
+
+public sealed record VendorSettlementRequest(
+    DateTime? OnDate,
+    decimal RefundAmount,
+    PaymentMode? PaymentMode,
+    Guid? BankAccountId,
+    string? ReferenceNumber,
+    string? Remarks,
+    IReadOnlyList<VendorSettlementAllocationRequest> Allocations);
+
+public sealed record VendorSettlementAllocationRequest(
+    Guid PurchaseInvoiceId,
+    decimal Amount);
+
+public sealed record VendorSettlementOptionDto(
+    Guid PurchaseReturnId,
+    string ReturnNumber,
+    Guid DebitNoteId,
+    string DebitNoteNumber,
+    Guid VendorId,
+    string VendorName,
+    decimal ReturnAmount,
+    decimal PreviouslySettledAmount,
+    decimal AvailableAmount,
+    string SettlementStatus,
+    IReadOnlyList<VendorOutstandingInvoiceDto> OutstandingInvoices);
+
+public sealed record VendorOutstandingInvoiceDto(
+    Guid PurchaseInvoiceId,
+    string InvoiceNumber,
+    DateTime OnDate,
+    DateTime DueDate,
+    decimal BillAmount,
+    decimal PaidAmount,
+    decimal OutstandingAmount,
+    string InvoiceStatus);
+
+public sealed record VendorSettlementRowDto(
+    Guid Id,
+    string SettlementNumber,
+    DateTime OnDate,
+    Guid VendorId,
+    string VendorName,
+    Guid PurchaseReturnId,
+    string ReturnNumber,
+    Guid DebitNoteId,
+    string DebitNoteNumber,
+    string SettlementType,
+    decimal AdjustedAmount,
+    decimal RefundAmount,
+    decimal TotalAmount,
+    string? PaymentMode,
+    Guid? BankAccountId,
+    string? ReferenceNumber,
+    Guid? VoucherId,
+    Guid? JournalEntryId,
+    Guid? BankTransactionId,
+    string Status,
+    string? Remarks);
+
+public sealed record VendorSettlementDetailDto(
+    Guid Id,
+    string SettlementNumber,
+    DateTime OnDate,
+    Guid VendorId,
+    string VendorName,
+    Guid PurchaseReturnId,
+    string ReturnNumber,
+    Guid DebitNoteId,
+    string DebitNoteNumber,
+    string SettlementType,
+    decimal AdjustedAmount,
+    decimal RefundAmount,
+    decimal TotalAmount,
+    string? PaymentMode,
+    Guid? BankAccountId,
+    string? BankAccountName,
+    string? ReferenceNumber,
+    Guid? VoucherId,
+    string? VoucherNumber,
+    Guid? JournalEntryId,
+    string? JournalEntryNumber,
+    Guid? BankTransactionId,
+    string Status,
+    string? Remarks,
+    IReadOnlyList<VendorSettlementAllocationDto> Allocations);
+
+public sealed record VendorSettlementAllocationDto(
+    Guid Id,
+    Guid PurchaseInvoiceId,
+    string PurchaseInvoiceNumber,
+    decimal Amount);
+
+public sealed record VendorSettlementResponse(
+    Guid Id,
+    string SettlementNumber,
+    string SettlementType,
+    decimal AdjustedAmount,
+    decimal RefundAmount,
+    decimal TotalAmount,
+    decimal RemainingAmount,
+    string SettlementStatus,
+    Guid? VoucherId,
+    string? VoucherNumber);

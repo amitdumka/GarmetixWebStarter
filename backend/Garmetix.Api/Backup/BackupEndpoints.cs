@@ -13,6 +13,9 @@ public static class BackupEndpoints
 
         group.MapGet("/", ListAsync);
         group.MapGet("/status", StatusAsync);
+        group.MapGet("/maintenance/status", MaintenanceStatusAsync);
+        group.MapPost("/maintenance/cleanup", MaintenanceCleanupAsync);
+        group.MapPost("/maintenance/verify-all", VerifyAllAsync);
         group.MapPost("/", CreateAsync);
         group.MapPost("/restore/preview", PreviewRestoreAsync)
             .DisableAntiforgery();
@@ -54,6 +57,30 @@ public static class BackupEndpoints
             manifestBackupCount = backups.Count(backup => backup.HasManifest),
             lastBackupAtUtc = backups.FirstOrDefault()?.CreatedAtUtc
         });
+    }
+
+    private static IResult MaintenanceStatusAsync(DatabaseBackupService service)
+    {
+        return Results.Ok(service.GetMaintenanceStatus());
+    }
+
+    private static async Task<IResult> MaintenanceCleanupAsync(
+        DatabaseBackupService service,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Results.Ok(await service.CleanupBackupDirectoryAsync(cancellationToken));
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private static IResult VerifyAllAsync(DatabaseBackupService service)
+    {
+        return Results.Ok(service.VerifyAllBackups());
     }
 
     private static async Task<IResult> CreateAsync(

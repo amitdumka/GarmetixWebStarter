@@ -1,0 +1,373 @@
+﻿<!doctype html>
+  <html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Petty Cash Sheet - Smart Menswear - 11/6/2026</title>
+    <style>
+      @page { size: A5 landscape; margin: 6mm; }
+      * {
+        box-sizing: border-box;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      html, body {
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        color: #172033;
+        background: #ffffff;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 9.5pt;
+      }
+      .sheet {
+        height: 136mm;
+        display: flex;
+        flex-direction: column;
+        border: 1.2px solid #17324d;
+        background: #ffffff;
+      }
+      .top-band {
+        height: 5px;
+        background: linear-gradient(90deg, #087f5b 0 50%, #e8590c 50% 100%);
+      }
+      header {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 16px;
+        align-items: center;
+        padding: 7px 10px 6px;
+        border-bottom: 1px solid #9fb0bf;
+      }
+      .identity {
+        display: grid;
+        grid-template-columns: 39px 1fr;
+        gap: 8px;
+        align-items: center;
+      }
+      .identity img {
+        width: 37px;
+        height: 37px;
+        object-fit: contain;
+      }
+      .company {
+        margin: 0;
+        color: #0b5d4a;
+        font-size: 15pt;
+        line-height: 1.05;
+      }
+      .store-name {
+        margin-top: 2px;
+        color: #172033;
+        font-size: 10pt;
+        font-weight: 700;
+      }
+      .store-detail {
+        margin-top: 1px;
+        color: #526172;
+        font-size: 7.5pt;
+      }
+      .document-title {
+        text-align: right;
+      }
+      .document-title h1 {
+        margin: 0;
+        color: #17324d;
+        font-size: 15pt;
+        line-height: 1.05;
+      }
+      .document-title p {
+        margin: 3px 0 0;
+        color: #526172;
+        font-size: 8pt;
+      }
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1px;
+        background: #b7c4cf;
+        border-bottom: 1px solid #9fb0bf;
+      }
+      .summary-item {
+        padding: 5px 8px;
+        background: #eef4f7;
+      }
+      .summary-item.income { background: #dff6ea; }
+      .summary-item.payment { background: #fff0e5; }
+      .summary-item.balance { background: #dceeff; }
+      .summary-item span {
+        display: block;
+        color: #5c6978;
+        font-size: 6.8pt;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+      .summary-item strong {
+        display: block;
+        margin-top: 2px;
+        color: #172033;
+        font-size: 10.5pt;
+      }
+      .columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 7px;
+        padding: 7px 8px 5px;
+      }
+      .panel {
+        border: 1px solid #9fb0bf;
+      }
+      .panel h2 {
+        margin: 0;
+        padding: 5px 7px;
+        color: #ffffff;
+        font-size: 9.5pt;
+        letter-spacing: 0;
+      }
+      .panel.income h2 { background: #087f5b; }
+      .panel.payment h2 { background: #d9480f; }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+      th, td {
+        padding: 3.6px 6px;
+        border-bottom: 1px solid #d7e0e7;
+        line-height: 1.15;
+      }
+      th {
+        color: #526172;
+        background: #f4f7f9;
+        font-size: 6.8pt;
+        text-transform: uppercase;
+      }
+      tr:nth-child(even) td { background: #f8fafb; }
+      .serial {
+        width: 24px;
+        color: #718096;
+        text-align: center;
+      }
+      .amount {
+        width: 105px;
+        text-align: right;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      tfoot td {
+        padding: 4.5px 6px;
+        border-bottom: 0;
+        font-size: 9pt;
+        font-weight: 700;
+      }
+      .income tfoot td { background: #dff6ea; color: #075b42; }
+      .payment tfoot td { background: #fff0e5; color: #a8380b; }
+      .reconciliation {
+        margin: 0 8px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        border: 1px solid #6ea8d6;
+        background: #eaf4ff;
+      }
+      .formula {
+        padding: 5px 7px;
+        color: #31465c;
+        font-size: 7.5pt;
+      }
+      .closing {
+        min-width: 180px;
+        padding: 5px 9px;
+        color: #ffffff;
+        background: #1769aa;
+        text-align: right;
+      }
+      .closing span {
+        margin-right: 10px;
+        font-size: 7pt;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+      .closing strong { font-size: 11pt; }
+      .verification {
+        flex: 0 0 auto;
+        margin: 6px 8px 0;
+        padding: 6px 8px;
+        border: 1px solid #b7c4cf;
+        background: #f8fafb;
+      }
+      .verification-title {
+        color: #31465c;
+        font-size: 7pt;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+      .verification-fields {
+        display: grid;
+        grid-template-columns: 1fr 1fr 2fr;
+        gap: 14px;
+        margin-top: 10px;
+      }
+      .verification-field {
+        padding-bottom: 3px;
+        border-bottom: 1px solid #617181;
+        color: #667485;
+        font-size: 7pt;
+      }      footer {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        padding: 6px 8px 5px;
+      }
+      .audit {
+        display: flex;
+        justify-content: space-between;
+        color: #667485;
+        font-size: 6.8pt;
+      }
+      .signatures {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 28px;
+        margin-top: 14px;
+      }
+      .signature {
+        padding-top: 3px;
+        border-top: 1px solid #617181;
+        color: #526172;
+        text-align: center;
+        font-size: 7pt;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="sheet">
+      <div class="top-band"></div>
+      <header>
+        <div class="identity">
+          <img src="http://localhost:3000/garmetix-logo.png" alt="Garmetix">
+          <div>
+            <h2 class="company">Aadwika Fashions</h2>
+            <div class="store-name">Smart Menswear Code: SM</div>
+            <div class="store-detail">Main Road, Dumka, Jharkhand, 814101</div>
+          </div>
+        </div>
+        <div class="document-title">
+          <h1>Petty Cash Sheet</h1>
+          <p>11/6/2026 &nbsp;|&nbsp; Ref: 12345678</p>
+        </div>
+      </header>
+
+      <section class="summary">
+        <div class="summary-item"><span>Opening balance</span><strong>â‚¹1,000.00</strong></div>
+        <div class="summary-item income"><span>Total cash in</span><strong>â‚¹16,501.00</strong></div>
+        <div class="summary-item payment"><span>Total cash out</span><strong>â‚¹4,385.00</strong></div>
+        <div class="summary-item balance"><span>Cash in hand</span><strong>â‚¹12,116.00</strong></div>
+      </section>
+
+      <section class="columns">
+        <div class="panel income">
+          <h2>Income / Cash In</h2>
+          <table>
+            <thead><tr><th class="serial">No.</th><th>Particulars</th><th class="amount">Amount</th></tr></thead>
+            <tbody>
+    <tr>
+      <td class="serial">1</td>
+      <td>Opening balance</td>
+      <td class="amount">â‚¹1,000.00</td>
+    </tr>
+  
+    <tr>
+      <td class="serial">2</td>
+      <td>Cash sales</td>
+      <td class="amount">â‚¹12,000.00</td>
+    </tr>
+  
+    <tr>
+      <td class="serial">3</td>
+      <td>Cash receipts</td>
+      <td class="amount">â‚¹2,000.00</td>
+    </tr>
+  
+    <tr>
+      <td class="serial">4</td>
+      <td>Due receipts</td>
+      <td class="amount">â‚¹1,201.00</td>
+    </tr>
+  
+    <tr>
+      <td class="serial">5</td>
+      <td>Bank withdrawal</td>
+      <td class="amount">â‚¹300.00</td>
+    </tr>
+  </tbody>
+            <tfoot><tr><td colspan="2">Total Cash In</td><td class="amount">â‚¹16,501.00</td></tr></tfoot>
+          </table>
+        </div>
+        <div class="panel payment">
+          <h2>Payment / Cash Out</h2>
+          <table>
+            <thead><tr><th class="serial">No.</th><th>Particulars</th><th class="amount">Amount</th></tr></thead>
+            <tbody>
+    <tr>
+      <td class="serial">1</td>
+      <td>Expenses</td>
+      <td class="amount">â‚¹500.00</td>
+    </tr>
+  
+    <tr>
+      <td class="serial">2</td>
+      <td>Cash payments</td>
+      <td class="amount">â‚¹450.00</td>
+    </tr>
+  
+    <tr>
+      <td class="serial">3</td>
+      <td>Customer due / credit sales</td>
+      <td class="amount">â‚¹200.00</td>
+    </tr>
+  
+    <tr>
+      <td class="serial">4</td>
+      <td>Bank deposit</td>
+      <td class="amount">â‚¹235.00</td>
+    </tr>
+  
+    <tr>
+      <td class="serial">5</td>
+      <td>Non-cash sales</td>
+      <td class="amount">â‚¹3,000.00</td>
+    </tr>
+  </tbody>
+            <tfoot><tr><td colspan="2">Total Cash Out</td><td class="amount">â‚¹4,385.00</td></tr></tfoot>
+          </table>
+        </div>
+      </section>
+
+      <section class="reconciliation">
+        <div class="formula">Cash in hand = Total cash in - Total cash out</div>
+        <div class="closing"><span>Closing cash</span><strong>â‚¹12,116.00</strong></div>
+      </section>
+
+      <section class="verification">
+        <div class="verification-title">Physical Cash Verification</div>
+        <div class="verification-fields">
+          <div class="verification-field">Cash counted</div>
+          <div class="verification-field">Difference</div>
+          <div class="verification-field">Remarks</div>
+        </div>
+      </section>
+      <footer>
+        <div class="audit">
+          <span>Prepared by: Admin</span>
+          <span>Printed: 13 Jun 2026, 10:37 am</span>
+        </div>
+        <div class="signatures">
+          <div class="signature">Prepared by</div>
+          <div class="signature">Verified by</div>
+          <div class="signature">Owner / Authorised Signatory</div>
+        </div>
+      </footer>
+    </main>
+  </body>
+  </html>

@@ -1,4 +1,5 @@
 using Garmetix.Api.Auth;
+using Garmetix.Api.Inventory;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Inventory;
@@ -72,8 +73,8 @@ public static class DataConsistencyRepairEndpoints
             true),
         new DataRepairActionDto(
             "REBUILD_STOCK_QTY_FROM_LEDGER",
-            "Rebuild stock quantities from movement ledger",
-            "Sets Stock.PurchaseQty to movement QuantityIn total and Stock.SoldQty to movement QuantityOut total for rows that have stock movements. This should be used only after verifying movement history is complete.",
+            "Rebuild stock projection from movement ledger",
+            "Replays stock movements to restore inward quantity, outward quantity, and weighted-average cost. Use only after verifying movement history is complete.",
             "High",
             new[] { "STOCK_LEDGER_MISMATCH", "NEGATIVE_STOCK" },
             true)
@@ -396,31 +397,31 @@ public static class DataConsistencyRepairEndpoints
 
         foreach (var stock in stocks)
         {
-            var movementTotals = await WorkspaceScope.ApplyTo(db.StockMovements.AsNoTracking(), context)
+            var movements = await WorkspaceScope.ApplyTo(db.StockMovements.AsNoTracking(), context)
                 .Where(movement => movement.StockId == stock.Id)
-                .GroupBy(movement => movement.StockId)
-                .Select(group => new
-                {
-                    QuantityIn = group.Sum(movement => movement.QuantityIn),
-                    QuantityOut = group.Sum(movement => movement.QuantityOut)
-                })
-                .FirstOrDefaultAsync(cancellationToken);
-            if (movementTotals is null)
+                .OrderBy(movement => movement.OnDate)
+                .ThenBy(movement => movement.CreatedAt)
+                .ThenBy(movement => movement.Id)
+                .Select(movement => new StockLedgerMovement(
+                    movement.Id,
+                    movement.OnDate,
+                    movement.CreatedAt,
+                    movement.QuantityIn,
+                    movement.QuantityOut,
+                    movement.CostPrice))
+                .ToListAsync(cancellationToken);
+            if (movements.Count == 0)
             {
                 continue;
             }
 
-            var difference = Math.Round((stock.PurchaseQty - stock.SoldQty) - (movementTotals.QuantityIn - movementTotals.QuantityOut), 3);
-            if (Math.Abs(difference) <= QuantityTolerance)
-            {
-                continue;
-            }
-
-            ChangeDecimal(stock, "Stock", stock.Id, stock.Barcode, nameof(stock.PurchaseQty), stock.PurchaseQty, movementTotals.QuantityIn, changes, apply, QuantityTolerance);
-            ChangeDecimal(stock, "Stock", stock.Id, stock.Barcode, nameof(stock.SoldQty), stock.SoldQty, movementTotals.QuantityOut, changes, apply, QuantityTolerance);
+            var snapshot = StockLedgerCalculator.Replay(movements);
+            ChangeDecimal(stock, "Stock", stock.Id, stock.Barcode, nameof(stock.PurchaseQty), stock.PurchaseQty, snapshot.TotalQuantityIn, changes, apply, QuantityTolerance);
+            ChangeDecimal(stock, "Stock", stock.Id, stock.Barcode, nameof(stock.SoldQty), stock.SoldQty, snapshot.TotalQuantityOut, changes, apply, QuantityTolerance);
+            ChangeDecimal(stock, "Stock", stock.Id, stock.Barcode, nameof(stock.CostPrice), stock.CostPrice, snapshot.AverageCost, changes, apply, 0.0001m);
         }
 
-        return Result("REBUILD_STOCK_QTY_FROM_LEDGER", apply, stocks.Count, changes, "Stock quantity rebuild from ledger completed.");
+        return Result("REBUILD_STOCK_QTY_FROM_LEDGER", apply, stocks.Count, changes, "Stock quantity and weighted-average valuation rebuild completed.");
     }
 
     private static void ApplySnapshotChanges(InvoiceItem item, string entityType, string referenceNumber, string? productName, string? hsnCode, Unit? unit, List<DataRepairChangeDto> changes, bool apply)

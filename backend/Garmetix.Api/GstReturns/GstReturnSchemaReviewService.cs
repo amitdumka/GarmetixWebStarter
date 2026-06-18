@@ -19,7 +19,7 @@ public static class GstReturnSchemaReviewService
         var reviewedOn = DateTimeOffset.UtcNow.ToString("u", CultureInfo.InvariantCulture);
         var warnings = new[]
         {
-            "This module is still standalone/manual and is not linked to Billing or Purchase.",
+            "Review values loaded from Billing and Purchase together with any manual adjustments against the source invoices before filing.",
             "Generated JSON/Excel follows commonly used GST offline-utility key groups, but final upload must be tested with the GST portal/offline utility before production filing.",
             "Keep a CA/accountant review step enabled until live portal acceptance is confirmed for your GSTIN and return period.",
             "GSTR-3B liability values may be auto-populated/locked by GSTN policy changes; reconcile GSTR-1/GSTR-1A before filing."

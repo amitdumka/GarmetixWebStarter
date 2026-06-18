@@ -22,6 +22,7 @@ const attendanceRows = ref<any[]>([])
 const monthlyRows = ref<any[]>([])
 const setupStatus = ref<any | null>(null)
 const loading = ref(false)
+const loadError = ref('')
 const saving = ref(false)
 const deleting = ref(false)
 const generating = ref(false)
@@ -65,6 +66,8 @@ const attendanceStatusOptions = [
   { value: 12, label: 'Work From Home' }
 ]
 
+const ALL_STORES_VALUE = 'all'
+
 const tabs = [
   { key: 'employees' as const, label: 'Employees', icon: 'i-lucide-users-round' },
   { key: 'attendance' as const, label: 'Attendance', icon: 'i-lucide-calendar-check' },
@@ -76,7 +79,7 @@ const attendanceForm = reactive<any>(emptyAttendance())
 const generateForm = reactive({
   year: new Date().getFullYear(),
   month: new Date().getMonth() + 1,
-  storeId: ''
+  storeId: ALL_STORES_VALUE
 })
 
 const employeeOptions = computed(() => employees.value.map((employee) => ({
@@ -85,7 +88,7 @@ const employeeOptions = computed(() => employees.value.map((employee) => ({
 })))
 
 const storeOptions = computed(() => [
-  { value: '', label: 'All stores' },
+  { value: ALL_STORES_VALUE, label: 'All stores' },
   ...stores.value.map((store) => ({ value: store.id, label: store.name || 'Store' }))
 ])
 
@@ -264,7 +267,7 @@ function emptyEmployee() {
     gender: 0,
     dateOfBirth: '1990-01-01',
     empId: 0,
-    joiningDate: new Date().toISOString().slice(0, 10),
+    joiningDate: localDateInput(),
     leavingDate: '',
     working: true,
     category: 0,
@@ -278,7 +281,7 @@ function emptyEmployee() {
 function emptyAttendance() {
   return {
     employeeId: '',
-    onDate: new Date().toISOString().slice(0, 10),
+    onDate: localDateInput(),
     status: 0,
     checkInTime: '',
     checkOutTime: '',
@@ -293,6 +296,7 @@ async function refresh() {
   }
 
   loading.value = true
+  loadError.value = ''
   try {
     setupStatus.value = await api.get<any>('setup/status')
     const [companyRows, storeRows, employeeData, attendanceData, monthlyData] = await Promise.all([
@@ -309,6 +313,7 @@ async function refresh() {
     attendanceRows.value = attendanceData.sort((a, b) => String(b.onDate).localeCompare(String(a.onDate)))
     monthlyRows.value = monthlyData.sort((a, b) => String(b.onDate).localeCompare(String(a.onDate)))
   } catch (error) {
+    loadError.value = feedback.cleanMessage(error instanceof Error ? error.message : 'Please check the service and try again.')
     feedback.failed('HR refresh failed', error)
   } finally {
     loading.value = false
@@ -333,7 +338,7 @@ function startEmployeeEdit(employee: any) {
     ...employee,
     title: employee.title || 'Mr.',
     dateOfBirth: toDateInput(employee.dateOfBirth || '1990-01-01'),
-    joiningDate: toDateInput(employee.joiningDate || new Date().toISOString()),
+    joiningDate: toDateInput(employee.joiningDate || localDateInput()),
     leavingDate: employee.leavingDate ? toDateInput(employee.leavingDate) : '',
     salaryStructures: null,
     attendances: null,
@@ -357,7 +362,7 @@ function startAttendanceCreate() {
 function startAttendanceEdit(row: any) {
   Object.assign(attendanceForm, {
     ...row,
-    onDate: toDateInput(row.onDate || new Date().toISOString()),
+    onDate: toDateInput(row.onDate || localDateInput()),
     checkInTime: toTimeInput(row.checkInTime),
     checkOutTime: toTimeInput(row.checkOutTime),
     employee: null
@@ -533,7 +538,9 @@ async function confirmDelete() {
 async function generateMonthlyAttendance() {
   generating.value = true
   try {
-    const selectedStore = stores.value.find((store) => store.id === generateForm.storeId)
+  const selectedStore = generateForm.storeId === ALL_STORES_VALUE
+    ? null
+    : stores.value.find((store) => store.id === generateForm.storeId)
     const response = await api.create<any>('hr/monthly-attendance/generate', {
       year: Number(generateForm.year),
       month: Number(generateForm.month),
@@ -606,11 +613,16 @@ function formatMonth(value: string) {
 }
 
 function toApiDate(value: string) {
-  return new Date(`${value}T00:00:00`).toISOString()
+  return `${value}T00:00:00`
 }
 
 function toDateInput(value: string) {
-  return String(value || new Date().toISOString()).slice(0, 10)
+  return String(value || localDateInput()).slice(0, 10)
+}
+
+function localDateInput(date = new Date()) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+  return local.toISOString().slice(0, 10)
 }
 
 function toApiTime(value: string | null) {
@@ -624,7 +636,7 @@ function toTimeInput(value: string | null) {
 onMounted(async () => {
   auth.restore()
   await refresh()
-  generateForm.storeId = stores.value[0]?.id || ''
+  generateForm.storeId = ALL_STORES_VALUE
   await autoGenerateIfMonthEnd()
 })
 </script>
@@ -652,6 +664,7 @@ onMounted(async () => {
           <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
             {{ loading ? 'Loading' : 'Ready' }}
           </UBadge>
+          <UButton v-if="activeTab === 'attendance'" icon="i-lucide-calendar-plus" color="primary" variant="solid" label="Add Attendance" @click="startAttendanceCreate" />
           <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
         </template>
       </UiModulePageHeader>
@@ -669,8 +682,18 @@ onMounted(async () => {
         </UCard>
       </div>
 
-      <UCard class="planner-card">
-        <template #header>
+      <UiRegisterPanel
+        :title="`${activeLabel} Register`"
+        :description="`${currentRows.length} records shown`"
+        :loading="loading"
+        :error="loadError"
+        :empty="currentRows.length === 0"
+        :empty-title="`No ${activeLabel.toLowerCase()} found`"
+        empty-description="Create records or generate monthly attendance to continue."
+        empty-icon="i-lucide-inbox"
+        @retry="refresh"
+      >
+        <template #actions>
           <div class="setup-list-header">
             <div class="setup-tabs">
               <UButton
@@ -710,22 +733,10 @@ onMounted(async () => {
           @create="primaryAction"
         />
 
-        <UTable
-          v-if="currentRows.length"
-          :data="currentRows"
-          :columns="activeColumns"
-          :loading="loading"
-        />
-
-        <UiCrudEmptyState
-          v-else
-          :title="`No ${activeLabel.toLowerCase()} found`"
-          description="Create records or generate monthly attendance to continue."
-          icon="i-lucide-inbox"
-          :action-label="activeTab === 'monthly' ? 'Generate Month' : `New ${activeTab === 'employees' ? 'Employee' : 'Attendance'}`"
-          @action="primaryAction"
-        />
-      </UCard>
+        <div class="planner-table-wrap">
+          <UTable :data="currentRows" :columns="activeColumns" />
+        </div>
+      </UiRegisterPanel>
 
       <UiFormSlideover
         v-model:open="formOpen"

@@ -6,10 +6,12 @@ const api = useGarmetixApi()
 const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
+const documentPrint = useServerDocumentPrint()
 const config = useRuntimeConfig()
 const isAuthenticated = auth.isAuthenticated
 const canEdit = auth.canEdit
 const canDelete = auth.canDelete
+const canConvert = auth.canSeeAdmin
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
@@ -18,13 +20,18 @@ const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const transactions = ref<any[]>([])
 const employees = ref<any[]>([])
+const ledgers = ref<any[]>([])
 const cashVouchers = ref<any[]>([])
+const eligibleOnBookVouchers = ref<any[]>([])
+const conversions = ref<any[]>([])
 const setupStatus = ref<any | null>(null)
 const loading = ref(false)
+const loadError = ref('')
 const saving = ref(false)
 const deleting = ref(false)
 const downloadingPdf = ref(false)
 const search = ref('')
+const voucherTypeFilter = ref('__all__')
 const formOpen = ref(false)
 const deleteOpen = ref(false)
 const pendingDelete = ref<any | null>(null)
@@ -33,11 +40,25 @@ const editMode = ref<'create' | 'edit'>('create')
 const printFormat = ref<'a4-two' | 'a5-one'>('a4-two')
 const isReprint = ref(false)
 const includeSignatures = ref(true)
+const conversionOpen = ref(false)
+const converting = ref(false)
+const conversionDirection = ref<'toBooks' | 'toOffBook'>('toBooks')
+const conversionSource = ref<any | null>(null)
+const conversionForm = reactive({
+  ledgerId: null as string | null,
+  employeeId: null as string | null,
+  transactionId: null as string | null,
+  reason: ''
+})
 
 const voucherTypeOptions = [
   { value: 0, label: 'Payment' },
   { value: 1, label: 'Receipt' },
   { value: 2, label: 'Expense' }
+]
+const voucherTypeFilterOptions = [
+  { value: '__all__', label: 'All voucher types' },
+  ...voucherTypeOptions
 ]
 
 const form = reactive<any>(emptyCashVoucher())
@@ -56,6 +77,13 @@ const employeeOptions = computed(() => employees.value
   .map((item) => ({
     value: item.id,
     label: employeeDisplayName(item)
+  })))
+
+const ledgerOptions = computed(() => ledgers.value
+  .filter((item) => !workspace.companyId.value || item.companyId === workspace.companyId.value)
+  .map((item) => ({
+    value: item.id,
+    label: item.name || 'Ledger'
   })))
 
 const printCopies = computed(() => printFormat.value === 'a4-two'
@@ -86,9 +114,12 @@ const tableRows = computed(() => cashVouchers.value.map((voucher) => ({
 
 const filteredRows = computed(() => {
   const term = search.value.trim().toLowerCase()
-  return term
-    ? tableRows.value.filter((row) => JSON.stringify(row).toLowerCase().includes(term))
-    : tableRows.value
+  return tableRows.value.filter((row) => {
+    const matchesSearch = !term || JSON.stringify(row).toLowerCase().includes(term)
+    const matchesType = voucherTypeFilter.value === '__all__'
+      || Number(row.raw.voucherType) === Number(voucherTypeFilter.value)
+    return matchesSearch && matchesType
+  })
 })
 
 const summary = computed(() => cashVouchers.value.reduce((result, voucher) => {
@@ -159,6 +190,13 @@ const columns: TableColumn<any>[] = [
         label: 'Print',
         onClick: () => openPrint(row.original.raw)
       }),
+      canConvert.value ? h(UButton, {
+        color: 'primary',
+        variant: 'soft',
+        icon: 'i-lucide-book-up',
+        label: 'Move to Books',
+        onClick: () => startConversionToBooks(row.original.raw)
+      }) : null,
       canEdit.value ? h(UButton, {
         color: 'neutral',
         variant: 'ghost',
@@ -181,7 +219,7 @@ function emptyCashVoucher() {
   return {
     id: '',
     voucherNumber: createVoucherNumber(),
-    onDate: new Date().toISOString().slice(0, 10),
+    onDate: localDateValue(),
     voucherType: 0,
     transactionId: null,
     partyName: '',
@@ -194,7 +232,7 @@ function emptyCashVoucher() {
 }
 
 function createVoucherNumber() {
-  const stamp = new Date().toISOString().slice(0, 10).replaceAll('-', '')
+  const stamp = localDateValue().replaceAll('-', '')
   return `CV-${stamp}-${String(Date.now()).slice(-4)}`
 }
 
@@ -202,41 +240,153 @@ async function refresh() {
   if (!auth.isAuthenticated.value) return
 
   loading.value = true
+  loadError.value = ''
   try {
-    setupStatus.value = await api.get<any>('setup/status')
+    try {
+      setupStatus.value = await api.get<any>('setup/status')
+    } catch {
+      setupStatus.value = null
+    }
+
     const query = new URLSearchParams()
     if (workspace.companyId.value) query.set('companyId', workspace.companyId.value)
     if (workspace.storeGroupId.value) query.set('storeGroupId', workspace.storeGroupId.value)
     if (workspace.storeId.value) query.set('storeId', workspace.storeId.value)
     const cashVoucherResource = query.size ? `cash-vouchers?${query.toString()}` : 'cash-vouchers'
 
-    const [companyRows, storeRows, voucherRows, transactionRows, employeeRows] = await Promise.all([
-      api.list<any>('companies'),
-      api.list<any>('stores'),
-      api.get<any[]>(cashVoucherResource),
-      api.list<any>('transactions'),
-      api.list<any>('employees')
+    const voucherRows = await api.get<any[]>(cashVoucherResource)
+    cashVouchers.value = Array.isArray(voucherRows) ? voucherRows : []
+
+    const [companyRows, storeRows, transactionRows, employeeRows, ledgerRows] = await Promise.all([
+      safeList('companies'),
+      safeList('stores'),
+      safeList('transactions'),
+      safeList('employees'),
+      safeList('ledgers')
     ])
 
     companies.value = companyRows
     stores.value = storeRows
-    cashVouchers.value = voucherRows
     transactions.value = transactionRows
     employees.value = employeeRows
+    ledgers.value = ledgerRows
 
     if (!transactionOptions.value.length) {
       const companyId = workspace.companyId.value || auth.user.value?.companyId || setupStatus.value?.companyId || companies.value[0]?.id
       const resource = companyId
         ? `setup/accounting-defaults?companyId=${companyId}`
         : 'setup/accounting-defaults'
-      await api.create<any>(resource, {})
-      transactions.value = await api.list<any>('transactions')
+      try {
+        await api.create<any>(resource, {})
+        transactions.value = await safeList('transactions')
+      } catch {
+        // Keep the register visible even if default cash categories cannot be repaired for this role.
+      }
+    }
+
+    if (canConvert.value) {
+      const [conversionRows, onBookRows] = await Promise.all([
+        safeGetArray(query.size ? `cash-vouchers/conversions?${query.toString()}` : 'cash-vouchers/conversions'),
+        safeGetArray(query.size ? `cash-vouchers/eligible-on-book?${query.toString()}` : 'cash-vouchers/eligible-on-book')
+      ])
+      conversions.value = conversionRows
+      eligibleOnBookVouchers.value = onBookRows
+    } else {
+      conversions.value = []
+      eligibleOnBookVouchers.value = []
     }
   } catch (error) {
+    loadError.value = 'Cash voucher records could not be loaded. Check the selected workspace and try again.'
     feedback.failed('Cash vouchers refresh failed', error)
   } finally {
     loading.value = false
   }
+}
+
+async function safeList(resource: string) {
+  try {
+    const rows = await api.list<any>(resource)
+    return Array.isArray(rows) ? rows : []
+  } catch {
+    return []
+  }
+}
+
+async function safeGetArray(resource: string) {
+  try {
+    const rows = await api.get<any[]>(resource)
+    return Array.isArray(rows) ? rows : []
+  } catch {
+    return []
+  }
+}
+
+function startConversionToBooks(voucher: any) {
+  conversionDirection.value = 'toBooks'
+  conversionSource.value = voucher
+  conversionForm.ledgerId = ledgerOptions.value[0]?.value || null
+  conversionForm.employeeId = normalizeGuid(voucher.employeeId) || employeeOptions.value[0]?.value || null
+  conversionForm.transactionId = null
+  conversionForm.reason = ''
+  conversionOpen.value = true
+}
+
+function startConversionToOffBook(voucher: any) {
+  conversionDirection.value = 'toOffBook'
+  conversionSource.value = voucher
+  conversionForm.ledgerId = null
+  conversionForm.employeeId = null
+  conversionForm.transactionId = transactionOptions.value[0]?.value || null
+  conversionForm.reason = ''
+  conversionOpen.value = true
+}
+
+async function submitConversion() {
+  if (!conversionSource.value?.id) return
+  if (conversionForm.reason.trim().length < 8) {
+    feedback.notify('Enter an audit reason of at least 8 characters.', undefined, 'warning')
+    return
+  }
+
+  converting.value = true
+  try {
+    if (conversionDirection.value === 'toBooks') {
+      if (!conversionForm.ledgerId || !conversionForm.employeeId) {
+        throw new Error('Select the accounting ledger and issued-by employee.')
+      }
+      await api.create<any>(`cash-vouchers/${conversionSource.value.id}/convert-to-books`, {
+        ledgerId: conversionForm.ledgerId,
+        employeeId: conversionForm.employeeId,
+        reason: conversionForm.reason.trim()
+      })
+      feedback.saved('Cash voucher moved to Books')
+    } else {
+      if (!conversionForm.transactionId) {
+        throw new Error('Select the Off Book cash category.')
+      }
+      await api.create<any>(`cash-vouchers/from-voucher/${conversionSource.value.id}`, {
+        transactionId: conversionForm.transactionId,
+        reason: conversionForm.reason.trim()
+      })
+      feedback.saved('Voucher moved to Off Book')
+    }
+    conversionOpen.value = false
+    conversionSource.value = null
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not convert voucher', error)
+  } finally {
+    converting.value = false
+  }
+}
+
+function directionLabel(value: string) {
+  return value === 'OffBookToOnBook' ? 'Off Book to Books' : 'Books to Off Book'
+}
+
+function formatDateTime(value: unknown) {
+  const date = new Date(String(value || ''))
+  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('en-IN')
 }
 
 function startCreate() {
@@ -251,7 +401,7 @@ function startEdit(voucher: any) {
   editMode.value = 'edit'
   Object.assign(form, {
     ...voucher,
-    onDate: String(voucher.onDate || new Date().toISOString()).slice(0, 10),
+    onDate: dateInputValue(voucher.onDate),
     transaction: null,
     employee: null,
     ledger: null,
@@ -288,7 +438,7 @@ function buildPayload() {
 
   return {
     voucherNumber: String(form.voucherNumber).trim(),
-    onDate: new Date(`${form.onDate}T00:00:00`).toISOString(),
+    onDate: `${form.onDate}T00:00:00`,
     voucherType: Number(form.voucherType),
     transactionId: normalizeGuid(form.transactionId),
     partyName: String(form.partyName).trim(),
@@ -307,15 +457,20 @@ async function saveCashVoucher() {
   saving.value = true
   try {
     const payload = buildPayload()
+    let createdVoucher: any | null = null
     if (editMode.value === 'edit' && form.id) {
       await api.update<any>('cash-vouchers', form.id, payload)
       feedback.updated('Cash voucher')
     } else {
-      await api.create<any>('cash-vouchers', payload)
+      createdVoucher = await api.create<any>('cash-vouchers', payload)
       feedback.saved('Cash voucher')
     }
     formOpen.value = false
     await refresh()
+    if (createdVoucher?.id) {
+      openPrint(createdVoucher)
+      await printCashVoucher()
+    }
   } catch (error) {
     feedback.failed('Could not save cash voucher', error)
   } finally {
@@ -352,16 +507,18 @@ function openPrint(voucher: any) {
   includeSignatures.value = true
 }
 
-function printCashVoucher() {
-  const style = document.createElement('style')
-  style.id = 'garmetix-cash-voucher-page-size'
-  style.textContent = printFormat.value === 'a5-one'
-    ? '@page { size: A5 portrait; margin: 8mm; }'
-    : '@page { size: A4 portrait; margin: 8mm; }'
-  document.getElementById(style.id)?.remove()
-  document.head.appendChild(style)
-  window.print()
-  window.setTimeout(() => style.remove(), 1000)
+async function printCashVoucher() {
+  if (!selectedPrintVoucher.value?.id) return
+  const query = new URLSearchParams({
+    format: printFormat.value,
+    reprint: String(isReprint.value),
+    signatures: String(includeSignatures.value)
+  })
+  try {
+    await documentPrint.printPdf(`cash-vouchers/${selectedPrintVoucher.value.id}/pdf?${query.toString()}`)
+  } catch (error) {
+    feedback.failed('Could not print cash voucher PDF', error)
+  }
 }
 
 
@@ -444,7 +601,26 @@ function normalizeGuid(value: unknown) {
 }
 
 function formatDate(value: string) {
-  return value ? new Date(value).toLocaleDateString('en-IN') : '-'
+  const date = parseLocalDate(value)
+  return date ? date.toLocaleDateString('en-IN') : '-'
+}
+
+function localDateValue(date = new Date()) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function dateInputValue(value: unknown) {
+  const text = String(value || '')
+  return /^\d{4}-\d{2}-\d{2}/.test(text) ? text.slice(0, 10) : localDateValue()
+}
+
+function parseLocalDate(value: unknown) {
+  const text = dateInputValue(value)
+  const [year, month, day] = text.split('-').map(Number)
+  return year && month && day ? new Date(year, month - 1, day) : null
 }
 
 function money(value: number) {
@@ -514,15 +690,19 @@ onMounted(async () => {
         </UCard>
       </div>
 
-      <UCard class="planner-card">
-        <template #header>
-          <div class="planner-card-header">
-            <div>
-              <h2>Cash Voucher Register</h2>
-              <p>Search voucher number, category, person, issuer, or particulars.</p>
-            </div>
+      <UiRegisterPanel
+        title="Cash Voucher Register"
+        description="Search voucher number, category, person, issuer, particulars, or voucher type."
+        :loading="loading"
+        :error="loadError"
+        :empty="!filteredRows.length"
+        empty-title="No cash vouchers found"
+        empty-description="Create the first independent off-book cash record."
+        empty-icon="i-lucide-wallet-cards"
+        @retry="refresh"
+      >
+        <template #actions>
             <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
-          </div>
         </template>
 
         <UiCrudToolbar
@@ -533,19 +713,110 @@ onMounted(async () => {
           create-label="New Cash Voucher"
           @refresh="refresh"
           @create="startCreate"
-        />
+        >
+          <template #filters>
+            <USelect
+              v-model="voucherTypeFilter"
+              :items="voucherTypeFilterOptions"
+              aria-label="Filter cash vouchers by type"
+              class="min-w-44"
+            />
+          </template>
+        </UiCrudToolbar>
 
         <UTable v-if="filteredRows.length" :data="filteredRows" :columns="columns" :loading="loading" />
+      </UiRegisterPanel>
 
-        <UiCrudEmptyState
-          v-else
-          title="No cash vouchers found"
-          description="Create the first independent off-book cash record."
-          icon="i-lucide-wallet-cards"
-          action-label="New Cash Voucher"
-          @action="startCreate"
-        />
-      </UCard>
+      <UiRegisterPanel
+        v-if="canConvert"
+        title="Owner Conversion Audit"
+        description="Move eligible cash records between Off Book and accounting with a permanent reason and operator trail."
+        :loading="loading"
+        :empty="!eligibleOnBookVouchers.length && !conversions.length"
+        empty-title="No conversion activity"
+        empty-description="Eligible cash accounting vouchers and completed conversions will appear here."
+        empty-icon="i-lucide-shield-check"
+        @retry="refresh"
+      >
+        <div v-if="eligibleOnBookVouchers.length" class="conversion-section">
+          <div class="conversion-section-heading">
+            <div>
+              <h3>Eligible cash accounting vouchers</h3>
+              <p>Only cash payment, receipt, and expense vouchers can move Off Book.</p>
+            </div>
+            <UBadge color="primary" variant="subtle">{{ eligibleOnBookVouchers.length }} eligible</UBadge>
+          </div>
+          <div class="conversion-table-wrap">
+            <table class="conversion-table">
+              <thead>
+                <tr>
+                  <th>Voucher</th>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th>Party</th>
+                  <th>Amount</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="voucher in eligibleOnBookVouchers" :key="voucher.id">
+                  <td>{{ voucher.voucherNumber }}</td>
+                  <td>{{ formatDate(voucher.onDate) }}</td>
+                  <td>{{ voucherTypeLabel(voucher.voucherType) }}</td>
+                  <td>{{ voucher.partyName }}</td>
+                  <td>{{ money(Number(voucher.amount || 0)) }}</td>
+                  <td>
+                    <UButton
+                      size="sm"
+                      color="warning"
+                      variant="soft"
+                      icon="i-lucide-book-down"
+                      label="Move Off Book"
+                      @click="startConversionToOffBook(voucher)"
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div v-if="conversions.length" class="conversion-section">
+          <div class="conversion-section-heading">
+            <div>
+              <h3>Immutable conversion history</h3>
+              <p>Source and destination numbers remain linked even after the source leaves the active register.</p>
+            </div>
+            <UBadge color="neutral" variant="subtle">{{ conversions.length }} audited</UBadge>
+          </div>
+          <div class="conversion-table-wrap">
+            <table class="conversion-table">
+              <thead>
+                <tr>
+                  <th>Converted</th>
+                  <th>Direction</th>
+                  <th>Off Book</th>
+                  <th>On Book</th>
+                  <th>Amount</th>
+                  <th>Operator</th>
+                  <th>Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="entry in conversions" :key="entry.id">
+                  <td>{{ formatDateTime(entry.convertedAt) }}</td>
+                  <td><UBadge color="primary" variant="subtle">{{ directionLabel(entry.direction) }}</UBadge></td>
+                  <td>{{ entry.cashVoucherNumber }}</td>
+                  <td>{{ entry.voucherNumber }}</td>
+                  <td>{{ money(Number(entry.amount || 0)) }}</td>
+                  <td>{{ entry.convertedByUserName }}</td>
+                  <td>{{ entry.reason }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </UiRegisterPanel>
 
       <UiFormSlideover
         v-model:open="formOpen"
@@ -604,6 +875,51 @@ onMounted(async () => {
         :loading="deleting"
         @confirm="confirmDelete"
       />
+
+      <UModal v-model:open="conversionOpen" :title="conversionDirection === 'toBooks' ? 'Move Cash Voucher to Books' : 'Move Voucher Off Book'">
+        <template #body>
+          <div class="conversion-dialog">
+            <UAlert
+              color="warning"
+              variant="subtle"
+              icon="i-lucide-shield-alert"
+              title="Owner approval required"
+              description="The source will leave the active register but remain retained for audit. This action does not duplicate the amount."
+            />
+            <div class="conversion-source-summary">
+              <span>{{ conversionSource?.voucherNumber || '-' }}</span>
+              <strong>{{ money(Number(conversionSource?.amount || 0)) }}</strong>
+              <small>{{ conversionSource?.partyName || '-' }}</small>
+            </div>
+            <template v-if="conversionDirection === 'toBooks'">
+              <UFormField label="Accounting ledger" required>
+                <USelect v-model="conversionForm.ledgerId" :items="ledgerOptions" placeholder="Select ledger" />
+              </UFormField>
+              <UFormField label="Issued by" required>
+                <USelect v-model="conversionForm.employeeId" :items="employeeOptions" placeholder="Select employee" />
+              </UFormField>
+            </template>
+            <UFormField v-else label="Off Book cash category" required>
+              <USelect v-model="conversionForm.transactionId" :items="transactionOptions" placeholder="Select category" />
+            </UFormField>
+            <UFormField label="Audit reason" required hint="Minimum 8 characters">
+              <UTextarea v-model="conversionForm.reason" :rows="4" autoresize placeholder="Explain why this voucher is being moved." />
+            </UFormField>
+          </div>
+        </template>
+        <template #footer>
+          <div class="modal-actions">
+            <UButton color="neutral" variant="outline" label="Cancel" @click="conversionOpen = false" />
+            <UButton
+              :color="conversionDirection === 'toBooks' ? 'primary' : 'warning'"
+              icon="i-lucide-shield-check"
+              label="Approve and Move"
+              :loading="converting"
+              @click="submitConversion"
+            />
+          </div>
+        </template>
+      </UModal>
 
       <UModal v-model:open="printOpen" title="Cash Voucher Print" :ui="{ content: 'max-w-5xl' }">
         <template #body>
@@ -720,3 +1036,98 @@ onMounted(async () => {
     </section>
   </AppShell>
 </template>
+
+<style scoped>
+.conversion-section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.conversion-section + .conversion-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--ui-border);
+}
+
+.conversion-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.conversion-section-heading h3 {
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.conversion-section-heading p {
+  margin-top: 0.2rem;
+  color: var(--ui-text-muted);
+  font-size: 0.82rem;
+}
+
+.conversion-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--ui-border);
+  border-radius: 0.5rem;
+}
+
+.conversion-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.conversion-table th,
+.conversion-table td {
+  padding: 0.7rem 0.8rem;
+  border-bottom: 1px solid var(--ui-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.conversion-table th {
+  color: var(--ui-text-muted);
+  font-weight: 600;
+  background: var(--ui-bg-elevated);
+}
+
+.conversion-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.conversion-dialog {
+  display: grid;
+  gap: 1rem;
+}
+
+.conversion-source-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.2rem 1rem;
+  padding: 0.85rem;
+  border: 1px solid var(--ui-border);
+  border-radius: 0.5rem;
+  background: var(--ui-bg-elevated);
+}
+
+.conversion-source-summary span,
+.conversion-source-summary strong {
+  font-weight: 650;
+}
+
+.conversion-source-summary small {
+  grid-column: 1 / -1;
+  color: var(--ui-text-muted);
+}
+
+@media (max-width: 640px) {
+  .conversion-section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+</style>

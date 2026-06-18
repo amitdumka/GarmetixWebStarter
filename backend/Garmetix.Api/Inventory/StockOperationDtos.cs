@@ -49,7 +49,13 @@ public sealed record PhysicalStockCountRequest(
     decimal CountedQuantity,
     string? Reason);
 
+public sealed record StockWriteOffRequest(
+    Guid StockId,
+    decimal Quantity,
+    string? Reason);
+
 public sealed record StockOperationResponse(
+    Guid DocumentId,
     string OperationNumber,
     Guid ProductId,
     string Barcode,
@@ -61,6 +67,7 @@ public sealed record StockOperationResponse(
     string Message);
 
 public sealed record StockTransferResponse(
+    Guid DocumentId,
     string OperationNumber,
     Guid ProductId,
     string Barcode,
@@ -82,5 +89,94 @@ public sealed record StockMovementRowDto(
     decimal QuantityOut,
     decimal MRP,
     decimal CostPrice,
+    decimal QuantityAfter,
+    decimal AverageCostAfter,
+    decimal InventoryValueAfter,
+    string ValuationMethod,
     string? SourceNumber,
     string? Remarks);
+
+public sealed record StockOperationDocumentRowDto(
+    Guid Id,
+    string DocumentNumber,
+    DateTime OnDate,
+    string OperationType,
+    string Status,
+    string? FromStoreName,
+    string? ToStoreName,
+    decimal TotalQuantity,
+    decimal TotalCostValue,
+    decimal TotalMrpValue,
+    int ItemCount,
+    string AccountingStatus,
+    Guid? JournalEntryId,
+    string? JournalEntryNumber,
+    string Reason);
+
+public sealed record StockOperationDocumentDetailDto(
+    Guid Id,
+    string DocumentNumber,
+    DateTime OnDate,
+    string OperationType,
+    string Status,
+    Guid? FromStoreId,
+    string? FromStoreName,
+    Guid? ToStoreId,
+    string? ToStoreName,
+    decimal TotalQuantity,
+    decimal TotalCostValue,
+    decimal TotalMrpValue,
+    int ItemCount,
+    string AccountingStatus,
+    Guid? JournalEntryId,
+    string? JournalEntryNumber,
+    string Reason,
+    DateTime PostedAt,
+    IReadOnlyList<StockOperationItemDto> Items);
+
+public sealed record StockOperationItemDto(
+    Guid Id,
+    Guid ProductId,
+    Guid? StockId,
+    Guid? DestinationStockId,
+    string ProductName,
+    string Barcode,
+    string? HsnCode,
+    string Unit,
+    decimal SystemQuantity,
+    decimal? CountedQuantity,
+    decimal QuantityIn,
+    decimal QuantityOut,
+    decimal QuantityDifference,
+    decimal FromQuantityBefore,
+    decimal FromQuantityAfter,
+    decimal? ToQuantityBefore,
+    decimal? ToQuantityAfter,
+    decimal CostPrice,
+    decimal Mrp,
+    decimal CostValue,
+    decimal MrpValue,
+    Guid? OutMovementId,
+    Guid? InMovementId,
+    string? Reason);
+
+public sealed record StockValuationSummaryDto(
+    string ValuationMethod,
+    int StockRows,
+    decimal TotalQuantity,
+    decimal TotalInventoryValue,
+    int ProjectionMismatchCount,
+    IReadOnlyList<StockValuationRowDto> Rows);
+
+public sealed record StockValuationRowDto(
+    Guid StockId,
+    Guid ProductId,
+    string ProductName,
+    string Barcode,
+    string StoreName,
+    decimal LedgerQuantity,
+    decimal ProjectedQuantity,
+    decimal AverageCost,
+    decimal InventoryValue,
+    DateTime? LastMovementAt,
+    string ProjectionStatus);

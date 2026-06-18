@@ -9,9 +9,12 @@ const api = useGarmetixApi()
 const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
+const documentPrint = useServerDocumentPrint()
 const isAuthenticated = auth.isAuthenticated
 const canEdit = auth.canEdit
 const canDelete = auth.canDelete
+const roleKey = computed(() => `${auth.user.value?.role || ''} ${auth.user.value?.userType || ''}`.toLowerCase())
+const canManageSalaryStructures = computed(() => auth.canSeeAdmin.value || ['accountant', 'remoteaccountant', 'payroll'].some((role) => roleKey.value.includes(role)))
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
@@ -29,6 +32,7 @@ const saving = ref(false)
 const deleting = ref(false)
 const generating = ref(false)
 const printLoading = ref(false)
+const previewingPayment = ref(false)
 const activeTab = ref<PayrollTab>('payslips')
 const search = ref('')
 const formOpen = ref(false)
@@ -71,6 +75,12 @@ const tabs = [
   { key: 'structures' as const, label: 'Salary Structures', icon: 'i-lucide-badge-indian-rupee' },
   { key: 'payments' as const, label: 'Salary Payments', icon: 'i-lucide-credit-card' }
 ]
+const visibleTabs = computed(() => tabs.filter((tab) => tab.key !== 'structures' || canManageSalaryStructures.value))
+watch(canManageSalaryStructures, (allowed) => {
+  if (!allowed && activeTab.value === 'structures') {
+    activeTab.value = 'payslips'
+  }
+}, { immediate: true })
 
 const structureForm = reactive<any>(emptyStructure())
 const paymentForm = reactive<any>(emptyPayment())
@@ -112,7 +122,13 @@ const searchPlaceholder = computed(() => {
 const structureGross = computed(() => grossForStructure(structureForm))
 const structureDeductions = computed(() => deductionsForStructure(structureForm))
 const structureNet = computed(() => structureGross.value - structureDeductions.value)
-const paymentBalance = computed(() => Number(paymentForm.netSalary || 0) - Number(paymentForm.amount || 0))
+const paymentBalance = computed(() => Math.max(0,
+  Number(paymentForm.netSalary || 0) -
+  Number(paymentForm.alreadyPaid || 0) -
+  Number(paymentForm.amount || 0) +
+  Number(paymentForm.roundOff || 0)))
+const submitDisabled = computed(() =>
+  formKind.value === 'payment' && Number(paymentForm.amount || 0) <= 0)
 
 const payrollSummary = computed(() => {
   return {
@@ -314,6 +330,13 @@ const paymentColumns: TableColumn<any>[] = [
     id: 'actions',
     header: '',
     cell: ({ row }) => h('div', { class: 'table-action-buttons' }, [
+      h(UButton, {
+        color: 'primary',
+        variant: 'ghost',
+        icon: 'i-lucide-printer',
+        label: 'Print',
+        onClick: () => printSalaryPayment(row.original.raw)
+      }),
       canEdit.value ? h(UButton, {
         color: 'neutral',
         variant: 'ghost',
@@ -362,24 +385,24 @@ function emptyPayment() {
   const today = new Date()
   return {
     employeeId: '',
-    voucherNumber: createPayrollVoucherNumber(),
+    voucherNumber: '',
     salaryMonth: Number(`${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}`),
-    onDate: today.toISOString().slice(0, 10),
+    onDate: toLocalDateInput(today),
     salaryComponent: 0,
     grossSalary: 0,
+    baseDeductions: 0,
+    salaryAdvance: 0,
     totalDeductions: 0,
+    previousDue: 0,
     netSalary: 0,
+    alreadyPaid: 0,
+    outstandingAmount: 0,
+    roundOff: 0,
     amount: 0,
     paymentMode: 0,
     remarks: '',
     salaryPaySlipId: ''
   }
-}
-
-function createPayrollVoucherNumber() {
-  const date = new Date()
-  const stamp = date.toISOString().slice(0, 10).replaceAll('-', '')
-  return `PAY-${stamp}-${String(Date.now()).slice(-4)}`
 }
 
 async function refresh() {
@@ -395,7 +418,7 @@ async function refresh() {
       api.list<any>('stores'),
       api.list<any>('employees'),
       api.list<any>('monthly-attendance'),
-      api.list<any>('salary-structures'),
+      canManageSalaryStructures.value ? api.list<any>('salary-structures') : Promise.resolve([]),
       api.list<any>('salary-payments'),
       api.get<any[]>('payroll/payslips/recent?take=250')
     ])
@@ -415,6 +438,10 @@ async function refresh() {
 }
 
 function showTab(tab: PayrollTab) {
+  if (tab === 'structures' && !canManageSalaryStructures.value) {
+    feedback.notify('Salary structures restricted', 'Only admin, owner, accountant and payroll roles can access salary structures.', 'warning')
+    return
+  }
   activeTab.value = tab
   search.value = ''
 }
@@ -460,8 +487,13 @@ function startPaymentFromPayslip(payslip: any) {
   paymentForm.employeeId = payslip.employeeId
   paymentForm.salaryMonth = salaryMonthFromDate(payslip.payPeriodStart)
   paymentForm.grossSalary = Number(payslip.totalEarnings || 0)
-  paymentForm.totalDeductions = Number(payslip.totalDeductions || 0)
+  paymentForm.baseDeductions = Number(payslip.totalDeductions || 0)
+  paymentForm.salaryAdvance = Number(payslip.salaryAdvance || 0)
+  paymentForm.totalDeductions = paymentForm.baseDeductions + paymentForm.salaryAdvance
+  paymentForm.previousDue = Number(payslip.carryForwardDue || 0)
   paymentForm.netSalary = Number(payslip.payableAmount || payslip.netSalary || 0)
+  paymentForm.alreadyPaid = Number(payslip.paidAmount || 0)
+  paymentForm.outstandingAmount = Number(payslip.dueAmount || 0)
   paymentForm.amount = Number(payslip.dueAmount || payslip.payableAmount || payslip.netSalary || 0)
   paymentForm.salaryComponent = 0
   paymentForm.remarks = `Salary payment against payslip ${payslip.monthYear}`
@@ -474,6 +506,7 @@ function startPaymentFromPayslip(payslip: any) {
 
 function startPaymentEdit(item: any) {
   Object.assign(paymentForm, {
+    ...emptyPayment(),
     ...item,
     onDate: toDateInput(item.onDate),
     employee: null,
@@ -483,6 +516,52 @@ function startPaymentEdit(item: any) {
   activeTab.value = 'payments'
   formKind.value = 'payment'
   formOpen.value = true
+}
+
+let paymentPreviewSequence = 0
+
+async function precalculatePayment(showError = true) {
+  const employeeId = String(paymentForm.employeeId || '')
+  const salaryMonth = Number(paymentForm.salaryMonth || 0)
+  if (!employeeId || salaryMonth < 200001) {
+    return
+  }
+
+  const requestSequence = ++paymentPreviewSequence
+  previewingPayment.value = true
+  try {
+    const preview = await api.create<any>('salary-payments/preview', {
+      employeeId,
+      salaryMonth,
+      salaryPaySlipId: paymentForm.salaryPaySlipId || null,
+      paymentId: editingPaymentId.value || null
+    })
+    if (requestSequence !== paymentPreviewSequence) {
+      return
+    }
+
+    Object.assign(paymentForm, {
+      salaryPaySlipId: preview.salaryPaySlipId || paymentForm.salaryPaySlipId || '',
+      grossSalary: Number(preview.grossSalary || 0),
+      baseDeductions: Number(preview.baseDeductions || 0),
+      salaryAdvance: Number(preview.salaryAdvance || 0),
+      totalDeductions: Number(preview.totalDeductions || 0),
+      previousDue: Number(preview.previousDue || 0),
+      netSalary: Number(preview.netPayable || 0),
+      alreadyPaid: Number(preview.alreadyPaid || 0),
+      outstandingAmount: Number(preview.outstandingAmount || 0),
+      amount: Number(preview.roundedPaidAmount || 0),
+      roundOff: Number(preview.roundOff || 0)
+    })
+  } catch (error) {
+    if (showError) {
+      feedback.failed('Could not pre-calculate salary payment', error)
+    }
+  } finally {
+    if (requestSequence === paymentPreviewSequence) {
+      previewingPayment.value = false
+    }
+  }
 }
 
 async function saveCurrentForm() {
@@ -570,9 +649,7 @@ async function savePayment() {
   try {
     const { companyId, storeGroupId, storeId } = setupIds(true)
     const payload = {
-      ...paymentForm,
       employeeId: paymentForm.employeeId,
-      voucherNumber: String(paymentForm.voucherNumber || '').trim(),
       salaryMonth: Number(paymentForm.salaryMonth || 0),
       onDate: toApiDate(paymentForm.onDate),
       salaryComponent: Number(paymentForm.salaryComponent),
@@ -583,23 +660,25 @@ async function savePayment() {
       paymentMode: Number(paymentForm.paymentMode),
       remarks: String(paymentForm.remarks || '').trim() || null,
       salaryPaySlipId: paymentForm.salaryPaySlipId || null,
-      employee: null,
-      salaryPaySlip: null,
       companyId,
       storeGroupId,
       storeId
     }
 
+    let createdPayment: any | null = null
     if (editingPaymentId.value) {
       await api.update<any>('salary-payments', editingPaymentId.value, payload)
       feedback.updated('Salary payment')
     } else {
-      await api.create<any>('salary-payments', payload)
+      createdPayment = await api.create<any>('salary-payments', payload)
       feedback.saved('Salary payment')
     }
 
     formOpen.value = false
     await refresh()
+    if (createdPayment?.id) {
+      await printSalaryPayment(createdPayment)
+    }
   } catch (error) {
     feedback.failed('Could not save salary payment', error)
   } finally {
@@ -730,8 +809,33 @@ async function openPrintablePayslip(payslip: any) {
   }
 }
 
-function printPayslip() {
-  window.print()
+async function printPayslip() {
+  if (!selectedPayslip.value?.id) return
+  try {
+    await documentPrint.printPdf(`payroll/payslips/${selectedPayslip.value.id}/pdf`)
+  } catch (error) {
+    feedback.failed('Could not print payslip PDF', error)
+  }
+}
+
+async function printSalaryPayment(payment: any) {
+  if (!payment?.id) return
+  try {
+    await documentPrint.printPdf(`salary-payments/${payment.id}/pdf`)
+  } catch (error) {
+    feedback.failed('Could not print salary payment PDF', error)
+  }
+}
+
+async function downloadPayslip() {
+  if (!selectedPayslip.value?.id) return
+  try {
+    const fileName = `payslip-${selectedPayslip.value.monthYear || selectedPayslip.value.id}.pdf`
+    await documentPrint.downloadPdf(`payroll/payslips/${selectedPayslip.value.id}/pdf`, fileName)
+    feedback.notify('Payslip PDF downloaded')
+  } catch (error) {
+    feedback.failed('Could not download payslip PDF', error)
+  }
 }
 
 function sharePayslipEmail(payslip: any) {
@@ -796,7 +900,11 @@ function toDateInput(value: string) {
 }
 
 function toApiDate(value: string) {
-  return new Date(`${value}T00:00:00`).toISOString()
+  return `${value}T00:00:00`
+}
+
+function toLocalDateInput(value: Date) {
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
 }
 
 function money(value: number) {
@@ -812,6 +920,21 @@ onMounted(async () => {
   await refresh()
   await autoGeneratePayrollIfDue()
 })
+
+watch(
+  [() => paymentForm.employeeId, () => paymentForm.salaryMonth],
+  ([employeeId, salaryMonth], [previousEmployeeId, previousSalaryMonth]) => {
+    if (
+      formOpen.value &&
+      formKind.value === 'payment' &&
+      !editingPaymentId.value &&
+      employeeId &&
+      salaryMonth &&
+      (employeeId !== previousEmployeeId || salaryMonth !== previousSalaryMonth)
+    ) {
+      void precalculatePayment(false)
+    }
+  })
 </script>
 
 <template>
@@ -859,7 +982,7 @@ onMounted(async () => {
           <div class="setup-list-header">
             <div class="setup-tabs">
               <UButton
-                v-for="tab in tabs"
+                v-for="tab in visibleTabs"
                 :key="tab.key"
                 :icon="tab.icon"
                 :color="activeTab === tab.key ? 'primary' : 'neutral'"
@@ -919,6 +1042,7 @@ onMounted(async () => {
         :title="formKind === 'structure' ? (editingStructureId ? 'Edit Salary Structure' : 'New Salary Structure') : (editingPaymentId ? 'Edit Salary Payment' : 'New Salary Payment')"
         :description="formKind === 'structure' ? 'Maintain salary components and deductions.' : 'Record employee salary payment details.'"
         :submit-label="formKind === 'structure' ? 'Save Structure' : 'Save Payment'"
+        :submit-disabled="submitDisabled"
         :loading="saving"
         @submit="saveCurrentForm"
       >
@@ -985,15 +1109,31 @@ onMounted(async () => {
           </UFormField>
           <div class="form-two-column">
             <UFormField label="Voucher number" required>
-              <UInput v-model="paymentForm.voucherNumber" required />
+              <UInput
+                :model-value="editingPaymentId ? paymentForm.voucherNumber : 'Assigned on save'"
+                disabled
+              />
             </UFormField>
             <UFormField label="Salary month" required>
               <UInput v-model="paymentForm.salaryMonth" required type="number" />
             </UFormField>
           </div>
-          <UFormField label="Payment date" required>
-            <UInput v-model="paymentForm.onDate" required type="date" />
-          </UFormField>
+          <div class="form-two-column">
+            <UFormField label="Payment date" required>
+              <UInput v-model="paymentForm.onDate" required type="date" />
+            </UFormField>
+            <UFormField label="Pre-calculation">
+              <UButton
+                block
+                color="neutral"
+                icon="i-lucide-calculator"
+                label="Recalculate"
+                variant="soft"
+                :loading="previewingPayment"
+                @click="precalculatePayment()"
+              />
+            </UFormField>
+          </div>
           <div class="form-two-column">
             <UFormField label="Component">
               <USelect v-model="paymentForm.salaryComponent" :items="salaryComponentOptions" />
@@ -1006,7 +1146,7 @@ onMounted(async () => {
             <UFormField label="Gross salary">
               <UInput v-model="paymentForm.grossSalary" min="0" step="0.01" type="number" />
             </UFormField>
-            <UFormField label="Deductions">
+            <UFormField label="Deductions including advance">
               <UInput v-model="paymentForm.totalDeductions" min="0" step="0.01" type="number" />
             </UFormField>
           </div>
@@ -1015,7 +1155,13 @@ onMounted(async () => {
               <UInput v-model="paymentForm.netSalary" min="0" step="0.01" type="number" />
             </UFormField>
             <UFormField label="Paid amount">
-              <UInput v-model="paymentForm.amount" min="0" step="0.01" type="number" />
+              <UInput
+                v-model="paymentForm.amount"
+                min="0"
+                step="1"
+                type="number"
+                @blur="paymentForm.amount = Math.round(Number(paymentForm.amount || 0))"
+              />
             </UFormField>
           </div>
           <UFormField label="Remarks">
@@ -1023,7 +1169,12 @@ onMounted(async () => {
           </UFormField>
           <div class="payroll-summary">
             <span>Gross</span><strong>{{ money(Number(paymentForm.grossSalary || 0)) }}</strong>
-            <span>Net</span><strong>{{ money(Number(paymentForm.netSalary || 0)) }}</strong>
+            <span>Base deductions</span><strong>{{ money(Number(paymentForm.baseDeductions || 0)) }}</strong>
+            <span>Advance deducted</span><strong>{{ money(Number(paymentForm.salaryAdvance || 0)) }}</strong>
+            <span>Previous due added</span><strong>{{ money(Number(paymentForm.previousDue || 0)) }}</strong>
+            <span>Net payable</span><strong>{{ money(Number(paymentForm.netSalary || 0)) }}</strong>
+            <span>Already paid</span><strong>{{ money(Number(paymentForm.alreadyPaid || 0)) }}</strong>
+            <span>Round off</span><strong>{{ money(Number(paymentForm.roundOff || 0)) }}</strong>
             <span>Balance after payment</span><strong>{{ money(paymentBalance) }}</strong>
           </div>
         </template>
@@ -1120,6 +1271,7 @@ onMounted(async () => {
             <UButton color="neutral" variant="outline" label="Close" @click="printOpen = false" />
             <UButton icon="i-lucide-mail" color="neutral" variant="subtle" label="Email" :disabled="!selectedPayslip" @click="selectedPayslip && sharePayslipEmail(selectedPayslip)" />
             <UButton icon="i-lucide-message-circle" color="success" variant="subtle" label="WhatsApp" :disabled="!selectedPayslip" @click="selectedPayslip && sharePayslipWhatsApp(selectedPayslip)" />
+            <UButton icon="i-lucide-download" color="neutral" variant="subtle" label="Download PDF" :disabled="!selectedPayslip" @click="downloadPayslip" />
             <UButton icon="i-lucide-printer" label="Print / PDF" :disabled="!printDetail" @click="printPayslip" />
           </div>
         </template>

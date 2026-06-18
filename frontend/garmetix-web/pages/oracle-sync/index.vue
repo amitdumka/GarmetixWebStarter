@@ -2,6 +2,7 @@
 const api = useGarmetixApi()
 const auth = useAuth()
 const feedback = useUiFeedback()
+const NO_FILTER = '__all__'
 
 const loading = ref(false)
 const running = ref(false)
@@ -22,18 +23,21 @@ const externalTestPlan = ref<any | null>(null)
 const externalTestResult = ref<any | null>(null)
 const autoApplying = ref(false)
 const externalTesting = ref(false)
-const selectedEntity = ref('')
-const selectedDirection = ref('')
+const selectedEntity = ref(NO_FILTER)
+const selectedDirection = ref(NO_FILTER)
+const loadError = ref('')
+
+useHead({ title: 'Oracle Secondary Sync | Garmetix' })
 
 const directionOptions = [
-  { label: 'Configured direction', value: '' },
+  { label: 'Configured direction', value: NO_FILTER },
   { label: 'Push to Oracle', value: 'PushToOracle' },
   { label: 'Pull from Oracle', value: 'PullFromOracle' },
   { label: 'Bidirectional', value: 'Bidirectional' }
 ]
 
 const entityOptions = computed(() => [
-  { label: 'All configured entities', value: '' },
+  { label: 'All configured entities', value: NO_FILTER },
   ...(status.value?.entityNames || []).map((name: string) => ({ label: name, value: name }))
 ])
 
@@ -71,6 +75,7 @@ const metrics = computed(() => [
 async function refresh() {
   if (!auth.isAuthenticated.value || !auth.canSeeAdmin.value) return
   loading.value = true
+  loadError.value = ''
   try {
     const [nextStatus, nextHistory, nextInbound, nextDeadLetters, nextOwnership, nextReadiness, nextAutoApplyPolicy, nextExternalTestPlan] = await Promise.all([
       api.get<any>('oracle-sync/status'),
@@ -91,7 +96,7 @@ async function refresh() {
     autoApplyPolicy.value = nextAutoApplyPolicy || []
     externalTestPlan.value = nextExternalTestPlan || null
   } catch (error) {
-    feedback.failed('Could not load Oracle sync status', error)
+    loadError.value = feedback.errorMessage(error, 'Oracle synchronization details could not be loaded. Try again.', 'Oracle sync load failed')
   } finally {
     loading.value = false
   }
@@ -127,9 +132,9 @@ async function runNow(direction?: string) {
   running.value = true
   try {
     runResult.value = await api.create<any>('oracle-sync/run', {
-      entityName: selectedEntity.value || null,
+      entityName: selectedEntity.value === NO_FILTER ? null : selectedEntity.value,
       repairFirst: true,
-      direction: direction || selectedDirection.value || null
+      direction: direction || (selectedDirection.value === NO_FILTER ? null : selectedDirection.value)
     })
     feedback.notify('Oracle sync completed', `${runResult.value?.totalPushed || 0} pushed, ${runResult.value?.totalPulled || 0} pulled`, runResult.value?.success ? 'success' : 'warning')
     await refresh()
@@ -144,7 +149,7 @@ async function pullNow() {
   pulling.value = true
   try {
     runResult.value = await api.create<any>('oracle-sync/pull', {
-      entityName: selectedEntity.value || null,
+      entityName: selectedEntity.value === NO_FILTER ? null : selectedEntity.value,
       repairFirst: true
     })
     feedback.notify('Oracle pull completed', `${runResult.value?.totalPulled || 0} inbound event(s) queued`, runResult.value?.success ? 'success' : 'warning')
@@ -189,7 +194,7 @@ async function autoApplyInbound() {
   autoApplying.value = true
   try {
     const result = await api.create<any>('oracle-sync/inbound/auto-apply', {
-      entityName: selectedEntity.value || null,
+      entityName: selectedEntity.value === NO_FILTER ? null : selectedEntity.value,
       take: 50
     })
     feedback.notify('Oracle auto-apply completed', `${result?.applied || 0} applied, ${result?.skipped || 0} skipped`, 'success')
@@ -206,7 +211,7 @@ async function runExternalAppTest() {
   externalTesting.value = true
   try {
     externalTestResult.value = await api.create<any>('oracle-sync/external-app-test', {
-      entityName: selectedEntity.value || 'Customer',
+      entityName: selectedEntity.value === NO_FILTER ? 'Customer' : selectedEntity.value,
       sourceApplication: 'ExternalAppSmokeTest',
       pullAfterSeed: true,
       repairFirst: true
@@ -231,6 +236,16 @@ onMounted(async () => { auth.restore(); await refresh() })
 <template>
   <AuthScreen v-if="!auth.isAuthenticated.value" />
   <AppShell v-else title="Oracle Secondary Sync" @refresh="refresh">
+    <UAlert
+      v-if="!auth.canSeeAdmin.value"
+      color="warning"
+      variant="subtle"
+      icon="i-lucide-lock-keyhole"
+      title="Administrator access required"
+      description="Oracle synchronization is available only to Owner and Admin users."
+    />
+
+    <template v-else>
     <UiModulePageHeader
       title="Oracle Secondary Sync"
       description="Sync PostgreSQL primary data with an Oracle Cloud secondary database used as common ground for connected apps."
@@ -245,14 +260,21 @@ onMounted(async () => { auth.restore(); await refresh() })
     </UiModulePageHeader>
 
     <UAlert
+      v-if="loadError"
       class="mt-4"
-      color="primary"
+      color="error"
       variant="subtle"
-      title="Oracle Sync v5"
-      description="Oracle Cloud readiness, trusted-source auto-apply, and external-app smoke testing are now available. Auto-apply remains allowlist-based and protected for transactional, GST, stock, loyalty ledger, and accounting data."
+      icon="i-lucide-circle-alert"
+      title="Oracle synchronization is unavailable"
+      :description="loadError"
+      :actions="[{ label: 'Try again', icon: 'i-lucide-refresh-cw', onClick: refresh }]"
     />
 
-    <div class="planner-metric-grid mt-4">
+    <div v-if="loading && !status" class="planner-metric-grid mt-4">
+      <USkeleton v-for="row in 4" :key="row" class="h-28 w-full" />
+    </div>
+
+    <div v-else class="planner-metric-grid mt-4">
       <UCard v-for="metric in metrics" :key="metric.label" class="planner-card">
         <div class="metric-card-content">
           <UIcon :name="metric.icon" class="metric-icon" />
@@ -378,8 +400,8 @@ onMounted(async () => { auth.restore(); await refresh() })
       <UAlert
         color="primary"
         variant="subtle"
-        title="Oracle Free Tier + external app validation"
-        :description="externalTestPlan?.purpose || 'Seed one external-app event into Oracle and pull it into Garmetix review queue.'"
+        title="External application validation"
+        :description="externalTestPlan?.purpose || 'Create one test event in Oracle and pull it into the Garmetix review queue.'"
       />
       <div v-if="externalTestResult" class="planner-table-wrap mt-4">
         <table class="planner-table">
@@ -498,5 +520,33 @@ onMounted(async () => { auth.restore(); await refresh() })
         </table>
       </div>
     </UCard>
+    </template>
   </AppShell>
 </template>
+
+<style scoped>
+.metric-card-content {
+  display: flex;
+  align-items: flex-start;
+  gap: .75rem;
+}
+
+.metric-card-content > div {
+  display: grid;
+  min-width: 0;
+  gap: .25rem;
+}
+
+.metric-card-content p,
+.metric-card-content strong,
+.metric-card-content small {
+  display: block;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.metric-card-content small {
+  color: rgb(var(--color-gray-500));
+  line-height: 1.35;
+}
+</style>

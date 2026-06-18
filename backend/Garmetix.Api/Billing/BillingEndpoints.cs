@@ -2,12 +2,14 @@ using Garmetix.Api.Accounting;
 using Garmetix.Api.Auth;
 using Garmetix.Api.Commercial;
 using Garmetix.Api.Gstin;
+using Garmetix.Api.Inventory;
 using Garmetix.Api.Numbering;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Inventory;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace Garmetix.Api.Billing;
@@ -309,7 +311,8 @@ public static class BillingEndpoints
             invoice.PaidAmount,
             invoice.BalanceAmount,
             items,
-            payments);
+            payments,
+            Garmetix.Api.ProductLookup.DocumentCodeService.Create(Garmetix.Api.ProductLookup.DocumentCodeService.SaleInvoice, invoice.Id));
 
         var pdf = InvoicePdfDocument.Build(
             model,
@@ -410,13 +413,36 @@ public static class BillingEndpoints
         _ => "a4"
     };
 
-    private static async Task<IResult> CreateSaleAsync(
+    private static Task<IResult> CreateSaleAsync(
         PosSaleRequest request,
         HttpContext context,
         GarmetixDbContext db,
         DocumentNumberService documentNumbers,
         AccountingPostingService accounting,
         GstinLookupService gstinLookup,
+        StockLedgerService stockLedger,
+        CancellationToken cancellationToken)
+    {
+        var strategy = db.Database.CreateExecutionStrategy();
+        return strategy.ExecuteAsync(() => CreateSaleCoreAsync(
+            request,
+            context,
+            db,
+            documentNumbers,
+            accounting,
+            gstinLookup,
+            stockLedger,
+            cancellationToken));
+    }
+
+    private static async Task<IResult> CreateSaleCoreAsync(
+        PosSaleRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        DocumentNumberService documentNumbers,
+        AccountingPostingService accounting,
+        GstinLookupService gstinLookup,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         if (request.Items.Count == 0)
@@ -429,9 +455,14 @@ public static class BillingEndpoints
             return Results.BadRequest(new { message = "Item quantity must be greater than zero." });
         }
 
-        var storeAllowed = await WorkspaceScope.ApplyTo(db.Stores.AsNoTracking(), context)
-            .AnyAsync(store => store.Id == request.StoreId && store.CompanyId == request.CompanyId && store.StoreGroupId == request.StoreGroupId, cancellationToken);
-        if (!storeAllowed)
+        var billingStore = await WorkspaceScope.ApplyTo(db.Stores.AsNoTracking(), context)
+            .Where(store => store.Id == request.StoreId && store.CompanyId == request.CompanyId && store.StoreGroupId == request.StoreGroupId)
+            .Select(store => new
+            {
+                SupplierGstin = store.Company != null ? store.Company.GSTIN : string.Empty
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (billingStore is null)
         {
             return Results.BadRequest(new { message = "Selected billing store is outside your access scope." });
         }
@@ -442,6 +473,7 @@ public static class BillingEndpoints
             ? await gstinLookup.ValidatePartyAsync("Customer", request.CustomerGstin, request.CustomerName, null, cancellationToken)
             : null;
         var customer = await GetOrCreateCustomerAsync(request, db, gstinLookup, customerValidation, cancellationToken);
+        var interState = IsInterStateSupply(billingStore.SupplierGstin, customer.GSTIN);
         var invoiceNumber = await documentNumbers.NextSaleInvoiceAsync(request.CompanyId, request.StoreGroupId, request.StoreId, cancellationToken);
         var invoiceId = Guid.NewGuid();
 
@@ -464,7 +496,8 @@ public static class BillingEndpoints
                 .FirstOrDefaultAsync(item =>
                     item.ProductId == requestItem.ProductId &&
                     item.Barcode == requestItem.Barcode &&
-                    item.StoreId == request.StoreId,
+                    item.StoreId == request.StoreId &&
+                    !item.IsOFB,
                     cancellationToken);
 
             if (stock is null)
@@ -472,9 +505,10 @@ public static class BillingEndpoints
                 return Results.BadRequest(new { message = $"Stock not found for barcode {requestItem.Barcode}." });
             }
 
-            if (stock.CurrentStock < requestItem.Quantity)
+            var stockSnapshot = await stockLedger.GetSnapshotAsync(stock, cancellationToken);
+            if (stockSnapshot.Quantity < requestItem.Quantity)
             {
-                return Results.BadRequest(new { message = $"Insufficient stock for {requestItem.Barcode}. Available: {stock.CurrentStock}." });
+                return Results.BadRequest(new { message = $"Insufficient stock for {requestItem.Barcode}. Available: {stockSnapshot.Quantity}." });
             }
 
             var lineMrp = requestItem.Mrp * requestItem.Quantity;
@@ -482,7 +516,7 @@ public static class BillingEndpoints
             var taxable = Math.Round((lineMrp - lineDiscount) / (1 + (stock.TaxRate / 100)), 2);
             var tax = Math.Round(taxable * (stock.TaxRate / 100), 2);
             var lineAmount = taxable + tax;
-            var split = SplitGst(tax, stock.TaxType);
+            var split = SplitGst(tax, stock.TaxType, interState);
 
             invoiceItems.Add(new InvoiceItem
             {
@@ -509,16 +543,13 @@ public static class BillingEndpoints
                 CompanyId = request.CompanyId
             });
 
-            stock.SoldQty += requestItem.Quantity;
             stock.SoldValue += lineAmount;
-            db.StockMovements.Add(new StockMovement
+            await stockLedger.PostAsync(stock, new StockMovement
             {
-                StockId = stock.Id,
-                ProductId = stock.ProductId,
                 Barcode = stock.Barcode,
                 MovementType = "SaleOut",
                 QuantityOut = requestItem.Quantity,
-                CostPrice = stock.CostPrice,
+                CostPrice = stockSnapshot.AverageCost,
                 MRP = requestItem.Mrp,
                 TaxRate = stock.TaxRate,
                 HSNCode = stock.HSNCode ?? stock.Product?.HSNCode,
@@ -530,7 +561,7 @@ public static class BillingEndpoints
                 CompanyId = request.CompanyId,
                 StoreGroupId = request.StoreGroupId,
                 StoreId = request.StoreId
-            });
+            }, cancellationToken);
 
             grossMrp += lineMrp;
             itemDiscount += lineDiscount;
@@ -555,7 +586,7 @@ public static class BillingEndpoints
 
         if (request.BillDiscountAmount > 0)
         {
-            var allocatedTotals = ApplyBillDiscountToInvoiceItems(invoiceItems, request.BillDiscountAmount);
+            var allocatedTotals = ApplyBillDiscountToInvoiceItems(invoiceItems, request.BillDiscountAmount, interState);
             taxableAmount = allocatedTotals.TaxableAmount;
             taxAmount = allocatedTotals.TaxAmount;
             cgstAmount = allocatedTotals.CgstAmount;
@@ -577,14 +608,18 @@ public static class BillingEndpoints
             return Results.BadRequest(new { message = $"Select bank account/reference account for {invalidBankPayment.PaymentMode} payment." });
         }
 
-        if (request.SalesmanId.HasValue && request.SalesmanId.Value != Guid.Empty)
+        var salesmanId = await ResolveRequiredSalesmanIdAsync(
+            request.SalesmanId,
+            request.CompanyId,
+            request.StoreId,
+            context,
+            db,
+            cancellationToken);
+        if (salesmanId is null)
         {
-            var salesmanAllowed = await WorkspaceScope.ApplyTo(db.Salesmen.AsNoTracking(), context)
-                .AnyAsync(item => item.Id == request.SalesmanId.Value && item.Active && item.StoreId == request.StoreId, cancellationToken);
-            if (!salesmanAllowed)
-            {
-                return Results.BadRequest(new { message = "Selected salesman is outside the billing store scope." });
-            }
+            return Results.BadRequest(new { message = request.SalesmanId.HasValue && request.SalesmanId.Value != Guid.Empty
+                ? "Selected salesman is outside the billing store scope."
+                : "Create or activate at least one salesman for this billing store before saving invoices." });
         }
 
         var invoicePaymentMode = paymentDetails.Count > 1
@@ -605,7 +640,7 @@ public static class BillingEndpoints
             CGSTAmount = cgstAmount,
             SGSTAmount = sgstAmount,
             IGSTAmount = igstAmount,
-            InterState = igstAmount > 0,
+            InterState = interState,
             NetAmount = taxableAmount,
             RoundOff = billAmount - (taxableAmount + taxAmount),
             BillAmount = billAmount,
@@ -618,7 +653,7 @@ public static class BillingEndpoints
             CustomerGSTIN = customer.GSTIN,
             B2BSale = !string.IsNullOrWhiteSpace(customer.GSTIN),
             SaleInvoiceType = !string.IsNullOrWhiteSpace(customer.GSTIN) ? SaleInvoiceType.B2B : SaleInvoiceType.B2C,
-            SalemanId = request.SalesmanId ?? Guid.Empty,
+            SalemanId = salesmanId.Value,
             CreditSale = paidAmount < billAmount,
             PaidAmount = paidAmount,
             BillDiscountAmount = request.BillDiscountAmount,
@@ -639,7 +674,7 @@ public static class BillingEndpoints
         customer.BillCount += 1;
         customer.Amount += billAmount;
         await LoyaltyService.AwardSalePointsAsync(invoice, customer, db, cancellationToken);
-        await accounting.PostSalesInvoiceAsync(invoice, customer, request.StoreGroupId, FirstBankAccountId(paymentDetails), cancellationToken);
+        await accounting.PostSalesInvoiceAsync(invoice, customer, request.StoreGroupId, ToAccountingPaymentPostings(paymentDetails), cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -657,12 +692,33 @@ public static class BillingEndpoints
             customerValidation?.Alerts ?? Array.Empty<string>()));
     }
 
-    private static async Task<IResult> CancelSaleAsync(
+    private static Task<IResult> CancelSaleAsync(
         Guid id,
         CancelInvoiceRequest request,
         HttpContext context,
         GarmetixDbContext db,
         AccountingPostingService accounting,
+        StockLedgerService stockLedger,
+        CancellationToken cancellationToken)
+    {
+        var strategy = db.Database.CreateExecutionStrategy();
+        return strategy.ExecuteAsync(() => CancelSaleCoreAsync(
+            id,
+            request,
+            context,
+            db,
+            accounting,
+            stockLedger,
+            cancellationToken));
+    }
+
+    private static async Task<IResult> CancelSaleCoreAsync(
+        Guid id,
+        CancelInvoiceRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        AccountingPostingService accounting,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -680,8 +736,15 @@ public static class BillingEndpoints
 
         var originalPaidAmount = invoice.PaidAmount;
         var originalPaymentMode = invoice.PaymentMode;
+        var originalPaymentRows = await db.InvoicePayments
+            .AsNoTracking()
+            .Where(item => item.InvoiceId == invoice.Id && item.CompanyId == invoice.CompanyId)
+            .OrderBy(item => item.OnDate)
+            .ThenBy(item => item.Id)
+            .ToListAsync(cancellationToken);
         var originalBankAccountId = await db.BankTransactions
-            .Where(item => item.CompanyId == invoice.CompanyId && item.Reference == $"SI-{invoice.InvoiceNumber}")
+            .Where(item => item.CompanyId == invoice.CompanyId &&
+                (item.Reference == $"SI-{invoice.InvoiceNumber}" || item.Reference.StartsWith($"SI-{invoice.InvoiceNumber}-PAY-")))
             .Select(item => (Guid?)item.BankAccountId)
             .FirstOrDefaultAsync(cancellationToken);
         var storeGroupId = await db.Stores
@@ -701,7 +764,8 @@ public static class BillingEndpoints
             var stock = await db.Stocks.FirstOrDefaultAsync(stockItem =>
                 stockItem.ProductId == item.ProductId &&
                 stockItem.Barcode == item.Barcode &&
-                stockItem.StoreId == invoice.StoreId,
+                stockItem.StoreId == invoice.StoreId &&
+                !stockItem.IsOFB,
                 cancellationToken);
 
             if (stock is null)
@@ -709,8 +773,23 @@ public static class BillingEndpoints
                 continue;
             }
 
-            stock.SoldQty = Math.Max(0, stock.SoldQty - item.BilledQuantity);
             stock.SoldValue = Math.Max(0, stock.SoldValue - item.Amount);
+            var snapshot = await stockLedger.GetSnapshotAsync(stock, cancellationToken);
+            await stockLedger.PostAsync(stock, new StockMovement
+            {
+                Barcode = stock.Barcode,
+                MovementType = "SalesCancellationIn",
+                QuantityIn = item.BilledQuantity,
+                CostPrice = snapshot.AverageCost,
+                MRP = item.MRP,
+                TaxRate = item.TaxPercentage,
+                HSNCode = item.HSNCode ?? stock.HSNCode,
+                SourceType = "SalesInvoiceCancellation",
+                SourceId = invoice.Id,
+                SourceNumber = invoice.InvoiceNumber,
+                Remarks = string.IsNullOrWhiteSpace(request.Reason) ? "Sales invoice cancellation" : request.Reason,
+                OnDate = DateTime.Now
+            }, cancellationToken);
             reversedQuantity += item.BilledQuantity;
             reversedAmount += item.Amount;
         }
@@ -727,7 +806,7 @@ public static class BillingEndpoints
         invoice.PaymentMode = null;
         invoice.CreditSale = false;
 
-        await accounting.PostSalesInvoiceCancellationAsync(invoice, customer, storeGroupId, originalPaidAmount, originalPaymentMode, originalBankAccountId, cancellationToken);
+        await accounting.PostSalesInvoiceCancellationAsync(invoice, customer, storeGroupId, originalPaidAmount, originalPaymentMode, originalBankAccountId, ToAccountingPaymentPostings(originalPaymentRows), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
@@ -739,13 +818,36 @@ public static class BillingEndpoints
             reversedAmount));
     }
 
-    private static async Task<IResult> CreateSalesReturnAsync(
+    private static Task<IResult> CreateSalesReturnAsync(
         Guid id,
         SalesReturnRequest request,
         HttpContext context,
         GarmetixDbContext db,
         DocumentNumberService documentNumbers,
         AccountingPostingService accounting,
+        StockLedgerService stockLedger,
+        CancellationToken cancellationToken)
+    {
+        var strategy = db.Database.CreateExecutionStrategy();
+        return strategy.ExecuteAsync(() => CreateSalesReturnCoreAsync(
+            id,
+            request,
+            context,
+            db,
+            documentNumbers,
+            accounting,
+            stockLedger,
+            cancellationToken));
+    }
+
+    private static async Task<IResult> CreateSalesReturnCoreAsync(
+        Guid id,
+        SalesReturnRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        DocumentNumberService documentNumbers,
+        AccountingPostingService accounting,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         if (request.Items.Count == 0)
@@ -770,6 +872,7 @@ public static class BillingEndpoints
             db,
             documentNumbers,
             accounting,
+            stockLedger,
             cancellationToken);
 
         if (!result.Success)
@@ -794,13 +897,36 @@ public static class BillingEndpoints
             result.OriginalInvoice.InvoiceStatus.ToString()));
     }
 
-    private static async Task<IResult> CreateSalesExchangeAsync(
+    private static Task<IResult> CreateSalesExchangeAsync(
         Guid id,
         SalesExchangeRequest request,
         HttpContext context,
         GarmetixDbContext db,
         DocumentNumberService documentNumbers,
         AccountingPostingService accounting,
+        StockLedgerService stockLedger,
+        CancellationToken cancellationToken)
+    {
+        var strategy = db.Database.CreateExecutionStrategy();
+        return strategy.ExecuteAsync(() => CreateSalesExchangeCoreAsync(
+            id,
+            request,
+            context,
+            db,
+            documentNumbers,
+            accounting,
+            stockLedger,
+            cancellationToken));
+    }
+
+    private static async Task<IResult> CreateSalesExchangeCoreAsync(
+        Guid id,
+        SalesExchangeRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        DocumentNumberService documentNumbers,
+        AccountingPostingService accounting,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         if (request.ReturnItems.Count == 0)
@@ -835,6 +961,7 @@ public static class BillingEndpoints
             db,
             documentNumbers,
             accounting,
+            stockLedger,
             cancellationToken);
 
         if (!returnResult.Success)
@@ -849,6 +976,18 @@ public static class BillingEndpoints
         var storeGroupId = returnResult.StoreGroupId;
         var exchangeInvoiceId = Guid.NewGuid();
         var invoiceNumber = await documentNumbers.NextSalesExchangeAsync(original.CompanyId, storeGroupId, original.StoreId, cancellationToken);
+        var exchangeSalesmanId = await ResolveExistingOrFallbackSalesmanIdAsync(
+            original.SalemanId,
+            original.CompanyId,
+            original.StoreId,
+            context,
+            db,
+            cancellationToken);
+        if (exchangeSalesmanId is null)
+        {
+            return Results.BadRequest(new { message = "Original invoice salesman is missing and no active fallback salesman exists for this store." });
+        }
+
         var exchangeItems = new List<InvoiceItem>();
         decimal grossMrp = 0;
         decimal itemDiscount = 0;
@@ -868,7 +1007,8 @@ public static class BillingEndpoints
                 .FirstOrDefaultAsync(item =>
                     item.ProductId == requestItem.ProductId &&
                     item.Barcode == requestItem.Barcode &&
-                    item.StoreId == original.StoreId,
+                    item.StoreId == original.StoreId &&
+                    !item.IsOFB,
                     cancellationToken);
 
             if (stock is null)
@@ -876,9 +1016,10 @@ public static class BillingEndpoints
                 return Results.BadRequest(new { message = $"Stock not found for replacement barcode {requestItem.Barcode}." });
             }
 
-            if (stock.CurrentStock < requestItem.Quantity)
+            var stockSnapshot = await stockLedger.GetSnapshotAsync(stock, cancellationToken);
+            if (stockSnapshot.Quantity < requestItem.Quantity)
             {
-                return Results.BadRequest(new { message = $"Insufficient replacement stock for {requestItem.Barcode}. Available: {stock.CurrentStock}." });
+                return Results.BadRequest(new { message = $"Insufficient replacement stock for {requestItem.Barcode}. Available: {stockSnapshot.Quantity}." });
             }
 
             var lineMrp = requestItem.Mrp * requestItem.Quantity;
@@ -886,7 +1027,7 @@ public static class BillingEndpoints
             var taxable = Math.Round((lineMrp - lineDiscount) / (1 + (stock.TaxRate / 100)), 2);
             var tax = Math.Round(taxable * (stock.TaxRate / 100), 2);
             var lineAmount = taxable + tax;
-            var split = SplitGst(tax, stock.TaxType);
+            var split = SplitGst(tax, stock.TaxType, original.InterState);
 
             exchangeItems.Add(new InvoiceItem
             {
@@ -913,16 +1054,13 @@ public static class BillingEndpoints
                 CompanyId = original.CompanyId
             });
 
-            stock.SoldQty += requestItem.Quantity;
             stock.SoldValue += lineAmount;
-            db.StockMovements.Add(new StockMovement
+            await stockLedger.PostAsync(stock, new StockMovement
             {
-                StockId = stock.Id,
-                ProductId = stock.ProductId,
                 Barcode = stock.Barcode,
                 MovementType = "ExchangeSaleOut",
                 QuantityOut = requestItem.Quantity,
-                CostPrice = stock.CostPrice,
+                CostPrice = stockSnapshot.AverageCost,
                 MRP = requestItem.Mrp,
                 TaxRate = stock.TaxRate,
                 HSNCode = stock.HSNCode ?? stock.Product?.HSNCode,
@@ -934,7 +1072,7 @@ public static class BillingEndpoints
                 CompanyId = original.CompanyId,
                 StoreGroupId = storeGroupId,
                 StoreId = original.StoreId
-            });
+            }, cancellationToken);
             grossMrp += lineMrp;
             itemDiscount += lineDiscount;
             taxableAmount += taxable;
@@ -980,6 +1118,7 @@ public static class BillingEndpoints
             CustomerName = customer.Name,
             CustomerMobileNumber = customer.MobileNumber,
             CustomerGSTIN = customer.GSTIN,
+            SalemanId = exchangeSalesmanId.Value,
             CreditSale = additionalPaid < additionalDue,
             PaidAmount = creditApplied + additionalPaid,
             BillDiscountAmount = 0,
@@ -987,40 +1126,53 @@ public static class BillingEndpoints
             CompanyId = original.CompanyId
         };
 
-        db.SalesInvoices.Add(exchangeInvoice);
-        db.InvoiceItems.AddRange(exchangeItems);
+        var exchangePaymentDetails = new List<NormalizedInvoicePayment>();
         if (creditApplied > 0)
         {
-            db.InvoicePayments.Add(new InvoicePayment
-            {
-                InvoiceId = exchangeInvoice.Id,
-                OnDate = DateTime.Now,
-                Amount = creditApplied,
-                PaymentMode = PaymentMode.CreditBalance,
-                ReferenceNumber = $"Exchange credit from {returnResult.ReturnInvoice!.InvoiceNumber}",
-                AdjustmentSourceType = "SalesReturnCredit",
-                AdjustmentSourceId = returnResult.ReturnInvoice!.Id,
-                StoreId = original.StoreId,
-                CompanyId = original.CompanyId
-            });
+            var reference = $"Exchange credit from {returnResult.ReturnInvoice!.InvoiceNumber}";
+            exchangePaymentDetails.Add(new NormalizedInvoicePayment(
+                PaymentMode.CreditBalance,
+                creditApplied,
+                null,
+                reference,
+                null,
+                null,
+                "SalesReturnCredit",
+                returnResult.ReturnInvoice!.Id,
+                JsonSerializer.Serialize(new Dictionary<string, object?>
+                {
+                    ["paymentMode"] = PaymentMode.CreditBalance.ToString(),
+                    ["referenceNumber"] = reference,
+                    ["adjustmentSourceType"] = "SalesReturnCredit",
+                    ["adjustmentSourceId"] = returnResult.ReturnInvoice!.Id
+                })));
         }
 
         if (additionalPaid > 0 && request.AdditionalPaymentMode.HasValue)
         {
-            db.InvoicePayments.Add(new InvoicePayment
-            {
-                InvoiceId = exchangeInvoice.Id,
-                OnDate = DateTime.Now,
-                Amount = additionalPaid,
-                PaymentMode = request.AdditionalPaymentMode.Value,
-                ReferenceNumber = $"Exchange additional payment for {invoiceNumber}",
-                BankAccountId = request.BankAccountId,
-                StoreId = original.StoreId,
-                CompanyId = original.CompanyId
-            });
+            var reference = $"Exchange additional payment for {invoiceNumber}";
+            exchangePaymentDetails.Add(new NormalizedInvoicePayment(
+                request.AdditionalPaymentMode.Value,
+                additionalPaid,
+                request.BankAccountId,
+                reference,
+                null,
+                null,
+                null,
+                null,
+                JsonSerializer.Serialize(new Dictionary<string, object?>
+                {
+                    ["paymentMode"] = request.AdditionalPaymentMode.Value.ToString(),
+                    ["bankAccountId"] = request.BankAccountId,
+                    ["referenceNumber"] = reference
+                })));
         }
 
-        await accounting.PostSalesInvoiceAsync(exchangeInvoice, customer, storeGroupId, request.BankAccountId, cancellationToken);
+        db.SalesInvoices.Add(exchangeInvoice);
+        db.InvoiceItems.AddRange(exchangeItems);
+        AddInvoicePayments(exchangeInvoice, exchangePaymentDetails, db);
+
+        await accounting.PostSalesInvoiceAsync(exchangeInvoice, customer, storeGroupId, ToAccountingPaymentPostings(exchangePaymentDetails), cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
@@ -1047,6 +1199,7 @@ public static class BillingEndpoints
         GarmetixDbContext db,
         DocumentNumberService documentNumbers,
         AccountingPostingService accounting,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         var original = await WorkspaceScope.ApplyTo(db.SalesInvoices, context)
@@ -1096,6 +1249,18 @@ public static class BillingEndpoints
                 .ToDictionaryAsync(item => item.Key, item => item.Quantity, cancellationToken);
 
         var returnInvoiceId = Guid.NewGuid();
+        var returnSalesmanId = await ResolveExistingOrFallbackSalesmanIdAsync(
+            original.SalemanId,
+            original.CompanyId,
+            original.StoreId,
+            context,
+            db,
+            cancellationToken);
+        if (returnSalesmanId is null)
+        {
+            return SalesReturnCoreResult.BadRequest("Original invoice salesman is missing and no active fallback salesman exists for this store.");
+        }
+
         var returnItems = new List<InvoiceItem>();
         decimal grossMrp = 0;
         decimal taxableAmount = 0;
@@ -1158,20 +1323,19 @@ public static class BillingEndpoints
             var stock = await db.Stocks.FirstOrDefaultAsync(stockItem =>
                 stockItem.ProductId == originalItem.ProductId &&
                 stockItem.Barcode == originalItem.Barcode &&
-                stockItem.StoreId == original.StoreId,
+                stockItem.StoreId == original.StoreId &&
+                !stockItem.IsOFB,
                 cancellationToken);
             if (stock is not null)
             {
-                stock.SoldQty = Math.Max(0, stock.SoldQty - requestItem.Quantity);
                 stock.SoldValue = Math.Max(0, stock.SoldValue - lineAmount);
-                db.StockMovements.Add(new StockMovement
+                var stockSnapshot = await stockLedger.GetSnapshotAsync(stock, cancellationToken);
+                await stockLedger.PostAsync(stock, new StockMovement
                 {
-                    StockId = stock.Id,
-                    ProductId = stock.ProductId,
                     Barcode = stock.Barcode,
                     MovementType = "SalesReturnIn",
                     QuantityIn = requestItem.Quantity,
-                    CostPrice = stock.CostPrice,
+                    CostPrice = stockSnapshot.AverageCost,
                     MRP = originalItem.MRP,
                     TaxRate = originalItem.TaxPercentage,
                     HSNCode = originalItem.HSNCode ?? stock.HSNCode,
@@ -1183,7 +1347,7 @@ public static class BillingEndpoints
                     CompanyId = original.CompanyId,
                     StoreGroupId = storeGroupId,
                     StoreId = original.StoreId
-                });
+                }, cancellationToken);
             }
 
             grossMrp += lineMrp;
@@ -1224,6 +1388,7 @@ public static class BillingEndpoints
             CustomerName = customer.Name,
             CustomerMobileNumber = customer.MobileNumber,
             CustomerGSTIN = customer.GSTIN,
+            SalemanId = returnSalesmanId.Value,
             CreditSale = false,
             PaidAmount = refund,
             BillDiscountAmount = 0,
@@ -1259,6 +1424,61 @@ public static class BillingEndpoints
         await accounting.PostSalesReturnAsync(returnInvoice, customer, storeGroupId, refund, refundPaymentMode, bankAccountId, cancellationToken);
 
         return SalesReturnCoreResult.Ok(original, returnInvoice, customer, storeGroupId, billAmount, refund, storeCredit, reversedQuantity);
+    }
+
+    private static async Task<Guid?> ResolveRequiredSalesmanIdAsync(
+        Guid? requestedSalesmanId,
+        Guid companyId,
+        Guid storeId,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        if (requestedSalesmanId.HasValue && requestedSalesmanId.Value != Guid.Empty)
+        {
+            var salesmanAllowed = await WorkspaceScope.ApplyTo(db.Salesmen.AsNoTracking(), context)
+                .AnyAsync(item => item.Id == requestedSalesmanId.Value && item.Active && item.CompanyId == companyId && item.StoreId == storeId, cancellationToken);
+            return salesmanAllowed ? requestedSalesmanId.Value : null;
+        }
+
+        return await GetDefaultSalesmanIdAsync(companyId, storeId, context, db, cancellationToken);
+    }
+
+    private static async Task<Guid?> ResolveExistingOrFallbackSalesmanIdAsync(
+        Guid salesmanId,
+        Guid companyId,
+        Guid storeId,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        if (salesmanId != Guid.Empty)
+        {
+            var existingSalesman = await db.Salesmen
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .AnyAsync(item => item.Id == salesmanId && item.CompanyId == companyId && item.StoreId == storeId, cancellationToken);
+            if (existingSalesman)
+            {
+                return salesmanId;
+            }
+        }
+
+        return await GetDefaultSalesmanIdAsync(companyId, storeId, context, db, cancellationToken);
+    }
+
+    private static Task<Guid?> GetDefaultSalesmanIdAsync(
+        Guid companyId,
+        Guid storeId,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        return WorkspaceScope.ApplyTo(db.Salesmen.AsNoTracking(), context)
+            .Where(item => item.Active && item.CompanyId == companyId && item.StoreId == storeId)
+            .OrderBy(item => item.Name)
+            .Select(item => (Guid?)item.Id)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     private static async Task UpdateOriginalReturnStatusAsync(
@@ -1365,7 +1585,8 @@ public static class BillingEndpoints
         string? GatewayReference,
         string? SettlementStatus,
         string? AdjustmentSourceType,
-        Guid? AdjustmentSourceId);
+        Guid? AdjustmentSourceId,
+        string? PaymentDetailsJson);
 
     private static List<NormalizedInvoicePayment> NormalizeInvoicePayments(PosSaleRequest request, decimal billAmount)
     {
@@ -1387,7 +1608,8 @@ public static class BillingEndpoints
                 Clean(payment.GatewayReference),
                 Clean(payment.SettlementStatus),
                 Clean(payment.AdjustmentSourceType),
-                payment.AdjustmentSourceId));
+                payment.AdjustmentSourceId,
+                BuildPaymentDetailsJson(payment)));
         }
 
         return payments;
@@ -1401,23 +1623,18 @@ public static class BillingEndpoints
         GarmetixDbContext db,
         CancellationToken cancellationToken)
     {
+        var duplicateAdjustmentError = ValidateSingleUseAdjustmentRows(payments);
+        if (!string.IsNullOrWhiteSpace(duplicateAdjustmentError))
+        {
+            return duplicateAdjustmentError;
+        }
+
         foreach (var payment in payments.Where(IsAdjustmentPayment))
         {
-            var sourceType = payment.AdjustmentSourceType ?? payment.PaymentMode.ToString();
+            var sourceType = CanonicalAdjustmentSource(payment);
             var amount = payment.Amount;
             if (amount <= 0)
             {
-                continue;
-            }
-
-            if (SourceMatches(sourceType, "CustomerCreditBalance") || SourceMatches(sourceType, "StoreCredit") || SourceMatches(sourceType, "SalesReturnCredit") || payment.PaymentMode == PaymentMode.CreditBalance)
-            {
-                if (customer.CreditBalance < amount)
-                {
-                    return $"Customer credit balance is only {customer.CreditBalance:N2}.";
-                }
-
-                customer.CreditBalance -= amount;
                 continue;
             }
 
@@ -1447,6 +1664,17 @@ public static class BillingEndpoints
                 receipt.AdjustedAmount += amount;
                 receipt.AvailableAmount = Math.Max(0, receipt.AvailableAmount - amount);
                 customer.CreditBalance = Math.Max(0, customer.CreditBalance - amount);
+                continue;
+            }
+
+            if (SourceMatches(sourceType, "CustomerCreditBalance") || SourceMatches(sourceType, "StoreCredit") || SourceMatches(sourceType, "SalesReturnCredit") || payment.PaymentMode == PaymentMode.CreditBalance)
+            {
+                if (customer.CreditBalance < amount)
+                {
+                    return $"Customer credit balance is only {customer.CreditBalance:N2}.";
+                }
+
+                customer.CreditBalance -= amount;
                 continue;
             }
 
@@ -1541,6 +1769,7 @@ public static class BillingEndpoints
                 BankAccountId = payment.BankAccountId,
                 GatewayReference = payment.GatewayReference,
                 SettlementStatus = payment.SettlementStatus,
+                PaymentDetailsJson = payment.PaymentDetailsJson,
                 AdjustmentSourceType = payment.AdjustmentSourceType,
                 AdjustmentSourceId = payment.AdjustmentSourceId,
                 StoreId = invoice.StoreId,
@@ -1552,7 +1781,7 @@ public static class BillingEndpoints
     private static bool IsAdjustmentPayment(NormalizedInvoicePayment payment)
     {
         return !string.IsNullOrWhiteSpace(payment.AdjustmentSourceType) ||
-            payment.PaymentMode is PaymentMode.CreditBalance or PaymentMode.CreditNote or PaymentMode.SaleReturn;
+            payment.PaymentMode is PaymentMode.CreditBalance or PaymentMode.CreditNote or PaymentMode.SaleReturn or PaymentMode.Coupons;
     }
 
     private static bool SourceMatches(string? sourceType, string expected)
@@ -1565,9 +1794,132 @@ public static class BillingEndpoints
         return paymentMode is PaymentMode.Card or PaymentMode.UPI or PaymentMode.Wallets or PaymentMode.IMPS or PaymentMode.RTGS or PaymentMode.NEFT or PaymentMode.Cheque or PaymentMode.DemandDraft;
     }
 
-    private static Guid? FirstBankAccountId(IReadOnlyList<NormalizedInvoicePayment> payments)
+    private static IReadOnlyList<SalesInvoicePaymentPosting> ToAccountingPaymentPostings(IReadOnlyList<NormalizedInvoicePayment> payments)
+        => payments
+            .Where(item => item.Amount > 0)
+            .Select(item => new SalesInvoicePaymentPosting(
+                item.PaymentMode,
+                item.Amount,
+                item.BankAccountId,
+                item.ReferenceNumber,
+                item.GatewayReference,
+                item.SettlementStatus,
+                item.AdjustmentSourceType,
+                item.AdjustmentSourceId,
+                item.PaymentDetailsJson))
+            .ToList();
+
+    private static IReadOnlyList<SalesInvoicePaymentPosting> ToAccountingPaymentPostings(IReadOnlyList<InvoicePayment> payments)
+        => payments
+            .Where(item => item.Amount > 0)
+            .Select(item => new SalesInvoicePaymentPosting(
+                item.PaymentMode,
+                item.Amount,
+                item.BankAccountId,
+                item.ReferenceNumber,
+                item.GatewayReference,
+                item.SettlementStatus,
+                item.AdjustmentSourceType,
+                item.AdjustmentSourceId,
+                item.PaymentDetailsJson))
+            .ToList();
+
+    private static string? ValidateSingleUseAdjustmentRows(IReadOnlyList<NormalizedInvoicePayment> payments)
     {
-        return payments.FirstOrDefault(item => item.BankAccountId.HasValue)?.BankAccountId;
+        var seen = new Dictionary<string, NormalizedInvoicePayment>(StringComparer.OrdinalIgnoreCase);
+        foreach (var payment in payments.Where(IsAdjustmentPayment))
+        {
+            var sourceType = CanonicalAdjustmentSource(payment);
+            if (!AdjustmentSourceRequiresSingleUse(sourceType))
+            {
+                continue;
+            }
+
+            var sourceId = payment.AdjustmentSourceId?.ToString("N") ?? "customer-balance";
+            var key = $"{sourceType}:{sourceId}";
+            if (seen.ContainsKey(key))
+            {
+                return $"Do not apply the same {FriendlyAdjustmentSource(sourceType)} more than once in one invoice.";
+            }
+
+            seen[key] = payment;
+        }
+
+        return null;
+    }
+
+    private static bool AdjustmentSourceRequiresSingleUse(string sourceType)
+    {
+        return SourceMatches(sourceType, "CustomerAdvanceReceipt") ||
+            SourceMatches(sourceType, "CreditNote") ||
+            SourceMatches(sourceType, "CustomerCreditBalance") ||
+            SourceMatches(sourceType, "StoreCredit") ||
+            SourceMatches(sourceType, "SalesReturnCredit") ||
+            SourceMatches(sourceType, "LoyaltyRedemption");
+    }
+
+    private static string CanonicalAdjustmentSource(NormalizedInvoicePayment payment)
+    {
+        if (!string.IsNullOrWhiteSpace(payment.AdjustmentSourceType))
+        {
+            return payment.AdjustmentSourceType.Trim();
+        }
+
+        return payment.PaymentMode switch
+        {
+            PaymentMode.CreditNote => "CreditNote",
+            PaymentMode.CreditBalance => "CustomerCreditBalance",
+            PaymentMode.SaleReturn => "SalesReturnCredit",
+            PaymentMode.Coupons => "LoyaltyRedemption",
+            _ => payment.PaymentMode.ToString()
+        };
+    }
+
+    private static string FriendlyAdjustmentSource(string sourceType)
+    {
+        if (SourceMatches(sourceType, "CustomerAdvanceReceipt")) return "advance receipt";
+        if (SourceMatches(sourceType, "CreditNote")) return "credit note";
+        if (SourceMatches(sourceType, "LoyaltyRedemption")) return "loyalty redemption";
+        return "customer credit/store credit";
+    }
+
+    private static string? BuildPaymentDetailsJson(InvoicePaymentDetailRequest payment)
+    {
+        var details = new Dictionary<string, object?>();
+        AddDetail(details, "paymentMode", payment.PaymentMode.ToString());
+        AddDetail(details, "bankAccountId", payment.BankAccountId);
+        AddDetail(details, "referenceNumber", Clean(payment.ReferenceNumber));
+        AddDetail(details, "gatewayReference", Clean(payment.GatewayReference));
+        AddDetail(details, "settlementStatus", Clean(payment.SettlementStatus));
+        AddDetail(details, "adjustmentSourceType", Clean(payment.AdjustmentSourceType));
+        AddDetail(details, "adjustmentSourceId", payment.AdjustmentSourceId);
+        AddDetail(details, "cardLastFour", Clean(payment.CardLastFour));
+        AddDetail(details, "cardAuthorizationCode", Clean(payment.CardAuthorizationCode));
+        AddDetail(details, "cardNetwork", Clean(payment.CardNetwork));
+        AddDetail(details, "upiVpa", Clean(payment.UpiVpa));
+        AddDetail(details, "walletProvider", Clean(payment.WalletProvider));
+        AddDetail(details, "bankReferenceNumber", Clean(payment.BankReferenceNumber));
+        AddDetail(details, "chequeNumber", Clean(payment.ChequeNumber));
+        AddDetail(details, "chequeDate", payment.ChequeDate?.ToString("O"));
+        AddDetail(details, "drawerBankName", Clean(payment.DrawerBankName));
+        AddDetail(details, "accountReference", Clean(payment.AccountReference));
+
+        return details.Count == 0 ? null : JsonSerializer.Serialize(details);
+    }
+
+    private static void AddDetail(IDictionary<string, object?> details, string key, object? value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        if (value is string text && string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        details[key] = value;
     }
 
     private static string? Clean(string? value)
@@ -1578,7 +1930,8 @@ public static class BillingEndpoints
 
     private static (decimal TaxableAmount, decimal TaxAmount, decimal CgstAmount, decimal SgstAmount, decimal IgstAmount) ApplyBillDiscountToInvoiceItems(
         IReadOnlyList<InvoiceItem> items,
-        decimal billDiscountAmount)
+        decimal billDiscountAmount,
+        bool interState)
     {
         if (items.Count == 0)
         {
@@ -1617,7 +1970,7 @@ public static class BillingEndpoints
             var adjustedInclusive = Math.Max(0, item.Amount - allocatedDiscount);
             var taxable = Math.Round(adjustedInclusive / (1 + (item.TaxPercentage / 100)), 2);
             var tax = Math.Round(adjustedInclusive - taxable, 2);
-            var split = SplitGst(tax, item.TaxType);
+            var split = SplitGst(tax, item.TaxType, interState);
             var quantity = item.BilledQuantity <= 0 ? 1 : item.BilledQuantity;
 
             item.DiscountAmount = Math.Round(item.DiscountAmount + (allocatedDiscount / quantity), 2);
@@ -1638,9 +1991,31 @@ public static class BillingEndpoints
         return (taxableTotal, taxTotal, cgstTotal, sgstTotal, igstTotal);
     }
 
-    private static (decimal Cgst, decimal Sgst, decimal Igst) SplitGst(decimal totalTax, TaxType taxType)
+    private static bool IsInterStateSupply(string? supplierGstin, string? customerGstin)
+    {
+        var supplierState = GstStateCode(supplierGstin);
+        var customerState = GstStateCode(customerGstin);
+        return supplierState is not null
+            && customerState is not null
+            && !string.Equals(supplierState, customerState, StringComparison.Ordinal);
+    }
+
+    private static string? GstStateCode(string? gstin)
+    {
+        var normalized = Regex.Replace(gstin ?? string.Empty, @"\s+", string.Empty).ToUpperInvariant();
+        return normalized.Length == 15 && normalized[0..2].All(char.IsDigit)
+            ? normalized[0..2]
+            : null;
+    }
+
+    private static (decimal Cgst, decimal Sgst, decimal Igst) SplitGst(decimal totalTax, TaxType taxType, bool interState = false)
     {
         totalTax = Math.Round(totalTax, 2);
+        if (interState && taxType is TaxType.GST or TaxType.CGST or TaxType.SGST or TaxType.IGST)
+        {
+            return (0, 0, totalTax);
+        }
+
         return taxType switch
         {
             TaxType.IGST => (0, 0, totalTax),

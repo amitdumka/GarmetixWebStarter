@@ -1,23 +1,56 @@
 <script setup lang="ts">
+import { h, resolveComponent } from 'vue'
+import type { TableColumn } from '@nuxt/ui'
+
 const api = useGarmetixApi()
 const auth = useAuth()
+const workspace = useWorkspace()
 const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
+
+const UBadge = resolveComponent('UBadge')
+const UButton = resolveComponent('UButton')
 
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const invoices = ref<any[]>([])
+const bankAccounts = ref<any[]>([])
 const loading = ref(false)
 const returning = ref(false)
 const search = ref('')
+const loadError = ref('')
 const returnOpen = ref(false)
 const pendingInvoice = ref<any | null>(null)
 const returnLines = ref<any[]>([])
 const returnForm = reactive({
   refundAmount: 0,
   refundPaymentMode: 0,
+  bankAccountId: null as string | null,
   reason: 'Sales return'
 })
+
+const paymentModeOptions = [
+  { value: 0, label: 'Cash' },
+  { value: 1, label: 'Card' },
+  { value: 2, label: 'UPI' },
+  { value: 3, label: 'Wallet' },
+  { value: 4, label: 'IMPS' },
+  { value: 5, label: 'RTGS' },
+  { value: 6, label: 'NEFT' },
+  { value: 7, label: 'Cheque' },
+  { value: 8, label: 'Demand Draft' }
+]
+
+const bankAccountOptions = computed(() => bankAccounts.value
+  .filter((account) => !workspace.companyId.value || account.companyId === workspace.companyId.value)
+  .map((account) => ({
+    value: account.id,
+    label: `${account.accountHolderName || 'Bank'} - ${account.accountNumber || ''}`.trim()
+  })))
+
+const refundRequiresBank = computed(() =>
+  Number(returnForm.refundAmount || 0) > 0
+  && Number(returnForm.refundPaymentMode) !== 0)
 
 const filteredInvoices = computed(() => {
   const term = search.value.trim().toLowerCase()
@@ -30,6 +63,41 @@ const filteredInvoices = computed(() => {
     })
 })
 
+const tableRows = computed(() => filteredInvoices.value.map((invoice) => ({
+  id: invoice.id,
+  invoiceNumber: invoice.invoiceNumber || '-',
+  onDate: formatDate(invoice.onDate),
+  customerName: invoice.customerName || 'Walk-in Customer',
+  customerMobileNumber: invoice.customerMobileNumber || '-',
+  billAmount: money(Number(invoice.billAmount || 0)),
+  invoiceStatus: invoice.invoiceStatus || 'Saved',
+  raw: invoice
+})))
+
+const columns: TableColumn<any>[] = [
+  { accessorKey: 'invoiceNumber', header: 'Invoice' },
+  { accessorKey: 'onDate', header: 'Date' },
+  { accessorKey: 'customerName', header: 'Customer' },
+  { accessorKey: 'customerMobileNumber', header: 'Mobile' },
+  { accessorKey: 'billAmount', header: 'Amount' },
+  {
+    accessorKey: 'invoiceStatus',
+    header: 'Status',
+    cell: ({ row }) => h(UBadge, { color: 'success', variant: 'subtle' }, () => row.original.invoiceStatus)
+  },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => h(UButton, {
+      icon: 'i-lucide-rotate-ccw',
+      color: 'warning',
+      variant: 'subtle',
+      label: 'Return',
+      onClick: () => openReturn(row.original.raw)
+    })
+  }
+]
+
 const returnTotal = computed(() => returnLines.value.reduce((sum, item) => {
   const quantity = Number(item.returnQuantity || 0)
   const mrp = Number(item.mrp || 0)
@@ -40,16 +108,20 @@ const returnTotal = computed(() => returnLines.value.reduce((sum, item) => {
 async function refresh() {
   if (!auth.isAuthenticated.value) return
   loading.value = true
+  loadError.value = ''
   try {
-    const [companyRows, storeRows, invoiceRows] = await Promise.all([
+    const [companyRows, storeRows, invoiceRows, bankAccountRows] = await Promise.all([
       api.list<any>('companies'),
       api.list<any>('stores'),
-      api.get<any[]>('billing/sales/recent')
+      api.get<any[]>('billing/sales/recent'),
+      api.list<any>('bank-accounts')
     ])
     companies.value = companyRows
     stores.value = storeRows
     invoices.value = invoiceRows
+    bankAccounts.value = bankAccountRows
   } catch (error) {
+    loadError.value = feedback.cleanMessage(error instanceof Error ? error.message : 'Please check the service and try again.')
     feedback.failed('Could not load sales returns', error)
   } finally {
     loading.value = false
@@ -71,6 +143,7 @@ async function openReturn(invoice: any) {
     }))
     returnForm.refundAmount = 0
     returnForm.refundPaymentMode = 0
+    returnForm.bankAccountId = null
     returnForm.reason = 'Sales return'
     returnOpen.value = true
   } catch (error) {
@@ -95,12 +168,17 @@ async function submitReturn() {
     return
   }
 
+  if (refundRequiresBank.value && !returnForm.bankAccountId) {
+    feedback.notify('Select bank account', 'A bank account is required for non-cash refunds.', 'warning')
+    return
+  }
+
   returning.value = true
   try {
     const response = await api.create<any>(`billing/sales/${pendingInvoice.value.id}/returns`, {
       refundAmount: Number(returnForm.refundAmount || 0),
       refundPaymentMode: Number(returnForm.refundAmount || 0) > 0 ? Number(returnForm.refundPaymentMode) : null,
-      bankAccountId: null,
+      bankAccountId: refundRequiresBank.value ? returnForm.bankAccountId : null,
       reason: returnForm.reason,
       items
     })
@@ -124,11 +202,24 @@ function formatDate(value: string) {
 }
 
 onMounted(refresh)
+
+watch(() => [returnForm.refundAmount, returnForm.refundPaymentMode], () => {
+  if (refundRequiresBank.value && !returnForm.bankAccountId) {
+    returnForm.bankAccountId = bankAccountOptions.value[0]?.value || null
+  }
+})
 </script>
 
 <template>
   <AuthScreen v-if="!isAuthenticated" @authenticated="refresh" />
-  <AppShell v-else title="Sales Return" :companies="companies" :stores="stores" @refresh="refresh">
+  <AppShell
+    v-else
+    title="Sales Return"
+    :companies="companies"
+    :stores="stores"
+    @refresh="refresh"
+    @workspace-change="refresh"
+  >
     <section class="planner-dashboard">
       <UiModulePageHeader
         title="Sales Return / Credit Note"
@@ -137,57 +228,34 @@ onMounted(refresh)
       >
         <template #actions>
           <UBadge color="neutral" variant="subtle">{{ filteredInvoices.length }} returnable invoices</UBadge>
-          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
         </template>
       </UiModulePageHeader>
 
-      <UCard class="planner-card">
-        <template #header>
-          <div class="planner-card-header">
-            <div>
-              <h2>Returnable Sales Invoices</h2>
-              <p>Select an invoice and create a credit note.</p>
-            </div>
-            <UInput v-model="search" icon="i-lucide-search" placeholder="Search invoice or customer" />
-          </div>
+      <UiRegisterPanel
+        title="Returnable Sales Invoices"
+        :description="`${tableRows.length} invoices available for item-wise return`"
+        :loading="loading"
+        :error="loadError"
+        :empty="tableRows.length === 0"
+        :empty-title="search ? 'No matching returnable invoices' : 'No returnable invoices'"
+        :empty-description="search ? 'Change the invoice or customer search.' : 'Completed sales invoices will appear here for return processing.'"
+        empty-icon="i-lucide-rotate-ccw"
+        @retry="refresh"
+      >
+        <template #actions>
+          <UiCrudToolbar
+            v-model:search="search"
+            search-placeholder="Search invoice or customer"
+            :loading="loading"
+            refresh-label="Sync"
+            @refresh="refresh"
+          />
         </template>
 
-        <div v-if="filteredInvoices.length" class="simple-table-wrap">
-          <table class="simple-table">
-            <thead>
-              <tr>
-                <th>Invoice</th>
-                <th>Date</th>
-                <th>Customer</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="invoice in filteredInvoices" :key="invoice.id">
-                <td>{{ invoice.invoiceNumber || '-' }}</td>
-                <td>{{ formatDate(invoice.onDate) }}</td>
-                <td>{{ invoice.customerName || 'Walk-in Customer' }}</td>
-                <td>{{ money(invoice.billAmount) }}</td>
-                <td><UBadge color="success" variant="subtle">{{ invoice.invoiceStatus || 'Saved' }}</UBadge></td>
-                <td class="text-right">
-                  <UButton icon="i-lucide-rotate-ccw" color="warning" variant="subtle" label="Return" @click="openReturn(invoice)" />
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="planner-table-wrap">
+          <UTable :data="tableRows" :columns="columns" />
         </div>
-
-        <UiCrudEmptyState
-          v-else
-          title="No returnable invoices"
-          description="Completed sales invoices will appear here for return processing."
-          icon="i-lucide-rotate-ccw"
-          action-label="Refresh"
-          @action="refresh"
-        />
-      </UCard>
+      </UiRegisterPanel>
 
       <UiFormSlideover
         v-model:open="returnOpen"
@@ -195,7 +263,7 @@ onMounted(refresh)
         :description="`Return selected items from ${pendingInvoice?.invoiceNumber || 'invoice'}.`"
         submit-label="Save Return / Credit Note"
         layout="modal"
-        content-class="w-[calc(100vw-2rem)] sm:max-w-5xl"
+        content-class="w-[calc(100vw-2rem)] sm:max-w-5xl lg:max-w-6xl"
         :loading="returning"
         @submit="submitReturn"
       >
@@ -224,12 +292,20 @@ onMounted(refresh)
           <UFormField label="Refund amount now">
             <UInput v-model="returnForm.refundAmount" type="number" min="0" step="0.01" />
           </UFormField>
-          <UFormField label="Reason">
-            <UInput v-model="returnForm.reason" />
+          <UFormField label="Refund mode">
+            <USelect v-model="returnForm.refundPaymentMode" :items="paymentModeOptions" />
           </UFormField>
         </div>
-        <div class="summary-strip mt-4">
+        <UFormField v-if="refundRequiresBank" label="Bank account" required class="mt-4">
+          <USelect v-model="returnForm.bankAccountId" :items="bankAccountOptions" placeholder="Select bank account" />
+        </UFormField>
+        <UFormField label="Reason / remarks" class="mt-4">
+          <UTextarea v-model="returnForm.reason" :rows="3" />
+        </UFormField>
+        <div class="payroll-summary mt-4">
           <span>Return value</span><strong>{{ money(returnTotal) }}</strong>
+          <span>Refund now</span><strong>{{ money(Number(returnForm.refundAmount || 0)) }}</strong>
+          <span>Store credit</span><strong>{{ money(Math.max(returnTotal - Number(returnForm.refundAmount || 0), 0)) }}</strong>
         </div>
       </UiFormSlideover>
     </section>

@@ -6,6 +6,7 @@ const isAuthenticated = auth.isAuthenticated
 const canSeeAdmin = auth.canSeeAdmin
 
 const loading = ref(false)
+const loadError = ref('')
 const seeding = ref(false)
 const options = ref<any | null>(null)
 const result = ref<any | null>(null)
@@ -49,12 +50,14 @@ async function refresh() {
   }
 
   loading.value = true
+  loadError.value = ''
   try {
     options.value = await api.get<any>('afss-seeder/options')
     if (!seedForm.companyId && companies.value.length) {
       seedForm.companyId = companies.value[0].id
     }
   } catch (error) {
+    loadError.value = feedback.errorMessage(error, 'Seeder options could not be loaded. Try again.', 'AF/SS options load failed')
     feedback.failed('AF/SS options load failed', error)
   } finally {
     loading.value = false
@@ -90,7 +93,7 @@ onMounted(refresh)
 
 <template>
   <AppShell
-    title="AF/SS Default Seeder"
+    title="AF/SS Defaults"
     :companies="companies"
     @refresh="refresh"
   >
@@ -103,27 +106,32 @@ onMounted(refresh)
     </div>
 
     <div v-else class="space-y-6">
-      <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div class="space-y-3">
-            <div class="flex items-center gap-3">
-              <UIcon name="i-lucide-database-backup" class="h-8 w-8 text-primary" />
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Stage 5F</p>
-                <h1 class="text-2xl font-bold text-slate-950 dark:text-white">AF/SS default seeder</h1>
-              </div>
-            </div>
-            <p class="max-w-3xl text-sm text-slate-500 dark:text-slate-400">
-              Seed Aadwika Fashion / Samrat-style default data into the selected company using the merged MAUI seeder defaults, updated for current ProductGroup/ProductType/StockMovement models.
-            </p>
-          </div>
-          <UButton icon="i-lucide-refresh-cw" :loading="loading" @click="refresh">
-            Refresh
-          </UButton>
-        </div>
-      </section>
+      <UiModulePageHeader
+        title="AF/SS Defaults"
+        description="Add the approved users, employees, product masters, and opening structure to a selected company."
+        icon="i-lucide-database-backup"
+      >
+        <template #actions>
+          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
+        </template>
+      </UiModulePageHeader>
 
-      <section class="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
+      <UAlert
+        v-if="loadError"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-circle-alert"
+        title="Could not load seeder options"
+        :description="loadError"
+        :actions="[{ label: 'Try again', icon: 'i-lucide-refresh-cw', onClick: refresh }]"
+      />
+
+      <div v-else-if="loading" class="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
+        <USkeleton class="h-[36rem] w-full" />
+        <USkeleton class="h-[28rem] w-full" />
+      </div>
+
+      <section v-else class="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
         <UCard>
           <template #header>
             <div class="flex items-center gap-2">
@@ -143,14 +151,13 @@ onMounted(refresh)
 
             <div v-if="selectedCompany" class="rounded-2xl bg-slate-50 p-4 text-sm dark:bg-slate-950/50">
               <p class="font-semibold text-slate-900 dark:text-white">{{ selectedCompany.name }}</p>
-              <p class="text-slate-500 dark:text-slate-400">Code: {{ selectedCompany.code || '-' }} · GSTIN: {{ selectedCompany.gstin || '-' }}</p>
-              <p class="text-slate-500 dark:text-slate-400">Store groups: {{ selectedCompany.storeGroupCount }} · Stores: {{ selectedCompany.storeCount }}</p>
+              <p class="text-slate-500 dark:text-slate-400">Code: {{ selectedCompany.code || '-' }} | GSTIN: {{ selectedCompany.gstin || '-' }}</p>
+              <p class="text-slate-500 dark:text-slate-400">Store groups: {{ selectedCompany.storeGroupCount }} | Stores: {{ selectedCompany.storeCount }}</p>
             </div>
 
             <div v-if="selectedProfile" class="rounded-2xl bg-primary-50 p-4 text-sm text-primary-900 dark:bg-primary-950/30 dark:text-primary-100">
               <p class="font-semibold">{{ selectedProfile.label }}</p>
-              <p>{{ selectedProfile.storeName }} · {{ selectedProfile.city }}, {{ selectedProfile.state }}</p>
-              <p>Source: {{ selectedProfile.source }}</p>
+              <p>{{ selectedProfile.storeName }} | {{ selectedProfile.city }}, {{ selectedProfile.state }}</p>
             </div>
 
             <USeparator />
@@ -180,39 +187,8 @@ onMounted(refresh)
           <UCard>
             <template #header>
               <div class="flex items-center gap-2">
-                <UIcon name="i-lucide-git-compare" class="h-5 w-5" />
-                <h2 class="font-semibold">Seeder comparison</h2>
-              </div>
-            </template>
-            <div class="grid gap-4 lg:grid-cols-2">
-              <div>
-                <h3 class="text-sm font-semibold text-slate-950 dark:text-white">Common in both files</h3>
-                <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
-                  <li v-for="item in comparison.commonParts || []" :key="item">{{ item }}</li>
-                </ul>
-              </div>
-              <div class="space-y-4">
-                <div>
-                  <h3 class="text-sm font-semibold text-slate-950 dark:text-white">Extra in Seeder.cs</h3>
-                  <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
-                    <li v-for="item in comparison.seederCsOnly || []" :key="item">{{ item }}</li>
-                  </ul>
-                </div>
-                <div>
-                  <h3 class="text-sm font-semibold text-slate-950 dark:text-white">Extra in seeder2.cs</h3>
-                  <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
-                    <li v-for="item in comparison.seeder2CsOnly || []" :key="item">{{ item }}</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </UCard>
-
-          <UCard>
-            <template #header>
-              <div class="flex items-center gap-2">
-                <UIcon name="i-lucide-code-2" class="h-5 w-5" />
-                <h2 class="font-semibold">Model changes accommodated</h2>
+                <UIcon name="i-lucide-list-checks" class="h-5 w-5" />
+                <h2 class="font-semibold">Included defaults</h2>
               </div>
             </template>
             <ul class="list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">

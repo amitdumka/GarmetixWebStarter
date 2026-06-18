@@ -6,6 +6,7 @@ const api = useGarmetixApi()
 const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
+const documentPrint = useServerDocumentPrint()
 const config = useRuntimeConfig()
 const isAuthenticated = auth.isAuthenticated
 const canEdit = auth.canEdit
@@ -27,12 +28,14 @@ const saving = ref(false)
 const deleting = ref(false)
 const downloadingPdf = ref(false)
 const search = ref('')
+const voucherTypeFilter = ref('all')
+const loadError = ref('')
 const formOpen = ref(false)
 const deleteOpen = ref(false)
 const selectedPrintVoucher = ref<any | null>(null)
 const pendingDelete = ref<any | null>(null)
 const editMode = ref<'create' | 'edit'>('create')
-const printFormat = ref<'a4-two' | 'a5-one'>('a4-two')
+const printFormat = ref<'a4-two' | 'a5-one'>('a5-one')
 const isReprint = ref(false)
 const includeSignatures = ref(true)
 
@@ -103,11 +106,12 @@ const printOpen = computed({
 
 const filteredRows = computed(() => {
   const term = search.value.trim().toLowerCase()
-  if (!term) {
-    return tableRows.value
-  }
-
-  return tableRows.value.filter((row) => JSON.stringify(row).toLowerCase().includes(term))
+  return tableRows.value.filter((row) => {
+    const matchesType = voucherTypeFilter.value === 'all'
+      || String(row.raw.voucherType) === voucherTypeFilter.value
+    const matchesSearch = !term || JSON.stringify(row).toLowerCase().includes(term)
+    return matchesType && matchesSearch
+  })
 })
 
 const voucherSummary = computed(() => {
@@ -229,7 +233,7 @@ const columns: TableColumn<any>[] = [
 function emptyVoucher() {
   return {
     id: '',
-    voucherNumber: createVoucherNumber(),
+    voucherNumber: '',
     onDate: new Date().toISOString().slice(0, 10),
     voucherType: 0,
     partyName: '',
@@ -247,19 +251,13 @@ function emptyVoucher() {
   }
 }
 
-function createVoucherNumber() {
-  const date = new Date()
-  const stamp = date.toISOString().slice(0, 10).replaceAll('-', '')
-  const suffix = String(Date.now()).slice(-4)
-  return `V-${stamp}-${suffix}`
-}
-
 async function refresh() {
   if (!auth.isAuthenticated.value) {
     return
   }
 
   loading.value = true
+  loadError.value = ''
   try {
     setupStatus.value = await api.get<any>('setup/status')
     const query = new URLSearchParams()
@@ -297,6 +295,7 @@ async function refresh() {
       bankAccounts.value = refreshedBankAccounts
     }
   } catch (error) {
+    loadError.value = feedback.cleanMessage(error instanceof Error ? error.message : 'Please check the service and try again.')
     feedback.failed('Vouchers refresh failed', error)
   } finally {
     loading.value = false
@@ -337,10 +336,6 @@ function buildPayload() {
 
   if (!companyId || !storeGroupId || !storeId) {
     throw new Error('Run quick setup before saving vouchers.')
-  }
-
-  if (!String(form.voucherNumber || '').trim()) {
-    throw new Error('Voucher number is required.')
   }
 
   const partyLedger = parties.value.find((item) => item.ledgerId === form.ledgerId)
@@ -390,16 +385,21 @@ async function saveVoucher() {
   saving.value = true
   try {
     const payload = buildPayload()
+    let createdVoucher: any | null = null
     if (editMode.value === 'edit' && form.id) {
       await api.update<any>('vouchers', form.id, payload)
       feedback.updated('Voucher')
     } else {
-      await api.create<any>('vouchers', payload)
+      createdVoucher = await api.create<any>('vouchers', payload)
       feedback.saved('Voucher')
     }
 
     formOpen.value = false
     await refresh()
+    if (createdVoucher?.id) {
+      openPrintVoucher(createdVoucher)
+      await printVoucher()
+    }
   } catch (error) {
     feedback.failed('Could not save voucher', error)
   } finally {
@@ -414,21 +414,23 @@ function askDelete(voucher: any) {
 
 function openPrintVoucher(voucher: any) {
   selectedPrintVoucher.value = voucher
-  printFormat.value = 'a4-two'
+  printFormat.value = 'a5-one'
   isReprint.value = false
   includeSignatures.value = true
 }
 
-function printVoucher() {
-  const style = document.createElement('style')
-  style.id = 'garmetix-voucher-page-size'
-  style.textContent = printFormat.value === 'a5-one'
-    ? '@page { size: A5 portrait; margin: 8mm; }'
-    : '@page { size: A4 portrait; margin: 8mm; }'
-  document.getElementById(style.id)?.remove()
-  document.head.appendChild(style)
-  window.print()
-  window.setTimeout(() => style.remove(), 1000)
+async function printVoucher() {
+  if (!selectedPrintVoucher.value?.id) return
+  const query = new URLSearchParams({
+    format: printFormat.value,
+    reprint: String(isReprint.value),
+    signatures: String(includeSignatures.value)
+  })
+  try {
+    await documentPrint.printPdf(`vouchers/${selectedPrintVoucher.value.id}/pdf?${query.toString()}`)
+  } catch (error) {
+    feedback.failed('Could not print voucher PDF', error)
+  }
 }
 
 async function downloadVoucherPdf() {
@@ -627,7 +629,6 @@ watch(() => form.paymentMode, () => {
           <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
             {{ loading ? 'Loading' : `${vouchers.length} vouchers` }}
           </UBadge>
-          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
           <UButton icon="i-lucide-plus" label="New Voucher" @click="startCreate" />
         </template>
       </UiModulePageHeader>
@@ -645,43 +646,47 @@ watch(() => form.paymentMode, () => {
         </UCard>
       </div>
 
-      <UCard class="planner-card">
-        <template #header>
-          <div class="planner-card-header">
-            <div>
-              <h2>Voucher Register</h2>
-              <p>Search voucher number, party name, particulars, or payment mode.</p>
-            </div>
-            <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
-          </div>
+      <UiRegisterPanel
+        title="Voucher Register"
+        :description="`${filteredRows.length} of ${vouchers.length} vouchers`"
+        :loading="loading"
+        :error="loadError"
+        :empty="filteredRows.length === 0"
+        :empty-title="search || voucherTypeFilter !== 'all' ? 'No matching vouchers' : 'No vouchers yet'"
+        :empty-description="search || voucherTypeFilter !== 'all' ? 'Change the search or voucher-type filter.' : 'Create the first payment, receipt, or expense voucher.'"
+        empty-icon="i-lucide-banknote"
+        @retry="refresh"
+      >
+        <template #actions>
+          <UiCrudToolbar
+            v-model:search="search"
+            search-placeholder="Search voucher, party, particulars"
+            :loading="loading"
+            refresh-label="Sync"
+            create-label="New Voucher"
+            @refresh="refresh"
+            @create="startCreate"
+          >
+            <template #filters>
+              <USelect
+                v-model="voucherTypeFilter"
+                :items="[
+                  { label: 'All vouchers', value: 'all' },
+                  { label: 'Payments', value: '0' },
+                  { label: 'Receipts', value: '1' },
+                  { label: 'Expenses', value: '2' }
+                ]"
+                aria-label="Filter voucher type"
+                class="min-w-36"
+              />
+            </template>
+          </UiCrudToolbar>
         </template>
 
-        <UiCrudToolbar
-          v-model:search="search"
-          search-placeholder="Search voucher, party, particulars"
-          :loading="loading"
-          refresh-label="Sync"
-          create-label="New Voucher"
-          @refresh="refresh"
-          @create="startCreate"
-        />
-
-        <UTable
-          v-if="filteredRows.length"
-          :data="filteredRows"
-          :columns="columns"
-          :loading="loading"
-        />
-
-        <UiCrudEmptyState
-          v-else
-          title="No vouchers found"
-          description="Create the first payment, receipt, or expense voucher."
-          icon="i-lucide-banknote"
-          action-label="New Voucher"
-          @action="startCreate"
-        />
-      </UCard>
+        <div class="planner-table-wrap">
+          <UTable :data="filteredRows" :columns="columns" />
+        </div>
+      </UiRegisterPanel>
 
       <UiFormSlideover
         v-model:open="formOpen"
@@ -694,8 +699,12 @@ watch(() => form.paymentMode, () => {
         @submit="saveVoucher"
       >
         <div class="form-two-column">
-          <UFormField label="Voucher number" required>
-            <UInput v-model="form.voucherNumber" required />
+          <UFormField label="Voucher number">
+            <UInput
+              v-model="form.voucherNumber"
+              disabled
+              :placeholder="editMode === 'create' ? 'Generated after save' : ''"
+            />
           </UFormField>
           <UFormField label="Date" required>
             <UInput v-model="form.onDate" required type="date" />

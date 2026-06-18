@@ -43,7 +43,27 @@ public sealed record ApplicationMessageLogCreateRequest(
     Guid? OperationId = null,
     bool Success = true);
 
+public sealed record ClientApplicationMessageLogRequest(
+    string Level,
+    string EventName,
+    string Message,
+    string? DetailsJson = null,
+    string? Resource = null,
+    bool Success = true);
+
 public sealed record ApplicationMessageLogOptionsDto(
     IReadOnlyList<string> Levels,
     IReadOnlyList<string> Sources,
     IReadOnlyList<string> Events);
+
+public sealed record ApplicationNotificationDto(
+    Guid Id,
+    DateTime CreatedAtUtc,
+    string Severity,
+    string Title,
+    string Message,
+    string ActionPath);
+
+public sealed record ApplicationNotificationSummaryDto(
+    int AttentionCount,
+    IReadOnlyList<ApplicationNotificationDto> Items);

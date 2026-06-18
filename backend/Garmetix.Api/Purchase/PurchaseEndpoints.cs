@@ -2,7 +2,9 @@ using Garmetix.Api.Accounting;
 using Garmetix.Api.Auth;
 using Garmetix.Api.Commercial;
 using Garmetix.Api.Gstin;
+using Garmetix.Api.Inventory;
 using Garmetix.Api.Numbering;
+using Garmetix.Api.ProductLookup;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Accounting;
@@ -22,12 +24,19 @@ public static class PurchaseEndpoints
 
         group.MapGet("/lookup-options", GetLookupOptionsAsync);
         group.MapGet("/invoices/recent", GetRecentPurchaseInvoicesAsync);
+        group.MapGet("/payments/recent", GetRecentPurchasePaymentsAsync);
+        group.MapGet("/returns/recent", GetRecentPurchaseReturnsAsync);
+        group.MapGet("/returns/{id:guid}", GetPurchaseReturnAsync);
+        group.MapGet("/returns/{id:guid}/reconciliation", GetPurchaseReturnReconciliationAsync);
+        group.MapGet("/returns/{id:guid}/pdf", DownloadPurchaseReturnPdfAsync);
+        group.MapPost("/returns/{id:guid}/mark-printed", MarkPurchaseReturnPrintedAsync);
         group.MapGet("/invoices/{id:guid}/receipt", GetReceiptAsync);
         group.MapGet("/invoices/{id:guid}/returnable", GetReturnablePurchaseInvoiceAsync);
         group.MapGet("/invoices/{id:guid}/pdf", DownloadPurchasePdfAsync);
         group.MapPost("/inward", CreateInwardAsync);
         group.MapPost("/invoices/{id:guid}/partial-return", CreatePartialPurchaseReturnAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/invoices/{id:guid}/payment-voucher", CreateVendorPaymentVoucherAsync);
+        group.MapPost("/payments/advance", CreateVendorAdvancePaymentAsync);
         group.MapPost("/invoices/{id:guid}/cancel", CancelPurchaseAsync).RequireAuthorization(GarmetixPolicies.Delete);
 
         return group;
@@ -114,6 +123,337 @@ public static class PurchaseEndpoints
         }).ToList();
     }
 
+    private static async Task<IReadOnlyList<PurchaseReturnRegisterDto>> GetRecentPurchaseReturnsAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        int take = 100,
+        CancellationToken cancellationToken = default)
+    {
+        return await WorkspaceScope.ApplyTo(db.PurchaseReturns.AsNoTracking(), context)
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .Take(Math.Clamp(take, 1, 250))
+            .Select(item => new PurchaseReturnRegisterDto(
+                item.Id,
+                item.ReturnNumber,
+                item.OnDate,
+                item.ReturnKind,
+                item.Status,
+                item.PurchaseInvoiceId,
+                item.OriginalInvoiceNumber,
+                item.VendorId,
+                item.VendorName,
+                item.VendorGstin,
+                item.Quantity,
+                item.TaxableAmount,
+                item.TaxAmount,
+                item.ReturnAmount,
+                item.ItemCount,
+                item.DebitNoteId,
+                item.DebitNoteNumber,
+                item.Reason,
+                item.Printed,
+                item.PrintCount,
+                item.LastPrintedAt,
+                item.PrintCount > 1 ? "Reprinted" : item.Printed ? "Printed" : "Not Printed",
+                item.SettledAmount,
+                Math.Max(item.ReturnAmount - item.SettledAmount, 0),
+                item.SettlementStatus,
+                item.ItcReversalAmount,
+                item.ItcReversalStatus,
+                item.JournalEntryId))
+            .ToListAsync(cancellationToken);
+    }
+
+    private static async Task<IResult> GetPurchaseReturnAsync(
+        Guid id,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var item = await LoadPurchaseReturnAsync(id, context, db, cancellationToken);
+        return item is null
+            ? Results.NotFound(new { message = "Purchase return was not found." })
+            : Results.Ok(item);
+    }
+
+    private static async Task<IResult> DownloadPurchaseReturnPdfAsync(
+        Guid id,
+        HttpContext context,
+        GarmetixDbContext db,
+        string? format,
+        string? copy,
+        bool reprint = false,
+        bool signatures = true,
+        CancellationToken cancellationToken = default)
+    {
+        var purchaseReturn = await LoadPurchaseReturnAsync(id, context, db, cancellationToken);
+        if (purchaseReturn is null)
+        {
+            return Results.NotFound(new { message = "Purchase return was not found." });
+        }
+
+        var scope = await WorkspaceScope.ApplyTo(db.PurchaseReturns.AsNoTracking(), context)
+            .Where(item => item.Id == id)
+            .Select(item => new { item.CompanyId, item.StoreId })
+            .FirstAsync(cancellationToken);
+        var company = await db.Companies.AsNoTracking().FirstOrDefaultAsync(item => item.Id == scope.CompanyId, cancellationToken);
+        var store = await db.Stores.AsNoTracking().FirstOrDefaultAsync(item => item.Id == scope.StoreId, cancellationToken);
+
+        var pdf = PurchaseReturnPdfDocument.Build(
+            new PurchaseReturnPdfModel(
+                purchaseReturn,
+                company?.Name ?? "Garmetix",
+                BuildCompanyAddress(company),
+                company?.ContactNumber ?? string.Empty,
+                company?.GSTIN ?? string.Empty,
+                store?.Name ?? "Store",
+                DocumentCodeService.Create(DocumentCodeService.PurchaseReturn, purchaseReturn.Id)),
+            format,
+            copy,
+            reprint,
+            signatures);
+
+        var safeNumber = new string(purchaseReturn.ReturnNumber.Where(character => char.IsLetterOrDigit(character) || character is '-' or '_').ToArray());
+        return Results.File(pdf, "application/pdf", $"{(safeNumber.Length > 0 ? safeNumber : "purchase-return")}-{NormalizePdfFormat(format)}.pdf");
+    }
+
+    private static async Task<IResult> MarkPurchaseReturnPrintedAsync(
+        Guid id,
+        PurchaseReturnPrintRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var purchaseReturn = await WorkspaceScope.ApplyTo(db.PurchaseReturns, context)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (purchaseReturn is null)
+        {
+            return Results.NotFound(new { message = "Purchase return was not found." });
+        }
+
+        purchaseReturn.Printed = true;
+        purchaseReturn.PrintCount = Math.Max(purchaseReturn.PrintCount, 0) + 1;
+        purchaseReturn.LastPrintedAt = DateTime.Now;
+        purchaseReturn.UpdatedAt = DateTime.Now;
+        if (purchaseReturn.DebitNoteId.HasValue)
+        {
+            var note = await db.CommercialNotes.FirstOrDefaultAsync(item => item.Id == purchaseReturn.DebitNoteId.Value, cancellationToken);
+            if (note is not null)
+            {
+                note.Printed = true;
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(new PurchaseReturnPrintResponse(
+            purchaseReturn.Id,
+            purchaseReturn.ReturnNumber,
+            purchaseReturn.Printed,
+            purchaseReturn.PrintCount,
+            purchaseReturn.LastPrintedAt.Value,
+            PurchaseReturnPrintStatus(purchaseReturn.Printed, purchaseReturn.PrintCount)));
+    }
+
+    private static async Task<PurchaseReturnDetailDto?> LoadPurchaseReturnAsync(
+        Guid id,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var item = await WorkspaceScope.ApplyTo(db.PurchaseReturns.AsNoTracking(), context)
+            .FirstOrDefaultAsync(row => row.Id == id, cancellationToken);
+        if (item is null)
+        {
+            return null;
+        }
+
+        var items = await db.PurchaseReturnItems.AsNoTracking()
+            .Where(row => row.PurchaseReturnId == item.Id)
+            .OrderBy(row => row.ProductName)
+            .Select(row => new PurchaseReturnItemDto(
+                row.Id,
+                row.PurchaseInvoiceItemId,
+                row.ProductId,
+                row.ProductName,
+                row.Barcode,
+                row.HSNCode,
+                row.Unit.HasValue ? row.Unit.Value.ToString() : Unit.Pcs.ToString(),
+                row.PurchasedQuantity,
+                row.PreviouslyReturnedQuantity,
+                row.ReturnedQuantity,
+                row.MRP,
+                row.UnitRate,
+                row.DiscountAmount,
+                row.TaxableAmount,
+                row.TaxRate,
+                row.TaxAmount,
+                row.CGSTAmount,
+                row.SGSTAmount,
+                row.IGSTAmount,
+                row.ReturnAmount,
+                row.Reason))
+            .ToListAsync(cancellationToken);
+
+        return new PurchaseReturnDetailDto(
+            item.Id,
+            item.ReturnNumber,
+            item.OnDate,
+            item.ReturnKind,
+            item.Status,
+            item.PurchaseInvoiceId,
+            item.OriginalInvoiceNumber,
+            item.OriginalInvoiceDate,
+            item.SupplierInvoiceDate,
+            item.VendorId,
+            item.VendorName,
+            item.VendorGstin,
+            item.Quantity,
+            item.TaxableAmount,
+            item.TaxAmount,
+            item.CGSTAmount,
+            item.SGSTAmount,
+            item.IGSTAmount,
+            item.ReturnAmount,
+            item.DebitNoteId,
+            item.DebitNoteNumber,
+            item.Reason,
+            item.Printed,
+            item.PrintCount,
+            item.LastPrintedAt,
+            PurchaseReturnPrintStatus(item.Printed, item.PrintCount),
+            item.SettledAmount,
+            Math.Max(item.ReturnAmount - item.SettledAmount, 0),
+            item.SettlementStatus,
+            item.ItcReversalAmount,
+            item.ItcReversalStatus,
+            item.JournalEntryId,
+            items);
+    }
+
+    private static async Task<IResult> GetPurchaseReturnReconciliationAsync(
+        Guid id,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var purchaseReturn = await WorkspaceScope.ApplyTo(db.PurchaseReturns.AsNoTracking(), context)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (purchaseReturn is null)
+        {
+            return Results.NotFound(new { message = "Purchase return was not found." });
+        }
+
+        var items = await db.PurchaseReturnItems.AsNoTracking()
+            .Where(item => item.PurchaseReturnId == id)
+            .ToListAsync(cancellationToken);
+        var reversalRows = await db.PurchaseReturnItcReversals.AsNoTracking()
+            .Where(item => item.PurchaseReturnId == id)
+            .OrderBy(item => item.ProductName)
+            .ToListAsync(cancellationToken);
+        var stockQuantityOut = await db.StockMovements.AsNoTracking()
+            .Where(item => item.SourceType == "PurchaseReturn" && item.SourceId == id)
+            .SumAsync(item => item.QuantityOut, cancellationToken);
+        var debitNote = purchaseReturn.DebitNoteId.HasValue
+            ? await db.CommercialNotes.AsNoTracking().FirstOrDefaultAsync(item => item.Id == purchaseReturn.DebitNoteId.Value, cancellationToken)
+            : null;
+        var journal = purchaseReturn.JournalEntryId.HasValue
+            ? await db.JournalEntries.AsNoTracking().FirstOrDefaultAsync(item => item.Id == purchaseReturn.JournalEntryId.Value, cancellationToken)
+            : await db.JournalEntries.AsNoTracking().FirstOrDefaultAsync(item =>
+                (item.SourceType == "PurchaseReturn" && item.SourceId == id) ||
+                (purchaseReturn.ReturnKind == "Cancellation" &&
+                 item.SourceType == "PurchaseInvoiceCancellation" &&
+                 item.SourceId == purchaseReturn.PurchaseInvoiceId), cancellationToken);
+
+        var journalLines = journal is null
+            ? []
+            : await db.JournalLines.AsNoTracking()
+                .Where(item => item.JournalEntryId == journal.Id)
+                .ToListAsync(cancellationToken);
+        var inputGstLedgerIds = await db.Ledgers.AsNoTracking()
+            .Where(item => item.CompanyId == purchaseReturn.CompanyId && item.Name == "Input GST")
+            .Select(item => item.Id)
+            .ToListAsync(cancellationToken);
+
+        var itemTax = RoundMoney(items.Sum(item => item.TaxAmount));
+        var reversalTax = RoundMoney(reversalRows.Sum(item => item.TaxAmount));
+        var journalItcCredit = RoundMoney(journalLines
+            .Where(item => inputGstLedgerIds.Contains(item.LedgerId))
+            .Sum(item => item.Credit));
+        var journalDebit = RoundMoney(journalLines.Sum(item => item.Debit));
+        var journalCredit = RoundMoney(journalLines.Sum(item => item.Credit));
+        var componentTax = RoundMoney(reversalRows.Sum(item => item.CGSTAmount + item.SGSTAmount + item.IGSTAmount));
+        var itemQuantity = RoundMoney(items.Sum(item => item.ReturnedQuantity));
+
+        var checks = new List<PurchaseReturnReconciliationCheckDto>
+        {
+            ReconciliationCheck("items", "Return item count", purchaseReturn.ItemCount == items.Count, purchaseReturn.ItemCount.ToString(), items.Count.ToString(), purchaseReturn.ReturnNumber),
+            ReconciliationCheck("quantity", "Returned quantity", MoneyText(purchaseReturn.Quantity), MoneyText(itemQuantity), purchaseReturn.Quantity == itemQuantity, purchaseReturn.ReturnNumber),
+            ReconciliationCheck("item-tax", "Item GST equals return GST", MoneyText(purchaseReturn.TaxAmount), MoneyText(itemTax), purchaseReturn.TaxAmount == itemTax, purchaseReturn.ReturnNumber),
+            ReconciliationCheck("itc-rows", "Every item has an ITC reversal", items.Count == reversalRows.Count, items.Count.ToString(), reversalRows.Count.ToString(), purchaseReturn.ReturnNumber),
+            ReconciliationCheck("itc-total", "ITC reversal equals return GST", MoneyText(purchaseReturn.TaxAmount), MoneyText(reversalTax), purchaseReturn.TaxAmount == reversalTax, purchaseReturn.ReturnNumber),
+            ReconciliationCheck("itc-components", "GST components equal ITC reversal", MoneyText(reversalTax), MoneyText(componentTax), reversalTax == componentTax, purchaseReturn.ReturnNumber),
+            ReconciliationCheck("stock", "Stock movement equals returned quantity", MoneyText(purchaseReturn.Quantity), MoneyText(stockQuantityOut), purchaseReturn.Quantity == RoundMoney(stockQuantityOut), purchaseReturn.ReturnNumber),
+            ReconciliationCheck("debit-note", "Vendor debit note is linked", purchaseReturn.DebitNoteId.HasValue ? purchaseReturn.DebitNoteId.Value.ToString() : "Linked debit note", debitNote?.Id.ToString() ?? "Missing", debitNote is not null, debitNote?.NoteNumber),
+            ReconciliationCheck("journal", "Accounting journal is linked", purchaseReturn.JournalEntryId.HasValue ? purchaseReturn.JournalEntryId.Value.ToString() : "Linked journal", journal?.Id.ToString() ?? "Missing", journal is not null, journal?.EntryNumber),
+            ReconciliationCheck("journal-balance", "Journal debits equal credits", MoneyText(journalDebit), MoneyText(journalCredit), journal is not null && journalDebit == journalCredit, journal?.EntryNumber),
+            ReconciliationCheck("journal-itc", "Input GST credit equals ITC reversal", MoneyText(reversalTax), MoneyText(journalItcCredit), journal is not null && reversalTax == journalItcCredit, journal?.EntryNumber),
+            ReconciliationCheck("settlement", "Settlement does not exceed return", $"Up to {MoneyText(purchaseReturn.ReturnAmount)}", MoneyText(purchaseReturn.SettledAmount), purchaseReturn.SettledAmount <= purchaseReturn.ReturnAmount, purchaseReturn.DebitNoteNumber)
+        };
+        var status = checks.All(item => item.Passed) ? "Reconciled" : "Needs Review";
+
+        return Results.Ok(new PurchaseReturnReconciliationDto(
+            purchaseReturn.Id,
+            purchaseReturn.ReturnNumber,
+            status,
+            purchaseReturn.PurchaseInvoiceId,
+            purchaseReturn.DebitNoteId,
+            purchaseReturn.DebitNoteNumber,
+            journal?.Id,
+            journal?.EntryNumber,
+            purchaseReturn.TaxAmount,
+            itemTax,
+            reversalTax,
+            journalItcCredit,
+            RoundMoney(stockQuantityOut),
+            purchaseReturn.SettledAmount,
+            reversalRows.Select(item => new PurchaseReturnItcReversalDto(
+                item.Id,
+                item.PurchaseReturnItemId,
+                item.PurchaseInvoiceItemId,
+                item.ProductName,
+                item.HSNCode,
+                item.TaxRate,
+                item.ReturnedQuantity,
+                item.TaxableAmount,
+                item.CGSTAmount,
+                item.SGSTAmount,
+                item.IGSTAmount,
+                item.TaxAmount,
+                item.JournalEntryId,
+                item.Status)).ToList(),
+            checks));
+    }
+
+    private static PurchaseReturnReconciliationCheckDto ReconciliationCheck(
+        string key,
+        string label,
+        bool passed,
+        string expected,
+        string actual,
+        string? reference) => new(key, label, passed, expected, actual, reference);
+
+    private static PurchaseReturnReconciliationCheckDto ReconciliationCheck(
+        string key,
+        string label,
+        string expected,
+        string actual,
+        bool passed,
+        string? reference) => new(key, label, passed, expected, actual, reference);
+
+    private static decimal RoundMoney(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
+    private static string MoneyText(decimal value) => RoundMoney(value).ToString("0.00");
+
     private static async Task<IResult> GetReceiptAsync(Guid id, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
     {
         var receipt = await LoadReceiptAsync(id, context, db, cancellationToken);
@@ -158,7 +498,8 @@ public static class PurchaseEndpoints
                 receipt.BillAmount,
                 receipt.PaidAmount,
                 receipt.BalanceAmount,
-                receipt.Items),
+                receipt.Items,
+                Garmetix.Api.ProductLookup.DocumentCodeService.Create(Garmetix.Api.ProductLookup.DocumentCodeService.PurchaseInvoice, receipt.Id)),
             format,
             copy,
             reprint,
@@ -187,23 +528,7 @@ public static class PurchaseEndpoints
             .Where(item => item.InvoiceId == invoice.Id)
             .ToListAsync(cancellationToken);
 
-        var returnedRows = await db.StockMovements.AsNoTracking()
-            .Where(movement => movement.CompanyId == invoice.CompanyId
-                && movement.SourceType == "PurchaseReturn"
-                && movement.SourceId == invoice.Id
-                && movement.MovementType == "PurchaseReturnOut")
-            .GroupBy(movement => new { movement.ProductId, movement.Barcode })
-            .Select(group => new
-            {
-                group.Key.ProductId,
-                group.Key.Barcode,
-                Quantity = group.Sum(row => row.QuantityOut)
-            })
-            .ToListAsync(cancellationToken);
-
-        var returnedLookup = returnedRows.ToDictionary(
-            row => PurchaseReturnKey(row.ProductId, row.Barcode),
-            row => row.Quantity);
+        var returnedLookup = await GetReturnedQuantityLookupAsync(invoice.Id, invoice.CompanyId, db, cancellationToken);
 
         var paidAmount = invoice.InvoiceStatus == InvoiceStatus.Cancelled
             ? 0
@@ -258,6 +583,8 @@ public static class PurchaseEndpoints
         HttpContext context,
         GarmetixDbContext db,
         AccountingPostingService accounting,
+        DocumentNumberService numbering,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         if (request.Items.Count == 0)
@@ -318,26 +645,28 @@ public static class PurchaseEndpoints
             return Results.BadRequest(new { message = "One or more selected return items were not found in this purchase invoice." });
         }
 
-        var returnedRows = await db.StockMovements.AsNoTracking()
-            .Where(movement => movement.CompanyId == invoice.CompanyId
-                && movement.SourceType == "PurchaseReturn"
-                && movement.SourceId == invoice.Id
-                && movement.MovementType == "PurchaseReturnOut")
-            .GroupBy(movement => new { movement.ProductId, movement.Barcode })
-            .Select(group => new
-            {
-                group.Key.ProductId,
-                group.Key.Barcode,
-                Quantity = group.Sum(row => row.QuantityOut)
-            })
-            .ToListAsync(cancellationToken);
-
-        var returnedLookup = returnedRows.ToDictionary(
-            row => PurchaseReturnKey(row.ProductId, row.Barcode),
-            row => row.Quantity);
-
-        var returnDate = request.ReturnDate ?? DateTime.Now;
+        var returnedLookup = await GetReturnedQuantityLookupAsync(invoice.Id, invoice.CompanyId, db, cancellationToken);
+        var returnDate = (request.ReturnDate ?? DateTime.Now).Date;
         var reason = string.IsNullOrWhiteSpace(request.Reason) ? "Partial purchase return" : request.Reason.Trim();
+        var purchaseReturn = new PurchaseReturn
+        {
+            ReturnNumber = await numbering.NextPurchaseReturnAsync(invoice.CompanyId, storeGroupId, storeId, returnDate, cancellationToken),
+            OnDate = returnDate,
+            PurchaseInvoiceId = invoice.Id,
+            OriginalInvoiceNumber = invoice.InvoiceNumber,
+            OriginalInvoiceDate = invoice.OnDate,
+            SupplierInvoiceDate = invoice.SupplierInvoiceDate,
+            VendorId = vendor.Id,
+            VendorName = vendor.Name,
+            VendorGstin = vendor.GSTIN,
+            ReturnKind = "Partial",
+            Status = "Posted",
+            Reason = reason,
+            CompanyId = invoice.CompanyId,
+            StoreGroupId = storeGroupId,
+            StoreId = storeId
+        };
+        db.PurchaseReturns.Add(purchaseReturn);
         decimal returnedQuantity = 0;
         decimal taxableAmount = 0;
         decimal taxAmount = 0;
@@ -346,6 +675,7 @@ public static class PurchaseEndpoints
         decimal sgstAmount = 0;
         decimal igstAmount = 0;
         var movementRemarks = new List<string>();
+        var taxPostings = new List<PurchaseReturnTaxPosting>();
 
         foreach (var item in invoiceItems)
         {
@@ -366,7 +696,8 @@ public static class PurchaseEndpoints
                 stock.StoreGroupId == storeGroupId &&
                 stock.StoreId == storeId &&
                 stock.ProductId == item.ProductId &&
-                stock.Barcode == item.Barcode,
+                stock.Barcode == item.Barcode &&
+                !stock.IsOFB,
                 cancellationToken);
 
             if (stock is null)
@@ -374,46 +705,105 @@ public static class PurchaseEndpoints
                 return Results.BadRequest(new { message = $"Stock row was not found for {item.ProductName ?? item.Barcode}." });
             }
 
-            if (stock.PurchaseQty < requestedQuantity)
-            {
-                return Results.BadRequest(new { message = $"Current inward quantity for {item.ProductName ?? item.Barcode} is lower than requested return quantity." });
-            }
-
-            if (stock.CurrentStock < requestedQuantity)
+            var stockSnapshot = await stockLedger.GetSnapshotAsync(stock, cancellationToken);
+            if (stockSnapshot.Quantity < requestedQuantity)
             {
                 return Results.BadRequest(new { message = $"Available stock for {item.ProductName ?? item.Barcode} is lower than requested return quantity." });
             }
 
-            var ratio = item.BilledQuantity <= 0 ? 0 : requestedQuantity / item.BilledQuantity;
-            var lineTaxable = Math.Round(item.BasePrice * ratio, 2);
-            var lineTax = Math.Round(item.TaxAmount * ratio, 2);
-            var lineAmount = Math.Round(item.Amount * ratio, 2);
-            var lineCgst = Math.Round((item.CGSTAmount ?? 0) * ratio, 2);
-            var lineSgst = Math.Round((item.SGSTAmount ?? 0) * ratio, 2);
-            var lineIgst = Math.Round((item.IGSTAmount ?? 0) * ratio, 2);
+            var taxResult = PurchaseReturnItcCalculator.Calculate(
+                new PurchaseReturnTaxSource(
+                    item.BilledQuantity,
+                    item.BasePrice,
+                    item.TaxAmount,
+                    item.CGSTAmount ?? 0,
+                    item.SGSTAmount ?? 0,
+                    item.IGSTAmount ?? 0,
+                    item.DiscountAmount),
+                requestedQuantity);
+            var lineTaxable = taxResult.TaxableAmount;
+            var lineTax = taxResult.TaxAmount;
+            var lineAmount = taxResult.ReturnAmount;
+            var lineCgst = taxResult.CgstAmount;
+            var lineSgst = taxResult.SgstAmount;
+            var lineIgst = taxResult.IgstAmount;
+            var lineDiscount = taxResult.DiscountAmount;
 
-            stock.PurchaseQty = Math.Max(stock.PurchaseQty - requestedQuantity, 0);
-
-            db.StockMovements.Add(new StockMovement
+            var returnItem = new PurchaseReturnItem
             {
-                StockId = stock.Id,
-                ProductId = stock.ProductId,
+                PurchaseReturnId = purchaseReturn.Id,
+                PurchaseInvoiceId = invoice.Id,
+                PurchaseInvoiceItemId = item.Id,
+                ProductId = item.ProductId,
+                ProductName = item.ProductName ?? item.Barcode,
+                Barcode = item.Barcode,
+                HSNCode = item.HSNCode,
+                Unit = item.Unit,
+                ProductCategoryId = item.ProductCategoryId,
+                ProductSubCategoryId = item.ProductSubCategoryId,
+                PurchasedQuantity = item.BilledQuantity,
+                PreviouslyReturnedQuantity = alreadyReturned,
+                ReturnedQuantity = requestedQuantity,
+                MRP = item.MRP,
+                UnitRate = item.BilledQuantity <= 0 ? 0 : Math.Round(item.BasePrice / item.BilledQuantity, 2),
+                DiscountAmount = lineDiscount,
+                TaxableAmount = lineTaxable,
+                TaxRate = item.TaxPercentage,
+                TaxAmount = lineTax,
+                CGSTAmount = lineCgst,
+                SGSTAmount = lineSgst,
+                IGSTAmount = lineIgst,
+                ReturnAmount = lineAmount,
+                Reason = reason,
+                CompanyId = invoice.CompanyId
+            };
+            db.PurchaseReturnItems.Add(returnItem);
+
+            var reversal = new PurchaseReturnItcReversal
+            {
+                PurchaseReturnId = purchaseReturn.Id,
+                PurchaseReturnItemId = returnItem.Id,
+                PurchaseInvoiceId = invoice.Id,
+                PurchaseInvoiceItemId = item.Id,
+                ReturnNumber = purchaseReturn.ReturnNumber,
+                OriginalInvoiceNumber = invoice.InvoiceNumber,
+                OnDate = returnDate,
+                ProductId = item.ProductId,
+                ProductName = item.ProductName ?? item.Barcode,
+                HSNCode = item.HSNCode,
+                TaxRate = item.TaxPercentage,
+                ReturnedQuantity = requestedQuantity,
+                TaxableAmount = lineTaxable,
+                CGSTAmount = lineCgst,
+                SGSTAmount = lineSgst,
+                IGSTAmount = lineIgst,
+                TaxAmount = lineTax,
+                Status = "Posted",
+                CompanyId = invoice.CompanyId,
+                StoreGroupId = storeGroupId,
+                StoreId = storeId
+            };
+            db.PurchaseReturnItcReversals.Add(reversal);
+            taxPostings.Add(new PurchaseReturnTaxPosting(reversal.Id, reversal.ProductName, reversal.HSNCode, reversal.TaxAmount));
+
+            await stockLedger.PostAsync(stock, new StockMovement
+            {
                 Barcode = stock.Barcode,
                 MovementType = "PurchaseReturnOut",
                 QuantityOut = requestedQuantity,
-                CostPrice = stock.CostPrice,
+                CostPrice = stockSnapshot.AverageCost,
                 MRP = stock.MRP,
                 TaxRate = item.TaxPercentage,
                 HSNCode = item.HSNCode ?? stock.HSNCode,
                 SourceType = "PurchaseReturn",
-                SourceId = invoice.Id,
-                SourceNumber = invoice.InvoiceNumber,
+                SourceId = purchaseReturn.Id,
+                SourceNumber = purchaseReturn.ReturnNumber,
                 Remarks = reason,
                 OnDate = returnDate,
                 CompanyId = invoice.CompanyId,
                 StoreGroupId = storeGroupId,
                 StoreId = storeId
-            });
+            }, cancellationToken);
 
             returnedQuantity += requestedQuantity;
             taxableAmount += lineTaxable;
@@ -447,6 +837,20 @@ public static class PurchaseEndpoints
             cancellationToken);
 
         debitNote.Remarks = $"Partial purchase return: {string.Join(", ", movementRemarks)}";
+        debitNote.SourceId = purchaseReturn.Id;
+        debitNote.SourceNumber = purchaseReturn.ReturnNumber;
+        purchaseReturn.Quantity = returnedQuantity;
+        purchaseReturn.TaxableAmount = Math.Round(taxableAmount, 2);
+        purchaseReturn.TaxAmount = Math.Round(taxAmount, 2);
+        purchaseReturn.CGSTAmount = Math.Round(cgstAmount, 2);
+        purchaseReturn.SGSTAmount = Math.Round(sgstAmount, 2);
+        purchaseReturn.IGSTAmount = Math.Round(igstAmount, 2);
+        purchaseReturn.ReturnAmount = Math.Round(returnAmount, 2);
+        purchaseReturn.DebitNoteId = debitNote.Id;
+        purchaseReturn.DebitNoteNumber = debitNote.NoteNumber;
+        purchaseReturn.ItemCount = invoiceItems.Count;
+        purchaseReturn.ItcReversalAmount = Math.Round(taxPostings.Sum(item => item.TaxAmount), 2);
+        purchaseReturn.ItcReversalStatus = purchaseReturn.ItcReversalAmount == purchaseReturn.TaxAmount ? "Reconciled" : "Mismatch";
         vendor.BillAmount = Math.Max(vendor.BillAmount - Math.Round(returnAmount, 2), 0);
 
         var allItems = await db.PurchaseInvoiceItems.AsNoTracking()
@@ -462,15 +866,15 @@ public static class PurchaseEndpoints
         invoice.InvoiceStatus = fullyReturned ? InvoiceStatus.Refunded : InvoiceStatus.PartiallyRefunded;
 
         await accounting.PostPurchaseReturnAsync(
+            purchaseReturn,
             invoice,
             vendor,
-            debitNote.Id,
             debitNote.NoteNumber,
             storeGroupId,
             storeId,
             Math.Round(taxableAmount, 2),
-            Math.Round(taxAmount, 2),
             Math.Round(returnAmount, 2),
+            taxPostings,
             reason,
             cancellationToken);
 
@@ -478,6 +882,8 @@ public static class PurchaseEndpoints
         await transaction.CommitAsync(cancellationToken);
 
         return Results.Ok(new PartialPurchaseReturnResponse(
+            purchaseReturn.Id,
+            purchaseReturn.ReturnNumber,
             invoice.Id,
             invoice.InvoiceNumber,
             debitNote.Id,
@@ -510,7 +916,7 @@ public static class PurchaseEndpoints
                 item.ProductName ?? product.Name,
                 item.Barcode,
                 string.IsNullOrWhiteSpace(item.HSNCode) ? product.HSNCode : item.HSNCode,
-                item.Unit.ToString(),
+                (item.Unit ?? product.Unit).ToString(),
                 item.BilledQuantity,
                 item.MRP,
                 item.DiscountAmount,
@@ -582,6 +988,7 @@ public static class PurchaseEndpoints
         DocumentNumberService documentNumbers,
         AccountingPostingService accounting,
         GstinLookupService gstinLookup,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.VendorName))
@@ -615,9 +1022,10 @@ public static class PurchaseEndpoints
         var invoiceNumber = string.IsNullOrWhiteSpace(request.InvoiceNumber)
             ? await documentNumbers.NextPurchaseInvoiceAsync(request.CompanyId, request.StoreGroupId, request.StoreId, cancellationToken)
             : request.InvoiceNumber.Trim();
-        var inwardNumber = string.IsNullOrWhiteSpace(request.InwardNumber)
-            ? await documentNumbers.NextPurchaseInwardAsync(request.CompanyId, request.StoreGroupId, request.StoreId, cancellationToken)
-            : request.InwardNumber.Trim();
+        // Inward numbers are always server generated so users cannot accidentally
+        // duplicate or break the store/month/INW/series format.
+        var inwardNumber = await documentNumbers.NextPurchaseInwardAsync(
+            request.CompanyId, request.StoreGroupId, request.StoreId, cancellationToken);
         var invoiceId = Guid.NewGuid();
 
         var invoiceItems = new List<PurchaseInvoiceItem>();
@@ -690,7 +1098,8 @@ public static class PurchaseEndpoints
             var stock = await WorkspaceScope.ApplyTo(db.Stocks, context).FirstOrDefaultAsync(item =>
                 item.ProductId == product.Id &&
                 item.Barcode == barcode &&
-                item.StoreId == request.StoreId,
+                item.StoreId == request.StoreId &&
+                !item.IsOFB,
                 cancellationToken);
 
             if (stock is null)
@@ -701,12 +1110,13 @@ public static class PurchaseEndpoints
                     Barcode = barcode,
                     Unit = unit,
                     HSNCode = hsnCode,
-                    PurchaseQty = requestItem.Quantity,
-                    CostPrice = requestItem.CostPrice,
+                    PurchaseQty = 0,
+                    CostPrice = 0,
                     MRP = requestItem.Mrp,
                     TaxRate = tax.CompositeRate,
                     TaxType = tax.TaxType,
                     TaxId = tax.Id,
+                    IsOFB = false,
                     CompanyId = request.CompanyId,
                     StoreGroupId = request.StoreGroupId,
                     StoreId = request.StoreId
@@ -715,8 +1125,6 @@ public static class PurchaseEndpoints
             }
             else
             {
-                stock.PurchaseQty += requestItem.Quantity;
-                stock.CostPrice = requestItem.CostPrice;
                 stock.MRP = requestItem.Mrp;
                 stock.TaxRate = tax.CompositeRate;
                 stock.TaxType = tax.TaxType;
@@ -725,11 +1133,9 @@ public static class PurchaseEndpoints
                 stock.Unit = unit;
             }
 
-            db.StockMovements.Add(new StockMovement
+            await stockLedger.PostAsync(stock, new StockMovement
             {
-                StockId = stock.Id,
-                ProductId = product.Id,
-                Barcode = barcode,
+                Barcode = stock.Barcode,
                 MovementType = "PurchaseIn",
                 QuantityIn = requestItem.Quantity,
                 CostPrice = requestItem.CostPrice,
@@ -744,7 +1150,7 @@ public static class PurchaseEndpoints
                 CompanyId = request.CompanyId,
                 StoreGroupId = request.StoreGroupId,
                 StoreId = request.StoreId
-            });
+            }, cancellationToken);
 
             product.MRP = requestItem.Mrp;
             product.TaxRate = tax.CompositeRate;
@@ -856,6 +1262,155 @@ public static class PurchaseEndpoints
             invoice.ItemCount,
             invoice.Quantity,
             vendorValidation?.Alerts ?? Array.Empty<string>()));
+    }
+
+
+    private static async Task<IReadOnlyList<PurchasePaymentRegisterDto>> GetRecentPurchasePaymentsAsync(HttpContext context, GarmetixDbContext db, int take = 100, CancellationToken cancellationToken = default)
+    {
+        var payments = await WorkspaceScope.ApplyTo(db.PurchasePayments.AsNoTracking(), context)
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .Take(Math.Clamp(take, 1, 300))
+            .ToListAsync(cancellationToken);
+
+        var invoiceIds = payments
+            .Where(item => item.PurchaseInvoiceId != Guid.Empty)
+            .Select(item => item.PurchaseInvoiceId)
+            .Distinct()
+            .ToArray();
+        var vendorIds = payments.Select(item => item.VendorId).Distinct().ToArray();
+
+        var invoices = invoiceIds.Length == 0
+            ? new Dictionary<Guid, string>()
+            : await db.PurchaseInvoices.AsNoTracking()
+                .Where(item => invoiceIds.Contains(item.Id))
+                .ToDictionaryAsync(item => item.Id, item => item.InvoiceNumber, cancellationToken);
+
+        var vendors = vendorIds.Length == 0
+            ? new Dictionary<Guid, string>()
+            : await db.Vendors.AsNoTracking()
+                .Where(item => vendorIds.Contains(item.Id))
+                .ToDictionaryAsync(item => item.Id, item => item.Name, cancellationToken);
+
+        return payments.Select(payment =>
+        {
+            invoices.TryGetValue(payment.PurchaseInvoiceId, out var invoiceNumber);
+            vendors.TryGetValue(payment.VendorId, out var vendorName);
+            var isAdvance = payment.PurchaseInvoiceId == Guid.Empty || string.Equals(payment.AdjustmentSourceType, "VendorAdvance", StringComparison.OrdinalIgnoreCase);
+            return new PurchasePaymentRegisterDto(
+                payment.Id,
+                payment.OnDate,
+                vendorName ?? "Vendor",
+                payment.VendorId,
+                isAdvance ? (Guid?)null : payment.PurchaseInvoiceId,
+                isAdvance ? "Advance" : invoiceNumber ?? "Purchase invoice",
+                isAdvance ? "Advance" : "Invoice",
+                payment.Amount,
+                payment.PaymentMode.ToString(),
+                payment.ReferenceNumber,
+                payment.Remarks,
+                payment.VoucherId);
+        }).ToList();
+    }
+
+    private static async Task<IResult> CreateVendorAdvancePaymentAsync(
+        VendorAdvancePaymentRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        DocumentNumberService documentNumbers,
+        AccountingPostingService accounting,
+        CancellationToken cancellationToken)
+    {
+        if (request.Amount <= 0)
+        {
+            return Results.BadRequest(new { message = "Advance payment amount must be greater than zero." });
+        }
+
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        var vendor = await WorkspaceScope.ApplyTo(db.Vendors, context)
+            .FirstOrDefaultAsync(item => item.Id == request.VendorId && item.Active, cancellationToken);
+        if (vendor is null)
+        {
+            return Results.BadRequest(new { message = "Select a valid active vendor." });
+        }
+
+        var companyId = WorkspaceScope.ClaimGuid(context, "companyId") ?? vendor.CompanyId;
+        var storeGroupId = WorkspaceScope.ClaimGuid(context, "storeGroupId") ?? Guid.Empty;
+        var storeId = WorkspaceScope.ClaimGuid(context, "storeId") ?? Guid.Empty;
+
+        if (storeGroupId == Guid.Empty || storeId == Guid.Empty)
+        {
+            var store = await WorkspaceScope.ApplyTo(db.Stores.AsNoTracking(), context)
+                .Where(item => item.CompanyId == companyId)
+                .OrderBy(item => item.Name)
+                .FirstOrDefaultAsync(cancellationToken);
+            storeGroupId = store?.StoreGroupId ?? storeGroupId;
+            storeId = store?.Id ?? storeId;
+        }
+
+        if (storeGroupId == Guid.Empty || storeId == Guid.Empty)
+        {
+            return Results.BadRequest(new { message = "Select workspace store before recording vendor advance payment." });
+        }
+
+        var voucherNumber = await documentNumbers.NextVendorPaymentVoucherAsync(companyId, storeGroupId, storeId, cancellationToken);
+        var particulars = string.IsNullOrWhiteSpace(request.PaymentDetails)
+            ? $"Vendor advance payment to {vendor.Name}"
+            : request.PaymentDetails.Trim();
+
+        var voucher = new Voucher
+        {
+            Id = Guid.NewGuid(),
+            VoucherNumber = voucherNumber,
+            OnDate = DateTime.Now,
+            VoucherType = VoucherType.Payment,
+            PartyName = vendor.Name,
+            Particulars = particulars,
+            Amount = request.Amount,
+            Remarks = string.IsNullOrWhiteSpace(request.Remarks) ? "Vendor advance payment" : request.Remarks.Trim(),
+            SlipNumber = string.IsNullOrWhiteSpace(request.SlipNumber) ? null : request.SlipNumber.Trim(),
+            PaymentMode = request.PaymentMode,
+            PaymentDetails = request.PaymentDetails,
+            AccountNumber = request.BankAccountId,
+            IsParty = true,
+            CompanyId = companyId,
+            StoreGroupId = storeGroupId,
+            StoreId = storeId
+        };
+
+        if (!WorkspaceScope.CanWrite(voucher, context, out var scopeMessage))
+        {
+            return Results.BadRequest(new { message = scopeMessage ?? "Selected company/store is outside your access scope." });
+        }
+
+        var payment = new PurchasePayment
+        {
+            PurchaseInvoiceId = Guid.Empty,
+            VendorId = vendor.Id,
+            OnDate = DateTime.Now,
+            Amount = request.Amount,
+            PaymentMode = request.PaymentMode,
+            BankAccountId = request.BankAccountId,
+            ReferenceNumber = string.IsNullOrWhiteSpace(request.SlipNumber) ? voucher.VoucherNumber : request.SlipNumber.Trim(),
+            VoucherId = voucher.Id,
+            AdjustmentSourceType = "VendorAdvance",
+            AdjustmentSourceId = vendor.Id,
+            Remarks = voucher.Remarks,
+            CompanyId = companyId,
+            StoreGroupId = storeGroupId,
+            StoreId = storeId
+        };
+
+        db.Vouchers.Add(voucher);
+        db.PurchasePayments.Add(payment);
+        vendor.Paid += request.Amount;
+
+        await accounting.PostVendorPaymentVoucherAsync(voucher, vendor, storeGroupId, storeId, request.BankAccountId, cancellationToken);
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return Results.Ok(new VendorAdvancePaymentResponse(payment.Id, voucher.Id, voucher.VoucherNumber, vendor.Id, vendor.Name, request.Amount));
     }
 
     private static async Task<IResult> CreateVendorPaymentVoucherAsync(
@@ -995,6 +1550,8 @@ public static class PurchaseEndpoints
         HttpContext context,
         GarmetixDbContext db,
         AccountingPostingService accounting,
+        DocumentNumberService numbering,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -1028,9 +1585,108 @@ public static class PurchaseEndpoints
             .Where(item => item.InvoiceId == invoice.Id)
             .ToListAsync(cancellationToken);
 
+        var returnDate = DateTime.Today;
+        var reason = string.IsNullOrWhiteSpace(request.Reason) ? "Purchase return/cancel" : request.Reason.Trim();
+        var purchaseReturn = new PurchaseReturn
+        {
+            ReturnNumber = await numbering.NextPurchaseReturnAsync(invoice.CompanyId, storeGroupId, storeId, returnDate, cancellationToken),
+            OnDate = returnDate,
+            PurchaseInvoiceId = invoice.Id,
+            OriginalInvoiceNumber = invoice.InvoiceNumber,
+            OriginalInvoiceDate = invoice.OnDate,
+            SupplierInvoiceDate = invoice.SupplierInvoiceDate,
+            VendorId = invoice.VendorId,
+            VendorName = invoice.VendorName ?? "Supplier",
+            VendorGstin = invoice.VendorGSTIN,
+            ReturnKind = "Cancellation",
+            Status = "Posted",
+            Reason = reason,
+            Quantity = invoiceItems.Sum(item => item.BilledQuantity),
+            TaxableAmount = Math.Round(invoice.BasePrice, 2),
+            TaxAmount = Math.Round(invoice.TaxAmount, 2),
+            CGSTAmount = Math.Round(invoice.CGSTAmount ?? 0, 2),
+            SGSTAmount = Math.Round(invoice.SGSTAmount ?? 0, 2),
+            IGSTAmount = Math.Round(invoice.IGSTAmount ?? 0, 2),
+            ReturnAmount = Math.Round(invoice.BillAmount, 2),
+            ItemCount = invoiceItems.Count,
+            CompanyId = invoice.CompanyId,
+            StoreGroupId = storeGroupId,
+            StoreId = storeId
+        };
+        db.PurchaseReturns.Add(purchaseReturn);
+
         decimal reversedQuantity = 0;
+        var taxPostings = new List<PurchaseReturnTaxPosting>();
         foreach (var item in invoiceItems)
         {
+            var quantity = item.BilledQuantity <= 0 ? 1 : item.BilledQuantity;
+            var taxResult = PurchaseReturnItcCalculator.Calculate(
+                new PurchaseReturnTaxSource(
+                    quantity,
+                    item.BasePrice,
+                    item.TaxAmount,
+                    item.CGSTAmount ?? 0,
+                    item.SGSTAmount ?? 0,
+                    item.IGSTAmount ?? 0,
+                    item.DiscountAmount),
+                quantity);
+            var returnItem = new PurchaseReturnItem
+            {
+                PurchaseReturnId = purchaseReturn.Id,
+                PurchaseInvoiceId = invoice.Id,
+                PurchaseInvoiceItemId = item.Id,
+                ProductId = item.ProductId,
+                ProductName = item.ProductName ?? item.Barcode,
+                Barcode = item.Barcode,
+                HSNCode = item.HSNCode,
+                Unit = item.Unit,
+                ProductCategoryId = item.ProductCategoryId,
+                ProductSubCategoryId = item.ProductSubCategoryId,
+                PurchasedQuantity = item.BilledQuantity,
+                PreviouslyReturnedQuantity = 0,
+                ReturnedQuantity = item.BilledQuantity,
+                MRP = item.MRP,
+                UnitRate = Math.Round(item.BasePrice / quantity, 2),
+                DiscountAmount = taxResult.DiscountAmount,
+                TaxableAmount = taxResult.TaxableAmount,
+                TaxRate = item.TaxPercentage,
+                TaxAmount = taxResult.TaxAmount,
+                CGSTAmount = taxResult.CgstAmount,
+                SGSTAmount = taxResult.SgstAmount,
+                IGSTAmount = taxResult.IgstAmount,
+                ReturnAmount = taxResult.ReturnAmount,
+                Reason = reason,
+                CompanyId = invoice.CompanyId
+            };
+            db.PurchaseReturnItems.Add(returnItem);
+
+            var reversal = new PurchaseReturnItcReversal
+            {
+                PurchaseReturnId = purchaseReturn.Id,
+                PurchaseReturnItemId = returnItem.Id,
+                PurchaseInvoiceId = invoice.Id,
+                PurchaseInvoiceItemId = item.Id,
+                ReturnNumber = purchaseReturn.ReturnNumber,
+                OriginalInvoiceNumber = invoice.InvoiceNumber,
+                OnDate = returnDate,
+                ProductId = item.ProductId,
+                ProductName = item.ProductName ?? item.Barcode,
+                HSNCode = item.HSNCode,
+                TaxRate = item.TaxPercentage,
+                ReturnedQuantity = item.BilledQuantity,
+                TaxableAmount = taxResult.TaxableAmount,
+                CGSTAmount = taxResult.CgstAmount,
+                SGSTAmount = taxResult.SgstAmount,
+                IGSTAmount = taxResult.IgstAmount,
+                TaxAmount = taxResult.TaxAmount,
+                Status = "Posted",
+                CompanyId = invoice.CompanyId,
+                StoreGroupId = storeGroupId,
+                StoreId = storeId
+            };
+            db.PurchaseReturnItcReversals.Add(reversal);
+            taxPostings.Add(new PurchaseReturnTaxPosting(reversal.Id, reversal.ProductName, reversal.HSNCode, reversal.TaxAmount));
+
             await DocumentNumberGenerator.LockStockKeyAsync(db, invoice.CompanyId, storeGroupId, storeId, item.ProductId, item.Barcode, cancellationToken);
 
             var stock = await db.Stocks.FirstOrDefaultAsync(stock =>
@@ -1038,32 +1694,31 @@ public static class PurchaseEndpoints
                 stock.StoreGroupId == storeGroupId &&
                 stock.StoreId == storeId &&
                 stock.ProductId == item.ProductId &&
-                stock.Barcode == item.Barcode,
+                stock.Barcode == item.Barcode &&
+                !stock.IsOFB,
                 cancellationToken);
 
             if (stock is not null)
             {
-                stock.PurchaseQty = Math.Max(stock.PurchaseQty - item.BilledQuantity, 0);
-                db.StockMovements.Add(new StockMovement
+                var stockSnapshot = await stockLedger.GetSnapshotAsync(stock, cancellationToken);
+                await stockLedger.PostAsync(stock, new StockMovement
                 {
-                    StockId = stock.Id,
-                    ProductId = stock.ProductId,
                     Barcode = stock.Barcode,
                     MovementType = "PurchaseReturnOut",
                     QuantityOut = item.BilledQuantity,
-                    CostPrice = stock.CostPrice,
+                    CostPrice = stockSnapshot.AverageCost,
                     MRP = stock.MRP,
                     TaxRate = stock.TaxRate,
                     HSNCode = item.HSNCode ?? stock.HSNCode,
                     SourceType = "PurchaseReturn",
-                    SourceId = invoice.Id,
-                    SourceNumber = invoice.InvoiceNumber,
-                    Remarks = string.IsNullOrWhiteSpace(request.Reason) ? "Purchase return/cancel" : request.Reason,
-                    OnDate = DateTime.Now,
+                    SourceId = purchaseReturn.Id,
+                    SourceNumber = purchaseReturn.ReturnNumber,
+                    Remarks = reason,
+                    OnDate = returnDate,
                     CompanyId = invoice.CompanyId,
                     StoreGroupId = storeGroupId,
                     StoreId = storeId
-                });
+                }, cancellationToken);
                 reversedQuantity += item.BilledQuantity;
             }
         }
@@ -1083,12 +1738,44 @@ public static class PurchaseEndpoints
             vendor.Paid = Math.Max(vendor.Paid - originalPaidAmount, 0);
         }
 
+        CommercialNote? debitNote = null;
         if (vendor is not null)
         {
-            await CommercialEndpoints.CreateDebitNoteFromPurchaseReturnAsync(invoice, vendor, request.Reason, storeGroupId, storeId, db, cancellationToken);
+            debitNote = await CommercialEndpoints.CreateDebitNoteFromPurchaseReturnAsync(
+                invoice,
+                vendor,
+                reason,
+                storeGroupId,
+                storeId,
+                purchaseReturn.TaxableAmount,
+                purchaseReturn.TaxAmount,
+                purchaseReturn.ReturnAmount,
+                string.Join(", ", invoiceItems.Select(item => $"{item.ProductName ?? item.Barcode} x {item.BilledQuantity:N2}")),
+                db,
+                cancellationToken);
+            debitNote.SourceId = purchaseReturn.Id;
+            debitNote.SourceNumber = purchaseReturn.ReturnNumber;
+            purchaseReturn.DebitNoteId = debitNote.Id;
+            purchaseReturn.DebitNoteNumber = debitNote.NoteNumber;
         }
 
-        await accounting.PostPurchaseInvoiceCancellationAsync(invoice, vendor, storeGroupId, storeId, originalPaidAmount, originalPaymentMode, bankAccountId, cancellationToken);
+        purchaseReturn.ItcReversalAmount = RoundMoney(taxPostings.Sum(item => item.TaxAmount));
+        purchaseReturn.ItcReversalStatus = purchaseReturn.ItcReversalAmount == purchaseReturn.TaxAmount ? "Reconciled" : "Mismatch";
+        var cancellationJournal = await accounting.PostPurchaseInvoiceCancellationAsync(
+            invoice,
+            vendor,
+            storeGroupId,
+            storeId,
+            originalPaidAmount,
+            originalPaymentMode,
+            bankAccountId,
+            taxPostings,
+            cancellationToken);
+        purchaseReturn.JournalEntryId = cancellationJournal?.Id;
+        foreach (var reversal in db.PurchaseReturnItcReversals.Local.Where(item => item.PurchaseReturnId == purchaseReturn.Id))
+        {
+            reversal.JournalEntryId = cancellationJournal?.Id;
+        }
 
         // Keep original purchase values for audit and print history. Reversal is represented by status, stock movement, debit note, and accounting reversal.
         invoice.InvoiceStatus = InvoiceStatus.Cancelled;
@@ -1102,7 +1789,9 @@ public static class PurchaseEndpoints
             invoice.InvoiceNumber,
             invoice.InvoiceStatus.ToString(),
             reversedQuantity,
-            invoiceItems.Sum(item => item.Amount)));
+            invoiceItems.Sum(item => item.Amount),
+            purchaseReturn.Id,
+            purchaseReturn.ReturnNumber));
     }
 
     private static async Task<Vendor> GetOrCreateVendorAsync(
@@ -1296,7 +1985,55 @@ public static class PurchaseEndpoints
         };
     }
 
+    private static async Task<Dictionary<string, decimal>> GetReturnedQuantityLookupAsync(
+        Guid purchaseInvoiceId,
+        Guid companyId,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var formalRows = await db.PurchaseReturnItems.AsNoTracking()
+            .Where(item => item.CompanyId == companyId && item.PurchaseInvoiceId == purchaseInvoiceId)
+            .GroupBy(item => new { item.ProductId, item.Barcode })
+            .Select(group => new
+            {
+                group.Key.ProductId,
+                group.Key.Barcode,
+                Quantity = group.Sum(item => item.ReturnedQuantity)
+            })
+            .ToListAsync(cancellationToken);
+
+        // Before Stage 8C, a purchase return existed only as a stock movement linked
+        // directly to its invoice. New movements link to the formal PurchaseReturn.
+        var legacyRows = await db.StockMovements.AsNoTracking()
+            .Where(movement => movement.CompanyId == companyId
+                && movement.SourceType == "PurchaseReturn"
+                && movement.SourceId == purchaseInvoiceId
+                && movement.MovementType == "PurchaseReturnOut")
+            .GroupBy(movement => new { movement.ProductId, movement.Barcode })
+            .Select(group => new
+            {
+                group.Key.ProductId,
+                group.Key.Barcode,
+                Quantity = group.Sum(item => item.QuantityOut)
+            })
+            .ToListAsync(cancellationToken);
+
+        var result = formalRows.ToDictionary(
+            row => PurchaseReturnKey(row.ProductId, row.Barcode),
+            row => row.Quantity);
+        foreach (var row in legacyRows)
+        {
+            var key = PurchaseReturnKey(row.ProductId, row.Barcode);
+            result[key] = result.GetValueOrDefault(key) + row.Quantity;
+        }
+
+        return result;
+    }
+
     private static string PurchaseReturnKey(Guid productId, string barcode) => $"{productId:N}|{barcode.Trim().ToUpperInvariant()}";
+
+    private static string PurchaseReturnPrintStatus(bool printed, int printCount)
+        => printCount > 1 ? "Reprinted" : printed ? "Printed" : "Not Printed";
 
     private static IReadOnlyList<PurchaseEnumOptionDto> EnumOptions<TEnum>() where TEnum : struct, Enum =>
         Enum.GetValues<TEnum>()

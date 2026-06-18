@@ -35,6 +35,9 @@ const downloadingCloudBackup = ref('')
 const deletingCloudBackup = ref('')
 const restoringCloudBackup = ref('')
 const cloudRestoreConfirmation = ref('')
+const factoryResetOpen = ref(false)
+const factoryResetConfirmation = ref('')
+const factoryResetting = ref(false)
 
 const metrics = computed(() => [
   {
@@ -396,6 +399,33 @@ async function restoreDatabase() {
   }
 }
 
+function beginFactoryReset() {
+  factoryResetConfirmation.value = ''
+  factoryResetOpen.value = true
+}
+
+async function factoryResetDatabase() {
+  if (factoryResetConfirmation.value !== 'FACTORY RESET') {
+    feedback.failed('Type FACTORY RESET to continue')
+    return
+  }
+
+  factoryResetting.value = true
+  try {
+    const result = await api.create<any>('factory-reset', {
+      confirmation: factoryResetConfirmation.value
+    })
+    factoryResetOpen.value = false
+    factoryResetConfirmation.value = ''
+    feedback.notify('Factory reset completed', `Safety backup: ${result.safetyBackup?.fileName || 'created'}`)
+    await refresh()
+  } catch (error) {
+    feedback.failed('Factory reset failed', error)
+  } finally {
+    factoryResetting.value = false
+  }
+}
+
 function formatBytes(value: number) {
   const bytes = Number(value || 0)
   if (bytes < 1024) return `${bytes} B`
@@ -465,6 +495,32 @@ onMounted(async () => {
             </div>
           </UCard>
         </div>
+
+        <UCard class="planner-card factory-reset-card">
+          <template #header>
+            <div class="planner-card-header">
+              <div>
+                <h2>Factory Reset</h2>
+                <p>Remove all company and transaction data while preserving migrations and the current administrator login.</p>
+              </div>
+              <UButton
+                color="error"
+                variant="subtle"
+                icon="i-lucide-database-x"
+                label="Factory Reset"
+                @click="beginFactoryReset"
+              />
+            </div>
+          </template>
+
+          <UAlert
+            color="error"
+            variant="subtle"
+            icon="i-lucide-triangle-alert"
+            title="Destructive maintenance operation"
+            description="A safety backup is created first. Companies, stores, masters, transactions, payroll, stock, logs and settings are removed. The current Admin/Owner account remains so initial setup can be run again."
+          />
+        </UCard>
 
         <UCard class="planner-card">
           <template #header>
@@ -778,6 +834,36 @@ onMounted(async () => {
           :loading="restoring"
           :disabled="!restoreFile || restoreConfirmation !== 'RESTORE' || restorePreview?.status !== 'ok'"
           @click="restoreDatabase"
+        />
+      </div>
+    </template>
+  </UModal>
+
+  <UModal v-model:open="factoryResetOpen" title="Factory Reset Database" :ui="{ content: 'max-w-2xl' }">
+    <template #body>
+      <div class="form-grid">
+        <UAlert
+          color="error"
+          variant="solid"
+          icon="i-lucide-octagon-alert"
+          title="All business data will be removed"
+          description="This cannot be undone from the application. A PostgreSQL safety backup is created automatically before reset."
+        />
+        <UFormField label="Type FACTORY RESET to confirm" required>
+          <UInput v-model="factoryResetConfirmation" autocomplete="off" placeholder="FACTORY RESET" />
+        </UFormField>
+      </div>
+    </template>
+    <template #footer>
+      <div class="modal-actions">
+        <UButton color="neutral" variant="outline" label="Cancel" :disabled="factoryResetting" @click="factoryResetOpen = false" />
+        <UButton
+          color="error"
+          icon="i-lucide-database-x"
+          label="Reset Database"
+          :loading="factoryResetting"
+          :disabled="factoryResetConfirmation !== 'FACTORY RESET'"
+          @click="factoryResetDatabase"
         />
       </div>
     </template>

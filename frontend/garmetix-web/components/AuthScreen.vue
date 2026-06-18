@@ -57,7 +57,7 @@ const modeCopy = computed(() => {
   return {
     eyebrow: 'Welcome back',
     title: 'Login to Garmetix',
-    description: 'Use your username or email to access store operations securely.',
+    description: '',
     submit: 'Login',
     icon: 'i-lucide-log-in'
   }
@@ -155,18 +155,14 @@ onMounted(async () => {
     <div class="auth-shell-grid">
       <section class="auth-hero-panel">
         <div class="ui-brand-mark auth-hero-logo">
-          <img class="ui-brand-logo" src="/garmetix-icon-512.png" alt="Garmetix" />
+          <img class="ui-brand-logo" src="/garmetix-logo.png" alt="Garmetix" />
         </div>
-        <p class="auth-eyebrow">Garmetix Web</p>
+        <p class="auth-eyebrow">Garmetix</p>
         <h1>Secure store management for garment businesses.</h1>
         <p>
           Billing, inventory, purchase, GST, HR, backup, reports and admin tools in one protected workspace.
         </p>
-        <div class="auth-feature-list">
-          <span><UIcon name="i-lucide-shield-check" /> JWT protected sessions</span>
-          <span><UIcon name="i-lucide-store" /> Company and store scoped access</span>
-          <span><UIcon name="i-lucide-key-round" /> Self-service password recovery</span>
-        </div>
+
       </section>
 
       <UCard class="auth-card modern-auth-card">
@@ -178,7 +174,7 @@ onMounted(async () => {
             <div>
               <p class="auth-eyebrow">{{ modeCopy.eyebrow }}</p>
               <h2>{{ modeCopy.title }}</h2>
-              <p>{{ modeCopy.description }}</p>
+              <p v-if="modeCopy.description">{{ modeCopy.description }}</p>
             </div>
           </div>
         </template>
@@ -208,11 +204,11 @@ onMounted(async () => {
             <UInput v-model="authForm.password" icon="i-lucide-lock-keyhole" autocomplete="current-password" required type="password" />
           </UFormField>
 
-          <UFormField v-if="authMode === 'reset'" label="Reset Token" name="resetToken">
+          <UFormField v-if="authMode === 'reset'" label="Reset token" name="resetToken">
             <UTextarea v-model="authForm.resetToken" required :rows="3" />
           </UFormField>
 
-          <UFormField v-if="authMode === 'reset'" label="New Password" name="newPassword">
+          <UFormField v-if="authMode === 'reset'" label="New password" name="newPassword">
             <UInput v-model="authForm.newPassword" icon="i-lucide-lock" autocomplete="new-password" required type="password" />
           </UFormField>
 

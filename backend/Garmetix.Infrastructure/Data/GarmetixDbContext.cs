@@ -1,5 +1,7 @@
 using System.Linq.Expressions;
+using System.Text.Json;
 using Garmetix.Core.Models.Accounting;
+using Garmetix.Core.Models.Audit;
 using Garmetix.Core.Models.Authentication;
 using Garmetix.Core.Models.Base;
 using Garmetix.Core.Models.HRM;
@@ -7,12 +9,14 @@ using Garmetix.Core.Models.GstReturns;
 using Garmetix.Core.Models.Inventory;
 using Garmetix.Core.Models.Stores;
 using Garmetix.Models.DayOperations;
+using Garmetix.Infrastructure.Audit;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Garmetix.Infrastructure.Data;
 
-public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> options) : DbContext(options)
+public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> options, AuditActorContext? auditActorContext = null) : DbContext(options)
 {
     private static readonly ValueConverter<DateTime, DateTime> DateTimeKindConverter = new(
         value => NormalizeDateTime(value),
@@ -29,10 +33,13 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<GstReturnDraft> GstReturnDrafts => Set<GstReturnDraft>();
     public DbSet<GstReturnAuditEntry> GstReturnAuditEntries => Set<GstReturnAuditEntry>();
+    public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
 
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Stock> Stocks => Set<Stock>();
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
+    public DbSet<StockOperationDocument> StockOperationDocuments => Set<StockOperationDocument>();
+    public DbSet<StockOperationItem> StockOperationItems => Set<StockOperationItem>();
     public DbSet<NonGstGoodsDocument> NonGstGoodsDocuments => Set<NonGstGoodsDocument>();
     public DbSet<NonGstGoodsItem> NonGstGoodsItems => Set<NonGstGoodsItem>();
     public DbSet<DocumentSequence> DocumentSequences => Set<DocumentSequence>();
@@ -50,6 +57,11 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<Salesman> Salesmen => Set<Salesman>();
     public DbSet<Invoice> SalesInvoices => Set<Invoice>();
     public DbSet<PurchaseInvoice> PurchaseInvoices => Set<PurchaseInvoice>();
+    public DbSet<PurchaseReturn> PurchaseReturns => Set<PurchaseReturn>();
+    public DbSet<PurchaseReturnItem> PurchaseReturnItems => Set<PurchaseReturnItem>();
+    public DbSet<PurchaseReturnItcReversal> PurchaseReturnItcReversals => Set<PurchaseReturnItcReversal>();
+    public DbSet<VendorSettlement> VendorSettlements => Set<VendorSettlement>();
+    public DbSet<VendorSettlementAllocation> VendorSettlementAllocations => Set<VendorSettlementAllocation>();
     public DbSet<InvoiceItem> InvoiceItems => Set<InvoiceItem>();
     public DbSet<PurchaseInvoiceItem> PurchaseInvoiceItems => Set<PurchaseInvoiceItem>();
     public DbSet<InvoicePayment> InvoicePayments => Set<InvoicePayment>();
@@ -60,6 +72,13 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<CustomerAdvanceReceipt> CustomerAdvanceReceipts => Set<CustomerAdvanceReceipt>();
     public DbSet<LoyaltyProgram> LoyaltyPrograms => Set<LoyaltyProgram>();
     public DbSet<LoyaltyPointLedger> LoyaltyPointLedgers => Set<LoyaltyPointLedger>();
+    public DbSet<TailoringServiceItem> TailoringServiceItems => Set<TailoringServiceItem>();
+    public DbSet<TailoringVendorServiceRate> TailoringVendorServiceRates => Set<TailoringVendorServiceRate>();
+    public DbSet<TailoringOrder> TailoringOrders => Set<TailoringOrder>();
+    public DbSet<TailoringOrderLine> TailoringOrderLines => Set<TailoringOrderLine>();
+    public DbSet<TailoringCustomerReceipt> TailoringCustomerReceipts => Set<TailoringCustomerReceipt>();
+    public DbSet<TailoringVendorPayment> TailoringVendorPayments => Set<TailoringVendorPayment>();
+    public DbSet<TailoringOrderHistory> TailoringOrderHistories => Set<TailoringOrderHistory>();
 
     public DbSet<Bank> Banks => Set<Bank>();
     public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
@@ -69,12 +88,14 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<ChequeLog> ChequeLogs => Set<ChequeLog>();
     public DbSet<BankCashTranscation> BankCashTranscations => Set<BankCashTranscation>();
     public DbSet<BankStatementLine> BankStatementLines => Set<BankStatementLine>();
+    public DbSet<FinancialYearLock> FinancialYearLocks => Set<FinancialYearLock>();
     public DbSet<LedgerGroup> LedgerGroups => Set<LedgerGroup>();
     public DbSet<Ledger> Ledgers => Set<Ledger>();
     public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
     public DbSet<JournalLine> JournalLines => Set<JournalLine>();
     public DbSet<Voucher> Vouchers => Set<Voucher>();
     public DbSet<CashVoucher> CashVouchers => Set<CashVoucher>();
+    public DbSet<CashVoucherConversion> CashVoucherConversions => Set<CashVoucherConversion>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<Party> Parties => Set<Party>();
     public DbSet<PettyCashSheet> PettyCashSheets => Set<PettyCashSheet>();
@@ -109,9 +130,15 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<GstReturnAuditEntry>().ToTable("GstReturnAuditEntries");
         modelBuilder.Entity<GstReturnAuditEntry>().HasIndex(entry => new { entry.CompanyId, entry.DraftId, entry.CreatedAt });
         modelBuilder.Entity<GstReturnAuditEntry>().HasIndex(entry => new { entry.CompanyId, entry.Form, entry.ReturnPeriod });
+        modelBuilder.Entity<AuditLogEntry>().ToTable("AuditLogEntries");
+        modelBuilder.Entity<AuditLogEntry>().HasIndex(entry => entry.OccurredAt);
+        modelBuilder.Entity<AuditLogEntry>().HasIndex(entry => new { entry.CompanyId, entry.StoreId, entry.OccurredAt });
+        modelBuilder.Entity<AuditLogEntry>().HasIndex(entry => new { entry.EntityName, entry.EntityId });
+        modelBuilder.Entity<AuditLogEntry>().HasIndex(entry => new { entry.Module, entry.Action, entry.OccurredAt });
         modelBuilder.Entity<VoucherBase>().UseTpcMappingStrategy();
         modelBuilder.Entity<Voucher>().ToTable("Vouchers");
         modelBuilder.Entity<CashVoucher>().ToTable("CashVouchers");
+        modelBuilder.Entity<CashVoucherConversion>().ToTable("CashVoucherConversions");
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
@@ -151,19 +178,57 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<ProductTagMapping>().HasKey(mapping => new { mapping.ProductId, mapping.TagId });
         modelBuilder.Entity<StockMovement>().HasIndex(movement => new { movement.CompanyId, movement.StoreId, movement.ProductId, movement.OnDate });
         modelBuilder.Entity<StockMovement>().HasIndex(movement => new { movement.CompanyId, movement.SourceType, movement.SourceId });
+        modelBuilder.Entity<Stock>().Property(stock => stock.CostPrice).HasPrecision(18, 4);
+        modelBuilder.Entity<StockMovement>().Property(movement => movement.CostPrice).HasPrecision(18, 4);
+        modelBuilder.Entity<StockMovement>().Property(movement => movement.AverageCostBefore).HasPrecision(18, 4);
+        modelBuilder.Entity<StockMovement>().Property(movement => movement.AverageCostAfter).HasPrecision(18, 4);
+        modelBuilder.Entity<StockOperationDocument>().HasIndex(document => new { document.CompanyId, document.StoreId, document.DocumentNumber }).IsUnique(false);
+        modelBuilder.Entity<StockOperationDocument>().HasIndex(document => new { document.CompanyId, document.OperationType, document.OnDate });
+        modelBuilder.Entity<StockOperationDocument>().HasIndex(document => new { document.CompanyId, document.JournalEntryId });
+        modelBuilder.Entity<StockOperationItem>().HasIndex(item => new { item.CompanyId, item.StockOperationDocumentId });
+        modelBuilder.Entity<StockOperationItem>().HasIndex(item => new { item.CompanyId, item.ProductId, item.StockId });
         modelBuilder.Entity<Stock>().HasIndex(stock => new { stock.CompanyId, stock.StoreId, stock.IsOFB });
         modelBuilder.Entity<NonGstGoodsDocument>().HasIndex(document => new { document.CompanyId, document.StoreId, document.DocumentType, document.OnDate });
         modelBuilder.Entity<NonGstGoodsDocument>().HasIndex(document => new { document.CompanyId, document.DocumentNumber }).IsUnique(false);
         modelBuilder.Entity<NonGstGoodsItem>().HasIndex(item => new { item.CompanyId, item.DocumentId });
-        modelBuilder.Entity<DocumentSequence>().HasIndex(sequence => new { sequence.CompanyId, sequence.StoreGroupId, sequence.StoreId, sequence.DocumentType, sequence.SequenceDate }).IsUnique(false);
+        modelBuilder.Entity<DocumentSequence>()
+            .HasIndex(sequence => new { sequence.CompanyId, sequence.StoreGroupId, sequence.StoreId, sequence.DocumentType, sequence.SequenceDate })
+            .HasDatabaseName("IX_DocumentSequences_Company_Store_Type_Date")
+            .IsUnique()
+            .AreNullsDistinct(false)
+            .HasFilter("\"Deleted\" = false");
         modelBuilder.Entity<Customer>().HasIndex(customer => new { customer.CompanyId, customer.GSTIN }).IsUnique(false);
         modelBuilder.Entity<Vendor>().HasIndex(vendor => new { vendor.CompanyId, vendor.GSTIN }).IsUnique(false);
         modelBuilder.Entity<Salesman>().HasIndex(salesman => new { salesman.CompanyId, salesman.StoreId, salesman.Name }).IsUnique(false);
         modelBuilder.Entity<Invoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.StoreId, invoice.InvoiceNumber }).IsUnique(false);
         modelBuilder.Entity<PurchaseInvoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.VendorId, invoice.InvoiceNumber }).IsUnique(false);
         modelBuilder.Entity<PurchaseInvoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.StoreId, invoice.InwardNumber }).IsUnique(false);
+        modelBuilder.Entity<PurchaseReturn>().HasIndex(item => new { item.CompanyId, item.StoreId, item.ReturnNumber }).IsUnique(false);
+        modelBuilder.Entity<PurchaseReturn>().HasIndex(item => new { item.CompanyId, item.PurchaseInvoiceId, item.OnDate });
+        modelBuilder.Entity<PurchaseReturnItem>().HasIndex(item => new { item.CompanyId, item.PurchaseReturnId });
+        modelBuilder.Entity<PurchaseReturnItem>().HasIndex(item => new { item.CompanyId, item.PurchaseInvoiceId, item.PurchaseInvoiceItemId });
+        modelBuilder.Entity<PurchaseReturnItcReversal>().HasIndex(item => new { item.CompanyId, item.PurchaseReturnId });
+        modelBuilder.Entity<PurchaseReturnItcReversal>().HasIndex(item => new { item.CompanyId, item.PurchaseInvoiceId, item.PurchaseInvoiceItemId });
+        modelBuilder.Entity<PurchaseReturnItcReversal>().HasIndex(item => new { item.CompanyId, item.JournalEntryId });
+        modelBuilder.Entity<VendorSettlement>().HasIndex(item => new { item.CompanyId, item.StoreId, item.SettlementNumber }).IsUnique(false);
+        modelBuilder.Entity<VendorSettlement>().HasIndex(item => new { item.CompanyId, item.VendorId, item.OnDate });
+        modelBuilder.Entity<VendorSettlement>().HasIndex(item => new { item.CompanyId, item.PurchaseReturnId });
+        modelBuilder.Entity<VendorSettlementAllocation>().HasIndex(item => new { item.CompanyId, item.VendorSettlementId });
+        modelBuilder.Entity<VendorSettlementAllocation>().HasIndex(item => new { item.CompanyId, item.PurchaseInvoiceId });
         modelBuilder.Entity<PurchasePayment>().HasIndex(payment => new { payment.CompanyId, payment.StoreId, payment.PurchaseInvoiceId, payment.OnDate });
         modelBuilder.Entity<PurchasePayment>().HasIndex(payment => new { payment.CompanyId, payment.VendorId, payment.OnDate });
+        modelBuilder.Entity<TailoringServiceItem>().HasIndex(item => new { item.CompanyId, item.StoreId, item.ServiceCode });
+        modelBuilder.Entity<TailoringServiceItem>().HasIndex(item => new { item.CompanyId, item.StoreId, item.Category, item.Active });
+        modelBuilder.Entity<TailoringVendorServiceRate>().HasIndex(item => new { item.CompanyId, item.StoreId, item.VendorId, item.ServiceItemId, item.Active });
+        modelBuilder.Entity<TailoringVendorServiceRate>().HasIndex(item => new { item.CompanyId, item.VendorId, item.ServiceItemId });
+        modelBuilder.Entity<TailoringOrder>().HasIndex(order => new { order.CompanyId, order.StoreId, order.OrderNumber }).IsUnique(false);
+        modelBuilder.Entity<TailoringOrder>().HasIndex(order => new { order.CompanyId, order.StoreId, order.Status, order.ExpectedDeliveryDate });
+        modelBuilder.Entity<TailoringOrder>().HasIndex(order => new { order.CompanyId, order.CustomerId, order.OnDate });
+        modelBuilder.Entity<TailoringOrder>().HasIndex(order => new { order.CompanyId, order.VendorId, order.Status });
+        modelBuilder.Entity<TailoringOrderLine>().HasIndex(line => new { line.CompanyId, line.TailoringOrderId });
+        modelBuilder.Entity<TailoringCustomerReceipt>().HasIndex(receipt => new { receipt.CompanyId, receipt.TailoringOrderId, receipt.OnDate });
+        modelBuilder.Entity<TailoringVendorPayment>().HasIndex(payment => new { payment.CompanyId, payment.TailoringOrderId, payment.OnDate });
+        modelBuilder.Entity<TailoringOrderHistory>().HasIndex(history => new { history.CompanyId, history.TailoringOrderId, history.EventDate });
         modelBuilder.Entity<InvoicePayment>().HasIndex(payment => new { payment.CompanyId, payment.StoreId, payment.InvoiceId, payment.OnDate });
         modelBuilder.Entity<CardPayment>().HasIndex(payment => new { payment.CompanyId, payment.StoreId, payment.InvoiceId, payment.OnDate });
         modelBuilder.Entity<VendorPayment>().HasIndex(payment => new { payment.CompanyId, payment.VendorId, payment.OnDate });
@@ -175,25 +240,554 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<LoyaltyPointLedger>().HasIndex(entry => new { entry.CompanyId, entry.CustomerId, entry.OnDate });
         modelBuilder.Entity<Voucher>().HasIndex(voucher => new { voucher.CompanyId, voucher.StoreId, voucher.VoucherNumber }).IsUnique(false);
         modelBuilder.Entity<CashVoucher>().HasIndex(voucher => new { voucher.CompanyId, voucher.StoreId, voucher.VoucherNumber }).IsUnique(false);
+        modelBuilder.Entity<CashVoucherConversion>().HasIndex(item => new { item.CompanyId, item.StoreId, item.ConvertedAt });
+        modelBuilder.Entity<CashVoucherConversion>().HasIndex(item => new { item.CashVoucherId, item.VoucherId });
         modelBuilder.Entity<JournalEntry>().HasIndex(entry => new { entry.CompanyId, entry.StoreId, entry.EntryNumber }).IsUnique(false);
         modelBuilder.Entity<JournalLine>().HasIndex(line => new { line.CompanyId, line.LedgerId, line.JournalEntryId });
+        modelBuilder.Entity<FinancialYearLock>().HasIndex(period => new { period.CompanyId, period.FinancialYear, period.PeriodStart, period.PeriodEnd });
+        modelBuilder.Entity<FinancialYearLock>().HasIndex(period => new { period.CompanyId, period.StoreGroupId, period.StoreId, period.Active });
         modelBuilder.Entity<BankTransaction>().HasIndex(transaction => new { transaction.CompanyId, transaction.BankAccountId, transaction.OnDate });
+        modelBuilder.Entity<BankTransaction>().HasIndex(transaction => new { transaction.CompanyId, transaction.BankAccountId, transaction.Reconciled });
         modelBuilder.Entity<BankStatementLine>().HasIndex(line => new { line.CompanyId, line.BankAccountId, line.OnDate });
+        modelBuilder.Entity<BankStatementLine>().HasIndex(line => new { line.CompanyId, line.BankAccountId, line.Reconciled });
         modelBuilder.Entity<ChequeLog>().HasIndex(cheque => new { cheque.CompanyId, cheque.BankAccountId, cheque.ChequeNumber });
+        modelBuilder.Entity<ChequeLog>().HasIndex(cheque => new { cheque.CompanyId, cheque.Status, cheque.OnDate });
         modelBuilder.Entity<Employee>().HasIndex(employee => new { employee.CompanyId, employee.StoreId, employee.Mobile });
     }
 
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         PrepareEntitiesForSave();
-        return base.SaveChangesAsync(cancellationToken);
+        await ValidateFinancialYearLocksAsync(cancellationToken);
+        ValidateChangedJournalLines();
+        AddAuditLogEntries();
+        return await base.SaveChangesAsync(cancellationToken);
     }
 
     public override int SaveChanges()
     {
         PrepareEntitiesForSave();
+        ValidateFinancialYearLocks();
+        ValidateChangedJournalLines();
+        AddAuditLogEntries();
         return base.SaveChanges();
     }
+
+
+
+    private sealed record PeriodLockCandidate(
+        Guid CompanyId,
+        Guid? StoreGroupId,
+        Guid? StoreId,
+        DateTime OnDate,
+        string Domain,
+        string EntityName);
+
+    private async Task ValidateFinancialYearLocksAsync(CancellationToken cancellationToken)
+    {
+        var candidates = BuildPeriodLockCandidates().ToList();
+        if (candidates.Count == 0)
+        {
+            return;
+        }
+
+        var companyIds = candidates.Select(item => item.CompanyId).Distinct().ToList();
+        var minDate = candidates.Min(item => item.OnDate.Date);
+        var maxDate = candidates.Max(item => item.OnDate.Date);
+        var locks = await FinancialYearLocks.AsNoTracking()
+            .Where(item => item.Active
+                && companyIds.Contains(item.CompanyId)
+                && item.PeriodStart <= maxDate
+                && item.PeriodEnd >= minDate)
+            .ToListAsync(cancellationToken);
+
+        ThrowIfAnyPeriodLocked(candidates, locks);
+    }
+
+    private void ValidateFinancialYearLocks()
+    {
+        var candidates = BuildPeriodLockCandidates().ToList();
+        if (candidates.Count == 0)
+        {
+            return;
+        }
+
+        var companyIds = candidates.Select(item => item.CompanyId).Distinct().ToList();
+        var minDate = candidates.Min(item => item.OnDate.Date);
+        var maxDate = candidates.Max(item => item.OnDate.Date);
+        var locks = FinancialYearLocks.AsNoTracking()
+            .Where(item => item.Active
+                && companyIds.Contains(item.CompanyId)
+                && item.PeriodStart <= maxDate
+                && item.PeriodEnd >= minDate)
+            .ToList();
+
+        ThrowIfAnyPeriodLocked(candidates, locks);
+    }
+
+    private IEnumerable<PeriodLockCandidate> BuildPeriodLockCandidates()
+    {
+        foreach (var entry in ChangeTracker.Entries()
+            .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
+        {
+            if (entry.Entity is FinancialYearLock)
+            {
+                continue;
+            }
+
+            var domain = ClassifyFinancialPeriodDomain(entry.Metadata.ClrType.Name);
+            if (domain is null)
+            {
+                continue;
+            }
+
+            var companyId = ReadGuidProperty(entry, nameof(CompanyBase.CompanyId));
+            var onDate = ReadDateProperty(entry, "OnDate", "TransactionDate", "FiledAt", "LockedAt");
+            if (!companyId.HasValue || !onDate.HasValue)
+            {
+                continue;
+            }
+
+            yield return new PeriodLockCandidate(
+                companyId.Value,
+                ReadGuidProperty(entry, nameof(StoreBase.StoreGroupId)),
+                ReadGuidProperty(entry, nameof(StoreBase.StoreId)),
+                onDate.Value.Date,
+                domain,
+                entry.Metadata.ClrType.Name);
+        }
+    }
+
+    private static Guid? ReadGuidProperty(EntityEntry entry, string propertyName)
+    {
+        if (entry.Metadata.FindProperty(propertyName) is null)
+        {
+            return null;
+        }
+
+        var value = entry.State == EntityState.Deleted
+            ? entry.Property(propertyName).OriginalValue
+            : entry.Property(propertyName).CurrentValue;
+        return value is Guid guid && guid != Guid.Empty ? guid : null;
+    }
+
+    private static DateTime? ReadDateProperty(EntityEntry entry, params string[] propertyNames)
+    {
+        foreach (var propertyName in propertyNames)
+        {
+            if (entry.Metadata.FindProperty(propertyName) is null)
+            {
+                continue;
+            }
+
+            var value = entry.State == EntityState.Deleted
+                ? entry.Property(propertyName).OriginalValue
+                : entry.Property(propertyName).CurrentValue;
+            if (value is DateTime dateTime)
+            {
+                return dateTime.Date;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ClassifyFinancialPeriodDomain(string entityName)
+    {
+        if (entityName is "Invoice" or "InvoiceItem" or "InvoicePayment" or "CardPayment" or "CustomerAdvanceReceipt" or "LoyaltyProgram" or "LoyaltyPointLedger" or "TailoringOrder" or "TailoringOrderLine" or "TailoringCustomerReceipt")
+        {
+            return "Sales";
+        }
+
+        if (entityName.StartsWith("Purchase", StringComparison.Ordinal) || entityName is "VendorSettlement" or "VendorSettlementAllocation" or "VendorPayment" or "TailoringVendorPayment")
+        {
+            return "Purchase";
+        }
+
+        if (entityName is "Stock" or "StockMovement" or "StockOperationDocument" or "StockOperationItem" or "NonGstGoodsDocument" or "NonGstGoodsItem" or "Product" or "ProductDetail")
+        {
+            return "Inventory";
+        }
+
+        if (entityName is "GstReturnDraft" or "GstReturnAuditEntry")
+        {
+            return "GST";
+        }
+
+        if (entityName is "JournalEntry" or "JournalLine" or "Voucher" or "CashVoucher" or "CashVoucherConversion" or "BankTransaction" or "BankStatementLine" or "ChequeLog" or "CommercialNote" or "PettyCashSheet" or "BankCashTranscation")
+        {
+            return "Accounting";
+        }
+
+        return null;
+    }
+
+    private static void ThrowIfAnyPeriodLocked(IReadOnlyList<PeriodLockCandidate> candidates, IReadOnlyList<FinancialYearLock> locks)
+    {
+        foreach (var candidate in candidates)
+        {
+            var periodLock = locks.FirstOrDefault(item => PeriodLockApplies(item, candidate));
+            if (periodLock is null)
+            {
+                continue;
+            }
+
+            throw new InvalidOperationException(
+                $"Financial year/period '{periodLock.FinancialYear}' is locked for {candidate.Domain}. " +
+                $"{candidate.EntityName} dated {candidate.OnDate:yyyy-MM-dd} cannot be saved in a locked period. " +
+                "Unlock the period or post the correction in an open period.");
+        }
+    }
+
+    private static bool PeriodLockApplies(FinancialYearLock periodLock, PeriodLockCandidate candidate)
+    {
+        if (periodLock.CompanyId != candidate.CompanyId)
+        {
+            return false;
+        }
+
+        if (periodLock.StoreGroupId.HasValue && periodLock.StoreGroupId.Value != candidate.StoreGroupId)
+        {
+            return false;
+        }
+
+        if (periodLock.StoreId.HasValue && periodLock.StoreId.Value != candidate.StoreId)
+        {
+            return false;
+        }
+
+        var candidateDate = candidate.OnDate.Date;
+        if (periodLock.PeriodStart.Date > candidateDate || periodLock.PeriodEnd.Date < candidateDate)
+        {
+            return false;
+        }
+
+        return candidate.Domain switch
+        {
+            "Sales" => periodLock.LockSales,
+            "Purchase" => periodLock.LockPurchase,
+            "Inventory" => periodLock.LockInventory,
+            "GST" => periodLock.LockGst,
+            _ => periodLock.LockAccounting
+        };
+    }
+
+
+
+    private void ValidateChangedJournalLines()
+    {
+        foreach (var entry in ChangeTracker.Entries<JournalLine>()
+            .Where(entry => entry.State is EntityState.Added or EntityState.Modified))
+        {
+            var line = entry.Entity;
+            if (line.Debit < 0 || line.Credit < 0)
+            {
+                throw new InvalidOperationException("Journal line debit and credit amounts cannot be negative.");
+            }
+
+            if (line.Debit > 0 && line.Credit > 0)
+            {
+                throw new InvalidOperationException("A journal line cannot contain both debit and credit amounts.");
+            }
+
+            if (line.Debit == 0 && line.Credit == 0)
+            {
+                throw new InvalidOperationException("A journal line must contain either a debit or credit amount.");
+            }
+        }
+    }
+
+
+    private void AddAuditLogEntries()
+    {
+        var auditEntries = BuildAuditLogEntries().ToList();
+        if (auditEntries.Count == 0)
+        {
+            return;
+        }
+
+        AuditLogEntries.AddRange(auditEntries);
+    }
+
+    private IEnumerable<AuditLogEntry> BuildAuditLogEntries()
+    {
+        var now = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
+        foreach (var entry in ChangeTracker.Entries()
+            .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .Where(entry => entry.Entity is not AuditLogEntry))
+        {
+            if (entry.Metadata.ClrType.Namespace?.StartsWith("Microsoft.", StringComparison.Ordinal) == true)
+            {
+                continue;
+            }
+
+            if (entry.Metadata.FindProperty("Id") is null)
+            {
+                continue;
+            }
+
+            var entityId = ReadEntityId(entry);
+            if (!entityId.HasValue)
+            {
+                continue;
+            }
+
+            var before = entry.State == EntityState.Added ? null : BuildAuditSnapshot(entry, originalValues: true);
+            var after = entry.State == EntityState.Deleted ? null : BuildAuditSnapshot(entry, originalValues: false);
+            var changes = BuildAuditChanges(entry, before, after).ToList();
+            var action = ResolveAuditAction(entry);
+
+            if (entry.State == EntityState.Modified && changes.Count == 0)
+            {
+                continue;
+            }
+
+            yield return new AuditLogEntry
+            {
+                Id = Guid.NewGuid(),
+                OccurredAt = now,
+                CreatedAt = now,
+                UpdatedAt = now,
+                Action = action,
+                Module = ResolveAuditModule(entry.Metadata.ClrType.Name),
+                EntityName = entry.Metadata.ClrType.Name,
+                EntityDisplayName = ToDisplayName(entry.Metadata.ClrType.Name),
+                EntityId = entityId.Value,
+                Reference = ResolveAuditReference(entry),
+                CompanyId = ReadGuidProperty(entry, nameof(CompanyBase.CompanyId)) ?? auditActorContext?.CompanyId,
+                StoreGroupId = ReadGuidProperty(entry, nameof(StoreBase.StoreGroupId)) ?? auditActorContext?.StoreGroupId,
+                StoreId = ReadGuidProperty(entry, nameof(StoreBase.StoreId)) ?? auditActorContext?.StoreId,
+                UserId = auditActorContext?.UserId,
+                UserName = FirstNonBlank(auditActorContext?.UserName, ReadStringProperty(entry, nameof(CompanyBase.CreatedBy)), "System"),
+                Source = "DbContext.SaveChanges",
+                RequestMethod = auditActorContext?.RequestMethod,
+                RequestPath = auditActorContext?.RequestPath,
+                IpAddress = auditActorContext?.IpAddress,
+                TraceIdentifier = auditActorContext?.TraceIdentifier,
+                Reason = ResolveAuditReason(entry),
+                BeforeJson = before is null ? null : JsonSerializer.Serialize(before),
+                AfterJson = after is null ? null : JsonSerializer.Serialize(after),
+                ChangesJson = JsonSerializer.Serialize(changes),
+                ChangedFieldCount = changes.Count
+            };
+        }
+    }
+
+    private static Guid? ReadEntityId(EntityEntry entry)
+    {
+        var value = entry.State == EntityState.Deleted
+            ? entry.Property("Id").OriginalValue
+            : entry.Property("Id").CurrentValue;
+        return value is Guid guid && guid != Guid.Empty ? guid : null;
+    }
+
+    private static IReadOnlyDictionary<string, string?> BuildAuditSnapshot(EntityEntry entry, bool originalValues)
+    {
+        var values = new SortedDictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var property in entry.Properties.Where(property => ShouldAuditProperty(property)))
+        {
+            var value = originalValues ? property.OriginalValue : property.CurrentValue;
+            values[property.Metadata.Name] = FormatAuditValue(value);
+        }
+
+        return values;
+    }
+
+    private static IEnumerable<AuditFieldChange> BuildAuditChanges(
+        EntityEntry entry,
+        IReadOnlyDictionary<string, string?>? before,
+        IReadOnlyDictionary<string, string?>? after)
+    {
+        if (entry.State == EntityState.Added && after is not null)
+        {
+            foreach (var item in after.Where(item => !string.IsNullOrWhiteSpace(item.Value)))
+            {
+                yield return new AuditFieldChange(item.Key, null, item.Value);
+            }
+            yield break;
+        }
+
+        if (entry.State == EntityState.Deleted && before is not null)
+        {
+            foreach (var item in before.Where(item => !string.IsNullOrWhiteSpace(item.Value)))
+            {
+                yield return new AuditFieldChange(item.Key, item.Value, null);
+            }
+            yield break;
+        }
+
+        if (before is null || after is null)
+        {
+            yield break;
+        }
+
+        foreach (var key in before.Keys.Union(after.Keys, StringComparer.OrdinalIgnoreCase).OrderBy(item => item, StringComparer.OrdinalIgnoreCase))
+        {
+            before.TryGetValue(key, out var oldValue);
+            after.TryGetValue(key, out var newValue);
+            if (!string.Equals(oldValue, newValue, StringComparison.Ordinal))
+            {
+                yield return new AuditFieldChange(key, oldValue, newValue);
+            }
+        }
+    }
+
+    private static bool ShouldAuditProperty(PropertyEntry property)
+    {
+        if (property.Metadata.IsShadowProperty())
+        {
+            return false;
+        }
+
+        var propertyName = property.Metadata.Name;
+        if (propertyName is nameof(BaseEntity.UpdatedAt) or nameof(BaseEntity.Synced))
+        {
+            return false;
+        }
+
+        if (IsSensitiveAuditProperty(propertyName))
+        {
+            return false;
+        }
+
+        var clrType = Nullable.GetUnderlyingType(property.Metadata.ClrType) ?? property.Metadata.ClrType;
+        return clrType.IsPrimitive
+            || clrType.IsEnum
+            || clrType == typeof(string)
+            || clrType == typeof(decimal)
+            || clrType == typeof(Guid)
+            || clrType == typeof(DateTime);
+    }
+
+    private static bool IsSensitiveAuditProperty(string propertyName)
+        => propertyName.Contains("Password", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Contains("Token", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Contains("Secret", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Contains("SigningKey", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Contains("ApiKey", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Contains("Api_Key", StringComparison.OrdinalIgnoreCase)
+            || propertyName.Equals("Authorization", StringComparison.OrdinalIgnoreCase);
+
+    private static string ResolveAuditAction(EntityEntry entry)
+    {
+        if (entry.State == EntityState.Added)
+        {
+            return "Created";
+        }
+
+        if (entry.State == EntityState.Deleted)
+        {
+            return "Deleted";
+        }
+
+        if (entry.Metadata.FindProperty(nameof(BaseEntity.Deleted)) is not null
+            && entry.Property(nameof(BaseEntity.Deleted)).OriginalValue is false
+            && entry.Property(nameof(BaseEntity.Deleted)).CurrentValue is true)
+        {
+            return "Deleted";
+        }
+
+        return "Updated";
+    }
+
+    private static string ResolveAuditModule(string entityName)
+    {
+        if (entityName is "Company" or "Store" or "StoreGroup") return "Company";
+        if (entityName is "AppUser" or "PasswordResetToken") return "Security";
+        if (entityName.StartsWith("Tailoring", StringComparison.Ordinal)) return "Tailoring";
+        if (entityName is "Invoice" or "InvoiceItem" or "InvoicePayment" or "CardPayment" or "Customer" or "Salesman" or "CustomerAdvanceReceipt" or "LoyaltyProgram" or "LoyaltyPointLedger") return "Billing";
+        if (entityName.StartsWith("Purchase", StringComparison.Ordinal) || entityName is "Vendor" or "VendorSettlement" or "VendorSettlementAllocation" or "VendorPayment") return "Purchase";
+        if (entityName is "Stock" or "StockMovement" or "StockOperationDocument" or "StockOperationItem" or "NonGstGoodsDocument" or "NonGstGoodsItem" or "Product" or "ProductDetail" or "Brand" or "ProductCategory" or "ProductSubCategory" or "Tax") return "Inventory";
+        if (entityName.StartsWith("Gst", StringComparison.Ordinal)) return "GST Returns";
+        if (entityName is "Employee" or "EmployeeDetail" or "Attendance" or "MonthlyAttendance" or "TimeSheet") return "HR";
+        if (entityName is "SalaryStructure" or "SalaryPaySlip" or "SalaryPayment") return "Payroll";
+        if (entityName.Contains("Voucher", StringComparison.Ordinal) && entityName is not "CashVoucher" and not "CashVoucherConversion") return "Vouchers";
+        if (entityName is "PettyCashSheet" or "DayBegin" or "DayEnd") return "Petty Cash";
+        if (entityName is "JournalEntry" or "JournalLine" or "Ledger" or "LedgerGroup" or "Party" or "Bank" or "BankAccount" or "BankAccountDetail" or "VendorBankAccount" or "BankTransaction" or "BankStatementLine" or "ChequeLog" or "CommercialNote" or "CashVoucher" or "CashVoucherConversion" or "BankCashTranscation" or "FinancialYearLock") return "Accounting";
+        return "System";
+    }
+
+    private static string ResolveAuditReference(EntityEntry entry)
+    {
+        foreach (var propertyName in new[]
+        {
+            "InvoiceNumber", "DocumentNumber", "VoucherNumber", "OrderNumber", "ReturnNumber", "EntryNumber",
+            "SettlementNumber", "ReceiptNumber", "NoteNumber", "InwardNumber", "Barcode", "Name", "UserName",
+            "Email", "AccountNumber", "ChequeNumber", "ReferenceNumber", "Reference", "ServiceCode", "ServiceName", "Title"
+        })
+        {
+            var value = ReadStringProperty(entry, propertyName);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value!;
+            }
+        }
+
+        return ReadEntityId(entry)?.ToString() ?? string.Empty;
+    }
+
+    private static string? ResolveAuditReason(EntityEntry entry)
+    {
+        foreach (var propertyName in new[] { "Reason", "Remarks", "Narration", "LockReason", "UnlockReason", "CancelReason", "Description" })
+        {
+            var value = ReadStringProperty(entry, propertyName);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? ReadStringProperty(EntityEntry entry, string propertyName)
+    {
+        if (entry.Metadata.FindProperty(propertyName) is null)
+        {
+            return null;
+        }
+
+        var value = entry.State == EntityState.Deleted
+            ? entry.Property(propertyName).OriginalValue
+            : entry.Property(propertyName).CurrentValue;
+        return value?.ToString();
+    }
+
+    private static string? FormatAuditValue(object? value)
+    {
+        return value switch
+        {
+            null => null,
+            DateTime dateTime => dateTime.ToString("yyyy-MM-dd HH:mm:ss"),
+            DateTimeOffset dateTimeOffset => dateTimeOffset.ToString("yyyy-MM-dd HH:mm:ss zzz"),
+            decimal number => number.ToString("0.##"),
+            _ => value.ToString()
+        };
+    }
+
+    private static string ToDisplayName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        var chars = new List<char> { value[0] };
+        for (var i = 1; i < value.Length; i++)
+        {
+            if (char.IsUpper(value[i]) && !char.IsWhiteSpace(value[i - 1]))
+            {
+                chars.Add(' ');
+            }
+            chars.Add(value[i]);
+        }
+        return new string(chars.ToArray());
+    }
+
+    private static string FirstNonBlank(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+
+    private sealed record AuditFieldChange(string Field, string? Before, string? After);
 
     private void PrepareEntitiesForSave()
     {

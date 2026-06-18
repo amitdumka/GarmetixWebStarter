@@ -1,4 +1,5 @@
 using Garmetix.Core.Models.Inventory;
+using Garmetix.Core.Enums;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -20,29 +21,125 @@ public sealed class DocumentNumberService(GarmetixDbContext db)
     public Task<string> NextSalesExchangeAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
         => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "SalesExchange", "EX", DateTime.Today, cancellationToken);
 
+    public Task<string> NextTailoringOrderAsync(Guid companyId, Guid storeGroupId, Guid storeId, TailoringOrderType orderType, DateTime onDate, CancellationToken cancellationToken)
+        => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "TailoringOrder", orderType == TailoringOrderType.Alteration ? "ALT" : "TLR", onDate, cancellationToken);
+
     public Task<string> NextPurchaseInvoiceAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
         => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "PurchaseInvoice", "P", DateTime.Today, cancellationToken);
 
     public Task<string> NextPurchaseInwardAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
-        => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "PurchaseInward", "INW", DateTime.Today, cancellationToken);
+        => NextStoreMonthlyAsync(companyId, storeGroupId, storeId, "PurchaseInward", "INW", DateTime.Today, cancellationToken);
+
+    public Task<string> NextPurchaseReturnAsync(Guid companyId, Guid storeGroupId, Guid storeId, DateTime onDate, CancellationToken cancellationToken)
+        => NextStoreMonthlyAsync(companyId, storeGroupId, storeId, "PurchaseReturn", "PR", onDate, cancellationToken);
 
     public Task<string> NextVendorPaymentVoucherAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
         => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "VendorPaymentVoucher", "PV", DateTime.Today, cancellationToken);
 
-    public Task<string> NextStockAdjustmentAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
-        => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "StockAdjustment", "ADJ", DateTime.Today, cancellationToken);
+    public Task<string> NextVendorSettlementAsync(Guid companyId, Guid storeGroupId, Guid storeId, DateTime onDate, CancellationToken cancellationToken)
+        => NextStoreMonthlyAsync(companyId, storeGroupId, storeId, "VendorSettlement", "VSET", onDate, cancellationToken);
 
-    public Task<string> NextStockTransferAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
-        => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "StockTransfer", "ST", DateTime.Today, cancellationToken);
+    public Task<string> NextVendorRefundVoucherAsync(Guid companyId, Guid storeGroupId, Guid storeId, DateTime onDate, CancellationToken cancellationToken)
+        => NextStoreMonthlyAsync(companyId, storeGroupId, storeId, "VendorRefundVoucher", "VREF", onDate, cancellationToken);
 
-    public Task<string> NextPhysicalStockCountAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
-        => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "PhysicalStockCount", "PHY", DateTime.Today, cancellationToken);
+    public Task<string> NextStockAdjustmentAsync(Guid companyId, Guid storeGroupId, Guid storeId, DateTime onDate, CancellationToken cancellationToken)
+        => NextStoreMonthlyAsync(companyId, storeGroupId, storeId, "StockAdjustment", "ADJ", onDate, cancellationToken);
 
-    public Task<string> NextNonGstPurchaseAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
-        => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "NonGstPurchase", "NGP", DateTime.Today, cancellationToken);
+    public Task<string> NextStockTransferAsync(Guid companyId, Guid storeGroupId, Guid storeId, DateTime onDate, CancellationToken cancellationToken)
+        => NextStoreMonthlyAsync(companyId, storeGroupId, storeId, "StockTransfer", "ST", onDate, cancellationToken);
 
-    public Task<string> NextNonGstSaleAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
-        => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "NonGstSale", "NGS", DateTime.Today, cancellationToken);
+    public Task<string> NextPhysicalStockCountAsync(Guid companyId, Guid storeGroupId, Guid storeId, DateTime onDate, CancellationToken cancellationToken)
+        => NextStoreMonthlyAsync(companyId, storeGroupId, storeId, "PhysicalStockCount", "PHY", onDate, cancellationToken);
+
+    public Task<string> NextStockWriteOffAsync(Guid companyId, Guid storeGroupId, Guid storeId, DateTime onDate, CancellationToken cancellationToken)
+        => NextStoreMonthlyAsync(companyId, storeGroupId, storeId, "StockWriteOff", "WO", onDate, cancellationToken);
+
+    public Task<string> NextNonGstPurchaseAsync(Guid companyId, Guid storeGroupId, Guid storeId, DateTime onDate, CancellationToken cancellationToken)
+        => NextStoreMonthlyAsync(companyId, storeGroupId, storeId, "NonGstPurchase", "NGP", onDate, cancellationToken);
+
+    public Task<string> NextNonGstSaleAsync(Guid companyId, Guid storeGroupId, Guid storeId, DateTime onDate, CancellationToken cancellationToken)
+        => NextStoreMonthlyAsync(companyId, storeGroupId, storeId, "NonGstSale", "NGS", onDate, cancellationToken);
+
+    public async Task<string> NextVoucherAsync(
+        Guid companyId,
+        Guid storeGroupId,
+        Guid storeId,
+        VoucherType voucherType,
+        DateTime onDate,
+        CancellationToken cancellationToken)
+    {
+        var storeCode = await db.Stores.AsNoTracking()
+            .Where(store => store.Id == storeId && store.CompanyId == companyId && store.StoreGroupId == storeGroupId)
+            .Select(store => store.StoreCode)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(storeCode))
+        {
+            throw new InvalidOperationException("The selected store has no store code. Set the store code in Company setup.");
+        }
+
+        var sequenceMonth = new DateTime(onDate.Year, onDate.Month, 1);
+        var sequence = await DocumentNumberGenerator.NextAsync(
+            db, companyId, storeGroupId, storeId, "Voucher", "VCH", sequenceMonth, cancellationToken);
+        var numericPart = sequence.Split('-').Last();
+        var safeStoreCode = new string(storeCode.Trim().ToUpperInvariant()
+            .Where(character => char.IsLetterOrDigit(character) || character is '-' or '_')
+            .ToArray());
+        return $"{(safeStoreCode.Length > 0 ? safeStoreCode : "STORE")}/{onDate:yyyyMM}/{numericPart}";
+    }
+
+    public async Task<string> NextSalaryPaymentAsync(
+        Guid companyId,
+        Guid storeGroupId,
+        Guid storeId,
+        DateTime onDate,
+        CancellationToken cancellationToken)
+    {
+        var storeCode = await db.Stores.AsNoTracking()
+            .Where(store => store.Id == storeId && store.CompanyId == companyId && store.StoreGroupId == storeGroupId)
+            .Select(store => store.StoreCode)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(storeCode))
+        {
+            throw new InvalidOperationException("The selected store has no store code. Set the store code in Company setup.");
+        }
+
+        var sequenceMonth = new DateTime(onDate.Year, onDate.Month, 1);
+        var sequence = await DocumentNumberGenerator.NextAsync(
+            db, companyId, storeGroupId, storeId, "SalaryPayment", "SPAY", sequenceMonth, cancellationToken);
+        var numericPart = sequence.Split('-').Last();
+        var safeStoreCode = new string(storeCode.Trim().ToUpperInvariant()
+            .Where(character => char.IsLetterOrDigit(character) || character is '-' or '_')
+            .ToArray());
+        return $"{(safeStoreCode.Length > 0 ? safeStoreCode : "STORE")}/{onDate:yyyyMM}/SPAY/{numericPart}";
+    }
+
+    private async Task<string> NextStoreMonthlyAsync(
+        Guid companyId,
+        Guid storeGroupId,
+        Guid storeId,
+        string documentType,
+        string prefix,
+        DateTime onDate,
+        CancellationToken cancellationToken)
+    {
+        var storeCode = await db.Stores.AsNoTracking()
+            .Where(store => store.Id == storeId && store.CompanyId == companyId && store.StoreGroupId == storeGroupId)
+            .Select(store => store.StoreCode)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(storeCode))
+        {
+            throw new InvalidOperationException("The selected store has no store code. Set the store code in Company setup.");
+        }
+
+        var sequenceMonth = new DateTime(onDate.Year, onDate.Month, 1);
+        var sequence = await DocumentNumberGenerator.NextAsync(
+            db, companyId, storeGroupId, storeId, documentType, prefix, sequenceMonth, cancellationToken);
+        var numericPart = sequence.Split('-').Last();
+        var safeStoreCode = new string(storeCode.Trim().ToUpperInvariant()
+            .Where(character => char.IsLetterOrDigit(character) || character is '-' or '_')
+            .ToArray());
+        return $"{(safeStoreCode.Length > 0 ? safeStoreCode : "STORE")}/{onDate:yyyyMM}/{prefix}/{numericPart}";
+    }
 }
 
 public static class DocumentNumberGenerator
@@ -60,6 +157,8 @@ public static class DocumentNumberGenerator
         DateTime documentDate,
         CancellationToken cancellationToken)
     {
+        EnsureActiveTransaction(db, "Document number generation");
+
         var sequenceDate = documentDate.Date;
         var lockKey = $"seq|{companyId:N}|{storeGroupId?.ToString("N") ?? "company"}|{storeId?.ToString("N") ?? "company"}|{documentType}|{sequenceDate:yyyyMMdd}";
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({SequenceLockNamespace}, hashtext({lockKey}));", cancellationToken);
@@ -104,8 +203,63 @@ public static class DocumentNumberGenerator
         string barcode,
         CancellationToken cancellationToken)
     {
-        var cleanBarcode = string.IsNullOrWhiteSpace(barcode) ? "-" : barcode.Trim();
-        var lockKey = $"stock|{companyId:N}|{storeGroupId:N}|{storeId:N}|{productId:N}|{cleanBarcode}";
+        EnsureActiveTransaction(db, "Stock locking");
+        var lockKey = BuildStockLockKey(companyId, storeGroupId, storeId, productId, barcode);
         return db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock({StockLockNamespace}, hashtext({lockKey}));", cancellationToken);
     }
+
+    public static async Task LockStockKeysAsync(
+        GarmetixDbContext db,
+        IEnumerable<StockLockKey> keys,
+        CancellationToken cancellationToken)
+    {
+        EnsureActiveTransaction(db, "Stock locking");
+
+        var orderedKeys = keys
+            .Select(key => new
+            {
+                LockKey = BuildStockLockKey(
+                    key.CompanyId,
+                    key.StoreGroupId,
+                    key.StoreId,
+                    key.ProductId,
+                    key.Barcode)
+            })
+            .GroupBy(item => item.LockKey, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .OrderBy(item => item.LockKey, StringComparer.Ordinal);
+
+        foreach (var item in orderedKeys)
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT pg_advisory_xact_lock({StockLockNamespace}, hashtext({item.LockKey}));",
+                cancellationToken);
+        }
+    }
+
+    private static string BuildStockLockKey(
+        Guid companyId,
+        Guid storeGroupId,
+        Guid storeId,
+        Guid productId,
+        string barcode)
+    {
+        var cleanBarcode = string.IsNullOrWhiteSpace(barcode) ? "-" : barcode.Trim();
+        return $"stock|{companyId:N}|{storeGroupId:N}|{storeId:N}|{productId:N}|{cleanBarcode}";
+    }
+
+    private static void EnsureActiveTransaction(GarmetixDbContext db, string operation)
+    {
+        if (db.Database.CurrentTransaction is null)
+        {
+            throw new InvalidOperationException($"{operation} requires an active database transaction.");
+        }
+    }
 }
+
+public readonly record struct StockLockKey(
+    Guid CompanyId,
+    Guid StoreGroupId,
+    Guid StoreId,
+    Guid ProductId,
+    string Barcode);

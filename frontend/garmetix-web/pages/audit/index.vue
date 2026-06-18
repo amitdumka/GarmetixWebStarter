@@ -14,6 +14,7 @@ const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const activities = ref<any[]>([])
 const loading = ref(false)
+const loadError = ref('')
 const search = ref('')
 const selectedModule = ref('all')
 const selectedAction = ref('all')
@@ -34,12 +35,14 @@ const moduleOptions = [
   { value: 'Inventory', label: 'Inventory' },
   { value: 'Billing', label: 'Billing' },
   { value: 'Purchase', label: 'Purchase' },
+  { value: 'Tailoring', label: 'Tailoring' },
   { value: 'Vouchers', label: 'Vouchers' },
   { value: 'Accounting', label: 'Accounting' },
   { value: 'Petty Cash', label: 'Petty Cash' },
   { value: 'HR', label: 'HR' },
   { value: 'Payroll', label: 'Payroll' },
-  { value: 'GST Returns', label: 'GST Returns' }
+  { value: 'GST Returns', label: 'GST Returns' },
+  { value: 'Security', label: 'Security' }
 ]
 
 const actionOptions = [
@@ -53,7 +56,7 @@ const metrics = computed(() => [
   {
     label: 'Activities',
     value: activities.value.length,
-    meta: 'Recent records',
+    meta: 'Persistent events',
     icon: 'i-lucide-history',
     color: 'primary'
   },
@@ -79,10 +82,10 @@ const metrics = computed(() => [
     color: 'error'
   },
   {
-    label: 'Modules',
-    value: new Set(activities.value.map((item) => item.module)).size,
-    meta: 'Touched areas',
-    icon: 'i-lucide-layout-grid',
+    label: 'Field Changes',
+    value: activities.value.reduce((total, item) => total + Number(item.changedFieldCount || 0), 0),
+    meta: 'Before/after values',
+    icon: 'i-lucide-list-checks',
     color: 'neutral'
   }
 ])
@@ -95,6 +98,10 @@ const rows = computed(() => activities.value.map((item) => ({
   action: item.action,
   actor: item.actor || 'System',
   entityId: item.entityId,
+  auditLogId: item.auditLogId,
+  changedFieldCount: item.changedFieldCount || 0,
+  requestPath: item.requestPath || '',
+  reason: item.reason || '',
   raw: item
 })))
 
@@ -151,6 +158,7 @@ const columns: TableColumn<any>[] = [
     }, () => row.original.action)
   },
   { accessorKey: 'actor', header: 'Actor' },
+  { accessorKey: 'changedFieldCount', header: 'Fields' },
   {
     id: 'actions',
     header: '',
@@ -158,8 +166,8 @@ const columns: TableColumn<any>[] = [
       color: 'neutral',
       variant: 'ghost',
       icon: 'i-lucide-list-tree',
-      label: 'Fields',
-      onClick: () => viewDetail(row.original.raw.entityId)
+      label: 'Details',
+      onClick: () => viewDetail(row.original.raw.auditLogId, row.original.raw.entityId)
     })
   }
 ]
@@ -170,6 +178,7 @@ async function refresh() {
   }
 
   loading.value = true
+  loadError.value = ''
   try {
     const query = new URLSearchParams({ take: '500' })
     if (selectedModule.value !== 'all') query.set('module', selectedModule.value)
@@ -189,16 +198,18 @@ async function refresh() {
     stores.value = storeRows
     activities.value = activityRows
   } catch (error) {
-    feedback.failed('Audit refresh failed', error)
+    loadError.value = feedback.errorMessage(error, 'Please check the service and try again.', 'Audit refresh failed')
   } finally {
     loading.value = false
   }
 }
 
-async function viewDetail(entityId: string) {
+async function viewDetail(auditLogId: string | null | undefined, entityId: string) {
   detailLoading.value = true
   try {
-    selectedDetail.value = await api.get<any>(`audit/${entityId}`)
+    selectedDetail.value = auditLogId
+      ? await api.get<any>(`audit/events/${auditLogId}`)
+      : await api.get<any>(`audit/${entityId}`)
   } catch (error) {
     feedback.failed('Could not load audit fields', error)
   } finally {
@@ -291,7 +302,7 @@ onMounted(async () => {
     <section class="planner-dashboard">
       <UiModulePageHeader
         title="Audit"
-        description="Review recent created and updated records across Garmetix modules."
+        description="Review persistent create, update and delete audit history with before/after field changes."
         icon="i-lucide-history"
         primary-label="Refresh"
         primary-icon="i-lucide-refresh-cw"
@@ -358,15 +369,19 @@ onMounted(async () => {
         </div>
       </UCard>
 
-      <UCard class="planner-card">
-        <template #header>
-          <div class="setup-list-header">
-            <div>
-              <h3>Activity Register</h3>
-              <p>Generated from existing record timestamps.</p>
-            </div>
-            <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
-          </div>
+      <UiRegisterPanel
+        title="Activity Register"
+        description="Created, updated, and deleted record activity matching the selected filters."
+        :loading="loading"
+        :error="loadError"
+        :empty="filteredRows.length === 0"
+        empty-title="No audit activity found"
+        empty-description="Change the filters or create and update records to populate this register."
+        empty-icon="i-lucide-history"
+        @retry="refresh"
+      >
+        <template #actions>
+          <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
         </template>
 
         <UiCrudToolbar
@@ -380,21 +395,10 @@ onMounted(async () => {
         />
 
         <UTable
-          v-if="filteredRows.length"
           :data="filteredRows"
           :columns="columns"
-          :loading="loading"
         />
-
-        <UiCrudEmptyState
-          v-else
-          title="No audit activity found"
-          description="Create or update records in modules to populate the activity feed."
-          icon="i-lucide-history"
-          action-label="Refresh"
-          @action="refresh"
-        />
-      </UCard>
+      </UiRegisterPanel>
       <UModal v-model:open="detailOpen" title="Audit Field Details" :ui="{ content: 'max-w-3xl' }">
         <template #body>
           <div v-if="detailLoading" class="empty-state-card">Loading field details...</div>
@@ -403,7 +407,14 @@ onMounted(async () => {
               color="neutral"
               variant="subtle"
               :title="`${selectedDetail.entity} / ${selectedDetail.entityId}`"
-              :description="`Created: ${formatDateTime(selectedDetail.createdAt)} | Updated: ${formatDateTime(selectedDetail.updatedAt)} | Deleted: ${selectedDetail.deleted}`"
+              :description="`Action: ${selectedDetail.action || '-'} | Actor: ${selectedDetail.actor || '-'} | Occurred: ${formatDateTime(selectedDetail.occurredAt || selectedDetail.updatedAt)}`"
+            />
+            <UAlert
+              v-if="selectedDetail.requestPath || selectedDetail.reason"
+              color="primary"
+              variant="subtle"
+              :title="selectedDetail.requestPath || 'Audit event context'"
+              :description="selectedDetail.reason || 'Request context was captured for this change.'"
             />
             <div class="planner-table-wrap">
               <table class="planner-table">

@@ -45,6 +45,28 @@ public class JournalLine : StoreBase
     [Display(Name = "Narration")] public string? Narration { get; set; }
 }
 
+
+public class FinancialYearLock : CompanyBase
+{
+    [Display(Name = "Financial Year")] public string FinancialYear { get; set; } = string.Empty;
+    [Display(Name = "Period Start")] public DateTime PeriodStart { get; set; } = DateTime.Today;
+    [Display(Name = "Period End")] public DateTime PeriodEnd { get; set; } = DateTime.Today;
+    [Display(Name = "Store Group", AutoGenerateField = false)] public Guid? StoreGroupId { get; set; }
+    [Display(Name = "Store", AutoGenerateField = false)] public Guid? StoreId { get; set; }
+    [Display(Name = "Accounting Locked")] public bool LockAccounting { get; set; } = true;
+    [Display(Name = "Sales Locked")] public bool LockSales { get; set; } = true;
+    [Display(Name = "Purchase Locked")] public bool LockPurchase { get; set; } = true;
+    [Display(Name = "Inventory Locked")] public bool LockInventory { get; set; } = true;
+    [Display(Name = "GST Locked")] public bool LockGst { get; set; } = true;
+    [Display(Name = "Active")] public bool Active { get; set; } = true;
+    [Display(Name = "Locked At")] public DateTime? LockedAt { get; set; }
+    [Display(Name = "Locked By")] public string? LockedBy { get; set; }
+    [Display(Name = "Lock Reason")] public string? LockReason { get; set; }
+    [Display(Name = "Unlocked At")] public DateTime? UnlockedAt { get; set; }
+    [Display(Name = "Unlocked By")] public string? UnlockedBy { get; set; }
+    [Display(Name = "Unlock Reason")] public string? UnlockReason { get; set; }
+}
+
 public class BankStatementLine : CompanyBase
 {
     [Display(Name = "Bank Account", AutoGenerateField = false)] public Guid BankAccountId { get; set; }
@@ -58,6 +80,10 @@ public class BankStatementLine : CompanyBase
     [Display(Name = "Credit")] public decimal Credit { get; set; }
     [Display(Name = "Balance")] public decimal Balance { get; set; }
     [Display(Name = "Reconciled")] public bool Reconciled { get; set; }
+    [Display(Name = "Reconciled At")] public DateTime? ReconciledAt { get; set; }
+    [Display(Name = "Reconciled By")] public string? ReconciledBy { get; set; }
+    [Display(Name = "Reconciliation Reference")] public string? ReconciliationReference { get; set; }
+    [Display(Name = "Reconciliation Remarks")] public string? ReconciliationRemarks { get; set; }
     [Display(Name = "Bank Transaction", AutoGenerateField = false)] public Guid? BankTransactionId { get; set; }
     [JsonIgnore]
     [Display(Name = "Bank Transaction", AutoGenerateField = false)] public virtual BankTransaction? BankTransaction { get; set; }

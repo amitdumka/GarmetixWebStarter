@@ -13,6 +13,7 @@ using Garmetix.Api.Backup;
 using Garmetix.Api.Commercial;
 using Garmetix.Api.Billing;
 using Garmetix.Api.Database;
+using Garmetix.Api.Dashboard;
 using Garmetix.Api.Hr;
 using Garmetix.Api.GstReturns;
 using Garmetix.Api.Gstin;
@@ -29,6 +30,8 @@ using Garmetix.Api.ProductLookup;
 using Garmetix.Api.Production;
 using Garmetix.Api.Release;
 using Garmetix.Api.Setup;
+using Garmetix.Api.Tailoring;
+using Garmetix.Api.Testing;
 using Garmetix.Api.Seeds;
 using Garmetix.Api.Validation;
 using Garmetix.Api.SecondarySync;
@@ -80,7 +83,11 @@ builder.Services.AddScoped<MonthlyAttendanceService>();
 builder.Services.AddScoped<PayrollService>();
 builder.Services.AddScoped<AccountingPostingService>();
 builder.Services.AddScoped<DocumentNumberService>();
+builder.Services.AddScoped<StockLedgerService>();
 builder.Services.AddScoped<ApplicationMessageLogService>();
+builder.Services.AddSingleton<PersistentApplicationLogQueue>();
+builder.Services.AddSingleton<ILoggerProvider, PersistentApplicationLoggerProvider>();
+builder.Services.AddHostedService<PersistentApplicationLogHostedService>();
 builder.Services.Configure<PayrollAutomationOptions>(builder.Configuration.GetSection("PayrollAutomation"));
 builder.Services.AddHostedService<PayrollAutomationHostedService>();
 builder.Services.Configure<BackupOptions>(builder.Configuration.GetSection("Backup"));
@@ -118,19 +125,22 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy(GarmetixPolicies.Admin, policy => policy.RequireAssertion(IsAdminOrOwner));
-    options.AddPolicy(GarmetixPolicies.CompanySetup, policy => policy.RequireAssertion(IsAdminOrOwner));
-    options.AddPolicy(GarmetixPolicies.Edit, policy => policy.RequireAssertion(CanEdit));
-    options.AddPolicy(GarmetixPolicies.Delete, policy => policy.RequireAssertion(CanDelete));
-    options.AddPolicy(GarmetixPolicies.Billing, policy => policy.RequireRole(GarmetixPolicies.BillingRoles));
-    options.AddPolicy(GarmetixPolicies.Inventory, policy => policy.RequireRole(GarmetixPolicies.InventoryRoles));
-    options.AddPolicy(GarmetixPolicies.Purchase, policy => policy.RequireRole(GarmetixPolicies.InventoryRoles));
-    options.AddPolicy(GarmetixPolicies.Accounting, policy => policy.RequireRole(GarmetixPolicies.AccountingRoles));
-    options.AddPolicy(GarmetixPolicies.Hr, policy => policy.RequireRole(GarmetixPolicies.HrRoles));
-    options.AddPolicy(GarmetixPolicies.Payroll, policy => policy.RequireRole(GarmetixPolicies.PayrollRoles));
+    AddMatrixPolicy(options, GarmetixPolicies.Admin);
+    AddMatrixPolicy(options, GarmetixPolicies.CompanySetup);
+    AddMatrixPolicy(options, GarmetixPolicies.Edit);
+    AddMatrixPolicy(options, GarmetixPolicies.Delete);
+    AddMatrixPolicy(options, GarmetixPolicies.Billing);
+    AddMatrixPolicy(options, GarmetixPolicies.Inventory);
+    AddMatrixPolicy(options, GarmetixPolicies.Purchase);
+    AddMatrixPolicy(options, GarmetixPolicies.Accounting);
+    AddMatrixPolicy(options, GarmetixPolicies.Hr);
+    AddMatrixPolicy(options, GarmetixPolicies.Payroll);
 });
 
 var app = builder.Build();
+
+const string FreshSchemaBaselineMigrationId = "20260617000000_InitialFreshSchema";
+const string FreshSchemaBaselineProductVersion = "10.0.8";
 
 using (var scope = app.Services.CreateScope())
 {
@@ -138,7 +148,30 @@ using (var scope = app.Services.CreateScope())
     var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DatabaseStartup");
     if (app.Configuration.GetValue<bool>("Database:AutoMigrate"))
     {
-        db.Database.Migrate();
+        var schemaBootstrapMode = app.Configuration["Database:SchemaBootstrapMode"] ?? "Migrate";
+        if (string.Equals(schemaBootstrapMode, "FreshBaseline", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(schemaBootstrapMode, "EnsureCreated", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(schemaBootstrapMode, "EnsureCreatedWithBaseline", StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogInformation("Creating database schema from current DbContext model using fresh baseline mode.");
+            await db.Database.EnsureCreatedAsync();
+            await db.Database.ExecuteSqlRawAsync("""
+                CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
+                    "MigrationId" character varying(150) NOT NULL,
+                    "ProductVersion" character varying(32) NOT NULL,
+                    CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId")
+                );
+                """);
+            await db.Database.ExecuteSqlRawAsync($"""
+                INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+                VALUES ('{FreshSchemaBaselineMigrationId}', '{FreshSchemaBaselineProductVersion}')
+                ON CONFLICT ("MigrationId") DO NOTHING;
+                """);
+        }
+        else
+        {
+            db.Database.Migrate();
+        }
     }
 
     await DatabaseSchemaRepairService.RepairKnownSchemaDriftAsync(db, logger);
@@ -149,7 +182,7 @@ app.Use(async (context, next) =>
     context.Response.Headers.TryAdd("X-Content-Type-Options", "nosniff");
     context.Response.Headers.TryAdd("X-Frame-Options", "DENY");
     context.Response.Headers.TryAdd("Referrer-Policy", "strict-origin-when-cross-origin");
-    context.Response.Headers.TryAdd("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    context.Response.Headers.TryAdd("Permissions-Policy", "camera=(self), microphone=(), geolocation=()");
 
     if (context.Request.IsHttps)
     {
@@ -161,6 +194,9 @@ app.Use(async (context, next) =>
 
 app.UseCors("frontend");
 app.UseAuthentication();
+app.UseMiddleware<AuditActorMiddleware>();
+app.UseMiddleware<ActiveUserMiddleware>();
+app.UseMiddleware<ApplicationMessageLogMiddleware>();
 app.UseAuthorization();
 app.Use(async (context, next) =>
 {
@@ -206,33 +242,42 @@ auth.MapPut("/me", UpdateCurrentUserProfileAsync).RequireAuthorization();
 app.MapSetupEndpoints();
 app.MapWorkspaceEndpoints();
 app.MapBillingEndpoints();
+app.MapTailoringEndpoints();
 app.MapPurchaseEndpoints();
+app.MapVendorSettlementEndpoints();
 app.MapUserManagementEndpoints();
+app.MapAccessMatrixEndpoints();
 app.MapHrEndpoints();
 app.MapPayrollEndpoints();
 app.MapSalaryPaymentEndpoints();
 app.MapImportExportEndpoints();
 app.MapAuditEndpoints();
 app.MapAccountingEndpoints();
+app.MapPettyCashEndpoints();
 app.MapCashVoucherEndpoints();
 app.MapBackupEndpoints();
+app.MapFactoryResetEndpoints();
 app.MapGstReturnEndpoints();
 app.MapGstinEndpoints();
 app.MapCommercialEndpoints();
 app.MapProductLookupEndpoints();
 app.MapInventoryProductMasterEndpoints();
 app.MapInventoryStockOperationEndpoints();
+app.MapInventoryStockReportEndpoints();
 app.MapNonGstGoodsEndpoints();
 app.MapOracleSecondarySyncEndpoints();
 app.MapDataConsistencyEndpoints();
 app.MapDataConsistencyRepairEndpoints();
 app.MapDatabaseMigrationEndpoints();
+app.MapDashboardEndpoints();
 app.MapProductionReadinessEndpoints();
+app.MapEmailDeliveryDiagnosticsEndpoints();
 app.MapReleaseStabilizationEndpoints();
 app.MapAfssSeederEndpoints();
 app.MapClientOnboardingEndpoints();
 app.MapApplicationMessageLogEndpoints();
 app.MapAppInfoEndpoints();
+app.MapTestAutomationEndpoints();
 
 MapCrud<Company>(app, "/api/companies", GarmetixPolicies.CompanySetup, readPolicyName: null);
 MapCrud<StoreGroup>(app, "/api/store-groups", GarmetixPolicies.CompanySetup, readPolicyName: null);
@@ -260,7 +305,6 @@ MapCrud<BankStatementLine>(app, "/api/bank-statement-lines", GarmetixPolicies.Ac
 MapCrud<JournalEntry>(app, "/api/journal-entries", GarmetixPolicies.Accounting);
 MapCrud<JournalLine>(app, "/api/journal-lines", GarmetixPolicies.Accounting);
 MapCrud<Transaction>(app, "/api/transactions", GarmetixPolicies.Accounting);
-MapCrud<PettyCashSheet>(app, "/api/petty-cash-sheets", GarmetixPolicies.Accounting);
 MapCrud<DayBegin>(app, "/api/day-begins", GarmetixPolicies.Accounting);
 MapCrud<DayEnd>(app, "/api/day-ends", GarmetixPolicies.Accounting);
 MapCrud<Employee>(app, "/api/employees", GarmetixPolicies.Hr);
@@ -379,23 +423,10 @@ static async Task EnrichPartyGstinAsync<T>(T entity, GstinLookupService gstinLoo
     }
 }
 
-static bool IsAdminOrOwner(AuthorizationHandlerContext context)
-{
-    return context.User.IsInRole(LoginRole.Admin.ToString())
-        || string.Equals(context.User.FindFirst("userType")?.Value, UserType.Owner.ToString(), StringComparison.OrdinalIgnoreCase);
-}
-
-static bool CanEdit(AuthorizationHandlerContext context)
-{
-    return IsAdminOrOwner(context)
-        || context.User.IsInRole(LoginRole.PowerUser.ToString())
-        || context.User.IsInRole(LoginRole.Accountant.ToString());
-}
-
-static bool CanDelete(AuthorizationHandlerContext context)
-{
-    return IsAdminOrOwner(context);
-}
+static void AddMatrixPolicy(AuthorizationOptions options, string policyName)
+    => options.AddPolicy(
+        policyName,
+        policy => policy.RequireAssertion(context => AccessPermissionMatrix.CanAccessPolicy(context.User, policyName)));
 
 static async Task<IResult> BootstrapAdminAsync(BootstrapAdminRequest request, GarmetixDbContext db, JwtTokenService tokens, CancellationToken cancellationToken)
 {
@@ -503,7 +534,7 @@ static async Task<IResult> ForgotPasswordAsync(
 
     // Keep the normal response generic so the login screen does not reveal whether a user exists.
     const string genericMessage = "If the account exists, a password reset link has been sent to the registered email address.";
-    if (user is null)
+    if (user is null || !user.IsActive)
     {
         return Results.Ok(new ForgotPasswordResponse(genericMessage, null, null, null));
     }
@@ -554,7 +585,11 @@ static async Task<IResult> ForgotPasswordAsync(
     }
 
     logger.LogWarning("Password reset email was requested for user {UserId}, but Email:Enabled is false.", user.Id);
-    return Results.Ok(new ForgotPasswordResponse(genericMessage, null, null, expiresAtUtc));
+    return Results.Ok(new ForgotPasswordResponse(
+        "Password reset email is not configured on this server. Ask an admin/owner to configure SMTP or reset the password from Roles & Users.",
+        null,
+        null,
+        expiresAtUtc));
 }
 
 static string BuildPasswordResetUrl(IConfiguration configuration, HttpContext httpContext, string token)
@@ -623,6 +658,13 @@ static async Task<IResult> ResetPasswordAsync(
         storedToken.RevokedAtUtc = now;
         await db.SaveChangesAsync(cancellationToken);
         return Results.BadRequest(new { message = "Reset token user was not found." });
+    }
+
+    if (!user.IsActive)
+    {
+        storedToken.RevokedAtUtc = now;
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.BadRequest(new { message = "This account is inactive. Contact an Owner or Admin." });
     }
 
     user.Password = PasswordHasher.Hash(request.NewPassword);
@@ -763,6 +805,13 @@ static async Task<IResult> LoginAsync(LoginRequest request, GarmetixDbContext db
     if (user is null || !PasswordHasher.Verify(request.Password, user.Password))
     {
         return Results.Unauthorized();
+    }
+
+    if (!user.IsActive)
+    {
+        return Results.Json(
+            new { message = "This account is inactive. Contact an Owner or Admin." },
+            statusCode: StatusCodes.Status403Forbidden);
     }
 
     if (PasswordHasher.NeedsUpgrade(user.Password))

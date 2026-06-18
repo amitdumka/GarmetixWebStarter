@@ -1,0 +1,13 @@
+{
+  "FileName": "garmetix-scheduled-20260611-205959.dump",
+  "SizeBytes": 178092,
+  "CreatedAtUtc": "2026-06-11T21:00:00.0980792Z",
+  "Source": "scheduled",
+  "Database": "garmetix",
+  "Host": "postgres",
+  "Port": 5432,
+  "Sha256": "327f226fdbd7045925e1efbbfac8315fc631ad631161b2c0a5a16aab4b11ed24",
+  "Format": "PostgreSQL custom pg_dump",
+  "Application": "Garmetix",
+  "Stage": "Stage5A"
+}

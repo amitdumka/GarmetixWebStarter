@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Garmetix.Api.ProductLookup;
 
 namespace Garmetix.Api.Accounting;
 
@@ -21,7 +22,8 @@ public sealed record VoucherPdfModel(
     string? PaymentDetails,
     string LedgerName,
     string EmployeeName,
-    string BankAccount);
+    string BankAccount,
+    string DocumentCode);
 
 public static class VoucherPdfDocument
 {
@@ -73,18 +75,19 @@ public static class VoucherPdfDocument
         canvas.FillRect(left, top, width, 46, navyR, navyG, navyB);
         canvas.FillRect(left, top + 46, width, 3, tealR, tealG, tealB);
         canvas.Text(model.CompanyName, left + 12, top + 10, 15, true, 1, 1, 1);
-        canvas.Text($"{model.StoreName} | {model.VoucherType} Voucher", left + 12, top + 29, 8.5, false, 0.8, 0.86, 0.91);
-        canvas.Text(copyLabel, left + width - 84, top + 12, 9, true, 1, 1, 1);
+        canvas.Text($"{model.StoreName} | ACCOUNTING VOUCHER", left + 12, top + 29, 8.5, false, 0.8, 0.86, 0.91);
+        canvas.Text(copyLabel, left + width - 142, top + 12, 9, true, 1, 1, 1);
+        canvas.Qr(model.DocumentCode, left + width - 42, top + 5, 36);
         if (reprint)
         {
-            canvas.Text("REPRINT", left + width - 85, top + 30, 8, true, 0.98, 0.45, 0.45);
+            canvas.Text("REPRINT", left + width - 142, top + 30, 8, true, 0.98, 0.45, 0.45);
         }
 
         var infoTop = top + 58;
         var columnWidth = (width - 12) / 4;
         DrawInfoBox(canvas, left + 6, infoTop, columnWidth, "Voucher No.", model.VoucherNumber);
         DrawInfoBox(canvas, left + 6 + columnWidth, infoTop, columnWidth, "Date", model.OnDate.ToString("dd MMM yyyy", CultureInfo.InvariantCulture));
-        DrawInfoBox(canvas, left + 6 + columnWidth * 2, infoTop, columnWidth, "Mode", model.PaymentMode);
+        DrawInfoBox(canvas, left + 6 + columnWidth * 2, infoTop, columnWidth, "Type / Mode", $"{model.VoucherType} / {model.PaymentMode}");
         DrawInfoBox(canvas, left + 6 + columnWidth * 3, infoTop, columnWidth, "Amount", $"INR {model.Amount:N2}");
 
         var tableTop = infoTop + 40;
@@ -133,7 +136,7 @@ public static class VoucherPdfDocument
             }
         }
 
-        canvas.CenteredText($"Scan code: {model.VoucherNumber}", left + 8, top + height - 28, width - 16, 6.8, true, 0.08, 0.12, 0.18);
+        canvas.CenteredText($"Document reference: {model.VoucherNumber}", left + 8, top + height - 28, width - 16, 6.8, true, 0.08, 0.12, 0.18);
 
         var footer = string.Join(" | ", new[]
         {
@@ -317,6 +320,9 @@ public static class VoucherPdfDocument
         {
             builder.Append(CultureInfo.InvariantCulture, $"0.45 0.49 0.54 RG {F(lineWidth)} w [{dash}] 0 d {F(x1)} {F(pageHeight - top1)} m {F(x2)} {F(pageHeight - top2)} l S [] 0 d\n");
         }
+
+        public void Qr(string payload, double left, double top, double size)
+            => DocumentCodeService.AppendPdfCommands(builder, pageHeight, left, top, size, payload);
 
         private static List<string> Wrap(string value, int maxLength, int maxLines)
         {

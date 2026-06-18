@@ -1,5 +1,6 @@
 using System.Data;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,6 +8,16 @@ namespace Garmetix.Api.Messages;
 
 public sealed class ApplicationMessageLogService(GarmetixDbContext db)
 {
+    private const int MaxShortTextLength = 500;
+    private const int MaxMessageLength = 4000;
+    private const int MaxDetailsLength = 50000;
+    private static readonly Regex BearerTokenPattern = new(
+        @"(Bearer\s+)[A-Za-z0-9._~+/=-]+",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex SensitiveJsonPattern = new(
+        "(\"(?:password|token|secret|authorization|apiKey|api_key)\"\\s*:\\s*)\"[^\"]*\"",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     public const string LevelInfo = "Info";
     public const string LevelSuccess = "Success";
     public const string LevelWarning = "Warning";
@@ -49,39 +60,50 @@ public sealed class ApplicationMessageLogService(GarmetixDbContext db)
             Guid.NewGuid(),
             DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified),
             NormalizeLevel(request.Level, request.Success),
-            NormalizeText(request.Source, "General"),
-            NormalizeText(request.EventName, "Message"),
-            NormalizeText(request.Message, "Message logged."),
-            NormalizeDetails(request.DetailsJson),
+            NormalizeText(request.Source, "General", MaxShortTextLength),
+            NormalizeText(request.EventName, "Message", MaxShortTextLength),
+            NormalizeText(request.Message, "Message logged.", MaxMessageLength),
+            NormalizeDetails(request.DetailsJson, MaxDetailsLength),
             request.CompanyId,
             request.StoreGroupId,
             request.StoreId,
             request.UserId,
-            string.IsNullOrWhiteSpace(request.UserName) ? null : request.UserName.Trim(),
-            string.IsNullOrWhiteSpace(request.Resource) ? null : request.Resource.Trim(),
+            NormalizeOptionalText(request.UserName, MaxShortTextLength),
+            NormalizeOptionalText(request.Resource, MaxShortTextLength),
             operationId,
             request.Success);
 
-        var sql = """
+        var connection = db.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
             INSERT INTO "ApplicationMessageLogs"
                 ("Id", "CreatedAtUtc", "Level", "Source", "EventName", "Message", "DetailsJson", "CompanyId", "StoreGroupId", "StoreId", "UserId", "UserName", "Resource", "OperationId", "Success")
             VALUES
-                ({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11}, {12}, {13}, {14})
+                (@id, @createdAtUtc, @level, @source, @eventName, @message, @detailsJson, @companyId, @storeGroupId, @storeId, @userId, @userName, @resource, @operationId, @success)
             """;
 
-        var parameters = new object[]
-        {
-            entry.Id, entry.CreatedAtUtc, entry.Level, entry.Source, entry.EventName, entry.Message, entry.DetailsJson ?? (object)DBNull.Value,
-            entry.CompanyId.HasValue ? entry.CompanyId.Value : (object)DBNull.Value,
-            entry.StoreGroupId.HasValue ? entry.StoreGroupId.Value : (object)DBNull.Value,
-            entry.StoreId.HasValue ? entry.StoreId.Value : (object)DBNull.Value,
-            entry.UserId.HasValue ? entry.UserId.Value : (object)DBNull.Value,
-            entry.UserName ?? (object)DBNull.Value,
-            entry.Resource ?? (object)DBNull.Value,
-            entry.OperationId, entry.Success
-        };
+        AddParameter(command, "id", DbType.Guid, entry.Id);
+        AddParameter(command, "createdAtUtc", DbType.DateTime2, entry.CreatedAtUtc);
+        AddParameter(command, "level", DbType.String, entry.Level);
+        AddParameter(command, "source", DbType.String, entry.Source);
+        AddParameter(command, "eventName", DbType.String, entry.EventName);
+        AddParameter(command, "message", DbType.String, entry.Message);
+        AddParameter(command, "detailsJson", DbType.String, entry.DetailsJson);
+        AddParameter(command, "companyId", DbType.Guid, entry.CompanyId);
+        AddParameter(command, "storeGroupId", DbType.Guid, entry.StoreGroupId);
+        AddParameter(command, "storeId", DbType.Guid, entry.StoreId);
+        AddParameter(command, "userId", DbType.Guid, entry.UserId);
+        AddParameter(command, "userName", DbType.String, entry.UserName);
+        AddParameter(command, "resource", DbType.String, entry.Resource);
+        AddParameter(command, "operationId", DbType.Guid, entry.OperationId);
+        AddParameter(command, "success", DbType.Boolean, entry.Success);
 
-        await db.Database.ExecuteSqlRawAsync(sql, parameters, cancellationToken);
+        await command.ExecuteNonQueryAsync(cancellationToken);
 
         return entry;
     }
@@ -95,6 +117,8 @@ public sealed class ApplicationMessageLogService(GarmetixDbContext db)
         Guid? companyId = null, Guid? storeGroupId = null, Guid? storeId = null, Guid? userId = null, string? userName = null,
         string? resource = null, Guid? operationId = null, CancellationToken cancellationToken = default)
         => WriteAsync(new ApplicationMessageLogCreateRequest(LevelError, source, eventName, message, Serialize(details), companyId, storeGroupId, storeId, userId, userName, resource, operationId, false), cancellationToken);
+
+    public static string? SerializeDetails(object? details) => Serialize(details);
 
     public async Task<IReadOnlyList<ApplicationMessageLogDto>> SearchAsync(ApplicationMessageLogQuery query, CancellationToken cancellationToken = default)
     {
@@ -169,6 +193,121 @@ public sealed class ApplicationMessageLogService(GarmetixDbContext db)
         return rows;
     }
 
+    public async Task<IReadOnlyList<ApplicationNotificationDto>> NotificationsAsync(
+        Guid? userId,
+        Guid? companyId,
+        Guid? storeId,
+        bool privileged,
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureStorageAsync(cancellationToken);
+        var limit = Math.Clamp(take <= 0 ? 12 : take, 1, 30);
+        var connection = db.Database.GetDbConnection();
+        if (connection.State != ConnectionState.Open)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        await using var command = connection.CreateCommand();
+        var scopeClause = privileged
+            ? "1 = 1"
+            : """
+              (
+                  (@userId IS NOT NULL AND "UserId" = @userId)
+                  OR (@storeId IS NOT NULL AND "StoreId" = @storeId)
+                  OR (@companyId IS NOT NULL AND "CompanyId" = @companyId)
+              )
+              """;
+        command.CommandText = $"""
+            SELECT "Id", "CreatedAtUtc", "Level", "Source", "EventName", "Message", "Resource"
+            FROM "ApplicationMessageLogs"
+            WHERE "Source" NOT IN ('Frontend', 'Runtime')
+              AND ("Success" = false OR "Level" IN ('Warning', 'Error'))
+              AND ("Source" <> 'Security' OR @privileged = true)
+              AND {scopeClause}
+            ORDER BY "CreatedAtUtc" DESC
+            LIMIT @take
+            """;
+        AddParameter(command, "userId", DbType.Guid, userId);
+        AddParameter(command, "companyId", DbType.Guid, companyId);
+        AddParameter(command, "storeId", DbType.Guid, storeId);
+        AddParameter(command, "privileged", DbType.Boolean, privileged);
+        AddParameter(command, "take", limit);
+
+        var items = new List<ApplicationNotificationDto>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var level = reader.GetString(2);
+            var source = reader.GetString(3);
+            var eventName = reader.GetString(4);
+            var resource = reader.IsDBNull(6) ? null : reader.GetString(6);
+            var presentation = NotificationPresentation(source, eventName, resource);
+            items.Add(new ApplicationNotificationDto(
+                reader.GetGuid(0),
+                reader.GetDateTime(1),
+                level.Equals(LevelError, StringComparison.OrdinalIgnoreCase) ? "Error" : "Warning",
+                presentation.Title,
+                presentation.Message,
+                presentation.ActionPath));
+        }
+
+        return items;
+    }
+
+    private static (string Title, string Message, string ActionPath) NotificationPresentation(
+        string source,
+        string eventName,
+        string? resource)
+    {
+        var context = $"{source} {eventName} {resource}".ToLowerInvariant();
+        if (context.Contains("pettycash") || context.Contains("petty-cash"))
+        {
+            return ("Petty cash needs review", "A petty cash sheet or reconciliation needs attention.", "/petty-cash");
+        }
+        if (context.Contains("salary") || context.Contains("payroll"))
+        {
+            return ("Payroll needs review", "A payroll or salary operation needs attention.", "/payroll");
+        }
+        if (source.Equals("HR", StringComparison.OrdinalIgnoreCase)
+            || context.Contains("attendance")
+            || context.Contains("employee"))
+        {
+            return ("HR record needs review", "An employee, attendance, or HR operation needs attention.", "/hr");
+        }
+        if (context.Contains("purchase"))
+        {
+            return ("Purchase needs review", "A purchase or purchase-return operation needs attention.", "/purchase");
+        }
+        if (context.Contains("product") || context.Contains("inventory") || context.Contains("stock"))
+        {
+            return ("Inventory needs review", "A product or stock operation needs attention.", "/inventory");
+        }
+        if (context.Contains("billing") || context.Contains("invoice") || context.Contains("sales"))
+        {
+            return ("Sales operation needs review", "A billing, invoice, or sales operation needs attention.", "/billing");
+        }
+        if (context.Contains("voucher"))
+        {
+            return ("Voucher needs review", "A voucher operation needs attention.", "/vouchers");
+        }
+        if (context.Contains("ledger") || context.Contains("accounting") || context.Contains("bank"))
+        {
+            return ("Accounting needs review", "An accounting or banking operation needs attention.", "/accounting");
+        }
+        if (source.Equals("Security", StringComparison.OrdinalIgnoreCase))
+        {
+            return ("Access activity needs review", "A user or access-management event needs administrator review.", "/access");
+        }
+        if (source.Equals("API", StringComparison.OrdinalIgnoreCase))
+        {
+            return ("Operation needs attention", "A recent operation could not be completed. Open the related page and try again.", "/dashboard");
+        }
+
+        return ("Business activity needs review", "A recent business operation needs attention.", "/dashboard");
+    }
+
     private static string BuildSearchSql(ApplicationMessageLogQuery query)
     {
         var clauses = new List<string> { "1 = 1" };
@@ -233,6 +372,15 @@ public sealed class ApplicationMessageLogService(GarmetixDbContext db)
         command.Parameters.Add(parameter);
     }
 
+    private static void AddParameter(System.Data.Common.DbCommand command, string name, DbType type, object? value)
+    {
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = name;
+        parameter.DbType = type;
+        parameter.Value = value ?? DBNull.Value;
+        command.Parameters.Add(parameter);
+    }
+
     private static string NormalizeLevel(string level, bool success)
     {
         if (string.IsNullOrWhiteSpace(level))
@@ -247,11 +395,23 @@ public sealed class ApplicationMessageLogService(GarmetixDbContext db)
             : LevelInfo;
     }
 
-    private static string NormalizeText(string value, string fallback)
-        => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+    private static string NormalizeText(string value, string fallback, int maxLength)
+        => Truncate(Redact(string.IsNullOrWhiteSpace(value) ? fallback : value.Trim()), maxLength);
 
-    private static string? NormalizeDetails(string? details)
-        => string.IsNullOrWhiteSpace(details) ? null : details.Trim();
+    private static string? NormalizeOptionalText(string? value, int maxLength)
+        => string.IsNullOrWhiteSpace(value) ? null : Truncate(Redact(value.Trim()), maxLength);
+
+    private static string? NormalizeDetails(string? details, int maxLength)
+        => string.IsNullOrWhiteSpace(details) ? null : Truncate(Redact(details.Trim()), maxLength);
+
+    private static string Truncate(string value, int maxLength)
+        => value.Length <= maxLength ? value : value[..maxLength];
+
+    private static string Redact(string value)
+    {
+        var withoutBearer = BearerTokenPattern.Replace(value, "$1[hidden]");
+        return SensitiveJsonPattern.Replace(withoutBearer, "$1\"[hidden]\"");
+    }
 
     private static string? Serialize(object? details)
     {

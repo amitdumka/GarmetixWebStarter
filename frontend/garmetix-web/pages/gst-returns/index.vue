@@ -25,8 +25,15 @@ const auditLoading = ref(false)
 const accountingSummary = ref<any | null>(null)
 const accountingLoading = ref(false)
 const accountingPosting = ref<any | null>(null)
+const pageLoading = ref(false)
+const loadError = ref('')
+const draftLoadError = ref('')
+const schemaLoadError = ref('')
 const today = new Date()
+const todayLocal = localDate(today)
 const currentPeriod = `${String(today.getMonth() + 1).padStart(2, '0')}${today.getFullYear()}`
+
+useHead({ title: 'GST Returns | Garmetix' })
 
 const header = reactive({
   gstin: '',
@@ -151,6 +158,8 @@ async function refresh() {
     return
   }
 
+  pageLoading.value = true
+  loadError.value = ''
   try {
     const [companyRows, storeRows] = await Promise.all([
       api.list<any>('companies'),
@@ -168,8 +177,17 @@ async function refresh() {
 
     await Promise.all([loadSchemaReview(), loadDrafts()])
   } catch (error) {
-    feedback.failed('GST Returns refresh failed', error)
+    loadError.value = feedback.errorMessage(error, 'GST return setup could not be loaded. Try again.', 'GST Returns refresh failed')
+  } finally {
+    pageLoading.value = false
   }
+}
+
+function localDate(value: Date) {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function newB2BRow() {
@@ -177,7 +195,7 @@ function newB2BRow() {
     recipientGstin: '',
     recipientName: '',
     invoiceNumber: '',
-    invoiceDate: today.toISOString().slice(0, 10),
+    invoiceDate: todayLocal,
     placeOfSupply: '',
     reverseCharge: 'N',
     invoiceType: 'R',
@@ -291,7 +309,7 @@ function applyDraftPayload(form: GstForm, payload: any) {
   if (form === 'gstr1') {
     b2bRows.value = ensureRows((payload.b2BInvoices || payload.b2bInvoices || []).map((row: any) => ({
       ...row,
-      invoiceDate: row.invoiceDate ? String(row.invoiceDate).slice(0, 10) : today.toISOString().slice(0, 10)
+      invoiceDate: row.invoiceDate ? String(row.invoiceDate).slice(0, 10) : todayLocal
     })), newB2BRow)
     b2cRows.value = ensureRows(payload.b2CSummaries || payload.b2cSummaries || [], newB2CRow)
     hsnRows.value = ensureRows(payload.hsnSummaries || [], newHsnRow)
@@ -313,16 +331,17 @@ function ensureRows(rows: any[], factory: () => any) {
 function normalizeDateRow(row: any) {
   return {
     ...row,
-    invoiceDate: row.invoiceDate ? new Date(`${row.invoiceDate}T00:00:00`).toISOString() : new Date().toISOString()
+    invoiceDate: `${row.invoiceDate || todayLocal}T00:00:00`
   }
 }
 
 async function loadSchemaReview() {
   schemaReviewLoading.value = true
+  schemaLoadError.value = ''
   try {
     schemaReview.value = await api.get<any>('gst-returns/schema-review')
   } catch (error) {
-    feedback.failed('GST schema review failed', error)
+    schemaLoadError.value = feedback.errorMessage(error, 'GST review guidance could not be loaded. Try again.', 'GST schema review failed')
   } finally {
     schemaReviewLoading.value = false
   }
@@ -342,10 +361,11 @@ async function downloadSchemaReview() {
 
 async function loadDrafts() {
   draftLoading.value = true
+  draftLoadError.value = ''
   try {
     drafts.value = await api.list<any>('gst-returns/drafts')
   } catch (error) {
-    feedback.failed('GST draft list failed', error)
+    draftLoadError.value = feedback.errorMessage(error, 'Saved GST drafts could not be loaded. Try again.', 'GST draft list failed')
   } finally {
     draftLoading.value = false
   }
@@ -632,7 +652,7 @@ async function postCurrentGstr3BToAccounting() {
       storeGroupId: workspace.storeGroupId.value || null,
       storeId: workspace.storeId.value || null,
       returnPeriod: header.returnPeriod,
-      onDate: new Date().toISOString(),
+      onDate: `${todayLocal}T00:00:00`,
       outputTax: gstr3BOutputTax.value,
       inputTax: gstr3BInputTax.value,
       interestLateFee: gstr3BInterestLateFee.value,
@@ -741,14 +761,13 @@ onMounted(async () => {
     <section class="planner-dashboard gst-return-page">
       <UiModulePageHeader
         title="GST Returns"
-        description="Urgent standalone module for manual GSTR-1 and GSTR-3B JSON/Excel generation. Billing and Purchase auto-linking will be added later."
+        description="Prepare, verify, save, export, and account for GSTR-1 and GSTR-3B using current company books or reviewed manual values."
         icon="i-lucide-file-json-2"
         primary-label="Preview"
         primary-icon="i-lucide-eye"
         @primary="previewReturn"
       >
         <template #actions>
-          <UBadge color="error" variant="subtle">Urgent</UBadge>
           <UButton icon="i-lucide-database" color="neutral" variant="subtle" label="Load From Books" :loading="loading" @click="loadFromBooks" />
           <UButton icon="i-lucide-scale" color="neutral" variant="subtle" label="Accounting" :loading="accountingLoading" @click="loadAccountingSummary" />
           <UButton icon="i-lucide-shield-check" color="warning" variant="subtle" label="Review" :loading="schemaReviewLoading" @click="downloadSchemaReview" />
@@ -758,11 +777,25 @@ onMounted(async () => {
       </UiModulePageHeader>
 
       <UAlert
+        v-if="loadError"
+        icon="i-lucide-circle-alert"
+        color="error"
+        variant="subtle"
+        title="GST return setup is unavailable"
+        :description="loadError"
+        :actions="[{ label: 'Try again', icon: 'i-lucide-refresh-cw', onClick: refresh }]"
+      />
+
+      <div v-if="pageLoading && !companies.length" class="planner-metric-grid">
+        <USkeleton v-for="row in 4" :key="row" class="h-28 w-full" />
+      </div>
+
+      <UAlert
         icon="i-lucide-info"
-        color="warning"
+        color="primary"
         variant="soft"
         title="GST return workspace"
-        description="You can enter GST values manually or use Load From Books to prepare GSTR values from Billing/Purchase records. Verify before portal upload/filing."
+        description="Load values from Billing and Purchase records, review them against GST portal requirements, and confirm the return before export or filing."
       />
 
 
@@ -837,6 +870,17 @@ onMounted(async () => {
           </div>
         </template>
 
+        <UAlert
+          v-if="draftLoadError"
+          class="mb-4"
+          color="error"
+          variant="subtle"
+          icon="i-lucide-circle-alert"
+          title="Saved drafts are unavailable"
+          :description="draftLoadError"
+          :actions="[{ label: 'Try again', icon: 'i-lucide-refresh-cw', onClick: loadDrafts }]"
+        />
+
         <div class="form-grid four compact-grid">
           <UFormField label="Draft title">
             <UInput v-model="draftTitle" placeholder="Example: April 2026 GSTR-1 draft" :disabled="selectedDraftLocked" />
@@ -881,17 +925,27 @@ onMounted(async () => {
           <div class="setup-list-header small"><strong>Draft audit trail</strong><UBadge color="neutral" variant="subtle">{{ draftAudit.length }} events</UBadge></div>
           <div v-for="entry in draftAudit" :key="entry.id" class="gst-audit-row">
             <div><strong>{{ entry.action }}</strong><span>{{ entry.summary }}</span></div>
-            <small>{{ entry.actorName }} · {{ new Date(entry.createdAt).toLocaleString() }}</small>
+            <small>{{ entry.actorName }} | {{ new Date(entry.createdAt).toLocaleString('en-IN') }}</small>
           </div>
         </div>
       </UCard>
+
+      <UAlert
+        v-if="schemaLoadError && !schemaReview"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-circle-alert"
+        title="GST review guidance is unavailable"
+        :description="schemaLoadError"
+        :actions="[{ label: 'Try again', icon: 'i-lucide-refresh-cw', onClick: loadSchemaReview }]"
+      />
 
       <UCard v-if="schemaReview" class="planner-card gst-schema-card">
         <template #header>
           <div class="setup-list-header">
             <div>
               <h3>Portal / Offline Utility Readiness</h3>
-              <p>{{ schemaReview.reviewedOnUtc }} — manual portal validation still required before production filing.</p>
+              <p>{{ schemaReview.reviewedOnUtc }} | Confirm against the GST portal before filing.</p>
             </div>
             <div class="setup-tabs">
               <UBadge color="warning" variant="subtle">Review required</UBadge>

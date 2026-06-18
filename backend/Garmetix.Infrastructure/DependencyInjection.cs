@@ -1,3 +1,4 @@
+using Garmetix.Infrastructure.Audit;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -9,6 +10,8 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddGarmetixInfrastructure(this IServiceCollection services, string connectionString)
     {
+        services.AddScoped<AuditActorContext>();
+
         services.AddDbContext<GarmetixDbContext>(options =>
             options
                 .UseNpgsql(connectionString, postgres =>

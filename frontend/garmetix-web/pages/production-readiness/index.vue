@@ -11,6 +11,27 @@ const readiness = ref<any | null>(null)
 const checklist = ref<any | null>(null)
 const loading = ref(false)
 const lastChecked = ref('')
+const loadError = ref('')
+const emailStatus = ref<any | null>(null)
+const emailTest = reactive({
+  toEmail: '',
+  subject: 'Garmetix SMTP test email',
+  message: 'This is a Garmetix production readiness test email.'
+})
+const emailTestSending = ref(false)
+const emailTestResult = ref('')
+const emailTestError = ref('')
+const gstinStatus = ref<any | null>(null)
+const gstinTest = reactive({
+  gstin: '27AAECA1234F1Z5',
+  partyName: '',
+  address: ''
+})
+const gstinTestSending = ref(false)
+const gstinTestResult = ref<any | null>(null)
+const gstinTestError = ref('')
+
+useHead({ title: 'Production Readiness | Garmetix' })
 
 const statusColor = computed(() => {
   const status = readiness.value?.overallStatus
@@ -42,22 +63,75 @@ async function refresh() {
   }
 
   loading.value = true
+  loadError.value = ''
   try {
-    const [summary, checklistResponse, companyRows, storeRows] = await Promise.all([
+    const [summary, checklistResponse, companyRows, storeRows, emailStatusResponse, gstinStatusResponse] = await Promise.all([
       api.get<any>('production-readiness/summary'),
       api.get<any>('production-readiness/checklist'),
       api.list<any>('companies'),
-      api.list<any>('stores')
+      api.list<any>('stores'),
+      api.get<any>('email-diagnostics/status'),
+      api.get<any>('gstin/provider/status')
     ])
     readiness.value = summary
     checklist.value = checklistResponse
     companies.value = companyRows
     stores.value = storeRows
+    emailStatus.value = emailStatusResponse
+    gstinStatus.value = gstinStatusResponse
     lastChecked.value = new Date().toLocaleTimeString('en-IN')
   } catch (error) {
-    feedback.failed('Production readiness check failed', error)
+    loadError.value = feedback.errorMessage(error, 'Production readiness checks could not be loaded. Try again.', 'Production readiness check failed')
   } finally {
     loading.value = false
+  }
+}
+
+async function sendTestEmail() {
+  emailTestError.value = ''
+  emailTestResult.value = ''
+  if (!emailTest.toEmail.trim()) {
+    emailTestError.value = 'Enter recipient email first.'
+    return
+  }
+
+  emailTestSending.value = true
+  try {
+    const result = await api.create<any>('email-diagnostics/send-test', {
+      toEmail: emailTest.toEmail.trim(),
+      subject: emailTest.subject.trim(),
+      message: emailTest.message.trim()
+    })
+    emailTestResult.value = result?.message || 'Test email sent.'
+    await refresh()
+  } catch (error) {
+    emailTestError.value = feedback.errorMessage(error, 'SMTP test email failed. Check server settings and credentials.', 'SMTP test failed')
+  } finally {
+    emailTestSending.value = false
+  }
+}
+
+
+async function testGstinProvider() {
+  gstinTestError.value = ''
+  gstinTestResult.value = null
+  if (!gstinTest.gstin.trim()) {
+    gstinTestError.value = 'Enter a GSTIN to test.'
+    return
+  }
+
+  gstinTestSending.value = true
+  try {
+    gstinTestResult.value = await api.create<any>('gstin/provider/test', {
+      gstin: gstinTest.gstin.trim(),
+      partyName: gstinTest.partyName.trim() || null,
+      address: gstinTest.address.trim() || null
+    })
+    await refresh()
+  } catch (error) {
+    gstinTestError.value = feedback.errorMessage(error, 'GSTIN provider test failed. Check provider URL/API key and firewall.', 'GSTIN provider test failed')
+  } finally {
+    gstinTestSending.value = false
   }
 }
 
@@ -80,20 +154,12 @@ onMounted(refresh)
     </div>
 
     <div v-else class="space-y-6">
-      <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div class="space-y-3">
-            <div class="flex items-center gap-3">
-              <UIcon :name="statusIcon" class="h-8 w-8 text-primary" />
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Stage 5B</p>
-                <h1 class="text-2xl font-bold text-slate-950 dark:text-white">Production environment hardening</h1>
-              </div>
-            </div>
-            <p class="max-w-3xl text-sm text-slate-500 dark:text-slate-400">
-              Checks secrets, CORS, public URLs, SMTP, backups, off-site backup, Oracle auto-apply safety, reverse proxy headers, and log level before live deployment.
-            </p>
-          </div>
+      <UiModulePageHeader
+        title="Production Readiness"
+        description="Review deployment safeguards, backups, integrations, and service configuration before live operation."
+        :icon="statusIcon"
+      >
+        <template #actions>
           <div class="flex flex-wrap items-center gap-3">
             <UBadge :color="statusColor" variant="soft" size="lg">
               {{ readiness?.overallStatus || 'Not checked' }}
@@ -102,10 +168,24 @@ onMounted(refresh)
               Refresh
             </UButton>
           </div>
-        </div>
+        </template>
+      </UiModulePageHeader>
+
+      <UAlert
+        v-if="loadError"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-circle-alert"
+        title="Production readiness is unavailable"
+        :description="loadError"
+        :actions="[{ label: 'Try again', icon: 'i-lucide-refresh-cw', onClick: refresh }]"
+      />
+
+      <section v-if="loading && !readiness" class="grid gap-4 md:grid-cols-4">
+        <USkeleton v-for="row in 4" :key="row" class="h-28 w-full" />
       </section>
 
-      <section class="grid gap-4 md:grid-cols-4">
+      <section v-else class="grid gap-4 md:grid-cols-4">
         <UCard>
           <p class="text-sm text-slate-500 dark:text-slate-400">Environment</p>
           <p class="mt-2 text-2xl font-semibold text-slate-950 dark:text-white">{{ readiness?.environment || '-' }}</p>
@@ -146,11 +226,17 @@ onMounted(refresh)
         description="Run one final backup/restore preflight and a data consistency scan before first live billing."
       />
 
-      <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div class="border-b border-slate-200 p-5 dark:border-slate-800">
-          <h2 class="text-lg font-semibold text-slate-950 dark:text-white">Readiness checks</h2>
-          <p class="text-sm text-slate-500 dark:text-slate-400">Last checked: {{ lastChecked || '-' }}</p>
-        </div>
+      <UiRegisterPanel
+        title="Readiness checks"
+        :description="`Last checked: ${lastChecked || '-'}`"
+        :loading="loading && !readiness"
+        :error="loadError && !readiness ? loadError : ''"
+        :empty="!loading && !loadError && !checkRows.length"
+        empty-title="No readiness result"
+        empty-description="Run the checks to review production safeguards."
+        empty-icon="i-lucide-shield-check"
+        @retry="refresh"
+      >
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-slate-200 text-sm dark:divide-slate-800">
             <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/40 dark:text-slate-400">
@@ -172,13 +258,136 @@ onMounted(refresh)
                 <td class="px-4 py-3 text-slate-600 dark:text-slate-300">{{ check.message }}</td>
                 <td class="px-4 py-3 text-slate-500 dark:text-slate-400">{{ check.fixHint }}</td>
               </tr>
-              <tr v-if="!checkRows.length">
-                <td colspan="5" class="px-4 py-8 text-center text-slate-500">No readiness result loaded.</td>
-              </tr>
             </tbody>
           </table>
         </div>
-      </section>
+      </UiRegisterPanel>
+
+
+<UCard>
+  <template #header>
+    <div class="flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <UIcon name="i-lucide-badge-indian-rupee" class="h-5 w-5" />
+        <h2 class="font-semibold">GSTIN provider validation</h2>
+      </div>
+      <UBadge :color="gstinStatus?.ready ? 'success' : 'warning'" variant="soft">
+        {{ gstinStatus?.ready ? 'Ready' : 'Needs setup' }}
+      </UBadge>
+    </div>
+  </template>
+
+  <div class="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
+    <div class="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+      <p><strong>Enabled:</strong> {{ gstinStatus?.enabled ? 'Yes' : 'No' }}</p>
+      <p><strong>Provider:</strong> {{ gstinStatus?.sourceName || '-' }}</p>
+      <p><strong>Base URL:</strong> {{ gstinStatus?.baseUrl || '-' }}</p>
+      <p><strong>Header:</strong> {{ gstinStatus?.apiKeyHeaderName || '-' }}</p>
+      <ul v-if="gstinStatus?.issues?.length" class="mt-3 list-disc space-y-1 pl-5 text-amber-600 dark:text-amber-300">
+        <li v-for="issue in gstinStatus.issues" :key="issue">{{ issue }}</li>
+      </ul>
+      <ul v-if="gstinStatus?.recommendations?.length" class="mt-3 list-disc space-y-1 pl-5 text-slate-500 dark:text-slate-400">
+        <li v-for="item in gstinStatus.recommendations" :key="item">{{ item }}</li>
+      </ul>
+    </div>
+
+    <form class="space-y-3" @submit.prevent="testGstinProvider">
+      <UFormField label="Test GSTIN">
+        <UInput v-model="gstinTest.gstin" placeholder="27AAECA1234F1Z5" />
+      </UFormField>
+      <UFormField label="Optional party name">
+        <UInput v-model="gstinTest.partyName" placeholder="Customer or vendor legal name" />
+      </UFormField>
+      <UFormField label="Optional address">
+        <UTextarea v-model="gstinTest.address" :rows="2" placeholder="Address for similarity check" />
+      </UFormField>
+      <div class="flex flex-wrap items-center gap-3">
+        <UButton type="submit" icon="i-lucide-search-check" :loading="gstinTestSending">
+          Test GSTIN lookup
+        </UButton>
+        <span v-if="gstinTestResult" class="text-sm" :class="gstinTestResult.success ? 'text-emerald-600' : 'text-amber-600'">
+          {{ gstinTestResult.message }}
+        </span>
+      </div>
+      <UAlert
+        v-if="gstinTestError"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-circle-alert"
+        title="GSTIN test failed"
+        :description="gstinTestError"
+      />
+      <div v-if="gstinTestResult?.lookup" class="rounded-2xl border border-slate-200 p-3 text-sm dark:border-slate-800">
+        <p><strong>Status:</strong> {{ gstinTestResult.lookup.status }}</p>
+        <p><strong>Legal:</strong> {{ gstinTestResult.lookup.legalName || '-' }}</p>
+        <p><strong>Trade:</strong> {{ gstinTestResult.lookup.tradeName || '-' }}</p>
+        <p><strong>State:</strong> {{ gstinTestResult.lookup.stateCode || '-' }}</p>
+        <ul v-if="gstinTestResult.alerts?.length" class="mt-2 list-disc pl-5 text-amber-600 dark:text-amber-300">
+          <li v-for="alert in gstinTestResult.alerts" :key="alert">{{ alert }}</li>
+        </ul>
+      </div>
+    </form>
+  </div>
+</UCard>
+
+<UCard>
+  <template #header>
+    <div class="flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <UIcon name="i-lucide-mail-check" class="h-5 w-5" />
+        <h2 class="font-semibold">SMTP email delivery test</h2>
+      </div>
+      <UBadge :color="emailStatus?.ready ? 'success' : 'warning'" variant="soft">
+        {{ emailStatus?.ready ? 'Configured' : 'Needs setup' }}
+      </UBadge>
+    </div>
+  </template>
+
+  <div class="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
+    <div class="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+      <p><strong>Host:</strong> {{ emailStatus?.host || '-' }}</p>
+      <p><strong>Port:</strong> {{ emailStatus?.port || '-' }} / SSL {{ emailStatus?.enableSsl ? 'on' : 'off' }}</p>
+      <p><strong>From:</strong> {{ emailStatus?.fromEmail || '-' }}</p>
+      <ul v-if="emailStatus?.issues?.length" class="mt-3 list-disc space-y-1 pl-5 text-amber-600 dark:text-amber-300">
+        <li v-for="issue in emailStatus.issues" :key="issue">{{ issue }}</li>
+      </ul>
+      <p v-else class="mt-3 text-emerald-600 dark:text-emerald-300">
+        SMTP settings look ready. Send a test email before go-live.
+      </p>
+    </div>
+
+    <form class="space-y-3" @submit.prevent="sendTestEmail">
+      <UFormField label="Test recipient email">
+        <UInput v-model="emailTest.toEmail" placeholder="owner@example.com" autocomplete="email" />
+      </UFormField>
+      <UFormField label="Subject">
+        <UInput v-model="emailTest.subject" />
+      </UFormField>
+      <UFormField label="Message">
+        <UTextarea v-model="emailTest.message" :rows="3" />
+      </UFormField>
+      <UAlert
+        v-if="emailTestError"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-circle-alert"
+        title="SMTP test failed"
+        :description="emailTestError"
+      />
+      <UAlert
+        v-if="emailTestResult"
+        color="success"
+        variant="subtle"
+        icon="i-lucide-mail-check"
+        title="SMTP test completed"
+        :description="emailTestResult"
+      />
+      <UButton type="submit" icon="i-lucide-send" :loading="emailTestSending">
+        Send test email
+      </UButton>
+    </form>
+  </div>
+</UCard>
 
       <section class="grid gap-4 lg:grid-cols-2">
         <UCard>
@@ -199,15 +408,13 @@ onMounted(refresh)
         <UCard>
           <template #header>
             <div class="flex items-center gap-2">
-              <UIcon name="i-lucide-terminal" class="h-5 w-5" />
-              <h2 class="font-semibold">Useful commands</h2>
+              <UIcon name="i-lucide-clipboard-check" class="h-5 w-5" />
+              <h2 class="font-semibold">Final verification</h2>
             </div>
           </template>
-          <pre class="overflow-x-auto rounded-2xl bg-slate-950 p-4 text-xs text-slate-100">cp .env.production.example .env.production
-scripts/linux/generate-secrets.sh .env.production
-scripts/linux/production-preflight.sh .env.production
-docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
-scripts/linux/monitor-health.sh .env.production</pre>
+          <p class="text-sm text-slate-600 dark:text-slate-300">
+            Confirm a successful backup and restore test, secure public access, message delivery, and a clean data consistency scan before enabling live billing.
+          </p>
         </UCard>
       </section>
     </div>

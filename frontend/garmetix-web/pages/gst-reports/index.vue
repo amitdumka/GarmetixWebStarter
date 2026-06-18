@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const api = useGarmetixApi()
 const auth = useAuth()
+const workspace = useWorkspace()
 const feedback = useUiFeedback()
 const config = useRuntimeConfig()
 const isAuthenticated = auth.isAuthenticated
@@ -8,6 +9,7 @@ const isAuthenticated = auth.isAuthenticated
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const loading = ref(false)
+const loadError = ref('')
 const hsnReport = ref<any | null>(null)
 const taxReport = ref<any | null>(null)
 const invoiceRegister = ref<any | null>(null)
@@ -26,6 +28,7 @@ const directionOptions = [
 const hsnRows = computed(() => hsnReport.value?.rows || [])
 const taxRows = computed(() => taxReport.value?.rows || [])
 const registerRows = computed(() => invoiceRegister.value?.rows || [])
+const selectedCompanyId = computed(() => workspace.companyId.value || companies.value[0]?.id || '')
 
 function money(value: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(value || 0))
@@ -42,6 +45,9 @@ function formatDate(value: string) {
 function query(includeDirection = true) {
   const params = new URLSearchParams()
   params.set('returnPeriod', filters.returnPeriod)
+  if (selectedCompanyId.value) {
+    params.set('companyId', selectedCompanyId.value)
+  }
   if (includeDirection) {
     params.set('direction', filters.direction)
   }
@@ -52,12 +58,16 @@ async function refreshShell() {
   if (!auth.isAuthenticated.value) {
     return
   }
-  const [companyRows, storeRows] = await Promise.all([
-    api.list<any>('companies'),
-    api.list<any>('stores')
-  ])
-  companies.value = companyRows
-  stores.value = storeRows
+  try {
+    const [companyRows, storeRows] = await Promise.all([
+      api.list<any>('companies'),
+      api.list<any>('stores')
+    ])
+    companies.value = companyRows
+    stores.value = storeRows
+  } catch (error) {
+    loadError.value = feedback.errorMessage(error, 'Please check the service and try again.', 'GST report setup failed')
+  }
 }
 
 async function refreshAll() {
@@ -71,6 +81,7 @@ async function loadReports() {
     return
   }
   loading.value = true
+  loadError.value = ''
   try {
     const [hsn, tax, register] = await Promise.all([
       api.get<any>(`gst-returns/reports/hsn-summary?${query(true)}`),
@@ -82,7 +93,7 @@ async function loadReports() {
     invoiceRegister.value = register
     feedback.notify('GST reports refreshed', `${hsn.rowCount || 0} HSN rows and ${register.rowCount || 0} register rows loaded.`, 'success')
   } catch (error: any) {
-    feedback.fromError(error, 'Unable to load GST reports')
+    loadError.value = feedback.errorMessage(error, 'Please check the selected period and try again.', 'Unable to load GST reports')
   } finally {
     loading.value = false
   }
@@ -131,7 +142,7 @@ onMounted(async () => {
       <UCard class="planner-card">
         <div class="gst-report-header">
           <div>
-            <p class="eyebrow">Stage 4C</p>
+            <p class="eyebrow">GST reports</p>
             <h1>GST / HSN Reports</h1>
             <p>Book-based HSN summary, GST rate reconciliation, and invoice register using stored invoice item snapshots.</p>
           </div>
@@ -156,10 +167,18 @@ onMounted(async () => {
         <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-scale" color="warning" variant="subtle" /><div><p>Net Payable</p><strong>{{ money(taxReport?.netTaxPayable || 0) }}</strong><span>Output less input</span></div></div></UCard>
       </div>
 
-      <UCard class="planner-card">
-        <template #header>
-          <div class="section-header"><div><h2>HSN Summary</h2><p>Uses invoice item HSN snapshot first, then product HSN fallback.</p></div><UButton size="sm" variant="subtle" icon="i-lucide-download" label="CSV" @click="downloadCsv('hsn-summary')" /></div>
-        </template>
+      <UiRegisterPanel
+        title="HSN Summary"
+        description="Uses invoice item HSN snapshot first, then product HSN fallback."
+        :loading="loading"
+        :error="loadError"
+        :empty="hsnRows.length === 0"
+        empty-title="No HSN rows found"
+        empty-description="Change the return period or direction, then refresh."
+        empty-icon="i-lucide-receipt-text"
+        @retry="loadReports"
+      >
+        <template #actions><UButton size="sm" variant="subtle" icon="i-lucide-download" label="CSV" @click="downloadCsv('hsn-summary')" /></template>
         <div class="table-wrap">
           <table>
             <thead><tr><th>#</th><th>Type</th><th>HSN</th><th>Description</th><th>UQC</th><th>Rate</th><th>Qty</th><th>Taxable</th><th>CGST</th><th>SGST</th><th>IGST</th><th>Total</th></tr></thead>
@@ -167,16 +186,23 @@ onMounted(async () => {
               <tr v-for="row in hsnRows" :key="`${row.direction}-${row.hsnCode}-${row.rate}-${row.serialNumber}`">
                 <td>{{ row.serialNumber }}</td><td>{{ row.direction }}</td><td>{{ row.hsnCode }}</td><td>{{ row.description }}</td><td>{{ row.uqc }}</td><td>{{ number(row.rate) }}%</td><td>{{ number(row.quantity) }}</td><td>{{ money(row.taxableValue) }}</td><td>{{ money(row.cgstAmount) }}</td><td>{{ money(row.sgstAmount) }}</td><td>{{ money(row.igstAmount) }}</td><td>{{ money(row.totalValue) }}</td>
               </tr>
-              <tr v-if="!hsnRows.length"><td colspan="12" class="empty">No HSN rows found for this period.</td></tr>
             </tbody>
           </table>
         </div>
-      </UCard>
+      </UiRegisterPanel>
 
-      <UCard class="planner-card">
-        <template #header>
-          <div class="section-header"><div><h2>GST Rate Reconciliation</h2><p>Output tax, input tax, and net payable grouped by GST rate.</p></div><UButton size="sm" variant="subtle" icon="i-lucide-download" label="CSV" @click="downloadCsv('tax-summary')" /></div>
-        </template>
+      <UiRegisterPanel
+        title="GST Rate Reconciliation"
+        description="Output tax, input tax, and net payable grouped by GST rate."
+        :loading="loading"
+        :error="loadError"
+        :empty="taxRows.length === 0"
+        empty-title="No GST rate rows found"
+        empty-description="Change the return period and refresh the report."
+        empty-icon="i-lucide-scale"
+        @retry="loadReports"
+      >
+        <template #actions><UButton size="sm" variant="subtle" icon="i-lucide-download" label="CSV" @click="downloadCsv('tax-summary')" /></template>
         <div class="table-wrap">
           <table>
             <thead><tr><th>Rate</th><th>Sales Taxable</th><th>Sales CGST</th><th>Sales SGST</th><th>Sales IGST</th><th>Purchase Taxable</th><th>Purchase CGST</th><th>Purchase SGST</th><th>Purchase IGST</th><th>Net Payable</th></tr></thead>
@@ -184,16 +210,23 @@ onMounted(async () => {
               <tr v-for="row in taxRows" :key="row.rate">
                 <td>{{ number(row.rate) }}%</td><td>{{ money(row.salesTaxableValue) }}</td><td>{{ money(row.salesCgstAmount) }}</td><td>{{ money(row.salesSgstAmount) }}</td><td>{{ money(row.salesIgstAmount) }}</td><td>{{ money(row.purchaseTaxableValue) }}</td><td>{{ money(row.purchaseCgstAmount) }}</td><td>{{ money(row.purchaseSgstAmount) }}</td><td>{{ money(row.purchaseIgstAmount) }}</td><td>{{ money(row.netTaxPayable) }}</td>
               </tr>
-              <tr v-if="!taxRows.length"><td colspan="10" class="empty">No GST rate rows found.</td></tr>
             </tbody>
           </table>
         </div>
-      </UCard>
+      </UiRegisterPanel>
 
-      <UCard class="planner-card">
-        <template #header>
-          <div class="section-header"><div><h2>Invoice Register</h2><p>Sales and purchase register with GST split totals.</p></div><UButton size="sm" variant="subtle" icon="i-lucide-download" label="CSV" @click="downloadCsv('invoice-register')" /></div>
-        </template>
+      <UiRegisterPanel
+        title="Invoice Register"
+        description="Sales and purchase register with GST split totals."
+        :loading="loading"
+        :error="loadError"
+        :empty="registerRows.length === 0"
+        empty-title="No invoices found"
+        empty-description="Change the return period or direction, then refresh."
+        empty-icon="i-lucide-files"
+        @retry="loadReports"
+      >
+        <template #actions><UButton size="sm" variant="subtle" icon="i-lucide-download" label="CSV" @click="downloadCsv('invoice-register')" /></template>
         <div class="table-wrap">
           <table>
             <thead><tr><th>Type</th><th>Invoice</th><th>Ref</th><th>Date</th><th>Party</th><th>GSTIN</th><th>Status</th><th>Taxable</th><th>CGST</th><th>SGST</th><th>IGST</th><th>Bill</th></tr></thead>
@@ -201,11 +234,10 @@ onMounted(async () => {
               <tr v-for="row in registerRows" :key="`${row.direction}-${row.invoiceNumber}-${row.onDate}`">
                 <td>{{ row.direction }}</td><td>{{ row.invoiceNumber }}</td><td>{{ row.referenceNumber || '-' }}</td><td>{{ formatDate(row.onDate) }}</td><td>{{ row.partyName }}</td><td>{{ row.partyGstin || '-' }}</td><td>{{ row.invoiceStatus }}</td><td>{{ money(row.taxableValue) }}</td><td>{{ money(row.cgstAmount) }}</td><td>{{ money(row.sgstAmount) }}</td><td>{{ money(row.igstAmount) }}</td><td>{{ money(row.billAmount) }}</td>
               </tr>
-              <tr v-if="!registerRows.length"><td colspan="12" class="empty">No invoices found for this period.</td></tr>
             </tbody>
           </table>
         </div>
-      </UCard>
+      </UiRegisterPanel>
     </section>
   </AppShell>
 </template>

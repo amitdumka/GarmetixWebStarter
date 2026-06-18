@@ -10,6 +10,7 @@ const stores = ref<any[]>([])
 const loading = ref(false)
 const summary = ref<any | null>(null)
 const issues = ref<any[]>([])
+const loadError = ref('')
 const filters = reactive({
   severity: 'All',
   area: 'All'
@@ -22,6 +23,8 @@ const repairConfirm = ref(false)
 const repairReason = ref('')
 const repairLoading = ref(false)
 const repairPreview = ref<any | null>(null)
+
+useHead({ title: 'Data Consistency | Garmetix' })
 
 const severityOptions = [
   { label: 'All', value: 'All' },
@@ -76,12 +79,16 @@ async function refreshShell() {
   if (!auth.isAuthenticated.value) {
     return
   }
-  const [companyRows, storeRows] = await Promise.all([
-    api.list<any>('companies'),
-    api.list<any>('stores')
-  ])
-  companies.value = companyRows
-  stores.value = storeRows
+  try {
+    const [companyRows, storeRows] = await Promise.all([
+      api.list<any>('companies'),
+      api.list<any>('stores')
+    ])
+    companies.value = companyRows
+    stores.value = storeRows
+  } catch (error) {
+    loadError.value ||= feedback.errorMessage(error, 'Workspace options could not be loaded. Try again.', 'Data consistency workspace load failed')
+  }
 }
 
 async function loadRepairActions() {
@@ -91,28 +98,28 @@ async function loadRepairActions() {
       selectedRepairAction.value = repairActions.value[0].code
     }
   } catch (error: any) {
-    feedback.fromError(error, 'Unable to load repair actions')
+    loadError.value ||= feedback.errorMessage(error, 'Repair options could not be loaded. Try again.', 'Repair options load failed')
   }
 }
 
 async function loadChecks() {
   loading.value = true
+  loadError.value = ''
   try {
     const result = await api.get<any>('data-consistency/issues')
     summary.value = result.summary
     issues.value = result.issues || []
     feedback.notify('Data consistency check completed', `${result.summary?.totalIssues || 0} issue(s) found.`, result.summary?.criticalIssues ? 'warning' : 'success')
   } catch (error: any) {
-    feedback.fromError(error, 'Unable to run data consistency checks')
+    loadError.value = feedback.errorMessage(error, 'Data consistency checks could not be completed. Try again.', 'Data consistency check failed')
   } finally {
     loading.value = false
   }
 }
 
 async function refreshAll() {
-  await refreshShell()
-  await loadRepairActions()
-  await loadChecks()
+  loadError.value = ''
+  await Promise.all([refreshShell(), loadRepairActions(), loadChecks()])
 }
 
 async function previewRepair() {
@@ -201,10 +208,8 @@ function formatDate(value: string | null | undefined) {
 
 onMounted(async () => {
   auth.restore()
-  await refreshShell()
   if (auth.isAuthenticated.value) {
-    await loadRepairActions()
-    await loadChecks()
+    await refreshAll()
   }
 })
 </script>
@@ -220,19 +225,31 @@ onMounted(async () => {
     @refresh="refreshAll"
   >
     <section class="consistency-page">
-      <UCard class="planner-card">
-        <div class="consistency-header">
-          <div>
-            <p class="eyebrow">Stage 4D</p>
-            <h1>Data Consistency Verification</h1>
-            <p>Run production-readiness checks for stock, document numbers, GST totals, payments, and accounting journals.</p>
-          </div>
+      <UiModulePageHeader
+        title="Data Consistency"
+        description="Verify stock, document numbers, GST totals, payments, and accounting journals before closing or release."
+        icon="i-lucide-shield-check"
+      >
+        <template #actions>
           <div class="header-actions">
             <UBadge :label="healthBadge.label" :color="healthBadge.color" :icon="healthBadge.icon" variant="subtle" />
             <UButton icon="i-lucide-refresh-cw" label="Run checks" :loading="loading" @click="loadChecks" />
             <UButton icon="i-lucide-download" label="CSV" variant="subtle" @click="downloadCsv" />
           </div>
-        </div>
+        </template>
+      </UiModulePageHeader>
+
+      <UAlert
+        v-if="loadError"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-circle-alert"
+        title="Data consistency tools are unavailable"
+        :description="loadError"
+        :actions="[{ label: 'Try again', icon: 'i-lucide-refresh-cw', onClick: refreshAll }]"
+      />
+
+      <UCard class="planner-card">
         <div class="filters">
           <UFormField label="Severity">
             <USelect v-model="filters.severity" :items="severityOptions" />
@@ -253,10 +270,17 @@ onMounted(async () => {
         <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-info" color="neutral" variant="subtle" /><div><p>Info</p><strong>{{ summary?.infoIssues || 0 }}</strong><span>Optional cleanup</span></div></div></UCard>
       </div>
 
-      <UCard class="planner-card">
-        <template #header>
-          <div class="section-header"><div><h2>Check Summary</h2><p>Issue counts by functional area.</p></div></div>
-        </template>
+      <UiRegisterPanel
+        title="Check Summary"
+        description="Issue counts by functional area."
+        :loading="loading && !summary"
+        :error="loadError && !summary ? loadError : ''"
+        :empty="!loading && !loadError && !(summary?.sections || []).length"
+        empty-title="No check summary"
+        empty-description="Run the checks to generate a consistency summary."
+        empty-icon="i-lucide-list-checks"
+        @retry="loadChecks"
+      >
         <div class="section-grid">
           <div v-for="section in summary?.sections || []" :key="section.area" class="section-card">
             <strong>{{ section.area }}</strong>
@@ -267,9 +291,8 @@ onMounted(async () => {
               <UBadge :label="`${section.infoIssues} info`" color="neutral" variant="subtle" />
             </div>
           </div>
-          <div v-if="!(summary?.sections || []).length" class="empty-state">No check results yet.</div>
         </div>
-      </UCard>
+      </UiRegisterPanel>
 
       <UCard class="planner-card">
         <template #header>
@@ -333,10 +356,17 @@ onMounted(async () => {
         </div>
       </UCard>
 
-      <UCard class="planner-card">
-        <template #header>
-          <div class="section-header"><div><h2>Issue Details</h2><p>Filtered issue list with reference number and expected/actual values.</p></div></div>
-        </template>
+      <UiRegisterPanel
+        title="Issue Details"
+        description="Filtered issue list with reference number and expected and actual values."
+        :loading="loading && !summary"
+        :error="loadError && !summary ? loadError : ''"
+        :empty="!loading && !loadError && !filteredIssues.length"
+        empty-title="No issues for this filter"
+        empty-description="No consistency issues match the selected severity and area."
+        empty-icon="i-lucide-circle-check"
+        @retry="loadChecks"
+      >
         <div class="table-wrap">
           <table>
             <thead><tr><th>Severity</th><th>Area</th><th>Check</th><th>Reference</th><th>Entity</th><th>Expected</th><th>Actual</th><th>Diff</th><th>Description</th></tr></thead>
@@ -352,21 +382,19 @@ onMounted(async () => {
                 <td>{{ issue.difference === null || issue.difference === undefined ? '-' : issue.difference }}</td>
                 <td>{{ issue.description }}</td>
               </tr>
-              <tr v-if="!filteredIssues.length"><td colspan="9" class="empty">No issues found for this filter.</td></tr>
             </tbody>
           </table>
         </div>
-      </UCard>
+      </UiRegisterPanel>
     </section>
   </AppShell>
 </template>
 
 <style scoped>
 .consistency-page { display: grid; gap: 1rem; }
-.consistency-header, .section-header { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; }
-.consistency-header h1, .section-header h2 { margin: 0; }
-.consistency-header p, .section-header p { margin: .35rem 0 0; color: rgb(var(--color-gray-500)); }
-.eyebrow { text-transform: uppercase; letter-spacing: .12em; font-size: .72rem; font-weight: 700; color: rgb(var(--color-primary-500)); }
+.section-header { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; }
+.section-header h2 { margin: 0; }
+.section-header p { margin: .35rem 0 0; color: rgb(var(--color-gray-500)); }
 .header-actions { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem; }
 .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
@@ -389,5 +417,5 @@ td span { color: rgb(var(--color-gray-500)); font-size: .78rem; }
 .empty, .empty-state { text-align: center; color: rgb(var(--color-gray-500)); padding: 1.5rem; }
 .dark th { background: rgb(var(--color-gray-900)); }
 .dark th, .dark td, .dark .section-card { border-color: rgb(var(--color-gray-800)); }
-@media (max-width: 720px) { .consistency-header, .section-header { flex-direction: column; } .header-actions { justify-content: flex-start; } .repair-grid { grid-template-columns: 1fr; } }
+@media (max-width: 720px) { .section-header { flex-direction: column; } .header-actions { justify-content: flex-start; width: 100%; } .repair-grid { grid-template-columns: 1fr; } }
 </style>

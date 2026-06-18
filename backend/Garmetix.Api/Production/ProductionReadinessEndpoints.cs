@@ -59,6 +59,7 @@ public static class ProductionReadinessEndpoints
         AddEmailCheck(checks, configuration, environment);
         AddBackupCheck(checks, backupOptions.Value);
         AddGoogleDriveCheck(checks, configuration);
+        AddGstinCheck(checks, configuration);
         AddOracleSyncCheck(checks, configuration);
         AddForwardedHeadersCheck(checks, configuration, environment);
         AddLoggingCheck(checks, configuration);
@@ -201,6 +202,27 @@ public static class ProductionReadinessEndpoints
                 : "Local backups are disabled, missing a usable directory, or retention is too low.",
             "Keep BACKUP_ENABLED=true, mount ./backups, and keep at least 7 restore points.");
     }
+
+
+private static void AddGstinCheck(List<ProductionReadinessCheckDto> checks, IConfiguration configuration)
+{
+    var enabled = configuration.GetValue<bool>("GstinLookup:Enabled");
+    var baseUrl = configuration["GstinLookup:BaseUrl"] ?? string.Empty;
+    var apiKey = configuration["GstinLookup:ApiKey"] ?? string.Empty;
+    var sourceName = configuration["GstinLookup:SourceName"] ?? string.Empty;
+    var ready = enabled
+        && !string.IsNullOrWhiteSpace(baseUrl)
+        && !string.IsNullOrWhiteSpace(apiKey)
+        && !sourceName.Contains("Configured", StringComparison.OrdinalIgnoreCase);
+
+    Add(checks,
+        "GSTIN_PROVIDER",
+        "GSTIN provider lookup",
+        ready ? "Pass" : "Warning",
+        ready ? "Info" : "Medium",
+        ready ? $"GSTIN provider {sourceName} appears configured." : "GSTIN provider is disabled, missing credentials, or still uses placeholder source name.",
+        "Configure GSTIN_LOOKUP_ENABLED, GSTIN_LOOKUP_BASE_URL, GSTIN_LOOKUP_API_KEY and GSTIN_LOOKUP_SOURCE_NAME, then run the provider test.");
+}
 
     private static void AddGoogleDriveCheck(List<ProductionReadinessCheckDto> checks, IConfiguration configuration)
     {

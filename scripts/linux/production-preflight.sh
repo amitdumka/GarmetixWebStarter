@@ -15,7 +15,12 @@ pass() { echo -e "${green}PASS${nc} $*"; }
 [[ -f "$ENV_FILE" ]] || fail "Missing env file: $ENV_FILE"
 [[ -f "$COMPOSE_FILE" ]] || fail "Missing compose file: $COMPOSE_FILE"
 
-if [[ -f "$ENV_FILE" ]]; then
+if [[ -f "deploy/lib/env-file.sh" ]]; then
+  # shellcheck source=/dev/null
+  source "deploy/lib/env-file.sh"
+  normalize_env_file "$ENV_FILE" || true
+  export_env_file_safe "$ENV_FILE" || true
+elif [[ -f "$ENV_FILE" ]]; then
   set -a
   # shellcheck disable=SC1090
   source "$ENV_FILE"

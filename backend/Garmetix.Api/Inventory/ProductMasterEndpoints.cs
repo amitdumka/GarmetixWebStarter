@@ -29,6 +29,9 @@ public static class ProductMasterEndpoints
     private static async Task<IReadOnlyList<ProductMasterRow>> ListAsync(HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
     {
         var products = await WorkspaceScope.ApplyTo(db.Products.AsNoTracking(), context)
+            .Where(product =>
+                !db.Stocks.Any(stock => stock.ProductId == product.Id) ||
+                db.Stocks.Any(stock => stock.ProductId == product.Id && !stock.IsOFB))
             .Include(item => item.ProductCategory)
             .Include(item => item.ProductSubCategory)
             .OrderBy(item => item.Name)
@@ -41,7 +44,7 @@ public static class ProductMasterEndpoints
         }
 
         var stocks = await WorkspaceScope.ApplyTo(db.Stocks.AsNoTracking(), context)
-            .Where(item => productIds.Contains(item.ProductId))
+            .Where(item => !item.IsOFB && productIds.Contains(item.ProductId))
             .ToListAsync(cancellationToken);
 
         var details = await WorkspaceScope.ApplyTo(db.ProductDetails.AsNoTracking(), context)
@@ -90,7 +93,12 @@ public static class ProductMasterEndpoints
             EnumOptions<StockType>());
     }
 
-    private static async Task<IResult> CreateAsync(ProductMasterRequest request, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> CreateAsync(
+        ProductMasterRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        StockLedgerService stockLedger,
+        CancellationToken cancellationToken)
     {
         var validation = ValidateBasics(request);
         if (validation is not null)
@@ -98,6 +106,17 @@ public static class ProductMasterEndpoints
             return Results.BadRequest(new { message = validation });
         }
 
+        var strategy = db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(() => CreateInTransactionAsync(request, context, db, stockLedger, cancellationToken));
+    }
+
+    private static async Task<IResult> CreateInTransactionAsync(
+        ProductMasterRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        StockLedgerService stockLedger,
+        CancellationToken cancellationToken)
+    {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
         var scope = await ResolveScopeAsync(request, context, db, cancellationToken);
@@ -109,7 +128,11 @@ public static class ProductMasterEndpoints
         var barcode = request.Barcode.Trim();
         await DocumentNumberGenerator.LockStockKeyAsync(db, scope.Value.CompanyId, scope.Value.StoreGroupId, scope.Value.StoreId, Guid.Empty, barcode, cancellationToken);
 
-        if (await db.Products.AnyAsync(item => item.CompanyId == scope.Value.CompanyId && item.Barcode == barcode, cancellationToken))
+        if (await db.Stocks.AnyAsync(item =>
+                item.CompanyId == scope.Value.CompanyId &&
+                item.Barcode == barcode &&
+                !item.IsOFB,
+                cancellationToken))
         {
             return Results.Conflict(new { message = $"Barcode {barcode} already exists in this company." });
         }
@@ -142,13 +165,14 @@ public static class ProductMasterEndpoints
             Barcode = barcode,
             HSNCode = product.HSNCode,
             Unit = product.Unit,
-            PurchaseQty = request.OpeningQuantity,
-            CostPrice = request.CostPrice,
+            PurchaseQty = 0,
+            CostPrice = 0,
             MRP = product.MRP,
             TaxRate = product.TaxRate,
             TaxType = product.TaxType,
             TaxId = tax.Id,
             StockType = request.StockType ?? StockType.Billed,
+            IsOFB = false,
             CompanyId = scope.Value.CompanyId,
             StoreGroupId = scope.Value.StoreGroupId,
             StoreId = scope.Value.StoreId
@@ -178,16 +202,13 @@ public static class ProductMasterEndpoints
             db.ProductDetails.Add(detail);
         }
 
-        if (request.OpeningQuantity != 0)
+        if (request.OpeningQuantity > 0)
         {
-            db.StockMovements.Add(new StockMovement
+            await stockLedger.PostAsync(stock, new StockMovement
             {
-                StockId = stock.Id,
-                ProductId = product.Id,
-                Barcode = barcode,
+                Barcode = stock.Barcode,
                 MovementType = "Opening",
-                QuantityIn = request.OpeningQuantity > 0 ? request.OpeningQuantity : 0,
-                QuantityOut = request.OpeningQuantity < 0 ? Math.Abs(request.OpeningQuantity) : 0,
+                QuantityIn = request.OpeningQuantity,
                 CostPrice = request.CostPrice,
                 MRP = product.MRP,
                 TaxRate = product.TaxRate,
@@ -199,7 +220,7 @@ public static class ProductMasterEndpoints
                 CompanyId = scope.Value.CompanyId,
                 StoreGroupId = scope.Value.StoreGroupId,
                 StoreId = scope.Value.StoreId
-            });
+            }, cancellationToken);
         }
 
         await db.SaveChangesAsync(cancellationToken);
@@ -207,7 +228,13 @@ public static class ProductMasterEndpoints
         return Results.Created($"/api/inventory/product-master/{product.Id}", ToRow(product, new[] { stock }, detail));
     }
 
-    private static async Task<IResult> UpdateAsync(Guid id, ProductMasterRequest request, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> UpdateAsync(
+        Guid id,
+        ProductMasterRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        StockLedgerService stockLedger,
+        CancellationToken cancellationToken)
     {
         var validation = ValidateBasics(request);
         if (validation is not null)
@@ -215,6 +242,18 @@ public static class ProductMasterEndpoints
             return Results.BadRequest(new { message = validation });
         }
 
+        var strategy = db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(() => UpdateInTransactionAsync(id, request, context, db, stockLedger, cancellationToken));
+    }
+
+    private static async Task<IResult> UpdateInTransactionAsync(
+        Guid id,
+        ProductMasterRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        StockLedgerService stockLedger,
+        CancellationToken cancellationToken)
+    {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
         var product = await WorkspaceScope.ApplyTo(db.Products, context)
@@ -236,7 +275,12 @@ public static class ProductMasterEndpoints
 
         await DocumentNumberGenerator.LockStockKeyAsync(db, scope.Value.CompanyId, scope.Value.StoreGroupId, scope.Value.StoreId, product.Id, barcode, cancellationToken);
 
-        if (await db.Products.AnyAsync(item => item.CompanyId == product.CompanyId && item.Id != product.Id && item.Barcode == barcode, cancellationToken))
+        if (await db.Stocks.AnyAsync(item =>
+                item.CompanyId == product.CompanyId &&
+                item.ProductId != product.Id &&
+                item.Barcode == barcode &&
+                !item.IsOFB,
+                cancellationToken))
         {
             return Results.Conflict(new { message = $"Barcode {barcode} already exists in this company." });
         }
@@ -258,11 +302,13 @@ public static class ProductMasterEndpoints
         product.ProductCategoryId = category.Id;
         product.ProductSubCategoryId = subCategory.Id;
 
+        var isNewStock = stock is null;
         stock ??= new Stock
         {
             ProductId = product.Id,
             Barcode = barcode,
-            PurchaseQty = request.OpeningQuantity,
+            PurchaseQty = 0,
+            CostPrice = 0,
             CompanyId = scope.Value.CompanyId,
             StoreGroupId = scope.Value.StoreGroupId,
             StoreId = scope.Value.StoreId
@@ -271,12 +317,12 @@ public static class ProductMasterEndpoints
         stock.Barcode = barcode;
         stock.HSNCode = product.HSNCode;
         stock.Unit = product.Unit;
-        stock.CostPrice = request.CostPrice;
         stock.MRP = product.MRP;
         stock.TaxRate = product.TaxRate;
         stock.TaxType = product.TaxType;
         stock.TaxId = tax.Id;
         stock.StockType = request.StockType ?? stock.StockType;
+        stock.IsOFB = false;
 
         var detail = await db.ProductDetails.FirstOrDefaultAsync(item => item.CompanyId == product.CompanyId && item.ProductId == product.Id, cancellationToken);
         if (ShouldKeepDetail(request))
@@ -324,6 +370,31 @@ public static class ProductMasterEndpoints
         if (stock.Id == Guid.Empty || db.Entry(stock).State == EntityState.Detached)
         {
             db.Stocks.Add(stock);
+        }
+
+        if (isNewStock && request.OpeningQuantity > 0)
+        {
+            await stockLedger.PostAsync(stock, new StockMovement
+            {
+                Barcode = stock.Barcode,
+                MovementType = "Opening",
+                QuantityIn = request.OpeningQuantity,
+                CostPrice = request.CostPrice,
+                MRP = product.MRP,
+                TaxRate = product.TaxRate,
+                HSNCode = product.HSNCode,
+                SourceType = "ProductMaster",
+                SourceId = product.Id,
+                SourceNumber = barcode,
+                Remarks = "Opening quantity created while updating product master",
+                CompanyId = scope.Value.CompanyId,
+                StoreGroupId = scope.Value.StoreGroupId,
+                StoreId = scope.Value.StoreId
+            }, cancellationToken);
+        }
+        else if (!isNewStock)
+        {
+            await stockLedger.RebuildProjectionAsync(stock, cancellationToken);
         }
 
         await db.SaveChangesAsync(cancellationToken);
@@ -405,7 +476,8 @@ public static class ProductMasterEndpoints
     private static async Task<Stock?> ResolveStockForUpdateAsync(Guid productId, Guid? requestStoreId, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
     {
         var storeId = NormalizeGuid(requestStoreId) ?? WorkspaceScope.ClaimGuid(context, "storeId");
-        var query = WorkspaceScope.ApplyTo(db.Stocks, context).Where(item => item.ProductId == productId);
+        var query = WorkspaceScope.ApplyTo(db.Stocks, context)
+            .Where(item => item.ProductId == productId && !item.IsOFB);
         if (storeId.HasValue)
         {
             query = query.Where(item => item.StoreId == storeId.Value);

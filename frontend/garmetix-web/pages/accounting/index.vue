@@ -2,7 +2,7 @@
 import { h, resolveComponent } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 
-type AccountingTab = 'trial' | 'ledgerBook' | 'ledgers' | 'parties' | 'bankAccounts' | 'transactions' | 'cheques' | 'vendorBanks' | 'accountDetails'
+type AccountingTab = 'trial' | 'ledgerBook' | 'ledgers' | 'parties' | 'bankAccounts' | 'transactions' | 'reconciliation' | 'ledgerSync' | 'cheques' | 'vendorBanks' | 'accountDetails'
 
 const api = useGarmetixApi()
 const auth = useAuth()
@@ -31,11 +31,15 @@ const vendors = ref<any[]>([])
 const trialBalance = ref<any[]>([])
 const ledgerStatement = ref<any[]>([])
 const bankStatement = ref<any[]>([])
+const bankReconciliation = ref<any | null>(null)
+const ledgerSyncSummary = ref<any | null>(null)
+const reconciling = ref(false)
 const selectedLedgerId = ref('')
 const selectedBankAccountId = ref('')
 const activeTab = ref<AccountingTab>('trial')
 const search = ref('')
 const loading = ref(false)
+const loadError = ref('')
 const saving = ref(false)
 const deleting = ref(false)
 const defaultsLoading = ref(false)
@@ -43,7 +47,6 @@ const formOpen = ref(false)
 const editMode = ref<'create' | 'edit'>('create')
 const deleteOpen = ref(false)
 const pendingDelete = ref<any | null>(null)
-const emptyGuid = '00000000-0000-0000-0000-000000000000'
 
 const ledgerTypeOptions = [
   { value: 0, label: 'Asset' },
@@ -108,6 +111,8 @@ const tabs = [
   { key: 'parties' as const, label: 'Parties', icon: 'i-lucide-users' },
   { key: 'bankAccounts' as const, label: 'Bank Accounts', icon: 'i-lucide-landmark' },
   { key: 'transactions' as const, label: 'Bank Transactions', icon: 'i-lucide-arrow-left-right' },
+  { key: 'reconciliation' as const, label: 'Bank Reconciliation', icon: 'i-lucide-list-checks' },
+  { key: 'ledgerSync' as const, label: 'Ledger Sync', icon: 'i-lucide-link' },
   { key: 'cheques' as const, label: 'Cheque Log', icon: 'i-lucide-scroll-text' },
   { key: 'vendorBanks' as const, label: 'Vendor Banks', icon: 'i-lucide-wallet-cards' },
   { key: 'accountDetails' as const, label: 'Account Details', icon: 'i-lucide-key-round' }
@@ -123,18 +128,23 @@ const accountDetailForm = reactive<any>(emptyAccountDetail())
 
 const companyId = computed(() => workspace.companyId.value || setupStatus.value?.companyId || companies.value[0]?.id || '')
 const currentTab = computed(() => tabs.find((tab) => tab.key === activeTab.value) || tabs[0])
-const canCreate = computed(() => !['trial', 'ledgerBook'].includes(activeTab.value))
+const canCreate = computed(() => !['trial', 'ledgerBook', 'reconciliation', 'ledgerSync'].includes(activeTab.value))
 const formTitle = computed(() => `${editMode.value === 'edit' ? 'Edit' : 'New'} ${singularLabel(activeTab.value)}`)
 
 const ledgerGroupOptions = computed(() => ledgerGroups.value.map((item) => ({ value: item.id, label: item.name || 'Ledger Group' })))
 const ledgerOptions = computed(() => ledgers.value.map((item) => ({ value: item.id, label: item.name || 'Ledger' })))
-const partyOptions = computed(() => parties.value.map((item) => ({ value: item.id, label: item.name || 'Party' })))
 const bankOptions = computed(() => banks.value.map((item) => ({ value: item.id, label: item.name || 'Bank' })))
 const bankAccountOptions = computed(() => bankAccounts.value.map((item) => ({ value: item.id, label: bankAccountLabel(item) })))
 const vendorOptions = computed(() => vendors.value.map((item) => ({ value: item.id, label: item.name || item.vendorName || 'Vendor' })))
 const currentStore = computed(() => stores.value.find((item) => item.id === workspace.storeId.value) || stores.value.find((item) => item.id === setupStatus.value?.storeId) || stores.value[0])
 const currentStoreGroupId = computed(() => workspace.storeGroupId.value || setupStatus.value?.storeGroupId || currentStore.value?.storeGroupId || '')
 const currentStoreId = computed(() => workspace.storeId.value || setupStatus.value?.storeId || currentStore.value?.id || '')
+const formContentClass = computed(() => {
+  if (['transactions', 'cheques', 'vendorBanks', 'accountDetails'].includes(activeTab.value)) {
+    return 'w-[calc(100vw-2rem)] sm:max-w-5xl lg:max-w-6xl'
+  }
+  return 'w-[calc(100vw-2rem)] sm:max-w-3xl'
+})
 const transactionLedgerOptions = computed(() => {
   const selectedBank = bankAccounts.value.find((item) => item.id === transactionForm.bankAccountId)
   return ledgerOptions.value.filter((item) => item.value !== selectedBank?.ledgerId)
@@ -144,7 +154,9 @@ const metrics = computed(() => [
   { label: 'Ledgers', value: ledgers.value.length, meta: 'Chart of accounts', icon: 'i-lucide-book-open', color: 'primary' },
   { label: 'Parties', value: parties.value.length, meta: 'Customer, vendor, employee', icon: 'i-lucide-users', color: 'success' },
   { label: 'Bank Balance', value: money(bankAccounts.value.reduce((sum, item) => sum + Number(item.closingBalance || item.openingBalance || 0), 0)), meta: 'All active accounts', icon: 'i-lucide-landmark', color: 'warning' },
-  { label: 'Cheques', value: chequeLogs.value.length, meta: 'Issued and deposited', icon: 'i-lucide-scroll-text', color: 'neutral' }
+  { label: 'Cheques', value: chequeLogs.value.length, meta: 'Issued and deposited', icon: 'i-lucide-scroll-text', color: 'neutral' },
+  { label: 'Open Bank Lines', value: bankReconciliation.value?.openLineCount || 0, meta: 'Pending reconciliation', icon: 'i-lucide-list-checks', color: 'error' },
+  { label: 'Ledger Sync Issues', value: ledgerSyncSummary.value?.issueCount || 0, meta: 'Party/bank ledger links', icon: 'i-lucide-link', color: ledgerSyncSummary.value?.issueCount ? 'error' : 'success' }
 ])
 
 const rows = computed(() => {
@@ -222,6 +234,33 @@ const rows = computed(() => {
       reference: item.reference || '-',
       person: item.personName || '-',
       amount: money(item.amount),
+      raw: item
+    }))
+  }
+
+  if (activeTab.value === 'reconciliation') {
+    return (bankReconciliation.value?.lines || bankStatement.value).map((item: any) => ({
+      id: item.id,
+      date: formatDate(item.onDate),
+      description: item.description || '-',
+      reference: item.reference || '-',
+      debit: money(item.debit),
+      credit: money(item.credit),
+      balance: money(item.balance),
+      status: item.reconciled ? 'Reconciled' : 'Open',
+      reconciledAt: item.reconciledAt ? formatDate(item.reconciledAt) : '-',
+      raw: item
+    }))
+  }
+
+  if (activeTab.value === 'ledgerSync') {
+    return (ledgerSyncSummary.value?.issues || []).map((item: any) => ({
+      id: item.entityId || `${item.area}-${item.entityName}`,
+      area: item.area || '-',
+      entity: item.entityName || '-',
+      severity: item.severity || '-',
+      message: item.message || '-',
+      action: item.fixAction || '-',
       raw: item
     }))
   }
@@ -343,6 +382,30 @@ const columns = computed<TableColumn<any>[]>(() => {
     ]
   }
 
+  if (activeTab.value === 'reconciliation') {
+    return [
+      { accessorKey: 'date', header: 'Date' },
+      { accessorKey: 'description', header: 'Description' },
+      { accessorKey: 'reference', header: 'Reference' },
+      { accessorKey: 'debit', header: 'Debit' },
+      { accessorKey: 'credit', header: 'Credit' },
+      { accessorKey: 'balance', header: 'Balance' },
+      { accessorKey: 'status', header: 'Status' },
+      { accessorKey: 'reconciledAt', header: 'Reconciled On' },
+      reconciliationActionColumn()
+    ]
+  }
+
+  if (activeTab.value === 'ledgerSync') {
+    return [
+      { accessorKey: 'area', header: 'Area' },
+      { accessorKey: 'entity', header: 'Party / Bank Account' },
+      { accessorKey: 'severity', header: 'Severity' },
+      { accessorKey: 'message', header: 'Issue' },
+      { accessorKey: 'action', header: 'Fix Action' }
+    ]
+  }
+
   if (activeTab.value === 'cheques') {
     return [
       { accessorKey: 'date', header: 'Date' },
@@ -385,18 +448,22 @@ const statementRows = computed(() => bankStatement.value.map((item) => ({
   debit: money(item.debit),
   credit: money(item.credit),
   balance: money(item.balance),
-  status: item.reconciled ? 'Reconciled' : 'Open'
+  status: item.reconciled ? 'Reconciled' : 'Open',
+  reconciledAt: item.reconciledAt ? formatDate(item.reconciledAt) : '-',
+  raw: item
 })))
 
-const statementColumns: TableColumn<any>[] = [
+const statementColumns = computed<TableColumn<any>[]>(() => [
   { accessorKey: 'date', header: 'Date' },
   { accessorKey: 'description', header: 'Description' },
   { accessorKey: 'reference', header: 'Reference' },
   { accessorKey: 'debit', header: 'Debit' },
   { accessorKey: 'credit', header: 'Credit' },
   { accessorKey: 'balance', header: 'Balance' },
-  { accessorKey: 'status', header: 'Status' }
-]
+  { accessorKey: 'status', header: 'Status' },
+  { accessorKey: 'reconciledAt', header: 'Reconciled On' },
+  reconciliationActionColumn()
+])
 
 async function refresh() {
   if (!auth.isAuthenticated.value) {
@@ -404,6 +471,7 @@ async function refresh() {
   }
 
   loading.value = true
+  loadError.value = ''
   try {
     setupStatus.value = await api.get<any>('setup/status')
     const [companyRows, storeRows, groupRows, ledgerRows, partyRows, bankRows, bankAccountRows, transactionRows, chequeRows, vendorBankRows, detailRows, vendorRows] = await Promise.all([
@@ -442,8 +510,9 @@ async function refresh() {
       selectedLedgerId.value = ledgers.value[0].id
     }
 
-    await Promise.all([loadTrialBalance(), loadLedgerStatement(), loadBankStatement()])
+    await Promise.all([loadTrialBalance(), loadLedgerStatement(), loadBankStatement(), loadLedgerSyncStatus()])
   } catch (error) {
+    loadError.value = feedback.cleanMessage(error instanceof Error ? error.message : 'Please check the service and try again.')
     feedback.failed('Accounting refresh failed', error)
   } finally {
     loading.value = false
@@ -467,10 +536,31 @@ async function loadLedgerStatement() {
 async function loadBankStatement() {
   if (!selectedBankAccountId.value) {
     bankStatement.value = []
+    bankReconciliation.value = null
     return
   }
 
   bankStatement.value = await api.get<any[]>(`accounting/bank-statement/${selectedBankAccountId.value}`)
+  bankReconciliation.value = await api.get<any>(`accounting/bank-reconciliation/${selectedBankAccountId.value}`)
+}
+
+async function loadLedgerSyncStatus() {
+  const query = companyId.value ? `?companyId=${companyId.value}` : ''
+  ledgerSyncSummary.value = await api.get<any>(`accounting/ledger-sync/status${query}`)
+}
+
+async function repairLedgerSync() {
+  saving.value = true
+  try {
+    const query = companyId.value ? `?companyId=${companyId.value}` : ''
+    ledgerSyncSummary.value = await api.create<any>(`accounting/ledger-sync/repair${query}`, {})
+    feedback.saved(`Ledger sync repaired ${ledgerSyncSummary.value?.repairedCount || 0} link(s)`)
+    await refresh()
+  } catch (error) {
+    feedback.failed('Ledger sync repair failed', error)
+  } finally {
+    saving.value = false
+  }
 }
 
 async function seedDefaults() {
@@ -583,7 +673,7 @@ function buildPayload() {
       companyId: companyId.value,
       ledgerType: Number(ledgerForm.ledgerType),
       openingBalance: Number(ledgerForm.openingBalance || 0),
-      openingDate: toIso(ledgerForm.openingDate),
+      openingDate: toApiDate(ledgerForm.openingDate),
       isParty: Boolean(ledgerForm.isParty),
       ledgerGroup: null
     }
@@ -591,27 +681,31 @@ function buildPayload() {
 
   if (activeTab.value === 'parties') {
     return {
-      ...partyForm,
       companyId: companyId.value,
+      name: String(partyForm.name || '').trim(),
+      address: String(partyForm.address || '').trim() || null,
+      emailId: String(partyForm.emailId || '').trim() || null,
+      phone: String(partyForm.phone || '').trim() || null,
+      gstin: String(partyForm.gstin || '').trim().toUpperCase() || null,
+      pan: String(partyForm.pan || '').trim().toUpperCase() || null,
       category: Number(partyForm.category),
-      ledgerId: nullableGuid(partyForm.ledgerId) || emptyGuid,
-      ledger: null
     }
   }
 
   if (activeTab.value === 'bankAccounts') {
     return {
-      ...bankAccountForm,
       companyId: companyId.value,
+      accountNumber: String(bankAccountForm.accountNumber || '').trim(),
+      accountHolderName: String(bankAccountForm.accountHolderName || '').trim(),
       bankId: requiredGuid(bankAccountForm.bankId, 'Select bank.'),
-      ledgerId: nullableGuid(bankAccountForm.ledgerId) || emptyGuid,
       accountType: Number(bankAccountForm.accountType),
+      branch: String(bankAccountForm.branch || '').trim() || null,
+      ifsCode: String(bankAccountForm.ifsCode || '').trim().toUpperCase() || null,
       openingBalance: Number(bankAccountForm.openingBalance || 0),
       closingBalance: Number(bankAccountForm.closingBalance || 0),
-      openingDate: toIso(bankAccountForm.openingDate),
-      closingDate: nullableDate(bankAccountForm.closingDate),
-      bank: null,
-      ledger: null
+      openingDate: toApiDate(bankAccountForm.openingDate),
+      active: Boolean(bankAccountForm.active),
+      closingDate: nullableDate(bankAccountForm.closingDate)
     }
   }
 
@@ -623,8 +717,8 @@ function buildPayload() {
       storeId: requiredGuid(currentStoreId.value, 'Select store.'),
       bankAccountId: requiredGuid(transactionForm.bankAccountId, 'Select bank account.'),
       ledgerId: requiredGuid(transactionForm.ledgerId, 'Select contra ledger.'),
-      partyId: nullableGuid(transactionForm.partyId) || null,
-      onDate: toIso(transactionForm.onDate),
+      partyId: null,
+      onDate: toApiDate(transactionForm.onDate),
       transactionType: Number(transactionForm.transactionType),
       transactionMode: Number(transactionForm.transactionMode),
       amount: Number(transactionForm.amount || 0),
@@ -637,7 +731,7 @@ function buildPayload() {
       ...chequeForm,
       companyId: companyId.value,
       bankAccountId: requiredGuid(chequeForm.bankAccountId, 'Select bank account.'),
-      onDate: toIso(chequeForm.onDate),
+      onDate: toApiDate(chequeForm.onDate),
       chequeDate: nullableDate(chequeForm.chequeDate),
       amount: Number(chequeForm.amount || 0),
       cheequeNumber: chequeForm.chequeNumber,
@@ -653,7 +747,7 @@ function buildPayload() {
       bankId: requiredGuid(vendorBankForm.bankId, 'Select bank.'),
       ledgerId: requiredGuid(vendorBankForm.ledgerId, 'Select ledger.'),
       accountType: Number(vendorBankForm.accountType),
-      openingDate: toIso(vendorBankForm.openingDate),
+      openingDate: toApiDate(vendorBankForm.openingDate),
       closingDate: nullableDate(vendorBankForm.closingDate),
       openingBalance: Number(vendorBankForm.openingBalance || 0),
       closingBalance: Number(vendorBankForm.closingBalance || 0),
@@ -704,6 +798,95 @@ async function confirmDelete() {
   }
 }
 
+async function markStatementReconciled(item: any) {
+  if (!item?.id) {
+    return
+  }
+
+  reconciling.value = true
+  try {
+    await api.create<any>(`accounting/bank-statement-lines/${item.id}/reconcile`, {
+      bankTransactionId: item.bankTransactionId || null,
+      reconciledAt: toApiDate(localDateInput()),
+      reconciliationReference: item.reference || '',
+      remarks: 'Marked reconciled from accounting workspace'
+    })
+    feedback.saved('Bank reconciliation')
+    await loadBankStatement()
+  } catch (error) {
+    feedback.failed('Could not reconcile bank line', error)
+  } finally {
+    reconciling.value = false
+  }
+}
+
+async function undoStatementReconciliation(item: any) {
+  if (!item?.id) {
+    return
+  }
+
+  reconciling.value = true
+  try {
+    await api.create<any>(`accounting/bank-statement-lines/${item.id}/unreconcile`, { remarks: 'Reconciliation reopened from accounting workspace' })
+    feedback.saved('Reconciliation reopened')
+    await loadBankStatement()
+  } catch (error) {
+    feedback.failed('Could not reopen bank line', error)
+  } finally {
+    reconciling.value = false
+  }
+}
+
+async function updateChequeStatus(item: any, status: string) {
+  if (!item?.id) {
+    return
+  }
+
+  reconciling.value = true
+  try {
+    await api.create<any>(`accounting/cheque-logs/${item.id}/lifecycle`, {
+      status,
+      actionDate: toApiDate(localDateInput()),
+      remarks: `Marked ${status.toLowerCase()} from accounting workspace`,
+      bankTransactionId: item.bankTransactionId || null
+    })
+    feedback.saved('Cheque lifecycle')
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not update cheque lifecycle', error)
+  } finally {
+    reconciling.value = false
+  }
+}
+
+function reconciliationActionColumn(): TableColumn<any> {
+  return {
+    id: 'reconciliationActions',
+    header: '',
+    cell: ({ row }) => {
+      const item = row.original.raw
+      return h('div', { class: 'table-action-buttons' }, [
+        canEdit.value && !item.reconciled ? h(UButton, {
+          color: 'success',
+          variant: 'ghost',
+          icon: 'i-lucide-check-circle-2',
+          label: 'Reconcile',
+          loading: reconciling.value,
+          onClick: () => markStatementReconciled(item)
+        }) : null,
+        canEdit.value && item.reconciled ? h(UButton, {
+          color: 'warning',
+          variant: 'ghost',
+          icon: 'i-lucide-rotate-ccw',
+          label: 'Reopen',
+          loading: reconciling.value,
+          onClick: () => undoStatementReconciliation(item)
+        }) : null
+      ].filter(Boolean))
+    }
+  }
+}
+
 function statusColumn(): TableColumn<any> {
   return {
     accessorKey: 'status',
@@ -727,6 +910,22 @@ function actionColumn(): TableColumn<any> {
         label: 'Edit',
         onClick: () => startEdit(row.original.raw)
       }) : null,
+      activeTab.value === 'cheques' && canEdit.value ? h(UButton, {
+        color: 'success',
+        variant: 'ghost',
+        icon: 'i-lucide-badge-check',
+        label: 'Clear',
+        loading: reconciling.value,
+        onClick: () => updateChequeStatus(row.original.raw, 'Cleared')
+      }) : null,
+      activeTab.value === 'cheques' && canEdit.value ? h(UButton, {
+        color: 'warning',
+        variant: 'ghost',
+        icon: 'i-lucide-ban',
+        label: 'Bounce',
+        loading: reconciling.value,
+        onClick: () => updateChequeStatus(row.original.raw, 'Bounced')
+      }) : null,
       canDelete.value ? h(UButton, {
         color: 'error',
         variant: 'ghost',
@@ -744,7 +943,7 @@ function emptyLedger() {
     name: '',
     ledgerGroupId: null,
     ledgerType: 4,
-    openingDate: new Date().toISOString().slice(0, 10),
+    openingDate: localDateInput(),
     openingBalance: 0,
     isParty: false
   }
@@ -760,7 +959,6 @@ function emptyParty() {
     gstin: '',
     pan: '',
     category: 6,
-    ledgerId: null
   }
 }
 
@@ -773,12 +971,11 @@ function emptyBankAccount() {
     accountType: 1,
     branch: '',
     ifsCode: '',
-    openingDate: new Date().toISOString().slice(0, 10),
+    openingDate: localDateInput(),
     active: true,
     closingDate: '',
     openingBalance: 0,
     closingBalance: 0,
-    ledgerId: null
   }
 }
 
@@ -786,11 +983,10 @@ function emptyTransaction() {
   return {
     id: '',
     bankAccountId: null,
-    onDate: new Date().toISOString().slice(0, 10),
+    onDate: localDateInput(),
     transactionType: 0,
     transactionMode: 4,
     ledgerId: null,
-    partyId: null,
     narration: '',
     reference: '',
     amount: 0,
@@ -803,8 +999,8 @@ function emptyCheque() {
     id: '',
     bankAccountId: null,
     chequeNumber: '',
-    onDate: new Date().toISOString().slice(0, 10),
-    chequeDate: new Date().toISOString().slice(0, 10),
+    onDate: localDateInput(),
+    chequeDate: localDateInput(),
     narration: '',
     chequeBank: '',
     amount: 0,
@@ -823,7 +1019,7 @@ function emptyVendorBank() {
     accountType: 1,
     branch: '',
     ifsCode: '',
-    openingDate: new Date().toISOString().slice(0, 10),
+    openingDate: localDateInput(),
     active: true,
     closingDate: '',
     openingBalance: 0,
@@ -860,6 +1056,8 @@ function endpointFor(tab: AccountingTab) {
     parties: 'parties',
     bankAccounts: 'bank-accounts',
     transactions: 'bank-transactions',
+    reconciliation: '',
+    ledgerSync: '',
     cheques: 'cheque-logs',
     vendorBanks: 'vendor-bank-accounts',
     accountDetails: 'bank-account-details',
@@ -875,6 +1073,8 @@ function singularLabel(tab: AccountingTab) {
     parties: 'Party',
     bankAccounts: 'Bank Account',
     transactions: 'Bank Transaction',
+    reconciliation: 'Bank Reconciliation',
+    ledgerSync: 'Ledger Sync',
     cheques: 'Cheque Log',
     vendorBanks: 'Vendor Bank Account',
     accountDetails: 'Bank Account Detail'
@@ -924,15 +1124,20 @@ function optionLabel(options: { value: number, label: string }[], value: unknown
 }
 
 function dateInput(value: string | null | undefined) {
-  return value ? String(value).slice(0, 10) : new Date().toISOString().slice(0, 10)
+  return value ? String(value).slice(0, 10) : localDateInput()
 }
 
-function toIso(value: string) {
-  return new Date(`${value || new Date().toISOString().slice(0, 10)}T00:00:00`).toISOString()
+function localDateInput(date = new Date()) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+  return local.toISOString().slice(0, 10)
+}
+
+function toApiDate(value: string) {
+  return `${value || localDateInput()}T00:00:00`
 }
 
 function nullableDate(value: string | null | undefined) {
-  return value ? toIso(value) : null
+  return value ? toApiDate(value) : null
 }
 
 function nullableGuid(value: unknown) {
@@ -981,10 +1186,6 @@ watch(() => transactionForm.bankAccountId, () => {
   }
 })
 
-watch(() => transactionForm.ledgerId, (ledgerId) => {
-  const party = parties.value.find((item) => item.ledgerId === ledgerId)
-  transactionForm.partyId = party?.id || null
-})
 </script>
 
 <template>
@@ -1026,13 +1227,19 @@ watch(() => transactionForm.ledgerId, (ledgerId) => {
         </UCard>
       </div>
 
-      <UCard class="planner-card">
-        <template #header>
+      <UiRegisterPanel
+        :title="currentTab.label"
+        :description="`${filteredRows.length} accounting records`"
+        :loading="loading"
+        :error="loadError"
+        :empty="filteredRows.length === 0"
+        empty-title="No accounting records found"
+        empty-description="Create accounting defaults or add the first record."
+        empty-icon="i-lucide-landmark"
+        @retry="refresh"
+      >
+        <template #actions>
           <div class="planner-card-header">
-            <div>
-              <h2>{{ currentTab.label }}</h2>
-              <p>{{ filteredRows.length }} rows</p>
-            </div>
             <div class="setup-tabs">
               <UButton
                 v-for="tab in tabs"
@@ -1052,8 +1259,23 @@ watch(() => transactionForm.ledgerId, (ledgerId) => {
               class="w-72 max-w-full"
               placeholder="Select ledger"
             />
+            <USelect
+              v-if="activeTab === 'reconciliation'"
+              v-model="selectedBankAccountId"
+              :items="bankAccountOptions"
+              class="w-72 max-w-full"
+              placeholder="Select bank account"
+            />
           </div>
         </template>
+
+        <div v-if="activeTab === 'ledgerSync'" class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-default bg-muted/30 p-3 text-sm">
+          <div>
+            <strong>Ledger synchronization</strong>
+            <p class="text-muted">{{ ledgerSyncSummary?.partyCount || 0 }} parties · {{ ledgerSyncSummary?.bankAccountCount || 0 }} bank accounts · {{ ledgerSyncSummary?.issueCount || 0 }} issue(s)</p>
+          </div>
+          <UButton icon="i-lucide-wrench" label="Repair ledger links" :loading="saving" :disabled="!canEdit || !(ledgerSyncSummary?.issueCount || 0)" @click="repairLedgerSync" />
+        </div>
 
         <UiCrudToolbar
           v-model:search="search"
@@ -1065,29 +1287,17 @@ watch(() => transactionForm.ledgerId, (ledgerId) => {
           @create="canCreate ? startCreate() : undefined"
         />
 
-        <UTable
-          v-if="filteredRows.length"
-          :data="filteredRows"
-          :columns="columns"
-          :loading="loading"
-        />
-
-        <UiCrudEmptyState
-          v-else
-          title="No records found"
-          description="Create accounting defaults or add a new record."
-          icon="i-lucide-landmark"
-          :action-label="canCreate ? `New ${singularLabel(activeTab)}` : 'Seed Defaults'"
-          @action="canCreate ? startCreate() : seedDefaults()"
-        />
-      </UCard>
+        <div class="planner-table-wrap">
+          <UTable :data="filteredRows" :columns="columns" />
+        </div>
+      </UiRegisterPanel>
 
       <UCard class="planner-card">
         <template #header>
           <div class="planner-card-header">
             <div>
               <h2>Bank Statement</h2>
-              <p>{{ statementRows.length }} lines</p>
+              <p>{{ statementRows.length }} lines · {{ bankReconciliation?.openLineCount || 0 }} open · {{ bankReconciliation?.reconciledLineCount || 0 }} reconciled</p>
             </div>
             <USelect v-model="selectedBankAccountId" :items="bankAccountOptions" class="w-72 max-w-full" />
           </div>
@@ -1112,6 +1322,8 @@ watch(() => transactionForm.ledgerId, (ledgerId) => {
         :title="formTitle"
         :description="`Save ${singularLabel(activeTab).toLowerCase()} details.`"
         :submit-label="editMode === 'edit' ? 'Update' : 'Save'"
+        layout="modal"
+        :content-class="formContentClass"
         :loading="saving"
         @submit="saveActiveForm"
       >
@@ -1210,9 +1422,6 @@ watch(() => transactionForm.ledgerId, (ledgerId) => {
           </UFormField>
           <UFormField label="Against ledger" required>
             <USelect v-model="transactionForm.ledgerId" :items="transactionLedgerOptions" placeholder="Select ledger" />
-          </UFormField>
-          <UFormField label="Party">
-            <USelect v-model="transactionForm.partyId" :items="partyOptions" placeholder="Auto from ledger when applicable" />
           </UFormField>
           <div class="form-two-column">
             <UFormField label="Date" required>

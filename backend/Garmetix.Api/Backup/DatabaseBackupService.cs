@@ -37,6 +37,46 @@ public sealed record RestorePreflightDto(
     string Message,
     string[] PreviewLines);
 
+public sealed record BackupMaintenanceStatusDto(
+    bool Enabled,
+    bool RestoreInProgress,
+    string Directory,
+    bool DirectoryExists,
+    bool DirectoryWritable,
+    long? FreeSpaceBytes,
+    long BackupFolderSizeBytes,
+    int BackupCount,
+    int ChecksummedBackupCount,
+    int ManifestBackupCount,
+    DateTime? LatestBackupAtUtc,
+    string? LatestBackupFileName,
+    double? LatestBackupAgeHours,
+    bool HasRecentBackup,
+    int RetentionCount,
+    int OrphanSidecarCount,
+    int TemporaryRestoreFileCount,
+    string Status,
+    string[] Recommendations);
+
+public sealed record BackupCleanupItemDto(
+    string FileName,
+    long SizeBytes,
+    string Reason);
+
+public sealed record BackupCleanupResultDto(
+    DateTime CompletedAtUtc,
+    int DeletedFileCount,
+    long RecoveredBytes,
+    BackupCleanupItemDto[] DeletedFiles,
+    BackupMaintenanceStatusDto Status);
+
+public sealed record BackupVerifyAllResultDto(
+    DateTime CheckedAtUtc,
+    int TotalBackups,
+    int PassedBackups,
+    int FailedBackups,
+    BackupVerificationDto[] Results);
+
 public sealed record BackupManifestDto(
     string FileName,
     long SizeBytes,
@@ -287,6 +327,254 @@ public sealed class DatabaseBackupService(
         return options;
     }
 
+    public BackupMaintenanceStatusDto GetMaintenanceStatus()
+    {
+        EnsureDirectory();
+        var backups = ListBackups();
+        var latest = backups.FirstOrDefault();
+        var now = DateTime.UtcNow;
+        var latestAgeHours = latest is null
+            ? (double?)null
+            : Math.Round((now - latest.CreatedAtUtc).TotalHours, 2);
+        var hasRecentBackup = latestAgeHours is not null && latestAgeHours <= 30;
+        var directoryExists = Directory.Exists(options.Directory);
+        var directoryWritable = CanWriteDirectory(options.Directory);
+        long? freeSpaceBytes = null;
+        try
+        {
+            var root = Path.GetPathRoot(Path.GetFullPath(options.Directory));
+            if (!string.IsNullOrWhiteSpace(root))
+            {
+                freeSpaceBytes = new DriveInfo(root).AvailableFreeSpace;
+            }
+        }
+        catch
+        {
+            freeSpaceBytes = null;
+        }
+
+        var folderSize = directoryExists
+            ? Directory.EnumerateFiles(options.Directory, "*", SearchOption.TopDirectoryOnly)
+                .Select(path => new FileInfo(path))
+                .Where(file => file.Exists)
+                .Sum(file => file.Length)
+            : 0;
+        var orphanSidecars = CountOrphanSidecars();
+        var tempRestoreFiles = CountTemporaryRestoreFiles();
+        var recommendations = BuildMaintenanceRecommendations(
+            backups,
+            directoryWritable,
+            freeSpaceBytes,
+            folderSize,
+            orphanSidecars,
+            tempRestoreFiles,
+            hasRecentBackup);
+        var status = !options.Enabled || !directoryExists || !directoryWritable
+            ? "Critical"
+            : !hasRecentBackup || orphanSidecars > 0 || tempRestoreFiles > 0 || (freeSpaceBytes is not null && freeSpaceBytes < 1_073_741_824)
+                ? "Needs attention"
+                : "Ready";
+
+        return new BackupMaintenanceStatusDto(
+            options.Enabled,
+            restoreInProgress,
+            options.Directory,
+            directoryExists,
+            directoryWritable,
+            freeSpaceBytes,
+            folderSize,
+            backups.Count,
+            backups.Count(backup => backup.HasChecksum),
+            backups.Count(backup => backup.HasManifest),
+            latest?.CreatedAtUtc,
+            latest?.FileName,
+            latestAgeHours,
+            hasRecentBackup,
+            Math.Max(options.RetentionCount, 1),
+            orphanSidecars,
+            tempRestoreFiles,
+            status,
+            recommendations);
+    }
+
+    public BackupVerifyAllResultDto VerifyAllBackups()
+    {
+        var results = ListBackups()
+            .Select(backup => VerifyBackup(backup.FileName))
+            .ToArray();
+        return new BackupVerifyAllResultDto(
+            DateTime.UtcNow,
+            results.Length,
+            results.Count(result => string.Equals(result.Status, "ok", StringComparison.OrdinalIgnoreCase)),
+            results.Count(result => !string.Equals(result.Status, "ok", StringComparison.OrdinalIgnoreCase)),
+            results);
+    }
+
+    public async Task<BackupCleanupResultDto> CleanupBackupDirectoryAsync(CancellationToken cancellationToken)
+    {
+        await operationLock.WaitAsync(cancellationToken);
+        try
+        {
+            EnsureDirectory();
+            var deleted = new List<BackupCleanupItemDto>();
+            DeleteOrphanSidecars(deleted);
+            DeleteTemporaryRestoreFiles(deleted);
+            await Task.CompletedTask;
+            var recovered = deleted.Sum(item => item.SizeBytes);
+            logger.LogInformation(
+                "Backup maintenance cleanup deleted {DeletedFileCount} files and recovered {RecoveredBytes} bytes.",
+                deleted.Count,
+                recovered);
+            return new BackupCleanupResultDto(
+                DateTime.UtcNow,
+                deleted.Count,
+                recovered,
+                deleted.ToArray(),
+                GetMaintenanceStatus());
+        }
+        finally
+        {
+            operationLock.Release();
+        }
+    }
+
+    private int CountOrphanSidecars()
+    {
+        if (!Directory.Exists(options.Directory))
+        {
+            return 0;
+        }
+
+        return Directory.EnumerateFiles(options.Directory, "*", SearchOption.TopDirectoryOnly)
+            .Count(path => IsSidecar(path) && !File.Exists(RemoveSidecarExtension(path)));
+    }
+
+    private int CountTemporaryRestoreFiles()
+    {
+        if (!Directory.Exists(options.Directory))
+        {
+            return 0;
+        }
+
+        return Directory.EnumerateFiles(options.Directory, "restore-*.dump", SearchOption.TopDirectoryOnly).Count();
+    }
+
+    private void DeleteOrphanSidecars(List<BackupCleanupItemDto> deleted)
+    {
+        foreach (var path in Directory.EnumerateFiles(options.Directory, "*", SearchOption.TopDirectoryOnly)
+            .Where(path => IsSidecar(path) && !File.Exists(RemoveSidecarExtension(path))))
+        {
+            DeleteMaintenanceFile(path, "orphan sidecar", deleted);
+        }
+    }
+
+    private void DeleteTemporaryRestoreFiles(List<BackupCleanupItemDto> deleted)
+    {
+        foreach (var path in Directory.EnumerateFiles(options.Directory, "restore-*.dump", SearchOption.TopDirectoryOnly))
+        {
+            DeleteMaintenanceFile(path, "temporary restore upload/preview", deleted);
+            DeleteFileIfExists(ChecksumPath(path));
+            DeleteFileIfExists(ManifestPath(path));
+        }
+    }
+
+    private static void DeleteMaintenanceFile(string path, string reason, List<BackupCleanupItemDto> deleted)
+    {
+        if (!File.Exists(path))
+        {
+            return;
+        }
+
+        var file = new FileInfo(path);
+        var size = file.Length;
+        var name = file.Name;
+        File.Delete(path);
+        deleted.Add(new BackupCleanupItemDto(name, size, reason));
+    }
+
+    private static bool CanWriteDirectory(string directory)
+    {
+        try
+        {
+            Directory.CreateDirectory(directory);
+            var path = Path.Combine(directory, $".garmetix-write-test-{Guid.NewGuid():N}.tmp");
+            File.WriteAllText(path, "ok");
+            File.Delete(path);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsSidecar(string path)
+    {
+        return path.EndsWith(".dump.sha256", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".dump.manifest.json", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string RemoveSidecarExtension(string path)
+    {
+        return path.EndsWith(".dump.sha256", StringComparison.OrdinalIgnoreCase)
+            ? path[..^7]
+            : path.EndsWith(".dump.manifest.json", StringComparison.OrdinalIgnoreCase)
+                ? path[..^14]
+                : path;
+    }
+
+    private static string[] BuildMaintenanceRecommendations(
+        IReadOnlyList<BackupFileDto> backups,
+        bool directoryWritable,
+        long? freeSpaceBytes,
+        long folderSize,
+        int orphanSidecars,
+        int temporaryRestoreFiles,
+        bool hasRecentBackup)
+    {
+        var recommendations = new List<string>();
+        if (!directoryWritable)
+        {
+            recommendations.Add("Backup directory is not writable. Check Docker volume permissions for ./backups.");
+        }
+
+        if (backups.Count == 0)
+        {
+            recommendations.Add("Create the first manual backup before live billing begins.");
+        }
+        else if (!hasRecentBackup)
+        {
+            recommendations.Add("Latest backup is older than 30 hours. Confirm scheduled backup automation is running.");
+        }
+
+        if (backups.Any(backup => !backup.HasChecksum || !backup.HasManifest))
+        {
+            recommendations.Add("Some backup files are missing checksum or manifest sidecars. Create a fresh backup and prefer checked backups for restore.");
+        }
+
+        if (orphanSidecars > 0 || temporaryRestoreFiles > 0)
+        {
+            recommendations.Add("Run backup maintenance cleanup to remove orphan sidecars and stale restore temp files.");
+        }
+
+        if (freeSpaceBytes is not null && freeSpaceBytes < 1_073_741_824)
+        {
+            recommendations.Add("Available disk space is below 1 GB. Free disk space before running more backups or restore operations.");
+        }
+
+        if (folderSize > 5L * 1024 * 1024 * 1024)
+        {
+            recommendations.Add("Backup folder is larger than 5 GB. Review retention and off-site backup policy.");
+        }
+
+        if (recommendations.Count == 0)
+        {
+            recommendations.Add("Backup storage, recent backup age, checksums and cleanup state look ready.");
+        }
+
+        return recommendations.ToArray();
+    }
+
     private async Task<BackupFileDto> CreateBackupCoreAsync(
         string source,
         CancellationToken cancellationToken)
@@ -499,7 +787,7 @@ public sealed class DatabaseBackupService(
             sha256,
             "PostgreSQL custom pg_dump",
             "Garmetix",
-            "Stage5A");
+            "Stage 8G Package 1 Backup Maintenance");
         var json = JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true });
         await File.WriteAllTextAsync(ManifestPath(path), json, cancellationToken);
     }

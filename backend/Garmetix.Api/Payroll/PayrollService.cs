@@ -216,6 +216,122 @@ public sealed class PayrollService(GarmetixDbContext db)
             payslip.Remarks);
     }
 
+    public async Task<SalaryPaymentPreviewDto> PreviewSalaryPaymentAsync(
+        SalaryPaymentPreviewRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request.EmployeeId == Guid.Empty)
+        {
+            throw new ArgumentException("Employee is required.");
+        }
+
+        var monthStart = FromSalaryMonth(request.SalaryMonth);
+        var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+        var employeeExists = await db.Employees.AsNoTracking()
+            .AnyAsync(employee => employee.Id == request.EmployeeId, cancellationToken);
+        if (!employeeExists)
+        {
+            throw new ArgumentException("Select a valid employee.");
+        }
+
+        SalaryPaySlip? payslip;
+        if (request.SalaryPaySlipId.HasValue)
+        {
+            payslip = await db.SalaryPaySlips.AsNoTracking()
+                .FirstOrDefaultAsync(
+                    item => item.Id == request.SalaryPaySlipId.Value &&
+                        item.EmployeeId == request.EmployeeId &&
+                        !item.Deleted,
+                    cancellationToken);
+            if (payslip is null)
+            {
+                throw new ArgumentException("The selected payslip was not found for this employee.");
+            }
+        }
+        else
+        {
+            payslip = await db.SalaryPaySlips.AsNoTracking()
+                .Where(item =>
+                    item.EmployeeId == request.EmployeeId &&
+                    item.PayPeriodStart == monthStart &&
+                    !item.Deleted)
+                .OrderByDescending(item => item.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        decimal grossSalary;
+        decimal baseDeductions;
+        if (payslip is not null)
+        {
+            grossSalary = payslip.TotalEarnings;
+            baseDeductions = payslip.TotalDeductions;
+        }
+        else
+        {
+            var structure = await db.SalaryStructures.AsNoTracking()
+                .Where(item =>
+                    item.EmployeeId == request.EmployeeId &&
+                    item.FromDate <= monthEnd &&
+                    (item.ToDate == null || item.ToDate >= monthStart) &&
+                    !item.Deleted)
+                .OrderByDescending(item => item.FromDate)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (structure is null)
+            {
+                throw new ArgumentException("No payslip or salary structure is available for this employee and month.");
+            }
+
+            grossSalary = structure.BasicSalary +
+                structure.HRA +
+                structure.SpecialAllowance +
+                structure.ConveyanceAllowance +
+                structure.Incentives;
+            baseDeductions = structure.ProvidentFund +
+                structure.Gratuity +
+                structure.ProfessionalTax +
+                structure.Deductions;
+        }
+
+        var currentPayments = await db.SalaryPayments.AsNoTracking()
+            .Where(payment =>
+                payment.EmployeeId == request.EmployeeId &&
+                payment.SalaryMonth == request.SalaryMonth &&
+                !payment.Deleted &&
+                (!request.PaymentId.HasValue || payment.Id != request.PaymentId.Value))
+            .ToListAsync(cancellationToken);
+        var salaryAdvance = currentPayments
+            .Where(payment => AdvanceComponents.Contains(payment.SalaryComponent))
+            .Sum(payment => payment.Amount);
+        var alreadyPaid = currentPayments
+            .Where(payment =>
+                payment.SalaryComponent == SalaryComponent.NetSalary ||
+                (payslip != null && payment.SalaryPaySlipId == payslip.Id))
+            .Sum(payment => payment.Amount);
+        var previousDue = await CalculateCarryForwardDueAsync(
+            request.EmployeeId,
+            request.SalaryMonth,
+            monthStart,
+            cancellationToken);
+        var totalDeductions = baseDeductions + salaryAdvance;
+        var netPayable = Math.Max(0, grossSalary - totalDeductions + previousDue);
+        var roundedPayable = RoundRupee(netPayable);
+        var outstanding = Math.Max(0, roundedPayable - alreadyPaid);
+        var roundedAmount = RoundRupee(outstanding);
+
+        return new SalaryPaymentPreviewDto(
+            payslip?.Id,
+            RoundMoney(grossSalary),
+            RoundMoney(baseDeductions),
+            RoundMoney(salaryAdvance),
+            RoundMoney(totalDeductions),
+            RoundMoney(previousDue),
+            RoundMoney(netPayable),
+            RoundMoney(alreadyPaid),
+            RoundMoney(outstanding),
+            roundedAmount,
+            RoundMoney(roundedPayable - netPayable));
+    }
+
     private async Task<List<PayslipSummaryDto>> ToSummariesAsync(
         IReadOnlyList<SalaryPaySlip> payslips,
         CancellationToken cancellationToken)
@@ -276,7 +392,10 @@ public sealed class PayrollService(GarmetixDbContext db)
         CancellationToken cancellationToken)
     {
         var payments = await db.SalaryPayments.AsNoTracking()
-            .Where(payment => payment.EmployeeId == payslip.EmployeeId && payment.SalaryMonth == salaryMonth)
+            .Where(payment =>
+                payment.EmployeeId == payslip.EmployeeId &&
+                payment.SalaryMonth == salaryMonth &&
+                !payment.Deleted)
             .ToListAsync(cancellationToken);
 
         var advance = payments
@@ -288,7 +407,7 @@ public sealed class PayrollService(GarmetixDbContext db)
                 payment.SalaryPaySlipId == payslip.Id)
             .Sum(payment => payment.Amount);
         var carryForwardDue = await CalculateCarryForwardDueAsync(payslip.EmployeeId, salaryMonth, monthStart, cancellationToken);
-        var payable = Math.Max(0, payslip.NetSalary + carryForwardDue - advance);
+        var payable = RoundRupee(Math.Max(0, payslip.NetSalary + carryForwardDue - advance));
         var due = Math.Max(0, payable - paid);
 
         return new PayslipAmounts(
@@ -309,10 +428,13 @@ public sealed class PayrollService(GarmetixDbContext db)
             .Where(payslip => payslip.EmployeeId == employeeId && payslip.PayPeriodStart < monthStart)
             .ToListAsync(cancellationToken);
         var previousPayments = await db.SalaryPayments.AsNoTracking()
-            .Where(payment => payment.EmployeeId == employeeId && payment.SalaryMonth < currentSalaryMonth)
+            .Where(payment =>
+                payment.EmployeeId == employeeId &&
+                payment.SalaryMonth < currentSalaryMonth &&
+                !payment.Deleted)
             .ToListAsync(cancellationToken);
 
-        var earned = previousPayslips.Sum(payslip => payslip.NetSalary);
+        var earned = previousPayslips.Sum(payslip => RoundRupee(payslip.NetSalary));
         var advance = previousPayments
             .Where(payment => AdvanceComponents.Contains(payment.SalaryComponent))
             .Sum(payment => payment.Amount);
@@ -351,9 +473,26 @@ public sealed class PayrollService(GarmetixDbContext db)
         return (monthStart.Year * 100) + monthStart.Month;
     }
 
+    private static DateTime FromSalaryMonth(int salaryMonth)
+    {
+        var year = salaryMonth / 100;
+        var month = salaryMonth % 100;
+        if (year < 2000 || month is < 1 or > 12)
+        {
+            throw new ArgumentException("Salary month must be in yyyyMM format.");
+        }
+
+        return new DateTime(year, month, 1);
+    }
+
     private static decimal RoundMoney(decimal value)
     {
         return Math.Round(value, 2, MidpointRounding.AwayFromZero);
+    }
+
+    private static decimal RoundRupee(decimal value)
+    {
+        return Math.Round(value, 0, MidpointRounding.AwayFromZero);
     }
 
     private sealed record PayslipAmounts(

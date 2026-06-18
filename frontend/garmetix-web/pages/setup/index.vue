@@ -18,6 +18,7 @@ const companies = ref<any[]>([])
 const storeGroups = ref<any[]>([])
 const stores = ref<any[]>([])
 const loading = ref(false)
+const loadError = ref('')
 const saving = ref(false)
 const deleting = ref(false)
 const activeTab = ref<SetupTab>('companies')
@@ -268,6 +269,7 @@ async function refresh() {
   }
 
   loading.value = true
+  loadError.value = ''
   try {
     const [companyRows, groupRows, storeRows] = await Promise.all([
       api.list<any>('companies'),
@@ -279,6 +281,7 @@ async function refresh() {
     storeGroups.value = groupRows
     stores.value = storeRows
   } catch (error) {
+    loadError.value = feedback.errorMessage(error, 'Company and store records could not be loaded. Try again.', 'Company refresh failed')
     feedback.failed('Company refresh failed', error)
   } finally {
     loading.value = false
@@ -485,7 +488,7 @@ function singularLabel(tab: SetupTab) {
 }
 
 function toApiDate(value: string) {
-  return value ? new Date(`${value}T00:00:00`).toISOString() : null
+  return value ? `${value}T00:00:00` : null
 }
 
 function toDateInput(value: string) {
@@ -559,8 +562,18 @@ onMounted(async () => {
         </UCard>
       </div>
 
-      <UCard class="planner-card">
-        <template #header>
+      <UiRegisterPanel
+        :title="activeLabel"
+        description="Company, group, and store masters used by billing, inventory, and user access."
+        :loading="loading"
+        :error="loadError"
+        :empty="!loading && !loadError && filteredRows.length === 0"
+        :empty-title="`No ${activeLabel.toLowerCase()} found`"
+        empty-description="Create the first company, group, or store record."
+        empty-icon="i-lucide-inbox"
+        @retry="refresh"
+      >
+        <template #actions>
           <div class="setup-list-header">
             <div class="setup-tabs">
               <UButton
@@ -588,25 +601,17 @@ onMounted(async () => {
           @create="startCreate"
         />
 
-        <UTable
-          v-if="filteredRows.length"
+        <div v-if="filteredRows.length" class="overflow-x-auto">
+          <UTable
           :data="filteredRows"
           :columns="activeColumns"
-          :loading="loading"
-        />
-
-        <UiCrudEmptyState
-          v-else
-          :title="`No ${activeLabel.toLowerCase()} found`"
-          description="Create the first company, group, or store record."
-          icon="i-lucide-inbox"
-          :action-label="`New ${singularLabel(activeTab)}`"
-          @action="startCreate"
-        />
-      </UCard>
+          />
+        </div>
+      </UiRegisterPanel>
 
       <UiFormSlideover
         v-model:open="formOpen"
+        layout="modal"
         :title="formTitle"
         :description="`Save ${singularLabel(activeTab).toLowerCase()} master data.`"
         :submit-label="isEditing ? 'Update' : 'Save'"

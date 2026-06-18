@@ -452,7 +452,7 @@ public static class DataConsistencyEndpoints
     {
         foreach (var group in rows
             .Where(row => !string.IsNullOrWhiteSpace(row.Number))
-            .GroupBy(row => new { row.CompanyId, row.StoreId, Number = row.Number.Trim().ToUpperInvariant() })
+            .GroupBy(row => new { row.CompanyId, row.StoreId, Number = row.Number!.Trim().ToUpperInvariant() })
             .Where(group => group.Count() > 1))
         {
             var sample = group.First();

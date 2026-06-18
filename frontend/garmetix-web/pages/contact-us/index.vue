@@ -3,12 +3,15 @@ const api = useGarmetixApi()
 const feedback = useUiFeedback()
 const loading = ref(false)
 const serverInfo = ref<any | null>(null)
+const loadError = ref('')
+
+useHead({ title: 'Contact | Garmetix' })
 
 const fallbackContacts = [
-  { label: 'Business owner', value: 'Amit Kumar', type: 'person', note: 'Primary owner/contact for deployment decisions.' },
-  { label: 'Email', value: 'ameetkrsah@gmail.com', type: 'email', note: 'Use for account, deployment and support communication.' },
+  { label: 'Business owner', value: 'Amit Kumar', type: 'person', note: 'Primary business owner and authorization contact.' },
+  { label: 'Email', value: 'ameetkrsah@gmail.com', type: 'email', note: 'Use for account and support communication.' },
   { label: 'Location', value: 'Dumka / Jamshedpur, Jharkhand, India', type: 'location', note: 'Business operating region.' },
-  { label: 'Product', value: 'Garmetix Web', type: 'product', note: 'Garment store management, billing, purchase, inventory, GST and SaaS admin.' }
+  { label: 'Product', value: 'Garmetix', type: 'product', note: 'Garment store management, billing, purchase, inventory, GST and controlled administration.' }
 ]
 
 const contacts = computed(() => serverInfo.value?.contacts?.length ? serverInfo.value.contacts : fallbackContacts)
@@ -22,11 +25,12 @@ function contactIcon(type: string) {
 
 async function refresh() {
   loading.value = true
+  loadError.value = ''
   try {
     serverInfo.value = await api.get<any>('app-info')
   } catch (error) {
     serverInfo.value = null
-    feedback.failed('Contact information load failed', error)
+    loadError.value = feedback.errorMessage(error, 'Contact information could not be loaded. Try again.', 'Contact information load failed')
   } finally {
     loading.value = false
   }
@@ -38,20 +42,31 @@ onMounted(refresh)
 <template>
   <AppShell title="Contact Us" @refresh="refresh">
     <div class="space-y-6">
-      <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div class="flex items-center justify-between gap-4">
-          <div class="space-y-2">
-            <p class="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Support & communication</p>
-            <h1 class="text-3xl font-bold text-slate-950 dark:text-white">Contact Us</h1>
-            <p class="max-w-3xl text-sm text-slate-500 dark:text-slate-400">
-              Use this page to find the current business and support contact details linked with this deployment.
-            </p>
-          </div>
-          <UButton icon="i-lucide-refresh-cw" variant="subtle" :loading="loading" @click="refresh">Refresh</UButton>
-        </div>
-      </section>
+      <UiModulePageHeader
+        title="Contact Us"
+        description="Business ownership, support email, operating region, and product contact details."
+        icon="i-lucide-messages-square"
+      >
+        <template #actions>
+          <UButton icon="i-lucide-refresh-cw" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
+        </template>
+      </UiModulePageHeader>
 
-      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <UAlert
+        v-if="loadError"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-circle-alert"
+        title="Contact information is unavailable"
+        :description="loadError"
+        :actions="[{ label: 'Try again', icon: 'i-lucide-refresh-cw', onClick: refresh }]"
+      />
+
+      <div v-if="loading && !serverInfo" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <USkeleton v-for="row in 4" :key="row" class="h-44 w-full" />
+      </div>
+
+      <div v-else class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <UCard v-for="contact in contacts" :key="contact.label">
           <div class="space-y-3">
             <div class="flex items-center gap-3">
@@ -70,8 +85,8 @@ onMounted(refresh)
         color="primary"
         variant="subtle"
         icon="i-lucide-info"
-        title="Deployment note"
-        description="For production, replace these defaults with your official business support email, phone, website and address when you finalize branding."
+        title="Support reference"
+        description="Include the Garmetix version and build code from About Garmetix when reporting an issue."
       />
     </div>
   </AppShell>

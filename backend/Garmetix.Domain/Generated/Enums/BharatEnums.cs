@@ -178,7 +178,7 @@ namespace Garmetix.Core.Enums
     }
 
     public enum LoginRole
-    { Admin, StoreManager, Salesman, Accountant, RemoteAccountant, Member, PowerUser };
+    { Admin, StoreManager, Salesman, Accountant, RemoteAccountant, Member, PowerUser, HR, Payroll };
 
     public enum NotesType
     {
@@ -317,6 +317,44 @@ namespace Garmetix.Core.Enums
 
     public enum Size2
     { S, M, L, XL, XXL, XXXL, T28, T3, T32, T34, T36, T38, T4, T41, T42, T44, T46, T48, FreeSize, NS, NOTVALID, B36, B38, B4, B42, B44, B46, B96, }
+
+
+    public enum TailoringOrderType
+    {
+        Stitching,
+        Alteration
+    }
+
+    public enum TailoringOrderStatus
+    {
+        Draft,
+        Ordered,
+        SentToVendor,
+        InProgress,
+        ReadyForDelivery,
+        Delivered,
+        Invoiced,
+        PartiallyPaid,
+        Paid,
+        Completed,
+        Cancelled
+    }
+
+    public enum TailoringServiceCategory
+    {
+        Stitching,
+        Alteration,
+        Measurement,
+        Finishing,
+        Other
+    }
+
+    public enum TailoringCostResponsibility
+    {
+        CustomerChargeable,
+        InHouseExpense,
+        Complimentary
+    }
 
     public enum Status
     { Pending, Ongoing, Running, Approved, Success, Error, Failed, InProgress, Started, Ended, Processing, Waiting, Rejected, Completed, Cancelled, PartiallyApproved, PartiallyRejected, PartiallyCompleted, Unknown }

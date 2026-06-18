@@ -21,7 +21,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     apiInternalBase: process.env.NUXT_API_INTERNAL_BASE || 'http://localhost:5080/api',
     public: {
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api'
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api',
+      dashboardShell: process.env.NUXT_PUBLIC_DASHBOARD_SHELL || 'dashboard'
     }
   },
   modules: ['@nuxt/ui'],
@@ -29,6 +30,26 @@ export default defineNuxtConfig({
     preference: 'dark',
     fallback: 'dark',
     classSuffix: ''
+  },
+  fonts: {
+    provider: 'local',
+    providers: {
+      google: false,
+      googleicons: false,
+      bunny: false,
+      fontshare: false,
+      fontsource: false,
+      adobe: false,
+      npm: false
+    },
+    families: [
+      { name: 'Inter', provider: 'none' }
+    ]
+  },
+  icon: {
+    serverBundle: {
+      collections: ['lucide']
+    }
   },
   ui: {
     theme: {

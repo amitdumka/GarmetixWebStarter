@@ -3,10 +3,12 @@ import { h, resolveComponent } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 
 const api = useGarmetixApi()
+const router = useRouter()
 const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
 const productLookup = useProductLookup()
+const documentPrint = useServerDocumentPrint()
 const config = useRuntimeConfig()
 const isAuthenticated = auth.isAuthenticated
 const canDelete = auth.canDelete
@@ -43,6 +45,8 @@ const saleGstinChecking = ref(false)
 const selectedCustomerProfile = ref<any | null>(null)
 const loadingCustomerProfile = ref(false)
 const search = ref('')
+const invoiceStatusFilter = ref('all')
+const loadError = ref('')
 const saleOpen = ref(false)
 const cancelOpen = ref(false)
 const invoicePrintFormat = ref<'a4' | 'a5' | 'thermal-2' | 'thermal-3'>('a4')
@@ -242,11 +246,12 @@ const tableRows = computed(() => invoices.value.map((invoice) => ({
 
 const filteredRows = computed(() => {
   const term = search.value.trim().toLowerCase()
-  if (!term) {
-    return tableRows.value
-  }
-
-  return tableRows.value.filter((row) => JSON.stringify(row).toLowerCase().includes(term))
+  return tableRows.value.filter((row) => {
+    const matchesStatus = invoiceStatusFilter.value === 'all'
+      || row.invoiceStatus.toLowerCase() === invoiceStatusFilter.value
+    const matchesSearch = !term || JSON.stringify(row).toLowerCase().includes(term)
+    return matchesStatus && matchesSearch
+  })
 })
 
 const columns: TableColumn<any>[] = [
@@ -376,6 +381,7 @@ async function refresh() {
   }
 
   loading.value = true
+  loadError.value = ''
   try {
     setupStatus.value = await api.get<any>('setup/status')
     const selectedCompanyId = workspace.companyId.value || setupStatus.value?.companyId
@@ -402,6 +408,7 @@ async function refresh() {
     customers.value = billingOptions?.customers || []
     salesmen.value = billingOptions?.salesmen || []
   } catch (error) {
+    loadError.value = feedback.cleanMessage(error instanceof Error ? error.message : 'Please check the service and try again.')
     feedback.failed('Billing refresh failed', error)
   } finally {
     loading.value = false
@@ -409,12 +416,7 @@ async function refresh() {
 }
 
 function startCreate() {
-  Object.assign(saleForm, emptySaleForm())
-  saleCart.value = []
-  salePayments.value = [emptyPaymentRow(0)]
-  selectedCustomerProfile.value = null
-  saleGstinValidation.value = null
-  saleOpen.value = true
+  void router.push('/billing/new')
 }
 
 async function applySelectedCustomer() {
@@ -715,6 +717,7 @@ async function submitSale() {
     }
     saleOpen.value = false
     await viewReceipt(response.invoiceId)
+    await printReceipt()
     await refresh()
   } catch (error) {
     feedback.failed('Could not save invoice', error)
@@ -932,20 +935,19 @@ async function confirmCancel() {
   }
 }
 
-function printReceipt() {
-  const style = document.createElement('style')
-  style.id = 'garmetix-invoice-page-size'
-  style.textContent = invoicePrintFormat.value === 'a5'
-    ? '@page { size: A5 portrait; margin: 7mm; }'
-    : invoicePrintFormat.value === 'thermal-2'
-      ? '@page { size: 58mm auto; margin: 2mm; }'
-      : invoicePrintFormat.value === 'thermal-3'
-        ? '@page { size: 80mm auto; margin: 3mm; }'
-        : '@page { size: A4 portrait; margin: 8mm; }'
-  document.getElementById(style.id)?.remove()
-  document.head.appendChild(style)
-  window.print()
-  window.setTimeout(() => style.remove(), 1000)
+async function printReceipt() {
+  if (!selectedReceipt.value?.id) return
+  const query = new URLSearchParams({
+    format: invoicePrintFormat.value,
+    copy: invoiceCopyType.value,
+    reprint: String(invoiceReprint.value),
+    signatures: String(invoiceSignatures.value)
+  })
+  try {
+    await documentPrint.printPdf(`billing/sales/${selectedReceipt.value.id}/pdf?${query.toString()}`)
+  } catch (error) {
+    feedback.failed('Could not print invoice PDF', error)
+  }
 }
 
 async function downloadInvoicePdf() {
@@ -1071,6 +1073,7 @@ watch(() => exchangeForm.additionalPaidAmount, () => {
     :companies="companies"
     :stores="stores"
     @refresh="refresh"
+    @workspace-change="refresh"
   >
     <section class="planner-dashboard">
       <UiModulePageHeader
@@ -1085,7 +1088,6 @@ watch(() => exchangeForm.additionalPaidAmount, () => {
           <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
             {{ loading ? 'Loading' : `${invoices.length} invoices` }}
           </UBadge>
-          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
           <UButton icon="i-lucide-plus" label="New Invoice" @click="startCreate" />
         </template>
       </UiModulePageHeader>
@@ -1103,43 +1105,47 @@ watch(() => exchangeForm.additionalPaidAmount, () => {
         </UCard>
       </div>
 
-      <UCard class="planner-card">
-        <template #header>
-          <div class="planner-card-header">
-            <div>
-              <h2>Invoice Register</h2>
-              <p>Search invoice number, customer, status, or date.</p>
-            </div>
-            <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
-          </div>
+      <UiRegisterPanel
+        title="Invoice Register"
+        :description="`${filteredRows.length} of ${invoices.length} invoices`"
+        :loading="loading"
+        :error="loadError"
+        :empty="filteredRows.length === 0"
+        :empty-title="search || invoiceStatusFilter !== 'all' ? 'No matching invoices' : 'No invoices yet'"
+        :empty-description="search || invoiceStatusFilter !== 'all' ? 'Change the search or status filter.' : 'Create the first sales invoice from the POS billing workflow.'"
+        empty-icon="i-lucide-receipt-indian-rupee"
+        @retry="refresh"
+      >
+        <template #actions>
+          <UiCrudToolbar
+            v-model:search="search"
+            search-placeholder="Search invoice or customer"
+            :loading="loading"
+            refresh-label="Sync"
+            create-label="New Invoice"
+            @refresh="refresh"
+            @create="startCreate"
+          >
+            <template #filters>
+              <USelect
+                v-model="invoiceStatusFilter"
+                :items="[
+                  { label: 'All statuses', value: 'all' },
+                  { label: 'Saved', value: 'saved' },
+                  { label: 'Cancelled', value: 'cancelled' },
+                  { label: 'Refunded', value: 'refunded' }
+                ]"
+                aria-label="Filter invoice status"
+                class="min-w-36"
+              />
+            </template>
+          </UiCrudToolbar>
         </template>
 
-        <UiCrudToolbar
-          v-model:search="search"
-          search-placeholder="Search invoice or customer"
-          :loading="loading"
-          refresh-label="Sync"
-          create-label="New Invoice"
-          @refresh="refresh"
-          @create="startCreate"
-        />
-
-        <UTable
-          v-if="filteredRows.length"
-          :data="filteredRows"
-          :columns="columns"
-          :loading="loading"
-        />
-
-        <UiCrudEmptyState
-          v-else
-          title="No invoices found"
-          description="Create the first sales invoice from the POS billing workflow."
-          icon="i-lucide-receipt-indian-rupee"
-          action-label="New Invoice"
-          @action="startCreate"
-        />
-      </UCard>
+        <div class="planner-table-wrap">
+          <UTable :data="filteredRows" :columns="columns" />
+        </div>
+      </UiRegisterPanel>
 
       <UiFormSlideover
         v-model:open="saleOpen"

@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using Garmetix.Api.Accounting;
 using Garmetix.Api.Auth;
+using Garmetix.Api.Inventory;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Accounting;
 using Garmetix.Core.Models.Authentication;
@@ -41,8 +43,11 @@ public static class ImportExportEndpoints
             async (db, cancellationToken) =>
             {
                 var rows = await db.Products.AsNoTracking()
+                    .Where(product =>
+                        !db.Stocks.Any(stock => stock.ProductId == product.Id) ||
+                        db.Stocks.Any(stock => stock.ProductId == product.Id && !stock.IsOFB))
                     .GroupJoin(
-                        db.Stocks.AsNoTracking(),
+                        db.Stocks.AsNoTracking().Where(stock => !stock.IsOFB),
                         product => product.Id,
                         stock => stock.ProductId,
                         (product, stocks) => new { product, stocks })
@@ -304,7 +309,7 @@ public static class ImportExportEndpoints
             }),
         ["access"] = new(
             "Access",
-            ["Name", "UserName", "Email", "Password", "Role", "UserType", "Admin", "AppOperation", "CompanyCode", "StoreGroupCode", "StoreCode"],
+            ["Name", "UserName", "Email", "Password", "Role", "UserType", "IsActive", "AppOperation", "CompanyCode", "StoreGroupCode", "StoreCode"],
             async (db, cancellationToken) =>
             {
                 var rows = await db.Users.AsNoTracking()
@@ -321,7 +326,7 @@ public static class ImportExportEndpoints
                     "",
                     item.Role,
                     item.UserType,
-                    item.Admin,
+                    item.IsActive,
                     item.AppOperation,
                     item.CompanyId.HasValue && companies.TryGetValue(item.CompanyId.Value, out var company) ? company.Code : "",
                     item.StoreGroupId.HasValue && groups.TryGetValue(item.StoreGroupId.Value, out var group) ? group.GroupCode : "",
@@ -376,6 +381,7 @@ public static class ImportExportEndpoints
         bool commit,
         GarmetixDbContext db,
         AccountingPostingService accounting,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         if (!Definitions.TryGetValue(module, out var definition))
@@ -437,10 +443,10 @@ public static class ImportExportEndpoints
                 await ImportAccessAsync(db, dataRows, commit, result, cancellationToken);
                 break;
             case "purchase":
-                await ImportPurchaseAsync(db, dataRows, commit, result, accounting, cancellationToken);
+                await ImportPurchaseAsync(db, dataRows, commit, result, accounting, stockLedger, cancellationToken);
                 break;
             case "billing":
-                await ImportBillingAsync(db, dataRows, commit, result, accounting, cancellationToken);
+                await ImportBillingAsync(db, dataRows, commit, result, accounting, stockLedger, cancellationToken);
                 break;
             case "payroll":
                 await ImportPayrollAsync(db, dataRows, commit, result, accounting, cancellationToken);
@@ -582,16 +588,20 @@ public static class ImportExportEndpoints
 
             var role = row.Enum("Role", LoginRole.Member, result);
             var userType = row.Enum("UserType", UserType.StoreManager, result);
-            var admin = row.Bool("Admin", role == LoginRole.Admin) || role == LoginRole.Admin;
+            var admin = role == LoginRole.Admin;
+            var isActive = row.Bool("IsActive", true);
             var appOperation = row.Enum("AppOperation", AppOperation.All, result);
             var scope = ResolveUserScope(row, companies, groups, stores, result);
 
-            if (user is not null && (user.Admin || user.Role == LoginRole.Admin) && !admin)
+            if (user is not null
+                && user.IsActive
+                && (user.Admin || user.Role == LoginRole.Admin)
+                && (!admin || !isActive))
             {
-                var adminCount = users.Count(item => item.Admin || item.Role == LoginRole.Admin);
+                var adminCount = users.Count(item => item.IsActive && (item.Admin || item.Role == LoginRole.Admin));
                 if (adminCount <= 1)
                 {
-                    result.Errors.Add(new ImportRowError(row.Line, "Admin", "Cannot remove admin access from the last admin user."));
+                    result.Errors.Add(new ImportRowError(row.Line, "Role", "Cannot remove or deactivate the last active admin user."));
                     continue;
                 }
             }
@@ -608,6 +618,7 @@ public static class ImportExportEndpoints
             user.Role = role;
             user.UserType = userType;
             user.Admin = admin;
+            user.IsActive = isActive;
             user.AppOperation = appOperation;
             user.CompanyId = scope.CompanyId;
             user.StoreGroupId = scope.StoreGroupId;
@@ -639,6 +650,7 @@ public static class ImportExportEndpoints
         bool commit,
         ImportResult result,
         AccountingPostingService accounting,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         var companies = await db.Companies.AsNoTracking().OrderBy(item => item.CreatedAt).ToListAsync(cancellationToken);
@@ -796,7 +808,8 @@ public static class ImportExportEndpoints
                 var stock = await db.Stocks.FirstOrDefaultAsync(item =>
                     item.ProductId == product.Id &&
                     item.Barcode == line.Barcode &&
-                    item.StoreId == line.StoreId,
+                    item.StoreId == line.StoreId &&
+                    !item.IsOFB,
                     cancellationToken);
 
                 if (stock is null)
@@ -809,17 +822,31 @@ public static class ImportExportEndpoints
                         CompanyId = line.CompanyId,
                         StoreGroupId = line.StoreGroupId,
                         StoreId = line.StoreId,
-                        TaxId = tax.Id
+                        TaxId = tax.Id,
+                        IsOFB = false
                     };
                     db.Stocks.Add(stock);
                 }
 
-                stock.PurchaseQty += line.Quantity;
-                stock.CostPrice = line.CostPrice;
                 stock.MRP = line.Mrp;
                 stock.TaxRate = tax.CompositeRate;
                 stock.TaxType = tax.TaxType;
                 stock.TaxId = tax.Id;
+                await stockLedger.PostAsync(stock, new StockMovement
+                {
+                    Barcode = stock.Barcode,
+                    MovementType = "PurchaseImportIn",
+                    QuantityIn = line.Quantity,
+                    CostPrice = line.CostPrice,
+                    MRP = line.Mrp,
+                    TaxRate = tax.CompositeRate,
+                    HSNCode = product.HSNCode,
+                    SourceType = "PurchaseInvoiceImport",
+                    SourceId = invoiceId,
+                    SourceNumber = first.InvoiceNumber,
+                    Remarks = "Imported purchase inward",
+                    OnDate = first.OnDate
+                }, cancellationToken);
 
                 product.MRP = line.Mrp;
                 product.TaxRate = tax.CompositeRate;
@@ -886,6 +913,7 @@ public static class ImportExportEndpoints
         bool commit,
         ImportResult result,
         AccountingPostingService accounting,
+        StockLedgerService stockLedger,
         CancellationToken cancellationToken)
     {
         var companies = await db.Companies.AsNoTracking().OrderBy(item => item.CreatedAt).ToListAsync(cancellationToken);
@@ -964,7 +992,7 @@ public static class ImportExportEndpoints
         var requiredStoreIds = requiredStock.Keys.Select(key => key.StoreId).Distinct().ToList();
         var stockRows = await db.Stocks
             .Include(item => item.Product)
-            .Where(item => requiredStoreIds.Contains(item.StoreId))
+            .Where(item => !item.IsOFB && requiredStoreIds.Contains(item.StoreId))
             .ToListAsync(cancellationToken);
 
         foreach (var group in drafts.GroupBy(item => new { item.CompanyId, item.StoreId, item.InvoiceNumber }))
@@ -994,10 +1022,32 @@ public static class ImportExportEndpoints
                 continue;
             }
 
-            if (stock.CurrentStock < stockNeed.Value)
+            var stockSnapshot = await stockLedger.GetSnapshotAsync(stock, cancellationToken);
+            if (stockSnapshot.Quantity < stockNeed.Value)
             {
                 var line = drafts.First(item => item.StoreId == stockNeed.Key.StoreId && item.Barcode.Equals(stockNeed.Key.Barcode, StringComparison.OrdinalIgnoreCase));
-                result.Errors.Add(new ImportRowError(line.Line, "Quantity", $"Insufficient stock for {line.Barcode}. Available: {stock.CurrentStock}."));
+                result.Errors.Add(new ImportRowError(line.Line, "Quantity", $"Insufficient stock for {line.Barcode}. Available: {stockSnapshot.Quantity}."));
+            }
+        }
+
+        var salesmanCompanyIds = drafts.Select(item => item.CompanyId).Distinct().ToList();
+        var salesmanStoreIds = drafts.Select(item => item.StoreId).Distinct().ToList();
+        var defaultSalesmen = await db.Salesmen
+            .AsNoTracking()
+            .Where(item => item.Active && salesmanCompanyIds.Contains(item.CompanyId) && salesmanStoreIds.Contains(item.StoreId))
+            .OrderBy(item => item.Name)
+            .Select(item => new { item.Id, item.CompanyId, item.StoreId })
+            .ToListAsync(cancellationToken);
+        var defaultSalesmenByStore = defaultSalesmen
+            .GroupBy(item => (item.CompanyId, item.StoreId))
+            .ToDictionary(item => item.Key, item => item.First().Id);
+
+        foreach (var storeGroup in drafts.GroupBy(item => new { item.CompanyId, item.StoreId }))
+        {
+            if (!defaultSalesmenByStore.ContainsKey((storeGroup.Key.CompanyId, storeGroup.Key.StoreId)))
+            {
+                var firstLine = storeGroup.First();
+                result.Errors.Add(new ImportRowError(firstLine.Line, "Salesman", "Create or activate at least one salesman for this billing import store."));
             }
         }
 
@@ -1016,6 +1066,7 @@ public static class ImportExportEndpoints
         {
             var first = group.First();
             var customer = await GetOrCreateImportCustomerAsync(db, first, cancellationToken);
+            var salesmanId = defaultSalesmenByStore[(first.CompanyId, first.StoreId)];
             var invoiceId = Guid.NewGuid();
             var invoiceItems = new List<InvoiceItem>();
             decimal grossMrp = 0;
@@ -1053,8 +1104,22 @@ public static class ImportExportEndpoints
                     CompanyId = line.CompanyId
                 });
 
-                stock.SoldQty += line.Quantity;
                 stock.SoldValue += lineAmount;
+                await stockLedger.PostAsync(stock, new StockMovement
+                {
+                    Barcode = stock.Barcode,
+                    MovementType = "SaleImportOut",
+                    QuantityOut = line.Quantity,
+                    CostPrice = stock.CostPrice,
+                    MRP = line.Mrp,
+                    TaxRate = stock.TaxRate,
+                    HSNCode = stock.HSNCode ?? product.HSNCode,
+                    SourceType = "SalesInvoiceImport",
+                    SourceId = invoiceId,
+                    SourceNumber = first.InvoiceNumber,
+                    Remarks = "Imported sales invoice",
+                    OnDate = first.OnDate
+                }, cancellationToken);
                 grossMrp += lineMrp;
                 itemDiscount += lineDiscount;
                 taxableAmount += taxable;
@@ -1089,6 +1154,7 @@ public static class ImportExportEndpoints
                 CustomerId = customer.Id,
                 CustomerName = customer.Name,
                 CustomerMobileNumber = customer.MobileNumber,
+                SalemanId = salesmanId,
                 CreditSale = paidAmount < billAmount,
                 PaidAmount = paidAmount,
                 BillDiscountAmount = billDiscount,
@@ -1099,22 +1165,41 @@ public static class ImportExportEndpoints
             db.SalesInvoices.Add(invoice);
             db.InvoiceItems.AddRange(invoiceItems);
 
+            var paymentPostings = new List<SalesInvoicePaymentPosting>();
             if (paidAmount > 0)
             {
+                var paymentDetailsJson = JsonSerializer.Serialize(new Dictionary<string, object?>
+                {
+                    ["paymentMode"] = first.PaymentMode.ToString(),
+                    ["bankAccountId"] = first.BankAccountId,
+                    ["source"] = "ImportExport"
+                });
                 db.InvoicePayments.Add(new InvoicePayment
                 {
                     InvoiceId = invoice.Id,
                     OnDate = first.OnDate,
                     Amount = paidAmount,
                     PaymentMode = first.PaymentMode,
+                    BankAccountId = first.BankAccountId,
+                    PaymentDetailsJson = paymentDetailsJson,
                     StoreId = first.StoreId,
                     CompanyId = first.CompanyId
                 });
+                paymentPostings.Add(new SalesInvoicePaymentPosting(
+                    first.PaymentMode,
+                    paidAmount,
+                    first.BankAccountId,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    paymentDetailsJson));
             }
 
             customer.BillCount += 1;
             customer.Amount += billAmount;
-            await accounting.PostSalesInvoiceAsync(invoice, customer, first.StoreGroupId, first.BankAccountId, cancellationToken);
+            await accounting.PostSalesInvoiceAsync(invoice, customer, first.StoreGroupId, paymentPostings, cancellationToken);
             result.Created++;
         }
 
@@ -1599,7 +1684,11 @@ public static class ImportExportEndpoints
                 result.Updated++;
             }
 
-            var stock = await db.Stocks.FirstOrDefaultAsync(item => item.StoreId == scope.StoreId && item.Barcode == barcode, cancellationToken);
+            var stock = await db.Stocks.FirstOrDefaultAsync(item =>
+                item.StoreId == scope.StoreId &&
+                item.Barcode == barcode &&
+                !item.IsOFB,
+                cancellationToken);
             stock ??= new Stock
             {
                 ProductId = product.Id,
@@ -1607,7 +1696,8 @@ public static class ImportExportEndpoints
                 CompanyId = scope.CompanyId,
                 StoreGroupId = scope.StoreGroupId,
                 StoreId = scope.StoreId,
-                TaxId = tax!.Id
+                TaxId = tax!.Id,
+                IsOFB = false
             };
 
             stock.ProductId = product.Id;

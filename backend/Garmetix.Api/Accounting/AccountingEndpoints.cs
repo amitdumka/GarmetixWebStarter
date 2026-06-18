@@ -17,9 +17,19 @@ public static class AccountingEndpoints
         group.MapPost("/vouchers", SaveVoucherAsync);
         group.MapPut("/vouchers/{id:guid}", UpdateVoucherAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapGet("/journal", GetJournalAsync);
+        group.MapGet("/journal/validation", ValidateJournalBalanceAsync);
+        group.MapGet("/ledger-sync/status", GetLedgerSyncStatusAsync);
+        group.MapPost("/ledger-sync/repair", RepairLedgerSyncAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapGet("/financial-year-locks", ListFinancialYearLocksAsync);
+        group.MapPost("/financial-year-locks", SaveFinancialYearLockAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapPost("/financial-year-locks/{id:guid}/unlock", UnlockFinancialYearAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapGet("/trial-balance", GetTrialBalanceAsync);
         group.MapGet("/ledger-statement/{ledgerId:guid}", GetLedgerStatementAsync);
         group.MapGet("/bank-statement/{bankAccountId:guid}", GetBankStatementAsync);
+        group.MapGet("/bank-reconciliation/{bankAccountId:guid}", GetBankReconciliationAsync);
+        group.MapPost("/bank-statement-lines/{id:guid}/reconcile", ReconcileBankStatementLineAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapPost("/bank-statement-lines/{id:guid}/unreconcile", UnreconcileBankStatementLineAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapPost("/cheque-logs/{id:guid}/lifecycle", UpdateChequeLifecycleAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapGet("/bank-transactions", ListPostedBankTransactionsAsync);
         group.MapPost("/bank-transactions", SaveBankTransactionAsync);
         group.MapPut("/bank-transactions/{id:guid}", UpdateBankTransactionAsync).RequireAuthorization(GarmetixPolicies.Edit);
@@ -57,6 +67,24 @@ public static class AccountingEndpoints
         return group;
     }
 
+    private static async Task<IResult> GetLedgerSyncStatusAsync(
+        Guid? companyId,
+        AccountingPostingService service,
+        CancellationToken cancellationToken)
+    {
+        var summary = await service.ValidateLedgerSynchronizationAsync(companyId, repair: false, cancellationToken);
+        return Results.Ok(summary);
+    }
+
+    private static async Task<IResult> RepairLedgerSyncAsync(
+        Guid? companyId,
+        AccountingPostingService service,
+        CancellationToken cancellationToken)
+    {
+        var summary = await service.ValidateLedgerSynchronizationAsync(companyId, repair: true, cancellationToken);
+        return Results.Ok(summary);
+    }
+
     private static async Task<IResult> ListPartiesAsync(
         GarmetixDbContext db,
         CancellationToken cancellationToken)
@@ -76,13 +104,13 @@ public static class AccountingEndpoints
     }
 
     private static async Task<IResult> SavePartyAsync(
-        Party party,
+        PartySaveRequest request,
         AccountingPostingService service,
         CancellationToken cancellationToken)
     {
         try
         {
-            var saved = await service.SavePartyAsync(party, cancellationToken);
+            var saved = await service.SavePartyAsync(request, null, cancellationToken);
             return Results.Created($"/api/parties/{saved.Id}", saved);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
@@ -93,12 +121,19 @@ public static class AccountingEndpoints
 
     private static async Task<IResult> UpdatePartyAsync(
         Guid id,
-        Party party,
+        PartySaveRequest request,
         AccountingPostingService service,
         CancellationToken cancellationToken)
     {
-        party.Id = id;
-        return await SavePartyAsync(party, service, cancellationToken);
+        try
+        {
+            var saved = await service.SavePartyAsync(request, id, cancellationToken);
+            return Results.Ok(saved);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
     }
 
     private static async Task<IResult> DeletePartyAsync(
@@ -137,13 +172,13 @@ public static class AccountingEndpoints
     }
 
     private static async Task<IResult> SaveBankAccountAsync(
-        BankAccount account,
+        BankAccountSaveRequest request,
         AccountingPostingService service,
         CancellationToken cancellationToken)
     {
         try
         {
-            var saved = await service.SaveBankAccountAsync(account, cancellationToken);
+            var saved = await service.SaveBankAccountAsync(request, null, cancellationToken);
             return Results.Created($"/api/bank-accounts/{saved.Id}", saved);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
@@ -154,12 +189,19 @@ public static class AccountingEndpoints
 
     private static async Task<IResult> UpdateBankAccountAsync(
         Guid id,
-        BankAccount account,
+        BankAccountSaveRequest request,
         AccountingPostingService service,
         CancellationToken cancellationToken)
     {
-        account.Id = id;
-        return await SaveBankAccountAsync(account, service, cancellationToken);
+        try
+        {
+            var saved = await service.SaveBankAccountAsync(request, id, cancellationToken);
+            return Results.Ok(saved);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
     }
 
     private static async Task<IResult> DeleteBankAccountAsync(
@@ -273,7 +315,8 @@ public static class AccountingEndpoints
             employee?.StaffName ?? "-",
             bankAccount is null
                 ? "-"
-                : $"{bank?.Name ?? "Bank"} - {bankAccount.AccountHolderName} - {bankAccount.AccountNumber}");
+                : $"{bank?.Name ?? "Bank"} - {bankAccount.AccountHolderName} - {bankAccount.AccountNumber}",
+            Garmetix.Api.ProductLookup.DocumentCodeService.Create(Garmetix.Api.ProductLookup.DocumentCodeService.Voucher, voucher.Id));
 
         var pdf = VoucherPdfDocument.Build(
             document,
@@ -360,6 +403,13 @@ public static class AccountingEndpoints
         return Guid.TryParse(context.User.FindFirst(claimName)?.Value, out var value) ? value : null;
     }
 
+    private static string? OperatorName(HttpContext context)
+    {
+        return context.User.Identity?.Name
+            ?? context.User.FindFirst("userName")?.Value
+            ?? context.User.FindFirst("sub")?.Value;
+    }
+
     private static async Task<IResult> DeleteVoucherAsync(
         Guid id,
         GarmetixDbContext db,
@@ -370,6 +420,11 @@ public static class AccountingEndpoints
         if (voucher is null)
         {
             return Results.NotFound();
+        }
+
+        if (await db.CashVoucherConversions.AnyAsync(item => item.VoucherId == id, cancellationToken))
+        {
+            return Results.Conflict(new { message = "Converted vouchers are retained for audit and cannot be deleted." });
         }
 
         var journals = await db.JournalEntries
@@ -442,6 +497,72 @@ public static class AccountingEndpoints
         CancellationToken cancellationToken)
     {
         return Results.Ok(await service.GetBankStatementAsync(bankAccountId, cancellationToken));
+    }
+
+    private static async Task<IResult> GetBankReconciliationAsync(
+        Guid bankAccountId,
+        DateTime? from,
+        DateTime? to,
+        AccountingPostingService service,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Results.Ok(await service.GetBankReconciliationAsync(bankAccountId, from, to, cancellationToken));
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> ReconcileBankStatementLineAsync(
+        Guid id,
+        BankStatementReconcileRequest request,
+        HttpContext context,
+        AccountingPostingService service,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Results.Ok(await service.ReconcileBankStatementLineAsync(id, request, OperatorName(context), cancellationToken));
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> UnreconcileBankStatementLineAsync(
+        Guid id,
+        BankStatementReconcileRequest request,
+        AccountingPostingService service,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Results.Ok(await service.UnreconcileBankStatementLineAsync(id, request.Remarks, cancellationToken));
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> UpdateChequeLifecycleAsync(
+        Guid id,
+        ChequeLifecycleRequest request,
+        AccountingPostingService service,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Results.Ok(await service.UpdateChequeLifecycleAsync(id, request, cancellationToken));
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
     }
 
     private static async Task<IResult> GetLedgerStatementAsync(
@@ -569,4 +690,306 @@ public static class AccountingEndpoints
         await db.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
     }
+
+
+    private static async Task<IResult> ListFinancialYearLocksAsync(
+        Guid? companyId,
+        bool? activeOnly,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var query = db.FinancialYearLocks.AsNoTracking().AsQueryable();
+        if (ClaimGuid(context, "companyId") is { } scopedCompanyId)
+        {
+            query = query.Where(item => item.CompanyId == scopedCompanyId);
+        }
+        else if (companyId.HasValue)
+        {
+            query = query.Where(item => item.CompanyId == companyId.Value);
+        }
+
+        if (activeOnly.GetValueOrDefault())
+        {
+            query = query.Where(item => item.Active);
+        }
+
+        var locks = await query
+            .OrderByDescending(item => item.PeriodStart)
+            .ThenBy(item => item.StoreGroupId)
+            .ThenBy(item => item.StoreId)
+            .ToListAsync(cancellationToken);
+
+        return Results.Ok(locks.Select(ToFinancialYearLockRow).ToList());
+    }
+
+    private static async Task<IResult> SaveFinancialYearLockAsync(
+        FinancialYearLockSaveRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            EnsureFinancialYearLockRequestIsValid(request, context);
+
+            var periodStart = request.PeriodStart.Date;
+            var periodEnd = request.PeriodEnd.Date;
+            var requestId = request.Id ?? Guid.Empty;
+            var activeOverlap = await db.FinancialYearLocks.AsNoTracking().AnyAsync(item =>
+                item.Active
+                && item.CompanyId == request.CompanyId
+                && item.Id != requestId
+                && item.StoreGroupId == request.StoreGroupId
+                && item.StoreId == request.StoreId
+                && item.PeriodStart <= periodEnd
+                && item.PeriodEnd >= periodStart,
+                cancellationToken);
+            if (activeOverlap)
+            {
+                return Results.Conflict(new { message = "An active lock already overlaps this company/store period." });
+            }
+
+            var periodLock = request.Id.HasValue
+                ? await db.FinancialYearLocks.FirstOrDefaultAsync(item => item.Id == request.Id.Value, cancellationToken)
+                : null;
+            if (request.Id.HasValue && periodLock is null)
+            {
+                return Results.NotFound();
+            }
+
+            periodLock ??= new FinancialYearLock
+            {
+                CompanyId = request.CompanyId
+            };
+
+            periodLock.CompanyId = request.CompanyId;
+            periodLock.StoreGroupId = request.StoreGroupId;
+            periodLock.StoreId = request.StoreId;
+            periodLock.FinancialYear = request.FinancialYear.Trim();
+            periodLock.PeriodStart = periodStart;
+            periodLock.PeriodEnd = periodEnd;
+            periodLock.LockAccounting = request.LockAccounting;
+            periodLock.LockSales = request.LockSales;
+            periodLock.LockPurchase = request.LockPurchase;
+            periodLock.LockInventory = request.LockInventory;
+            periodLock.LockGst = request.LockGst;
+            periodLock.LockReason = request.Reason?.Trim();
+            periodLock.LockedAt = DateTime.Now;
+            periodLock.LockedBy = OperatorName(context);
+            periodLock.Active = true;
+            periodLock.UnlockedAt = null;
+            periodLock.UnlockedBy = null;
+            periodLock.UnlockReason = null;
+            periodLock.CreatedBy ??= OperatorName(context);
+
+            if (db.Entry(periodLock).State == EntityState.Detached)
+            {
+                db.FinancialYearLocks.Add(periodLock);
+            }
+
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Ok(ToFinancialYearLockRow(periodLock));
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> UnlockFinancialYearAsync(
+        Guid id,
+        FinancialYearUnlockRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var periodLock = await db.FinancialYearLocks.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (periodLock is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (ClaimGuid(context, "companyId") is { } scopedCompanyId && periodLock.CompanyId != scopedCompanyId)
+        {
+            return Results.Forbid();
+        }
+
+        periodLock.Active = false;
+        periodLock.UnlockedAt = DateTime.Now;
+        periodLock.UnlockedBy = OperatorName(context);
+        periodLock.UnlockReason = request.Reason?.Trim();
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(ToFinancialYearLockRow(periodLock));
+    }
+
+    private static async Task<IResult> ValidateJournalBalanceAsync(
+        Guid? companyId,
+        DateTime? from,
+        DateTime? to,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var query = db.JournalEntries.AsNoTracking()
+            .Include(entry => entry.Lines)
+            .AsQueryable();
+
+        if (ClaimGuid(context, "companyId") is { } scopedCompanyId)
+        {
+            query = query.Where(item => item.CompanyId == scopedCompanyId);
+            companyId = scopedCompanyId;
+        }
+        else if (companyId.HasValue)
+        {
+            query = query.Where(item => item.CompanyId == companyId.Value);
+        }
+
+        if (from.HasValue)
+        {
+            query = query.Where(item => item.OnDate >= from.Value.Date);
+        }
+
+        if (to.HasValue)
+        {
+            var endExclusive = to.Value.Date.AddDays(1);
+            query = query.Where(item => item.OnDate < endExclusive);
+        }
+
+        var entries = await query
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .Take(5000)
+            .ToListAsync(cancellationToken);
+
+        var issues = new List<JournalValidationIssue>();
+        decimal totalDebit = 0;
+        decimal totalCredit = 0;
+        foreach (var entry in entries)
+        {
+            var lines = entry.Lines?.ToList() ?? [];
+            var debit = Math.Round(lines.Sum(item => item.Debit), 2, MidpointRounding.AwayFromZero);
+            var credit = Math.Round(lines.Sum(item => item.Credit), 2, MidpointRounding.AwayFromZero);
+            totalDebit += debit;
+            totalCredit += credit;
+            var difference = Math.Round(debit - credit, 2, MidpointRounding.AwayFromZero);
+
+            if (lines.Count == 0)
+            {
+                issues.Add(ToJournalValidationIssue(entry, debit, credit, difference, "Error", "Journal entry has no lines."));
+                continue;
+            }
+
+            if (difference != 0)
+            {
+                issues.Add(ToJournalValidationIssue(entry, debit, credit, difference, "Error", "Journal entry debit and credit totals are not equal."));
+            }
+
+            if (debit == 0 && credit == 0)
+            {
+                issues.Add(ToJournalValidationIssue(entry, debit, credit, difference, "Warning", "Journal entry has zero value."));
+            }
+
+            if (lines.Any(item => item.Debit < 0 || item.Credit < 0))
+            {
+                issues.Add(ToJournalValidationIssue(entry, debit, credit, difference, "Error", "Journal line contains a negative debit or credit."));
+            }
+
+            if (lines.Any(item => item.Debit > 0 && item.Credit > 0))
+            {
+                issues.Add(ToJournalValidationIssue(entry, debit, credit, difference, "Error", "Journal line contains both debit and credit values."));
+            }
+        }
+
+        return Results.Ok(new JournalValidationSummary(
+            companyId,
+            from?.Date,
+            to?.Date,
+            entries.Count,
+            issues.Count,
+            Math.Round(totalDebit, 2, MidpointRounding.AwayFromZero),
+            Math.Round(totalCredit, 2, MidpointRounding.AwayFromZero),
+            Math.Round(totalDebit - totalCredit, 2, MidpointRounding.AwayFromZero),
+            issues));
+    }
+
+    private static FinancialYearLockRow ToFinancialYearLockRow(FinancialYearLock item)
+        => new(
+            item.Id,
+            item.CompanyId,
+            item.StoreGroupId,
+            item.StoreId,
+            item.FinancialYear,
+            item.PeriodStart,
+            item.PeriodEnd,
+            item.Active,
+            item.LockAccounting,
+            item.LockSales,
+            item.LockPurchase,
+            item.LockInventory,
+            item.LockGst,
+            item.LockedAt,
+            item.LockedBy,
+            item.LockReason,
+            item.UnlockedAt,
+            item.UnlockedBy,
+            item.UnlockReason);
+
+    private static JournalValidationIssue ToJournalValidationIssue(
+        JournalEntry entry,
+        decimal debit,
+        decimal credit,
+        decimal difference,
+        string severity,
+        string message)
+        => new(
+            entry.Id,
+            entry.EntryNumber,
+            entry.OnDate,
+            entry.SourceType,
+            entry.ReferenceNumber,
+            debit,
+            credit,
+            difference,
+            severity,
+            message);
+
+    private static void EnsureFinancialYearLockRequestIsValid(FinancialYearLockSaveRequest request, HttpContext context)
+    {
+        if (request.CompanyId == Guid.Empty)
+        {
+            throw new ArgumentException("Company is required.");
+        }
+
+        if (ClaimGuid(context, "companyId") is { } scopedCompanyId && request.CompanyId != scopedCompanyId)
+        {
+            throw new InvalidOperationException("The selected company is outside your access scope.");
+        }
+
+        if (ClaimGuid(context, "storeGroupId") is { } scopedStoreGroupId && request.StoreGroupId != scopedStoreGroupId)
+        {
+            throw new InvalidOperationException("The selected store group is outside your access scope.");
+        }
+
+        if (ClaimGuid(context, "storeId") is { } scopedStoreId && request.StoreId != scopedStoreId)
+        {
+            throw new InvalidOperationException("The selected store is outside your access scope.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.FinancialYear))
+        {
+            throw new ArgumentException("Financial year name is required.");
+        }
+
+        if (request.PeriodStart.Date > request.PeriodEnd.Date)
+        {
+            throw new ArgumentException("Period start cannot be after period end.");
+        }
+
+        if (!request.LockAccounting && !request.LockSales && !request.LockPurchase && !request.LockInventory && !request.LockGst)
+        {
+            throw new ArgumentException("Select at least one module to lock.");
+        }
+    }
+
 }

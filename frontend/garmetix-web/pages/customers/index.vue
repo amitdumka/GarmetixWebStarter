@@ -6,9 +6,11 @@ const router = useRouter()
 const customers = ref<any[]>([])
 const search = ref('')
 const loading = ref(false)
+const loadError = ref('')
 const selectedCustomer = ref<any | null>(null)
 const ledger = ref<any[]>([])
 const ledgerLoading = ref(false)
+const ledgerError = ref('')
 
 const filteredCustomers = computed(() => {
   const term = search.value.trim().toLowerCase()
@@ -26,12 +28,14 @@ const metrics = computed(() => [
 async function refresh() {
   if (!auth.isAuthenticated.value) return
   loading.value = true
+  loadError.value = ''
   try {
     customers.value = await api.list<any>('customers')
     if (selectedCustomer.value) {
       selectedCustomer.value = customers.value.find((item) => item.id === selectedCustomer.value.id) || selectedCustomer.value
     }
   } catch (error) {
+    loadError.value = error instanceof Error ? error.message : 'Please check the service and try again.'
     feedback.failed('Could not load customers', error)
   } finally {
     loading.value = false
@@ -41,13 +45,22 @@ async function refresh() {
 async function openLoyalty(customer: any) {
   selectedCustomer.value = customer
   ledgerLoading.value = true
+  ledgerError.value = ''
+  ledger.value = []
   try {
     ledger.value = await api.get<any[]>(`loyalty/customers/${customer.id}/ledger`)
   } catch (error) {
+    ledgerError.value = error instanceof Error ? error.message : 'Please check the service and try again.'
     feedback.failed('Could not load customer loyalty ledger', error)
   } finally {
     ledgerLoading.value = false
   }
+}
+
+function closeLoyalty() {
+  selectedCustomer.value = null
+  ledger.value = []
+  ledgerError.value = ''
 }
 
 function money(value: number) { return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(Number(value || 0)) }
@@ -60,14 +73,15 @@ onMounted(async () => { auth.restore(); await refresh() })
   <AuthScreen v-if="!auth.isAuthenticated.value" />
   <AppShell v-else title="Customers" @refresh="refresh">
     <UiModulePageHeader
-      title="Customer Module"
-      description="Dedicated customer master with GSTIN, store credit, loyalty balance, and customer loyalty ledger. Create/edit opens a dedicated form page."
+      title="Customers"
+      description="Manage customer identity, GST details, store credit, and loyalty balances."
       icon="i-lucide-user-round"
       primary-label="New Customer"
       primary-icon="i-lucide-plus"
       @primary="router.push('/customers/new')"
     >
       <template #actions>
+        <UButton icon="i-lucide-plus" label="New Customer" @click="router.push('/customers/new')" />
         <UButton color="neutral" variant="subtle" icon="i-lucide-gift" label="Loyalty Setup" @click="router.push('/loyalty')" />
       </template>
     </UiModulePageHeader>
@@ -81,46 +95,73 @@ onMounted(async () => { auth.restore(); await refresh() })
       </UCard>
     </div>
 
-    <UCard class="planner-card mt-4">
-      <template #header>
-        <div class="planner-card-header">
-          <div><h2>Customer Register</h2><p>Search name, mobile, GSTIN, loyalty, or credit balance.</p></div>
-          <UInput v-model="search" icon="i-lucide-search" placeholder="Search customer" />
-        </div>
+    <UiRegisterPanel
+      class="mt-4"
+      title="Customer Register"
+      :description="`${filteredCustomers.length} of ${customers.length} customers`"
+      :loading="loading"
+      :error="loadError"
+      :empty="filteredCustomers.length === 0"
+      :empty-title="search ? 'No matching customers' : 'No customers yet'"
+      :empty-description="search ? 'Try a different name, mobile number, GSTIN, credit, or loyalty value.' : 'Create the first customer to begin this register.'"
+      empty-icon="i-lucide-users-round"
+      @retry="refresh"
+    >
+      <template #actions>
+        <UiCrudToolbar
+          v-model:search="search"
+          search-placeholder="Search customers"
+          :loading="loading"
+          @refresh="refresh"
+        />
       </template>
+
       <div class="planner-table-wrap">
         <table class="planner-table">
-          <thead><tr><th>Name</th><th>Mobile</th><th>GSTIN</th><th>Credit</th><th>Loyalty</th><th>GST Status</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Mobile</th><th>GSTIN</th><th class="text-right">Credit</th><th class="text-right">Loyalty</th><th>GST Status</th><th class="text-right">Actions</th></tr></thead>
           <tbody>
             <tr v-for="customer in filteredCustomers" :key="customer.id">
-              <td>{{ customer.name }}</td>
-              <td>{{ customer.mobileNumber }}</td>
+              <td class="font-medium">{{ customer.name }}</td>
+              <td>{{ customer.mobileNumber || '-' }}</td>
               <td>{{ customer.gstin || customer.gSTIN || '-' }}</td>
-              <td>{{ money(customer.creditBalance) }}</td>
-              <td>{{ Number(customer.loyaltyPoints || 0).toFixed(2) }}</td>
+              <td class="text-right">{{ money(customer.creditBalance) }}</td>
+              <td class="text-right">{{ Number(customer.loyaltyPoints || 0).toFixed(2) }}</td>
               <td><UBadge :color="customer.gstMismatchAlert ? 'warning' : (customer.gstVerified ? 'success' : 'neutral')" variant="subtle">{{ customer.gstMismatchAlert ? 'Mismatch' : (customer.gstVerified ? 'Verified' : 'Pending') }}</UBadge></td>
-              <td class="inline-action-row"><UButton size="xs" label="Edit" variant="subtle" @click="router.push(`/customers/${customer.id}`)" /><UButton size="xs" label="Loyalty" icon="i-lucide-gift" @click="openLoyalty(customer)" /></td>
+              <td><div class="inline-action-row justify-end"><UButton size="xs" label="Edit" icon="i-lucide-pencil" variant="subtle" @click="router.push(`/customers/${customer.id}`)" /><UButton size="xs" label="Loyalty" icon="i-lucide-gift" @click="openLoyalty(customer)" /></div></td>
             </tr>
           </tbody>
         </table>
       </div>
-    </UCard>
+    </UiRegisterPanel>
 
-    <UCard v-if="selectedCustomer" class="planner-card mt-4">
-      <template #header>
-        <div class="planner-card-header">
-          <div><h2>{{ selectedCustomer.name }} loyalty</h2><p>Balance: {{ Number(selectedCustomer.loyaltyPoints || 0).toFixed(2) }} points · Credit: {{ money(selectedCustomer.creditBalance) }}</p></div>
+    <UiRegisterPanel
+      v-if="selectedCustomer"
+      class="mt-4"
+      :title="`${selectedCustomer.name} Loyalty Ledger`"
+      :description="`Balance: ${Number(selectedCustomer.loyaltyPoints || 0).toFixed(2)} points | Credit: ${money(selectedCustomer.creditBalance)}`"
+      :loading="ledgerLoading"
+      :error="ledgerError"
+      :empty="ledger.length === 0"
+      empty-title="No loyalty activity"
+      empty-description="Loyalty earning and redemption entries will appear here."
+      empty-icon="i-lucide-gift"
+      @retry="openLoyalty(selectedCustomer)"
+    >
+      <template #actions>
+        <div class="inline-action-row justify-end">
           <UButton label="Manage Loyalty" icon="i-lucide-gift" @click="router.push(`/loyalty?customerId=${selectedCustomer.id}`)" />
+          <UButton color="neutral" variant="ghost" icon="i-lucide-x" label="Close" @click="closeLoyalty" />
         </div>
       </template>
+
       <div class="planner-table-wrap">
         <table class="planner-table">
-          <thead><tr><th>Date</th><th>Source</th><th>In</th><th>Out</th><th>Balance</th><th>Remarks</th></tr></thead>
+          <thead><tr><th>Date</th><th>Source</th><th class="text-right">In</th><th class="text-right">Out</th><th class="text-right">Balance</th><th>Remarks</th></tr></thead>
           <tbody>
-            <tr v-for="row in ledger" :key="row.id"><td>{{ date(row.onDate) }}</td><td>{{ row.sourceType }} {{ row.sourceNumber || '' }}</td><td>{{ row.pointsIn }}</td><td>{{ row.pointsOut }}</td><td>{{ row.balanceAfter }}</td><td>{{ row.remarks }}</td></tr>
+            <tr v-for="row in ledger" :key="row.id"><td>{{ date(row.onDate) }}</td><td>{{ row.sourceType }} {{ row.sourceNumber || '' }}</td><td class="text-right">{{ row.pointsIn }}</td><td class="text-right">{{ row.pointsOut }}</td><td class="text-right font-medium">{{ row.balanceAfter }}</td><td>{{ row.remarks || '-' }}</td></tr>
           </tbody>
         </table>
       </div>
-    </UCard>
+    </UiRegisterPanel>
   </AppShell>
 </template>

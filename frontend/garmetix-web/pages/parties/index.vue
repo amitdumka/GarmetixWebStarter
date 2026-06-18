@@ -18,6 +18,7 @@ const vendors = ref<any[]>([])
 const activeType = ref<'customer' | 'vendor'>('customer')
 const search = ref('')
 const loading = ref(false)
+const loadError = ref('')
 const saving = ref(false)
 const formOpen = ref(false)
 const gstinChecking = ref(false)
@@ -117,6 +118,7 @@ function startCreate(type = activeType.value) {
 async function refresh() {
   if (!auth.isAuthenticated.value) return
   loading.value = true
+  loadError.value = ''
   try {
     const [companyRows, storeRows, customerRows, vendorRows] = await Promise.all([
       api.list<any>('companies'),
@@ -129,6 +131,7 @@ async function refresh() {
     customers.value = customerRows
     vendors.value = vendorRows
   } catch (error) {
+    loadError.value = feedback.cleanMessage(error instanceof Error ? error.message : 'Please check the service and try again.')
     feedback.failed('Could not load parties', error)
   } finally {
     loading.value = false
@@ -242,8 +245,8 @@ onMounted(async () => {
         @primary="startCreate('customer')"
       >
         <template #actions>
+          <UButton icon="i-lucide-user-round-plus" label="New Customer" @click="startCreate('customer')" />
           <UButton color="neutral" variant="subtle" icon="i-lucide-truck" label="New Vendor" @click="startCreate('vendor')" />
-          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
         </template>
       </UiModulePageHeader>
 
@@ -260,36 +263,41 @@ onMounted(async () => {
         </UCard>
       </div>
 
-      <UCard class="planner-card">
-        <template #header>
-          <div class="planner-card-header">
-            <div>
-              <h2>Party Register</h2>
-              <p>Search customer/vendor GSTIN, name, mobile, or mismatch alert.</p>
-            </div>
-            <USegmentedControl v-model="activeType" :items="typeOptions" />
-          </div>
+      <UiRegisterPanel
+        title="Party Register"
+        :description="`${filteredRows.length} of ${activeRows.length} ${activeType === 'customer' ? 'customers' : 'vendors'}`"
+        :loading="loading"
+        :error="loadError"
+        :empty="filteredRows.length === 0"
+        :empty-title="search ? `No matching ${activeType === 'customer' ? 'customers' : 'vendors'}` : `No ${activeType === 'customer' ? 'customers' : 'vendors'} yet`"
+        :empty-description="search ? 'Try a different name, mobile number, GSTIN, or alert value.' : `Create the first ${activeType} to begin this register.`"
+        empty-icon="i-lucide-users-round"
+        @retry="refresh"
+      >
+        <template #actions>
+          <UiCrudToolbar
+            v-model:search="search"
+            search-placeholder="Search party, mobile, GSTIN"
+            :loading="loading"
+            create-label="New Party"
+            @refresh="refresh"
+            @create="startCreate(activeType)"
+          >
+            <template #filters>
+              <USelect
+                v-model="activeType"
+                :items="typeOptions"
+                aria-label="Filter party type"
+                class="min-w-32"
+              />
+            </template>
+          </UiCrudToolbar>
         </template>
 
-        <UiCrudToolbar
-          v-model:search="search"
-          search-placeholder="Search party, mobile, GSTIN"
-          :loading="loading"
-          create-label="New Party"
-          @refresh="refresh"
-          @create="startCreate(activeType)"
-        />
-
-        <UTable v-if="filteredRows.length" :data="filteredRows" :columns="partyColumns" :loading="loading" />
-        <UiCrudEmptyState
-          v-else
-          title="No parties found"
-          description="Create customers and vendors with GSTIN verification."
-          icon="i-lucide-users-round"
-          action-label="New Party"
-          @action="startCreate(activeType)"
-        />
-      </UCard>
+        <div class="planner-table-wrap">
+          <UTable :data="filteredRows" :columns="partyColumns" />
+        </div>
+      </UiRegisterPanel>
 
       <UiFormSlideover
         v-model:open="formOpen"
