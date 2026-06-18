@@ -44,11 +44,63 @@ type StockReportSummary = {
   rows: StockReportRow[]
 }
 
+
+type StockMovementHistoryRow = {
+  movementId: string
+  onDate: string
+  productName: string
+  barcode: string
+  movementType: string
+  movementLabel: string
+  direction: string
+  sourceType?: string | null
+  sourceId?: string | null
+  sourceNumber?: string | null
+  quantityIn: number
+  quantityOut: number
+  netQuantity: number
+  unitCost: number
+  unitSalePrice?: number | null
+  costAmount: number
+  salesAmount?: number | null
+  profitOrLoss: number
+  quantityBefore: number
+  quantityAfter: number
+  averageCostBefore: number
+  averageCostAfter: number
+  inventoryValueBefore: number
+  inventoryValueAfter: number
+  remarks?: string | null
+}
+
+type StockMovementHistory = {
+  asOf: string
+  stockId?: string | null
+  productId?: string | null
+  productName: string
+  barcode: string
+  storeName: string
+  currentQuantity: number
+  currentAverageCost: number
+  currentStockValue: number
+  totalPurchasedQuantity: number
+  totalPurchaseReturnQuantity: number
+  totalSoldQuantity: number
+  totalSalesReturnQuantity: number
+  totalSalesAmount: number
+  totalCostOfGoodsSold: number
+  grossProfitOrLoss: number
+  totalPositiveProfit: number
+  totalLoss: number
+  rows: StockMovementHistoryRow[]
+}
+
 const api = useGarmetixApi()
 const auth = useAuth()
 const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
 const UBadge = resolveComponent('UBadge')
+const UButton = resolveComponent('UButton')
 
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
@@ -60,6 +112,9 @@ const ageFilter = ref('all')
 const reconciliationFilter = ref('all')
 const lowStockThreshold = ref(3)
 const summary = ref<StockReportSummary>(emptySummary())
+const movementHistory = ref<StockMovementHistory | null>(null)
+const movementHistoryLoading = ref(false)
+const movementHistoryError = ref('')
 
 const riskOptions = [
   { label: 'All risk levels', value: 'all' },
@@ -178,7 +233,18 @@ const columns: TableColumn<any>[] = [
       variant: 'subtle'
     }, () => row.original.reconciliationStatus)
   },
-  { accessorKey: 'movementCount', header: 'Movements' }
+  { accessorKey: 'movementCount', header: 'Movements' },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => h(UButton, {
+      color: 'primary',
+      variant: 'ghost',
+      icon: 'i-lucide-history',
+      label: 'History',
+      onClick: () => loadMovementHistory(row.original)
+    })
+  }
 ]
 
 function emptySummary(): StockReportSummary {
@@ -220,6 +286,79 @@ async function refresh() {
   } finally {
     loading.value = false
   }
+}
+
+
+async function loadMovementHistory(row: StockReportRow) {
+  movementHistoryLoading.value = true
+  movementHistoryError.value = ''
+  try {
+    const query = new URLSearchParams({ stockId: row.stockId, productId: row.productId, barcode: row.barcode, take: '1000' })
+    movementHistory.value = await api.get<StockMovementHistory>(`inventory/stock-reports/movement-history?${query.toString()}`)
+  } catch (error) {
+    movementHistory.value = null
+    movementHistoryError.value = 'Stock movement history could not be loaded for this product.'
+    feedback.failed('Stock movement history failed', error)
+  } finally {
+    movementHistoryLoading.value = false
+  }
+}
+
+function closeMovementHistory() {
+  movementHistory.value = null
+  movementHistoryError.value = ''
+}
+
+function exportMovementCsv() {
+  if (!movementHistory.value?.rows?.length) {
+    feedback.failed('No stock movement rows to export')
+    return
+  }
+
+  const headings = [
+    'Date', 'Product', 'Barcode', 'Movement', 'Source', 'Direction',
+    'Qty In', 'Qty Out', 'Qty After', 'Unit Cost', 'Unit Sale', 'Cost Amount',
+    'Sales Amount', 'Profit Or Loss', 'Inventory Value After', 'Remarks'
+  ]
+  const values = movementHistory.value.rows.map(row => [
+    row.onDate,
+    row.productName,
+    row.barcode,
+    row.movementLabel,
+    row.sourceNumber || row.sourceType || '',
+    row.direction,
+    row.quantityIn,
+    row.quantityOut,
+    row.quantityAfter,
+    row.unitCost,
+    row.unitSalePrice ?? '',
+    row.costAmount,
+    row.salesAmount ?? '',
+    row.profitOrLoss,
+    row.inventoryValueAfter,
+    row.remarks || ''
+  ])
+  const csv = [headings, ...values].map(line => line.map(csvCell).join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = `Garmetix-Stock-Movement-${movementHistory.value.barcode || 'product'}.csv`
+  anchor.click()
+  URL.revokeObjectURL(url)
+  feedback.notify('Stock movement history exported', `${movementHistory.value.rows.length} rows downloaded.`)
+}
+
+function movementColor(value: string) {
+  if (value === 'In') return 'success'
+  if (value === 'Out') return 'warning'
+  return 'neutral'
+}
+
+function profitColor(value: number) {
+  if (Number(value || 0) > 0) return 'success'
+  if (Number(value || 0) < 0) return 'error'
+  return 'neutral'
 }
 
 function resetFilters() {
@@ -472,6 +611,79 @@ onMounted(async () => {
         <div class="planner-table-wrap">
           <UTable :data="rows" :columns="columns" :loading="loading" />
         </div>
+
+        <UAlert
+          v-if="movementHistoryError"
+          color="error"
+          variant="subtle"
+          title="Movement history unavailable"
+          :description="movementHistoryError"
+        />
+
+        <UCard v-if="movementHistory" class="stock-movement-card">
+          <template #header>
+            <div class="planner-card-header">
+              <div>
+                <h2>{{ movementHistory.productName }}</h2>
+                <p>{{ movementHistory.barcode }} · {{ movementHistory.storeName }} · Movement, stock value and profit/loss history</p>
+              </div>
+              <div class="inline-flex flex-wrap gap-2">
+                <UButton color="neutral" variant="subtle" icon="i-lucide-download" label="Export history" @click="exportMovementCsv" />
+                <UButton color="neutral" variant="ghost" icon="i-lucide-x" label="Close" @click="closeMovementHistory" />
+              </div>
+            </div>
+          </template>
+
+          <div class="stock-movement-metrics">
+            <div><span>Current Qty</span><strong>{{ quantity(movementHistory.currentQuantity) }}</strong></div>
+            <div><span>Current Avg Cost</span><strong>{{ money(movementHistory.currentAverageCost) }}</strong></div>
+            <div><span>Current Stock Value</span><strong>{{ money(movementHistory.currentStockValue) }}</strong></div>
+            <div><span>Purchased</span><strong>{{ quantity(movementHistory.totalPurchasedQuantity) }}</strong></div>
+            <div><span>Sold</span><strong>{{ quantity(movementHistory.totalSoldQuantity) }}</strong></div>
+            <div><span>Sales Return</span><strong>{{ quantity(movementHistory.totalSalesReturnQuantity) }}</strong></div>
+            <div><span>Purchase Return</span><strong>{{ quantity(movementHistory.totalPurchaseReturnQuantity) }}</strong></div>
+            <div><span>Sales Amount</span><strong>{{ money(movementHistory.totalSalesAmount) }}</strong></div>
+            <div><span>COGS</span><strong>{{ money(movementHistory.totalCostOfGoodsSold) }}</strong></div>
+            <div><span>Profit / Loss</span><strong :class="Number(movementHistory.grossProfitOrLoss || 0) < 0 ? 'text-error' : 'text-success'">{{ money(movementHistory.grossProfitOrLoss) }}</strong></div>
+          </div>
+
+          <div class="stock-movement-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Movement</th>
+                  <th>Source</th>
+                  <th>In</th>
+                  <th>Out</th>
+                  <th>Qty After</th>
+                  <th>Unit Cost</th>
+                  <th>Unit Sale</th>
+                  <th>Sales</th>
+                  <th>Cost</th>
+                  <th>P/L</th>
+                  <th>Stock Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in movementHistory.rows" :key="row.movementId">
+                  <td>{{ formatDate(row.onDate) }}</td>
+                  <td><UBadge :color="movementColor(row.direction)" variant="subtle">{{ row.movementLabel }}</UBadge></td>
+                  <td><span>{{ row.sourceNumber || '-' }}</span><small>{{ row.sourceType }}</small></td>
+                  <td>{{ quantity(row.quantityIn) }}</td>
+                  <td>{{ quantity(row.quantityOut) }}</td>
+                  <td>{{ quantity(row.quantityAfter) }}</td>
+                  <td>{{ money(row.unitCost) }}</td>
+                  <td>{{ row.unitSalePrice == null ? '-' : money(row.unitSalePrice) }}</td>
+                  <td>{{ row.salesAmount == null ? '-' : money(row.salesAmount) }}</td>
+                  <td>{{ money(row.costAmount) }}</td>
+                  <td><UBadge :color="profitColor(row.profitOrLoss)" variant="subtle">{{ money(row.profitOrLoss) }}</UBadge></td>
+                  <td>{{ money(row.inventoryValueAfter) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </UCard>
       </UiRegisterPanel>
     </section>
   </AppShell>
@@ -535,6 +747,60 @@ onMounted(async () => {
 .stock-bucket-row b {
   flex: 0 0 auto;
   font-size: 13px;
+}
+
+
+.stock-movement-card {
+  margin-top: 16px;
+}
+
+.stock-movement-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.stock-movement-metrics div {
+  display: grid;
+  gap: 4px;
+  border: 1px solid color-mix(in srgb, var(--ui-border) 75%, transparent);
+  border-radius: 8px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--ui-bg-elevated) 75%, transparent);
+}
+
+.stock-movement-metrics span {
+  color: var(--ui-text-muted);
+  font-size: 12px;
+}
+
+.stock-movement-metrics strong {
+  font-size: 14px;
+}
+
+.stock-movement-table {
+  overflow-x: auto;
+}
+
+.stock-movement-table table {
+  min-width: 1120px;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.stock-movement-table th,
+.stock-movement-table td {
+  border-bottom: 1px solid color-mix(in srgb, var(--ui-border) 60%, transparent);
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.stock-movement-table small {
+  display: block;
+  color: var(--ui-text-muted);
 }
 
 @media (max-width: 1024px) {

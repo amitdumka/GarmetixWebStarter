@@ -4,10 +4,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);AD0001</NoWarn>
-    <Version>4.7.5</Version>
-    <AssemblyVersion>4.7.5.0</AssemblyVersion>
-    <FileVersion>4.7.5.0</FileVersion>
-    <InformationalVersion>4.7.3-purchase-voucher-crash-hotfix</InformationalVersion>
+    <Version>4.7.7</Version>
+    <AssemblyVersion>4.7.7.0</AssemblyVersion>
+    <FileVersion>4.7.7.0</FileVersion>
+    <InformationalVersion>4.7.7-stock-movement-profit-history</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

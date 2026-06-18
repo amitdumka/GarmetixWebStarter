@@ -217,6 +217,20 @@ const columns: TableColumn<any>[] = [
           icon: 'i-lucide-file-text',
           label: 'View',
           onClick: () => viewReceipt(invoice.id)
+        }),
+        h(UButton, {
+          color: 'primary',
+          variant: 'ghost',
+          icon: 'i-lucide-printer',
+          label: 'Print',
+          onClick: () => quickPrintPurchaseInvoice(invoice)
+        }),
+        h(UButton, {
+          color: 'neutral',
+          variant: 'ghost',
+          icon: 'i-lucide-download',
+          label: 'PDF',
+          onClick: () => quickDownloadPurchaseInvoice(invoice)
         })
       ]
 
@@ -674,6 +688,24 @@ async function printReceipt() {
   } catch (error) {
     feedback.failed('Could not print purchase PDF', error)
   }
+}
+
+async function quickPrintPurchaseInvoice(invoice: any) {
+  selectedReceipt.value = invoice
+  purchasePrintFormat.value = 'a4'
+  purchaseCopyType.value = 'store'
+  purchaseReprint.value = Boolean(invoice.printCount || invoice.printed)
+  purchaseSignatures.value = true
+  await printReceipt()
+}
+
+async function quickDownloadPurchaseInvoice(invoice: any) {
+  selectedReceipt.value = invoice
+  purchasePrintFormat.value = 'a4'
+  purchaseCopyType.value = 'store'
+  purchaseReprint.value = Boolean(invoice.printCount || invoice.printed)
+  purchaseSignatures.value = true
+  await downloadPurchasePdf()
 }
 
 async function downloadPurchasePdf() {

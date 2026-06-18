@@ -110,3 +110,7 @@ This folder is the canonical home for project plans, implementation notes, valid
 - [Stage 8H Package 5 / v4.7.4 tailoring vendor rates and icon reliability notes](stages/stage-8/Stage8H-Package5-TailoringVendorRatesIconReliability-v4.7.4-Notes.md)
 
 - [Stage 8H Package 6 / v4.7.5 purchase inward pro notes](stages/stage-8/Stage8H-Package6-PurchaseInwardPro-v4.7.5-Notes.md)
+
+- [Stage 8H Package 7 / v4.7.6 purchase register follow-up notes](stages/stage-8/Stage8H-Package7-PurchaseRegisterFollowup-v4.7.6-Notes.md)
+
+- [Stage 8H Package 8 / v4.7.7 stock movement profit history notes](stages/stage-8/Stage8H-Package8-StockMovementProfitHistory-v4.7.7-Notes.md)

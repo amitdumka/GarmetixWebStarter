@@ -1,3 +1,19 @@
+## Stage 8H Package 8 Stock Movement Profit History / v4.7.7
+
+- Added product-wise stock movement history with purchase, sale, purchase-return, sale-return and stock-operation movements.
+- Added sale amount, cost of goods sold, profit/loss and current stock value calculation.
+- Added Stock Reports row-level History action and movement CSV export.
+- Version: 4.7.7
+- Build code: `GARMETIX-8H-20260617-4770`
+
+## Stage 8H Package 7 Purchase Register Follow-up / v4.7.6
+
+- Added direct purchase invoice Print and PDF actions from the Purchase Register row actions.
+- Kept unpaid inward rows linked to vendor payment creation.
+- Added purchase register follow-up and payment acceptance documentation.
+- Version: 4.7.6
+- Build code: `GARMETIX-8H-20260617-4760`
+
 ## Stage 8H Package 6 Purchase Inward Pro / v4.7.5
 
 - Purchase inward number is now always server generated as `StoreCode/yyyyMM/INW/series`.
