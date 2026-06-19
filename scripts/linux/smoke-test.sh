@@ -22,8 +22,8 @@ fi
 API_BASE="${API_BASE_URL:-${PUBLIC_API_BASE_URL:-http://localhost:5080/api}}"
 API_BASE="${API_BASE%/}"
 ROOT_BASE="${API_BASE%/api}"
-EXPECTED_VERSION="${GARMETIX_EXPECTED_VERSION:-4.6.0}"
-EXPECTED_BUILD_CODE="${GARMETIX_EXPECTED_BUILD_CODE:-GARMETIX-8G-20260617-4600}"
+EXPECTED_VERSION="${GARMETIX_EXPECTED_VERSION:-4.9.24}"
+EXPECTED_BUILD_CODE="${GARMETIX_EXPECTED_BUILD_CODE:-GARMETIX-8I-20260619-49240}"
 
 printf 'Garmetix API smoke test\n'
 printf 'API: %s\n' "$API_BASE"
@@ -73,7 +73,7 @@ import json, os
 payload = json.loads(os.environ['MANIFEST_JSON'])
 checks = payload.get('checks') or []
 codes = {item.get('code') or item.get('Code') for item in checks}
-required = {'BACKEND_UNIT_TESTS','FRONTEND_BUILD','FRONTEND_SMOKE','DOCKER_COMPOSE_BUILD','DOCKER_HEALTH','AUTHENTICATED_API_SMOKE'}
+required = {'BACKEND_UNIT_TESTS','DASHBOARD_HOME_CONTRACT','FRONTEND_BUILD','FRONTEND_SMOKE','DOCKER_COMPOSE_BUILD','DOCKER_HEALTH','FRONTEND_ROUTE_ACCESS_AUDIT','DOCKER_ACCEPTANCE_DRILL','SECRET_HYGIENE_AUDIT','FRONTEND_HYDRATION_GUARD','BACKUP_RESTORE_SAFETY','PERMISSION_ROLE_ACCEPTANCE','PRINT_PDF_ACCEPTANCE','SMTP_DELIVERY_ACCEPTANCE','LICENSE_SAAS_ACTIVATION','AUTHENTICATED_API_SMOKE'}
 missing = sorted(required - codes)
 if missing:
     raise SystemExit(f'Missing test manifest codes: {missing}')
@@ -100,6 +100,16 @@ PY
   printf 'Login OK\n'
 
   printf '\n[6/6] Authenticated release/readiness checks...\n'
+  DASHBOARD_HOME=$(curl -fsS --max-time 30 "$API_BASE/dashboard/home" -H "Authorization: Bearer $TOKEN")
+  DASHBOARD_HOME_JSON="$DASHBOARD_HOME" python3 - <<'PY'
+import json, os
+payload = json.loads(os.environ['DASHBOARD_HOME_JSON'])
+route = payload.get('route')
+dashboard_type = payload.get('dashboardType')
+if not route or not dashboard_type:
+    raise SystemExit(f'/api/dashboard/home returned an invalid body: {payload}')
+print(f'Dashboard home OK: {route} ({dashboard_type})')
+PY
   curl -fsS --max-time 30 "$API_BASE/release-stabilization/smoke-checks" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
   curl -fsS --max-time 30 "$API_BASE/production-readiness/summary" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool >/tmp/garmetix-production-readiness.json
   cat /tmp/garmetix-production-readiness.json

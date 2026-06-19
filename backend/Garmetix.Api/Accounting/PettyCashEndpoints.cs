@@ -91,7 +91,8 @@ public static class PettyCashEndpoints
         var company = store is null
             ? null
             : await db.Companies.AsNoTracking().FirstOrDefaultAsync(item => item.Id == store.CompanyId, cancellationToken);
-        var pdf = PettyCashPdfDocument.Build(sheet, company?.Name ?? "Garmetix", store?.Name ?? "Store");
+        var details = await BuildTransactionDetailLinesAsync(db, sheet.StoreId, sheet.OnDate, cancellationToken);
+        var pdf = PettyCashPdfDocument.Build(sheet, company?.Name ?? "Garmetix", store?.Name ?? "Store", details);
         return Results.File(pdf, "application/pdf", $"petty-cash-{sheet.OnDate:yyyyMMdd}.pdf");
     }
 
@@ -225,6 +226,97 @@ public static class PettyCashEndpoints
         return Results.NoContent();
     }
 
+private static async Task<IReadOnlyList<PettyCashTransactionLine>> BuildTransactionDetailLinesAsync(
+    GarmetixDbContext db,
+    Guid storeId,
+    DateTime onDate,
+    CancellationToken cancellationToken)
+{
+    var dayStart = onDate.Date;
+    var dayEnd = dayStart.AddDays(1);
+    var lines = new List<PettyCashTransactionLine>();
+
+    var invoices = await db.SalesInvoices.AsNoTracking()
+        .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd && !item.ReturnInvoice)
+        .Select(item => new { item.Id, item.InvoiceNumber, item.CustomerName, item.BillAmount, item.PaidAmount, item.PaymentMode, item.CreditSale })
+        .ToListAsync(cancellationToken);
+    var currentInvoiceIds = invoices.Select(item => item.Id).ToHashSet();
+    foreach (var invoice in invoices)
+    {
+        var cashAmount = invoice.PaymentMode == PaymentMode.Cash
+            ? invoice.PaidAmount > 0 ? invoice.PaidAmount : invoice.BillAmount
+            : 0m;
+        if (cashAmount > 0)
+        {
+            lines.Add(new PettyCashTransactionLine("Income", "Cash Sale", invoice.InvoiceNumber, invoice.CustomerName ?? "Customer", cashAmount));
+        }
+
+        var due = Math.Max(0, invoice.BillAmount - invoice.PaidAmount);
+        if (due > 0)
+        {
+            lines.Add(new PettyCashTransactionLine("Adjustment", "Customer Due", invoice.InvoiceNumber, invoice.CustomerName ?? "Customer", due));
+        }
+
+        if (invoice.PaymentMode.HasValue && invoice.PaymentMode.Value != PaymentMode.Cash && !invoice.CreditSale)
+        {
+            var nonCash = invoice.PaidAmount > 0 ? invoice.PaidAmount : invoice.BillAmount;
+            if (nonCash > 0)
+            {
+                lines.Add(new PettyCashTransactionLine("Adjustment", $"Non-cash Sale ({invoice.PaymentMode})", invoice.InvoiceNumber, invoice.CustomerName ?? "Customer", nonCash));
+            }
+        }
+    }
+
+    var cashPayments = await db.InvoicePayments.AsNoTracking()
+        .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd && item.PaymentMode == PaymentMode.Cash)
+        .Select(item => new { item.InvoiceId, item.Amount, item.ReferenceNumber })
+        .ToListAsync(cancellationToken);
+    foreach (var payment in cashPayments.Where(item => !currentInvoiceIds.Contains(item.InvoiceId)))
+    {
+        lines.Add(new PettyCashTransactionLine("Income", "Due Receipt", payment.ReferenceNumber ?? payment.InvoiceId.ToString()[..8], "Old invoice cash receipt", payment.Amount));
+    }
+
+    var vouchers = await db.Vouchers.AsNoTracking()
+        .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd && item.PaymentMode == PaymentMode.Cash)
+        .Select(item => new { item.VoucherNumber, item.VoucherType, item.PartyName, item.Particulars, item.Amount })
+        .ToListAsync(cancellationToken);
+    foreach (var voucher in vouchers)
+    {
+        var category = voucher.VoucherType == VoucherType.Receipt ? "Income" : "Expense";
+        lines.Add(new PettyCashTransactionLine(category, $"Voucher {voucher.VoucherType}", voucher.VoucherNumber, $"{voucher.PartyName} {voucher.Particulars}".Trim(), voucher.Amount));
+    }
+
+    var cashVouchers = await db.CashVouchers.AsNoTracking()
+        .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd)
+        .Select(item => new { item.VoucherNumber, item.VoucherType, item.PartyName, item.Particulars, item.Amount })
+        .ToListAsync(cancellationToken);
+    foreach (var voucher in cashVouchers)
+    {
+        var category = voucher.VoucherType == VoucherType.Receipt ? "Income" : "Expense";
+        lines.Add(new PettyCashTransactionLine(category, $"Cash Voucher {voucher.VoucherType}", voucher.VoucherNumber, $"{voucher.PartyName} {voucher.Particulars}".Trim(), voucher.Amount));
+    }
+
+    var bankCash = await db.BankCashTranscations.AsNoTracking()
+        .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd)
+        .Select(item => new { item.TransactionType, item.Amount, item.Naration, item.Reference })
+        .ToListAsync(cancellationToken);
+    foreach (var entry in bankCash)
+    {
+        lines.Add(new PettyCashTransactionLine(
+            entry.TransactionType == TransactionType.Withdraw ? "Income" : "Expense",
+            entry.TransactionType == TransactionType.Withdraw ? "Bank Withdrawal" : "Bank Deposit",
+            entry.Reference,
+            entry.Naration ?? string.Empty,
+            entry.Amount));
+    }
+
+    return lines
+        .OrderBy(line => line.Category)
+        .ThenBy(line => line.Type)
+        .ThenBy(line => line.Reference)
+        .ToList();
+}
+
     private static async Task<PettyCashPreparation> CalculateAsync(
         GarmetixDbContext db,
         Guid storeId,
@@ -262,9 +354,17 @@ public static class PettyCashEndpoints
             .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd && item.PaymentMode == PaymentMode.Cash)
             .Select(item => new { item.VoucherType, item.Amount })
             .ToListAsync(cancellationToken);
-        var receipts = vouchers.Where(item => item.VoucherType == VoucherType.Receipt).Sum(item => item.Amount);
-        var payments = vouchers.Where(item => item.VoucherType == VoucherType.Payment).Sum(item => item.Amount);
-        var expenses = vouchers.Where(item => item.VoucherType == VoucherType.Expense).Sum(item => item.Amount);
+        var cashVouchers = await db.CashVouchers.AsNoTracking()
+            .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd)
+            .Select(item => new { item.VoucherType, item.Amount })
+            .ToListAsync(cancellationToken);
+
+        var receipts = vouchers.Where(item => item.VoucherType == VoucherType.Receipt).Sum(item => item.Amount)
+            + cashVouchers.Where(item => item.VoucherType == VoucherType.Receipt).Sum(item => item.Amount);
+        var payments = vouchers.Where(item => item.VoucherType == VoucherType.Payment).Sum(item => item.Amount)
+            + cashVouchers.Where(item => item.VoucherType == VoucherType.Payment).Sum(item => item.Amount);
+        var expenses = vouchers.Where(item => item.VoucherType == VoucherType.Expense).Sum(item => item.Amount)
+            + cashVouchers.Where(item => item.VoucherType == VoucherType.Expense).Sum(item => item.Amount);
 
         var bankCash = await db.BankCashTranscations.AsNoTracking()
             .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd)

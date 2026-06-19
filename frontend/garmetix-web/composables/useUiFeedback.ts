@@ -30,6 +30,10 @@ export function useUiFeedback() {
     addLog(cleanTitle, cleanDescription || '', undefined, color)
   }
 
+  function success(message = 'Done', description?: string) {
+    notify(message, description, 'success')
+  }
+
   function saved(entity = 'Record') {
     notify(`${entity} saved`)
   }
@@ -227,6 +231,7 @@ export function useUiFeedback() {
   return {
     logs,
     notify,
+    success,
     saved,
     updated,
     deleted,

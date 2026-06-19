@@ -1,8 +1,8 @@
 param(
     [string]$EnvFile = ".env.production",
     [string]$ApiBase = $env:API_BASE_URL,
-    [string]$ExpectedVersion = "4.6.0",
-    [string]$ExpectedBuildCode = "GARMETIX-8G-20260617-4600"
+    [string]$ExpectedVersion = "4.9.24",
+    [string]$ExpectedBuildCode = "GARMETIX-8I-20260619-49240"
 )
 
 $ErrorActionPreference = "Stop"
@@ -40,7 +40,7 @@ if ($appInfo.version -ne $ExpectedVersion -or $appInfo.buildCode -ne $ExpectedBu
 Write-Host "`n[3/5] Test automation manifest..."
 $manifest = Invoke-RestMethod -Method Get -Uri "$ApiBase/test-automation/manifest"
 $codes = @($manifest.checks | ForEach-Object { $_.code })
-$required = @('BACKEND_UNIT_TESTS','FRONTEND_BUILD','FRONTEND_SMOKE','DOCKER_COMPOSE_BUILD','DOCKER_HEALTH','AUTHENTICATED_API_SMOKE')
+$required = @('BACKEND_UNIT_TESTS','DASHBOARD_HOME_CONTRACT','FRONTEND_BUILD','FRONTEND_SMOKE','DOCKER_COMPOSE_BUILD','DOCKER_HEALTH','FRONTEND_ROUTE_ACCESS_AUDIT','DOCKER_ACCEPTANCE_DRILL','SECRET_HYGIENE_AUDIT','FRONTEND_HYDRATION_GUARD','BACKUP_RESTORE_SAFETY','PERMISSION_ROLE_ACCEPTANCE','PRINT_PDF_ACCEPTANCE','SMTP_DELIVERY_ACCEPTANCE','LICENSE_SAAS_ACTIVATION','AUTHENTICATED_API_SMOKE')
 $missing = @($required | Where-Object { $codes -notcontains $_ })
 if ($missing.Count -gt 0) { throw "Missing manifest codes: $($missing -join ', ')" }
 Write-Host "Manifest OK: $($manifest.checks.Count) checks"
@@ -56,6 +56,9 @@ if ($env:GARMETIX_SMOKE_USER -and $env:GARMETIX_SMOKE_PASSWORD) {
     if (-not $token) { $token = $login.accessToken }
     if (-not $token) { throw "Login did not return a token." }
     $headers = @{ Authorization = "Bearer $token" }
+    $dashboardHome = Invoke-RestMethod -Method Get -Uri "$ApiBase/dashboard/home" -Headers $headers
+    if (-not $dashboardHome.route -or -not $dashboardHome.dashboardType) { throw "/api/dashboard/home returned an invalid body." }
+    Write-Host "Dashboard home OK: $($dashboardHome.route) ($($dashboardHome.dashboardType))"
     Invoke-RestMethod -Method Get -Uri "$ApiBase/release-stabilization/smoke-checks" -Headers $headers | ConvertTo-Json -Depth 10
     Invoke-RestMethod -Method Get -Uri "$ApiBase/production-readiness/summary" -Headers $headers | ConvertTo-Json -Depth 10
 } else {

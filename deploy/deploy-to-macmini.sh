@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG_FILE="${ROOT_DIR}/deploy/macmini.env"
-
+LINK_ENV_SCRIPT="${GARMETIX_LINK_ENV_SCRIPT:-${HOME}/garmetix-link-env.sh}"
 if [[ "${EUID}" -eq 0 ]]; then
   echo "Do not run this local WSL deploy script with sudo." >&2
   echo "Run: ./deploy/deploy-to-macmini.sh" >&2
@@ -14,6 +14,18 @@ fi
 if [[ "$ROOT_DIR" == /mnt/c/* || "$ROOT_DIR" == /mnt/d/* || "$ROOT_DIR" == /mnt/e/* || "$ROOT_DIR" == /mnt/f/* ]]; then
   echo "Notice: project is running from a Windows-mounted WSL path: $ROOT_DIR" >&2
   echo "This patched deploy script avoids known sed/chmod failures, but copying the folder to ~/GarmetixWebStarter is still recommended." >&2
+fi
+
+if [[ "${GARMETIX_SKIP_LINK_ENV:-false}" != "true" ]]; then
+  if [[ ! -f "$LINK_ENV_SCRIPT" ]]; then
+    echo "Missing env link helper: $LINK_ENV_SCRIPT" >&2
+    echo "Create it once as ~/garmetix-link-env.sh, then run this deploy again." >&2
+    echo "Temporary bypass only if needed: GARMETIX_SKIP_LINK_ENV=true ./deploy/deploy-to-macmini.sh" >&2
+    exit 1
+  fi
+
+  echo "Linking persistent Garmetix env files before deployment..."
+  bash "$LINK_ENV_SCRIPT" "$ROOT_DIR"
 fi
 
 if [[ ! -f "$CONFIG_FILE" ]]; then
@@ -136,6 +148,17 @@ sudo_run chown -R "$USER:$USER" "$REMOTE_APP_DIR"
 tar -xzf "$REMOTE_ARCHIVE" -C "${REMOTE_APP_DIR}/releases/${RELEASE}"
 ln -sfn "${REMOTE_APP_DIR}/releases/${RELEASE}" "${REMOTE_APP_DIR}/current"
 cd "${REMOTE_APP_DIR}/current"
+
+if [[ -f "${REMOTE_APP_DIR}/shared/env/.env.production" ]]; then
+  ln -sfn "${REMOTE_APP_DIR}/shared/env/.env.production" .env.production
+  chmod 600 "${REMOTE_APP_DIR}/shared/env/.env.production" 2>/dev/null || true
+  echo "Linked persistent production env: ${REMOTE_APP_DIR}/shared/env/.env.production"
+else
+  echo "Missing persistent production env: ${REMOTE_APP_DIR}/shared/env/.env.production" >&2
+  echo "Create it once by copying a working .env.production to ${REMOTE_APP_DIR}/shared/env/.env.production" >&2
+  exit 1
+fi
+
 chmod +x deploy/*.sh 2>/dev/null || true
 ./deploy/run-production.sh
 rm -f "$REMOTE_ARCHIVE" /tmp/install-docker-ubuntu.sh

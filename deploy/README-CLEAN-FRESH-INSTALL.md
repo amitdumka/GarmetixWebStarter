@@ -23,7 +23,7 @@ Do not enable it after live business data exists.
 
 ## Current package default
 
-The included `deploy/macmini.env` has:
+Create `deploy/macmini.env` locally from `deploy/macmini.env.example`; the private env file should have:
 
 ```bash
 DATABASE_SCHEMA_BOOTSTRAP_MODE=FreshBaseline

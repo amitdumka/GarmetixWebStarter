@@ -6,6 +6,13 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 
 ## Fixed
 
+- [x] Secret hygiene guard added in v4.9.15: private `deploy/macmini.env` is removed from release archives, `.gitignore` blocks local secrets, and static validation scans for Cloudflare tokens/private credentials before packaging.
+- [x] Docker acceptance drill coverage added in v4.9.14: the package now includes Linux/Windows drill scripts plus route-access audit and manifest checks. Real host execution is still listed under Open until run on the production Mac mini/WSL machine.
+
+- [x] Petty Cash payload was already using a local-date helper, but the current release validator expected the explicit selected-date payload expression. Package 13 restores the direct local-date payload expression without UTC conversion.
+
+- [x] Stage 8I production stabilization gaps after Cash Details: missing explicit route rules for several pages, Cash Details API login-only access, linked cash details allowing store/date/source mutation, and stale frontend package version metadata. Fixed in v4.9.12.
+
 - [x] The active dashboard rendered two header/context bars, two collapse controls, duplicate notification/account controls, and an unnecessary account menu in the sidebar footer. v4.2.3 keeps one top navbar and collapse control, keeps the account menu only in the topbar, and moves notifications to the sidebar footer.
 - [x] The shell exposed an administrator-only Message Logs topbar action to every role, had no business-facing notification menu, and its Nuxt UI panel structure suppressed the topbar/mobile menu trigger. v4.1.2 restores the topbar and mobile drawer, adds scoped notifications and permission-filtered quick actions, and persists collapsed navigation.
 - [x] Backend policies, frontend role routes, access imports, and the visible role model could drift independently. v4.1.1 centralizes server authorization, exposes the effective matrix in Roles & Users, adds HR/Payroll specialist roles, and verifies critical role boundaries with automated tests.
@@ -48,11 +55,18 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 
 ## Open
 
-- [ ] `GET /api/dashboard/home` is mapped in a way that discards its `DashboardHomeDto`; the live endpoint can return HTTP 200 with an empty body.
+
+- [x] Real backup/restore safety drill was only documented, not wired into validation/readiness. Backup restore safety drill added in v4.9.16 with restore preview, retention policy and disposable database drill script.
+- [x] Role-wise production permission acceptance was manual only. Role-wise permission acceptance matrix added in v4.9.17 with route expectations and required-role readiness.
+
+- [x] Print/PDF final acceptance had incomplete document coverage and no live endpoint drill. Package 19 added full sample catalog coverage and `scripts/linux/print-pdf-acceptance-drill.sh`.
+- [x] Store Manager and biller users landed on a dashboard instead of day-opening workflow. Package 19 routes these users to Store Operations after login and renames the page label.
+
+- [x] SMTP delivery acceptance was split across older production-readiness notes only. Package 20 added `/email-delivery`, provider-aware diagnostics, host drill and `SMTP_DELIVERY_ACCEPTANCE`.
 - [ ] Backend Release build has nullable warnings in purchase receipt mapping and data-consistency number handling.
 - [ ] Nuxt production build succeeds but external font metadata providers can fail certificate validation and produce noisy fallback warnings.
-- [ ] Authenticated Nuxt pages log `Hydration completed but contains mismatches`; the current register workflows render and operate correctly, but the shared SSR/auth shell needs a dedicated hydration audit.
-- [ ] Clean Docker install, fresh database migration, and backup/restore drill remain pending.
+- [x] Authenticated Nuxt pages logged `Hydration completed but contains mismatches`; Hydration guard added in v4.9.15 by client-gating the app root and restoring auth on mount before rendering protected pages.
+- [ ] Real clean Docker install, fresh database migration, backup/restore drill and live SMTP send execution remain pending on the target host; automated drills exist but do not mark live execution complete.
 - [ ] Docker frontend installation reports nine high-severity transitive npm advisories; review dependency upgrades without applying an unreviewed breaking `npm audit fix --force`.
 
 ## FIXED - Database schema repair raw SQL FormatException
@@ -91,3 +105,12 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 - Status: Open
 - Area: Sale / Purchase / Inventory
 - Note: Stage 3 UI and Stage 4 numbering/concurrency/stock-operation foundations are implemented. Remaining work is formal Purchase Return documents, exact ITC reversal, supplier refund settlement, formal stock-operation documents, movement-ledger authority, stock valuation, and automated reconciliation tests.
+
+
+## FIXED - Dashboard home endpoint contract fixed in v4.9.13
+
+- Status: Fixed
+- Area: Backend / Dashboard
+- Symptom: `/api/dashboard/home` could return HTTP 200 without the expected `DashboardHomeDto` body.
+- Fix: Endpoint now maps to `HomeAsync` and returns `Results.Ok(ResolveHome(context.User))`; release smoke checks and backend tests cover the contract.
+- [x] Client licensing/SaaS activation was pending after SMTP. Package 21 added signed license generation, activation status, optional API enforcement, env/Docker wiring and host acceptance drill.

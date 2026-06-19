@@ -51,6 +51,11 @@ const filteredIssues = computed(() => issues.value.filter((issue) => {
   return severityMatch && areaMatch
 }))
 
+const cleanupIssues = computed(() => issues.value.filter((issue) => issue.area === 'Data Cleanup'))
+const duplicateBankIssues = computed(() => cleanupIssues.value.filter((issue) => issue.checkCode === 'DUPLICATE_BANK_ACCOUNT'))
+const wrongDateIssues = computed(() => cleanupIssues.value.filter((issue) => String(issue.checkCode || '').includes('DATE_TIME_COMPONENT')))
+const missingJournalIssues = computed(() => cleanupIssues.value.filter((issue) => issue.checkCode === 'VOUCHER_JOURNAL_MISSING'))
+
 const healthBadge = computed(() => {
   if (!summary.value) {
     return { label: 'Not checked', color: 'neutral' as const, icon: 'i-lucide-circle-help' }
@@ -269,6 +274,29 @@ onMounted(async () => {
         <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-triangle-alert" color="warning" variant="subtle" /><div><p>Warnings</p><strong>{{ summary?.warningIssues || 0 }}</strong><span>Review and clean</span></div></div></UCard>
         <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-info" color="neutral" variant="subtle" /><div><p>Info</p><strong>{{ summary?.infoIssues || 0 }}</strong><span>Optional cleanup</span></div></div></UCard>
       </div>
+
+<UCard class="planner-card">
+  <template #header>
+    <div class="section-header">
+      <div>
+        <h2>Production Cleanup Focus</h2>
+        <p>Use this for the recent known cleanup areas: duplicate bank accounts, old date-shift records and missing voucher journals.</p>
+      </div>
+      <UBadge :label="`${cleanupIssues.length} cleanup issue(s)`" :color="cleanupIssues.length ? 'warning' : 'success'" variant="subtle" />
+    </div>
+  </template>
+  <div class="metric-grid">
+    <UCard class="planner-metric-card">
+      <div class="planner-metric-body"><UAvatar icon="i-lucide-landmark" color="error" variant="subtle" /><div><p>Duplicate Bank Accounts</p><strong>{{ duplicateBankIssues.length }}</strong><span>Delete/merge old duplicates manually</span></div></div>
+    </UCard>
+    <UCard class="planner-metric-card">
+      <div class="planner-metric-body"><UAvatar icon="i-lucide-calendar-clock" color="warning" variant="subtle" /><div><p>Date Cleanup</p><strong>{{ wrongDateIssues.length }}</strong><span>Edit/save old rows if needed</span></div></div>
+    </UCard>
+    <UCard class="planner-metric-card">
+      <div class="planner-metric-body"><UAvatar icon="i-lucide-book-check" color="primary" variant="subtle" /><div><p>Missing Journals</p><strong>{{ missingJournalIssues.length }}</strong><span>Open/save voucher or ledger sync</span></div></div>
+    </UCard>
+  </div>
+</UCard>
 
       <UiRegisterPanel
         title="Check Summary"

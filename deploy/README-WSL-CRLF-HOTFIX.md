@@ -8,7 +8,7 @@ If the project is edited or unpacked on Windows, `.env` files may contain Window
 
 This package fixes that by normalizing these files to Linux LF before sourcing or passing them to Docker Compose:
 
-- `deploy/macmini.env`
+- `deploy/macmini.env.example` (copy locally to private `deploy/macmini.env`)
 - `.env.production`
 
 The deploy scripts no longer source `.env.production` for Cloudflare setup. They read values safely with a parser that strips `\r`.

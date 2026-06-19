@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.7.7";
-    public const string Stage = "Stage 8H Package 8 Stock Movement Profit History";
-    public const string ReleaseName = "Stock Movement Profit History";
-    public const string BuildDate = "2026-06-17";
-    public const string BuildCode = "GARMETIX-8H-20260617-4770";
+    public const string Version = "4.9.24";
+    public const string Stage = "Stage 8I Package 23B Employee Save Hotfix";
+    public const string ReleaseName = "Employee Save Hotfix";
+    public const string BuildDate = "2026-06-19";
+    public const string BuildCode = "GARMETIX-8I-20260619-49240";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,40 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Employee save now uses a PostgreSQL-translatable nullable MaxAsync sequence query and avoids EF Core DefaultIfEmpty translation failures during PUT /api/employees.",
+        "Frontend dependency cleanup removes deprecated lucide-vue-next from package metadata because Nuxt UI already uses Iconify lucide icons.",
+        "HR Employee Master now supports auto employee code, photo preview, document/bank fields, lifecycle status and printable ID-card readiness.",
+        "HR Benefits adds salary advance, advance recovery, leave, bonus, leave encashment, PF and gratuity adjustment workflow for payroll.",
+        "Payroll generation and payment preview now consider HR Benefits adjustments such as advances, bonus, PF and gratuity rows.",
+        "License Activation now provides signed client license generation, activation, status review and optional SaaS operational API enforcement.",
+        "Docker/env templates include LICENSE_* settings and a persistent license activation volume for production deployments.",
+        "Test Automation includes LICENSE_SAAS_ACTIVATION for license status and host acceptance verification.",
+        "Email Delivery now has a dedicated admin page for masked SMTP status, provider guidance and live test email acceptance.",
+        "SMTP diagnostics now identify common providers, return required environment keys and include a safe timeout contract without exposing secrets.",
+        "A Linux SMTP acceptance drill validates the diagnostics contract and can optionally send a real host-level test email.",
+        "Docker/env templates now include EMAIL_TIMEOUT_SECONDS for safer SMTP delivery troubleshooting.",
+        "Print Final Acceptance now covers sales invoice/return, vouchers, petty cash, purchase inward/return, debit/credit notes, non-GST goods, tailoring, payroll and GST export samples.",
+        "Store Manager and biller users now land first on Store Operations after login so day opening happens before billing.",
+        "Store Day Open / Close UI label is renamed to Store Operations across route access, menu, page title and backend tag.",
+        "The release manifest now includes PRINT_PDF_ACCEPTANCE and a live print/PDF acceptance drill script for production hosts.",
+        "Restore preview now checks pg_restore readability, core Garmetix table coverage, backup manifest stage, and version mismatch warnings before restore.",
+        "Backup retention supports both retention days and a keep-minimum policy so scheduled cleanup does not remove all safe restore points.",
+        "The Linux backup/restore drill creates a dump, restores it into a disposable PostgreSQL database, verifies required tables, and writes a restore-drill marker without touching production data.",
+        "Production Readiness now reports both latest backup health and disposable restore-drill status.",
+        "Permission Final Acceptance now exposes the effective role matrix, required route expectations, test-user coverage and blocked-route acceptance checklist.",
+        "Local deployment env files are excluded from release archives and repository tracking.",
+        "Secret hygiene validation scans for Cloudflare API tokens, local env files and obvious private credentials before packaging.",
+        "Nuxt uses a client hydration gate so authenticated dashboard pages render after browser session restore and avoid shared SSR/auth shell mismatches.",
+        "Docker acceptance drill now verifies build, container health, authenticated dashboard routing, workspace/readiness endpoints, and route-access coverage.",
+        "The release manifest now includes DOCKER_ACCEPTANCE_DRILL and FRONTEND_ROUTE_ACCESS_AUDIT so production smoke checks cover host-level acceptance.",
+        "Linux and Windows acceptance scripts can run the full deployment drill from a single command before go-live.",
+        "/api/dashboard/home now returns an explicit DashboardHomeDto JSON body for role-based dashboard routing.",
+        "Release smoke checks now include dashboard-home contract validation.",
+        "Linux and Windows smoke scripts validate dashboard/home after authenticated login.",
+        "Frontend route access now covers Cash Details, Store Day, Tailoring, backup and final acceptance pages.",
+        "Cash Details API now requires Accounting matrix permission and validates cash denomination payloads.",
+        "Linked Day Opening and Day Closing cash details cannot change store, date or source during edit.",
+        "Store Day API authorization now matches store operational roles through the Billing permission matrix.",
         "Automated backend, frontend and production smoke-test scripts now ship with the release package.",
         "The API exposes a test-automation manifest and runtime smoke endpoint for deployment validation.",
         "Frontend smoke checks verify the public login page and proxied app-info endpoint without a browser driver.",

@@ -1,9 +1,11 @@
 using Garmetix.Api.Auth;
+using Garmetix.Api.Dashboard;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Inventory;
 using Garmetix.Core.Models.Stores;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using InventoryProductCategory = Garmetix.Core.Models.Inventory.ProductCategory;
 using InventoryProductSubCategory = Garmetix.Core.Models.Inventory.ProductSubCategory;
 
@@ -53,6 +55,7 @@ public static class ReleaseStabilizationEndpoints
         }
 
         await AddCountCheckAsync(checks, "ADMIN_USER", "Admin user", await db.Users.CountAsync(user => user.Admin || user.Role == LoginRole.Admin, cancellationToken), 1, "At least one admin user exists.", "Create the first admin from bootstrap screen.");
+        AddDashboardHomeContractCheck(checks);
         await AddCountCheckAsync(checks, "COMPANY", "Company master", await db.Companies.CountAsync(cancellationToken), 1, "Company master exists.", "Run Setup → Quick Start.");
         await AddCountCheckAsync(checks, "STORE_GROUP", "Store group master", await db.StoreGroups.CountAsync(cancellationToken), 1, "Store group master exists.", "Run Setup → Quick Start.");
         await AddCountCheckAsync(checks, "STORE", "Store master", await db.Stores.CountAsync(cancellationToken), 1, "Store master exists.", "Run Setup → Quick Start.");
@@ -419,6 +422,56 @@ public static class ReleaseStabilizationEndpoints
             });
             counters.ProductDetails++;
         }
+    }
+
+    private static void AddDashboardHomeContractCheck(List<ReleaseSmokeCheckDto> checks)
+    {
+        try
+        {
+            var adminHome = DashboardEndpoints.ResolveHome(Principal(LoginRole.Admin));
+            var hrHome = DashboardEndpoints.ResolveHome(Principal(LoginRole.HR));
+            var payrollHome = DashboardEndpoints.ResolveHome(Principal(LoginRole.Payroll));
+            var salesmanHome = DashboardEndpoints.ResolveHome(Principal(LoginRole.Salesman, UserType.Sales));
+            var storeManagerHome = DashboardEndpoints.ResolveHome(Principal(LoginRole.StoreManager, UserType.StoreManager));
+            var ok = adminHome.Route == "/dashboard/business"
+                && hrHome.Route == "/hr"
+                && payrollHome.Route == "/payroll"
+                && salesmanHome.Route == "/store-day"
+                && storeManagerHome.Route == "/store-day";
+
+            Add(checks,
+                "DASHBOARD_HOME_CONTRACT",
+                "Dashboard home JSON contract",
+                ok ? "Pass" : "Critical",
+                ok ? "Info" : "High",
+                ok
+                    ? "/api/dashboard/home route selector resolves admin, HR, payroll and store operational users correctly; store manager and biller start at Store Operations."
+                    : "Dashboard route selector returned an unexpected route for one or more roles.",
+                "Run DashboardHomeRoutingTests and verify /api/dashboard/home returns a DashboardHomeDto JSON body.");
+        }
+        catch (Exception ex)
+        {
+            Add(checks,
+                "DASHBOARD_HOME_CONTRACT",
+                "Dashboard home JSON contract",
+                "Critical",
+                "High",
+                $"Dashboard home contract check failed with {ex.GetType().Name}.",
+                "Fix DashboardEndpoints.ResolveHome and rerun backend tests.");
+        }
+    }
+
+    private static ClaimsPrincipal Principal(LoginRole role, UserType userType = UserType.Employees)
+    {
+        var identity = new ClaimsIdentity(
+        [
+            new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+            new Claim(ClaimTypes.Role, role.ToString()),
+            new Claim("userType", userType.ToString()),
+            new Claim("admin", role == LoginRole.Admin ? "true" : "false")
+        ], "ReleaseSmoke");
+
+        return new ClaimsPrincipal(identity);
     }
 
     private static Task AddCountCheckAsync(List<ReleaseSmokeCheckDto> checks, string code, string title, int count, int minimum, string passMessage, string fixHint)

@@ -277,7 +277,7 @@ public static class CashVoucherEndpoints
             }
 
             voucher.VoucherNumber = request.VoucherNumber.Trim();
-            voucher.OnDate = request.OnDate;
+            voucher.OnDate = request.OnDate.Date;
             voucher.VoucherType = request.VoucherType;
             voucher.PartyName = request.PartyName.Trim();
             voucher.Particulars = request.Particulars.Trim();

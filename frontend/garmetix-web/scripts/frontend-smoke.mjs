@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 const baseUrl = (process.env.GARMETIX_WEB_BASE_URL || process.env.PUBLIC_FRONTEND_BASE_URL || 'http://127.0.0.1:3000').replace(/\/$/, '')
-const expectedVersion = process.env.GARMETIX_EXPECTED_VERSION || '4.6.0'
-const expectedBuildCode = process.env.GARMETIX_EXPECTED_BUILD_CODE || 'GARMETIX-8G-20260617-4600'
+const expectedVersion = process.env.GARMETIX_EXPECTED_VERSION || '4.9.15'
+const expectedBuildCode = process.env.GARMETIX_EXPECTED_BUILD_CODE || 'GARMETIX-8I-20260619-49150'
 
 async function fetchText(path) {
   const response = await fetch(`${baseUrl}${path}`, { redirect: 'manual' })

@@ -58,6 +58,7 @@ const workspaceCompanies = ref<any[]>([])
 const workspaceStores = ref<any[]>([])
 const commandOpen = ref(false)
 const workspaceOpen = ref(false)
+const workspaceDefaultSaved = ref(false)
 const sidebarOpen = ref(true)
 const sidebarCollapsed = ref(false)
 const searchTerm = ref('')
@@ -96,6 +97,7 @@ const moduleGroups: MenuGroup[] = [
     items: [
       { to: '/dashboard', label: 'Dashboard', icon: 'i-lucide-gauge', keywords: ['home', 'landing', 'role dashboard'] },
       { to: '/dashboard/store-manager', label: 'Store', icon: 'i-lucide-store', roles: ['storemanager', 'manager'], keywords: ['store', 'today', 'manager'] },
+      { to: '/store-day', label: 'Store Operations', icon: 'i-lucide-sun-medium', roles: ['storemanager', 'salesman', 'manager'], keywords: ['day opening', 'day closing', 'cash notes', 'holiday'] },
       { to: '/dashboard/business', label: 'Company', icon: 'i-lucide-chart-no-axes-combined', roles: ['owner', 'admin', 'accountant'], keywords: ['owner', 'admin', 'accountant', 'company'] },
       { to: '/dashboard/map', label: 'Dashboard Map', icon: 'i-lucide-map', keywords: ['template', 'revert', 'menus', 'routes'] },
       { to: '/', label: 'Legacy Overview', icon: 'i-lucide-layout-dashboard', roles: ['admin', 'owner'], keywords: ['old dashboard', 'overview', 'revert'] }
@@ -133,6 +135,7 @@ const moduleGroups: MenuGroup[] = [
       { to: '/accounting', label: 'Accounting', icon: 'i-lucide-landmark' },
       { to: '/financial-year-locks', label: 'FY Locks', icon: 'i-lucide-lock-keyhole' },
       { to: '/petty-cash', label: 'Petty Cash', icon: 'i-lucide-circle-dollar-sign' },
+      { to: '/cash-details', label: 'Cash Details', icon: 'i-lucide-coins', keywords: ['cash notes', 'coin history', 'denomination', 'manual cash'] },
       { to: '/vouchers', label: 'Vouchers', icon: 'i-lucide-banknote' },
       { to: '/debit-notes', label: 'Debit Notes', icon: 'i-lucide-file-minus-2' },
       { to: '/credit-notes', label: 'Credit Notes', icon: 'i-lucide-file-plus-2' },
@@ -151,14 +154,16 @@ const moduleGroups: MenuGroup[] = [
     label: 'GST',
     items: [
       { to: '/gst-returns', label: 'GST Returns', icon: 'i-lucide-file-json-2' },
-      { to: '/gst-reports', label: 'GST Reports', icon: 'i-lucide-table-properties' }
+      { to: '/gst-reports', label: 'GST Reports', icon: 'i-lucide-table-properties' },
+      { to: '/gst-final-acceptance', label: 'GST Final Acceptance', icon: 'i-lucide-badge-check', adminOnly: true }
     ]
   },
   {
     label: 'Reports',
     items: [
       { to: '/reports', label: 'Reports Center', icon: 'i-lucide-file-text' },
-      { to: '/document-scan', label: 'Document Scanner', icon: 'i-lucide-scan-qr-code', keywords: ['qr', 'barcode', 'voucher', 'invoice', 'payslip'] }
+      { to: '/document-scan', label: 'Document Scanner', icon: 'i-lucide-scan-qr-code', keywords: ['qr', 'barcode', 'voucher', 'invoice', 'payslip'] },
+      { to: '/print-final-acceptance', label: 'Print Final Acceptance', icon: 'i-lucide-printer-check', adminOnly: true }
     ]
   },
   {
@@ -171,7 +176,8 @@ const moduleGroups: MenuGroup[] = [
   {
     label: 'People',
     items: [
-      { to: '/hr', label: 'HR', icon: 'i-lucide-users-round' },
+      { to: '/hr', label: 'HR Employee Master', icon: 'i-lucide-users-round' },
+      { to: '/hr-benefits', label: 'HR Benefits', icon: 'i-lucide-hand-coins' },
       { to: '/payroll', label: 'Payroll', icon: 'i-lucide-badge-indian-rupee' }
     ]
   },
@@ -181,7 +187,8 @@ const moduleGroups: MenuGroup[] = [
       { to: '/setup', label: 'Company Setup', icon: 'i-lucide-building-2', adminOnly: true },
       { to: '/client-onboarding', label: 'Onboarding', icon: 'i-lucide-route', adminOnly: true },
       { to: '/af-ss', label: 'AF/SS Seeder', icon: 'i-lucide-database-backup', adminOnly: true },
-      { to: '/access', label: 'Roles & Users', icon: 'i-lucide-shield-check', adminOnly: true }
+      { to: '/access', label: 'Roles & Users', icon: 'i-lucide-shield-check', adminOnly: true },
+      { to: '/permission-final-acceptance', label: 'Permission Final Acceptance', icon: 'i-lucide-user-check', adminOnly: true }
     ]
   },
   {
@@ -200,6 +207,8 @@ const moduleGroups: MenuGroup[] = [
       { to: '/system-health', label: 'System Health', icon: 'i-lucide-activity', adminOnly: true },
       { to: '/backup-maintenance', label: 'Backup Maintenance', icon: 'i-lucide-hard-drive-download', adminOnly: true },
       { to: '/production-readiness', label: 'Production Readiness', icon: 'i-lucide-shield-check', adminOnly: true },
+      { to: '/email-delivery', label: 'Email Delivery', icon: 'i-lucide-mail-check', adminOnly: true },
+      { to: '/license-activation', label: 'License Activation', icon: 'i-lucide-key-round', adminOnly: true },
       { to: '/stage8g-completion', label: 'Stage 8G Completion', icon: 'i-lucide-flag', adminOnly: true },
       { to: '/post-go-live-acceptance', label: 'Post-Go-Live Acceptance', icon: 'i-lucide-list-checks', adminOnly: true },
       { to: '/release-stabilization', label: 'Release Stabilization', icon: 'i-lucide-rocket', adminOnly: true },
@@ -224,7 +233,9 @@ const isBusinessUser = computed(() => auth.canSeeAdmin.value || roleKey.value.in
 const dashboardHomePath = computed(() => {
   if (roleKey.value.includes('payroll')) return '/payroll'
   if (roleKey.value.includes('hr')) return '/hr'
-  return isBusinessUser.value ? '/dashboard/business' : '/dashboard/store-manager'
+  if (isBusinessUser.value) return '/dashboard/business'
+  if (roleKey.value.includes('storemanager') || roleKey.value.includes('salesman') || roleKey.value.includes('sales') || roleKey.value.includes('biller') || roleKey.value.includes('billing')) return '/store-day'
+  return '/dashboard/store-manager'
 })
 const visibleGroups = computed(() => moduleGroups
   .map((group) => ({
@@ -311,6 +322,7 @@ const notificationQuickActions = computed(() => [
   { label: 'Inventory', icon: 'i-lucide-boxes', to: '/inventory' },
   { label: 'Petty Cash', icon: 'i-lucide-circle-dollar-sign', to: '/petty-cash' },
   { label: 'HR', icon: 'i-lucide-users-round', to: '/hr' },
+  { label: 'Benefits', icon: 'i-lucide-hand-coins', to: '/hr-benefits' },
   { label: 'Payroll', icon: 'i-lucide-badge-indian-rupee', to: '/payroll' },
   { label: 'Scan', icon: 'i-lucide-scan-qr-code', to: '/document-scan' }
 ].filter((item) => access.canAccessPath(item.to)).slice(0, 6))
@@ -384,8 +396,34 @@ const storeValue = computed({
   }
 })
 
+const selectedWorkspaceSummary = computed(() => [
+  workingCompanyName.value,
+  workingStoreGroupName.value,
+  workingStoreName.value
+].filter(Boolean).join(' / '))
+
+function openWorkspaceSelector() {
+  workspaceDefaultSaved.value = false
+  workspaceOpen.value = true
+}
+
+function applyWorkspace(close = true) {
+  workspace.persist?.(auth.user.value?.id)
+  emit('workspaceChange')
+  if (close) workspaceOpen.value = false
+}
+
+function setCurrentWorkspaceDefault() {
+  workspace.setDefault(auth.user.value?.id)
+  workspaceDefaultSaved.value = true
+  emit('workspaceChange')
+}
+
 const workingCompanyName = computed(() => shellCompanies.value.find((item) => item.id === workspace.companyId.value)?.name || 'All companies')
+const workingStoreGroupName = computed(() => storeGroups.value.find((item) => item.id === workspace.storeGroupId.value)?.name || 'All store groups')
 const workingStoreName = computed(() => shellStores.value.find((item) => item.id === workspace.storeId.value)?.name || 'All permitted stores')
+const workspacePillLabel = computed(() => workingStoreName.value === 'All permitted stores' ? workingCompanyName.value : workingStoreName.value)
+const workspacePillDescription = computed(() => `${workingCompanyName.value} • ${workingStoreGroupName.value}`)
 const currentClock = computed(() => now.value?.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) || '--:--')
 const currentDate = computed(() => now.value?.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) || '--')
 const apiBadge = computed(() => {
@@ -406,7 +444,7 @@ const systemStatusDropdownItems = computed<DropdownMenuItem[][]>(() => sanitizeD
     { label: `${APP_RELEASE_NAME} | v${APP_VERSION}`, icon: 'i-lucide-badge-info', disabled: true }
   ],
   [
-    { label: 'Change workspace', icon: 'i-lucide-building-2', onSelect: () => { workspaceOpen.value = true } },
+    { label: 'Change workspace', icon: 'i-lucide-building-2', onSelect: openWorkspaceSelector },
     { label: 'System info', icon: 'i-lucide-monitor-cog', to: '/system-info' },
     { label: 'UI Layout Audit', icon: 'i-lucide-ruler', to: '/ui-audit' },
     { label: 'System Health', icon: 'i-lucide-activity', to: '/system-health' },
@@ -563,15 +601,22 @@ async function loadWorkspaceOptions() {
       storeGroups.value = []
     }
   }
-  workspace.initialize(auth.user.value, shellCompanies.value, storeGroups.value, shellStores.value)
-  if (workspaceOptions.value?.defaultCompanyId && !workspace.companyId.value) workspace.companyId.value = workspaceOptions.value.defaultCompanyId
-  if (workspaceOptions.value?.defaultStoreGroupId && !workspace.storeGroupId.value) workspace.storeGroupId.value = workspaceOptions.value.defaultStoreGroupId
-  if (workspaceOptions.value?.defaultStoreId && !workspace.storeId.value) workspace.storeId.value = workspaceOptions.value.defaultStoreId
+  workspace.initialize(auth.user.value, shellCompanies.value, storeGroups.value, shellStores.value, {
+    companyId: workspaceOptions.value?.defaultCompanyId,
+    storeGroupId: workspaceOptions.value?.defaultStoreGroupId,
+    storeId: workspaceOptions.value?.defaultStoreId
+  })
 }
 
 watch(
-  () => [auth.user.value?.id, props.companies, props.stores],
-  () => workspace.initialize(auth.user.value, shellCompanies.value, storeGroups.value, shellStores.value),
+  () => [auth.user.value?.id, props.companies, props.stores, storeGroups.value.length, workspaceOptions.value?.defaultStoreId],
+  () => {
+    workspace.initialize(auth.user.value, shellCompanies.value, storeGroups.value, shellStores.value, {
+      companyId: workspaceOptions.value?.defaultCompanyId,
+      storeGroupId: workspaceOptions.value?.defaultStoreGroupId,
+      storeId: workspaceOptions.value?.defaultStoreId
+    })
+  },
   { deep: true }
 )
 
@@ -725,8 +770,16 @@ onBeforeUnmount(() => {
               <UDropdownMenu :items="systemStatusDropdownItems" :ui="{ content: 'w-72' }">
                 <UButton color="neutral" variant="subtle" :icon="apiBadge.icon" class="hidden 2xl:inline-flex" :label="apiBadge.label" />
               </UDropdownMenu>
-              <UButton color="neutral" variant="subtle" icon="i-lucide-building-2" class="2xl:hidden" aria-label="Workspace" @click="workspaceOpen = true" />
-              <USelect v-model="companyValue" :items="companyOptions" :disabled="isCompanyLocked || companyOptions.length < 2" class="hidden 2xl:flex w-40" aria-label="Company" />
+              <UButton
+                color="neutral"
+                variant="subtle"
+                icon="i-lucide-store"
+                class="max-w-[16rem] justify-start"
+                :label="workspacePillLabel"
+                :title="selectedWorkspaceSummary"
+                @click="openWorkspaceSelector"
+              />
+              <USelect v-model="companyValue" :items="companyOptions" :disabled="isCompanyLocked || companyOptions.length < 2" class="hidden min-[1900px]:flex w-40" aria-label="Company" />
               <USelect v-model="storeGroupValue" :items="storeGroupOptions" :disabled="isStoreGroupLocked || storeGroupOptions.length < 2" class="hidden min-[1900px]:flex w-36" aria-label="Store group" />
               <USelect v-model="storeValue" :items="storeOptions" :disabled="isStoreLocked || storeOptions.length < 2" class="hidden min-[1900px]:flex w-40" aria-label="Store" />
               <UButton color="neutral" variant="subtle" icon="i-lucide-refresh-cw" aria-label="Refresh" @click="emit('refresh')" />
@@ -786,24 +839,45 @@ onBeforeUnmount(() => {
     </template>
   </UModal>
 
-  <UModal v-model:open="workspaceOpen" title="Workspace" :ui="{ content: 'max-w-lg' }">
+  <UModal v-model:open="workspaceOpen" title="Working Workspace" :ui="{ content: 'max-w-xl' }">
     <template #body>
-      <div class="form-grid">
-        <UFormField label="Company">
-          <USelect v-model="companyValue" :items="companyOptions" :disabled="isCompanyLocked || companyOptions.length < 2" placeholder="Select company" />
-        </UFormField>
-        <UFormField label="Store group">
-          <USelect v-model="storeGroupValue" :items="storeGroupOptions" :disabled="isStoreGroupLocked || storeGroupOptions.length < 2" placeholder="Select store group" />
-        </UFormField>
-        <UFormField label="Store">
-          <USelect v-model="storeValue" :items="storeOptions" :disabled="isStoreLocked || storeOptions.length < 2" placeholder="Select store" />
-        </UFormField>
+      <div class="space-y-4">
+        <UAlert
+          color="primary"
+          variant="subtle"
+          icon="i-lucide-store"
+          title="Current working mode"
+          :description="selectedWorkspaceSummary"
+        />
+        <div class="form-grid">
+          <UFormField label="Company">
+            <USelect v-model="companyValue" :items="companyOptions" :disabled="isCompanyLocked || companyOptions.length < 2" placeholder="Select company" />
+          </UFormField>
+          <UFormField label="Store group">
+            <USelect v-model="storeGroupValue" :items="storeGroupOptions" :disabled="isStoreGroupLocked || storeGroupOptions.length < 2" placeholder="Select store group" />
+          </UFormField>
+          <UFormField label="Store">
+            <USelect v-model="storeValue" :items="storeOptions" :disabled="isStoreLocked || storeOptions.length < 2" placeholder="Select store" />
+          </UFormField>
+        </div>
+        <UAlert
+          v-if="workspaceDefaultSaved"
+          color="success"
+          variant="subtle"
+          icon="i-lucide-check-circle-2"
+          title="Default workspace saved"
+          description="This company/store/store group will be restored after page refresh and next login on this browser."
+        />
+        <p class="text-xs text-slate-500 dark:text-slate-400">
+          Selection is saved per user on this browser. It will not jump back to first store after refresh unless the saved store is no longer available.
+        </p>
       </div>
     </template>
     <template #footer>
       <div class="modal-actions">
         <UButton color="neutral" variant="outline" label="Close" @click="workspaceOpen = false" />
-        <UButton icon="i-lucide-check" label="Use workspace" @click="workspaceOpen = false" />
+        <UButton color="primary" variant="soft" icon="i-lucide-bookmark-check" label="Set as default" @click="setCurrentWorkspaceDefault" />
+        <UButton icon="i-lucide-check" label="Use workspace" @click="applyWorkspace(true)" />
       </div>
     </template>
   </UModal>

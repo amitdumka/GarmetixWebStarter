@@ -23,7 +23,7 @@ Set your Mac mini SSH password:
 SSH_PASSWORD=your_macmini_password_here
 ```
 
-The Cloudflare API token is already placed in `deploy/macmini.env` in this prepared package. Keep the ZIP and extracted folder private.
+For security, the Cloudflare API token is not included in this package. Copy `deploy/macmini.env.example` to `deploy/macmini.env` locally and paste the token only on your private machine.
 
 Your previously supplied Account ID was not valid because it still contained placeholder text. For this package, `CLOUDFLARE_ACCOUNT_ID` is intentionally blank. The script will try to auto-detect the Account ID from the API token.
 

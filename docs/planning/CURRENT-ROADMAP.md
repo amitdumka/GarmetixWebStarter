@@ -1,3 +1,298 @@
+## Stage 8I Package 23B Employee Save Hotfix / v4.9.24
+
+- Current version: 4.9.24 / `GARMETIX-8I-20260619-49240`.
+- Fixed `PUT /api/employees/{id}` failure caused by EF Core/Npgsql not translating `DefaultIfEmpty(0).MaxAsync(...)` in employee auto-code sequence logic.
+- Existing employee edits now keep the current `EmpId` and only generate a sequence when missing.
+- Removed deprecated `lucide-vue-next` dependency from frontend package metadata; Nuxt UI lucide icons remain through `@iconify-json/lucide`.
+- Next planned package remains Stage 8I Package 24 - Attendance Kiosk Base.
+
+## Stage 8I Package 23A HR Schema Repair Hotfix / v4.9.23
+
+- Current version: 4.9.23 / `GARMETIX-8I-20260619-49230`.
+- Added idempotent startup/manual database repair for Package 22/23 HR employee columns.
+- Added idempotent startup/manual database repair for `EmployeePayrollAdjustments`.
+- Fixes PostgreSQL errors: missing `Employees.BankAccountName` and missing `EmployeePayrollAdjustments` relation.
+- Next planned package remains Stage 8I Package 24 - Attendance Kiosk Base.
+
+## Stage 8I Package 23 HR Benefits and Payroll Adjustments / v4.9.22
+
+Current release marker after Package 22 + 23 implementation.
+
+- Current version: 4.9.22 / `GARMETIX-8I-20260619-49220`.
+- Package 22 delivered HR Employee Master upgrade with employee code, photo, documents, lifecycle and ID card readiness.
+- Package 23 delivered HR Benefits/Payroll Adjustments for salary advance, leave, bonus, leave encashment, PF and gratuity.
+- Next recommended package: Attendance Kiosk Base after employee master and benefits acceptance are tested.
+
+## Next roadmap
+
+1. Stage 8I Package 24 - Attendance Kiosk Base.
+2. Stage 8I Package 25 - Face Attendance.
+3. Stage 8I Package 26 - Fingerprint Attendance.
+4. Stage 8I Package 27 - Attendance Payroll Integration.
+
+## Stage 8I Package 21 Client License and SaaS Activation / v4.9.20
+
+- Added dedicated admin `/license-activation` page for client license generation, activation and status review.
+- Added signed offline license key service with product code, client, plan, expiry, store/user limits and module coverage.
+- Added optional operational API enforcement through `LICENSE_ENFORCEMENT_ENABLED=true` with `/api/license` and auth/bootstrap endpoints kept accessible.
+- Added Docker/env wiring for `LICENSE_*` settings and persistent `/app/license` activation storage.
+- Added host-level `scripts/linux/license-acceptance-drill.sh` and validation `LICENSE_SAAS_ACTIVATION`.
+- Current version: 4.9.20 / `GARMETIX-8I-20260619-49200`.
+
+
+## Stage 8I Package 20 SMTP Email Integration and Delivery Acceptance / v4.9.19
+
+- Added dedicated admin `/email-delivery` page for masked SMTP diagnostics, provider guidance and live test email acceptance.
+- SMTP status now reports provider name, authentication flag, timeout seconds and required `.env.production` keys without returning secrets.
+- Added host-level SMTP acceptance drill under `scripts/linux/smtp-acceptance-drill.sh`.
+- Added `SMTP_DELIVERY_ACCEPTANCE` to Test Automation and smoke scripts.
+- Current version: 4.9.19 / `GARMETIX-8I-20260619-49190`.
+
+
+## Stage 8I Package 19 Print/PDF Acceptance and Store Operations Landing / v4.9.18
+
+- Print Final Acceptance now covers sales invoice/return, voucher, cash voucher, petty cash, purchase inward/return, debit/credit note, non-GST goods, tailoring, payroll and GST export samples.
+- Added a live print/PDF acceptance drill script for production hosts.
+- Store Day Open / Close is renamed to Store Operations in user-facing UI.
+- Store Manager and biller/Salesman users now land first on Store Operations after login.
+- Current version: 4.9.18 / `GARMETIX-8I-20260619-49180`.
+
+## Stage 8I Package 18 Role-wise Permission Acceptance / v4.9.17
+
+- Effective permission matrix and route expectation acceptance are now visible in `/permission-final-acceptance`.
+- Test Automation includes `PERMISSION_ROLE_ACCEPTANCE`.
+- Required roles now show active-user and scoped-user readiness before handover.
+- Current version: 4.9.17 / `GARMETIX-8I-20260619-49170`.
+
+## Stage 8I Package 17 Backup, Restore & Data Safety / v4.9.16
+
+- Backup restore dry-run now validates pg_restore readability, required table coverage and manifest stage.
+- Backup retention policy now supports days plus keep-minimum safeguards.
+- Disposable host restore drill added under `scripts/linux/backup-restore-drill.sh`.
+- Production Readiness now includes restore drill status.
+- Version marker: 4.9.16 / `GARMETIX-8I-20260619-49160`.
+
+## Stage 8I Package 16 Secret Hygiene and Hydration Guard / v4.9.15
+
+- Removed private `deploy/macmini.env` from the distributable project package.
+- Added `.gitignore` rules for local env files, deployment secrets, private keys, backups, build output and release archives.
+- Added `SECRET_HYGIENE_AUDIT` and `FRONTEND_HYDRATION_GUARD` to the Test Automation manifest and runtime smoke required list.
+- Added static validation for secret hygiene and Nuxt auth hydration guard.
+- Updated Nuxt `app.vue` to render authenticated pages after client-mounted session restore, reducing shared SSR/auth shell hydration mismatch warnings.
+- Smoke scripts now expect version 4.9.15 / build `GARMETIX-8I-20260619-49150`.
+- Version: 4.9.15
+- Build code: `GARMETIX-8I-20260619-49150`
+
+## Stage 8I Package 15 Docker Acceptance Drill / v4.9.14
+
+- Added host-level Docker acceptance drill scripts for Linux and Windows.
+- Added browserless Nuxt route-access audit so concrete pages cannot bypass explicit access review.
+- Added `FRONTEND_ROUTE_ACCESS_AUDIT` and `DOCKER_ACCEPTANCE_DRILL` to the Test Automation manifest and runtime smoke contract.
+- Smoke scripts now require the route-access and Docker drill manifest codes.
+- The Docker drill verifies production compose build/up, API health, web proxy app-info, authenticated dashboard home, workspace options, setup status, release checks, and production readiness when smoke credentials are supplied.
+- Version: 4.9.14
+- Build code: `GARMETIX-8I-20260619-49140`
+
+## Stage 8I Package 14 Dashboard Home Smoke Hardening / v4.9.13
+
+- Fixed `GET /api/dashboard/home` to return an explicit `DashboardHomeDto` JSON body through `Results.Ok(...)`.
+- Centralized dashboard home routing in a testable `DashboardEndpoints.ResolveHome(...)` contract.
+- Added backend tests for Admin, HR, Payroll and Salesman dashboard routing.
+- Added `DASHBOARD_HOME_CONTRACT` to Release Stabilization smoke checks and Test Automation manifest.
+- Linux and Windows smoke scripts now validate authenticated `/api/dashboard/home` response shape.
+- Version: 4.9.13
+- Build code: `GARMETIX-8I-20260619-49130`
+
+## Stage 8I Package 13 Production Stabilization Repair Pack / v4.9.12
+
+- Added missing frontend route access rules for Cash Details, Store Day, Tailoring, backup and final acceptance pages.
+- Cash Details API now requires Accounting matrix authorization instead of generic login-only access.
+- Cash Details payload validation blocks empty store, missing date, negative denomination counts and negative amount.
+- Linked Day Opening/Closing cash details can no longer move store, date or source during edit.
+- Store Day API now uses Billing matrix authorization to match store operation roles.
+- Version: 4.9.12
+- Build code: `GARMETIX-8I-20260619-49120`
+
+## Stage 8I Package 12 Cash Details Register + Notes/Coin History / v4.9.11
+
+- Added Cash Details register page.
+- Added API for list/history/add/edit/delete of cash denomination records.
+- Manual cash-flow cash details can be managed.
+- Linked Day Opening/Closing cash details can be edited safely.
+- Notes/coin history totals added per store/date range.
+- Version: 4.9.11
+- Build code: `GARMETIX-8I-20260619-49110`
+
+## Stage 8I Package 11 Petty Cash Print URL Hotfix / v4.9.10
+
+- Fixed Store Day Petty Cash print localhost URL.
+- Store Day print now uses PDF blob iframe print flow.
+- Server document print URL builder normalizes localhost API base to current production origin.
+- Version: 4.9.10
+- Build code: `GARMETIX-8I-20260619-49100`
+
+## Stage 8I Package 10 Store Day / Petty Cash Runtime Hotfix / v4.9.9
+
+- Fixed frontend success runtime error after Store Day open/close.
+- Petty cash calculation includes Voucher and Cash Voucher receipts/payments/expenses.
+- Petty cash PDF has second A5 transaction detail page.
+- Added Store Day reopen/delete-close correction flow.
+- Added one-attendance-per-employee-per-day and one-petty-cash-sheet-per-store-per-day guards.
+- Version: 4.9.9
+- Build code: `GARMETIX-8I-20260619-4990`
+
+## Stage 8I Package 9 Store Day Opening / Closing + Cash Details / v4.9.8
+
+- Added per-store day opening and closing.
+- Added cash denomination/details for opening/closing.
+- Day closing generates book summary and creates/updates petty cash sheet.
+- Added store holiday/closed day flow.
+- Added mandatory entry guard for Store Manager and Billing/Sales users only.
+- Admin and Accountant users are not blocked by day guard.
+- Version: 4.9.8
+- Build code: `GARMETIX-8I-20260618-4980`
+
+## Stage 8I Package 8 Workspace Store Persistence + Top Bar Selector / v4.9.7
+
+- Active workspace store now persists per user/browser session.
+- Added default workspace save action.
+- Top bar workspace/store pill is clickable on large and small screens.
+- Workspace modal gives one place to change Company, Store Group and Store.
+- Version: 4.9.7
+- Build code: `GARMETIX-8I-20260618-4970`
+
+## Stage 8I Package 7 Seeder Compile Hotfix / v4.9.6
+
+- Fixed missing portable seeder helper methods.
+- Removed invalid CreatedBy assignments from Company/StoreGroup/Store.
+- Fixed nullable column list warning in portable import metadata.
+- Version: 4.9.6
+- Build code: `GARMETIX-8I-20260618-4960`
+
+## Stage 8I Package 6 Seeder Syntax Hotfix + Verification / v4.9.5
+
+- Fixed missing comma in AF/SS `Seeder2CsOnly` comparison list.
+- Added admin-only seeder verification API.
+- Added seeder/merge verification block in AF/SS Seeder page.
+- Verifies Aadwika Fashion, Aadwika Fashion MBO, Smart Menswear, Shalini separation and default accounting masters.
+- Version: 4.9.5
+- Build code: `GARMETIX-8I-20260618-4950`
+
+## Stage 8I Package 5 Aadwika + Smart Menswear Merge Utility / v4.9.4
+
+- Added admin-only preview/apply merge utility.
+- Moves existing Smart/Samrat company rows into Aadwika Fashion.
+- Moves existing Smart/Samrat store-group rows into Aadwika Fashion MBO.
+- Smart Menswear store is attached under Aadwika Fashion MBO.
+- Aadwika Fashion - Shalini remains separate.
+- Version: 4.9.4
+- Build code: `GARMETIX-8I-20260618-4940`
+
+## Stage 8I Package 4 Seeder Merge + Default Accounting Wins / v4.9.3
+
+- Merged Aadwika Fashion Amit Kumar and Smart Menswear into one company/store-group seed structure.
+- Kept Aadwika Fashion - Shalini as separate profile/company.
+- Portable export removes protected default accounting groups/ledgers.
+- Portable import skips default-account clashes and reapplies system defaults.
+- Custom ledgers are remapped from skipped protected groups to recreated default groups.
+- Version: 4.9.3
+- Build code: `GARMETIX-8I-20260618-4930`
+
+## Stage 8I Package 3 Portable JSON Seeder + Default Accounting Safety / v4.9.2
+
+- Added portable JSON export/import seeder for crash recovery and system migration.
+- AF/SS seeder can create a full company/store group/store data set without pre-creating a company.
+- Company creation auto-seeds default Indian accounting ledger groups/ledgers.
+- Default accounting ledgers and groups are protected from delete.
+- Company/store group/store delete now applies cascade soft delete to child scoped tables.
+- Version: 4.9.2
+- Build code: `GARMETIX-8I-20260618-4920`
+
+## Stage 8I Package 2 Print & Permission Final Acceptance / v4.9.1
+
+- Added Print Final Acceptance page and API.
+- Added Permission Final Acceptance page and API.
+- Added sample source checks for voucher/cash voucher/petty cash/purchase/tailoring/GST prints.
+- Added role-wise acceptance coverage for Admin, Store Manager, Billing, Purchase, Accountant and HR/Payroll.
+- Version: 4.9.1
+- Build code: `GARMETIX-8I-20260618-4910`
+
+## Stage 8I Package 1 Next Three Production Parts / v4.9.0
+
+- Part 1: Data Cleanup & Repair Dashboard focus checks.
+- Part 2: Backup/Restore production verification checklist.
+- Part 3: GST Final Acceptance page.
+- Version: 4.9.0
+- Build code: `GARMETIX-8I-20260618-4900`
+
+## Stage 8H Package 16 Persistent Env Deploy Hook / v4.8.5
+
+- Deploy script now runs `~/garmetix-link-env.sh` before normal deployment starts.
+- Remote release relinks `/opt/garmetix/current/.env.production` to `/opt/garmetix/shared/env/.env.production` before Docker starts.
+- Added helper creator script: `deploy/create-garmetix-link-env-helper.sh`.
+- Version: 4.8.5
+- Build code: `GARMETIX-8H-20260618-4850`
+
+## Stage 8H Package 15 Bank Account Edit Hotfix / v4.8.4
+
+- Fixed Bank Account edit creating a duplicate new record.
+- Preserved bank account id in the Accounting page update payload.
+- Added frontend guard to prevent duplicate creation when edit id is missing.
+- Added backend duplicate bank account protection for same company + bank + account number.
+- Version: 4.8.4
+- Build code: `GARMETIX-8H-20260618-4840`
+
+## Stage 8H Package 14 Accounting Date Hotfix / v4.8.3
+
+- Fixed one-day-back date issue in Voucher save/display.
+- Hardened Cash Voucher and Petty Cash sheet date payload handling.
+- Backend normalizes accounting dates before posting journal/bank/cheque entries.
+- Version: 4.8.3
+- Build code: `GARMETIX-8H-20260618-4830`
+
+## Stage 8H Package 13 GST CA Workflow Polish / v4.8.2
+
+- Added reusable Accountant/CA GST contact for GST Returns and GST Reports.
+- Added save/apply CA contact actions in GST send dialogs.
+- Added recent GST share log in GST sharing panels.
+- Version: 4.8.2
+- Build code: `GARMETIX-8H-20260618-4820`
+
+## Stage 8H Package 12 Compile and Lucide Icon Reliability Hotfix / v4.8.1
+
+- Fixed API compile failure from missing GST reports review endpoint method.
+- Added production-safe `/_nuxt_icon/lucide.json` route.
+- Lucide icons now load from the bundled local collection for Nuxt UI internal icons.
+- Version: 4.8.1
+- Build code: `GARMETIX-8H-20260618-4810`
+
+
+## Stage 8H Package 11 Voucher Edit/Delete Repair / v4.8.0
+
+- Fixed voucher and cash voucher edit/delete crashes caused by missing `CashVoucherConversions` table in upgraded Docker volumes.
+- Added idempotent startup schema repair and EF migration for the conversion audit table.
+- Kept converted voucher audit protections active.
+- Version: 4.8.0
+- Build code: `GARMETIX-8H-20260618-4800`
+
+## Stage 8H Package 10 GST Review Share Automation / v4.7.9
+
+- Verified GST Returns/GST Reports are book-based from Billing, Purchase and Accounting bridge data.
+- Added GST draft review, confirm-and-send email workflow for Accountant/CA.
+- Added GST report send workflow with CSV attachments.
+- Extended SMTP email sender to support attachments.
+- Added WhatsApp share text/link generation after email delivery.
+- Version: 4.7.9
+- Build code: `GARMETIX-8H-20260618-4790`
+
+## Stage 8H Package 9 Single Scroll Layout Hotfix / v4.7.8
+
+- Removed duplicate page-level vertical scrollbars across large admin, GST, voucher, stock and setup pages.
+- Kept only the main dashboard/page body as the vertical scroller for normal content.
+- Preserved horizontal table scrolling and overlay/dialog scrolling where required.
+- Version: 4.7.8
+- Build code: `GARMETIX-8H-20260617-4780`
+
 ## Stage 8H Package 8 Stock Movement Profit History / v4.7.7
 
 - Added product-wise stock movement history with purchase, sale, purchase-return, sale-return and stock-operation movements.

@@ -101,6 +101,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<PettyCashSheet> PettyCashSheets => Set<PettyCashSheet>();
     public DbSet<DayBegin> DayBegins => Set<DayBegin>();
     public DbSet<DayEnd> DayEnds => Set<DayEnd>();
+    public DbSet<CashDetail> CashDetails => Set<CashDetail>();
 
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<EmployeeDetail> EmployeeDetails => Set<EmployeeDetail>();
@@ -109,6 +110,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<SalaryStructure> SalaryStructures => Set<SalaryStructure>();
     public DbSet<SalaryPaySlip> SalaryPaySlips => Set<SalaryPaySlip>();
     public DbSet<SalaryPayment> SalaryPayments => Set<SalaryPayment>();
+    public DbSet<EmployeePayrollAdjustment> EmployeePayrollAdjustments => Set<EmployeePayrollAdjustment>();
     public DbSet<TimeSheet> TimeSheets => Set<TimeSheet>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -252,7 +254,18 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<BankStatementLine>().HasIndex(line => new { line.CompanyId, line.BankAccountId, line.Reconciled });
         modelBuilder.Entity<ChequeLog>().HasIndex(cheque => new { cheque.CompanyId, cheque.BankAccountId, cheque.ChequeNumber });
         modelBuilder.Entity<ChequeLog>().HasIndex(cheque => new { cheque.CompanyId, cheque.Status, cheque.OnDate });
+        modelBuilder.Entity<Employee>().Property(employee => employee.MonthlySalary).HasPrecision(18, 2);
+        modelBuilder.Entity<Employee>().Property(employee => employee.DailyWage).HasPrecision(18, 2);
         modelBuilder.Entity<Employee>().HasIndex(employee => new { employee.CompanyId, employee.StoreId, employee.Mobile });
+        modelBuilder.Entity<Employee>().HasIndex(employee => new { employee.CompanyId, employee.StoreId, employee.EmployeeCode }).IsUnique(false);
+        modelBuilder.Entity<EmployeePayrollAdjustment>().Property(item => item.Amount).HasPrecision(18, 2);
+        modelBuilder.Entity<EmployeePayrollAdjustment>().Property(item => item.LeaveDays).HasPrecision(18, 2);
+        modelBuilder.Entity<EmployeePayrollAdjustment>().Property(item => item.RecoveredAmount).HasPrecision(18, 2);
+        modelBuilder.Entity<EmployeePayrollAdjustment>().Property(item => item.PfEmployee).HasPrecision(18, 2);
+        modelBuilder.Entity<EmployeePayrollAdjustment>().Property(item => item.PfEmployer).HasPrecision(18, 2);
+        modelBuilder.Entity<EmployeePayrollAdjustment>().Property(item => item.GratuityAmount).HasPrecision(18, 2);
+        modelBuilder.Entity<EmployeePayrollAdjustment>().HasIndex(item => new { item.CompanyId, item.StoreId, item.EmployeeId, item.AdjustmentType, item.Status });
+        modelBuilder.Entity<EmployeePayrollAdjustment>().HasIndex(item => new { item.CompanyId, item.OnDate });
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

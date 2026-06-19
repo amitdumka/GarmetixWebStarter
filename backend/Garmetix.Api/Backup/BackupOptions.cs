@@ -9,5 +9,8 @@ public sealed class BackupOptions
     public int RunMinute { get; set; } = 30;
     public bool RunOnStartup { get; set; }
     public int RetentionCount { get; set; } = 14;
+    public int RetentionDays { get; set; } = 30;
+    public int KeepMinimum { get; set; } = 10;
+    public string RestoreDrillMarkerPath { get; set; } = string.Empty;
     public long MaxRestoreBytes { get; set; } = 1_073_741_824;
 }

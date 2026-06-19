@@ -29,7 +29,9 @@ function chooseLocalDashboard() {
   const role = `${auth.user.value?.role || ''} ${auth.user.value?.userType || ''}`.toLowerCase()
   if (role.includes('payroll')) return '/payroll'
   if (role.includes('hr')) return '/hr'
-  return auth.canSeeAdmin.value || role.includes('accountant') ? '/dashboard/business' : '/dashboard/store-manager'
+  if (auth.canSeeAdmin.value || role.includes('accountant')) return '/dashboard/business'
+  if (role.includes('storemanager') || role.includes('salesman') || role.includes('sales') || role.includes('biller') || role.includes('billing')) return '/store-day'
+  return '/dashboard/store-manager'
 }
 
 onMounted(resolveDashboard)

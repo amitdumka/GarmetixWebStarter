@@ -222,3 +222,47 @@ public sealed record GstReturnAuditDto(
     string ActorName,
     DateTime CreatedAt,
     string DetailsJson);
+public sealed record GstReturnReviewSendRequest(
+    string ToEmail,
+    string? ToName,
+    string? WhatsAppNumber,
+    bool IncludeJson,
+    bool IncludeExcel,
+    bool IncludeHsnSummaryCsv,
+    bool IncludeTaxSummaryCsv,
+    bool IncludeInvoiceRegisterCsv,
+    string? Note);
+
+public sealed record GstReturnReviewSendResponse(
+    Guid DraftId,
+    string Form,
+    string ReturnPeriod,
+    string ToEmail,
+    bool EmailSent,
+    string Message,
+    string WhatsAppText,
+    string WhatsAppShareUrl,
+    IReadOnlyList<string> AttachmentNames);
+
+
+public sealed record GstReportReviewSendRequest(
+    Guid? CompanyId,
+    string ReturnPeriod,
+    string? Direction,
+    string ToEmail,
+    string? ToName,
+    string? WhatsAppNumber,
+    bool IncludeHsnSummaryCsv,
+    bool IncludeTaxSummaryCsv,
+    bool IncludeInvoiceRegisterCsv,
+    string? Note);
+
+public sealed record GstReportReviewSendResponse(
+    string ReturnPeriod,
+    string Direction,
+    string ToEmail,
+    bool EmailSent,
+    string Message,
+    string WhatsAppText,
+    string WhatsAppShareUrl,
+    IReadOnlyList<string> AttachmentNames);

@@ -41,12 +41,13 @@ public sealed record AfssSeederComparisonDto(
     IReadOnlyList<string> ModelAdjustmentsApplied);
 
 public sealed record AfssSeedRequest(
-    Guid CompanyId,
+    Guid? CompanyId,
     string ProfileCode,
     bool IncludeUsers = true,
     bool IncludeEmployees = true,
     bool IncludeProducts = true,
-    bool ResetDefaultUserPasswords = false);
+    bool ResetDefaultUserPasswords = false,
+    bool CreateNewCompany = false);
 
 public sealed record AfssSeedResponse(
     string Message,

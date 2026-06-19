@@ -15,7 +15,7 @@ public static class DashboardEndpoints
             .WithTags("Dashboard")
             .RequireAuthorization();
 
-        group.MapGet("/home", Home).WithName("GetDashboardHome");
+        group.MapGet("/home", HomeAsync).WithName("GetDashboardHome");
         group.MapGet("/store-manager", StoreManagerAsync).WithName("GetStoreManagerDashboard");
         group.MapGet("/business", BusinessAsync).WithName("GetBusinessDashboard");
 
@@ -23,10 +23,16 @@ public static class DashboardEndpoints
     }
 
 
-    private static DashboardHomeDto Home(HttpContext context)
+    private static Task<IResult> HomeAsync(HttpContext context, CancellationToken cancellationToken)
     {
-        var role = context.User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
-        var userType = context.User.FindFirst("userType")?.Value ?? string.Empty;
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult<IResult>(Results.Ok(ResolveHome(context.User)));
+    }
+
+    public static DashboardHomeDto ResolveHome(ClaimsPrincipal user)
+    {
+        var role = user.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+        var userType = user.FindFirst("userType")?.Value ?? string.Empty;
         var combined = $"{role} {userType}".ToLowerInvariant();
         if (string.Equals(role, LoginRole.HR.ToString(), StringComparison.OrdinalIgnoreCase))
         {
@@ -38,18 +44,45 @@ public static class DashboardEndpoints
             return new DashboardHomeDto("/payroll", "Payroll", "Payroll users start in salary and payslip operations.", false, false);
         }
 
-        var canOpenBusiness = WorkspaceScope.HasFullAccess(context)
+        var canOpenBusiness = WorkspaceScope.HasFullAccess(user)
             || combined.Contains("admin")
             || combined.Contains("owner")
             || combined.Contains("accountant")
             || combined.Contains("poweruser");
-        var route = canOpenBusiness ? "/dashboard/business" : "/dashboard/store-manager";
-        var dashboardType = canOpenBusiness ? "Business" : "StoreManager";
-        var reason = canOpenBusiness
-            ? "Owner, admin, power user and accountant users start with company/store-group dashboard."
-            : "Store scoped users start with the store manager dashboard.";
+        if (canOpenBusiness)
+        {
+            return new DashboardHomeDto(
+                "/dashboard/business",
+                "Business",
+                "Owner, admin, power user and accountant users start with company/store-group dashboard.",
+                true,
+                true);
+        }
 
-        return new DashboardHomeDto(route, dashboardType, reason, canOpenBusiness, true);
+        var startsInStoreOperations = string.Equals(role, LoginRole.StoreManager.ToString(), StringComparison.OrdinalIgnoreCase)
+            || string.Equals(role, LoginRole.Salesman.ToString(), StringComparison.OrdinalIgnoreCase)
+            || combined.Contains("storemanager")
+            || combined.Contains("salesman")
+            || combined.Contains("sales")
+            || combined.Contains("biller")
+            || combined.Contains("billing");
+
+        if (startsInStoreOperations)
+        {
+            return new DashboardHomeDto(
+                "/store-day",
+                "StoreOperations",
+                "Store manager and biller users start at Store Operations so the day can be opened before billing.",
+                false,
+                true);
+        }
+
+        return new DashboardHomeDto(
+            "/dashboard/store-manager",
+            "StoreManager",
+            "Scoped users without a specialized home start with the store manager dashboard.",
+            false,
+            true);
     }
 
     private static async Task<StoreManagerDashboardDto> StoreManagerAsync(

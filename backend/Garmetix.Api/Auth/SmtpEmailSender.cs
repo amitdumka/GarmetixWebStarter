@@ -37,9 +37,19 @@ public sealed class SmtpEmailSender(IOptions<EmailOptions> options, ILogger<Smtp
             mail.ReplyToList.Add(new MailAddress(settings.ReplyToEmail));
         }
 
+        if (message.Attachments is { Count: > 0 })
+        {
+            foreach (var attachment in message.Attachments)
+            {
+                var stream = new MemoryStream(attachment.Content);
+                mail.Attachments.Add(new Attachment(stream, attachment.FileName, attachment.ContentType));
+            }
+        }
+
         using var smtp = new SmtpClient(settings.Host, settings.Port)
         {
-            EnableSsl = settings.EnableSsl
+            EnableSsl = settings.EnableSsl,
+            Timeout = Math.Max(settings.TimeoutSeconds, 5) * 1000
         };
 
         if (!string.IsNullOrWhiteSpace(settings.UserName))
@@ -49,19 +59,34 @@ public sealed class SmtpEmailSender(IOptions<EmailOptions> options, ILogger<Smtp
 
         cancellationToken.ThrowIfCancellationRequested();
         await smtp.SendMailAsync(mail, cancellationToken);
-        logger.LogInformation("Password reset email sent to {Email}.", message.ToEmail);
+        logger.LogInformation("Email sent to {Email} with subject {Subject}.", message.ToEmail, message.Subject);
     }
 
     private void ValidateSettings(EmailMessage message)
     {
         if (string.IsNullOrWhiteSpace(message.ToEmail))
         {
-            throw new InvalidOperationException("Cannot send password reset email because the user has no email address.");
+            throw new InvalidOperationException("Cannot send email because recipient email address is empty.");
         }
 
         if (string.IsNullOrWhiteSpace(settings.Host))
         {
             throw new InvalidOperationException("Email:Host is required when email delivery is enabled.");
+        }
+
+        if (settings.Port <= 0 || settings.Port > 65535)
+        {
+            throw new InvalidOperationException("Email:Port must be between 1 and 65535.");
+        }
+
+        if (settings.Host.Contains("example.com", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Email:Host still uses a placeholder value.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(settings.UserName) && string.IsNullOrWhiteSpace(settings.Password))
+        {
+            throw new InvalidOperationException("Email:Password is required when Email:UserName is configured.");
         }
 
         if (string.IsNullOrWhiteSpace(settings.FromEmail))

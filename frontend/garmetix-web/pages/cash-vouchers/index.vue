@@ -438,7 +438,7 @@ function buildPayload() {
 
   return {
     voucherNumber: String(form.voucherNumber).trim(),
-    onDate: `${form.onDate}T00:00:00`,
+    onDate: accountingDateTimeForApi(form.onDate),
     voucherType: Number(form.voucherType),
     transactionId: normalizeGuid(form.transactionId),
     partyName: String(form.partyName).trim(),
@@ -621,6 +621,10 @@ function parseLocalDate(value: unknown) {
   const text = dateInputValue(value)
   const [year, month, day] = text.split('-').map(Number)
   return year && month && day ? new Date(year, month - 1, day) : null
+}
+
+function accountingDateTimeForApi(value: unknown) {
+  return `${dateInputValue(value)}T00:00:00`
 }
 
 function money(value: number) {

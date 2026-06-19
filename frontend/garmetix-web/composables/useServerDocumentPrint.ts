@@ -2,8 +2,28 @@ export function useServerDocumentPrint() {
   const api = useGarmetixApi()
   const config = useRuntimeConfig()
 
+  function apiUrl(path: string) {
+    const cleanPath = path.replace(/^\/+/, '')
+    const rawBase = String(config.public.apiBase || '/api').replace(/\/+$/, '')
+
+    if (import.meta.client && rawBase.startsWith('http')) {
+      try {
+        const parsed = new URL(rawBase)
+        const isLocalApiBase = ['localhost', '127.0.0.1', '0.0.0.0'].includes(parsed.hostname)
+        const currentHostIsLocal = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname)
+        if (isLocalApiBase && !currentHostIsLocal) {
+          return `${window.location.origin}${parsed.pathname.replace(/\/+$/, '')}/${cleanPath}`
+        }
+      } catch {
+        // Fall back to raw base.
+      }
+    }
+
+    return `${rawBase}/${cleanPath}`
+  }
+
   async function fetchPdf(path: string) {
-    const response = await fetch(`${config.public.apiBase}/${path.replace(/^\/+/, '')}`, {
+    const response = await fetch(apiUrl(path), {
       headers: api.authHeaders()
     })
     if (!response.ok) {
@@ -72,5 +92,5 @@ export function useServerDocumentPrint() {
     URL.revokeObjectURL(url)
   }
 
-  return { fetchPdf, printPdf, downloadPdf }
+  return { fetchPdf, printPdf, downloadPdf, apiUrl }
 }

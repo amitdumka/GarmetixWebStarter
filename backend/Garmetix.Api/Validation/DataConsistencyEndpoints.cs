@@ -97,6 +97,7 @@ public static class DataConsistencyEndpoints
         await CheckInvoicesAndGstAsync(context, db, issues, cancellationToken);
         await CheckPaymentsAsync(context, db, issues, cancellationToken);
         await CheckAccountingAsync(context, db, issues, cancellationToken);
+        await CheckProductionCleanupAsync(context, db, issues, cancellationToken);
 
         return issues
             .OrderBy(issue => SeverityRank(issue.Severity))
@@ -445,6 +446,148 @@ public static class DataConsistencyEndpoints
             {
                 issues.Add(Issue("Critical", "Accounting", "JOURNAL_UNBALANCED", "Journal entry is unbalanced", $"Journal entry {entry.EntryNumber} has debit/credit difference of {difference:0.00}.", "JournalEntry", entry.Id, entry.EntryNumber, entry.CompanyId, entry.StoreId, total.Debit, total.Credit, difference));
             }
+        }
+    }
+
+
+    private static async Task CheckProductionCleanupAsync(HttpContext context, GarmetixDbContext db, List<DataConsistencyIssueDto> issues, CancellationToken cancellationToken)
+    {
+        var bankAccounts = await db.BankAccounts.AsNoTracking()
+            .Select(account => new
+            {
+                account.Id,
+                account.CompanyId,
+                account.BankId,
+                account.AccountNumber,
+                account.AccountHolderName,
+                account.Active
+            })
+            .ToListAsync(cancellationToken);
+
+        foreach (var group in bankAccounts
+            .Where(account => !string.IsNullOrWhiteSpace(account.AccountNumber))
+            .GroupBy(account => new { account.CompanyId, account.BankId, AccountNumber = account.AccountNumber.Trim().ToUpperInvariant() })
+            .Where(group => group.Count() > 1))
+        {
+            var first = group.First();
+            issues.Add(Issue(
+                "Critical",
+                "Data Cleanup",
+                "DUPLICATE_BANK_ACCOUNT",
+                "Duplicate bank account",
+                $"Bank account number {first.AccountNumber} exists {group.Count()} times for the same company and bank. Review duplicates before using bank reconciliation.",
+                "BankAccount",
+                first.Id,
+                first.AccountNumber,
+                first.CompanyId,
+                null,
+                1,
+                group.Count(),
+                group.Count() - 1));
+        }
+
+        var vouchersWithTime = (await WorkspaceScope.ApplyTo(db.Vouchers.AsNoTracking(), context)
+            .OrderByDescending(voucher => voucher.OnDate)
+            .Select(voucher => new { voucher.Id, voucher.CompanyId, voucher.StoreId, voucher.VoucherNumber, voucher.OnDate })
+            .Take(2000)
+            .ToListAsync(cancellationToken))
+            .Where(voucher => voucher.OnDate.TimeOfDay != TimeSpan.Zero)
+            .Take(250)
+            .ToList();
+        foreach (var voucher in vouchersWithTime)
+        {
+            issues.Add(Issue(
+                "Warning",
+                "Data Cleanup",
+                "VOUCHER_DATE_TIME_COMPONENT",
+                "Voucher date contains time component",
+                $"Voucher {voucher.VoucherNumber} has date/time {voucher.OnDate:yyyy-MM-dd HH:mm:ss}. Edit and save once if it came from the old timezone bug.",
+                "Voucher",
+                voucher.Id,
+                voucher.VoucherNumber,
+                voucher.CompanyId,
+                voucher.StoreId,
+                null,
+                null,
+                null));
+        }
+
+        var cashVouchersWithTime = (await WorkspaceScope.ApplyTo(db.CashVouchers.AsNoTracking(), context)
+            .OrderByDescending(voucher => voucher.OnDate)
+            .Select(voucher => new { voucher.Id, voucher.CompanyId, voucher.StoreId, voucher.VoucherNumber, voucher.OnDate })
+            .Take(2000)
+            .ToListAsync(cancellationToken))
+            .Where(voucher => voucher.OnDate.TimeOfDay != TimeSpan.Zero)
+            .Take(250)
+            .ToList();
+        foreach (var voucher in cashVouchersWithTime)
+        {
+            issues.Add(Issue(
+                "Warning",
+                "Data Cleanup",
+                "CASH_VOUCHER_DATE_TIME_COMPONENT",
+                "Cash voucher date contains time component",
+                $"Cash voucher {voucher.VoucherNumber} has date/time {voucher.OnDate:yyyy-MM-dd HH:mm:ss}. Edit and save once if it came from the old timezone bug.",
+                "CashVoucher",
+                voucher.Id,
+                voucher.VoucherNumber,
+                voucher.CompanyId,
+                voucher.StoreId,
+                null,
+                null,
+                null));
+        }
+
+        var pettySheetsWithTime = (await db.PettyCashSheets.AsNoTracking()
+            .OrderByDescending(sheet => sheet.OnDate)
+            .Select(sheet => new { sheet.Id, sheet.StoreId, sheet.OnDate })
+            .Take(2000)
+            .ToListAsync(cancellationToken))
+            .Where(sheet => sheet.OnDate.TimeOfDay != TimeSpan.Zero)
+            .Take(250)
+            .ToList();
+        foreach (var sheet in pettySheetsWithTime)
+        {
+            issues.Add(Issue(
+                "Warning",
+                "Data Cleanup",
+                "PETTY_CASH_DATE_TIME_COMPONENT",
+                "Petty cash sheet date contains time component",
+                $"Petty cash sheet has date/time {sheet.OnDate:yyyy-MM-dd HH:mm:ss}. Edit and save once if it came from the old timezone bug.",
+                "PettyCashSheet",
+                sheet.Id,
+                sheet.OnDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                null,
+                sheet.StoreId,
+                null,
+                null,
+                null));
+        }
+
+        var voucherJournalIds = await WorkspaceScope.ApplyTo(db.JournalEntries.AsNoTracking(), context)
+            .Where(entry => entry.SourceType == "Voucher" && entry.SourceId.HasValue)
+            .Select(entry => entry.SourceId!.Value)
+            .ToListAsync(cancellationToken);
+        var voucherJournalIdSet = voucherJournalIds.ToHashSet();
+        var vouchersMissingJournal = await WorkspaceScope.ApplyTo(db.Vouchers.AsNoTracking(), context)
+            .Select(voucher => new { voucher.Id, voucher.CompanyId, voucher.StoreId, voucher.VoucherNumber })
+            .ToListAsync(cancellationToken);
+        foreach (var voucher in vouchersMissingJournal.Where(voucher => !voucherJournalIdSet.Contains(voucher.Id)).Take(250))
+        {
+            issues.Add(Issue(
+                "Critical",
+                "Data Cleanup",
+                "VOUCHER_JOURNAL_MISSING",
+                "Voucher has no accounting journal",
+                $"Voucher {voucher.VoucherNumber} is missing its journal entry. Open and save the voucher once, or run ledger sync repair if available.",
+                "Voucher",
+                voucher.Id,
+                voucher.VoucherNumber,
+                voucher.CompanyId,
+                voucher.StoreId,
+                1,
+                0,
+                -1));
         }
     }
 

@@ -20,6 +20,9 @@ const stores = ref<any[]>([])
 const employees = ref<any[]>([])
 const attendanceRows = ref<any[]>([])
 const monthlyRows = ref<any[]>([])
+const employeeSummary = ref<any | null>(null)
+const idCardOpen = ref(false)
+const selectedIdCard = ref<any | null>(null)
 const setupStatus = ref<any | null>(null)
 const loading = ref(false)
 const loadError = ref('')
@@ -48,6 +51,20 @@ const categoryOptions = [
   { value: 3, label: 'Owner' },
   { value: 4, label: 'Accounts' },
   { value: 8, label: 'Others' }
+]
+
+const employeeStatusOptions = [
+  { value: 'Active', label: 'Active' },
+  { value: 'On Leave', label: 'On Leave' },
+  { value: 'Resigned', label: 'Resigned' },
+  { value: 'Terminated', label: 'Terminated' },
+  { value: 'Inactive', label: 'Inactive' }
+]
+
+const salaryTypeOptions = [
+  { value: 'Monthly', label: 'Monthly salary' },
+  { value: 'Daily', label: 'Daily wage' },
+  { value: 'PieceRate', label: 'Piece rate' }
 ]
 
 const attendanceStatusOptions = [
@@ -101,6 +118,13 @@ const metrics = computed(() => [
     color: 'primary'
   },
   {
+    label: 'Missing Photos',
+    value: employeeSummary.value?.missingPhoto || 0,
+    meta: 'For ID cards / face attendance',
+    icon: 'i-lucide-image-off',
+    color: 'warning'
+  },
+  {
     label: 'Daily Attendance',
     value: attendanceRows.value.length,
     meta: 'Attendance rows',
@@ -127,12 +151,15 @@ const activeLabel = computed(() => tabs.find((tab) => tab.key === activeTab.valu
 
 const employeeRows = computed(() => employees.value.map((employee) => ({
   id: employee.id,
+  employeeCode: employee.employeeCode || `EMP-${String(employee.empId || 0).padStart(4, '0')}`,
   name: `${employee.title || ''} ${employee.firstName || ''} ${employee.lastName || ''}`.trim(),
-  mobile: employee.mobile || '-',
+  mobile: maskMobile(employee.mobile),
   email: employee.email || '-',
-  category: categoryLabel(employee.category),
+  department: employee.department || '-',
+  designation: employee.designation || categoryLabel(employee.category),
+  salary: employee.salaryType === 'Daily' ? money(employee.dailyWage || 0) + ' / day' : money(employee.monthlySalary || 0),
   joiningDate: formatDate(employee.joiningDate),
-  status: employee.working ? 'Working' : 'Inactive',
+  status: employee.employeeStatus || (employee.working ? 'Active' : 'Inactive'),
   raw: employee
 })))
 
@@ -175,10 +202,12 @@ const currentRows = computed(() => {
 })
 
 const employeeColumns: TableColumn<any>[] = [
+  { accessorKey: 'employeeCode', header: 'Code' },
   { accessorKey: 'name', header: 'Employee' },
   { accessorKey: 'mobile', header: 'Mobile' },
-  { accessorKey: 'email', header: 'Email' },
-  { accessorKey: 'category', header: 'Category' },
+  { accessorKey: 'department', header: 'Department' },
+  { accessorKey: 'designation', header: 'Designation' },
+  { accessorKey: 'salary', header: 'Salary/Wage' },
   { accessorKey: 'joiningDate', header: 'Joining' },
   {
     accessorKey: 'status',
@@ -248,6 +277,13 @@ function actionColumn(kind: 'employee' | 'attendance'): TableColumn<any> {
         label: 'Edit',
         onClick: () => kind === 'employee' ? startEmployeeEdit(row.original.raw) : startAttendanceEdit(row.original.raw)
       }) : null,
+      kind === 'employee' ? h(UButton, {
+        color: 'primary',
+        variant: 'ghost',
+        icon: 'i-lucide-badge',
+        label: 'ID Card',
+        onClick: () => openIdCard(row.original.raw)
+      }) : null,
       canDelete.value ? h(UButton, {
         color: 'error',
         variant: 'ghost',
@@ -267,6 +303,17 @@ function emptyEmployee() {
     gender: 0,
     dateOfBirth: '1990-01-01',
     empId: 0,
+    employeeCode: '',
+    fatherOrHusbandName: '',
+    department: '',
+    designation: '',
+    salaryType: 'Monthly',
+    monthlySalary: 0,
+    dailyWage: 0,
+    employeeStatus: 'Active',
+    exitReason: '',
+    bloodGroup: '',
+    photoDataUrl: '',
     joiningDate: localDateInput(),
     leavingDate: '',
     working: true,
@@ -274,7 +321,13 @@ function emptyEmployee() {
     pan: '',
     aadhar: '',
     email: '',
-    mobile: ''
+    mobile: '',
+    bankAccountName: '',
+    bankAccountNumber: '',
+    ifsc: '',
+    esiNumber: '',
+    pfNumber: '',
+    emergencyContact: ''
   }
 }
 
@@ -310,6 +363,7 @@ async function refresh() {
     companies.value = companyRows
     stores.value = storeRows
     employees.value = employeeData
+    employeeSummary.value = await api.get<any>('hr/employee-master/summary')
     attendanceRows.value = attendanceData.sort((a, b) => String(b.onDate).localeCompare(String(a.onDate)))
     monthlyRows.value = monthlyData.sort((a, b) => String(b.onDate).localeCompare(String(a.onDate)))
   } catch (error) {
@@ -411,14 +465,31 @@ function employeePayload() {
     gender: Number(employeeForm.gender),
     dateOfBirth: toApiDate(employeeForm.dateOfBirth),
     empId: Number(employeeForm.empId || 0),
+    employeeCode: String(employeeForm.employeeCode || '').trim().toUpperCase() || null,
+    fatherOrHusbandName: String(employeeForm.fatherOrHusbandName || '').trim() || null,
+    department: String(employeeForm.department || '').trim() || null,
+    designation: String(employeeForm.designation || '').trim() || null,
+    salaryType: String(employeeForm.salaryType || 'Monthly'),
+    monthlySalary: Number(employeeForm.monthlySalary || 0),
+    dailyWage: Number(employeeForm.dailyWage || 0),
+    employeeStatus: String(employeeForm.employeeStatus || 'Active'),
+    exitReason: String(employeeForm.exitReason || '').trim() || null,
+    bloodGroup: String(employeeForm.bloodGroup || '').trim() || null,
+    photoDataUrl: String(employeeForm.photoDataUrl || '').trim() || null,
     joiningDate: toApiDate(employeeForm.joiningDate),
     leavingDate: employeeForm.leavingDate ? toApiDate(employeeForm.leavingDate) : null,
-    working: Boolean(employeeForm.working),
+    working: ['Active', 'On Leave'].includes(String(employeeForm.employeeStatus || 'Active')),
     category: Number(employeeForm.category),
     pan: pan || null,
     aadhar,
     email: String(employeeForm.email || '').trim() || null,
     mobile,
+    bankAccountName: String(employeeForm.bankAccountName || '').trim() || null,
+    bankAccountNumber: digitsOnly(employeeForm.bankAccountNumber),
+    ifsc: String(employeeForm.ifsc || '').trim().toUpperCase() || null,
+    esiNumber: String(employeeForm.esiNumber || '').trim() || null,
+    pfNumber: String(employeeForm.pfNumber || '').trim() || null,
+    emergencyContact: String(employeeForm.emergencyContact || '').trim() || null,
     ...ids
   }
 }
@@ -591,6 +662,35 @@ function primaryAction() {
   }
 }
 
+async function openIdCard(employee: any) {
+  try {
+    selectedIdCard.value = await api.get<any>(`hr/employees/${employee.id}/id-card`)
+    idCardOpen.value = true
+  } catch (error) {
+    feedback.failed('Could not open employee ID card', error)
+  }
+}
+
+function onEmployeePhotoSelected(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  if (file.size > 512 * 1024) {
+    feedback.notify('Photo too large', 'Use a compressed photo under 512 KB for now.')
+    return
+  }
+
+  const reader = new FileReader()
+  reader.onload = () => {
+    employeeForm.photoDataUrl = String(reader.result || '')
+  }
+  reader.readAsDataURL(file)
+}
+
+function printIdCard() {
+  if (!import.meta.client) return
+  window.print()
+}
+
 function employeeName(employeeId: string) {
   const employee = employees.value.find((item) => item.id === employeeId)
   return employee ? `${employee.firstName} ${employee.lastName}`.trim() : 'Employee'
@@ -602,6 +702,15 @@ function statusLabel(value: number) {
 
 function categoryLabel(value: number) {
   return categoryOptions.find((item) => item.value === Number(value))?.label || 'Employee'
+}
+
+function money(value: number) {
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(value || 0))
+}
+
+function maskMobile(value: string) {
+  const digits = digitsOnly(value)
+  return digits.length > 4 ? `${'•'.repeat(digits.length - 4)}${digits.slice(-4)}` : digits || '-'
 }
 
 function formatDate(value: string) {
@@ -654,7 +763,7 @@ onMounted(async () => {
     <section class="planner-dashboard">
       <UiModulePageHeader
         title="HR"
-        description="Manage employees, daily attendance, and generated monthly attendance summaries."
+        description="Manage employee master, photo/ID-card readiness, daily attendance, lifecycle and monthly attendance summaries."
         icon="i-lucide-users-round"
         :primary-label="activeTab === 'employees' ? 'New Employee' : activeTab === 'attendance' ? 'New Attendance' : 'Generate Month'"
         :primary-icon="activeTab === 'monthly' ? 'i-lucide-refresh-cw' : 'i-lucide-plus'"
@@ -668,6 +777,15 @@ onMounted(async () => {
           <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
         </template>
       </UiModulePageHeader>
+
+      <UAlert
+        v-if="employeeSummary?.readinessMessages?.length"
+        icon="i-lucide-clipboard-check"
+        color="primary"
+        variant="subtle"
+        title="Employee master readiness"
+        :description="employeeSummary.readinessMessages.join(' ')"
+      />
 
       <div class="planner-metric-grid">
         <UCard v-for="metric in metrics" :key="metric.label" class="planner-metric-card">
@@ -750,57 +868,63 @@ onMounted(async () => {
       >
         <template v-if="formKind === 'employee'">
           <div class="form-two-column">
-            <UFormField label="Title">
-              <UInput v-model="employeeForm.title" />
-            </UFormField>
-            <UFormField label="Employee ID">
-              <UInput v-model="employeeForm.empId" min="0" type="number" />
-            </UFormField>
+            <UFormField label="Title"><UInput v-model="employeeForm.title" /></UFormField>
+            <UFormField label="Employee code"><UInput v-model="employeeForm.employeeCode" placeholder="Auto if blank" /></UFormField>
           </div>
           <div class="form-two-column">
-            <UFormField label="First name" required>
-              <UInput v-model="employeeForm.firstName" required />
-            </UFormField>
-            <UFormField label="Last name" required>
-              <UInput v-model="employeeForm.lastName" required />
-            </UFormField>
+            <UFormField label="First name" required><UInput v-model="employeeForm.firstName" required /></UFormField>
+            <UFormField label="Last name" required><UInput v-model="employeeForm.lastName" required /></UFormField>
           </div>
           <div class="form-two-column">
-            <UFormField label="Gender">
-              <USelect v-model="employeeForm.gender" :items="genderOptions" />
-            </UFormField>
-            <UFormField label="Category">
-              <USelect v-model="employeeForm.category" :items="categoryOptions" />
-            </UFormField>
+            <UFormField label="Father/Husband name"><UInput v-model="employeeForm.fatherOrHusbandName" /></UFormField>
+            <UFormField label="Employee photo"><UInput type="file" accept="image/*" @change="onEmployeePhotoSelected" /></UFormField>
+          </div>
+          <img v-if="employeeForm.photoDataUrl" :src="employeeForm.photoDataUrl" class="employee-photo-preview" alt="Employee photo preview">
+          <div class="form-two-column">
+            <UFormField label="Gender"><USelect v-model="employeeForm.gender" :items="genderOptions" /></UFormField>
+            <UFormField label="Category"><USelect v-model="employeeForm.category" :items="categoryOptions" /></UFormField>
           </div>
           <div class="form-two-column">
-            <UFormField label="Date of birth" required>
-              <UInput v-model="employeeForm.dateOfBirth" required type="date" />
-            </UFormField>
-            <UFormField label="Joining date" required>
-              <UInput v-model="employeeForm.joiningDate" required type="date" />
-            </UFormField>
-          </div>
-          <UFormField label="Leaving date">
-            <UInput v-model="employeeForm.leavingDate" type="date" />
-          </UFormField>
-          <div class="form-two-column">
-            <UFormField label="Mobile" required>
-              <UInput v-model="employeeForm.mobile" inputmode="numeric" maxlength="15" placeholder="10 to 15 digits" required />
-            </UFormField>
-            <UFormField label="Email">
-              <UInput v-model="employeeForm.email" type="email" />
-            </UFormField>
+            <UFormField label="Department"><UInput v-model="employeeForm.department" /></UFormField>
+            <UFormField label="Designation"><UInput v-model="employeeForm.designation" /></UFormField>
           </div>
           <div class="form-two-column">
-            <UFormField label="Aadhaar" required>
-              <UInput v-model="employeeForm.aadhar" inputmode="numeric" maxlength="14" placeholder="12 digits" required />
-            </UFormField>
-            <UFormField label="PAN">
-              <UInput v-model="employeeForm.pan" maxlength="10" placeholder="10 characters" />
-            </UFormField>
+            <UFormField label="Date of birth" required><UInput v-model="employeeForm.dateOfBirth" required type="date" /></UFormField>
+            <UFormField label="Joining date" required><UInput v-model="employeeForm.joiningDate" required type="date" /></UFormField>
           </div>
-          <UCheckbox v-model="employeeForm.working" label="Working" />
+          <div class="form-two-column">
+            <UFormField label="Status"><USelect v-model="employeeForm.employeeStatus" :items="employeeStatusOptions" /></UFormField>
+            <UFormField label="Leaving date"><UInput v-model="employeeForm.leavingDate" type="date" /></UFormField>
+          </div>
+          <UFormField label="Exit reason"><UTextarea v-model="employeeForm.exitReason" autoresize /></UFormField>
+          <div class="form-two-column">
+            <UFormField label="Salary type"><USelect v-model="employeeForm.salaryType" :items="salaryTypeOptions" /></UFormField>
+            <UFormField label="Monthly salary"><UInput v-model="employeeForm.monthlySalary" min="0" type="number" /></UFormField>
+          </div>
+          <div class="form-two-column">
+            <UFormField label="Daily wage"><UInput v-model="employeeForm.dailyWage" min="0" type="number" /></UFormField>
+            <UFormField label="Blood group"><UInput v-model="employeeForm.bloodGroup" /></UFormField>
+          </div>
+          <div class="form-two-column">
+            <UFormField label="Mobile" required><UInput v-model="employeeForm.mobile" inputmode="numeric" maxlength="15" placeholder="10 to 15 digits" required /></UFormField>
+            <UFormField label="Email"><UInput v-model="employeeForm.email" type="email" /></UFormField>
+          </div>
+          <div class="form-two-column">
+            <UFormField label="Aadhaar" required><UInput v-model="employeeForm.aadhar" inputmode="numeric" maxlength="14" placeholder="12 digits" required /></UFormField>
+            <UFormField label="PAN"><UInput v-model="employeeForm.pan" maxlength="10" placeholder="10 characters" /></UFormField>
+          </div>
+          <div class="form-two-column">
+            <UFormField label="Bank account name"><UInput v-model="employeeForm.bankAccountName" /></UFormField>
+            <UFormField label="Bank account number"><UInput v-model="employeeForm.bankAccountNumber" inputmode="numeric" /></UFormField>
+          </div>
+          <div class="form-two-column">
+            <UFormField label="IFSC"><UInput v-model="employeeForm.ifsc" maxlength="20" /></UFormField>
+            <UFormField label="Emergency contact"><UInput v-model="employeeForm.emergencyContact" /></UFormField>
+          </div>
+          <div class="form-two-column">
+            <UFormField label="ESI number"><UInput v-model="employeeForm.esiNumber" /></UFormField>
+            <UFormField label="PF number"><UInput v-model="employeeForm.pfNumber" /></UFormField>
+          </div>
         </template>
 
         <template v-else>
@@ -827,6 +951,32 @@ onMounted(async () => {
         </template>
       </UiFormSlideover>
 
+      <UModal v-model:open="idCardOpen" title="Employee ID Card">
+        <template #body>
+          <div v-if="selectedIdCard" class="employee-id-card-print">
+            <div class="employee-id-card">
+              <div class="employee-id-card-header">
+                <strong>{{ selectedIdCard.companyName }}</strong>
+                <span>{{ selectedIdCard.storeName }}</span>
+              </div>
+              <div class="employee-id-card-body">
+                <img v-if="selectedIdCard.photoDataUrl" :src="selectedIdCard.photoDataUrl" alt="Employee">
+                <div v-else class="employee-id-card-photo">PHOTO</div>
+                <div>
+                  <h2>{{ selectedIdCard.fullName }}</h2>
+                  <p>{{ selectedIdCard.employeeCode }}</p>
+                  <p>{{ selectedIdCard.designation }} / {{ selectedIdCard.department }}</p>
+                  <p>Mobile: {{ selectedIdCard.mobile }}</p>
+                  <p>Emergency: {{ selectedIdCard.emergencyContact }}</p>
+                  <p>Blood: {{ selectedIdCard.bloodGroup }}</p>
+                </div>
+              </div>
+            </div>
+            <UButton icon="i-lucide-printer" label="Print ID Card" @click="printIdCard" />
+          </div>
+        </template>
+      </UModal>
+
       <UiConfirmDeleteModal
         v-model:open="deleteOpen"
         :title="formKind === 'employee' ? 'Delete Employee' : 'Delete Attendance'"
@@ -839,3 +989,53 @@ onMounted(async () => {
     </section>
   </AppShell>
 </template>
+
+
+<style scoped>
+.employee-photo-preview {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 14px;
+  border: 1px solid rgb(226 232 240);
+}
+.employee-id-card {
+  width: 360px;
+  max-width: 100%;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 16px;
+  overflow: hidden;
+  background: white;
+  color: #0f172a;
+}
+.employee-id-card-header {
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  background: #f8fafc;
+  border-bottom: 1px solid rgb(226 232 240);
+}
+.employee-id-card-body {
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 14px;
+}
+.employee-id-card-body img,
+.employee-id-card-photo {
+  width: 96px;
+  height: 112px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid rgb(203 213 225);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  color: #64748b;
+}
+@media print {
+  body * { visibility: hidden; }
+  .employee-id-card-print, .employee-id-card-print * { visibility: visible; }
+  .employee-id-card-print { position: fixed; inset: 24px auto auto 24px; }
+}
+</style>

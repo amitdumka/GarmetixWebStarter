@@ -18,6 +18,7 @@ using Garmetix.Api.Hr;
 using Garmetix.Api.GstReturns;
 using Garmetix.Api.Gstin;
 using Garmetix.Api.ImportExport;
+using Garmetix.Api.Licensing;
 using Garmetix.Api.Messages;
 using Garmetix.Api.Inventory;
 using Garmetix.Api.OffBook;
@@ -33,6 +34,7 @@ using Garmetix.Api.Setup;
 using Garmetix.Api.Tailoring;
 using Garmetix.Api.Testing;
 using Garmetix.Api.Seeds;
+using Garmetix.Api.StoreDay;
 using Garmetix.Api.Validation;
 using Garmetix.Api.SecondarySync;
 using Garmetix.Api.Workspace;
@@ -76,6 +78,8 @@ builder.Services.AddGarmetixInfrastructure(connectionString);
 builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddSingleton<PasswordResetTokenService>();
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
+builder.Services.Configure<LicenseOptions>(builder.Configuration.GetSection("License"));
+builder.Services.AddSingleton<LicenseActivationService>();
 builder.Services.Configure<PasswordResetOptions>(builder.Configuration.GetSection("PasswordReset"));
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<PasswordResetEmailService>();
@@ -198,6 +202,8 @@ app.UseMiddleware<AuditActorMiddleware>();
 app.UseMiddleware<ActiveUserMiddleware>();
 app.UseMiddleware<ApplicationMessageLogMiddleware>();
 app.UseAuthorization();
+app.UseMiddleware<LicenseEnforcementMiddleware>();
+app.UseMiddleware<StoreDayGuardMiddleware>();
 app.Use(async (context, next) =>
 {
     var backupService = context.RequestServices.GetRequiredService<DatabaseBackupService>();
@@ -241,6 +247,8 @@ auth.MapPut("/me", UpdateCurrentUserProfileAsync).RequireAuthorization();
 
 app.MapSetupEndpoints();
 app.MapWorkspaceEndpoints();
+app.MapStoreDayEndpoints();
+app.MapCashDetailsEndpoints();
 app.MapBillingEndpoints();
 app.MapTailoringEndpoints();
 app.MapPurchaseEndpoints();
@@ -271,9 +279,15 @@ app.MapDataConsistencyRepairEndpoints();
 app.MapDatabaseMigrationEndpoints();
 app.MapDashboardEndpoints();
 app.MapProductionReadinessEndpoints();
+app.MapPrintAcceptanceEndpoints();
+app.MapPermissionAcceptanceEndpoints();
 app.MapEmailDeliveryDiagnosticsEndpoints();
+app.MapLicenseEndpoints();
 app.MapReleaseStabilizationEndpoints();
 app.MapAfssSeederEndpoints();
+app.MapPortableSeederEndpoints();
+app.MapCompanyMergeEndpoints();
+app.MapSeederVerificationEndpoints();
 app.MapClientOnboardingEndpoints();
 app.MapApplicationMessageLogEndpoints();
 app.MapAppInfoEndpoints();
@@ -353,8 +367,27 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         }
 
         await EnrichPartyGstinAsync(entity, gstinLookup, cancellationToken);
+        var employeeValidationMessage = await PrepareEmployeeMasterAsync(entity, db, cancellationToken);
+        if (employeeValidationMessage is not null)
+        {
+            return Results.BadRequest(new { message = employeeValidationMessage });
+        }
+
+        var duplicateDailyMessage = await EnsureUniqueDailyRecordAsync(entity, db, cancellationToken);
+        if (duplicateDailyMessage is not null)
+        {
+            return Results.BadRequest(new { message = duplicateDailyMessage });
+        }
+
         db.Set<T>().Add(entity);
         await db.SaveChangesAsync(cancellationToken);
+
+        if (entity is Company company)
+        {
+            var defaultSeeder = new AfssDefaultSeederService(db);
+            await defaultSeeder.SeedAccountingDefaultsForCompanyAsync(company.Id, cancellationToken);
+        }
+
         return Results.Created($"{route}/{entity.Id}", entity);
     }).RequireAuthorization(policyName);
 
@@ -372,6 +405,18 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         }
 
         await EnrichPartyGstinAsync(entity, gstinLookup, cancellationToken);
+        var employeeValidationMessage = await PrepareEmployeeMasterAsync(entity, db, cancellationToken);
+        if (employeeValidationMessage is not null)
+        {
+            return Results.BadRequest(new { message = employeeValidationMessage });
+        }
+
+        var duplicateDailyMessage = await EnsureUniqueDailyRecordAsync(entity, db, cancellationToken);
+        if (duplicateDailyMessage is not null)
+        {
+            return Results.BadRequest(new { message = duplicateDailyMessage });
+        }
+
         db.Entry(entity).State = EntityState.Modified;
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(entity);
@@ -384,6 +429,18 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         {
             return Results.NotFound();
         }
+
+        if (entity is LedgerGroup ledgerGroup && AccountingDefaultProtection.IsProtectedLedgerGroup(ledgerGroup))
+        {
+            return Results.BadRequest(new { message = "Default Indian accounting ledger groups are protected and cannot be deleted." });
+        }
+
+        if (entity is Ledger ledger && AccountingDefaultProtection.IsProtectedLedger(ledger))
+        {
+            return Results.BadRequest(new { message = "Default Indian accounting ledgers are protected and cannot be deleted." });
+        }
+
+        await ApplyCascadeSoftDeleteAsync(entity, db, cancellationToken);
 
         if (entity is BaseEntity softDeletable)
         {
@@ -403,6 +460,170 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
 
     return group;
 }
+
+static async Task<string?> PrepareEmployeeMasterAsync<T>(T entity, GarmetixDbContext db, CancellationToken cancellationToken) where T : class
+{
+    if (entity is not Employee employee)
+    {
+        return null;
+    }
+
+    employee.FirstName = (employee.FirstName ?? string.Empty).Trim();
+    employee.LastName = (employee.LastName ?? string.Empty).Trim();
+    employee.Mobile = DigitsOnly(employee.Mobile);
+    employee.Aadhar = DigitsOnly(employee.Aadhar);
+    employee.PAN = string.IsNullOrWhiteSpace(employee.PAN) ? null : employee.PAN.Trim().ToUpperInvariant();
+    employee.IFSC = string.IsNullOrWhiteSpace(employee.IFSC) ? null : employee.IFSC.Trim().ToUpperInvariant();
+    employee.EmployeeStatus = string.IsNullOrWhiteSpace(employee.EmployeeStatus)
+        ? (employee.Working ? "Active" : "Inactive")
+        : employee.EmployeeStatus.Trim();
+    employee.SalaryType = string.IsNullOrWhiteSpace(employee.SalaryType) ? "Monthly" : employee.SalaryType.Trim();
+    employee.Department = string.IsNullOrWhiteSpace(employee.Department) ? null : employee.Department.Trim();
+    employee.Designation = string.IsNullOrWhiteSpace(employee.Designation) ? null : employee.Designation.Trim();
+    employee.FatherOrHusbandName = string.IsNullOrWhiteSpace(employee.FatherOrHusbandName) ? null : employee.FatherOrHusbandName.Trim();
+    employee.BankAccountNumber = string.IsNullOrWhiteSpace(employee.BankAccountNumber) ? null : DigitsOnly(employee.BankAccountNumber);
+    employee.EmergencyContact = string.IsNullOrWhiteSpace(employee.EmergencyContact) ? null : employee.EmergencyContact.Trim();
+    employee.UpdatedAt = DateTime.UtcNow;
+
+    if (string.IsNullOrWhiteSpace(employee.FirstName) || string.IsNullOrWhiteSpace(employee.LastName))
+    {
+        return "Employee first name and last name are required.";
+    }
+
+    if (employee.Aadhar.Length != 12)
+    {
+        return "Aadhaar number must be exactly 12 digits.";
+    }
+
+    if (!string.IsNullOrWhiteSpace(employee.PAN) && employee.PAN.Length != 10)
+    {
+        return "PAN number must be exactly 10 characters.";
+    }
+
+    if (employee.Mobile.Length < 10 || employee.Mobile.Length > 15)
+    {
+        return "Mobile number must be 10 to 15 digits.";
+    }
+
+    if (employee.MonthlySalary < 0 || employee.DailyWage < 0)
+    {
+        return "Salary and wage values cannot be negative.";
+    }
+
+    if (employee.EmpId <= 0)
+    {
+        var maxExistingEmpId = await db.Employees.AsNoTracking()
+            .Where(item => item.CompanyId == employee.CompanyId && item.StoreId == employee.StoreId && item.Id != employee.Id)
+            .Select(item => (int?)item.EmpId)
+            .MaxAsync(cancellationToken) ?? 0;
+
+        employee.EmpId = maxExistingEmpId + 1;
+    }
+
+    if (string.IsNullOrWhiteSpace(employee.EmployeeCode))
+    {
+        employee.EmployeeCode = $"EMP-{employee.EmpId:0000}";
+    }
+    else
+    {
+        employee.EmployeeCode = employee.EmployeeCode.Trim().ToUpperInvariant();
+    }
+
+    if (employee.EmployeeStatus.Equals("Resigned", StringComparison.OrdinalIgnoreCase)
+        || employee.EmployeeStatus.Equals("Terminated", StringComparison.OrdinalIgnoreCase)
+        || employee.EmployeeStatus.Equals("Inactive", StringComparison.OrdinalIgnoreCase))
+    {
+        employee.Working = false;
+        employee.LeavingDate ??= DateTime.Today;
+    }
+    else
+    {
+        employee.Working = true;
+        if (employee.EmployeeStatus.Equals("Active", StringComparison.OrdinalIgnoreCase))
+        {
+            employee.LeavingDate = null;
+            employee.ExitReason = null;
+        }
+    }
+
+    return null;
+}
+
+static string DigitsOnly(string? value)
+    => new string((value ?? string.Empty).Where(char.IsDigit).ToArray());
+
+static async Task<string?> EnsureUniqueDailyRecordAsync<T>(T entity, GarmetixDbContext db, CancellationToken cancellationToken) where T : class
+{
+    switch (entity)
+    {
+        case Attendance attendance:
+        {
+            attendance.OnDate = attendance.OnDate.Date;
+            var duplicate = await db.Attendance.AsNoTracking()
+                .AnyAsync(item => item.EmployeeId == attendance.EmployeeId
+                    && item.OnDate == attendance.OnDate
+                    && item.Id != attendance.Id
+                    && !item.Deleted, cancellationToken);
+            return duplicate ? "Attendance already exists for this employee and date." : null;
+        }
+        case PettyCashSheet sheet:
+        {
+            sheet.OnDate = sheet.OnDate.Date;
+            var duplicate = await db.PettyCashSheets.AsNoTracking()
+                .AnyAsync(item => item.StoreId == sheet.StoreId
+                    && item.OnDate == sheet.OnDate
+                    && item.Id != sheet.Id
+                    && !item.Deleted, cancellationToken);
+            return duplicate ? "Petty cash sheet already exists for this store and date." : null;
+        }
+        default:
+            return null;
+    }
+}
+
+static async Task ApplyCascadeSoftDeleteAsync<T>(T entity, GarmetixDbContext db, CancellationToken cancellationToken) where T : class
+{
+    if (entity is Company company)
+    {
+        await SoftDeleteByScopeColumnAsync(db, "CompanyId", company.Id, cancellationToken);
+    }
+    else if (entity is StoreGroup storeGroup)
+    {
+        await SoftDeleteByScopeColumnAsync(db, "StoreGroupId", storeGroup.Id, cancellationToken);
+    }
+    else if (entity is Store store)
+    {
+        await SoftDeleteByScopeColumnAsync(db, "StoreId", store.Id, cancellationToken);
+    }
+}
+
+static async Task SoftDeleteByScopeColumnAsync(GarmetixDbContext db, string columnName, Guid scopeId, CancellationToken cancellationToken)
+{
+    foreach (var entityType in db.Model.GetEntityTypes())
+    {
+        if (entityType.FindProperty("Deleted") is null || entityType.FindProperty(columnName) is null)
+        {
+            continue;
+        }
+
+        var table = entityType.GetTableName();
+        if (string.IsNullOrWhiteSpace(table))
+        {
+            continue;
+        }
+
+        var schema = entityType.GetSchema();
+        var qualifiedTable = string.IsNullOrWhiteSpace(schema) || string.Equals(schema, "public", StringComparison.OrdinalIgnoreCase)
+            ? QuoteIdentifier(table)
+            : $"{QuoteIdentifier(schema)}.{QuoteIdentifier(table)}";
+
+        var sql = $"UPDATE {qualifiedTable} SET {QuoteIdentifier("Deleted")} = TRUE WHERE {QuoteIdentifier(columnName)} = {{0}}";
+        await db.Database.ExecuteSqlRawAsync(sql, new object[] { scopeId }, cancellationToken);
+    }
+}
+
+static string QuoteIdentifier(string identifier)
+    => $"\"{identifier.Replace("\"", "\"\"")}\"";
 
 static async Task EnrichPartyGstinAsync<T>(T entity, GstinLookupService gstinLookup, CancellationToken cancellationToken) where T : class
 {
