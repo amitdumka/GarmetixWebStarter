@@ -432,10 +432,12 @@ public static class ReleaseStabilizationEndpoints
             var hrHome = DashboardEndpoints.ResolveHome(Principal(LoginRole.HR));
             var payrollHome = DashboardEndpoints.ResolveHome(Principal(LoginRole.Payroll));
             var salesmanHome = DashboardEndpoints.ResolveHome(Principal(LoginRole.Salesman, UserType.Sales));
+            var storeManagerHome = DashboardEndpoints.ResolveHome(Principal(LoginRole.StoreManager, UserType.StoreManager));
             var ok = adminHome.Route == "/dashboard/business"
                 && hrHome.Route == "/hr"
                 && payrollHome.Route == "/payroll"
-                && salesmanHome.Route == "/dashboard/store-manager";
+                && salesmanHome.Route == "/store-day"
+                && storeManagerHome.Route == "/store-day";
 
             Add(checks,
                 "DASHBOARD_HOME_CONTRACT",
@@ -443,7 +445,7 @@ public static class ReleaseStabilizationEndpoints
                 ok ? "Pass" : "Critical",
                 ok ? "Info" : "High",
                 ok
-                    ? "/api/dashboard/home route selector resolves admin, HR, payroll and store users correctly."
+                    ? "/api/dashboard/home route selector resolves admin, HR, payroll and store operational users correctly; store manager and biller start at Store Operations."
                     : "Dashboard route selector returned an unexpected route for one or more roles.",
                 "Run DashboardHomeRoutingTests and verify /api/dashboard/home returns a DashboardHomeDto JSON body.");
         }

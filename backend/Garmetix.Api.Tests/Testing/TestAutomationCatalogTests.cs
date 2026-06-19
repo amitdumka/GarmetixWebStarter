@@ -17,6 +17,7 @@ public sealed class TestAutomationCatalogTests
         Assert.Contains("DOCKER_COMPOSE_BUILD", codes);
         Assert.Contains("DOCKER_HEALTH", codes);
         Assert.Contains("AUTHENTICATED_API_SMOKE", codes);
+        Assert.Contains("PRINT_PDF_ACCEPTANCE", codes);
     }
 
     [Fact]

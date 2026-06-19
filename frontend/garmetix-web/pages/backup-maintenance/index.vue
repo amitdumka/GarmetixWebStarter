@@ -11,6 +11,8 @@ const status = ref<any | null>(null)
 const backups = ref<any[]>([])
 const verifyResult = ref<any | null>(null)
 const cleanupResult = ref<any | null>(null)
+const restorePreview = ref<any | null>(null)
+const previewingFile = ref<string | null>(null)
 const cloudLoading = ref(false)
 const cloudUploading = ref<string | null>(null)
 const cloudStatus = ref<any | null>(null)
@@ -72,6 +74,27 @@ const cards = computed(() => [
     meta: `${status.value?.orphanSidecarCount ?? 0} sidecars, ${status.value?.temporaryRestoreFileCount ?? 0} temp files`,
     icon: 'i-lucide-trash-2',
     color: Number(status.value?.orphanSidecarCount || 0) + Number(status.value?.temporaryRestoreFileCount || 0) > 0 ? 'warning' : 'success'
+  },
+  {
+    label: 'Latest size',
+    value: formatBytes(status.value?.latestBackupSizeBytes),
+    meta: status.value?.latestBackupFileName ? 'Current recovery point' : 'No recovery point',
+    icon: 'i-lucide-file-archive',
+    color: status.value?.latestBackupSizeBytes ? 'success' : 'warning'
+  },
+  {
+    label: 'Restore drill',
+    value: status.value?.restoreDrillStatus || 'Not run',
+    meta: status.value?.lastRestoreDrillAtUtc ? formatDateTime(status.value.lastRestoreDrillAtUtc) : 'Run disposable restore test',
+    icon: 'i-lucide-rotate-ccw',
+    color: status.value?.restoreDrillStatus === 'Recent' ? 'success' : 'warning'
+  },
+  {
+    label: 'Retention policy',
+    value: `${status.value?.retentionDays ?? 30} days`,
+    meta: `Keep minimum ${status.value?.keepMinimum ?? 10} backups`,
+    icon: 'i-lucide-calendar-clock',
+    color: 'primary'
   }
 ])
 
@@ -150,6 +173,20 @@ async function verifyAll() {
     feedback.failed('Could not verify backups', error)
   } finally {
     verifying.value = false
+  }
+}
+
+
+async function previewLocalBackup(fileName: string) {
+  previewingFile.value = fileName
+  restorePreview.value = null
+  try {
+    restorePreview.value = await api.create<any>(`backups/${encodeURIComponent(fileName)}/restore/preview`, {})
+    feedback.saved('Restore dry-run preview')
+  } catch (error) {
+    feedback.failed('Could not run restore preview', error)
+  } finally {
+    previewingFile.value = null
   }
 }
 
@@ -234,10 +271,10 @@ onMounted(async () => {
     <section class="page-hero rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p class="text-sm font-semibold uppercase tracking-wide text-primary">Stage 8G Package 4</p>
+          <p class="text-sm font-semibold uppercase tracking-wide text-primary">Stage 8I Package 17</p>
           <h1 class="mt-2 text-3xl font-bold text-slate-950 dark:text-white">Backup Maintenance</h1>
           <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-300">
-            Monitor local PostgreSQL backups, verify checksums, clean stale restore files and confirm the Mac mini has enough disk space before production use.
+            Monitor local PostgreSQL backups, verify checksums, run restore dry-run previews, track retention policy and confirm the Mac mini can recover data before production use.
           </p>
         </div>
         <div class="flex flex-wrap gap-2">
@@ -249,7 +286,7 @@ onMounted(async () => {
       </div>
     </section>
 
-    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       <UCard v-for="card in cards" :key="card.label">
         <div class="flex items-start gap-3">
           <div class="rounded-2xl bg-slate-100 p-3 dark:bg-slate-900">
@@ -333,6 +370,7 @@ onMounted(async () => {
               <th class="px-3 py-2">Size</th>
               <th class="px-3 py-2">Integrity</th>
               <th class="px-3 py-2">Source</th>
+              <th class="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -342,9 +380,12 @@ onMounted(async () => {
               <td class="px-3 py-2">{{ backup.size }}</td>
               <td class="px-3 py-2">{{ backup.integrity }}</td>
               <td class="px-3 py-2 capitalize">{{ backup.source }}</td>
+              <td class="px-3 py-2 text-right">
+                <UButton size="xs" icon="i-lucide-search-check" variant="soft" :loading="previewingFile === backup.fileName" @click="previewLocalBackup(backup.fileName)">Preview restore</UButton>
+              </td>
             </tr>
             <tr v-if="!backupRows.length">
-              <td colspan="5" class="px-3 py-6 text-center text-slate-500">No backup files found yet.</td>
+              <td colspan="6" class="px-3 py-6 text-center text-slate-500">No backup files found yet.</td>
             </tr>
           </tbody>
         </table>
@@ -398,6 +439,7 @@ onMounted(async () => {
               <th class="px-3 py-2">Created</th>
               <th class="px-3 py-2">Size</th>
               <th class="px-3 py-2">Source</th>
+              <th class="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -406,6 +448,9 @@ onMounted(async () => {
               <td class="px-3 py-2">{{ backup.created }}</td>
               <td class="px-3 py-2">{{ backup.size }}</td>
               <td class="px-3 py-2 capitalize">{{ backup.source }}</td>
+              <td class="px-3 py-2 text-right">
+                <UButton size="xs" icon="i-lucide-search-check" variant="soft" :loading="previewingFile === backup.fileName" @click="previewLocalBackup(backup.fileName)">Preview restore</UButton>
+              </td>
             </tr>
             <tr v-if="!cloudRows.length">
               <td colspan="4" class="px-3 py-6 text-center text-slate-500">No cloud backups listed yet, or Google Drive is not configured.</td>
@@ -425,6 +470,41 @@ onMounted(async () => {
           </UDropdownMenu>
         </div>
       </template>
+    </UCard>
+
+
+    <UCard v-if="restorePreview">
+      <template #header>
+        <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 class="text-lg font-semibold">Restore Preview / Dry Run</h2>
+            <p class="text-sm text-slate-500">{{ restorePreview.fileName }} · {{ formatBytes(restorePreview.sizeBytes) }}</p>
+          </div>
+          <UBadge :color="restorePreview.status === 'ok' ? 'success' : restorePreview.status === 'warning' ? 'warning' : 'error'" :label="restorePreview.status" variant="subtle" />
+        </div>
+      </template>
+      <div class="grid gap-4 lg:grid-cols-3">
+        <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+          <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Required tables</p>
+          <p class="mt-1 text-lg font-semibold text-slate-950 dark:text-white">{{ restorePreview.requiredTablesPresent ? 'Present' : 'Missing' }}</p>
+          <p class="mt-1 text-xs text-slate-500">Found {{ restorePreview.requiredTablesFound?.length || 0 }}, missing {{ restorePreview.requiredTablesMissing?.length || 0 }}</p>
+        </div>
+        <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+          <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Manifest</p>
+          <p class="mt-1 text-sm font-semibold text-slate-950 dark:text-white">{{ restorePreview.backupApplication || 'No manifest' }}</p>
+          <p class="mt-1 text-xs text-slate-500">{{ restorePreview.backupStage || 'Legacy backup without manifest' }}</p>
+        </div>
+        <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+          <p class="text-xs font-medium uppercase tracking-wide text-slate-500">pg_restore</p>
+          <p class="mt-1 text-lg font-semibold text-slate-950 dark:text-white">{{ restorePreview.pgRestoreReadable ? 'Readable' : 'Failed' }}</p>
+          <p class="mt-1 text-xs text-slate-500">{{ restorePreview.message }}</p>
+        </div>
+      </div>
+      <UAlert v-if="restorePreview.versionWarning" class="mt-4" color="warning" icon="i-lucide-triangle-alert" title="Version warning" :description="restorePreview.versionWarning" />
+      <div v-if="restorePreview.requiredTablesMissing?.length" class="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
+        Missing tables: {{ restorePreview.requiredTablesMissing.join(', ') }}
+      </div>
+      <pre class="mt-4 max-h-64 overflow-auto rounded-2xl bg-slate-950 p-4 text-xs text-slate-100">{{ (restorePreview.previewLines || []).join('\n') }}</pre>
     </UCard>
 
     <div class="grid gap-4 lg:grid-cols-2">

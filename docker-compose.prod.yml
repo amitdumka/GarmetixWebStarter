@@ -36,6 +36,9 @@ services:
       Backup__RunMinute: "${BACKUP_RUN_MINUTE:-30}"
       Backup__RunOnStartup: "${BACKUP_RUN_ON_STARTUP:-false}"
       Backup__RetentionCount: "${BACKUP_RETENTION_COUNT:-14}"
+      Backup__RetentionDays: "${BACKUP_RETENTION_DAYS:-30}"
+      Backup__KeepMinimum: "${BACKUP_KEEP_MINIMUM:-10}"
+      Backup__RestoreDrillMarkerPath: /app/backups/restore-drill-status.json
       GoogleDriveBackup__Enabled: "${GOOGLE_DRIVE_BACKUP_ENABLED:-false}"
       GoogleDriveBackup__UploadOnBackup: "${GOOGLE_DRIVE_UPLOAD_ON_BACKUP:-true}"
       GoogleDriveBackup__ServiceAccountJsonPath: /app/secrets/google-drive-service-account.json

@@ -111,7 +111,7 @@ async function openDay() {
       onDate: selectedDate.value,
       openingBalance: openingBalance.value,
       cashDetail: toCashPayload(openingCash, openingBalance.value),
-      remarks: 'Day opened from Store Day page'
+      remarks: 'Day opened from Store Operations page'
     })
     feedback.notify('Store day opened')
     await refresh()
@@ -131,7 +131,7 @@ async function closeDay() {
       onDate: selectedDate.value,
       cashDetail: toCashPayload(closingCash, cashAmount.value || status.value?.bookSummary?.cashInHand),
       useBookCashIfNoCashDetail: true,
-      remarks: 'Day closed from Store Day page'
+      remarks: 'Day closed from Store Operations page'
     })
     status.value = closingResult.value?.status || status.value
     feedback.notify('Store day closed and petty cash sheet updated')
@@ -166,7 +166,7 @@ async function reopenDay() {
     status.value = await api.create<any>('store-day/reopen', {
       storeId: activeStoreId.value,
       onDate: selectedDate.value,
-      reason: 'Wrong close operation - reopened from Store Day page'
+      reason: 'Wrong close operation - reopened from Store Operations page'
     })
     closingResult.value = null
     feedback.notify('Store day reopened')
@@ -184,7 +184,7 @@ async function deleteDayClose() {
     status.value = await api.create<any>('store-day/delete-close', {
       storeId: activeStoreId.value,
       onDate: selectedDate.value,
-      reason: 'Wrong close operation - deleted from Store Day page'
+      reason: 'Wrong close operation - deleted from Store Operations page'
     })
     closingResult.value = null
     feedback.notify('Store day close deleted')
@@ -223,7 +223,7 @@ onMounted(async () => {
 
   <AppShell
     v-else
-    title="Store Day Open / Close"
+    title="Store Operations"
     :companies="companies"
     :stores="stores"
     @refresh="refresh"
@@ -231,7 +231,7 @@ onMounted(async () => {
   >
     <section class="store-day-page">
       <UiModulePageHeader
-        title="Store Day Open / Close"
+        title="Store Operations"
         description="Open each store day before billing/entry, close with cash denomination details, generate petty cash sheet, or mark store holiday."
         icon="i-lucide-sun-medium"
         primary-label="Refresh"

@@ -92,7 +92,7 @@ onMounted(async () => {
     <section class="print-acceptance-page">
       <UiModulePageHeader
         title="Print Final Acceptance"
-        description="Final print/PDF acceptance for vouchers, cash vouchers, petty cash, purchase inward, tailoring and GST exports before handover."
+        description="Final print/PDF acceptance for sales invoices, returns, vouchers, petty cash, purchase, payroll, tailoring, non-GST goods and GST exports before handover."
         icon="i-lucide-printer-check"
         primary-label="Run Checks"
         primary-icon="i-lucide-refresh-cw"
@@ -126,7 +126,7 @@ onMounted(async () => {
           <div class="section-header">
             <div>
               <h2>Print Documents</h2>
-              <p>Open each sample, verify layout, then tick accepted.</p>
+              <p>Open each available sample, verify the document layout, then tick accepted.</p>
             </div>
             <UButton icon="i-lucide-refresh-cw" :loading="loading" variant="subtle" label="Refresh" @click="refresh" />
           </div>
@@ -162,19 +162,25 @@ onMounted(async () => {
           <UAlert color="primary" icon="i-lucide-calendar-check" title="Dates" description="Document date is not one day back and print date is correct." />
           <UAlert color="primary" icon="i-lucide-indian-rupee" title="Amounts" description="Taxable amount, GST/tax, discount, round-off and total amount match screen values." />
           <UAlert color="primary" icon="i-lucide-pen-line" title="Signatures" description="Customer/receiver/prepared-by/signature blocks are visible where required." />
+          <UAlert color="primary" icon="i-lucide-file-check-2" title="PDF output" description="PDF/download opens from the live URL and print preview uses the expected paper size." />
         </div>
         <UFormField class="mt-4" label="Operator print acceptance note">
-          <UTextarea v-model="acceptanceNote" :rows="3" placeholder="Example: Verified voucher A5, petty cash print, purchase inward, GST export, operator name/date..." />
+          <UTextarea v-model="acceptanceNote" :rows="3" placeholder="Example: Verified sales invoice, sales return, voucher A5, petty cash, purchase inward/return, payroll, non-GST, GST export, operator name/date..." />
         </UFormField>
       </UCard>
 
       <UCard class="planner-card">
         <template #header><h2>Quick navigation</h2></template>
         <div class="footer-actions">
+          <UButton to="/billing" icon="i-lucide-receipt-indian-rupee" variant="subtle" label="Billing" />
+          <UButton to="/sales-return" icon="i-lucide-rotate-ccw" variant="subtle" label="Sales Return" />
           <UButton to="/vouchers" icon="i-lucide-banknote" variant="subtle" label="Vouchers" />
           <UButton to="/cash-vouchers" icon="i-lucide-wallet-cards" variant="subtle" label="Cash Vouchers" />
           <UButton to="/petty-cash" icon="i-lucide-circle-dollar-sign" variant="subtle" label="Petty Cash" />
           <UButton to="/purchase" icon="i-lucide-package-plus" variant="subtle" label="Purchase" />
+          <UButton to="/purchase-return" icon="i-lucide-undo-2" variant="subtle" label="Purchase Return" />
+          <UButton to="/non-gst-goods" icon="i-lucide-file-warning" variant="subtle" label="Non-GST Goods" />
+          <UButton to="/payroll" icon="i-lucide-badge-indian-rupee" variant="subtle" label="Payroll" />
           <UButton to="/tailoring" icon="i-lucide-scissors" variant="subtle" label="Tailoring" />
           <UButton to="/gst-final-acceptance" icon="i-lucide-badge-check" variant="subtle" label="GST Acceptance" />
         </div>

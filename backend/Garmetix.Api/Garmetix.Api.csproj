@@ -4,10 +4,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);AD0001</NoWarn>
-    <Version>4.9.15</Version>
-    <AssemblyVersion>4.9.15.0</AssemblyVersion>
-    <FileVersion>4.9.15.0</FileVersion>
-    <InformationalVersion>4.9.15-secret-hygiene-hydration-guard</InformationalVersion>
+    <Version>4.9.18</Version>
+    <AssemblyVersion>4.9.18.0</AssemblyVersion>
+    <FileVersion>4.9.18.0</FileVersion>
+    <InformationalVersion>4.9.18-print-pdf-acceptance-store-operations</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

@@ -44,6 +44,24 @@ public static class PrintAcceptanceEndpoints
     {
         var docs = new List<PrintAcceptanceDocumentDto>();
 
+        var salesRows = await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context)
+            .Where(item => !item.ReturnInvoice)
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .Select(item => new { item.Id, Number = item.InvoiceNumber, Date = item.OnDate })
+            .Take(1)
+            .ToListAsync(cancellationToken);
+        AddDocument(docs, "salesInvoice", "Sales Invoice PDF", "Sales", salesRows.Count, salesRows.FirstOrDefault()?.Number, salesRows.FirstOrDefault()?.Id, salesRows.FirstOrDefault()?.Date, salesRows.FirstOrDefault()?.Id is Guid salesId ? $"/api/billing/sales/{salesId}/pdf" : null);
+
+        var salesReturnRows = await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context)
+            .Where(item => item.ReturnInvoice)
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .Select(item => new { item.Id, Number = item.InvoiceNumber, Date = item.OnDate })
+            .Take(1)
+            .ToListAsync(cancellationToken);
+        AddDocument(docs, "salesReturn", "Sales Return PDF", "Sales", salesReturnRows.Count, salesReturnRows.FirstOrDefault()?.Number, salesReturnRows.FirstOrDefault()?.Id, salesReturnRows.FirstOrDefault()?.Date, salesReturnRows.FirstOrDefault()?.Id is Guid salesReturnId ? $"/api/billing/sales/{salesReturnId}/pdf" : null);
+
         var voucherRows = await WorkspaceScope.ApplyTo(db.Vouchers.AsNoTracking(), context)
             .OrderByDescending(item => item.OnDate)
             .ThenByDescending(item => item.CreatedAt)
@@ -76,6 +94,30 @@ public static class PrintAcceptanceEndpoints
             .ToListAsync(cancellationToken);
         AddDocument(docs, "purchaseInward", "Purchase Inward PDF", "Purchase", purchaseRows.Count, purchaseRows.FirstOrDefault()?.Number, purchaseRows.FirstOrDefault()?.Id, purchaseRows.FirstOrDefault()?.Date, purchaseRows.FirstOrDefault()?.Id is Guid purchaseId ? $"/api/purchase/invoices/{purchaseId}/pdf" : null);
 
+        var purchaseReturnRows = await WorkspaceScope.ApplyTo(db.PurchaseReturns.AsNoTracking(), context)
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .Select(item => new { item.Id, Number = item.ReturnNumber, Date = item.OnDate })
+            .Take(1)
+            .ToListAsync(cancellationToken);
+        AddDocument(docs, "purchaseReturn", "Purchase Return PDF", "Purchase", purchaseReturnRows.Count, purchaseReturnRows.FirstOrDefault()?.Number, purchaseReturnRows.FirstOrDefault()?.Id, purchaseReturnRows.FirstOrDefault()?.Date, purchaseReturnRows.FirstOrDefault()?.Id is Guid purchaseReturnId ? $"/api/purchase/returns/{purchaseReturnId}/pdf" : null);
+
+        var commercialNoteRows = await WorkspaceScope.ApplyTo(db.CommercialNotes.AsNoTracking(), context)
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .Select(item => new { item.Id, Number = item.NoteNumber, Date = item.OnDate })
+            .Take(1)
+            .ToListAsync(cancellationToken);
+        AddDocument(docs, "commercialNote", "Debit / Credit Note PDF", "Accounting", commercialNoteRows.Count, commercialNoteRows.FirstOrDefault()?.Number, commercialNoteRows.FirstOrDefault()?.Id, commercialNoteRows.FirstOrDefault()?.Date, commercialNoteRows.FirstOrDefault()?.Id is Guid noteId ? $"/api/commercial-notes/{noteId}/pdf" : null);
+
+        var nonGstRows = await WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context)
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .Select(item => new { item.Id, Number = item.DocumentNumber, Date = item.OnDate })
+            .Take(1)
+            .ToListAsync(cancellationToken);
+        AddDocument(docs, "nonGstGoods", "Non-GST Goods PDF", "Off Book", nonGstRows.Count, nonGstRows.FirstOrDefault()?.Number, nonGstRows.FirstOrDefault()?.Id, nonGstRows.FirstOrDefault()?.Date, nonGstRows.FirstOrDefault()?.Id is Guid nonGstId ? $"/api/non-gst-goods/documents/{nonGstId}/pdf" : null);
+
         var tailoringRows = await WorkspaceScope.ApplyTo(db.TailoringOrders.AsNoTracking(), context)
             .OrderByDescending(item => item.OnDate)
             .ThenByDescending(item => item.CreatedAt)
@@ -83,6 +125,22 @@ public static class PrintAcceptanceEndpoints
             .Take(1)
             .ToListAsync(cancellationToken);
         AddDocument(docs, "tailoringOrder", "Tailoring Order / Invoice Print", "Tailoring", tailoringRows.Count, tailoringRows.FirstOrDefault()?.Number, tailoringRows.FirstOrDefault()?.Id, tailoringRows.FirstOrDefault()?.Date, tailoringRows.FirstOrDefault()?.Id is Guid tailoringId ? $"/api/tailoring/orders/{tailoringId}/print-order" : null);
+
+        var payslipRows = await WorkspaceScope.ApplyTo(db.SalaryPaySlips.AsNoTracking(), context)
+            .OrderByDescending(item => item.PayPeriodStart)
+            .ThenByDescending(item => item.CreatedAt)
+            .Select(item => new { item.Id, Number = item.MonthYear, Date = item.PayPeriodStart })
+            .Take(1)
+            .ToListAsync(cancellationToken);
+        AddDocument(docs, "salaryPayslip", "Salary Payslip PDF", "Payroll", payslipRows.Count, payslipRows.FirstOrDefault()?.Number, payslipRows.FirstOrDefault()?.Id, payslipRows.FirstOrDefault()?.Date, payslipRows.FirstOrDefault()?.Id is Guid payslipId ? $"/api/payroll/payslips/{payslipId}/pdf" : null);
+
+        var salaryPaymentRows = await WorkspaceScope.ApplyTo(db.SalaryPayments.AsNoTracking(), context)
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .Select(item => new { item.Id, Number = item.VoucherNumber, Date = item.OnDate })
+            .Take(1)
+            .ToListAsync(cancellationToken);
+        AddDocument(docs, "salaryPayment", "Salary Payment Voucher PDF", "Payroll", salaryPaymentRows.Count, salaryPaymentRows.FirstOrDefault()?.Number, salaryPaymentRows.FirstOrDefault()?.Id, salaryPaymentRows.FirstOrDefault()?.Date, salaryPaymentRows.FirstOrDefault()?.Id is Guid salaryPaymentId ? $"/api/payroll/{salaryPaymentId}/pdf" : null);
 
         var gstrRows = await WorkspaceScope.ApplyTo(db.GstReturnDrafts.AsNoTracking(), context)
             .OrderByDescending(item => item.UpdatedAt ?? item.CreatedAt)
@@ -97,8 +155,8 @@ public static class PrintAcceptanceEndpoints
         {
             recommendations.Add("Create at least one sample record in each missing area, then run print acceptance again.");
         }
-        recommendations.Add("Open each document from its source page and verify logo, date, amount, GST/tax, signatures and page size.");
-        recommendations.Add("Use browser print/PDF download once from the live Mac mini URL before production handover.");
+        recommendations.Add("Open each document from its source page and verify logo, date, amount, GST/tax, payment mode, signatures, footer and page size.");
+        recommendations.Add("Use browser print/PDF download once from the live Mac mini URL for every ready sample before production handover.");
 
         return new PrintAcceptanceStatusDto(
             DateTimeOffset.UtcNow,

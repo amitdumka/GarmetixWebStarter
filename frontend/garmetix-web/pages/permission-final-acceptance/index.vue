@@ -19,11 +19,13 @@ const checks = ref([
   { key: 'accountant', label: 'Accountant checked', detail: 'Can access vouchers, petty cash, GST and accounting reports.' },
   { key: 'hrPayroll', label: 'HR / Payroll checked', detail: 'Can access employee/payroll flows according to assigned role.' },
   { key: 'scoping', label: 'Company/store scoping checked', detail: 'Scoped users cannot see other company/store records.' },
-  { key: 'deleteRights', label: 'Delete/export/backup restrictions checked', detail: 'Only permitted users can delete, export sensitive data or restore backups.' }
+  { key: 'deleteRights', label: 'Delete/export/backup restrictions checked', detail: 'Only permitted users can delete, export sensitive data or restore backups.' },
+  { key: 'blockedRoutes', label: 'Blocked route checks completed', detail: 'Each role sees Access Denied for routes it must not use.' },
+  { key: 'landingRoutes', label: 'Landing routes confirmed', detail: 'Admin, Store Manager, HR, Payroll and Billing roles land on the expected dashboard/page.' }
 ])
 
 const completedChecks = computed(() => checks.value.filter((check) => acceptanceState[check.key]).length)
-const ready = computed(() => status.value?.hasAdmin && status.value?.hasScopedUsers && completedChecks.value === checks.value.length)
+const ready = computed(() => status.value?.hasAdmin && status.value?.hasScopedUsers && status.value?.hasRoleMatrixCoverage && completedChecks.value === checks.value.length)
 
 function loadAcceptance() {
   if (typeof window === 'undefined') return
@@ -99,6 +101,7 @@ onMounted(async () => {
         <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-users" color="primary" variant="subtle" /><div><p>Total Users</p><strong>{{ status?.totalUsers || 0 }}</strong><span>{{ status?.activeUsers || 0 }} active</span></div></div></UCard>
         <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-shield-check" :color="status?.hasAdmin ? 'success' : 'error'" variant="subtle" /><div><p>Admin Users</p><strong>{{ status?.adminUsers || 0 }}</strong><span>Admin/Owner coverage</span></div></div></UCard>
         <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-store" :color="status?.hasScopedUsers ? 'success' : 'warning'" variant="subtle" /><div><p>Scoped Users</p><strong>{{ status?.scopedUsers || 0 }}</strong><span>Store/company isolation test</span></div></div></UCard>
+        <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-route" :color="status?.hasRoleMatrixCoverage ? 'success' : 'warning'" variant="subtle" /><div><p>Role Matrix</p><strong>{{ status?.readyRoleCount || 0 }}/{{ status?.requiredRoleCount || 0 }}</strong><span>required roles ready</span></div></div></UCard>
       </div>
 
       <UCard class="planner-card">
@@ -117,6 +120,42 @@ onMounted(async () => {
               </tr>
             </tbody>
           </table>
+        </div>
+      </UCard>
+
+
+      <UCard class="planner-card">
+        <template #header><h2>Effective permission matrix</h2></template>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Role</th><th>Entry</th><th>Edit</th><th>Delete</th><th>Admin</th><th>Modules</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr v-for="row in status?.matrix || []" :key="row.role">
+                <td><strong>{{ row.role }}</strong><br><small>{{ row.notes }}</small></td>
+                <td>{{ row.entry ? 'Yes' : 'No' }}</td>
+                <td>{{ row.edit ? 'Yes' : 'No' }}</td>
+                <td>{{ row.delete ? 'Yes' : 'No' }}</td>
+                <td>{{ row.adminWorkspace ? 'Yes' : 'No' }}</td>
+                <td>{{ (row.modules || []).join(', ') || '-' }}</td>
+                <td><UBadge :color="row.acceptanceStatus === 'Ready' ? 'success' : 'warning'" :label="row.acceptanceStatus" variant="subtle" /></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </UCard>
+
+      <UCard class="planner-card">
+        <template #header><h2>Route acceptance checklist</h2></template>
+        <div class="route-grid">
+          <div v-for="item in status?.routeExpectations || []" :key="item.role" class="route-card">
+            <div class="route-card-head">
+              <strong>{{ item.role }}</strong>
+              <UBadge color="primary" variant="subtle">{{ item.landingRoute }}</UBadge>
+            </div>
+            <p>{{ item.testUserHint }}</p>
+            <small><b>Allowed:</b> {{ (item.allowedRoutes || []).join(', ') || '-' }}</small>
+            <small><b>Blocked:</b> {{ (item.blockedRoutes || []).join(', ') || '-' }}</small>
+          </div>
         </div>
       </UCard>
 
@@ -151,9 +190,9 @@ onMounted(async () => {
 
 <style scoped>
 .permission-acceptance-page { display: grid; gap: 1rem; }
-.metric-grid, .check-grid { display: grid; gap: 1rem; }
+.metric-grid, .check-grid, .route-grid { display: grid; gap: 1rem; }
 .metric-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-.check-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.check-grid, .route-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
 .check-card {
   display: flex;
   gap: .75rem;
@@ -167,7 +206,11 @@ onMounted(async () => {
 table { width: 100%; min-width: 860px; border-collapse: collapse; }
 th, td { padding: .65rem .75rem; border-bottom: 1px solid rgb(var(--color-gray-200)); text-align: left; }
 th { font-size: .75rem; text-transform: uppercase; color: rgb(var(--color-gray-500)); }
+.route-card { border: 1px solid rgb(var(--color-gray-200)); border-radius: 1rem; padding: 1rem; display: grid; gap: .5rem; }
+.route-card-head { display: flex; gap: .5rem; justify-content: space-between; align-items: center; }
+.route-card p { margin: 0; color: rgb(var(--color-gray-600)); }
+.route-card small { display: block; color: rgb(var(--color-gray-500)); }
 .recommendations { display: grid; gap: .65rem; padding: 0; margin: 0; list-style: none; }
 .recommendations li { display: flex; gap: .5rem; align-items: flex-start; }
-.dark .check-card, .dark th, .dark td { border-color: rgb(var(--color-gray-800)); }
+.dark .check-card, .dark .route-card, .dark th, .dark td { border-color: rgb(var(--color-gray-800)); }
 </style>

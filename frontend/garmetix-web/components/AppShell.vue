@@ -97,7 +97,7 @@ const moduleGroups: MenuGroup[] = [
     items: [
       { to: '/dashboard', label: 'Dashboard', icon: 'i-lucide-gauge', keywords: ['home', 'landing', 'role dashboard'] },
       { to: '/dashboard/store-manager', label: 'Store', icon: 'i-lucide-store', roles: ['storemanager', 'manager'], keywords: ['store', 'today', 'manager'] },
-      { to: '/store-day', label: 'Store Day Open / Close', icon: 'i-lucide-sun-medium', roles: ['storemanager', 'salesman', 'manager'], keywords: ['day opening', 'day closing', 'cash notes', 'holiday'] },
+      { to: '/store-day', label: 'Store Operations', icon: 'i-lucide-sun-medium', roles: ['storemanager', 'salesman', 'manager'], keywords: ['day opening', 'day closing', 'cash notes', 'holiday'] },
       { to: '/dashboard/business', label: 'Company', icon: 'i-lucide-chart-no-axes-combined', roles: ['owner', 'admin', 'accountant'], keywords: ['owner', 'admin', 'accountant', 'company'] },
       { to: '/dashboard/map', label: 'Dashboard Map', icon: 'i-lucide-map', keywords: ['template', 'revert', 'menus', 'routes'] },
       { to: '/', label: 'Legacy Overview', icon: 'i-lucide-layout-dashboard', roles: ['admin', 'owner'], keywords: ['old dashboard', 'overview', 'revert'] }
@@ -230,7 +230,9 @@ const isBusinessUser = computed(() => auth.canSeeAdmin.value || roleKey.value.in
 const dashboardHomePath = computed(() => {
   if (roleKey.value.includes('payroll')) return '/payroll'
   if (roleKey.value.includes('hr')) return '/hr'
-  return isBusinessUser.value ? '/dashboard/business' : '/dashboard/store-manager'
+  if (isBusinessUser.value) return '/dashboard/business'
+  if (roleKey.value.includes('storemanager') || roleKey.value.includes('salesman') || roleKey.value.includes('sales') || roleKey.value.includes('biller') || roleKey.value.includes('billing')) return '/store-day'
+  return '/dashboard/store-manager'
 })
 const visibleGroups = computed(() => moduleGroups
   .map((group) => ({

@@ -77,7 +77,7 @@ const routeRules: PageAccessRule[] = [
   { path: '/financial-year-locks', label: 'Financial Year Locks', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant'] },
   { path: '/petty-cash', label: 'Petty Cash', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
   { path: '/cash-details', label: 'Cash Details', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
-  { path: '/store-day', label: 'Store Day Open / Close', module: 'Store Operations', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'salesman'] },
+  { path: '/store-day', label: 'Store Operations', module: 'Store Operations', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'salesman'] },
   { path: '/tailoring', label: 'Tailoring & Alteration', module: 'Sales', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'salesman'] },
 
   { path: '/hr', label: 'HR', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },

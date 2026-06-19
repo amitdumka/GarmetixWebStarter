@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.9.15";
-    public const string Stage = "Stage 8I Package 16 Secret Hygiene and Hydration Guard";
-    public const string ReleaseName = "Secret Hygiene & Hydration Guard";
+    public const string Version = "4.9.18";
+    public const string Stage = "Stage 8I Package 19 Print/PDF Acceptance and Store Operations Landing";
+    public const string ReleaseName = "Print/PDF Acceptance and Store Operations Landing";
     public const string BuildDate = "2026-06-19";
-    public const string BuildCode = "GARMETIX-8I-20260619-49150";
+    public const string BuildCode = "GARMETIX-8I-20260619-49180";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,15 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Print Final Acceptance now covers sales invoice/return, vouchers, petty cash, purchase inward/return, debit/credit notes, non-GST goods, tailoring, payroll and GST export samples.",
+        "Store Manager and biller users now land first on Store Operations after login so day opening happens before billing.",
+        "Store Day Open / Close UI label is renamed to Store Operations across route access, menu, page title and backend tag.",
+        "The release manifest now includes PRINT_PDF_ACCEPTANCE and a live print/PDF acceptance drill script for production hosts.",
+        "Restore preview now checks pg_restore readability, core Garmetix table coverage, backup manifest stage, and version mismatch warnings before restore.",
+        "Backup retention supports both retention days and a keep-minimum policy so scheduled cleanup does not remove all safe restore points.",
+        "The Linux backup/restore drill creates a dump, restores it into a disposable PostgreSQL database, verifies required tables, and writes a restore-drill marker without touching production data.",
+        "Production Readiness now reports both latest backup health and disposable restore-drill status.",
+        "Permission Final Acceptance now exposes the effective role matrix, required route expectations, test-user coverage and blocked-route acceptance checklist.",
         "Local deployment env files are excluded from release archives and repository tracking.",
         "Secret hygiene validation scans for Cloudflare API tokens, local env files and obvious private credentials before packaging.",
         "Nuxt uses a client hydration gate so authenticated dashboard pages render after browser session restore and avoid shared SSR/auth shell mismatches.",

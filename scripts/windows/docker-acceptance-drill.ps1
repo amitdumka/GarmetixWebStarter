@@ -1,8 +1,8 @@
 param(
     [string]$EnvFile = ".env.production",
     [string]$ComposeFile = "docker-compose.prod.yml",
-    [string]$ExpectedVersion = "4.9.14",
-    [string]$ExpectedBuildCode = "GARMETIX-8I-20260619-49140"
+    [string]$ExpectedVersion = "4.9.17",
+    [string]$ExpectedBuildCode = "GARMETIX-8I-20260619-49170"
 )
 
 $ErrorActionPreference = "Stop"

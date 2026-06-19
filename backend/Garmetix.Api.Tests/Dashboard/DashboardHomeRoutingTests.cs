@@ -41,12 +41,23 @@ public sealed class DashboardHomeRoutingTests
     }
 
     [Fact]
-    public void ResolveHome_ReturnsStoreDashboard_ForSalesman()
+    public void ResolveHome_ReturnsStoreOperations_ForSalesman()
     {
         var home = DashboardEndpoints.ResolveHome(Principal(LoginRole.Salesman, UserType.Sales));
 
-        Assert.Equal("/dashboard/store-manager", home.Route);
-        Assert.Equal("StoreManager", home.DashboardType);
+        Assert.Equal("/store-day", home.Route);
+        Assert.Equal("StoreOperations", home.DashboardType);
+        Assert.False(home.CanOpenBusinessDashboard);
+        Assert.True(home.CanOpenStoreManagerDashboard);
+    }
+
+    [Fact]
+    public void ResolveHome_ReturnsStoreOperations_ForStoreManager()
+    {
+        var home = DashboardEndpoints.ResolveHome(Principal(LoginRole.StoreManager, UserType.StoreManager));
+
+        Assert.Equal("/store-day", home.Route);
+        Assert.Equal("StoreOperations", home.DashboardType);
         Assert.False(home.CanOpenBusinessDashboard);
         Assert.True(home.CanOpenStoreManagerDashboard);
     }

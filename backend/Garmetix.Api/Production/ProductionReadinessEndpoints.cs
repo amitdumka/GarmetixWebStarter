@@ -45,6 +45,7 @@ public static class ProductionReadinessEndpoints
         IConfiguration configuration,
         IWebHostEnvironment environment,
         IOptions<BackupOptions> backupOptions,
+        DatabaseBackupService backupService,
         CancellationToken cancellationToken)
     {
         await Task.Yield();
@@ -57,7 +58,9 @@ public static class ProductionReadinessEndpoints
         AddCorsCheck(checks, configuration, environment);
         AddUrlCheck(checks, configuration, environment);
         AddEmailCheck(checks, configuration, environment);
-        AddBackupCheck(checks, backupOptions.Value);
+        var backupMaintenance = backupService.GetMaintenanceStatus();
+        AddBackupCheck(checks, backupOptions.Value, backupMaintenance);
+        AddRestoreDrillCheck(checks, backupMaintenance);
         AddGoogleDriveCheck(checks, configuration);
         AddGstinCheck(checks, configuration);
         AddOracleSyncCheck(checks, configuration);
@@ -173,34 +176,37 @@ public static class ProductionReadinessEndpoints
             "Set EMAIL_ENABLED=true and configure SMTP host, username, password, and from address.");
     }
 
-    private static void AddBackupCheck(List<ProductionReadinessCheckDto> checks, BackupOptions backup)
+    private static void AddBackupCheck(List<ProductionReadinessCheckDto> checks, BackupOptions backup, BackupMaintenanceStatusDto maintenance)
     {
         var enabled = backup.Enabled;
         var hasDirectory = !string.IsNullOrWhiteSpace(backup.Directory);
-        var retentionOk = backup.RetentionCount >= 7;
-        var directoryReady = false;
-        try
-        {
-            if (hasDirectory)
-            {
-                Directory.CreateDirectory(backup.Directory);
-                directoryReady = Directory.Exists(backup.Directory);
-            }
-        }
-        catch
-        {
-            directoryReady = false;
-        }
+        var retentionOk = backup.RetentionCount >= 7 && backup.KeepMinimum >= 3 && backup.RetentionDays >= 7;
+        var directoryReady = maintenance.DirectoryExists && maintenance.DirectoryWritable;
+        var backupReady = enabled && hasDirectory && retentionOk && directoryReady && maintenance.BackupCount > 0 && maintenance.HasRecentBackup;
 
         Add(checks,
             "BACKUP_LOCAL",
             "Local database backups",
-            enabled && hasDirectory && retentionOk && directoryReady ? "Pass" : "Critical",
-            enabled && hasDirectory && retentionOk && directoryReady ? "Info" : "High",
-            enabled && hasDirectory && retentionOk && directoryReady
-                ? $"Local backups are enabled with retention count {backup.RetentionCount}."
-                : "Local backups are disabled, missing a usable directory, or retention is too low.",
-            "Keep BACKUP_ENABLED=true, mount ./backups, and keep at least 7 restore points.");
+            backupReady ? "Pass" : "Critical",
+            backupReady ? "Info" : "High",
+            backupReady
+                ? $"Local backups are enabled, writable and recent. Latest backup is {maintenance.LatestBackupFileName} ({maintenance.LatestBackupAgeHours} hours old)."
+                : "Local backups are disabled, missing, not writable, not recent, or retention is below the production safety policy.",
+            "Keep BACKUP_ENABLED=true, mount ./backups, keep BACKUP_RETENTION_DAYS>=30 and BACKUP_KEEP_MINIMUM>=10, then create a fresh backup.");
+    }
+
+    private static void AddRestoreDrillCheck(List<ProductionReadinessCheckDto> checks, BackupMaintenanceStatusDto maintenance)
+    {
+        var ready = string.Equals(maintenance.RestoreDrillStatus, "Recent", StringComparison.OrdinalIgnoreCase);
+        Add(checks,
+            "BACKUP_RESTORE_DRILL",
+            "Disposable restore drill",
+            ready ? "Pass" : "Warning",
+            ready ? "Info" : "Medium",
+            ready
+                ? $"A restore drill marker is present from {maintenance.LastRestoreDrillAtUtc:O}."
+                : "No recent restore drill marker was found. Backup creation alone does not prove restore safety.",
+            "Run scripts/linux/backup-restore-drill.sh on the Docker host; it restores into a temporary database and leaves production data untouched.");
     }
 
 

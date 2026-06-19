@@ -1,3 +1,27 @@
+
+## Stage 8I Package 19 Print/PDF Acceptance and Store Operations Landing / v4.9.18
+
+- Print Final Acceptance now covers sales invoice/return, voucher, cash voucher, petty cash, purchase inward/return, debit/credit note, non-GST goods, tailoring, payroll and GST export samples.
+- Added a live print/PDF acceptance drill script for production hosts.
+- Store Day Open / Close is renamed to Store Operations in user-facing UI.
+- Store Manager and biller/Salesman users now land first on Store Operations after login.
+- Current version: 4.9.18 / `GARMETIX-8I-20260619-49180`.
+
+## Stage 8I Package 18 Role-wise Permission Acceptance / v4.9.17
+
+- Effective permission matrix and route expectation acceptance are now visible in `/permission-final-acceptance`.
+- Test Automation includes `PERMISSION_ROLE_ACCEPTANCE`.
+- Required roles now show active-user and scoped-user readiness before handover.
+- Current version: 4.9.17 / `GARMETIX-8I-20260619-49170`.
+
+## Stage 8I Package 17 Backup, Restore & Data Safety / v4.9.16
+
+- Backup restore dry-run now validates pg_restore readability, required table coverage and manifest stage.
+- Backup retention policy now supports days plus keep-minimum safeguards.
+- Disposable host restore drill added under `scripts/linux/backup-restore-drill.sh`.
+- Production Readiness now includes restore drill status.
+- Version marker: 4.9.16 / `GARMETIX-8I-20260619-49160`.
+
 ## Stage 8I Package 16 Secret Hygiene and Hydration Guard / v4.9.15
 
 - Removed private `deploy/macmini.env` from the distributable project package.

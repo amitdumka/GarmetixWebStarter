@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
+using Garmetix.Api.AppInfo;
 using Microsoft.Extensions.Options;
 using Npgsql;
 
@@ -35,7 +36,13 @@ public sealed record RestorePreflightDto(
     long SizeBytes,
     string Status,
     string Message,
-    string[] PreviewLines);
+    string[] PreviewLines,
+    bool RequiredTablesPresent,
+    string[] RequiredTablesFound,
+    string[] RequiredTablesMissing,
+    string? BackupApplication,
+    string? BackupStage,
+    string? VersionWarning);
 
 public sealed record BackupMaintenanceStatusDto(
     bool Enabled,
@@ -50,9 +57,14 @@ public sealed record BackupMaintenanceStatusDto(
     int ManifestBackupCount,
     DateTime? LatestBackupAtUtc,
     string? LatestBackupFileName,
+    long? LatestBackupSizeBytes,
     double? LatestBackupAgeHours,
     bool HasRecentBackup,
     int RetentionCount,
+    int RetentionDays,
+    int KeepMinimum,
+    DateTime? LastRestoreDrillAtUtc,
+    string RestoreDrillStatus,
     int OrphanSidecarCount,
     int TemporaryRestoreFileCount,
     string Status,
@@ -99,6 +111,23 @@ public sealed class DatabaseBackupService(
     private readonly BackupOptions options = options.Value;
     private readonly SemaphoreSlim operationLock = new(1, 1);
     private volatile bool restoreInProgress;
+
+    private static readonly string[] RequiredRestoreTables =
+    [
+        "Companies",
+        "StoreGroups",
+        "Stores",
+        "Users",
+        "Products",
+        "Stocks",
+        "SalesInvoices",
+        "PurchaseInvoices",
+        "Ledgers",
+        "Vouchers",
+        "PettyCashSheets",
+        "CashDetails",
+        "Employees"
+    ];
 
     public bool IsRestoreInProgress => restoreInProgress;
 
@@ -361,6 +390,13 @@ public sealed class DatabaseBackupService(
             : 0;
         var orphanSidecars = CountOrphanSidecars();
         var tempRestoreFiles = CountTemporaryRestoreFiles();
+        var drillMarker = ResolveRestoreDrillMarkerPath();
+        var lastRestoreDrillAtUtc = File.Exists(drillMarker)
+            ? File.GetLastWriteTimeUtc(drillMarker)
+            : (DateTime?)null;
+        var restoreDrillStatus = lastRestoreDrillAtUtc is null
+            ? "Not run"
+            : (now - lastRestoreDrillAtUtc.Value).TotalDays <= 30 ? "Recent" : "Stale";
         var recommendations = BuildMaintenanceRecommendations(
             backups,
             directoryWritable,
@@ -368,7 +404,8 @@ public sealed class DatabaseBackupService(
             folderSize,
             orphanSidecars,
             tempRestoreFiles,
-            hasRecentBackup);
+            hasRecentBackup,
+            restoreDrillStatus);
         var status = !options.Enabled || !directoryExists || !directoryWritable
             ? "Critical"
             : !hasRecentBackup || orphanSidecars > 0 || tempRestoreFiles > 0 || (freeSpaceBytes is not null && freeSpaceBytes < 1_073_741_824)
@@ -388,9 +425,14 @@ public sealed class DatabaseBackupService(
             backups.Count(backup => backup.HasManifest),
             latest?.CreatedAtUtc,
             latest?.FileName,
+            latest?.SizeBytes,
             latestAgeHours,
             hasRecentBackup,
             Math.Max(options.RetentionCount, 1),
+            Math.Max(options.RetentionDays, 0),
+            Math.Max(options.KeepMinimum, 1),
+            lastRestoreDrillAtUtc,
+            restoreDrillStatus,
             orphanSidecars,
             tempRestoreFiles,
             status,
@@ -530,7 +572,8 @@ public sealed class DatabaseBackupService(
         long folderSize,
         int orphanSidecars,
         int temporaryRestoreFiles,
-        bool hasRecentBackup)
+        bool hasRecentBackup,
+        string restoreDrillStatus)
     {
         var recommendations = new List<string>();
         if (!directoryWritable)
@@ -555,6 +598,15 @@ public sealed class DatabaseBackupService(
         if (orphanSidecars > 0 || temporaryRestoreFiles > 0)
         {
             recommendations.Add("Run backup maintenance cleanup to remove orphan sidecars and stale restore temp files.");
+        }
+
+        if (string.Equals(restoreDrillStatus, "Not run", StringComparison.OrdinalIgnoreCase))
+        {
+            recommendations.Add("Run scripts/linux/backup-restore-drill.sh on the production host before go-live. It restores into a disposable database and writes a drill marker.");
+        }
+        else if (string.Equals(restoreDrillStatus, "Stale", StringComparison.OrdinalIgnoreCase))
+        {
+            recommendations.Add("Last restore drill is older than 30 days. Repeat the disposable restore drill after this release update.");
         }
 
         if (freeSpaceBytes is not null && freeSpaceBytes < 1_073_741_824)
@@ -646,15 +698,25 @@ public sealed class DatabaseBackupService(
 
     private void ApplyRetention()
     {
-        var keep = Math.Max(options.RetentionCount, 1);
+        var keepCount = Math.Max(options.RetentionCount, options.KeepMinimum);
+        var keepMinimum = Math.Max(options.KeepMinimum, 1);
+        var retentionDays = Math.Max(options.RetentionDays, 0);
+        var cutoff = retentionDays > 0 ? DateTime.UtcNow.AddDays(-retentionDays) : DateTime.MinValue;
         var automaticFiles = Directory.EnumerateFiles(options.Directory, "garmetix-scheduled-*.dump")
             .Select(path => new FileInfo(path))
             .OrderByDescending(file => file.CreationTimeUtc)
-            .Skip(keep)
             .ToList();
 
-        foreach (var file in automaticFiles)
+        for (var index = 0; index < automaticFiles.Count; index++)
         {
+            var file = automaticFiles[index];
+            var exceedsCount = index >= keepCount;
+            var exceedsAge = retentionDays > 0 && file.CreationTimeUtc < cutoff && index >= keepMinimum;
+            if (!exceedsCount && !exceedsAge)
+            {
+                continue;
+            }
+
             DeleteFileIfExists(ChecksumPath(file.FullName));
             DeleteFileIfExists(ManifestPath(file.FullName));
             file.Delete();
@@ -708,23 +770,46 @@ public sealed class DatabaseBackupService(
             string.Empty,
             cancellationToken);
 
-        var previewLines = result.Output
-            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+        var allListLines = result.Output
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+        var previewLines = allListLines
             .Take(25)
             .ToArray();
 
-        var readable = result.ExitCode == 0 && previewLines.Length > 0;
+        var readable = result.ExitCode == 0 && allListLines.Length > 0;
+        var requiredTablesFound = RequiredRestoreTables
+            .Where(table => allListLines.Any(line => line.Contains(table, StringComparison.OrdinalIgnoreCase)))
+            .OrderBy(table => table, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var requiredTablesMissing = RequiredRestoreTables
+            .Except(requiredTablesFound, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(table => table, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var manifest = TryReadManifest(path);
+        var versionWarning = manifest is not null
+            && !string.IsNullOrWhiteSpace(manifest.Stage)
+            && !manifest.Stage.Contains(AppInfoEndpoints.Version, StringComparison.OrdinalIgnoreCase)
+                ? $"Backup manifest stage is {manifest.Stage}; current app is {AppInfoEndpoints.Stage}. Review migrations before restoring over production."
+                : null;
         var file = new FileInfo(path);
         return new RestorePreflightDto(
             displayFileName,
             IsPgDumpHeader(path),
             readable,
             file.Length,
-            readable ? "ok" : "failed",
+            readable && requiredTablesMissing.Length == 0 ? "ok" : readable ? "warning" : "failed",
             readable
-                ? "Backup can be read by pg_restore. Review the preview before restore."
+                ? requiredTablesMissing.Length == 0
+                    ? "Backup can be read by pg_restore and contains the required Garmetix core tables."
+                    : "Backup can be read by pg_restore, but some expected Garmetix tables were not visible in the preview list."
                 : $"pg_restore could not read this backup. {LastUsefulLine(result.Error)}",
-            previewLines);
+            previewLines,
+            requiredTablesMissing.Length == 0,
+            requiredTablesFound,
+            requiredTablesMissing,
+            manifest?.Application,
+            manifest?.Stage,
+            versionWarning);
     }
 
     private void ValidateDump(string path, string originalFileName)
@@ -786,8 +871,8 @@ public sealed class DatabaseBackupService(
             connection.Port,
             sha256,
             "PostgreSQL custom pg_dump",
-            "Garmetix",
-            "Stage 8G Package 1 Backup Maintenance");
+            AppInfoEndpoints.ProductName,
+            $"{AppInfoEndpoints.Stage} / v{AppInfoEndpoints.Version} / {AppInfoEndpoints.BuildCode}");
         var json = JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true });
         await File.WriteAllTextAsync(ManifestPath(path), json, cancellationToken);
     }
@@ -815,6 +900,34 @@ public sealed class DatabaseBackupService(
             .Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .FirstOrDefault();
         return firstToken?.Length == 64 ? firstToken : null;
+    }
+
+    private BackupManifestDto? TryReadManifest(string dumpPath)
+    {
+        var path = ManifestPath(dumpPath);
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<BackupManifestDto>(File.ReadAllText(path));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private string ResolveRestoreDrillMarkerPath()
+    {
+        if (!string.IsNullOrWhiteSpace(options.RestoreDrillMarkerPath))
+        {
+            return options.RestoreDrillMarkerPath;
+        }
+
+        return Path.Combine(options.Directory, "restore-drill-status.json");
     }
 
     private static string ComputeSha256(string path)

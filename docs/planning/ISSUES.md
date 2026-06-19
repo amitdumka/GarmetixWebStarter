@@ -55,6 +55,12 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 
 ## Open
 
+
+- [x] Real backup/restore safety drill was only documented, not wired into validation/readiness. Backup restore safety drill added in v4.9.16 with restore preview, retention policy and disposable database drill script.
+- [x] Role-wise production permission acceptance was manual only. Role-wise permission acceptance matrix added in v4.9.17 with route expectations and required-role readiness.
+
+- [x] Print/PDF final acceptance had incomplete document coverage and no live endpoint drill. Package 19 added full sample catalog coverage and `scripts/linux/print-pdf-acceptance-drill.sh`.
+- [x] Store Manager and biller users landed on a dashboard instead of day-opening workflow. Package 19 routes these users to Store Operations after login and renames the page label.
 - [ ] Backend Release build has nullable warnings in purchase receipt mapping and data-consistency number handling.
 - [ ] Nuxt production build succeeds but external font metadata providers can fail certificate validation and produce noisy fallback warnings.
 - [x] Authenticated Nuxt pages logged `Hydration completed but contains mismatches`; Hydration guard added in v4.9.15 by client-gating the app root and restoring auth on mount before rendering protected pages.

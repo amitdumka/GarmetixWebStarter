@@ -49,13 +49,40 @@ public static class DashboardEndpoints
             || combined.Contains("owner")
             || combined.Contains("accountant")
             || combined.Contains("poweruser");
-        var route = canOpenBusiness ? "/dashboard/business" : "/dashboard/store-manager";
-        var dashboardType = canOpenBusiness ? "Business" : "StoreManager";
-        var reason = canOpenBusiness
-            ? "Owner, admin, power user and accountant users start with company/store-group dashboard."
-            : "Store scoped users start with the store manager dashboard.";
+        if (canOpenBusiness)
+        {
+            return new DashboardHomeDto(
+                "/dashboard/business",
+                "Business",
+                "Owner, admin, power user and accountant users start with company/store-group dashboard.",
+                true,
+                true);
+        }
 
-        return new DashboardHomeDto(route, dashboardType, reason, canOpenBusiness, true);
+        var startsInStoreOperations = string.Equals(role, LoginRole.StoreManager.ToString(), StringComparison.OrdinalIgnoreCase)
+            || string.Equals(role, LoginRole.Salesman.ToString(), StringComparison.OrdinalIgnoreCase)
+            || combined.Contains("storemanager")
+            || combined.Contains("salesman")
+            || combined.Contains("sales")
+            || combined.Contains("biller")
+            || combined.Contains("billing");
+
+        if (startsInStoreOperations)
+        {
+            return new DashboardHomeDto(
+                "/store-day",
+                "StoreOperations",
+                "Store manager and biller users start at Store Operations so the day can be opened before billing.",
+                false,
+                true);
+        }
+
+        return new DashboardHomeDto(
+            "/dashboard/store-manager",
+            "StoreManager",
+            "Scoped users without a specialized home start with the store manager dashboard.",
+            false,
+            true);
     }
 
     private static async Task<StoreManagerDashboardDto> StoreManagerAsync(

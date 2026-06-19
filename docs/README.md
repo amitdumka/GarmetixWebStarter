@@ -1,6 +1,6 @@
 # Garmetix Documentation
 
-> Current package: Stage 8I Package 16 Secret Hygiene and Hydration Guard v4.9.15 (`GARMETIX-8I-20260619-49150`).
+> Current package: Stage 8I Package 19 Print/PDF Acceptance and Store Operations Landing v4.9.18 (`GARMETIX-8I-20260619-49180`).
 
 This folder is the canonical home for project plans, implementation notes, validation logs, operational guides, and reports.
 
