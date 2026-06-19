@@ -177,6 +177,19 @@ const moduleGroups: MenuGroup[] = [
     label: 'People',
     items: [
       { to: '/hr', label: 'HR Employee Master', icon: 'i-lucide-users-round' },
+      { to: '/attendance', label: 'Attendance Dashboard', icon: 'i-lucide-calendar-check', keywords: ['attendance', 'kiosk', 'check in', 'check out'] },
+      { to: '/attendance/kiosk', label: 'Web Kiosk', icon: 'i-lucide-camera', keywords: ['attendance', 'kiosk', 'photo proof'] },
+      { to: '/attendance/today', label: 'Today Attendance', icon: 'i-lucide-calendar-days' },
+      { to: '/attendance/monthly', label: 'Monthly Attendance', icon: 'i-lucide-calendar-range' },
+      { to: '/attendance/shifts', label: 'Shifts', icon: 'i-lucide-clock-3' },
+      { to: '/attendance/policies', label: 'Attendance Policy', icon: 'i-lucide-sliders-horizontal' },
+      { to: '/attendance/devices', label: 'Kiosk Devices', icon: 'i-lucide-tablet-smartphone' },
+      { to: '/attendance/kiosk-monitor', label: 'Kiosk Monitor', icon: 'i-lucide-monitor-check' },
+      { to: '/attendance/photo-review', label: 'Face Photo Review', icon: 'i-lucide-user-check' },
+      { to: '/attendance/biometric-enrollment', label: 'Biometric Enrollment', icon: 'i-lucide-fingerprint' },
+      { to: '/attendance/regularization', label: 'Regularization Requests', icon: 'i-lucide-list-checks' },
+      { to: '/attendance/payroll-summary', label: 'Payroll Attendance Summary', icon: 'i-lucide-file-spreadsheet' },
+      { to: '/attendance/payroll-review', label: 'Attendance Payroll Review', icon: 'i-lucide-hand-coins' },
       { to: '/hr-benefits', label: 'HR Benefits', icon: 'i-lucide-hand-coins' },
       { to: '/payroll', label: 'Payroll', icon: 'i-lucide-badge-indian-rupee' }
     ]

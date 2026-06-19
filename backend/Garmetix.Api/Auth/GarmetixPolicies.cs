@@ -12,4 +12,5 @@ public static class GarmetixPolicies
     public const string Accounting = "Accounting";
     public const string Hr = "Hr";
     public const string Payroll = "Payroll";
+    public const string Attendance = "Attendance";
 }

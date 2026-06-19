@@ -168,3 +168,11 @@ This folder is the canonical home for project plans, implementation notes, valid
 - [Stage 8I Package 23 / v4.9.22 HR Benefits and Payroll Adjustments](stages/stage-8/Stage8I-Package23-HrBenefitsPayroll-v4.9.22-Notes.md)
 - [Stage 8I Package 23B / v4.9.24 Employee save hotfix](stages/stage-8/Stage8I-Package23B-EmployeeSaveHotfix-v4.9.24-Notes.md)
 - [Stage 8I Package 23A / v4.9.23 HR schema repair hotfix](stages/stage-8/Stage8I-Package23A-HrSchemaRepairHotfix-v4.9.23-Notes.md)
+
+- [Stage 9A / v4.10.0 Attendance Core](stages/stage-9/Stage9A-AttendanceCore-v4.10.0-Notes.md)
+- [Stage 9B / v4.10.1 Kiosk Photo Proof](stages/stage-9/Stage9B-KioskPhotoProof-v4.10.1-Notes.md)
+- [Stage 9C / v4.10.3 Face Photo Review](stages/stage-9/Stage9C-FacePhotoReview-v4.10.3-Notes.md)
+
+- [Attendance Kiosk Stage 9B](modules/Attendance-Kiosk-Stage9B.md)
+
+- [Stage 9D / v4.10.4 Attendance Payroll Review](stages/stage-9/Stage9D-AttendancePayrollReview-v4.10.4-Notes.md)

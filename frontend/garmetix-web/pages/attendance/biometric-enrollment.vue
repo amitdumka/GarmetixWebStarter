@@ -1,0 +1,6 @@
+<script setup lang="ts">
+const api=useGarmetixApi(); const feedback=useUiFeedback(); const loading=ref(false); const rows=ref<any[]>([])
+async function refresh(){ loading.value=true; try{ rows.value=await api.list('attendance/biometric-enrollments') }catch(e:any){ feedback.fromError('Biometric enrollment refresh failed',e) } finally{ loading.value=false } }
+onMounted(refresh)
+</script>
+<template><AppShell title="Biometric Enrollment" @refresh="refresh"><section class="space-y-5"><UiModulePageHeader title="Biometric Enrollment Placeholder" description="Consent/status placeholder only. No raw fingerprint image or real face matching is implemented in Stage 9B." icon="i-lucide-fingerprint"><template #actions><UButton label="Refresh" :loading="loading" @click="refresh"/></template></UiModulePageHeader><UAlert color="warning" title="Privacy-safe placeholder" description="Store consent and template references only. Face recognition, liveness and fingerprint bridge are future packages."/><div class="grid gap-3 md:grid-cols-2"><UCard v-for="row in rows" :key="row.id"><strong>{{ row.employeeId }}</strong><p class="text-xs text-muted">{{ row.enrollmentStatus }} · Consent {{ row.consentGiven ? 'Yes' : 'No' }}</p></UCard></div></section></AppShell></template>

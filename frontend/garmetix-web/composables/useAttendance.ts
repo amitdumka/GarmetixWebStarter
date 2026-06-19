@@ -1,0 +1,25 @@
+export function useAttendance() {
+  const api = useGarmetixApi()
+  const today = (onDate?: string) => api.get<any>(`attendance/today${onDate ? `?onDate=${encodeURIComponent(onDate)}` : ''}`)
+  const monthly = (params: { employeeId?: string, year?: number, month?: number } = {}) => {
+    const query = new URLSearchParams()
+    if (params.employeeId) query.set('employeeId', params.employeeId)
+    if (params.year) query.set('year', String(params.year))
+    if (params.month) query.set('month', String(params.month))
+    const qs = query.toString()
+    return api.get<any>(`attendance/monthly${qs ? `?${qs}` : ''}`)
+  }
+  const history = (employeeId: string) => api.get<any[]>(`attendance/employee/${employeeId}/history`)
+  const manualPunch = (body: any) => api.create<any>('attendance/manual-punch', body)
+  const regularization = () => api.list<any>('attendance/regularization')
+  const createRegularization = (body: any) => api.create<any>('attendance/regularization', body)
+  const approveRegularization = (id: string, remarks?: string) => api.create<any>(`attendance/regularization/${id}/approve`, { remarks })
+  const rejectRegularization = (id: string, remarks?: string) => api.create<any>(`attendance/regularization/${id}/reject`, { remarks })
+  const recalculate = (body: any) => api.create<any>('attendance/recalculate', body)
+  const lockMonth = (body: any) => api.create<any>('attendance/lock-month', body)
+  const payrollSummary = (year?: number, month?: number) => api.get<any>(`attendance/payroll-summary?year=${year || new Date().getFullYear()}&month=${month || new Date().getMonth() + 1}`)
+  const payrollReview = (year?: number, month?: number) => api.get<any>(`attendance/payroll-review?year=${year || new Date().getFullYear()}&month=${month || new Date().getMonth() + 1}`)
+  const rebuildPayrollReview = (body: any) => api.create<any>('attendance/payroll-review/rebuild', body)
+  const markPayrollReview = (id: string, body: any) => api.create<any>(`attendance/payroll-review/${id}/mark-reviewed`, body)
+  return { today, monthly, history, manualPunch, regularization, createRegularization, approveRegularization, rejectRegularization, recalculate, lockMonth, payrollSummary, payrollReview, rebuildPayrollReview, markPayrollReview }
+}

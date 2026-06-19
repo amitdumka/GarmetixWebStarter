@@ -1,6 +1,6 @@
 # Garmetix Web Starter
 
-> Current package: Stage 8I Package 23B Employee Save Hotfix v4.9.24 (`GARMETIX-8I-20260619-49240`).
+> Current package: Stage 9A Attendance Core v4.10.0 (`GARMETIX-9A-20260618-4100`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

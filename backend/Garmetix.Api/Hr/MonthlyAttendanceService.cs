@@ -1,5 +1,6 @@
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.HRM;
+using HrAttendance = Garmetix.Core.Models.HRM.Attendance;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -102,7 +103,7 @@ public sealed class MonthlyAttendanceService(GarmetixDbContext db)
             recordsUpdated);
     }
 
-    private static AttendanceSummary CalculateSummary(IReadOnlyList<Attendance> rows)
+    private static AttendanceSummary CalculateSummary(IReadOnlyList<HrAttendance> rows)
     {
         return new AttendanceSummary(
             Present: rows.Count(row => row.Status is AttendanceStatus.Present or AttendanceStatus.WorkFromHome),

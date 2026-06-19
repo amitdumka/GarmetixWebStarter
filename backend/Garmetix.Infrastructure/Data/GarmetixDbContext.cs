@@ -3,6 +3,7 @@ using System.Text.Json;
 using Garmetix.Core.Models.Accounting;
 using Garmetix.Core.Models.Audit;
 using Garmetix.Core.Models.Authentication;
+using Garmetix.Core.Models.Attendance;
 using Garmetix.Core.Models.Base;
 using Garmetix.Core.Models.HRM;
 using Garmetix.Core.Models.GstReturns;
@@ -112,6 +113,18 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<SalaryPayment> SalaryPayments => Set<SalaryPayment>();
     public DbSet<EmployeePayrollAdjustment> EmployeePayrollAdjustments => Set<EmployeePayrollAdjustment>();
     public DbSet<TimeSheet> TimeSheets => Set<TimeSheet>();
+
+    public DbSet<AttendanceDevice> AttendanceDevices => Set<AttendanceDevice>();
+    public DbSet<AttendancePunch> AttendancePunches => Set<AttendancePunch>();
+    public DbSet<AttendanceShift> AttendanceShifts => Set<AttendanceShift>();
+    public DbSet<AttendancePolicy> AttendancePolicies => Set<AttendancePolicy>();
+    public DbSet<EmployeeBiometricEnrollment> EmployeeBiometricEnrollments => Set<EmployeeBiometricEnrollment>();
+    public DbSet<AttendanceRegularizationRequest> AttendanceRegularizationRequests => Set<AttendanceRegularizationRequest>();
+    public DbSet<AttendanceApproval> AttendanceApprovals => Set<AttendanceApproval>();
+    public DbSet<AttendanceMonthlySummary> AttendanceMonthlySummaries => Set<AttendanceMonthlySummary>();
+    public DbSet<AttendancePayrollReview> AttendancePayrollReviews => Set<AttendancePayrollReview>();
+    public DbSet<AttendancePhotoProof> AttendancePhotoProofs => Set<AttendancePhotoProof>();
+    public DbSet<AttendanceKioskSyncBatch> AttendanceKioskSyncBatches => Set<AttendanceKioskSyncBatch>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -266,6 +279,42 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<EmployeePayrollAdjustment>().Property(item => item.GratuityAmount).HasPrecision(18, 2);
         modelBuilder.Entity<EmployeePayrollAdjustment>().HasIndex(item => new { item.CompanyId, item.StoreId, item.EmployeeId, item.AdjustmentType, item.Status });
         modelBuilder.Entity<EmployeePayrollAdjustment>().HasIndex(item => new { item.CompanyId, item.OnDate });
+
+        modelBuilder.Entity<AttendanceDevice>().HasIndex(item => new { item.CompanyId, item.StoreId, item.DeviceCode });
+        modelBuilder.Entity<AttendanceDevice>().HasIndex(item => new { item.CompanyId, item.StoreId, item.Status });
+        modelBuilder.Entity<AttendancePunch>().Property(item => item.Latitude).HasPrecision(12, 8);
+        modelBuilder.Entity<AttendancePunch>().Property(item => item.Longitude).HasPrecision(12, 8);
+        modelBuilder.Entity<AttendancePunch>().Property(item => item.ConfidenceScore).HasPrecision(7, 4);
+        modelBuilder.Entity<AttendancePunch>().HasIndex(item => new { item.CompanyId, item.StoreId, item.EmployeeId, item.LocalPunchTime });
+        modelBuilder.Entity<AttendancePunch>().HasIndex(item => new { item.CompanyId, item.StoreId, item.DeviceId, item.PunchTimeUtc });
+        modelBuilder.Entity<AttendancePunch>().HasIndex(item => new { item.CompanyId, item.ClientPunchId });
+        modelBuilder.Entity<AttendanceShift>().HasIndex(item => new { item.CompanyId, item.StoreId, item.Active });
+        modelBuilder.Entity<AttendancePolicy>().HasIndex(item => new { item.CompanyId, item.StoreId, item.Active });
+        modelBuilder.Entity<EmployeeBiometricEnrollment>().HasIndex(item => new { item.CompanyId, item.StoreId, item.EmployeeId });
+        modelBuilder.Entity<AttendanceRegularizationRequest>().HasIndex(item => new { item.CompanyId, item.StoreId, item.EmployeeId, item.Status });
+        modelBuilder.Entity<AttendanceApproval>().HasIndex(item => new { item.CompanyId, item.StoreId, item.RequestId });
+        modelBuilder.Entity<AttendanceMonthlySummary>().Property(item => item.PresentDays).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceMonthlySummary>().Property(item => item.AbsentDays).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceMonthlySummary>().Property(item => item.LateDays).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceMonthlySummary>().Property(item => item.HalfDays).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceMonthlySummary>().Property(item => item.LeaveDays).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceMonthlySummary>().HasIndex(item => new { item.CompanyId, item.StoreId, item.EmployeeId, item.Year, item.Month });
+
+        modelBuilder.Entity<AttendancePayrollReview>().Property(item => item.PresentDays).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendancePayrollReview>().Property(item => item.AbsentDays).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendancePayrollReview>().Property(item => item.LateDays).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendancePayrollReview>().Property(item => item.HalfDays).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendancePayrollReview>().Property(item => item.LeaveDays).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendancePayrollReview>().Property(item => item.PayableDays).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendancePayrollReview>().Property(item => item.DeductionDays).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendancePayrollReview>().Property(item => item.EstimatedDailyRate).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendancePayrollReview>().Property(item => item.EstimatedGrossPay).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendancePayrollReview>().HasIndex(item => new { item.CompanyId, item.StoreId, item.EmployeeId, item.Year, item.Month });
+        modelBuilder.Entity<AttendancePayrollReview>().HasIndex(item => new { item.CompanyId, item.StoreId, item.Year, item.Month, item.ReviewStatus });
+        modelBuilder.Entity<AttendancePhotoProof>().HasIndex(item => new { item.CompanyId, item.StoreId, item.EmployeeId, item.CapturedAtUtc });
+        modelBuilder.Entity<AttendancePhotoProof>().HasIndex(item => new { item.CompanyId, item.StoreId, item.ReviewStatus, item.CapturedAtUtc });
+        modelBuilder.Entity<AttendancePhotoProof>().HasIndex(item => new { item.CompanyId, item.ClientPunchId });
+        modelBuilder.Entity<AttendanceKioskSyncBatch>().HasIndex(item => new { item.CompanyId, item.StoreId, item.DeviceId, item.ReceivedAtUtc });
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -432,6 +481,11 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
             return "Accounting";
         }
 
+
+        if (entityName.StartsWith("Attendance", StringComparison.Ordinal) || entityName is "EmployeeBiometricEnrollment")
+        {
+            return "HR";
+        }
         return null;
     }
 

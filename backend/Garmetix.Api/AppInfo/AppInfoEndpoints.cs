@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.9.24";
-    public const string Stage = "Stage 8I Package 23B Employee Save Hotfix";
-    public const string ReleaseName = "Employee Save Hotfix";
-    public const string BuildDate = "2026-06-19";
-    public const string BuildCode = "GARMETIX-8I-20260619-49240";
+    public const string Version = "4.10.4";
+    public const string Stage = "Stage 9D Attendance Payroll Integration Foundation";
+    public const string ReleaseName = "Attendance Payroll Review Foundation";
+    public const string BuildDate = "2026-06-18";
+    public const string BuildCode = "GARMETIX-9D-20260619-4104";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,13 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stage 9D adds attendance payroll review rows with payable days, deduction days, overtime minutes, lock visibility, and review status without posting payroll.",
+        "Attendance payroll review can be rebuilt from monthly attendance summaries and marked Reviewed, ApprovedForPayroll, or OnHold.",
+        "Stage 9C adds manager face photo proof review, approve/reject/flag workflow, regularization linkage, retention visibility, and audit-ready photo status.",
+        "Kiosk API base includes device registration, heartbeat, employee lookup, punch and sync-pending endpoints for future Android/MAUI kiosk apps.",
+        "Face attendance is limited to photo-proof path placeholders; real face recognition and liveness checks remain future packages.",
+        "Fingerprint support is limited to enrollment/device bridge placeholders; no raw fingerprint image is stored.",
+        "Payroll attendance summary is available for review only; automatic salary deduction/posting remains a later package.",
         "Employee save now uses a PostgreSQL-translatable nullable MaxAsync sequence query and avoids EF Core DefaultIfEmpty translation failures during PUT /api/employees.",
         "Frontend dependency cleanup removes deprecated lucide-vue-next from package metadata because Nuxt UI already uses Iconify lucide icons.",
         "HR Employee Master now supports auto employee code, photo preview, document/bank fields, lifecycle status and printable ID-card readiness.",
