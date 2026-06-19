@@ -7,6 +7,7 @@ const auth = useAuth()
 const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
 const config = useRuntimeConfig()
+const gstReviewContact = useGstReviewContact()
 
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
@@ -25,6 +26,20 @@ const auditLoading = ref(false)
 const accountingSummary = ref<any | null>(null)
 const accountingLoading = ref(false)
 const accountingPosting = ref<any | null>(null)
+const shareOpen = ref(false)
+const sendingReview = ref(false)
+const lastShareResponse = ref<any | null>(null)
+const reviewShare = reactive({
+  toEmail: '',
+  toName: '',
+  whatsAppNumber: '',
+  note: 'Please review the attached GST return and book reports.',
+  includeJson: true,
+  includeExcel: true,
+  includeHsnSummaryCsv: true,
+  includeTaxSummaryCsv: true,
+  includeInvoiceRegisterCsv: true
+})
 const pageLoading = ref(false)
 const loadError = ref('')
 const draftLoadError = ref('')
@@ -152,6 +167,15 @@ const selectedDraftIssues = computed(() => {
     return []
   }
 })
+const recentGstShareLogs = computed(() => gstReviewContact.shareLogs.value.slice(0, 5))
+const shareAttachmentCount = computed(() => [
+  reviewShare.includeJson,
+  reviewShare.includeExcel,
+  reviewShare.includeHsnSummaryCsv,
+  reviewShare.includeTaxSummaryCsv,
+  reviewShare.includeInvoiceRegisterCsv
+].filter(Boolean).length)
+const canSendReview = computed(() => Boolean(selectedDraftId.value && reviewShare.toEmail.trim() && shareAttachmentCount.value > 0 && !selectedDraftIssues.value.length))
 
 async function refresh() {
   if (!auth.isAuthenticated.value) {
@@ -614,6 +638,75 @@ async function downloadFile(resource: string, body: any) {
   URL.revokeObjectURL(url)
 }
 
+function openReviewShare() {
+  if (!selectedDraftId.value) {
+    feedback.notify('Save draft first', 'Load from books, preview, then save the GST draft before sharing with Accountant/CA.', 'warning')
+    return
+  }
+  gstReviewContact.applyTo(reviewShare)
+  lastShareResponse.value = null
+  shareOpen.value = true
+}
+function saveGstReviewContact() {
+  gstReviewContact.save(reviewShare)
+  feedback.notify('CA contact saved', 'This Accountant/CA email, name and WhatsApp number will be reused for GST returns and reports.', 'success')
+}
+
+
+async function sendReviewPackage() {
+  if (!selectedDraftId.value) {
+    feedback.notify('Save draft first', 'Save or load a reviewed GST draft before sending.', 'warning')
+    return
+  }
+  if (!reviewShare.toEmail.trim()) {
+    feedback.notify('CA email required', 'Enter Accountant/CA email address before sending.', 'warning')
+    return
+  }
+  if (!shareAttachmentCount.value) {
+    feedback.notify('Select at least one file', 'Choose JSON, Excel or book-report CSV attachments.', 'warning')
+    return
+  }
+
+  sendingReview.value = true
+  try {
+    await previewReturn()
+    if (previewIssues.value.length) {
+      feedback.notify('GST review has issues', 'Fix preview issues before sending to Accountant/CA.', 'warning')
+      return
+    }
+    if (!confirm(`Confirm sending ${activeLabel.value} ${header.returnPeriod} GST review package to ${reviewShare.toEmail}?`)) {
+      return
+    }
+    gstReviewContact.save(reviewShare)
+    const response = await api.create<any>(`gst-returns/drafts/${selectedDraftId.value}/send-review`, { ...reviewShare } as any)
+    lastShareResponse.value = response
+    gstReviewContact.addLog({
+      kind: `${activeLabel.value} return package`,
+      returnPeriod: header.returnPeriod,
+      toEmail: reviewShare.toEmail.trim(),
+      toName: reviewShare.toName,
+      attachmentNames: response.attachmentNames || [],
+      message: response.message
+    })
+    selectedDraft.value = { ...(selectedDraft.value || {}), status: 'Reviewed' }
+    await Promise.all([loadDrafts(), loadDraftAudit(selectedDraftId.value)])
+    feedback.notify('GST package sent', response.message || 'GST return package sent to Accountant/CA.', 'success')
+  } catch (error) {
+    feedback.failed('GST package send failed', error)
+  } finally {
+    sendingReview.value = false
+  }
+}
+
+function openWhatsAppShare() {
+  const url = lastShareResponse.value?.whatsAppShareUrl
+  if (!url) {
+    feedback.notify('Send email first', 'After the CA email is sent, WhatsApp share link will be ready.', 'warning')
+    return
+  }
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
 
 async function loadAccountingSummary() {
   accountingLoading.value = true
@@ -744,6 +837,8 @@ const gstr3BInterestLateFee = computed(() =>
 
 onMounted(async () => {
   auth.restore()
+  gstReviewContact.load()
+  gstReviewContact.applyTo(reviewShare)
   await refresh()
 })
 </script>
@@ -771,6 +866,7 @@ onMounted(async () => {
           <UButton icon="i-lucide-database" color="neutral" variant="subtle" label="Load From Books" :loading="loading" @click="loadFromBooks" />
           <UButton icon="i-lucide-scale" color="neutral" variant="subtle" label="Accounting" :loading="accountingLoading" @click="loadAccountingSummary" />
           <UButton icon="i-lucide-shield-check" color="warning" variant="subtle" label="Review" :loading="schemaReviewLoading" @click="downloadSchemaReview" />
+          <UButton icon="i-lucide-send" color="primary" label="Send to CA" :loading="sendingReview" @click="openReviewShare" />
           <UButton icon="i-lucide-file-json" color="primary" variant="subtle" label="JSON" :loading="loading" @click="downloadReturn('json')" />
           <UButton icon="i-lucide-file-spreadsheet" color="success" variant="subtle" label="Excel" :loading="loading" @click="downloadReturn('excel')" />
         </template>
@@ -795,8 +891,52 @@ onMounted(async () => {
         color="primary"
         variant="soft"
         title="GST return workspace"
-        description="Load values from Billing and Purchase records, review them against GST portal requirements, and confirm the return before export or filing."
+        description="Load values from Billing, Purchase and Accounting books, review them against GST portal requirements, save the draft, then confirm and send the GST package to your Accountant/CA by email. WhatsApp share text is prepared after email delivery."
       />
+
+      <UCard class="planner-card gst-share-card">
+        <template #header>
+          <div class="setup-list-header">
+            <div>
+              <h3>GST Review & CA Sharing</h3>
+              <p>Book data → preview review → save draft → confirm email with GST return and book-report attachments.</p>
+            </div>
+            <div class="setup-tabs">
+              <UBadge :color="selectedDraftId ? 'success' : 'warning'" variant="subtle">{{ selectedDraftId ? 'Draft ready' : 'Save draft first' }}</UBadge>
+              <UButton icon="i-lucide-send" color="primary" label="Review & Send" :loading="sendingReview" @click="openReviewShare" />
+            </div>
+          </div>
+        </template>
+        <UAlert
+          :icon="gstReviewContact.isConfigured.value ? 'i-lucide-user-check' : 'i-lucide-user-plus'"
+          :color="gstReviewContact.isConfigured.value ? 'success' : 'warning'"
+          variant="soft"
+          :title="gstReviewContact.isConfigured.value ? 'Default Accountant/CA contact ready' : 'Add default Accountant/CA contact'"
+          :description="gstReviewContact.isConfigured.value ? `${gstReviewContact.contact.toName || 'Accountant/CA'} <${gstReviewContact.contact.toEmail}> will auto-fill before GST sharing.` : 'Open Review & Send once, enter the CA details, then save as default. It will be reused in GST Returns and GST Reports.'"
+        />
+        <div class="planner-metric-grid compact">
+          <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-database" color="primary" variant="subtle" /><div><p>Source</p><strong>Books</strong><span>Billing, Purchase, Accounting</span></div></div></UCard>
+          <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-eye" :color="previewIssues.length ? 'error' : 'success'" variant="subtle" /><div><p>Review Issues</p><strong>{{ previewIssues.length }}</strong><span>{{ previewIssues.length ? 'Fix before send' : 'Ready after preview' }}</span></div></div></UCard>
+          <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-paperclip" color="warning" variant="subtle" /><div><p>Files</p><strong>{{ shareAttachmentCount }}</strong><span>Return + reports</span></div></div></UCard>
+          <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-mail-check" color="success" variant="subtle" /><div><p>Status</p><strong>{{ selectedDraft?.status || 'Draft' }}</strong><span>{{ lastShareResponse?.emailSent ? 'Sent to CA' : 'Not sent' }}</span></div></div></UCard>
+        </div>
+        <UAlert
+          v-if="lastShareResponse?.emailSent"
+          icon="i-lucide-mail-check"
+          color="success"
+          variant="soft"
+          title="GST package emailed"
+          :description="`${lastShareResponse.message} ${lastShareResponse.attachmentNames?.length || 0} files attached.`"
+          :actions="[{ label: 'Share on WhatsApp', icon: 'i-lucide-message-circle', onClick: openWhatsAppShare }]"
+        />
+        <div v-if="recentGstShareLogs.length" class="gst-audit-list compact">
+          <div v-for="row in recentGstShareLogs" :key="row.id" class="gst-audit-row">
+            <strong>{{ row.kind }} · {{ row.returnPeriod }}</strong>
+            <span>{{ row.toEmail }} · {{ new Date(row.sentAt).toLocaleString('en-IN') }}</span>
+            <small>{{ row.attachmentNames.length }} attachment(s)</small>
+          </div>
+        </div>
+      </UCard>
 
 
       <UCard class="planner-card gst-accounting-card">
@@ -1210,6 +1350,71 @@ onMounted(async () => {
           </div>
         </UCard>
       </template>
+
+      <UModal v-model:open="shareOpen" title="Review and send GST package to Accountant/CA" :ui="{ content: 'max-w-3xl' }">
+        <template #body>
+          <div class="modal-stack">
+            <UAlert
+              icon="i-lucide-shield-check"
+              color="primary"
+              variant="soft"
+              title="Confirm after review"
+              description="This will validate the saved draft, attach GST return files and book-report CSVs, then send them by SMTP email to your Accountant/CA. WhatsApp share text is generated after email delivery."
+            />
+            <div class="form-two-column">
+              <UFormField label="Accountant/CA Email" required>
+                <UInput v-model="reviewShare.toEmail" type="email" placeholder="ca@example.com" />
+              </UFormField>
+              <UFormField label="Accountant/CA Name">
+                <UInput v-model="reviewShare.toName" placeholder="CA / Accountant" />
+              </UFormField>
+              <UFormField label="WhatsApp Mobile">
+                <UInput v-model="reviewShare.whatsAppNumber" placeholder="91XXXXXXXXXX" />
+              </UFormField>
+              <UFormField label="Draft">
+                <UInput :model-value="selectedDraft ? `${selectedDraft.form?.toUpperCase()} ${selectedDraft.returnPeriod} / ${selectedDraft.status}` : 'No saved draft selected'" disabled />
+              </UFormField>
+            </div>
+            <div class="inline-action-row">
+              <UButton icon="i-lucide-save" color="neutral" variant="subtle" label="Save as default CA contact" type="button" @click="saveGstReviewContact" />
+              <UButton icon="i-lucide-rotate-ccw" color="neutral" variant="ghost" label="Use saved contact" type="button" @click="gstReviewContact.applyTo(reviewShare)" />
+            </div>
+            <UFormField label="Message / note">
+              <UTextarea v-model="reviewShare.note" :rows="3" />
+            </UFormField>
+            <div class="gst-draft-summary">
+              <label><UCheckbox v-model="reviewShare.includeJson" /> <span>GST JSON</span></label>
+              <label><UCheckbox v-model="reviewShare.includeExcel" /> <span>GST Excel</span></label>
+              <label><UCheckbox v-model="reviewShare.includeHsnSummaryCsv" /> <span>HSN summary CSV</span></label>
+              <label><UCheckbox v-model="reviewShare.includeTaxSummaryCsv" /> <span>GST tax summary CSV</span></label>
+              <label><UCheckbox v-model="reviewShare.includeInvoiceRegisterCsv" /> <span>Invoice register CSV</span></label>
+            </div>
+            <UAlert
+              v-if="selectedDraftIssues.length"
+              icon="i-lucide-circle-alert"
+              color="error"
+              variant="subtle"
+              title="Draft has validation issues"
+              description="Fix preview issues before sending this GST package."
+            />
+            <UAlert
+              v-if="lastShareResponse?.emailSent"
+              icon="i-lucide-message-circle"
+              color="success"
+              variant="soft"
+              title="WhatsApp share ready"
+              :description="lastShareResponse.whatsAppText"
+              :actions="[{ label: 'Open WhatsApp', icon: 'i-lucide-message-circle', onClick: openWhatsAppShare }]"
+            />
+          </div>
+        </template>
+        <template #footer>
+          <div class="modal-actions">
+            <UButton color="neutral" variant="ghost" label="Cancel" @click="shareOpen = false" />
+            <UButton icon="i-lucide-send" color="primary" label="Confirm & Send Email" :loading="sendingReview" :disabled="!canSendReview" @click="sendReviewPackage" />
+          </div>
+        </template>
+      </UModal>
     </section>
   </AppShell>
 </template>

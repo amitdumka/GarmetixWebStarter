@@ -5,10 +5,23 @@ const workspace = useWorkspace()
 const feedback = useUiFeedback()
 const config = useRuntimeConfig()
 const isAuthenticated = auth.isAuthenticated
+const gstReviewContact = useGstReviewContact()
 
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const loading = ref(false)
+const sendingReports = ref(false)
+const reportShareOpen = ref(false)
+const reportShareResponse = ref<any | null>(null)
+const reportShare = reactive({
+  toEmail: '',
+  toName: '',
+  whatsAppNumber: '',
+  note: 'Please review the attached GST book reports.',
+  includeHsnSummaryCsv: true,
+  includeTaxSummaryCsv: true,
+  includeInvoiceRegisterCsv: true
+})
 const loadError = ref('')
 const hsnReport = ref<any | null>(null)
 const taxReport = ref<any | null>(null)
@@ -29,6 +42,9 @@ const hsnRows = computed(() => hsnReport.value?.rows || [])
 const taxRows = computed(() => taxReport.value?.rows || [])
 const registerRows = computed(() => invoiceRegister.value?.rows || [])
 const selectedCompanyId = computed(() => workspace.companyId.value || companies.value[0]?.id || '')
+const reportAttachmentCount = computed(() => [reportShare.includeHsnSummaryCsv, reportShare.includeTaxSummaryCsv, reportShare.includeInvoiceRegisterCsv].filter(Boolean).length)
+const canSendReports = computed(() => Boolean(reportShare.toEmail.trim() && reportAttachmentCount.value > 0))
+const recentGstShareLogs = computed(() => gstReviewContact.shareLogs.value.slice(0, 5))
 
 function money(value: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(value || 0))
@@ -119,8 +135,68 @@ async function downloadCsv(kind: 'hsn-summary' | 'tax-summary' | 'invoice-regist
   }
 }
 
+function openReportShare() {
+  gstReviewContact.applyTo(reportShare)
+  reportShareResponse.value = null
+  reportShareOpen.value = true
+}
+function saveGstReportContact() {
+  gstReviewContact.save(reportShare)
+  feedback.notify('CA contact saved', 'This Accountant/CA contact will be reused in GST Returns and GST Reports.', 'success')
+}
+
+
+async function sendGstReports() {
+  if (!reportShare.toEmail.trim()) {
+    feedback.notify('CA email required', 'Enter Accountant/CA email address before sending.', 'warning')
+    return
+  }
+  if (!reportAttachmentCount.value) {
+    feedback.notify('Select reports', 'Choose at least one GST report attachment.', 'warning')
+    return
+  }
+  sendingReports.value = true
+  try {
+    await loadReports()
+    if (!confirm(`Confirm sending GST book reports ${filters.returnPeriod} to ${reportShare.toEmail}?`)) {
+      return
+    }
+    gstReviewContact.save(reportShare)
+    reportShareResponse.value = await api.create<any>('gst-returns/reports/send-review', {
+      companyId: selectedCompanyId.value || null,
+      returnPeriod: filters.returnPeriod,
+      direction: filters.direction,
+      ...reportShare
+    } as any)
+    gstReviewContact.addLog({
+      kind: `GST book reports (${filters.direction})`,
+      returnPeriod: filters.returnPeriod,
+      toEmail: reportShare.toEmail.trim(),
+      toName: reportShare.toName,
+      attachmentNames: reportShareResponse.value.attachmentNames || [],
+      message: reportShareResponse.value.message
+    })
+    feedback.notify('GST reports sent', reportShareResponse.value.message || 'GST reports emailed to Accountant/CA.', 'success')
+  } catch (error) {
+    feedback.failed('GST report send failed', error)
+  } finally {
+    sendingReports.value = false
+  }
+}
+
+function openReportWhatsApp() {
+  const url = reportShareResponse.value?.whatsAppShareUrl
+  if (!url) {
+    feedback.notify('Send email first', 'WhatsApp share link is prepared after email delivery.', 'warning')
+    return
+  }
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
 onMounted(async () => {
   auth.restore()
+  gstReviewContact.load()
+  gstReviewContact.applyTo(reportShare)
   await refreshShell()
   if (auth.isAuthenticated.value) {
     await loadReports()
@@ -147,6 +223,7 @@ onMounted(async () => {
             <p>Book-based HSN summary, GST rate reconciliation, and invoice register using stored invoice item snapshots.</p>
           </div>
           <div class="gst-report-actions">
+            <UButton icon="i-lucide-send" color="primary" label="Send to CA" :loading="sendingReports" @click="openReportShare" />
             <UButton icon="i-lucide-refresh-cw" label="Refresh" :loading="loading" @click="loadReports" />
           </div>
         </div>
@@ -166,6 +243,44 @@ onMounted(async () => {
         <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-arrow-down-left" color="success" variant="subtle" /><div><p>Input Tax</p><strong>{{ money((taxReport?.inputCgstAmount || 0) + (taxReport?.inputSgstAmount || 0) + (taxReport?.inputIgstAmount || 0)) }}</strong><span>Purchase taxable {{ money(taxReport?.inputTaxableValue || 0) }}</span></div></div></UCard>
         <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-scale" color="warning" variant="subtle" /><div><p>Net Payable</p><strong>{{ money(taxReport?.netTaxPayable || 0) }}</strong><span>Output less input</span></div></div></UCard>
       </div>
+
+      <UCard class="planner-card gst-report-share-card">
+        <template #header>
+          <div class="setup-list-header">
+            <div>
+              <h3>GST Report Sharing</h3>
+              <p>Review book-based HSN, tax summary and invoice register, then send to Accountant/CA with CSV attachments.</p>
+            </div>
+            <div class="setup-tabs">
+              <UBadge color="primary" variant="subtle">{{ reportAttachmentCount }} files</UBadge>
+              <UButton icon="i-lucide-send" color="primary" label="Review & Send" :loading="sendingReports" @click="openReportShare" />
+            </div>
+          </div>
+        </template>
+        <UAlert
+          :icon="gstReviewContact.isConfigured.value ? 'i-lucide-user-check' : 'i-lucide-user-plus'"
+          :color="gstReviewContact.isConfigured.value ? 'success' : 'warning'"
+          variant="soft"
+          :title="gstReviewContact.isConfigured.value ? 'Default Accountant/CA contact ready' : 'Add default Accountant/CA contact'"
+          :description="gstReviewContact.isConfigured.value ? `${gstReviewContact.contact.toName || 'Accountant/CA'} <${gstReviewContact.contact.toEmail}> will auto-fill before report sharing.` : 'Open Review & Send once, enter the CA details, then save as default. It will be reused in GST Returns and GST Reports.'"
+        />
+        <UAlert
+          v-if="reportShareResponse?.emailSent"
+          icon="i-lucide-mail-check"
+          color="success"
+          variant="soft"
+          title="GST reports emailed"
+          :description="`${reportShareResponse.message} ${reportShareResponse.attachmentNames?.length || 0} files attached.`"
+          :actions="[{ label: 'Share on WhatsApp', icon: 'i-lucide-message-circle', onClick: openReportWhatsApp }]"
+        />
+        <div v-if="recentGstShareLogs.length" class="gst-audit-list compact">
+          <div v-for="row in recentGstShareLogs" :key="row.id" class="gst-audit-row">
+            <strong>{{ row.kind }} · {{ row.returnPeriod }}</strong>
+            <span>{{ row.toEmail }} · {{ new Date(row.sentAt).toLocaleString('en-IN') }}</span>
+            <small>{{ row.attachmentNames.length }} attachment(s)</small>
+          </div>
+        </div>
+      </UCard>
 
       <UiRegisterPanel
         title="HSN Summary"
@@ -238,6 +353,51 @@ onMounted(async () => {
           </table>
         </div>
       </UiRegisterPanel>
+
+      <UModal v-model:open="reportShareOpen" title="Review and send GST reports to Accountant/CA" :ui="{ content: 'max-w-3xl' }">
+        <template #body>
+          <div class="modal-stack">
+            <UAlert
+              icon="i-lucide-info"
+              color="primary"
+              variant="soft"
+              title="Reports from main books"
+              description="This will refresh reports from Billing, Purchase and GST accounting data, then email selected CSV files to the Accountant/CA after your confirmation."
+            />
+            <div class="form-two-column">
+              <UFormField label="Accountant/CA Email" required><UInput v-model="reportShare.toEmail" type="email" placeholder="ca@example.com" /></UFormField>
+              <UFormField label="Accountant/CA Name"><UInput v-model="reportShare.toName" placeholder="CA / Accountant" /></UFormField>
+              <UFormField label="WhatsApp Mobile"><UInput v-model="reportShare.whatsAppNumber" placeholder="91XXXXXXXXXX" /></UFormField>
+              <UFormField label="Return Period"><UInput v-model="filters.returnPeriod" placeholder="042026" /></UFormField>
+            </div>
+            <div class="inline-action-row">
+              <UButton icon="i-lucide-save" color="neutral" variant="subtle" label="Save as default CA contact" type="button" @click="saveGstReportContact" />
+              <UButton icon="i-lucide-rotate-ccw" color="neutral" variant="ghost" label="Use saved contact" type="button" @click="gstReviewContact.applyTo(reportShare)" />
+            </div>
+            <UFormField label="Message / note"><UTextarea v-model="reportShare.note" :rows="3" /></UFormField>
+            <div class="gst-draft-summary">
+              <label><UCheckbox v-model="reportShare.includeHsnSummaryCsv" /> <span>HSN summary CSV</span></label>
+              <label><UCheckbox v-model="reportShare.includeTaxSummaryCsv" /> <span>GST tax summary CSV</span></label>
+              <label><UCheckbox v-model="reportShare.includeInvoiceRegisterCsv" /> <span>Invoice register CSV</span></label>
+            </div>
+            <UAlert
+              v-if="reportShareResponse?.emailSent"
+              icon="i-lucide-message-circle"
+              color="success"
+              variant="soft"
+              title="WhatsApp share ready"
+              :description="reportShareResponse.whatsAppText"
+              :actions="[{ label: 'Open WhatsApp', icon: 'i-lucide-message-circle', onClick: openReportWhatsApp }]"
+            />
+          </div>
+        </template>
+        <template #footer>
+          <div class="modal-actions">
+            <UButton color="neutral" variant="ghost" label="Cancel" @click="reportShareOpen = false" />
+            <UButton icon="i-lucide-send" color="primary" label="Confirm & Send Reports" :loading="sendingReports" :disabled="!canSendReports" @click="sendGstReports" />
+          </div>
+        </template>
+      </UModal>
     </section>
   </AppShell>
 </template>
@@ -250,7 +410,7 @@ onMounted(async () => {
 .eyebrow { text-transform: uppercase; letter-spacing: .12em; font-size: .72rem; font-weight: 700; color: rgb(var(--color-primary-500)); }
 .gst-report-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem; }
 .gst-metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
-.table-wrap { overflow: auto; }
+.table-wrap { overflow-x: auto; overflow-y: visible; }
 table { width: 100%; border-collapse: collapse; min-width: 980px; }
 th, td { padding: .65rem .7rem; border-bottom: 1px solid rgb(var(--color-gray-200)); text-align: left; font-size: .86rem; }
 th { font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: rgb(var(--color-gray-500)); background: rgb(var(--color-gray-50)); }

@@ -369,9 +369,9 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
                 request.StoreGroupId,
                 request.StoreId,
                 request.VoucherType,
-                request.OnDate,
+                request.OnDate.Date,
                 cancellationToken);
-        voucher.OnDate = request.OnDate;
+        voucher.OnDate = request.OnDate.Date;
         voucher.VoucherType = request.VoucherType;
         voucher.PartyName = party?.Name ?? request.PartyName.Trim();
         voucher.Particulars = request.Particulars.Trim();
@@ -1059,6 +1059,19 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
             throw new ArgumentException("Account holder name is required.");
         }
 
+        var accountNumber = request.AccountNumber.Trim();
+        var duplicateAccount = await db.BankAccounts.AsNoTracking()
+            .AnyAsync(item =>
+                item.CompanyId == request.CompanyId
+                && item.BankId == request.BankId
+                && item.AccountNumber == accountNumber
+                && (!accountId.HasValue || item.Id != accountId.Value),
+                cancellationToken);
+        if (duplicateAccount)
+        {
+            throw new InvalidOperationException("A bank account with this bank and account number already exists.");
+        }
+
         var account = !accountId.HasValue || accountId.Value == Guid.Empty
             ? null
             : await db.BankAccounts.FirstOrDefaultAsync(item => item.Id == accountId.Value, cancellationToken);
@@ -1074,7 +1087,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         };
 
         account.CompanyId = request.CompanyId;
-        account.AccountNumber = request.AccountNumber.Trim();
+        account.AccountNumber = accountNumber;
         account.AccountHolderName = request.AccountHolderName.Trim();
         account.BankId = request.BankId;
         account.AccountType = request.AccountType;

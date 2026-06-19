@@ -101,6 +101,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<PettyCashSheet> PettyCashSheets => Set<PettyCashSheet>();
     public DbSet<DayBegin> DayBegins => Set<DayBegin>();
     public DbSet<DayEnd> DayEnds => Set<DayEnd>();
+    public DbSet<CashDetail> CashDetails => Set<CashDetail>();
 
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<EmployeeDetail> EmployeeDetails => Set<EmployeeDetail>();

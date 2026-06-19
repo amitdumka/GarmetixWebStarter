@@ -45,12 +45,6 @@ public static class AfssSeederEndpoints
         CancellationToken cancellationToken)
     {
         var operationId = Guid.NewGuid();
-        if (request.CompanyId == Guid.Empty)
-        {
-            const string message = "Select a company before running AF/SS seed.";
-            await logs.ErrorAsync("AFSSSeeder", "Seed", message, request, resource: "afss-seeder/seed", operationId: operationId, cancellationToken: cancellationToken);
-            return Results.BadRequest(new { message, operationId });
-        }
 
         if (string.IsNullOrWhiteSpace(request.ProfileCode))
         {

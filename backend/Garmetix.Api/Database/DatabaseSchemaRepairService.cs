@@ -90,11 +90,164 @@ public static class DatabaseSchemaRepairService
         logger.LogInformation("GST return draft storage repair check completed.");
     }
 
+
+public static async Task RepairCashVoucherConversionStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
+{
+    // Older Docker volumes can have the cash-voucher conversion DbSet in the code
+    // while the physical table is missing. Voucher edit/delete checks query this table
+    // before mutating records, so the absence of the table breaks normal voucher and
+    // cash-voucher editing/deleting. Keep this repair idempotent and safe to run at startup.
+    await db.Database.ExecuteSqlRawAsync("""
+        CREATE TABLE IF NOT EXISTS "CashVoucherConversions" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "CompanyId" uuid NOT NULL,
+            "CreatedBy" text NULL,
+            "StoreGroupId" uuid NOT NULL,
+            "StoreId" uuid NOT NULL,
+            "Direction" text NOT NULL DEFAULT '',
+            "CashVoucherId" uuid NOT NULL,
+            "VoucherId" uuid NOT NULL,
+            "CashVoucherNumber" text NOT NULL DEFAULT '',
+            "VoucherNumber" text NOT NULL DEFAULT '',
+            "VoucherType" integer NOT NULL DEFAULT 0,
+            "Amount" numeric(18,2) NOT NULL DEFAULT 0,
+            "PartyName" text NOT NULL DEFAULT '',
+            "Particulars" text NOT NULL DEFAULT '',
+            "Reason" text NOT NULL DEFAULT '',
+            "ConvertedByUserId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+            "ConvertedByUserName" text NOT NULL DEFAULT '',
+            "ConvertedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            CONSTRAINT "PK_CashVoucherConversions" PRIMARY KEY ("Id")
+        );
+
+        ALTER TABLE "CashVoucherConversions" ADD COLUMN IF NOT EXISTS "CreatedAt" timestamp without time zone NOT NULL DEFAULT now();
+        ALTER TABLE "CashVoucherConversions" ADD COLUMN IF NOT EXISTS "UpdatedAt" timestamp without time zone NULL;
+        ALTER TABLE "CashVoucherConversions" ADD COLUMN IF NOT EXISTS "Synced" boolean NOT NULL DEFAULT false;
+        ALTER TABLE "CashVoucherConversions" ADD COLUMN IF NOT EXISTS "Deleted" boolean NOT NULL DEFAULT false;
+        ALTER TABLE "CashVoucherConversions" ADD COLUMN IF NOT EXISTS "CompanyId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+        ALTER TABLE "CashVoucherConversions" ADD COLUMN IF NOT EXISTS "CreatedBy" text NULL;
+        ALTER TABLE "CashVoucherConversions" ADD COLUMN IF NOT EXISTS "StoreGroupId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+        ALTER TABLE "CashVoucherConversions" ADD COLUMN IF NOT EXISTS "StoreId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+        ALTER TABLE "CashVoucherConversions" ADD COLUMN IF NOT EXISTS "Direction" text NOT NULL DEFAULT '';
+        ALTER TABLE "CashVoucherConversions" ADD COLUMN IF NOT EXISTS "CashVoucherId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+        ALTER TABLE "CashVoucherConversions" ADD COLUMN IF NOT EXISTS "VoucherId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+        ALTER TABLE "CashVoucherConversions" ADD COLUMN IF NOT EXISTS "CashVoucherNumber" text NOT NULL DEFAULT '';
+        ALTER TABLE "CashVoucherConversions" ADD COLUMN IF NOT EXISTS "VoucherNumber" text NOT NULL DEFAULT '';
+        ALTER TABLE "CashVoucherConversions" ADD COLUMN IF NOT EXISTS "VoucherType" integer NOT NULL DEFAULT 0;
+        ALTER TABLE "CashVoucherConversions" ADD COLUMN IF NOT EXISTS "Amount" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "CashVoucherConversions" ADD COLUMN IF NOT EXISTS "PartyName" text NOT NULL DEFAULT '';
+        ALTER TABLE "CashVoucherConversions" ADD COLUMN IF NOT EXISTS "Particulars" text NOT NULL DEFAULT '';
+        ALTER TABLE "CashVoucherConversions" ADD COLUMN IF NOT EXISTS "Reason" text NOT NULL DEFAULT '';
+        ALTER TABLE "CashVoucherConversions" ADD COLUMN IF NOT EXISTS "ConvertedByUserId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+        ALTER TABLE "CashVoucherConversions" ADD COLUMN IF NOT EXISTS "ConvertedByUserName" text NOT NULL DEFAULT '';
+        ALTER TABLE "CashVoucherConversions" ADD COLUMN IF NOT EXISTS "ConvertedAt" timestamp without time zone NOT NULL DEFAULT now();
+
+        CREATE INDEX IF NOT EXISTS "IX_CashVoucherConversions_CompanyId_CashVoucherId" ON "CashVoucherConversions" ("CompanyId", "CashVoucherId");
+        CREATE INDEX IF NOT EXISTS "IX_CashVoucherConversions_CompanyId_VoucherId" ON "CashVoucherConversions" ("CompanyId", "VoucherId");
+        CREATE INDEX IF NOT EXISTS "IX_CashVoucherConversions_CompanyId_StoreId_ConvertedAt" ON "CashVoucherConversions" ("CompanyId", "StoreId", "ConvertedAt");
+        """, cancellationToken);
+
+    logger.LogInformation("Cash voucher conversion storage repair check completed.");
+}
+
+
+public static async Task RepairStoreDayStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
+{
+    await db.Database.ExecuteSqlRawAsync("""
+        CREATE TABLE IF NOT EXISTS "CashDetails" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "StoreId" uuid NOT NULL,
+            "OnDate" timestamp without time zone NOT NULL,
+            "Amount" numeric(18,2) NOT NULL DEFAULT 0,
+            "N2000" integer NOT NULL DEFAULT 0,
+            "N500" integer NOT NULL DEFAULT 0,
+            "N200" integer NOT NULL DEFAULT 0,
+            "N100" integer NOT NULL DEFAULT 0,
+            "N50" integer NOT NULL DEFAULT 0,
+            "NC20" integer NOT NULL DEFAULT 0,
+            "NC10" integer NOT NULL DEFAULT 0,
+            "NC5" integer NOT NULL DEFAULT 0,
+            "NC2" integer NOT NULL DEFAULT 0,
+            "NC1" integer NOT NULL DEFAULT 0,
+            "CreatedBy" text NULL,
+            CONSTRAINT "PK_CashDetails" PRIMARY KEY ("Id")
+        );
+
+        CREATE TABLE IF NOT EXISTS "DayBegins" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "StoreId" uuid NOT NULL,
+            "OnDate" timestamp without time zone NOT NULL,
+            "OpeningBalance" numeric(18,2) NOT NULL DEFAULT 0,
+            "CashDetailId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+            "CreatedBy" text NULL,
+            CONSTRAINT "PK_DayBegins" PRIMARY KEY ("Id")
+        );
+
+        CREATE TABLE IF NOT EXISTS "DayEnds" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "StoreId" uuid NOT NULL,
+            "OnDate" timestamp without time zone NOT NULL,
+            "ClosingBalance" numeric(18,2) NOT NULL DEFAULT 0,
+            "CashDetailId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+            "CreatedBy" text NULL,
+            CONSTRAINT "PK_DayEnds" PRIMARY KEY ("Id")
+        );
+
+        CREATE TABLE IF NOT EXISTS "PettyCashSheets" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "StoreId" uuid NOT NULL,
+            "OnDate" timestamp without time zone NOT NULL,
+            "OpeningBalance" numeric(18,2) NOT NULL DEFAULT 0,
+            "Sales" numeric(18,2) NOT NULL DEFAULT 0,
+            "Receipts" numeric(18,2) NOT NULL DEFAULT 0,
+            "DueReceipts" numeric(18,2) NOT NULL DEFAULT 0,
+            "BankWithdrawal" numeric(18,2) NOT NULL DEFAULT 0,
+            "Expenses" numeric(18,2) NOT NULL DEFAULT 0,
+            "Payments" numeric(18,2) NOT NULL DEFAULT 0,
+            "CustomerDue" numeric(18,2) NOT NULL DEFAULT 0,
+            "BankDeposit" numeric(18,2) NOT NULL DEFAULT 0,
+            "NonCashSale" numeric(18,2) NOT NULL DEFAULT 0,
+            "CashInHand" numeric(18,2) NOT NULL DEFAULT 0,
+            "CreatedBy" text NULL,
+            CONSTRAINT "PK_PettyCashSheets" PRIMARY KEY ("Id")
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS "IX_DayBegins_StoreId_OnDate" ON "DayBegins" ("StoreId", "OnDate") WHERE "Deleted" = false;
+        CREATE UNIQUE INDEX IF NOT EXISTS "IX_DayEnds_StoreId_OnDate" ON "DayEnds" ("StoreId", "OnDate") WHERE "Deleted" = false;
+        CREATE INDEX IF NOT EXISTS "IX_CashDetails_StoreId_OnDate_CreatedBy" ON "CashDetails" ("StoreId", "OnDate", "CreatedBy");
+        CREATE INDEX IF NOT EXISTS "IX_PettyCashSheets_StoreId_OnDate" ON "PettyCashSheets" ("StoreId", "OnDate");
+        """, cancellationToken);
+
+    logger.LogInformation("Store day opening/closing storage repair check completed.");
+}
+
 public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
     {
         try
         {
             await RepairGstReturnStorageAsync(db, logger, cancellationToken);
+            await RepairCashVoucherConversionStorageAsync(db, logger, cancellationToken);
+            await RepairStoreDayStorageAsync(db, logger, cancellationToken);
 
             await db.Database.ExecuteSqlRawAsync("""
                 CREATE TABLE IF NOT EXISTS "FinancialYearLocks" (

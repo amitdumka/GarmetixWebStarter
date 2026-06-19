@@ -1,4 +1,5 @@
 using Garmetix.Api.Auth;
+using Garmetix.Api.Accounting;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Accounting;
 using Garmetix.Core.Models.Authentication;
@@ -38,7 +39,7 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
         new(
             "AFS",
             "Aadwika Fashion - Shalini Kumari",
-            "Aadwika Fashion",
+            "Aadwika Fashion - Shalini",
             "AFS",
             "Shalini Kumari",
             "20CLEPK0467L1Z8",
@@ -56,20 +57,20 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
             "Seeder.cs + seeder2.cs"),
         new(
             "SM",
-            "Samrat Menswear",
+            "Smart Menswear - under Aadwika Fashion",
             "Aadwika Fashion",
-            "SM",
+            "AF",
             "Amit Kumar",
-            "20AJHPA73096P1ZV",
-            "AJHPA7397P",
-            "MBO-SM",
-            "Samrat Menswear Group",
+            "20AJHPA7396P1ZV",
+            "AJHPA7396P",
+            "MBO",
+            "Aadwika Fashion MBO",
             "SM01",
-            "Samrat Menswear",
+            "Smart Menswear",
             "Dumka",
             "Jharkhand",
             "814101",
-            "samratmenswear@aadwikafashion.com",
+            "smartmenswear@aadwikafashion.in",
             "9334799099",
             "aadwikafashion.com",
             "seeder2.cs only")
@@ -94,7 +95,7 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
         Seeder2CsOnly:
         [
             "Async seeding flow with StringBuilder messages and per-section exception handling.",
-            "Samrat Menswear profile with code SM and store code SM01.",
+            "Smart Menswear profile merges into Aadwika Fashion company under Aadwika Fashion MBO store group.",
             "Safer name split logic for owner/employees.",
             "Corrected SGST 2.5% label spelling."
         ],
@@ -114,7 +115,7 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
         var notes = new List<string>
         {
             "AF/SS seed is idempotent: existing rows are reused by company/name/code/barcode instead of duplicated.",
-            "This web seeder merges common Seeder.cs + seeder2.cs defaults and keeps Samrat Menswear as an extra profile.",
+            "This web seeder merges Aadwika Fashion Amit Kumar and Smart Menswear into one company/store-group structure, while Aadwika Fashion - Shalini remains separate.",
             "The old MAUI multi-database creation and notification calls are intentionally not ported to the web app."
         };
         var counters = new AfssSeedCounters();
@@ -124,11 +125,7 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
         {
             await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
-            var company = await db.Companies.FirstOrDefaultAsync(item => item.Id == request.CompanyId, cancellationToken);
-        if (company is null)
-        {
-            throw new InvalidOperationException("Selected company was not found. Create/select a company before running AF/SS seed.");
-        }
+            var company = await ResolveSeedCompanyAsync(request, profile, counters, cancellationToken);
 
         PatchCompanyDefaults(company, profile);
         var storeGroup = await EnsureStoreGroupAsync(company, profile, counters, cancellationToken);
@@ -171,6 +168,87 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
         });
     }
 
+private async Task<Company> ResolveSeedCompanyAsync(
+    AfssSeedRequest request,
+    AfssSeedProfileDto profile,
+    AfssSeedCounters counters,
+    CancellationToken cancellationToken)
+{
+    Company? company = null;
+    if (request.CompanyId.HasValue && request.CompanyId.Value != Guid.Empty)
+    {
+        company = await db.Companies.FirstOrDefaultAsync(item => item.Id == request.CompanyId.Value, cancellationToken);
+        if (company is null)
+        {
+            throw new InvalidOperationException("Selected company was not found.");
+        }
+
+        return company;
+    }
+
+    var mergeIntoAadwikaFashion = IsAadwikaAmitOrSmartProfile(profile);
+    if (mergeIntoAadwikaFashion)
+    {
+        company = await db.Companies.FirstOrDefaultAsync(
+            item => item.Code == "AF" || item.Name == "Aadwika Fashion",
+            cancellationToken);
+        if (company is not null)
+        {
+            return company;
+        }
+    }
+
+    company = await db.Companies.FirstOrDefaultAsync(
+        item => item.Code == profile.CompanyCode || item.Name == profile.CompanyName,
+        cancellationToken);
+    if (company is not null)
+    {
+        return company;
+    }
+
+    var companyCode = mergeIntoAadwikaFashion ? "AF" : profile.CompanyCode;
+    company = new Company
+    {
+        Name = mergeIntoAadwikaFashion ? "Aadwika Fashion" : profile.CompanyName,
+        Code = companyCode,
+        Active = true,
+        GSTIN = profile.Gstin,
+        Pan = profile.Pan,
+        ContactPerson = profile.ContactPerson,
+        ContactNumber = profile.ContactNumber,
+        ContactMobile = profile.ContactNumber,
+        Email = profile.Email,
+        Address = profile.StoreName.Contains("Smart", StringComparison.OrdinalIgnoreCase) ? "Bhagalpur Road, Dumka" : "Ground Floor, Bhagalpur Road, Dumka",
+        City = profile.City,
+        State = profile.State,
+        Country = "India",
+        ZipCode = profile.ZipCode,
+        StartDate = DateTime.Today,
+        CompanyType = CompanyType.Proprietorship,
+        StoreCategory = StoreCategory.Cloths,
+    };
+    db.Companies.Add(company);
+    return company;
+}
+
+private static bool IsAadwikaAmitOrSmartProfile(AfssSeedProfileDto profile)
+    => profile.Code.Equals("AF", StringComparison.OrdinalIgnoreCase)
+       || profile.Code.Equals("SM", StringComparison.OrdinalIgnoreCase);
+
+public async Task<AfssSeedCreatedCountsDto> SeedAccountingDefaultsForCompanyAsync(Guid companyId, CancellationToken cancellationToken)
+{
+    var company = await db.Companies.FirstOrDefaultAsync(item => item.Id == companyId, cancellationToken)
+        ?? throw new InvalidOperationException("Company was not found.");
+    var counters = new AfssSeedCounters();
+    await EnsureBanksAsync(counters, cancellationToken);
+    await EnsureTaxesAsync(counters, cancellationToken);
+    await EnsureTransactionsAsync(company, counters, cancellationToken);
+    var ledgerContext = await EnsureLedgerGroupsAndLedgersAsync(company, counters, cancellationToken);
+    await EnsureSbiCurrentAccountAsync(company, ledgerContext.BankGroup, counters, cancellationToken);
+    await db.SaveChangesAsync(cancellationToken);
+    return counters.ToCreatedDto();
+}
+
     private static void PatchCompanyDefaults(Company company, AfssSeedProfileDto profile)
     {
         if (string.IsNullOrWhiteSpace(company.Code)) company.Code = profile.CompanyCode;
@@ -184,7 +262,7 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
         if (string.IsNullOrWhiteSpace(company.State)) company.State = profile.State;
         if (string.IsNullOrWhiteSpace(company.Country)) company.Country = "India";
         if (string.IsNullOrWhiteSpace(company.ZipCode)) company.ZipCode = profile.ZipCode;
-        if (string.IsNullOrWhiteSpace(company.Address)) company.Address = profile.StoreName.Contains("Samrat", StringComparison.OrdinalIgnoreCase)
+        if (string.IsNullOrWhiteSpace(company.Address)) company.Address = profile.StoreName.Contains("Smart", StringComparison.OrdinalIgnoreCase)
             ? "Bhagalpur Road, Dumka"
             : "Ground Floor, Bhagalpur Road, Dumka";
         if (string.IsNullOrWhiteSpace(company.CIN)) company.CIN = profile.Code == "AF" ? "33AABCA1234A1Z5" : "NA";
@@ -223,8 +301,7 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
     {
         var store = await db.Stores.FirstOrDefaultAsync(
             item => item.CompanyId == company.Id && item.StoreGroupId == storeGroup.Id && item.StoreCode == profile.StoreCode,
-            cancellationToken)
-            ?? await db.Stores.FirstOrDefaultAsync(item => item.CompanyId == company.Id && item.StoreGroupId == storeGroup.Id, cancellationToken);
+            cancellationToken);
 
         if (store is not null)
         {
@@ -242,7 +319,7 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
             StartDate = company.StartDate == default ? DateTime.Today : company.StartDate,
             ContactNumber = profile.ContactNumber,
             Email = profile.Email,
-            Address = profile.StoreName.Contains("Samrat", StringComparison.OrdinalIgnoreCase) ? "Bhagalpur Road, Dumka" : "Ground Floor, Bhagalpur Road, Dumka",
+            Address = profile.StoreName.Contains("Smart", StringComparison.OrdinalIgnoreCase) ? "Bhagalpur Road, Dumka" : "Ground Floor, Bhagalpur Road, Dumka",
             City = profile.City,
             State = profile.State,
             Country = "India",
@@ -318,8 +395,13 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
         foreach (var definition in LedgerDefinitions())
         {
             var ledgerGroup = groups[definition.GroupName];
-            if (await db.Ledgers.AnyAsync(item => item.CompanyId == company.Id && item.Name == definition.Name, cancellationToken))
+            var existingLedger = await db.Ledgers.FirstOrDefaultAsync(item => item.CompanyId == company.Id && item.Name == definition.Name, cancellationToken);
+            if (existingLedger is not null)
             {
+                if (string.IsNullOrWhiteSpace(existingLedger.CreatedBy))
+                {
+                    existingLedger.CreatedBy = AccountingDefaultProtection.CreatedByMarker;
+                }
                 continue;
             }
 
@@ -332,7 +414,7 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
                 OpeningBalance = 0,
                 OpeningDate = company.StartDate == default ? DateTime.Today : company.StartDate,
                 IsParty = false,
-                CreatedBy = "AutoAdmin"
+                CreatedBy = AccountingDefaultProtection.CreatedByMarker
             });
             counters.Ledgers++;
         }
@@ -345,6 +427,10 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
         var ledgerGroup = await db.LedgerGroups.FirstOrDefaultAsync(item => item.CompanyId == company.Id && item.Name == name, cancellationToken);
         if (ledgerGroup is not null)
         {
+            if (string.IsNullOrWhiteSpace(ledgerGroup.CreatedBy))
+            {
+                ledgerGroup.CreatedBy = AccountingDefaultProtection.CreatedByMarker;
+            }
             return ledgerGroup;
         }
 
@@ -353,7 +439,8 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
             CompanyId = company.Id,
             Name = name,
             Category = category,
-            Remarks = remarks
+            Remarks = remarks,
+            CreatedBy = AccountingDefaultProtection.CreatedByMarker
         };
         db.LedgerGroups.Add(ledgerGroup);
         counters.LedgerGroups++;
@@ -380,7 +467,7 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
                 OpeningBalance = 0,
                 OpeningDate = company.StartDate == default ? DateTime.Today : company.StartDate,
                 IsParty = false,
-                CreatedBy = "AutoAdmin"
+                CreatedBy = AccountingDefaultProtection.CreatedByMarker
             };
             db.Ledgers.Add(ledger);
             counters.Ledgers++;
@@ -459,7 +546,7 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
             CompanyId = company.Id,
             StoreGroupId = storeGroup.Id,
             StoreId = store.Id,
-            CreatedBy = "AutoAdmin"
+            CreatedBy = AccountingDefaultProtection.CreatedByMarker
         };
         db.Employees.Add(employee);
         counters.Employees++;
@@ -594,7 +681,7 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
             Name = name,
             ProductGroup = group,
             IsActive = true,
-            CreatedBy = "AutoAdmin"
+            CreatedBy = AccountingDefaultProtection.CreatedByMarker
         };
         db.ProductCategories.Add(category);
         counters.ProductCategories++;
@@ -614,7 +701,7 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
             CompanyId = company.Id,
             CategoryId = category.Id,
             Name = name,
-            CreatedBy = "AutoAdmin"
+            CreatedBy = AccountingDefaultProtection.CreatedByMarker
         };
         db.ProductSubCategories.Add(subCategory);
         counters.ProductSubCategories++;
@@ -663,7 +750,7 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
                 ProductSubCategoryId = subCategory.Id,
                 CompanyId = company.Id,
                 StoreGroupId = storeGroup.Id,
-                CreatedBy = "AutoAdmin"
+                CreatedBy = AccountingDefaultProtection.CreatedByMarker
             };
             db.Products.Add(product);
             counters.Products++;
@@ -690,7 +777,7 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
                 CompanyId = company.Id,
                 StoreGroupId = storeGroup.Id,
                 StoreId = store.Id,
-                CreatedBy = "AutoAdmin"
+                CreatedBy = AccountingDefaultProtection.CreatedByMarker
             };
             db.Stocks.Add(stock);
             counters.Stocks++;
@@ -718,7 +805,7 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
                 CompanyId = company.Id,
                 StoreGroupId = storeGroup.Id,
                 StoreId = store.Id,
-                CreatedBy = "AutoAdmin"
+                CreatedBy = AccountingDefaultProtection.CreatedByMarker
             });
             counters.StockMovements++;
         }
@@ -734,7 +821,7 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
                 Brand = brandName,
                 VendorId = vendor.Id,
                 CompanyId = company.Id,
-                CreatedBy = "AutoAdmin"
+                CreatedBy = AccountingDefaultProtection.CreatedByMarker
             });
             counters.ProductDetails++;
         }

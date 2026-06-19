@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Garmetix.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(GarmetixDbContext))]
-    [Migration("20260604101201_InitialCreate")]
+   // [Migration("20260604101201_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />

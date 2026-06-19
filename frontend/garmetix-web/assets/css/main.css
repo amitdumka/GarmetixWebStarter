@@ -113,7 +113,8 @@ select {
 .dashboard-content {
   min-width: 0;
   flex: 1;
-  overflow: auto;
+  overflow-x: clip;
+  overflow-y: visible;
   background: var(--bg);
 }
 
@@ -527,8 +528,8 @@ select {
 .message-log-list {
   display: grid;
   gap: 12px;
-  max-height: 64vh;
-  overflow: auto;
+  max-height: none;
+  overflow: visible;
 }
 
 .message-log-entry {
@@ -2483,8 +2484,9 @@ select {
 }
 
 .dashboard-template-content {
-  min-height: calc(100vh - 56px);
-  overflow: auto;
+  min-height: auto;
+  overflow-x: clip;
+  overflow-y: visible;
   background:
     radial-gradient(circle at top right, rgba(45, 212, 191, 0.12), transparent 34rem),
     var(--bg);
@@ -3199,8 +3201,8 @@ select {
 .dashboard-access-matrix {
   display: grid;
   gap: 8px;
-  max-height: 520px;
-  overflow: auto;
+  max-height: none;
+  overflow: visible;
   padding-right: 2px;
 }
 
@@ -3616,4 +3618,30 @@ select {
     align-items: flex-start;
     flex-direction: column;
   }
+}
+
+
+/* Stage 8H Package 9: single-scroll page guardrails.
+   Keep the main dashboard/page body as the vertical scroller. Page cards/lists
+   should expand naturally. Horizontal table scrolling and dialogs/menus remain
+   scrollable where needed. */
+.dashboard-template-content :where(.planner-dashboard, .module-page, .dashboard-v3-page, .system-info-page, .gst-return-page, .ui-audit-page) {
+  overflow-y: visible;
+  max-height: none;
+}
+
+.dashboard-template-content :where(.register-panel, .planner-card, .dashboard-v3-card, .dashboard-export-card, .dashboard-filter-card) {
+  overflow-y: visible;
+  max-height: none;
+}
+
+.dashboard-template-content :where(.message-log-list, .dashboard-access-matrix) {
+  overflow-y: visible;
+  max-height: none;
+}
+
+/* Preserve horizontal scrolling for wide financial/GST/stock tables without adding a vertical scrollbar. */
+.dashboard-template-content :where(.planner-table-wrap, .simple-table-wrap, .overflow-x-auto) {
+  overflow-x: auto;
+  overflow-y: visible;
 }

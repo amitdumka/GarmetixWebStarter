@@ -234,7 +234,7 @@ function emptyVoucher() {
   return {
     id: '',
     voucherNumber: '',
-    onDate: new Date().toISOString().slice(0, 10),
+    onDate: localDateValue(),
     voucherType: 0,
     partyName: '',
     particulars: '',
@@ -315,7 +315,7 @@ function startEdit(voucher: any) {
   editMode.value = 'edit'
   Object.assign(form, {
     ...voucher,
-    onDate: String(voucher.onDate || new Date().toISOString()).slice(0, 10),
+    onDate: dateInputValue(voucher.onDate),
     ledger: null,
     employee: null,
     party: null,
@@ -360,7 +360,7 @@ function buildPayload() {
   return {
     ...form,
     voucherNumber: String(form.voucherNumber || '').trim(),
-    onDate: new Date(`${form.onDate}T00:00:00`).toISOString(),
+    onDate: accountingDateTimeForApi(form.onDate),
     voucherType: Number(form.voucherType),
     partyName: String(party?.name || form.partyName || '').trim(),
     particulars: String(form.particulars || '').trim(),
@@ -559,8 +559,31 @@ function normalizeGuid(value: unknown) {
   return text && text !== '00000000-0000-0000-0000-000000000000' ? text : ''
 }
 
+function localDateValue(date = new Date()) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function dateInputValue(value: unknown) {
+  const text = String(value || '')
+  return /^\d{4}-\d{2}-\d{2}/.test(text) ? text.slice(0, 10) : localDateValue()
+}
+
+function parseLocalDate(value: unknown) {
+  const text = dateInputValue(value)
+  const [year, month, day] = text.split('-').map(Number)
+  return year && month && day ? new Date(year, month - 1, day) : null
+}
+
+function accountingDateTimeForApi(value: unknown) {
+  return `${dateInputValue(value)}T00:00:00`
+}
+
 function formatDate(value: string) {
-  return value ? new Date(value).toLocaleDateString() : '-'
+  const date = parseLocalDate(value)
+  return date ? date.toLocaleDateString('en-IN') : '-'
 }
 
 function money(value: number) {

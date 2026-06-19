@@ -37,6 +37,15 @@ public sealed class SmtpEmailSender(IOptions<EmailOptions> options, ILogger<Smtp
             mail.ReplyToList.Add(new MailAddress(settings.ReplyToEmail));
         }
 
+        if (message.Attachments is { Count: > 0 })
+        {
+            foreach (var attachment in message.Attachments)
+            {
+                var stream = new MemoryStream(attachment.Content);
+                mail.Attachments.Add(new Attachment(stream, attachment.FileName, attachment.ContentType));
+            }
+        }
+
         using var smtp = new SmtpClient(settings.Host, settings.Port)
         {
             EnableSsl = settings.EnableSsl
@@ -49,14 +58,14 @@ public sealed class SmtpEmailSender(IOptions<EmailOptions> options, ILogger<Smtp
 
         cancellationToken.ThrowIfCancellationRequested();
         await smtp.SendMailAsync(mail, cancellationToken);
-        logger.LogInformation("Password reset email sent to {Email}.", message.ToEmail);
+        logger.LogInformation("Email sent to {Email} with subject {Subject}.", message.ToEmail, message.Subject);
     }
 
     private void ValidateSettings(EmailMessage message)
     {
         if (string.IsNullOrWhiteSpace(message.ToEmail))
         {
-            throw new InvalidOperationException("Cannot send password reset email because the user has no email address.");
+            throw new InvalidOperationException("Cannot send email because recipient email address is empty.");
         }
 
         if (string.IsNullOrWhiteSpace(settings.Host))

@@ -640,6 +640,10 @@ async function saveActiveForm() {
     const endpoint = endpointFor(activeTab.value)
     const id = payload.id
 
+    if (editMode.value === 'edit' && !id && activeTab.value === 'bankAccounts') {
+      throw new Error('Bank account edit lost the original record id. Refresh and try again; this save was blocked to prevent duplicate account creation.')
+    }
+
     if (activeTab.value === 'transactions') {
       if (editMode.value === 'edit' && id) {
         await api.update<any>('accounting/bank-transactions', id, payload)
@@ -694,6 +698,7 @@ function buildPayload() {
 
   if (activeTab.value === 'bankAccounts') {
     return {
+      id: bankAccountForm.id || null,
       companyId: companyId.value,
       accountNumber: String(bankAccountForm.accountNumber || '').trim(),
       accountHolderName: String(bankAccountForm.accountHolderName || '').trim(),

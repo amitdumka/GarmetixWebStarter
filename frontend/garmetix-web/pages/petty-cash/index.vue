@@ -238,7 +238,7 @@ function startEdit(sheet: any) {
   editMode.value = 'edit'
   Object.assign(form, {
     ...sheet,
-    onDate: String(sheet.onDate || new Date().toISOString()).slice(0, 10)
+    onDate: dateInputValue(sheet.onDate)
   })
   preparation.value = null
   reconciliationDifferences.value = []
@@ -283,7 +283,7 @@ function buildPayload() {
 
   const payload: any = {
     storeId: form.storeId,
-    onDate: `${form.onDate}T00:00:00`,
+    onDate: accountingDateTimeForApi(form.onDate),
     openingBalance: Number(form.openingBalance || 0),
     sales: Number(form.sales || 0),
     receipts: Number(form.receipts || 0),
@@ -775,8 +775,24 @@ function roundMoney(value: number) {
   return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100
 }
 
+function dateInputValue(value: unknown) {
+  const text = String(value || '')
+  return /^\d{4}-\d{2}-\d{2}/.test(text) ? text.slice(0, 10) : localDateInput()
+}
+
+function parseLocalDate(value: unknown) {
+  const text = dateInputValue(value)
+  const [year, month, day] = text.split('-').map(Number)
+  return year && month && day ? new Date(year, month - 1, day) : null
+}
+
+function accountingDateTimeForApi(value: unknown) {
+  return `${dateInputValue(value)}T00:00:00`
+}
+
 function formatDate(value: string) {
-  return value ? new Date(value).toLocaleDateString() : '-'
+  const date = parseLocalDate(value)
+  return date ? date.toLocaleDateString('en-IN') : '-'
 }
 
 function localDateInput(date = new Date()) {

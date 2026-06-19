@@ -1,4 +1,5 @@
 using Garmetix.Api.Auth;
+using Garmetix.Api.Accounting;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Accounting;
@@ -278,6 +279,10 @@ public static class SetupEndpoints
 
             if (group is not null)
             {
+                if (string.IsNullOrWhiteSpace(group.CreatedBy))
+                {
+                    group.CreatedBy = AccountingDefaultProtection.CreatedByMarker;
+                }
                 return group;
             }
 
@@ -286,7 +291,8 @@ public static class SetupEndpoints
                 CompanyId = company.Id,
                 Name = name,
                 Category = category,
-                Remarks = remarks
+                Remarks = remarks,
+                CreatedBy = AccountingDefaultProtection.CreatedByMarker
             };
             db.LedgerGroups.Add(group);
             groupsCreated++;
@@ -301,6 +307,10 @@ public static class SetupEndpoints
 
             if (ledger is not null)
             {
+                if (string.IsNullOrWhiteSpace(ledger.CreatedBy))
+                {
+                    ledger.CreatedBy = AccountingDefaultProtection.CreatedByMarker;
+                }
                 return ledger;
             }
 
@@ -313,7 +323,7 @@ public static class SetupEndpoints
                 OpeningBalance = 0,
                 OpeningDate = company.StartDate,
                 IsParty = isParty,
-                CreatedBy = "AutoAdmin"
+                CreatedBy = AccountingDefaultProtection.CreatedByMarker
             };
             db.Ledgers.Add(ledger);
             ledgersCreated++;
@@ -534,7 +544,7 @@ public static class SetupEndpoints
                 OpeningBalance = 0,
                 OpeningDate = company.StartDate,
                 IsParty = false,
-                CreatedBy = "AutoAdmin"
+                CreatedBy = AccountingDefaultProtection.CreatedByMarker
             };
             db.Ledgers.Add(ledger);
             await db.SaveChangesAsync(cancellationToken);

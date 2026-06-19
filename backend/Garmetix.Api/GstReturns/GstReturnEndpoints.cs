@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
@@ -72,6 +73,7 @@ public static class GstReturnEndpoints
         group.MapGet("/reports/tax-summary/csv", DownloadTaxRateSummaryCsvAsync);
         group.MapGet("/reports/invoice-register", GetInvoiceRegisterReportAsync);
         group.MapGet("/reports/invoice-register/csv", DownloadInvoiceRegisterCsvAsync);
+        group.MapPost("/reports/send-review", SendGstReportsReviewAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapGet("/accounting-summary", GetAccountingSummaryAsync);
         group.MapPost("/accounting-posting", PostAccountingAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/drafts/{id:guid}/accounting-posting", PostDraftAccountingAsync).RequireAuthorization(GarmetixPolicies.Edit);
@@ -85,6 +87,7 @@ public static class GstReturnEndpoints
         group.MapGet("/drafts/{id:guid}/audit", GetDraftAuditAsync);
         group.MapGet("/drafts/{id:guid}/json", ExportDraftJsonAsync);
         group.MapGet("/drafts/{id:guid}/excel", ExportDraftExcelAsync);
+        group.MapPost("/drafts/{id:guid}/send-review", SendDraftReviewAsync).RequireAuthorization(GarmetixPolicies.Edit);
 
         group.MapPost("/gstr1/preview", ([FromBody] Gstr1ExportRequest request) =>
             Results.Ok(GstReturnExportService.PreviewGstr1(Normalize(request))));
@@ -693,14 +696,17 @@ public static class GstReturnEndpoints
         };
     }
 
-    private static IResult CsvFile(IEnumerable<string[]> rows, string fileName)
+    private static IResult CsvFile(IEnumerable<string[]> rows, string fileName) =>
+        Results.File(CsvBytes(rows), "text/csv", fileName);
+
+    private static byte[] CsvBytes(IEnumerable<string[]> rows)
     {
         var builder = new StringBuilder();
         foreach (var row in rows)
         {
             builder.AppendLine(string.Join(',', row.Select(CsvCell)));
         }
-        return Results.File(Encoding.UTF8.GetBytes(builder.ToString()), "text/csv", fileName);
+        return Encoding.UTF8.GetBytes(builder.ToString());
     }
 
     private static string CsvCell(string? value)
@@ -1165,6 +1171,366 @@ public static class GstReturnEndpoints
         AddAudit(db, draft, "Exported Excel", $"Downloaded {DisplayForm(draft.Form)} Excel for {draft.ReturnPeriod}.", context, new { format = "xlsx" });
         await db.SaveChangesAsync(cancellationToken);
         return Results.File(bytes!, contentType!, FileName(DisplayForm(draft.Form).Replace("-", string.Empty), new GstReturnPeriodRequest(draft.Gstin, draft.ReturnPeriod, 0, 0, string.Empty, string.Empty), extension!));
+    }
+
+
+private static async Task<IResult> SendGstReportsReviewAsync(
+    [FromBody] GstReportReviewSendRequest request,
+    GarmetixDbContext db,
+    HttpContext context,
+    IEmailSender emailSender,
+    CancellationToken cancellationToken)
+{
+    if (string.IsNullOrWhiteSpace(request.ToEmail))
+    {
+        return Results.BadRequest(new { message = "Accountant/CA email address is required." });
+    }
+
+    if (!TryPeriodRange(request.ReturnPeriod, out _, out _))
+    {
+        return Results.BadRequest(new { message = "Return period must be MMYYYY, for example 042026." });
+    }
+
+    var period = request.ReturnPeriod.Trim();
+    var direction = NormalizeReportDirection(request.Direction);
+    var includeHsn = request.IncludeHsnSummaryCsv;
+    var includeTax = request.IncludeTaxSummaryCsv;
+    var includeRegister = request.IncludeInvoiceRegisterCsv;
+    if (!includeHsn && !includeTax && !includeRegister)
+    {
+        includeHsn = true;
+        includeTax = true;
+        includeRegister = true;
+    }
+
+    var attachments = new List<EmailAttachment>();
+    var attachmentNames = new List<string>();
+
+    if (includeHsn)
+    {
+        var hsnReport = await BuildHsnSummaryReportAsync(request.CompanyId, period, direction, db, context, cancellationToken);
+        if (hsnReport.Error is not null)
+        {
+            return hsnReport.Error;
+        }
+
+        var name = $"Garmetix-HSN-Summary-{direction}-{period}.csv";
+        attachments.Add(new EmailAttachment(name, "text/csv", CsvBytes(HsnSummaryCsvRows(hsnReport.Report!))));
+        attachmentNames.Add(name);
+    }
+
+    if (includeTax)
+    {
+        var taxReport = await BuildTaxRateSummaryReportAsync(request.CompanyId, period, db, context, cancellationToken);
+        if (taxReport.Error is not null)
+        {
+            return taxReport.Error;
+        }
+
+        var name = $"Garmetix-GST-Tax-Summary-{period}.csv";
+        attachments.Add(new EmailAttachment(name, "text/csv", CsvBytes(TaxRateSummaryCsvRows(taxReport.Report!))));
+        attachmentNames.Add(name);
+    }
+
+    if (includeRegister)
+    {
+        var registerReport = await BuildInvoiceRegisterReportAsync(request.CompanyId, period, direction, db, context, cancellationToken);
+        if (registerReport.Error is not null)
+        {
+            return registerReport.Error;
+        }
+
+        var name = $"Garmetix-GST-Invoice-Register-{direction}-{period}.csv";
+        attachments.Add(new EmailAttachment(name, "text/csv", CsvBytes(InvoiceRegisterCsvRows(registerReport.Report!))));
+        attachmentNames.Add(name);
+    }
+
+    var toEmail = request.ToEmail.Trim();
+    var note = string.IsNullOrWhiteSpace(request.Note)
+        ? "Please review the attached GST book reports generated from Garmetix billing, purchase and accounting records."
+        : request.Note.Trim();
+    var subject = $"Garmetix GST book reports review - {period} - {direction}";
+    var summaryText = BuildGstReportsSummaryText(period, direction, note, attachmentNames);
+    var summaryHtml = BuildGstReportsSummaryHtml(period, direction, note, attachmentNames);
+
+    await emailSender.SendAsync(new EmailMessage(
+        toEmail,
+        request.ToName?.Trim() ?? "Accountant/CA",
+        subject,
+        summaryHtml,
+        summaryText,
+        attachments), cancellationToken);
+
+    var whatsAppText = $"Garmetix GST book reports for {period} / {direction} have been emailed to {toEmail}. Attachments: {string.Join(", ", attachmentNames)}. Please review and confirm.";
+    var whatsAppUrl = BuildWhatsAppShareUrl(request.WhatsAppNumber, whatsAppText);
+
+    return Results.Ok(new GstReportReviewSendResponse(
+        period,
+        direction,
+        toEmail,
+        true,
+        "GST book reports sent to Accountant/CA.",
+        whatsAppText,
+        whatsAppUrl,
+        attachmentNames));
+}
+
+    private static async Task<IResult> SendDraftReviewAsync(
+        Guid id,
+        [FromBody] GstReturnReviewSendRequest request,
+        GarmetixDbContext db,
+        HttpContext context,
+        IEmailSender emailSender,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        await EnsureGstDraftStorageAsync(db, loggerFactory, cancellationToken);
+        var draft = await WorkspaceScope.ApplyTo(db.GstReturnDrafts, context)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (draft is null)
+        {
+            return Results.NotFound(new { message = "GST return draft was not found." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.ToEmail))
+        {
+            return Results.BadRequest(new { message = "Accountant/CA email address is required." });
+        }
+
+        var attachmentNames = new List<string>();
+        var attachments = new List<EmailAttachment>();
+        var formName = DisplayForm(draft.Form);
+        var subject = $"Garmetix {formName} review package - {draft.ReturnPeriod} - {draft.Gstin}";
+
+        if (request.IncludeJson)
+        {
+            if (!TryBuildExportFromDraft(draft, out var jsonBytes, out var jsonContentType, out var jsonExtension, out var jsonError, excel: false))
+            {
+                return Results.BadRequest(new { message = jsonError ?? "GST JSON export could not be created. Review and fix validation issues first." });
+            }
+            var jsonName = FileName(formName.Replace("-", string.Empty), new GstReturnPeriodRequest(draft.Gstin, draft.ReturnPeriod, 0, 0, string.Empty, string.Empty), jsonExtension!);
+            attachments.Add(new EmailAttachment(jsonName, jsonContentType!, jsonBytes!));
+            attachmentNames.Add(jsonName);
+        }
+
+        if (request.IncludeExcel)
+        {
+            if (!TryBuildExportFromDraft(draft, out var excelBytes, out var excelContentType, out var excelExtension, out var excelError, excel: true))
+            {
+                return Results.BadRequest(new { message = excelError ?? "GST Excel export could not be created. Review and fix validation issues first." });
+            }
+            var excelName = FileName(formName.Replace("-", string.Empty), new GstReturnPeriodRequest(draft.Gstin, draft.ReturnPeriod, 0, 0, string.Empty, string.Empty), excelExtension!);
+            attachments.Add(new EmailAttachment(excelName, excelContentType!, excelBytes!));
+            attachmentNames.Add(excelName);
+        }
+
+        if (request.IncludeHsnSummaryCsv)
+        {
+            var hsnReport = await BuildHsnSummaryReportAsync(draft.CompanyId, draft.ReturnPeriod, "both", db, context, cancellationToken);
+            if (hsnReport.Error is not null)
+            {
+                return hsnReport.Error;
+            }
+            var name = $"Garmetix-HSN-Summary-both-{draft.ReturnPeriod}.csv";
+            attachments.Add(new EmailAttachment(name, "text/csv", CsvBytes(HsnSummaryCsvRows(hsnReport.Report!))));
+            attachmentNames.Add(name);
+        }
+
+        if (request.IncludeTaxSummaryCsv)
+        {
+            var taxReport = await BuildTaxRateSummaryReportAsync(draft.CompanyId, draft.ReturnPeriod, db, context, cancellationToken);
+            if (taxReport.Error is not null)
+            {
+                return taxReport.Error;
+            }
+            var name = $"Garmetix-GST-Tax-Summary-{draft.ReturnPeriod}.csv";
+            attachments.Add(new EmailAttachment(name, "text/csv", CsvBytes(TaxRateSummaryCsvRows(taxReport.Report!))));
+            attachmentNames.Add(name);
+        }
+
+        if (request.IncludeInvoiceRegisterCsv)
+        {
+            var registerReport = await BuildInvoiceRegisterReportAsync(draft.CompanyId, draft.ReturnPeriod, "both", db, context, cancellationToken);
+            if (registerReport.Error is not null)
+            {
+                return registerReport.Error;
+            }
+            var name = $"Garmetix-GST-Invoice-Register-both-{draft.ReturnPeriod}.csv";
+            attachments.Add(new EmailAttachment(name, "text/csv", CsvBytes(InvoiceRegisterCsvRows(registerReport.Report!))));
+            attachmentNames.Add(name);
+        }
+
+        var note = string.IsNullOrWhiteSpace(request.Note)
+            ? "Please review the attached GST return and book reports."
+            : request.Note.Trim();
+        var summaryText = BuildGstReviewSummaryText(draft, formName, note, attachmentNames);
+        var summaryHtml = BuildGstReviewSummaryHtml(draft, formName, note, attachmentNames);
+
+        await emailSender.SendAsync(new EmailMessage(
+            request.ToEmail.Trim(),
+            request.ToName?.Trim() ?? "Accountant/CA",
+            subject,
+            summaryHtml,
+            summaryText,
+            attachments), cancellationToken);
+
+        var actor = Actor(context);
+        if (!draft.LockedAt.HasValue)
+        {
+            draft.Status = "Reviewed";
+        }
+        draft.UpdatedAt = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
+        draft.UpdatedByUserId = actor.Id;
+        draft.UpdatedByUserName = actor.Name;
+        AddAudit(db, draft, "Shared for CA Review", $"Sent {formName} {draft.ReturnPeriod} review package to {request.ToEmail.Trim()}.", context,
+            new { request.ToEmail, request.ToName, request.WhatsAppNumber, attachmentNames, note });
+        await db.SaveChangesAsync(cancellationToken);
+
+        var whatsAppText = BuildWhatsAppText(draft, formName, request.ToEmail.Trim(), attachmentNames);
+        var whatsAppUrl = BuildWhatsAppShareUrl(request.WhatsAppNumber, whatsAppText);
+
+        return Results.Ok(new GstReturnReviewSendResponse(
+            draft.Id,
+            formName,
+            draft.ReturnPeriod,
+            request.ToEmail.Trim(),
+            true,
+            $"{formName} review package sent to Accountant/CA.",
+            whatsAppText,
+            whatsAppUrl,
+            attachmentNames));
+    }
+
+    private static IEnumerable<string[]> HsnSummaryCsvRows(GstHsnSummaryReport report)
+    {
+        yield return new[] { "Serial", "Direction", "HSN", "Description", "UQC", "Rate", "Quantity", "Taxable", "CGST", "SGST", "IGST", "Tax", "Total" };
+        foreach (var row in report.Rows)
+        {
+            yield return new[]
+            {
+                row.SerialNumber.ToString(CultureInfo.InvariantCulture), row.Direction, row.HsnCode, row.Description, row.Uqc,
+                row.Rate.ToString("0.##", CultureInfo.InvariantCulture), row.Quantity.ToString("0.##", CultureInfo.InvariantCulture),
+                row.TaxableValue.ToString("0.00", CultureInfo.InvariantCulture), row.CgstAmount.ToString("0.00", CultureInfo.InvariantCulture),
+                row.SgstAmount.ToString("0.00", CultureInfo.InvariantCulture), row.IgstAmount.ToString("0.00", CultureInfo.InvariantCulture),
+                row.TaxAmount.ToString("0.00", CultureInfo.InvariantCulture), row.TotalValue.ToString("0.00", CultureInfo.InvariantCulture)
+            };
+        }
+    }
+
+    private static IEnumerable<string[]> TaxRateSummaryCsvRows(GstTaxRateSummaryReport report)
+    {
+        yield return new[] { "Rate", "Sales Taxable", "Sales CGST", "Sales SGST", "Sales IGST", "Purchase Taxable", "Purchase CGST", "Purchase SGST", "Purchase IGST", "Net Tax Payable" };
+        foreach (var row in report.Rows)
+        {
+            yield return new[]
+            {
+                row.Rate.ToString("0.##", CultureInfo.InvariantCulture), row.SalesTaxableValue.ToString("0.00", CultureInfo.InvariantCulture),
+                row.SalesCgstAmount.ToString("0.00", CultureInfo.InvariantCulture), row.SalesSgstAmount.ToString("0.00", CultureInfo.InvariantCulture),
+                row.SalesIgstAmount.ToString("0.00", CultureInfo.InvariantCulture), row.PurchaseTaxableValue.ToString("0.00", CultureInfo.InvariantCulture),
+                row.PurchaseCgstAmount.ToString("0.00", CultureInfo.InvariantCulture), row.PurchaseSgstAmount.ToString("0.00", CultureInfo.InvariantCulture),
+                row.PurchaseIgstAmount.ToString("0.00", CultureInfo.InvariantCulture), row.NetTaxPayable.ToString("0.00", CultureInfo.InvariantCulture)
+            };
+        }
+    }
+
+    private static IEnumerable<string[]> InvoiceRegisterCsvRows(GstInvoiceRegisterReport report)
+    {
+        yield return new[] { "Direction", "Invoice", "Reference", "Date", "Party", "GSTIN", "Status", "Return", "Taxable", "CGST", "SGST", "IGST", "Tax", "Bill" };
+        foreach (var row in report.Rows)
+        {
+            yield return new[]
+            {
+                row.Direction, row.InvoiceNumber, row.ReferenceNumber ?? string.Empty, row.OnDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                row.PartyName, row.PartyGstin ?? string.Empty, row.InvoiceStatus, row.IsReturn ? "Yes" : "No",
+                row.TaxableValue.ToString("0.00", CultureInfo.InvariantCulture), row.CgstAmount.ToString("0.00", CultureInfo.InvariantCulture),
+                row.SgstAmount.ToString("0.00", CultureInfo.InvariantCulture), row.IgstAmount.ToString("0.00", CultureInfo.InvariantCulture),
+                row.TaxAmount.ToString("0.00", CultureInfo.InvariantCulture), row.BillAmount.ToString("0.00", CultureInfo.InvariantCulture)
+            };
+        }
+    }
+
+    private static string BuildGstReviewSummaryText(GstReturnDraft draft, string formName, string note, IReadOnlyList<string> attachments)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine($"GST Review Package: {formName} {draft.ReturnPeriod}");
+        builder.AppendLine($"GSTIN: {draft.Gstin}");
+        builder.AppendLine($"Taxable value: {draft.TaxableValue:0.00}");
+        builder.AppendLine($"IGST: {draft.IntegratedTax:0.00}");
+        builder.AppendLine($"CGST: {draft.CentralTax:0.00}");
+        builder.AppendLine($"SGST: {draft.StateTax:0.00}");
+        builder.AppendLine($"Cess: {draft.Cess:0.00}");
+        builder.AppendLine($"Rows: {draft.RowCount}");
+        builder.AppendLine();
+        builder.AppendLine(note);
+        builder.AppendLine();
+        builder.AppendLine("Attachments:");
+        foreach (var attachment in attachments)
+        {
+            builder.AppendLine($"- {attachment}");
+        }
+        return builder.ToString();
+    }
+
+    private static string BuildGstReviewSummaryHtml(GstReturnDraft draft, string formName, string note, IReadOnlyList<string> attachments)
+    {
+        static string H(string value) => WebUtility.HtmlEncode(value);
+        var items = string.Join(string.Empty, attachments.Select(item => $"<li>{H(item)}</li>"));
+        return $"""
+            <h2>GST Review Package: {H(formName)} {H(draft.ReturnPeriod)}</h2>
+            <p>{H(note)}</p>
+            <table cellpadding="6" cellspacing="0" border="1">
+              <tr><td>GSTIN</td><td>{H(draft.Gstin)}</td></tr>
+              <tr><td>Taxable Value</td><td>{draft.TaxableValue:0.00}</td></tr>
+              <tr><td>IGST</td><td>{draft.IntegratedTax:0.00}</td></tr>
+              <tr><td>CGST</td><td>{draft.CentralTax:0.00}</td></tr>
+              <tr><td>SGST</td><td>{draft.StateTax:0.00}</td></tr>
+              <tr><td>Cess</td><td>{draft.Cess:0.00}</td></tr>
+              <tr><td>Rows</td><td>{draft.RowCount}</td></tr>
+            </table>
+            <h3>Attachments</h3>
+            <ul>{items}</ul>
+            <p>Sent from Garmetix after GST review confirmation.</p>
+            """;
+    }
+
+
+    private static string BuildGstReportsSummaryText(string period, string direction, string note, IReadOnlyList<string> attachments)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine($"GST Book Reports: {period} / {direction}");
+        builder.AppendLine(note);
+        builder.AppendLine();
+        builder.AppendLine("Attachments:");
+        foreach (var attachment in attachments)
+        {
+            builder.AppendLine($"- {attachment}");
+        }
+        return builder.ToString();
+    }
+
+    private static string BuildGstReportsSummaryHtml(string period, string direction, string note, IReadOnlyList<string> attachments)
+    {
+        static string H(string value) => WebUtility.HtmlEncode(value);
+        var items = string.Join(string.Empty, attachments.Select(item => $"<li>{H(item)}</li>"));
+        return $"""
+            <h2>GST Book Reports: {H(period)} / {H(direction)}</h2>
+            <p>{H(note)}</p>
+            <h3>Attachments</h3>
+            <ul>{items}</ul>
+            <p>Sent from Garmetix after GST report review confirmation.</p>
+            """;
+    }
+
+    private static string BuildWhatsAppText(GstReturnDraft draft, string formName, string toEmail, IReadOnlyList<string> attachments) =>
+        $"Garmetix GST review package for {formName} {draft.ReturnPeriod} ({draft.Gstin}) has been emailed to {toEmail}. Attachments: {string.Join(", ", attachments)}. Please review and confirm.";
+
+    private static string BuildWhatsAppShareUrl(string? phone, string text)
+    {
+        var digits = new string((phone ?? string.Empty).Where(char.IsDigit).ToArray());
+        var encoded = Uri.EscapeDataString(text);
+        return string.IsNullOrWhiteSpace(digits)
+            ? $"https://wa.me/?text={encoded}"
+            : $"https://wa.me/{digits}?text={encoded}";
     }
 
     private static bool TryBuildExportFromDraft(GstReturnDraft draft, out byte[]? bytes, out string? contentType, out string? extension, out string? error, bool excel)

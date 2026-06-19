@@ -15,6 +15,20 @@ const cloudLoading = ref(false)
 const cloudUploading = ref<string | null>(null)
 const cloudStatus = ref<any | null>(null)
 const cloudBackups = ref<any[]>([])
+const restoreDrillSteps = ref([
+  { key: 'create', label: 'Create fresh backup', detail: 'Run Create backup before deployment or before risky repair.' },
+  { key: 'verify', label: 'Verify all local backups', detail: 'Checks checksum/header/manifest for local backup files.' },
+  { key: 'cloud', label: 'Upload latest backup off-site', detail: 'Upload to Google Drive or another external location.' },
+  { key: 'preview', label: 'Run restore preview / dry run', detail: 'Use local restore preview on latest backup before real restore.' },
+  { key: 'document', label: 'Record operator confirmation', detail: 'Confirm backup file name and drill result in your operation notes.' }
+])
+const restoreDrillState = reactive<Record<string, boolean>>({})
+const restoreDrillNote = ref('')
+const RESTORE_DRILL_KEY = 'garmetix:backup-restore-drill:v1'
+
+const restoreDrillScore = computed(() => restoreDrillSteps.value.filter((step) => restoreDrillState[step.key]).length)
+const restoreDrillReady = computed(() => restoreDrillScore.value === restoreDrillSteps.value.length)
+
 
 const statusColor = computed(() => {
   const value = String(status.value?.status || '').toLowerCase()
@@ -169,6 +183,29 @@ async function uploadToCloud(fileName: string) {
   }
 }
 
+function loadRestoreDrill() {
+  if (typeof window === 'undefined') return
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(RESTORE_DRILL_KEY) || '{}')
+    Object.assign(restoreDrillState, saved.state || {})
+    restoreDrillNote.value = saved.note || ''
+  } catch {
+    // Ignore local checklist cache errors.
+  }
+}
+
+function saveRestoreDrill() {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(RESTORE_DRILL_KEY, JSON.stringify({
+    state: restoreDrillState,
+    note: restoreDrillNote.value,
+    savedAt: new Date().toISOString()
+  }))
+}
+
+watch(restoreDrillState, saveRestoreDrill, { deep: true })
+watch(restoreDrillNote, saveRestoreDrill)
+
 function formatBytes(value?: number | null) {
   const bytes = Number(value || 0)
   if (!bytes) return '0 B'
@@ -186,7 +223,10 @@ function formatDateTime(value?: string) {
   return value ? new Date(value).toLocaleString('en-IN') : '-'
 }
 
-onMounted(refresh)
+onMounted(async () => {
+  loadRestoreDrill()
+  await refresh()
+})
 </script>
 
 <template>
@@ -241,6 +281,41 @@ onMounted(refresh)
         </li>
       </ul>
     </UCard>
+
+<UCard>
+  <template #header>
+    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <h2 class="text-lg font-semibold">Production backup/restore drill</h2>
+        <p class="text-sm text-slate-500">Mark these after a real Mac mini backup verification. This keeps a visible production acceptance record.</p>
+      </div>
+      <UBadge :color="restoreDrillReady ? 'success' : 'warning'" :label="`${restoreDrillScore}/${restoreDrillSteps.length} complete`" />
+    </div>
+  </template>
+  <div class="grid gap-3 lg:grid-cols-2">
+    <label
+      v-for="step in restoreDrillSteps"
+      :key="step.key"
+      class="flex gap-3 rounded-2xl border border-slate-200 p-4 dark:border-slate-800"
+    >
+      <UCheckbox v-model="restoreDrillState[step.key]" />
+      <span>
+        <strong class="block text-sm text-slate-900 dark:text-white">{{ step.label }}</strong>
+        <small class="text-slate-500">{{ step.detail }}</small>
+      </span>
+    </label>
+  </div>
+  <UFormField class="mt-4" label="Restore drill note">
+    <UTextarea v-model="restoreDrillNote" :rows="3" placeholder="Example: Verified backup file name, cloud upload, restore preview result, operator name." />
+  </UFormField>
+  <template #footer>
+    <div class="flex flex-wrap gap-2">
+      <UButton icon="i-lucide-database-backup" color="primary" variant="soft" :loading="creatingBackup" @click="createBackup">Create backup</UButton>
+      <UButton icon="i-lucide-shield-check" color="success" variant="soft" :loading="verifying" @click="verifyAll">Verify all</UButton>
+      <UButton icon="i-lucide-cloud-upload" color="primary" variant="ghost" :disabled="!backupRows.length" @click="backupRows[0] && uploadToCloud(backupRows[0].fileName)">Upload latest</UButton>
+    </div>
+  </template>
+</UCard>
 
     <UCard>
       <template #header>

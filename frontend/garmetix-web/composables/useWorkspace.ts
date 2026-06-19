@@ -12,6 +12,19 @@ type WorkspaceRecord = {
   storeGroupId?: string
 }
 
+type WorkspaceDefaults = {
+  companyId?: string
+  storeGroupId?: string
+  storeId?: string
+}
+
+type WorkspaceState = {
+  companyId?: string
+  storeGroupId?: string
+  storeId?: string
+  savedAt?: string
+}
+
 export function useWorkspace() {
   const companyId = useState<string>('garmetix-workspace-company', () => '')
   const storeGroupId = useState<string>('garmetix-workspace-store-group', () => '')
@@ -21,38 +34,60 @@ export function useWorkspace() {
     user: WorkspaceUser | null,
     companies: WorkspaceRecord[],
     storeGroups: WorkspaceRecord[],
-    stores: WorkspaceRecord[]
+    stores: WorkspaceRecord[],
+    defaults: WorkspaceDefaults = {}
   ) {
     const saved = readSaved(user?.id)
     const allowedCompanies = user?.companyId
       ? companies.filter((item) => item.id === user.companyId)
       : companies
+
     const nextCompanyId = validId(saved.companyId, allowedCompanies)
+      || validId(companyId.value, allowedCompanies)
       || validId(user?.companyId, allowedCompanies)
+      || validId(defaults.companyId, allowedCompanies)
       || allowedCompanies[0]?.id
+      || companyId.value
       || ''
+
+    if (allowedCompanies.length || nextCompanyId) {
+      companyId.value = nextCompanyId
+    }
 
     const allowedGroups = storeGroups.filter((item) =>
-      (!nextCompanyId || item.companyId === nextCompanyId)
+      (!companyId.value || item.companyId === companyId.value)
       && (!user?.storeGroupId || item.id === user.storeGroupId))
     const nextStoreGroupId = validId(saved.storeGroupId, allowedGroups)
+      || validId(storeGroupId.value, allowedGroups)
       || validId(user?.storeGroupId, allowedGroups)
+      || validId(defaults.storeGroupId, allowedGroups)
       || allowedGroups[0]?.id
+      || storeGroupId.value
       || ''
+
+    if (storeGroups.length || nextStoreGroupId) {
+      storeGroupId.value = nextStoreGroupId
+    }
 
     const allowedStores = stores.filter((item) =>
-      (!nextCompanyId || item.companyId === nextCompanyId)
-      && (!nextStoreGroupId || item.storeGroupId === nextStoreGroupId)
+      (!companyId.value || item.companyId === companyId.value)
+      && (!storeGroupId.value || item.storeGroupId === storeGroupId.value)
       && (!user?.storeId || item.id === user.storeId))
     const nextStoreId = validId(saved.storeId, allowedStores)
+      || validId(storeId.value, allowedStores)
       || validId(user?.storeId, allowedStores)
+      || validId(defaults.storeId, allowedStores)
       || allowedStores[0]?.id
+      || storeId.value
       || ''
 
-    companyId.value = nextCompanyId
-    storeGroupId.value = nextStoreGroupId
-    storeId.value = nextStoreId
-    persist(user?.id)
+    if (stores.length || nextStoreId) {
+      storeId.value = nextStoreId
+    }
+
+    if (stores.length || storeGroups.length || companies.length) {
+      persist(user?.id)
+    }
   }
 
   function selectCompany(
@@ -65,8 +100,7 @@ export function useWorkspace() {
     const groups = storeGroups.filter((item) =>
       item.companyId === companyId.value
       && (!user?.storeGroupId || item.id === user.storeGroupId))
-    storeGroupId.value = validId(storeGroupId.value, groups)
-      || validId(user?.storeGroupId, groups)
+    storeGroupId.value = validId(user?.storeGroupId, groups)
       || groups[0]?.id
       || ''
     selectStoreGroup(storeGroupId.value, user, stores)
@@ -78,8 +112,7 @@ export function useWorkspace() {
       (!companyId.value || item.companyId === companyId.value)
       && (!storeGroupId.value || item.storeGroupId === storeGroupId.value)
       && (!user?.storeId || item.id === user.storeId))
-    storeId.value = validId(storeId.value, availableStores)
-      || validId(user?.storeId, availableStores)
+    storeId.value = validId(user?.storeId, availableStores)
       || availableStores[0]?.id
       || ''
     persist(user?.id)
@@ -88,6 +121,15 @@ export function useWorkspace() {
   function selectStore(value: string, user: WorkspaceUser | null) {
     storeId.value = user?.storeId || value
     persist(user?.id)
+  }
+
+  function setDefault(userId?: string) {
+    if (!import.meta.client || !userId) {
+      return
+    }
+
+    localStorage.setItem(defaultStorageKey(userId), JSON.stringify(snapshot()))
+    persist(userId)
   }
 
   function clear() {
@@ -101,27 +143,48 @@ export function useWorkspace() {
       return
     }
 
-    localStorage.setItem(storageKey(userId), JSON.stringify({
-      companyId: companyId.value,
-      storeGroupId: storeGroupId.value,
-      storeId: storeId.value
-    }))
+    localStorage.setItem(storageKey(userId), JSON.stringify(snapshot()))
   }
 
-  function readSaved(userId?: string) {
+  function snapshot(): WorkspaceState {
+    return {
+      companyId: companyId.value,
+      storeGroupId: storeGroupId.value,
+      storeId: storeId.value,
+      savedAt: new Date().toISOString()
+    }
+  }
+
+  function readSaved(userId?: string): WorkspaceState {
     if (!import.meta.client || !userId) {
       return {}
     }
 
-    try {
-      return JSON.parse(localStorage.getItem(storageKey(userId)) || '{}')
-    } catch {
+    return readJson(storageKey(userId)) || readJson(defaultStorageKey(userId)) || {}
+  }
+
+  function readDefault(userId?: string): WorkspaceState {
+    if (!import.meta.client || !userId) {
       return {}
+    }
+
+    return readJson(defaultStorageKey(userId)) || {}
+  }
+
+  function readJson(key: string): WorkspaceState | null {
+    try {
+      return JSON.parse(localStorage.getItem(key) || 'null')
+    } catch {
+      return null
     }
   }
 
   function storageKey(userId: string) {
     return `garmetix.workspace.${userId}`
+  }
+
+  function defaultStorageKey(userId: string) {
+    return `garmetix.workspace.default.${userId}`
   }
 
   function validId(value: string | undefined, rows: WorkspaceRecord[]) {
@@ -136,6 +199,9 @@ export function useWorkspace() {
     selectCompany,
     selectStoreGroup,
     selectStore,
+    setDefault,
+    persist,
+    readDefault,
     clear
   }
 }
