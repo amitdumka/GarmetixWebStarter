@@ -15,7 +15,7 @@ public static class DashboardEndpoints
             .WithTags("Dashboard")
             .RequireAuthorization();
 
-        group.MapGet("/home", Home).WithName("GetDashboardHome");
+        group.MapGet("/home", HomeAsync).WithName("GetDashboardHome");
         group.MapGet("/store-manager", StoreManagerAsync).WithName("GetStoreManagerDashboard");
         group.MapGet("/business", BusinessAsync).WithName("GetBusinessDashboard");
 
@@ -23,10 +23,16 @@ public static class DashboardEndpoints
     }
 
 
-    private static DashboardHomeDto Home(HttpContext context)
+    private static Task<IResult> HomeAsync(HttpContext context, CancellationToken cancellationToken)
     {
-        var role = context.User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
-        var userType = context.User.FindFirst("userType")?.Value ?? string.Empty;
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult<IResult>(Results.Ok(ResolveHome(context.User)));
+    }
+
+    public static DashboardHomeDto ResolveHome(ClaimsPrincipal user)
+    {
+        var role = user.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+        var userType = user.FindFirst("userType")?.Value ?? string.Empty;
         var combined = $"{role} {userType}".ToLowerInvariant();
         if (string.Equals(role, LoginRole.HR.ToString(), StringComparison.OrdinalIgnoreCase))
         {
@@ -38,7 +44,7 @@ public static class DashboardEndpoints
             return new DashboardHomeDto("/payroll", "Payroll", "Payroll users start in salary and payslip operations.", false, false);
         }
 
-        var canOpenBusiness = WorkspaceScope.HasFullAccess(context)
+        var canOpenBusiness = WorkspaceScope.HasFullAccess(user)
             || combined.Contains("admin")
             || combined.Contains("owner")
             || combined.Contains("accountant")

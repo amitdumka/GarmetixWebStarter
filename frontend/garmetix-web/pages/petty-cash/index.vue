@@ -283,7 +283,7 @@ function buildPayload() {
 
   const payload: any = {
     storeId: form.storeId,
-    onDate: accountingDateTimeForApi(form.onDate),
+    onDate: `${form.onDate}T00:00:00`,
     openingBalance: Number(form.openingBalance || 0),
     sales: Number(form.sales || 0),
     receipts: Number(form.receipts || 0),

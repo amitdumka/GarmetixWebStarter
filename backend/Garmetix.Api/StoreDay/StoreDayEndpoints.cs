@@ -85,7 +85,7 @@ public static class StoreDayEndpoints
     {
         var group = app.MapGroup("/api/store-day")
             .WithTags("Store Day")
-            .RequireAuthorization();
+            .RequireAuthorization(GarmetixPolicies.Billing);
 
         group.MapGet("/status", StatusAsync);
         group.MapGet("/book-summary", BookSummaryAsync);

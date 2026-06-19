@@ -1,3 +1,44 @@
+## Stage 8I Package 16 Secret Hygiene and Hydration Guard / v4.9.15
+
+- Removed private `deploy/macmini.env` from the distributable project package.
+- Added `.gitignore` rules for local env files, deployment secrets, private keys, backups, build output and release archives.
+- Added `SECRET_HYGIENE_AUDIT` and `FRONTEND_HYDRATION_GUARD` to the Test Automation manifest and runtime smoke required list.
+- Added static validation for secret hygiene and Nuxt auth hydration guard.
+- Updated Nuxt `app.vue` to render authenticated pages after client-mounted session restore, reducing shared SSR/auth shell hydration mismatch warnings.
+- Smoke scripts now expect version 4.9.15 / build `GARMETIX-8I-20260619-49150`.
+- Version: 4.9.15
+- Build code: `GARMETIX-8I-20260619-49150`
+
+## Stage 8I Package 15 Docker Acceptance Drill / v4.9.14
+
+- Added host-level Docker acceptance drill scripts for Linux and Windows.
+- Added browserless Nuxt route-access audit so concrete pages cannot bypass explicit access review.
+- Added `FRONTEND_ROUTE_ACCESS_AUDIT` and `DOCKER_ACCEPTANCE_DRILL` to the Test Automation manifest and runtime smoke contract.
+- Smoke scripts now require the route-access and Docker drill manifest codes.
+- The Docker drill verifies production compose build/up, API health, web proxy app-info, authenticated dashboard home, workspace options, setup status, release checks, and production readiness when smoke credentials are supplied.
+- Version: 4.9.14
+- Build code: `GARMETIX-8I-20260619-49140`
+
+## Stage 8I Package 14 Dashboard Home Smoke Hardening / v4.9.13
+
+- Fixed `GET /api/dashboard/home` to return an explicit `DashboardHomeDto` JSON body through `Results.Ok(...)`.
+- Centralized dashboard home routing in a testable `DashboardEndpoints.ResolveHome(...)` contract.
+- Added backend tests for Admin, HR, Payroll and Salesman dashboard routing.
+- Added `DASHBOARD_HOME_CONTRACT` to Release Stabilization smoke checks and Test Automation manifest.
+- Linux and Windows smoke scripts now validate authenticated `/api/dashboard/home` response shape.
+- Version: 4.9.13
+- Build code: `GARMETIX-8I-20260619-49130`
+
+## Stage 8I Package 13 Production Stabilization Repair Pack / v4.9.12
+
+- Added missing frontend route access rules for Cash Details, Store Day, Tailoring, backup and final acceptance pages.
+- Cash Details API now requires Accounting matrix authorization instead of generic login-only access.
+- Cash Details payload validation blocks empty store, missing date, negative denomination counts and negative amount.
+- Linked Day Opening/Closing cash details can no longer move store, date or source during edit.
+- Store Day API now uses Billing matrix authorization to match store operation roles.
+- Version: 4.9.12
+- Build code: `GARMETIX-8I-20260619-49120`
+
 ## Stage 8I Package 12 Cash Details Register + Notes/Coin History / v4.9.11
 
 - Added Cash Details register page.

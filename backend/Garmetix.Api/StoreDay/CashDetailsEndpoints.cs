@@ -1,4 +1,5 @@
 
+using Garmetix.Api.Auth;
 using Garmetix.Api.Workspace;
 using Garmetix.Infrastructure.Data;
 using Garmetix.Models.DayOperations;
@@ -69,7 +70,7 @@ public static class CashDetailsEndpoints
     {
         var group = app.MapGroup("/api/cash-details")
             .WithTags("Cash Details")
-            .RequireAuthorization();
+            .RequireAuthorization(GarmetixPolicies.Accounting);
 
         group.MapGet("/", ListAsync);
         group.MapGet("/history", HistoryAsync);
@@ -204,6 +205,12 @@ public static class CashDetailsEndpoints
             return Results.BadRequest(new { message = "Selected store is outside your access scope." });
         }
 
+        var validation = ValidateCashDetailRequest(request);
+        if (validation is not null)
+        {
+            return validation;
+        }
+
         var entity = new CashDetail
         {
             StoreId = request.StoreId,
@@ -224,14 +231,43 @@ public static class CashDetailsEndpoints
             return Results.NotFound();
         }
 
-        if (!CanUseStore(context, entity.StoreId) || !CanUseStore(context, request.StoreId))
+        if (!CanUseStore(context, entity.StoreId))
         {
             return Results.BadRequest(new { message = "Selected cash detail is outside your access scope." });
         }
 
-        entity.StoreId = request.StoreId;
-        entity.OnDate = request.OnDate.Date;
-        entity.CreatedBy = NormalizeSource(request.Source);
+        var validation = ValidateCashDetailRequest(request);
+        if (validation is not null)
+        {
+            return validation;
+        }
+
+        var linked = await IsLinkedAsync(db, entity.Id, cancellationToken);
+        if (linked.LinkedToDayOpening || linked.LinkedToDayClosing)
+        {
+            if (request.StoreId != entity.StoreId || request.OnDate.Date != entity.OnDate.Date)
+            {
+                return Results.BadRequest(new { message = "Linked Day Opening/Closing cash details cannot move store or date. Reopen/delete the day close first if store/date correction is required." });
+            }
+
+            var requestedSource = NormalizeSource(request.Source);
+            var existingSource = NormalizeSource(entity.CreatedBy);
+            if (!string.Equals(requestedSource, existingSource, StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.BadRequest(new { message = "Linked Day Opening/Closing cash details cannot change source. Only amount and note/coin counts are editable." });
+            }
+        }
+        else if (!CanUseStore(context, request.StoreId))
+        {
+            return Results.BadRequest(new { message = "Selected target store is outside your access scope." });
+        }
+        else
+        {
+            entity.StoreId = request.StoreId;
+            entity.OnDate = request.OnDate.Date;
+            entity.CreatedBy = NormalizeSource(request.Source);
+        }
+
         Copy(request, entity);
         entity.UpdatedAt = DateTime.UtcNow;
 
@@ -263,6 +299,42 @@ public static class CashDetailsEndpoints
         entity.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
+    }
+
+    private static IResult? ValidateCashDetailRequest(CashDetailSaveRequest request)
+    {
+        if (request.StoreId == Guid.Empty)
+        {
+            return Results.BadRequest(new { message = "Store is required for cash detail." });
+        }
+
+        if (request.OnDate == default)
+        {
+            return Results.BadRequest(new { message = "Date is required for cash detail." });
+        }
+
+        var hasNegativeCount = request.N2000 < 0
+            || request.N500 < 0
+            || request.N200 < 0
+            || request.N100 < 0
+            || request.N50 < 0
+            || request.NC20 < 0
+            || request.NC10 < 0
+            || request.NC5 < 0
+            || request.NC2 < 0
+            || request.NC1 < 0;
+
+        if (hasNegativeCount)
+        {
+            return Results.BadRequest(new { message = "Cash note and coin counts cannot be negative." });
+        }
+
+        if (request.Amount.HasValue && request.Amount.Value < 0)
+        {
+            return Results.BadRequest(new { message = "Cash amount cannot be negative." });
+        }
+
+        return null;
     }
 
     private static void Copy(CashDetailSaveRequest request, CashDetail entity)

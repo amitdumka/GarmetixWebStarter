@@ -3645,3 +3645,30 @@ select {
   overflow-x: auto;
   overflow-y: visible;
 }
+
+.garmetix-client-boot {
+  min-height: 100vh;
+  display: grid;
+  place-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.garmetix-client-boot img {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 6px;
+  border-radius: 14px;
+}
+
+.garmetix-client-boot strong {
+  font-size: 18px;
+}
+
+.garmetix-client-boot span {
+  color: var(--muted);
+  font-size: 13px;
+}

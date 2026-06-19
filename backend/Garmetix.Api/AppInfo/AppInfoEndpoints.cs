@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.9.11";
-    public const string Stage = "Stage 8I Package 12 Cash Details Register";
-    public const string ReleaseName = "Cash Details Register";
-    public const string BuildDate = "2026-06-17";
-    public const string BuildCode = "GARMETIX-8I-20260619-49110";
+    public const string Version = "4.9.15";
+    public const string Stage = "Stage 8I Package 16 Secret Hygiene and Hydration Guard";
+    public const string ReleaseName = "Secret Hygiene & Hydration Guard";
+    public const string BuildDate = "2026-06-19";
+    public const string BuildCode = "GARMETIX-8I-20260619-49150";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,19 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Local deployment env files are excluded from release archives and repository tracking.",
+        "Secret hygiene validation scans for Cloudflare API tokens, local env files and obvious private credentials before packaging.",
+        "Nuxt uses a client hydration gate so authenticated dashboard pages render after browser session restore and avoid shared SSR/auth shell mismatches.",
+        "Docker acceptance drill now verifies build, container health, authenticated dashboard routing, workspace/readiness endpoints, and route-access coverage.",
+        "The release manifest now includes DOCKER_ACCEPTANCE_DRILL and FRONTEND_ROUTE_ACCESS_AUDIT so production smoke checks cover host-level acceptance.",
+        "Linux and Windows acceptance scripts can run the full deployment drill from a single command before go-live.",
+        "/api/dashboard/home now returns an explicit DashboardHomeDto JSON body for role-based dashboard routing.",
+        "Release smoke checks now include dashboard-home contract validation.",
+        "Linux and Windows smoke scripts validate dashboard/home after authenticated login.",
+        "Frontend route access now covers Cash Details, Store Day, Tailoring, backup and final acceptance pages.",
+        "Cash Details API now requires Accounting matrix permission and validates cash denomination payloads.",
+        "Linked Day Opening and Day Closing cash details cannot change store, date or source during edit.",
+        "Store Day API authorization now matches store operational roles through the Billing permission matrix.",
         "Automated backend, frontend and production smoke-test scripts now ship with the release package.",
         "The API exposes a test-automation manifest and runtime smoke endpoint for deployment validation.",
         "Frontend smoke checks verify the public login page and proxied app-info endpoint without a browser driver.",

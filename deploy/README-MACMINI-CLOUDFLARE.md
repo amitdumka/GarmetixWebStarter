@@ -126,7 +126,7 @@ The old env line `GSTIN_LOOKUP_SOURCE_NAME=Configured GSTIN Provider` must be qu
 
 ## Prepared Cloudflare config in this ZIP
 
-This ZIP includes `deploy/macmini.env` prepared for:
+This ZIP does not include `deploy/macmini.env`. Copy `deploy/macmini.env.example` to `deploy/macmini.env` on your private machine and set:
 
 - Server: `amit@192.168.11.126`
 - Domain: `garmetix.aadwikafashion.in`

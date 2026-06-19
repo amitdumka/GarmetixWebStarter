@@ -1,5 +1,7 @@
 # Garmetix Documentation
 
+> Current package: Stage 8I Package 16 Secret Hygiene and Hydration Guard v4.9.15 (`GARMETIX-8I-20260619-49150`).
+
 This folder is the canonical home for project plans, implementation notes, validation logs, operational guides, and reports.
 
 ## Start Here
@@ -153,4 +155,9 @@ This folder is the canonical home for project plans, implementation notes, valid
 
 - [Stage 8I Package 11 / v4.9.10 petty cash print URL hotfix notes](stages/stage-8/Stage8I-Package11-PettyCashPrintUrl-v4.9.10-Notes.md)
 
+- [Stage 8I Package 16 / v4.9.15 secret hygiene and hydration guard notes](stages/stage-8/Stage8I-Package16-SecretHygieneHydrationGuard-v4.9.15-Notes.md)
+- [Stage 8I Package 15 / v4.9.14 docker acceptance drill notes](stages/stage-8/Stage8I-Package15-DockerAcceptanceDrill-v4.9.14-Notes.md)
+
+- [Stage 8I Package 14 / v4.9.13 dashboard home smoke hardening notes](stages/stage-8/Stage8I-Package14-DashboardHomeSmokeHardening-v4.9.13-Notes.md)
+- [Stage 8I Package 13 / v4.9.12 production stabilization notes](stages/stage-8/Stage8I-Package13-ProductionStabilization-v4.9.12-Notes.md)
 - [Stage 8I Package 12 / v4.9.11 cash details register notes](stages/stage-8/Stage8I-Package12-CashDetailsRegister-v4.9.11-Notes.md)

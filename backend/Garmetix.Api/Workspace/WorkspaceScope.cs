@@ -190,9 +190,10 @@ public static class WorkspaceScope
         return true;
     }
 
-    public static bool HasFullAccess(HttpContext context)
+    public static bool HasFullAccess(HttpContext context) => HasFullAccess(context.User);
+
+    public static bool HasFullAccess(ClaimsPrincipal? principal)
     {
-        var principal = context.User;
         if (principal?.Identity?.IsAuthenticated != true)
         {
             return false;

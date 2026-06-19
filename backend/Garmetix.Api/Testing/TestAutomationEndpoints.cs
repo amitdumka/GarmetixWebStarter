@@ -40,7 +40,7 @@ public static class TestAutomationEndpoints
             AppInfoEndpoints.Version.StartsWith("4.", StringComparison.Ordinal) && AppInfoEndpoints.BuildCode.StartsWith("GARMETIX-8", StringComparison.Ordinal) ? "Pass" : "Critical",
             "High",
             $"API reports {AppInfoEndpoints.Version} / {AppInfoEndpoints.BuildCode} in {environment.EnvironmentName}.",
-            "Rebuild and redeploy the latest Stage 8G release archive if version/build code is stale.");
+            "Rebuild and redeploy the latest Stage 8I release archive if version/build code is stale.");
 
         try
         {
@@ -90,10 +90,15 @@ public static class TestAutomationEndpoints
         var requiredCodes = new[]
         {
             "BACKEND_UNIT_TESTS",
+            "DASHBOARD_HOME_CONTRACT",
             "FRONTEND_BUILD",
             "FRONTEND_SMOKE",
             "DOCKER_COMPOSE_BUILD",
             "DOCKER_HEALTH",
+            "FRONTEND_ROUTE_ACCESS_AUDIT",
+            "DOCKER_ACCEPTANCE_DRILL",
+            "SECRET_HYGIENE_AUDIT",
+            "FRONTEND_HYDRATION_GUARD",
             "AUTHENTICATED_API_SMOKE"
         };
         var catalogOk = requiredCodes.All(code => definitions.Any(item => item.Code == code));
@@ -103,7 +108,7 @@ public static class TestAutomationEndpoints
             catalogOk ? "Pass" : "Warning",
             catalogOk ? "Info" : "Medium",
             catalogOk ? $"Manifest exposes {definitions.Count} test definitions." : "Manifest is missing one or more required smoke-test definitions.",
-            "Restore the Stage 8F Package 2 TestAutomationCatalog definitions.");
+            "Restore the Stage 8I Package 16 TestAutomationCatalog definitions.");
 
         var critical = checks.Count(item => item.Status.Equals("Critical", StringComparison.OrdinalIgnoreCase));
         var warnings = checks.Count(item => item.Status.Equals("Warning", StringComparison.OrdinalIgnoreCase));

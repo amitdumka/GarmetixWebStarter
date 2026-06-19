@@ -114,7 +114,7 @@ sudo docker compose --env-file .env.production -f docker-compose.prod.yml -f dep
 
 ## Prepared Cloudflare config in this ZIP
 
-This package includes `deploy/macmini.env` prepared for:
+This package does not include `deploy/macmini.env`. Copy `deploy/macmini.env.example` to `deploy/macmini.env` on your private machine and set:
 
 - Server: `amit@192.168.11.126`
 - Domain: `garmetix.aadwikafashion.in`
