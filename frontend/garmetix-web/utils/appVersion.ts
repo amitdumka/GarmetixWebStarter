@@ -1,10 +1,12 @@
-export const APP_VERSION = '4.10.4'
-export const APP_STAGE = 'Stage 9D Attendance Payroll Integration Foundation'
-export const APP_RELEASE_NAME = 'Attendance Payroll Review Foundation'
+export const APP_VERSION = '4.10.5'
+export const APP_STAGE = 'Stage 9E Attendance Salary Slip Draft Preview'
+export const APP_RELEASE_NAME = 'Attendance Salary Slip Draft Preview'
 export const APP_BUILD_DATE = '2026-06-18'
-export const APP_BUILD_CODE = 'GARMETIX-9D-20260619-4104'
+export const APP_BUILD_CODE = 'GARMETIX-9E-20260619-4105'
 
 export const APP_HIGHLIGHTS = [
+  'Stage 9E adds salary slip draft preview rows from reviewed attendance payroll review data without posting payroll, vouchers, or salary slips.',
+  'Attendance salary draft preview can be rebuilt and marked ReadyForPayroll or OnHold, but remains PreviewOnly until a later approved package.',
   'Stage 9D adds attendance payroll review rows with payable days, deduction days, overtime minutes, lock visibility, and review status without posting payroll.',
   'Attendance payroll review can be rebuilt from monthly attendance summaries and marked Reviewed, ApprovedForPayroll, or OnHold.',
   'Monthly attendance generation now fully qualifies the legacy HRM Attendance entity to avoid namespace/type collision during Docker API publish.',

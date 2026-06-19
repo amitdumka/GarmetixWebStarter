@@ -21,5 +21,8 @@ export function useAttendance() {
   const payrollReview = (year?: number, month?: number) => api.get<any>(`attendance/payroll-review?year=${year || new Date().getFullYear()}&month=${month || new Date().getMonth() + 1}`)
   const rebuildPayrollReview = (body: any) => api.create<any>('attendance/payroll-review/rebuild', body)
   const markPayrollReview = (id: string, body: any) => api.create<any>(`attendance/payroll-review/${id}/mark-reviewed`, body)
-  return { today, monthly, history, manualPunch, regularization, createRegularization, approveRegularization, rejectRegularization, recalculate, lockMonth, payrollSummary, payrollReview, rebuildPayrollReview, markPayrollReview }
+  const salarySlipDrafts = (year?: number, month?: number) => api.get<any>(`attendance/salary-slip-drafts?year=${year || new Date().getFullYear()}&month=${month || new Date().getMonth() + 1}`)
+  const rebuildSalarySlipDrafts = (body: any) => api.create<any>('attendance/salary-slip-drafts/rebuild', body)
+  const markSalarySlipDraft = (id: string, body: any) => api.create<any>(`attendance/salary-slip-drafts/${id}/mark-ready`, body)
+  return { today, monthly, history, manualPunch, regularization, createRegularization, approveRegularization, rejectRegularization, recalculate, lockMonth, payrollSummary, payrollReview, rebuildPayrollReview, markPayrollReview, salarySlipDrafts, rebuildSalarySlipDrafts, markSalarySlipDraft }
 }

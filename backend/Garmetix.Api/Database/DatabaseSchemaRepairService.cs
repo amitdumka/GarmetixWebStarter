@@ -652,6 +652,74 @@ public static async Task RepairAttendanceCoreStorageAsync(GarmetixDbContext db, 
         CREATE INDEX IF NOT EXISTS "IX_AttendancePayrollReviews_CompanyId_StoreId_EmployeeId_Year_Month" ON "AttendancePayrollReviews" ("CompanyId", "StoreId", "EmployeeId", "Year", "Month");
         CREATE INDEX IF NOT EXISTS "IX_AttendancePayrollReviews_CompanyId_StoreId_Year_Month_ReviewStatus" ON "AttendancePayrollReviews" ("CompanyId", "StoreId", "Year", "Month", "ReviewStatus");
 
+
+        CREATE TABLE IF NOT EXISTS "AttendanceSalarySlipDrafts" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "CompanyId" uuid NOT NULL,
+            "CreatedBy" text NULL,
+            "StoreGroupId" uuid NOT NULL,
+            "StoreId" uuid NOT NULL,
+            "EmployeeId" uuid NOT NULL,
+            "PayrollReviewId" uuid NULL,
+            "Year" integer NOT NULL,
+            "Month" integer NOT NULL,
+            "PresentDays" numeric(18,2) NOT NULL DEFAULT 0,
+            "AbsentDays" numeric(18,2) NOT NULL DEFAULT 0,
+            "LateDays" numeric(18,2) NOT NULL DEFAULT 0,
+            "HalfDays" numeric(18,2) NOT NULL DEFAULT 0,
+            "LeaveDays" numeric(18,2) NOT NULL DEFAULT 0,
+            "PayableDays" numeric(18,2) NOT NULL DEFAULT 0,
+            "DeductionDays" numeric(18,2) NOT NULL DEFAULT 0,
+            "WorkingMinutes" integer NOT NULL DEFAULT 0,
+            "OvertimeMinutes" integer NOT NULL DEFAULT 0,
+            "MonthlySalary" numeric(18,2) NOT NULL DEFAULT 0,
+            "DailyRate" numeric(18,2) NOT NULL DEFAULT 0,
+            "AttendanceGrossPreview" numeric(18,2) NOT NULL DEFAULT 0,
+            "AttendanceDeductionPreview" numeric(18,2) NOT NULL DEFAULT 0,
+            "BonusPreview" numeric(18,2) NOT NULL DEFAULT 0,
+            "LeaveEncashmentPreview" numeric(18,2) NOT NULL DEFAULT 0,
+            "SalaryAdvanceRecoveryPreview" numeric(18,2) NOT NULL DEFAULT 0,
+            "PfEmployeePreview" numeric(18,2) NOT NULL DEFAULT 0,
+            "GratuityPreview" numeric(18,2) NOT NULL DEFAULT 0,
+            "OtherDeductionPreview" numeric(18,2) NOT NULL DEFAULT 0,
+            "NetPayPreview" numeric(18,2) NOT NULL DEFAULT 0,
+            "DraftStatus" character varying(40) NOT NULL DEFAULT 'Draft',
+            "PayrollPostStatus" character varying(40) NOT NULL DEFAULT 'PreviewOnly',
+            "PreparedAtUtc" timestamp without time zone NULL,
+            "PreparedBy" character varying(120) NULL,
+            "MarkedReadyAtUtc" timestamp without time zone NULL,
+            "MarkedReadyBy" character varying(120) NULL,
+            "Notes" character varying(300) NULL,
+            "SourceJson" text NULL,
+            CONSTRAINT "PK_AttendanceSalarySlipDrafts" PRIMARY KEY ("Id")
+        );
+        ALTER TABLE "AttendanceSalarySlipDrafts" ADD COLUMN IF NOT EXISTS "PayrollReviewId" uuid NULL;
+        ALTER TABLE "AttendanceSalarySlipDrafts" ADD COLUMN IF NOT EXISTS "MonthlySalary" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "AttendanceSalarySlipDrafts" ADD COLUMN IF NOT EXISTS "DailyRate" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "AttendanceSalarySlipDrafts" ADD COLUMN IF NOT EXISTS "AttendanceGrossPreview" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "AttendanceSalarySlipDrafts" ADD COLUMN IF NOT EXISTS "AttendanceDeductionPreview" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "AttendanceSalarySlipDrafts" ADD COLUMN IF NOT EXISTS "BonusPreview" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "AttendanceSalarySlipDrafts" ADD COLUMN IF NOT EXISTS "LeaveEncashmentPreview" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "AttendanceSalarySlipDrafts" ADD COLUMN IF NOT EXISTS "SalaryAdvanceRecoveryPreview" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "AttendanceSalarySlipDrafts" ADD COLUMN IF NOT EXISTS "PfEmployeePreview" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "AttendanceSalarySlipDrafts" ADD COLUMN IF NOT EXISTS "GratuityPreview" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "AttendanceSalarySlipDrafts" ADD COLUMN IF NOT EXISTS "OtherDeductionPreview" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "AttendanceSalarySlipDrafts" ADD COLUMN IF NOT EXISTS "NetPayPreview" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "AttendanceSalarySlipDrafts" ADD COLUMN IF NOT EXISTS "DraftStatus" character varying(40) NOT NULL DEFAULT 'Draft';
+        ALTER TABLE "AttendanceSalarySlipDrafts" ADD COLUMN IF NOT EXISTS "PayrollPostStatus" character varying(40) NOT NULL DEFAULT 'PreviewOnly';
+        ALTER TABLE "AttendanceSalarySlipDrafts" ADD COLUMN IF NOT EXISTS "PreparedAtUtc" timestamp without time zone NULL;
+        ALTER TABLE "AttendanceSalarySlipDrafts" ADD COLUMN IF NOT EXISTS "PreparedBy" character varying(120) NULL;
+        ALTER TABLE "AttendanceSalarySlipDrafts" ADD COLUMN IF NOT EXISTS "MarkedReadyAtUtc" timestamp without time zone NULL;
+        ALTER TABLE "AttendanceSalarySlipDrafts" ADD COLUMN IF NOT EXISTS "MarkedReadyBy" character varying(120) NULL;
+        ALTER TABLE "AttendanceSalarySlipDrafts" ADD COLUMN IF NOT EXISTS "Notes" character varying(300) NULL;
+        ALTER TABLE "AttendanceSalarySlipDrafts" ADD COLUMN IF NOT EXISTS "SourceJson" text NULL;
+        CREATE INDEX IF NOT EXISTS "IX_AttendanceSalarySlipDrafts_CompanyId_StoreId_EmployeeId_Year_Month" ON "AttendanceSalarySlipDrafts" ("CompanyId", "StoreId", "EmployeeId", "Year", "Month");
+        CREATE INDEX IF NOT EXISTS "IX_AttendanceSalarySlipDrafts_CompanyId_StoreId_Year_Month_DraftStatus" ON "AttendanceSalarySlipDrafts" ("CompanyId", "StoreId", "Year", "Month", "DraftStatus");
+
         ALTER TABLE "AttendancePhotoProofs" ADD COLUMN IF NOT EXISTS "ReviewStatus" character varying(40) NOT NULL DEFAULT 'PendingReview';
         ALTER TABLE "AttendancePhotoProofs" ADD COLUMN IF NOT EXISTS "ReviewedAtUtc" timestamp without time zone NULL;
         ALTER TABLE "AttendancePhotoProofs" ADD COLUMN IF NOT EXISTS "ReviewedBy" character varying(120) NULL;

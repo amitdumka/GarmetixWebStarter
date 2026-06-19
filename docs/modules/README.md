@@ -9,3 +9,5 @@
 - `oracle-sync/` - Oracle secondary-sync versions and external-app integration.
 - `reports-audit/` - reports and audit implementation notes.
 
+
+- [Stage 9E Attendance Salary Slip Draft Preview](Attendance-SalaryDraft-Stage9E.md)

@@ -195,6 +195,16 @@ public static class TestAutomationCatalog
             "High",
             RequiresDocker: false,
             RequiresLiveServer: true),
+
+        new(
+            "ATTENDANCE_SALARY_DRAFT_PREVIEW",
+            "HR/Attendance",
+            "Verify attendance salary slip draft preview",
+            "python3 scripts/validation/stage9e-attendance-salary-draft-check.py && GARMETIX_SMOKE_USER=admin GARMETIX_SMOKE_PASSWORD=*** ./scripts/linux/attendance-salary-draft-drill.sh .env.production",
+            "Stage 9E exposes salary-slip draft preview generated from reviewed attendance payroll rows, with ReadyForPayroll/OnHold status and no salary slip, payment or accounting posting.",
+            "High",
+            RequiresDocker: false,
+            RequiresLiveServer: true),
         new(
             "AUTHENTICATED_API_SMOKE",
             "API",

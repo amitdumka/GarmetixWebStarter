@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const devicesApi=useAttendanceDevices(); const workspace=useWorkspace(); const feedback=useUiFeedback(); const loading=ref(false); const devices=ref<any[]>([]); const tokenResult=ref<any|null>(null); const form=reactive<any>({deviceName:'Front Desk Tablet', deviceType:'WebKiosk', appVersion:'4.10.4', notes:''})
+const devicesApi=useAttendanceDevices(); const workspace=useWorkspace(); const feedback=useUiFeedback(); const loading=ref(false); const devices=ref<any[]>([]); const tokenResult=ref<any|null>(null); const form=reactive<any>({deviceName:'Front Desk Tablet', deviceType:'WebKiosk', appVersion:'4.10.5', notes:''})
 async function refresh(){ loading.value=true; try{ devices.value=await devicesApi.list() }catch(e:any){ feedback.fromError('Kiosk devices refresh failed',e) } finally{ loading.value=false } }
 async function register(){ tokenResult.value=await devicesApi.register({...form, companyId:workspace.companyId.value, storeGroupId:workspace.storeGroupId.value, storeId:workspace.storeId.value}); feedback.success('Kiosk device registered','Copy token now. It is shown only once.'); await refresh() }
 async function revoke(id:string){ await devicesApi.revoke(id); await refresh() }

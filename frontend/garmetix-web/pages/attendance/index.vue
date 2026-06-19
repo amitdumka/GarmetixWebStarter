@@ -28,7 +28,7 @@ onMounted(refresh)
 <template>
   <AppShell title="Attendance Dashboard" @refresh="refresh">
     <section class="space-y-6">
-      <UiModulePageHeader title="Attendance Core" description="Stage 9D: attendance core with web kiosk, photo review, regularization, offline sync audit, and payroll review foundation." icon="i-lucide-calendar-check" :loading="loading" @primary="refresh">
+      <UiModulePageHeader title="Attendance Core" description="Stage 9E: attendance core with web kiosk, photo review, regularization, offline sync audit, payroll review, and salary draft preview foundation." icon="i-lucide-calendar-check" :loading="loading" @primary="refresh">
         <template #actions><UButton icon="i-lucide-refresh-cw" :loading="loading" label="Refresh" @click="refresh" /><UButton to="/attendance/kiosk" icon="i-lucide-camera" label="Open Web Kiosk" color="neutral" variant="subtle" /><UButton to="/attendance/kiosk-monitor" icon="i-lucide-monitor-check" label="Kiosk Monitor" color="neutral" variant="subtle" /><UButton to="/attendance/photo-review" icon="i-lucide-user-check" label="Photo Review" color="neutral" variant="subtle" /></template>
       </UiModulePageHeader>
       <div class="grid gap-3 md:grid-cols-4"><UCard v-for="card in cards" :key="card.label"><div class="flex items-center gap-3"><UAvatar :icon="card.icon" /><div><p class="text-xs text-muted">{{ card.label }}</p><strong>{{ card.value }}</strong></div></div></UCard></div>

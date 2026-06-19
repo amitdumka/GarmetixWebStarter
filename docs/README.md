@@ -175,4 +175,6 @@ This folder is the canonical home for project plans, implementation notes, valid
 
 - [Attendance Kiosk Stage 9B](modules/Attendance-Kiosk-Stage9B.md)
 
-- [Stage 9D / v4.10.4 Attendance Payroll Review](stages/stage-9/Stage9D-AttendancePayrollReview-v4.10.4-Notes.md)
+- [Stage 9D / v4.10.5 Attendance Payroll Review](stages/stage-9/Stage9D-AttendancePayrollReview-v4.10.5-Notes.md)
+
+- [Stage 9E / v4.10.5 Attendance Salary Draft Preview](stages/stage-9/Stage9E-AttendanceSalaryDraft-v4.10.5-Notes.md)

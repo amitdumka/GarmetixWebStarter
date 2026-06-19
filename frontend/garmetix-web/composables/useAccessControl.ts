@@ -94,6 +94,7 @@ const routeRules: PageAccessRule[] = [
   { path: '/attendance/biometric-enrollment', label: 'Biometric Enrollment', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
   { path: '/attendance/payroll-summary', label: 'Payroll Attendance Summary', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr', 'payroll'] },
   { path: '/attendance/payroll-review', label: 'Attendance Payroll Review', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr', 'payroll'] },
+  { path: '/attendance/salary-draft', label: 'Salary Draft Preview', module: 'People', roles: ['admin', 'owner', 'powerUser', 'hr', 'payroll'] },
   { path: '/hr-benefits', label: 'HR Benefits', module: 'People', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager', 'hr', 'payroll'] },
   { path: '/payroll', label: 'Payroll', module: 'People', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager', 'payroll'] },
   { path: '/cash-vouchers', label: 'Cash Vouchers', module: 'Off Book', roles: ['admin', 'owner', 'powerUser', 'accountant', 'storeManager'] },

@@ -123,6 +123,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<AttendanceApproval> AttendanceApprovals => Set<AttendanceApproval>();
     public DbSet<AttendanceMonthlySummary> AttendanceMonthlySummaries => Set<AttendanceMonthlySummary>();
     public DbSet<AttendancePayrollReview> AttendancePayrollReviews => Set<AttendancePayrollReview>();
+    public DbSet<AttendanceSalarySlipDraft> AttendanceSalarySlipDrafts => Set<AttendanceSalarySlipDraft>();
     public DbSet<AttendancePhotoProof> AttendancePhotoProofs => Set<AttendancePhotoProof>();
     public DbSet<AttendanceKioskSyncBatch> AttendanceKioskSyncBatches => Set<AttendanceKioskSyncBatch>();
 
@@ -311,6 +312,27 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<AttendancePayrollReview>().Property(item => item.EstimatedGrossPay).HasPrecision(18, 2);
         modelBuilder.Entity<AttendancePayrollReview>().HasIndex(item => new { item.CompanyId, item.StoreId, item.EmployeeId, item.Year, item.Month });
         modelBuilder.Entity<AttendancePayrollReview>().HasIndex(item => new { item.CompanyId, item.StoreId, item.Year, item.Month, item.ReviewStatus });
+
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().Property(item => item.PresentDays).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().Property(item => item.AbsentDays).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().Property(item => item.LateDays).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().Property(item => item.HalfDays).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().Property(item => item.LeaveDays).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().Property(item => item.PayableDays).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().Property(item => item.DeductionDays).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().Property(item => item.MonthlySalary).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().Property(item => item.DailyRate).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().Property(item => item.AttendanceGrossPreview).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().Property(item => item.AttendanceDeductionPreview).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().Property(item => item.BonusPreview).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().Property(item => item.LeaveEncashmentPreview).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().Property(item => item.SalaryAdvanceRecoveryPreview).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().Property(item => item.PfEmployeePreview).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().Property(item => item.GratuityPreview).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().Property(item => item.OtherDeductionPreview).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().Property(item => item.NetPayPreview).HasPrecision(18, 2);
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().HasIndex(item => new { item.CompanyId, item.StoreId, item.EmployeeId, item.Year, item.Month });
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().HasIndex(item => new { item.CompanyId, item.StoreId, item.Year, item.Month, item.DraftStatus });
         modelBuilder.Entity<AttendancePhotoProof>().HasIndex(item => new { item.CompanyId, item.StoreId, item.EmployeeId, item.CapturedAtUtc });
         modelBuilder.Entity<AttendancePhotoProof>().HasIndex(item => new { item.CompanyId, item.StoreId, item.ReviewStatus, item.CapturedAtUtc });
         modelBuilder.Entity<AttendancePhotoProof>().HasIndex(item => new { item.CompanyId, item.ClientPunchId });

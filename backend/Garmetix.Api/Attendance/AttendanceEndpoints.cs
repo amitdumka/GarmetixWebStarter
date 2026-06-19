@@ -28,6 +28,9 @@ public static class AttendanceEndpoints
         group.MapGet("/payroll-review", PayrollReviewAsync);
         group.MapPost("/payroll-review/rebuild", RebuildPayrollReviewAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/payroll-review/{id:guid}/mark-reviewed", MarkPayrollReviewAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapGet("/salary-slip-drafts", SalarySlipDraftsAsync);
+        group.MapPost("/salary-slip-drafts/rebuild", RebuildSalarySlipDraftsAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapPost("/salary-slip-drafts/{id:guid}/mark-ready", MarkSalarySlipDraftAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapGet("/photo-proofs", ListPhotoProofsAsync);
         group.MapGet("/photo-proofs/review-summary", PhotoProofReviewSummaryAsync);
         group.MapPost("/photo-proofs/{id:guid}/review", ReviewPhotoProofAsync).RequireAuthorization(GarmetixPolicies.Edit);
@@ -371,6 +374,266 @@ public static class AttendanceEndpoints
             "hold" or "onhold" => "OnHold",
             "draft" or "preview" or "" => "Draft",
             _ => "Reviewed"
+        };
+    }
+
+
+    private static async Task<IResult> SalarySlipDraftsAsync(int? year, int? month, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
+    {
+        var today = DateTime.Today;
+        var y = year ?? today.Year;
+        var m = month ?? today.Month;
+        var rows = await BuildSalarySlipDraftRowsAsync(y, m, db, context, cancellationToken);
+        return Results.Ok(BuildSalarySlipDraftDto(y, m, rows));
+    }
+
+    private static async Task<IResult> RebuildSalarySlipDraftsAsync(AttendanceSalarySlipDraftBuildRequest request, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
+    {
+        if (request.Year < 2000 || request.Month < 1 || request.Month > 12)
+        {
+            return Results.BadRequest(new { message = "Year and month are required for salary slip draft preview rebuild." });
+        }
+
+        var reviewsQuery = WorkspaceScope.ApplyTo(db.AttendancePayrollReviews.AsNoTracking(), context)
+            .Where(item => item.Year == request.Year && item.Month == request.Month && !item.Deleted)
+            .Where(item => item.ReviewStatus == "Reviewed" || item.ReviewStatus == "ApprovedForPayroll");
+
+        if (request.EmployeeId.HasValue && request.EmployeeId.Value != Guid.Empty)
+        {
+            reviewsQuery = reviewsQuery.Where(item => item.EmployeeId == request.EmployeeId.Value);
+        }
+
+        var reviews = await reviewsQuery.ToListAsync(cancellationToken);
+        if (reviews.Count == 0)
+        {
+            return Results.BadRequest(new { message = "No reviewed attendance payroll rows were found. Mark rows Reviewed or ApprovedForPayroll first." });
+        }
+
+        var employeeIds = reviews.Select(item => item.EmployeeId).Distinct().ToList();
+        var employees = await WorkspaceScope.ApplyTo(db.Employees.AsNoTracking(), context)
+            .Where(item => employeeIds.Contains(item.Id) && !item.Deleted)
+            .ToDictionaryAsync(item => item.Id, cancellationToken);
+
+        var monthStart = new DateTime(request.Year, request.Month, 1);
+        var salaryMonth = (request.Year * 100) + request.Month;
+        var nextMonth = monthStart.AddMonths(1);
+        var adjustments = await WorkspaceScope.ApplyTo(db.EmployeePayrollAdjustments.AsNoTracking(), context)
+            .Where(item => employeeIds.Contains(item.EmployeeId) && !item.Deleted)
+            .Where(item => (item.SalaryMonth.HasValue && item.SalaryMonth.Value == salaryMonth) || (item.OnDate >= monthStart && item.OnDate < nextMonth))
+            .ToListAsync(cancellationToken);
+
+        var existing = await WorkspaceScope.ApplyTo(db.AttendanceSalarySlipDrafts, context)
+            .Where(item => item.Year == request.Year && item.Month == request.Month && !item.Deleted)
+            .ToListAsync(cancellationToken);
+
+        if (request.EmployeeId.HasValue && request.EmployeeId.Value != Guid.Empty)
+        {
+            existing = existing.Where(item => item.EmployeeId == request.EmployeeId.Value).ToList();
+        }
+
+        var existingByEmployee = existing.ToDictionary(item => item.EmployeeId);
+        foreach (var review in reviews)
+        {
+            var row = existingByEmployee.GetValueOrDefault(review.EmployeeId);
+            if (row is null)
+            {
+                row = new AttendanceSalarySlipDraft
+                {
+                    Id = Guid.NewGuid(),
+                    CompanyId = review.CompanyId,
+                    StoreGroupId = review.StoreGroupId,
+                    StoreId = review.StoreId,
+                    EmployeeId = review.EmployeeId,
+                    Year = request.Year,
+                    Month = request.Month,
+                    DraftStatus = "Draft",
+                    PayrollPostStatus = "PreviewOnly",
+                    CreatedBy = context.User.Identity?.Name
+                };
+                db.AttendanceSalarySlipDrafts.Add(row);
+            }
+
+            employees.TryGetValue(review.EmployeeId, out var employee);
+            var employeeAdjustments = adjustments.Where(item => item.EmployeeId == review.EmployeeId).ToList();
+            ApplyPayrollReviewToSalaryDraft(row, review, employee, employeeAdjustments, context.User.Identity?.Name);
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        var rows = await BuildSalarySlipDraftRowsAsync(request.Year, request.Month, db, context, cancellationToken);
+        return Results.Ok(BuildSalarySlipDraftDto(request.Year, request.Month, rows));
+    }
+
+    private static async Task<IResult> MarkSalarySlipDraftAsync(Guid id, AttendanceSalarySlipDraftMarkRequest request, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
+    {
+        var row = await WorkspaceScope.ApplyTo(db.AttendanceSalarySlipDrafts, context)
+            .FirstOrDefaultAsync(item => item.Id == id && !item.Deleted, cancellationToken);
+        if (row is null) return Results.NotFound();
+        if (!string.Equals(row.PayrollPostStatus, "PreviewOnly", StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.BadRequest(new { message = "Only preview-only attendance salary slip drafts can be changed from this page." });
+        }
+
+        row.DraftStatus = NormalizeSalaryDraftStatus(request.DraftStatus);
+        row.Notes = string.IsNullOrWhiteSpace(request.Notes) ? row.Notes : request.Notes.Trim();
+        row.UpdatedAt = DateTime.UtcNow;
+        if (row.DraftStatus == "ReadyForPayroll")
+        {
+            row.MarkedReadyAtUtc = DateTime.UtcNow;
+            row.MarkedReadyBy = context.User.Identity?.Name;
+        }
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(row);
+    }
+
+    private static async Task<List<AttendanceSalarySlipDraftRowDto>> BuildSalarySlipDraftRowsAsync(int year, int month, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
+    {
+        var drafts = await WorkspaceScope.ApplyTo(db.AttendanceSalarySlipDrafts.AsNoTracking(), context)
+            .Where(item => item.Year == year && item.Month == month && !item.Deleted)
+            .OrderBy(item => item.EmployeeId)
+            .ToListAsync(cancellationToken);
+
+        if (drafts.Count == 0)
+        {
+            var reviews = await WorkspaceScope.ApplyTo(db.AttendancePayrollReviews.AsNoTracking(), context)
+                .Where(item => item.Year == year && item.Month == month && !item.Deleted)
+                .Where(item => item.ReviewStatus == "Reviewed" || item.ReviewStatus == "ApprovedForPayroll")
+                .OrderBy(item => item.EmployeeId)
+                .ToListAsync(cancellationToken);
+
+            var employeeIdsForPreview = reviews.Select(item => item.EmployeeId).Distinct().ToList();
+            var previewEmployees = await WorkspaceScope.ApplyTo(db.Employees.AsNoTracking(), context)
+                .Where(item => employeeIdsForPreview.Contains(item.Id) && !item.Deleted)
+                .ToDictionaryAsync(item => item.Id, cancellationToken);
+            var monthStart = new DateTime(year, month, 1);
+            var salaryMonth = (year * 100) + month;
+            var nextMonth = monthStart.AddMonths(1);
+            var previewAdjustments = await WorkspaceScope.ApplyTo(db.EmployeePayrollAdjustments.AsNoTracking(), context)
+                .Where(item => employeeIdsForPreview.Contains(item.EmployeeId) && !item.Deleted)
+                .Where(item => (item.SalaryMonth.HasValue && item.SalaryMonth.Value == salaryMonth) || (item.OnDate >= monthStart && item.OnDate < nextMonth))
+                .ToListAsync(cancellationToken);
+
+            drafts = reviews.Select(review =>
+            {
+                previewEmployees.TryGetValue(review.EmployeeId, out var employee);
+                var row = new AttendanceSalarySlipDraft
+                {
+                    Id = Guid.Empty,
+                    CompanyId = review.CompanyId,
+                    StoreGroupId = review.StoreGroupId,
+                    StoreId = review.StoreId,
+                    EmployeeId = review.EmployeeId,
+                    Year = review.Year,
+                    Month = review.Month,
+                    DraftStatus = "Preview",
+                    PayrollPostStatus = "PreviewOnly"
+                };
+                ApplyPayrollReviewToSalaryDraft(row, review, employee, previewAdjustments.Where(item => item.EmployeeId == review.EmployeeId).ToList(), null);
+                return row;
+            }).ToList();
+        }
+
+        var employeeIds = drafts.Select(item => item.EmployeeId).Distinct().ToList();
+        var employees = await WorkspaceScope.ApplyTo(db.Employees.AsNoTracking(), context)
+            .Where(item => employeeIds.Contains(item.Id) && !item.Deleted)
+            .ToDictionaryAsync(item => item.Id, cancellationToken);
+
+        return drafts.Select(item => ToSalarySlipDraftRowDto(item, employees.GetValueOrDefault(item.EmployeeId))).ToList();
+    }
+
+    private static AttendanceSalarySlipDraftDto BuildSalarySlipDraftDto(int year, int month, IReadOnlyList<AttendanceSalarySlipDraftRowDto> rows)
+        => new(
+            year,
+            month,
+            rows.Count,
+            rows.Count(item => item.DraftStatus.Equals("ReadyForPayroll", StringComparison.OrdinalIgnoreCase)),
+            rows.Count(item => item.DraftStatus.Equals("Draft", StringComparison.OrdinalIgnoreCase) || item.DraftStatus.Equals("Preview", StringComparison.OrdinalIgnoreCase)),
+            rows.Sum(item => item.AttendanceGrossPreview + item.BonusPreview + item.LeaveEncashmentPreview),
+            rows.Sum(item => item.AttendanceDeductionPreview + item.SalaryAdvanceRecoveryPreview + item.PfEmployeePreview + item.GratuityPreview + item.OtherDeductionPreview),
+            rows.Sum(item => item.NetPayPreview),
+            true,
+            rows);
+
+    private static void ApplyPayrollReviewToSalaryDraft(AttendanceSalarySlipDraft row, AttendancePayrollReview review, Employee? employee, IReadOnlyList<EmployeePayrollAdjustment> adjustments, string? preparedBy)
+    {
+        row.CompanyId = review.CompanyId;
+        row.StoreGroupId = review.StoreGroupId;
+        row.StoreId = review.StoreId;
+        row.EmployeeId = review.EmployeeId;
+        row.PayrollReviewId = review.Id == Guid.Empty ? (Guid?)null : review.Id;
+        row.Year = review.Year;
+        row.Month = review.Month;
+        row.PresentDays = review.PresentDays;
+        row.AbsentDays = review.AbsentDays;
+        row.LateDays = review.LateDays;
+        row.HalfDays = review.HalfDays;
+        row.LeaveDays = review.LeaveDays;
+        row.PayableDays = review.PayableDays;
+        row.DeductionDays = review.DeductionDays;
+        row.WorkingMinutes = review.WorkingMinutes;
+        row.OvertimeMinutes = review.OvertimeMinutes;
+        row.MonthlySalary = employee?.MonthlySalary ?? 0m;
+        row.DailyRate = row.MonthlySalary > 0 ? Math.Round(row.MonthlySalary / 30m, 2) : review.EstimatedDailyRate;
+        row.AttendanceGrossPreview = Math.Round(row.DailyRate * row.PayableDays, 2);
+        row.AttendanceDeductionPreview = Math.Round(row.DailyRate * row.DeductionDays, 2);
+        row.BonusPreview = adjustments.Where(item => item.AdjustmentType == "Bonus").Sum(item => item.Amount);
+        row.LeaveEncashmentPreview = adjustments.Where(item => item.AdjustmentType == "LeaveEncashment").Sum(item => item.Amount);
+        row.SalaryAdvanceRecoveryPreview = adjustments
+            .Where(item => item.RecoverFromSalary && (item.AdjustmentType == "SalaryAdvance" || item.AdjustmentType == "AdvanceRecovery"))
+            .Sum(item => Math.Max(0, item.Amount - item.RecoveredAmount));
+        row.PfEmployeePreview = adjustments.Sum(item => item.PfEmployee);
+        row.GratuityPreview = adjustments.Sum(item => item.GratuityAmount);
+        row.OtherDeductionPreview = adjustments.Where(item => item.AdjustmentType == "OtherPayrollAdjustment" && item.RecoverFromSalary).Sum(item => item.Amount);
+        row.NetPayPreview = Math.Round(Math.Max(0, row.AttendanceGrossPreview + row.BonusPreview + row.LeaveEncashmentPreview - row.SalaryAdvanceRecoveryPreview - row.PfEmployeePreview - row.GratuityPreview - row.OtherDeductionPreview), 2);
+        row.PayrollPostStatus = "PreviewOnly";
+        row.PreparedAtUtc = DateTime.UtcNow;
+        row.PreparedBy = preparedBy ?? row.PreparedBy;
+        row.UpdatedAt = DateTime.UtcNow;
+        row.SourceJson = System.Text.Json.JsonSerializer.Serialize(new { review.ReviewStatus, review.PayrollActionStatus, review.EstimatedGrossPay, AdjustmentCount = adjustments.Count, PreviewOnly = true });
+    }
+
+    private static AttendanceSalarySlipDraftRowDto ToSalarySlipDraftRowDto(AttendanceSalarySlipDraft row, Employee? employee)
+        => new(
+            row.Id,
+            row.EmployeeId,
+            employee?.EmployeeCode ?? $"EMP-{employee?.EmpId ?? 0:0000}",
+            employee?.StaffName ?? row.EmployeeId.ToString(),
+            row.Year,
+            row.Month,
+            row.PresentDays,
+            row.AbsentDays,
+            row.LateDays,
+            row.HalfDays,
+            row.LeaveDays,
+            row.PayableDays,
+            row.DeductionDays,
+            row.WorkingMinutes,
+            row.OvertimeMinutes,
+            row.MonthlySalary,
+            row.DailyRate,
+            row.AttendanceGrossPreview,
+            row.AttendanceDeductionPreview,
+            row.BonusPreview,
+            row.LeaveEncashmentPreview,
+            row.SalaryAdvanceRecoveryPreview,
+            row.PfEmployeePreview,
+            row.GratuityPreview,
+            row.OtherDeductionPreview,
+            row.NetPayPreview,
+            row.DraftStatus,
+            row.PayrollPostStatus,
+            row.PreparedAtUtc,
+            row.MarkedReadyAtUtc,
+            row.Notes);
+
+    private static string NormalizeSalaryDraftStatus(string? status)
+    {
+        var value = (status ?? string.Empty).Trim().Replace(" ", string.Empty);
+        return value.ToLowerInvariant() switch
+        {
+            "ready" or "readyforpayroll" => "ReadyForPayroll",
+            "hold" or "onhold" => "OnHold",
+            "draft" or "preview" or "" => "Draft",
+            _ => "Draft"
         };
     }
 

@@ -274,3 +274,60 @@ public sealed record AttendancePhotoProofReviewSummaryDto(
     int Flagged,
     int NeedsRegularization,
     int ExpiringSoon);
+
+public sealed record AttendanceSalarySlipDraftRowDto(
+    Guid Id,
+    Guid EmployeeId,
+    string EmployeeCode,
+    string EmployeeName,
+    int Year,
+    int Month,
+    decimal PresentDays,
+    decimal AbsentDays,
+    decimal LateDays,
+    decimal HalfDays,
+    decimal LeaveDays,
+    decimal PayableDays,
+    decimal DeductionDays,
+    int WorkingMinutes,
+    int OvertimeMinutes,
+    decimal MonthlySalary,
+    decimal DailyRate,
+    decimal AttendanceGrossPreview,
+    decimal AttendanceDeductionPreview,
+    decimal BonusPreview,
+    decimal LeaveEncashmentPreview,
+    decimal SalaryAdvanceRecoveryPreview,
+    decimal PfEmployeePreview,
+    decimal GratuityPreview,
+    decimal OtherDeductionPreview,
+    decimal NetPayPreview,
+    string DraftStatus,
+    string PayrollPostStatus,
+    DateTime? PreparedAtUtc,
+    DateTime? MarkedReadyAtUtc,
+    string? Notes);
+
+public sealed record AttendanceSalarySlipDraftDto(
+    int Year,
+    int Month,
+    int Employees,
+    int ReadyRows,
+    int DraftRows,
+    decimal TotalGrossPreview,
+    decimal TotalDeductionPreview,
+    decimal TotalNetPayPreview,
+    bool PreviewOnly,
+    IReadOnlyList<AttendanceSalarySlipDraftRowDto> Rows);
+
+public sealed record AttendanceSalarySlipDraftBuildRequest(
+    int Year,
+    int Month,
+    Guid? EmployeeId,
+    Guid? CompanyId,
+    Guid? StoreGroupId,
+    Guid? StoreId);
+
+public sealed record AttendanceSalarySlipDraftMarkRequest(
+    string DraftStatus,
+    string? Notes);

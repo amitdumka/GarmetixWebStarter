@@ -173,6 +173,46 @@ public class AttendancePayrollReview : StoreBase
     [JsonIgnore] public virtual Employee? Employee { get; set; }
 }
 
+
+public class AttendanceSalarySlipDraft : StoreBase
+{
+    public Guid EmployeeId { get; set; }
+    public Guid? PayrollReviewId { get; set; }
+    public int Year { get; set; }
+    public int Month { get; set; }
+    public decimal PresentDays { get; set; }
+    public decimal AbsentDays { get; set; }
+    public decimal LateDays { get; set; }
+    public decimal HalfDays { get; set; }
+    public decimal LeaveDays { get; set; }
+    public decimal PayableDays { get; set; }
+    public decimal DeductionDays { get; set; }
+    public int WorkingMinutes { get; set; }
+    public int OvertimeMinutes { get; set; }
+    public decimal MonthlySalary { get; set; }
+    public decimal DailyRate { get; set; }
+    public decimal AttendanceGrossPreview { get; set; }
+    public decimal AttendanceDeductionPreview { get; set; }
+    public decimal BonusPreview { get; set; }
+    public decimal LeaveEncashmentPreview { get; set; }
+    public decimal SalaryAdvanceRecoveryPreview { get; set; }
+    public decimal PfEmployeePreview { get; set; }
+    public decimal GratuityPreview { get; set; }
+    public decimal OtherDeductionPreview { get; set; }
+    public decimal NetPayPreview { get; set; }
+    [MaxLength(40)] public string DraftStatus { get; set; } = "Draft";
+    [MaxLength(40)] public string PayrollPostStatus { get; set; } = "PreviewOnly";
+    public DateTime? PreparedAtUtc { get; set; }
+    [MaxLength(120)] public string? PreparedBy { get; set; }
+    public DateTime? MarkedReadyAtUtc { get; set; }
+    [MaxLength(120)] public string? MarkedReadyBy { get; set; }
+    [MaxLength(300)] public string? Notes { get; set; }
+    public string? SourceJson { get; set; }
+
+    [JsonIgnore] public virtual Employee? Employee { get; set; }
+    [JsonIgnore] public virtual AttendancePayrollReview? PayrollReview { get; set; }
+}
+
 public class AttendancePhotoProof : StoreBase
 {
     public Guid EmployeeId { get; set; }

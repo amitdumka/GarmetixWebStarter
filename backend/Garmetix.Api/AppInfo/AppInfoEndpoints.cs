@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.10.4";
-    public const string Stage = "Stage 9D Attendance Payroll Integration Foundation";
-    public const string ReleaseName = "Attendance Payroll Review Foundation";
+    public const string Version = "4.10.5";
+    public const string Stage = "Stage 9E Attendance Salary Slip Draft Preview";
+    public const string ReleaseName = "Attendance Salary Slip Draft Preview";
     public const string BuildDate = "2026-06-18";
-    public const string BuildCode = "GARMETIX-9D-20260619-4104";
+    public const string BuildCode = "GARMETIX-9E-20260619-4105";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,8 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stage 9E adds salary slip draft preview rows from reviewed attendance payroll review data without posting payroll, vouchers, or salary slips.",
+        "Attendance salary draft preview can be rebuilt and marked ReadyForPayroll or OnHold, but remains PreviewOnly until a later approved package.",
         "Stage 9D adds attendance payroll review rows with payable days, deduction days, overtime minutes, lock visibility, and review status without posting payroll.",
         "Attendance payroll review can be rebuilt from monthly attendance summaries and marked Reviewed, ApprovedForPayroll, or OnHold.",
         "Stage 9C adds manager face photo proof review, approve/reject/flag workflow, regularization linkage, retention visibility, and audit-ready photo status.",
