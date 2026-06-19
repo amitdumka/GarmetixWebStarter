@@ -11,6 +11,7 @@ public sealed class EmailOptions
     public string FromEmail { get; set; } = string.Empty;
     public string FromName { get; set; } = "Garmetix";
     public string ReplyToEmail { get; set; } = string.Empty;
+    public int TimeoutSeconds { get; set; } = 30;
 }
 
 public sealed class PasswordResetOptions

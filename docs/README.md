@@ -1,6 +1,6 @@
 # Garmetix Documentation
 
-> Current package: Stage 8I Package 19 Print/PDF Acceptance and Store Operations Landing v4.9.18 (`GARMETIX-8I-20260619-49180`).
+> Current package: Stage 8I Package 23 HR Benefits and Payroll Adjustments v4.9.22 (`GARMETIX-8I-20260619-49220`).
 
 This folder is the canonical home for project plans, implementation notes, validation logs, operational guides, and reports.
 
@@ -58,6 +58,8 @@ This folder is the canonical home for project plans, implementation notes, valid
 - [Stage 8D Priority Patch / v4.3.5 sales invoice notes](stages/stage-8/Stage8D-PriorityPatch-SalesInvoice-v4.3.5-Notes.md)
 - [Stage 8E Package 1 / v4.3.6 cash voucher conversion notes](stages/stage-8/Stage8E-Package1-CashVoucherConversion-v4.3.6-Notes.md)
 - [June 15 operational TODO reconciliation](planning/OPERATIONAL-TODO-2026-06-15.md)
+- [Stage 8I Package 21 / v4.9.20 Client License and SaaS Activation](stages/stage-8/Stage8I-Package21-ClientLicenseSaasActivation-v4.9.20-Notes.md)
+- [Stage 8I Package 20 / v4.9.19 SMTP Email Delivery Acceptance](stages/stage-8/Stage8I-Package20-SmtpEmailDeliveryAcceptance-v4.9.19-Notes.md)
 
 ## Categories
 
@@ -161,3 +163,8 @@ This folder is the canonical home for project plans, implementation notes, valid
 - [Stage 8I Package 14 / v4.9.13 dashboard home smoke hardening notes](stages/stage-8/Stage8I-Package14-DashboardHomeSmokeHardening-v4.9.13-Notes.md)
 - [Stage 8I Package 13 / v4.9.12 production stabilization notes](stages/stage-8/Stage8I-Package13-ProductionStabilization-v4.9.12-Notes.md)
 - [Stage 8I Package 12 / v4.9.11 cash details register notes](stages/stage-8/Stage8I-Package12-CashDetailsRegister-v4.9.11-Notes.md)
+
+- [Stage 8I Package 22 / v4.9.21 HR Employee Master Upgrade](stages/stage-8/Stage8I-Package22-HrEmployeeMasterUpgrade-v4.9.21-Notes.md)
+- [Stage 8I Package 23 / v4.9.22 HR Benefits and Payroll Adjustments](stages/stage-8/Stage8I-Package23-HrBenefitsPayroll-v4.9.22-Notes.md)
+- [Stage 8I Package 23B / v4.9.24 Employee save hotfix](stages/stage-8/Stage8I-Package23B-EmployeeSaveHotfix-v4.9.24-Notes.md)
+- [Stage 8I Package 23A / v4.9.23 HR schema repair hotfix](stages/stage-8/Stage8I-Package23A-HrSchemaRepairHotfix-v4.9.23-Notes.md)

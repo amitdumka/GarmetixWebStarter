@@ -61,10 +61,12 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 
 - [x] Print/PDF final acceptance had incomplete document coverage and no live endpoint drill. Package 19 added full sample catalog coverage and `scripts/linux/print-pdf-acceptance-drill.sh`.
 - [x] Store Manager and biller users landed on a dashboard instead of day-opening workflow. Package 19 routes these users to Store Operations after login and renames the page label.
+
+- [x] SMTP delivery acceptance was split across older production-readiness notes only. Package 20 added `/email-delivery`, provider-aware diagnostics, host drill and `SMTP_DELIVERY_ACCEPTANCE`.
 - [ ] Backend Release build has nullable warnings in purchase receipt mapping and data-consistency number handling.
 - [ ] Nuxt production build succeeds but external font metadata providers can fail certificate validation and produce noisy fallback warnings.
 - [x] Authenticated Nuxt pages logged `Hydration completed but contains mismatches`; Hydration guard added in v4.9.15 by client-gating the app root and restoring auth on mount before rendering protected pages.
-- [ ] Real clean Docker install, fresh database migration, and backup/restore drill execution remain pending on the target host; v4.9.14 adds the automated drill but does not mark the live run complete.
+- [ ] Real clean Docker install, fresh database migration, backup/restore drill and live SMTP send execution remain pending on the target host; automated drills exist but do not mark live execution complete.
 - [ ] Docker frontend installation reports nine high-severity transitive npm advisories; review dependency upgrades without applying an unreviewed breaking `npm audit fix --force`.
 
 ## FIXED - Database schema repair raw SQL FormatException
@@ -111,3 +113,4 @@ Use this file for every bug/error raised by the user. Mark an item `[x]` only af
 - Area: Backend / Dashboard
 - Symptom: `/api/dashboard/home` could return HTTP 200 without the expected `DashboardHomeDto` body.
 - Fix: Endpoint now maps to `HomeAsync` and returns `Results.Ok(ResolveHome(context.User))`; release smoke checks and backend tests cover the contract.
+- [x] Client licensing/SaaS activation was pending after SMTP. Package 21 added signed license generation, activation status, optional API enforcement, env/Docker wiring and host acceptance drill.

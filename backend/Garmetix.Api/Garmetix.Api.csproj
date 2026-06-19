@@ -4,10 +4,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);AD0001</NoWarn>
-    <Version>4.9.18</Version>
-    <AssemblyVersion>4.9.18.0</AssemblyVersion>
-    <FileVersion>4.9.18.0</FileVersion>
-    <InformationalVersion>4.9.18-print-pdf-acceptance-store-operations</InformationalVersion>
+    <Version>4.9.24</Version>
+    <AssemblyVersion>4.9.24.0</AssemblyVersion>
+    <FileVersion>4.9.24.0</FileVersion>
+    <InformationalVersion>4.9.24-employee-save-hotfix</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

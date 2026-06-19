@@ -18,6 +18,7 @@ using Garmetix.Api.Hr;
 using Garmetix.Api.GstReturns;
 using Garmetix.Api.Gstin;
 using Garmetix.Api.ImportExport;
+using Garmetix.Api.Licensing;
 using Garmetix.Api.Messages;
 using Garmetix.Api.Inventory;
 using Garmetix.Api.OffBook;
@@ -77,6 +78,8 @@ builder.Services.AddGarmetixInfrastructure(connectionString);
 builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddSingleton<PasswordResetTokenService>();
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
+builder.Services.Configure<LicenseOptions>(builder.Configuration.GetSection("License"));
+builder.Services.AddSingleton<LicenseActivationService>();
 builder.Services.Configure<PasswordResetOptions>(builder.Configuration.GetSection("PasswordReset"));
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<PasswordResetEmailService>();
@@ -199,6 +202,7 @@ app.UseMiddleware<AuditActorMiddleware>();
 app.UseMiddleware<ActiveUserMiddleware>();
 app.UseMiddleware<ApplicationMessageLogMiddleware>();
 app.UseAuthorization();
+app.UseMiddleware<LicenseEnforcementMiddleware>();
 app.UseMiddleware<StoreDayGuardMiddleware>();
 app.Use(async (context, next) =>
 {
@@ -278,6 +282,7 @@ app.MapProductionReadinessEndpoints();
 app.MapPrintAcceptanceEndpoints();
 app.MapPermissionAcceptanceEndpoints();
 app.MapEmailDeliveryDiagnosticsEndpoints();
+app.MapLicenseEndpoints();
 app.MapReleaseStabilizationEndpoints();
 app.MapAfssSeederEndpoints();
 app.MapPortableSeederEndpoints();
@@ -362,6 +367,12 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         }
 
         await EnrichPartyGstinAsync(entity, gstinLookup, cancellationToken);
+        var employeeValidationMessage = await PrepareEmployeeMasterAsync(entity, db, cancellationToken);
+        if (employeeValidationMessage is not null)
+        {
+            return Results.BadRequest(new { message = employeeValidationMessage });
+        }
+
         var duplicateDailyMessage = await EnsureUniqueDailyRecordAsync(entity, db, cancellationToken);
         if (duplicateDailyMessage is not null)
         {
@@ -394,6 +405,12 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         }
 
         await EnrichPartyGstinAsync(entity, gstinLookup, cancellationToken);
+        var employeeValidationMessage = await PrepareEmployeeMasterAsync(entity, db, cancellationToken);
+        if (employeeValidationMessage is not null)
+        {
+            return Results.BadRequest(new { message = employeeValidationMessage });
+        }
+
         var duplicateDailyMessage = await EnsureUniqueDailyRecordAsync(entity, db, cancellationToken);
         if (duplicateDailyMessage is not null)
         {
@@ -443,6 +460,97 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
 
     return group;
 }
+
+static async Task<string?> PrepareEmployeeMasterAsync<T>(T entity, GarmetixDbContext db, CancellationToken cancellationToken) where T : class
+{
+    if (entity is not Employee employee)
+    {
+        return null;
+    }
+
+    employee.FirstName = (employee.FirstName ?? string.Empty).Trim();
+    employee.LastName = (employee.LastName ?? string.Empty).Trim();
+    employee.Mobile = DigitsOnly(employee.Mobile);
+    employee.Aadhar = DigitsOnly(employee.Aadhar);
+    employee.PAN = string.IsNullOrWhiteSpace(employee.PAN) ? null : employee.PAN.Trim().ToUpperInvariant();
+    employee.IFSC = string.IsNullOrWhiteSpace(employee.IFSC) ? null : employee.IFSC.Trim().ToUpperInvariant();
+    employee.EmployeeStatus = string.IsNullOrWhiteSpace(employee.EmployeeStatus)
+        ? (employee.Working ? "Active" : "Inactive")
+        : employee.EmployeeStatus.Trim();
+    employee.SalaryType = string.IsNullOrWhiteSpace(employee.SalaryType) ? "Monthly" : employee.SalaryType.Trim();
+    employee.Department = string.IsNullOrWhiteSpace(employee.Department) ? null : employee.Department.Trim();
+    employee.Designation = string.IsNullOrWhiteSpace(employee.Designation) ? null : employee.Designation.Trim();
+    employee.FatherOrHusbandName = string.IsNullOrWhiteSpace(employee.FatherOrHusbandName) ? null : employee.FatherOrHusbandName.Trim();
+    employee.BankAccountNumber = string.IsNullOrWhiteSpace(employee.BankAccountNumber) ? null : DigitsOnly(employee.BankAccountNumber);
+    employee.EmergencyContact = string.IsNullOrWhiteSpace(employee.EmergencyContact) ? null : employee.EmergencyContact.Trim();
+    employee.UpdatedAt = DateTime.UtcNow;
+
+    if (string.IsNullOrWhiteSpace(employee.FirstName) || string.IsNullOrWhiteSpace(employee.LastName))
+    {
+        return "Employee first name and last name are required.";
+    }
+
+    if (employee.Aadhar.Length != 12)
+    {
+        return "Aadhaar number must be exactly 12 digits.";
+    }
+
+    if (!string.IsNullOrWhiteSpace(employee.PAN) && employee.PAN.Length != 10)
+    {
+        return "PAN number must be exactly 10 characters.";
+    }
+
+    if (employee.Mobile.Length < 10 || employee.Mobile.Length > 15)
+    {
+        return "Mobile number must be 10 to 15 digits.";
+    }
+
+    if (employee.MonthlySalary < 0 || employee.DailyWage < 0)
+    {
+        return "Salary and wage values cannot be negative.";
+    }
+
+    if (employee.EmpId <= 0)
+    {
+        var maxExistingEmpId = await db.Employees.AsNoTracking()
+            .Where(item => item.CompanyId == employee.CompanyId && item.StoreId == employee.StoreId && item.Id != employee.Id)
+            .Select(item => (int?)item.EmpId)
+            .MaxAsync(cancellationToken) ?? 0;
+
+        employee.EmpId = maxExistingEmpId + 1;
+    }
+
+    if (string.IsNullOrWhiteSpace(employee.EmployeeCode))
+    {
+        employee.EmployeeCode = $"EMP-{employee.EmpId:0000}";
+    }
+    else
+    {
+        employee.EmployeeCode = employee.EmployeeCode.Trim().ToUpperInvariant();
+    }
+
+    if (employee.EmployeeStatus.Equals("Resigned", StringComparison.OrdinalIgnoreCase)
+        || employee.EmployeeStatus.Equals("Terminated", StringComparison.OrdinalIgnoreCase)
+        || employee.EmployeeStatus.Equals("Inactive", StringComparison.OrdinalIgnoreCase))
+    {
+        employee.Working = false;
+        employee.LeavingDate ??= DateTime.Today;
+    }
+    else
+    {
+        employee.Working = true;
+        if (employee.EmployeeStatus.Equals("Active", StringComparison.OrdinalIgnoreCase))
+        {
+            employee.LeavingDate = null;
+            employee.ExitReason = null;
+        }
+    }
+
+    return null;
+}
+
+static string DigitsOnly(string? value)
+    => new string((value ?? string.Empty).Where(char.IsDigit).ToArray());
 
 static async Task<string?> EnsureUniqueDailyRecordAsync<T>(T entity, GarmetixDbContext db, CancellationToken cancellationToken) where T : class
 {

@@ -24,6 +24,17 @@ services:
       Email__FromEmail: "${EMAIL_FROM_EMAIL}"
       Email__FromName: "${EMAIL_FROM_NAME:-Garmetix}"
       Email__ReplyToEmail: "${EMAIL_REPLY_TO_EMAIL}"
+      Email__TimeoutSeconds: "${EMAIL_TIMEOUT_SECONDS:-30}"
+      License__EnforcementEnabled: "${LICENSE_ENFORCEMENT_ENABLED:-false}"
+      License__RequireLicenseForOperationalApis: "${LICENSE_REQUIRE_OPERATIONAL_APIS:-true}"
+      License__ProductCode: "${LICENSE_PRODUCT_CODE:-GARMETIX-WEB}"
+      License__MasterSecret: "${LICENSE_MASTER_SECRET:-}"
+      License__ActivationFilePath: /app/license/license-activation.json
+      License__DefaultPlan: "${LICENSE_DEFAULT_PLAN:-Trial}"
+      License__DefaultValidityDays: "${LICENSE_DEFAULT_VALIDITY_DAYS:-365}"
+      License__DefaultMaxStores: "${LICENSE_DEFAULT_MAX_STORES:-1}"
+      License__DefaultMaxUsers: "${LICENSE_DEFAULT_MAX_USERS:-10}"
+      License__RequiredModulesCsv: "${LICENSE_REQUIRED_MODULES:-Billing,Inventory,Purchase,Accounting,GST,HR,Payroll}"
       PayrollAutomation__Enabled: "${PAYROLL_AUTOMATION_ENABLED:-true}"
       PayrollAutomation__TimeZoneId: "${PAYROLL_AUTOMATION_TIME_ZONE:-Asia/Kolkata}"
       PayrollAutomation__RunHour: "${PAYROLL_AUTOMATION_RUN_HOUR:-2}"
@@ -76,6 +87,7 @@ services:
       - "127.0.0.1:${API_PORT:-5080}:5080"
     volumes:
       - ./backups:/app/backups
+      - ./license:/app/license
       - ./secrets:/app/secrets:ro
     restart: unless-stopped
     logging:

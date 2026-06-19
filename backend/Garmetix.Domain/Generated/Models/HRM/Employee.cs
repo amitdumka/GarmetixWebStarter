@@ -59,6 +59,47 @@ namespace Garmetix.Core.Models.HRM
 
         [Display(Name = "Employee ID")] public int EmpId { get; set; } // Temp Till full migratin is done.
 
+        [MaxLength(40)]
+        [Display(Name = "Employee Code")]
+        public string? EmployeeCode { get; set; }
+
+        [MaxLength(120)]
+        [Display(Name = "Father/Husband Name")]
+        public string? FatherOrHusbandName { get; set; }
+
+        [MaxLength(80)]
+        [Display(Name = "Department")]
+        public string? Department { get; set; }
+
+        [MaxLength(80)]
+        [Display(Name = "Designation")]
+        public string? Designation { get; set; }
+
+        [MaxLength(30)]
+        [Display(Name = "Salary Type")]
+        public string SalaryType { get; set; } = "Monthly";
+
+        [Display(Name = "Monthly Salary")]
+        public decimal MonthlySalary { get; set; }
+
+        [Display(Name = "Daily Wage")]
+        public decimal DailyWage { get; set; }
+
+        [MaxLength(30)]
+        [Display(Name = "Employee Status")]
+        public string EmployeeStatus { get; set; } = "Active";
+
+        [MaxLength(200)]
+        [Display(Name = "Exit Reason")]
+        public string? ExitReason { get; set; }
+
+        [MaxLength(40)]
+        [Display(Name = "Blood Group")]
+        public string? BloodGroup { get; set; }
+
+        [Display(Name = "Photo Data Url")]
+        public string? PhotoDataUrl { get; set; }
+
         [Display(Name = "Employee Name")]
         public string StaffName
         { get { return (FirstName + " " + LastName).Trim(); } }
@@ -93,6 +134,30 @@ namespace Garmetix.Core.Models.HRM
         [MaxLength(15), MinLength(10)]
         [Display(Name = "Mobile Number")]
         public required string Mobile { get; set; }
+
+        [MaxLength(120)]
+        [Display(Name = "Bank Account Name")]
+        public string? BankAccountName { get; set; }
+
+        [MaxLength(30)]
+        [Display(Name = "Bank Account Number")]
+        public string? BankAccountNumber { get; set; }
+
+        [MaxLength(20)]
+        [Display(Name = "IFSC")]
+        public string? IFSC { get; set; }
+
+        [MaxLength(30)]
+        [Display(Name = "ESI Number")]
+        public string? ESINumber { get; set; }
+
+        [MaxLength(30)]
+        [Display(Name = "PF Number")]
+        public string? PFNumber { get; set; }
+
+        [MaxLength(120)]
+        [Display(Name = "Emergency Contact")]
+        public string? EmergencyContact { get; set; }
 
         // Navigation Properties
         [JsonIgnore] public virtual ICollection<SalaryStructure>? SalaryStructures { get; set; }
@@ -415,6 +480,55 @@ namespace Garmetix.Core.Models.HRM
         {
             return CalculateGrossSalary() - CalculateTotalDeductions();
         }
+    }
+
+    public class EmployeePayrollAdjustment : StoreBase
+    {
+        [Required]
+        [Display(Name = "Employee")]
+        public Guid EmployeeId { get; set; }
+
+        [Required]
+        [Display(Name = "Adjustment Type")]
+        public string AdjustmentType { get; set; } = "SalaryAdvance";
+
+        [Required]
+        [Display(Name = "On Date")]
+        public DateTime OnDate { get; set; } = DateTime.Today;
+
+        [Display(Name = "Payroll Month")]
+        public int? SalaryMonth { get; set; }
+
+        [Display(Name = "Amount")]
+        public decimal Amount { get; set; }
+
+        [Display(Name = "Leave Days")]
+        public decimal LeaveDays { get; set; }
+
+        [Display(Name = "Recover From Salary")]
+        public bool RecoverFromSalary { get; set; } = true;
+
+        [Display(Name = "Recovered Amount")]
+        public decimal RecoveredAmount { get; set; }
+
+        [Display(Name = "PF Employee")]
+        public decimal PfEmployee { get; set; }
+
+        [Display(Name = "PF Employer")]
+        public decimal PfEmployer { get; set; }
+
+        [Display(Name = "Gratuity Amount")]
+        public decimal GratuityAmount { get; set; }
+
+        [MaxLength(30)]
+        [Display(Name = "Status")]
+        public string Status { get; set; } = "Open";
+
+        [MaxLength(200)]
+        [Display(Name = "Remarks")]
+        public string? Remarks { get; set; }
+
+        [Display(Name = "Employee", AutoGenerateField = false)] public virtual Employee? Employee { get; set; }
     }
 
     public class TimeSheet : StoreBase

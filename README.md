@@ -1,6 +1,6 @@
 # Garmetix Web Starter
 
-> Current package: Stage 8I Package 19 Print/PDF Acceptance and Store Operations Landing v4.9.18 (`GARMETIX-8I-20260619-49180`).
+> Current package: Stage 8I Package 23B Employee Save Hotfix v4.9.24 (`GARMETIX-8I-20260619-49240`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

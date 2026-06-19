@@ -80,7 +80,8 @@ const routeRules: PageAccessRule[] = [
   { path: '/store-day', label: 'Store Operations', module: 'Store Operations', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'salesman'] },
   { path: '/tailoring', label: 'Tailoring & Alteration', module: 'Sales', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'salesman'] },
 
-  { path: '/hr', label: 'HR', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
+  { path: '/hr', label: 'HR Employee Master', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
+  { path: '/hr-benefits', label: 'HR Benefits', module: 'People', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager', 'hr', 'payroll'] },
   { path: '/payroll', label: 'Payroll', module: 'People', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager', 'payroll'] },
   { path: '/cash-vouchers', label: 'Cash Vouchers', module: 'Off Book', roles: ['admin', 'owner', 'powerUser', 'accountant', 'storeManager'] },
 
@@ -95,6 +96,8 @@ const routeRules: PageAccessRule[] = [
   { path: '/audit', label: 'Audit Trail', module: 'Data', roles: ['admin', 'owner'] },
   { path: '/system-health', label: 'System Health', module: 'Maintenance', roles: ['admin', 'owner'] },
   { path: '/production-readiness', label: 'Production Readiness', module: 'Maintenance', roles: ['admin', 'owner'] },
+  { path: '/email-delivery', label: 'Email Delivery', module: 'Maintenance', roles: ['admin', 'owner'] },
+  { path: '/license-activation', label: 'License Activation', module: 'Maintenance', roles: ['admin', 'owner'] },
   { path: '/backup-maintenance', label: 'Backup Maintenance', module: 'Maintenance', roles: ['admin', 'owner'] },
   { path: '/release-stabilization', label: 'Release Stabilization', module: 'Maintenance', roles: ['admin', 'owner'] },
   { path: '/data-consistency', label: 'Data Consistency', module: 'Data', roles: ['admin', 'owner'] },

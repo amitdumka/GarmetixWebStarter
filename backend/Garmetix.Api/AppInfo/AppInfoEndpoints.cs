@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.9.18";
-    public const string Stage = "Stage 8I Package 19 Print/PDF Acceptance and Store Operations Landing";
-    public const string ReleaseName = "Print/PDF Acceptance and Store Operations Landing";
+    public const string Version = "4.9.24";
+    public const string Stage = "Stage 8I Package 23B Employee Save Hotfix";
+    public const string ReleaseName = "Employee Save Hotfix";
     public const string BuildDate = "2026-06-19";
-    public const string BuildCode = "GARMETIX-8I-20260619-49180";
+    public const string BuildCode = "GARMETIX-8I-20260619-49240";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,18 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Employee save now uses a PostgreSQL-translatable nullable MaxAsync sequence query and avoids EF Core DefaultIfEmpty translation failures during PUT /api/employees.",
+        "Frontend dependency cleanup removes deprecated lucide-vue-next from package metadata because Nuxt UI already uses Iconify lucide icons.",
+        "HR Employee Master now supports auto employee code, photo preview, document/bank fields, lifecycle status and printable ID-card readiness.",
+        "HR Benefits adds salary advance, advance recovery, leave, bonus, leave encashment, PF and gratuity adjustment workflow for payroll.",
+        "Payroll generation and payment preview now consider HR Benefits adjustments such as advances, bonus, PF and gratuity rows.",
+        "License Activation now provides signed client license generation, activation, status review and optional SaaS operational API enforcement.",
+        "Docker/env templates include LICENSE_* settings and a persistent license activation volume for production deployments.",
+        "Test Automation includes LICENSE_SAAS_ACTIVATION for license status and host acceptance verification.",
+        "Email Delivery now has a dedicated admin page for masked SMTP status, provider guidance and live test email acceptance.",
+        "SMTP diagnostics now identify common providers, return required environment keys and include a safe timeout contract without exposing secrets.",
+        "A Linux SMTP acceptance drill validates the diagnostics contract and can optionally send a real host-level test email.",
+        "Docker/env templates now include EMAIL_TIMEOUT_SECONDS for safer SMTP delivery troubleshooting.",
         "Print Final Acceptance now covers sales invoice/return, vouchers, petty cash, purchase inward/return, debit/credit notes, non-GST goods, tailoring, payroll and GST export samples.",
         "Store Manager and biller users now land first on Store Operations after login so day opening happens before billing.",
         "Store Day Open / Close UI label is renamed to Store Operations across route access, menu, page title and backend tag.",

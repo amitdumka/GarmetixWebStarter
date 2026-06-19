@@ -71,6 +71,13 @@ public sealed class PayrollService(GarmetixDbContext db)
             .Where(payslip => employeeIds.Contains(payslip.EmployeeId) && payslip.PayPeriodStart == monthStart)
             .ToDictionaryAsync(payslip => payslip.EmployeeId, cancellationToken);
 
+        var benefitAdjustments = await db.EmployeePayrollAdjustments.AsNoTracking()
+            .Where(item =>
+                employeeIds.Contains(item.EmployeeId) &&
+                !item.Deleted &&
+                ((item.SalaryMonth.HasValue && item.SalaryMonth.Value == salaryMonth) || (item.OnDate >= monthStart && item.OnDate < nextMonth)))
+            .ToListAsync(cancellationToken);
+
         var recordsCreated = 0;
         var recordsUpdated = 0;
         decimal totalGross = 0;
@@ -117,14 +124,21 @@ public sealed class PayrollService(GarmetixDbContext db)
             payslip.SpecialAllowance = RoundMoney(structure.SpecialAllowance * factor);
             payslip.ConveyanceAllowance = RoundMoney(structure.ConveyanceAllowance * factor);
             payslip.Incentives = RoundMoney(structure.Incentives * factor);
-            payslip.OtherEarnings = 0;
-            payslip.ProvidentFund = RoundMoney(structure.ProvidentFund * factor);
-            payslip.Gratuity = RoundMoney(structure.Gratuity * factor);
+            var employeeAdjustments = benefitAdjustments.Where(item => item.EmployeeId == employee.Id).ToList();
+            var bonusAndEncashment = employeeAdjustments
+                .Where(item => item.AdjustmentType == "Bonus" || item.AdjustmentType == "LeaveEncashment")
+                .Sum(item => item.Amount);
+            var pfEmployee = employeeAdjustments.Sum(item => item.PfEmployee);
+            var gratuityProvision = employeeAdjustments.Sum(item => item.GratuityAmount);
+
+            payslip.OtherEarnings = RoundMoney(bonusAndEncashment);
+            payslip.ProvidentFund = RoundMoney((structure.ProvidentFund * factor) + pfEmployee);
+            payslip.Gratuity = RoundMoney((structure.Gratuity * factor) + gratuityProvision);
             payslip.ProfessionalTax = RoundMoney(structure.ProfessionalTax * factor);
             payslip.Deductions = RoundMoney(structure.Deductions * factor);
             payslip.IncomeTax = 0;
             payslip.OtherDeductions = 0;
-            payslip.Remarks = $"Generated for {monthYear}. Billable days {BillableDays(attendance, monthStart):0.##}. Salary advance and due are calculated at print/list time.";
+            payslip.Remarks = $"Generated for {monthYear}. Billable days {BillableDays(attendance, monthStart):0.##}. Salary advance, leave, bonus, PF and gratuity adjustments are calculated from HR Benefits register.";
         }
 
         await db.SaveChangesAsync(cancellationToken);
@@ -299,9 +313,10 @@ public sealed class PayrollService(GarmetixDbContext db)
                 !payment.Deleted &&
                 (!request.PaymentId.HasValue || payment.Id != request.PaymentId.Value))
             .ToListAsync(cancellationToken);
+        var benefitAdvance = await CalculateBenefitAdvanceAsync(request.EmployeeId, request.SalaryMonth, monthStart, cancellationToken);
         var salaryAdvance = currentPayments
             .Where(payment => AdvanceComponents.Contains(payment.SalaryComponent))
-            .Sum(payment => payment.Amount);
+            .Sum(payment => payment.Amount) + benefitAdvance;
         var alreadyPaid = currentPayments
             .Where(payment =>
                 payment.SalaryComponent == SalaryComponent.NetSalary ||
@@ -398,9 +413,10 @@ public sealed class PayrollService(GarmetixDbContext db)
                 !payment.Deleted)
             .ToListAsync(cancellationToken);
 
+        var benefitAdvance = await CalculateBenefitAdvanceAsync(payslip.EmployeeId, salaryMonth, monthStart, cancellationToken);
         var advance = payments
             .Where(payment => AdvanceComponents.Contains(payment.SalaryComponent))
-            .Sum(payment => payment.Amount);
+            .Sum(payment => payment.Amount) + benefitAdvance;
         var paid = payments
             .Where(payment =>
                 payment.SalaryComponent == SalaryComponent.NetSalary ||
@@ -416,6 +432,22 @@ public sealed class PayrollService(GarmetixDbContext db)
             RoundMoney(paid),
             RoundMoney(payable),
             RoundMoney(due));
+    }
+
+    private async Task<decimal> CalculateBenefitAdvanceAsync(Guid employeeId, int salaryMonth, DateTime monthStart, CancellationToken cancellationToken)
+    {
+        var nextMonth = monthStart.AddMonths(1);
+        var adjustments = await db.EmployeePayrollAdjustments.AsNoTracking()
+            .Where(item =>
+                item.EmployeeId == employeeId &&
+                !item.Deleted &&
+                item.RecoverFromSalary &&
+                item.Status != "Closed" &&
+                ((item.SalaryMonth.HasValue && item.SalaryMonth.Value == salaryMonth) || (item.OnDate >= monthStart && item.OnDate < nextMonth)) &&
+                (item.AdjustmentType == "SalaryAdvance" || item.AdjustmentType == "AdvanceRecovery"))
+            .ToListAsync(cancellationToken);
+
+        return RoundMoney(adjustments.Sum(item => Math.Max(0, item.Amount - item.RecoveredAmount)));
     }
 
     private async Task<decimal> CalculateCarryForwardDueAsync(
@@ -435,9 +467,18 @@ public sealed class PayrollService(GarmetixDbContext db)
             .ToListAsync(cancellationToken);
 
         var earned = previousPayslips.Sum(payslip => RoundRupee(payslip.NetSalary));
+        var previousAdjustments = await db.EmployeePayrollAdjustments.AsNoTracking()
+            .Where(item =>
+                item.EmployeeId == employeeId &&
+                item.SalaryMonth.HasValue && item.SalaryMonth.Value < currentSalaryMonth &&
+                !item.Deleted &&
+                item.RecoverFromSalary &&
+                item.Status != "Closed" &&
+                (item.AdjustmentType == "SalaryAdvance" || item.AdjustmentType == "AdvanceRecovery"))
+            .ToListAsync(cancellationToken);
         var advance = previousPayments
             .Where(payment => AdvanceComponents.Contains(payment.SalaryComponent))
-            .Sum(payment => payment.Amount);
+            .Sum(payment => payment.Amount) + previousAdjustments.Sum(item => Math.Max(0, item.Amount - item.RecoveredAmount));
         var paid = previousPayments
             .Where(payment => payment.SalaryComponent == SalaryComponent.NetSalary || payment.SalaryPaySlipId != null)
             .Sum(payment => payment.Amount);

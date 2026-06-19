@@ -1,3 +1,53 @@
+## Stage 8I Package 23B Employee Save Hotfix / v4.9.24
+
+- Current version: 4.9.24 / `GARMETIX-8I-20260619-49240`.
+- Fixed `PUT /api/employees/{id}` failure caused by EF Core/Npgsql not translating `DefaultIfEmpty(0).MaxAsync(...)` in employee auto-code sequence logic.
+- Existing employee edits now keep the current `EmpId` and only generate a sequence when missing.
+- Removed deprecated `lucide-vue-next` dependency from frontend package metadata; Nuxt UI lucide icons remain through `@iconify-json/lucide`.
+- Next planned package remains Stage 8I Package 24 - Attendance Kiosk Base.
+
+## Stage 8I Package 23A HR Schema Repair Hotfix / v4.9.23
+
+- Current version: 4.9.23 / `GARMETIX-8I-20260619-49230`.
+- Added idempotent startup/manual database repair for Package 22/23 HR employee columns.
+- Added idempotent startup/manual database repair for `EmployeePayrollAdjustments`.
+- Fixes PostgreSQL errors: missing `Employees.BankAccountName` and missing `EmployeePayrollAdjustments` relation.
+- Next planned package remains Stage 8I Package 24 - Attendance Kiosk Base.
+
+## Stage 8I Package 23 HR Benefits and Payroll Adjustments / v4.9.22
+
+Current release marker after Package 22 + 23 implementation.
+
+- Current version: 4.9.22 / `GARMETIX-8I-20260619-49220`.
+- Package 22 delivered HR Employee Master upgrade with employee code, photo, documents, lifecycle and ID card readiness.
+- Package 23 delivered HR Benefits/Payroll Adjustments for salary advance, leave, bonus, leave encashment, PF and gratuity.
+- Next recommended package: Attendance Kiosk Base after employee master and benefits acceptance are tested.
+
+## Next roadmap
+
+1. Stage 8I Package 24 - Attendance Kiosk Base.
+2. Stage 8I Package 25 - Face Attendance.
+3. Stage 8I Package 26 - Fingerprint Attendance.
+4. Stage 8I Package 27 - Attendance Payroll Integration.
+
+## Stage 8I Package 21 Client License and SaaS Activation / v4.9.20
+
+- Added dedicated admin `/license-activation` page for client license generation, activation and status review.
+- Added signed offline license key service with product code, client, plan, expiry, store/user limits and module coverage.
+- Added optional operational API enforcement through `LICENSE_ENFORCEMENT_ENABLED=true` with `/api/license` and auth/bootstrap endpoints kept accessible.
+- Added Docker/env wiring for `LICENSE_*` settings and persistent `/app/license` activation storage.
+- Added host-level `scripts/linux/license-acceptance-drill.sh` and validation `LICENSE_SAAS_ACTIVATION`.
+- Current version: 4.9.20 / `GARMETIX-8I-20260619-49200`.
+
+
+## Stage 8I Package 20 SMTP Email Integration and Delivery Acceptance / v4.9.19
+
+- Added dedicated admin `/email-delivery` page for masked SMTP diagnostics, provider guidance and live test email acceptance.
+- SMTP status now reports provider name, authentication flag, timeout seconds and required `.env.production` keys without returning secrets.
+- Added host-level SMTP acceptance drill under `scripts/linux/smtp-acceptance-drill.sh`.
+- Added `SMTP_DELIVERY_ACCEPTANCE` to Test Automation and smoke scripts.
+- Current version: 4.9.19 / `GARMETIX-8I-20260619-49190`.
+
 
 ## Stage 8I Package 19 Print/PDF Acceptance and Store Operations Landing / v4.9.18
 

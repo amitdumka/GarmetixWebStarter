@@ -5,6 +5,21 @@ namespace Garmetix.Api.Production;
 
 public static class EmailDeliveryDiagnosticsEndpoints
 {
+    private static readonly string[] RequiredEnvironmentKeys =
+    [
+        "EMAIL_ENABLED",
+        "EMAIL_HOST",
+        "EMAIL_PORT",
+        "EMAIL_ENABLE_SSL",
+        "EMAIL_USERNAME",
+        "EMAIL_PASSWORD",
+        "EMAIL_FROM_EMAIL",
+        "EMAIL_FROM_NAME",
+        "EMAIL_REPLY_TO_EMAIL",
+        "EMAIL_TIMEOUT_SECONDS",
+        "PASSWORD_RESET_FRONTEND_BASE_URL"
+    ];
+
     public static RouteGroupBuilder MapEmailDeliveryDiagnosticsEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/email-diagnostics")
@@ -37,9 +52,14 @@ public static class EmailDeliveryDiagnosticsEndpoints
             issues.Add("SMTP host still uses a placeholder value.");
         }
 
-        if (settings.Port <= 0)
+        if (settings.Port <= 0 || settings.Port > 65535)
         {
             issues.Add("SMTP port is invalid.");
+        }
+
+        if (settings.TimeoutSeconds < 5)
+        {
+            issues.Add("SMTP timeout should be at least 5 seconds.");
         }
 
         if (string.IsNullOrWhiteSpace(settings.FromEmail) || !settings.FromEmail.Contains('@'))
@@ -58,6 +78,11 @@ public static class EmailDeliveryDiagnosticsEndpoints
             issues.Add("SMTP username is empty. This is valid only for trusted internal relays.");
         }
 
+        if (settings.Enabled && !string.IsNullOrWhiteSpace(settings.UserName) && string.IsNullOrWhiteSpace(settings.Password))
+        {
+            issues.Add("SMTP password/app key is empty.");
+        }
+
         return Results.Ok(new EmailDeliveryStatusDto(
             settings.Enabled,
             MaskHost(settings.Host),
@@ -68,7 +93,11 @@ public static class EmailDeliveryDiagnosticsEndpoints
             settings.FromName,
             MaskAddress(settings.ReplyToEmail),
             issues.Count == 0,
-            issues));
+            issues,
+            DetectProvider(settings.Host),
+            !string.IsNullOrWhiteSpace(settings.UserName),
+            Math.Max(settings.TimeoutSeconds, 0),
+            RequiredEnvironmentKeys));
     }
 
     private static async Task<IResult> SendTestAsync(
@@ -104,6 +133,7 @@ public static class EmailDeliveryDiagnosticsEndpoints
             <p>{System.Net.WebUtility.HtmlEncode(message)}</p>
             <hr>
             <p><strong>Garmetix SMTP test</strong></p>
+            <p>Provider: {System.Net.WebUtility.HtmlEncode(DetectProvider(settings.Host))}</p>
             <p>Sent at UTC: {System.Net.WebUtility.HtmlEncode(timestamp)}</p>
             <p>Trace ID: {System.Net.WebUtility.HtmlEncode(traceId)}</p>
             <p>From: {System.Net.WebUtility.HtmlEncode(settings.FromEmail)}</p>
@@ -112,6 +142,7 @@ public static class EmailDeliveryDiagnosticsEndpoints
             message,
             string.Empty,
             "Garmetix SMTP test",
+            $"Provider: {DetectProvider(settings.Host)}",
             $"Sent at UTC: {timestamp}",
             $"Trace ID: {traceId}",
             $"From: {settings.FromEmail}");
@@ -124,6 +155,7 @@ public static class EmailDeliveryDiagnosticsEndpoints
                 success = true,
                 message = "Test email sent successfully.",
                 toEmail = MaskAddress(toEmail),
+                providerName = DetectProvider(settings.Host),
                 sentAtUtc = timestamp,
                 traceId
             });
@@ -142,6 +174,24 @@ public static class EmailDeliveryDiagnosticsEndpoints
                 traceId
             });
         }
+    }
+
+    private static string DetectProvider(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "Not configured";
+        }
+
+        var host = value.Trim().ToLowerInvariant();
+        if (host.Contains("brevo") || host.Contains("sendinblue")) return "Brevo SMTP";
+        if (host.Contains("gmail") || host.Contains("googlemail")) return "Google Gmail SMTP";
+        if (host.Contains("office365") || host.Contains("outlook") || host.Contains("microsoft")) return "Microsoft 365 / Outlook SMTP";
+        if (host.Contains("sendgrid")) return "SendGrid SMTP";
+        if (host.Contains("mailgun")) return "Mailgun SMTP";
+        if (host.Contains("amazonaws") || host.Contains("email-smtp")) return "Amazon SES SMTP";
+        if (host.Contains("zoho")) return "Zoho SMTP";
+        return "Custom SMTP";
     }
 
     private static string MaskHost(string value)
@@ -191,7 +241,11 @@ public sealed record EmailDeliveryStatusDto(
     string FromName,
     string ReplyToEmail,
     bool Ready,
-    IReadOnlyList<string> Issues);
+    IReadOnlyList<string> Issues,
+    string ProviderName,
+    bool UsingAuthentication,
+    int TimeoutSeconds,
+    IReadOnlyList<string> RecommendedEnvironmentKeys);
 
 public sealed record EmailTestRequest(
     string ToEmail,

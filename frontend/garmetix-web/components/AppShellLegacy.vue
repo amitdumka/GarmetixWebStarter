@@ -92,7 +92,8 @@ const moduleGroups = [
   {
     label: 'People',
     items: [
-      { to: '/hr', label: 'HR', icon: 'i-lucide-users-round' },
+      { to: '/hr', label: 'HR Employee Master', icon: 'i-lucide-users-round' },
+      { to: '/hr-benefits', label: 'HR Benefits', icon: 'i-lucide-hand-coins' },
       { to: '/payroll', label: 'Payroll', icon: 'i-lucide-badge-indian-rupee' }
     ]
   },

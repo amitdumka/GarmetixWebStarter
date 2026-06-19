@@ -176,7 +176,8 @@ const moduleGroups: MenuGroup[] = [
   {
     label: 'People',
     items: [
-      { to: '/hr', label: 'HR', icon: 'i-lucide-users-round' },
+      { to: '/hr', label: 'HR Employee Master', icon: 'i-lucide-users-round' },
+      { to: '/hr-benefits', label: 'HR Benefits', icon: 'i-lucide-hand-coins' },
       { to: '/payroll', label: 'Payroll', icon: 'i-lucide-badge-indian-rupee' }
     ]
   },
@@ -206,6 +207,8 @@ const moduleGroups: MenuGroup[] = [
       { to: '/system-health', label: 'System Health', icon: 'i-lucide-activity', adminOnly: true },
       { to: '/backup-maintenance', label: 'Backup Maintenance', icon: 'i-lucide-hard-drive-download', adminOnly: true },
       { to: '/production-readiness', label: 'Production Readiness', icon: 'i-lucide-shield-check', adminOnly: true },
+      { to: '/email-delivery', label: 'Email Delivery', icon: 'i-lucide-mail-check', adminOnly: true },
+      { to: '/license-activation', label: 'License Activation', icon: 'i-lucide-key-round', adminOnly: true },
       { to: '/stage8g-completion', label: 'Stage 8G Completion', icon: 'i-lucide-flag', adminOnly: true },
       { to: '/post-go-live-acceptance', label: 'Post-Go-Live Acceptance', icon: 'i-lucide-list-checks', adminOnly: true },
       { to: '/release-stabilization', label: 'Release Stabilization', icon: 'i-lucide-rocket', adminOnly: true },
@@ -319,6 +322,7 @@ const notificationQuickActions = computed(() => [
   { label: 'Inventory', icon: 'i-lucide-boxes', to: '/inventory' },
   { label: 'Petty Cash', icon: 'i-lucide-circle-dollar-sign', to: '/petty-cash' },
   { label: 'HR', icon: 'i-lucide-users-round', to: '/hr' },
+  { label: 'Benefits', icon: 'i-lucide-hand-coins', to: '/hr-benefits' },
   { label: 'Payroll', icon: 'i-lucide-badge-indian-rupee', to: '/payroll' },
   { label: 'Scan', icon: 'i-lucide-scan-qr-code', to: '/document-scan' }
 ].filter((item) => access.canAccessPath(item.to)).slice(0, 6))

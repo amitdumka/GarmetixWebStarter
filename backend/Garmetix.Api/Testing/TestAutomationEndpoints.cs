@@ -101,6 +101,9 @@ public static class TestAutomationEndpoints
             "FRONTEND_HYDRATION_GUARD",
             "BACKUP_RESTORE_SAFETY",
             "PERMISSION_ROLE_ACCEPTANCE",
+            "PRINT_PDF_ACCEPTANCE",
+            "SMTP_DELIVERY_ACCEPTANCE",
+            "LICENSE_SAAS_ACTIVATION",
             "AUTHENTICATED_API_SMOKE"
         };
         var catalogOk = requiredCodes.All(code => definitions.Any(item => item.Code == code));
@@ -110,7 +113,7 @@ public static class TestAutomationEndpoints
             catalogOk ? "Pass" : "Warning",
             catalogOk ? "Info" : "Medium",
             catalogOk ? $"Manifest exposes {definitions.Count} test definitions." : "Manifest is missing one or more required smoke-test definitions.",
-            "Restore the Stage 8I Package 18 TestAutomationCatalog definitions.");
+            "Restore the current Stage 8I TestAutomationCatalog definitions.");
 
         var critical = checks.Count(item => item.Status.Equals("Critical", StringComparison.OrdinalIgnoreCase));
         var warnings = checks.Count(item => item.Status.Equals("Warning", StringComparison.OrdinalIgnoreCase));

@@ -241,6 +241,93 @@ public static async Task RepairStoreDayStorageAsync(GarmetixDbContext db, ILogge
     logger.LogInformation("Store day opening/closing storage repair check completed.");
 }
 
+
+public static async Task RepairHrEmployeeMasterAndBenefitsAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
+{
+    // Package 23A hotfix: production Docker volumes can be upgraded with AutoMigrate
+    // disabled, or with EF migration history already marked as current while the
+    // physical HR columns/table are still missing. /api/employees and HR benefits
+    // query these members immediately, so keep this idempotent repair in startup
+    // schema drift checks as well as the manual /api/database/repair endpoint.
+    await db.Database.ExecuteSqlRawAsync("""
+        ALTER TABLE "Employees" ADD COLUMN IF NOT EXISTS "EmployeeCode" character varying(40) NULL;
+        ALTER TABLE "Employees" ADD COLUMN IF NOT EXISTS "FatherOrHusbandName" character varying(120) NULL;
+        ALTER TABLE "Employees" ADD COLUMN IF NOT EXISTS "Department" character varying(80) NULL;
+        ALTER TABLE "Employees" ADD COLUMN IF NOT EXISTS "Designation" character varying(80) NULL;
+        ALTER TABLE "Employees" ADD COLUMN IF NOT EXISTS "SalaryType" character varying(30) NOT NULL DEFAULT 'Monthly';
+        ALTER TABLE "Employees" ADD COLUMN IF NOT EXISTS "MonthlySalary" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "Employees" ADD COLUMN IF NOT EXISTS "DailyWage" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "Employees" ADD COLUMN IF NOT EXISTS "EmployeeStatus" character varying(30) NOT NULL DEFAULT 'Active';
+        ALTER TABLE "Employees" ADD COLUMN IF NOT EXISTS "ExitReason" character varying(200) NULL;
+        ALTER TABLE "Employees" ADD COLUMN IF NOT EXISTS "BloodGroup" character varying(40) NULL;
+        ALTER TABLE "Employees" ADD COLUMN IF NOT EXISTS "PhotoDataUrl" text NULL;
+        ALTER TABLE "Employees" ADD COLUMN IF NOT EXISTS "BankAccountName" character varying(120) NULL;
+        ALTER TABLE "Employees" ADD COLUMN IF NOT EXISTS "BankAccountNumber" character varying(30) NULL;
+        ALTER TABLE "Employees" ADD COLUMN IF NOT EXISTS "IFSC" character varying(20) NULL;
+        ALTER TABLE "Employees" ADD COLUMN IF NOT EXISTS "ESINumber" character varying(30) NULL;
+        ALTER TABLE "Employees" ADD COLUMN IF NOT EXISTS "PFNumber" character varying(30) NULL;
+        ALTER TABLE "Employees" ADD COLUMN IF NOT EXISTS "EmergencyContact" character varying(120) NULL;
+
+        UPDATE "Employees"
+        SET "EmployeeStatus" = CASE WHEN "Working" THEN 'Active' ELSE 'Inactive' END
+        WHERE "EmployeeStatus" IS NULL OR "EmployeeStatus" = '';
+
+        CREATE TABLE IF NOT EXISTS "EmployeePayrollAdjustments" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "CompanyId" uuid NOT NULL,
+            "CreatedBy" text NULL,
+            "StoreGroupId" uuid NOT NULL,
+            "StoreId" uuid NOT NULL,
+            "EmployeeId" uuid NOT NULL,
+            "AdjustmentType" character varying(40) NOT NULL DEFAULT 'SalaryAdvance',
+            "OnDate" timestamp without time zone NOT NULL DEFAULT now(),
+            "SalaryMonth" integer NULL,
+            "Amount" numeric(18,2) NOT NULL DEFAULT 0,
+            "LeaveDays" numeric(18,2) NOT NULL DEFAULT 0,
+            "RecoverFromSalary" boolean NOT NULL DEFAULT true,
+            "RecoveredAmount" numeric(18,2) NOT NULL DEFAULT 0,
+            "PfEmployee" numeric(18,2) NOT NULL DEFAULT 0,
+            "PfEmployer" numeric(18,2) NOT NULL DEFAULT 0,
+            "GratuityAmount" numeric(18,2) NOT NULL DEFAULT 0,
+            "Status" character varying(30) NOT NULL DEFAULT 'Open',
+            "Remarks" character varying(200) NULL,
+            CONSTRAINT "PK_EmployeePayrollAdjustments" PRIMARY KEY ("Id")
+        );
+
+        ALTER TABLE "EmployeePayrollAdjustments" ADD COLUMN IF NOT EXISTS "CreatedAt" timestamp without time zone NOT NULL DEFAULT now();
+        ALTER TABLE "EmployeePayrollAdjustments" ADD COLUMN IF NOT EXISTS "UpdatedAt" timestamp without time zone NULL;
+        ALTER TABLE "EmployeePayrollAdjustments" ADD COLUMN IF NOT EXISTS "Synced" boolean NOT NULL DEFAULT false;
+        ALTER TABLE "EmployeePayrollAdjustments" ADD COLUMN IF NOT EXISTS "Deleted" boolean NOT NULL DEFAULT false;
+        ALTER TABLE "EmployeePayrollAdjustments" ADD COLUMN IF NOT EXISTS "CompanyId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+        ALTER TABLE "EmployeePayrollAdjustments" ADD COLUMN IF NOT EXISTS "CreatedBy" text NULL;
+        ALTER TABLE "EmployeePayrollAdjustments" ADD COLUMN IF NOT EXISTS "StoreGroupId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+        ALTER TABLE "EmployeePayrollAdjustments" ADD COLUMN IF NOT EXISTS "StoreId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+        ALTER TABLE "EmployeePayrollAdjustments" ADD COLUMN IF NOT EXISTS "EmployeeId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+        ALTER TABLE "EmployeePayrollAdjustments" ADD COLUMN IF NOT EXISTS "AdjustmentType" character varying(40) NOT NULL DEFAULT 'SalaryAdvance';
+        ALTER TABLE "EmployeePayrollAdjustments" ADD COLUMN IF NOT EXISTS "OnDate" timestamp without time zone NOT NULL DEFAULT now();
+        ALTER TABLE "EmployeePayrollAdjustments" ADD COLUMN IF NOT EXISTS "SalaryMonth" integer NULL;
+        ALTER TABLE "EmployeePayrollAdjustments" ADD COLUMN IF NOT EXISTS "Amount" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "EmployeePayrollAdjustments" ADD COLUMN IF NOT EXISTS "LeaveDays" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "EmployeePayrollAdjustments" ADD COLUMN IF NOT EXISTS "RecoverFromSalary" boolean NOT NULL DEFAULT true;
+        ALTER TABLE "EmployeePayrollAdjustments" ADD COLUMN IF NOT EXISTS "RecoveredAmount" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "EmployeePayrollAdjustments" ADD COLUMN IF NOT EXISTS "PfEmployee" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "EmployeePayrollAdjustments" ADD COLUMN IF NOT EXISTS "PfEmployer" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "EmployeePayrollAdjustments" ADD COLUMN IF NOT EXISTS "GratuityAmount" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "EmployeePayrollAdjustments" ADD COLUMN IF NOT EXISTS "Status" character varying(30) NOT NULL DEFAULT 'Open';
+        ALTER TABLE "EmployeePayrollAdjustments" ADD COLUMN IF NOT EXISTS "Remarks" character varying(200) NULL;
+
+        CREATE INDEX IF NOT EXISTS "IX_Employees_CompanyId_StoreId_EmployeeCode" ON "Employees" ("CompanyId", "StoreId", "EmployeeCode");
+        CREATE INDEX IF NOT EXISTS "IX_EmployeePayrollAdjustments_Company_Store_Employee_Type_Status" ON "EmployeePayrollAdjustments" ("CompanyId", "StoreId", "EmployeeId", "AdjustmentType", "Status");
+        CREATE INDEX IF NOT EXISTS "IX_EmployeePayrollAdjustments_Company_OnDate" ON "EmployeePayrollAdjustments" ("CompanyId", "OnDate");
+        """, cancellationToken);
+
+    logger.LogInformation("HR employee master and benefits storage repair check completed.");
+}
+
 public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
     {
         try
@@ -248,6 +335,7 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
             await RepairGstReturnStorageAsync(db, logger, cancellationToken);
             await RepairCashVoucherConversionStorageAsync(db, logger, cancellationToken);
             await RepairStoreDayStorageAsync(db, logger, cancellationToken);
+            await RepairHrEmployeeMasterAndBenefitsAsync(db, logger, cancellationToken);
 
             await db.Database.ExecuteSqlRawAsync("""
                 CREATE TABLE IF NOT EXISTS "FinancialYearLocks" (

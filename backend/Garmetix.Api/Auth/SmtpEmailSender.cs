@@ -48,7 +48,8 @@ public sealed class SmtpEmailSender(IOptions<EmailOptions> options, ILogger<Smtp
 
         using var smtp = new SmtpClient(settings.Host, settings.Port)
         {
-            EnableSsl = settings.EnableSsl
+            EnableSsl = settings.EnableSsl,
+            Timeout = Math.Max(settings.TimeoutSeconds, 5) * 1000
         };
 
         if (!string.IsNullOrWhiteSpace(settings.UserName))
@@ -71,6 +72,21 @@ public sealed class SmtpEmailSender(IOptions<EmailOptions> options, ILogger<Smtp
         if (string.IsNullOrWhiteSpace(settings.Host))
         {
             throw new InvalidOperationException("Email:Host is required when email delivery is enabled.");
+        }
+
+        if (settings.Port <= 0 || settings.Port > 65535)
+        {
+            throw new InvalidOperationException("Email:Port must be between 1 and 65535.");
+        }
+
+        if (settings.Host.Contains("example.com", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Email:Host still uses a placeholder value.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(settings.UserName) && string.IsNullOrWhiteSpace(settings.Password))
+        {
+            throw new InvalidOperationException("Email:Password is required when Email:UserName is configured.");
         }
 
         if (string.IsNullOrWhiteSpace(settings.FromEmail))
