@@ -1,3 +1,8 @@
+## v4.10.21 Stage 10J System Info Polish
+
+- System Info now uses the compact module header style instead of the oversized dashboard hero.
+- Version cards now use plain `|` separators for safer rendering across fonts and terminals.
+
 ## v4.10.20 Stage 10J Oracle Health Polish
 
 - System Health now shows Oracle sync readiness alongside API, database, backup and Google Drive health.
@@ -37,7 +42,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 10J Real Excel Import Export Engine and Oracle Health Polish v4.10.20 (`GARMETIX-10J-20260620-4120`).
+> Current package: Stage 10J Real Excel Import Export Engine and System Info Polish v4.10.21 (`GARMETIX-10J-20260620-4121`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

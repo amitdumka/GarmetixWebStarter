@@ -96,34 +96,33 @@ onMounted(refresh)
 
 <template>
   <AppShell title="System Info" @refresh="refresh">
-    <section class="dashboard-v3-page">
-      <div class="dashboard-v3-hero business">
-        <div>
-          <UBadge color="primary" variant="subtle" icon="i-lucide-monitor-cog">System info</UBadge>
-          <h1>System Info</h1>
-          <p>Confirm frontend/backend version identity, shell mode, API status and permission route coverage before support or rollback.</p>
-        </div>
-        <div class="dashboard-v3-hero-actions">
+    <section class="dashboard-v3-page system-info-page">
+      <UiModulePageHeader
+        title="System Info"
+        description="Confirm frontend/backend version identity, shell mode, API status and permission route coverage before support or rollback."
+        icon="i-lucide-monitor-cog"
+      >
+        <template #actions>
           <UBadge :color="versionMatched ? 'success' : 'warning'" variant="subtle" :icon="versionMatched ? 'i-lucide-check-circle-2' : 'i-lucide-triangle-alert'">
             {{ versionMatched ? 'Version matched' : 'Version mismatch' }}
           </UBadge>
           <UButton icon="i-lucide-refresh-cw" :loading="loading" label="Refresh" @click="refresh" />
-        </div>
-      </div>
+        </template>
+      </UiModulePageHeader>
 
       <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <UCard>
           <div class="space-y-1">
             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted">Frontend</p>
             <h2 class="text-2xl font-bold">v{{ frontendVersion.version }}</h2>
-            <p class="text-sm text-muted">{{ frontendVersion.releaseName || frontendVersion.stage }} · {{ frontendVersion.buildCode }}</p>
+            <p class="text-sm text-muted">{{ frontendVersion.releaseName || frontendVersion.stage }} | {{ frontendVersion.buildCode }}</p>
           </div>
         </UCard>
         <UCard>
           <div class="space-y-1">
             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted">Backend</p>
             <h2 class="text-2xl font-bold">v{{ backendVersion.version }}</h2>
-            <p class="text-sm text-muted">{{ backendVersion.releaseName || backendVersion.stage }} · {{ backendVersion.buildCode }}</p>
+            <p class="text-sm text-muted">{{ backendVersion.releaseName || backendVersion.stage }} | {{ backendVersion.buildCode }}</p>
           </div>
         </UCard>
         <UCard>
@@ -137,7 +136,7 @@ onMounted(refresh)
           <div class="space-y-1">
             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted">Routes</p>
             <h2 class="text-2xl font-bold">{{ visibleRouteCount }}/{{ access.routeRules.length }}</h2>
-            <p class="text-sm text-muted">Visible to current user · {{ hiddenRouteCount }} hidden.</p>
+            <p class="text-sm text-muted">Visible to current user | {{ hiddenRouteCount }} hidden.</p>
           </div>
         </UCard>
       </div>
