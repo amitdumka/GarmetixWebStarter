@@ -1467,18 +1467,70 @@ public static class BillingEndpoints
         return await GetDefaultSalesmanIdAsync(companyId, storeId, context, db, cancellationToken);
     }
 
-    private static Task<Guid?> GetDefaultSalesmanIdAsync(
+    private static async Task<Guid?> GetDefaultSalesmanIdAsync(
         Guid companyId,
         Guid storeId,
         HttpContext context,
         GarmetixDbContext db,
         CancellationToken cancellationToken)
     {
-        return WorkspaceScope.ApplyTo(db.Salesmen.AsNoTracking(), context)
+        var managerId = await WorkspaceScope.ApplyTo(db.Salesmen.AsNoTracking(), context)
+            .Where(item => item.Active && item.CompanyId == companyId && item.StoreId == storeId && item.Name == "Manager")
+            .Select(item => (Guid?)item.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (managerId.HasValue)
+        {
+            return managerId;
+        }
+
+        var activeSalesmanId = await WorkspaceScope.ApplyTo(db.Salesmen.AsNoTracking(), context)
             .Where(item => item.Active && item.CompanyId == companyId && item.StoreId == storeId)
             .OrderBy(item => item.Name)
             .Select(item => (Guid?)item.Id)
             .FirstOrDefaultAsync(cancellationToken);
+        if (activeSalesmanId.HasValue)
+        {
+            return activeSalesmanId;
+        }
+
+        var storeScope = await db.Stores.AsNoTracking()
+            .Where(item => item.Id == storeId && item.CompanyId == companyId && !item.Deleted)
+            .Select(item => new { item.StoreGroupId })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (storeScope is null)
+        {
+            return null;
+        }
+
+        var manager = await db.Salesmen
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(item => item.CompanyId == companyId && item.StoreId == storeId && item.Name == "Manager", cancellationToken);
+        if (manager is null)
+        {
+            manager = new Salesman
+            {
+                Id = Guid.NewGuid(),
+                CompanyId = companyId,
+                StoreGroupId = storeScope.StoreGroupId,
+                StoreId = storeId,
+                Name = "Manager",
+                Active = true,
+                Deleted = false
+            };
+            db.Salesmen.Add(manager);
+        }
+        else
+        {
+            manager.CompanyId = companyId;
+            manager.StoreGroupId = storeScope.StoreGroupId;
+            manager.StoreId = storeId;
+            manager.Active = true;
+            manager.Deleted = false;
+            manager.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return manager.Id;
     }
 
     private static async Task UpdateOriginalReturnStatusAsync(

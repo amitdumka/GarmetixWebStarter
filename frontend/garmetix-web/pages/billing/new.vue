@@ -790,7 +790,7 @@ watch([form, adjustments, cart, payments], persistDraft, { deep: true })
             <div><dt>Payments</dt><dd>{{ money(manualPaymentTotal) }}</dd></div>
             <div class="balance"><dt>Balance</dt><dd>{{ money(paymentBalance) }}</dd></div>
           </dl>
-          <UButton block size="lg" icon="i-lucide-save" label="Save & Print Invoice" :loading="saving" :disabled="loading" @click="submitSale" />
+          <UButton block size="md" icon="i-lucide-save" label="Save & Print" :loading="saving" :disabled="loading" @click="submitSale" />
           <p>The saved invoice prints automatically. This page then resets for the next customer.</p>
         </aside>
       </div>
@@ -829,16 +829,16 @@ watch([form, adjustments, cart, payments], persistDraft, { deep: true })
 .adjustment-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; padding: 0 .8rem .8rem; }
 .payment-list { display: grid; gap: .65rem; }
 .payment-row { display: grid; grid-template-columns: repeat(3, minmax(9rem, 1fr)) auto; gap: .65rem; align-items: end; padding: .8rem; border: 1px solid var(--ui-border); border-radius: 6px; }
-.sale-total-panel { position: sticky; top: 4.5rem; padding: 1rem; border: 1px solid var(--ui-border); border-radius: 8px; background: var(--ui-bg); display: grid; gap: 1rem; }
+.sale-total-panel { position: sticky; top: 4.5rem; padding: .75rem; border: 1px solid var(--ui-border); border-radius: 8px; background: var(--ui-bg); display: grid; gap: .75rem; }
 .summary-heading { display: grid; gap: .25rem; }
-.summary-heading span { color: var(--ui-text-muted); font-size: .82rem; }
-.summary-heading strong { font-size: 1.75rem; letter-spacing: 0; }
-.sale-total-panel dl { margin: 0; display: grid; gap: .65rem; }
-.sale-total-panel dl > div { display: flex; justify-content: space-between; gap: 1rem; font-size: .87rem; }
+.summary-heading span { color: var(--ui-text-muted); font-size: .78rem; }
+.summary-heading strong { font-size: 1.5rem; letter-spacing: 0; }
+.sale-total-panel dl { margin: 0; display: grid; gap: .5rem; }
+.sale-total-panel dl > div { display: flex; justify-content: space-between; gap: .75rem; font-size: .84rem; }
 .sale-total-panel dt { color: var(--ui-text-muted); }
 .sale-total-panel dd { margin: 0; font-weight: 650; }
-.sale-total-panel .balance { padding-top: .7rem; border-top: 1px solid var(--ui-border); font-size: 1rem; }
-.sale-total-panel p { margin: 0; color: var(--ui-text-muted); font-size: .78rem; line-height: 1.45; }
+.sale-total-panel .balance { padding-top: .55rem; border-top: 1px solid var(--ui-border); font-size: .95rem; }
+.sale-total-panel p { margin: 0; color: var(--ui-text-muted); font-size: .74rem; line-height: 1.35; }
 @media (max-width: 1400px) {
   .invoice-grid { grid-template-columns: 1fr; }
   .sale-total-panel { position: static; }

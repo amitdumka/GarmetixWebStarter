@@ -396,6 +396,7 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         }
 
         db.Set<T>().Add(entity);
+        await SyncEmployeeSalesmanAsync(entity, db, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
 
         if (entity is Company company)
@@ -434,6 +435,7 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         }
 
         db.Entry(entity).State = EntityState.Modified;
+        await SyncEmployeeSalesmanAsync(entity, db, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(entity);
     }).RequireAuthorization(policyName).RequireAuthorization(GarmetixPolicies.Edit);
@@ -563,6 +565,52 @@ static async Task<string?> PrepareEmployeeMasterAsync<T>(T entity, GarmetixDbCon
     }
 
     return null;
+}
+
+static async Task SyncEmployeeSalesmanAsync<T>(T entity, GarmetixDbContext db, CancellationToken cancellationToken) where T : class
+{
+    if (entity is not Employee employee)
+    {
+        return;
+    }
+
+    var salesman = await db.Salesmen
+        .IgnoreQueryFilters()
+        .FirstOrDefaultAsync(item => item.EmployeeId == employee.Id, cancellationToken);
+
+    if (employee.Category != EmployeeCategory.Salesman || !employee.Working || employee.Deleted)
+    {
+        if (salesman is not null)
+        {
+            salesman.Active = false;
+            salesman.UpdatedAt = DateTime.UtcNow;
+        }
+
+        return;
+    }
+
+    if (salesman is null)
+    {
+        salesman = new Salesman
+        {
+            Id = Guid.NewGuid(),
+            EmployeeId = employee.Id
+        };
+        db.Salesmen.Add(salesman);
+    }
+
+    var salesmanName = string.IsNullOrWhiteSpace(employee.StaffName)
+        ? $"{employee.FirstName} {employee.LastName}".Trim()
+        : employee.StaffName.Trim();
+
+    salesman.CompanyId = employee.CompanyId;
+    salesman.StoreGroupId = employee.StoreGroupId;
+    salesman.StoreId = employee.StoreId;
+    salesman.Name = string.IsNullOrWhiteSpace(salesmanName) ? "Salesman" : salesmanName;
+    salesman.EmployeeId = employee.Id;
+    salesman.Active = true;
+    salesman.Deleted = false;
+    salesman.UpdatedAt = DateTime.UtcNow;
 }
 
 static string DigitsOnly(string? value)
