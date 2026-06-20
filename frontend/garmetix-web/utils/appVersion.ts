@@ -1,10 +1,11 @@
-export const APP_VERSION = '4.10.17'
+export const APP_VERSION = '4.10.18'
 export const APP_STAGE = "Stage 10J Real Excel Import Export Engine"
-export const APP_RELEASE_NAME = "Stage 10J: Real Excel Import Export Engine"
+export const APP_RELEASE_NAME = "Stage 10J: Real Excel Import Export Engine and Sale Invoice Hardening"
 export const APP_BUILD_DATE = '2026-06-20'
-export const APP_BUILD_CODE = 'GARMETIX-10J-20260620-4117'
+export const APP_BUILD_CODE = 'GARMETIX-10J-20260620-4118'
 
 export const APP_HIGHLIGHTS = [
+  'Sale invoices now recover the internal Manager salesman automatically when a store has no active salesman master.',
   'Stage 10J adds a real import/export engine for products, customers, vendors, stock opening, billing, purchase, HR, payroll, attendance, vouchers, petty cash and access.',
   'Stock Opening import adjusts store-wise stock ledgers to the uploaded opening quantity and records an auditable stock movement.',
   'Customer and vendor master import/export are now first-class modules with templates, validation, create/update behavior and error report download.',

@@ -1,3 +1,9 @@
+## v4.10.18 Stage 10J Sale Invoice Hardening
+
+- Sale invoice save now auto-recovers the internal `Manager` salesman when a store has no active salesman master.
+- Employee saves now synchronize active `Salesman` category employees into the Salesman master in the background.
+- New Sale Invoice summary action is compacted to `Save & Print` for laptop-width use.
+
 ## v4.10.17 Stage 10J Real Excel Import Export Engine
 
 - Completed the Excel-compatible CSV import/export engine for product, customer, vendor, stock-opening, setup, billing, purchase, HR, payroll, attendance, vouchers, petty cash and access modules.
@@ -20,7 +26,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 10J Real Excel Import Export Engine v4.10.17 (`GARMETIX-10J-20260620-4117`).
+> Current package: Stage 10J Real Excel Import Export Engine and Sale Invoice Hardening v4.10.18 (`GARMETIX-10J-20260620-4118`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.10.17";
+    public const string Version = "4.10.18";
     public const string Stage = "Stage 10J Real Excel Import Export Engine";
-    public const string ReleaseName = "Stage 10J: Real Excel Import Export Engine";
+    public const string ReleaseName = "Stage 10J: Real Excel Import Export Engine and Sale Invoice Hardening";
     public const string BuildDate = "2026-06-20";
-    public const string BuildCode = "GARMETIX-10J-20260620-4117";
+    public const string BuildCode = "GARMETIX-10J-20260620-4118";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,7 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Sale invoices now recover the internal Manager salesman automatically when a store has no active salesman master.",
         "Stage 10J adds a real import/export engine for products, customers, vendors, stock opening, billing, purchase, HR, payroll, attendance, vouchers, petty cash and access.",
         "Stock Opening import adjusts store-wise stock ledgers to the uploaded opening quantity and records an auditable stock movement.",
         "Customer and vendor master import/export are now first-class modules with templates, validation, create/update behavior and error report download.",

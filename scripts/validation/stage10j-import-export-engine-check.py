@@ -20,7 +20,16 @@ import_page = read('frontend/garmetix-web/pages/import-export/index.vue')
 current_release = read('scripts/validation/current-release-checks.py')
 drill = read('scripts/linux/stage10j-import-export-engine-drill.sh') if exists('scripts/linux/stage10j-import-export-engine-drill.sh') else ''
 
-add('version identity', all(token in app_info for token in ['Version = "4.10.17"', 'Stage 10J Real Excel Import Export Engine', 'GARMETIX-10J-20260620-4117']) and "APP_VERSION = '4.10.17'" in app_version and '<Version>4.10.17</Version>' in csproj)
+version_identity = (
+    all(token in app_info for token in ['Version = "4.10.17"', 'Stage 10J Real Excel Import Export Engine', 'GARMETIX-10J-20260620-4117'])
+    and "APP_VERSION = '4.10.17'" in app_version
+    and '<Version>4.10.17</Version>' in csproj
+) or (
+    all(token in app_info for token in ['Version = "4.10.18"', 'Stage 10J Real Excel Import Export Engine', 'GARMETIX-10J-20260620-4118'])
+    and "APP_VERSION = '4.10.18'" in app_version
+    and '<Version>4.10.18</Version>' in csproj
+)
+add('version identity', version_identity)
 add('new master modules', all(token in import_export for token in ['["products"]', '["customers"]', '["vendors"]', '["stock-opening"]']))
 add('new import methods', all(token in import_export for token in ['ImportProductsAsync', 'ImportCustomersAsync', 'ImportVendorsAsync', 'ImportStockOpeningAsync']))
 add('stock opening posts ledger adjustment', all(token in import_export for token in ['StockOpeningImportAdjustment', 'OpeningQty', 'stockLedger.PostAsync', 'allowNegative: true']))
