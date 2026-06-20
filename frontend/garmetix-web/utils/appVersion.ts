@@ -1,10 +1,11 @@
-export const APP_VERSION = '4.10.19'
+export const APP_VERSION = '4.10.20'
 export const APP_STAGE = "Stage 10J Real Excel Import Export Engine"
-export const APP_RELEASE_NAME = "Stage 10J: Real Excel Import Export Engine and Company UI Polish"
+export const APP_RELEASE_NAME = "Stage 10J: Real Excel Import Export Engine and Oracle Health Polish"
 export const APP_BUILD_DATE = '2026-06-20'
-export const APP_BUILD_CODE = 'GARMETIX-10J-20260620-4119'
+export const APP_BUILD_CODE = 'GARMETIX-10J-20260620-4120'
 
 export const APP_HIGHLIGHTS = [
+  'System Health now shows Oracle secondary sync readiness, direction, wallet, tenant/source and last success.',
   'Company page helper text now wraps cleanly while header actions remain grouped as usable controls.',
   'Sale invoices now recover the internal Manager salesman automatically when a store has no active salesman master.',
   'Stage 10J adds a real import/export engine for products, customers, vendors, stock opening, billing, purchase, HR, payroll, attendance, vouchers, petty cash and access.',

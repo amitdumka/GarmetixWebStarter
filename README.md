@@ -1,3 +1,9 @@
+## v4.10.20 Stage 10J Oracle Health Polish
+
+- System Health now shows Oracle sync readiness alongside API, database, backup and Google Drive health.
+- Oracle health includes enabled/configured state, direction, tenant/source, wallet state and last success, with a shortcut to the full Oracle Sync page.
+- Oracle status failures no longer block the rest of System Health from loading.
+
 ## v4.10.19 Stage 10J Company UI Polish
 
 - Company page helper text now wraps inside the title area instead of pushing controls out of place.
@@ -31,7 +37,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 10J Real Excel Import Export Engine and Company UI Polish v4.10.19 (`GARMETIX-10J-20260620-4119`).
+> Current package: Stage 10J Real Excel Import Export Engine and Oracle Health Polish v4.10.20 (`GARMETIX-10J-20260620-4120`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

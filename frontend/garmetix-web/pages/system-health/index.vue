@@ -30,6 +30,8 @@ const verificationResult = ref<any | null>(null)
 const localRestorePreview = ref<any | null>(null)
 const cloudBackups = ref<any[]>([])
 const cloudStatus = ref<any | null>(null)
+const oracleStatus = ref<any | null>(null)
+const oracleStatusError = ref('')
 const uploadingCloudBackup = ref('')
 const downloadingCloudBackup = ref('')
 const deletingCloudBackup = ref('')
@@ -85,8 +87,27 @@ const metrics = computed(() => [
       : 'Cloud backup disabled',
     icon: 'i-lucide-cloud-upload',
     color: cloudStatus.value?.configured ? 'success' : cloudStatus.value?.enabled ? 'warning' : 'neutral'
+  },
+  {
+    label: 'Oracle Sync',
+    value: oracleStatus.value?.configured ? 'Configured' : oracleStatus.value?.enabled ? 'Needs setup' : 'Disabled',
+    meta: oracleStatus.value?.isRunning
+      ? 'Sync is running'
+      : oracleStatusError.value || oracleStatus.value?.note || oracleSyncSummary.value,
+    icon: oracleStatus.value?.configured ? 'i-lucide-database-zap' : 'i-lucide-database-x',
+    color: oracleStatus.value?.configured ? 'success' : oracleStatus.value?.enabled ? 'warning' : 'neutral'
   }
 ])
+
+const oracleSyncSummary = computed(() => {
+  if (!oracleStatus.value) {
+    return 'Status not checked'
+  }
+
+  const direction = oracleStatus.value.direction || 'Direction not set'
+  const entities = Array.isArray(oracleStatus.value.entityNames) ? oracleStatus.value.entityNames.length : 0
+  return `${direction} | ${entities} mapped entities`
+})
 
 const scheduleTime = computed(() => {
   const hour = Number(backupStatus.value?.runHour ?? 0)
@@ -106,7 +127,12 @@ const detailRows = computed(() => [
   ['Database ready', health.value?.databaseReady ? 'Yes' : 'No'],
   ['Checked at UTC', health.value?.checkedAtUtc || '-'],
   ['Admin exists', bootstrap.value?.hasAdmin ? 'Yes' : 'No'],
-  ['Users exist', bootstrap.value?.hasUsers ? 'Yes' : 'No']
+  ['Users exist', bootstrap.value?.hasUsers ? 'Yes' : 'No'],
+  ['Oracle sync enabled', oracleStatus.value?.enabled ? 'Yes' : 'No'],
+  ['Oracle configured', oracleStatus.value?.configured ? 'Yes' : 'No'],
+  ['Oracle direction', oracleStatus.value?.direction || '-'],
+  ['Oracle last success', oracleStatus.value?.lastSuccessUtc || '-'],
+  ['Oracle last error', oracleStatus.value?.lastError || oracleStatusError.value || '-']
 ])
 
 const backupRows = computed(() => backups.value.map((backup) => ({
@@ -138,14 +164,19 @@ async function refresh() {
 
   loading.value = true
   try {
-    const [healthResponse, bootstrapResponse, companyRows, storeRows, backupRowsResponse, backupStatusResponse, cloudStatusResponse] = await Promise.all([
+    oracleStatusError.value = ''
+    const [healthResponse, bootstrapResponse, companyRows, storeRows, backupRowsResponse, backupStatusResponse, cloudStatusResponse, oracleStatusResponse] = await Promise.all([
       $fetch<any>('/api/health'),
       $fetch<any>('/api/auth/bootstrap-status'),
       api.list<any>('companies'),
       api.list<any>('stores'),
       api.list<any>('backups'),
       api.get<any>('backups/status'),
-      api.get<any>('backups/cloud/status')
+      api.get<any>('backups/cloud/status'),
+      api.get<any>('oracle-sync/status').catch((error) => {
+        oracleStatusError.value = feedback.errorMessage(error, 'Oracle sync status could not be loaded.', 'Oracle sync status failed')
+        return null
+      })
     ])
 
     health.value = healthResponse
@@ -155,6 +186,7 @@ async function refresh() {
     backups.value = backupRowsResponse
     backupStatus.value = backupStatusResponse
     cloudStatus.value = cloudStatusResponse
+    oracleStatus.value = oracleStatusResponse
     cloudBackups.value = cloudStatusResponse?.configured
       ? await api.list<any>('backups/cloud')
       : []
@@ -539,6 +571,61 @@ onMounted(async () => {
             <div v-for="[label, value] in detailRows" :key="label" class="system-health-row">
               <span>{{ label }}</span>
               <strong>{{ value }}</strong>
+            </div>
+          </div>
+        </UCard>
+
+        <UCard class="planner-card">
+          <template #header>
+            <div class="planner-card-header">
+              <div>
+                <h2>Oracle Sync</h2>
+                <p>Secondary Oracle database connection and inbound/outbound sync readiness.</p>
+              </div>
+              <div class="table-action-buttons">
+                <UBadge
+                  :color="oracleStatus?.configured ? 'success' : oracleStatus?.enabled ? 'warning' : 'neutral'"
+                  variant="subtle"
+                >
+                  {{ oracleStatus?.configured ? 'Configured' : oracleStatus?.enabled ? 'Needs setup' : 'Disabled' }}
+                </UBadge>
+                <UButton to="/oracle-sync" icon="i-lucide-database-zap" color="neutral" variant="subtle" label="Open Oracle Sync" />
+              </div>
+            </div>
+          </template>
+
+          <UAlert
+            v-if="oracleStatusError"
+            color="warning"
+            variant="subtle"
+            icon="i-lucide-triangle-alert"
+            title="Oracle status unavailable"
+            :description="oracleStatusError"
+          />
+          <div v-else class="system-health-grid">
+            <div class="system-health-row">
+              <span>Enabled</span>
+              <strong>{{ oracleStatus?.enabled ? 'Yes' : 'No' }}</strong>
+            </div>
+            <div class="system-health-row">
+              <span>Configured</span>
+              <strong>{{ oracleStatus?.configured ? 'Yes' : 'No' }}</strong>
+            </div>
+            <div class="system-health-row">
+              <span>Direction</span>
+              <strong>{{ oracleStatus?.direction || '-' }}</strong>
+            </div>
+            <div class="system-health-row">
+              <span>Tenant / source</span>
+              <strong>{{ oracleStatus?.tenantId || '-' }} / {{ oracleStatus?.sourceApplication || '-' }}</strong>
+            </div>
+            <div class="system-health-row">
+              <span>Wallet</span>
+              <strong>{{ oracleStatus?.walletConfigured ? 'Configured' : 'Not configured' }}</strong>
+            </div>
+            <div class="system-health-row">
+              <span>Last success</span>
+              <strong>{{ oracleStatus?.lastSuccessUtc || '-' }}</strong>
             </div>
           </div>
         </UCard>

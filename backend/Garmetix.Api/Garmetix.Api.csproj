@@ -4,10 +4,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);AD0001</NoWarn>
-    <Version>4.10.19</Version>
-    <AssemblyVersion>4.10.19.0</AssemblyVersion>
-    <FileVersion>4.10.19.0</FileVersion>
-    <InformationalVersion>4.10.19-stage10j-company-ui-polish</InformationalVersion>
+    <Version>4.10.20</Version>
+    <AssemblyVersion>4.10.20.0</AssemblyVersion>
+    <FileVersion>4.10.20.0</FileVersion>
+    <InformationalVersion>4.10.20-stage10j-oracle-health-polish</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
