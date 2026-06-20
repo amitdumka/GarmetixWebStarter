@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.10.5";
-    public const string Stage = "Stage 9E Attendance Salary Slip Draft Preview";
-    public const string ReleaseName = "Attendance Salary Slip Draft Preview";
+    public const string Version = "4.10.9";
+    public const string Stage = "Stage 9 Complete Attendance Release";
+    public const string ReleaseName = "Stage 9 Complete Attendance Release";
     public const string BuildDate = "2026-06-18";
-    public const string BuildCode = "GARMETIX-9E-20260619-4105";
+    public const string BuildCode = "GARMETIX-9J-20260619-4109";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,13 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stage 9 Complete finishes Attendance Core through final acceptance: kiosk base, photo proof, review, payroll review, salary draft, salary slip generation, confirmed salary payment posting, and device bridge planning.",
+        "Stage 9G can generate SalaryPayment records from attendance-generated payslips only after explicit confirmation.",
+        "Stage 9H uses the existing audited SalaryPayment accounting workflow when confirmed payments are generated.",
+        "Stage 9I keeps fingerprint device bridge integration-ready without enabling raw fingerprint storage or vendor matching.",
+        "Stage 9J adds final acceptance visibility for completed attendance features and remaining future kiosk/biometric work.",
+        "Stage 9F can generate final SalaryPaySlip records from ReadyForPayroll attendance salary drafts after explicit user confirmation.",
+        "Salary payment creation and accounting voucher posting remain separate workflows and are not triggered by attendance salary slip generation.",
         "Stage 9E adds salary slip draft preview rows from reviewed attendance payroll review data without posting payroll, vouchers, or salary slips.",
         "Attendance salary draft preview can be rebuilt and marked ReadyForPayroll or OnHold, but remains PreviewOnly until a later approved package.",
         "Stage 9D adds attendance payroll review rows with payable days, deduction days, overtime minutes, lock visibility, and review status without posting payroll.",

@@ -1,11 +1,13 @@
-## Stage 9E Attendance Salary Slip Draft Preview / v4.10.5
+## Stage 9 Complete Attendance Release / v4.10.9
 
-- Current version: 4.10.5 / `GARMETIX-9E-20260619-4105`.
-- Stage 9E creates preview-only salary draft rows from reviewed attendance payroll rows.
-- It does not create final salary slips, salary payments, accounting vouchers, or payroll postings.
+- Current version: 4.10.9 / `GARMETIX-9J-20260619-4109`.
+- Stage 9 is complete through Attendance Core, kiosk API base, photo proof, review, payroll review, salary slip generation, salary payment generation and final acceptance.
+- Real face recognition, liveness detection, fingerprint hardware bridge, MAUI Android kiosk app, and advanced statutory payroll reports remain future packages.
 
-### Next recommended package
+### Next recommended roadmap
 
-`Stage 9F - Confirmed Salary Slip Generation from Attendance Drafts v4.10.6`
-
-Scope should be explicit-confirmation only: convert selected ReadyForPayroll drafts into salary slips, keep payment/voucher posting separate, and add lock/audit checks.
+1. Stage 10A - Android/MAUI Attendance Kiosk App shell with local SQLite offline queue.
+2. Stage 10B - Kiosk device health dashboard and sync conflict review.
+3. Stage 10C - Face recognition/liveness proof of concept after consent/retention controls.
+4. Stage 10D - Fingerprint bridge implementation after hardware/vendor SDK selection.
+5. Stage 10E - Advanced payroll/statutory reporting and attendance rule refinements.

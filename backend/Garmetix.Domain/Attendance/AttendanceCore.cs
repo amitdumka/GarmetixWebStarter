@@ -202,6 +202,13 @@ public class AttendanceSalarySlipDraft : StoreBase
     public decimal NetPayPreview { get; set; }
     [MaxLength(40)] public string DraftStatus { get; set; } = "Draft";
     [MaxLength(40)] public string PayrollPostStatus { get; set; } = "PreviewOnly";
+    public Guid? GeneratedSalaryPaySlipId { get; set; }
+    public DateTime? GeneratedAtUtc { get; set; }
+    [MaxLength(120)] public string? GeneratedBy { get; set; }
+    public Guid? GeneratedSalaryPaymentId { get; set; }
+    public DateTime? SalaryPaidAtUtc { get; set; }
+    [MaxLength(120)] public string? SalaryPaidBy { get; set; }
+    [MaxLength(40)] public string PaymentPostStatus { get; set; } = "NotPaid";
     public DateTime? PreparedAtUtc { get; set; }
     [MaxLength(120)] public string? PreparedBy { get; set; }
     public DateTime? MarkedReadyAtUtc { get; set; }

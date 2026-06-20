@@ -333,6 +333,10 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<AttendanceSalarySlipDraft>().Property(item => item.NetPayPreview).HasPrecision(18, 2);
         modelBuilder.Entity<AttendanceSalarySlipDraft>().HasIndex(item => new { item.CompanyId, item.StoreId, item.EmployeeId, item.Year, item.Month });
         modelBuilder.Entity<AttendanceSalarySlipDraft>().HasIndex(item => new { item.CompanyId, item.StoreId, item.Year, item.Month, item.DraftStatus });
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().HasIndex(item => new { item.CompanyId, item.StoreId, item.Year, item.Month, item.PayrollPostStatus });
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().HasIndex(item => item.GeneratedSalaryPaySlipId);
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().HasIndex(item => item.GeneratedSalaryPaymentId);
+        modelBuilder.Entity<AttendanceSalarySlipDraft>().HasIndex(item => new { item.CompanyId, item.StoreId, item.Year, item.Month, item.PaymentPostStatus });
         modelBuilder.Entity<AttendancePhotoProof>().HasIndex(item => new { item.CompanyId, item.StoreId, item.EmployeeId, item.CapturedAtUtc });
         modelBuilder.Entity<AttendancePhotoProof>().HasIndex(item => new { item.CompanyId, item.StoreId, item.ReviewStatus, item.CapturedAtUtc });
         modelBuilder.Entity<AttendancePhotoProof>().HasIndex(item => new { item.CompanyId, item.ClientPunchId });

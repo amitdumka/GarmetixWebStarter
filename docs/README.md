@@ -178,3 +178,5 @@ This folder is the canonical home for project plans, implementation notes, valid
 - [Stage 9D / v4.10.5 Attendance Payroll Review](stages/stage-9/Stage9D-AttendancePayrollReview-v4.10.5-Notes.md)
 
 - [Stage 9E / v4.10.5 Attendance Salary Draft Preview](stages/stage-9/Stage9E-AttendanceSalaryDraft-v4.10.5-Notes.md)
+- [Stage 9J / v4.10.9 Complete Attendance Release](stages/stage-9/Stage9J-CompleteAttendanceRelease-v4.10.9-Notes.md)
+- [Stage 9F / v4.10.6 Confirmed Salary Slip Generation](stages/stage-9/Stage9F-ConfirmedSalarySlipGeneration-v4.10.6-Notes.md)

@@ -24,5 +24,10 @@ export function useAttendance() {
   const salarySlipDrafts = (year?: number, month?: number) => api.get<any>(`attendance/salary-slip-drafts?year=${year || new Date().getFullYear()}&month=${month || new Date().getMonth() + 1}`)
   const rebuildSalarySlipDrafts = (body: any) => api.create<any>('attendance/salary-slip-drafts/rebuild', body)
   const markSalarySlipDraft = (id: string, body: any) => api.create<any>(`attendance/salary-slip-drafts/${id}/mark-ready`, body)
-  return { today, monthly, history, manualPunch, regularization, createRegularization, approveRegularization, rejectRegularization, recalculate, lockMonth, payrollSummary, payrollReview, rebuildPayrollReview, markPayrollReview, salarySlipDrafts, rebuildSalarySlipDrafts, markSalarySlipDraft }
+  const generateSalarySlipsFromDrafts = (body: any) => api.create<any>('attendance/salary-slip-drafts/generate-payslips', body)
+  const salaryPaymentCandidates = (year?: number, month?: number) => api.get<any>(`attendance/salary-payment-candidates?year=${year || new Date().getFullYear()}&month=${month || new Date().getMonth() + 1}`)
+  const generateSalaryPaymentsFromDrafts = (body: any) => api.create<any>('attendance/salary-payments/generate', body)
+  const deviceBridgeStatus = () => api.get<any>('attendance/device-bridge/status')
+  const finalAcceptance = () => api.get<any>('attendance/final-acceptance')
+  return { today, monthly, history, manualPunch, regularization, createRegularization, approveRegularization, rejectRegularization, recalculate, lockMonth, payrollSummary, payrollReview, rebuildPayrollReview, markPayrollReview, salarySlipDrafts, rebuildSalarySlipDrafts, markSalarySlipDraft, generateSalarySlipsFromDrafts, salaryPaymentCandidates, generateSalaryPaymentsFromDrafts, deviceBridgeStatus, finalAcceptance }
 }

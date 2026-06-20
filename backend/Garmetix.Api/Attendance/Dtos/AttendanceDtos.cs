@@ -1,3 +1,4 @@
+using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Attendance;
 
 namespace Garmetix.Api.Attendance.Dtos;
@@ -304,6 +305,13 @@ public sealed record AttendanceSalarySlipDraftRowDto(
     decimal NetPayPreview,
     string DraftStatus,
     string PayrollPostStatus,
+    Guid? GeneratedSalaryPaySlipId,
+    DateTime? GeneratedAtUtc,
+    string? GeneratedBy,
+    Guid? GeneratedSalaryPaymentId,
+    DateTime? SalaryPaidAtUtc,
+    string? SalaryPaidBy,
+    string PaymentPostStatus,
     DateTime? PreparedAtUtc,
     DateTime? MarkedReadyAtUtc,
     string? Notes);
@@ -331,3 +339,66 @@ public sealed record AttendanceSalarySlipDraftBuildRequest(
 public sealed record AttendanceSalarySlipDraftMarkRequest(
     string DraftStatus,
     string? Notes);
+
+public sealed record AttendanceSalarySlipGenerateRequest(
+    int Year,
+    int Month,
+    Guid? EmployeeId,
+    bool Confirm,
+    string? Notes);
+
+public sealed record AttendanceSalarySlipGenerateResultDto(
+    int Year,
+    int Month,
+    int SelectedDrafts,
+    int CreatedPayslips,
+    int UpdatedPayslips,
+    decimal TotalGross,
+    decimal TotalDeductions,
+    decimal TotalNet,
+    IReadOnlyList<AttendanceSalarySlipDraftRowDto> Rows);
+
+
+public sealed record AttendanceSalaryPaymentGenerateRequest(
+    int Year,
+    int Month,
+    Guid? EmployeeId,
+    bool Confirm,
+    PaymentMode PaymentMode,
+    DateTime? PaymentDate,
+    string? Notes);
+
+public sealed record AttendanceSalaryPaymentCandidateDto(
+    Guid DraftId,
+    Guid EmployeeId,
+    string EmployeeCode,
+    string EmployeeName,
+    Guid? GeneratedSalaryPaySlipId,
+    decimal NetPayPreview,
+    string DraftStatus,
+    string PayrollPostStatus,
+    string PaymentPostStatus,
+    Guid? GeneratedSalaryPaymentId,
+    DateTime? SalaryPaidAtUtc);
+
+public sealed record AttendanceSalaryPaymentGenerateResultDto(
+    int Year,
+    int Month,
+    int SelectedDrafts,
+    int CreatedPayments,
+    decimal TotalAmount,
+    IReadOnlyList<AttendanceSalaryPaymentCandidateDto> Rows);
+
+public sealed record AttendanceDeviceBridgeStatusDto(
+    string Status,
+    bool FingerprintBridgeEnabled,
+    bool RawFingerprintStorageAllowed,
+    IReadOnlyList<string> SupportedBridgeInputs,
+    IReadOnlyList<string> LaterImplementationItems);
+
+public sealed record AttendanceFinalAcceptanceDto(
+    string Version,
+    string Stage,
+    IReadOnlyList<string> CompletedStages,
+    IReadOnlyList<string> SafetyRules,
+    IReadOnlyList<string> RemainingFutureItems);

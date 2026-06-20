@@ -1,8 +1,11 @@
+using Garmetix.Api.Accounting;
 using Garmetix.Api.AppInfo;
 using Garmetix.Api.Attendance.Dtos;
 using Garmetix.Api.Attendance.Services;
 using Garmetix.Api.Auth;
+using Garmetix.Api.Numbering;
 using Garmetix.Api.Workspace;
+using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Attendance;
 using Garmetix.Core.Models.HRM;
 using Garmetix.Infrastructure.Data;
@@ -31,6 +34,11 @@ public static class AttendanceEndpoints
         group.MapGet("/salary-slip-drafts", SalarySlipDraftsAsync);
         group.MapPost("/salary-slip-drafts/rebuild", RebuildSalarySlipDraftsAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/salary-slip-drafts/{id:guid}/mark-ready", MarkSalarySlipDraftAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapPost("/salary-slip-drafts/generate-payslips", GenerateSalarySlipsFromDraftsAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapGet("/salary-payment-candidates", SalaryPaymentCandidatesAsync);
+        group.MapPost("/salary-payments/generate", GenerateSalaryPaymentsFromDraftsAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapGet("/device-bridge/status", DeviceBridgeStatusAsync);
+        group.MapGet("/final-acceptance", FinalAcceptanceAsync);
         group.MapGet("/photo-proofs", ListPhotoProofsAsync);
         group.MapGet("/photo-proofs/review-summary", PhotoProofReviewSummaryAsync);
         group.MapPost("/photo-proofs/{id:guid}/review", ReviewPhotoProofAsync).RequireAuthorization(GarmetixPolicies.Edit);
@@ -342,7 +350,7 @@ public static class AttendanceEndpoints
         => new(
             row.Id,
             row.EmployeeId,
-            employee?.EmployeeCode ?? $"EMP-{employee?.EmpId ?? 0:0000}",
+            employee?.EmployeeCode ?? $"EMP-{(employee?.EmpId ?? 0).ToString("0000")}",
             employee?.StaffName ?? row.EmployeeId.ToString(),
             row.Year,
             row.Month,
@@ -453,6 +461,11 @@ public static class AttendanceEndpoints
                 db.AttendanceSalarySlipDrafts.Add(row);
             }
 
+            if (string.Equals(row.PayrollPostStatus, "SalarySlipGenerated", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             employees.TryGetValue(review.EmployeeId, out var employee);
             var employeeAdjustments = adjustments.Where(item => item.EmployeeId == review.EmployeeId).ToList();
             ApplyPayrollReviewToSalaryDraft(row, review, employee, employeeAdjustments, context.User.Identity?.Name);
@@ -483,6 +496,137 @@ public static class AttendanceEndpoints
         }
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(row);
+    }
+
+    private static async Task<IResult> GenerateSalarySlipsFromDraftsAsync(AttendanceSalarySlipGenerateRequest request, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
+    {
+        if (!request.Confirm)
+        {
+            return Results.BadRequest(new { message = "Explicit confirmation is required before final salary slips are generated from attendance drafts." });
+        }
+
+        if (request.Year < 2000 || request.Month < 1 || request.Month > 12)
+        {
+            return Results.BadRequest(new { message = "Year and month are required for salary slip generation." });
+        }
+
+        var monthStart = new DateTime(request.Year, request.Month, 1);
+        var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+        var monthYear = monthStart.ToString("MMMM yyyy");
+
+        var draftsQuery = WorkspaceScope.ApplyTo(db.AttendanceSalarySlipDrafts, context)
+            .Where(item =>
+                item.Year == request.Year &&
+                item.Month == request.Month &&
+                !item.Deleted &&
+                item.DraftStatus == "ReadyForPayroll" &&
+                item.PayrollPostStatus != "SalarySlipGenerated");
+
+        if (request.EmployeeId.HasValue && request.EmployeeId.Value != Guid.Empty)
+        {
+            draftsQuery = draftsQuery.Where(item => item.EmployeeId == request.EmployeeId.Value);
+        }
+
+        var drafts = await draftsQuery
+            .OrderBy(item => item.EmployeeId)
+            .ToListAsync(cancellationToken);
+
+        if (drafts.Count == 0)
+        {
+            return Results.BadRequest(new { message = "No ReadyForPayroll attendance salary drafts are available for final salary slip generation." });
+        }
+
+        var employeeIds = drafts.Select(item => item.EmployeeId).Distinct().ToList();
+        var employees = await WorkspaceScope.ApplyTo(db.Employees.AsNoTracking(), context)
+            .Where(item => employeeIds.Contains(item.Id) && !item.Deleted)
+            .ToDictionaryAsync(item => item.Id, cancellationToken);
+
+        var existingPayslips = await db.SalaryPaySlips
+            .Where(item => employeeIds.Contains(item.EmployeeId) && item.PayPeriodStart == monthStart && !item.Deleted)
+            .ToListAsync(cancellationToken);
+        var existingByEmployee = existingPayslips.ToDictionary(item => item.EmployeeId);
+
+        var created = 0;
+        var updated = 0;
+        decimal totalGross = 0;
+        decimal totalDeductions = 0;
+        decimal totalNet = 0;
+        var userName = context.User.Identity?.Name;
+
+        foreach (var draft in drafts)
+        {
+            employees.TryGetValue(draft.EmployeeId, out var employee);
+            if (!existingByEmployee.TryGetValue(draft.EmployeeId, out var payslip))
+            {
+                payslip = new SalaryPaySlip
+                {
+                    Id = Guid.NewGuid(),
+                    EmployeeId = draft.EmployeeId,
+                    CompanyId = draft.CompanyId,
+                    PayPeriodStart = monthStart,
+                    CreatedBy = userName
+                };
+                db.SalaryPaySlips.Add(payslip);
+                existingByEmployee[draft.EmployeeId] = payslip;
+                created++;
+            }
+            else
+            {
+                updated++;
+            }
+
+            ApplyAttendanceSalaryDraftToPayslip(payslip, draft, employee, monthStart, monthEnd, monthYear, request.Notes, userName);
+            draft.GeneratedSalaryPaySlipId = payslip.Id;
+            draft.GeneratedAtUtc = DateTime.UtcNow;
+            draft.GeneratedBy = userName;
+            draft.PayrollPostStatus = "SalarySlipGenerated";
+            draft.DraftStatus = "PostedToPayslip";
+            draft.Notes = string.IsNullOrWhiteSpace(request.Notes) ? draft.Notes : request.Notes.Trim();
+            draft.UpdatedAt = DateTime.UtcNow;
+
+            totalGross += payslip.TotalEarnings;
+            totalDeductions += payslip.TotalDeductions;
+            totalNet += payslip.NetSalary;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        var rows = await BuildSalarySlipDraftRowsAsync(request.Year, request.Month, db, context, cancellationToken);
+        return Results.Ok(new AttendanceSalarySlipGenerateResultDto(
+            request.Year,
+            request.Month,
+            drafts.Count,
+            created,
+            updated,
+            Math.Round(totalGross, 2),
+            Math.Round(totalDeductions, 2),
+            Math.Round(totalNet, 2),
+            rows));
+    }
+
+    private static void ApplyAttendanceSalaryDraftToPayslip(SalaryPaySlip payslip, AttendanceSalarySlipDraft draft, Employee? employee, DateTime monthStart, DateTime monthEnd, string monthYear, string? notes, string? userName)
+    {
+        payslip.CompanyId = draft.CompanyId;
+        payslip.EmployeeId = draft.EmployeeId;
+        payslip.MonthYear = monthYear;
+        payslip.PayPeriodStart = monthStart;
+        payslip.PayPeriodEnd = monthEnd;
+        payslip.BasicSalary = Math.Round(draft.AttendanceGrossPreview, 2);
+        payslip.HRA = 0;
+        payslip.SpecialAllowance = 0;
+        payslip.ConveyanceAllowance = 0;
+        payslip.Incentives = 0;
+        payslip.OtherEarnings = Math.Round(draft.BonusPreview + draft.LeaveEncashmentPreview, 2);
+        payslip.ProvidentFund = Math.Round(draft.PfEmployeePreview, 2);
+        payslip.Gratuity = Math.Round(draft.GratuityPreview, 2);
+        payslip.ProfessionalTax = 0;
+        payslip.IncomeTax = 0;
+        payslip.Deductions = Math.Round(draft.SalaryAdvanceRecoveryPreview, 2);
+        payslip.OtherDeductions = Math.Round(draft.OtherDeductionPreview, 2);
+        var employeeName = employee?.StaffName ?? draft.EmployeeId.ToString();
+        var customNote = string.IsNullOrWhiteSpace(notes) ? string.Empty : $" Notes: {notes.Trim()}";
+        payslip.Remarks = $"Generated from attendance salary draft for {employeeName}. Payable days: {draft.PayableDays:0.##}; deduction days: {draft.DeductionDays:0.##}; attendance deduction preview: {draft.AttendanceDeductionPreview:0.##}. Salary payment and accounting voucher were not posted automatically.{customNote}";
+        payslip.UpdatedAt = DateTime.UtcNow;
+        payslip.CreatedBy ??= userName;
     }
 
     private static async Task<List<AttendanceSalarySlipDraftRowDto>> BuildSalarySlipDraftRowsAsync(int year, int month, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
@@ -584,7 +728,10 @@ public static class AttendanceEndpoints
         row.GratuityPreview = adjustments.Sum(item => item.GratuityAmount);
         row.OtherDeductionPreview = adjustments.Where(item => item.AdjustmentType == "OtherPayrollAdjustment" && item.RecoverFromSalary).Sum(item => item.Amount);
         row.NetPayPreview = Math.Round(Math.Max(0, row.AttendanceGrossPreview + row.BonusPreview + row.LeaveEncashmentPreview - row.SalaryAdvanceRecoveryPreview - row.PfEmployeePreview - row.GratuityPreview - row.OtherDeductionPreview), 2);
-        row.PayrollPostStatus = "PreviewOnly";
+        if (string.IsNullOrWhiteSpace(row.PayrollPostStatus) || string.Equals(row.PayrollPostStatus, "PreviewOnly", StringComparison.OrdinalIgnoreCase))
+        {
+            row.PayrollPostStatus = "PreviewOnly";
+        }
         row.PreparedAtUtc = DateTime.UtcNow;
         row.PreparedBy = preparedBy ?? row.PreparedBy;
         row.UpdatedAt = DateTime.UtcNow;
@@ -595,7 +742,7 @@ public static class AttendanceEndpoints
         => new(
             row.Id,
             row.EmployeeId,
-            employee?.EmployeeCode ?? $"EMP-{employee?.EmpId ?? 0:0000}",
+            employee?.EmployeeCode ?? $"EMP-{(employee?.EmpId ?? 0).ToString("0000")}",
             employee?.StaffName ?? row.EmployeeId.ToString(),
             row.Year,
             row.Month,
@@ -621,6 +768,13 @@ public static class AttendanceEndpoints
             row.NetPayPreview,
             row.DraftStatus,
             row.PayrollPostStatus,
+            row.GeneratedSalaryPaySlipId,
+            row.GeneratedAtUtc,
+            row.GeneratedBy,
+            row.GeneratedSalaryPaymentId,
+            row.SalaryPaidAtUtc,
+            row.SalaryPaidBy,
+            row.PaymentPostStatus,
             row.PreparedAtUtc,
             row.MarkedReadyAtUtc,
             row.Notes);
@@ -941,6 +1095,212 @@ public static class AttendanceEndpoints
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(row);
     }
+
+    private static async Task<IResult> SalaryPaymentCandidatesAsync(int? year, int? month, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
+    {
+        var today = DateTime.Today;
+        var y = year ?? today.Year;
+        var m = month ?? today.Month;
+        var rows = await BuildSalaryPaymentCandidatesAsync(y, m, db, context, cancellationToken);
+        return Results.Ok(new
+        {
+            Year = y,
+            Month = m,
+            ReadyToPay = rows.Count(item => item.GeneratedSalaryPaySlipId.HasValue && item.PaymentPostStatus != "SalaryPaymentGenerated"),
+            Paid = rows.Count(item => item.PaymentPostStatus == "SalaryPaymentGenerated"),
+            TotalPendingAmount = rows.Where(item => item.GeneratedSalaryPaySlipId.HasValue && item.PaymentPostStatus != "SalaryPaymentGenerated").Sum(item => item.NetPayPreview),
+            Rows = rows
+        });
+    }
+
+    private static async Task<IResult> GenerateSalaryPaymentsFromDraftsAsync(
+        AttendanceSalaryPaymentGenerateRequest request,
+        GarmetixDbContext db,
+        AccountingPostingService accounting,
+        DocumentNumberService documentNumbers,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        if (!request.Confirm)
+        {
+            return Results.BadRequest(new { message = "Explicit confirmation is required before salary payments are generated from attendance payslips." });
+        }
+
+        if (request.Year < 2000 || request.Month < 1 || request.Month > 12)
+        {
+            return Results.BadRequest(new { message = "Year and month are required for salary payment generation." });
+        }
+
+        var salaryMonth = (request.Year * 100) + request.Month;
+        var paymentDate = (request.PaymentDate ?? DateTime.Today).Date;
+        var draftsQuery = WorkspaceScope.ApplyTo(db.AttendanceSalarySlipDrafts, context)
+            .Where(item => item.Year == request.Year && item.Month == request.Month && !item.Deleted)
+            .Where(item => item.GeneratedSalaryPaySlipId.HasValue)
+            .Where(item => item.PayrollPostStatus == "SalarySlipGenerated")
+            .Where(item => item.PaymentPostStatus != "SalaryPaymentGenerated");
+
+        if (request.EmployeeId.HasValue && request.EmployeeId.Value != Guid.Empty)
+        {
+            draftsQuery = draftsQuery.Where(item => item.EmployeeId == request.EmployeeId.Value);
+        }
+
+        var drafts = await draftsQuery.OrderBy(item => item.EmployeeId).ToListAsync(cancellationToken);
+        if (drafts.Count == 0)
+        {
+            return Results.BadRequest(new { message = "No generated attendance salary-slip drafts are pending salary payment." });
+        }
+
+        var payslipIds = drafts.Select(item => item.GeneratedSalaryPaySlipId!.Value).Distinct().ToList();
+        var existingPayments = await db.SalaryPayments.AsNoTracking()
+            .Where(item => item.SalaryPaySlipId.HasValue && payslipIds.Contains(item.SalaryPaySlipId.Value) && !item.Deleted)
+            .Select(item => item.SalaryPaySlipId!.Value)
+            .ToListAsync(cancellationToken);
+        var alreadyPaid = existingPayments.ToHashSet();
+
+        var created = 0;
+        decimal totalAmount = 0;
+        var userName = context.User.Identity?.Name;
+        var strategy = db.Database.CreateExecutionStrategy();
+        var result = await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            foreach (var draft in drafts)
+            {
+                var payslipId = draft.GeneratedSalaryPaySlipId!.Value;
+                if (alreadyPaid.Contains(payslipId))
+                {
+                    draft.PaymentPostStatus = "AlreadyPaid";
+                    draft.UpdatedAt = DateTime.UtcNow;
+                    continue;
+                }
+
+                var amount = Math.Round(draft.NetPayPreview, 0, MidpointRounding.AwayFromZero);
+                if (amount <= 0)
+                {
+                    draft.PaymentPostStatus = "NoPayableAmount";
+                    draft.UpdatedAt = DateTime.UtcNow;
+                    continue;
+                }
+
+                var payment = new SalaryPayment
+                {
+                    Id = Guid.NewGuid(),
+                    EmployeeId = draft.EmployeeId,
+                    SalaryMonth = salaryMonth,
+                    OnDate = paymentDate,
+                    SalaryComponent = SalaryComponent.NetSalary,
+                    GrossSalary = Math.Round(draft.AttendanceGrossPreview + draft.BonusPreview + draft.LeaveEncashmentPreview, 2),
+                    TotalDeductions = Math.Round(draft.SalaryAdvanceRecoveryPreview + draft.PfEmployeePreview + draft.GratuityPreview + draft.OtherDeductionPreview, 2),
+                    NetSalary = Math.Round(draft.NetPayPreview, 2),
+                    Amount = amount,
+                    PaymentMode = request.PaymentMode,
+                    Remarks = BuildSalaryPaymentRemarks(draft, request.Notes),
+                    SalaryPaySlipId = payslipId,
+                    CompanyId = draft.CompanyId,
+                    StoreGroupId = draft.StoreGroupId,
+                    StoreId = draft.StoreId,
+                    CreatedBy = userName,
+                    UpdatedAt = DateTime.UtcNow,
+                    Deleted = false
+                };
+                payment.VoucherNumber = await documentNumbers.NextSalaryPaymentAsync(payment.CompanyId, payment.StoreGroupId, payment.StoreId, payment.OnDate, cancellationToken);
+                db.SalaryPayments.Add(payment);
+                await accounting.PostSalaryPaymentAsync(payment, cancellationToken);
+
+                draft.GeneratedSalaryPaymentId = payment.Id;
+                draft.SalaryPaidAtUtc = DateTime.UtcNow;
+                draft.SalaryPaidBy = userName;
+                draft.PaymentPostStatus = "SalaryPaymentGenerated";
+                draft.PayrollPostStatus = "SalaryPaymentGenerated";
+                draft.UpdatedAt = DateTime.UtcNow;
+                draft.Notes = MergeRemarks(draft.Notes, request.Notes);
+                created++;
+                totalAmount += payment.Amount;
+            }
+
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return true;
+        });
+
+        _ = result;
+        var rows = await BuildSalaryPaymentCandidatesAsync(request.Year, request.Month, db, context, cancellationToken);
+        return Results.Ok(new AttendanceSalaryPaymentGenerateResultDto(request.Year, request.Month, drafts.Count, created, Math.Round(totalAmount, 2), rows));
+    }
+
+    private static async Task<List<AttendanceSalaryPaymentCandidateDto>> BuildSalaryPaymentCandidatesAsync(int year, int month, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
+    {
+        var rows = await WorkspaceScope.ApplyTo(db.AttendanceSalarySlipDrafts.AsNoTracking(), context)
+            .Where(item => item.Year == year && item.Month == month && !item.Deleted)
+            .OrderBy(item => item.EmployeeId)
+            .ToListAsync(cancellationToken);
+        var employeeIds = rows.Select(item => item.EmployeeId).Distinct().ToList();
+        var employees = await WorkspaceScope.ApplyTo(db.Employees.AsNoTracking(), context)
+            .Where(item => employeeIds.Contains(item.Id) && !item.Deleted)
+            .ToDictionaryAsync(item => item.Id, cancellationToken);
+        return rows.Select(item =>
+        {
+            employees.TryGetValue(item.EmployeeId, out var employee);
+            return new AttendanceSalaryPaymentCandidateDto(
+                item.Id,
+                item.EmployeeId,
+                employee?.EmployeeCode ?? $"EMP-{(employee?.EmpId ?? 0).ToString("0000")}",
+                employee?.StaffName ?? item.EmployeeId.ToString(),
+                item.GeneratedSalaryPaySlipId,
+                item.NetPayPreview,
+                item.DraftStatus,
+                item.PayrollPostStatus,
+                item.PaymentPostStatus,
+                item.GeneratedSalaryPaymentId,
+                item.SalaryPaidAtUtc);
+        }).ToList();
+    }
+
+    private static string BuildSalaryPaymentRemarks(AttendanceSalarySlipDraft draft, string? notes)
+    {
+        var custom = string.IsNullOrWhiteSpace(notes) ? string.Empty : $" Notes: {notes.Trim()}";
+        return $"Generated from attendance salary slip draft {draft.Id}. Payable days: {draft.PayableDays:0.##}; deduction days: {draft.DeductionDays:0.##}. Accounting posting was created through the salary payment posting workflow after explicit confirmation.{custom}";
+    }
+
+    private static IResult DeviceBridgeStatusAsync()
+        => Results.Ok(new AttendanceDeviceBridgeStatusDto(
+            "PlanningReady",
+            false,
+            false,
+            ["Device registration", "Device token validation", "Punch sync API", "Sync batch audit", "Biometric enrollment reference placeholders"],
+            ["Vendor SDK bridge service", "USB fingerprint reader driver", "Android MAUI kiosk local SQLite queue", "Fingerprint template adapter", "Device health dashboard"]));
+
+    private static IResult FinalAcceptanceAsync()
+        => Results.Ok(new AttendanceFinalAcceptanceDto(
+            AppInfoEndpoints.Version,
+            AppInfoEndpoints.Stage,
+            [
+                "Stage 9A Attendance Core and Kiosk API Base",
+                "Stage 9B Kiosk Photo Proof and Offline Sync Foundation",
+                "Stage 9C Face Photo Review and Attendance Approval Foundation",
+                "Stage 9D Attendance Payroll Review Foundation",
+                "Stage 9E Attendance Salary Slip Draft Preview",
+                "Stage 9F Confirmed Salary Slip Generation",
+                "Stage 9G Salary Payment from Generated Payslips",
+                "Stage 9H Salary Payment Accounting Posting Guard",
+                "Stage 9I Fingerprint Device Bridge Planning Placeholder",
+                "Stage 9J Stage 9 Final Acceptance"
+            ],
+            [
+                "Salary slips require explicit confirmation.",
+                "Salary payments require explicit confirmation.",
+                "Salary payment accounting uses existing audited SalaryPayment posting workflow.",
+                "Face recognition and liveness are not implemented yet.",
+                "Fingerprint matching is not implemented and raw fingerprint images are not stored.",
+                "Payroll salary deduction is not automatically applied before review/approval stages."
+            ],
+            [
+                "MAUI Android kiosk app with local SQLite offline queue",
+                "Real face matching and liveness after consent and retention controls",
+                "Fingerprint device bridge with selected hardware/vendor SDK",
+                "Advanced payroll rules and statutory reports",
+                "Device health monitoring and kiosk auto-update"
+            ]));
 
     private static async Task<IResult> KioskBootstrapAsync(AttendanceKioskBootstrapRequest request, IAttendanceService service, CancellationToken cancellationToken)
     {

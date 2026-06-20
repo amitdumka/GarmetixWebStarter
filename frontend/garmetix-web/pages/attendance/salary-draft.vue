@@ -3,12 +3,16 @@ const reports = useAttendanceReports()
 const feedback = useUiFeedback()
 const loading = ref(false)
 const markingId = ref('')
+const generating = ref(false)
+const generateNotes = ref('')
 const now = new Date()
 const year = ref(now.getFullYear())
 const month = ref(now.getMonth() + 1)
 const draft = ref<any | null>(null)
 
 const rows = computed(() => draft.value?.rows || [])
+const readyRows = computed(() => rows.value.filter((row: any) => row.draftStatus === 'ReadyForPayroll' && row.payrollPostStatus !== 'SalarySlipGenerated'))
+const generatedRows = computed(() => rows.value.filter((row: any) => row.payrollPostStatus === 'SalarySlipGenerated'))
 
 async function refresh() {
   loading.value = true
@@ -50,6 +54,26 @@ async function mark(row: any, status: string) {
   }
 }
 
+
+async function generateConfirmedPayslips() {
+  if (!readyRows.value.length) {
+    feedback.warning('No ready drafts', 'Mark one or more rows Ready before generating final salary slips.')
+    return
+  }
+  const ok = window.confirm(`Generate final salary slips for ${readyRows.value.length} ReadyForPayroll attendance draft row(s)? This will not create salary payments or accounting vouchers.`)
+  if (!ok) return
+  generating.value = true
+  try {
+    const result = await reports.generateSalarySlipsFromDrafts({ year: year.value, month: month.value, confirm: true, notes: generateNotes.value || null })
+    draft.value = { ...draft.value, rows: result.rows }
+    feedback.success('Salary slips generated', `${result.createdPayslips} created and ${result.updatedPayslips} updated. Payments and vouchers were not posted.`)
+  } catch (error: any) {
+    feedback.fromError('Could not generate salary slips', error)
+  } finally {
+    generating.value = false
+  }
+}
+
 onMounted(refresh)
 </script>
 
@@ -57,8 +81,8 @@ onMounted(refresh)
   <AppShell title="Attendance Salary Draft" @refresh="refresh">
     <section class="space-y-5">
       <UiModulePageHeader
-        title="Attendance Salary Slip Draft Preview"
-        description="Stage 9E prepares salary-slip draft preview from reviewed attendance payroll rows only. No salary slip, payment, accounting voucher, or payroll posting is created automatically."
+        title="Attendance Salary Slip Draft & Confirmed Generation"
+        description="Stage 9F creates final salary slip records only after explicit confirmation from ReadyForPayroll attendance drafts. Salary payment and accounting voucher posting stay separate."
         icon="i-lucide-receipt-indian-rupee"
         :loading="loading"
       >
@@ -67,23 +91,35 @@ onMounted(refresh)
           <UInput v-model="month" type="number" class="w-24" />
           <UButton label="Refresh" variant="subtle" :loading="loading" @click="refresh" />
           <UButton label="Rebuild Drafts" color="primary" :loading="loading" @click="rebuild" />
+          <UButton label="Generate Salary Slips" color="success" :loading="generating" :disabled="!readyRows.length" @click="generateConfirmedPayslips" />
         </template>
       </UiModulePageHeader>
 
       <UAlert
         color="warning"
         icon="i-lucide-shield-alert"
-        title="Preview only"
-        description="This page only calculates a draft preview. Final salary slip creation and accounting/voucher posting remain disabled until a later approved package."
+        title="Confirmed generation available"
+        description="This page can now generate final SalaryPaySlip records after confirmation. Salary payments and accounting vouchers are still not created here."
       />
 
-      <div class="grid gap-3 md:grid-cols-5">
+      <div class="grid gap-3 md:grid-cols-6">
         <UCard><p class="text-xs text-muted">Employees</p><strong>{{ draft?.employees || 0 }}</strong></UCard>
-        <UCard><p class="text-xs text-muted">Ready</p><strong>{{ draft?.readyRows || 0 }}</strong></UCard>
+        <UCard><p class="text-xs text-muted">Ready</p><strong>{{ readyRows.length }}</strong></UCard>
+        <UCard><p class="text-xs text-muted">Generated</p><strong>{{ generatedRows.length }}</strong></UCard>
         <UCard><p class="text-xs text-muted">Gross Preview</p><strong>₹{{ Number(draft?.totalGrossPreview || 0).toFixed(2) }}</strong></UCard>
         <UCard><p class="text-xs text-muted">Deduction Preview</p><strong>₹{{ Number(draft?.totalDeductionPreview || 0).toFixed(2) }}</strong></UCard>
         <UCard><p class="text-xs text-muted">Net Preview</p><strong>₹{{ Number(draft?.totalNetPayPreview || 0).toFixed(2) }}</strong></UCard>
       </div>
+
+      <UCard>
+        <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h3 class="font-semibold">Final salary slip confirmation</h3>
+            <p class="text-sm text-muted">Only rows marked ReadyForPayroll and not already generated will be converted to final salary slips.</p>
+          </div>
+          <UInput v-model="generateNotes" placeholder="Optional generation note" class="md:w-80" />
+        </div>
+      </UCard>
 
       <UCard>
         <div class="overflow-x-auto">
@@ -110,10 +146,14 @@ onMounted(refresh)
                 <td class="p-2">₹{{ Number((row.bonusPreview || 0) + (row.leaveEncashmentPreview || 0)).toFixed(2) }}</td>
                 <td class="p-2">₹{{ Number((row.salaryAdvanceRecoveryPreview || 0) + (row.pfEmployeePreview || 0) + (row.gratuityPreview || 0) + (row.otherDeductionPreview || 0)).toFixed(2) }}</td>
                 <td class="p-2 font-semibold">₹{{ Number(row.netPayPreview || 0).toFixed(2) }}</td>
-                <td class="p-2"><UBadge :label="row.draftStatus" /></td>
+                <td class="p-2 space-y-1">
+                  <UBadge :label="row.draftStatus" />
+                  <UBadge v-if="row.payrollPostStatus === 'SalarySlipGenerated'" color="success" label="Salary Slip Generated" />
+                  <p v-if="row.generatedSalaryPaySlipId" class="text-xs text-muted">Slip: {{ row.generatedSalaryPaySlipId }}</p>
+                </td>
                 <td class="p-2 flex gap-2">
-                  <UButton size="xs" label="Ready" :loading="markingId === row.id" @click="mark(row, 'ReadyForPayroll')" />
-                  <UButton size="xs" label="Hold" color="warning" variant="soft" :loading="markingId === row.id" @click="mark(row, 'OnHold')" />
+                  <UButton size="xs" label="Ready" :disabled="row.payrollPostStatus === 'SalarySlipGenerated'" :loading="markingId === row.id" @click="mark(row, 'ReadyForPayroll')" />
+                  <UButton size="xs" label="Hold" color="warning" variant="soft" :disabled="row.payrollPostStatus === 'SalarySlipGenerated'" :loading="markingId === row.id" @click="mark(row, 'OnHold')" />
                 </td>
               </tr>
               <tr v-if="!rows.length"><td colspan="9" class="p-4 text-center text-muted">No reviewed attendance payroll rows found. First rebuild Attendance Payroll Review and mark rows Reviewed or ApprovedForPayroll.</td></tr>
