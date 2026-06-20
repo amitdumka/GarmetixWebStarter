@@ -19,4 +19,4 @@ for check in checks:
     print(f"\n== {check.name} ==")
     subprocess.run([sys.executable, str(check)], cwd=root, check=True)
 
-print("\nCurrent release validation passed for Stage 10J Real Excel Import Export Engine / v4.10.18.")
+print("\nCurrent release validation passed for Stage 10J Real Excel Import Export Engine / v4.10.19.")

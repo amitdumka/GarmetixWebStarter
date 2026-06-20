@@ -521,11 +521,13 @@ onMounted(async () => {
         @primary="startCreate"
       >
         <template #actions>
-          <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
-            {{ loading ? 'Loading' : 'Ready' }}
-          </UBadge>
-          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
-          <UButton icon="i-lucide-plus" :label="`New ${singularLabel(activeTab)}`" @click="startCreate" />
+          <div class="company-header-actions">
+            <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
+              {{ loading ? 'Loading' : 'Ready' }}
+            </UBadge>
+            <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
+            <UButton icon="i-lucide-plus" :label="`New ${singularLabel(activeTab)}`" @click="startCreate" />
+          </div>
         </template>
       </UiModulePageHeader>
 

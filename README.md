@@ -1,3 +1,8 @@
+## v4.10.19 Stage 10J Company UI Polish
+
+- Company page helper text now wraps inside the title area instead of pushing controls out of place.
+- Page header and Company action controls stay grouped with row wrapping instead of switching to a tall vertical button stack.
+
 ## v4.10.18 Stage 10J Sale Invoice Hardening
 
 - Sale invoice save now auto-recovers the internal `Manager` salesman when a store has no active salesman master.
@@ -26,7 +31,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 10J Real Excel Import Export Engine and Sale Invoice Hardening v4.10.18 (`GARMETIX-10J-20260620-4118`).
+> Current package: Stage 10J Real Excel Import Export Engine and Company UI Polish v4.10.19 (`GARMETIX-10J-20260620-4119`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

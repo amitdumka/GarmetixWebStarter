@@ -475,17 +475,23 @@ select {
 
 .module-page-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
   margin-bottom: 16px;
 }
 
 .module-page-title {
   min-width: 0;
+  flex: 1 1 24rem;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
+}
+
+.module-page-title > div {
+  min-width: 0;
 }
 
 .module-page-title h2 {
@@ -498,6 +504,19 @@ select {
   margin: 4px 0 0;
   color: var(--muted);
   font-size: 13px;
+  max-width: min(68ch, 100%);
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+.module-page-actions,
+.company-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
 }
 
 .crud-toolbar {
@@ -1508,11 +1527,21 @@ select {
 
   .table-toolbar,
   .form-actions,
-  .module-page-header,
-  .crud-toolbar,
-  .setup-list-header {
+  .crud-toolbar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .module-page-header,
+  .setup-list-header {
+    align-items: flex-start;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .module-page-actions,
+  .company-header-actions {
+    justify-content: flex-start;
   }
 
   .crud-search {

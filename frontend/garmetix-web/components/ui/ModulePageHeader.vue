@@ -22,13 +22,15 @@ const emit = defineEmits<{
       </div>
     </div>
 
-    <slot name="actions">
-      <UButton
-        v-if="primaryLabel"
-        :icon="primaryIcon || 'i-lucide-plus'"
-        :label="primaryLabel"
-        @click="emit('primary')"
-      />
-    </slot>
+    <div class="module-page-actions">
+      <slot name="actions">
+        <UButton
+          v-if="primaryLabel"
+          :icon="primaryIcon || 'i-lucide-plus'"
+          :label="primaryLabel"
+          @click="emit('primary')"
+        />
+      </slot>
+    </div>
   </div>
 </template>
