@@ -114,17 +114,22 @@ public static class ApplicationMessageLogEndpoints
     private static bool CanAccessNotification(ClaimsPrincipal user, string path)
         => path switch
         {
-            "/billing" or "/sales-return" or "/customers" or "/loyalty"
+            "/billing" or "/sales-return" or "/customers" or "/loyalty" or "/tailoring"
                 => AccessPermissionMatrix.CanAccessPolicy(user, GarmetixPolicies.Billing),
-            "/inventory" or "/stock-operations"
+            "/inventory" or "/stock-operations" or "/stock-reports" or "/non-gst-goods"
                 => AccessPermissionMatrix.CanAccessPolicy(user, GarmetixPolicies.Inventory),
-            "/purchase" or "/purchase-return"
+            "/purchase" or "/purchase-return" or "/vendor-payments" or "/vendor-settlements"
                 => AccessPermissionMatrix.CanAccessPolicy(user, GarmetixPolicies.Purchase),
-            "/accounting" or "/petty-cash" or "/vouchers"
+            "/accounting" or "/petty-cash" or "/cash-details" or "/vouchers" or "/debit-notes" or "/credit-notes" or "/cash-vouchers" or "/parties"
                 => AccessPermissionMatrix.CanAccessPolicy(user, GarmetixPolicies.Accounting),
-            "/hr" => AccessPermissionMatrix.CanAccessPolicy(user, GarmetixPolicies.Hr),
-            "/payroll" => AccessPermissionMatrix.CanAccessPolicy(user, GarmetixPolicies.Payroll),
-            "/access" or "/message-logs" => AccessPermissionMatrix.IsAdminOrOwner(user),
+            "/hr" or "/hr-benefits"
+                => AccessPermissionMatrix.CanAccessPolicy(user, GarmetixPolicies.Hr) || AccessPermissionMatrix.CanAccessPolicy(user, GarmetixPolicies.Payroll),
+            "/attendance" or "/attendance/today" or "/attendance/monthly"
+                => AccessPermissionMatrix.CanAccessPolicy(user, GarmetixPolicies.Attendance),
+            "/payroll" or "/attendance/payroll-review" or "/attendance/salary-draft" or "/attendance/salary-payment"
+                => AccessPermissionMatrix.CanAccessPolicy(user, GarmetixPolicies.Payroll) || AccessPermissionMatrix.CanAccessPolicy(user, GarmetixPolicies.Hr),
+            "/access" or "/message-logs" or "/import-export" or "/system-health"
+                => AccessPermissionMatrix.IsAdminOrOwner(user),
             _ => true
         };
 

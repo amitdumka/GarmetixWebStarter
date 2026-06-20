@@ -352,11 +352,8 @@ const recentItems = computed(() => recentPaths.value
   .slice(0, 8) as Array<MenuItem & { group: string }>)
 const visibleNotifications = computed(() => notifications.value.filter((item) => access.canAccessPath(item.actionPath)))
 const unreadNotificationCount = computed(() => {
-  const lastSeen = notificationsLastSeen.value ? Date.parse(notificationsLastSeen.value) : 0
-  return visibleNotifications.value.filter((item) => {
-    const value = /(?:Z|[+-]\d{2}:\d{2})$/i.test(item.createdAtUtc) ? item.createdAtUtc : `${item.createdAtUtc}Z`
-    return Date.parse(value) > lastSeen
-  }).length
+  const lastSeen = notificationTime(notificationsLastSeen.value)
+  return visibleNotifications.value.filter((item) => notificationTime(item.createdAtUtc) > lastSeen).length
 })
 const notificationQuickActions = computed(() => [
   { label: 'Logs', icon: 'i-lucide-list-collapse', to: '/message-logs' },
@@ -561,6 +558,13 @@ function notificationLastSeenKey() {
   return `garmetix.notifications.lastSeen.${auth.user.value?.id || 'user'}`
 }
 
+function notificationTime(value?: string | null) {
+  if (!value) return 0
+  const normalized = /(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? value : `${value}Z`
+  const parsed = Date.parse(normalized)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 function rememberRoute(path = route.path) {
   if (!path || path === '/') return
   recentPaths.value = [path, ...recentPaths.value.filter((item) => item !== path)].slice(0, 10)
@@ -614,8 +618,8 @@ async function loadNotifications() {
 }
 
 function markNotificationsViewed() {
-  const newest = visibleNotifications.value[0]?.createdAtUtc
-  notificationsLastSeen.value = newest || new Date().toISOString()
+  const newest = visibleNotifications.value.reduce((max, item) => Math.max(max, notificationTime(item.createdAtUtc)), 0)
+  notificationsLastSeen.value = newest ? new Date(newest).toISOString() : new Date().toISOString()
   if (import.meta.client) {
     localStorage.setItem(notificationLastSeenKey(), notificationsLastSeen.value)
   }
@@ -623,8 +627,11 @@ function markNotificationsViewed() {
 
 function openNotificationPath(path: string) {
   markNotificationsViewed()
-  rememberRoute(path)
-  navigateTo(path)
+  const targetPath = path && access.canAccessPath(path)
+    ? path
+    : access.canAccessPath('/message-logs') ? '/message-logs' : dashboardHomePath.value
+  rememberRoute(targetPath)
+  navigateTo(targetPath)
 }
 
 async function loadWorkspaceOptions() {

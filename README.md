@@ -1,3 +1,9 @@
+## v4.10.22 Stage 10J Notification Polish
+
+- Notification badge read-state now uses the newest valid visible alert timestamp, so opening notifications clears the count reliably.
+- Notification clicks now fall back safely when a route is unavailable and backend alerts route to the related module instead of a generic dashboard page.
+- Notification permissions now cover cash vouchers, non-GST goods, stock reports, salary payment, import/export and system-health alert destinations.
+
 ## v4.10.21 Stage 10J System Info Polish
 
 - System Info now uses the compact module header style instead of the oversized dashboard hero.
@@ -42,7 +48,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 10J Real Excel Import Export Engine and System Info Polish v4.10.21 (`GARMETIX-10J-20260620-4121`).
+> Current package: Stage 10J Real Excel Import Export Engine and Notification Polish v4.10.22 (`GARMETIX-10J-20260620-4122`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

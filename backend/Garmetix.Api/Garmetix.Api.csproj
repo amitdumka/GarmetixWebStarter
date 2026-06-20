@@ -4,10 +4,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);AD0001</NoWarn>
-    <Version>4.10.21</Version>
-    <AssemblyVersion>4.10.21.0</AssemblyVersion>
-    <FileVersion>4.10.21.0</FileVersion>
-    <InformationalVersion>4.10.21-stage10j-system-info-polish</InformationalVersion>
+    <Version>4.10.22</Version>
+    <AssemblyVersion>4.10.22.0</AssemblyVersion>
+    <FileVersion>4.10.22.0</FileVersion>
+    <InformationalVersion>4.10.22-stage10j-notification-polish</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.10.21";
+    public const string Version = "4.10.22";
     public const string Stage = "Stage 10J Real Excel Import Export Engine";
-    public const string ReleaseName = "Stage 10J: Real Excel Import Export Engine and System Info Polish";
+    public const string ReleaseName = "Stage 10J: Real Excel Import Export Engine and Notification Polish";
     public const string BuildDate = "2026-06-20";
-    public const string BuildCode = "GARMETIX-10J-20260620-4121";
+    public const string BuildCode = "GARMETIX-10J-20260620-4122";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,7 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Notifications now mark the badge read using the newest valid visible alert timestamp and route each alert to its related module.",
         "System Info now uses the compact module header pattern instead of the oversized dashboard hero.",
         "System Health now shows Oracle secondary sync readiness, direction, wallet, tenant/source and last success.",
         "Company page helper text now wraps cleanly while header actions remain grouped as usable controls.",

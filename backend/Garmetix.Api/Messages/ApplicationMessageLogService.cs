@@ -262,39 +262,127 @@ public sealed class ApplicationMessageLogService(GarmetixDbContext db)
         string? resource)
     {
         var context = $"{source} {eventName} {resource}".ToLowerInvariant();
-        if (context.Contains("pettycash") || context.Contains("petty-cash"))
+        if (context.Contains("cashvoucher") || context.Contains("cash-voucher") || context.Contains("cash voucher"))
+        {
+            return ("Cash voucher needs review", "An off-book cash voucher operation needs attention.", "/cash-vouchers");
+        }
+        if (context.Contains("nongst") || context.Contains("non-gst") || context.Contains("non gst"))
+        {
+            return ("Non-GST goods need review", "An off-book stock, sale, or purchase operation needs attention.", "/non-gst-goods");
+        }
+        if (context.Contains("pettycash") || context.Contains("petty-cash") || context.Contains("petty cash"))
         {
             return ("Petty cash needs review", "A petty cash sheet or reconciliation needs attention.", "/petty-cash");
+        }
+        if (context.Contains("hrbenefit") || context.Contains("hr-benefit") || context.Contains("hr benefit")
+            || context.Contains("advance") || context.Contains("bonus") || context.Contains("gratuity") || context.Contains("leave encashment") || context.Contains("pf "))
+        {
+            return ("HR benefit needs review", "A salary advance, benefit, or payroll adjustment needs attention.", "/hr-benefits");
+        }
+        if (context.Contains("salarypayment") || context.Contains("salary-payment") || context.Contains("salary payment"))
+        {
+            return ("Salary payment needs review", "A salary payment operation needs attention.", "/attendance/salary-payment");
+        }
+        if (context.Contains("salaryslip") || context.Contains("salary-slip") || context.Contains("salary slip"))
+        {
+            return ("Salary slip needs review", "A salary slip generation operation needs attention.", "/attendance/salary-draft");
+        }
+        if (context.Contains("payrollreview") || context.Contains("payroll-review") || context.Contains("payroll review"))
+        {
+            return ("Payroll review needs attention", "An attendance payroll review operation needs attention.", "/attendance/payroll-review");
+        }
+        if (context.Contains("monthlyattendance") || context.Contains("monthly-attendance") || context.Contains("monthly attendance"))
+        {
+            return ("Monthly attendance needs review", "A monthly attendance operation needs attention.", "/attendance/monthly");
+        }
+        if (context.Contains("todayattendance") || context.Contains("today-attendance") || context.Contains("today attendance"))
+        {
+            return ("Today attendance needs review", "A daily attendance operation needs attention.", "/attendance/today");
+        }
+        if (context.Contains("attendance"))
+        {
+            return ("Attendance needs review", "An attendance operation needs attention.", "/attendance");
         }
         if (context.Contains("salary") || context.Contains("payroll"))
         {
             return ("Payroll needs review", "A payroll or salary operation needs attention.", "/payroll");
         }
         if (source.Equals("HR", StringComparison.OrdinalIgnoreCase)
-            || context.Contains("attendance")
             || context.Contains("employee"))
         {
             return ("HR record needs review", "An employee, attendance, or HR operation needs attention.", "/hr");
+        }
+        if (context.Contains("vendorpayment") || context.Contains("vendor-payment") || context.Contains("vendor payment"))
+        {
+            return ("Vendor payment needs review", "A vendor payment operation needs attention.", "/vendor-payments");
+        }
+        if (context.Contains("vendorsettlement") || context.Contains("vendor-settlement") || context.Contains("vendor settlement"))
+        {
+            return ("Vendor settlement needs review", "A vendor settlement operation needs attention.", "/vendor-settlements");
         }
         if (context.Contains("purchase"))
         {
             return ("Purchase needs review", "A purchase or purchase-return operation needs attention.", "/purchase");
         }
+        if (context.Contains("stockreport") || context.Contains("stock-report") || context.Contains("stock report"))
+        {
+            return ("Stock report needs review", "A stock report or reconciliation operation needs attention.", "/stock-reports");
+        }
+        if (context.Contains("stockoperation") || context.Contains("stock-operation") || context.Contains("stock operation"))
+        {
+            return ("Stock operation needs review", "A stock movement operation needs attention.", "/stock-operations");
+        }
         if (context.Contains("product") || context.Contains("inventory") || context.Contains("stock"))
         {
             return ("Inventory needs review", "A product or stock operation needs attention.", "/inventory");
+        }
+        if (context.Contains("customer"))
+        {
+            return ("Customer record needs review", "A customer operation needs attention.", "/customers");
+        }
+        if (context.Contains("party") || context.Contains("vendor"))
+        {
+            return ("Party or vendor needs review", "A party or vendor operation needs attention.", "/parties");
+        }
+        if (context.Contains("salesreturn") || context.Contains("sales-return") || context.Contains("sales return"))
+        {
+            return ("Sales return needs review", "A sales return operation needs attention.", "/sales-return");
+        }
+        if (context.Contains("tailor") || context.Contains("alteration"))
+        {
+            return ("Tailoring needs review", "A tailoring or alteration operation needs attention.", "/tailoring");
         }
         if (context.Contains("billing") || context.Contains("invoice") || context.Contains("sales"))
         {
             return ("Sales operation needs review", "A billing, invoice, or sales operation needs attention.", "/billing");
         }
+        if (context.Contains("debitnote") || context.Contains("debit-note") || context.Contains("debit note"))
+        {
+            return ("Debit note needs review", "A debit note operation needs attention.", "/debit-notes");
+        }
+        if (context.Contains("creditnote") || context.Contains("credit-note") || context.Contains("credit note"))
+        {
+            return ("Credit note needs review", "A credit note operation needs attention.", "/credit-notes");
+        }
         if (context.Contains("voucher"))
         {
             return ("Voucher needs review", "A voucher operation needs attention.", "/vouchers");
         }
+        if (context.Contains("cashdetail") || context.Contains("cash-detail") || context.Contains("cash detail"))
+        {
+            return ("Cash details need review", "A cash denomination operation needs attention.", "/cash-details");
+        }
         if (context.Contains("ledger") || context.Contains("accounting") || context.Contains("bank"))
         {
             return ("Accounting needs review", "An accounting or banking operation needs attention.", "/accounting");
+        }
+        if (context.Contains("import") || context.Contains("export"))
+        {
+            return ("Import/export needs review", "A data import or export operation needs attention.", "/import-export");
+        }
+        if (context.Contains("backup") || context.Contains("restore") || context.Contains("health"))
+        {
+            return ("System health needs review", "A maintenance or backup operation needs attention.", "/system-health");
         }
         if (source.Equals("Security", StringComparison.OrdinalIgnoreCase))
         {
@@ -302,10 +390,10 @@ public sealed class ApplicationMessageLogService(GarmetixDbContext db)
         }
         if (source.Equals("API", StringComparison.OrdinalIgnoreCase))
         {
-            return ("Operation needs attention", "A recent operation could not be completed. Open the related page and try again.", "/dashboard");
+            return ("Operation needs attention", "A recent operation could not be completed. Open message logs for details.", "/message-logs");
         }
 
-        return ("Business activity needs review", "A recent business operation needs attention.", "/dashboard");
+        return ("Business activity needs review", "A recent business operation needs attention.", "/message-logs");
     }
 
     private static string BuildSearchSql(ApplicationMessageLogQuery query)
