@@ -33,7 +33,21 @@ public sealed record StoreDayCloseRequest(
     DateTime OnDate,
     CashDetailDto CashDetail,
     bool UseBookCashIfNoCashDetail = true,
-    string? Remarks = null);
+    string? Remarks = null,
+    bool ConfirmOpeningBalanceMismatch = false,
+    PettyCashSheetDraftDto? PettyCashSheet = null);
+
+public sealed record PettyCashSheetDraftDto(
+    decimal OpeningBalance,
+    decimal Sales,
+    decimal Receipts,
+    decimal DueReceipts,
+    decimal BankWithdrawal,
+    decimal Expenses,
+    decimal Payments,
+    decimal CustomerDue,
+    decimal BankDeposit,
+    decimal NonCashSale);
 
 public sealed record StoreHolidayRequest(
     Guid StoreId,
@@ -77,7 +91,18 @@ public sealed record PettyCashBookSummaryDto(
     decimal NonCashSale,
     decimal CashInHand,
     string OpeningBalanceSource,
-    IReadOnlyList<string> Notes);
+    IReadOnlyList<string> Notes,
+    bool HasPreviousPettyCashSheet,
+    decimal? PreviousPettyCashClosingBalance,
+    DateTime? PreviousPettyCashDate,
+    decimal OpeningBalanceDifference,
+    bool OpeningBalanceMismatch,
+    string OpeningBalanceMismatchMessage);
+
+internal sealed record PreviousPettyCashClosingInfo(
+    bool Found,
+    decimal? Balance,
+    DateTime? OnDate);
 
 public static class StoreDayEndpoints
 {
@@ -194,6 +219,21 @@ public static class StoreDayEndpoints
         }
 
         var summary = await CalculateBookSummaryAsync(db, request.StoreId, day, cancellationToken);
+        if (request.PettyCashSheet is not null)
+        {
+            summary = ApplyPettyCashDraft(summary, request.PettyCashSheet);
+        }
+
+        if (summary.OpeningBalanceMismatch && !request.ConfirmOpeningBalanceMismatch)
+        {
+            return Results.Conflict(new
+            {
+                message = summary.OpeningBalanceMismatchMessage,
+                requiresConfirmation = true,
+                summary
+            });
+        }
+
         var physicalCash = CashAmount(request.CashDetail);
         if (physicalCash <= 0 && request.UseBookCashIfNoCashDetail)
         {
@@ -326,7 +366,17 @@ private static async Task<IResult> VoidDayCloseAsync(
             begin.UpdatedAt = DateTime.UtcNow;
         }
 
-        var summary = new PettyCashBookSummaryDto(carryForward, 0, 0, 0, 0, 0, 0, 0, 0, 0, carryForward, "Holiday carry-forward", ["Store holiday/closed day: balance carried forward."]);
+        var previousInfo = await GetPreviousPettyCashClosingInfoAsync(db, request.StoreId, day, cancellationToken);
+        var summary = new PettyCashBookSummaryDto(
+            carryForward, 0, 0, 0, 0, 0, 0, 0, 0, 0, carryForward,
+            "Holiday carry-forward",
+            ["Store holiday/closed day: balance carried forward."],
+            previousInfo.Found,
+            previousInfo.Balance,
+            previousInfo.OnDate,
+            previousInfo.Balance.HasValue ? Math.Round(carryForward - previousInfo.Balance.Value, 2) : 0m,
+            false,
+            string.Empty);
         await UpsertPettyCashSheetAsync(db, request.StoreId, day, summary, carryForward, "StoreHoliday", cancellationToken);
 
         var end = await db.DayEnds.FirstOrDefaultAsync(item => item.StoreId == request.StoreId && item.OnDate == day && !item.Deleted, cancellationToken);
@@ -484,6 +534,55 @@ private static async Task<IResult> VoidDayCloseAsync(
            + dto.NC2 * 2m
            + dto.NC1;
 
+    private static PettyCashBookSummaryDto ApplyPettyCashDraft(PettyCashBookSummaryDto current, PettyCashSheetDraftDto draft)
+    {
+        var opening = Math.Round(draft.OpeningBalance, 2);
+        var sales = Math.Round(draft.Sales, 2);
+        var receipts = Math.Round(draft.Receipts, 2);
+        var dueReceipts = Math.Round(draft.DueReceipts, 2);
+        var bankWithdrawal = Math.Round(draft.BankWithdrawal, 2);
+        var expenses = Math.Round(draft.Expenses, 2);
+        var payments = Math.Round(draft.Payments, 2);
+        var customerDue = Math.Round(draft.CustomerDue, 2);
+        var bankDeposit = Math.Round(draft.BankDeposit, 2);
+        var nonCashSale = Math.Round(draft.NonCashSale, 2);
+        var cashInHand = Math.Round(opening + sales + receipts + dueReceipts + bankWithdrawal - expenses - payments - customerDue - bankDeposit - nonCashSale, 2);
+        var difference = current.PreviousPettyCashClosingBalance.HasValue
+            ? Math.Round(opening - current.PreviousPettyCashClosingBalance.Value, 2)
+            : 0m;
+        var mismatch = current.HasPreviousPettyCashSheet && Math.Abs(difference) > 0.01m;
+        return current with
+        {
+            OpeningBalance = opening,
+            Sales = sales,
+            Receipts = receipts,
+            DueReceipts = dueReceipts,
+            BankWithdrawal = bankWithdrawal,
+            Expenses = expenses,
+            Payments = payments,
+            CustomerDue = customerDue,
+            BankDeposit = bankDeposit,
+            NonCashSale = nonCashSale,
+            CashInHand = cashInHand,
+            OpeningBalanceSource = "Day opening / closing preview override",
+            OpeningBalanceDifference = difference,
+            OpeningBalanceMismatch = mismatch,
+            OpeningBalanceMismatchMessage = BuildOpeningMismatchMessage(current.PreviousPettyCashDate, current.PreviousPettyCashClosingBalance, opening, difference),
+            Notes = current.Notes.Concat(["Petty cash sheet values were reviewed/edited in Day Closing preview before save."]).ToArray()
+        };
+    }
+
+    private static string BuildOpeningMismatchMessage(DateTime? previousDate, decimal? previousBalance, decimal openingBalance, decimal difference)
+    {
+        if (!previousBalance.HasValue)
+        {
+            return string.Empty;
+        }
+
+        var dateText = previousDate.HasValue ? previousDate.Value.ToString("dd MMM yyyy") : "previous petty cash sheet";
+        return $"Today opening balance ₹{openingBalance:N2} differs from previous petty cash closing ₹{previousBalance.Value:N2} ({dateText}) by ₹{difference:N2}. Confirm this difference before day closing.";
+    }
+
     private static async Task<decimal> GetPreviousClosingAsync(GarmetixDbContext db, Guid storeId, DateTime day, CancellationToken cancellationToken)
     {
         var previousEnd = await db.DayEnds.AsNoTracking()
@@ -496,19 +595,49 @@ private static async Task<IResult> VoidDayCloseAsync(
             return Math.Round(previousEnd.Value, 2);
         }
 
+        var previousSheet = await GetPreviousPettyCashClosingInfoAsync(db, storeId, day, cancellationToken);
+        return Math.Round(previousSheet.Balance ?? 0m, 2);
+    }
+
+    private static async Task<PreviousPettyCashClosingInfo> GetPreviousPettyCashClosingInfoAsync(
+        GarmetixDbContext db,
+        Guid storeId,
+        DateTime day,
+        CancellationToken cancellationToken)
+    {
         var previousSheet = await db.PettyCashSheets.AsNoTracking()
             .Where(item => item.StoreId == storeId && item.OnDate < day && !item.Deleted)
             .OrderByDescending(item => item.OnDate)
-            .Select(item => (decimal?)item.CashInHand)
+            .Select(item => new { item.OnDate, item.CashInHand })
             .FirstOrDefaultAsync(cancellationToken);
-        return Math.Round(previousSheet ?? 0m, 2);
+
+        return previousSheet is null
+            ? new PreviousPettyCashClosingInfo(false, null, null)
+            : new PreviousPettyCashClosingInfo(true, Math.Round(previousSheet.CashInHand, 2), previousSheet.OnDate.Date);
     }
 
     private static async Task<PettyCashBookSummaryDto> CalculateBookSummaryAsync(GarmetixDbContext db, Guid storeId, DateTime onDate, CancellationToken cancellationToken)
     {
         var dayStart = onDate.Date;
         var dayEnd = dayStart.AddDays(1);
-        var opening = await GetPreviousClosingAsync(db, storeId, dayStart, cancellationToken);
+        var dayBegin = await db.DayBegins.AsNoTracking()
+            .Where(item => item.StoreId == storeId && item.OnDate == dayStart && !item.Deleted)
+            .Select(item => new { item.OpeningBalance })
+            .FirstOrDefaultAsync(cancellationToken);
+        var previousPettyCash = await GetPreviousPettyCashClosingInfoAsync(db, storeId, dayStart, cancellationToken);
+        var opening = Math.Round(dayBegin?.OpeningBalance ?? previousPettyCash.Balance ?? 0m, 2);
+        var openingSource = dayBegin is not null
+            ? "Today day opening"
+            : previousPettyCash.Found
+                ? "Previous petty cash closing fallback"
+                : "No previous petty cash sheet; opening is zero until day open";
+        var openingDifference = previousPettyCash.Balance.HasValue
+            ? Math.Round(opening - previousPettyCash.Balance.Value, 2)
+            : 0m;
+        var openingMismatch = dayBegin is not null && previousPettyCash.Found && Math.Abs(openingDifference) > 0.01m;
+        var openingMismatchMessage = openingMismatch
+            ? BuildOpeningMismatchMessage(previousPettyCash.OnDate, previousPettyCash.Balance, opening, openingDifference)
+            : string.Empty;
 
         var invoicePayments = await db.InvoicePayments.AsNoTracking()
             .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd)
@@ -549,6 +678,22 @@ private static async Task<IResult> VoidDayCloseAsync(
 
         var sales = invoices.Sum(item => item.BillAmount);
         var cashInHand = opening + sales + receipts + dueReceipts + bankWithdrawal - expenses - payments - customerDue - bankDeposit - nonCashSales;
+        var notes = new List<string>
+        {
+            dayBegin is not null
+                ? "Opening balance is taken from today's Day Open entry. Previous petty cash closing is used only as a warning/control check."
+                : "No Day Open entry was found; previous petty cash closing is shown only as a fallback until the day is opened.",
+            "Day closing shows a petty cash preview before final save so calculated values can be reviewed and corrected."
+        };
+        if (openingMismatch)
+        {
+            notes.Add(openingMismatchMessage);
+        }
+        if (!previousPettyCash.Found)
+        {
+            notes.Add("No previous petty cash sheet was found; today's Day Open amount is authoritative.");
+        }
+
         return new PettyCashBookSummaryDto(
             Math.Round(opening, 2),
             Math.Round(sales, 2),
@@ -561,11 +706,14 @@ private static async Task<IResult> VoidDayCloseAsync(
             Math.Round(bankDeposit, 2),
             Math.Round(nonCashSales, 2),
             Math.Round(cashInHand, 2),
-            "Previous day closing / petty cash sheet",
-            [
-                "Book cash is generated from invoices, cash vouchers, bank cash and previous closing.",
-                "Day closing can be edited before final save; physical cash details become closing cash."
-            ]);
+            openingSource,
+            notes,
+            previousPettyCash.Found,
+            previousPettyCash.Balance,
+            previousPettyCash.OnDate,
+            openingDifference,
+            openingMismatch,
+            openingMismatchMessage);
     }
 
     private static bool CanUseStore(HttpContext context, Guid storeId)

@@ -4,13 +4,19 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[2]
 checks = [
-    root / "scripts/validation/stage9-complete-attendance-check.py",
-    root / "scripts/validation/frontend-route-access-check.py",
-    root / "scripts/validation/secret-hygiene-check.py",
+    root / 'scripts/validation/stage10j-import-export-engine-check.py',
+    root / 'scripts/validation/stage10i-store-operations-cash-closing-check.py',
+    root / 'scripts/validation/stage10h-runtime-bugfix-check.py',
+    root / 'scripts/validation/stage10-complete-check.py',
+    root / 'scripts/validation/stage10b-import-export-center-check.py',
+    root / 'scripts/validation/app-version-string-safety-check.py',
+    root / 'scripts/validation/frontend-route-access-check.py',
+    root / 'scripts/validation/navigation-menu-coverage-check.py',
+    root / 'scripts/validation/secret-hygiene-check.py',
 ]
 
 for check in checks:
     print(f"\n== {check.name} ==")
     subprocess.run([sys.executable, str(check)], cwd=root, check=True)
 
-print("\nCurrent release validation passed for Stage 9 Complete Attendance Release / v4.10.9.")
+print("\nCurrent release validation passed for Stage 10J Real Excel Import Export Engine / v4.10.17.")

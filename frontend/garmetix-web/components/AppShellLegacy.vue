@@ -60,47 +60,159 @@ const moduleGroups = [
   {
     label: 'Dashboards',
     items: [
-      { to: '/', label: 'Overview', icon: 'i-lucide-layout-dashboard' },
-      { to: '/reports', label: 'Reports', icon: 'i-lucide-file-text' },
-      { to: '/gst-returns', label: 'GST Returns', icon: 'i-lucide-file-json-2' },
-      { to: '/gst-reports', label: 'GST Reports', icon: 'i-lucide-table-properties' }
+      { to: '/dashboard', label: 'Dashboard', icon: 'i-lucide-gauge', keywords: ['home', 'landing', 'role dashboard'] },
+      { to: '/dashboard/todays', label: "Today's", icon: 'i-lucide-sun', keywords: ['today', 'sale', 'expense', 'payment', 'receipt', 'attendance', 'cash voucher'] },
+      { to: '/dashboard/store-manager', label: 'Store', icon: 'i-lucide-store', roles: ['storemanager', 'manager'], keywords: ['store', 'today', 'manager'] },
+      { to: '/store-day', label: 'Store Operations', icon: 'i-lucide-sun-medium', roles: ['storemanager', 'salesman', 'manager'], keywords: ['day opening', 'day closing', 'cash notes', 'holiday'] },
+      { to: '/dashboard/business', label: 'Company', icon: 'i-lucide-chart-no-axes-combined', roles: ['owner', 'admin', 'accountant'], keywords: ['owner', 'admin', 'accountant', 'company'] },
+      { to: '/dashboard/map', label: 'Dashboard Map', icon: 'i-lucide-map', keywords: ['template', 'revert', 'menus', 'routes'] },
+      { to: '/', label: 'Legacy Overview', icon: 'i-lucide-layout-dashboard', roles: ['admin', 'owner'], keywords: ['old dashboard', 'overview', 'revert'] }
     ]
   },
   {
-    label: 'Operations',
+    label: 'Sales',
     items: [
       { to: '/billing', label: 'Billing', icon: 'i-lucide-receipt-indian-rupee' },
+      { to: '/billing/new', label: 'New Sale Invoice', icon: 'i-lucide-file-plus-2', keywords: ['new bill', 'new invoice', 'create sale'] },
       { to: '/sales-return', label: 'Sales Return', icon: 'i-lucide-rotate-ccw' },
-      { to: '/inventory', label: 'Inventory', icon: 'i-lucide-boxes' },
-      { to: '/stock-operations', label: 'Stock Ops', icon: 'i-lucide-arrow-left-right' },
-      { to: '/stock-reports', label: 'Stock Reports', icon: 'i-lucide-chart-column-stacked' },
-      { to: '/non-gst-goods', label: 'Non-GST Goods', icon: 'i-lucide-file-warning' },
+      { to: '/tailoring', label: 'Tailoring & Alteration', icon: 'i-lucide-scissors', keywords: ['stitching', 'alteration', 'tailor', 'delivery', 'service invoice'] }
+    ]
+  },
+  {
+    label: 'Purchase',
+    items: [
       { to: '/purchase', label: 'Purchase', icon: 'i-lucide-package-plus' },
+      { to: '/purchase/new', label: 'New Inward', icon: 'i-lucide-file-plus-2', keywords: ['inward', 'supplier invoice', 'purchase bill'] },
+      { to: '/vendor-payments', label: 'Vendor Payments', icon: 'i-lucide-hand-coins', keywords: ['supplier payment', 'advance payment', 'purchase payment'] },
       { to: '/purchase-return', label: 'Purchase Return', icon: 'i-lucide-undo-2' },
-      { to: '/vendor-settlements', label: 'Vendor Settlements', icon: 'i-lucide-hand-coins' },
-      { to: '/customers', label: 'Customers', icon: 'i-lucide-user-round' },
-      { to: '/parties', label: 'Parties / Vendors', icon: 'i-lucide-users-round' },
+      { to: '/vendor-settlements', label: 'Vendor Settlements', icon: 'i-lucide-hand-coins' }
+    ]
+  },
+  {
+    label: 'Inventory',
+    items: [
+      { to: '/inventory', label: 'Product Master', icon: 'i-lucide-boxes' },
+      { to: '/stock-operations', label: 'Stock Operations', icon: 'i-lucide-arrow-left-right' },
+      { to: '/stock-reports', label: 'Stock Reports', icon: 'i-lucide-chart-column-stacked', keywords: ['ageing', 'low stock', 'valuation', 'reconciliation'] }
+    ]
+  },
+  {
+    label: 'Accounting',
+    items: [
+      { to: '/accounting', label: 'Accounting', icon: 'i-lucide-landmark' },
+      { to: '/financial-year-locks', label: 'FY Locks', icon: 'i-lucide-lock-keyhole' },
+      { to: '/petty-cash', label: 'Petty Cash', icon: 'i-lucide-circle-dollar-sign' },
+      { to: '/cash-details', label: 'Cash Details', icon: 'i-lucide-coins', keywords: ['cash notes', 'coin history', 'denomination', 'manual cash'] },
       { to: '/vouchers', label: 'Vouchers', icon: 'i-lucide-banknote' },
       { to: '/debit-notes', label: 'Debit Notes', icon: 'i-lucide-file-minus-2' },
+      { to: '/debit-notes/new', label: 'New Debit Note', icon: 'i-lucide-file-minus-2', keywords: ['create debit note'] },
       { to: '/credit-notes', label: 'Credit Notes', icon: 'i-lucide-file-plus-2' },
-      { to: '/commercial-notes', label: 'Commercial Summary', icon: 'i-lucide-files' },
-      { to: '/loyalty', label: 'Loyalty', icon: 'i-lucide-gift' },
-      { to: '/accounting', label: 'Accounting', icon: 'i-lucide-landmark' },
-      { to: '/petty-cash', label: 'Petty Cash', icon: 'i-lucide-circle-dollar-sign' }
+      { to: '/credit-notes/new', label: 'New Credit Note', icon: 'i-lucide-file-plus-2', keywords: ['create credit note'] },
+      { to: '/commercial-notes', label: 'Commercial Summary', icon: 'i-lucide-files' }
+    ]
+  },
+  {
+    label: 'CRM',
+    items: [
+      { to: '/customers', label: 'Customers', icon: 'i-lucide-user-round' },
+      { to: '/customers/new', label: 'New Customer', icon: 'i-lucide-user-plus', keywords: ['add customer', 'create customer'] },
+      { to: '/parties', label: 'Parties & Vendors', icon: 'i-lucide-users-round' },
+      { to: '/loyalty', label: 'Loyalty', icon: 'i-lucide-gift' }
+    ]
+  },
+  {
+    label: 'GST',
+    items: [
+      { to: '/gst-returns', label: 'GST Returns', icon: 'i-lucide-file-json-2' },
+      { to: '/gst-reports', label: 'GST Reports', icon: 'i-lucide-table-properties' },
+      { to: '/gst-final-acceptance', label: 'GST Final Acceptance', icon: 'i-lucide-badge-check', adminOnly: true },
+      { to: '/gst-production', label: 'GST/e-Invoice Readiness', icon: 'i-lucide-file-check-2', adminOnly: true }
+    ]
+  },
+  {
+    label: 'Reports',
+    items: [
+      { to: '/reports', label: 'Reports Center', icon: 'i-lucide-file-text' },
+      { to: '/document-scan', label: 'Document Scanner', icon: 'i-lucide-scan-qr-code', keywords: ['qr', 'barcode', 'voucher', 'invoice', 'payslip'] },
+      { to: '/print-final-acceptance', label: 'Print Final Acceptance', icon: 'i-lucide-printer-check', adminOnly: true },
+      { to: '/barcode-final-acceptance', label: 'Barcode Final Acceptance', icon: 'i-lucide-barcode', adminOnly: true }
+    ]
+  },
+  {
+    label: 'Off Book',
+    items: [
+      { to: '/non-gst-goods', label: 'Non-GST Goods', icon: 'i-lucide-file-warning' },
+      { to: '/cash-vouchers', label: 'Cash Vouchers', icon: 'i-lucide-wallet-cards' }
     ]
   },
   {
     label: 'People',
     items: [
       { to: '/hr', label: 'HR Employee Master', icon: 'i-lucide-users-round' },
+      { to: '/attendance', label: 'Attendance Dashboard', icon: 'i-lucide-calendar-check', keywords: ['attendance', 'kiosk', 'check in', 'check out'] },
+      { to: '/attendance/kiosk', label: 'Web Kiosk', icon: 'i-lucide-camera', keywords: ['attendance', 'kiosk', 'photo proof'] },
+      { to: '/attendance/today', label: 'Today Attendance', icon: 'i-lucide-calendar-days' },
+      { to: '/attendance/monthly', label: 'Monthly Attendance', icon: 'i-lucide-calendar-range' },
+      { to: '/attendance/shifts', label: 'Shifts', icon: 'i-lucide-clock-3' },
+      { to: '/attendance/policies', label: 'Attendance Policy', icon: 'i-lucide-sliders-horizontal' },
+      { to: '/attendance/devices', label: 'Kiosk Devices', icon: 'i-lucide-tablet-smartphone' },
+      { to: '/attendance/kiosk-monitor', label: 'Kiosk Monitor', icon: 'i-lucide-monitor-check' },
+      { to: '/attendance/photo-review', label: 'Face Photo Review', icon: 'i-lucide-user-check' },
+      { to: '/attendance/biometric-enrollment', label: 'Biometric Enrollment', icon: 'i-lucide-fingerprint' },
+      { to: '/attendance/regularization', label: 'Regularization Requests', icon: 'i-lucide-list-checks' },
+      { to: '/attendance/payroll-summary', label: 'Payroll Attendance Summary', icon: 'i-lucide-file-spreadsheet' },
+      { to: '/attendance/payroll-review', label: 'Attendance Payroll Review', icon: 'i-lucide-hand-coins' },
+      { to: '/attendance/salary-draft', label: 'Salary Slip Generation', icon: 'i-lucide-receipt-indian-rupee' },
+      { to: '/attendance/salary-payment', label: 'Salary Payment Posting', icon: 'i-lucide-wallet-cards' },
+      { to: '/attendance/device-bridge', label: 'Device Bridge Plan', icon: 'i-lucide-cable' },
+      { to: '/attendance/final-acceptance', label: 'Stage 9 Final Acceptance', icon: 'i-lucide-clipboard-check' },
       { to: '/hr-benefits', label: 'HR Benefits', icon: 'i-lucide-hand-coins' },
       { to: '/payroll', label: 'Payroll', icon: 'i-lucide-badge-indian-rupee' }
     ]
   },
   {
-    label: 'Off Book',
+    label: 'Admin',
     items: [
-      { to: '/cash-vouchers', label: 'Cash Vouchers', icon: 'i-lucide-wallet-cards' }
+      { to: '/setup', label: 'Company Setup', icon: 'i-lucide-building-2', adminOnly: true },
+      { to: '/client-onboarding', label: 'Onboarding', icon: 'i-lucide-route', adminOnly: true },
+      { to: '/af-ss', label: 'AF/SS Seeder', icon: 'i-lucide-database-backup', adminOnly: true },
+      { to: '/access', label: 'Roles & Users', icon: 'i-lucide-shield-check', adminOnly: true },
+      { to: '/permission-final-acceptance', label: 'Permission Final Acceptance', icon: 'i-lucide-user-check', adminOnly: true }
+    ]
+  },
+  {
+    label: 'Data',
+    items: [
+      { to: '/import-export', label: 'Excel Import / Export', icon: 'i-lucide-file-down', adminOnly: true },
+      { to: '/data-consistency', label: 'Data Consistency', icon: 'i-lucide-shield-alert', adminOnly: true },
+      { to: '/message-logs', label: 'Message Logs', icon: 'i-lucide-list-collapse', adminOnly: true },
+      { to: '/audit', label: 'Audit Trail', icon: 'i-lucide-history', adminOnly: true },
+      { to: '/audit-trail-final', label: 'Audit Final Acceptance', icon: 'i-lucide-history', adminOnly: true },
+      { to: '/ui-audit', label: 'UI Layout Audit', icon: 'i-lucide-ruler', adminOnly: true }
+    ]
+  },
+  {
+    label: 'Maintenance',
+    items: [
+      { to: '/system-health', label: 'System Health', icon: 'i-lucide-activity', adminOnly: true },
+      { to: '/runtime-diagnostics', label: 'Runtime Diagnostics', icon: 'i-lucide-stethoscope', adminOnly: true, keywords: ['runtime', 'diagnostics', 'stage 10h', 'bug fix'] },
+      { to: '/backup-maintenance', label: 'Backup Maintenance', icon: 'i-lucide-hard-drive-download', adminOnly: true },
+      { to: '/google-drive-backup', label: 'Google Drive Backup', icon: 'i-lucide-cloud-upload', adminOnly: true },
+      { to: '/production-readiness', label: 'Production Readiness', icon: 'i-lucide-shield-check', adminOnly: true },
+      { to: '/production-final-acceptance', label: 'Production Final Acceptance', icon: 'i-lucide-shield-check', adminOnly: true, keywords: ['stage 10a', 'final acceptance', 'go live', 'release gate'] },
+      { to: '/stage10-final-acceptance', label: 'Stage 10 Final Acceptance', icon: 'i-lucide-clipboard-check', adminOnly: true },
+      { to: '/email-delivery', label: 'Email Delivery', icon: 'i-lucide-mail-check', adminOnly: true },
+      { to: '/license-activation', label: 'License Activation', icon: 'i-lucide-key-round', adminOnly: true },
+      { to: '/stage8g-completion', label: 'Stage 8G Completion', icon: 'i-lucide-flag', adminOnly: true },
+      { to: '/post-go-live-acceptance', label: 'Post-Go-Live Acceptance', icon: 'i-lucide-list-checks', adminOnly: true },
+      { to: '/release-stabilization', label: 'Release Stabilization', icon: 'i-lucide-rocket', adminOnly: true },
+      { to: '/oracle-sync', label: 'Oracle Sync', icon: 'i-lucide-database-zap', adminOnly: true }
+    ]
+  },
+  {
+    label: 'System',
+    items: [
+      { to: '/system-info', label: 'System Info', icon: 'i-lucide-monitor-cog', adminOnly: true }
     ]
   },
   {
@@ -112,27 +224,9 @@ const moduleGroups = [
   {
     label: 'Help',
     items: [
-      { to: '/about-us', label: 'About Us', icon: 'i-lucide-info' },
+      { to: '/about-us', label: 'About Garmetix', icon: 'i-lucide-info' },
       { to: '/contact-us', label: 'Contact Us', icon: 'i-lucide-message-circle' },
       { to: '/faq', label: 'FAQ', icon: 'i-lucide-circle-help' }
-    ]
-  },
-  {
-    label: 'Admin',
-    items: [
-      { to: '/setup', label: 'Company', icon: 'i-lucide-building-2' },
-      { to: '/client-onboarding', label: 'Onboarding', icon: 'i-lucide-route' },
-      { to: '/af-ss', label: 'AF/SS', icon: 'i-lucide-database-backup' },
-      { to: '/message-logs', label: 'Message Logs', icon: 'i-lucide-list-collapse' },
-      { to: '/access', label: 'Roles & Users', icon: 'i-lucide-shield-check' },
-      { to: '/import-export', label: 'Import Export', icon: 'i-lucide-file-down' },
-      { to: '/audit', label: 'Audit', icon: 'i-lucide-history' },
-      { to: '/system-health', label: 'System Health', icon: 'i-lucide-activity' },
-      { to: '/production-readiness', label: 'Production Readiness', icon: 'i-lucide-shield-check' },
-      { to: '/stage8g-completion', label: 'Stage 8G Completion', icon: 'i-lucide-flag' },
-      { to: '/release-stabilization', label: 'Release Stabilization', icon: 'i-lucide-rocket' },
-      { to: '/data-consistency', label: 'Consistency & Repair', icon: 'i-lucide-shield-alert' },
-      { to: '/oracle-sync', label: 'Oracle Sync', icon: 'i-lucide-database-zap' }
     ]
   }
 ]

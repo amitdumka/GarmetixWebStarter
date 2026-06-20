@@ -96,6 +96,7 @@ const moduleGroups: MenuGroup[] = [
     label: 'Dashboards',
     items: [
       { to: '/dashboard', label: 'Dashboard', icon: 'i-lucide-gauge', keywords: ['home', 'landing', 'role dashboard'] },
+      { to: '/dashboard/todays', label: "Today's", icon: 'i-lucide-sun', keywords: ['today', 'sale', 'expense', 'payment', 'receipt', 'attendance', 'cash voucher'] },
       { to: '/dashboard/store-manager', label: 'Store', icon: 'i-lucide-store', roles: ['storemanager', 'manager'], keywords: ['store', 'today', 'manager'] },
       { to: '/store-day', label: 'Store Operations', icon: 'i-lucide-sun-medium', roles: ['storemanager', 'salesman', 'manager'], keywords: ['day opening', 'day closing', 'cash notes', 'holiday'] },
       { to: '/dashboard/business', label: 'Company', icon: 'i-lucide-chart-no-axes-combined', roles: ['owner', 'admin', 'accountant'], keywords: ['owner', 'admin', 'accountant', 'company'] },
@@ -107,6 +108,7 @@ const moduleGroups: MenuGroup[] = [
     label: 'Sales',
     items: [
       { to: '/billing', label: 'Billing', icon: 'i-lucide-receipt-indian-rupee' },
+      { to: '/billing/new', label: 'New Sale Invoice', icon: 'i-lucide-file-plus-2', keywords: ['new bill', 'new invoice', 'create sale'] },
       { to: '/sales-return', label: 'Sales Return', icon: 'i-lucide-rotate-ccw' },
       { to: '/tailoring', label: 'Tailoring & Alteration', icon: 'i-lucide-scissors', keywords: ['stitching', 'alteration', 'tailor', 'delivery', 'service invoice'] }
     ]
@@ -138,7 +140,9 @@ const moduleGroups: MenuGroup[] = [
       { to: '/cash-details', label: 'Cash Details', icon: 'i-lucide-coins', keywords: ['cash notes', 'coin history', 'denomination', 'manual cash'] },
       { to: '/vouchers', label: 'Vouchers', icon: 'i-lucide-banknote' },
       { to: '/debit-notes', label: 'Debit Notes', icon: 'i-lucide-file-minus-2' },
+      { to: '/debit-notes/new', label: 'New Debit Note', icon: 'i-lucide-file-minus-2', keywords: ['create debit note'] },
       { to: '/credit-notes', label: 'Credit Notes', icon: 'i-lucide-file-plus-2' },
+      { to: '/credit-notes/new', label: 'New Credit Note', icon: 'i-lucide-file-plus-2', keywords: ['create credit note'] },
       { to: '/commercial-notes', label: 'Commercial Summary', icon: 'i-lucide-files' }
     ]
   },
@@ -146,6 +150,7 @@ const moduleGroups: MenuGroup[] = [
     label: 'CRM',
     items: [
       { to: '/customers', label: 'Customers', icon: 'i-lucide-user-round' },
+      { to: '/customers/new', label: 'New Customer', icon: 'i-lucide-user-plus', keywords: ['add customer', 'create customer'] },
       { to: '/parties', label: 'Parties & Vendors', icon: 'i-lucide-users-round' },
       { to: '/loyalty', label: 'Loyalty', icon: 'i-lucide-gift' }
     ]
@@ -155,7 +160,8 @@ const moduleGroups: MenuGroup[] = [
     items: [
       { to: '/gst-returns', label: 'GST Returns', icon: 'i-lucide-file-json-2' },
       { to: '/gst-reports', label: 'GST Reports', icon: 'i-lucide-table-properties' },
-      { to: '/gst-final-acceptance', label: 'GST Final Acceptance', icon: 'i-lucide-badge-check', adminOnly: true }
+      { to: '/gst-final-acceptance', label: 'GST Final Acceptance', icon: 'i-lucide-badge-check', adminOnly: true },
+      { to: '/gst-production', label: 'GST/e-Invoice Readiness', icon: 'i-lucide-file-check-2', adminOnly: true }
     ]
   },
   {
@@ -163,7 +169,8 @@ const moduleGroups: MenuGroup[] = [
     items: [
       { to: '/reports', label: 'Reports Center', icon: 'i-lucide-file-text' },
       { to: '/document-scan', label: 'Document Scanner', icon: 'i-lucide-scan-qr-code', keywords: ['qr', 'barcode', 'voucher', 'invoice', 'payslip'] },
-      { to: '/print-final-acceptance', label: 'Print Final Acceptance', icon: 'i-lucide-printer-check', adminOnly: true }
+      { to: '/print-final-acceptance', label: 'Print Final Acceptance', icon: 'i-lucide-printer-check', adminOnly: true },
+      { to: '/barcode-final-acceptance', label: 'Barcode Final Acceptance', icon: 'i-lucide-barcode', adminOnly: true }
     ]
   },
   {
@@ -211,10 +218,11 @@ const moduleGroups: MenuGroup[] = [
   {
     label: 'Data',
     items: [
-      { to: '/import-export', label: 'Import / Export', icon: 'i-lucide-file-down', adminOnly: true },
+      { to: '/import-export', label: 'Excel Import / Export', icon: 'i-lucide-file-down', adminOnly: true },
       { to: '/data-consistency', label: 'Data Consistency', icon: 'i-lucide-shield-alert', adminOnly: true },
       { to: '/message-logs', label: 'Message Logs', icon: 'i-lucide-list-collapse', adminOnly: true },
       { to: '/audit', label: 'Audit Trail', icon: 'i-lucide-history', adminOnly: true },
+      { to: '/audit-trail-final', label: 'Audit Final Acceptance', icon: 'i-lucide-history', adminOnly: true },
       { to: '/ui-audit', label: 'UI Layout Audit', icon: 'i-lucide-ruler', adminOnly: true }
     ]
   },
@@ -222,8 +230,12 @@ const moduleGroups: MenuGroup[] = [
     label: 'Maintenance',
     items: [
       { to: '/system-health', label: 'System Health', icon: 'i-lucide-activity', adminOnly: true },
+      { to: '/runtime-diagnostics', label: 'Runtime Diagnostics', icon: 'i-lucide-stethoscope', adminOnly: true, keywords: ['runtime', 'diagnostics', 'stage 10h', 'bug fix'] },
       { to: '/backup-maintenance', label: 'Backup Maintenance', icon: 'i-lucide-hard-drive-download', adminOnly: true },
+      { to: '/google-drive-backup', label: 'Google Drive Backup', icon: 'i-lucide-cloud-upload', adminOnly: true },
       { to: '/production-readiness', label: 'Production Readiness', icon: 'i-lucide-shield-check', adminOnly: true },
+      { to: '/production-final-acceptance', label: 'Production Final Acceptance', icon: 'i-lucide-shield-check', adminOnly: true, keywords: ['stage 10a', 'final acceptance', 'go live', 'release gate'] },
+      { to: '/stage10-final-acceptance', label: 'Stage 10 Final Acceptance', icon: 'i-lucide-clipboard-check', adminOnly: true },
       { to: '/email-delivery', label: 'Email Delivery', icon: 'i-lucide-mail-check', adminOnly: true },
       { to: '/license-activation', label: 'License Activation', icon: 'i-lucide-key-round', adminOnly: true },
       { to: '/stage8g-completion', label: 'Stage 8G Completion', icon: 'i-lucide-flag', adminOnly: true },
@@ -236,6 +248,20 @@ const moduleGroups: MenuGroup[] = [
     label: 'System',
     items: [
       { to: '/system-info', label: 'System Info', icon: 'i-lucide-monitor-cog', adminOnly: true }
+    ]
+  },
+  {
+    label: 'Account',
+    items: [
+      { to: '/profile', label: 'My Profile', icon: 'i-lucide-user-cog' }
+    ]
+  },
+  {
+    label: 'Help',
+    items: [
+      { to: '/about-us', label: 'About Garmetix', icon: 'i-lucide-info' },
+      { to: '/contact-us', label: 'Contact Us', icon: 'i-lucide-message-circle' },
+      { to: '/faq', label: 'FAQ', icon: 'i-lucide-circle-help' }
     ]
   }
 ]

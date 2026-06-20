@@ -16,11 +16,16 @@ const openingBalance = ref<number | null>(null)
 const holidayReason = ref('Store closed / holiday')
 const openingCash = reactive(cashBlank())
 const closingCash = reactive(cashBlank())
+const closingPreviewOpen = ref(false)
+const closeWithMismatchConfirmation = ref(false)
+const pettyCashPreview = reactive(pettyCashBlank())
 
 const activeStoreId = computed(() => workspace.storeId.value || stores.value[0]?.id || '')
 const cashAmount = computed(() => calculateCash(closingCash))
 const openingCashAmount = computed(() => calculateCash(openingCash))
+const pettyCashBookCash = computed(() => calculatePettyCashBookCash(pettyCashPreview))
 const canUseStoreDay = computed(() => Boolean(activeStoreId.value))
+const openingMismatchMessage = computed(() => status.value?.bookSummary?.openingBalanceMismatchMessage || '')
 
 function cashBlank() {
   return {
@@ -35,6 +40,21 @@ function cashBlank() {
     nC5: 0,
     nC2: 0,
     nC1: 0
+  }
+}
+
+function pettyCashBlank() {
+  return {
+    openingBalance: 0,
+    sales: 0,
+    receipts: 0,
+    dueReceipts: 0,
+    bankWithdrawal: 0,
+    expenses: 0,
+    payments: 0,
+    customerDue: 0,
+    bankDeposit: 0,
+    nonCashSale: 0
   }
 }
 
@@ -68,6 +88,38 @@ function calculateCash(source: any) {
     + Number(source.nC1 || 0)
 }
 
+function calculatePettyCashBookCash(source: any) {
+  return Number(source.openingBalance || 0)
+    + Number(source.sales || 0)
+    + Number(source.receipts || 0)
+    + Number(source.dueReceipts || 0)
+    + Number(source.bankWithdrawal || 0)
+    - Number(source.expenses || 0)
+    - Number(source.payments || 0)
+    - Number(source.customerDue || 0)
+    - Number(source.bankDeposit || 0)
+    - Number(source.nonCashSale || 0)
+}
+
+function copySummaryToPreview(summary: any) {
+  Object.assign(pettyCashPreview, {
+    openingBalance: Number(summary?.openingBalance || 0),
+    sales: Number(summary?.sales || 0),
+    receipts: Number(summary?.receipts || 0),
+    dueReceipts: Number(summary?.dueReceipts || 0),
+    bankWithdrawal: Number(summary?.bankWithdrawal || 0),
+    expenses: Number(summary?.expenses || 0),
+    payments: Number(summary?.payments || 0),
+    customerDue: Number(summary?.customerDue || 0),
+    bankDeposit: Number(summary?.bankDeposit || 0),
+    nonCashSale: Number(summary?.nonCashSale || 0)
+  })
+}
+
+function toPettyCashPayload() {
+  return { ...pettyCashPreview }
+}
+
 function localDateValue(date = new Date()) {
   const offset = date.getTimezoneOffset()
   const local = new Date(date.getTime() - offset * 60000)
@@ -94,6 +146,7 @@ async function refresh() {
   try {
     status.value = await api.get<any>(`store-day/status?storeId=${activeStoreId.value}&onDate=${selectedDate.value}`)
     openingBalance.value = status.value?.openingBalance ?? status.value?.bookSummary?.openingBalance ?? 0
+    copySummaryToPreview(status.value?.bookSummary || {})
     feedback.notify('Store day refreshed', status.value?.message || 'Status loaded.', status.value?.entryAllowed ? 'success' : 'warning')
   } catch (error) {
     feedback.failed('Store day status failed', error)
@@ -122,20 +175,45 @@ async function openDay() {
   }
 }
 
-async function closeDay() {
+async function openClosingPreview() {
+  if (!activeStoreId.value) return
+  if (!status.value) {
+    await refresh()
+  }
+  copySummaryToPreview(status.value?.bookSummary || {})
+  closeWithMismatchConfirmation.value = false
+  closingPreviewOpen.value = true
+  if (status.value?.bookSummary?.openingBalanceMismatch) {
+    feedback.notify('Opening balance mismatch', openingMismatchMessage.value, 'warning')
+  }
+}
+
+async function closeDay(confirmMismatch = false) {
   if (!activeStoreId.value) return
   loading.value = true
   try {
     closingResult.value = await api.create<any>('store-day/close', {
       storeId: activeStoreId.value,
       onDate: selectedDate.value,
-      cashDetail: toCashPayload(closingCash, cashAmount.value || status.value?.bookSummary?.cashInHand),
+      cashDetail: toCashPayload(closingCash, cashAmount.value || pettyCashBookCash.value || status.value?.bookSummary?.cashInHand),
       useBookCashIfNoCashDetail: true,
-      remarks: 'Day closed from Store Operations page'
+      confirmOpeningBalanceMismatch: confirmMismatch || closeWithMismatchConfirmation.value,
+      pettyCashSheet: toPettyCashPayload(),
+      remarks: 'Day closed from Store Operations page after petty cash preview'
     })
     status.value = closingResult.value?.status || status.value
+    closingPreviewOpen.value = false
     feedback.notify('Store day closed and petty cash sheet updated')
-  } catch (error) {
+  } catch (error: any) {
+    const data = error?.data || error?.response?._data || error
+    if (data?.requiresConfirmation || data?.summary?.openingBalanceMismatch) {
+      if (data?.summary) {
+        copySummaryToPreview(data.summary)
+      }
+      closeWithMismatchConfirmation.value = true
+      feedback.notify('Confirm opening balance difference', data?.message || 'Opening balance differs from previous petty cash closing. Confirm to close day.', 'warning')
+      return
+    }
     feedback.failed('Store day closing failed', error)
   } finally {
     loading.value = false
@@ -291,6 +369,10 @@ onMounted(async () => {
 
         <UCard class="planner-card">
           <template #header><h2>Day Closing</h2></template>
+          <div v-if="status?.bookSummary?.openingBalanceMismatch" class="warning-box">
+            <strong>Opening balance mismatch</strong>
+            <span>{{ status.bookSummary.openingBalanceMismatchMessage }}</span>
+          </div>
           <div class="form-grid">
             <UFormField label="Book closing cash">
               <UInput :model-value="money(status?.bookSummary?.cashInHand || 0)" readonly />
@@ -313,7 +395,7 @@ onMounted(async () => {
           </div>
           <template #footer>
             <div class="footer-actions">
-              <UButton icon="i-lucide-door-closed" color="primary" :loading="loading" :disabled="!status?.isOpened || status?.isClosed" label="Close Day + Save Petty Cash" @click="closeDay" />
+              <UButton icon="i-lucide-door-closed" color="primary" :loading="loading" :disabled="!status?.isOpened || status?.isClosed" label="Preview Petty Cash + Close" @click="openClosingPreview" />
               <UButton icon="i-lucide-rotate-ccw" color="warning" variant="soft" :loading="loading" :disabled="!status?.isClosed" label="Reopen Day" @click="reopenDay" />
               <UButton icon="i-lucide-trash-2" color="error" variant="soft" :loading="loading" :disabled="!status?.isClosed" label="Delete Close" @click="deleteDayClose" />
               <UButton icon="i-lucide-printer" color="neutral" variant="subtle" label="Print Petty Cash" @click="printPettyCash" />
@@ -348,6 +430,65 @@ onMounted(async () => {
           <div><span>Cash in hand</span><strong>{{ money(status?.bookSummary?.cashInHand || 0) }}</strong></div>
         </div>
       </UCard>
+
+      <UModal v-model:open="closingPreviewOpen" title="Day Closing Petty Cash Preview" :ui="{ content: 'max-w-5xl' }">
+        <template #body>
+          <div class="preview-stack">
+            <div v-if="status?.bookSummary?.openingBalanceMismatch" class="warning-box">
+              <strong>Opening balance differs from previous petty cash closing</strong>
+              <span>{{ status.bookSummary.openingBalanceMismatchMessage }}</span>
+              <label class="checkbox-line">
+                <input v-model="closeWithMismatchConfirmation" type="checkbox" />
+                <span>I checked this difference and confirm day closing.</span>
+              </label>
+            </div>
+
+            <div class="form-grid">
+              <UFormField label="Opening balance">
+                <UInput v-model.number="pettyCashPreview.openingBalance" type="number" step="0.01" />
+              </UFormField>
+              <UFormField label="Calculated book cash in hand">
+                <UInput :model-value="money(pettyCashBookCash)" readonly />
+              </UFormField>
+              <UFormField label="Physical cash from notes">
+                <UInput :model-value="money(cashAmount)" readonly />
+              </UFormField>
+              <UFormField label="Difference physical - book">
+                <UInput :model-value="money((cashAmount || pettyCashBookCash) - pettyCashBookCash)" readonly />
+              </UFormField>
+            </div>
+
+            <div class="summary-grid editable-summary-grid">
+              <UFormField label="Sales"><UInput v-model.number="pettyCashPreview.sales" type="number" step="0.01" /></UFormField>
+              <UFormField label="Receipts"><UInput v-model.number="pettyCashPreview.receipts" type="number" step="0.01" /></UFormField>
+              <UFormField label="Due receipts"><UInput v-model.number="pettyCashPreview.dueReceipts" type="number" step="0.01" /></UFormField>
+              <UFormField label="Bank withdrawal"><UInput v-model.number="pettyCashPreview.bankWithdrawal" type="number" step="0.01" /></UFormField>
+              <UFormField label="Expenses"><UInput v-model.number="pettyCashPreview.expenses" type="number" step="0.01" /></UFormField>
+              <UFormField label="Payments"><UInput v-model.number="pettyCashPreview.payments" type="number" step="0.01" /></UFormField>
+              <UFormField label="Customer due"><UInput v-model.number="pettyCashPreview.customerDue" type="number" step="0.01" /></UFormField>
+              <UFormField label="Bank deposit"><UInput v-model.number="pettyCashPreview.bankDeposit" type="number" step="0.01" /></UFormField>
+              <UFormField label="Non-cash sale"><UInput v-model.number="pettyCashPreview.nonCashSale" type="number" step="0.01" /></UFormField>
+            </div>
+
+            <div class="notes-box">
+              <p v-for="note in status?.bookSummary?.notes || []" :key="note">{{ note }}</p>
+            </div>
+          </div>
+        </template>
+        <template #footer>
+          <div class="footer-actions">
+            <UButton color="neutral" variant="subtle" label="Cancel" @click="closingPreviewOpen = false" />
+            <UButton
+              icon="i-lucide-door-closed"
+              color="primary"
+              :loading="loading"
+              :disabled="status?.bookSummary?.openingBalanceMismatch && !closeWithMismatchConfirmation"
+              label="Confirm Close Day"
+              @click="closeDay(closeWithMismatchConfirmation)"
+            />
+          </div>
+        </template>
+      </UModal>
     </section>
   </AppShell>
 </template>
@@ -367,5 +508,14 @@ onMounted(async () => {
 .summary-grid span { display: block; color: rgb(var(--color-gray-500)); font-size: .8rem; }
 .summary-grid strong { display: block; margin-top: .25rem; }
 .footer-actions { display: flex; gap: .75rem; flex-wrap: wrap; }
+.preview-stack { display: grid; gap: 1rem; }
+.warning-box { display: grid; gap: .35rem; padding: .85rem; border: 1px solid rgb(var(--color-amber-300)); border-radius: .85rem; background: rgb(var(--color-amber-50)); color: rgb(var(--color-amber-900)); }
+.warning-box span { font-size: .9rem; }
+.checkbox-line { display: flex; gap: .5rem; align-items: center; font-size: .9rem; }
+.editable-summary-grid { align-items: end; }
+.notes-box { padding: .75rem; border: 1px dashed rgb(var(--color-gray-300)); border-radius: .75rem; font-size: .85rem; color: rgb(var(--color-gray-600)); }
+.notes-box p + p { margin-top: .35rem; }
 .dark .summary-grid div { border-color: rgb(var(--color-gray-800)); }
+.dark .warning-box { border-color: rgb(var(--color-amber-700)); background: rgba(146, 64, 14, .18); color: rgb(var(--color-amber-100)); }
+.dark .notes-box { border-color: rgb(var(--color-gray-700)); color: rgb(var(--color-gray-300)); }
 </style>

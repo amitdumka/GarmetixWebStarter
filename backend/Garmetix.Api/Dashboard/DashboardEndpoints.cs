@@ -16,6 +16,7 @@ public static class DashboardEndpoints
             .RequireAuthorization();
 
         group.MapGet("/home", HomeAsync).WithName("GetDashboardHome");
+        group.MapGet("/todays", TodaysAsync).WithName("GetTodaysDashboard");
         group.MapGet("/store-manager", StoreManagerAsync).WithName("GetStoreManagerDashboard");
         group.MapGet("/business", BusinessAsync).WithName("GetBusinessDashboard");
 
@@ -83,6 +84,310 @@ public static class DashboardEndpoints
             "Scoped users without a specialized home start with the store manager dashboard.",
             false,
             true);
+    }
+
+
+    private static async Task<TodayDashboardDto> TodaysAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        [FromQuery] Guid? companyId,
+        [FromQuery] Guid? storeGroupId,
+        [FromQuery] Guid? storeId,
+        [FromQuery] DateTime? date,
+        CancellationToken cancellationToken)
+    {
+        var businessDate = (date?.Date ?? DateTime.Today);
+        var tomorrow = businessDate.AddDays(1);
+        var trendStart = businessDate.AddDays(-13);
+        var storeIds = await ResolveStoreIdsAsync(context, db, companyId, storeGroupId, storeId, cancellationToken);
+        var hasStoreScope = storeIds.Count > 0;
+
+        var sales = WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context)
+            .Where(item => !item.Deleted && !item.ReturnInvoice);
+        var purchases = WorkspaceScope.ApplyTo(db.PurchaseInvoices.AsNoTracking(), context)
+            .Where(item => !item.Deleted && !item.ReturnInvoice);
+        var invoicePayments = WorkspaceScope.ApplyTo(db.InvoicePayments.AsNoTracking(), context)
+            .Where(item => !item.Deleted);
+        var purchasePayments = WorkspaceScope.ApplyTo(db.PurchasePayments.AsNoTracking(), context)
+            .Where(item => !item.Deleted);
+        var vouchers = WorkspaceScope.ApplyTo(db.Vouchers.AsNoTracking(), context)
+            .Where(item => !item.Deleted);
+        var cashVouchers = WorkspaceScope.ApplyTo(db.CashVouchers.AsNoTracking(), context)
+            .Where(item => !item.Deleted);
+        var nonGstDocuments = WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context)
+            .Where(item => !item.Deleted);
+
+        if (companyId.HasValue)
+        {
+            sales = sales.Where(item => item.CompanyId == companyId.Value);
+            purchases = purchases.Where(item => item.CompanyId == companyId.Value);
+            invoicePayments = invoicePayments.Where(item => item.CompanyId == companyId.Value);
+            purchasePayments = purchasePayments.Where(item => item.CompanyId == companyId.Value);
+            vouchers = vouchers.Where(item => item.CompanyId == companyId.Value);
+            cashVouchers = cashVouchers.Where(item => item.CompanyId == companyId.Value);
+            nonGstDocuments = nonGstDocuments.Where(item => item.CompanyId == companyId.Value);
+        }
+
+        if (storeGroupId.HasValue)
+        {
+            purchases = purchases.Where(item => item.StoreGroupId == storeGroupId.Value);
+            purchasePayments = purchasePayments.Where(item => item.StoreGroupId == storeGroupId.Value);
+            vouchers = vouchers.Where(item => item.StoreGroupId == storeGroupId.Value);
+            cashVouchers = cashVouchers.Where(item => item.StoreGroupId == storeGroupId.Value);
+            nonGstDocuments = nonGstDocuments.Where(item => item.StoreGroupId == storeGroupId.Value);
+        }
+
+        if (hasStoreScope)
+        {
+            sales = sales.Where(item => storeIds.Contains(item.StoreId));
+            purchases = purchases.Where(item => item.StoreId.HasValue && storeIds.Contains(item.StoreId.Value));
+            invoicePayments = invoicePayments.Where(item => storeIds.Contains(item.StoreId));
+            purchasePayments = purchasePayments.Where(item => storeIds.Contains(item.StoreId));
+            vouchers = vouchers.Where(item => storeIds.Contains(item.StoreId));
+            cashVouchers = cashVouchers.Where(item => storeIds.Contains(item.StoreId));
+            nonGstDocuments = nonGstDocuments.Where(item => storeIds.Contains(item.StoreId));
+        }
+        else
+        {
+            sales = sales.Where(_ => false);
+            purchases = purchases.Where(_ => false);
+            invoicePayments = invoicePayments.Where(_ => false);
+            purchasePayments = purchasePayments.Where(_ => false);
+            vouchers = vouchers.Where(_ => false);
+            cashVouchers = cashVouchers.Where(_ => false);
+            nonGstDocuments = nonGstDocuments.Where(_ => false);
+        }
+
+        var todaySalesQuery = sales.Where(item => item.OnDate >= businessDate && item.OnDate < tomorrow);
+        var todayPurchaseQuery = purchases.Where(item => item.OnDate >= businessDate && item.OnDate < tomorrow);
+        var todayInvoicePayments = invoicePayments.Where(item => item.OnDate >= businessDate && item.OnDate < tomorrow);
+        var todayPurchasePayments = purchasePayments.Where(item => item.OnDate >= businessDate && item.OnDate < tomorrow);
+        var todayVouchers = vouchers.Where(item => item.OnDate >= businessDate && item.OnDate < tomorrow);
+        var todayCashVouchers = cashVouchers.Where(item => item.OnDate >= businessDate && item.OnDate < tomorrow);
+
+        var salesAmount = await SumAsync(todaySalesQuery.Select(item => item.BillAmount), cancellationToken);
+        var purchaseAmount = await SumAsync(todayPurchaseQuery.Select(item => item.BillAmount), cancellationToken);
+        var salesCollectionAmount = await SumAsync(todayInvoicePayments.Select(item => item.Amount), cancellationToken);
+        var purchasePaymentAmount = await SumAsync(todayPurchasePayments.Select(item => item.Amount), cancellationToken);
+        var voucherReceiptAmount = await SumAsync(todayVouchers.Where(item => item.VoucherType == VoucherType.Receipt).Select(item => item.Amount), cancellationToken);
+        var voucherPaymentAmount = await SumAsync(todayVouchers.Where(item => item.VoucherType == VoucherType.Payment).Select(item => item.Amount), cancellationToken);
+        var voucherExpenseAmount = await SumAsync(todayVouchers.Where(item => item.VoucherType == VoucherType.Expense).Select(item => item.Amount), cancellationToken);
+        var cashVoucherReceiptAmount = await SumAsync(todayCashVouchers.Where(item => item.VoucherType == VoucherType.Receipt).Select(item => item.Amount), cancellationToken);
+        var cashVoucherPaymentAmount = await SumAsync(todayCashVouchers.Where(item => item.VoucherType == VoucherType.Payment).Select(item => item.Amount), cancellationToken);
+        var cashVoucherExpenseAmount = await SumAsync(todayCashVouchers.Where(item => item.VoucherType == VoucherType.Expense).Select(item => item.Amount), cancellationToken);
+        var invoiceCount = await todaySalesQuery.CountAsync(cancellationToken);
+        var purchaseCount = await todayPurchaseQuery.CountAsync(cancellationToken);
+        var cashVoucherCount = await todayCashVouchers.CountAsync(cancellationToken);
+
+        var totalReceipts = salesCollectionAmount + voucherReceiptAmount + cashVoucherReceiptAmount;
+        var totalPayments = purchasePaymentAmount + voucherPaymentAmount + cashVoucherPaymentAmount;
+        var totalExpenses = voucherExpenseAmount + cashVoucherExpenseAmount;
+        var netCashFlow = totalReceipts - totalPayments - totalExpenses;
+
+        var employeeQuery = WorkspaceScope.ApplyTo(db.Employees.AsNoTracking(), context)
+            .Where(item => !item.Deleted && item.Working && (item.EmployeeStatus == null || item.EmployeeStatus == string.Empty || item.EmployeeStatus == "Active"));
+        if (companyId.HasValue)
+        {
+            employeeQuery = employeeQuery.Where(item => item.CompanyId == companyId.Value);
+        }
+        if (storeGroupId.HasValue)
+        {
+            employeeQuery = employeeQuery.Where(item => item.StoreGroupId == storeGroupId.Value);
+        }
+        if (hasStoreScope)
+        {
+            employeeQuery = employeeQuery.Where(item => storeIds.Contains(item.StoreId));
+        }
+        else
+        {
+            employeeQuery = employeeQuery.Where(_ => false);
+        }
+
+        var employees = await employeeQuery
+            .OrderBy(item => item.FirstName)
+            .ThenBy(item => item.LastName)
+            .Select(item => new
+            {
+                item.Id,
+                item.EmpId,
+                item.EmployeeCode,
+                item.FirstName,
+                item.LastName,
+                item.Department,
+                item.Designation
+            })
+            .ToListAsync(cancellationToken);
+
+        var employeeIds = employees.Select(item => item.Id).ToList();
+        var punches = await WorkspaceScope.ApplyTo(db.AttendancePunches.AsNoTracking(), context)
+            .Where(item => !item.Deleted && employeeIds.Contains(item.EmployeeId) && item.LocalPunchTime >= businessDate && item.LocalPunchTime < tomorrow)
+            .OrderBy(item => item.LocalPunchTime)
+            .Select(item => new
+            {
+                item.EmployeeId,
+                item.PunchType,
+                item.LocalPunchTime,
+                item.Source,
+                item.VerificationStatus
+            })
+            .ToListAsync(cancellationToken);
+
+        var punchGroups = punches.GroupBy(item => item.EmployeeId).ToDictionary(item => item.Key, item => item.ToList());
+        var present = new List<TodayEmployeeAttendanceDto>();
+        var absent = new List<TodayEmployeeAttendanceDto>();
+        var pendingReview = 0;
+        foreach (var employee in employees)
+        {
+            var fullName = $"{employee.FirstName} {employee.LastName}".Trim();
+            var code = !string.IsNullOrWhiteSpace(employee.EmployeeCode) ? employee.EmployeeCode : employee.EmpId.ToString();
+            if (punchGroups.TryGetValue(employee.Id, out var rows) && rows.Count > 0)
+            {
+                var first = rows.First();
+                var last = rows.Last();
+                var verification = last.VerificationStatus ?? string.Empty;
+                var isPending = !string.Equals(verification, "Success", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(verification, "ManualApproved", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(verification, "Approved", StringComparison.OrdinalIgnoreCase);
+                if (isPending)
+                {
+                    pendingReview++;
+                }
+
+                present.Add(new TodayEmployeeAttendanceDto(
+                    employee.Id,
+                    code,
+                    fullName,
+                    employee.Department ?? string.Empty,
+                    employee.Designation ?? string.Empty,
+                    isPending ? "Needs Review" : "Present",
+                    first.LocalPunchTime,
+                    last.LocalPunchTime,
+                    last.PunchType,
+                    last.Source ?? string.Empty));
+            }
+            else
+            {
+                absent.Add(new TodayEmployeeAttendanceDto(
+                    employee.Id,
+                    code,
+                    fullName,
+                    employee.Department ?? string.Empty,
+                    employee.Designation ?? string.Empty,
+                    "Absent",
+                    null,
+                    null,
+                    string.Empty,
+                    string.Empty));
+            }
+        }
+
+        var salesRows = await todaySalesQuery
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .Take(6)
+            .Select(item => new { item.Id, item.InvoiceNumber, item.CustomerName, item.CustomerMobileNumber, item.BillAmount, item.OnDate, item.InvoiceStatus })
+            .ToListAsync(cancellationToken);
+        var purchaseRows = await todayPurchaseQuery
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .Take(6)
+            .Select(item => new { item.Id, item.InvoiceNumber, item.VendorName, item.BillAmount, item.OnDate, item.InvoiceStatus })
+            .ToListAsync(cancellationToken);
+        var voucherRows = await todayVouchers
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .Take(6)
+            .Select(item => new { item.Id, item.VoucherNumber, item.PartyName, item.Particulars, item.Amount, item.OnDate, item.VoucherType })
+            .ToListAsync(cancellationToken);
+        var cashVoucherRows = await todayCashVouchers
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .Take(6)
+            .Select(item => new { item.Id, item.VoucherNumber, item.PartyName, item.Particulars, item.Amount, item.OnDate, item.VoucherType })
+            .ToListAsync(cancellationToken);
+
+        var recentActivities = salesRows.Select(item => new DashboardActivityDto(
+                item.InvoiceNumber,
+                item.CustomerName ?? item.CustomerMobileNumber ?? "Walk-in customer",
+                FormatMoney(item.BillAmount),
+                item.OnDate,
+                item.InvoiceStatus.ToString(),
+                "billing",
+                item.Id))
+            .Concat(purchaseRows.Select(item => new DashboardActivityDto(
+                item.InvoiceNumber,
+                item.VendorName ?? "Purchase inward",
+                FormatMoney(item.BillAmount),
+                item.OnDate,
+                item.InvoiceStatus.ToString(),
+                "purchase",
+                item.Id)))
+            .Concat(voucherRows.Select(item => new DashboardActivityDto(
+                item.VoucherNumber,
+                item.PartyName ?? item.Particulars ?? "Voucher",
+                FormatMoney(item.Amount),
+                item.OnDate,
+                item.VoucherType.ToString(),
+                "vouchers",
+                item.Id)))
+            .Concat(cashVoucherRows.Select(item => new DashboardActivityDto(
+                item.VoucherNumber,
+                item.PartyName ?? item.Particulars ?? "Cash voucher",
+                FormatMoney(item.Amount),
+                item.OnDate,
+                item.VoucherType.ToString(),
+                "cash-vouchers",
+                item.Id)))
+            .OrderByDescending(item => item.OnDate)
+            .Take(12)
+            .ToList();
+
+        var trend = await TrendAsync(sales, purchases, nonGstDocuments, trendStart, tomorrow, cancellationToken);
+        var scope = await ResolveScopeAsync(context, db, companyId, storeGroupId, storeId, "Today", cancellationToken);
+
+        var metrics = new List<DashboardMetricDto>
+        {
+            Metric("Today's Sales", salesAmount, $"{invoiceCount} invoice(s)", "i-lucide-receipt-indian-rupee", "success"),
+            Metric("Today's Purchase", purchaseAmount, $"{purchaseCount} inward bill(s)", "i-lucide-package-plus", "warning"),
+            Metric("Receipts", totalReceipts, "Sales collections, voucher receipts and cash voucher receipts.", "i-lucide-arrow-down-left", "success"),
+            Metric("Payments", totalPayments, "Purchase payments, voucher payments and cash voucher payments.", "i-lucide-arrow-up-right", "warning"),
+            Metric("Expenses", totalExpenses, "Expense vouchers and cash expense vouchers.", "i-lucide-wallet-cards", "error"),
+            Metric("Cash Vouchers", cashVoucherReceiptAmount + cashVoucherPaymentAmount + cashVoucherExpenseAmount, $"{cashVoucherCount} cash voucher row(s)", "i-lucide-banknote", "primary"),
+            Metric("Present Employees", present.Count, "Active employees with at least one punch today.", "i-lucide-user-check", "success"),
+            Metric("Absent Employees", absent.Count, "Active employees without a punch today.", "i-lucide-user-x", absent.Count > 0 ? "warning" : "success")
+        };
+
+        var quickActions = new List<DashboardQuickActionDto>
+        {
+            new("New Sale", "Open billing", "/billing", "i-lucide-receipt-indian-rupee", "primary", false),
+            new("Store Operations", "Open/close store day", "/store-day", "i-lucide-sun-medium", "warning", false),
+            new("Cash Voucher", "Record off-book cash movement", "/cash-vouchers", "i-lucide-wallet-cards", "neutral", false),
+            new("Attendance Kiosk", "Mark employee attendance", "/attendance/kiosk", "i-lucide-camera", "success", absent.Count > 0),
+            new("Purchase", "Open purchase inward", "/purchase", "i-lucide-package-plus", "neutral", false),
+            new("Reports", "Open reports center", "/reports", "i-lucide-file-text", "neutral", false)
+        };
+
+        return new TodayDashboardDto(
+            scope,
+            businessDate,
+            metrics,
+            trend,
+            new TodayCashFlowDto(
+                salesCollectionAmount,
+                purchasePaymentAmount,
+                voucherReceiptAmount,
+                voucherPaymentAmount,
+                voucherExpenseAmount,
+                cashVoucherReceiptAmount,
+                cashVoucherPaymentAmount,
+                cashVoucherExpenseAmount,
+                totalReceipts,
+                totalPayments,
+                totalExpenses,
+                netCashFlow),
+            new TodayAttendanceSummaryDto(employees.Count, present.Count, absent.Count, pendingReview, present, absent),
+            recentActivities,
+            quickActions);
     }
 
     private static async Task<StoreManagerDashboardDto> StoreManagerAsync(

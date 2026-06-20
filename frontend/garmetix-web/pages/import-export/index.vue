@@ -8,6 +8,7 @@ const isAuthenticated = auth.isAuthenticated
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const modules = ref<any[]>([])
+const center = ref<any>(null)
 const loading = ref(false)
 const loadError = ref('')
 const downloading = ref('')
@@ -28,7 +29,27 @@ const moduleMeta: Record<string, { icon: string, color: UiColor, description: st
   inventory: {
     icon: 'i-lucide-boxes',
     color: 'success',
-    description: 'Products, barcode, stock, MRP, and purchase/sold quantities.'
+    description: 'Legacy combined product and stock export.'
+  },
+  products: {
+    icon: 'i-lucide-shirt',
+    color: 'success',
+    description: 'Product master with barcode, MRP, tax, HSN and store group scope.'
+  },
+  customers: {
+    icon: 'i-lucide-user-round',
+    color: 'primary',
+    description: 'Customer master with mobile, GSTIN, credit balance and loyalty points.'
+  },
+  vendors: {
+    icon: 'i-lucide-truck',
+    color: 'warning',
+    description: 'Vendor master with GSTIN, PAN/TAN, contact and active status.'
+  },
+  'stock-opening': {
+    icon: 'i-lucide-warehouse',
+    color: 'success',
+    description: 'Store-wise opening stock quantities with cost, MRP and tax setup.'
   },
   billing: {
     icon: 'i-lucide-receipt-indian-rupee',
@@ -59,6 +80,11 @@ const moduleMeta: Record<string, { icon: string, color: UiColor, description: st
     icon: 'i-lucide-badge-indian-rupee',
     color: 'primary',
     description: 'Generated payslips with earnings and deductions.'
+  },
+  attendance: {
+    icon: 'i-lucide-calendar-check',
+    color: 'success',
+    description: 'Attendance punches for kiosk/manual migration and review.'
   },
   access: {
     icon: 'i-lucide-shield-check',
@@ -101,15 +127,17 @@ async function refresh() {
   loading.value = true
   loadError.value = ''
   try {
-    const [companyRows, storeRows, moduleRows] = await Promise.all([
+    const [companyRows, storeRows, moduleRows, centerResponse] = await Promise.all([
       api.list<any>('companies'),
       api.list<any>('stores'),
-      api.get<any[]>('import-export/modules')
+      api.get<any[]>('import-export/modules'),
+      api.get<any>('import-export/center')
     ])
 
     companies.value = companyRows
     stores.value = storeRows
     modules.value = moduleRows
+    center.value = centerResponse
     selectedModule.value = moduleRows[0]?.key || 'inventory'
   } catch (error) {
     loadError.value = feedback.errorMessage(error, 'Please check the service and try again.', 'Import/export refresh failed')
@@ -259,15 +287,15 @@ onMounted(async () => {
 
   <AppShell
     v-else
-    title="Import Export"
+    title="Excel Import / Export Center"
     :companies="companies"
     :stores="stores"
     @refresh="refresh"
   >
     <section class="planner-dashboard">
       <UiModulePageHeader
-        title="Import Export"
-        description="Download CSV exports and matching import templates for Garmetix modules."
+        title="Excel Import / Export Center"
+        description="Download templates/exports for product, customer, vendor, stock opening, billing, purchase, HR, payroll and attendance; validate first, then commit only clean rows."
         icon="i-lucide-file-down"
         primary-label="Export All"
         primary-icon="i-lucide-download"
@@ -287,7 +315,7 @@ onMounted(async () => {
             <UAvatar icon="i-lucide-database" color="primary" variant="subtle" />
             <div>
               <p>Modules</p>
-              <strong>{{ modules.length }}</strong>
+              <strong>{{ center?.moduleCount || modules.length }}</strong>
               <span>Export-ready datasets</span>
             </div>
           </div>
@@ -307,8 +335,18 @@ onMounted(async () => {
             <UAvatar icon="i-lucide-file-check-2" color="warning" variant="subtle" />
             <div>
               <p>Templates</p>
-              <strong>{{ modules.length }}</strong>
-              <span>Download before import</span>
+              <strong>{{ center?.importModuleCount || modules.length }}</strong>
+              <span>Validate before import</span>
+            </div>
+          </div>
+        </UCard>
+        <UCard class="planner-metric-card">
+          <div class="planner-metric-body">
+            <UAvatar icon="i-lucide-users-round" color="primary" variant="subtle" />
+            <div>
+              <p>Customers / Vendors</p>
+              <strong>{{ (center?.counts?.customers || 0) }} / {{ (center?.counts?.vendors || 0) }}</strong>
+              <span>Master data import/export</span>
             </div>
           </div>
         </UCard>
@@ -316,13 +354,29 @@ onMounted(async () => {
           <div class="planner-metric-body">
             <UAvatar icon="i-lucide-shield-check" color="neutral" variant="subtle" />
             <div>
-              <p>Access</p>
-              <strong>Admin</strong>
-              <span>Protected exports</span>
+              <p>Punches</p>
+              <strong>{{ center?.counts?.attendancePunches || 0 }}</strong>
+              <span>Attendance export/import</span>
             </div>
           </div>
         </UCard>
       </div>
+
+      <UAlert
+        color="info"
+        variant="subtle"
+        icon="i-lucide-info"
+        title="Safe Excel workflow"
+        :description="center?.workflow?.join(' → ') || 'Download template → Fill in Excel → Save as CSV → Validate → Commit after zero errors.'"
+      />
+
+      <UAlert
+        color="warning"
+        variant="subtle"
+        icon="i-lucide-shield-check"
+        title="Real import engine enabled"
+        description="Use Validate CSV first. Billing and purchase imports post stock/accounting ledgers only after the commit step; stock opening adjusts ledger quantities to the uploaded opening quantity."
+      />
 
       <UiRegisterPanel
         title="Data exports"
@@ -394,7 +448,7 @@ onMounted(async () => {
             />
           </UFormField>
           <UFormField label="CSV file">
-            <UInput type="file" accept=".csv,text/csv" @change="onFileChange" />
+            <UInput type="file" accept=".csv,text/csv,application/vnd.ms-excel" @change="onFileChange" />
           </UFormField>
           <UButton
             icon="i-lucide-file-spreadsheet"

@@ -168,3 +168,48 @@ public sealed record BusinessDashboardDto(
     IReadOnlyList<PartyDueDashboardRowDto> VendorDues,
     CashPaymentSummaryDto CashPaymentSummary,
     IReadOnlyList<StoreGroupComparisonViewDto> StoreGroupComparison);
+
+public sealed record TodayCashFlowDto(
+    decimal SalesCollections,
+    decimal PurchasePayments,
+    decimal VoucherReceipts,
+    decimal VoucherPayments,
+    decimal VoucherExpenses,
+    decimal CashVoucherReceipts,
+    decimal CashVoucherPayments,
+    decimal CashVoucherExpenses,
+    decimal TotalReceipts,
+    decimal TotalPayments,
+    decimal TotalExpenses,
+    decimal NetCashFlow);
+
+public sealed record TodayEmployeeAttendanceDto(
+    Guid EmployeeId,
+    string EmployeeCode,
+    string EmployeeName,
+    string Department,
+    string Designation,
+    string Status,
+    DateTime? FirstPunchAt,
+    DateTime? LastPunchAt,
+    string LastPunchType,
+    string Source);
+
+public sealed record TodayAttendanceSummaryDto(
+    int ActiveEmployees,
+    int PresentEmployees,
+    int AbsentEmployees,
+    int PendingReviewEmployees,
+    IReadOnlyList<TodayEmployeeAttendanceDto> Present,
+    IReadOnlyList<TodayEmployeeAttendanceDto> Absent);
+
+public sealed record TodayDashboardDto(
+    DashboardScopeDto Scope,
+    DateTime BusinessDate,
+    IReadOnlyList<DashboardMetricDto> Metrics,
+    IReadOnlyList<DashboardTrendPointDto> SalesTrend,
+    TodayCashFlowDto CashFlow,
+    TodayAttendanceSummaryDto Attendance,
+    IReadOnlyList<DashboardActivityDto> RecentActivities,
+    IReadOnlyList<DashboardQuickActionDto> QuickActions);
+

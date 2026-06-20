@@ -11,6 +11,7 @@ const loading = ref(false)
 
 const dashboardLinks = [
   { label: 'Smart Dashboard', to: '/dashboard', icon: 'i-lucide-gauge', description: 'Role-aware landing page that routes users to the correct dashboard.' },
+  { label: "Today's", to: '/dashboard/todays', icon: 'i-lucide-sun', description: 'Daily sales, purchase, cash-flow and active employee attendance control page.' },
   { label: 'Store Dashboard', to: '/dashboard/store-manager', icon: 'i-lucide-store', description: 'Current-store sales, stock, alerts and daily action view.' },
   { label: 'Company Dashboard', to: '/dashboard/business', icon: 'i-lucide-chart-no-axes-combined', description: 'Company, store-group and store-level analytics.' },
   { label: 'System Info', to: '/system-info', icon: 'i-lucide-monitor-cog', description: 'Version match, API status, shell mode and permission route audit.' },
@@ -20,7 +21,7 @@ const dashboardLinks = [
 const visibleDashboardLinks = computed(() => dashboardLinks.filter((item) => access.canAccessPath(item.to)))
 
 const mainMenuGroups = [
-  { label: 'Dashboards', count: 4, description: 'Smart landing, store dashboard, company dashboard and dashboard map. Legacy overview is admin/owner only.' },
+  { label: 'Dashboards', count: 5, description: 'Smart landing, store dashboard, company dashboard and dashboard map. Legacy overview is admin/owner only.' },
   { label: 'Sales', count: 2, description: 'Billing and sales returns.' },
   { label: 'Purchase', count: 2, description: 'Purchase and purchase returns.' },
   { label: 'Inventory', count: 3, description: 'Product master, stock operations and stock intelligence reports.' },

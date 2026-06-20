@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.10.9";
-    public const string Stage = "Stage 9 Complete Attendance Release";
-    public const string ReleaseName = "Stage 9 Complete Attendance Release";
-    public const string BuildDate = "2026-06-18";
-    public const string BuildCode = "GARMETIX-9J-20260619-4109";
+    public const string Version = "4.10.17";
+    public const string Stage = "Stage 10J Real Excel Import Export Engine";
+    public const string ReleaseName = "Stage 10J: Real Excel Import Export Engine";
+    public const string BuildDate = "2026-06-20";
+    public const string BuildCode = "GARMETIX-10J-20260620-4117";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,24 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stage 10J adds a real import/export engine for products, customers, vendors, stock opening, billing, purchase, HR, payroll, attendance, vouchers, petty cash and access.",
+        "Stock Opening import adjusts store-wise stock ledgers to the uploaded opening quantity and records an auditable stock movement.",
+        "Customer and vendor master import/export are now first-class modules with templates, validation, create/update behavior and error report download.",
+        "Stage 10I makes Day Closing use today's Day Open opening balance for petty cash book cash instead of silently overriding it with previous closing.",
+        "Stage 10I warns when today's opening balance differs from the previous petty cash sheet closing balance and requires confirmation before closing.",
+        "Store Operations now shows a Day Closing petty cash preview popup so calculated petty cash values can be reviewed and corrected before save.",
+        "Stage 10H adds /runtime-diagnostics with safe database table probes for post-deployment bug triage.",
+        "Runtime diagnostics lists important page/API contracts so frontend 500 errors can be traced to the exact backend endpoint.",
+        "A host-level Stage 10H drill verifies the runtime diagnostics endpoints after Docker restart.",
+        "Stage 10G verifies every concrete Nuxt page is discoverable from both modern and legacy sidebars.",
+        "Sidebar now includes direct create links for New Sale Invoice, New Customer, New Debit Note and New Credit Note.",
+        "Legacy sidebar now mirrors the modern navigation so DASHBOARD_SHELL=legacy deployments do not hide Stage 9/10 pages.",
+        "Stage 10A adds a consolidated Production Final Acceptance page and API for the complete release gate.",
+        "Test Automation runtime smoke now accepts current GARMETIX build-code families instead of stale Stage 8-only prefixes.",
+        "Stage 10A host drill checks health, app-info, production readiness, runtime smoke, Today\'s dashboard, attendance final acceptance and the final acceptance gate.",
+        "Release validation now includes TypeScript app-version string safety, route-access coverage, secret hygiene and Stage 10A acceptance contracts.",
+        "Dashboard section now includes a Today's page with sales, purchase, receipt, payment, expense, cash voucher and active employee attendance snapshots.",
+        "Today's dashboard includes last-14-day sales, purchase and gross-margin line graph data for the selected workspace.",
         "Stage 9 Complete finishes Attendance Core through final acceptance: kiosk base, photo proof, review, payroll review, salary draft, salary slip generation, confirmed salary payment posting, and device bridge planning.",
         "Stage 9G can generate SalaryPayment records from attendance-generated payslips only after explicit confirmation.",
         "Stage 9H uses the existing audited SalaryPayment accounting workflow when confirmed payments are generated.",

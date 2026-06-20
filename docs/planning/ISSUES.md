@@ -1,3 +1,16 @@
+## v4.10.15 Stage 10H Runtime Bug Fix Pack
+
+- Added menu coverage for every concrete Nuxt page in both modern and legacy sidebars.
+- Added direct create-page links for New Sale Invoice, New Customer, New Debit Note and New Credit Note.
+- Added validation so future pages cannot be added without sidebar/menu discovery.
+
+
+## v4.10.13 Stage 10 Complete Final Acceptance
+
+Stage 10 is completed with barcode print final acceptance, GST/e-Invoice production readiness, Google Drive backup sync foundation, audit trail/change-history final acceptance, and a combined Stage 10 final acceptance gate.
+
+New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup`, `/audit-trail-final`, `/stage10-final-acceptance`.
+
 # Garmetix Issues
 
 The current implementation order and non-defect enhancement work are maintained in `CURRENT-ROADMAP.md`.

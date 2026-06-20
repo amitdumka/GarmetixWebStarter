@@ -1,10 +1,32 @@
-export const APP_VERSION = '4.10.9'
-export const APP_STAGE = 'Stage 9 Complete Attendance Release'
-export const APP_RELEASE_NAME = 'Stage 9 Complete Attendance Release'
-export const APP_BUILD_DATE = '2026-06-18'
-export const APP_BUILD_CODE = 'GARMETIX-9J-20260619-4109'
+export const APP_VERSION = '4.10.17'
+export const APP_STAGE = "Stage 10J Real Excel Import Export Engine"
+export const APP_RELEASE_NAME = "Stage 10J: Real Excel Import Export Engine"
+export const APP_BUILD_DATE = '2026-06-20'
+export const APP_BUILD_CODE = 'GARMETIX-10J-20260620-4117'
 
 export const APP_HIGHLIGHTS = [
+  'Stage 10J adds a real import/export engine for products, customers, vendors, stock opening, billing, purchase, HR, payroll, attendance, vouchers, petty cash and access.',
+  'Stock Opening import adjusts store-wise stock ledgers to the uploaded opening quantity and records an auditable stock movement.',
+  'Customer and vendor master import/export are now first-class modules with templates, validation, create/update behavior and error report download.',
+  "Stage 10I makes Day Closing use today\'s Day Open opening balance for petty cash book cash instead of silently overriding it with previous closing.",
+  "Stage 10I shows a warning when today\'s Day Open opening balance differs from the previous petty cash sheet closing balance.",
+  'Store Operations now shows a Day Closing petty cash preview popup so calculated petty cash values can be reviewed and corrected before save.',
+  'Stage 10H adds /runtime-diagnostics with safe database table probes for post-deployment bug triage.',
+  'Runtime diagnostics lists important page/API contracts so frontend 500 errors can be traced to the exact backend endpoint.',
+  'A host-level Stage 10H drill verifies the runtime diagnostics endpoints after Docker restart.',
+  'Stage 10G verifies every concrete Nuxt page is discoverable from both modern and legacy sidebars.',
+  'Sidebar now includes direct create links for New Sale Invoice, New Customer, New Debit Note and New Credit Note.',
+  'Legacy sidebar now mirrors the modern navigation so deployments using DASHBOARD_SHELL=legacy do not hide Stage 9/10 pages.',
+  'Stage 10 Complete adds barcode print final acceptance, GST/e-Invoice production readiness, Google Drive backup sync checks, and audit trail/change-history final acceptance.',
+  'Stage 10C adds barcode print center APIs and barcode final acceptance page for product, stock and purchase inward label testing.',
+  'Stage 10D adds GST/e-Invoice production readiness review without enabling live IRP posting until provider configuration is confirmed.',
+  'Stage 10E adds Google Drive backup final acceptance and cloud backup configuration visibility.',
+  'Stage 10F adds audit trail final acceptance for edit/delete history across invoices, vouchers, cash, HR, payroll and attendance.',
+  'Stage 10A adds a consolidated Production Final Acceptance page and API for final production go-live checks.',
+  'Runtime smoke now accepts current GARMETIX build-code families and no longer reports current releases as stale Stage 8 builds.',
+  'Stage 10A host drill checks health, app-info, production readiness, runtime smoke, Today\'s dashboard and attendance final acceptance in one command.',
+  "Dashboard section now includes a Today's page with sales, purchase, receipt, payment, expense, cash voucher and active employee attendance snapshots.",
+  "Today's dashboard includes last-14-day sales, purchase and gross-margin line graph data for the selected workspace.",
   'Stage 9 Complete finishes Attendance Core through final acceptance: kiosk base, photo proof, review, payroll review, salary draft, salary slip generation, confirmed salary payment posting, and device bridge planning.',
   'Stage 9G can generate SalaryPayment records from attendance-generated payslips only after explicit confirmation.',
   'Stage 9H uses the existing audited SalaryPayment accounting workflow when confirmed payments are generated.',

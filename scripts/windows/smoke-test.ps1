@@ -1,8 +1,8 @@
 param(
     [string]$EnvFile = ".env.production",
     [string]$ApiBase = $env:API_BASE_URL,
-    [string]$ExpectedVersion = "4.10.9",
-    [string]$ExpectedBuildCode = "GARMETIX-9J-20260619-4109"
+    [string]$ExpectedVersion = "4.10.12",
+    [string]$ExpectedBuildCode = "GARMETIX-10B-20260620-4112"
 )
 
 $ErrorActionPreference = "Stop"

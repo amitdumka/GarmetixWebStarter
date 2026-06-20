@@ -1,6 +1,26 @@
+## v4.10.17 Stage 10J Real Excel Import Export Engine
+
+- Completed the Excel-compatible CSV import/export engine for product, customer, vendor, stock-opening, setup, billing, purchase, HR, payroll, attendance, vouchers, petty cash and access modules.
+- Added first-class customer/vendor/product/stock-opening templates and exports.
+- Stock-opening import validates scope, creates product/tax/category defaults when needed, and posts stock-ledger adjustments to match uploaded opening quantity.
+- Import workflow remains safe: validate first, commit only when there are zero row errors, then download error reports when needed.
+
+
+- Added `/runtime-diagnostics` page for admin/owner runtime health checks.
+- Added `/api/runtime-diagnostics` database/table probes for setup, inventory, sales, purchase, accounting, HR, attendance, payroll and audit tables.
+- Added page/API contract list and manual runtime checklist for post-Docker deployment testing.
+- Added Linux runtime diagnostics drill for host-level acceptance.
+- Kept the Stage 10G navigation menu coverage checks active.
+
+## v4.10.13 Stage 10 Complete Final Acceptance
+
+Stage 10 is completed with barcode print final acceptance, GST/e-Invoice production readiness, Google Drive backup sync foundation, audit trail/change-history final acceptance, and a combined Stage 10 final acceptance gate.
+
+New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup`, `/audit-trail-final`, `/stage10-final-acceptance`.
+
 # Garmetix Web Starter
 
-> Current package: Stage 9A Attendance Core v4.10.0 (`GARMETIX-9A-20260618-4100`).
+> Current package: Stage 10J Real Excel Import Export Engine v4.10.17 (`GARMETIX-10J-20260620-4117`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

@@ -1,12 +1,13 @@
 # Garmetix Documentation
 
-> Current package: Stage 8I Package 23 HR Benefits and Payroll Adjustments v4.9.22 (`GARMETIX-8I-20260619-49220`).
+> Current package: Stage 10B Excel Import Export Center v4.10.12 (`GARMETIX-10B-20260620-4112`).
 
 This folder is the canonical home for project plans, implementation notes, validation logs, operational guides, and reports.
 
 ## Start Here
 
 - [Current roadmap](planning/CURRENT-ROADMAP.md)
+- [Stage 10A / v4.10.12 Production Final Acceptance](stages/stage-10/Stage10A-ProductionFinalAcceptance-v4.10.12-Notes.md)
 - [Master feature checklist](planning/MASTER-TODO.md)
 - [Open and fixed issues](planning/ISSUES.md)
 - [Stage 7 implementation map](stages/stage-7/IMPLEMENTATION-MAP.md)
@@ -179,4 +180,5 @@ This folder is the canonical home for project plans, implementation notes, valid
 
 - [Stage 9E / v4.10.5 Attendance Salary Draft Preview](stages/stage-9/Stage9E-AttendanceSalaryDraft-v4.10.5-Notes.md)
 - [Stage 9J / v4.10.9 Complete Attendance Release](stages/stage-9/Stage9J-CompleteAttendanceRelease-v4.10.9-Notes.md)
+- [Stage 9K / v4.10.10 Today's Dashboard](stages/stage-9/Stage9K-TodaysDashboard-v4.10.10-Notes.md)
 - [Stage 9F / v4.10.6 Confirmed Salary Slip Generation](stages/stage-9/Stage9F-ConfirmedSalarySlipGeneration-v4.10.6-Notes.md)

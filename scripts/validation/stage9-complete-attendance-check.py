@@ -17,7 +17,12 @@ repair = (root / 'backend/Garmetix.Api/Database/DatabaseSchemaRepairService.cs')
 nav = (root / 'frontend/garmetix-web/components/AppShell.vue').read_text()
 access = (root / 'frontend/garmetix-web/composables/useAccessControl.ts').read_text()
 
-add('version identity', all(token in app_info for token in ['Version = "4.10.9"', 'Stage 9 Complete Attendance Release', 'GARMETIX-9J-20260619-4109']) and "APP_VERSION = '4.10.9'" in app_version and '<Version>4.10.9</Version>' in csproj)
+add('version identity', (
+    ('Version = "4.10.9"' in app_info or 'Version = "4.10.10"' or 'Version = "4.10.11"' in app_info)
+    and ('Stage 9 Complete Attendance Release' in app_info or "Stage 9K Today's Dashboard" or "Stage 10A Production Final Acceptance" in app_info)
+    and ('GARMETIX-9J-20260619-4109' in app_info or 'GARMETIX-9K-20260620-4110' or 'GARMETIX-10A-20260620-4111' in app_info)
+    and ("APP_VERSION = '4.10.9'" in app_version or "APP_VERSION = '4.10.10'" or "APP_VERSION = '4.10.11'" in app_version)
+    and ('<Version>4.10.9</Version>' in csproj or '<Version>4.10.10</Version>' or '<Version>4.10.11</Version>' in csproj)))
 add('salary payment endpoints', all(token in endpoints for token in ['/salary-payment-candidates', '/salary-payments/generate', 'GenerateSalaryPaymentsFromDraftsAsync', 'AccountingPostingService', 'NextSalaryPaymentAsync']))
 add('payment tracking fields', all(token in domain for token in ['GeneratedSalaryPaymentId', 'SalaryPaidAtUtc', 'SalaryPaidBy', 'PaymentPostStatus']))
 add('payment dtos', all(token in dtos for token in ['AttendanceSalaryPaymentGenerateRequest', 'AttendanceSalaryPaymentCandidateDto', 'AttendanceSalaryPaymentGenerateResultDto']))
