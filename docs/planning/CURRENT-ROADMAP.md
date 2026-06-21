@@ -1,11 +1,12 @@
-## v4.10.26 Stage 10J Voucher PDF Download Guard
+## v4.10.27 Stage 10J Payroll PDF Download Guard
 
-- Current version: 4.10.26 / `GARMETIX-10J-20260620-4126`.
-- Voucher PDF download now uses the shared document helper so remote/tunneled deployments avoid browser-side localhost API URLs.
-- Added a Voucher acceptance guard for clean PDF download, create-only auto print, internal party-ledger handling, local dates, StoreCode/YYYYMM numbering, non-cash bank safety, QR/color PDF output and converted-voucher audit immutability.
+- Current version: 4.10.27 / `GARMETIX-10J-20260620-4127`.
+- Salary Payment rows now include direct salary payment slip PDF download with safe filenames for SPAY voucher numbers.
+- Added a Payroll acceptance guard for salary payment preview, advance deduction, previous due, rounded payment amount, SPAY numbering, accounting posting, payslip sharing and payroll PDFs.
 
 ## Recently Completed Stage 10J Polish
 
+- v4.10.26: Voucher PDF download guard for hosted/tunneled deployments and voucher acceptance rules.
 - v4.10.25: Petty Cash PDF pagination guard for full A5 transaction details.
 - v4.10.24: Sale invoice acceptance guard for the dedicated full-page invoice workflow.
 - v4.10.23: Dashboard shell single vertical scroller with preserved horizontal table scroll.

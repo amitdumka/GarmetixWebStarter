@@ -113,7 +113,7 @@ public static class PayrollEndpoints
             payment.Amount,
             payment.PaymentMode.ToString(),
             payment.Remarks ?? string.Empty);
-        return Results.File(PayrollPdfDocument.BuildSalaryPayment(model), "application/pdf", $"{payment.VoucherNumber}.pdf");
+        return Results.File(PayrollPdfDocument.BuildSalaryPayment(model), "application/pdf", $"{SafePdfFileName(payment.VoucherNumber, "salary-payment")}.pdf");
     }
 
     private static async Task<List<SalaryPayment>> ListSalaryPaymentsAsync(GarmetixDbContext db, CancellationToken cancellationToken)
@@ -369,5 +369,16 @@ public static class PayrollEndpoints
     private static decimal RoundRupee(decimal value)
     {
         return Math.Round(value, 0, MidpointRounding.AwayFromZero);
+    }
+
+    private static string SafePdfFileName(string? value, string fallback)
+    {
+        var source = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+        var safe = new string(source
+            .Select(character => char.IsLetterOrDigit(character) || character is '-' or '_' ? character : '-')
+            .ToArray());
+
+        safe = string.Join("-", safe.Split('-', StringSplitOptions.RemoveEmptyEntries));
+        return string.IsNullOrWhiteSpace(safe) ? fallback : safe;
     }
 }

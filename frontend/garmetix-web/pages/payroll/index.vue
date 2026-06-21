@@ -337,6 +337,13 @@ const paymentColumns: TableColumn<any>[] = [
         label: 'Print',
         onClick: () => printSalaryPayment(row.original.raw)
       }),
+      h(UButton, {
+        color: 'neutral',
+        variant: 'ghost',
+        icon: 'i-lucide-download',
+        label: 'Download',
+        onClick: () => downloadSalaryPayment(row.original.raw)
+      }),
       canEdit.value ? h(UButton, {
         color: 'neutral',
         variant: 'ghost',
@@ -827,10 +834,21 @@ async function printSalaryPayment(payment: any) {
   }
 }
 
+async function downloadSalaryPayment(payment: any) {
+  if (!payment?.id) return
+  try {
+    const fileName = safePdfName(payment.voucherNumber, `salary-payment-${payment.id}`)
+    await documentPrint.downloadPdf(`salary-payments/${payment.id}/pdf`, fileName)
+    feedback.notify('Salary payment PDF downloaded')
+  } catch (error) {
+    feedback.failed('Could not download salary payment PDF', error)
+  }
+}
+
 async function downloadPayslip() {
   if (!selectedPayslip.value?.id) return
   try {
-    const fileName = `payslip-${selectedPayslip.value.monthYear || selectedPayslip.value.id}.pdf`
+    const fileName = safePdfName(`payslip-${selectedPayslip.value.monthYear || selectedPayslip.value.id}`, 'payslip')
     await documentPrint.downloadPdf(`payroll/payslips/${selectedPayslip.value.id}/pdf`, fileName)
     feedback.notify('Payslip PDF downloaded')
   } catch (error) {
@@ -905,6 +923,17 @@ function toApiDate(value: string) {
 
 function toLocalDateInput(value: Date) {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
+}
+
+function safePdfName(value: unknown, fallback: string) {
+  const stem = String(value || fallback)
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+
+  return `${stem || fallback}.pdf`
 }
 
 function money(value: number) {

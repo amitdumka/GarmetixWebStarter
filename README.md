@@ -1,3 +1,9 @@
+## v4.10.27 Stage 10J Payroll PDF Download Guard
+
+- Salary Payment rows now include a direct Download action for salary payment slip PDFs.
+- Salary payment PDF filenames are sanitized so `StoreCode/YYYYMM/SPAY/series` voucher numbers do not create invalid download names.
+- Added current-release validation for salary payment preview, advance deduction, previous due, rounded paid amount, SPAY numbering, accounting posting, payslip sharing and payroll PDFs.
+
 ## v4.10.26 Stage 10J Voucher PDF Download Guard
 
 - Voucher PDF download now uses the same server document helper as printing, including hosted-safe API URL resolution.
@@ -72,7 +78,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 10J Real Excel Import Export Engine and Voucher PDF Download Guard v4.10.26 (`GARMETIX-10J-20260620-4126`).
+> Current package: Stage 10J Real Excel Import Export Engine and Payroll PDF Download Guard v4.10.27 (`GARMETIX-10J-20260620-4127`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 
