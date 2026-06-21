@@ -4,10 +4,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);AD0001</NoWarn>
-    <Version>4.11.5</Version>
-    <AssemblyVersion>4.11.5.0</AssemblyVersion>
-    <FileVersion>4.11.5.0</FileVersion>
-    <InformationalVersion>4.11.5-stage11b3-external-fingerprint-bridge-connector</InformationalVersion>
+    <Version>4.11.6</Version>
+    <AssemblyVersion>4.11.6.0</AssemblyVersion>
+    <FileVersion>4.11.6.0</FileVersion>
+    <InformationalVersion>4.11.6-stage11b4-local-fingerprint-bridge-template</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

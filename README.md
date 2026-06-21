@@ -1,3 +1,9 @@
+## v4.11.6 Stage 11B-4 Local Fingerprint Bridge Template
+
+- Added `apps/Garmetix.FingerprintBridge`, a runnable local bridge service template for the Stage 11B fingerprint SDK adapter.
+- The bridge exposes health, capture, identify and enroll at `/garmetix-fingerprint/*` with a simulator adapter until real hardware is selected.
+- The template accepts local/private callers only and never returns raw fingerprint images, WSQ, minutiae, ISO templates or biometric payload fields.
+
 ## v4.11.5 Stage 11B-3 External Fingerprint Bridge Connector
 
 - Added guarded external bridge routes for health, capture, identify and enroll under `/api/attendance/device-bridge/external/*`.
@@ -138,7 +144,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 11B-3 External Fingerprint Bridge Connector v4.11.5 (`GARMETIX-11B-20260621-4115`).
+> Current package: Stage 11B-4 Local Fingerprint Bridge Template v4.11.6 (`GARMETIX-11B-20260621-4116`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

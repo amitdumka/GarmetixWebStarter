@@ -1289,6 +1289,7 @@ public static class AttendanceEndpoints
             fingerprintBridgeEnabled = false,
             simulatorBridgeEnabled = true,
             externalBridgeConnectorEnabled = true,
+            localBridgeTemplateAvailable = true,
             rawFingerprintStorageAllowed = false,
             matchingLocation = "Vendor SDK or approved local bridge only; Garmetix stores employee consent, device audit and template reference IDs, not raw fingerprint images.",
             supportedBridgeInputs = new[]
@@ -1377,6 +1378,21 @@ public static class AttendanceEndpoints
                 },
                 blockedResponseFields = new[] { "rawImage", "fingerprintImage", "wsq", "minutiae", "isoTemplate", "templateBase64", "biometricPayload" }
             },
+            localBridgeTemplate = new
+            {
+                projectPath = "apps/Garmetix.FingerprintBridge/Garmetix.FingerprintBridge.csproj",
+                runCommand = "dotnet run --project apps/Garmetix.FingerprintBridge/Garmetix.FingerprintBridge.csproj",
+                defaultBaseUrl = "http://127.0.0.1:8787/garmetix-fingerprint/",
+                adapterClass = "SimulatorFingerprintVendorAdapter",
+                replacementRule = "Replace only the adapter implementation after selecting a vendor SDK; keep the HTTP contract and raw biometric field ban unchanged.",
+                routes = new[]
+                {
+                    "GET /garmetix-fingerprint/health",
+                    "POST /garmetix-fingerprint/capture",
+                    "POST /garmetix-fingerprint/identify",
+                    "POST /garmetix-fingerprint/enroll"
+                }
+            },
             privacyRules = new[]
             {
                 "Do not store raw fingerprint image, WSQ, ISO template or minutiae in Garmetix database.",
@@ -1391,9 +1407,10 @@ public static class AttendanceEndpoints
                 "Run simulator health, capture, identify and enroll from this page.",
                 "Verify simulator success and failure entries appear in Message Logs.",
                 "Run external bridge health against the vendor bridge once it is installed.",
+                "Run the local bridge template and verify external connector health, capture, identify and enroll.",
                 "Confirm external bridge responses do not include raw biometric payload fields.",
                 "Choose one fingerprint reader model and obtain official SDK/license.",
-                "Build a small local bridge service for Windows/Mac/Android depending on selected hardware.",
+                "Replace the local bridge template simulator adapter with the selected vendor SDK adapter for Windows/Mac/Android depending on hardware.",
                 "Map successful identify/enroll responses to EmployeeBiometricEnrollment template reference fields.",
                 "Add kiosk punch mode that requires fingerprint match before posting attendance punch.",
                 "Run privacy review before enabling live biometric matching at any store."
@@ -1403,6 +1420,7 @@ public static class AttendanceEndpoints
                 "Open this page and confirm fingerprintBridgeEnabled remains No until a real adapter is approved.",
                 "Use simulator adapter to return a mock device health response.",
                 "Use external connector to test a vendor bridge on localhost or private LAN.",
+                "Start the local bridge template and test the default base URL from this page.",
                 "Verify bridge errors appear as clean user messages and sanitized Message Logs.",
                 "Confirm no API response or browser storage contains raw biometric payload.",
                 "After hardware choice, repeat with the vendor SDK bridge on one test machine/tablet."
@@ -1418,7 +1436,7 @@ public static class AttendanceEndpoints
             nextAfterThisPart = new[]
             {
                 "Select fingerprint hardware/vendor SDK.",
-                "Implement the selected vendor adapter.",
+                "Replace SimulatorFingerprintVendorAdapter with the selected vendor adapter.",
                 "Wire kiosk punch flow to require fingerprint match for configured stores.",
                 "Keep face/liveness work separate for Stage 11C."
             }
@@ -1884,8 +1902,8 @@ public static class AttendanceEndpoints
                 },
                 startupModel = "Application.CreateWindow with NavigationPage root",
                 androidPackageId = "com.garmetix.attendancekiosk",
-                androidDisplayVersion = "4.11.5",
-                androidVersionCode = 4115
+                androidDisplayVersion = "4.11.6",
+                androidVersionCode = 4116
             },
             packageAdvisories = new[]
             {

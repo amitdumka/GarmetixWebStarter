@@ -20,6 +20,9 @@ app_info = read("backend/Garmetix.Api/AppInfo/AppInfoEndpoints.cs")
 app_version = read("frontend/garmetix-web/utils/appVersion.ts")
 api_project = read("backend/Garmetix.Api/Garmetix.Api.csproj")
 kiosk_project = read("apps/Garmetix.AttendanceKiosk/Garmetix.AttendanceKiosk.csproj")
+bridge_project = read("apps/Garmetix.FingerprintBridge/Garmetix.FingerprintBridge.csproj")
+bridge_program = read("apps/Garmetix.FingerprintBridge/Program.cs")
+bridge_readme = read("apps/Garmetix.FingerprintBridge/README.md")
 attendance_endpoints = read("backend/Garmetix.Api/Attendance/AttendanceEndpoints.cs")
 device_bridge_page = read("frontend/garmetix-web/pages/attendance/device-bridge.vue")
 access = read("frontend/garmetix-web/composables/useAccessControl.ts")
@@ -27,17 +30,34 @@ app_shell = read("frontend/garmetix-web/components/AppShell.vue")
 legacy_shell = read("frontend/garmetix-web/components/AppShellLegacy.vue")
 readme = read("README.md")
 roadmap = read("docs/planning/CURRENT-ROADMAP.md")
-operations_doc = read("docs/operations/Stage11B3-External-Fingerprint-Bridge-Connector-v4.11.5.md")
+operations_doc = read("docs/operations/Stage11B4-Local-Fingerprint-Bridge-Template-v4.11.6.md")
 
 add(
     "version identity",
-    all(token in app_info for token in ['Version = "4.11.5"', "Stage 11B-3 External Fingerprint Bridge Connector", "GARMETIX-11B-20260621-4115"])
-    and "APP_VERSION = '4.11.5'" in app_version
-    and "Stage 11B-3 External Fingerprint Bridge Connector" in app_version
-    and "GARMETIX-11B-20260621-4115" in app_version
-    and "<Version>4.11.5</Version>" in api_project
-    and "<ApplicationDisplayVersion>4.11.5</ApplicationDisplayVersion>" in kiosk_project
-    and "<ApplicationVersion>4115</ApplicationVersion>" in kiosk_project,
+    all(token in app_info for token in ['Version = "4.11.6"', "Stage 11B-4 Local Fingerprint Bridge Template", "GARMETIX-11B-20260621-4116"])
+    and "APP_VERSION = '4.11.6'" in app_version
+    and "Stage 11B-4 Local Fingerprint Bridge Template" in app_version
+    and "GARMETIX-11B-20260621-4116" in app_version
+    and "<Version>4.11.6</Version>" in api_project
+    and "<ApplicationDisplayVersion>4.11.6</ApplicationDisplayVersion>" in kiosk_project
+    and "<ApplicationVersion>4116</ApplicationVersion>" in kiosk_project,
+)
+add(
+    "local bridge template project",
+    exists("apps/Garmetix.FingerprintBridge/Garmetix.FingerprintBridge.csproj")
+    and '<TargetFramework>net10.0</TargetFramework>' in bridge_project
+    and '<Version>4.11.6</Version>' in bridge_project
+    and "4.11.6-stage11b4-local-fingerprint-bridge-template" in bridge_project
+    and "IFingerprintVendorAdapter" in bridge_program
+    and "SimulatorFingerprintVendorAdapter" in bridge_program
+    and "MapBridgeRoutes(app.MapGroup(\"/garmetix-fingerprint\"))" in bridge_program
+    and 'routes.MapGet("/health"' in bridge_program
+    and 'routes.MapPost("/capture"' in bridge_program
+    and 'routes.MapPost("/identify"' in bridge_program
+    and 'routes.MapPost("/enroll"' in bridge_program
+    and "RawPayloadStored" in bridge_program
+    and "rawPayloadAllowed was ignored" in bridge_program
+    and "IsAllowedLocalCaller" in bridge_program,
 )
 add(
     "device bridge endpoint contract",
@@ -97,6 +117,15 @@ add(
     and "nextAfterThisPart" in device_bridge_page,
 )
 add(
+    "local bridge template page",
+    "Local bridge template" in device_bridge_page
+    and "localBridgeTemplate" in device_bridge_page
+    and "projectPath" in device_bridge_page
+    and "runCommand" in device_bridge_page
+    and "defaultBaseUrl" in device_bridge_page
+    and "adapterClass" in device_bridge_page,
+)
+add(
     "external bridge page",
     "External bridge connector" in device_bridge_page
     and "externalBridgeUrl" in device_bridge_page
@@ -117,15 +146,17 @@ add(
 )
 add(
     "docs and roadmap",
-    exists("docs/operations/Stage11B3-External-Fingerprint-Bridge-Connector-v4.11.5.md")
-    and "Stage 11B-3 External Fingerprint Bridge Connector" in readme
-    and "Stage 11B-3 External Fingerprint Bridge Connector" in roadmap
+    exists("docs/operations/Stage11B4-Local-Fingerprint-Bridge-Template-v4.11.6.md")
+    and "Stage 11B-4 Local Fingerprint Bridge Template" in readme
+    and "Stage 11B-4 Local Fingerprint Bridge Template" in roadmap
     and "Select fingerprint hardware/vendor SDK" in roadmap
-    and "Blocked Fields" in operations_doc
+    and "Stage 11B-4 Local Fingerprint Bridge Template" in operations_doc
+    and "dotnet run --project apps/Garmetix.FingerprintBridge/Garmetix.FingerprintBridge.csproj" in operations_doc
+    and "IFingerprintVendorAdapter" in operations_doc
+    and "SimulatorFingerprintVendorAdapter" in operations_doc
     and "rawPayloadStored = false" in operations_doc
-    and "8s timeout" in operations_doc
-    and "Message Logs" in operations_doc
-    and "Select fingerprint hardware and SDK" in operations_doc,
+    and "rawImage" in operations_doc
+    and "Select the fingerprint hardware and SDK" in operations_doc,
 )
 
 failed = [name for name, ok in checks if not ok]
@@ -133,4 +164,4 @@ for name, ok in checks:
     print(("PASS" if ok else "FAIL") + f": {name}")
 if failed:
     raise SystemExit("Stage 11B fingerprint bridge validation failed: " + ", ".join(failed))
-print("Stage 11B-3 external fingerprint bridge connector validation passed.")
+print("Stage 11B-4 Local Fingerprint Bridge Template validation passed.")

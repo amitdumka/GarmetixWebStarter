@@ -163,6 +163,46 @@ onMounted(refresh)
         <template #header>
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
+              <h2 class="text-lg font-semibold">Local bridge template</h2>
+              <p class="text-sm text-muted">Runnable adapter host for the selected vendor SDK stage.</p>
+            </div>
+            <UBadge color="success" variant="soft">Available</UBadge>
+          </div>
+        </template>
+        <div class="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+          <div class="space-y-3">
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Project</p>
+              <code class="mt-1 block break-all text-xs">{{ status?.localBridgeTemplate?.projectPath }}</code>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Run command</p>
+              <code class="mt-1 block break-all text-xs">{{ status?.localBridgeTemplate?.runCommand }}</code>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Default base URL</p>
+              <code class="mt-1 block break-all text-xs">{{ status?.localBridgeTemplate?.defaultBaseUrl }}</code>
+            </div>
+          </div>
+          <div class="space-y-3">
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Adapter class</p>
+              <p class="mt-1 text-sm font-medium">{{ status?.localBridgeTemplate?.adapterClass || '-' }}</p>
+              <p class="mt-2 text-sm text-muted">{{ status?.localBridgeTemplate?.replacementRule }}</p>
+            </div>
+            <div class="grid gap-2 sm:grid-cols-2">
+              <div v-for="item in status?.localBridgeTemplate?.routes || []" :key="item" class="rounded-lg border border-default p-3">
+                <code class="text-xs">{{ item }}</code>
+              </div>
+            </div>
+          </div>
+        </div>
+      </UCard>
+
+      <UCard>
+        <template #header>
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
               <h2 class="text-lg font-semibold">Simulator handshake</h2>
               <p class="text-sm text-muted">Run safe bridge responses before a real fingerprint reader is selected.</p>
             </div>

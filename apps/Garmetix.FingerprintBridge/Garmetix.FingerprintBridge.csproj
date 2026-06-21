@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Garmetix.FingerprintBridge</RootNamespace>
+    <AssemblyName>Garmetix.FingerprintBridge</AssemblyName>
+    <Version>4.11.6</Version>
+    <AssemblyVersion>4.11.6.0</AssemblyVersion>
+    <FileVersion>4.11.6.0</FileVersion>
+    <InformationalVersion>4.11.6-stage11b4-local-fingerprint-bridge-template</InformationalVersion>
+  </PropertyGroup>
+</Project>
