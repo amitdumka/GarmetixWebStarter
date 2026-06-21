@@ -1,3 +1,9 @@
+## v4.10.23 Stage 10J Single Scroll Polish
+
+- Dashboard shell now locks browser/body overflow while the Nuxt UI dashboard panel remains the single vertical scroller.
+- Modern and legacy dashboard panel bodies share the same `garmetix-dashboard-panel-body` guardrail class.
+- Horizontal table scrolling remains available without adding nested vertical page scrollbars.
+
 ## v4.10.22 Stage 10J Notification Polish
 
 - Notification badge read-state now uses the newest valid visible alert timestamp, so opening notifications clears the count reliably.
@@ -48,7 +54,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 10J Real Excel Import Export Engine and Notification Polish v4.10.22 (`GARMETIX-10J-20260620-4122`).
+> Current package: Stage 10J Real Excel Import Export Engine and Single Scroll Polish v4.10.23 (`GARMETIX-10J-20260620-4123`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

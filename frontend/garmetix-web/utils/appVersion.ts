@@ -1,10 +1,11 @@
-export const APP_VERSION = '4.10.22'
+export const APP_VERSION = '4.10.23'
 export const APP_STAGE = "Stage 10J Real Excel Import Export Engine"
-export const APP_RELEASE_NAME = "Stage 10J: Real Excel Import Export Engine and Notification Polish"
+export const APP_RELEASE_NAME = "Stage 10J: Real Excel Import Export Engine and Single Scroll Polish"
 export const APP_BUILD_DATE = '2026-06-20'
-export const APP_BUILD_CODE = 'GARMETIX-10J-20260620-4122'
+export const APP_BUILD_CODE = 'GARMETIX-10J-20260620-4123'
 
 export const APP_HIGHLIGHTS = [
+  'Dashboard shell now uses one main vertical scroller with stable panel scrollbars while preserving horizontal table scroll.',
   'Notifications now mark the badge read using the newest valid visible alert timestamp and route each alert to its related module.',
   'System Info now uses the compact module header pattern instead of the oversized dashboard hero.',
   'System Health now shows Oracle secondary sync readiness, direction, wallet, tenant/source and last success.',

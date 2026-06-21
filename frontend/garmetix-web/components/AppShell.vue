@@ -75,7 +75,12 @@ let healthTimer: ReturnType<typeof setInterval> | undefined
 let notificationTimer: ReturnType<typeof setInterval> | undefined
 
 useHead(() => ({
-  title: props.title || 'Dashboard'
+  title: props.title || 'Dashboard',
+  bodyAttrs: {
+    class: useLegacyShell.value
+      ? 'garmetix-dashboard-shell garmetix-legacy-dashboard-shell'
+      : 'garmetix-dashboard-shell garmetix-modern-dashboard-shell'
+  }
 }))
 
 const themeOptions = [
@@ -805,7 +810,7 @@ onBeforeUnmount(() => {
       </template>
     </UDashboardSidebar>
 
-    <UDashboardPanel id="garmetix-dashboard-main">
+    <UDashboardPanel id="garmetix-dashboard-main" :ui="{ body: 'garmetix-dashboard-panel-body' }">
       <template #header>
         <UDashboardNavbar :title="title">
           <template #leading>

@@ -520,7 +520,7 @@ onBeforeUnmount(() => {
       </template>
     </UDashboardSidebar>
 
-    <UDashboardPanel id="garmetix-main">
+    <UDashboardPanel id="garmetix-main" :ui="{ body: 'garmetix-dashboard-panel-body' }">
       <template #header>
         <UDashboardNavbar :title="title">
           <template #leading>

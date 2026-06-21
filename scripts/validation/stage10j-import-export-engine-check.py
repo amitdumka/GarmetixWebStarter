@@ -17,6 +17,9 @@ app_version = read('frontend/garmetix-web/utils/appVersion.ts')
 csproj = read('backend/Garmetix.Api/Garmetix.Api.csproj')
 import_export = read('backend/Garmetix.Api/ImportExport/ImportExportEndpoints.cs')
 import_page = read('frontend/garmetix-web/pages/import-export/index.vue')
+app_shell = read('frontend/garmetix-web/components/AppShell.vue')
+legacy_shell = read('frontend/garmetix-web/components/AppShellLegacy.vue')
+main_css = read('frontend/garmetix-web/assets/css/main.css')
 current_release = read('scripts/validation/current-release-checks.py')
 drill = read('scripts/linux/stage10j-import-export-engine-drill.sh') if exists('scripts/linux/stage10j-import-export-engine-drill.sh') else ''
 
@@ -44,6 +47,10 @@ version_identity = (
     all(token in app_info for token in ['Version = "4.10.22"', 'Stage 10J Real Excel Import Export Engine', 'GARMETIX-10J-20260620-4122'])
     and "APP_VERSION = '4.10.22'" in app_version
     and '<Version>4.10.22</Version>' in csproj
+) or (
+    all(token in app_info for token in ['Version = "4.10.23"', 'Stage 10J Real Excel Import Export Engine', 'GARMETIX-10J-20260620-4123'])
+    and "APP_VERSION = '4.10.23'" in app_version
+    and '<Version>4.10.23</Version>' in csproj
 )
 add('version identity', version_identity)
 add('new master modules', all(token in import_export for token in ['["products"]', '["customers"]', '["vendors"]', '["stock-opening"]']))
@@ -52,6 +59,7 @@ add('stock opening posts ledger adjustment', all(token in import_export for toke
 add('customer vendor validation included', all(token in import_export for token in ['CreditBalance', 'LoyaltyPoints', 'PAN', 'TAN', 'ResolveCompanyFromList']))
 add('center counts updated', all(token in import_export for token in ['counts["customers"]', 'counts["vendors"]', 'counts["stocks"]', 'Definitions.Keys.Count(IsImportSupported)']))
 add('frontend knows new modules', all(token in import_page for token in ['products:', 'customers:', 'vendors:', "'stock-opening':", 'Real import engine enabled']))
+add('dashboard single scroll guardrails', all(token in app_shell for token in ['garmetix-dashboard-shell', 'garmetix-dashboard-panel-body']) and 'garmetix-dashboard-panel-body' in legacy_shell and all(token in main_css for token in ['body.garmetix-dashboard-shell', 'height: 100dvh', 'overflow: hidden', '.garmetix-dashboard-panel-body', 'scrollbar-gutter: stable', 'overflow-x: auto', 'overflow-y: visible']))
 add('current release invokes stage10j', 'stage10j-import-export-engine-check.py' in current_release)
 add('host drill exists', all(token in drill for token in ['products customers vendors stock-opening attendance', 'import-export/template/$module', 'stage10j import/export engine']))
 
