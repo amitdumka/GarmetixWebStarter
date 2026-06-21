@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.10.31";
-    public const string Stage = "Stage 10M Production Rehearsal Tracker";
-    public const string ReleaseName = "Stage 10M: Live Data Production Rehearsal Run Sheet";
-    public const string BuildDate = "2026-06-20";
-    public const string BuildCode = "GARMETIX-10M-20260620-4131";
+    public const string Version = "4.11.0";
+    public const string Stage = "Stage 11A MAUI Android Attendance Kiosk Shell";
+    public const string ReleaseName = "Stage 11A: Mobile Attendance Kiosk Shell and SQLite Offline Queue";
+    public const string BuildDate = "2026-06-21";
+    public const string BuildCode = "GARMETIX-11A-20260621-4110";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,7 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stage 11A adds the native MAUI Android Attendance Kiosk shell, SQLite pending punch queue and web status page for the mobile kiosk contract.",
         "Stage 10M adds a Production Rehearsal page and API for live-data run sheets, blocking checks, issue buckets and go/no-go evidence before Stage 11.",
         "Stage 10L adds a Production Support page and API for failed save, failed print, backup warning, email/share failure and Cloudflare or hosted API mismatch drills.",
         "Stage 10K adds a production operator acceptance page and API for daily store opening, billing, cash closing, purchase, accounting, HR/payroll, backup and support rehearsal.",

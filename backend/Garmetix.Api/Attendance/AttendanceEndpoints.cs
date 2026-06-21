@@ -38,6 +38,8 @@ public static class AttendanceEndpoints
         group.MapGet("/salary-payment-candidates", SalaryPaymentCandidatesAsync);
         group.MapPost("/salary-payments/generate", GenerateSalaryPaymentsFromDraftsAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapGet("/device-bridge/status", DeviceBridgeStatusAsync);
+        group.MapGet("/mobile-kiosk/status", MobileKioskStatusAsync);
+        group.MapGet("/mobile-kiosk/offline-contract", MobileKioskOfflineContractAsync);
         group.MapGet("/final-acceptance", FinalAcceptanceAsync);
         group.MapGet("/photo-proofs", ListPhotoProofsAsync);
         group.MapGet("/photo-proofs/review-summary", PhotoProofReviewSummaryAsync);
@@ -1269,6 +1271,100 @@ public static class AttendanceEndpoints
             false,
             ["Device registration", "Device token validation", "Punch sync API", "Sync batch audit", "Biometric enrollment reference placeholders"],
             ["Vendor SDK bridge service", "USB fingerprint reader driver", "Android MAUI kiosk local SQLite queue", "Fingerprint template adapter", "Device health dashboard"]));
+
+    private static IResult MobileKioskStatusAsync()
+        => Results.Ok(new
+        {
+            version = AppInfoEndpoints.Version,
+            stage = AppInfoEndpoints.Stage,
+            buildCode = AppInfoEndpoints.BuildCode,
+            generatedAtUtc = DateTimeOffset.UtcNow,
+            status = "ShellReady",
+            projectPath = "apps/Garmetix.AttendanceKiosk",
+            target = "net10.0-android",
+            queueProvider = "SQLite local pending_punches table",
+            apiBaseConfiguration = "Operator enters hosted API URL or LAN URL during device setup.",
+            routes = new[]
+            {
+                "/api/attendance/kiosk/bootstrap",
+                "/api/attendance/kiosk/readiness",
+                "/api/attendance/kiosk/lookup-employee",
+                "/api/attendance/kiosk/punch",
+                "/api/attendance/kiosk/sync-pending",
+                "/api/attendance/kiosk/photo-proof"
+            },
+            shellFiles = new[]
+            {
+                "apps/Garmetix.AttendanceKiosk/Garmetix.AttendanceKiosk.csproj",
+                "apps/Garmetix.AttendanceKiosk/MauiProgram.cs",
+                "apps/Garmetix.AttendanceKiosk/Views/KioskShellPage.cs",
+                "apps/Garmetix.AttendanceKiosk/Services/KioskApiClient.cs",
+                "apps/Garmetix.AttendanceKiosk/Services/OfflinePunchQueue.cs",
+                "apps/Garmetix.AttendanceKiosk/Models/KioskModels.cs"
+            },
+            safetyRules = new[]
+            {
+                "Device token is stored locally only on the kiosk device.",
+                "Offline punches remain queued until sync-pending accepts or duplicates them.",
+                "Photo proof remains evidence only; face recognition and liveness are not implemented in Stage 11A.",
+                "Fingerprint matching and raw fingerprint storage remain disallowed.",
+                "The Android app must use HTTPS public URL or trusted LAN API URL configured by the operator."
+            },
+            acceptanceChecks = new[]
+            {
+                "Register kiosk device in web Attendance > Kiosk Devices.",
+                "Enter API URL, Device ID and Device Token in the MAUI shell.",
+                "Run readiness check and verify duplicate-window policy.",
+                "Queue a punch while offline and verify it appears in local SQLite.",
+                "Reconnect and sync pending punches through /sync-pending.",
+                "Review Kiosk Monitor and Message Logs for audit evidence."
+            }
+        });
+
+    private static IResult MobileKioskOfflineContractAsync()
+        => Results.Ok(new
+        {
+            version = AppInfoEndpoints.Version,
+            buildCode = AppInfoEndpoints.BuildCode,
+            generatedAtUtc = DateTimeOffset.UtcNow,
+            sqliteTable = "pending_punches",
+            columns = new[]
+            {
+                "id TEXT PRIMARY KEY",
+                "clientPunchId TEXT NOT NULL",
+                "payloadJson TEXT NOT NULL",
+                "createdAtUtc TEXT NOT NULL",
+                "lastAttemptAtUtc TEXT NULL",
+                "attemptCount INTEGER NOT NULL DEFAULT 0",
+                "status TEXT NOT NULL DEFAULT 'Pending'",
+                "lastError TEXT NULL"
+            },
+            syncContract = new
+            {
+                endpoint = "/api/attendance/kiosk/sync-pending",
+                method = "POST",
+                acceptedStatuses = new[] { "Accepted", "Duplicate" },
+                retryStatuses = new[] { "Pending", "Retry" },
+                failedStatuses = new[] { "Failed" }
+            },
+            punchPayloadFields = new[]
+            {
+                "employeeId",
+                "punchType",
+                "punchTimeUtc",
+                "localPunchTime",
+                "source",
+                "deviceId",
+                "deviceToken",
+                "clientPunchId",
+                "companyId",
+                "storeGroupId",
+                "storeId",
+                "latitude",
+                "longitude",
+                "remarks"
+            }
+        });
 
     private static IResult FinalAcceptanceAsync()
         => Results.Ok(new AttendanceFinalAcceptanceDto(

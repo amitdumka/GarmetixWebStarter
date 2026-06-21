@@ -1,10 +1,11 @@
-export const APP_VERSION = '4.10.31'
-export const APP_STAGE = "Stage 10M Production Rehearsal Tracker"
-export const APP_RELEASE_NAME = "Stage 10M: Live Data Production Rehearsal Run Sheet"
-export const APP_BUILD_DATE = '2026-06-20'
-export const APP_BUILD_CODE = 'GARMETIX-10M-20260620-4131'
+export const APP_VERSION = '4.11.0'
+export const APP_STAGE = "Stage 11A MAUI Android Attendance Kiosk Shell"
+export const APP_RELEASE_NAME = "Stage 11A: Mobile Attendance Kiosk Shell and SQLite Offline Queue"
+export const APP_BUILD_DATE = '2026-06-21'
+export const APP_BUILD_CODE = 'GARMETIX-11A-20260621-4110'
 
 export const APP_HIGHLIGHTS = [
+  'Stage 11A adds the native MAUI Android Attendance Kiosk shell, SQLite pending punch queue and web status page for the mobile kiosk contract.',
   'Stage 10M adds a Production Rehearsal page and API for live-data run sheets, blocking checks, issue buckets and go/no-go evidence before Stage 11.',
   'Stage 10L adds a Production Support page and API for failed save, failed print, backup warning, email/share failure and Cloudflare or hosted API mismatch drills.',
   'Stage 10K adds a production operator acceptance page and API for daily store opening, billing, cash closing, purchase, accounting, HR/payroll, backup and support rehearsal.',

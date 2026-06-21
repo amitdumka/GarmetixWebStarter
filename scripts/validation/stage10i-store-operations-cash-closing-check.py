@@ -44,6 +44,11 @@ if not checks[0][1]:
         and 'GARMETIX-10M-20260620-4131' in app_info
         and "APP_VERSION = '4.10.31'" in app_version
         and '<Version>4.10.31</Version>' in csproj
+    ) or (
+        'Stage 11A MAUI Android Attendance Kiosk Shell' in app_info
+        and 'GARMETIX-11A-20260621-4110' in app_info
+        and "APP_VERSION = '4.11.0'" in app_version
+        and '<Version>4.11.0</Version>' in csproj
     ))
 add('day closing uses day open opening', all(token in store_day_api for token in ['DayBegins.AsNoTracking()', 'OpeningBalance = opening', 'Today day opening', "Opening balance is taken from today's Day Open entry"]))
 add('previous petty cash mismatch control', all(token in store_day_api for token in ['GetPreviousPettyCashClosingInfoAsync', 'OpeningBalanceMismatch', 'ConfirmOpeningBalanceMismatch', 'Results.Conflict', 'PreviousPettyCashClosingBalance']))

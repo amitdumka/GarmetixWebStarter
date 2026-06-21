@@ -191,6 +191,7 @@ const moduleGroups: MenuGroup[] = [
       { to: '/hr', label: 'HR Employee Master', icon: 'i-lucide-users-round' },
       { to: '/attendance', label: 'Attendance Dashboard', icon: 'i-lucide-calendar-check', keywords: ['attendance', 'kiosk', 'check in', 'check out'] },
       { to: '/attendance/kiosk', label: 'Web Kiosk', icon: 'i-lucide-camera', keywords: ['attendance', 'kiosk', 'photo proof'] },
+      { to: '/attendance/mobile-kiosk', label: 'Mobile Kiosk', icon: 'i-lucide-smartphone', keywords: ['stage 11a', 'maui', 'android', 'offline queue'] },
       { to: '/attendance/today', label: 'Today Attendance', icon: 'i-lucide-calendar-days' },
       { to: '/attendance/monthly', label: 'Monthly Attendance', icon: 'i-lucide-calendar-range' },
       { to: '/attendance/shifts', label: 'Shifts', icon: 'i-lucide-clock-3' },

@@ -1,12 +1,14 @@
-## v4.10.31 Stage 10M Production Rehearsal Tracker
+## v4.11.0 Stage 11A MAUI Android Attendance Kiosk Shell
 
-- Current version: 4.10.31 / `GARMETIX-10M-20260620-4131`.
-- Added a Production Rehearsal page for live-data store-day run sheets before Stage 11 mobile/device work.
-- Added `/api/stage10m/production-rehearsal` and `/api/stage10m/production-rehearsal/run-sheet` with phases, blocking checks and issue buckets.
-- Added current-release validation for Stage 10M route, menu, access, version and rehearsal coverage.
+- Current version: 4.11.0 / `GARMETIX-11A-20260621-4110`.
+- Added native MAUI Android attendance kiosk shell under `apps/Garmetix.AttendanceKiosk`.
+- Added local SQLite `pending_punches` queue contract for offline attendance punches.
+- Added `/attendance/mobile-kiosk` web status page and Attendance API status/offline-contract endpoints.
+- Added current-release validation for Stage 11A shell files, route, menu, access, version and kiosk contract coverage.
 
 ## Recently Completed Stage 10
 
+- v4.10.31: Stage 10M Production Rehearsal Tracker for live-data store-day run sheets, blocking checks, issue buckets and go/no-go evidence before Stage 11.
 - v4.10.30: Stage 10L Production Support Pack for failed save, failed print, backup warning, email/share failure and hosted API mismatch drills.
 - v4.10.29: Stage 10K Production Operator Acceptance checklist for daily store opening, billing, cash closing, purchase, accounting, HR/payroll, backup and support rehearsal.
 - v4.10.28: Import/Export transfer guard for hosted-safe upload/download URLs and sanitized CSV filenames.
@@ -32,16 +34,16 @@ python scripts/validation/current-release-checks.py
 
 ### Next Recommended Roadmap
 
-1. Stage 10M live-data rehearsal fixes: run `/production-rehearsal` on a real store-day dataset and fix any blocking issue found.
-2. Stage 11A MAUI/Android Attendance Kiosk shell with local SQLite offline queue.
-3. Stage 11B Fingerprint device bridge after hardware/vendor SDK selection.
-4. Stage 11C Face recognition/liveness proof of concept after consent, retention and privacy controls.
-5. Stage 11D mobile/device deployment packaging after kiosk shell is accepted.
+1. Stage 11A Android build and hardware rehearsal: install MAUI Android workload, build APK/AAB, test on a physical tablet with registered kiosk device and offline/online sync.
+2. Stage 11B Fingerprint device bridge after hardware/vendor SDK selection.
+3. Stage 11C Face recognition/liveness proof of concept after consent, retention and privacy controls.
+4. Stage 11D mobile/device deployment packaging after kiosk shell is accepted.
+5. Stage 12A SaaS/super-admin plan if multi-company hosted licensing is needed.
 
 ### Future Attendance/Mobile Items Kept For Later
 
-- MAUI Android kiosk app.
-- Local SQLite offline queue.
+- Android APK/AAB build rehearsal.
+- Physical tablet kiosk test.
 - Real face recognition.
 - Face liveness detection.
 - Fingerprint vendor SDK bridge.

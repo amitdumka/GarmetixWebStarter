@@ -1,3 +1,9 @@
+## v4.11.0 Stage 11A MAUI Android Attendance Kiosk Shell
+
+- Added native MAUI Android attendance kiosk shell under `apps/Garmetix.AttendanceKiosk`.
+- Added `/attendance/mobile-kiosk` web status page for shell files, API routes, SQLite queue contract, acceptance checks and safety rules.
+- Added Attendance API endpoints `/api/attendance/mobile-kiosk/status` and `/api/attendance/mobile-kiosk/offline-contract`.
+
 ## v4.10.31 Stage 10M Production Rehearsal Tracker
 
 - Added `/production-rehearsal` as an Admin/Owner live-data run sheet before Stage 11 mobile/device work.
@@ -102,7 +108,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 10M Live Data Production Rehearsal Run Sheet v4.10.31 (`GARMETIX-10M-20260620-4131`).
+> Current package: Stage 11A Mobile Attendance Kiosk Shell and SQLite Offline Queue v4.11.0 (`GARMETIX-11A-20260621-4110`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

@@ -28,6 +28,8 @@ export function useAttendance() {
   const salaryPaymentCandidates = (year?: number, month?: number) => api.get<any>(`attendance/salary-payment-candidates?year=${year || new Date().getFullYear()}&month=${month || new Date().getMonth() + 1}`)
   const generateSalaryPaymentsFromDrafts = (body: any) => api.create<any>('attendance/salary-payments/generate', body)
   const deviceBridgeStatus = () => api.get<any>('attendance/device-bridge/status')
+  const mobileKioskStatus = () => api.get<any>('attendance/mobile-kiosk/status')
+  const mobileKioskOfflineContract = () => api.get<any>('attendance/mobile-kiosk/offline-contract')
   const finalAcceptance = () => api.get<any>('attendance/final-acceptance')
-  return { today, monthly, history, manualPunch, regularization, createRegularization, approveRegularization, rejectRegularization, recalculate, lockMonth, payrollSummary, payrollReview, rebuildPayrollReview, markPayrollReview, salarySlipDrafts, rebuildSalarySlipDrafts, markSalarySlipDraft, generateSalarySlipsFromDrafts, salaryPaymentCandidates, generateSalaryPaymentsFromDrafts, deviceBridgeStatus, finalAcceptance }
+  return { today, monthly, history, manualPunch, regularization, createRegularization, approveRegularization, rejectRegularization, recalculate, lockMonth, payrollSummary, payrollReview, rebuildPayrollReview, markPayrollReview, salarySlipDrafts, rebuildSalarySlipDrafts, markSalarySlipDraft, generateSalarySlipsFromDrafts, salaryPaymentCandidates, generateSalaryPaymentsFromDrafts, deviceBridgeStatus, mobileKioskStatus, mobileKioskOfflineContract, finalAcceptance }
 }

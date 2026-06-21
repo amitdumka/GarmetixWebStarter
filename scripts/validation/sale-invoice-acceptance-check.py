@@ -52,6 +52,10 @@ version_identity = (
     all(token in app_info for token in ['Version = "4.10.31"', "Stage 10M Production Rehearsal Tracker", "GARMETIX-10M-20260620-4131"])
     and "APP_VERSION = '4.10.31'" in app_version
     and "<Version>4.10.31</Version>" in csproj
+) or (
+    all(token in app_info for token in ['Version = "4.11.0"', "Stage 11A MAUI Android Attendance Kiosk Shell", "GARMETIX-11A-20260621-4110"])
+    and "APP_VERSION = '4.11.0'" in app_version
+    and "<Version>4.11.0</Version>" in csproj
 )
 add("version identity", version_identity)
 add(

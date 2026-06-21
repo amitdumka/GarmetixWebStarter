@@ -4,10 +4,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);AD0001</NoWarn>
-    <Version>4.10.31</Version>
-    <AssemblyVersion>4.10.31.0</AssemblyVersion>
-    <FileVersion>4.10.31.0</FileVersion>
-    <InformationalVersion>4.10.31-stage10m-production-rehearsal-tracker</InformationalVersion>
+    <Version>4.11.0</Version>
+    <AssemblyVersion>4.11.0.0</AssemblyVersion>
+    <FileVersion>4.11.0.0</FileVersion>
+    <InformationalVersion>4.11.0-stage11a-maui-android-attendance-kiosk-shell</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

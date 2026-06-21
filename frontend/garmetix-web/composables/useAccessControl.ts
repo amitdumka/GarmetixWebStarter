@@ -84,6 +84,7 @@ const routeRules: PageAccessRule[] = [
   { path: '/hr', label: 'HR Employee Master', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
   { path: '/attendance', label: 'Attendance Dashboard', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr', 'payroll'] },
   { path: '/attendance/kiosk', label: 'Web Attendance Kiosk', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
+  { path: '/attendance/mobile-kiosk', label: 'Mobile Attendance Kiosk', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
   { path: '/attendance/today', label: 'Today Attendance', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr', 'payroll'] },
   { path: '/attendance/monthly', label: 'Monthly Attendance', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr', 'payroll'] },
   { path: '/attendance/devices', label: 'Kiosk Devices', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
