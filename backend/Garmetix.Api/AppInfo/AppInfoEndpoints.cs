@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.10.24";
+    public const string Version = "4.10.25";
     public const string Stage = "Stage 10J Real Excel Import Export Engine";
-    public const string ReleaseName = "Stage 10J: Real Excel Import Export Engine and Sale Invoice Acceptance Guard";
+    public const string ReleaseName = "Stage 10J: Real Excel Import Export Engine and Petty Cash PDF Pagination Guard";
     public const string BuildDate = "2026-06-20";
-    public const string BuildCode = "GARMETIX-10J-20260620-4124";
+    public const string BuildCode = "GARMETIX-10J-20260620-4125";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,7 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Petty Cash PDF now paginates all A5 transaction-detail rows instead of truncating busy cash sheets.",
         "Sale invoice acceptance validation now protects the dedicated full-page invoice flow, draft recovery, compact controls, Manager fallback, payment safety and automatic first print.",
         "Dashboard shell now uses one main vertical scroller with stable panel scrollbars while preserving horizontal table scroll.",
         "Notifications now mark the badge read using the newest valid visible alert timestamp and route each alert to its related module.",

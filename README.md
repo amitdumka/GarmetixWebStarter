@@ -1,3 +1,9 @@
+## v4.10.25 Stage 10J Petty Cash PDF Pagination Guard
+
+- Petty Cash server PDFs now paginate A5 transaction-detail rows so busy cash sheets no longer omit rows.
+- Detail pages show page numbers, continuation state and final income/expense/adjustment totals.
+- Added current-release validation for Petty Cash opening balance, latest cash-in-hand widget, mismatch alerts, QR/color PDF and full-detail pagination.
+
 ## v4.10.24 Stage 10J Sale Invoice Acceptance Guard
 
 - Added a sale-invoice acceptance validation gate for the dedicated full-page invoice route.
@@ -60,7 +66,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 10J Real Excel Import Export Engine and Sale Invoice Acceptance Guard v4.10.24 (`GARMETIX-10J-20260620-4124`).
+> Current package: Stage 10J Real Excel Import Export Engine and Petty Cash PDF Pagination Guard v4.10.25 (`GARMETIX-10J-20260620-4125`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

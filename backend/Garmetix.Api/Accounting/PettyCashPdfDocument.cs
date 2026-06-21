@@ -69,15 +69,47 @@ public static class PettyCashPdfDocument
 
         if (transactionLines is { Count: > 0 })
         {
-            var detailCanvas = new Canvas(Height);
-            DrawTransactionDetails(detailCanvas, transactionLines, companyName, storeName, sheet.OnDate);
-            return BuildPdf([canvas.Content, detailCanvas.Content]);
+            var detailPages = DrawTransactionDetailPages(transactionLines, companyName, storeName, sheet.OnDate);
+            return BuildPdf([canvas.Content, .. detailPages]);
         }
 
         return BuildPdf(canvas.Content);
     }
 
-    private static void DrawTransactionDetails(Canvas canvas, IReadOnlyList<PettyCashTransactionLine> lines, string companyName, string storeName, DateTime onDate)
+    private static IReadOnlyList<string> DrawTransactionDetailPages(IReadOnlyList<PettyCashTransactionLine> lines, string companyName, string storeName, DateTime onDate)
+    {
+        const int rowsPerPage = 12;
+        var pages = new List<string>();
+        var pageCount = Math.Max(1, (int)Math.Ceiling(lines.Count / (double)rowsPerPage));
+        var income = lines.Where(line => line.Category == "Income").Sum(line => line.Amount);
+        var expense = lines.Where(line => line.Category == "Expense").Sum(line => line.Amount);
+        var adjustment = lines.Where(line => line.Category == "Adjustment").Sum(line => line.Amount);
+
+        for (var pageNumber = 0; pageNumber < pageCount; pageNumber++)
+        {
+            var pageLines = lines
+                .Skip(pageNumber * rowsPerPage)
+                .Take(rowsPerPage)
+                .ToList();
+            var canvas = new Canvas(Height);
+            DrawTransactionDetailPage(canvas, pageLines, companyName, storeName, onDate, pageNumber + 1, pageCount, income, expense, adjustment);
+            pages.Add(canvas.Content);
+        }
+
+        return pages;
+    }
+
+    private static void DrawTransactionDetailPage(
+        Canvas canvas,
+        IReadOnlyList<PettyCashTransactionLine> lines,
+        string companyName,
+        string storeName,
+        DateTime onDate,
+        int pageNumber,
+        int pageCount,
+        decimal income,
+        decimal expense,
+        decimal adjustment)
     {
         const double left = 18;
         const double top = 16;
@@ -86,6 +118,7 @@ public static class PettyCashPdfDocument
         canvas.Fill(left, top, bodyWidth, 40, 0.02, 0.09, 0.16);
         canvas.Text(companyName, left + 12, top + 8, 13, true, 1, 1, 1);
         canvas.Text($"{storeName} | BOOK TRANSACTION DETAILS | {onDate:dd MMM yyyy}", left + 12, top + 26, 7.5, false, 0.82, 0.88, 0.94);
+        canvas.Right($"Page {pageNumber} of {pageCount}", left + bodyWidth - 12, top + 16, 7.2, true);
 
         var y = top + 54;
         canvas.Fill(left + 8, y, bodyWidth - 16, 22, 0.91, 0.98, 0.97);
@@ -96,7 +129,7 @@ public static class PettyCashPdfDocument
         canvas.Right("Amount", left + bodyWidth - 18, y + 7, 7.2, true);
         y += 22;
 
-        foreach (var line in lines.Take(13))
+        foreach (var line in lines)
         {
             canvas.Stroke(left + 8, y, bodyWidth - 16, 22, 0.18, 0.82, 0.85, 0.88);
             canvas.Text(line.Category, left + 14, y + 7, 6.6);
@@ -107,18 +140,14 @@ public static class PettyCashPdfDocument
             y += 22;
         }
 
-        if (lines.Count > 13)
-        {
-            canvas.Text($"+ {lines.Count - 13} more transaction(s) not printed due A5 space. See app report for full detail.", left + 14, y + 8, 6.7, true, 0.78, 0.25, 0.08);
-        }
-
-        var income = lines.Where(line => line.Category == "Income").Sum(line => line.Amount);
-        var expense = lines.Where(line => line.Category == "Expense").Sum(line => line.Amount);
-        var adjustment = lines.Where(line => line.Category == "Adjustment").Sum(line => line.Amount);
-        canvas.Fill(left + 8, Height - 60, bodyWidth - 16, 34, 0.95, 0.97, 0.98);
-        canvas.Text($"Income: INR {income:N2}", left + 18, Height - 50, 7.5, true);
-        canvas.Text($"Expense: INR {expense:N2}", left + 180, Height - 50, 7.5, true);
-        canvas.Text($"Adjustments: INR {adjustment:N2}", left + 350, Height - 50, 7.5, true);
+        var footerTitle = pageNumber == pageCount
+            ? "Transaction totals"
+            : "Continued on next A5 detail page";
+        canvas.Fill(left + 8, Height - 60, bodyWidth - 16, 34, pageNumber == pageCount ? 0.95 : 0.91, pageNumber == pageCount ? 0.97 : 0.98, pageNumber == pageCount ? 0.98 : 0.97);
+        canvas.Text(footerTitle, left + 18, Height - 51, 7.2, true, 0.04, 0.42, 0.38);
+        canvas.Text($"Income: INR {income:N2}", left + 18, Height - 38, 7.2, true);
+        canvas.Text($"Expense: INR {expense:N2}", left + 180, Height - 38, 7.2, true);
+        canvas.Text($"Adjustments: INR {adjustment:N2}", left + 350, Height - 38, 7.2, true);
     }
 
     private static void DrawSection(Canvas canvas, double left, double top, double width, string title, IReadOnlyList<(string, decimal)> rows)

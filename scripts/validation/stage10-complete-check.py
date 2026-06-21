@@ -57,7 +57,8 @@ for route in ['/barcode-final-acceptance', '/gst-production', '/google-drive-bac
         raise SystemExit(f'Missing shell nav item: {route}')
 
 app_version = (root / 'frontend/garmetix-web/utils/appVersion.ts').read_text()
-if not ("APP_VERSION = '4.10.13'" in app_version or "APP_VERSION = '4.10.14'" in app_version or "APP_VERSION = '4.10.15'" in app_version or "APP_VERSION = '4.10.16'" in app_version or "APP_VERSION = '4.10.17'" in app_version or "APP_VERSION = '4.10.18'" in app_version or "APP_VERSION = '4.10.19'" in app_version or "APP_VERSION = '4.10.20'" in app_version or "APP_VERSION = '4.10.21'" in app_version or "APP_VERSION = '4.10.22'" in app_version or "APP_VERSION = '4.10.23'" in app_version or "APP_VERSION = '4.10.24'" in app_version):
+allowed_versions = [f"APP_VERSION = '4.10.{patch}'" for patch in range(13, 26)]
+if not any(version in app_version for version in allowed_versions):
     raise SystemExit('App version metadata not updated for Stage 10 release family.')
 
 catalog = (root / 'backend/Garmetix.Api/Testing/TestAutomationCatalog.cs').read_text()

@@ -20,12 +20,16 @@ app_info = read("backend/Garmetix.Api/AppInfo/AppInfoEndpoints.cs")
 app_version = read("frontend/garmetix-web/utils/appVersion.ts")
 csproj = read("backend/Garmetix.Api/Garmetix.Api.csproj")
 
-add(
-    "version identity",
-    all(token in app_info for token in ['Version = "4.10.24"', "Sale Invoice Acceptance Guard", "GARMETIX-10J-20260620-4124"])
+version_identity = (
+    all(token in app_info for token in ['Version = "4.10.24"', "GARMETIX-10J-20260620-4124"])
     and "APP_VERSION = '4.10.24'" in app_version
-    and "<Version>4.10.24</Version>" in csproj,
+    and "<Version>4.10.24</Version>" in csproj
+) or (
+    all(token in app_info for token in ['Version = "4.10.25"', "GARMETIX-10J-20260620-4125"])
+    and "APP_VERSION = '4.10.25'" in app_version
+    and "<Version>4.10.25</Version>" in csproj
 )
+add("version identity", version_identity)
 add(
     "dedicated full page route",
     "<AppShell" in invoice_page

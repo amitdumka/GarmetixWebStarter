@@ -1,11 +1,12 @@
-## v4.10.24 Stage 10J Sale Invoice Acceptance Guard
+## v4.10.25 Stage 10J Petty Cash PDF Pagination Guard
 
-- Current version: 4.10.24 / `GARMETIX-10J-20260620-4124`.
-- Added a sale-invoice acceptance guard to current release validation.
-- The guard protects the dedicated `/billing/new` full-page workflow, draft persistence, mobile customer lookup, Manager salesman fallback, compact controls, payment bank safety, first-print behavior and modern/legacy menu access.
+- Current version: 4.10.25 / `GARMETIX-10J-20260620-4125`.
+- Petty Cash server PDFs now paginate all A5 transaction-detail rows instead of truncating busy cash sheets.
+- Added a Petty Cash acceptance guard for previous-day opening balance, latest cash-in-hand widget behavior, mismatch alerts, QR/color PDF output, server PDF print flow and full-detail pagination.
 
 ## Recently Completed Stage 10J Polish
 
+- v4.10.24: Sale invoice acceptance guard for the dedicated full-page invoice workflow.
 - v4.10.23: Dashboard shell single vertical scroller with preserved horizontal table scroll.
 - v4.10.22: Notification routing, read-state and badge reduction.
 - v4.10.21: System Info compact header.
