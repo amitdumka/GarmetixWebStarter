@@ -1,12 +1,13 @@
-## v4.10.29 Stage 10K Production Operator Acceptance
+## v4.10.30 Stage 10L Production Support Pack
 
-- Current version: 4.10.29 / `GARMETIX-10K-20260620-4129`.
-- Added a production operator acceptance page for daily store opening, billing, cash closing, purchase, voucher/accounting, HR/payroll, backup and support rehearsal.
-- Added `/api/stage10k/operator-acceptance` and `/api/stage10k/operator-acceptance/checklist` for the guided acceptance contract.
-- Added current-release validation for Stage 10K route, menu, access, version and checklist coverage.
+- Current version: 4.10.30 / `GARMETIX-10L-20260620-4130`.
+- Added a Production Support page for failed save, failed print, backup warning, email/share failure and hosted API mismatch drills.
+- Added `/api/stage10l/production-support` and `/api/stage10l/production-support/drills` with public-origin, tunnel/proxy hints and drill steps.
+- Added current-release validation for Stage 10L route, menu, access, version and support drill coverage.
 
-## Recently Completed Stage 10J Polish
+## Recently Completed Stage 10
 
+- v4.10.29: Stage 10K Production Operator Acceptance checklist for daily store opening, billing, cash closing, purchase, accounting, HR/payroll, backup and support rehearsal.
 - v4.10.28: Import/Export transfer guard for hosted-safe upload/download URLs and sanitized CSV filenames.
 - v4.10.27: Payroll PDF download guard for salary payment slips and safe SPAY filenames.
 - v4.10.26: Voucher PDF download guard for hosted/tunneled deployments and voucher acceptance rules.
@@ -30,11 +31,11 @@ python scripts/validation/current-release-checks.py
 
 ### Next Recommended Roadmap
 
-1. Stage 10K operator rehearsal hardening: run the checklist on a real store-day dataset and fix any save/print/access issue found.
-2. Stage 10L production support pack: add operator-friendly troubleshooting drill pages for failed save, failed print, backup warning, email failure and tunnel/API mismatch.
-3. Stage 11A MAUI/Android Attendance Kiosk shell with local SQLite offline queue.
-4. Stage 11B Fingerprint device bridge after hardware/vendor SDK selection.
-5. Stage 11C Face recognition/liveness proof of concept after consent, retention and privacy controls.
+1. Stage 10M production rehearsal fixes: use Stage 10K/10L pages against a real store-day dataset and fix any save, print, access or hosted URL issue found.
+2. Stage 11A MAUI/Android Attendance Kiosk shell with local SQLite offline queue.
+3. Stage 11B Fingerprint device bridge after hardware/vendor SDK selection.
+4. Stage 11C Face recognition/liveness proof of concept after consent, retention and privacy controls.
+5. Stage 11D mobile/device deployment packaging after kiosk shell is accepted.
 
 ### Future Attendance/Mobile Items Kept For Later
 

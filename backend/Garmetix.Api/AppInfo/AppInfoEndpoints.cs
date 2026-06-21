@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.10.29";
-    public const string Stage = "Stage 10K Production Operator Acceptance";
-    public const string ReleaseName = "Stage 10K: Production Operator Acceptance Checklist";
+    public const string Version = "4.10.30";
+    public const string Stage = "Stage 10L Production Support Pack";
+    public const string ReleaseName = "Stage 10L: Production Support Troubleshooting Drills";
     public const string BuildDate = "2026-06-20";
-    public const string BuildCode = "GARMETIX-10K-20260620-4129";
+    public const string BuildCode = "GARMETIX-10L-20260620-4130";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,7 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stage 10L adds a Production Support page and API for failed save, failed print, backup warning, email/share failure and Cloudflare or hosted API mismatch drills.",
         "Stage 10K adds a production operator acceptance page and API for daily store opening, billing, cash closing, purchase, accounting, HR/payroll, backup and support rehearsal.",
         "Import/Export CSV download and upload now use hosted-safe API URLs with sanitized CSV filenames.",
         "Salary payment slips now have a direct PDF download action with safe filenames for SPAY voucher numbers.",

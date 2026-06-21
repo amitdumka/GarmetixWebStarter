@@ -34,6 +34,11 @@ if not checks[0][1]:
         and 'GARMETIX-10K-20260620-4129' in app_info
         and "APP_VERSION = '4.10.29'" in app_version
         and '<Version>4.10.29</Version>' in csproj
+    ) or (
+        'Stage 10L Production Support Pack' in app_info
+        and 'GARMETIX-10L-20260620-4130' in app_info
+        and "APP_VERSION = '4.10.30'" in app_version
+        and '<Version>4.10.30</Version>' in csproj
     ))
 add('day closing uses day open opening', all(token in store_day_api for token in ['DayBegins.AsNoTracking()', 'OpeningBalance = opening', 'Today day opening', "Opening balance is taken from today's Day Open entry"]))
 add('previous petty cash mismatch control', all(token in store_day_api for token in ['GetPreviousPettyCashClosingInfoAsync', 'OpeningBalanceMismatch', 'ConfirmOpeningBalanceMismatch', 'Results.Conflict', 'PreviousPettyCashClosingBalance']))

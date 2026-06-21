@@ -1,3 +1,9 @@
+## v4.10.30 Stage 10L Production Support Pack
+
+- Added `/production-support` as an Admin/Owner troubleshooting console for failed save, failed print, backup warning, email/share failure and hosted API mismatch.
+- Added `/api/stage10l/production-support` and `/api/stage10l/production-support/drills` with public-origin/tunnel hints and operator drill steps.
+- Added current-release validation for Stage 10L endpoint registration, route access, sidebar discovery, version identity and support drill coverage.
+
 ## v4.10.29 Stage 10K Production Operator Acceptance
 
 - Added `/stage10k-operator-acceptance` as an Admin/Owner production rehearsal checklist for store opening, billing, petty cash, purchase, vouchers, HR/payroll, backup and support.
@@ -90,7 +96,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 10K Production Operator Acceptance Checklist v4.10.29 (`GARMETIX-10K-20260620-4129`).
+> Current package: Stage 10L Production Support Troubleshooting Drills v4.10.30 (`GARMETIX-10L-20260620-4130`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

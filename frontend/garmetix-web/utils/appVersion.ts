@@ -1,10 +1,11 @@
-export const APP_VERSION = '4.10.29'
-export const APP_STAGE = "Stage 10K Production Operator Acceptance"
-export const APP_RELEASE_NAME = "Stage 10K: Production Operator Acceptance Checklist"
+export const APP_VERSION = '4.10.30'
+export const APP_STAGE = "Stage 10L Production Support Pack"
+export const APP_RELEASE_NAME = "Stage 10L: Production Support Troubleshooting Drills"
 export const APP_BUILD_DATE = '2026-06-20'
-export const APP_BUILD_CODE = 'GARMETIX-10K-20260620-4129'
+export const APP_BUILD_CODE = 'GARMETIX-10L-20260620-4130'
 
 export const APP_HIGHLIGHTS = [
+  'Stage 10L adds a Production Support page and API for failed save, failed print, backup warning, email/share failure and Cloudflare or hosted API mismatch drills.',
   'Stage 10K adds a production operator acceptance page and API for daily store opening, billing, cash closing, purchase, accounting, HR/payroll, backup and support rehearsal.',
   'Import/Export CSV download and upload now use hosted-safe API URLs with sanitized CSV filenames.',
   'Salary payment slips now have a direct PDF download action with safe filenames for SPAY voucher numbers.',
