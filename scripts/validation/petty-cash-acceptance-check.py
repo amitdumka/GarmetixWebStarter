@@ -19,12 +19,16 @@ app_info = read("backend/Garmetix.Api/AppInfo/AppInfoEndpoints.cs")
 app_version = read("frontend/garmetix-web/utils/appVersion.ts")
 csproj = read("backend/Garmetix.Api/Garmetix.Api.csproj")
 
-add(
-    "version identity",
+version_identity = (
     all(token in app_info for token in ['Version = "4.10.25"', "Petty Cash PDF Pagination Guard", "GARMETIX-10J-20260620-4125"])
     and "APP_VERSION = '4.10.25'" in app_version
-    and "<Version>4.10.25</Version>" in csproj,
+    and "<Version>4.10.25</Version>" in csproj
+) or (
+    all(token in app_info for token in ['Version = "4.10.26"', "Voucher PDF Download Guard", "GARMETIX-10J-20260620-4126"])
+    and "APP_VERSION = '4.10.26'" in app_version
+    and "<Version>4.10.26</Version>" in csproj
 )
+add("version identity", version_identity)
 add(
     "server pdf paginates all detail rows",
     all(token in pdf for token in [

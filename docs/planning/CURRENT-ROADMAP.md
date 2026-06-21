@@ -1,11 +1,12 @@
-## v4.10.25 Stage 10J Petty Cash PDF Pagination Guard
+## v4.10.26 Stage 10J Voucher PDF Download Guard
 
-- Current version: 4.10.25 / `GARMETIX-10J-20260620-4125`.
-- Petty Cash server PDFs now paginate all A5 transaction-detail rows instead of truncating busy cash sheets.
-- Added a Petty Cash acceptance guard for previous-day opening balance, latest cash-in-hand widget behavior, mismatch alerts, QR/color PDF output, server PDF print flow and full-detail pagination.
+- Current version: 4.10.26 / `GARMETIX-10J-20260620-4126`.
+- Voucher PDF download now uses the shared document helper so remote/tunneled deployments avoid browser-side localhost API URLs.
+- Added a Voucher acceptance guard for clean PDF download, create-only auto print, internal party-ledger handling, local dates, StoreCode/YYYYMM numbering, non-cash bank safety, QR/color PDF output and converted-voucher audit immutability.
 
 ## Recently Completed Stage 10J Polish
 
+- v4.10.25: Petty Cash PDF pagination guard for full A5 transaction details.
 - v4.10.24: Sale invoice acceptance guard for the dedicated full-page invoice workflow.
 - v4.10.23: Dashboard shell single vertical scroller with preserved horizontal table scroll.
 - v4.10.22: Notification routing, read-state and badge reduction.

@@ -1,3 +1,9 @@
+## v4.10.26 Stage 10J Voucher PDF Download Guard
+
+- Voucher PDF download now uses the same server document helper as printing, including hosted-safe API URL resolution.
+- Removed the direct voucher PDF fetch against `config.public.apiBase`, which could point the browser back to localhost on tunneled or remote deployments.
+- Added current-release validation for voucher PDF download, create-only print, internal party-ledger handling, bank account safety, QR/color PDF output, voucher numbering and audit immutability.
+
 ## v4.10.25 Stage 10J Petty Cash PDF Pagination Guard
 
 - Petty Cash server PDFs now paginate A5 transaction-detail rows so busy cash sheets no longer omit rows.
@@ -66,7 +72,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 10J Real Excel Import Export Engine and Petty Cash PDF Pagination Guard v4.10.25 (`GARMETIX-10J-20260620-4125`).
+> Current package: Stage 10J Real Excel Import Export Engine and Voucher PDF Download Guard v4.10.26 (`GARMETIX-10J-20260620-4126`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

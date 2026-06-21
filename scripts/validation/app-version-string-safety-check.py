@@ -15,7 +15,7 @@ for const_name in ['APP_STAGE', 'APP_RELEASE_NAME']:
     uses_unsafe_single_quote = bool(re.match(rf"export const {const_name}\s*=\s*'[^']*'[^']*'", line)) or ("Today's" in line and f"{const_name} = '" in line)
     add(f'{const_name} avoids unsafe single-quoted apostrophe literal', bool(line) and not uses_unsafe_single_quote)
 
-allowed_versions = [f"export const APP_VERSION = '4.10.{patch}'" for patch in range(12, 26)]
+allowed_versions = [f"export const APP_VERSION = '4.10.{patch}'" for patch in range(12, 27)]
 add('APP_VERSION remains present', any(version in text for version in allowed_versions))
 add('Stage label preserved', 'Stage 10B Excel Import Export Center' in text or 'Stage 10 Complete Final Acceptance' in text or 'Stage 10G Navigation Menu Coverage' in text or 'Stage 10H Runtime Bug Fix Pack' in text or 'Stage 10I Store Operations Cash Closing Repair' in text or 'Stage 10J Real Excel Import Export Engine' in text)
 

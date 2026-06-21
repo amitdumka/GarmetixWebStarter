@@ -1,10 +1,11 @@
-export const APP_VERSION = '4.10.25'
+export const APP_VERSION = '4.10.26'
 export const APP_STAGE = "Stage 10J Real Excel Import Export Engine"
-export const APP_RELEASE_NAME = "Stage 10J: Real Excel Import Export Engine and Petty Cash PDF Pagination Guard"
+export const APP_RELEASE_NAME = "Stage 10J: Real Excel Import Export Engine and Voucher PDF Download Guard"
 export const APP_BUILD_DATE = '2026-06-20'
-export const APP_BUILD_CODE = 'GARMETIX-10J-20260620-4125'
+export const APP_BUILD_CODE = 'GARMETIX-10J-20260620-4126'
 
 export const APP_HIGHLIGHTS = [
+  'Voucher PDF downloads now use the shared document helper so hosted deployments avoid localhost API URLs and keep cleaner error messages.',
   'Petty Cash PDF now paginates all A5 transaction-detail rows instead of truncating busy cash sheets.',
   'Sale invoice acceptance validation now protects the dedicated full-page invoice flow, draft recovery, compact controls, Manager fallback, payment safety and automatic first print.',
   'Dashboard shell now uses one main vertical scroller with stable panel scrollbars while preserving horizontal table scroll.',

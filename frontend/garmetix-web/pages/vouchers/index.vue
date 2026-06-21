@@ -7,7 +7,6 @@ const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
 const documentPrint = useServerDocumentPrint()
-const config = useRuntimeConfig()
 const isAuthenticated = auth.isAuthenticated
 const canEdit = auth.canEdit
 const canDelete = auth.canDelete
@@ -445,23 +444,10 @@ async function downloadVoucherPdf() {
       reprint: String(isReprint.value),
       signatures: String(includeSignatures.value)
     })
-    const response = await fetch(
-      `${config.public.apiBase}/vouchers/${selectedPrintVoucher.value.id}/pdf?${query.toString()}`,
-      { headers: api.authHeaders() }
+    await documentPrint.downloadPdf(
+      `vouchers/${selectedPrintVoucher.value.id}/pdf?${query.toString()}`,
+      `${selectedPrintVoucher.value.voucherNumber || 'voucher'}.pdf`
     )
-    if (!response.ok) {
-      throw new Error(`Voucher PDF could not be generated (${response.status}).`)
-    }
-
-    const blob = await response.blob()
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `${selectedPrintVoucher.value.voucherNumber || 'voucher'}.pdf`
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
     feedback.notify('Voucher PDF downloaded')
   } catch (error) {
     feedback.failed('Could not download voucher PDF', error)

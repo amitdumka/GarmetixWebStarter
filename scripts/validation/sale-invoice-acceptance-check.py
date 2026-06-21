@@ -28,6 +28,10 @@ version_identity = (
     all(token in app_info for token in ['Version = "4.10.25"', "GARMETIX-10J-20260620-4125"])
     and "APP_VERSION = '4.10.25'" in app_version
     and "<Version>4.10.25</Version>" in csproj
+) or (
+    all(token in app_info for token in ['Version = "4.10.26"', "GARMETIX-10J-20260620-4126"])
+    and "APP_VERSION = '4.10.26'" in app_version
+    and "<Version>4.10.26</Version>" in csproj
 )
 add("version identity", version_identity)
 add(
