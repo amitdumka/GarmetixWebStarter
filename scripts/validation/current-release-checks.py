@@ -4,6 +4,7 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[2]
 checks = [
+    root / 'scripts/validation/import-export-acceptance-check.py',
     root / 'scripts/validation/payroll-acceptance-check.py',
     root / 'scripts/validation/voucher-acceptance-check.py',
     root / 'scripts/validation/petty-cash-acceptance-check.py',
@@ -23,4 +24,4 @@ for check in checks:
     print(f"\n== {check.name} ==")
     subprocess.run([sys.executable, str(check)], cwd=root, check=True)
 
-print("\nCurrent release validation passed for Stage 10J Real Excel Import Export Engine / v4.10.27.")
+print("\nCurrent release validation passed for Stage 10J Real Excel Import Export Engine / v4.10.28.")

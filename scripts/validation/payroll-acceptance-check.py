@@ -22,12 +22,16 @@ app_info = read("backend/Garmetix.Api/AppInfo/AppInfoEndpoints.cs")
 app_version = read("frontend/garmetix-web/utils/appVersion.ts")
 csproj = read("backend/Garmetix.Api/Garmetix.Api.csproj")
 
-add(
-    "version identity",
+version_identity = (
     all(token in app_info for token in ['Version = "4.10.27"', "Payroll PDF Download Guard", "GARMETIX-10J-20260620-4127"])
     and "APP_VERSION = '4.10.27'" in app_version
-    and "<Version>4.10.27</Version>" in csproj,
+    and "<Version>4.10.27</Version>" in csproj
+) or (
+    all(token in app_info for token in ['Version = "4.10.28"', "Import Export Transfer Guard", "GARMETIX-10J-20260620-4128"])
+    and "APP_VERSION = '4.10.28'" in app_version
+    and "<Version>4.10.28</Version>" in csproj
 )
+add("version identity", version_identity)
 add(
     "salary payment download action",
     all(token in page for token in [

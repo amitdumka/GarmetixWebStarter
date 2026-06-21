@@ -1,10 +1,11 @@
-export const APP_VERSION = '4.10.27'
+export const APP_VERSION = '4.10.28'
 export const APP_STAGE = "Stage 10J Real Excel Import Export Engine"
-export const APP_RELEASE_NAME = "Stage 10J: Real Excel Import Export Engine and Payroll PDF Download Guard"
+export const APP_RELEASE_NAME = "Stage 10J: Real Excel Import Export Engine and Import Export Transfer Guard"
 export const APP_BUILD_DATE = '2026-06-20'
-export const APP_BUILD_CODE = 'GARMETIX-10J-20260620-4127'
+export const APP_BUILD_CODE = 'GARMETIX-10J-20260620-4128'
 
 export const APP_HIGHLIGHTS = [
+  'Import/Export CSV download and upload now use hosted-safe API URLs with sanitized CSV filenames.',
   'Salary payment slips now have a direct PDF download action with safe filenames for SPAY voucher numbers.',
   'Voucher PDF downloads now use the shared document helper so hosted deployments avoid localhost API URLs and keep cleaner error messages.',
   'Petty Cash PDF now paginates all A5 transaction-detail rows instead of truncating busy cash sheets.',

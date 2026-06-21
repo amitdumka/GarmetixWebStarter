@@ -27,6 +27,7 @@ if not checks[0][1]:
             ('GARMETIX-10J-20260620-4125' in app_info and "APP_VERSION = '4.10.25'" in app_version and '<Version>4.10.25</Version>' in csproj)
             or ('GARMETIX-10J-20260620-4126' in app_info and "APP_VERSION = '4.10.26'" in app_version and '<Version>4.10.26</Version>' in csproj)
             or ('GARMETIX-10J-20260620-4127' in app_info and "APP_VERSION = '4.10.27'" in app_version and '<Version>4.10.27</Version>' in csproj)
+            or ('GARMETIX-10J-20260620-4128' in app_info and "APP_VERSION = '4.10.28'" in app_version and '<Version>4.10.28</Version>' in csproj)
         )
     ))
 add('day closing uses day open opening', all(token in store_day_api for token in ['DayBegins.AsNoTracking()', 'OpeningBalance = opening', 'Today day opening', "Opening balance is taken from today's Day Open entry"]))

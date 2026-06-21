@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.10.27";
+    public const string Version = "4.10.28";
     public const string Stage = "Stage 10J Real Excel Import Export Engine";
-    public const string ReleaseName = "Stage 10J: Real Excel Import Export Engine and Payroll PDF Download Guard";
+    public const string ReleaseName = "Stage 10J: Real Excel Import Export Engine and Import Export Transfer Guard";
     public const string BuildDate = "2026-06-20";
-    public const string BuildCode = "GARMETIX-10J-20260620-4127";
+    public const string BuildCode = "GARMETIX-10J-20260620-4128";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,7 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Import/Export CSV download and upload now use hosted-safe API URLs with sanitized CSV filenames.",
         "Salary payment slips now have a direct PDF download action with safe filenames for SPAY voucher numbers.",
         "Voucher PDF downloads now use the shared document helper so hosted deployments avoid localhost API URLs and keep cleaner error messages.",
         "Petty Cash PDF now paginates all A5 transaction-detail rows instead of truncating busy cash sheets.",

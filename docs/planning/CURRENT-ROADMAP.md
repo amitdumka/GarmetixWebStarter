@@ -1,11 +1,12 @@
-## v4.10.27 Stage 10J Payroll PDF Download Guard
+## v4.10.28 Stage 10J Import Export Transfer Guard
 
-- Current version: 4.10.27 / `GARMETIX-10J-20260620-4127`.
-- Salary Payment rows now include direct salary payment slip PDF download with safe filenames for SPAY voucher numbers.
-- Added a Payroll acceptance guard for salary payment preview, advance deduction, previous due, rounded payment amount, SPAY numbering, accounting posting, payslip sharing and payroll PDFs.
+- Current version: 4.10.28 / `GARMETIX-10J-20260620-4128`.
+- Import/Export CSV downloads and uploads now use hosted-safe API URL resolution for Cloudflare/reverse-proxy deployments.
+- Added an Import/Export acceptance guard for transfer URLs, CSV filename safety, validate-then-commit workflow and real import engine coverage.
 
 ## Recently Completed Stage 10J Polish
 
+- v4.10.27: Payroll PDF download guard for salary payment slips and safe SPAY filenames.
 - v4.10.26: Voucher PDF download guard for hosted/tunneled deployments and voucher acceptance rules.
 - v4.10.25: Petty Cash PDF pagination guard for full A5 transaction details.
 - v4.10.24: Sale invoice acceptance guard for the dedicated full-page invoice workflow.

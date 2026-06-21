@@ -1,3 +1,9 @@
+## v4.10.28 Stage 10J Import Export Transfer Guard
+
+- Import/Export CSV downloads and uploads now use hosted-safe API URL resolution instead of direct browser-side API base construction.
+- Export/template/error-report CSV filenames are sanitized so module names and server disposition values remain safe on Windows, Linux and macOS.
+- Added current-release validation for Import/Export transfer URLs, CSV filename safety, validate-then-commit workflow and real import engine coverage.
+
 ## v4.10.27 Stage 10J Payroll PDF Download Guard
 
 - Salary Payment rows now include a direct Download action for salary payment slip PDFs.
@@ -78,7 +84,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 10J Real Excel Import Export Engine and Payroll PDF Download Guard v4.10.27 (`GARMETIX-10J-20260620-4127`).
+> Current package: Stage 10J Real Excel Import Export Engine and Import Export Transfer Guard v4.10.28 (`GARMETIX-10J-20260620-4128`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

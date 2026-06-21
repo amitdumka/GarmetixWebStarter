@@ -26,6 +26,7 @@ version_41013 = (all(token in app_info for token in ['Version = "4.10.13"', 'Sta
 version_41013 = version_41013 or (all(token in app_info for token in ['Version = "4.10.25"', 'Stage 10J Real Excel Import Export Engine', 'GARMETIX-10J-20260620-4125']) and "APP_VERSION = '4.10.25'" in app_version and '<Version>4.10.25</Version>' in csproj)
 version_41013 = version_41013 or (all(token in app_info for token in ['Version = "4.10.26"', 'Stage 10J Real Excel Import Export Engine', 'GARMETIX-10J-20260620-4126']) and "APP_VERSION = '4.10.26'" in app_version and '<Version>4.10.26</Version>' in csproj)
 version_41013 = version_41013 or (all(token in app_info for token in ['Version = "4.10.27"', 'Stage 10J Real Excel Import Export Engine', 'GARMETIX-10J-20260620-4127']) and "APP_VERSION = '4.10.27'" in app_version and '<Version>4.10.27</Version>' in csproj)
+version_41013 = version_41013 or (all(token in app_info for token in ['Version = "4.10.28"', 'Stage 10J Real Excel Import Export Engine', 'GARMETIX-10J-20260620-4128']) and "APP_VERSION = '4.10.28'" in app_version and '<Version>4.10.28</Version>' in csproj)
 add('version identity', version_41012 or version_41013)
 add('stage10a endpoint fails safe', all(token in final_endpoint for token in ['try', 'catch (Exception ex)', 'Degraded - review logs', 'CreatePayload']))
 add('production final acceptance page uses allSettled', 'Promise.allSettled' in final_page and 'Some final-acceptance checks failed to load' in final_page)

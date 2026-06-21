@@ -2,7 +2,7 @@
 const api = useGarmetixApi()
 const auth = useAuth()
 const feedback = useUiFeedback()
-const config = useRuntimeConfig()
+const fileTransfer = useServerDocumentPrint()
 const isAuthenticated = auth.isAuthenticated
 
 const companies = ref<any[]>([])
@@ -149,7 +149,7 @@ async function refresh() {
 async function downloadCsv(moduleKey: string, kind: 'export' | 'template') {
   downloading.value = `${kind}:${moduleKey}`
   try {
-    const response = await fetch(`${config.public.apiBase}/import-export/${kind}/${moduleKey}`, {
+    const response = await fetch(fileTransfer.apiUrl(`import-export/${kind}/${moduleKey}`), {
       headers: api.authHeaders()
     })
 
@@ -159,15 +159,8 @@ async function downloadCsv(moduleKey: string, kind: 'export' | 'template') {
 
     const blob = await response.blob()
     const disposition = response.headers.get('content-disposition') || ''
-    const fileName = disposition.match(/filename="?([^";]+)"?/)?.[1] || `Garmetix-${moduleKey}-${kind}.csv`
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = fileName
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
+    const fileName = safeCsvName(parseContentDispositionFileName(disposition), `Garmetix-${moduleKey}-${kind}`)
+    downloadBlob(blob, fileName)
     feedback.notify(kind === 'export' ? 'Export downloaded' : 'Template downloaded', fileName)
   } catch (error) {
     feedback.failed(kind === 'export' ? 'Export failed' : 'Template failed', error)
@@ -207,7 +200,7 @@ async function uploadCsv(commit: boolean) {
     const form = new FormData()
     form.append('file', selectedFile.value)
 
-    const response = await fetch(`${config.public.apiBase}/import-export/import/${selectedModule.value}?commit=${commit}`, {
+    const response = await fetch(fileTransfer.apiUrl(`import-export/import/${selectedModule.value}?commit=${commit}`), {
       method: 'POST',
       headers: api.authHeaders(),
       body: form
@@ -251,15 +244,44 @@ function downloadErrorReport() {
   ]
   const csv = rows.map((row) => row.map(escapeCsv).join(',')).join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  downloadBlob(blob, safeCsvName(`Garmetix-${selectedModule.value}-import-errors`, 'Garmetix-import-errors'))
+  feedback.notify('Error report downloaded')
+}
+
+function parseContentDispositionFileName(disposition: string) {
+  const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1]
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded)
+    } catch {
+      return encoded
+    }
+  }
+
+  return disposition.match(/filename="?([^";]+)"?/i)?.[1] || ''
+}
+
+function safeCsvName(value: unknown, fallback: string) {
+  const stem = String(value || fallback)
+    .replace(/\.csv$/i, '')
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+
+  return `${stem || fallback}.csv`
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `Garmetix-${selectedModule.value}-import-errors.csv`
+  link.download = fileName
   document.body.appendChild(link)
   link.click()
   link.remove()
   URL.revokeObjectURL(url)
-  feedback.notify('Error report downloaded')
 }
 
 function moduleInfo(key: string) {

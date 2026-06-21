@@ -29,6 +29,10 @@ version_identity = (
     all(token in app_info for token in ['Version = "4.10.27"', "Payroll PDF Download Guard", "GARMETIX-10J-20260620-4127"])
     and "APP_VERSION = '4.10.27'" in app_version
     and "<Version>4.10.27</Version>" in csproj
+) or (
+    all(token in app_info for token in ['Version = "4.10.28"', "Import Export Transfer Guard", "GARMETIX-10J-20260620-4128"])
+    and "APP_VERSION = '4.10.28'" in app_version
+    and "<Version>4.10.28</Version>" in csproj
 )
 add("version identity", version_identity)
 add(
