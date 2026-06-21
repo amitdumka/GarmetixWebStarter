@@ -3,6 +3,7 @@ using Garmetix.Api.AppInfo;
 using Garmetix.Api.Attendance.Dtos;
 using Garmetix.Api.Attendance.Services;
 using Garmetix.Api.Auth;
+using Garmetix.Api.Messages;
 using Garmetix.Api.Numbering;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
@@ -38,6 +39,10 @@ public static class AttendanceEndpoints
         group.MapGet("/salary-payment-candidates", SalaryPaymentCandidatesAsync);
         group.MapPost("/salary-payments/generate", GenerateSalaryPaymentsFromDraftsAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapGet("/device-bridge/status", DeviceBridgeStatusAsync);
+        group.MapGet("/device-bridge/simulator/health", DeviceBridgeSimulatorHealthAsync);
+        group.MapPost("/device-bridge/simulator/capture", DeviceBridgeSimulatorCaptureAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapPost("/device-bridge/simulator/identify", DeviceBridgeSimulatorIdentifyAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapPost("/device-bridge/simulator/enroll", DeviceBridgeSimulatorEnrollAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapGet("/mobile-kiosk/status", MobileKioskStatusAsync);
         group.MapGet("/mobile-kiosk/offline-contract", MobileKioskOfflineContractAsync);
         group.MapGet("/mobile-kiosk/rehearsal", MobileKioskRehearsalAsync);
@@ -1275,6 +1280,7 @@ public static class AttendanceEndpoints
             status = "ContractReady",
             title = "Vendor-neutral fingerprint bridge contract",
             fingerprintBridgeEnabled = false,
+            simulatorBridgeEnabled = true,
             rawFingerprintStorageAllowed = false,
             matchingLocation = "Vendor SDK or approved local bridge only; Garmetix stores employee consent, device audit and template reference IDs, not raw fingerprint images.",
             supportedBridgeInputs = new[]
@@ -1337,6 +1343,13 @@ public static class AttendanceEndpoints
                     "auditRef"
                 }
             },
+            simulatorRoutes = new[]
+            {
+                "/api/attendance/device-bridge/simulator/health",
+                "/api/attendance/device-bridge/simulator/capture",
+                "/api/attendance/device-bridge/simulator/identify",
+                "/api/attendance/device-bridge/simulator/enroll"
+            },
             privacyRules = new[]
             {
                 "Do not store raw fingerprint image, WSQ, ISO template or minutiae in Garmetix database.",
@@ -1347,9 +1360,10 @@ public static class AttendanceEndpoints
             },
             implementationChecklist = new[]
             {
+                "Run simulator health, capture, identify and enroll from this page.",
+                "Verify simulator success and failure entries appear in Message Logs.",
                 "Choose one fingerprint reader model and obtain official SDK/license.",
                 "Build a small local bridge service for Windows/Mac/Android depending on selected hardware.",
-                "Add simulator adapter first so UI, logs and attendance punch flow can be tested.",
                 "Map successful identify/enroll responses to EmployeeBiometricEnrollment template reference fields.",
                 "Add kiosk punch mode that requires fingerprint match before posting attendance punch.",
                 "Run privacy review before enabling live biometric matching at any store."
@@ -1373,12 +1387,144 @@ public static class AttendanceEndpoints
             nextAfterThisPart = new[]
             {
                 "Select fingerprint hardware/vendor SDK.",
-                "Implement simulator bridge service and API handshake.",
                 "Implement the selected vendor adapter.",
                 "Wire kiosk punch flow to require fingerprint match for configured stores.",
                 "Keep face/liveness work separate for Stage 11C."
             }
         });
+
+    private static IResult DeviceBridgeSimulatorHealthAsync()
+        => Results.Ok(new
+        {
+            success = true,
+            bridgeMode = "Simulator",
+            vendor = "Garmetix Simulator",
+            deviceSerial = "SIM-FP-0001",
+            version = AppInfoEndpoints.Version,
+            stage = AppInfoEndpoints.Stage,
+            generatedAtUtc = DateTimeOffset.UtcNow,
+            endpoints = new[] { "capture", "identify", "enroll" },
+            rawPayloadStored = false,
+            message = "Fingerprint simulator bridge is ready. No biometric payload is captured or stored."
+        });
+
+    private static Task<IResult> DeviceBridgeSimulatorCaptureAsync(
+        FingerprintBridgeSimulatorRequest request,
+        HttpContext context,
+        ApplicationMessageLogService logs,
+        CancellationToken cancellationToken)
+        => RunFingerprintBridgeSimulatorAsync("Capture", request, context, logs, cancellationToken);
+
+    private static Task<IResult> DeviceBridgeSimulatorIdentifyAsync(
+        FingerprintBridgeSimulatorRequest request,
+        HttpContext context,
+        ApplicationMessageLogService logs,
+        CancellationToken cancellationToken)
+        => RunFingerprintBridgeSimulatorAsync("Identify", request, context, logs, cancellationToken);
+
+    private static Task<IResult> DeviceBridgeSimulatorEnrollAsync(
+        FingerprintBridgeSimulatorRequest request,
+        HttpContext context,
+        ApplicationMessageLogService logs,
+        CancellationToken cancellationToken)
+        => RunFingerprintBridgeSimulatorAsync("Enroll", request, context, logs, cancellationToken);
+
+    private static async Task<IResult> RunFingerprintBridgeSimulatorAsync(
+        string operation,
+        FingerprintBridgeSimulatorRequest request,
+        HttpContext context,
+        ApplicationMessageLogService logs,
+        CancellationToken cancellationToken)
+    {
+        var scenario = string.IsNullOrWhiteSpace(request.Scenario) ? "Success" : request.Scenario.Trim();
+        var forcedFailure = scenario.Equals("Fail", StringComparison.OrdinalIgnoreCase)
+            || scenario.Equals("Failure", StringComparison.OrdinalIgnoreCase)
+            || scenario.Equals("Timeout", StringComparison.OrdinalIgnoreCase);
+        var auditRef = Guid.NewGuid();
+        var capturedAtUtc = DateTimeOffset.UtcNow;
+        var qualityScore = forcedFailure ? 0 : operation.Equals("Capture", StringComparison.OrdinalIgnoreCase) ? 82 : 91;
+        Guid? employeeId = request.EmployeeId is { } id && id != Guid.Empty ? id : null;
+        var employeeCode = string.IsNullOrWhiteSpace(request.EmployeeCode) ? "SIM-EMP-001" : request.EmployeeCode.Trim();
+        var employeeName = string.IsNullOrWhiteSpace(request.EmployeeName) ? "Simulator Employee" : request.EmployeeName.Trim();
+        var templateRef = forcedFailure ? null : $"sim-template-{employeeCode.ToLowerInvariant()}";
+        var matchStatus = forcedFailure
+            ? "Failed"
+            : operation.Equals("Capture", StringComparison.OrdinalIgnoreCase)
+                ? "Captured"
+                : operation.Equals("Enroll", StringComparison.OrdinalIgnoreCase)
+                    ? "Enrolled"
+                    : "Matched";
+
+        var result = new FingerprintBridgeSimulatorResultDto(
+            !forcedFailure,
+            forcedFailure
+                ? $"{operation} simulator returned a controlled failure. Check Message Logs for sanitized details."
+                : $"{operation} simulator completed. No raw biometric payload was stored.",
+            "Simulator",
+            "Garmetix Simulator",
+            "SIM-FP-0001",
+            matchStatus,
+            employeeId,
+            employeeCode,
+            employeeName,
+            templateRef,
+            qualityScore,
+            capturedAtUtc,
+            auditRef,
+            false,
+            forcedFailure
+                ? ["No biometric payload was captured. Failure is generated by simulator scenario."]
+                : ["Simulator response only; not a real fingerprint match.", "Raw biometric storage remains blocked."]);
+
+        var logDetails = new
+        {
+            operation,
+            scenario,
+            result.BridgeMode,
+            result.Vendor,
+            result.DeviceSerial,
+            result.MatchStatus,
+            result.EmployeeId,
+            result.EmployeeCode,
+            result.TemplateRef,
+            result.QualityScore,
+            result.AuditRef,
+            result.RawPayloadStored
+        };
+
+        if (forcedFailure)
+        {
+            await logs.ErrorAsync(
+                "Attendance Fingerprint Bridge",
+                $"Simulator{operation}Failed",
+                result.Message,
+                logDetails,
+                request.CompanyId ?? WorkspaceScope.ClaimGuid(context, "companyId"),
+                request.StoreGroupId ?? WorkspaceScope.ClaimGuid(context, "storeGroupId"),
+                request.StoreId ?? WorkspaceScope.ClaimGuid(context, "storeId"),
+                null,
+                context.User.Identity?.Name,
+                "/attendance/device-bridge",
+                auditRef,
+                cancellationToken);
+            return Results.Ok(result);
+        }
+
+        await logs.SuccessAsync(
+            "Attendance Fingerprint Bridge",
+            $"Simulator{operation}Succeeded",
+            result.Message,
+            logDetails,
+            request.CompanyId ?? WorkspaceScope.ClaimGuid(context, "companyId"),
+            request.StoreGroupId ?? WorkspaceScope.ClaimGuid(context, "storeGroupId"),
+            request.StoreId ?? WorkspaceScope.ClaimGuid(context, "storeId"),
+            null,
+            context.User.Identity?.Name,
+            "/attendance/device-bridge",
+            auditRef,
+            cancellationToken);
+        return Results.Ok(result);
+    }
 
     private static IResult MobileKioskStatusAsync()
         => Results.Ok(new
@@ -1402,8 +1548,8 @@ public static class AttendanceEndpoints
                 },
                 startupModel = "Application.CreateWindow with NavigationPage root",
                 androidPackageId = "com.garmetix.attendancekiosk",
-                androidDisplayVersion = "4.11.3",
-                androidVersionCode = 4113
+                androidDisplayVersion = "4.11.4",
+                androidVersionCode = 4114
             },
             packageAdvisories = new[]
             {

@@ -396,6 +396,32 @@ public sealed record AttendanceDeviceBridgeStatusDto(
     IReadOnlyList<string> SupportedBridgeInputs,
     IReadOnlyList<string> LaterImplementationItems);
 
+public sealed record FingerprintBridgeSimulatorRequest(
+    string? Scenario,
+    Guid? EmployeeId,
+    string? EmployeeCode,
+    string? EmployeeName,
+    Guid? CompanyId,
+    Guid? StoreGroupId,
+    Guid? StoreId);
+
+public sealed record FingerprintBridgeSimulatorResultDto(
+    bool Success,
+    string Message,
+    string BridgeMode,
+    string Vendor,
+    string DeviceSerial,
+    string MatchStatus,
+    Guid? EmployeeId,
+    string EmployeeCode,
+    string EmployeeName,
+    string? TemplateRef,
+    int QualityScore,
+    DateTimeOffset CapturedAtUtc,
+    Guid AuditRef,
+    bool RawPayloadStored,
+    IReadOnlyList<string> Warnings);
+
 public sealed record AttendanceFinalAcceptanceDto(
     string Version,
     string Stage,

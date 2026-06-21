@@ -92,9 +92,9 @@ version_identity = (
     and "APP_VERSION = '4.11.1'" in app_version
     and '<Version>4.11.1</Version>' in csproj
 ) or (
-    all(token in app_info for token in ['Version = "4.11.3"', 'Stage 11B Fingerprint Bridge Contract', 'GARMETIX-11B-20260621-4113'])
-    and "APP_VERSION = '4.11.3'" in app_version
-    and '<Version>4.11.3</Version>' in csproj
+    all(token in app_info for token in ['Version = "4.11.4"', 'Stage 11B-2 Fingerprint Bridge Simulator', 'GARMETIX-11B-20260621-4114'])
+    and "APP_VERSION = '4.11.4'" in app_version
+    and '<Version>4.11.4</Version>' in csproj
 )
 add('version identity', version_identity)
 add('new master modules', all(token in import_export for token in ['["products"]', '["customers"]', '["vendors"]', '["stock-opening"]']))

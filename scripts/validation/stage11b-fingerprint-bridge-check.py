@@ -27,17 +27,17 @@ app_shell = read("frontend/garmetix-web/components/AppShell.vue")
 legacy_shell = read("frontend/garmetix-web/components/AppShellLegacy.vue")
 readme = read("README.md")
 roadmap = read("docs/planning/CURRENT-ROADMAP.md")
-operations_doc = read("docs/operations/Stage11B-Fingerprint-Bridge-Contract-v4.11.3.md")
+operations_doc = read("docs/operations/Stage11B2-Fingerprint-Bridge-Simulator-v4.11.4.md")
 
 add(
     "version identity",
-    all(token in app_info for token in ['Version = "4.11.3"', "Stage 11B Fingerprint Bridge Contract", "GARMETIX-11B-20260621-4113"])
-    and "APP_VERSION = '4.11.3'" in app_version
-    and "Stage 11B Fingerprint Bridge Contract" in app_version
-    and "GARMETIX-11B-20260621-4113" in app_version
-    and "<Version>4.11.3</Version>" in api_project
-    and "<ApplicationDisplayVersion>4.11.3</ApplicationDisplayVersion>" in kiosk_project
-    and "<ApplicationVersion>4113</ApplicationVersion>" in kiosk_project,
+    all(token in app_info for token in ['Version = "4.11.4"', "Stage 11B-2 Fingerprint Bridge Simulator", "GARMETIX-11B-20260621-4114"])
+    and "APP_VERSION = '4.11.4'" in app_version
+    and "Stage 11B-2 Fingerprint Bridge Simulator" in app_version
+    and "GARMETIX-11B-20260621-4114" in app_version
+    and "<Version>4.11.4</Version>" in api_project
+    and "<ApplicationDisplayVersion>4.11.4</ApplicationDisplayVersion>" in kiosk_project
+    and "<ApplicationVersion>4114</ApplicationVersion>" in kiosk_project,
 )
 add(
     "device bridge endpoint contract",
@@ -54,11 +54,29 @@ add(
     and "Message Logs" in attendance_endpoints,
 )
 add(
+    "simulator endpoint contract",
+    'group.MapGet("/device-bridge/simulator/health", DeviceBridgeSimulatorHealthAsync)' in attendance_endpoints
+    and 'group.MapPost("/device-bridge/simulator/capture", DeviceBridgeSimulatorCaptureAsync)' in attendance_endpoints
+    and 'group.MapPost("/device-bridge/simulator/identify", DeviceBridgeSimulatorIdentifyAsync)' in attendance_endpoints
+    and 'group.MapPost("/device-bridge/simulator/enroll", DeviceBridgeSimulatorEnrollAsync)' in attendance_endpoints
+    and "FingerprintBridgeSimulatorRequest" in attendance_endpoints
+    and "FingerprintBridgeSimulatorResultDto" in attendance_endpoints
+    and "RawPayloadStored" in attendance_endpoints
+    and "logs.SuccessAsync" in attendance_endpoints
+    and "logs.ErrorAsync" in attendance_endpoints,
+)
+add(
     "fingerprint bridge page",
     "Fingerprint Bridge" in device_bridge_page
     and "Stage 11B defines the vendor-neutral fingerprint bridge contract" in device_bridge_page
     and "adapterCandidates" in device_bridge_page
     and "bridgeContract" in device_bridge_page
+    and "Simulator handshake" in device_bridge_page
+    and "deviceBridgeSimulatorHealth" in device_bridge_page
+    and "deviceBridgeSimulatorCapture" in device_bridge_page
+    and "deviceBridgeSimulatorIdentify" in device_bridge_page
+    and "deviceBridgeSimulatorEnroll" in device_bridge_page
+    and "rawPayloadStored" in device_bridge_page
     and "privacyRules" in device_bridge_page
     and "implementationChecklist" in device_bridge_page
     and "rehearsalSteps" in device_bridge_page
@@ -75,13 +93,14 @@ add(
 )
 add(
     "docs and roadmap",
-    exists("docs/operations/Stage11B-Fingerprint-Bridge-Contract-v4.11.3.md")
-    and "Stage 11B Fingerprint Bridge Contract" in readme
-    and "Stage 11B Fingerprint Bridge Contract" in roadmap
+    exists("docs/operations/Stage11B2-Fingerprint-Bridge-Simulator-v4.11.4.md")
+    and "Stage 11B-2 Fingerprint Bridge Simulator" in readme
+    and "Stage 11B-2 Fingerprint Bridge Simulator" in roadmap
     and "Select fingerprint hardware/vendor SDK" in roadmap
-    and "Raw fingerprint images must not be stored in Garmetix" in operations_doc
-    and "Simulator adapter" in operations_doc
-    and "Stage 11B-2 simulator/local bridge handshake" in operations_doc,
+    and "rawPayloadStored = false" in operations_doc
+    and "Controlled failure scenario" in operations_doc
+    and "Message Logs" in operations_doc
+    and "Select fingerprint hardware and SDK" in operations_doc,
 )
 
 failed = [name for name, ok in checks if not ok]

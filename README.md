@@ -1,3 +1,9 @@
+## v4.11.4 Stage 11B-2 Fingerprint Bridge Simulator
+
+- Added simulator routes for fingerprint bridge health, capture, identify and enroll under `/api/attendance/device-bridge/simulator/*`.
+- Added simulator controls to `/attendance/device-bridge` so success and controlled failure handshakes can be tested before hardware SDK integration.
+- Simulator events write sanitized Message Logs and keep `rawPayloadStored` false.
+
 ## v4.11.3 Stage 11B Fingerprint Bridge Contract
 
 - Upgraded `/attendance/device-bridge` into the Stage 11B Fingerprint Bridge page with adapter candidates, bridge API contract, privacy rules, blockers and next actions.
@@ -126,7 +132,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 11B Vendor-Neutral Fingerprint Bridge Contract v4.11.3 (`GARMETIX-11B-20260621-4113`).
+> Current package: Stage 11B-2 Fingerprint Bridge Simulator Handshake v4.11.4 (`GARMETIX-11B-20260621-4114`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

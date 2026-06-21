@@ -2,7 +2,10 @@
 const reports = useAttendanceReports()
 const feedback = useUiFeedback()
 const loading = ref(false)
+const runningSimulator = ref('')
 const status = ref<any | null>(null)
+const simulatorHealth = ref<any | null>(null)
+const simulatorResult = ref<any | null>(null)
 
 const summaryCards = computed(() => [
   { label: 'Status', value: status.value?.status || 'Loading', detail: status.value?.buildCode || '-', icon: 'i-lucide-fingerprint' },
@@ -14,11 +17,43 @@ const summaryCards = computed(() => [
 async function refresh() {
   loading.value = true
   try {
-    status.value = await reports.deviceBridgeStatus()
+    const [statusResult, healthResult] = await Promise.allSettled([
+      reports.deviceBridgeStatus(),
+      reports.deviceBridgeSimulatorHealth()
+    ])
+    if (statusResult.status === 'fulfilled') status.value = statusResult.value
+    else throw statusResult.reason
+    if (healthResult.status === 'fulfilled') simulatorHealth.value = healthResult.value
   } catch (error: any) {
     feedback.fromError('Fingerprint bridge status failed', error)
   } finally {
     loading.value = false
+  }
+}
+
+async function runSimulator(action: 'capture' | 'identify' | 'enroll', scenario = 'Success') {
+  runningSimulator.value = `${action}-${scenario}`
+  try {
+    const body = {
+      scenario,
+      employeeCode: 'SIM-EMP-001',
+      employeeName: 'Simulator Employee'
+    }
+    const runners: Record<string, (payload: any) => Promise<any>> = {
+      capture: reports.deviceBridgeSimulatorCapture,
+      identify: reports.deviceBridgeSimulatorIdentify,
+      enroll: reports.deviceBridgeSimulatorEnroll
+    }
+    simulatorResult.value = await runners[action](body)
+    if (simulatorResult.value?.success) {
+      feedback.success('Simulator handshake completed', simulatorResult.value.message)
+    } else {
+      feedback.notify('Simulator returned controlled failure', simulatorResult.value?.message || 'Check Message Logs for sanitized details.', 'warning')
+    }
+  } catch (error: any) {
+    feedback.fromError('Fingerprint simulator failed', error)
+  } finally {
+    runningSimulator.value = ''
   }
 }
 
@@ -93,6 +128,63 @@ onMounted(refresh)
           </div>
         </UCard>
       </div>
+
+      <UCard>
+        <template #header>
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-semibold">Simulator handshake</h2>
+              <p class="text-sm text-muted">Run safe bridge responses before a real fingerprint reader is selected.</p>
+            </div>
+            <UBadge color="success" variant="soft">{{ simulatorHealth?.bridgeMode || 'Simulator' }}</UBadge>
+          </div>
+        </template>
+        <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+          <div class="space-y-3">
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Health</p>
+              <p class="mt-1 text-sm font-medium">{{ simulatorHealth?.message || 'Health not loaded yet.' }}</p>
+              <p class="mt-1 text-xs text-muted">{{ simulatorHealth?.deviceSerial || 'SIM-FP-0001' }}</p>
+            </div>
+            <div class="grid gap-2 sm:grid-cols-2">
+              <UButton icon="i-lucide-scan-line" label="Capture" :loading="runningSimulator === 'capture-Success'" @click="runSimulator('capture')" />
+              <UButton icon="i-lucide-search-check" label="Identify" :loading="runningSimulator === 'identify-Success'" @click="runSimulator('identify')" />
+              <UButton icon="i-lucide-user-plus" label="Enroll" :loading="runningSimulator === 'enroll-Success'" @click="runSimulator('enroll')" />
+              <UButton icon="i-lucide-triangle-alert" label="Test Failure" color="warning" variant="subtle" :loading="runningSimulator === 'identify-Fail'" @click="runSimulator('identify', 'Fail')" />
+            </div>
+          </div>
+          <div class="rounded-lg border border-default p-3">
+            <p class="text-xs uppercase text-muted">Last simulator result</p>
+            <div v-if="simulatorResult" class="mt-3 grid gap-2 sm:grid-cols-2">
+              <div class="rounded-lg border border-default p-3">
+                <p class="text-xs text-muted">Status</p>
+                <p class="font-medium">{{ simulatorResult.success ? 'Success' : 'Controlled Failure' }}</p>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <p class="text-xs text-muted">Match</p>
+                <p class="font-medium">{{ simulatorResult.matchStatus }}</p>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <p class="text-xs text-muted">Quality</p>
+                <p class="font-medium">{{ simulatorResult.qualityScore }}</p>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <p class="text-xs text-muted">Raw Payload Stored</p>
+                <p class="font-medium">{{ simulatorResult.rawPayloadStored ? 'Yes' : 'No' }}</p>
+              </div>
+              <div class="rounded-lg border border-default p-3 sm:col-span-2">
+                <p class="text-xs text-muted">Audit Ref</p>
+                <code class="mt-1 block break-all text-xs">{{ simulatorResult.auditRef }}</code>
+              </div>
+              <div class="rounded-lg border border-default p-3 sm:col-span-2">
+                <p class="text-xs text-muted">Message</p>
+                <p class="mt-1 text-sm">{{ simulatorResult.message }}</p>
+              </div>
+            </div>
+            <p v-else class="mt-3 text-sm text-muted">Run a simulator action to view the bridge response and Message Logs audit reference.</p>
+          </div>
+        </div>
+      </UCard>
 
       <UCard>
         <template #header>

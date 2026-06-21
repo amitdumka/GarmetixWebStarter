@@ -13,6 +13,10 @@ export function useAttendanceReports() {
     salaryPaymentCandidates: attendance.salaryPaymentCandidates,
     generateSalaryPaymentsFromDrafts: attendance.generateSalaryPaymentsFromDrafts,
     deviceBridgeStatus: attendance.deviceBridgeStatus,
+    deviceBridgeSimulatorHealth: attendance.deviceBridgeSimulatorHealth,
+    deviceBridgeSimulatorCapture: attendance.deviceBridgeSimulatorCapture,
+    deviceBridgeSimulatorIdentify: attendance.deviceBridgeSimulatorIdentify,
+    deviceBridgeSimulatorEnroll: attendance.deviceBridgeSimulatorEnroll,
     finalAcceptance: attendance.finalAcceptance,
     recalculate: attendance.recalculate,
     lockMonth: attendance.lockMonth

@@ -4,10 +4,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);AD0001</NoWarn>
-    <Version>4.11.3</Version>
-    <AssemblyVersion>4.11.3.0</AssemblyVersion>
-    <FileVersion>4.11.3.0</FileVersion>
-    <InformationalVersion>4.11.3-stage11b-fingerprint-bridge-contract</InformationalVersion>
+    <Version>4.11.4</Version>
+    <AssemblyVersion>4.11.4.0</AssemblyVersion>
+    <FileVersion>4.11.4.0</FileVersion>
+    <InformationalVersion>4.11.4-stage11b2-fingerprint-bridge-simulator</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
