@@ -22,9 +22,16 @@ csproj = read("backend/Garmetix.Api/Garmetix.Api.csproj")
 
 add(
     "version identity",
-    all(token in app_info for token in ['Version = "4.10.28"', "Import Export Transfer Guard", "GARMETIX-10J-20260620-4128"])
-    and "APP_VERSION = '4.10.28'" in app_version
-    and "<Version>4.10.28</Version>" in csproj,
+    (
+        all(token in app_info for token in ['Version = "4.10.28"', "Import Export Transfer Guard", "GARMETIX-10J-20260620-4128"])
+        and "APP_VERSION = '4.10.28'" in app_version
+        and "<Version>4.10.28</Version>" in csproj
+    )
+    or (
+        all(token in app_info for token in ['Version = "4.10.29"', "Stage 10K Production Operator Acceptance", "GARMETIX-10K-20260620-4129"])
+        and "APP_VERSION = '4.10.29'" in app_version
+        and "<Version>4.10.29</Version>" in csproj
+    ),
 )
 add(
     "hosted-safe transfer urls",

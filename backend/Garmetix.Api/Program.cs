@@ -297,6 +297,7 @@ app.MapStage10CompleteEndpoints();
 app.MapRuntimeDiagnosticsEndpoints();
 app.MapPermissionAcceptanceEndpoints();
 app.MapStage10AFinalAcceptanceEndpoints();
+app.MapStage10KOperatorAcceptanceEndpoints();
 app.MapEmailDeliveryDiagnosticsEndpoints();
 app.MapLicenseEndpoints();
 app.MapReleaseStabilizationEndpoints();

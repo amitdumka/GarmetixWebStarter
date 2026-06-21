@@ -1,3 +1,9 @@
+## v4.10.29 Stage 10K Production Operator Acceptance
+
+- Added `/stage10k-operator-acceptance` as an Admin/Owner production rehearsal checklist for store opening, billing, petty cash, purchase, vouchers, HR/payroll, backup and support.
+- Added `/api/stage10k/operator-acceptance` and `/api/stage10k/operator-acceptance/checklist` so the page has a stable backend contract.
+- Added current-release validation for Stage 10K endpoint registration, route access, sidebar discovery, version identity and operator checklist coverage.
+
 ## v4.10.28 Stage 10J Import Export Transfer Guard
 
 - Import/Export CSV downloads and uploads now use hosted-safe API URL resolution instead of direct browser-side API base construction.
@@ -84,7 +90,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 10J Real Excel Import Export Engine and Import Export Transfer Guard v4.10.28 (`GARMETIX-10J-20260620-4128`).
+> Current package: Stage 10K Production Operator Acceptance Checklist v4.10.29 (`GARMETIX-10K-20260620-4129`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

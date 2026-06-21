@@ -1,11 +1,13 @@
-## v4.10.28 Stage 10J Import Export Transfer Guard
+## v4.10.29 Stage 10K Production Operator Acceptance
 
-- Current version: 4.10.28 / `GARMETIX-10J-20260620-4128`.
-- Import/Export CSV downloads and uploads now use hosted-safe API URL resolution for Cloudflare/reverse-proxy deployments.
-- Added an Import/Export acceptance guard for transfer URLs, CSV filename safety, validate-then-commit workflow and real import engine coverage.
+- Current version: 4.10.29 / `GARMETIX-10K-20260620-4129`.
+- Added a production operator acceptance page for daily store opening, billing, cash closing, purchase, voucher/accounting, HR/payroll, backup and support rehearsal.
+- Added `/api/stage10k/operator-acceptance` and `/api/stage10k/operator-acceptance/checklist` for the guided acceptance contract.
+- Added current-release validation for Stage 10K route, menu, access, version and checklist coverage.
 
 ## Recently Completed Stage 10J Polish
 
+- v4.10.28: Import/Export transfer guard for hosted-safe upload/download URLs and sanitized CSV filenames.
 - v4.10.27: Payroll PDF download guard for salary payment slips and safe SPAY filenames.
 - v4.10.26: Voucher PDF download guard for hosted/tunneled deployments and voucher acceptance rules.
 - v4.10.25: Petty Cash PDF pagination guard for full A5 transaction details.
@@ -28,8 +30,8 @@ python scripts/validation/current-release-checks.py
 
 ### Next Recommended Roadmap
 
-1. Stage 10J final bug sweep: run user-reported production flows module by module, starting with sale invoice, petty cash, vouchers, payroll and import/export.
-2. Stage 10K production operator acceptance: create a guided page/checklist for daily store operations, billing, cash closing, payroll, backup and restore.
+1. Stage 10K operator rehearsal hardening: run the checklist on a real store-day dataset and fix any save/print/access issue found.
+2. Stage 10L production support pack: add operator-friendly troubleshooting drill pages for failed save, failed print, backup warning, email failure and tunnel/API mismatch.
 3. Stage 11A MAUI/Android Attendance Kiosk shell with local SQLite offline queue.
 4. Stage 11B Fingerprint device bridge after hardware/vendor SDK selection.
 5. Stage 11C Face recognition/liveness proof of concept after consent, retention and privacy controls.
