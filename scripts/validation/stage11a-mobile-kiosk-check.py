@@ -35,6 +35,7 @@ api_project = read("backend/Garmetix.Api/Garmetix.Api.csproj")
 readme = read("README.md")
 roadmap = read("docs/planning/CURRENT-ROADMAP.md")
 operations_doc = read("docs/operations/Stage11A-Mobile-Attendance-Kiosk-v4.11.0.md")
+build_doc = read("docs/operations/Stage11A-Android-Build-Hardening-v4.11.1.md")
 current_release = read("scripts/validation/current-release-checks.py")
 
 mobile_files = [
@@ -50,19 +51,24 @@ mobile_files = [
 add("mobile shell files exist", all(exists(path) for path in mobile_files))
 add(
     "version identity",
-    all(token in app_info for token in ['Version = "4.11.0"', "Stage 11A MAUI Android Attendance Kiosk Shell", "GARMETIX-11A-20260621-4110"])
-    and "APP_VERSION = '4.11.0'" in app_version
-    and "Stage 11A MAUI Android Attendance Kiosk Shell" in app_version
-    and "GARMETIX-11A-20260621-4110" in app_version
-    and "<Version>4.11.0</Version>" in api_project,
+    all(token in app_info for token in ['Version = "4.11.1"', "Stage 11A Android Build Hardening", "GARMETIX-11A-20260621-4111"])
+    and "APP_VERSION = '4.11.1'" in app_version
+    and "Stage 11A Android Build Hardening" in app_version
+    and "GARMETIX-11A-20260621-4111" in app_version
+    and "<Version>4.11.1</Version>" in api_project,
 )
 add(
     "maui android shell contract",
     "net10.0-android" in csproj
     and "<UseMaui>true</UseMaui>" in csproj
     and "Microsoft.Data.Sqlite" in csproj
+    and "Microsoft.Maui.Controls" in csproj
+    and "<ApplicationDisplayVersion>4.11.1</ApplicationDisplayVersion>" in csproj
+    and "<ApplicationVersion>4111</ApplicationVersion>" in csproj
     and "UseMauiApp<App>()" in maui_program
     and "KioskShellPage" in app
+    and "CreateWindow" in app
+    and "MainPage =" not in app
     and "KioskApiClient" in maui_program
     and "OfflinePunchQueue" in maui_program,
 )
@@ -103,6 +109,10 @@ add(
     'group.MapGet("/mobile-kiosk/status", MobileKioskStatusAsync)' in attendance_endpoints
     and 'group.MapGet("/mobile-kiosk/offline-contract", MobileKioskOfflineContractAsync)' in attendance_endpoints
     and "SQLite local pending_punches table" in attendance_endpoints
+    and "buildCommand" in attendance_endpoints
+    and "expectedArtifacts" in attendance_endpoints
+    and "SQLitePCLRaw.lib.e_sqlite3.android" in attendance_endpoints
+    and "Application.CreateWindow with NavigationPage root" in attendance_endpoints
     and "sync-pending" in attendance_endpoints
     and "photo-proof" in attendance_endpoints,
 )
@@ -112,6 +122,9 @@ add(
     and "attendance/mobile-kiosk/offline-contract" in attendance_composable
     and "Mobile Attendance Kiosk" in web_page
     and "SQLite offline queue" in web_page
+    and "Android build profile" in web_page
+    and "Package advisories" in web_page
+    and "expectedArtifacts" in web_page
     and "acceptanceChecks" in web_page
     and "safetyRules" in web_page,
 )
@@ -126,10 +139,17 @@ add(
 add(
     "docs and current release validation",
     "stage11a-mobile-kiosk-check.py" in current_release
-    and "Stage 11A MAUI Android Attendance Kiosk Shell" in readme
-    and "Stage 11A MAUI Android Attendance Kiosk Shell" in roadmap
+    and "Stage 11A Android Build Hardening" in readme
+    and "Stage 11A Android Build Hardening" in roadmap
     and "GET /api/attendance/mobile-kiosk/status" in operations_doc
     and "GET /api/attendance/mobile-kiosk/offline-contract" in operations_doc,
+)
+add(
+    "build hardening docs",
+    "Application.CreateWindow" in build_doc
+    and "com.garmetix.attendancekiosk-Signed.apk" in build_doc
+    and "SQLitePCLRaw.lib.e_sqlite3.android 2.1.11" in build_doc
+    and "Physical Tablet Rehearsal" in build_doc,
 )
 
 failed = [name for name, ok in checks if not ok]

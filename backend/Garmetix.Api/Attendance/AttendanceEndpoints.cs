@@ -1284,6 +1284,31 @@ public static class AttendanceEndpoints
             target = "net10.0-android",
             queueProvider = "SQLite local pending_punches table",
             apiBaseConfiguration = "Operator enters hosted API URL or LAN URL during device setup.",
+            buildProfile = new
+            {
+                buildCommand = "dotnet build apps/Garmetix.AttendanceKiosk/Garmetix.AttendanceKiosk.csproj -f net10.0-android -c Release",
+                expectedArtifacts = new[]
+                {
+                    "apps/Garmetix.AttendanceKiosk/bin/Release/net10.0-android/com.garmetix.attendancekiosk-Signed.apk",
+                    "apps/Garmetix.AttendanceKiosk/bin/Release/net10.0-android/com.garmetix.attendancekiosk-Signed.aab"
+                },
+                startupModel = "Application.CreateWindow with NavigationPage root",
+                androidPackageId = "com.garmetix.attendancekiosk",
+                androidDisplayVersion = "4.11.1",
+                androidVersionCode = 4111
+            },
+            packageAdvisories = new[]
+            {
+                new
+                {
+                    package = "SQLitePCLRaw.lib.e_sqlite3.android",
+                    currentVersion = "2.1.11",
+                    severity = "High",
+                    source = "NU1903",
+                    status = "Known transitive advisory from Microsoft.Data.Sqlite Android provider; nuget.org latest checked during Stage 11A build hardening.",
+                    mitigation = "Keep kiosk DB local-only, avoid storing secrets or biometrics in SQLite, and revisit package/provider when a patched Android SQLite package is released."
+                }
+            },
             routes = new[]
             {
                 "/api/attendance/kiosk/bootstrap",
@@ -1297,6 +1322,7 @@ public static class AttendanceEndpoints
             {
                 "apps/Garmetix.AttendanceKiosk/Garmetix.AttendanceKiosk.csproj",
                 "apps/Garmetix.AttendanceKiosk/MauiProgram.cs",
+                "apps/Garmetix.AttendanceKiosk/App.xaml.cs",
                 "apps/Garmetix.AttendanceKiosk/Views/KioskShellPage.cs",
                 "apps/Garmetix.AttendanceKiosk/Services/KioskApiClient.cs",
                 "apps/Garmetix.AttendanceKiosk/Services/OfflinePunchQueue.cs",
@@ -1317,6 +1343,8 @@ public static class AttendanceEndpoints
                 "Run readiness check and verify duplicate-window policy.",
                 "Queue a punch while offline and verify it appears in local SQLite.",
                 "Reconnect and sync pending punches through /sync-pending.",
+                "Build Android Release and confirm APK/AAB artifacts are created.",
+                "Install on a physical Android tablet and run one offline/online sync rehearsal.",
                 "Review Kiosk Monitor and Message Logs for audit evidence."
             }
         });

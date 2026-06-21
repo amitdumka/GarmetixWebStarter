@@ -1,10 +1,11 @@
-export const APP_VERSION = '4.11.0'
-export const APP_STAGE = "Stage 11A MAUI Android Attendance Kiosk Shell"
-export const APP_RELEASE_NAME = "Stage 11A: Mobile Attendance Kiosk Shell and SQLite Offline Queue"
+export const APP_VERSION = '4.11.1'
+export const APP_STAGE = "Stage 11A Android Build Hardening"
+export const APP_RELEASE_NAME = "Stage 11A: Android Kiosk Build Hardening and Rehearsal Contract"
 export const APP_BUILD_DATE = '2026-06-21'
-export const APP_BUILD_CODE = 'GARMETIX-11A-20260621-4110'
+export const APP_BUILD_CODE = 'GARMETIX-11A-20260621-4111'
 
 export const APP_HIGHLIGHTS = [
+  'Stage 11A build hardening removes the MAUI MainPage startup warning and adds Android build, APK/AAB, advisory and hardware rehearsal visibility.',
   'Stage 11A adds the native MAUI Android Attendance Kiosk shell, SQLite pending punch queue and web status page for the mobile kiosk contract.',
   'Stage 10M adds a Production Rehearsal page and API for live-data run sheets, blocking checks, issue buckets and go/no-go evidence before Stage 11.',
   'Stage 10L adds a Production Support page and API for failed save, failed print, backup warning, email/share failure and Cloudflare or hosted API mismatch drills.',

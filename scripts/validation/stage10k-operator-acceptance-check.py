@@ -55,6 +55,13 @@ add(
         and "Stage 11A MAUI Android Attendance Kiosk Shell" in app_version
         and "GARMETIX-11A-20260621-4110" in app_version
         and "<Version>4.11.0</Version>" in csproj
+    )
+    or (
+        all(token in app_info for token in ['Version = "4.11.1"', "Stage 11A Android Build Hardening", "GARMETIX-11A-20260621-4111"])
+        and "APP_VERSION = '4.11.1'" in app_version
+        and "Stage 11A Android Build Hardening" in app_version
+        and "GARMETIX-11A-20260621-4111" in app_version
+        and "<Version>4.11.1</Version>" in csproj
     ),
 )
 add(

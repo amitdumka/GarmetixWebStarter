@@ -9,7 +9,8 @@ const summaryCards = computed(() => [
   { label: 'Status', value: status.value?.status || 'Loading', detail: status.value?.target || 'net10.0-android', icon: 'i-lucide-smartphone' },
   { label: 'Queue', value: status.value?.queueProvider || 'SQLite', detail: contract.value?.sqliteTable || 'pending_punches', icon: 'i-lucide-database' },
   { label: 'API Routes', value: String(status.value?.routes?.length || 0), detail: 'kiosk endpoints', icon: 'i-lucide-route' },
-  { label: 'Build', value: status.value?.version || '-', detail: status.value?.buildCode || '-', icon: 'i-lucide-badge-check' }
+  { label: 'Build', value: status.value?.version || '-', detail: status.value?.buildCode || '-', icon: 'i-lucide-badge-check' },
+  { label: 'Android', value: status.value?.buildProfile?.androidDisplayVersion || '-', detail: status.value?.buildProfile?.androidPackageId || 'package id', icon: 'i-lucide-package-check' }
 ])
 
 async function refresh() {
@@ -40,7 +41,7 @@ onMounted(refresh)
     <section class="space-y-5">
       <UiModulePageHeader
         title="Mobile Attendance Kiosk"
-        description="Stage 11A starts the native MAUI Android kiosk shell with local SQLite offline queue and the existing attendance kiosk API contract."
+        description="Stage 11A hardens the native MAUI Android kiosk shell, local SQLite offline queue, Android build contract and physical device rehearsal path."
         icon="i-lucide-smartphone"
         :loading="loading"
       >
@@ -59,7 +60,7 @@ onMounted(refresh)
         :description="`${status?.projectPath || 'apps/Garmetix.AttendanceKiosk'} uses ${status?.queueProvider || 'SQLite local queue'} and the existing kiosk sync API.`"
       />
 
-      <div class="grid gap-3 md:grid-cols-4">
+      <div class="grid gap-3 md:grid-cols-5">
         <UCard v-for="card in summaryCards" :key="card.label">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
@@ -91,6 +92,46 @@ onMounted(refresh)
           <div class="space-y-2">
             <div v-for="route in status?.routes || []" :key="route" class="rounded-lg border border-default p-3">
               <code class="text-xs">{{ route }}</code>
+            </div>
+          </div>
+        </UCard>
+      </div>
+
+      <div class="grid gap-4 xl:grid-cols-2">
+        <UCard>
+          <template #header>
+            <h2 class="text-lg font-semibold">Android build profile</h2>
+          </template>
+          <div class="space-y-3">
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Build command</p>
+              <code class="mt-1 block break-all text-xs">{{ status?.buildProfile?.buildCommand }}</code>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Startup model</p>
+              <p class="mt-1 text-sm">{{ status?.buildProfile?.startupModel }}</p>
+            </div>
+            <div v-for="artifact in status?.buildProfile?.expectedArtifacts || []" :key="artifact" class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Expected artifact</p>
+              <code class="mt-1 block break-all text-xs">{{ artifact }}</code>
+            </div>
+          </div>
+        </UCard>
+
+        <UCard>
+          <template #header>
+            <h2 class="text-lg font-semibold">Package advisories</h2>
+          </template>
+          <div class="space-y-2">
+            <div v-for="item in status?.packageAdvisories || []" :key="`${item.package}-${item.currentVersion}`" class="rounded-lg border border-warning/40 bg-warning/5 p-3 text-sm">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="font-medium">{{ item.package }} {{ item.currentVersion }}</p>
+                  <p class="mt-1 text-muted">{{ item.status }}</p>
+                  <p class="mt-2 text-xs text-muted">{{ item.mitigation }}</p>
+                </div>
+                <UBadge color="warning" variant="soft">{{ item.source }}</UBadge>
+              </div>
             </div>
           </div>
         </UCard>

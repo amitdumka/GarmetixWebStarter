@@ -1,3 +1,9 @@
+## v4.11.1 Stage 11A Android Build Hardening
+
+- Removed the MAUI Android `MainPage` startup deprecation by switching the kiosk app to `Application.CreateWindow`.
+- Added Android build profile, APK/AAB artifact expectations and package advisory visibility to `/attendance/mobile-kiosk`.
+- Updated Stage 11A validation to cover Android build hardening and physical tablet rehearsal readiness.
+
 ## v4.11.0 Stage 11A MAUI Android Attendance Kiosk Shell
 
 - Added native MAUI Android attendance kiosk shell under `apps/Garmetix.AttendanceKiosk`.
@@ -108,7 +114,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 11A Mobile Attendance Kiosk Shell and SQLite Offline Queue v4.11.0 (`GARMETIX-11A-20260621-4110`).
+> Current package: Stage 11A Android Kiosk Build Hardening and Rehearsal Contract v4.11.1 (`GARMETIX-11A-20260621-4111`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 
