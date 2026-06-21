@@ -422,6 +422,15 @@ public sealed record FingerprintBridgeSimulatorResultDto(
     bool RawPayloadStored,
     IReadOnlyList<string> Warnings);
 
+public sealed record FingerprintBridgeExternalRequest(
+    string BridgeBaseUrl,
+    Guid? EmployeeId,
+    string? EmployeeCode,
+    string? EmployeeName,
+    Guid? CompanyId,
+    Guid? StoreGroupId,
+    Guid? StoreId);
+
 public sealed record AttendanceFinalAcceptanceDto(
     string Version,
     string Stage,

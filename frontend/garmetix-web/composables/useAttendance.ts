@@ -32,9 +32,13 @@ export function useAttendance() {
   const deviceBridgeSimulatorCapture = (body: any = {}) => api.create<any>('attendance/device-bridge/simulator/capture', body)
   const deviceBridgeSimulatorIdentify = (body: any = {}) => api.create<any>('attendance/device-bridge/simulator/identify', body)
   const deviceBridgeSimulatorEnroll = (body: any = {}) => api.create<any>('attendance/device-bridge/simulator/enroll', body)
+  const deviceBridgeExternalHealth = (body: any) => api.create<any>('attendance/device-bridge/external/health', body)
+  const deviceBridgeExternalCapture = (body: any) => api.create<any>('attendance/device-bridge/external/capture', body)
+  const deviceBridgeExternalIdentify = (body: any) => api.create<any>('attendance/device-bridge/external/identify', body)
+  const deviceBridgeExternalEnroll = (body: any) => api.create<any>('attendance/device-bridge/external/enroll', body)
   const mobileKioskStatus = () => api.get<any>('attendance/mobile-kiosk/status')
   const mobileKioskOfflineContract = () => api.get<any>('attendance/mobile-kiosk/offline-contract')
   const mobileKioskRehearsal = () => api.get<any>('attendance/mobile-kiosk/rehearsal')
   const finalAcceptance = () => api.get<any>('attendance/final-acceptance')
-  return { today, monthly, history, manualPunch, regularization, createRegularization, approveRegularization, rejectRegularization, recalculate, lockMonth, payrollSummary, payrollReview, rebuildPayrollReview, markPayrollReview, salarySlipDrafts, rebuildSalarySlipDrafts, markSalarySlipDraft, generateSalarySlipsFromDrafts, salaryPaymentCandidates, generateSalaryPaymentsFromDrafts, deviceBridgeStatus, deviceBridgeSimulatorHealth, deviceBridgeSimulatorCapture, deviceBridgeSimulatorIdentify, deviceBridgeSimulatorEnroll, mobileKioskStatus, mobileKioskOfflineContract, mobileKioskRehearsal, finalAcceptance }
+  return { today, monthly, history, manualPunch, regularization, createRegularization, approveRegularization, rejectRegularization, recalculate, lockMonth, payrollSummary, payrollReview, rebuildPayrollReview, markPayrollReview, salarySlipDrafts, rebuildSalarySlipDrafts, markSalarySlipDraft, generateSalarySlipsFromDrafts, salaryPaymentCandidates, generateSalaryPaymentsFromDrafts, deviceBridgeStatus, deviceBridgeSimulatorHealth, deviceBridgeSimulatorCapture, deviceBridgeSimulatorIdentify, deviceBridgeSimulatorEnroll, deviceBridgeExternalHealth, deviceBridgeExternalCapture, deviceBridgeExternalIdentify, deviceBridgeExternalEnroll, mobileKioskStatus, mobileKioskOfflineContract, mobileKioskRehearsal, finalAcceptance }
 }

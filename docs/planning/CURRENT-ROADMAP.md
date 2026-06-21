@@ -1,6 +1,10 @@
-## v4.11.4 Stage 11B-2 Fingerprint Bridge Simulator
+## v4.11.5 Stage 11B-3 External Fingerprint Bridge Connector
 
-- Current version: 4.11.4 / `GARMETIX-11B-20260621-4114`.
+- Current version: 4.11.5 / `GARMETIX-11B-20260621-4115`.
+- Added guarded external bridge routes under `/api/attendance/device-bridge/external/*`.
+- Added external bridge connector controls to `/attendance/device-bridge`.
+- External bridge URLs are limited to localhost, loopback, `host.docker.internal` and private LAN hosts.
+- Raw biometric-looking response fields are blocked, and sanitized results are written to Message Logs.
 - Added simulator health, capture, identify and enroll routes under `/api/attendance/device-bridge/simulator/*`.
 - Added simulator controls to `/attendance/device-bridge` so success and controlled failure handshakes can be tested before real SDK work.
 - Simulator events write sanitized Message Logs with audit references.
@@ -9,6 +13,7 @@
 
 ## Recently Completed Stage 10
 
+- v4.11.4: Stage 11B-2 Fingerprint Bridge Simulator with simulator health, capture, identify and enroll routes plus sanitized Message Logs.
 - v4.11.3: Stage 11B Fingerprint Bridge Contract with adapter candidates, local bridge endpoints, implementation checklist, blockers and privacy guardrails.
 - v4.11.2: Stage 11A Physical Tablet Rehearsal with physical Android tablet readiness, lookup, online punch, offline queue, sync and audit checks.
 - v4.11.1: Stage 11A Android Build Hardening with `Application.CreateWindow`, APK/AAB build profile and SQLite advisory visibility.
@@ -40,11 +45,12 @@ python scripts/validation/current-release-checks.py
 ### Next Recommended Roadmap
 
 1. Select fingerprint hardware/vendor SDK and confirm whether the bridge runs on Windows, Android, or both.
-2. Stage 11B-3 Selected vendor adapter for capture/identify/enroll after SDK approval.
+2. Build the selected vendor local bridge service using the Stage 11B-3 connector contract.
 3. Wire kiosk punch flow to require fingerprint match for configured stores.
-4. Stage 11C Face recognition/liveness proof of concept after consent, retention and privacy controls.
-5. Stage 11D mobile/device deployment packaging after kiosk shell and fingerprint bridge are accepted.
-6. Stage 12A SaaS/super-admin plan if multi-company hosted licensing is needed.
+4. Harden biometric enrollment consent, template reference and audit workflow.
+5. Stage 11C Face recognition/liveness proof of concept after consent, retention and privacy controls.
+6. Stage 11D mobile/device deployment packaging after kiosk shell and fingerprint bridge are accepted.
+7. Stage 12A SaaS/super-admin plan if multi-company hosted licensing is needed.
 
 ### Future Attendance/Mobile Items Kept For Later
 

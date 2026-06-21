@@ -3,9 +3,12 @@ const reports = useAttendanceReports()
 const feedback = useUiFeedback()
 const loading = ref(false)
 const runningSimulator = ref('')
+const runningExternal = ref('')
 const status = ref<any | null>(null)
 const simulatorHealth = ref<any | null>(null)
 const simulatorResult = ref<any | null>(null)
+const externalBridgeUrl = ref('http://127.0.0.1:8787/garmetix-fingerprint/')
+const externalResult = ref<any | null>(null)
 
 const summaryCards = computed(() => [
   { label: 'Status', value: status.value?.status || 'Loading', detail: status.value?.buildCode || '-', icon: 'i-lucide-fingerprint' },
@@ -54,6 +57,33 @@ async function runSimulator(action: 'capture' | 'identify' | 'enroll', scenario 
     feedback.fromError('Fingerprint simulator failed', error)
   } finally {
     runningSimulator.value = ''
+  }
+}
+
+async function runExternal(action: 'health' | 'capture' | 'identify' | 'enroll') {
+  runningExternal.value = action
+  try {
+    const body = {
+      bridgeBaseUrl: externalBridgeUrl.value,
+      employeeCode: 'SIM-EMP-001',
+      employeeName: 'Simulator Employee'
+    }
+    const runners: Record<string, (payload: any) => Promise<any>> = {
+      health: reports.deviceBridgeExternalHealth,
+      capture: reports.deviceBridgeExternalCapture,
+      identify: reports.deviceBridgeExternalIdentify,
+      enroll: reports.deviceBridgeExternalEnroll
+    }
+    externalResult.value = await runners[action](body)
+    if (externalResult.value?.success) {
+      feedback.success('External bridge handshake completed', externalResult.value.message)
+    } else {
+      feedback.notify('External bridge returned blocked or failed result', externalResult.value?.message || 'Check Message Logs for sanitized details.', 'warning')
+    }
+  } catch (error: any) {
+    feedback.fromError('External fingerprint bridge failed', error)
+  } finally {
+    runningExternal.value = ''
   }
 }
 
@@ -182,6 +212,70 @@ onMounted(refresh)
               </div>
             </div>
             <p v-else class="mt-3 text-sm text-muted">Run a simulator action to view the bridge response and Message Logs audit reference.</p>
+          </div>
+        </div>
+      </UCard>
+
+      <UCard>
+        <template #header>
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-semibold">External bridge connector</h2>
+              <p class="text-sm text-muted">Test an installed vendor bridge using the same contract, before wiring attendance punch rules.</p>
+            </div>
+            <UBadge color="info" variant="soft">Local/private only</UBadge>
+          </div>
+        </template>
+        <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+          <div class="space-y-3">
+            <UFormField label="Bridge base URL">
+              <UInput v-model="externalBridgeUrl" placeholder="http://127.0.0.1:8787/garmetix-fingerprint/" />
+            </UFormField>
+            <div class="grid gap-2 sm:grid-cols-2">
+              <UButton icon="i-lucide-heart-pulse" label="Health" color="neutral" variant="subtle" :loading="runningExternal === 'health'" @click="runExternal('health')" />
+              <UButton icon="i-lucide-scan-line" label="Capture" color="neutral" variant="subtle" :loading="runningExternal === 'capture'" @click="runExternal('capture')" />
+              <UButton icon="i-lucide-search-check" label="Identify" color="neutral" variant="subtle" :loading="runningExternal === 'identify'" @click="runExternal('identify')" />
+              <UButton icon="i-lucide-user-plus" label="Enroll" color="neutral" variant="subtle" :loading="runningExternal === 'enroll'" @click="runExternal('enroll')" />
+            </div>
+            <div class="rounded-lg border border-default p-3 text-sm text-muted">
+              Allowed hosts are localhost, loopback, host.docker.internal, and private LAN addresses. Raw biometric-looking fields are blocked.
+            </div>
+          </div>
+          <div class="rounded-lg border border-default p-3">
+            <p class="text-xs uppercase text-muted">Last external result</p>
+            <div v-if="externalResult" class="mt-3 grid gap-2 sm:grid-cols-2">
+              <div class="rounded-lg border border-default p-3">
+                <p class="text-xs text-muted">Status</p>
+                <p class="font-medium">{{ externalResult.success ? 'Success' : 'Blocked / Failed' }}</p>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <p class="text-xs text-muted">Vendor</p>
+                <p class="font-medium">{{ externalResult.vendor || '-' }}</p>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <p class="text-xs text-muted">Match</p>
+                <p class="font-medium">{{ externalResult.matchStatus }}</p>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <p class="text-xs text-muted">Raw Payload Stored</p>
+                <p class="font-medium">{{ externalResult.rawPayloadStored ? 'Yes' : 'No' }}</p>
+              </div>
+              <div class="rounded-lg border border-default p-3 sm:col-span-2">
+                <p class="text-xs text-muted">Audit Ref</p>
+                <code class="mt-1 block break-all text-xs">{{ externalResult.auditRef }}</code>
+              </div>
+              <div class="rounded-lg border border-default p-3 sm:col-span-2">
+                <p class="text-xs text-muted">Message</p>
+                <p class="mt-1 text-sm">{{ externalResult.message }}</p>
+              </div>
+              <div v-if="externalResult.warnings?.length" class="rounded-lg border border-warning/40 p-3 sm:col-span-2">
+                <p class="text-xs text-muted">Warnings</p>
+                <div class="mt-2 space-y-1 text-sm">
+                  <p v-for="item in externalResult.warnings" :key="item">{{ item }}</p>
+                </div>
+              </div>
+            </div>
+            <p v-else class="mt-3 text-sm text-muted">Run a connector action after starting a compatible local vendor bridge.</p>
           </div>
         </div>
       </UCard>

@@ -53,11 +53,11 @@ mobile_files = [
 add("mobile shell files exist", all(exists(path) for path in mobile_files))
 add(
     "version identity",
-    all(token in app_info for token in ['Version = "4.11.4"', "Stage 11B-2 Fingerprint Bridge Simulator", "GARMETIX-11B-20260621-4114"])
-    and "APP_VERSION = '4.11.4'" in app_version
-    and "Stage 11B-2 Fingerprint Bridge Simulator" in app_version
-    and "GARMETIX-11B-20260621-4114" in app_version
-    and "<Version>4.11.4</Version>" in api_project,
+    all(token in app_info for token in ['Version = "4.11.5"', "Stage 11B-3 External Fingerprint Bridge Connector", "GARMETIX-11B-20260621-4115"])
+    and "APP_VERSION = '4.11.5'" in app_version
+    and "Stage 11B-3 External Fingerprint Bridge Connector" in app_version
+    and "GARMETIX-11B-20260621-4115" in app_version
+    and "<Version>4.11.5</Version>" in api_project,
 )
 add(
     "maui android shell contract",
@@ -65,8 +65,8 @@ add(
     and "<UseMaui>true</UseMaui>" in csproj
     and "Microsoft.Data.Sqlite" in csproj
     and "Microsoft.Maui.Controls" in csproj
-    and "<ApplicationDisplayVersion>4.11.4</ApplicationDisplayVersion>" in csproj
-    and "<ApplicationVersion>4114</ApplicationVersion>" in csproj
+    and "<ApplicationDisplayVersion>4.11.5</ApplicationDisplayVersion>" in csproj
+    and "<ApplicationVersion>4115</ApplicationVersion>" in csproj
     and "UseMauiApp<App>()" in maui_program
     and "KioskShellPage" in app
     and "CreateWindow" in app
@@ -158,8 +158,8 @@ add(
 add(
     "docs and current release validation",
     "stage11a-mobile-kiosk-check.py" in current_release
-    and "Stage 11B-2 Fingerprint Bridge Simulator" in readme
-    and "Stage 11B-2 Fingerprint Bridge Simulator" in roadmap
+    and "Stage 11B-3 External Fingerprint Bridge Connector" in readme
+    and "Stage 11B-3 External Fingerprint Bridge Connector" in roadmap
     and "GET /api/attendance/mobile-kiosk/status" in operations_doc
     and "GET /api/attendance/mobile-kiosk/offline-contract" in operations_doc,
 )

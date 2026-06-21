@@ -57,11 +57,11 @@ add(
         and "<Version>4.11.1</Version>" in csproj
     )
     or (
-        all(token in app_info for token in ['Version = "4.11.4"', "Stage 11B-2 Fingerprint Bridge Simulator", "GARMETIX-11B-20260621-4114"])
-        and "APP_VERSION = '4.11.4'" in app_version
-        and "Stage 11B-2 Fingerprint Bridge Simulator" in app_version
-        and "GARMETIX-11B-20260621-4114" in app_version
-        and "<Version>4.11.4</Version>" in csproj
+        all(token in app_info for token in ['Version = "4.11.5"', "Stage 11B-3 External Fingerprint Bridge Connector", "GARMETIX-11B-20260621-4115"])
+        and "APP_VERSION = '4.11.5'" in app_version
+        and "Stage 11B-3 External Fingerprint Bridge Connector" in app_version
+        and "GARMETIX-11B-20260621-4115" in app_version
+        and "<Version>4.11.5</Version>" in csproj
     ),
 )
 add(

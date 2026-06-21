@@ -17,6 +17,10 @@ export function useAttendanceReports() {
     deviceBridgeSimulatorCapture: attendance.deviceBridgeSimulatorCapture,
     deviceBridgeSimulatorIdentify: attendance.deviceBridgeSimulatorIdentify,
     deviceBridgeSimulatorEnroll: attendance.deviceBridgeSimulatorEnroll,
+    deviceBridgeExternalHealth: attendance.deviceBridgeExternalHealth,
+    deviceBridgeExternalCapture: attendance.deviceBridgeExternalCapture,
+    deviceBridgeExternalIdentify: attendance.deviceBridgeExternalIdentify,
+    deviceBridgeExternalEnroll: attendance.deviceBridgeExternalEnroll,
     finalAcceptance: attendance.finalAcceptance,
     recalculate: attendance.recalculate,
     lockMonth: attendance.lockMonth

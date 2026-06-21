@@ -27,17 +27,17 @@ app_shell = read("frontend/garmetix-web/components/AppShell.vue")
 legacy_shell = read("frontend/garmetix-web/components/AppShellLegacy.vue")
 readme = read("README.md")
 roadmap = read("docs/planning/CURRENT-ROADMAP.md")
-operations_doc = read("docs/operations/Stage11B2-Fingerprint-Bridge-Simulator-v4.11.4.md")
+operations_doc = read("docs/operations/Stage11B3-External-Fingerprint-Bridge-Connector-v4.11.5.md")
 
 add(
     "version identity",
-    all(token in app_info for token in ['Version = "4.11.4"', "Stage 11B-2 Fingerprint Bridge Simulator", "GARMETIX-11B-20260621-4114"])
-    and "APP_VERSION = '4.11.4'" in app_version
-    and "Stage 11B-2 Fingerprint Bridge Simulator" in app_version
-    and "GARMETIX-11B-20260621-4114" in app_version
-    and "<Version>4.11.4</Version>" in api_project
-    and "<ApplicationDisplayVersion>4.11.4</ApplicationDisplayVersion>" in kiosk_project
-    and "<ApplicationVersion>4114</ApplicationVersion>" in kiosk_project,
+    all(token in app_info for token in ['Version = "4.11.5"', "Stage 11B-3 External Fingerprint Bridge Connector", "GARMETIX-11B-20260621-4115"])
+    and "APP_VERSION = '4.11.5'" in app_version
+    and "Stage 11B-3 External Fingerprint Bridge Connector" in app_version
+    and "GARMETIX-11B-20260621-4115" in app_version
+    and "<Version>4.11.5</Version>" in api_project
+    and "<ApplicationDisplayVersion>4.11.5</ApplicationDisplayVersion>" in kiosk_project
+    and "<ApplicationVersion>4115</ApplicationVersion>" in kiosk_project,
 )
 add(
     "device bridge endpoint contract",
@@ -66,6 +66,20 @@ add(
     and "logs.ErrorAsync" in attendance_endpoints,
 )
 add(
+    "external bridge connector contract",
+    'group.MapPost("/device-bridge/external/health", DeviceBridgeExternalHealthAsync)' in attendance_endpoints
+    and 'group.MapPost("/device-bridge/external/capture", DeviceBridgeExternalCaptureAsync)' in attendance_endpoints
+    and 'group.MapPost("/device-bridge/external/identify", DeviceBridgeExternalIdentifyAsync)' in attendance_endpoints
+    and 'group.MapPost("/device-bridge/external/enroll", DeviceBridgeExternalEnrollAsync)' in attendance_endpoints
+    and "FingerprintBridgeExternalRequest" in attendance_endpoints
+    and "TryBuildExternalBridgeUri" in attendance_endpoints
+    and "IsAllowedBridgeHost" in attendance_endpoints
+    and "DetectRawBiometricFields" in attendance_endpoints
+    and "PostAsJsonAsync" in attendance_endpoints
+    and "logs.SuccessAsync" in attendance_endpoints
+    and "logs.ErrorAsync" in attendance_endpoints,
+)
+add(
     "fingerprint bridge page",
     "Fingerprint Bridge" in device_bridge_page
     and "Stage 11B defines the vendor-neutral fingerprint bridge contract" in device_bridge_page
@@ -83,6 +97,16 @@ add(
     and "nextAfterThisPart" in device_bridge_page,
 )
 add(
+    "external bridge page",
+    "External bridge connector" in device_bridge_page
+    and "externalBridgeUrl" in device_bridge_page
+    and "deviceBridgeExternalHealth" in device_bridge_page
+    and "deviceBridgeExternalCapture" in device_bridge_page
+    and "deviceBridgeExternalIdentify" in device_bridge_page
+    and "deviceBridgeExternalEnroll" in device_bridge_page
+    and "rawPayloadStored" in device_bridge_page,
+)
+add(
     "route access and navigation",
     "path: '/attendance/device-bridge'" in access
     and "Fingerprint Bridge" in access
@@ -93,12 +117,13 @@ add(
 )
 add(
     "docs and roadmap",
-    exists("docs/operations/Stage11B2-Fingerprint-Bridge-Simulator-v4.11.4.md")
-    and "Stage 11B-2 Fingerprint Bridge Simulator" in readme
-    and "Stage 11B-2 Fingerprint Bridge Simulator" in roadmap
+    exists("docs/operations/Stage11B3-External-Fingerprint-Bridge-Connector-v4.11.5.md")
+    and "Stage 11B-3 External Fingerprint Bridge Connector" in readme
+    and "Stage 11B-3 External Fingerprint Bridge Connector" in roadmap
     and "Select fingerprint hardware/vendor SDK" in roadmap
+    and "Blocked Fields" in operations_doc
     and "rawPayloadStored = false" in operations_doc
-    and "Controlled failure scenario" in operations_doc
+    and "8s timeout" in operations_doc
     and "Message Logs" in operations_doc
     and "Select fingerprint hardware and SDK" in operations_doc,
 )
@@ -108,4 +133,4 @@ for name, ok in checks:
     print(("PASS" if ok else "FAIL") + f": {name}")
 if failed:
     raise SystemExit("Stage 11B fingerprint bridge validation failed: " + ", ".join(failed))
-print("Stage 11B fingerprint bridge validation passed.")
+print("Stage 11B-3 external fingerprint bridge connector validation passed.")

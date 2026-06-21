@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.11.4";
-    public const string Stage = "Stage 11B-2 Fingerprint Bridge Simulator";
-    public const string ReleaseName = "Stage 11B-2: Fingerprint Bridge Simulator Handshake";
+    public const string Version = "4.11.5";
+    public const string Stage = "Stage 11B-3 External Fingerprint Bridge Connector";
+    public const string ReleaseName = "Stage 11B-3: External Fingerprint Bridge Connector";
     public const string BuildDate = "2026-06-21";
-    public const string BuildCode = "GARMETIX-11B-20260621-4114";
+    public const string BuildCode = "GARMETIX-11B-20260621-4115";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,7 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stage 11B-3 adds a guarded external fingerprint bridge connector for localhost/private vendor bridges with sanitized Message Logs and raw biometric field blocking.",
         "Stage 11B-2 adds a fingerprint bridge simulator handshake for health, capture, identify and enroll with sanitized Message Logs and no biometric payload storage.",
         "Stage 11B adds a vendor-neutral fingerprint bridge contract, readiness page, adapter checklist and privacy guard before any real SDK integration.",
         "Stage 11A physical tablet rehearsal adds an operator checklist, evidence capture contract and pass/fail criteria before fingerprint hardware work.",

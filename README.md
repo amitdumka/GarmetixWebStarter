@@ -1,3 +1,9 @@
+## v4.11.5 Stage 11B-3 External Fingerprint Bridge Connector
+
+- Added guarded external bridge routes for health, capture, identify and enroll under `/api/attendance/device-bridge/external/*`.
+- Added external bridge connector controls to `/attendance/device-bridge` for localhost, loopback, host.docker.internal and private LAN vendor bridges.
+- Blocks raw biometric-looking response fields and writes sanitized external bridge results to Message Logs.
+
 ## v4.11.4 Stage 11B-2 Fingerprint Bridge Simulator
 
 - Added simulator routes for fingerprint bridge health, capture, identify and enroll under `/api/attendance/device-bridge/simulator/*`.
@@ -132,7 +138,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 11B-2 Fingerprint Bridge Simulator Handshake v4.11.4 (`GARMETIX-11B-20260621-4114`).
+> Current package: Stage 11B-3 External Fingerprint Bridge Connector v4.11.5 (`GARMETIX-11B-20260621-4115`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

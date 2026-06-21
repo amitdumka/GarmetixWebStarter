@@ -32,7 +32,7 @@ version_41013 = version_41013 or (all(token in app_info for token in ['Version =
 version_41013 = version_41013 or (all(token in app_info for token in ['Version = "4.10.31"', 'Stage 10M Production Rehearsal Tracker', 'GARMETIX-10M-20260620-4131']) and "APP_VERSION = '4.10.31'" in app_version and '<Version>4.10.31</Version>' in csproj)
 version_41013 = version_41013 or (all(token in app_info for token in ['Version = "4.11.0"', 'Stage 11A MAUI Android Attendance Kiosk Shell', 'GARMETIX-11A-20260621-4110']) and "APP_VERSION = '4.11.0'" in app_version and '<Version>4.11.0</Version>' in csproj)
 version_41013 = version_41013 or (all(token in app_info for token in ['Version = "4.11.1"', 'Stage 11A Android Build Hardening', 'GARMETIX-11A-20260621-4111']) and "APP_VERSION = '4.11.1'" in app_version and '<Version>4.11.1</Version>' in csproj)
-version_41013 = version_41013 or (all(token in app_info for token in ['Version = "4.11.4"', 'Stage 11B-2 Fingerprint Bridge Simulator', 'GARMETIX-11B-20260621-4114']) and "APP_VERSION = '4.11.4'" in app_version and '<Version>4.11.4</Version>' in csproj)
+version_41013 = version_41013 or (all(token in app_info for token in ['Version = "4.11.5"', 'Stage 11B-3 External Fingerprint Bridge Connector', 'GARMETIX-11B-20260621-4115']) and "APP_VERSION = '4.11.5'" in app_version and '<Version>4.11.5</Version>' in csproj)
 add('version identity', version_41012 or version_41013)
 add('stage10a endpoint fails safe', all(token in final_endpoint for token in ['try', 'catch (Exception ex)', 'Degraded - review logs', 'CreatePayload']))
 add('production final acceptance page uses allSettled', 'Promise.allSettled' in final_page and 'Some final-acceptance checks failed to load' in final_page)

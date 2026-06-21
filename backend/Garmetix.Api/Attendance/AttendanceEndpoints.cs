@@ -11,6 +11,9 @@ using Garmetix.Core.Models.Attendance;
 using Garmetix.Core.Models.HRM;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace Garmetix.Api.Attendance;
 
@@ -43,6 +46,10 @@ public static class AttendanceEndpoints
         group.MapPost("/device-bridge/simulator/capture", DeviceBridgeSimulatorCaptureAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/device-bridge/simulator/identify", DeviceBridgeSimulatorIdentifyAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/device-bridge/simulator/enroll", DeviceBridgeSimulatorEnrollAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapPost("/device-bridge/external/health", DeviceBridgeExternalHealthAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapPost("/device-bridge/external/capture", DeviceBridgeExternalCaptureAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapPost("/device-bridge/external/identify", DeviceBridgeExternalIdentifyAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapPost("/device-bridge/external/enroll", DeviceBridgeExternalEnrollAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapGet("/mobile-kiosk/status", MobileKioskStatusAsync);
         group.MapGet("/mobile-kiosk/offline-contract", MobileKioskOfflineContractAsync);
         group.MapGet("/mobile-kiosk/rehearsal", MobileKioskRehearsalAsync);
@@ -1281,6 +1288,7 @@ public static class AttendanceEndpoints
             title = "Vendor-neutral fingerprint bridge contract",
             fingerprintBridgeEnabled = false,
             simulatorBridgeEnabled = true,
+            externalBridgeConnectorEnabled = true,
             rawFingerprintStorageAllowed = false,
             matchingLocation = "Vendor SDK or approved local bridge only; Garmetix stores employee consent, device audit and template reference IDs, not raw fingerprint images.",
             supportedBridgeInputs = new[]
@@ -1350,18 +1358,40 @@ public static class AttendanceEndpoints
                 "/api/attendance/device-bridge/simulator/identify",
                 "/api/attendance/device-bridge/simulator/enroll"
             },
+            externalConnector = new
+            {
+                allowedBaseUrls = new[]
+                {
+                    "http://localhost:{port}/garmetix-fingerprint/",
+                    "http://127.0.0.1:{port}/garmetix-fingerprint/",
+                    "http://host.docker.internal:{port}/garmetix-fingerprint/",
+                    "http://192.168.x.x:{port}/garmetix-fingerprint/"
+                },
+                timeoutSeconds = 8,
+                routes = new[]
+                {
+                    "/api/attendance/device-bridge/external/health",
+                    "/api/attendance/device-bridge/external/capture",
+                    "/api/attendance/device-bridge/external/identify",
+                    "/api/attendance/device-bridge/external/enroll"
+                },
+                blockedResponseFields = new[] { "rawImage", "fingerprintImage", "wsq", "minutiae", "isoTemplate", "templateBase64", "biometricPayload" }
+            },
             privacyRules = new[]
             {
                 "Do not store raw fingerprint image, WSQ, ISO template or minutiae in Garmetix database.",
                 "Store only vendor-approved template reference or encrypted external vault reference after written approval.",
                 "Require employee consent before enrollment.",
                 "Device bridge must return audit reference, quality score and match status without exposing biometric payload to the browser.",
-                "All bridge failures must be written to Message Logs with sanitized details."
+                "All bridge failures must be written to Message Logs with sanitized details.",
+                "External connector accepts only localhost, host.docker.internal, loopback, or private LAN bridge URLs."
             },
             implementationChecklist = new[]
             {
                 "Run simulator health, capture, identify and enroll from this page.",
                 "Verify simulator success and failure entries appear in Message Logs.",
+                "Run external bridge health against the vendor bridge once it is installed.",
+                "Confirm external bridge responses do not include raw biometric payload fields.",
                 "Choose one fingerprint reader model and obtain official SDK/license.",
                 "Build a small local bridge service for Windows/Mac/Android depending on selected hardware.",
                 "Map successful identify/enroll responses to EmployeeBiometricEnrollment template reference fields.",
@@ -1372,6 +1402,7 @@ public static class AttendanceEndpoints
             {
                 "Open this page and confirm fingerprintBridgeEnabled remains No until a real adapter is approved.",
                 "Use simulator adapter to return a mock device health response.",
+                "Use external connector to test a vendor bridge on localhost or private LAN.",
                 "Verify bridge errors appear as clean user messages and sanitized Message Logs.",
                 "Confirm no API response or browser storage contains raw biometric payload.",
                 "After hardware choice, repeat with the vendor SDK bridge on one test machine/tablet."
@@ -1526,6 +1557,311 @@ public static class AttendanceEndpoints
         return Results.Ok(result);
     }
 
+    private static Task<IResult> DeviceBridgeExternalHealthAsync(
+        FingerprintBridgeExternalRequest request,
+        IHttpClientFactory httpClientFactory,
+        HttpContext context,
+        ApplicationMessageLogService logs,
+        CancellationToken cancellationToken)
+        => RunFingerprintBridgeExternalAsync("Health", request, httpClientFactory, context, logs, cancellationToken);
+
+    private static Task<IResult> DeviceBridgeExternalCaptureAsync(
+        FingerprintBridgeExternalRequest request,
+        IHttpClientFactory httpClientFactory,
+        HttpContext context,
+        ApplicationMessageLogService logs,
+        CancellationToken cancellationToken)
+        => RunFingerprintBridgeExternalAsync("Capture", request, httpClientFactory, context, logs, cancellationToken);
+
+    private static Task<IResult> DeviceBridgeExternalIdentifyAsync(
+        FingerprintBridgeExternalRequest request,
+        IHttpClientFactory httpClientFactory,
+        HttpContext context,
+        ApplicationMessageLogService logs,
+        CancellationToken cancellationToken)
+        => RunFingerprintBridgeExternalAsync("Identify", request, httpClientFactory, context, logs, cancellationToken);
+
+    private static Task<IResult> DeviceBridgeExternalEnrollAsync(
+        FingerprintBridgeExternalRequest request,
+        IHttpClientFactory httpClientFactory,
+        HttpContext context,
+        ApplicationMessageLogService logs,
+        CancellationToken cancellationToken)
+        => RunFingerprintBridgeExternalAsync("Enroll", request, httpClientFactory, context, logs, cancellationToken);
+
+    private static async Task<IResult> RunFingerprintBridgeExternalAsync(
+        string operation,
+        FingerprintBridgeExternalRequest request,
+        IHttpClientFactory httpClientFactory,
+        HttpContext context,
+        ApplicationMessageLogService logs,
+        CancellationToken cancellationToken)
+    {
+        var auditRef = Guid.NewGuid();
+        if (!TryBuildExternalBridgeUri(request.BridgeBaseUrl, operation, out var uri, out var validationMessage))
+        {
+            var blocked = BuildExternalBridgeResult(false, operation, "External", "Unvalidated Bridge", "", "Blocked", request, null, auditRef, 0,
+                validationMessage ?? "External fingerprint bridge URL is not allowed.", ["Allowed bridge URLs must be localhost, loopback, host.docker.internal, or private LAN."]);
+            await WriteExternalBridgeLogAsync(logs, operation, blocked, request, context, auditRef, cancellationToken);
+            return Results.Ok(blocked);
+        }
+
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(8));
+            var client = httpClientFactory.CreateClient();
+            using var response = operation.Equals("Health", StringComparison.OrdinalIgnoreCase)
+                ? await client.GetAsync(uri, timeout.Token)
+                : await client.PostAsJsonAsync(uri, BuildExternalBridgePayload(request), timeout.Token);
+            var body = await response.Content.ReadAsStringAsync(timeout.Token);
+            var rawFieldWarnings = DetectRawBiometricFields(body);
+            var success = response.IsSuccessStatusCode && rawFieldWarnings.Count == 0;
+            var result = ParseExternalBridgeResponse(body, operation, request, auditRef, success, rawFieldWarnings);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                result = result with
+                {
+                    Success = false,
+                    Message = $"External fingerprint bridge returned HTTP {(int)response.StatusCode}. Check Message Logs for sanitized details.",
+                    MatchStatus = "Failed"
+                };
+            }
+            else if (rawFieldWarnings.Count > 0)
+            {
+                result = result with
+                {
+                    Success = false,
+                    Message = "External fingerprint bridge response was blocked because it contained raw biometric-looking fields.",
+                    MatchStatus = "Blocked"
+                };
+            }
+
+            await WriteExternalBridgeLogAsync(logs, operation, result, request, context, auditRef, cancellationToken);
+            return Results.Ok(result);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            var result = BuildExternalBridgeResult(false, operation, "External", "Timed Out Bridge", "", "Timeout", request, null, auditRef, 0,
+                "External fingerprint bridge timed out. Check the local bridge service.", ["Timeout is limited to 8 seconds."]);
+            await WriteExternalBridgeLogAsync(logs, operation, result, request, context, auditRef, cancellationToken);
+            return Results.Ok(result);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or InvalidOperationException)
+        {
+            var result = BuildExternalBridgeResult(false, operation, "External", "Unavailable Bridge", "", "Failed", request, null, auditRef, 0,
+                "External fingerprint bridge could not be reached. Check the local service and Message Logs.", [ex.GetType().Name]);
+            await WriteExternalBridgeLogAsync(logs, operation, result, request, context, auditRef, cancellationToken);
+            return Results.Ok(result);
+        }
+    }
+
+    private static bool TryBuildExternalBridgeUri(string? bridgeBaseUrl, string operation, out Uri uri, out string? message)
+    {
+        uri = new Uri("http://127.0.0.1/");
+        message = null;
+        if (string.IsNullOrWhiteSpace(bridgeBaseUrl) || !Uri.TryCreate(bridgeBaseUrl.Trim(), UriKind.Absolute, out var baseUri))
+        {
+            message = "Enter a valid external bridge base URL.";
+            return false;
+        }
+
+        if (baseUri.Scheme is not ("http" or "https") || !IsAllowedBridgeHost(baseUri.Host))
+        {
+            message = "External bridge URL must be localhost, loopback, host.docker.internal, or private LAN.";
+            return false;
+        }
+
+        var relative = operation.ToLowerInvariant() switch
+        {
+            "health" => "health",
+            "capture" => "capture",
+            "identify" => "identify",
+            "enroll" => "enroll",
+            _ => ""
+        };
+        uri = new Uri(baseUri.ToString().EndsWith('/') ? baseUri : new Uri(baseUri + "/"), relative);
+        return true;
+    }
+
+    private static bool IsAllowedBridgeHost(string host)
+    {
+        if (host.Equals("localhost", StringComparison.OrdinalIgnoreCase) || host.Equals("host.docker.internal", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+        if (!IPAddress.TryParse(host, out var address))
+        {
+            return false;
+        }
+        if (IPAddress.IsLoopback(address))
+        {
+            return true;
+        }
+        var bytes = address.GetAddressBytes();
+        return address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork
+            && (bytes[0] == 10
+                || (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31)
+                || (bytes[0] == 192 && bytes[1] == 168));
+    }
+
+    private static object BuildExternalBridgePayload(FingerprintBridgeExternalRequest request)
+        => new
+        {
+            request.EmployeeId,
+            employeeCode = string.IsNullOrWhiteSpace(request.EmployeeCode) ? "SIM-EMP-001" : request.EmployeeCode.Trim(),
+            employeeName = string.IsNullOrWhiteSpace(request.EmployeeName) ? "Simulator Employee" : request.EmployeeName.Trim(),
+            request.CompanyId,
+            request.StoreGroupId,
+            request.StoreId,
+            requestedAtUtc = DateTimeOffset.UtcNow,
+            rawPayloadAllowed = false
+        };
+
+    private static FingerprintBridgeSimulatorResultDto ParseExternalBridgeResponse(
+        string body,
+        string operation,
+        FingerprintBridgeExternalRequest request,
+        Guid auditRef,
+        bool success,
+        IReadOnlyList<string> warnings)
+    {
+        using var document = string.IsNullOrWhiteSpace(body) ? null : JsonDocument.Parse(body);
+        var root = document?.RootElement;
+        var responseSuccess = GetBool(root, "success") ?? success;
+        var matchStatus = GetString(root, "matchStatus") ?? (responseSuccess ? operation.Equals("Health", StringComparison.OrdinalIgnoreCase) ? "Healthy" : "Accepted" : "Failed");
+        var employeeId = GetGuid(root, "employeeId") ?? (request.EmployeeId == Guid.Empty ? null : request.EmployeeId);
+        return BuildExternalBridgeResult(
+            success && responseSuccess,
+            operation,
+            GetString(root, "bridgeMode") ?? "External",
+            GetString(root, "vendor") ?? "Vendor Bridge",
+            GetString(root, "deviceSerial") ?? "",
+            matchStatus,
+            request,
+            employeeId,
+            GetGuid(root, "auditRef") ?? auditRef,
+            GetInt(root, "qualityScore") ?? 0,
+            GetString(root, "message") ?? $"{operation} external bridge handshake completed.",
+            warnings);
+    }
+
+    private static FingerprintBridgeSimulatorResultDto BuildExternalBridgeResult(
+        bool success,
+        string operation,
+        string bridgeMode,
+        string vendor,
+        string deviceSerial,
+        string matchStatus,
+        FingerprintBridgeExternalRequest request,
+        Guid? employeeId,
+        Guid auditRef,
+        int qualityScore,
+        string message,
+        IReadOnlyList<string> warnings)
+        => new(
+            success,
+            message,
+            bridgeMode,
+            vendor,
+            deviceSerial,
+            matchStatus,
+            employeeId,
+            string.IsNullOrWhiteSpace(request.EmployeeCode) ? "SIM-EMP-001" : request.EmployeeCode.Trim(),
+            string.IsNullOrWhiteSpace(request.EmployeeName) ? "Simulator Employee" : request.EmployeeName.Trim(),
+            success ? $"external-template-ref-{(request.EmployeeCode ?? "sim-emp-001").Trim().ToLowerInvariant()}" : null,
+            qualityScore,
+            DateTimeOffset.UtcNow,
+            auditRef,
+            false,
+            warnings);
+
+    private static async Task WriteExternalBridgeLogAsync(
+        ApplicationMessageLogService logs,
+        string operation,
+        FingerprintBridgeSimulatorResultDto result,
+        FingerprintBridgeExternalRequest request,
+        HttpContext context,
+        Guid auditRef,
+        CancellationToken cancellationToken)
+    {
+        var details = new
+        {
+            operation,
+            bridgeBaseUrl = SanitizeBridgeUrl(request.BridgeBaseUrl),
+            result.BridgeMode,
+            result.Vendor,
+            result.DeviceSerial,
+            result.MatchStatus,
+            result.EmployeeId,
+            result.EmployeeCode,
+            result.TemplateRef,
+            result.QualityScore,
+            result.AuditRef,
+            result.RawPayloadStored,
+            result.Warnings
+        };
+        if (result.Success)
+        {
+            await logs.SuccessAsync("Attendance Fingerprint Bridge", $"External{operation}Succeeded", result.Message, details,
+                request.CompanyId ?? WorkspaceScope.ClaimGuid(context, "companyId"),
+                request.StoreGroupId ?? WorkspaceScope.ClaimGuid(context, "storeGroupId"),
+                request.StoreId ?? WorkspaceScope.ClaimGuid(context, "storeId"),
+                null, context.User.Identity?.Name, "/attendance/device-bridge", auditRef, cancellationToken);
+            return;
+        }
+
+        await logs.ErrorAsync("Attendance Fingerprint Bridge", $"External{operation}Failed", result.Message, details,
+            request.CompanyId ?? WorkspaceScope.ClaimGuid(context, "companyId"),
+            request.StoreGroupId ?? WorkspaceScope.ClaimGuid(context, "storeGroupId"),
+            request.StoreId ?? WorkspaceScope.ClaimGuid(context, "storeId"),
+            null, context.User.Identity?.Name, "/attendance/device-bridge", auditRef, cancellationToken);
+    }
+
+    private static string SanitizeBridgeUrl(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || !Uri.TryCreate(value, UriKind.Absolute, out var uri))
+        {
+            return "";
+        }
+        return $"{uri.Scheme}://{uri.Host}:{uri.Port}{uri.AbsolutePath}";
+    }
+
+    private static List<string> DetectRawBiometricFields(string body)
+    {
+        var warnings = new List<string>();
+        if (string.IsNullOrWhiteSpace(body)) return warnings;
+        foreach (var field in new[] { "rawImage", "fingerprintImage", "wsq", "minutiae", "isoTemplate", "templateBase64", "biometricPayload" })
+        {
+            if (body.Contains($"\"{field}\"", StringComparison.OrdinalIgnoreCase))
+            {
+                warnings.Add($"Blocked raw biometric field: {field}");
+            }
+        }
+        return warnings;
+    }
+
+    private static string? GetString(JsonElement? root, string property)
+        => root.HasValue && root.Value.ValueKind == JsonValueKind.Object && root.Value.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+
+    private static bool? GetBool(JsonElement? root, string property)
+        => root.HasValue && root.Value.ValueKind == JsonValueKind.Object && root.Value.TryGetProperty(property, out var value) && value.ValueKind is JsonValueKind.True or JsonValueKind.False
+            ? value.GetBoolean()
+            : null;
+
+    private static int? GetInt(JsonElement? root, string property)
+        => root.HasValue && root.Value.ValueKind == JsonValueKind.Object && root.Value.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var parsed)
+            ? parsed
+            : null;
+
+    private static Guid? GetGuid(JsonElement? root, string property)
+        => root.HasValue && root.Value.ValueKind == JsonValueKind.Object && root.Value.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String && Guid.TryParse(value.GetString(), out var parsed)
+            ? parsed
+            : null;
+
     private static IResult MobileKioskStatusAsync()
         => Results.Ok(new
         {
@@ -1548,8 +1884,8 @@ public static class AttendanceEndpoints
                 },
                 startupModel = "Application.CreateWindow with NavigationPage root",
                 androidPackageId = "com.garmetix.attendancekiosk",
-                androidDisplayVersion = "4.11.4",
-                androidVersionCode = 4114
+                androidDisplayVersion = "4.11.5",
+                androidVersionCode = 4115
             },
             packageAdvisories = new[]
             {

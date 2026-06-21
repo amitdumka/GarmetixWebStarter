@@ -1,10 +1,11 @@
-export const APP_VERSION = '4.11.4'
-export const APP_STAGE = "Stage 11B-2 Fingerprint Bridge Simulator"
-export const APP_RELEASE_NAME = "Stage 11B-2: Fingerprint Bridge Simulator Handshake"
+export const APP_VERSION = '4.11.5'
+export const APP_STAGE = "Stage 11B-3 External Fingerprint Bridge Connector"
+export const APP_RELEASE_NAME = "Stage 11B-3: External Fingerprint Bridge Connector"
 export const APP_BUILD_DATE = '2026-06-21'
-export const APP_BUILD_CODE = 'GARMETIX-11B-20260621-4114'
+export const APP_BUILD_CODE = 'GARMETIX-11B-20260621-4115'
 
 export const APP_HIGHLIGHTS = [
+  'Stage 11B-3 adds a guarded external fingerprint bridge connector for localhost/private vendor bridges with sanitized Message Logs and raw biometric field blocking.',
   'Stage 11B-2 adds a fingerprint bridge simulator handshake for health, capture, identify and enroll with sanitized Message Logs and no biometric payload storage.',
   'Stage 11B adds a vendor-neutral fingerprint bridge contract, readiness page, adapter checklist and privacy guard before any real SDK integration.',
   'Stage 11A physical tablet rehearsal adds an operator checklist, evidence capture contract and pass/fail criteria before fingerprint hardware work.',
