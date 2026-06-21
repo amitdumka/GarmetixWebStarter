@@ -1,52 +1,36 @@
-## v4.10.15 Stage 10H Runtime Bug Fix Pack
+## v4.10.24 Stage 10J Sale Invoice Acceptance Guard
 
-- Added menu coverage for every concrete Nuxt page in both modern and legacy sidebars.
-- Added direct create-page links for New Sale Invoice, New Customer, New Debit Note and New Credit Note.
-- Added validation so future pages cannot be added without sidebar/menu discovery.
+- Current version: 4.10.24 / `GARMETIX-10J-20260620-4124`.
+- Added a sale-invoice acceptance guard to current release validation.
+- The guard protects the dedicated `/billing/new` full-page workflow, draft persistence, mobile customer lookup, Manager salesman fallback, compact controls, payment bank safety, first-print behavior and modern/legacy menu access.
 
+## Recently Completed Stage 10J Polish
 
-## v4.10.13 Stage 10 Complete Final Acceptance
+- v4.10.23: Dashboard shell single vertical scroller with preserved horizontal table scroll.
+- v4.10.22: Notification routing, read-state and badge reduction.
+- v4.10.21: System Info compact header.
+- v4.10.20: Oracle status on System Health.
+- v4.10.19: Company helper text wrapping and action grouping.
+- v4.10.18: Sale invoice Manager fallback and compact save action.
+- v4.10.17: Real Excel-compatible CSV import/export engine for setup, products, customers, vendors, stock opening, billing, purchase, HR, payroll, attendance, vouchers, petty cash and access.
 
-Stage 10 is completed with barcode print final acceptance, GST/e-Invoice production readiness, Google Drive backup sync foundation, audit trail/change-history final acceptance, and a combined Stage 10 final acceptance gate.
-
-New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup`, `/audit-trail-final`, `/stage10-final-acceptance`.
-
-## Stage 10B Excel Import Export Center / v4.10.12
-
-- Current version: 4.10.12 / `GARMETIX-10B-20260620-4112`.
-- Fixed `/production-final-acceptance` to fail safely instead of breaking the page when one acceptance check errors.
-- Upgraded `/import-export` into an Excel-compatible CSV Import / Export Center.
-- Added attendance punch template/export/import support.
-- Next recommended package: Stage 10C Barcode Print Final Acceptance.
-
-## Stage 10B Excel Import Export Center / v4.10.12
-
-- Current version: 4.10.12 / `GARMETIX-10B-20260620-4112`.
-- Stage 9 attendance and Stage 9K Today&apos;s Dashboard are complete.
-- Stage 10A adds a consolidated production final acceptance gate before new major module work.
-- The final gate checks build/deploy, database upgrade, core business flows, attendance/payroll, Today&apos;s Dashboard, security and recovery.
-
-### Current acceptance commands
+### Current Acceptance Commands
 
 ```bash
-python3 scripts/validation/current-release-checks.py
-export GARMETIX_SMOKE_USER='admin'
-export GARMETIX_SMOKE_PASSWORD='your-admin-password'
-./scripts/linux/stage10a-production-final-acceptance-drill.sh .env.production
+npm.cmd run build
+dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release
+python scripts/validation/current-release-checks.py
 ```
 
-### Next recommended roadmap
+### Next Recommended Roadmap
 
-1. Stage 10B - Excel Import / Export Center.
-2. Stage 10C - Barcode Print Final Acceptance.
-3. Stage 10D - GST and E-Invoice Production Integration.
-4. Stage 10E - Google Drive Backup Sync.
-5. Stage 10F - Audit Trail and Change History.
-6. Stage 11A - MAUI Android Attendance Kiosk App shell with local SQLite offline queue.
-7. Stage 11B - Fingerprint Device Bridge after hardware/vendor SDK selection.
-8. Stage 11C - Face recognition/liveness proof of concept after consent/retention controls.
+1. Stage 10J final bug sweep: run user-reported production flows module by module, starting with sale invoice, petty cash, vouchers, payroll and import/export.
+2. Stage 10K production operator acceptance: create a guided page/checklist for daily store operations, billing, cash closing, payroll, backup and restore.
+3. Stage 11A MAUI/Android Attendance Kiosk shell with local SQLite offline queue.
+4. Stage 11B Fingerprint device bridge after hardware/vendor SDK selection.
+5. Stage 11C Face recognition/liveness proof of concept after consent, retention and privacy controls.
 
-### Future attendance/mobile items kept for later
+### Future Attendance/Mobile Items Kept For Later
 
 - MAUI Android kiosk app.
 - Local SQLite offline queue.
