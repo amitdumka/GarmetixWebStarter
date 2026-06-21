@@ -1,13 +1,14 @@
-## v4.11.2 Stage 11A Physical Tablet Rehearsal
+## v4.11.3 Stage 11B Fingerprint Bridge Contract
 
-- Current version: 4.11.2 / `GARMETIX-11A-20260621-4112`.
-- Added `/attendance/mobile-kiosk-rehearsal` for physical Android tablet readiness, lookup, online punch, offline queue, sync and audit checks.
-- Added `/api/attendance/mobile-kiosk/rehearsal` with prerequisites, phases, evidence, pass criteria, blockers and next-after-pass guidance.
-- Kept the MAUI Android shell, build profile and SQLite `pending_punches` queue contract unchanged.
-- Added current-release validation for Stage 11A rehearsal route, menu, API, version and docs.
+- Current version: 4.11.3 / `GARMETIX-11B-20260621-4113`.
+- Upgraded `/attendance/device-bridge` into the Stage 11B Fingerprint Bridge contract page.
+- Expanded `/api/attendance/device-bridge/status` with adapter candidates, local bridge endpoints, implementation checklist, rehearsal steps, blockers and privacy guardrails.
+- Kept `fingerprintBridgeEnabled` false until hardware/vendor SDK is selected and approved.
+- Raw fingerprint image, minutiae and template storage in Garmetix remain disallowed.
 
 ## Recently Completed Stage 10
 
+- v4.11.2: Stage 11A Physical Tablet Rehearsal with physical Android tablet readiness, lookup, online punch, offline queue, sync and audit checks.
 - v4.11.1: Stage 11A Android Build Hardening with `Application.CreateWindow`, APK/AAB build profile and SQLite advisory visibility.
 - v4.11.0: Stage 11A MAUI Android Attendance Kiosk Shell with native app scaffold, SQLite pending punch queue, mobile status page and kiosk API contract.
 - v4.10.31: Stage 10M Production Rehearsal Tracker for live-data store-day run sheets, blocking checks, issue buckets and go/no-go evidence before Stage 11.
@@ -36,11 +37,12 @@ python scripts/validation/current-release-checks.py
 
 ### Next Recommended Roadmap
 
-1. Run the Stage 11A physical tablet rehearsal on a real Android device and close any blocker found in `/attendance/mobile-kiosk-rehearsal`.
-2. Stage 11B Fingerprint device bridge after hardware/vendor SDK selection and privacy review.
-3. Stage 11C Face recognition/liveness proof of concept after consent, retention and privacy controls.
-4. Stage 11D mobile/device deployment packaging after kiosk shell is accepted.
-5. Stage 12A SaaS/super-admin plan if multi-company hosted licensing is needed.
+1. Select fingerprint hardware/vendor SDK and confirm whether the bridge runs on Windows, Android, or both.
+2. Stage 11B-2 Simulator/local bridge handshake so UI, errors, Message Logs and audit can be tested without real biometric payloads.
+3. Stage 11B-3 Selected vendor adapter for capture/identify/enroll after SDK approval.
+4. Stage 11C Face recognition/liveness proof of concept after consent, retention and privacy controls.
+5. Stage 11D mobile/device deployment packaging after kiosk shell and fingerprint bridge are accepted.
+6. Stage 12A SaaS/super-admin plan if multi-company hosted licensing is needed.
 
 ### Future Attendance/Mobile Items Kept For Later
 

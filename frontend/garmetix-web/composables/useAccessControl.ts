@@ -99,7 +99,7 @@ const routeRules: PageAccessRule[] = [
   { path: '/attendance/payroll-review', label: 'Attendance Payroll Review', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr', 'payroll'] },
   { path: '/attendance/salary-draft', label: 'Salary Slip Generation', module: 'People', roles: ['admin', 'owner', 'powerUser', 'hr', 'payroll'] },
   { path: '/attendance/salary-payment', label: 'Salary Payment Posting', module: 'People', roles: ['admin', 'owner', 'powerUser', 'hr', 'payroll'] },
-  { path: '/attendance/device-bridge', label: 'Device Bridge Plan', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
+  { path: '/attendance/device-bridge', label: 'Fingerprint Bridge', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
   { path: '/attendance/final-acceptance', label: 'Stage 9 Final Acceptance', module: 'People', roles: ['admin', 'owner', 'powerUser', 'hr', 'payroll'] },
   { path: '/hr-benefits', label: 'HR Benefits', module: 'People', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager', 'hr', 'payroll'] },
   { path: '/payroll', label: 'Payroll', module: 'People', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager', 'payroll'] },

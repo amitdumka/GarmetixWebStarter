@@ -1,3 +1,9 @@
+## v4.11.3 Stage 11B Fingerprint Bridge Contract
+
+- Upgraded `/attendance/device-bridge` into the Stage 11B Fingerprint Bridge page with adapter candidates, bridge API contract, privacy rules, blockers and next actions.
+- Expanded `/api/attendance/device-bridge/status` with vendor-neutral local bridge endpoints, simulator-first guidance and no-raw-biometric storage guardrails.
+- Updated current release validation to keep Stage 11B hardware-safe until a fingerprint reader and vendor SDK are selected.
+
 ## v4.11.2 Stage 11A Physical Tablet Rehearsal
 
 - Added `/attendance/mobile-kiosk-rehearsal` as the operator checklist for physical Android tablet testing.
@@ -120,7 +126,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 11A Physical Tablet Kiosk Rehearsal Checklist v4.11.2 (`GARMETIX-11A-20260621-4112`).
+> Current package: Stage 11B Vendor-Neutral Fingerprint Bridge Contract v4.11.3 (`GARMETIX-11B-20260621-4113`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

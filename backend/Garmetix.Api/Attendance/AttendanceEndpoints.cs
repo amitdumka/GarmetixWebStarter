@@ -1266,12 +1266,119 @@ public static class AttendanceEndpoints
     }
 
     private static IResult DeviceBridgeStatusAsync()
-        => Results.Ok(new AttendanceDeviceBridgeStatusDto(
-            "PlanningReady",
-            false,
-            false,
-            ["Device registration", "Device token validation", "Punch sync API", "Sync batch audit", "Biometric enrollment reference placeholders"],
-            ["Vendor SDK bridge service", "USB fingerprint reader driver", "Android MAUI kiosk local SQLite queue", "Fingerprint template adapter", "Device health dashboard"]));
+        => Results.Ok(new
+        {
+            version = AppInfoEndpoints.Version,
+            stage = AppInfoEndpoints.Stage,
+            buildCode = AppInfoEndpoints.BuildCode,
+            generatedAtUtc = DateTimeOffset.UtcNow,
+            status = "ContractReady",
+            title = "Vendor-neutral fingerprint bridge contract",
+            fingerprintBridgeEnabled = false,
+            rawFingerprintStorageAllowed = false,
+            matchingLocation = "Vendor SDK or approved local bridge only; Garmetix stores employee consent, device audit and template reference IDs, not raw fingerprint images.",
+            supportedBridgeInputs = new[]
+            {
+                "Attendance device registration and device-token validation",
+                "MAUI Android kiosk readiness, lookup, punch and sync-pending APIs",
+                "Employee biometric enrollment reference placeholders",
+                "Kiosk sync batch audit trail",
+                "Message Logs for errors, events and operator-visible support notes"
+            },
+            adapterCandidates = new[]
+            {
+                new
+                {
+                    name = "Mantra MFS100 / MIS100",
+                    platform = "Windows bridge or Android SDK bridge",
+                    fit = "Common in India; final SDK licensing and Android compatibility must be confirmed.",
+                    decisionStatus = "Candidate"
+                },
+                new
+                {
+                    name = "Startek FM220",
+                    platform = "Windows bridge or Android SDK bridge",
+                    fit = "Common Aadhaar-era device family; verify current vendor SDK support and redistribution terms.",
+                    decisionStatus = "Candidate"
+                },
+                new
+                {
+                    name = "SecuGen Hamster Pro",
+                    platform = "Windows bridge first, Android bridge if SDK is available",
+                    fit = "Reliable USB fingerprint family; confirm local availability and SDK cost.",
+                    decisionStatus = "Candidate"
+                },
+                new
+                {
+                    name = "Simulator adapter",
+                    platform = "Development only",
+                    fit = "Used to test bridge request/response, UI, logs and audit without a real scanner.",
+                    decisionStatus = "AllowedForDevelopment"
+                }
+            },
+            bridgeContract = new
+            {
+                localBridgeBaseUrl = "http://127.0.0.1:{port}/garmetix-fingerprint",
+                health = "GET /health",
+                capture = "POST /capture",
+                identify = "POST /identify",
+                enroll = "POST /enroll",
+                responseFields = new[]
+                {
+                    "success",
+                    "message",
+                    "deviceSerial",
+                    "vendor",
+                    "matchStatus",
+                    "employeeId",
+                    "templateRef",
+                    "qualityScore",
+                    "capturedAtUtc",
+                    "auditRef"
+                }
+            },
+            privacyRules = new[]
+            {
+                "Do not store raw fingerprint image, WSQ, ISO template or minutiae in Garmetix database.",
+                "Store only vendor-approved template reference or encrypted external vault reference after written approval.",
+                "Require employee consent before enrollment.",
+                "Device bridge must return audit reference, quality score and match status without exposing biometric payload to the browser.",
+                "All bridge failures must be written to Message Logs with sanitized details."
+            },
+            implementationChecklist = new[]
+            {
+                "Choose one fingerprint reader model and obtain official SDK/license.",
+                "Build a small local bridge service for Windows/Mac/Android depending on selected hardware.",
+                "Add simulator adapter first so UI, logs and attendance punch flow can be tested.",
+                "Map successful identify/enroll responses to EmployeeBiometricEnrollment template reference fields.",
+                "Add kiosk punch mode that requires fingerprint match before posting attendance punch.",
+                "Run privacy review before enabling live biometric matching at any store."
+            },
+            rehearsalSteps = new[]
+            {
+                "Open this page and confirm fingerprintBridgeEnabled remains No until a real adapter is approved.",
+                "Use simulator adapter to return a mock device health response.",
+                "Verify bridge errors appear as clean user messages and sanitized Message Logs.",
+                "Confirm no API response or browser storage contains raw biometric payload.",
+                "After hardware choice, repeat with the vendor SDK bridge on one test machine/tablet."
+            },
+            blockers = new[]
+            {
+                "No selected fingerprint reader or vendor SDK license.",
+                "Vendor SDK requires storing raw templates inside Garmetix database.",
+                "Bridge cannot run on the target kiosk platform.",
+                "Privacy/consent process is not approved.",
+                "Message Logs do not capture sanitized bridge errors."
+            },
+            nextAfterThisPart = new[]
+            {
+                "Select fingerprint hardware/vendor SDK.",
+                "Implement simulator bridge service and API handshake.",
+                "Implement the selected vendor adapter.",
+                "Wire kiosk punch flow to require fingerprint match for configured stores.",
+                "Keep face/liveness work separate for Stage 11C."
+            }
+        });
 
     private static IResult MobileKioskStatusAsync()
         => Results.Ok(new
@@ -1295,8 +1402,8 @@ public static class AttendanceEndpoints
                 },
                 startupModel = "Application.CreateWindow with NavigationPage root",
                 androidPackageId = "com.garmetix.attendancekiosk",
-                androidDisplayVersion = "4.11.2",
-                androidVersionCode = 4112
+                androidDisplayVersion = "4.11.3",
+                androidVersionCode = 4113
             },
             packageAdvisories = new[]
             {

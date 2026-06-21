@@ -55,10 +55,10 @@ if not checks[0][1]:
         and "APP_VERSION = '4.11.1'" in app_version
         and '<Version>4.11.1</Version>' in csproj
     ) or (
-        'Stage 11A Physical Tablet Rehearsal' in app_info
-        and 'GARMETIX-11A-20260621-4112' in app_info
-        and "APP_VERSION = '4.11.2'" in app_version
-        and '<Version>4.11.2</Version>' in csproj
+        'Stage 11B Fingerprint Bridge Contract' in app_info
+        and 'GARMETIX-11B-20260621-4113' in app_info
+        and "APP_VERSION = '4.11.3'" in app_version
+        and '<Version>4.11.3</Version>' in csproj
     ))
 add('day closing uses day open opening', all(token in store_day_api for token in ['DayBegins.AsNoTracking()', 'OpeningBalance = opening', 'Today day opening', "Opening balance is taken from today's Day Open entry"]))
 add('previous petty cash mismatch control', all(token in store_day_api for token in ['GetPreviousPettyCashClosingInfoAsync', 'OpeningBalanceMismatch', 'ConfirmOpeningBalanceMismatch', 'Results.Conflict', 'PreviousPettyCashClosingBalance']))

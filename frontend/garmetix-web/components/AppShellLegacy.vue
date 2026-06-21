@@ -166,7 +166,7 @@ const moduleGroups = [
       { to: '/attendance/payroll-review', label: 'Attendance Payroll Review', icon: 'i-lucide-hand-coins' },
       { to: '/attendance/salary-draft', label: 'Salary Slip Generation', icon: 'i-lucide-receipt-indian-rupee' },
       { to: '/attendance/salary-payment', label: 'Salary Payment Posting', icon: 'i-lucide-wallet-cards' },
-      { to: '/attendance/device-bridge', label: 'Device Bridge Plan', icon: 'i-lucide-cable' },
+      { to: '/attendance/device-bridge', label: 'Fingerprint Bridge', icon: 'i-lucide-fingerprint', keywords: ['stage 11b', 'fingerprint', 'biometric', 'device bridge'] },
       { to: '/attendance/final-acceptance', label: 'Stage 9 Final Acceptance', icon: 'i-lucide-clipboard-check' },
       { to: '/hr-benefits', label: 'HR Benefits', icon: 'i-lucide-hand-coins' },
       { to: '/payroll', label: 'Payroll', icon: 'i-lucide-badge-indian-rupee' }
