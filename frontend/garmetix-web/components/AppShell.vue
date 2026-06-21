@@ -243,6 +243,7 @@ const moduleGroups: MenuGroup[] = [
       { to: '/stage10-final-acceptance', label: 'Stage 10 Final Acceptance', icon: 'i-lucide-clipboard-check', adminOnly: true },
       { to: '/stage10k-operator-acceptance', label: 'Stage 10K Operator Acceptance', icon: 'i-lucide-list-checks', adminOnly: true, keywords: ['stage 10k', 'operator acceptance', 'daily checklist', 'store rehearsal'] },
       { to: '/production-support', label: 'Production Support', icon: 'i-lucide-life-buoy', adminOnly: true, keywords: ['stage 10l', 'support', 'troubleshooting', 'save failure', 'print failure', 'api mismatch'] },
+      { to: '/production-rehearsal', label: 'Production Rehearsal', icon: 'i-lucide-route', adminOnly: true, keywords: ['stage 10m', 'rehearsal', 'live data', 'go no go', 'issue bucket'] },
       { to: '/email-delivery', label: 'Email Delivery', icon: 'i-lucide-mail-check', adminOnly: true },
       { to: '/license-activation', label: 'License Activation', icon: 'i-lucide-key-round', adminOnly: true },
       { to: '/stage8g-completion', label: 'Stage 8G Completion', icon: 'i-lucide-flag', adminOnly: true },

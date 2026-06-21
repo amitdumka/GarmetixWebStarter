@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.10.30";
-    public const string Stage = "Stage 10L Production Support Pack";
-    public const string ReleaseName = "Stage 10L: Production Support Troubleshooting Drills";
+    public const string Version = "4.10.31";
+    public const string Stage = "Stage 10M Production Rehearsal Tracker";
+    public const string ReleaseName = "Stage 10M: Live Data Production Rehearsal Run Sheet";
     public const string BuildDate = "2026-06-20";
-    public const string BuildCode = "GARMETIX-10L-20260620-4130";
+    public const string BuildCode = "GARMETIX-10M-20260620-4131";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,7 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stage 10M adds a Production Rehearsal page and API for live-data run sheets, blocking checks, issue buckets and go/no-go evidence before Stage 11.",
         "Stage 10L adds a Production Support page and API for failed save, failed print, backup warning, email/share failure and Cloudflare or hosted API mismatch drills.",
         "Stage 10K adds a production operator acceptance page and API for daily store opening, billing, cash closing, purchase, accounting, HR/payroll, backup and support rehearsal.",
         "Import/Export CSV download and upload now use hosted-safe API URLs with sanitized CSV filenames.",

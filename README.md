@@ -1,3 +1,9 @@
+## v4.10.31 Stage 10M Production Rehearsal Tracker
+
+- Added `/production-rehearsal` as an Admin/Owner live-data run sheet before Stage 11 mobile/device work.
+- Added `/api/stage10m/production-rehearsal` and `/api/stage10m/production-rehearsal/run-sheet` with phases, blocking checks and issue buckets.
+- Added current-release validation for Stage 10M endpoint registration, route access, sidebar discovery, version identity and rehearsal coverage.
+
 ## v4.10.30 Stage 10L Production Support Pack
 
 - Added `/production-support` as an Admin/Owner troubleshooting console for failed save, failed print, backup warning, email/share failure and hosted API mismatch.
@@ -96,7 +102,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 10L Production Support Troubleshooting Drills v4.10.30 (`GARMETIX-10L-20260620-4130`).
+> Current package: Stage 10M Live Data Production Rehearsal Run Sheet v4.10.31 (`GARMETIX-10M-20260620-4131`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

@@ -1,12 +1,13 @@
-## v4.10.30 Stage 10L Production Support Pack
+## v4.10.31 Stage 10M Production Rehearsal Tracker
 
-- Current version: 4.10.30 / `GARMETIX-10L-20260620-4130`.
-- Added a Production Support page for failed save, failed print, backup warning, email/share failure and hosted API mismatch drills.
-- Added `/api/stage10l/production-support` and `/api/stage10l/production-support/drills` with public-origin, tunnel/proxy hints and drill steps.
-- Added current-release validation for Stage 10L route, menu, access, version and support drill coverage.
+- Current version: 4.10.31 / `GARMETIX-10M-20260620-4131`.
+- Added a Production Rehearsal page for live-data store-day run sheets before Stage 11 mobile/device work.
+- Added `/api/stage10m/production-rehearsal` and `/api/stage10m/production-rehearsal/run-sheet` with phases, blocking checks and issue buckets.
+- Added current-release validation for Stage 10M route, menu, access, version and rehearsal coverage.
 
 ## Recently Completed Stage 10
 
+- v4.10.30: Stage 10L Production Support Pack for failed save, failed print, backup warning, email/share failure and hosted API mismatch drills.
 - v4.10.29: Stage 10K Production Operator Acceptance checklist for daily store opening, billing, cash closing, purchase, accounting, HR/payroll, backup and support rehearsal.
 - v4.10.28: Import/Export transfer guard for hosted-safe upload/download URLs and sanitized CSV filenames.
 - v4.10.27: Payroll PDF download guard for salary payment slips and safe SPAY filenames.
@@ -31,7 +32,7 @@ python scripts/validation/current-release-checks.py
 
 ### Next Recommended Roadmap
 
-1. Stage 10M production rehearsal fixes: use Stage 10K/10L pages against a real store-day dataset and fix any save, print, access or hosted URL issue found.
+1. Stage 10M live-data rehearsal fixes: run `/production-rehearsal` on a real store-day dataset and fix any blocking issue found.
 2. Stage 11A MAUI/Android Attendance Kiosk shell with local SQLite offline queue.
 3. Stage 11B Fingerprint device bridge after hardware/vendor SDK selection.
 4. Stage 11C Face recognition/liveness proof of concept after consent, retention and privacy controls.

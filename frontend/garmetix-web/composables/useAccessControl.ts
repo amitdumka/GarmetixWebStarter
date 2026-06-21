@@ -128,6 +128,7 @@ const routeRules: PageAccessRule[] = [
   { path: '/production-final-acceptance', label: 'Production Final Acceptance', module: 'Maintenance', roles: ['admin', 'owner'] },
   { path: '/stage10k-operator-acceptance', label: 'Stage 10K Operator Acceptance', module: 'Maintenance', roles: ['admin', 'owner'] },
   { path: '/production-support', label: 'Production Support', module: 'Maintenance', roles: ['admin', 'owner'] },
+  { path: '/production-rehearsal', label: 'Production Rehearsal', module: 'Maintenance', roles: ['admin', 'owner'] },
   { path: '/barcode-final-acceptance', label: 'Barcode Final Acceptance', module: 'Reports', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
   { path: '/gst-production', label: 'GST Production Readiness', module: 'GST', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant'] },
   { path: '/google-drive-backup', label: 'Google Drive Backup Sync', module: 'Maintenance', roles: ['admin', 'owner'] },

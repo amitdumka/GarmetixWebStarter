@@ -299,6 +299,7 @@ app.MapPermissionAcceptanceEndpoints();
 app.MapStage10AFinalAcceptanceEndpoints();
 app.MapStage10KOperatorAcceptanceEndpoints();
 app.MapStage10LProductionSupportEndpoints();
+app.MapStage10MProductionRehearsalEndpoints();
 app.MapEmailDeliveryDiagnosticsEndpoints();
 app.MapLicenseEndpoints();
 app.MapReleaseStabilizationEndpoints();

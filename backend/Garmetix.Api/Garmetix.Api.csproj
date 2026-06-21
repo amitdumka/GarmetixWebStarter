@@ -4,10 +4,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);AD0001</NoWarn>
-    <Version>4.10.30</Version>
-    <AssemblyVersion>4.10.30.0</AssemblyVersion>
-    <FileVersion>4.10.30.0</FileVersion>
-    <InformationalVersion>4.10.30-stage10l-production-support-pack</InformationalVersion>
+    <Version>4.10.31</Version>
+    <AssemblyVersion>4.10.31.0</AssemblyVersion>
+    <FileVersion>4.10.31.0</FileVersion>
+    <InformationalVersion>4.10.31-stage10m-production-rehearsal-tracker</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

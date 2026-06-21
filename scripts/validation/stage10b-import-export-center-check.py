@@ -29,6 +29,7 @@ version_41013 = version_41013 or (all(token in app_info for token in ['Version =
 version_41013 = version_41013 or (all(token in app_info for token in ['Version = "4.10.28"', 'Stage 10J Real Excel Import Export Engine', 'GARMETIX-10J-20260620-4128']) and "APP_VERSION = '4.10.28'" in app_version and '<Version>4.10.28</Version>' in csproj)
 version_41013 = version_41013 or (all(token in app_info for token in ['Version = "4.10.29"', 'Stage 10K Production Operator Acceptance', 'GARMETIX-10K-20260620-4129']) and "APP_VERSION = '4.10.29'" in app_version and '<Version>4.10.29</Version>' in csproj)
 version_41013 = version_41013 or (all(token in app_info for token in ['Version = "4.10.30"', 'Stage 10L Production Support Pack', 'GARMETIX-10L-20260620-4130']) and "APP_VERSION = '4.10.30'" in app_version and '<Version>4.10.30</Version>' in csproj)
+version_41013 = version_41013 or (all(token in app_info for token in ['Version = "4.10.31"', 'Stage 10M Production Rehearsal Tracker', 'GARMETIX-10M-20260620-4131']) and "APP_VERSION = '4.10.31'" in app_version and '<Version>4.10.31</Version>' in csproj)
 add('version identity', version_41012 or version_41013)
 add('stage10a endpoint fails safe', all(token in final_endpoint for token in ['try', 'catch (Exception ex)', 'Degraded - review logs', 'CreatePayload']))
 add('production final acceptance page uses allSettled', 'Promise.allSettled' in final_page and 'Some final-acceptance checks failed to load' in final_page)
