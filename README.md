@@ -1,3 +1,9 @@
+## v4.11.2 Stage 11A Physical Tablet Rehearsal
+
+- Added `/attendance/mobile-kiosk-rehearsal` as the operator checklist for physical Android tablet testing.
+- Added `/api/attendance/mobile-kiosk/rehearsal` with prerequisites, phases, evidence, pass criteria, blockers and next-after-pass guidance.
+- Updated Stage 11A validation to require rehearsal route, menu, API and docs before moving to fingerprint hardware work.
+
 ## v4.11.1 Stage 11A Android Build Hardening
 
 - Removed the MAUI Android `MainPage` startup deprecation by switching the kiosk app to `Application.CreateWindow`.
@@ -114,7 +120,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 11A Android Kiosk Build Hardening and Rehearsal Contract v4.11.1 (`GARMETIX-11A-20260621-4111`).
+> Current package: Stage 11A Physical Tablet Kiosk Rehearsal Checklist v4.11.2 (`GARMETIX-11A-20260621-4112`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

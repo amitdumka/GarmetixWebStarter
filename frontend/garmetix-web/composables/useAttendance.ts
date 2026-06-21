@@ -30,6 +30,7 @@ export function useAttendance() {
   const deviceBridgeStatus = () => api.get<any>('attendance/device-bridge/status')
   const mobileKioskStatus = () => api.get<any>('attendance/mobile-kiosk/status')
   const mobileKioskOfflineContract = () => api.get<any>('attendance/mobile-kiosk/offline-contract')
+  const mobileKioskRehearsal = () => api.get<any>('attendance/mobile-kiosk/rehearsal')
   const finalAcceptance = () => api.get<any>('attendance/final-acceptance')
-  return { today, monthly, history, manualPunch, regularization, createRegularization, approveRegularization, rejectRegularization, recalculate, lockMonth, payrollSummary, payrollReview, rebuildPayrollReview, markPayrollReview, salarySlipDrafts, rebuildSalarySlipDrafts, markSalarySlipDraft, generateSalarySlipsFromDrafts, salaryPaymentCandidates, generateSalaryPaymentsFromDrafts, deviceBridgeStatus, mobileKioskStatus, mobileKioskOfflineContract, finalAcceptance }
+  return { today, monthly, history, manualPunch, regularization, createRegularization, approveRegularization, rejectRegularization, recalculate, lockMonth, payrollSummary, payrollReview, rebuildPayrollReview, markPayrollReview, salarySlipDrafts, rebuildSalarySlipDrafts, markSalarySlipDraft, generateSalarySlipsFromDrafts, salaryPaymentCandidates, generateSalaryPaymentsFromDrafts, deviceBridgeStatus, mobileKioskStatus, mobileKioskOfflineContract, mobileKioskRehearsal, finalAcceptance }
 }

@@ -1,13 +1,14 @@
-## v4.11.1 Stage 11A Android Build Hardening
+## v4.11.2 Stage 11A Physical Tablet Rehearsal
 
-- Current version: 4.11.1 / `GARMETIX-11A-20260621-4111`.
-- Removed the MAUI Android `MainPage` startup deprecation with the `Application.CreateWindow` pattern.
-- Added Android build profile, APK/AAB artifact expectations and package advisory visibility to `/attendance/mobile-kiosk`.
-- Kept the local SQLite `pending_punches` queue contract and kiosk API routes unchanged for offline punch sync.
-- Added current-release validation for Stage 11A shell files, Android build hardening, route, menu, access, version and kiosk contract coverage.
+- Current version: 4.11.2 / `GARMETIX-11A-20260621-4112`.
+- Added `/attendance/mobile-kiosk-rehearsal` for physical Android tablet readiness, lookup, online punch, offline queue, sync and audit checks.
+- Added `/api/attendance/mobile-kiosk/rehearsal` with prerequisites, phases, evidence, pass criteria, blockers and next-after-pass guidance.
+- Kept the MAUI Android shell, build profile and SQLite `pending_punches` queue contract unchanged.
+- Added current-release validation for Stage 11A rehearsal route, menu, API, version and docs.
 
 ## Recently Completed Stage 10
 
+- v4.11.1: Stage 11A Android Build Hardening with `Application.CreateWindow`, APK/AAB build profile and SQLite advisory visibility.
 - v4.11.0: Stage 11A MAUI Android Attendance Kiosk Shell with native app scaffold, SQLite pending punch queue, mobile status page and kiosk API contract.
 - v4.10.31: Stage 10M Production Rehearsal Tracker for live-data store-day run sheets, blocking checks, issue buckets and go/no-go evidence before Stage 11.
 - v4.10.30: Stage 10L Production Support Pack for failed save, failed print, backup warning, email/share failure and hosted API mismatch drills.
@@ -35,8 +36,8 @@ python scripts/validation/current-release-checks.py
 
 ### Next Recommended Roadmap
 
-1. Stage 11A physical tablet rehearsal: install the signed APK on an Android tablet, register it in Kiosk Devices, test readiness, offline punch queue and sync-pending on real network conditions.
-2. Stage 11B Fingerprint device bridge after hardware/vendor SDK selection.
+1. Run the Stage 11A physical tablet rehearsal on a real Android device and close any blocker found in `/attendance/mobile-kiosk-rehearsal`.
+2. Stage 11B Fingerprint device bridge after hardware/vendor SDK selection and privacy review.
 3. Stage 11C Face recognition/liveness proof of concept after consent, retention and privacy controls.
 4. Stage 11D mobile/device deployment packaging after kiosk shell is accepted.
 5. Stage 12A SaaS/super-admin plan if multi-company hosted licensing is needed.

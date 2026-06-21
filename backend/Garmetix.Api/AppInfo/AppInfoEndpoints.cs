@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.11.1";
-    public const string Stage = "Stage 11A Android Build Hardening";
-    public const string ReleaseName = "Stage 11A: Android Kiosk Build Hardening and Rehearsal Contract";
+    public const string Version = "4.11.2";
+    public const string Stage = "Stage 11A Physical Tablet Rehearsal";
+    public const string ReleaseName = "Stage 11A: Physical Tablet Kiosk Rehearsal Checklist";
     public const string BuildDate = "2026-06-21";
-    public const string BuildCode = "GARMETIX-11A-20260621-4111";
+    public const string BuildCode = "GARMETIX-11A-20260621-4112";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,7 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stage 11A physical tablet rehearsal adds an operator checklist, evidence capture contract and pass/fail criteria before fingerprint hardware work.",
         "Stage 11A build hardening removes the MAUI MainPage startup warning and adds Android build, APK/AAB, advisory and hardware rehearsal visibility.",
         "Stage 11A adds the native MAUI Android Attendance Kiosk shell, SQLite pending punch queue and web status page for the mobile kiosk contract.",
         "Stage 10M adds a Production Rehearsal page and API for live-data run sheets, blocking checks, issue buckets and go/no-go evidence before Stage 11.",

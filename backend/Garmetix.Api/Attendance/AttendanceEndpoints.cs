@@ -40,6 +40,7 @@ public static class AttendanceEndpoints
         group.MapGet("/device-bridge/status", DeviceBridgeStatusAsync);
         group.MapGet("/mobile-kiosk/status", MobileKioskStatusAsync);
         group.MapGet("/mobile-kiosk/offline-contract", MobileKioskOfflineContractAsync);
+        group.MapGet("/mobile-kiosk/rehearsal", MobileKioskRehearsalAsync);
         group.MapGet("/final-acceptance", FinalAcceptanceAsync);
         group.MapGet("/photo-proofs", ListPhotoProofsAsync);
         group.MapGet("/photo-proofs/review-summary", PhotoProofReviewSummaryAsync);
@@ -1294,8 +1295,8 @@ public static class AttendanceEndpoints
                 },
                 startupModel = "Application.CreateWindow with NavigationPage root",
                 androidPackageId = "com.garmetix.attendancekiosk",
-                androidDisplayVersion = "4.11.1",
-                androidVersionCode = 4111
+                androidDisplayVersion = "4.11.2",
+                androidVersionCode = 4112
             },
             packageAdvisories = new[]
             {
@@ -1391,6 +1392,107 @@ public static class AttendanceEndpoints
                 "latitude",
                 "longitude",
                 "remarks"
+            }
+        });
+
+    private static IResult MobileKioskRehearsalAsync()
+        => Results.Ok(new
+        {
+            version = AppInfoEndpoints.Version,
+            stage = AppInfoEndpoints.Stage,
+            buildCode = AppInfoEndpoints.BuildCode,
+            generatedAtUtc = DateTimeOffset.UtcNow,
+            title = "Physical Android tablet rehearsal",
+            goal = "Confirm one registered Android tablet can complete readiness, online punch, offline queue, sync-pending and audit review before fingerprint hardware work starts.",
+            prerequisites = new[]
+            {
+                "Android tablet with the Stage 11A APK installed.",
+                "API URL reachable from the tablet through HTTPS public URL or trusted LAN URL.",
+                "Kiosk device registered in Attendance > Kiosk Devices and token copied once.",
+                "At least one active employee with employee code/mobile/name available for lookup.",
+                "Operator has access to Kiosk Monitor and Message Logs for evidence review."
+            },
+            phases = new[]
+            {
+                new
+                {
+                    name = "Install and configure",
+                    checks = new[]
+                    {
+                        "Install com.garmetix.attendancekiosk-Signed.apk on the tablet.",
+                        "Open Garmetix Kiosk and enter API URL, Device ID and Device Token.",
+                        "Confirm the app remains on the kiosk screen after rotate, lock and unlock."
+                    },
+                    evidence = new[] { "Tablet screenshot with configured API URL hidden except domain.", "Device row in Kiosk Devices remains Active." }
+                },
+                new
+                {
+                    name = "Readiness and lookup",
+                    checks = new[]
+                    {
+                        "Tap Check Readiness and confirm device code/name and duplicate window.",
+                        "Search employee by code, mobile or name.",
+                        "Confirm selected employee belongs to the active store workspace."
+                    },
+                    evidence = new[] { "Readiness result screenshot.", "Selected employee result screenshot." }
+                },
+                new
+                {
+                    name = "Online punch",
+                    checks = new[]
+                    {
+                        "Submit Check In or Auto Punch while tablet network is online.",
+                        "Verify punch appears in Today Attendance or Kiosk Monitor.",
+                        "Confirm duplicate protection rejects an immediate repeat punch when policy applies."
+                    },
+                    evidence = new[] { "Kiosk Monitor row.", "Today Attendance row.", "Duplicate protection message if tested." }
+                },
+                new
+                {
+                    name = "Offline queue and sync",
+                    checks = new[]
+                    {
+                        "Disable tablet network.",
+                        "Submit one punch and confirm Pending queue increases.",
+                        "Restore network and tap Sync Pending.",
+                        "Confirm accepted/duplicate counts and pending queue returns to zero."
+                    },
+                    evidence = new[] { "Pending queue screenshot before sync.", "Sync result screenshot after reconnect.", "Kiosk sync batch row." }
+                },
+                new
+                {
+                    name = "Audit review and go/no-go",
+                    checks = new[]
+                    {
+                        "Review Message Logs for errors or warnings.",
+                        "Review Kiosk Monitor for device heartbeat, punch and sync evidence.",
+                        "Record blocker list before moving to Stage 11B fingerprint hardware selection."
+                    },
+                    evidence = new[] { "Message Logs screenshot or exported notes.", "Kiosk Monitor screenshot.", "Go/no-go decision." }
+                }
+            },
+            passCriteria = new[]
+            {
+                "Readiness succeeds with registered device token.",
+                "Employee lookup returns expected active store employee.",
+                "One online punch is saved and visible in monitor/report views.",
+                "One offline punch is queued locally and later accepted or marked duplicate by sync-pending.",
+                "No unexplained API, Message Log or Kiosk Monitor errors remain open."
+            },
+            blockers = new[]
+            {
+                "Tablet cannot reach API URL from store network.",
+                "Device token fails readiness after registration.",
+                "Offline queue does not retain punch while network is disabled.",
+                "Sync-pending accepts the request but punch does not appear in monitor/report.",
+                "SQLite advisory cannot be accepted for production policy."
+            },
+            nextAfterPass = new[]
+            {
+                "Freeze Stage 11A Android tablet baseline.",
+                "Select fingerprint hardware/vendor SDK for Stage 11B.",
+                "Keep raw biometric storage disallowed until vendor/privacy review is complete.",
+                "Plan Stage 11C face/liveness only after consent, retention and legal policy are approved."
             }
         });
 

@@ -25,6 +25,7 @@ queue = read("apps/Garmetix.AttendanceKiosk/Services/OfflinePunchQueue.cs")
 models = read("apps/Garmetix.AttendanceKiosk/Models/KioskModels.cs")
 attendance_endpoints = read("backend/Garmetix.Api/Attendance/AttendanceEndpoints.cs")
 web_page = read("frontend/garmetix-web/pages/attendance/mobile-kiosk.vue")
+rehearsal_page = read("frontend/garmetix-web/pages/attendance/mobile-kiosk-rehearsal.vue")
 attendance_composable = read("frontend/garmetix-web/composables/useAttendance.ts")
 access = read("frontend/garmetix-web/composables/useAccessControl.ts")
 app_shell = read("frontend/garmetix-web/components/AppShell.vue")
@@ -36,6 +37,7 @@ readme = read("README.md")
 roadmap = read("docs/planning/CURRENT-ROADMAP.md")
 operations_doc = read("docs/operations/Stage11A-Mobile-Attendance-Kiosk-v4.11.0.md")
 build_doc = read("docs/operations/Stage11A-Android-Build-Hardening-v4.11.1.md")
+rehearsal_doc = read("docs/operations/Stage11A-Physical-Tablet-Rehearsal-v4.11.2.md")
 current_release = read("scripts/validation/current-release-checks.py")
 
 mobile_files = [
@@ -51,11 +53,11 @@ mobile_files = [
 add("mobile shell files exist", all(exists(path) for path in mobile_files))
 add(
     "version identity",
-    all(token in app_info for token in ['Version = "4.11.1"', "Stage 11A Android Build Hardening", "GARMETIX-11A-20260621-4111"])
-    and "APP_VERSION = '4.11.1'" in app_version
-    and "Stage 11A Android Build Hardening" in app_version
-    and "GARMETIX-11A-20260621-4111" in app_version
-    and "<Version>4.11.1</Version>" in api_project,
+    all(token in app_info for token in ['Version = "4.11.2"', "Stage 11A Physical Tablet Rehearsal", "GARMETIX-11A-20260621-4112"])
+    and "APP_VERSION = '4.11.2'" in app_version
+    and "Stage 11A Physical Tablet Rehearsal" in app_version
+    and "GARMETIX-11A-20260621-4112" in app_version
+    and "<Version>4.11.2</Version>" in api_project,
 )
 add(
     "maui android shell contract",
@@ -63,8 +65,8 @@ add(
     and "<UseMaui>true</UseMaui>" in csproj
     and "Microsoft.Data.Sqlite" in csproj
     and "Microsoft.Maui.Controls" in csproj
-    and "<ApplicationDisplayVersion>4.11.1</ApplicationDisplayVersion>" in csproj
-    and "<ApplicationVersion>4111</ApplicationVersion>" in csproj
+    and "<ApplicationDisplayVersion>4.11.2</ApplicationDisplayVersion>" in csproj
+    and "<ApplicationVersion>4112</ApplicationVersion>" in csproj
     and "UseMauiApp<App>()" in maui_program
     and "KioskShellPage" in app
     and "CreateWindow" in app
@@ -108,11 +110,14 @@ add(
     "attendance mobile status endpoints",
     'group.MapGet("/mobile-kiosk/status", MobileKioskStatusAsync)' in attendance_endpoints
     and 'group.MapGet("/mobile-kiosk/offline-contract", MobileKioskOfflineContractAsync)' in attendance_endpoints
+    and 'group.MapGet("/mobile-kiosk/rehearsal", MobileKioskRehearsalAsync)' in attendance_endpoints
     and "SQLite local pending_punches table" in attendance_endpoints
     and "buildCommand" in attendance_endpoints
     and "expectedArtifacts" in attendance_endpoints
     and "SQLitePCLRaw.lib.e_sqlite3.android" in attendance_endpoints
     and "Application.CreateWindow with NavigationPage root" in attendance_endpoints
+    and "Physical Android tablet rehearsal" in attendance_endpoints
+    and "nextAfterPass" in attendance_endpoints
     and "sync-pending" in attendance_endpoints
     and "photo-proof" in attendance_endpoints,
 )
@@ -120,7 +125,9 @@ add(
     "frontend status page and composable",
     "attendance/mobile-kiosk/status" in attendance_composable
     and "attendance/mobile-kiosk/offline-contract" in attendance_composable
+    and "attendance/mobile-kiosk/rehearsal" in attendance_composable
     and "Mobile Attendance Kiosk" in web_page
+    and "/attendance/mobile-kiosk-rehearsal" in web_page
     and "SQLite offline queue" in web_page
     and "Android build profile" in web_page
     and "Package advisories" in web_page
@@ -129,18 +136,30 @@ add(
     and "safetyRules" in web_page,
 )
 add(
+    "rehearsal frontend page",
+    "Mobile Kiosk Rehearsal" in rehearsal_page
+    and "mobileKioskRehearsal" in rehearsal_page
+    and "Prerequisites" in rehearsal_page
+    and "Pass criteria" in rehearsal_page
+    and "Next after pass" in rehearsal_page
+    and "blockers" in rehearsal_page,
+)
+add(
     "route access and navigation",
     "path: '/attendance/mobile-kiosk'" in access
+    and "path: '/attendance/mobile-kiosk-rehearsal'" in access
     and "/attendance/mobile-kiosk" in app_shell
+    and "/attendance/mobile-kiosk-rehearsal" in app_shell
     and "/attendance/mobile-kiosk" in legacy_shell
+    and "/attendance/mobile-kiosk-rehearsal" in legacy_shell
     and "stage 11a" in app_shell
     and "stage 11a" in legacy_shell,
 )
 add(
     "docs and current release validation",
     "stage11a-mobile-kiosk-check.py" in current_release
-    and "Stage 11A Android Build Hardening" in readme
-    and "Stage 11A Android Build Hardening" in roadmap
+    and "Stage 11A Physical Tablet Rehearsal" in readme
+    and "Stage 11A Physical Tablet Rehearsal" in roadmap
     and "GET /api/attendance/mobile-kiosk/status" in operations_doc
     and "GET /api/attendance/mobile-kiosk/offline-contract" in operations_doc,
 )
@@ -150,6 +169,13 @@ add(
     and "com.garmetix.attendancekiosk-Signed.apk" in build_doc
     and "SQLitePCLRaw.lib.e_sqlite3.android 2.1.11" in build_doc
     and "Physical Tablet Rehearsal" in build_doc,
+)
+add(
+    "rehearsal docs",
+    "GET /api/attendance/mobile-kiosk/rehearsal" in rehearsal_doc
+    and "Go/No-Go Rule" in rehearsal_doc
+    and "Stage 11B fingerprint hardware bridge should not start" in rehearsal_doc
+    and "Raw biometric storage remains disallowed" in rehearsal_doc,
 )
 
 failed = [name for name, ok in checks if not ok]

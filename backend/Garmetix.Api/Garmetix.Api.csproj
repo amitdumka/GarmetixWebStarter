@@ -4,10 +4,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);AD0001</NoWarn>
-    <Version>4.11.1</Version>
-    <AssemblyVersion>4.11.1.0</AssemblyVersion>
-    <FileVersion>4.11.1.0</FileVersion>
-    <InformationalVersion>4.11.1-stage11a-android-build-hardening</InformationalVersion>
+    <Version>4.11.2</Version>
+    <AssemblyVersion>4.11.2.0</AssemblyVersion>
+    <FileVersion>4.11.2.0</FileVersion>
+    <InformationalVersion>4.11.2-stage11a-physical-tablet-rehearsal</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

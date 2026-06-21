@@ -46,6 +46,7 @@ onMounted(refresh)
         :loading="loading"
       >
         <template #actions>
+          <UButton to="/attendance/mobile-kiosk-rehearsal" icon="i-lucide-tablet-smartphone" label="Rehearsal" color="primary" variant="subtle" />
           <UButton to="/attendance/devices" icon="i-lucide-tablet-smartphone" label="Kiosk Devices" color="neutral" variant="subtle" />
           <UButton to="/attendance/kiosk-monitor" icon="i-lucide-monitor-check" label="Kiosk Monitor" color="neutral" variant="subtle" />
           <UButton icon="i-lucide-refresh-cw" :loading="loading" label="Refresh" @click="refresh" />

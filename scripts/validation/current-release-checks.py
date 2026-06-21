@@ -28,4 +28,4 @@ for check in checks:
     print(f"\n== {check.name} ==")
     subprocess.run([sys.executable, str(check)], cwd=root, check=True)
 
-print("\nCurrent release validation passed for Stage 11A Android Build Hardening / v4.11.1.")
+print("\nCurrent release validation passed for Stage 11A Physical Tablet Rehearsal / v4.11.2.")
