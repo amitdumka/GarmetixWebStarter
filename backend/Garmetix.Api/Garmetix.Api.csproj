@@ -4,10 +4,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);AD0001</NoWarn>
-    <Version>4.11.8</Version>
-    <AssemblyVersion>4.11.8.0</AssemblyVersion>
-    <FileVersion>4.11.8.0</FileVersion>
-    <InformationalVersion>4.11.8-stage11b6-biometric-enrollment-consent-hardening</InformationalVersion>
+    <Version>4.11.9</Version>
+    <AssemblyVersion>4.11.9.0</AssemblyVersion>
+    <FileVersion>4.11.9.0</FileVersion>
+    <InformationalVersion>4.11.9-stage11b7-mantra-enrollment-bridge-wiring</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

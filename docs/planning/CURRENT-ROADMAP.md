@@ -1,6 +1,10 @@
-## v4.11.8 Stage 11B-6 Biometric Enrollment Consent Hardening
+## v4.11.9 Stage 11B-7 Mantra Enrollment Bridge Wiring
 
-- Current version: 4.11.8 / `GARMETIX-11B-20260621-4118`.
+- Current version: 4.11.9 / `GARMETIX-11B-20260621-4119`.
+- Mantra MFS100 / MIS100 is now the selected fingerprint device target.
+- Added `MantraFingerprintVendorAdapter` as the safe bridge boundary for official SDK/service wiring.
+- Bridge enrollment controls on `/attendance/biometric-enrollment` can run simulator enroll or Mantra/external bridge enroll.
+- Successful bridge enroll responses prefill the safe fingerprint template reference form for review before save.
 - Replaced the biometric enrollment placeholder with a full Nuxt UI consent/reference page.
 - Backend now accepts a `BiometricEnrollmentSaveRequest` DTO instead of raw entity JSON.
 - Employee company, group and store are copied from the selected employee on the server.
@@ -26,6 +30,7 @@
 
 ## Recently Completed Stage 10
 
+- v4.11.8: Stage 11B-6 Biometric Enrollment Consent Hardening with DTO-based saves, server-owned employee workspace values, safe template reference validation, revocation workflow and Message Logs.
 - v4.11.7: Stage 11B-5 Fingerprint Kiosk Punch Guard with configurable kiosk fingerprint punch enforcement, bridge proof validation, operator UI and Message Logs for blocked punches.
 - v4.11.6: Stage 11B-4 Local Fingerprint Bridge Template with a runnable bridge app, simulator adapter boundary, local/private caller guard and no raw biometric response contract.
 - v4.11.5: Stage 11B-3 External Fingerprint Bridge Connector with guarded local/private bridge calls, raw biometric field blocking and sanitized Message Logs.
@@ -60,9 +65,9 @@ python scripts/validation/current-release-checks.py
 
 ### Next Recommended Roadmap
 
-1. Select fingerprint hardware/vendor SDK and confirm whether the bridge runs on Windows, Android, or both.
-2. Replace `SimulatorFingerprintVendorAdapter` in `apps/Garmetix.FingerprintBridge` with the selected vendor SDK adapter.
-3. Add selected vendor enrollment adapter once hardware and SDK license are confirmed.
+1. Install the official Mantra SDK/service on one kiosk host and confirm its local API/native integration mode.
+2. Implement SDK calls inside `MantraFingerprintVendorAdapter` while preserving the existing bridge response contract.
+3. Run Mantra health, capture, enroll and identify through `/attendance/device-bridge` and `/attendance/biometric-enrollment`.
 4. Stage 11C Face recognition/liveness proof of concept after consent, retention and privacy controls.
 5. Stage 11D mobile/device deployment packaging after kiosk shell and fingerprint bridge are accepted.
 6. Stage 12A SaaS/super-admin plan if multi-company hosted licensing is needed.

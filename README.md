@@ -1,3 +1,10 @@
+## v4.11.9 Stage 11B-7 Mantra Enrollment Bridge Wiring
+
+- Marked Mantra MFS100 / MIS100 as the selected fingerprint device target.
+- Added `MantraFingerprintVendorAdapter` as the safe adapter boundary in the local bridge app.
+- Added bridge enrollment controls to `/attendance/biometric-enrollment` for simulator dry-run and Mantra bridge enroll.
+- Successful bridge enroll responses now prefill fingerprint template reference, provider, device serial, consent audit reference and notes for review before save.
+
 ## v4.11.8 Stage 11B-6 Biometric Enrollment Consent Hardening
 
 - Replaced the biometric enrollment placeholder with a full Nuxt UI consent/reference page.
@@ -158,7 +165,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 11B-6 Biometric Enrollment Consent Hardening v4.11.8 (`GARMETIX-11B-20260621-4118`).
+> Current package: Stage 11B-7 Mantra Enrollment Bridge Wiring v4.11.9 (`GARMETIX-11B-20260621-4119`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

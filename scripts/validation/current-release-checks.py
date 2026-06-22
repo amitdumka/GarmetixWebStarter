@@ -29,4 +29,4 @@ for check in checks:
     print(f"\n== {check.name} ==")
     subprocess.run([sys.executable, str(check)], cwd=root, check=True)
 
-print("\nCurrent release validation passed for Stage 11B-6 Biometric Enrollment Consent Hardening / v4.11.8.")
+print("\nCurrent release validation passed for Stage 11B-7 Mantra Enrollment Bridge Wiring / v4.11.9.")

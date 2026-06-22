@@ -4,7 +4,14 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.WebHost.UseUrls(builder.Configuration["Bridge:Urls"] ?? "http://127.0.0.1:8787");
 builder.Services.Configure<FingerprintBridgeOptions>(builder.Configuration.GetSection("Bridge"));
-builder.Services.AddSingleton<IFingerprintVendorAdapter, SimulatorFingerprintVendorAdapter>();
+builder.Services.AddSingleton<IFingerprintVendorAdapter>(sp =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var options = configuration.GetSection("Bridge").Get<FingerprintBridgeOptions>() ?? new();
+    return options.Adapter.Equals("Mantra", StringComparison.OrdinalIgnoreCase)
+        ? new MantraFingerprintVendorAdapter(configuration)
+        : new SimulatorFingerprintVendorAdapter(configuration);
+});
 
 var app = builder.Build();
 
@@ -71,9 +78,13 @@ static bool IsAllowedLocalCaller(IPAddress? address)
 
 public sealed record FingerprintBridgeOptions
 {
+    public string Adapter { get; init; } = "Simulator";
+    public string SelectedHardware { get; init; } = "Mantra MFS100 / MIS100";
     public string Vendor { get; init; } = "Garmetix Simulator Fingerprint Bridge";
     public string DeviceSerial { get; init; } = "SIM-FP-BRIDGE-0001";
     public int QualityScore { get; init; } = 86;
+    public string MantraSdkPath { get; init; } = "";
+    public string MantraServiceUrl { get; init; } = "";
 }
 
 public sealed record BridgeRequest(
@@ -153,6 +164,53 @@ public sealed class SimulatorFingerprintVendorAdapter(IConfiguration configurati
             employeeName,
             operation.Equals("Health", StringComparison.OrdinalIgnoreCase) ? null : $"local-template-ref-{employeeCode.ToLowerInvariant()}",
             Math.Clamp(options.QualityScore, 0, 100),
+            DateTimeOffset.UtcNow,
+            Guid.NewGuid(),
+            false,
+            warnings);
+    }
+}
+
+public sealed class MantraFingerprintVendorAdapter(IConfiguration configuration) : IFingerprintVendorAdapter
+{
+    private FingerprintBridgeOptions Options => configuration.GetSection("Bridge").Get<FingerprintBridgeOptions>() ?? new();
+
+    public Task<BridgeResponse> HealthAsync(CancellationToken cancellationToken)
+        => Task.FromResult(NotConfigured("Health", new BridgeRequest(null, "MANTRA-CHECK", "Mantra Device Check", null, null, null, null, false)));
+
+    public Task<BridgeResponse> CaptureAsync(BridgeRequest request, CancellationToken cancellationToken)
+        => Task.FromResult(NotConfigured("Capture", request));
+
+    public Task<BridgeResponse> IdentifyAsync(BridgeRequest request, CancellationToken cancellationToken)
+        => Task.FromResult(NotConfigured("Identify", request));
+
+    public Task<BridgeResponse> EnrollAsync(BridgeRequest request, CancellationToken cancellationToken)
+        => Task.FromResult(NotConfigured("Enroll", request));
+
+    private BridgeResponse NotConfigured(string operation, BridgeRequest request)
+    {
+        var options = Options;
+        var employeeCode = string.IsNullOrWhiteSpace(request.EmployeeCode) ? "MANTRA-EMP" : request.EmployeeCode.Trim();
+        var employeeName = string.IsNullOrWhiteSpace(request.EmployeeName) ? "Mantra Enrollment Employee" : request.EmployeeName.Trim();
+        var warnings = new[]
+        {
+            "Mantra adapter boundary is selected but the official Mantra SDK/service is not wired yet.",
+            "Install the Mantra SDK/service on the kiosk host, then implement SDK calls inside MantraFingerprintVendorAdapter.",
+            "Return only templateRef, matchStatus, qualityScore, auditRef and device metadata. Raw biometric payloads remain blocked."
+        };
+
+        return new BridgeResponse(
+            false,
+            $"{operation} cannot run until the Mantra SDK/service is configured on this bridge host.",
+            "MantraBridgeAdapter",
+            string.IsNullOrWhiteSpace(options.Vendor) ? "Mantra" : options.Vendor,
+            string.IsNullOrWhiteSpace(options.DeviceSerial) ? "MANTRA-NOT-CONFIGURED" : options.DeviceSerial,
+            "SdkNotConfigured",
+            request.EmployeeId,
+            employeeCode,
+            employeeName,
+            null,
+            0,
             DateTimeOffset.UtcNow,
             Guid.NewGuid(),
             false,

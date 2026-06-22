@@ -32,5 +32,7 @@ Browser kiosk support:
 Vendor integration rule:
 
 - Replace `SimulatorFingerprintVendorAdapter` with the selected vendor SDK adapter.
+- Mantra is the selected target. Set `Bridge:Adapter=Mantra` only after the official Mantra SDK/service is installed on the kiosk host.
+- `MantraFingerprintVendorAdapter` currently fails safely with `SdkNotConfigured` until SDK calls are wired.
 - Do not return `rawImage`, `fingerprintImage`, `wsq`, `minutiae`, `isoTemplate`, `templateBase64`, or `biometricPayload`.
 - Return only match status, quality score, audit reference, device metadata, and a vendor-approved template reference.

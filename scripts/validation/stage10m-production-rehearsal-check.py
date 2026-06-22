@@ -50,11 +50,11 @@ add(
         and "<Version>4.11.1</Version>" in csproj
     )
     or (
-        all(token in app_info for token in ['Version = "4.11.8"', "Stage 11B-6 Biometric Enrollment Consent Hardening", "GARMETIX-11B-20260621-4118"])
-        and "APP_VERSION = '4.11.8'" in app_version
-        and "Stage 11B-6 Biometric Enrollment Consent Hardening" in app_version
-        and "GARMETIX-11B-20260621-4118" in app_version
-        and "<Version>4.11.8</Version>" in csproj
+        all(token in app_info for token in ['Version = "4.11.9"', "Stage 11B-7 Mantra Enrollment Bridge Wiring", "GARMETIX-11B-20260621-4119"])
+        and "APP_VERSION = '4.11.9'" in app_version
+        and "Stage 11B-7 Mantra Enrollment Bridge Wiring" in app_version
+        and "GARMETIX-11B-20260621-4119" in app_version
+        and "<Version>4.11.9</Version>" in csproj
     ),
 )
 add(

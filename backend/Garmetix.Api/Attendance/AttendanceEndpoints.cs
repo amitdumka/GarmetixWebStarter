@@ -1366,6 +1366,9 @@ public static class AttendanceEndpoints
             externalBridgeConnectorEnabled = true,
             localBridgeTemplateAvailable = true,
             rawFingerprintStorageAllowed = false,
+            selectedFingerprintHardware = "Mantra MFS100 / MIS100",
+            selectedBridgeAdapter = "MantraFingerprintVendorAdapter",
+            selectedBridgeAdapterStatus = "Selected target; SDK/service wiring pending.",
             matchingLocation = "Vendor SDK or approved local bridge only; Garmetix stores employee consent, device audit and template reference IDs, not raw fingerprint images.",
             supportedBridgeInputs = new[]
             {
@@ -1381,8 +1384,8 @@ public static class AttendanceEndpoints
                 {
                     name = "Mantra MFS100 / MIS100",
                     platform = "Windows bridge or Android SDK bridge",
-                    fit = "Common in India; final SDK licensing and Android compatibility must be confirmed.",
-                    decisionStatus = "Candidate"
+                    fit = "Selected target device family. Install the official Mantra SDK/service on the kiosk host before enabling live matching.",
+                    decisionStatus = "Selected"
                 },
                 new
                 {
@@ -1458,8 +1461,8 @@ public static class AttendanceEndpoints
                 projectPath = "apps/Garmetix.FingerprintBridge/Garmetix.FingerprintBridge.csproj",
                 runCommand = "dotnet run --project apps/Garmetix.FingerprintBridge/Garmetix.FingerprintBridge.csproj",
                 defaultBaseUrl = "http://127.0.0.1:8787/garmetix-fingerprint/",
-                adapterClass = "SimulatorFingerprintVendorAdapter",
-                replacementRule = "Replace only the adapter implementation after selecting a vendor SDK; keep the HTTP contract and raw biometric field ban unchanged.",
+                adapterClass = "SimulatorFingerprintVendorAdapter / MantraFingerprintVendorAdapter",
+                replacementRule = "Use Bridge:Adapter=Mantra after the official Mantra SDK/service is installed; keep the HTTP contract and raw biometric field ban unchanged.",
                 routes = new[]
                 {
                     "GET /garmetix-fingerprint/health",
@@ -1484,9 +1487,9 @@ public static class AttendanceEndpoints
                 "Run external bridge health against the vendor bridge once it is installed.",
                 "Run the local bridge template and verify external connector health, capture, identify and enroll.",
                 "Confirm external bridge responses do not include raw biometric payload fields.",
-                "Choose one fingerprint reader model and obtain official SDK/license.",
-                "Replace the local bridge template simulator adapter with the selected vendor SDK adapter for Windows/Mac/Android depending on hardware.",
-                "Map successful identify/enroll responses to EmployeeBiometricEnrollment template reference fields.",
+                "Install the official Mantra SDK/service and configure Bridge:Adapter=Mantra.",
+                "Implement SDK calls inside MantraFingerprintVendorAdapter for Windows/Mac/Android depending on hardware.",
+                "Use the biometric enrollment page to map successful enroll responses to EmployeeBiometricEnrollment template reference fields.",
                 "Add kiosk punch mode that requires fingerprint match before posting attendance punch.",
                 "Run privacy review before enabling live biometric matching at any store."
             },
@@ -1502,7 +1505,7 @@ public static class AttendanceEndpoints
             },
             blockers = new[]
             {
-                "No selected fingerprint reader or vendor SDK license.",
+                "Official Mantra SDK/service is not installed or licensed on the kiosk host.",
                 "Vendor SDK requires storing raw templates inside Garmetix database.",
                 "Bridge cannot run on the target kiosk platform.",
                 "Privacy/consent process is not approved.",
@@ -1510,9 +1513,9 @@ public static class AttendanceEndpoints
             },
             nextAfterThisPart = new[]
             {
-                "Select fingerprint hardware/vendor SDK.",
-                "Replace SimulatorFingerprintVendorAdapter with the selected vendor adapter.",
-                "Wire kiosk punch flow to require fingerprint match for configured stores.",
+                "Install and test the Mantra SDK/service on one kiosk host.",
+                "Implement MantraFingerprintVendorAdapter SDK calls behind the existing bridge contract.",
+                "Enable kiosk punch fingerprint requirement for configured stores after Mantra enrollment passes.",
                 "Keep face/liveness work separate for Stage 11C."
             }
         });

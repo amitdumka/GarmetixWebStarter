@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.11.8";
-    public const string Stage = "Stage 11B-6 Biometric Enrollment Consent Hardening";
-    public const string ReleaseName = "Stage 11B-6: Biometric Enrollment Consent Hardening";
+    public const string Version = "4.11.9";
+    public const string Stage = "Stage 11B-7 Mantra Enrollment Bridge Wiring";
+    public const string ReleaseName = "Stage 11B-7: Mantra Enrollment Bridge Wiring";
     public const string BuildDate = "2026-06-21";
-    public const string BuildCode = "GARMETIX-11B-20260621-4118";
+    public const string BuildCode = "GARMETIX-11B-20260621-4119";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,7 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stage 11B-7 marks Mantra as the selected fingerprint device target and wires bridge enroll results into biometric enrollment reference capture.",
         "Stage 11B-6 hardens biometric enrollment with explicit consent validation, safe template references, readable employee rows, revocation workflow and Message Logs.",
         "Stage 11B-5 adds configurable kiosk fingerprint punch enforcement with local bridge proof validation, operator UI and Message Logs for blocked punches.",
         "Stage 11B-4 adds a runnable local fingerprint bridge service template with simulator adapter, local/private caller guard and no raw biometric payload output.",

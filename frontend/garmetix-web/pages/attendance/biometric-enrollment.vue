@@ -1,13 +1,18 @@
 <script setup lang="ts">
 const api = useGarmetixApi()
+const reports = useAttendanceReports()
 const feedback = useUiFeedback()
 
 const loading = ref(false)
 const saving = ref(false)
 const revoking = ref('')
+const bridgeEnrolling = ref('')
 const rows = ref<any[]>([])
 const employees = ref<any[]>([])
+const bridgeBaseUrl = ref('http://127.0.0.1:8787/garmetix-fingerprint/')
+const lastBridgeResult = ref<any | null>(null)
 const revokeReasons = reactive<Record<string, string>>({})
+const bridgeUrlKey = 'garmetix.attendance.enrollment.bridgeBaseUrl.v1'
 
 const form = reactive({
   id: '',
@@ -61,6 +66,11 @@ async function refresh() {
   }
 }
 
+function loadBridgeUrl() {
+  if (!import.meta.client) return
+  bridgeBaseUrl.value = localStorage.getItem(bridgeUrlKey) || bridgeBaseUrl.value
+}
+
 function resetForm() {
   Object.assign(form, {
     id: '',
@@ -95,7 +105,7 @@ function editRow(row: any) {
 
 async function save() {
   if (!selectedEmployee.value) {
-    feedback.error('Select employee', 'Choose an employee before saving enrollment.')
+    feedback.notify('Select employee', 'Choose an employee before saving enrollment.', 'error')
     return
   }
 
@@ -127,6 +137,66 @@ async function save() {
   }
 }
 
+async function enrollFromBridge(mode: 'simulator' | 'external') {
+  if (!selectedEmployee.value) {
+    feedback.notify('Select employee', 'Choose an employee before bridge enrollment.', 'error')
+    return
+  }
+
+  if (!form.consentGiven) {
+    feedback.notify('Consent required', 'Capture employee consent before enrolling fingerprint reference.', 'error')
+    return
+  }
+
+  bridgeEnrolling.value = mode
+  try {
+    if (import.meta.client) {
+      localStorage.setItem(bridgeUrlKey, bridgeBaseUrl.value)
+    }
+
+    const employee = selectedEmployee.value
+    const payload = {
+      employeeId: employee.id,
+      employeeCode: employee.employeeCode,
+      employeeName: [employee.firstName, employee.lastName].filter(Boolean).join(' ') || employee.fullName || employee.employeeCode,
+      companyId: employee.companyId,
+      storeGroupId: employee.storeGroupId,
+      storeId: employee.storeId
+    }
+
+    const result = mode === 'simulator'
+      ? await reports.deviceBridgeSimulatorEnroll(payload)
+      : await reports.deviceBridgeExternalEnroll({ bridgeBaseUrl: bridgeBaseUrl.value, ...payload })
+
+    lastBridgeResult.value = result
+    if (!result?.success) {
+      feedback.notify('Bridge enrollment did not complete', result?.message || 'Check Message Logs for sanitized details.', 'warning')
+      return
+    }
+
+    if (result.rawPayloadStored) {
+      feedback.notify('Bridge response blocked', 'Bridge reported raw biometric payload storage. Do not save this enrollment.', 'error')
+      return
+    }
+
+    if (!result.templateRef) {
+      feedback.notify('Template reference missing', 'Bridge enroll completed but did not return a template reference.', 'warning')
+      return
+    }
+
+    form.fingerprintTemplateRef = result.templateRef
+    form.templateProvider = result.vendor || (mode === 'external' ? 'Mantra bridge' : 'Simulator bridge')
+    form.deviceSerial = result.deviceSerial || form.deviceSerial
+    form.consentReference = form.consentReference || `Bridge audit ${result.auditRef}`
+    form.notes = compactNote(`Bridge ${mode} enroll ${result.matchStatus || 'Enrolled'} quality ${result.qualityScore || 0}; audit ${result.auditRef}`)
+    feedback.success('Bridge enrollment captured', 'Template reference copied into the enrollment form. Review and save.')
+  } catch (error: any) {
+    feedback.fromError('Bridge enrollment failed', error)
+  } finally {
+    bridgeEnrolling.value = ''
+  }
+}
+
 async function revoke(row: any) {
   revoking.value = row.id
   try {
@@ -155,7 +225,14 @@ function formatDate(value: string | null | undefined) {
   return new Date(value).toLocaleString()
 }
 
-onMounted(refresh)
+function compactNote(value: string) {
+  return value.length <= 260 ? value : value.slice(0, 260)
+}
+
+onMounted(() => {
+  loadBridgeUrl()
+  void refresh()
+})
 </script>
 
 <template>
@@ -200,6 +277,32 @@ onMounted(refresh)
             <UFormField label="Employee" required>
               <USelect v-model="form.employeeId" :items="employeeOptions" placeholder="Select employee" />
             </UFormField>
+
+            <div class="rounded-lg border border-default p-3">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p class="text-sm font-semibold">Mantra enrollment bridge</p>
+                  <p class="text-xs text-muted">Use simulator for dry run or external bridge after Mantra service is installed.</p>
+                </div>
+                <UBadge color="primary" variant="soft">Mantra selected</UBadge>
+              </div>
+              <div class="mt-3 space-y-3">
+                <UFormField label="Bridge base URL">
+                  <UInput v-model="bridgeBaseUrl" placeholder="http://127.0.0.1:8787/garmetix-fingerprint/" />
+                </UFormField>
+                <div class="grid gap-2 sm:grid-cols-2">
+                  <UButton icon="i-lucide-flask-conical" label="Simulator Enroll" color="neutral" variant="subtle" :loading="bridgeEnrolling === 'simulator'" @click="enrollFromBridge('simulator')" />
+                  <UButton icon="i-lucide-fingerprint" label="Mantra Bridge Enroll" :loading="bridgeEnrolling === 'external'" @click="enrollFromBridge('external')" />
+                </div>
+                <UAlert
+                  v-if="lastBridgeResult"
+                  :color="lastBridgeResult.success ? 'success' : 'warning'"
+                  variant="soft"
+                  :title="lastBridgeResult.success ? 'Last bridge enroll ready' : 'Last bridge enroll blocked'"
+                  :description="lastBridgeResult.message"
+                />
+              </div>
+            </div>
 
             <div class="grid gap-3 md:grid-cols-2">
               <UFormField label="Consent">
@@ -274,7 +377,7 @@ onMounted(refresh)
                         {{ row.enrollmentStatus }}
                       </UBadge>
                     </div>
-                    <p class="mt-1 text-xs text-muted">Consent {{ row.consentGiven ? 'Yes' : 'No' }} · {{ formatDate(row.consentAtUtc) }}</p>
+                    <p class="mt-1 text-xs text-muted">Consent {{ row.consentGiven ? 'Yes' : 'No' }} - {{ formatDate(row.consentAtUtc) }}</p>
                   </div>
                   <div class="flex flex-wrap gap-2">
                     <UButton size="sm" icon="i-lucide-pencil" label="Edit" color="neutral" variant="subtle" @click="editRow(row)" />

@@ -38,25 +38,28 @@ readme = read("README.md")
 roadmap = read("docs/planning/CURRENT-ROADMAP.md")
 operations_doc = read("docs/operations/Stage11B5-Fingerprint-Kiosk-Punch-Guard-v4.11.7.md")
 operations_doc_11b6 = read("docs/operations/Stage11B6-Biometric-Enrollment-Consent-Hardening-v4.11.8.md")
+operations_doc_11b7 = read("docs/operations/Stage11B7-Mantra-Enrollment-Bridge-Wiring-v4.11.9.md")
 
 add(
     "version identity",
-    all(token in app_info for token in ['Version = "4.11.8"', "Stage 11B-6 Biometric Enrollment Consent Hardening", "GARMETIX-11B-20260621-4118"])
-    and "APP_VERSION = '4.11.8'" in app_version
-    and "Stage 11B-6 Biometric Enrollment Consent Hardening" in app_version
-    and "GARMETIX-11B-20260621-4118" in app_version
-    and "<Version>4.11.8</Version>" in api_project
-    and "<ApplicationDisplayVersion>4.11.8</ApplicationDisplayVersion>" in kiosk_project
-    and "<ApplicationVersion>4118</ApplicationVersion>" in kiosk_project,
+    all(token in app_info for token in ['Version = "4.11.9"', "Stage 11B-7 Mantra Enrollment Bridge Wiring", "GARMETIX-11B-20260621-4119"])
+    and "APP_VERSION = '4.11.9'" in app_version
+    and "Stage 11B-7 Mantra Enrollment Bridge Wiring" in app_version
+    and "GARMETIX-11B-20260621-4119" in app_version
+    and "<Version>4.11.9</Version>" in api_project
+    and "<ApplicationDisplayVersion>4.11.9</ApplicationDisplayVersion>" in kiosk_project
+    and "<ApplicationVersion>4119</ApplicationVersion>" in kiosk_project,
 )
 add(
     "local bridge template project",
     exists("apps/Garmetix.FingerprintBridge/Garmetix.FingerprintBridge.csproj")
     and '<TargetFramework>net10.0</TargetFramework>' in bridge_project
-    and '<Version>4.11.8</Version>' in bridge_project
-    and "4.11.8-stage11b6-biometric-enrollment-consent-hardening" in bridge_project
+    and '<Version>4.11.9</Version>' in bridge_project
+    and "4.11.9-stage11b7-mantra-enrollment-bridge-wiring" in bridge_project
     and "IFingerprintVendorAdapter" in bridge_program
     and "SimulatorFingerprintVendorAdapter" in bridge_program
+    and "MantraFingerprintVendorAdapter" in bridge_program
+    and "Bridge:Adapter=Mantra" in bridge_readme
     and "MapBridgeRoutes(app.MapGroup(\"/garmetix-fingerprint\"))" in bridge_program
     and 'routes.MapGet("/health"' in bridge_program
     and 'routes.MapPost("/capture"' in bridge_program
@@ -94,6 +97,21 @@ add(
     and "POST /enroll" in attendance_endpoints
     and "Do not store raw fingerprint image" in attendance_endpoints
     and "Message Logs" in attendance_endpoints,
+)
+add(
+    "mantra selected adapter boundary",
+    "selectedFingerprintHardware = \"Mantra MFS100 / MIS100\"" in attendance_endpoints
+    and "selectedBridgeAdapter = \"MantraFingerprintVendorAdapter\"" in attendance_endpoints
+    and "decisionStatus = \"Selected\"" in attendance_endpoints
+    and "Bridge:Adapter=Mantra" in attendance_endpoints
+    and "SdkNotConfigured" in bridge_program
+    and "Mantra adapter boundary is selected" in bridge_program
+    and "Mantra enrollment bridge" in biometric_enrollment_page
+    and "Mantra Bridge Enroll" in biometric_enrollment_page
+    and "enrollFromBridge('external')" in biometric_enrollment_page
+    and "deviceBridgeExternalEnroll" in biometric_enrollment_page
+    and "deviceBridgeSimulatorEnroll" in biometric_enrollment_page
+    and "lastBridgeResult" in biometric_enrollment_page,
 )
 add(
     "simulator endpoint contract",
@@ -199,16 +217,21 @@ add(
     "docs and roadmap",
     exists("docs/operations/Stage11B5-Fingerprint-Kiosk-Punch-Guard-v4.11.7.md")
     and exists("docs/operations/Stage11B6-Biometric-Enrollment-Consent-Hardening-v4.11.8.md")
-    and "Stage 11B-6 Biometric Enrollment Consent Hardening" in readme
-    and "Stage 11B-6 Biometric Enrollment Consent Hardening" in roadmap
+    and exists("docs/operations/Stage11B7-Mantra-Enrollment-Bridge-Wiring-v4.11.9.md")
+    and "Stage 11B-7 Mantra Enrollment Bridge Wiring" in readme
+    and "Stage 11B-7 Mantra Enrollment Bridge Wiring" in roadmap
     and "Stage 11B-6 Biometric Enrollment Consent Hardening" in operations_doc_11b6
     and "BiometricEnrollmentSaveRequest" in operations_doc_11b6
     and "Attendance Biometric Enrollment" in operations_doc_11b6
     and "RawBiometricPayloadStored = false" in operations_doc_11b6
     and "rawImage" in operations_doc_11b6
+    and "Stage 11B-7 Mantra Enrollment Bridge Wiring" in operations_doc_11b7
+    and "MantraFingerprintVendorAdapter" in operations_doc_11b7
+    and "Bridge:Adapter=Mantra" in operations_doc_11b7
+    and "rawPayloadStored = false" in operations_doc_11b7
     and "Stage 11B-5 Fingerprint Kiosk Punch Guard" in readme
     and "Stage 11B-5 Fingerprint Kiosk Punch Guard" in roadmap
-    and "Select fingerprint hardware/vendor SDK" in roadmap
+    and "Install the official Mantra SDK/service" in roadmap
     and "Stage 11B-5 Fingerprint Kiosk Punch Guard" in operations_doc
     and "ATTENDANCE_FINGERPRINT_KIOSK_PUNCH_MODE" in operations_doc
     and "Attendance Fingerprint Guard" in operations_doc
@@ -224,4 +247,4 @@ for name, ok in checks:
     print(("PASS" if ok else "FAIL") + f": {name}")
 if failed:
     raise SystemExit("Stage 11B fingerprint bridge validation failed: " + ", ".join(failed))
-print("Stage 11B-6 Biometric Enrollment Consent Hardening validation passed.")
+print("Stage 11B-7 Mantra Enrollment Bridge Wiring validation passed.")

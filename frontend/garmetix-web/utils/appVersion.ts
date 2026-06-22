@@ -1,10 +1,11 @@
-export const APP_VERSION = '4.11.8'
-export const APP_STAGE = "Stage 11B-6 Biometric Enrollment Consent Hardening"
-export const APP_RELEASE_NAME = "Stage 11B-6: Biometric Enrollment Consent Hardening"
+export const APP_VERSION = '4.11.9'
+export const APP_STAGE = "Stage 11B-7 Mantra Enrollment Bridge Wiring"
+export const APP_RELEASE_NAME = "Stage 11B-7: Mantra Enrollment Bridge Wiring"
 export const APP_BUILD_DATE = '2026-06-21'
-export const APP_BUILD_CODE = 'GARMETIX-11B-20260621-4118'
+export const APP_BUILD_CODE = 'GARMETIX-11B-20260621-4119'
 
 export const APP_HIGHLIGHTS = [
+  'Stage 11B-7 marks Mantra as the selected fingerprint device target and wires bridge enroll results into biometric enrollment reference capture.',
   'Stage 11B-6 hardens biometric enrollment with explicit consent validation, safe template references, readable employee rows, revocation workflow and Message Logs.',
   'Stage 11B-5 adds configurable kiosk fingerprint punch enforcement with local bridge proof validation, operator UI and Message Logs for blocked punches.',
   'Stage 11B-4 adds a runnable local fingerprint bridge service template with simulator adapter, local/private caller guard and no raw biometric payload output.',
