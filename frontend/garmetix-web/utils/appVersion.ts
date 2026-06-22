@@ -1,10 +1,11 @@
-export const APP_VERSION = '4.11.11'
-export const APP_STAGE = "Stage 11B-9 Mantra Service Harness"
-export const APP_RELEASE_NAME = "Stage 11B-9: Mantra Service Harness"
+export const APP_VERSION = '4.11.12'
+export const APP_STAGE = "Stage 11B-10 Mantra Contract Rehearsal Drill"
+export const APP_RELEASE_NAME = "Stage 11B-10: Mantra Contract Rehearsal Drill"
 export const APP_BUILD_DATE = '2026-06-22'
-export const APP_BUILD_CODE = 'GARMETIX-11B-20260622-4121'
+export const APP_BUILD_CODE = 'GARMETIX-11B-20260622-4122'
 
 export const APP_HIGHLIGHTS = [
+  'Stage 11B-10 adds Windows and Linux Mantra contract rehearsal drills for safe enroll and raw-response blocking.',
   'Stage 11B-9 adds a local Mantra mock service harness for safe adapter rehearsal before the official SDK/service is installed.',
   'Stage 11B-8 adds a configurable Mantra local-service adapter with localhost/private-LAN URL guards, response normalization and raw biometric field blocking.',
   'Stage 11B-7 marks Mantra as the selected fingerprint device target and wires bridge enroll results into biometric enrollment reference capture.',

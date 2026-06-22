@@ -246,6 +246,48 @@ onMounted(refresh)
         <template #header>
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
+              <h2 class="text-lg font-semibold">Contract rehearsal drill</h2>
+              <p class="text-sm text-muted">One host-level check for safe Mantra enroll and raw-response blocking.</p>
+            </div>
+            <UBadge color="info" variant="soft">Stage 11B-10</UBadge>
+          </div>
+        </template>
+        <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          <div class="space-y-3">
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Windows</p>
+              <code class="mt-1 block break-all text-xs">{{ status?.mantraContractRehearsal?.windowsScript || 'scripts/windows/stage11b-mantra-contract-rehearsal.ps1' }}</code>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Linux / Mac</p>
+              <code class="mt-1 block break-all text-xs">{{ status?.mantraContractRehearsal?.linuxScript || 'scripts/linux/stage11b-mantra-contract-rehearsal.sh' }}</code>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Cleanup</p>
+              <p class="mt-1 text-sm text-muted">{{ status?.mantraContractRehearsal?.cleanupRule || 'Processes are stopped after the drill.' }}</p>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <p class="text-xs uppercase text-muted">Safe enroll expected</p>
+            <div v-for="item in status?.mantraContractRehearsal?.safeEnrollExpected || []" :key="item" class="flex gap-2 rounded-lg border border-success/40 p-3 text-sm">
+              <UIcon name="i-lucide-check-circle" class="mt-0.5 size-4 shrink-0 text-success" />
+              <span>{{ item }}</span>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <p class="text-xs uppercase text-muted">Raw block expected</p>
+            <div v-for="item in status?.mantraContractRehearsal?.rawBlockExpected || []" :key="item" class="flex gap-2 rounded-lg border border-warning/40 p-3 text-sm">
+              <UIcon name="i-lucide-shield-alert" class="mt-0.5 size-4 shrink-0 text-warning" />
+              <span>{{ item }}</span>
+            </div>
+          </div>
+        </div>
+      </UCard>
+
+      <UCard>
+        <template #header>
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
               <h2 class="text-lg font-semibold">Simulator handshake</h2>
               <p class="text-sm text-muted">Run safe bridge responses before a real fingerprint reader is selected.</p>
             </div>

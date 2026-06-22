@@ -1,6 +1,6 @@
 # Garmetix Mantra Mock Service
 
-Local test harness for Stage 11B-9. It simulates the small localhost service that `MantraFingerprintVendorAdapter` calls after `Bridge:Adapter=Mantra` is enabled.
+Local test harness for Stage 11B-9 and the Stage 11B-10 rehearsal drill. It simulates the small localhost service that `MantraFingerprintVendorAdapter` calls after `Bridge:Adapter=Mantra` is enabled.
 
 Run:
 
@@ -46,3 +46,10 @@ Unsafe rejection-test endpoint:
 - `POST /unsafe/enroll-with-raw`
 
 Point `Bridge:MantraEnrollPath` to `/unsafe/enroll-with-raw` only for validation. The bridge should reject the response with `RawPayloadBlocked`.
+
+Rehearsal scripts:
+
+- Windows: `scripts/windows/stage11b-mantra-contract-rehearsal.ps1`
+- Linux/Mac: `scripts/linux/stage11b-mantra-contract-rehearsal.sh`
+
+The scripts start this mock service and the fingerprint bridge, prove safe enroll, prove raw-response blocking, and stop the started processes in cleanup.

@@ -5,9 +5,9 @@
     <Nullable>enable</Nullable>
     <RootNamespace>Garmetix.MantraMockService</RootNamespace>
     <AssemblyName>Garmetix.MantraMockService</AssemblyName>
-    <Version>4.11.11</Version>
-    <AssemblyVersion>4.11.11.0</AssemblyVersion>
-    <FileVersion>4.11.11.0</FileVersion>
-    <InformationalVersion>4.11.11-stage11b9-mantra-service-harness</InformationalVersion>
+    <Version>4.11.12</Version>
+    <AssemblyVersion>4.11.12.0</AssemblyVersion>
+    <FileVersion>4.11.12.0</FileVersion>
+    <InformationalVersion>4.11.12-stage11b10-mantra-contract-rehearsal-drill</InformationalVersion>
   </PropertyGroup>
 </Project>

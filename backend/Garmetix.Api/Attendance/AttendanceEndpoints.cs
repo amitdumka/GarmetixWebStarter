@@ -1500,6 +1500,29 @@ public static class AttendanceEndpoints
                 },
                 rawBlockingRoute = "POST /unsafe/enroll-with-raw"
             },
+            mantraContractRehearsal = new
+            {
+                windowsScript = "scripts/windows/stage11b-mantra-contract-rehearsal.ps1",
+                linuxScript = "scripts/linux/stage11b-mantra-contract-rehearsal.sh",
+                mockServiceUrl = "http://127.0.0.1:8788/",
+                safeBridgeUrl = "http://127.0.0.1:8787/garmetix-fingerprint/",
+                rawBlockBridgeUrl = "http://127.0.0.1:8789/garmetix-fingerprint/",
+                safeEnrollExpected = new[]
+                {
+                    "success=true",
+                    "matchStatus=Enrolled",
+                    "rawPayloadStored=false",
+                    "templateRef is present"
+                },
+                rawBlockExpected = new[]
+                {
+                    "success=false",
+                    "matchStatus=RawPayloadBlocked",
+                    "rawPayloadStored=false",
+                    "templateRef is blank"
+                },
+                cleanupRule = "The rehearsal scripts stop the mock Mantra service and both bridge processes in finally/trap cleanup."
+            },
             privacyRules = new[]
             {
                 "Do not store raw fingerprint image, WSQ, ISO template or minutiae in Garmetix database.",
@@ -1516,6 +1539,7 @@ public static class AttendanceEndpoints
                 "Run external bridge health against the vendor bridge once it is installed.",
                 "Run the local bridge template and verify external connector health, capture, identify and enroll.",
                 "Run the Mantra mock service and point Bridge:MantraServiceUrl to http://127.0.0.1:8788/ for local adapter rehearsal.",
+                "Run scripts/windows/stage11b-mantra-contract-rehearsal.ps1 or scripts/linux/stage11b-mantra-contract-rehearsal.sh to verify safe enroll and RawPayloadBlocked in one drill.",
                 "Temporarily point Bridge:MantraEnrollPath to /unsafe/enroll-with-raw and confirm RawPayloadBlocked.",
                 "Confirm external bridge responses do not include raw biometric payload fields.",
                 "Install the official Mantra SDK/service and configure Bridge:Adapter=Mantra with Bridge:MantraServiceUrl.",
@@ -1531,6 +1555,7 @@ public static class AttendanceEndpoints
                 "Use external connector to test a vendor bridge on localhost or private LAN.",
                 "Start the local bridge template and test the default base URL from this page.",
                 "Start the Mantra mock service and test the Mantra adapter without real hardware.",
+                "Run the Mantra contract rehearsal script before replacing the mock service with the official Mantra SDK/service.",
                 "Verify bridge errors appear as clean user messages and sanitized Message Logs.",
                 "Confirm no API response or browser storage contains raw biometric payload.",
                 "After hardware choice, repeat with the vendor SDK bridge on one test machine/tablet."

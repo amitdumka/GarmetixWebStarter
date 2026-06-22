@@ -1,3 +1,11 @@
+## v4.11.12 Stage 11B-10 Mantra Contract Rehearsal Drill
+
+- Added Windows and Linux/Mac host rehearsal scripts for the Mantra mock service plus fingerprint bridge.
+- Rehearsal verifies safe Mantra enroll returns `success=true`, `matchStatus=Enrolled`, `rawPayloadStored=false` and a `templateRef`.
+- Rehearsal verifies the unsafe mock route is rejected with `success=false`, `matchStatus=RawPayloadBlocked`, `rawPayloadStored=false` and no `templateRef`.
+- The scripts build the mock service and bridge, start local services, run both checks, and stop the started processes in cleanup.
+- `/attendance/device-bridge` now shows the rehearsal scripts and expected pass conditions.
+
 ## v4.11.11 Stage 11B-9 Mantra Service Harness
 
 - Added `apps/Garmetix.MantraMockService`, a local Mantra-compatible test harness.
@@ -179,7 +187,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 11B-9 Mantra Service Harness v4.11.11 (`GARMETIX-11B-20260622-4121`).
+> Current package: Stage 11B-10 Mantra Contract Rehearsal Drill v4.11.12 (`GARMETIX-11B-20260622-4122`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

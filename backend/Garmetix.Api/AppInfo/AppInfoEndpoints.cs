@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.11.11";
-    public const string Stage = "Stage 11B-9 Mantra Service Harness";
-    public const string ReleaseName = "Stage 11B-9: Mantra Service Harness";
+    public const string Version = "4.11.12";
+    public const string Stage = "Stage 11B-10 Mantra Contract Rehearsal Drill";
+    public const string ReleaseName = "Stage 11B-10: Mantra Contract Rehearsal Drill";
     public const string BuildDate = "2026-06-22";
-    public const string BuildCode = "GARMETIX-11B-20260622-4121";
+    public const string BuildCode = "GARMETIX-11B-20260622-4122";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,7 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stage 11B-10 adds Windows and Linux Mantra contract rehearsal drills for safe enroll and raw-response blocking.",
         "Stage 11B-9 adds a local Mantra mock service harness for safe adapter rehearsal before the official SDK/service is installed.",
         "Stage 11B-8 adds a configurable Mantra local-service adapter with localhost/private-LAN URL guards, response normalization and raw biometric field blocking.",
         "Stage 11B-7 marks Mantra as the selected fingerprint device target and wires bridge enroll results into biometric enrollment reference capture.",

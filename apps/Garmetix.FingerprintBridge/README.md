@@ -67,3 +67,4 @@ Local harness:
 - Run the mock service on `http://127.0.0.1:8788/`.
 - Set `Bridge:Adapter=Mantra` and `Bridge:MantraServiceUrl=http://127.0.0.1:8788/`.
 - To verify raw biometric blocking, temporarily set `Bridge:MantraEnrollPath=/unsafe/enroll-with-raw` and confirm the bridge returns `RawPayloadBlocked`.
+- To run both the safe enroll and raw-blocking checks in one cleanup-safe drill, use `scripts/windows/stage11b-mantra-contract-rehearsal.ps1` or `scripts/linux/stage11b-mantra-contract-rehearsal.sh`.
