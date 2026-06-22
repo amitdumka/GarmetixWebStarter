@@ -50,20 +50,20 @@ linux_rehearsal = read("scripts/linux/stage11b-mantra-contract-rehearsal.sh")
 
 add(
     "version identity",
-    all(token in app_info for token in ['Version = "4.11.16"', "Stage 11D-1 Migration Startup Guard", "GARMETIX-11D1-20260622-4116"])
-    and "APP_VERSION = '4.11.16'" in app_version
-    and "Stage 11D-1 Migration Startup Guard" in app_version
-    and "GARMETIX-11D1-20260622-4116" in app_version
-    and "<Version>4.11.16</Version>" in api_project
-    and "<ApplicationDisplayVersion>4.11.16</ApplicationDisplayVersion>" in kiosk_project
-    and "<ApplicationVersion>4116</ApplicationVersion>" in kiosk_project,
+    all(token in app_info for token in ['Version = "4.11.17"', "Stage 11D-2 Nuxt UI 4.9 Package Update", "GARMETIX-11D2-20260622-4117"])
+    and "APP_VERSION = '4.11.17'" in app_version
+    and "Stage 11D-2 Nuxt UI 4.9 Package Update" in app_version
+    and "GARMETIX-11D2-20260622-4117" in app_version
+    and "<Version>4.11.17</Version>" in api_project
+    and "<ApplicationDisplayVersion>4.11.17</ApplicationDisplayVersion>" in kiosk_project
+    and "<ApplicationVersion>4117</ApplicationVersion>" in kiosk_project,
 )
 add(
     "local bridge template project",
     exists("apps/Garmetix.FingerprintBridge/Garmetix.FingerprintBridge.csproj")
     and '<TargetFramework>net10.0</TargetFramework>' in bridge_project
-    and '<Version>4.11.16</Version>' in bridge_project
-    and "4.11.16-stage11d1-migration-startup-guard" in bridge_project
+    and '<Version>4.11.17</Version>' in bridge_project
+    and "4.11.17-stage11d2-nuxt-ui-49-package-update" in bridge_project
     and "IFingerprintVendorAdapter" in bridge_program
     and "SimulatorFingerprintVendorAdapter" in bridge_program
     and "MantraFingerprintVendorAdapter" in bridge_program
@@ -81,8 +81,8 @@ add(
     "mantra mock service harness",
     exists("apps/Garmetix.MantraMockService/Garmetix.MantraMockService.csproj")
     and '<TargetFramework>net10.0</TargetFramework>' in mock_mantra_project
-    and '<Version>4.11.16</Version>' in mock_mantra_project
-    and "4.11.16-stage11d1-migration-startup-guard" in mock_mantra_project
+    and '<Version>4.11.17</Version>' in mock_mantra_project
+    and "4.11.17-stage11d2-nuxt-ui-49-package-update" in mock_mantra_project
     and 'app.MapGet("/health"' in mock_mantra_program
     and 'app.MapPost("/capture"' in mock_mantra_program
     and 'app.MapPost("/identify"' in mock_mantra_program

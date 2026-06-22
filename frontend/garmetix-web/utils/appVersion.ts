@@ -1,10 +1,11 @@
-export const APP_VERSION = '4.11.16'
-export const APP_STAGE = "Stage 11D-1 Migration Startup Guard"
-export const APP_RELEASE_NAME = "Stage 11D-1: Migration Startup Guard"
+export const APP_VERSION = '4.11.17'
+export const APP_STAGE = "Stage 11D-2 Nuxt UI 4.9 Package Update"
+export const APP_RELEASE_NAME = "Stage 11D-2: Nuxt UI 4.9 Package Update"
 export const APP_BUILD_DATE = '2026-06-22'
-export const APP_BUILD_CODE = 'GARMETIX-11D1-20260622-4116'
+export const APP_BUILD_CODE = 'GARMETIX-11D2-20260622-4117'
 
 export const APP_HIGHLIGHTS = [
+  'Stage 11D-2 upgrades the Nuxt frontend package line to Nuxt UI 4.9.0 and refreshes the lockfile for the current web shell.',
   'Stage 11C-2 adds face/liveness simulator and local/private external bridge proof checks with Message Logs and raw face payload blocking.',
   'Stage 11C adds a privacy-safe face liveness readiness contract with blocked raw payload fields, provider checklist and operator page.',
   'Stage 11B-10 adds Windows and Linux Mantra contract rehearsal drills for safe enroll and raw-response blocking.',

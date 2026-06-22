@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.11.16";
-    public const string Stage = "Stage 11D-1 Migration Startup Guard";
-    public const string ReleaseName = "Stage 11D-1: Migration Startup Guard";
+    public const string Version = "4.11.17";
+    public const string Stage = "Stage 11D-2 Nuxt UI 4.9 Package Update";
+    public const string ReleaseName = "Stage 11D-2: Nuxt UI 4.9 Package Update";
     public const string BuildDate = "2026-06-22";
-    public const string BuildCode = "GARMETIX-11D1-20260622-4116";
+    public const string BuildCode = "GARMETIX-11D2-20260622-4117";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,7 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stage 11D-2 upgrades the Nuxt frontend package line to Nuxt UI 4.9.0 and refreshes the lockfile for the current web shell.",
         "Stage 11D-1 guards startup migrations when an old Docker/Postgres volume already has Garmetix tables but the fresh Initial migration history marker is missing.",
         "Stage 11D resets EF migrations to one current Initial baseline and adds app super-admin, Indian accounting defaults and automatic Manager salesman defaults.",
         "Stage 11C-2 adds face/liveness simulator and local/private external bridge proof checks with Message Logs and raw face payload blocking.",

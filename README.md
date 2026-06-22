@@ -1,3 +1,10 @@
+## v4.11.17 Stage 11D-2 Nuxt UI 4.9 Package Update
+
+- Upgraded Nuxt UI to `4.9.0` for the Nuxt 4 web frontend.
+- Kept Nuxt `4.4.8`, Vue `3.5.38`, Tailwind CSS `4.3.1` and Lucide Iconify data `1.2.114`.
+- Refreshed `package-lock.json` and verified the production Nuxt build on the upgraded UI package line.
+- Backend, frontend, kiosk, bridge and mock-service version identity now report v4.11.17.
+
 ## v4.11.16 Stage 11D-1 Migration Startup Guard
 
 - Added a guarded API startup migration path for old Docker/Postgres volumes that already contain a complete Garmetix schema but are missing the fresh Initial migration history marker.
@@ -218,7 +225,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 11D-1 Migration Startup Guard v4.11.16 (`GARMETIX-11D1-20260622-4116`).
+> Current package: Stage 11D-2 Nuxt UI 4.9 Package Update v4.11.17 (`GARMETIX-11D2-20260622-4117`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

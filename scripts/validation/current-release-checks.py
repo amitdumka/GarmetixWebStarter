@@ -4,6 +4,7 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[2]
 checks = [
+    root / 'scripts/validation/stage11d2-nuxt-ui-49-check.py',
     root / 'scripts/validation/stage11d1-migration-startup-guard-check.py',
     root / 'scripts/validation/stage11d-migration-baseline-check.py',
     root / 'scripts/validation/stage11c2-face-liveness-bridge-check.py',
@@ -33,4 +34,4 @@ for check in checks:
     print(f"\n== {check.name} ==")
     subprocess.run([sys.executable, str(check)], cwd=root, check=True)
 
-print("\nCurrent release validation passed for Stage 11D-1 Migration Startup Guard / v4.11.16.")
+print("\nCurrent release validation passed for Stage 11D-2 Nuxt UI 4.9 Package Update / v4.11.17.")

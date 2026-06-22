@@ -53,11 +53,11 @@ mobile_files = [
 add("mobile shell files exist", all(exists(path) for path in mobile_files))
 add(
     "version identity",
-    all(token in app_info for token in ['Version = "4.11.16"', "Stage 11D-1 Migration Startup Guard", "GARMETIX-11D1-20260622-4116"])
-    and "APP_VERSION = '4.11.16'" in app_version
-    and "Stage 11D-1 Migration Startup Guard" in app_version
-    and "GARMETIX-11D1-20260622-4116" in app_version
-    and "<Version>4.11.16</Version>" in api_project,
+    all(token in app_info for token in ['Version = "4.11.17"', "Stage 11D-2 Nuxt UI 4.9 Package Update", "GARMETIX-11D2-20260622-4117"])
+    and "APP_VERSION = '4.11.17'" in app_version
+    and "Stage 11D-2 Nuxt UI 4.9 Package Update" in app_version
+    and "GARMETIX-11D2-20260622-4117" in app_version
+    and "<Version>4.11.17</Version>" in api_project,
 )
 add(
     "maui android shell contract",
@@ -65,8 +65,8 @@ add(
     and "<UseMaui>true</UseMaui>" in csproj
     and "Microsoft.Data.Sqlite" in csproj
     and "Microsoft.Maui.Controls" in csproj
-    and "<ApplicationDisplayVersion>4.11.16</ApplicationDisplayVersion>" in csproj
-    and "<ApplicationVersion>4116</ApplicationVersion>" in csproj
+    and "<ApplicationDisplayVersion>4.11.17</ApplicationDisplayVersion>" in csproj
+    and "<ApplicationVersion>4117</ApplicationVersion>" in csproj
     and "UseMauiApp<App>()" in maui_program
     and "KioskShellPage" in app
     and "CreateWindow" in app

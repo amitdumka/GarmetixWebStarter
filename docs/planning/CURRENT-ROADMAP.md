@@ -1,3 +1,10 @@
+## v4.11.17 Stage 11D-2 Nuxt UI 4.9 Package Update
+
+- Current version: 4.11.17 / `GARMETIX-11D2-20260622-4117`.
+- Nuxt UI is pinned to `4.9.0` for the Nuxt 4 web frontend.
+- Nuxt remains on `4.4.8`, Vue on `3.5.38`, Tailwind CSS on `4.3.1`, and Lucide Iconify data on `1.2.114`.
+- Production Nuxt build has been verified against the refreshed package lock.
+
 ## v4.11.16 Stage 11D-1 Migration Startup Guard
 
 - Current version: 4.11.16 / `GARMETIX-11D1-20260622-4116`.
@@ -74,6 +81,7 @@
 
 ## Recently Completed Stage 10
 
+- v4.11.17: Stage 11D-2 Nuxt UI 4.9 Package Update with Nuxt UI 4.9.0 pinned and production Nuxt build verified.
 - v4.11.16: Stage 11D-1 Migration Startup Guard with safe baseline marking for complete existing PostgreSQL schemas and opt-in-only reset.
 - v4.11.14: Stage 11C-2 Face Liveness Simulator Bridge with simulator/external bridge proof checks, raw face payload blocking and Message Logs.
 - v4.11.15: Stage 11D Migration Baseline And System Defaults with one Initial migration, app super admin, Indian accounting defaults and automatic Manager salesman defaults.

@@ -45,7 +45,7 @@ add("Manager salesman defaults are automatic", "EnsureManagerSalesmanForStoreAsy
 add("normal admins cannot list super admin", "!user.IsSuperAdmin" in users and "IsCurrentUserSuperAdmin" in users)
 add("super admin claim reaches token and workspace scope", 'new("superAdmin"' in token and 'FindFirst("superAdmin")' in workspace)
 add("factory reset recreates super admin", "EnsureSuperAdminAsync" in factory_reset and "Garmetix super admin was recreated" in factory_reset)
-add("release identity v4.11.16", 'Version = "4.11.16"' in app_info and "GARMETIX-11D1-20260622-4116" in app_info and "APP_VERSION = '4.11.16'" in app_version and "<Version>4.11.16</Version>" in csproj)
+add("release identity v4.11.17", 'Version = "4.11.17"' in app_info and "GARMETIX-11D2-20260622-4117" in app_info and "APP_VERSION = '4.11.17'" in app_version and "<Version>4.11.17</Version>" in csproj)
 
 if failures:
     raise SystemExit("Stage 11D migration baseline validation failed: " + ", ".join(failures))

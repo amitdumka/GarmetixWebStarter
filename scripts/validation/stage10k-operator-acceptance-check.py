@@ -64,11 +64,11 @@ add(
         and "<Version>4.11.1</Version>" in csproj
     )
     or (
-        all(token in app_info for token in ['Version = "4.11.16"', "Stage 11D-1 Migration Startup Guard", "GARMETIX-11D1-20260622-4116"])
-        and "APP_VERSION = '4.11.16'" in app_version
-        and "Stage 11D-1 Migration Startup Guard" in app_version
-        and "GARMETIX-11D1-20260622-4116" in app_version
-        and "<Version>4.11.16</Version>" in csproj
+        all(token in app_info for token in ['Version = "4.11.17"', "Stage 11D-2 Nuxt UI 4.9 Package Update", "GARMETIX-11D2-20260622-4117"])
+        and "APP_VERSION = '4.11.17'" in app_version
+        and "Stage 11D-2 Nuxt UI 4.9 Package Update" in app_version
+        and "GARMETIX-11D2-20260622-4117" in app_version
+        and "<Version>4.11.17</Version>" in csproj
     ),
 )
 add(

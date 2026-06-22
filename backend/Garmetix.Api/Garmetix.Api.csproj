@@ -4,10 +4,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);AD0001</NoWarn>
-    <Version>4.11.16</Version>
-    <AssemblyVersion>4.11.16.0</AssemblyVersion>
-    <FileVersion>4.11.16.0</FileVersion>
-    <InformationalVersion>4.11.16-stage11d1-migration-startup-guard</InformationalVersion>
+    <Version>4.11.17</Version>
+    <AssemblyVersion>4.11.17.0</AssemblyVersion>
+    <FileVersion>4.11.17.0</FileVersion>
+    <InformationalVersion>4.11.17-stage11d2-nuxt-ui-49-package-update</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
