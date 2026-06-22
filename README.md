@@ -1,3 +1,10 @@
+## v4.11.10 Stage 11B-8 Mantra Local Service Adapter
+
+- Added configurable Mantra local-service calls inside `MantraFingerprintVendorAdapter`.
+- `Bridge:MantraServiceUrl` is restricted to localhost, `host.docker.internal`, loopback or private LAN addresses.
+- Mantra health, capture, identify and enroll responses are normalized to the existing bridge contract.
+- Raw biometric-looking response fields are blocked even when the Mantra service returns HTTP 200.
+
 ## v4.11.9 Stage 11B-7 Mantra Enrollment Bridge Wiring
 
 - Marked Mantra MFS100 / MIS100 as the selected fingerprint device target.
@@ -165,7 +172,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 11B-7 Mantra Enrollment Bridge Wiring v4.11.9 (`GARMETIX-11B-20260621-4119`).
+> Current package: Stage 11B-8 Mantra Local Service Adapter v4.11.10 (`GARMETIX-11B-20260622-4120`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

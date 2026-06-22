@@ -1,6 +1,10 @@
-## v4.11.9 Stage 11B-7 Mantra Enrollment Bridge Wiring
+## v4.11.10 Stage 11B-8 Mantra Local Service Adapter
 
-- Current version: 4.11.9 / `GARMETIX-11B-20260621-4119`.
+- Current version: 4.11.10 / `GARMETIX-11B-20260622-4120`.
+- `MantraFingerprintVendorAdapter` can now call a configured local/private Mantra service through `Bridge:MantraServiceUrl`.
+- Mantra service URLs are restricted to localhost, `host.docker.internal`, loopback or private LAN hosts.
+- Mantra health, capture, identify and enroll responses are normalized to the existing safe bridge response contract.
+- Mantra service responses containing raw biometric-looking fields are blocked even if the vendor service returns HTTP 200.
 - Mantra MFS100 / MIS100 is now the selected fingerprint device target.
 - Added `MantraFingerprintVendorAdapter` as the safe bridge boundary for official SDK/service wiring.
 - Bridge enrollment controls on `/attendance/biometric-enrollment` can run simulator enroll or Mantra/external bridge enroll.
@@ -30,6 +34,7 @@
 
 ## Recently Completed Stage 10
 
+- v4.11.9: Stage 11B-7 Mantra Enrollment Bridge Wiring with Mantra selected target, adapter boundary and biometric enrollment bridge prefill.
 - v4.11.8: Stage 11B-6 Biometric Enrollment Consent Hardening with DTO-based saves, server-owned employee workspace values, safe template reference validation, revocation workflow and Message Logs.
 - v4.11.7: Stage 11B-5 Fingerprint Kiosk Punch Guard with configurable kiosk fingerprint punch enforcement, bridge proof validation, operator UI and Message Logs for blocked punches.
 - v4.11.6: Stage 11B-4 Local Fingerprint Bridge Template with a runnable bridge app, simulator adapter boundary, local/private caller guard and no raw biometric response contract.
@@ -66,7 +71,7 @@ python scripts/validation/current-release-checks.py
 ### Next Recommended Roadmap
 
 1. Install the official Mantra SDK/service on one kiosk host and confirm its local API/native integration mode.
-2. Implement SDK calls inside `MantraFingerprintVendorAdapter` while preserving the existing bridge response contract.
+2. Set `Bridge:Adapter=Mantra` and `Bridge:MantraServiceUrl` to the installed local/private Mantra service.
 3. Run Mantra health, capture, enroll and identify through `/attendance/device-bridge` and `/attendance/biometric-enrollment`.
 4. Stage 11C Face recognition/liveness proof of concept after consent, retention and privacy controls.
 5. Stage 11D mobile/device deployment packaging after kiosk shell and fingerprint bridge are accepted.

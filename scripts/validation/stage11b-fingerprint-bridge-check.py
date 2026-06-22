@@ -39,23 +39,24 @@ roadmap = read("docs/planning/CURRENT-ROADMAP.md")
 operations_doc = read("docs/operations/Stage11B5-Fingerprint-Kiosk-Punch-Guard-v4.11.7.md")
 operations_doc_11b6 = read("docs/operations/Stage11B6-Biometric-Enrollment-Consent-Hardening-v4.11.8.md")
 operations_doc_11b7 = read("docs/operations/Stage11B7-Mantra-Enrollment-Bridge-Wiring-v4.11.9.md")
+operations_doc_11b8 = read("docs/operations/Stage11B8-Mantra-Local-Service-Adapter-v4.11.10.md")
 
 add(
     "version identity",
-    all(token in app_info for token in ['Version = "4.11.9"', "Stage 11B-7 Mantra Enrollment Bridge Wiring", "GARMETIX-11B-20260621-4119"])
-    and "APP_VERSION = '4.11.9'" in app_version
-    and "Stage 11B-7 Mantra Enrollment Bridge Wiring" in app_version
-    and "GARMETIX-11B-20260621-4119" in app_version
-    and "<Version>4.11.9</Version>" in api_project
-    and "<ApplicationDisplayVersion>4.11.9</ApplicationDisplayVersion>" in kiosk_project
-    and "<ApplicationVersion>4119</ApplicationVersion>" in kiosk_project,
+    all(token in app_info for token in ['Version = "4.11.10"', "Stage 11B-8 Mantra Local Service Adapter", "GARMETIX-11B-20260622-4120"])
+    and "APP_VERSION = '4.11.10'" in app_version
+    and "Stage 11B-8 Mantra Local Service Adapter" in app_version
+    and "GARMETIX-11B-20260622-4120" in app_version
+    and "<Version>4.11.10</Version>" in api_project
+    and "<ApplicationDisplayVersion>4.11.10</ApplicationDisplayVersion>" in kiosk_project
+    and "<ApplicationVersion>4120</ApplicationVersion>" in kiosk_project,
 )
 add(
     "local bridge template project",
     exists("apps/Garmetix.FingerprintBridge/Garmetix.FingerprintBridge.csproj")
     and '<TargetFramework>net10.0</TargetFramework>' in bridge_project
-    and '<Version>4.11.9</Version>' in bridge_project
-    and "4.11.9-stage11b7-mantra-enrollment-bridge-wiring" in bridge_project
+    and '<Version>4.11.10</Version>' in bridge_project
+    and "4.11.10-stage11b8-mantra-local-service-adapter" in bridge_project
     and "IFingerprintVendorAdapter" in bridge_program
     and "SimulatorFingerprintVendorAdapter" in bridge_program
     and "MantraFingerprintVendorAdapter" in bridge_program
@@ -106,6 +107,10 @@ add(
     and "Bridge:Adapter=Mantra" in attendance_endpoints
     and "SdkNotConfigured" in bridge_program
     and "Mantra adapter boundary is selected" in bridge_program
+    and "MantraServiceUrl" in bridge_program
+    and "ContainsRawBiometricField" in bridge_program
+    and "RawPayloadBlocked" in bridge_program
+    and "IsAllowedMantraServiceHost" in bridge_program
     and "Mantra enrollment bridge" in biometric_enrollment_page
     and "Mantra Bridge Enroll" in biometric_enrollment_page
     and "enrollFromBridge('external')" in biometric_enrollment_page
@@ -218,8 +223,9 @@ add(
     exists("docs/operations/Stage11B5-Fingerprint-Kiosk-Punch-Guard-v4.11.7.md")
     and exists("docs/operations/Stage11B6-Biometric-Enrollment-Consent-Hardening-v4.11.8.md")
     and exists("docs/operations/Stage11B7-Mantra-Enrollment-Bridge-Wiring-v4.11.9.md")
-    and "Stage 11B-7 Mantra Enrollment Bridge Wiring" in readme
-    and "Stage 11B-7 Mantra Enrollment Bridge Wiring" in roadmap
+    and exists("docs/operations/Stage11B8-Mantra-Local-Service-Adapter-v4.11.10.md")
+    and "Stage 11B-8 Mantra Local Service Adapter" in readme
+    and "Stage 11B-8 Mantra Local Service Adapter" in roadmap
     and "Stage 11B-6 Biometric Enrollment Consent Hardening" in operations_doc_11b6
     and "BiometricEnrollmentSaveRequest" in operations_doc_11b6
     and "Attendance Biometric Enrollment" in operations_doc_11b6
@@ -229,6 +235,9 @@ add(
     and "MantraFingerprintVendorAdapter" in operations_doc_11b7
     and "Bridge:Adapter=Mantra" in operations_doc_11b7
     and "rawPayloadStored = false" in operations_doc_11b7
+    and "Stage 11B-8 Mantra Local Service Adapter" in operations_doc_11b8
+    and "Bridge:MantraServiceUrl" in operations_doc_11b8
+    and "templateData" in operations_doc_11b8
     and "Stage 11B-5 Fingerprint Kiosk Punch Guard" in readme
     and "Stage 11B-5 Fingerprint Kiosk Punch Guard" in roadmap
     and "Install the official Mantra SDK/service" in roadmap
@@ -247,4 +256,4 @@ for name, ok in checks:
     print(("PASS" if ok else "FAIL") + f": {name}")
 if failed:
     raise SystemExit("Stage 11B fingerprint bridge validation failed: " + ", ".join(failed))
-print("Stage 11B-7 Mantra Enrollment Bridge Wiring validation passed.")
+print("Stage 11B-8 Mantra Local Service Adapter validation passed.")

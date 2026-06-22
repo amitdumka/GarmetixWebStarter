@@ -5,9 +5,9 @@
     <Nullable>enable</Nullable>
     <RootNamespace>Garmetix.FingerprintBridge</RootNamespace>
     <AssemblyName>Garmetix.FingerprintBridge</AssemblyName>
-    <Version>4.11.9</Version>
-    <AssemblyVersion>4.11.9.0</AssemblyVersion>
-    <FileVersion>4.11.9.0</FileVersion>
-    <InformationalVersion>4.11.9-stage11b7-mantra-enrollment-bridge-wiring</InformationalVersion>
+    <Version>4.11.10</Version>
+    <AssemblyVersion>4.11.10.0</AssemblyVersion>
+    <FileVersion>4.11.10.0</FileVersion>
+    <InformationalVersion>4.11.10-stage11b8-mantra-local-service-adapter</InformationalVersion>
   </PropertyGroup>
 </Project>

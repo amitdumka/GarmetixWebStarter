@@ -33,6 +33,30 @@ Vendor integration rule:
 
 - Replace `SimulatorFingerprintVendorAdapter` with the selected vendor SDK adapter.
 - Mantra is the selected target. Set `Bridge:Adapter=Mantra` only after the official Mantra SDK/service is installed on the kiosk host.
-- `MantraFingerprintVendorAdapter` currently fails safely with `SdkNotConfigured` until SDK calls are wired.
+- `MantraFingerprintVendorAdapter` can call a configured localhost or private-LAN Mantra service through `Bridge:MantraServiceUrl`.
+- If `Bridge:MantraServiceUrl` is blank or unsafe, the adapter fails safely with `SdkNotConfigured`.
+- Configure the service paths with `Bridge:MantraHealthPath`, `Bridge:MantraCapturePath`, `Bridge:MantraIdentifyPath`, and `Bridge:MantraEnrollPath` if the Mantra service uses different routes.
 - Do not return `rawImage`, `fingerprintImage`, `wsq`, `minutiae`, `isoTemplate`, `templateBase64`, or `biometricPayload`.
 - Return only match status, quality score, audit reference, device metadata, and a vendor-approved template reference.
+
+Expected Mantra service response:
+
+```json
+{
+  "success": true,
+  "message": "Enroll completed",
+  "vendor": "Mantra",
+  "deviceSerial": "MANTRA-DEVICE-001",
+  "matchStatus": "Enrolled",
+  "employeeId": "00000000-0000-0000-0000-000000000000",
+  "employeeCode": "EMP-001",
+  "employeeName": "Employee Name",
+  "templateRef": "mantra-template-reference-only",
+  "qualityScore": 86,
+  "capturedAtUtc": "2026-06-22T00:00:00Z",
+  "auditRef": "00000000-0000-0000-0000-000000000000",
+  "rawPayloadStored": false
+}
+```
+
+The bridge rejects service responses that contain raw biometric-looking fields, even if the service returns HTTP 200.
