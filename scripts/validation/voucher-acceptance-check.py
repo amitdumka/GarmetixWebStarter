@@ -54,9 +54,9 @@ version_identity = (
     and "APP_VERSION = '4.11.1'" in app_version
     and "<Version>4.11.1</Version>" in csproj
 ) or (
-    all(token in app_info for token in ['Version = "4.11.15"', "Stage 11D Migration Baseline And System Defaults", "GARMETIX-11D-20260622-4115"])
-    and "APP_VERSION = '4.11.15'" in app_version
-    and "<Version>4.11.15</Version>" in csproj
+    all(token in app_info for token in ['Version = "4.11.16"', "Stage 11D-1 Migration Startup Guard", "GARMETIX-11D1-20260622-4116"])
+    and "APP_VERSION = '4.11.16'" in app_version
+    and "<Version>4.11.16</Version>" in csproj
 )
 add("version identity", version_identity)
 add(

@@ -4,6 +4,7 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[2]
 checks = [
+    root / 'scripts/validation/stage11d1-migration-startup-guard-check.py',
     root / 'scripts/validation/stage11d-migration-baseline-check.py',
     root / 'scripts/validation/stage11c2-face-liveness-bridge-check.py',
     root / 'scripts/validation/stage11c-face-liveness-check.py',
@@ -32,4 +33,4 @@ for check in checks:
     print(f"\n== {check.name} ==")
     subprocess.run([sys.executable, str(check)], cwd=root, check=True)
 
-print("\nCurrent release validation passed for Stage 11D Migration Baseline And System Defaults / v4.11.15.")
+print("\nCurrent release validation passed for Stage 11D-1 Migration Startup Guard / v4.11.16.")

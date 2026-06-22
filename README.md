@@ -1,3 +1,10 @@
+## v4.11.16 Stage 11D-1 Migration Startup Guard
+
+- Added a guarded API startup migration path for old Docker/Postgres volumes that already contain a complete Garmetix schema but are missing the fresh Initial migration history marker.
+- Startup now logs provider, pending/applied migration counts and the baseline guard decision before running migrations.
+- Database reset remains opt-in only through `GARMETIX_RESET_DATABASE=true` or `Database__ResetOnStartup=true`.
+- Backend, frontend, kiosk, bridge and mock-service version identity now report v4.11.16.
+
 ## v4.11.15 Stage 11D Migration Baseline And System Defaults
 
 - Removed historical EF migration files and generated one current `Initial` migration baseline.
@@ -211,7 +218,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 11D Migration Baseline And System Defaults v4.11.15 (`GARMETIX-11D-20260622-4115`).
+> Current package: Stage 11D-1 Migration Startup Guard v4.11.16 (`GARMETIX-11D1-20260622-4116`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

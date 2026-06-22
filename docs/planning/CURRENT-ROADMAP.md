@@ -1,3 +1,10 @@
+## v4.11.16 Stage 11D-1 Migration Startup Guard
+
+- Current version: 4.11.16 / `GARMETIX-11D1-20260622-4116`.
+- API startup now guards the fresh Initial migration against old Docker/Postgres volumes that already have a complete Garmetix schema but no EF migration-history marker.
+- Startup migration logs now show provider, applied/pending migration counts and the baseline guard decision.
+- Database reset remains explicit and opt-in only through `GARMETIX_RESET_DATABASE=true` or `Database__ResetOnStartup=true`.
+
 ## v4.11.15 Stage 11D Migration Baseline And System Defaults
 
 - Current version: 4.11.15 / `GARMETIX-11D-20260622-4115`.
@@ -67,6 +74,7 @@
 
 ## Recently Completed Stage 10
 
+- v4.11.16: Stage 11D-1 Migration Startup Guard with safe baseline marking for complete existing PostgreSQL schemas and opt-in-only reset.
 - v4.11.14: Stage 11C-2 Face Liveness Simulator Bridge with simulator/external bridge proof checks, raw face payload blocking and Message Logs.
 - v4.11.15: Stage 11D Migration Baseline And System Defaults with one Initial migration, app super admin, Indian accounting defaults and automatic Manager salesman defaults.
 - v4.11.13: Stage 11C Face Liveness Readiness Contract with a privacy-safe status endpoint, Nuxt readiness page, blocked raw fields and provider checklist.

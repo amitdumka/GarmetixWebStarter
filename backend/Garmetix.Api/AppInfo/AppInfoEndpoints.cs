@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.11.15";
-    public const string Stage = "Stage 11D Migration Baseline And System Defaults";
-    public const string ReleaseName = "Stage 11D: Migration Baseline And System Defaults";
+    public const string Version = "4.11.16";
+    public const string Stage = "Stage 11D-1 Migration Startup Guard";
+    public const string ReleaseName = "Stage 11D-1: Migration Startup Guard";
     public const string BuildDate = "2026-06-22";
-    public const string BuildCode = "GARMETIX-11D-20260622-4115";
+    public const string BuildCode = "GARMETIX-11D1-20260622-4116";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,7 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stage 11D-1 guards startup migrations when an old Docker/Postgres volume already has Garmetix tables but the fresh Initial migration history marker is missing.",
         "Stage 11D resets EF migrations to one current Initial baseline and adds app super-admin, Indian accounting defaults and automatic Manager salesman defaults.",
         "Stage 11C-2 adds face/liveness simulator and local/private external bridge proof checks with Message Logs and raw face payload blocking.",
         "Stage 11C adds a privacy-safe face liveness readiness contract with blocked raw payload fields, provider checklist and operator page.",

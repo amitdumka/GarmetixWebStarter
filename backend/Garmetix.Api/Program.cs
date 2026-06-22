@@ -48,6 +48,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Data;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -162,30 +163,7 @@ using (var scope = app.Services.CreateScope())
     var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DatabaseStartup");
     if (app.Configuration.GetValue<bool>("Database:AutoMigrate"))
     {
-        var schemaBootstrapMode = app.Configuration["Database:SchemaBootstrapMode"] ?? "Migrate";
-        if (string.Equals(schemaBootstrapMode, "FreshBaseline", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(schemaBootstrapMode, "EnsureCreated", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(schemaBootstrapMode, "EnsureCreatedWithBaseline", StringComparison.OrdinalIgnoreCase))
-        {
-            logger.LogInformation("Creating database schema from current DbContext model using fresh baseline mode.");
-            await db.Database.EnsureCreatedAsync();
-            await db.Database.ExecuteSqlRawAsync("""
-                CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
-                    "MigrationId" character varying(150) NOT NULL,
-                    "ProductVersion" character varying(32) NOT NULL,
-                    CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId")
-                );
-                """);
-            await db.Database.ExecuteSqlRawAsync($"""
-                INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-                VALUES ('{FreshSchemaBaselineMigrationId}', '{FreshSchemaBaselineProductVersion}')
-                ON CONFLICT ("MigrationId") DO NOTHING;
-                """);
-        }
-        else
-        {
-            db.Database.Migrate();
-        }
+        await ApplyDatabaseStartupMigrationsAsync(db, app.Configuration, logger, CancellationToken.None);
     }
 
     await DatabaseSchemaRepairService.RepairKnownSchemaDriftAsync(db, logger);
@@ -1078,6 +1056,159 @@ static async Task<IResult> ChangePasswordAsync(
 
 
 static DateTime UtcNowForStorage() => DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
+
+static async Task ApplyDatabaseStartupMigrationsAsync(
+    GarmetixDbContext db,
+    IConfiguration configuration,
+    ILogger logger,
+    CancellationToken cancellationToken)
+{
+    logger.LogInformation("Database provider: {Provider}.", db.Database.ProviderName ?? "unknown");
+
+    if (IsDatabaseResetRequested(configuration))
+    {
+        logger.LogWarning("Database reset on startup was explicitly requested. Existing schema and data will be deleted before migrations run.");
+        await db.Database.EnsureDeletedAsync(cancellationToken);
+        await db.Database.MigrateAsync(cancellationToken);
+        logger.LogInformation("Database reset and migration completed.");
+        return;
+    }
+
+    var schemaBootstrapMode = configuration["Database:SchemaBootstrapMode"] ?? "Migrate";
+    if (string.Equals(schemaBootstrapMode, "FreshBaseline", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(schemaBootstrapMode, "EnsureCreated", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(schemaBootstrapMode, "EnsureCreatedWithBaseline", StringComparison.OrdinalIgnoreCase))
+    {
+        logger.LogInformation("Creating database schema from current DbContext model using fresh baseline mode.");
+        await db.Database.EnsureCreatedAsync(cancellationToken);
+        await EnsureMigrationHistoryTableAsync(db, cancellationToken);
+        await InsertBaselineMigrationHistoryAsync(db, cancellationToken);
+        logger.LogInformation("Fresh baseline schema is ready with migration marker {MigrationId}.", FreshSchemaBaselineMigrationId);
+        return;
+    }
+
+    await MarkFreshBaselineForExistingSchemaAsync(db, logger, cancellationToken);
+
+    var appliedMigrations = (await db.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
+    var pendingMigrations = (await db.Database.GetPendingMigrationsAsync(cancellationToken)).ToArray();
+    logger.LogInformation(
+        "Database migration status before migrate: {AppliedCount} applied, {PendingCount} pending. Pending: {PendingMigrations}",
+        appliedMigrations.Length,
+        pendingMigrations.Length,
+        pendingMigrations.Length == 0 ? "none" : string.Join(", ", pendingMigrations));
+
+    await db.Database.MigrateAsync(cancellationToken);
+
+    var appliedAfter = (await db.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
+    logger.LogInformation("Database migration completed. Applied migrations: {AppliedCount}.", appliedAfter.Length);
+}
+
+static bool IsDatabaseResetRequested(IConfiguration configuration)
+    => IsTruthy(configuration["GARMETIX_RESET_DATABASE"])
+        || IsTruthy(configuration["Database:ResetOnStartup"]);
+
+static bool IsTruthy(string? value)
+    => !string.IsNullOrWhiteSpace(value)
+        && (string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "1", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase));
+
+static async Task MarkFreshBaselineForExistingSchemaAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken)
+{
+    if (!db.Database.IsNpgsql())
+    {
+        return;
+    }
+
+    var existingTableCount = await CountExistingUserTablesAsync(db, cancellationToken);
+    if (existingTableCount == 0)
+    {
+        return;
+    }
+
+    await EnsureMigrationHistoryTableAsync(db, cancellationToken);
+
+    var appliedMigrations = (await db.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
+    var pendingMigrations = (await db.Database.GetPendingMigrationsAsync(cancellationToken)).ToArray();
+    if (appliedMigrations.Length > 0 || !pendingMigrations.Contains(FreshSchemaBaselineMigrationId, StringComparer.Ordinal))
+    {
+        return;
+    }
+
+    var requiredBaselineTables = await CountExistingNamedTablesAsync(
+        db,
+        ["Users", "Companies", "Stores", "AttendanceApprovals", "Ledgers", "LedgerGroups", "Employees", "Products", "SalesInvoices", "Vouchers"],
+        cancellationToken);
+
+    if (existingTableCount < 40 || requiredBaselineTables < 10)
+    {
+        logger.LogWarning(
+            "Existing database schema has {ExistingTableCount} user tables but does not look like a complete Garmetix baseline ({RequiredBaselineTables}/10 required tables found). Run with GARMETIX_RESET_DATABASE=true only if this data can be replaced.",
+            existingTableCount,
+            requiredBaselineTables);
+        return;
+    }
+
+    await InsertBaselineMigrationHistoryAsync(db, cancellationToken);
+    logger.LogWarning(
+        "Existing Garmetix schema detected with empty EF migration history. Marked baseline migration {MigrationId} as applied so startup migrations do not recreate existing tables.",
+        FreshSchemaBaselineMigrationId);
+}
+
+static async Task EnsureMigrationHistoryTableAsync(GarmetixDbContext db, CancellationToken cancellationToken)
+{
+    await db.Database.ExecuteSqlRawAsync("""
+        CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
+            "MigrationId" character varying(150) NOT NULL,
+            "ProductVersion" character varying(32) NOT NULL,
+            CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId")
+        );
+        """, cancellationToken);
+}
+
+static async Task InsertBaselineMigrationHistoryAsync(GarmetixDbContext db, CancellationToken cancellationToken)
+{
+    await db.Database.ExecuteSqlRawAsync($"""
+        INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+        VALUES ('{FreshSchemaBaselineMigrationId}', '{FreshSchemaBaselineProductVersion}')
+        ON CONFLICT ("MigrationId") DO NOTHING;
+        """, cancellationToken);
+}
+
+static Task<int> CountExistingUserTablesAsync(GarmetixDbContext db, CancellationToken cancellationToken)
+    => ExecuteScalarIntAsync(db, """
+        SELECT COUNT(*)::int
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_type = 'BASE TABLE'
+          AND table_name <> '__EFMigrationsHistory';
+        """, cancellationToken);
+
+static Task<int> CountExistingNamedTablesAsync(GarmetixDbContext db, IReadOnlyCollection<string> tableNames, CancellationToken cancellationToken)
+{
+    var quotedNames = string.Join(", ", tableNames.Select(name => $"'{name.Replace("'", "''")}'"));
+    return ExecuteScalarIntAsync(db, $"""
+        SELECT COUNT(*)::int
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_type = 'BASE TABLE'
+          AND table_name IN ({quotedNames});
+        """, cancellationToken);
+}
+
+static async Task<int> ExecuteScalarIntAsync(GarmetixDbContext db, string sql, CancellationToken cancellationToken)
+{
+    await using var command = db.Database.GetDbConnection().CreateCommand();
+    command.CommandText = sql;
+
+    if (command.Connection is not null && command.Connection.State != ConnectionState.Open)
+    {
+        await db.Database.OpenConnectionAsync(cancellationToken);
+    }
+
+    var result = await command.ExecuteScalarAsync(cancellationToken);
+    return Convert.ToInt32(result);
+}
 
 static async Task RevokeActivePasswordResetTokensAsync(
     GarmetixDbContext db,

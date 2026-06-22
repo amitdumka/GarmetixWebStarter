@@ -4,10 +4,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);AD0001</NoWarn>
-    <Version>4.11.15</Version>
-    <AssemblyVersion>4.11.15.0</AssemblyVersion>
-    <FileVersion>4.11.15.0</FileVersion>
-    <InformationalVersion>4.11.15-stage11d-migration-baseline-system-defaults</InformationalVersion>
+    <Version>4.11.16</Version>
+    <AssemblyVersion>4.11.16.0</AssemblyVersion>
+    <FileVersion>4.11.16.0</FileVersion>
+    <InformationalVersion>4.11.16-stage11d1-migration-startup-guard</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
