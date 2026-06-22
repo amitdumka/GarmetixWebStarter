@@ -1,3 +1,10 @@
+## v4.11.7 Stage 11B-5 Fingerprint Kiosk Punch Guard
+
+- Added configurable kiosk fingerprint punch enforcement through `AttendanceFingerprint` settings.
+- Web kiosk can verify a local bridge fingerprint match before posting attendance and sends only sanitized proof metadata to the API.
+- Server validates match status, quality, audit reference, proof age and raw-payload flags before saving required fingerprint punches.
+- Blocked fingerprint punches are written to Message Logs with sanitized details.
+
 ## v4.11.6 Stage 11B-4 Local Fingerprint Bridge Template
 
 - Added `apps/Garmetix.FingerprintBridge`, a runnable local bridge service template for the Stage 11B fingerprint SDK adapter.
@@ -144,7 +151,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 11B-4 Local Fingerprint Bridge Template v4.11.6 (`GARMETIX-11B-20260621-4116`).
+> Current package: Stage 11B-5 Fingerprint Kiosk Punch Guard v4.11.7 (`GARMETIX-11B-20260621-4117`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

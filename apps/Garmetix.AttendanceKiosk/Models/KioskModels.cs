@@ -23,7 +23,28 @@ public sealed record KioskReadinessResponse(
     long PhotoProofMaxBytes,
     bool OfflineSyncEnabled,
     int DuplicateWindowMinutes,
+    bool FingerprintPunchRequired,
+    string FingerprintVerificationMode,
+    string FingerprintBridgeBaseUrl,
+    int FingerprintMinQualityScore,
+    int FingerprintProofMaxAgeMinutes,
+    bool FingerprintOfflineQueueAllowed,
+    IReadOnlyList<string> FingerprintRules,
     IReadOnlyList<string> NextStageItems);
+
+public sealed record FingerprintProof(
+    bool Success,
+    string? MatchStatus,
+    Guid? EmployeeId,
+    string? EmployeeCode,
+    string? TemplateRef,
+    int? QualityScore,
+    DateTimeOffset? CapturedAtUtc,
+    Guid? AuditRef,
+    bool RawPayloadStored,
+    IReadOnlyList<string>? Warnings,
+    string? Vendor,
+    string? DeviceSerial);
 
 public sealed record EmployeeLookupRequest(
     Guid DeviceId,
@@ -56,7 +77,8 @@ public sealed record KioskPunchRequest(
     Guid StoreId,
     decimal? Latitude,
     decimal? Longitude,
-    string Remarks);
+    string Remarks,
+    FingerprintProof? FingerprintProof = null);
 
 public sealed record SyncPendingRequest(
     Guid DeviceId,

@@ -20,6 +20,11 @@ services:
       Backup__RunMinute: "30"
       Backup__RunOnStartup: "false"
       Backup__RetentionCount: "14"
+      AttendanceFingerprint__KioskPunchMode: "Off"
+      AttendanceFingerprint__BridgeBaseUrl: "http://127.0.0.1:8787/garmetix-fingerprint/"
+      AttendanceFingerprint__MinQualityScore: "60"
+      AttendanceFingerprint__ProofMaxAgeMinutes: "10"
+      AttendanceFingerprint__OfflineQueueAllowed: "true"
       GoogleDriveBackup__Enabled: "false"
       GoogleDriveBackup__UploadOnBackup: "true"
       GoogleDriveBackup__ServiceAccountJsonPath: /app/secrets/google-drive-service-account.json

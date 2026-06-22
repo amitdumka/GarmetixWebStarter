@@ -1,6 +1,10 @@
-## v4.11.6 Stage 11B-4 Local Fingerprint Bridge Template
+## v4.11.7 Stage 11B-5 Fingerprint Kiosk Punch Guard
 
-- Current version: 4.11.6 / `GARMETIX-11B-20260621-4116`.
+- Current version: 4.11.7 / `GARMETIX-11B-20260621-4117`.
+- Added configurable kiosk fingerprint punch enforcement with default mode `Off`.
+- Web kiosk can call the local fingerprint bridge before punch and submit sanitized proof metadata.
+- Server validates match status, quality, audit reference, proof age and raw-payload flags before saving required fingerprint punches.
+- Blocked fingerprint punches are written to Message Logs with sanitized details.
 - Added `apps/Garmetix.FingerprintBridge` as the runnable local fingerprint bridge service template.
 - The template exposes health, capture, identify and enroll under `/garmetix-fingerprint/*`.
 - The simulator adapter is isolated behind `IFingerprintVendorAdapter` so the selected hardware SDK can replace it later.
@@ -17,6 +21,7 @@
 
 ## Recently Completed Stage 10
 
+- v4.11.6: Stage 11B-4 Local Fingerprint Bridge Template with a runnable bridge app, simulator adapter boundary, local/private caller guard and no raw biometric response contract.
 - v4.11.5: Stage 11B-3 External Fingerprint Bridge Connector with guarded local/private bridge calls, raw biometric field blocking and sanitized Message Logs.
 - v4.11.4: Stage 11B-2 Fingerprint Bridge Simulator with simulator health, capture, identify and enroll routes plus sanitized Message Logs.
 - v4.11.3: Stage 11B Fingerprint Bridge Contract with adapter candidates, local bridge endpoints, implementation checklist, blockers and privacy guardrails.
@@ -51,7 +56,7 @@ python scripts/validation/current-release-checks.py
 
 1. Select fingerprint hardware/vendor SDK and confirm whether the bridge runs on Windows, Android, or both.
 2. Replace `SimulatorFingerprintVendorAdapter` in `apps/Garmetix.FingerprintBridge` with the selected vendor SDK adapter.
-3. Wire kiosk punch flow to require fingerprint match for configured stores.
+3. Select fingerprint hardware/vendor SDK and replace the simulator adapter with the approved vendor SDK.
 4. Harden biometric enrollment consent, template reference and audit workflow.
 5. Stage 11C Face recognition/liveness proof of concept after consent, retention and privacy controls.
 6. Stage 11D mobile/device deployment packaging after kiosk shell and fingerprint bridge are accepted.

@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.11.6";
-    public const string Stage = "Stage 11B-4 Local Fingerprint Bridge Template";
-    public const string ReleaseName = "Stage 11B-4: Local Fingerprint Bridge Template";
+    public const string Version = "4.11.7";
+    public const string Stage = "Stage 11B-5 Fingerprint Kiosk Punch Guard";
+    public const string ReleaseName = "Stage 11B-5: Fingerprint Kiosk Punch Guard";
     public const string BuildDate = "2026-06-21";
-    public const string BuildCode = "GARMETIX-11B-20260621-4116";
+    public const string BuildCode = "GARMETIX-11B-20260621-4117";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,7 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stage 11B-5 adds configurable kiosk fingerprint punch enforcement with local bridge proof validation, operator UI and Message Logs for blocked punches.",
         "Stage 11B-4 adds a runnable local fingerprint bridge service template with simulator adapter, local/private caller guard and no raw biometric payload output.",
         "Stage 11B-3 adds a guarded external fingerprint bridge connector for localhost/private vendor bridges with sanitized Message Logs and raw biometric field blocking.",
         "Stage 11B-2 adds a fingerprint bridge simulator handshake for health, capture, identify and enroll with sanitized Message Logs and no biometric payload storage.",

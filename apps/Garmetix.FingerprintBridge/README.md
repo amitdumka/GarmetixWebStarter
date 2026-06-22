@@ -23,6 +23,12 @@ Endpoints:
 
 The same endpoints are also mapped at root, such as `GET /health`, for bridge vendors that cannot host under a path.
 
+Browser kiosk support:
+
+- The template sends CORS headers for local browser kiosk calls.
+- `OPTIONS` preflight is supported.
+- Keep the service bound to localhost or private LAN only.
+
 Vendor integration rule:
 
 - Replace `SimulatorFingerprintVendorAdapter` with the selected vendor SDK adapter.

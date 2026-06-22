@@ -4,11 +4,13 @@ using System.Text;
 using System.Text.Json;
 using Garmetix.Api.AppInfo;
 using Garmetix.Api.Attendance.Dtos;
+using Garmetix.Api.Messages;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Models.Attendance;
 using Garmetix.Core.Models.HRM;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Garmetix.Api.Attendance.Services;
 
@@ -31,9 +33,14 @@ public interface IBiometricEnrollmentService
     Task<EmployeeBiometricEnrollment> SavePlaceholderAsync(EmployeeBiometricEnrollment request, HttpContext context, CancellationToken cancellationToken);
 }
 
-public sealed class AttendanceService(GarmetixDbContext db, IAttendanceRuleEngine ruleEngine) : IAttendanceService
+public sealed class AttendanceService(
+    GarmetixDbContext db,
+    IAttendanceRuleEngine ruleEngine,
+    IOptions<AttendanceFingerprintOptions> fingerprintOptions,
+    ApplicationMessageLogService logs) : IAttendanceService
 {
     private static readonly string[] AutoPunchTypes = ["CheckIn", "CheckOut", "BreakIn", "BreakOut"];
+    private static readonly string[] FingerprintAcceptedStatuses = ["Matched", "Identified", "Accepted"];
 
     public async Task<AttendancePunchResultDto> RecordPunchAsync(AttendancePunchRequest request, HttpContext context, bool requireDevice, CancellationToken cancellationToken)
     {
@@ -74,6 +81,15 @@ public sealed class AttendanceService(GarmetixDbContext db, IAttendanceRuleEngin
             punchType = await DetectNextPunchTypeAsync(employee.Id, localPunch.Date, context, cancellationToken);
         }
 
+        var fingerprintPolicy = fingerprintOptions.Value;
+        var fingerprintRequired = requireDevice && fingerprintPolicy.IsRequiredForStore(device?.StoreId ?? employee.StoreId);
+        var fingerprintValidation = ValidateFingerprintProof(request.FingerprintProof, employee.Id, fingerprintPolicy, fingerprintRequired);
+        if (!fingerprintValidation.Success)
+        {
+            await TryLogFingerprintFailureAsync(fingerprintValidation.Message, request, employee, device, context, cancellationToken);
+            return new(false, fingerprintValidation.Message, null, null, false);
+        }
+
         var duplicateWindow = await DuplicateWindowMinutesAsync(employee, context, cancellationToken);
         var fromUtc = punchUtc.AddMinutes(-duplicateWindow);
         var toUtc = punchUtc.AddMinutes(duplicateWindow);
@@ -100,14 +116,14 @@ public sealed class AttendanceService(GarmetixDbContext db, IAttendanceRuleEngin
             Source = NormalizeSource(request.Source, requireDevice),
             DeviceId = device?.Id ?? request.DeviceId,
             DeviceCode = device?.DeviceCode ?? request.DeviceCode,
-            VerificationStatus = requireDevice ? "DeviceAccepted" : "ManualApproved",
+            VerificationStatus = fingerprintValidation.ProofAccepted ? "FingerprintMatched" : requireDevice ? "DeviceAccepted" : "ManualApproved",
             PhotoProofPath = Clean(request.PhotoProofPath, 300),
             ClientPunchId = Clean(request.ClientPunchId, 120),
             Latitude = request.Latitude,
             Longitude = request.Longitude,
-            ConfidenceScore = request.ConfidenceScore,
+            ConfidenceScore = request.ConfidenceScore ?? request.FingerprintProof?.QualityScore,
             Reason = Clean(request.Reason, 300),
-            Remarks = Clean(request.Remarks, 300),
+            Remarks = Clean(MergeFingerprintRemarks(request.Remarks, request.FingerprintProof), 300),
             IsManual = !requireDevice,
             IsSynced = true,
             CreatedBy = context.User.Identity?.Name ?? context.User.FindFirstValue(ClaimTypes.Name) ?? context.User.FindFirstValue("userName")
@@ -289,6 +305,165 @@ public sealed class AttendanceService(GarmetixDbContext db, IAttendanceRuleEngin
         var trimmed = value.Trim();
         return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
     }
+
+    private static FingerprintValidationResult ValidateFingerprintProof(
+        AttendanceFingerprintProofDto? proof,
+        Guid employeeId,
+        AttendanceFingerprintOptions options,
+        bool required)
+    {
+        if (!required && proof is null)
+        {
+            return FingerprintValidationResult.Accepted(false, "Fingerprint proof not required.");
+        }
+
+        if (proof is null)
+        {
+            return FingerprintValidationResult.Rejected("Fingerprint verification is required before kiosk punch.");
+        }
+
+        if (!proof.Success)
+        {
+            return FingerprintValidationResult.Rejected("Fingerprint verification failed. Please scan again.");
+        }
+
+        if (proof.RawPayloadStored)
+        {
+            return FingerprintValidationResult.Rejected("Fingerprint proof was rejected because raw biometric payload storage was reported.");
+        }
+
+        if (proof.EmployeeId.HasValue && proof.EmployeeId.Value != Guid.Empty && proof.EmployeeId.Value != employeeId)
+        {
+            return FingerprintValidationResult.Rejected("Fingerprint proof employee does not match selected employee.");
+        }
+
+        if (!FingerprintAcceptedStatuses.Any(item => item.Equals(proof.MatchStatus ?? string.Empty, StringComparison.OrdinalIgnoreCase)))
+        {
+            return FingerprintValidationResult.Rejected("Fingerprint proof does not show an accepted match.");
+        }
+
+        if ((proof.QualityScore ?? 0) < options.SafeMinQualityScore)
+        {
+            return FingerprintValidationResult.Rejected($"Fingerprint quality must be at least {options.SafeMinQualityScore}.");
+        }
+
+        if (!proof.AuditRef.HasValue || proof.AuditRef.Value == Guid.Empty)
+        {
+            return FingerprintValidationResult.Rejected("Fingerprint proof audit reference is missing.");
+        }
+
+        if (!proof.CapturedAtUtc.HasValue)
+        {
+            return FingerprintValidationResult.Rejected("Fingerprint proof capture time is missing.");
+        }
+
+        var age = DateTimeOffset.UtcNow - proof.CapturedAtUtc.Value.ToUniversalTime();
+        if (age < TimeSpan.FromMinutes(-2) || age > TimeSpan.FromMinutes(options.SafeProofMaxAgeMinutes))
+        {
+            return FingerprintValidationResult.Rejected($"Fingerprint proof is older than {options.SafeProofMaxAgeMinutes} minutes.");
+        }
+
+        return FingerprintValidationResult.Accepted(true, "Fingerprint proof accepted.");
+    }
+
+    private async Task TryLogFingerprintFailureAsync(
+        string message,
+        AttendancePunchRequest request,
+        Employee employee,
+        AttendanceDevice? device,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await logs.ErrorAsync(
+                "Attendance Fingerprint Guard",
+                "KioskPunchBlocked",
+                message,
+                new
+                {
+                    request.EmployeeId,
+                    employee.EmployeeCode,
+                    device?.DeviceCode,
+                    request.ClientPunchId,
+                    request.FingerprintProof?.MatchStatus,
+                    request.FingerprintProof?.QualityScore,
+                    request.FingerprintProof?.AuditRef,
+                    request.FingerprintProof?.RawPayloadStored
+                },
+                device?.CompanyId ?? request.CompanyId,
+                device?.StoreGroupId ?? request.StoreGroupId,
+                device?.StoreId ?? request.StoreId,
+                null,
+                context.User.Identity?.Name ?? "KioskDevice",
+                "/attendance/kiosk",
+                request.FingerprintProof?.AuditRef,
+                cancellationToken);
+        }
+        catch
+        {
+            // Punch validation must return the clean business error even if log storage is unavailable.
+        }
+    }
+
+    private static string? MergeFingerprintRemarks(string? remarks, AttendanceFingerprintProofDto? proof)
+    {
+        if (proof?.AuditRef is null || proof.AuditRef == Guid.Empty)
+        {
+            return remarks;
+        }
+
+        var fingerprintText = $"Fingerprint audit {proof.AuditRef}; match {proof.MatchStatus}; quality {proof.QualityScore ?? 0}; template {Clean(proof.TemplateRef, 80) ?? "-"}";
+        return string.IsNullOrWhiteSpace(remarks) ? fingerprintText : $"{remarks.Trim()} | {fingerprintText}";
+    }
+
+    private sealed record FingerprintValidationResult(bool Success, bool ProofAccepted, string Message)
+    {
+        public static FingerprintValidationResult Accepted(bool proofAccepted, string message) => new(true, proofAccepted, message);
+        public static FingerprintValidationResult Rejected(string message) => new(false, false, message);
+    }
+}
+
+public sealed class AttendanceFingerprintOptions
+{
+    public string KioskPunchMode { get; init; } = "Off";
+    public string? RequiredStoreIdsCsv { get; init; }
+    public string BridgeBaseUrl { get; init; } = "http://127.0.0.1:8787/garmetix-fingerprint/";
+    public int MinQualityScore { get; init; } = 60;
+    public int ProofMaxAgeMinutes { get; init; } = 10;
+    public bool OfflineQueueAllowed { get; init; } = true;
+
+    public int SafeMinQualityScore => Math.Clamp(MinQualityScore, 0, 100);
+    public int SafeProofMaxAgeMinutes => Math.Clamp(ProofMaxAgeMinutes, 1, 120);
+    public string SafeBridgeBaseUrl => string.IsNullOrWhiteSpace(BridgeBaseUrl) ? "http://127.0.0.1:8787/garmetix-fingerprint/" : BridgeBaseUrl.Trim();
+
+    public bool IsRequiredForStore(Guid storeId)
+    {
+        var mode = (KioskPunchMode ?? "Off").Trim();
+        if (mode.Equals("Off", StringComparison.OrdinalIgnoreCase) || mode.Equals("Disabled", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (mode.Equals("RequiredAll", StringComparison.OrdinalIgnoreCase) || mode.Equals("Required", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (!mode.Equals("RequiredForConfiguredStores", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return RequiredStoreIds().Contains(storeId);
+    }
+
+    private HashSet<Guid> RequiredStoreIds()
+        => (RequiredStoreIdsCsv ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(value => Guid.TryParse(value, out var parsed) ? parsed : Guid.Empty)
+            .Where(value => value != Guid.Empty)
+            .ToHashSet();
 }
 
 public sealed class AttendanceSyncService(IAttendanceService attendanceService, GarmetixDbContext db) : IAttendanceSyncService

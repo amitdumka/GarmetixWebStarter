@@ -10,6 +10,15 @@ var app = builder.Build();
 
 app.Use(async (context, next) =>
 {
+    context.Response.Headers["Access-Control-Allow-Origin"] = "*";
+    context.Response.Headers["Access-Control-Allow-Headers"] = "content-type";
+    context.Response.Headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS";
+    if (HttpMethods.IsOptions(context.Request.Method))
+    {
+        context.Response.StatusCode = StatusCodes.Status204NoContent;
+        return;
+    }
+
     if (!IsAllowedLocalCaller(context.Connection.RemoteIpAddress))
     {
         context.Response.StatusCode = StatusCodes.Status403Forbidden;

@@ -11,6 +11,7 @@ using Garmetix.Core.Models.Attendance;
 using Garmetix.Core.Models.HRM;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -1902,8 +1903,8 @@ public static class AttendanceEndpoints
                 },
                 startupModel = "Application.CreateWindow with NavigationPage root",
                 androidPackageId = "com.garmetix.attendancekiosk",
-                androidDisplayVersion = "4.11.6",
-                androidVersionCode = 4116
+                androidDisplayVersion = "4.11.7",
+                androidVersionCode = 4117
             },
             packageAdvisories = new[]
             {
@@ -2146,7 +2147,13 @@ public static class AttendanceEndpoints
         return Results.Ok(new AttendanceKioskBootstrapDto(false, "Register device from Attendance > Kiosk Devices before kiosk punch.", null, request.DeviceCode, AppInfoEndpoints.Version, AppInfoEndpoints.Stage, ["Kiosk", "FacePhotoProof", "FingerprintPlaceholder", "QR", "PIN"], ["Auto", "CheckIn", "CheckOut", "BreakIn", "BreakOut"]));
     }
 
-    private static async Task<IResult> KioskReadinessAsync(AttendanceKioskReadinessRequest request, IAttendanceService service, GarmetixDbContext db, IConfiguration configuration, CancellationToken cancellationToken)
+    private static async Task<IResult> KioskReadinessAsync(
+        AttendanceKioskReadinessRequest request,
+        IAttendanceService service,
+        GarmetixDbContext db,
+        IConfiguration configuration,
+        IOptions<AttendanceFingerprintOptions> fingerprintOptions,
+        CancellationToken cancellationToken)
     {
         var device = await service.ValidateDeviceAsync(request.DeviceId, request.DeviceToken, cancellationToken);
         if (device is null) return Results.Unauthorized();
@@ -2157,6 +2164,8 @@ public static class AttendanceEndpoints
             .FirstOrDefaultAsync(cancellationToken);
         duplicateWindow = duplicateWindow <= 0 ? 5 : duplicateWindow;
         var maxBytes = configuration.GetValue<long?>("AttendancePhotoProof:MaxBytes") ?? 1_500_000;
+        var fingerprint = fingerprintOptions.Value;
+        var fingerprintRequired = fingerprint.IsRequiredForStore(device.StoreId);
         return Results.Ok(new AttendanceKioskReadinessDto(
             true,
             device.DeviceCode,
@@ -2166,7 +2175,20 @@ public static class AttendanceEndpoints
             maxBytes,
             true,
             duplicateWindow,
-            ["Stage 9D Attendance payroll review", "Stage 9E Salary slip draft preview", "Fingerprint device bridge later"]));
+            fingerprintRequired,
+            fingerprint.KioskPunchMode,
+            fingerprint.SafeBridgeBaseUrl,
+            fingerprint.SafeMinQualityScore,
+            fingerprint.SafeProofMaxAgeMinutes,
+            fingerprint.OfflineQueueAllowed,
+            [
+                "Fingerprint proof must come from local bridge identify response.",
+                "Raw biometric payload storage must remain false.",
+                "Match status must be Matched, Identified, or Accepted.",
+                $"Quality score must be at least {fingerprint.SafeMinQualityScore}.",
+                $"Proof must be newer than {fingerprint.SafeProofMaxAgeMinutes} minutes."
+            ],
+            ["Stage 9D Attendance payroll review", "Stage 9E Salary slip draft preview", fingerprintRequired ? "Fingerprint proof required before kiosk punch" : "Fingerprint punch guard available but not required"]));
     }
 
     private static async Task<IResult> KioskLookupEmployeeAsync(AttendanceEmployeeLookupRequest request, IAttendanceService service, GarmetixDbContext db, CancellationToken cancellationToken)

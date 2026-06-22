@@ -24,30 +24,35 @@ bridge_project = read("apps/Garmetix.FingerprintBridge/Garmetix.FingerprintBridg
 bridge_program = read("apps/Garmetix.FingerprintBridge/Program.cs")
 bridge_readme = read("apps/Garmetix.FingerprintBridge/README.md")
 attendance_endpoints = read("backend/Garmetix.Api/Attendance/AttendanceEndpoints.cs")
+attendance_service = read("backend/Garmetix.Api/Attendance/Services/AttendanceService.cs")
+attendance_dtos = read("backend/Garmetix.Api/Attendance/Dtos/AttendanceDtos.cs")
 device_bridge_page = read("frontend/garmetix-web/pages/attendance/device-bridge.vue")
+kiosk_page = read("frontend/garmetix-web/pages/attendance/kiosk.vue")
+env_example = read(".env.example")
+compose_prod = read("docker-compose.prod.yml")
 access = read("frontend/garmetix-web/composables/useAccessControl.ts")
 app_shell = read("frontend/garmetix-web/components/AppShell.vue")
 legacy_shell = read("frontend/garmetix-web/components/AppShellLegacy.vue")
 readme = read("README.md")
 roadmap = read("docs/planning/CURRENT-ROADMAP.md")
-operations_doc = read("docs/operations/Stage11B4-Local-Fingerprint-Bridge-Template-v4.11.6.md")
+operations_doc = read("docs/operations/Stage11B5-Fingerprint-Kiosk-Punch-Guard-v4.11.7.md")
 
 add(
     "version identity",
-    all(token in app_info for token in ['Version = "4.11.6"', "Stage 11B-4 Local Fingerprint Bridge Template", "GARMETIX-11B-20260621-4116"])
-    and "APP_VERSION = '4.11.6'" in app_version
-    and "Stage 11B-4 Local Fingerprint Bridge Template" in app_version
-    and "GARMETIX-11B-20260621-4116" in app_version
-    and "<Version>4.11.6</Version>" in api_project
-    and "<ApplicationDisplayVersion>4.11.6</ApplicationDisplayVersion>" in kiosk_project
-    and "<ApplicationVersion>4116</ApplicationVersion>" in kiosk_project,
+    all(token in app_info for token in ['Version = "4.11.7"', "Stage 11B-5 Fingerprint Kiosk Punch Guard", "GARMETIX-11B-20260621-4117"])
+    and "APP_VERSION = '4.11.7'" in app_version
+    and "Stage 11B-5 Fingerprint Kiosk Punch Guard" in app_version
+    and "GARMETIX-11B-20260621-4117" in app_version
+    and "<Version>4.11.7</Version>" in api_project
+    and "<ApplicationDisplayVersion>4.11.7</ApplicationDisplayVersion>" in kiosk_project
+    and "<ApplicationVersion>4117</ApplicationVersion>" in kiosk_project,
 )
 add(
     "local bridge template project",
     exists("apps/Garmetix.FingerprintBridge/Garmetix.FingerprintBridge.csproj")
     and '<TargetFramework>net10.0</TargetFramework>' in bridge_project
-    and '<Version>4.11.6</Version>' in bridge_project
-    and "4.11.6-stage11b4-local-fingerprint-bridge-template" in bridge_project
+    and '<Version>4.11.7</Version>' in bridge_project
+    and "4.11.7-stage11b5-fingerprint-kiosk-punch-guard" in bridge_project
     and "IFingerprintVendorAdapter" in bridge_program
     and "SimulatorFingerprintVendorAdapter" in bridge_program
     and "MapBridgeRoutes(app.MapGroup(\"/garmetix-fingerprint\"))" in bridge_program
@@ -58,6 +63,21 @@ add(
     and "RawPayloadStored" in bridge_program
     and "rawPayloadAllowed was ignored" in bridge_program
     and "IsAllowedLocalCaller" in bridge_program,
+)
+add(
+    "kiosk fingerprint punch guard backend",
+    "AttendanceFingerprintOptions" in attendance_service
+    and "ValidateFingerprintProof" in attendance_service
+    and "FingerprintAcceptedStatuses" in attendance_service
+    and "FingerprintMatched" in attendance_service
+    and "Attendance Fingerprint Guard" in attendance_service
+    and "KioskPunchBlocked" in attendance_service
+    and "AttendanceFingerprintProofDto" in attendance_dtos
+    and "FingerprintProof" in attendance_dtos
+    and "FingerprintPunchRequired" in attendance_dtos
+    and "FingerprintBridgeBaseUrl" in attendance_dtos
+    and "fingerprint.IsRequiredForStore" in attendance_endpoints
+    and "Fingerprint proof must come from local bridge identify response." in attendance_endpoints,
 )
 add(
     "device bridge endpoint contract",
@@ -136,6 +156,16 @@ add(
     and "rawPayloadStored" in device_bridge_page,
 )
 add(
+    "web kiosk fingerprint guard",
+    "Fingerprint Guard" in kiosk_page
+    and "fingerprintBridgeUrl" in kiosk_page
+    and "verifyFingerprint" in kiosk_page
+    and "fingerprintRequired" in kiosk_page
+    and "fingerprintProof" in kiosk_page
+    and "fingerprintOfflineQueueAllowed" in kiosk_page
+    and "fetch(bridgeEndpoint('identify')" in kiosk_page,
+)
+add(
     "route access and navigation",
     "path: '/attendance/device-bridge'" in access
     and "Fingerprint Bridge" in access
@@ -146,17 +176,18 @@ add(
 )
 add(
     "docs and roadmap",
-    exists("docs/operations/Stage11B4-Local-Fingerprint-Bridge-Template-v4.11.6.md")
-    and "Stage 11B-4 Local Fingerprint Bridge Template" in readme
-    and "Stage 11B-4 Local Fingerprint Bridge Template" in roadmap
+    exists("docs/operations/Stage11B5-Fingerprint-Kiosk-Punch-Guard-v4.11.7.md")
+    and "Stage 11B-5 Fingerprint Kiosk Punch Guard" in readme
+    and "Stage 11B-5 Fingerprint Kiosk Punch Guard" in roadmap
     and "Select fingerprint hardware/vendor SDK" in roadmap
-    and "Stage 11B-4 Local Fingerprint Bridge Template" in operations_doc
-    and "dotnet run --project apps/Garmetix.FingerprintBridge/Garmetix.FingerprintBridge.csproj" in operations_doc
-    and "IFingerprintVendorAdapter" in operations_doc
-    and "SimulatorFingerprintVendorAdapter" in operations_doc
+    and "Stage 11B-5 Fingerprint Kiosk Punch Guard" in operations_doc
+    and "ATTENDANCE_FINGERPRINT_KIOSK_PUNCH_MODE" in operations_doc
+    and "Attendance Fingerprint Guard" in operations_doc
     and "rawPayloadStored = false" in operations_doc
     and "rawImage" in operations_doc
-    and "Select the fingerprint hardware and SDK" in operations_doc,
+    and "Select the actual fingerprint hardware" in operations_doc
+    and "ATTENDANCE_FINGERPRINT_KIOSK_PUNCH_MODE=Off" in env_example
+    and "AttendanceFingerprint__KioskPunchMode" in compose_prod,
 )
 
 failed = [name for name, ok in checks if not ok]
@@ -164,4 +195,4 @@ for name, ok in checks:
     print(("PASS" if ok else "FAIL") + f": {name}")
 if failed:
     raise SystemExit("Stage 11B fingerprint bridge validation failed: " + ", ".join(failed))
-print("Stage 11B-4 Local Fingerprint Bridge Template validation passed.")
+print("Stage 11B-5 Fingerprint Kiosk Punch Guard validation passed.")

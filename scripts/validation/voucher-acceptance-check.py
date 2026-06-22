@@ -54,9 +54,9 @@ version_identity = (
     and "APP_VERSION = '4.11.1'" in app_version
     and "<Version>4.11.1</Version>" in csproj
 ) or (
-    all(token in app_info for token in ['Version = "4.11.6"', "Stage 11B-4 Local Fingerprint Bridge Template", "GARMETIX-11B-20260621-4116"])
-    and "APP_VERSION = '4.11.6'" in app_version
-    and "<Version>4.11.6</Version>" in csproj
+    all(token in app_info for token in ['Version = "4.11.7"', "Stage 11B-5 Fingerprint Kiosk Punch Guard", "GARMETIX-11B-20260621-4117"])
+    and "APP_VERSION = '4.11.7'" in app_version
+    and "<Version>4.11.7</Version>" in csproj
 )
 add("version identity", version_identity)
 add(

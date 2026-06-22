@@ -87,6 +87,7 @@ builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<PasswordResetEmailService>();
 builder.Services.AddScoped<MonthlyAttendanceService>();
 builder.Services.AddScoped<PayrollService>();
+builder.Services.Configure<AttendanceFingerprintOptions>(builder.Configuration.GetSection("AttendanceFingerprint"));
 builder.Services.AddScoped<IAttendanceRuleEngine, AttendanceRuleEngine>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<IAttendanceSyncService, AttendanceSyncService>();

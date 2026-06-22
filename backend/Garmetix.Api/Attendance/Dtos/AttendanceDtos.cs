@@ -29,6 +29,7 @@ public sealed record AttendancePunchRequest(
     decimal? Latitude,
     decimal? Longitude,
     decimal? ConfidenceScore,
+    AttendanceFingerprintProofDto? FingerprintProof,
     string? Reason,
     string? Remarks,
     Guid CompanyId,
@@ -41,6 +42,20 @@ public sealed record AttendancePunchResultDto(
     AttendancePunch? Punch,
     AttendanceDayStatusDto? DayStatus,
     bool Duplicate);
+
+public sealed record AttendanceFingerprintProofDto(
+    bool Success,
+    string? MatchStatus,
+    Guid? EmployeeId,
+    string? EmployeeCode,
+    string? TemplateRef,
+    int? QualityScore,
+    DateTimeOffset? CapturedAtUtc,
+    Guid? AuditRef,
+    bool RawPayloadStored,
+    IReadOnlyList<string>? Warnings,
+    string? Vendor,
+    string? DeviceSerial);
 
 public sealed record AttendanceDayStatusDto(
     Guid EmployeeId,
@@ -259,6 +274,13 @@ public sealed record AttendanceKioskReadinessDto(
     long PhotoProofMaxBytes,
     bool OfflineSyncEnabled,
     int DuplicateWindowMinutes,
+    bool FingerprintPunchRequired,
+    string FingerprintVerificationMode,
+    string FingerprintBridgeBaseUrl,
+    int FingerprintMinQualityScore,
+    int FingerprintProofMaxAgeMinutes,
+    bool FingerprintOfflineQueueAllowed,
+    IReadOnlyList<string> FingerprintRules,
     IReadOnlyList<string> NextStageItems);
 
 

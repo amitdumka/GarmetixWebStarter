@@ -1,10 +1,11 @@
-export const APP_VERSION = '4.11.6'
-export const APP_STAGE = "Stage 11B-4 Local Fingerprint Bridge Template"
-export const APP_RELEASE_NAME = "Stage 11B-4: Local Fingerprint Bridge Template"
+export const APP_VERSION = '4.11.7'
+export const APP_STAGE = "Stage 11B-5 Fingerprint Kiosk Punch Guard"
+export const APP_RELEASE_NAME = "Stage 11B-5: Fingerprint Kiosk Punch Guard"
 export const APP_BUILD_DATE = '2026-06-21'
-export const APP_BUILD_CODE = 'GARMETIX-11B-20260621-4116'
+export const APP_BUILD_CODE = 'GARMETIX-11B-20260621-4117'
 
 export const APP_HIGHLIGHTS = [
+  'Stage 11B-5 adds configurable kiosk fingerprint punch enforcement with local bridge proof validation, operator UI and Message Logs for blocked punches.',
   'Stage 11B-4 adds a runnable local fingerprint bridge service template with simulator adapter, local/private caller guard and no raw biometric payload output.',
   'Stage 11B-3 adds a guarded external fingerprint bridge connector for localhost/private vendor bridges with sanitized Message Logs and raw biometric field blocking.',
   'Stage 11B-2 adds a fingerprint bridge simulator handshake for health, capture, identify and enroll with sanitized Message Logs and no biometric payload storage.',

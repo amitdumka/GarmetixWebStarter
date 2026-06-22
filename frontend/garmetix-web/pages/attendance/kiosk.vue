@@ -12,17 +12,24 @@ const selectedEmployee = ref<any | null>(null)
 const readiness = ref<any | null>(null)
 const photoDataUrl = ref('')
 const photoProofPath = ref('')
+const fingerprintBridgeUrl = ref('http://127.0.0.1:8787/garmetix-fingerprint/')
+const fingerprintProof = ref<any | null>(null)
+const verifyingFingerprint = ref(false)
 const videoEl = ref<HTMLVideoElement | null>(null)
 const cameraStream = ref<MediaStream | null>(null)
 const pendingQueue = ref<any[]>([])
 
 const storageKey = 'garmetix.attendance.kiosk.v1'
 const pendingKey = 'garmetix.attendance.kiosk.pending.v1'
+const fingerprintKey = 'garmetix.attendance.kiosk.fingerprintBridge.v1'
+
+const fingerprintRequired = computed(() => Boolean(readiness.value?.fingerprintPunchRequired))
 
 onMounted(() => {
   const saved = JSON.parse(localStorage.getItem(storageKey) || '{}')
   deviceId.value = saved.deviceId || ''
   deviceToken.value = saved.deviceToken || ''
+  fingerprintBridgeUrl.value = localStorage.getItem(fingerprintKey) || fingerprintBridgeUrl.value
   pendingQueue.value = JSON.parse(localStorage.getItem(pendingKey) || '[]')
 })
 
@@ -40,6 +47,7 @@ async function checkReadiness() {
   loading.value = true
   try {
     readiness.value = await devicesApi.kioskReadiness({ deviceId: deviceId.value, deviceToken: deviceToken.value })
+    if (readiness.value?.fingerprintBridgeBaseUrl) fingerprintBridgeUrl.value = readiness.value.fingerprintBridgeBaseUrl
     saveDevice()
     feedback.success('Kiosk ready', readiness.value?.deviceCode || 'Device accepted')
   } catch (error: any) {
@@ -94,11 +102,82 @@ async function uploadPhotoProof(clientPunchId: string) {
   return result.photoProofPath
 }
 
+function bridgeEndpoint(path: string) {
+  const base = fingerprintBridgeUrl.value.trim().replace(/\/+$/, '')
+  return `${base}/${path.replace(/^\/+/, '')}`
+}
+
+function fingerprintProofIsFresh() {
+  if (!fingerprintProof.value?.capturedAtUtc) return false
+  const maxMinutes = Number(readiness.value?.fingerprintProofMaxAgeMinutes || 10)
+  const capturedAt = new Date(fingerprintProof.value.capturedAtUtc).getTime()
+  return Number.isFinite(capturedAt) && Date.now() - capturedAt <= maxMinutes * 60 * 1000
+}
+
+async function verifyFingerprint() {
+  if (!selectedEmployee.value) {
+    feedback.error('Select employee', 'Lookup and select employee before fingerprint verification.')
+    return null
+  }
+  localStorage.setItem(fingerprintKey, fingerprintBridgeUrl.value)
+  verifyingFingerprint.value = true
+  fingerprintProof.value = null
+  try {
+    const response = await fetch(bridgeEndpoint('identify'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        employeeId: selectedEmployee.value.id,
+        employeeCode: selectedEmployee.value.employeeCode,
+        employeeName: selectedEmployee.value.fullName,
+        companyId: selectedEmployee.value.companyId,
+        storeGroupId: selectedEmployee.value.storeGroupId,
+        storeId: selectedEmployee.value.storeId,
+        rawPayloadAllowed: false
+      })
+    })
+    const result = await response.json()
+    const quality = Number(result.qualityScore || 0)
+    const minQuality = Number(readiness.value?.fingerprintMinQualityScore || 60)
+    const matched = ['matched', 'identified', 'accepted'].includes(String(result.matchStatus || '').toLowerCase())
+    if (!response.ok || !result.success || result.rawPayloadStored || !matched || quality < minQuality) {
+      feedback.error('Fingerprint not accepted', result.message || `Match and quality ${minQuality}+ are required.`)
+      return null
+    }
+    fingerprintProof.value = {
+      success: Boolean(result.success),
+      matchStatus: result.matchStatus,
+      employeeId: result.employeeId || selectedEmployee.value.id,
+      employeeCode: result.employeeCode || selectedEmployee.value.employeeCode,
+      templateRef: result.templateRef,
+      qualityScore: quality,
+      capturedAtUtc: result.capturedAtUtc || new Date().toISOString(),
+      auditRef: result.auditRef,
+      rawPayloadStored: Boolean(result.rawPayloadStored),
+      warnings: result.warnings || [],
+      vendor: result.vendor,
+      deviceSerial: result.deviceSerial
+    }
+    feedback.success('Fingerprint verified', `${result.matchStatus || 'Matched'} with quality ${quality}.`)
+    return fingerprintProof.value
+  } catch (error: any) {
+    feedback.fromError('Fingerprint bridge failed', error)
+    return null
+  } finally {
+    verifyingFingerprint.value = false
+  }
+}
+
 async function punch(punchType = 'Auto') {
   if (!selectedEmployee.value) return feedback.error('Select employee', 'Lookup and select employee first.')
   const clientPunchId = `KIOSK-${Date.now()}-${Math.random().toString(36).slice(2)}`
   let proofPath = photoProofPath.value
+  let proof = fingerprintProof.value
   try {
+    if (fingerprintRequired.value && !fingerprintProofIsFresh()) {
+      proof = await verifyFingerprint()
+      if (!proof) return
+    }
     if (photoDataUrl.value && !proofPath) proofPath = await uploadPhotoProof(clientPunchId)
     const body = {
       employeeId: selectedEmployee.value.id,
@@ -113,13 +192,19 @@ async function punch(punchType = 'Auto') {
       companyId: selectedEmployee.value.companyId,
       storeGroupId: selectedEmployee.value.storeGroupId,
       storeId: selectedEmployee.value.storeId,
+      fingerprintProof: proof,
       remarks: 'Stage 9B kiosk punch.'
     }
     const result = await devicesApi.kioskPunch(body)
     feedback.success('Attendance saved', result.message || 'Punch recorded')
     photoDataUrl.value = ''
     photoProofPath.value = ''
+    fingerprintProof.value = null
   } catch (error: any) {
+    if (fingerprintRequired.value && !readiness.value?.fingerprintOfflineQueueAllowed) {
+      feedback.fromError('Punch not saved', error)
+      return
+    }
     const queued = {
       employeeId: selectedEmployee.value.id,
       punchType,
@@ -133,6 +218,7 @@ async function punch(punchType = 'Auto') {
       companyId: selectedEmployee.value.companyId,
       storeGroupId: selectedEmployee.value.storeGroupId,
       storeId: selectedEmployee.value.storeId,
+      fingerprintProof: proof,
       remarks: 'Queued by Stage 9B kiosk page after failed live punch.'
     }
     pendingQueue.value.push(queued)
@@ -207,6 +293,33 @@ async function syncPending() {
           </div>
         </UCard>
       </div>
+
+      <UCard>
+        <template #header>Fingerprint Guard</template>
+        <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <UInput v-model="fingerprintBridgeUrl" placeholder="http://127.0.0.1:8787/garmetix-fingerprint/" />
+          <UButton label="Verify Fingerprint" icon="i-lucide-fingerprint" :loading="verifyingFingerprint" @click="verifyFingerprint" />
+        </div>
+        <div class="mt-3 grid gap-3 md:grid-cols-3">
+          <UAlert
+            :color="fingerprintRequired ? 'warning' : 'neutral'"
+            :title="fingerprintRequired ? 'Required before punch' : 'Optional'"
+            :description="`Mode ${readiness?.fingerprintVerificationMode || 'Off'}, min quality ${readiness?.fingerprintMinQualityScore || 60}.`"
+          />
+          <UAlert
+            v-if="fingerprintProof"
+            color="success"
+            title="Fingerprint verified"
+            :description="`${fingerprintProof.matchStatus} quality ${fingerprintProof.qualityScore}. Audit ${fingerprintProof.auditRef}`"
+          />
+          <UAlert
+            v-if="readiness?.fingerprintRules?.length"
+            color="info"
+            title="Rules"
+            :description="readiness.fingerprintRules.join(' ')"
+          />
+        </div>
+      </UCard>
 
       <UCard>
         <div class="flex flex-wrap gap-2">
