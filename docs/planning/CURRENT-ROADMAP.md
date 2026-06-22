@@ -1,6 +1,9 @@
-## v4.11.10 Stage 11B-8 Mantra Local Service Adapter
+## v4.11.11 Stage 11B-9 Mantra Service Harness
 
-- Current version: 4.11.10 / `GARMETIX-11B-20260622-4120`.
+- Current version: 4.11.11 / `GARMETIX-11B-20260622-4121`.
+- Added `apps/Garmetix.MantraMockService` as a local Mantra-compatible service harness for adapter rehearsal before real SDK setup.
+- Mock service safe endpoints return only reference/audit metadata for health, capture, identify and enroll.
+- Mock service unsafe endpoint `/unsafe/enroll-with-raw` lets the bridge prove `RawPayloadBlocked` handling.
 - `MantraFingerprintVendorAdapter` can now call a configured local/private Mantra service through `Bridge:MantraServiceUrl`.
 - Mantra service URLs are restricted to localhost, `host.docker.internal`, loopback or private LAN hosts.
 - Mantra health, capture, identify and enroll responses are normalized to the existing safe bridge response contract.
@@ -34,6 +37,7 @@
 
 ## Recently Completed Stage 10
 
+- v4.11.10: Stage 11B-8 Mantra Local Service Adapter with guarded `Bridge:MantraServiceUrl`, response normalization and raw biometric response blocking.
 - v4.11.9: Stage 11B-7 Mantra Enrollment Bridge Wiring with Mantra selected target, adapter boundary and biometric enrollment bridge prefill.
 - v4.11.8: Stage 11B-6 Biometric Enrollment Consent Hardening with DTO-based saves, server-owned employee workspace values, safe template reference validation, revocation workflow and Message Logs.
 - v4.11.7: Stage 11B-5 Fingerprint Kiosk Punch Guard with configurable kiosk fingerprint punch enforcement, bridge proof validation, operator UI and Message Logs for blocked punches.
@@ -71,8 +75,9 @@ python scripts/validation/current-release-checks.py
 ### Next Recommended Roadmap
 
 1. Install the official Mantra SDK/service on one kiosk host and confirm its local API/native integration mode.
-2. Set `Bridge:Adapter=Mantra` and `Bridge:MantraServiceUrl` to the installed local/private Mantra service.
-3. Run Mantra health, capture, enroll and identify through `/attendance/device-bridge` and `/attendance/biometric-enrollment`.
+2. Until real SDK setup is ready, run `apps/Garmetix.MantraMockService` with the fingerprint bridge to rehearse the Mantra adapter contract.
+3. Set `Bridge:Adapter=Mantra` and `Bridge:MantraServiceUrl` to the installed local/private Mantra service.
+4. Run Mantra health, capture, enroll and identify through `/attendance/device-bridge` and `/attendance/biometric-enrollment`.
 4. Stage 11C Face recognition/liveness proof of concept after consent, retention and privacy controls.
 5. Stage 11D mobile/device deployment packaging after kiosk shell and fingerprint bridge are accepted.
 6. Stage 12A SaaS/super-admin plan if multi-company hosted licensing is needed.

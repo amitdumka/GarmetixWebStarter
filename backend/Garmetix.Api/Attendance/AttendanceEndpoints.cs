@@ -1481,6 +1481,25 @@ public static class AttendanceEndpoints
                     "POST /garmetix-fingerprint/enroll"
                 }
             },
+            mantraMockService = new
+            {
+                projectPath = "apps/Garmetix.MantraMockService/Garmetix.MantraMockService.csproj",
+                runCommand = "dotnet run --project apps/Garmetix.MantraMockService/Garmetix.MantraMockService.csproj",
+                defaultBaseUrl = "http://127.0.0.1:8788/",
+                bridgeSettings = new[]
+                {
+                    "Bridge:Adapter=Mantra",
+                    "Bridge:MantraServiceUrl=http://127.0.0.1:8788/"
+                },
+                safeRoutes = new[]
+                {
+                    "GET /health",
+                    "POST /capture",
+                    "POST /identify",
+                    "POST /enroll"
+                },
+                rawBlockingRoute = "POST /unsafe/enroll-with-raw"
+            },
             privacyRules = new[]
             {
                 "Do not store raw fingerprint image, WSQ, ISO template or minutiae in Garmetix database.",
@@ -1496,6 +1515,8 @@ public static class AttendanceEndpoints
                 "Verify simulator success and failure entries appear in Message Logs.",
                 "Run external bridge health against the vendor bridge once it is installed.",
                 "Run the local bridge template and verify external connector health, capture, identify and enroll.",
+                "Run the Mantra mock service and point Bridge:MantraServiceUrl to http://127.0.0.1:8788/ for local adapter rehearsal.",
+                "Temporarily point Bridge:MantraEnrollPath to /unsafe/enroll-with-raw and confirm RawPayloadBlocked.",
                 "Confirm external bridge responses do not include raw biometric payload fields.",
                 "Install the official Mantra SDK/service and configure Bridge:Adapter=Mantra with Bridge:MantraServiceUrl.",
                 "Verify Mantra service health, capture, identify and enroll through MantraFingerprintVendorAdapter.",
@@ -1509,6 +1530,7 @@ public static class AttendanceEndpoints
                 "Use simulator adapter to return a mock device health response.",
                 "Use external connector to test a vendor bridge on localhost or private LAN.",
                 "Start the local bridge template and test the default base URL from this page.",
+                "Start the Mantra mock service and test the Mantra adapter without real hardware.",
                 "Verify bridge errors appear as clean user messages and sanitized Message Logs.",
                 "Confirm no API response or browser storage contains raw biometric payload.",
                 "After hardware choice, repeat with the vendor SDK bridge on one test machine/tablet."

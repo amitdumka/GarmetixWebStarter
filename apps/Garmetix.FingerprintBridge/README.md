@@ -60,3 +60,10 @@ Expected Mantra service response:
 ```
 
 The bridge rejects service responses that contain raw biometric-looking fields, even if the service returns HTTP 200.
+
+Local harness:
+
+- Use `apps/Garmetix.MantraMockService` to test the Mantra adapter before the official SDK/service is installed.
+- Run the mock service on `http://127.0.0.1:8788/`.
+- Set `Bridge:Adapter=Mantra` and `Bridge:MantraServiceUrl=http://127.0.0.1:8788/`.
+- To verify raw biometric blocking, temporarily set `Bridge:MantraEnrollPath=/unsafe/enroll-with-raw` and confirm the bridge returns `RawPayloadBlocked`.

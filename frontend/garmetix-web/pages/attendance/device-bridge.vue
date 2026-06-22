@@ -203,6 +203,49 @@ onMounted(refresh)
         <template #header>
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
+              <h2 class="text-lg font-semibold">Mantra mock service</h2>
+              <p class="text-sm text-muted">Local service harness for testing the Mantra adapter before real SDK setup.</p>
+            </div>
+            <UBadge color="primary" variant="soft">Harness</UBadge>
+          </div>
+        </template>
+        <div class="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+          <div class="space-y-3">
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Project</p>
+              <code class="mt-1 block break-all text-xs">{{ status?.mantraMockService?.projectPath || 'apps/Garmetix.MantraMockService/Garmetix.MantraMockService.csproj' }}</code>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Run command</p>
+              <code class="mt-1 block break-all text-xs">{{ status?.mantraMockService?.runCommand || 'dotnet run --project apps/Garmetix.MantraMockService/Garmetix.MantraMockService.csproj' }}</code>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Mock service URL</p>
+              <code class="mt-1 block break-all text-xs">{{ status?.mantraMockService?.defaultBaseUrl || 'http://127.0.0.1:8788/' }}</code>
+            </div>
+          </div>
+          <div class="space-y-3">
+            <div class="grid gap-2 sm:grid-cols-2">
+              <div v-for="item in status?.mantraMockService?.safeRoutes || []" :key="item" class="rounded-lg border border-default p-3">
+                <code class="text-xs">{{ item }}</code>
+              </div>
+            </div>
+            <div class="rounded-lg border border-warning/40 p-3">
+              <p class="text-xs uppercase text-warning">Raw blocking route</p>
+              <code class="mt-1 block break-all text-xs">{{ status?.mantraMockService?.rawBlockingRoute || 'POST /unsafe/enroll-with-raw' }}</code>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Bridge settings</p>
+              <code v-for="item in status?.mantraMockService?.bridgeSettings || []" :key="item" class="mt-1 block break-all text-xs">{{ item }}</code>
+            </div>
+          </div>
+        </div>
+      </UCard>
+
+      <UCard>
+        <template #header>
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
               <h2 class="text-lg font-semibold">Simulator handshake</h2>
               <p class="text-sm text-muted">Run safe bridge responses before a real fingerprint reader is selected.</p>
             </div>

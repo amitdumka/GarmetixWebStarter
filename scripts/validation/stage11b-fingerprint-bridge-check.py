@@ -23,6 +23,9 @@ kiosk_project = read("apps/Garmetix.AttendanceKiosk/Garmetix.AttendanceKiosk.csp
 bridge_project = read("apps/Garmetix.FingerprintBridge/Garmetix.FingerprintBridge.csproj")
 bridge_program = read("apps/Garmetix.FingerprintBridge/Program.cs")
 bridge_readme = read("apps/Garmetix.FingerprintBridge/README.md")
+mock_mantra_project = read("apps/Garmetix.MantraMockService/Garmetix.MantraMockService.csproj")
+mock_mantra_program = read("apps/Garmetix.MantraMockService/Program.cs")
+mock_mantra_readme = read("apps/Garmetix.MantraMockService/README.md")
 attendance_endpoints = read("backend/Garmetix.Api/Attendance/AttendanceEndpoints.cs")
 attendance_service = read("backend/Garmetix.Api/Attendance/Services/AttendanceService.cs")
 attendance_dtos = read("backend/Garmetix.Api/Attendance/Dtos/AttendanceDtos.cs")
@@ -40,23 +43,24 @@ operations_doc = read("docs/operations/Stage11B5-Fingerprint-Kiosk-Punch-Guard-v
 operations_doc_11b6 = read("docs/operations/Stage11B6-Biometric-Enrollment-Consent-Hardening-v4.11.8.md")
 operations_doc_11b7 = read("docs/operations/Stage11B7-Mantra-Enrollment-Bridge-Wiring-v4.11.9.md")
 operations_doc_11b8 = read("docs/operations/Stage11B8-Mantra-Local-Service-Adapter-v4.11.10.md")
+operations_doc_11b9 = read("docs/operations/Stage11B9-Mantra-Service-Harness-v4.11.11.md")
 
 add(
     "version identity",
-    all(token in app_info for token in ['Version = "4.11.10"', "Stage 11B-8 Mantra Local Service Adapter", "GARMETIX-11B-20260622-4120"])
-    and "APP_VERSION = '4.11.10'" in app_version
-    and "Stage 11B-8 Mantra Local Service Adapter" in app_version
-    and "GARMETIX-11B-20260622-4120" in app_version
-    and "<Version>4.11.10</Version>" in api_project
-    and "<ApplicationDisplayVersion>4.11.10</ApplicationDisplayVersion>" in kiosk_project
-    and "<ApplicationVersion>4120</ApplicationVersion>" in kiosk_project,
+    all(token in app_info for token in ['Version = "4.11.11"', "Stage 11B-9 Mantra Service Harness", "GARMETIX-11B-20260622-4121"])
+    and "APP_VERSION = '4.11.11'" in app_version
+    and "Stage 11B-9 Mantra Service Harness" in app_version
+    and "GARMETIX-11B-20260622-4121" in app_version
+    and "<Version>4.11.11</Version>" in api_project
+    and "<ApplicationDisplayVersion>4.11.11</ApplicationDisplayVersion>" in kiosk_project
+    and "<ApplicationVersion>4121</ApplicationVersion>" in kiosk_project,
 )
 add(
     "local bridge template project",
     exists("apps/Garmetix.FingerprintBridge/Garmetix.FingerprintBridge.csproj")
     and '<TargetFramework>net10.0</TargetFramework>' in bridge_project
-    and '<Version>4.11.10</Version>' in bridge_project
-    and "4.11.10-stage11b8-mantra-local-service-adapter" in bridge_project
+    and '<Version>4.11.11</Version>' in bridge_project
+    and "4.11.11-stage11b9-mantra-service-harness" in bridge_project
     and "IFingerprintVendorAdapter" in bridge_program
     and "SimulatorFingerprintVendorAdapter" in bridge_program
     and "MantraFingerprintVendorAdapter" in bridge_program
@@ -69,6 +73,22 @@ add(
     and "RawPayloadStored" in bridge_program
     and "rawPayloadAllowed was ignored" in bridge_program
     and "IsAllowedLocalCaller" in bridge_program,
+)
+add(
+    "mantra mock service harness",
+    exists("apps/Garmetix.MantraMockService/Garmetix.MantraMockService.csproj")
+    and '<TargetFramework>net10.0</TargetFramework>' in mock_mantra_project
+    and '<Version>4.11.11</Version>' in mock_mantra_project
+    and "4.11.11-stage11b9-mantra-service-harness" in mock_mantra_project
+    and 'app.MapGet("/health"' in mock_mantra_program
+    and 'app.MapPost("/capture"' in mock_mantra_program
+    and 'app.MapPost("/identify"' in mock_mantra_program
+    and 'app.MapPost("/enroll"' in mock_mantra_program
+    and 'app.MapPost("/unsafe/enroll-with-raw"' in mock_mantra_program
+    and "rawImage" in mock_mantra_program
+    and "rawPayloadStored = false" in mock_mantra_program
+    and "IsAllowedLocalCaller" in mock_mantra_program
+    and "Bridge:MantraServiceUrl=http://127.0.0.1:8788/" in mock_mantra_readme,
 )
 add(
     "kiosk fingerprint punch guard backend",
@@ -171,6 +191,16 @@ add(
     and "adapterClass" in device_bridge_page,
 )
 add(
+    "mantra mock service page and status",
+    "mantraMockService" in attendance_endpoints
+    and "apps/Garmetix.MantraMockService/Garmetix.MantraMockService.csproj" in attendance_endpoints
+    and "Bridge:MantraServiceUrl=http://127.0.0.1:8788/" in attendance_endpoints
+    and "POST /unsafe/enroll-with-raw" in attendance_endpoints
+    and "Mantra mock service" in device_bridge_page
+    and "status?.mantraMockService?.projectPath" in device_bridge_page
+    and "rawBlockingRoute" in device_bridge_page,
+)
+add(
     "external bridge page",
     "External bridge connector" in device_bridge_page
     and "externalBridgeUrl" in device_bridge_page
@@ -224,8 +254,9 @@ add(
     and exists("docs/operations/Stage11B6-Biometric-Enrollment-Consent-Hardening-v4.11.8.md")
     and exists("docs/operations/Stage11B7-Mantra-Enrollment-Bridge-Wiring-v4.11.9.md")
     and exists("docs/operations/Stage11B8-Mantra-Local-Service-Adapter-v4.11.10.md")
-    and "Stage 11B-8 Mantra Local Service Adapter" in readme
-    and "Stage 11B-8 Mantra Local Service Adapter" in roadmap
+    and exists("docs/operations/Stage11B9-Mantra-Service-Harness-v4.11.11.md")
+    and "Stage 11B-9 Mantra Service Harness" in readme
+    and "Stage 11B-9 Mantra Service Harness" in roadmap
     and "Stage 11B-6 Biometric Enrollment Consent Hardening" in operations_doc_11b6
     and "BiometricEnrollmentSaveRequest" in operations_doc_11b6
     and "Attendance Biometric Enrollment" in operations_doc_11b6
@@ -238,6 +269,9 @@ add(
     and "Stage 11B-8 Mantra Local Service Adapter" in operations_doc_11b8
     and "Bridge:MantraServiceUrl" in operations_doc_11b8
     and "templateData" in operations_doc_11b8
+    and "Stage 11B-9 Mantra Service Harness" in operations_doc_11b9
+    and "apps/Garmetix.MantraMockService" in operations_doc_11b9
+    and "RawPayloadBlocked" in operations_doc_11b9
     and "Stage 11B-5 Fingerprint Kiosk Punch Guard" in readme
     and "Stage 11B-5 Fingerprint Kiosk Punch Guard" in roadmap
     and "Install the official Mantra SDK/service" in roadmap
@@ -256,4 +290,4 @@ for name, ok in checks:
     print(("PASS" if ok else "FAIL") + f": {name}")
 if failed:
     raise SystemExit("Stage 11B fingerprint bridge validation failed: " + ", ".join(failed))
-print("Stage 11B-8 Mantra Local Service Adapter validation passed.")
+print("Stage 11B-9 Mantra Service Harness validation passed.")

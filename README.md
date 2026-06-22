@@ -1,3 +1,10 @@
+## v4.11.11 Stage 11B-9 Mantra Service Harness
+
+- Added `apps/Garmetix.MantraMockService`, a local Mantra-compatible test harness.
+- The mock service exposes safe `/health`, `/capture`, `/identify`, and `/enroll` endpoints.
+- Added `/unsafe/enroll-with-raw` so the bridge can prove raw biometric response blocking before real hardware.
+- Documented the two-process local rehearsal: mock service on `8788`, fingerprint bridge on `8787`.
+
 ## v4.11.10 Stage 11B-8 Mantra Local Service Adapter
 
 - Added configurable Mantra local-service calls inside `MantraFingerprintVendorAdapter`.
@@ -172,7 +179,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 11B-8 Mantra Local Service Adapter v4.11.10 (`GARMETIX-11B-20260622-4120`).
+> Current package: Stage 11B-9 Mantra Service Harness v4.11.11 (`GARMETIX-11B-20260622-4121`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 
