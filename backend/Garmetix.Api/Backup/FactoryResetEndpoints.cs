@@ -1,6 +1,5 @@
 using Garmetix.Api.Auth;
-using Garmetix.Core.Enums;
-using Garmetix.Core.Models.Authentication;
+using Garmetix.Api.Setup;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,6 +24,7 @@ public static class FactoryResetEndpoints
         HttpContext context,
         GarmetixDbContext db,
         DatabaseBackupService backupService,
+        SystemDefaultsService systemDefaults,
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
@@ -45,20 +45,6 @@ public static class FactoryResetEndpoints
         }
 
         var safetyBackup = await backupService.CreateBackupAsync("pre-factory-reset", cancellationToken);
-        var preservedAdmin = new AppUser
-        {
-            Id = currentUser.Id,
-            Name = currentUser.Name,
-            UserName = currentUser.UserName,
-            Email = currentUser.Email,
-            Password = currentUser.Password,
-            PinHash = currentUser.PinHash,
-            Role = LoginRole.Admin,
-            UserType = currentUser.UserType == UserType.Owner ? UserType.Owner : UserType.Admin,
-            Admin = true,
-            AppOperation = AppOperation.All
-        };
-
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         try
         {
@@ -80,8 +66,7 @@ public static class FactoryResetEndpoints
                 cancellationToken);
 
             db.ChangeTracker.Clear();
-            db.Users.Add(preservedAdmin);
-            await db.SaveChangesAsync(cancellationToken);
+            var superAdmin = await systemDefaults.EnsureSuperAdminAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
             loggerFactory.CreateLogger("Garmetix.FactoryReset")
@@ -89,9 +74,9 @@ public static class FactoryResetEndpoints
 
             return Results.Ok(new
             {
-                message = "Factory reset completed. Business data was removed and the current administrator was preserved.",
+                message = "Factory reset completed. Business data was removed and the Garmetix super admin was recreated.",
                 safetyBackup,
-                preservedAdmin = new { preservedAdmin.Id, preservedAdmin.UserName, preservedAdmin.Email }
+                superAdmin = new { superAdmin.Id, superAdmin.UserName, superAdmin.Email }
             });
         }
         catch

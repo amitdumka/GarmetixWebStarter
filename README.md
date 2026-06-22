@@ -1,3 +1,11 @@
+## v4.11.15 Stage 11D Migration Baseline And System Defaults
+
+- Removed historical EF migration files and generated one current `Initial` migration baseline.
+- Added automatic app-level super admin login `garmetix`, hidden from normal admin user lists.
+- Added startup/company defaults for Indian accounting ledger groups, ledgers, bank account support and the internal No Party ledger.
+- Added automatic `Manager` salesman defaults for each store when a company/store is created or backfilled.
+- Backend, frontend, kiosk, bridge and mock-service version identity now report v4.11.15.
+
 ## v4.11.14 Stage 11C-2 Face Liveness Simulator Bridge
 
 - Added simulator endpoints for face/liveness health, proof and verify checks with sanitized Message Logs.
@@ -203,7 +211,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 11C-2 Face Liveness Simulator Bridge v4.11.14 (`GARMETIX-11C-20260622-4114`).
+> Current package: Stage 11D Migration Baseline And System Defaults v4.11.15 (`GARMETIX-11D-20260622-4115`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

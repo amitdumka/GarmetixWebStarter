@@ -1,8 +1,8 @@
-﻿export const APP_VERSION = '4.11.14'
-export const APP_STAGE = "Stage 11C-2 Face Liveness Simulator Bridge"
-export const APP_RELEASE_NAME = "Stage 11C-2: Face Liveness Simulator Bridge"
+export const APP_VERSION = '4.11.15'
+export const APP_STAGE = "Stage 11D Migration Baseline And System Defaults"
+export const APP_RELEASE_NAME = "Stage 11D: Migration Baseline And System Defaults"
 export const APP_BUILD_DATE = '2026-06-22'
-export const APP_BUILD_CODE = 'GARMETIX-11C-20260622-4114'
+export const APP_BUILD_CODE = 'GARMETIX-11D-20260622-4115'
 
 export const APP_HIGHLIGHTS = [
   'Stage 11C-2 adds face/liveness simulator and local/private external bridge proof checks with Message Logs and raw face payload blocking.',

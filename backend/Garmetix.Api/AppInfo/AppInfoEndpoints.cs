@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.11.14";
-    public const string Stage = "Stage 11C-2 Face Liveness Simulator Bridge";
-    public const string ReleaseName = "Stage 11C-2: Face Liveness Simulator Bridge";
+    public const string Version = "4.11.15";
+    public const string Stage = "Stage 11D Migration Baseline And System Defaults";
+    public const string ReleaseName = "Stage 11D: Migration Baseline And System Defaults";
     public const string BuildDate = "2026-06-22";
-    public const string BuildCode = "GARMETIX-11C-20260622-4114";
+    public const string BuildCode = "GARMETIX-11D-20260622-4115";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,7 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stage 11D resets EF migrations to one current Initial baseline and adds app super-admin, Indian accounting defaults and automatic Manager salesman defaults.",
         "Stage 11C-2 adds face/liveness simulator and local/private external bridge proof checks with Message Logs and raw face payload blocking.",
         "Stage 11C adds a privacy-safe face liveness readiness contract with blocked raw payload fields, provider checklist and operator page.",
         "Stage 11B-10 adds Windows and Linux Mantra contract rehearsal drills for safe enroll and raw-response blocking.",

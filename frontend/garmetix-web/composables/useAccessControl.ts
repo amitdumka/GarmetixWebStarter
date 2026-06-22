@@ -157,7 +157,7 @@ function rolesForUser(user: AuthUser | null): AccessRole[] {
   const userType = normalize(user.userType)
   const operation = normalize(user.appOperation)
 
-  if (user.admin || role === 'admin') roles.add('admin')
+  if (user.isSuperAdmin || user.admin || role === 'admin') roles.add('admin')
   if (userType === 'owner') roles.add('owner')
   if (role === 'poweruser') roles.add('powerUser')
   if (role === 'accountant' || userType === 'accountant') roles.add('accountant')

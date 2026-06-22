@@ -1,6 +1,14 @@
+## v4.11.15 Stage 11D Migration Baseline And System Defaults
+
+- Current version: 4.11.15 / `GARMETIX-11D-20260622-4115`.
+- EF migrations are reset to one current `Initial` baseline for the present DbContext model.
+- Startup now creates the app-level `garmetix` super admin and backfills system defaults.
+- Company defaults now seed protected Indian accounting ledger groups, ledgers, No Party and primary bank support.
+- Store defaults now ensure an active `Manager` salesman for each store automatically.
+
 ## v4.11.14 Stage 11C-2 Face Liveness Simulator Bridge
 
-- Current version: 4.11.14 / `GARMETIX-11C-20260622-4114`.
+- Previous version: 4.11.14 / `GARMETIX-11C-20260622-4114`.
 - Added `/api/attendance/face-liveness/simulator/health`, `/proof` and `/verify` for safe contract rehearsal without real face matching.
 - Added `/api/attendance/face-liveness/external/health`, `/proof` and `/verify` for local/private provider bridge proof checks.
 - `/attendance/face-liveness` now runs simulator proof, verify and `RawPayload` block tests from the operator page.
@@ -60,6 +68,7 @@
 ## Recently Completed Stage 10
 
 - v4.11.14: Stage 11C-2 Face Liveness Simulator Bridge with simulator/external bridge proof checks, raw face payload blocking and Message Logs.
+- v4.11.15: Stage 11D Migration Baseline And System Defaults with one Initial migration, app super admin, Indian accounting defaults and automatic Manager salesman defaults.
 - v4.11.13: Stage 11C Face Liveness Readiness Contract with a privacy-safe status endpoint, Nuxt readiness page, blocked raw fields and provider checklist.
 - v4.11.12: Stage 11B-10 Mantra Contract Rehearsal Drill with Windows and Linux/Mac host scripts for safe Mantra enroll and raw-response blocking.
 - v4.11.11: Stage 11B-9 Mantra Service Harness with a local Mantra-compatible service harness for adapter rehearsal before real SDK setup.

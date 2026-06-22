@@ -9,6 +9,7 @@ export type AuthUser = {
   storeGroupId?: string
   storeId?: string
   admin: boolean
+  isSuperAdmin?: boolean
   isActive: boolean
   appOperation?: string
 }
@@ -45,7 +46,7 @@ export function useAuth() {
 
   const isAuthenticated = computed(() => Boolean(token.value && user.value && !isSessionExpired()))
   const isOwner = computed(() => equals(user.value?.userType, 'Owner'))
-  const isAdmin = computed(() => equals(user.value?.role, 'Admin') || Boolean(user.value?.admin))
+  const isAdmin = computed(() => Boolean(user.value?.isSuperAdmin) || equals(user.value?.role, 'Admin') || Boolean(user.value?.admin))
   const canSeeAdmin = computed(() => isAdmin.value || isOwner.value)
   const canEdit = computed(() => canSeeAdmin.value || ['PowerUser', 'Accountant', 'RemoteAccountant', 'StoreManager'].some((role) => equals(user.value?.role, role) || equals(user.value?.userType, role)))
   const canDelete = computed(() => canSeeAdmin.value)

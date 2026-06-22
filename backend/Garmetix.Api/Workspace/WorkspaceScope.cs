@@ -200,11 +200,12 @@ public static class WorkspaceScope
         }
 
         var isAdminClaim = bool.TryParse(principal.FindFirst("admin")?.Value, out var admin) && admin;
+        var isSuperAdminClaim = bool.TryParse(principal.FindFirst("superAdmin")?.Value, out var superAdmin) && superAdmin;
         var isAdminRole = principal.IsInRole(LoginRole.Admin.ToString());
         var isOwner = string.Equals(principal.FindFirst("userType")?.Value, UserType.Owner.ToString(), StringComparison.OrdinalIgnoreCase);
         var isAllOperation = string.Equals(principal.FindFirst(AppOperationClaim)?.Value, Garmetix.Core.Enums.AppOperation.All.ToString(), StringComparison.OrdinalIgnoreCase);
 
-        return isAdminClaim || isAdminRole || isOwner || isAllOperation;
+        return isSuperAdminClaim || isAdminClaim || isAdminRole || isOwner || isAllOperation;
     }
 
     public static Guid? ClaimGuid(HttpContext context, string claimName)

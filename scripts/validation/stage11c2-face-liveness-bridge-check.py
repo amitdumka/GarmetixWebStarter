@@ -35,15 +35,15 @@ current_release = read("scripts/validation/current-release-checks.py")
 
 add(
     "version identity",
-    all(token in app_info for token in ['Version = "4.11.14"', "Stage 11C-2 Face Liveness Simulator Bridge", "GARMETIX-11C-20260622-4114"])
-    and "APP_VERSION = '4.11.14'" in app_version
-    and "Stage 11C-2 Face Liveness Simulator Bridge" in app_version
-    and "GARMETIX-11C-20260622-4114" in app_version
-    and "<Version>4.11.14</Version>" in api_project
-    and "<ApplicationDisplayVersion>4.11.14</ApplicationDisplayVersion>" in kiosk_project
-    and "<ApplicationVersion>4114</ApplicationVersion>" in kiosk_project
-    and "<Version>4.11.14</Version>" in bridge_project
-    and "<Version>4.11.14</Version>" in mock_project,
+    all(token in app_info for token in ['Version = "4.11.15"', "Stage 11D Migration Baseline And System Defaults", "GARMETIX-11D-20260622-4115"])
+    and "APP_VERSION = '4.11.15'" in app_version
+    and "Stage 11D Migration Baseline And System Defaults" in app_version
+    and "GARMETIX-11D-20260622-4115" in app_version
+    and "<Version>4.11.15</Version>" in api_project
+    and "<ApplicationDisplayVersion>4.11.15</ApplicationDisplayVersion>" in kiosk_project
+    and "<ApplicationVersion>4115</ApplicationVersion>" in kiosk_project
+    and "<Version>4.11.15</Version>" in bridge_project
+    and "<Version>4.11.15</Version>" in mock_project,
 )
 add(
     "face bridge dtos",
@@ -104,7 +104,7 @@ add(
     and "Simulator `RawPayload` blocking scenario" in operations_doc
     and "Attendance Face Liveness" in operations_doc
     and "v4.11.14 Stage 11C-2 Face Liveness Simulator Bridge" in readme
-    and "Current version: 4.11.14" in roadmap
+    and "Current version: 4.11.15" in roadmap
     and "Stage 11C-3 local face/liveness bridge template" in roadmap
     and "stage11c2-face-liveness-bridge-check.py" in current_release,
 )

@@ -94,6 +94,7 @@ builder.Services.AddScoped<IAttendanceSyncService, AttendanceSyncService>();
 builder.Services.AddScoped<IBiometricEnrollmentService, BiometricEnrollmentService>();
 builder.Services.AddScoped<IAttendancePhotoProofService, AttendancePhotoProofService>();
 builder.Services.AddScoped<AccountingPostingService>();
+builder.Services.AddScoped<SystemDefaultsService>();
 builder.Services.AddScoped<DocumentNumberService>();
 builder.Services.AddScoped<StockLedgerService>();
 builder.Services.AddScoped<ApplicationMessageLogService>();
@@ -152,7 +153,7 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 
-const string FreshSchemaBaselineMigrationId = "20260617000000_InitialFreshSchema";
+const string FreshSchemaBaselineMigrationId = "20260622145928_Initial";
 const string FreshSchemaBaselineProductVersion = "10.0.8";
 
 using (var scope = app.Services.CreateScope())
@@ -188,6 +189,7 @@ using (var scope = app.Services.CreateScope())
     }
 
     await DatabaseSchemaRepairService.RepairKnownSchemaDriftAsync(db, logger);
+    await scope.ServiceProvider.GetRequiredService<SystemDefaultsService>().EnsureStartupDefaultsAsync(CancellationToken.None);
 }
 
 app.Use(async (context, next) =>
@@ -374,7 +376,7 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         get.RequireAuthorization(readPolicyName);
     }
 
-    group.MapPost("/", async (T entity, GarmetixDbContext db, HttpContext context, GstinLookupService gstinLookup, CancellationToken cancellationToken) =>
+    group.MapPost("/", async (T entity, GarmetixDbContext db, HttpContext context, GstinLookupService gstinLookup, SystemDefaultsService systemDefaults, CancellationToken cancellationToken) =>
     {
         if (!WorkspaceScope.CanWrite(entity, context, out var message))
         {
@@ -405,14 +407,17 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
 
         if (entity is Company company)
         {
-            var defaultSeeder = new AfssDefaultSeederService(db);
-            await defaultSeeder.SeedAccountingDefaultsForCompanyAsync(company.Id, cancellationToken);
+            await systemDefaults.EnsureForCompanyAsync(company.Id, cancellationToken);
+        }
+        else if (entity is Store store)
+        {
+            await systemDefaults.EnsureManagerSalesmanForStoreAsync(store.Id, cancellationToken);
         }
 
         return Results.Created($"{route}/{entity.Id}", entity);
     }).RequireAuthorization(policyName);
 
-    group.MapPut("/{id:guid}", async (Guid id, T entity, GarmetixDbContext db, HttpContext context, GstinLookupService gstinLookup, CancellationToken cancellationToken) =>
+    group.MapPut("/{id:guid}", async (Guid id, T entity, GarmetixDbContext db, HttpContext context, GstinLookupService gstinLookup, SystemDefaultsService systemDefaults, CancellationToken cancellationToken) =>
     {
         entity.Id = id;
         if (!await WorkspaceScope.ApplyTo(db.Set<T>().AsNoTracking(), context).AnyAsync(item => item.Id == id, cancellationToken))
@@ -441,6 +446,15 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         db.Entry(entity).State = EntityState.Modified;
         await SyncEmployeeSalesmanAsync(entity, db, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
+        if (entity is Company company)
+        {
+            await systemDefaults.EnsureForCompanyAsync(company.Id, cancellationToken);
+        }
+        else if (entity is Store store)
+        {
+            await systemDefaults.EnsureManagerSalesmanForStoreAsync(store.Id, cancellationToken);
+        }
+
         return Results.Ok(entity);
     }).RequireAuthorization(policyName).RequireAuthorization(GarmetixPolicies.Edit);
 
@@ -738,6 +752,7 @@ static async Task<IResult> BootstrapAdminAsync(BootstrapAdminRequest request, Ga
         Role = LoginRole.Admin,
         UserType = UserType.Admin,
         Admin = true,
+        IsSuperAdmin = false,
         AppOperation = AppOperation.All
     };
 

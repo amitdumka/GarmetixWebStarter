@@ -1,4 +1,5 @@
 using Garmetix.Api.Auth;
+using Garmetix.Api.Setup;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Accounting;
 using Garmetix.Core.Models.Authentication;
@@ -179,6 +180,7 @@ public sealed class ClientOnboardingService(GarmetixDbContext db)
         }
 
         await db.SaveChangesAsync(cancellationToken);
+        await new SystemDefaultsService(db).EnsureForCompanyAsync(company.Id, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
         var response = new ClientOnboardingResponseDto(

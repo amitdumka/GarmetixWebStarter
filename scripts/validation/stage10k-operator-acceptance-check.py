@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 root = Path(__file__).resolve().parents[2]
 checks: list[tuple[str, bool]] = []
@@ -64,11 +64,11 @@ add(
         and "<Version>4.11.1</Version>" in csproj
     )
     or (
-        all(token in app_info for token in ['Version = "4.11.14"', "Stage 11C-2 Face Liveness Simulator Bridge", "GARMETIX-11C-20260622-4114"])
-        and "APP_VERSION = '4.11.14'" in app_version
-        and "Stage 11C-2 Face Liveness Simulator Bridge" in app_version
-        and "GARMETIX-11C-20260622-4114" in app_version
-        and "<Version>4.11.14</Version>" in csproj
+        all(token in app_info for token in ['Version = "4.11.15"', "Stage 11D Migration Baseline And System Defaults", "GARMETIX-11D-20260622-4115"])
+        and "APP_VERSION = '4.11.15'" in app_version
+        and "Stage 11D Migration Baseline And System Defaults" in app_version
+        and "GARMETIX-11D-20260622-4115" in app_version
+        and "<Version>4.11.15</Version>" in csproj
     ),
 )
 add(

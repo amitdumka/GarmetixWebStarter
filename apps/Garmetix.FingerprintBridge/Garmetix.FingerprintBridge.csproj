@@ -5,9 +5,9 @@
     <Nullable>enable</Nullable>
     <RootNamespace>Garmetix.FingerprintBridge</RootNamespace>
     <AssemblyName>Garmetix.FingerprintBridge</AssemblyName>
-    <Version>4.11.14</Version>
-    <AssemblyVersion>4.11.14.0</AssemblyVersion>
-    <FileVersion>4.11.14.0</FileVersion>
-    <InformationalVersion>4.11.14-stage11c2-face-liveness-simulator-bridge</InformationalVersion>
+    <Version>4.11.15</Version>
+    <AssemblyVersion>4.11.15.0</AssemblyVersion>
+    <FileVersion>4.11.15.0</FileVersion>
+    <InformationalVersion>4.11.15-stage11d-migration-baseline-system-defaults</InformationalVersion>
   </PropertyGroup>
 </Project>

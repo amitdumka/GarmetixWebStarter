@@ -15,6 +15,7 @@ public sealed record AuthUserDto(
     Guid? StoreGroupId,
     Guid? StoreId,
     bool Admin,
+    bool IsSuperAdmin,
     bool IsActive,
     string AppOperation);
 

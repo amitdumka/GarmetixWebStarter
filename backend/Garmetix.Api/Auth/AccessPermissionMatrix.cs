@@ -84,6 +84,7 @@ public static class AccessPermissionMatrix
 
     public static IReadOnlyList<AccessPermissionProfile> Profiles { get; } =
     [
+        Profile("Super Admin", true, true, true, AllModules, "App-level administration across every company and store."),
         Profile("Owner", true, true, true, AllModules, "Full business and administration control."),
         Profile(Role(LoginRole.Admin), true, true, true, AllModules, "Full administration control."),
         Profile(Role(LoginRole.PowerUser), false, true, false, AllModules, "All operational modules without Admin or delete rights."),
@@ -97,7 +98,7 @@ public static class AccessPermissionMatrix
     ];
 
     public static bool IsAdminOrOwner(ClaimsPrincipal user)
-        => user.IsInRole(Role(LoginRole.Admin)) || IsOwner(user);
+        => IsSuperAdmin(user) || user.IsInRole(Role(LoginRole.Admin)) || IsOwner(user);
 
     public static bool CanEdit(ClaimsPrincipal user)
         => IsAdminOrOwner(user)
@@ -131,6 +132,11 @@ public static class AccessPermissionMatrix
             return Profiles.First(profile => profile.Role == "Owner");
         }
 
+        if (IsSuperAdmin(user))
+        {
+            return Profiles.First(profile => profile.Role == "Super Admin");
+        }
+
         var role = user.FindFirstValue(ClaimTypes.Role);
         return Profiles.FirstOrDefault(profile => string.Equals(profile.Role, role, StringComparison.OrdinalIgnoreCase));
     }
@@ -140,6 +146,9 @@ public static class AccessPermissionMatrix
             user.FindFirstValue("userType"),
             UserType.Owner.ToString(),
             StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsSuperAdmin(ClaimsPrincipal user)
+        => bool.TryParse(user.FindFirstValue("superAdmin"), out var superAdmin) && superAdmin;
 
     private static AccessPermissionProfile Profile(
         string role,

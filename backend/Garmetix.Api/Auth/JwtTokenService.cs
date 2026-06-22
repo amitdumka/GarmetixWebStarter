@@ -24,6 +24,7 @@ public sealed class JwtTokenService(IConfiguration configuration)
             new(ClaimTypes.Role, user.Role.ToString()),
             new("userType", user.UserType.ToString()),
             new("admin", user.Admin.ToString()),
+            new("superAdmin", user.IsSuperAdmin.ToString()),
             new("active", user.IsActive.ToString()),
             new("appOperation", user.AppOperation.ToString())
         };
@@ -62,6 +63,7 @@ public sealed class JwtTokenService(IConfiguration configuration)
             user.StoreGroupId,
             user.StoreId,
             user.Admin,
+            user.IsSuperAdmin,
             user.IsActive,
             user.AppOperation.ToString());
     }

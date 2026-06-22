@@ -13,6 +13,7 @@ public sealed record UserListItemDto(
     Guid? StoreGroupId,
     Guid? StoreId,
     bool Admin,
+    bool IsSuperAdmin,
     bool IsActive,
     string AppOperation);
 
