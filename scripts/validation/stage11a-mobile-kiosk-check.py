@@ -53,11 +53,11 @@ mobile_files = [
 add("mobile shell files exist", all(exists(path) for path in mobile_files))
 add(
     "version identity",
-    all(token in app_info for token in ['Version = "4.11.7"', "Stage 11B-5 Fingerprint Kiosk Punch Guard", "GARMETIX-11B-20260621-4117"])
-    and "APP_VERSION = '4.11.7'" in app_version
-    and "Stage 11B-5 Fingerprint Kiosk Punch Guard" in app_version
-    and "GARMETIX-11B-20260621-4117" in app_version
-    and "<Version>4.11.7</Version>" in api_project,
+    all(token in app_info for token in ['Version = "4.11.8"', "Stage 11B-6 Biometric Enrollment Consent Hardening", "GARMETIX-11B-20260621-4118"])
+    and "APP_VERSION = '4.11.8'" in app_version
+    and "Stage 11B-6 Biometric Enrollment Consent Hardening" in app_version
+    and "GARMETIX-11B-20260621-4118" in app_version
+    and "<Version>4.11.8</Version>" in api_project,
 )
 add(
     "maui android shell contract",
@@ -65,8 +65,8 @@ add(
     and "<UseMaui>true</UseMaui>" in csproj
     and "Microsoft.Data.Sqlite" in csproj
     and "Microsoft.Maui.Controls" in csproj
-    and "<ApplicationDisplayVersion>4.11.7</ApplicationDisplayVersion>" in csproj
-    and "<ApplicationVersion>4117</ApplicationVersion>" in csproj
+    and "<ApplicationDisplayVersion>4.11.8</ApplicationDisplayVersion>" in csproj
+    and "<ApplicationVersion>4118</ApplicationVersion>" in csproj
     and "UseMauiApp<App>()" in maui_program
     and "KioskShellPage" in app
     and "CreateWindow" in app
@@ -158,8 +158,8 @@ add(
 add(
     "docs and current release validation",
     "stage11a-mobile-kiosk-check.py" in current_release
-    and "Stage 11B-5 Fingerprint Kiosk Punch Guard" in readme
-    and "Stage 11B-5 Fingerprint Kiosk Punch Guard" in roadmap
+    and "Stage 11B-6 Biometric Enrollment Consent Hardening" in readme
+    and "Stage 11B-6 Biometric Enrollment Consent Hardening" in roadmap
     and "GET /api/attendance/mobile-kiosk/status" in operations_doc
     and "GET /api/attendance/mobile-kiosk/offline-contract" in operations_doc,
 )

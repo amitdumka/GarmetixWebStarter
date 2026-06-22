@@ -1,6 +1,11 @@
-## v4.11.7 Stage 11B-5 Fingerprint Kiosk Punch Guard
+## v4.11.8 Stage 11B-6 Biometric Enrollment Consent Hardening
 
-- Current version: 4.11.7 / `GARMETIX-11B-20260621-4117`.
+- Current version: 4.11.8 / `GARMETIX-11B-20260621-4118`.
+- Replaced the biometric enrollment placeholder with a full Nuxt UI consent/reference page.
+- Backend now accepts a `BiometricEnrollmentSaveRequest` DTO instead of raw entity JSON.
+- Employee company, group and store are copied from the selected employee on the server.
+- Template references require consent and reject raw biometric-looking markers.
+- Enrollment save/update and revoke actions write sanitized Message Logs.
 - Added configurable kiosk fingerprint punch enforcement with default mode `Off`.
 - Web kiosk can call the local fingerprint bridge before punch and submit sanitized proof metadata.
 - Server validates match status, quality, audit reference, proof age and raw-payload flags before saving required fingerprint punches.
@@ -21,6 +26,7 @@
 
 ## Recently Completed Stage 10
 
+- v4.11.7: Stage 11B-5 Fingerprint Kiosk Punch Guard with configurable kiosk fingerprint punch enforcement, bridge proof validation, operator UI and Message Logs for blocked punches.
 - v4.11.6: Stage 11B-4 Local Fingerprint Bridge Template with a runnable bridge app, simulator adapter boundary, local/private caller guard and no raw biometric response contract.
 - v4.11.5: Stage 11B-3 External Fingerprint Bridge Connector with guarded local/private bridge calls, raw biometric field blocking and sanitized Message Logs.
 - v4.11.4: Stage 11B-2 Fingerprint Bridge Simulator with simulator health, capture, identify and enroll routes plus sanitized Message Logs.
@@ -56,11 +62,10 @@ python scripts/validation/current-release-checks.py
 
 1. Select fingerprint hardware/vendor SDK and confirm whether the bridge runs on Windows, Android, or both.
 2. Replace `SimulatorFingerprintVendorAdapter` in `apps/Garmetix.FingerprintBridge` with the selected vendor SDK adapter.
-3. Select fingerprint hardware/vendor SDK and replace the simulator adapter with the approved vendor SDK.
-4. Harden biometric enrollment consent, template reference and audit workflow.
-5. Stage 11C Face recognition/liveness proof of concept after consent, retention and privacy controls.
-6. Stage 11D mobile/device deployment packaging after kiosk shell and fingerprint bridge are accepted.
-7. Stage 12A SaaS/super-admin plan if multi-company hosted licensing is needed.
+3. Add selected vendor enrollment adapter once hardware and SDK license are confirmed.
+4. Stage 11C Face recognition/liveness proof of concept after consent, retention and privacy controls.
+5. Stage 11D mobile/device deployment packaging after kiosk shell and fingerprint bridge are accepted.
+6. Stage 12A SaaS/super-admin plan if multi-company hosted licensing is needed.
 
 ### Future Attendance/Mobile Items Kept For Later
 

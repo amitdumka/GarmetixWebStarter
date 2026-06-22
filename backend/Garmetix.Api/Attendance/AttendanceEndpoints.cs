@@ -14,6 +14,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using System.Net;
 using System.Net.Http.Json;
+using System.Security.Claims;
 using System.Text.Json;
 
 namespace Garmetix.Api.Attendance;
@@ -1057,23 +1058,96 @@ public static class AttendanceEndpoints
     }
 
     private static async Task<IResult> ListBiometricEnrollmentsAsync(GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
-        => Results.Ok(await WorkspaceScope.ApplyTo(db.EmployeeBiometricEnrollments.AsNoTracking(), context).OrderByDescending(item => item.CreatedAt).ToListAsync(cancellationToken));
-
-    private static async Task<IResult> CreateBiometricEnrollmentAsync(EmployeeBiometricEnrollment request, IBiometricEnrollmentService service, HttpContext context, CancellationToken cancellationToken)
     {
-        try { return Results.Ok(await service.SavePlaceholderAsync(request, context, cancellationToken)); }
+        var rows = await WorkspaceScope.ApplyTo(db.EmployeeBiometricEnrollments.AsNoTracking(), context)
+            .OrderByDescending(item => item.CreatedAt)
+            .Take(500)
+            .ToListAsync(cancellationToken);
+        var employeeIds = rows.Select(item => item.EmployeeId).Distinct().ToList();
+        var employees = await WorkspaceScope.ApplyTo(db.Employees.AsNoTracking(), context)
+            .Where(item => employeeIds.Contains(item.Id))
+            .ToDictionaryAsync(item => item.Id, cancellationToken);
+
+        return Results.Ok(rows.Select(item => BuildBiometricEnrollmentRow(item, employees)).ToList());
+    }
+
+    private static async Task<IResult> CreateBiometricEnrollmentAsync(BiometricEnrollmentSaveRequest request, IBiometricEnrollmentService service, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var entity = await service.SaveAsync(request, context, cancellationToken);
+            var employees = await WorkspaceScope.ApplyTo(db.Employees.AsNoTracking(), context)
+                .Where(item => item.Id == entity.EmployeeId)
+                .ToDictionaryAsync(item => item.Id, cancellationToken);
+            return Results.Ok(BuildBiometricEnrollmentRow(entity, employees));
+        }
         catch (InvalidOperationException ex) { return Results.BadRequest(new { message = ex.Message }); }
     }
 
-    private static async Task<IResult> RevokeBiometricEnrollmentAsync(Guid id, AttendanceApprovalRequestDto request, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
+    private static async Task<IResult> RevokeBiometricEnrollmentAsync(Guid id, AttendanceApprovalRequestDto request, GarmetixDbContext db, ApplicationMessageLogService logs, HttpContext context, CancellationToken cancellationToken)
     {
         var row = await WorkspaceScope.ApplyTo(db.EmployeeBiometricEnrollments, context).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (row is null) return Results.NotFound();
+        var employee = await WorkspaceScope.ApplyTo(db.Employees.AsNoTracking(), context)
+            .FirstOrDefaultAsync(item => item.Id == row.EmployeeId, cancellationToken);
         row.EnrollmentStatus = "Revoked";
         row.RevokedAtUtc = DateTime.UtcNow;
         row.RevokedReason = request.Remarks;
         await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(row);
+        await logs.SuccessAsync(
+            "Attendance Biometric Enrollment",
+            "EnrollmentRevoked",
+            "Biometric enrollment reference was revoked.",
+            new
+            {
+                row.EmployeeId,
+                EmployeeCode = employee?.EmployeeCode,
+                EmployeeName = employee is null ? null : $"{employee.FirstName} {employee.LastName}".Trim(),
+                Reason = request.Remarks,
+                RawBiometricPayloadStored = false
+            },
+            row.CompanyId,
+            row.StoreGroupId,
+            row.StoreId,
+            userName: context.User.Identity?.Name ?? context.User.FindFirstValue(ClaimTypes.Name) ?? context.User.FindFirstValue("userName"),
+            resource: "/attendance/biometric-enrollment",
+            operationId: row.Id,
+            cancellationToken: cancellationToken);
+
+        return Results.Ok(BuildBiometricEnrollmentRow(row, employee is null ? new Dictionary<Guid, Employee>() : new Dictionary<Guid, Employee> { [employee.Id] = employee }));
+    }
+
+    private static BiometricEnrollmentRowDto BuildBiometricEnrollmentRow(EmployeeBiometricEnrollment row, IReadOnlyDictionary<Guid, Employee> employees)
+    {
+        employees.TryGetValue(row.EmployeeId, out var employee);
+        var employeeName = employee is null ? "Employee not found" : $"{employee.FirstName} {employee.LastName}".Trim();
+        var flags = new List<string>();
+        if (row.ConsentGiven) flags.Add("Consent captured");
+        if (!string.IsNullOrWhiteSpace(row.FingerprintTemplateRef)) flags.Add("Fingerprint reference");
+        if (!string.IsNullOrWhiteSpace(row.FaceTemplateRef)) flags.Add("Face reference");
+        if (!string.IsNullOrWhiteSpace(row.WebAuthnCredentialId)) flags.Add("WebAuthn reference");
+        if (row.RevokedAtUtc.HasValue) flags.Add("Revoked");
+        if (flags.Count == 0) flags.Add("No biometric reference stored");
+
+        return new BiometricEnrollmentRowDto(
+            row.Id,
+            row.EmployeeId,
+            employee?.EmployeeCode ?? row.EmployeeId.ToString("N")[..8],
+            string.IsNullOrWhiteSpace(employeeName) ? "Employee" : employeeName,
+            row.CompanyId,
+            row.StoreGroupId,
+            row.StoreId,
+            row.ConsentGiven,
+            row.ConsentAtUtc,
+            row.EnrollmentStatus,
+            row.FingerprintTemplateRef,
+            row.FaceTemplateRef,
+            row.WebAuthnCredentialId,
+            row.EnrolledAtUtc,
+            row.RevokedAtUtc,
+            row.RevokedReason,
+            row.Notes,
+            flags);
     }
 
     private static async Task<IResult> ListRegularizationAsync(GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)

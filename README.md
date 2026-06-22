@@ -1,3 +1,10 @@
+## v4.11.8 Stage 11B-6 Biometric Enrollment Consent Hardening
+
+- Replaced the biometric enrollment placeholder with a full Nuxt UI consent/reference page.
+- Backend now accepts a DTO instead of raw entity JSON and owns employee workspace values during save.
+- Template references require consent and reject raw biometric-looking field markers.
+- Enrollment save/update and revoke actions write sanitized Message Logs.
+
 ## v4.11.7 Stage 11B-5 Fingerprint Kiosk Punch Guard
 
 - Added configurable kiosk fingerprint punch enforcement through `AttendanceFingerprint` settings.
@@ -151,7 +158,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 11B-5 Fingerprint Kiosk Punch Guard v4.11.7 (`GARMETIX-11B-20260621-4117`).
+> Current package: Stage 11B-6 Biometric Enrollment Consent Hardening v4.11.8 (`GARMETIX-11B-20260621-4118`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

@@ -30,7 +30,7 @@ public interface IAttendanceSyncService
 
 public interface IBiometricEnrollmentService
 {
-    Task<EmployeeBiometricEnrollment> SavePlaceholderAsync(EmployeeBiometricEnrollment request, HttpContext context, CancellationToken cancellationToken);
+    Task<EmployeeBiometricEnrollment> SaveAsync(BiometricEnrollmentSaveRequest request, HttpContext context, CancellationToken cancellationToken);
 }
 
 public sealed class AttendanceService(
@@ -517,22 +517,166 @@ public sealed class AttendanceSyncService(IAttendanceService attendanceService, 
     }
 }
 
-public sealed class BiometricEnrollmentService(GarmetixDbContext db) : IBiometricEnrollmentService
+public sealed class BiometricEnrollmentService(GarmetixDbContext db, ApplicationMessageLogService logs) : IBiometricEnrollmentService
 {
-    public async Task<EmployeeBiometricEnrollment> SavePlaceholderAsync(EmployeeBiometricEnrollment request, HttpContext context, CancellationToken cancellationToken)
+    private static readonly string[] BlockedTemplateTokens =
+    [
+        "rawImage",
+        "fingerprintImage",
+        "wsq",
+        "minutiae",
+        "isoTemplate",
+        "templateBase64",
+        "biometricPayload"
+    ];
+
+    public async Task<EmployeeBiometricEnrollment> SaveAsync(BiometricEnrollmentSaveRequest request, HttpContext context, CancellationToken cancellationToken)
     {
-        request.Id = request.Id == Guid.Empty ? Guid.NewGuid() : request.Id;
-        request.EnrollmentStatus = request.ConsentGiven ? "ConsentOnly" : "NotEnrolled";
-        request.ConsentAtUtc = request.ConsentGiven ? request.ConsentAtUtc ?? DateTime.UtcNow : null;
-        request.FaceTemplateRef = string.IsNullOrWhiteSpace(request.FaceTemplateRef) ? null : request.FaceTemplateRef.Trim();
-        request.FingerprintTemplateRef = string.IsNullOrWhiteSpace(request.FingerprintTemplateRef) ? null : request.FingerprintTemplateRef.Trim();
-        request.WebAuthnCredentialId = string.IsNullOrWhiteSpace(request.WebAuthnCredentialId) ? null : request.WebAuthnCredentialId.Trim();
-        if (!WorkspaceScope.CanWrite(request, context, out var message))
+        if (request.EmployeeId == Guid.Empty)
+        {
+            throw new InvalidOperationException("Select employee before saving biometric enrollment.");
+        }
+
+        var employee = await WorkspaceScope.ApplyTo(db.Employees.AsNoTracking(), context)
+            .FirstOrDefaultAsync(item => item.Id == request.EmployeeId, cancellationToken);
+        if (employee is null)
+        {
+            throw new InvalidOperationException("Selected employee is outside your workspace or does not exist.");
+        }
+
+        var fingerprintRef = CleanReference(request.FingerprintTemplateRef, nameof(request.FingerprintTemplateRef));
+        var faceRef = CleanReference(request.FaceTemplateRef, nameof(request.FaceTemplateRef));
+        var webAuthnRef = CleanReference(request.WebAuthnCredentialId, nameof(request.WebAuthnCredentialId));
+        var hasTemplateReference = fingerprintRef is not null || faceRef is not null || webAuthnRef is not null;
+        if (hasTemplateReference && !request.ConsentGiven)
+        {
+            throw new InvalidOperationException("Employee consent is required before saving biometric template references.");
+        }
+
+        EmployeeBiometricEnrollment? entity = null;
+        if (request.Id.HasValue && request.Id.Value != Guid.Empty)
+        {
+            entity = await WorkspaceScope.ApplyTo(db.EmployeeBiometricEnrollments, context)
+                .FirstOrDefaultAsync(item => item.Id == request.Id.Value, cancellationToken);
+        }
+
+        entity ??= await WorkspaceScope.ApplyTo(db.EmployeeBiometricEnrollments, context)
+            .Where(item => item.EmployeeId == request.EmployeeId && item.RevokedAtUtc == null)
+            .OrderByDescending(item => item.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var isNew = entity is null;
+        entity ??= new EmployeeBiometricEnrollment { Id = Guid.NewGuid(), EmployeeId = request.EmployeeId };
+
+        entity.EmployeeId = request.EmployeeId;
+        entity.CompanyId = employee.CompanyId;
+        entity.StoreGroupId = employee.StoreGroupId;
+        entity.StoreId = employee.StoreId;
+        entity.ConsentGiven = request.ConsentGiven;
+        entity.ConsentAtUtc = request.ConsentGiven ? entity.ConsentAtUtc ?? DateTime.UtcNow : null;
+        entity.FaceTemplateRef = faceRef;
+        entity.FingerprintTemplateRef = fingerprintRef;
+        entity.WebAuthnCredentialId = webAuthnRef;
+        entity.EnrollmentStatus = request.ConsentGiven
+            ? hasTemplateReference ? "Enrolled" : "ConsentOnly"
+            : "NotEnrolled";
+        entity.EnrolledAtUtc = hasTemplateReference ? entity.EnrolledAtUtc ?? DateTime.UtcNow : null;
+        entity.RevokedAtUtc = null;
+        entity.RevokedReason = null;
+        entity.Notes = BuildNotes(request);
+
+        if (!WorkspaceScope.CanWrite(entity, context, out var message))
         {
             throw new InvalidOperationException(message ?? "Selected biometric workspace is not allowed.");
         }
-        db.EmployeeBiometricEnrollments.Add(request);
+
+        if (isNew)
+        {
+            db.EmployeeBiometricEnrollments.Add(entity);
+        }
+
         await db.SaveChangesAsync(cancellationToken);
-        return request;
+        await logs.SuccessAsync(
+            "Attendance Biometric Enrollment",
+            isNew ? "EnrollmentCreated" : "EnrollmentUpdated",
+            hasTemplateReference
+                ? "Biometric enrollment reference saved after consent validation."
+                : "Biometric enrollment consent status saved.",
+            new
+            {
+                entity.EmployeeId,
+                employee.EmployeeCode,
+                EmployeeName = $"{employee.FirstName} {employee.LastName}".Trim(),
+                entity.EnrollmentStatus,
+                HasFingerprintTemplateRef = entity.FingerprintTemplateRef is not null,
+                HasFaceTemplateRef = entity.FaceTemplateRef is not null,
+                HasWebAuthnCredentialId = entity.WebAuthnCredentialId is not null,
+                entity.ConsentGiven,
+                RawBiometricPayloadStored = false
+            },
+            entity.CompanyId,
+            entity.StoreGroupId,
+            entity.StoreId,
+            userName: context.User.Identity?.Name ?? context.User.FindFirstValue(ClaimTypes.Name) ?? context.User.FindFirstValue("userName"),
+            resource: "/attendance/biometric-enrollment",
+            operationId: entity.Id,
+            cancellationToken: cancellationToken);
+
+        return entity;
+    }
+
+    private static string? CleanReference(string? value, string fieldName)
+    {
+        var cleaned = Clean(value, 300);
+        if (cleaned is null)
+        {
+            return null;
+        }
+
+        if (cleaned.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"{fieldName} must be a reference, not raw biometric data.");
+        }
+
+        foreach (var token in BlockedTemplateTokens)
+        {
+            if (cleaned.Contains(token, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"{fieldName} contains a blocked raw biometric field marker: {token}.");
+            }
+        }
+
+        return cleaned;
+    }
+
+    private static string? BuildNotes(BiometricEnrollmentSaveRequest request)
+    {
+        var parts = new List<string>();
+        AddPart(parts, "Consent", request.ConsentMethod);
+        AddPart(parts, "ConsentRef", request.ConsentReference);
+        AddPart(parts, "Provider", request.TemplateProvider);
+        AddPart(parts, "Device", request.DeviceSerial);
+        AddPart(parts, "Note", request.Notes);
+        return Clean(string.Join("; ", parts), 300);
+    }
+
+    private static void AddPart(List<string> parts, string label, string? value)
+    {
+        var cleaned = Clean(value, 80);
+        if (cleaned is not null)
+        {
+            parts.Add($"{label}: {cleaned}");
+        }
+    }
+
+    private static string? Clean(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
     }
 }

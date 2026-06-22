@@ -28,6 +28,7 @@ attendance_service = read("backend/Garmetix.Api/Attendance/Services/AttendanceSe
 attendance_dtos = read("backend/Garmetix.Api/Attendance/Dtos/AttendanceDtos.cs")
 device_bridge_page = read("frontend/garmetix-web/pages/attendance/device-bridge.vue")
 kiosk_page = read("frontend/garmetix-web/pages/attendance/kiosk.vue")
+biometric_enrollment_page = read("frontend/garmetix-web/pages/attendance/biometric-enrollment.vue")
 env_example = read(".env.example")
 compose_prod = read("docker-compose.prod.yml")
 access = read("frontend/garmetix-web/composables/useAccessControl.ts")
@@ -36,23 +37,24 @@ legacy_shell = read("frontend/garmetix-web/components/AppShellLegacy.vue")
 readme = read("README.md")
 roadmap = read("docs/planning/CURRENT-ROADMAP.md")
 operations_doc = read("docs/operations/Stage11B5-Fingerprint-Kiosk-Punch-Guard-v4.11.7.md")
+operations_doc_11b6 = read("docs/operations/Stage11B6-Biometric-Enrollment-Consent-Hardening-v4.11.8.md")
 
 add(
     "version identity",
-    all(token in app_info for token in ['Version = "4.11.7"', "Stage 11B-5 Fingerprint Kiosk Punch Guard", "GARMETIX-11B-20260621-4117"])
-    and "APP_VERSION = '4.11.7'" in app_version
-    and "Stage 11B-5 Fingerprint Kiosk Punch Guard" in app_version
-    and "GARMETIX-11B-20260621-4117" in app_version
-    and "<Version>4.11.7</Version>" in api_project
-    and "<ApplicationDisplayVersion>4.11.7</ApplicationDisplayVersion>" in kiosk_project
-    and "<ApplicationVersion>4117</ApplicationVersion>" in kiosk_project,
+    all(token in app_info for token in ['Version = "4.11.8"', "Stage 11B-6 Biometric Enrollment Consent Hardening", "GARMETIX-11B-20260621-4118"])
+    and "APP_VERSION = '4.11.8'" in app_version
+    and "Stage 11B-6 Biometric Enrollment Consent Hardening" in app_version
+    and "GARMETIX-11B-20260621-4118" in app_version
+    and "<Version>4.11.8</Version>" in api_project
+    and "<ApplicationDisplayVersion>4.11.8</ApplicationDisplayVersion>" in kiosk_project
+    and "<ApplicationVersion>4118</ApplicationVersion>" in kiosk_project,
 )
 add(
     "local bridge template project",
     exists("apps/Garmetix.FingerprintBridge/Garmetix.FingerprintBridge.csproj")
     and '<TargetFramework>net10.0</TargetFramework>' in bridge_project
-    and '<Version>4.11.7</Version>' in bridge_project
-    and "4.11.7-stage11b5-fingerprint-kiosk-punch-guard" in bridge_project
+    and '<Version>4.11.8</Version>' in bridge_project
+    and "4.11.8-stage11b6-biometric-enrollment-consent-hardening" in bridge_project
     and "IFingerprintVendorAdapter" in bridge_program
     and "SimulatorFingerprintVendorAdapter" in bridge_program
     and "MapBridgeRoutes(app.MapGroup(\"/garmetix-fingerprint\"))" in bridge_program
@@ -166,6 +168,25 @@ add(
     and "fetch(bridgeEndpoint('identify')" in kiosk_page,
 )
 add(
+    "biometric enrollment consent hardening",
+    "BiometricEnrollmentSaveRequest" in attendance_dtos
+    and "BiometricEnrollmentRowDto" in attendance_dtos
+    and "CreateBiometricEnrollmentAsync(BiometricEnrollmentSaveRequest" in attendance_endpoints
+    and "BuildBiometricEnrollmentRow" in attendance_endpoints
+    and "Attendance Biometric Enrollment" in attendance_endpoints
+    and "EnrollmentRevoked" in attendance_endpoints
+    and "SaveAsync(BiometricEnrollmentSaveRequest" in attendance_service
+    and "BlockedTemplateTokens" in attendance_service
+    and "Employee consent is required before saving biometric template references." in attendance_service
+    and "RawBiometricPayloadStored = false" in attendance_service
+    and "Biometric Enrollment" in biometric_enrollment_page
+    and "Save Enrollment" in biometric_enrollment_page
+    and "consentGiven" in biometric_enrollment_page
+    and "fingerprintTemplateRef" in biometric_enrollment_page
+    and "revoke(row)" in biometric_enrollment_page
+    and "Raw biometric payloads are blocked" in biometric_enrollment_page,
+)
+add(
     "route access and navigation",
     "path: '/attendance/device-bridge'" in access
     and "Fingerprint Bridge" in access
@@ -177,6 +198,14 @@ add(
 add(
     "docs and roadmap",
     exists("docs/operations/Stage11B5-Fingerprint-Kiosk-Punch-Guard-v4.11.7.md")
+    and exists("docs/operations/Stage11B6-Biometric-Enrollment-Consent-Hardening-v4.11.8.md")
+    and "Stage 11B-6 Biometric Enrollment Consent Hardening" in readme
+    and "Stage 11B-6 Biometric Enrollment Consent Hardening" in roadmap
+    and "Stage 11B-6 Biometric Enrollment Consent Hardening" in operations_doc_11b6
+    and "BiometricEnrollmentSaveRequest" in operations_doc_11b6
+    and "Attendance Biometric Enrollment" in operations_doc_11b6
+    and "RawBiometricPayloadStored = false" in operations_doc_11b6
+    and "rawImage" in operations_doc_11b6
     and "Stage 11B-5 Fingerprint Kiosk Punch Guard" in readme
     and "Stage 11B-5 Fingerprint Kiosk Punch Guard" in roadmap
     and "Select fingerprint hardware/vendor SDK" in roadmap
@@ -195,4 +224,4 @@ for name, ok in checks:
     print(("PASS" if ok else "FAIL") + f": {name}")
 if failed:
     raise SystemExit("Stage 11B fingerprint bridge validation failed: " + ", ".join(failed))
-print("Stage 11B-5 Fingerprint Kiosk Punch Guard validation passed.")
+print("Stage 11B-6 Biometric Enrollment Consent Hardening validation passed.")

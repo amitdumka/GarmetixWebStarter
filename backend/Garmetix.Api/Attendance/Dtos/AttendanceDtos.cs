@@ -161,6 +161,42 @@ public sealed record AttendanceRegularizationRequestDto(
 public sealed record AttendanceApprovalRequestDto(
     string? Remarks);
 
+public sealed record BiometricEnrollmentSaveRequest(
+    Guid? Id,
+    Guid EmployeeId,
+    Guid CompanyId,
+    Guid StoreGroupId,
+    Guid StoreId,
+    bool ConsentGiven,
+    string? ConsentMethod,
+    string? ConsentReference,
+    string? FingerprintTemplateRef,
+    string? FaceTemplateRef,
+    string? WebAuthnCredentialId,
+    string? TemplateProvider,
+    string? DeviceSerial,
+    string? Notes);
+
+public sealed record BiometricEnrollmentRowDto(
+    Guid Id,
+    Guid EmployeeId,
+    string EmployeeCode,
+    string EmployeeName,
+    Guid CompanyId,
+    Guid StoreGroupId,
+    Guid StoreId,
+    bool ConsentGiven,
+    DateTime? ConsentAtUtc,
+    string EnrollmentStatus,
+    string? FingerprintTemplateRef,
+    string? FaceTemplateRef,
+    string? WebAuthnCredentialId,
+    DateTime? EnrolledAtUtc,
+    DateTime? RevokedAtUtc,
+    string? RevokedReason,
+    string? Notes,
+    IReadOnlyList<string> AuditFlags);
+
 public sealed record AttendanceRecalculateRequest(
     int Year,
     int Month,
