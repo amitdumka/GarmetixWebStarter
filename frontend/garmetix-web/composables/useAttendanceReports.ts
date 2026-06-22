@@ -21,6 +21,7 @@ export function useAttendanceReports() {
     deviceBridgeExternalCapture: attendance.deviceBridgeExternalCapture,
     deviceBridgeExternalIdentify: attendance.deviceBridgeExternalIdentify,
     deviceBridgeExternalEnroll: attendance.deviceBridgeExternalEnroll,
+    faceLivenessStatus: attendance.faceLivenessStatus,
     finalAcceptance: attendance.finalAcceptance,
     recalculate: attendance.recalculate,
     lockMonth: attendance.lockMonth

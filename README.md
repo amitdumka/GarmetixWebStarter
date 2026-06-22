@@ -1,3 +1,11 @@
+## v4.11.13 Stage 11C Face Liveness Readiness Contract
+
+- Added `/api/attendance/face-liveness/status` as a privacy-safe readiness contract before any face recognition SDK/provider is connected.
+- Added `/attendance/face-liveness` with current safe base, approved inputs, blocked raw fields, provider candidates, checklist and blockers.
+- The contract keeps automated face matching disabled and raw face template/image/embedding storage blocked.
+- The page links back to Face Photo Review and Biometric Enrollment so operator review and consent/reference capture stay separate.
+- Stage documentation now records the consent, retention, threshold, audit and appeal requirements before any real face/liveness work.
+
 ## v4.11.12 Stage 11B-10 Mantra Contract Rehearsal Drill
 
 - Added Windows and Linux/Mac host rehearsal scripts for the Mantra mock service plus fingerprint bridge.
@@ -187,7 +195,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 11B-10 Mantra Contract Rehearsal Drill v4.11.12 (`GARMETIX-11B-20260622-4122`).
+> Current package: Stage 11C Face Liveness Readiness Contract v4.11.13 (`GARMETIX-11C-20260622-4113`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

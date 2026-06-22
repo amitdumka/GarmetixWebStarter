@@ -201,6 +201,7 @@ const moduleGroups: MenuGroup[] = [
       { to: '/attendance/kiosk-monitor', label: 'Kiosk Monitor', icon: 'i-lucide-monitor-check' },
       { to: '/attendance/photo-review', label: 'Face Photo Review', icon: 'i-lucide-user-check' },
       { to: '/attendance/biometric-enrollment', label: 'Biometric Enrollment', icon: 'i-lucide-fingerprint' },
+      { to: '/attendance/face-liveness', label: 'Face Liveness', icon: 'i-lucide-scan-face', keywords: ['stage 11c', 'face', 'liveness', 'privacy', 'biometric'] },
       { to: '/attendance/regularization', label: 'Regularization Requests', icon: 'i-lucide-list-checks' },
       { to: '/attendance/payroll-summary', label: 'Payroll Attendance Summary', icon: 'i-lucide-file-spreadsheet' },
       { to: '/attendance/payroll-review', label: 'Attendance Payroll Review', icon: 'i-lucide-hand-coins' },

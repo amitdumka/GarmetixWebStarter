@@ -52,6 +52,7 @@ public static class AttendanceEndpoints
         group.MapPost("/device-bridge/external/capture", DeviceBridgeExternalCaptureAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/device-bridge/external/identify", DeviceBridgeExternalIdentifyAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/device-bridge/external/enroll", DeviceBridgeExternalEnrollAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapGet("/face-liveness/status", FaceLivenessStatusAsync);
         group.MapGet("/mobile-kiosk/status", MobileKioskStatusAsync);
         group.MapGet("/mobile-kiosk/offline-contract", MobileKioskOfflineContractAsync);
         group.MapGet("/mobile-kiosk/rehearsal", MobileKioskRehearsalAsync);
@@ -2269,6 +2270,98 @@ public static class AttendanceEndpoints
                 "Advanced payroll rules and statutory reports",
                 "Device health monitoring and kiosk auto-update"
             ]));
+
+    private static IResult FaceLivenessStatusAsync()
+        => Results.Ok(new
+        {
+            version = AppInfoEndpoints.Version,
+            stage = AppInfoEndpoints.Stage,
+            releaseName = AppInfoEndpoints.ReleaseName,
+            buildCode = AppInfoEndpoints.BuildCode,
+            status = "ReadinessOnly",
+            title = "Face liveness readiness contract",
+            message = "Face recognition and automated liveness are not enabled. This stage documents the privacy-safe contract before any SDK or provider is connected.",
+            faceLivenessEnabled = false,
+            realFaceRecognitionEnabled = false,
+            rawFaceTemplateStorageAllowed = false,
+            photoProofEvidenceEnabled = true,
+            consentRequired = true,
+            auditLogSource = "Attendance Face Liveness",
+            currentSafeBase = new[]
+            {
+                "Kiosk photo proof capture is available for manual review.",
+                "Face Photo Review remains an operator approval workflow, not AI matching.",
+                "Biometric Enrollment stores consent and reference IDs only.",
+                "Message Logs must record provider errors, blocked payloads and operator override decisions without raw biometric data."
+            },
+            approvedInputs = new[]
+            {
+                "employeeId",
+                "attendancePunchId",
+                "kioskDeviceId",
+                "photoProofId",
+                "faceTemplateRef",
+                "consentAuditRef",
+                "capturedAtUtc",
+                "operatorReviewId"
+            },
+            expectedResponseContract = new[]
+            {
+                "success",
+                "message",
+                "matchStatus",
+                "employeeId",
+                "faceTemplateRef",
+                "qualityScore",
+                "livenessScore",
+                "capturedAtUtc",
+                "auditRef",
+                "rawPayloadStored=false",
+                "consentAuditRef"
+            },
+            blockedResponseFields = new[]
+            {
+                "rawFaceImage",
+                "faceEmbedding",
+                "faceTemplateBase64",
+                "landmarks",
+                "biometricPayload",
+                "image",
+                "templateData"
+            },
+            providerCandidates = new[]
+            {
+                "Browser camera proof only (current safe baseline)",
+                "On-device liveness SDK with reference-only result",
+                "External vendor bridge returning sanitized scores and references",
+                "Server-side face recognition only after consent, retention and legal approval"
+            },
+            readinessChecklist = new[]
+            {
+                "Finalize consent wording for face/liveness processing.",
+                "Approve retention policy for photo proof, template reference and audit evidence.",
+                "Select provider or SDK that supports reference-only storage.",
+                "Define false acceptance and false rejection thresholds.",
+                "Document manual review and employee appeal path.",
+                "Keep raw face image, embedding and template payload fields blocked.",
+                "Log every provider error, blocked raw payload and override in Message Logs."
+            },
+            blockers = new[]
+            {
+                "No approved face/liveness SDK or service is configured.",
+                "Consent and retention policy are not approved for automated matching.",
+                "Any provider requiring raw template or embedding storage must be rejected or isolated outside Garmetix storage.",
+                "Thresholds and operator appeal process are not accepted.",
+                "Production use needs privacy/legal approval before enabling real matching."
+            },
+            nextAfterThisPart = new[]
+            {
+                "Choose face/liveness provider after policy approval.",
+                "Build a simulator or external bridge proof of concept using this contract.",
+                "Update kiosk to collect liveness proof only when consent is present.",
+                "Keep fingerprint bridge and face/liveness bridge independent so either can be disabled."
+            }
+        });
 
     private static async Task<IResult> KioskBootstrapAsync(AttendanceKioskBootstrapRequest request, IAttendanceService service, CancellationToken cancellationToken)
     {

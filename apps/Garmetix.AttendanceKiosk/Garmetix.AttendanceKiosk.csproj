@@ -9,8 +9,8 @@
     <Nullable>enable</Nullable>
     <ApplicationTitle>Garmetix Kiosk</ApplicationTitle>
     <ApplicationId>com.garmetix.attendancekiosk</ApplicationId>
-    <ApplicationDisplayVersion>4.11.12</ApplicationDisplayVersion>
-    <ApplicationVersion>4122</ApplicationVersion>
+    <ApplicationDisplayVersion>4.11.13</ApplicationDisplayVersion>
+    <ApplicationVersion>4113</ApplicationVersion>
     <SupportedOSPlatformVersion>23.0</SupportedOSPlatformVersion>
   </PropertyGroup>
 

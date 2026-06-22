@@ -4,6 +4,7 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[2]
 checks = [
+    root / 'scripts/validation/stage11c-face-liveness-check.py',
     root / 'scripts/validation/stage11b-fingerprint-bridge-check.py',
     root / 'scripts/validation/stage11a-mobile-kiosk-check.py',
     root / 'scripts/validation/stage10m-production-rehearsal-check.py',
@@ -29,4 +30,4 @@ for check in checks:
     print(f"\n== {check.name} ==")
     subprocess.run([sys.executable, str(check)], cwd=root, check=True)
 
-print("\nCurrent release validation passed for Stage 11B-10 Mantra Contract Rehearsal Drill / v4.11.12.")
+print("\nCurrent release validation passed for Stage 11C Face Liveness Readiness Contract / v4.11.13.")

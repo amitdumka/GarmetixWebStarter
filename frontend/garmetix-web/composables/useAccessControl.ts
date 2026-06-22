@@ -91,6 +91,7 @@ const routeRules: PageAccessRule[] = [
   { path: '/attendance/devices', label: 'Kiosk Devices', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
   { path: '/attendance/kiosk-monitor', label: 'Kiosk Monitor', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
   { path: '/attendance/photo-review', label: 'Face Photo Review', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
+  { path: '/attendance/face-liveness', label: 'Face Liveness Readiness', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
   { path: '/attendance/shifts', label: 'Shifts', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
   { path: '/attendance/policies', label: 'Attendance Policy', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
   { path: '/attendance/regularization', label: 'Attendance Regularization', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
