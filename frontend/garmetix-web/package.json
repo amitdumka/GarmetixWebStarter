@@ -9,11 +9,11 @@
     "smoke:frontend": "node scripts/frontend-smoke.mjs"
   },
   "dependencies": {
-    "@iconify-json/lucide": "^1.2.113",
-    "@nuxt/ui": "^4.6.1",
-    "nuxt": "^4.0.0",
-    "tailwindcss": "^4.1.0",
-    "vue": "^3.5.0"
+    "@iconify-json/lucide": "^1.2.114",
+    "@nuxt/ui": "^4.8.2",
+    "nuxt": "^4.4.8",
+    "tailwindcss": "^4.3.1",
+    "vue": "^3.5.38"
   },
   "version": "4.11.16"
 }
