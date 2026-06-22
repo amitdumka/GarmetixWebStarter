@@ -53,6 +53,12 @@ public static class AttendanceEndpoints
         group.MapPost("/device-bridge/external/identify", DeviceBridgeExternalIdentifyAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/device-bridge/external/enroll", DeviceBridgeExternalEnrollAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapGet("/face-liveness/status", FaceLivenessStatusAsync);
+        group.MapGet("/face-liveness/simulator/health", FaceLivenessSimulatorHealthAsync);
+        group.MapPost("/face-liveness/simulator/proof", FaceLivenessSimulatorProofAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapPost("/face-liveness/simulator/verify", FaceLivenessSimulatorVerifyAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapPost("/face-liveness/external/health", FaceLivenessExternalHealthAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapPost("/face-liveness/external/proof", FaceLivenessExternalProofAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapPost("/face-liveness/external/verify", FaceLivenessExternalVerifyAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapGet("/mobile-kiosk/status", MobileKioskStatusAsync);
         group.MapGet("/mobile-kiosk/offline-contract", MobileKioskOfflineContractAsync);
         group.MapGet("/mobile-kiosk/rehearsal", MobileKioskRehearsalAsync);
@@ -1833,6 +1839,8 @@ public static class AttendanceEndpoints
             "capture" => "capture",
             "identify" => "identify",
             "enroll" => "enroll",
+            "proof" => "proof",
+            "verify" => "verify",
             _ => ""
         };
         uri = new Uri(baseUri.ToString().EndsWith('/') ? baseUri : new Uri(baseUri + "/"), relative);
@@ -1986,7 +1994,7 @@ public static class AttendanceEndpoints
     {
         var warnings = new List<string>();
         if (string.IsNullOrWhiteSpace(body)) return warnings;
-        foreach (var field in new[] { "rawImage", "fingerprintImage", "wsq", "minutiae", "isoTemplate", "templateBase64", "biometricPayload" })
+        foreach (var field in new[] { "rawImage", "fingerprintImage", "wsq", "minutiae", "isoTemplate", "templateBase64", "rawFaceImage", "faceImage", "faceEmbedding", "faceTemplateBase64", "landmarks", "templateData", "biometricPayload" })
         {
             if (body.Contains($"\"{field}\"", StringComparison.OrdinalIgnoreCase))
             {
@@ -2038,8 +2046,8 @@ public static class AttendanceEndpoints
                 },
                 startupModel = "Application.CreateWindow with NavigationPage root",
                 androidPackageId = "com.garmetix.attendancekiosk",
-                androidDisplayVersion = "4.11.7",
-                androidVersionCode = 4117
+                androidDisplayVersion = AppInfoEndpoints.Version,
+                androidVersionCode = 4114
             },
             packageAdvisories = new[]
             {
@@ -2332,15 +2340,34 @@ public static class AttendanceEndpoints
             providerCandidates = new[]
             {
                 "Browser camera proof only (current safe baseline)",
+                "Garmetix face/liveness simulator bridge for contract proof",
                 "On-device liveness SDK with reference-only result",
                 "External vendor bridge returning sanitized scores and references",
                 "Server-side face recognition only after consent, retention and legal approval"
+            },
+            simulatorBridge = new
+            {
+                health = "GET /api/attendance/face-liveness/simulator/health",
+                proof = "POST /api/attendance/face-liveness/simulator/proof",
+                verify = "POST /api/attendance/face-liveness/simulator/verify",
+                rawBlockScenario = "Scenario=RawPayload",
+                logSource = "Attendance Face Liveness"
+            },
+            externalBridge = new
+            {
+                health = "POST /api/attendance/face-liveness/external/health",
+                proof = "POST /api/attendance/face-liveness/external/proof",
+                verify = "POST /api/attendance/face-liveness/external/verify",
+                allowedHosts = "localhost, loopback, host.docker.internal or private LAN",
+                rawFieldBlocking = "rawFaceImage, faceEmbedding, faceTemplateBase64, landmarks, templateData and biometricPayload"
             },
             readinessChecklist = new[]
             {
                 "Finalize consent wording for face/liveness processing.",
                 "Approve retention policy for photo proof, template reference and audit evidence.",
                 "Select provider or SDK that supports reference-only storage.",
+                "Run simulator proof, verify and RawPayload block tests from /attendance/face-liveness.",
+                "Run external bridge health, proof and verify against a local/private provider adapter before kiosk wiring.",
                 "Define false acceptance and false rejection thresholds.",
                 "Document manual review and employee appeal path.",
                 "Keep raw face image, embedding and template payload fields blocked.",
@@ -2362,6 +2389,317 @@ public static class AttendanceEndpoints
                 "Keep fingerprint bridge and face/liveness bridge independent so either can be disabled."
             }
         });
+
+    private static IResult FaceLivenessSimulatorHealthAsync()
+        => Results.Ok(new
+        {
+            success = true,
+            bridgeMode = "Simulator",
+            vendor = "Garmetix Face Liveness Simulator",
+            version = AppInfoEndpoints.Version,
+            stage = AppInfoEndpoints.Stage,
+            generatedAtUtc = DateTimeOffset.UtcNow,
+            endpoints = new[] { "proof", "verify" },
+            rawPayloadStored = false,
+            message = "Face liveness simulator is ready. It returns scores and references only; raw face images and embeddings remain blocked."
+        });
+
+    private static Task<IResult> FaceLivenessSimulatorProofAsync(
+        FaceLivenessBridgeRequest request,
+        HttpContext context,
+        ApplicationMessageLogService logs,
+        CancellationToken cancellationToken)
+        => RunFaceLivenessSimulatorAsync("Proof", request, context, logs, cancellationToken);
+
+    private static Task<IResult> FaceLivenessSimulatorVerifyAsync(
+        FaceLivenessBridgeRequest request,
+        HttpContext context,
+        ApplicationMessageLogService logs,
+        CancellationToken cancellationToken)
+        => RunFaceLivenessSimulatorAsync("Verify", request, context, logs, cancellationToken);
+
+    private static async Task<IResult> RunFaceLivenessSimulatorAsync(
+        string operation,
+        FaceLivenessBridgeRequest request,
+        HttpContext context,
+        ApplicationMessageLogService logs,
+        CancellationToken cancellationToken)
+    {
+        var scenario = string.IsNullOrWhiteSpace(request.Scenario) ? "Success" : request.Scenario.Trim();
+        var forcedFailure = scenario.Equals("Fail", StringComparison.OrdinalIgnoreCase)
+            || scenario.Equals("Failure", StringComparison.OrdinalIgnoreCase)
+            || scenario.Equals("Timeout", StringComparison.OrdinalIgnoreCase);
+        var rawBlocked = scenario.Equals("RawPayload", StringComparison.OrdinalIgnoreCase)
+            || scenario.Equals("RawPayloadBlocked", StringComparison.OrdinalIgnoreCase);
+        var auditRef = Guid.NewGuid();
+        Guid? employeeId = request.EmployeeId is { } id && id != Guid.Empty ? id : null;
+        var employeeCode = string.IsNullOrWhiteSpace(request.EmployeeCode) ? "SIM-FACE-001" : request.EmployeeCode.Trim();
+        var employeeName = string.IsNullOrWhiteSpace(request.EmployeeName) ? "Face Simulator Employee" : request.EmployeeName.Trim();
+        var success = !forcedFailure && !rawBlocked;
+        var qualityScore = success ? operation.Equals("Proof", StringComparison.OrdinalIgnoreCase) ? 86 : 92 : 0;
+        var livenessScore = success ? operation.Equals("Proof", StringComparison.OrdinalIgnoreCase) ? 88 : 91 : 0;
+        var matchStatus = rawBlocked
+            ? "RawPayloadBlocked"
+            : forcedFailure
+                ? "Failed"
+                : operation.Equals("Proof", StringComparison.OrdinalIgnoreCase)
+                    ? "LiveProofAccepted"
+                    : "FaceMatched";
+
+        var result = new FaceLivenessBridgeResultDto(
+            success,
+            rawBlocked
+                ? "Simulator blocked a raw face payload scenario. No face image, embedding or template payload was stored."
+                : forcedFailure
+                    ? $"{operation} simulator returned a controlled failure. Check Message Logs for sanitized details."
+                    : $"{operation} simulator completed. No raw face payload was stored.",
+            "Simulator",
+            "Garmetix Face Liveness Simulator",
+            matchStatus,
+            employeeId,
+            employeeCode,
+            employeeName,
+            request.PhotoProofId,
+            success ? NormalizeFaceTemplateRef(request.FaceTemplateRef, employeeCode) : null,
+            qualityScore,
+            livenessScore,
+            DateTimeOffset.UtcNow,
+            auditRef,
+            NormalizeConsentAuditRef(request.ConsentAuditRef, auditRef),
+            false,
+            rawBlocked
+                ? ["Blocked raw face payload fields: rawFaceImage, faceEmbedding, faceTemplateBase64."]
+                : forcedFailure
+                    ? ["No biometric payload was captured. Failure is generated by simulator scenario."]
+                    : ["Simulator response only; not a real face match.", "Raw face image, embedding and template storage remain blocked."]);
+
+        await WriteFaceLivenessLogAsync(logs, $"Simulator{operation}", result, request, context, auditRef, cancellationToken);
+        return Results.Ok(result);
+    }
+
+    private static Task<IResult> FaceLivenessExternalHealthAsync(
+        FaceLivenessBridgeRequest request,
+        IHttpClientFactory httpClientFactory,
+        HttpContext context,
+        ApplicationMessageLogService logs,
+        CancellationToken cancellationToken)
+        => RunFaceLivenessExternalAsync("Health", request, httpClientFactory, context, logs, cancellationToken);
+
+    private static Task<IResult> FaceLivenessExternalProofAsync(
+        FaceLivenessBridgeRequest request,
+        IHttpClientFactory httpClientFactory,
+        HttpContext context,
+        ApplicationMessageLogService logs,
+        CancellationToken cancellationToken)
+        => RunFaceLivenessExternalAsync("Proof", request, httpClientFactory, context, logs, cancellationToken);
+
+    private static Task<IResult> FaceLivenessExternalVerifyAsync(
+        FaceLivenessBridgeRequest request,
+        IHttpClientFactory httpClientFactory,
+        HttpContext context,
+        ApplicationMessageLogService logs,
+        CancellationToken cancellationToken)
+        => RunFaceLivenessExternalAsync("Verify", request, httpClientFactory, context, logs, cancellationToken);
+
+    private static async Task<IResult> RunFaceLivenessExternalAsync(
+        string operation,
+        FaceLivenessBridgeRequest request,
+        IHttpClientFactory httpClientFactory,
+        HttpContext context,
+        ApplicationMessageLogService logs,
+        CancellationToken cancellationToken)
+    {
+        var auditRef = Guid.NewGuid();
+        if (!TryBuildExternalBridgeUri(request.BridgeBaseUrl, operation, out var uri, out var validationMessage))
+        {
+            var blocked = BuildFaceLivenessExternalResult(false, operation, "External", "Unvalidated Face Bridge", "Blocked", request, null, auditRef, 0, 0,
+                validationMessage ?? "External face/liveness bridge URL is not allowed.", ["Allowed bridge URLs must be localhost, loopback, host.docker.internal, or private LAN."]);
+            await WriteFaceLivenessLogAsync(logs, $"External{operation}", blocked, request, context, auditRef, cancellationToken);
+            return Results.Ok(blocked);
+        }
+
+        try
+        {
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(8));
+            var client = httpClientFactory.CreateClient();
+            using var response = operation.Equals("Health", StringComparison.OrdinalIgnoreCase)
+                ? await client.GetAsync(uri, timeout.Token)
+                : await client.PostAsJsonAsync(uri, BuildFaceLivenessExternalPayload(request), timeout.Token);
+            var body = await response.Content.ReadAsStringAsync(timeout.Token);
+            var rawFieldWarnings = DetectRawBiometricFields(body);
+            var success = response.IsSuccessStatusCode && rawFieldWarnings.Count == 0;
+            var result = ParseFaceLivenessExternalResponse(body, operation, request, auditRef, success, rawFieldWarnings);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                result = result with
+                {
+                    Success = false,
+                    Message = $"External face/liveness bridge returned HTTP {(int)response.StatusCode}. Check Message Logs for sanitized details.",
+                    MatchStatus = "Failed"
+                };
+            }
+            else if (rawFieldWarnings.Count > 0)
+            {
+                result = result with
+                {
+                    Success = false,
+                    Message = "External face/liveness bridge response was blocked because it contained raw biometric-looking fields.",
+                    MatchStatus = "RawPayloadBlocked"
+                };
+            }
+
+            await WriteFaceLivenessLogAsync(logs, $"External{operation}", result, request, context, auditRef, cancellationToken);
+            return Results.Ok(result);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            var result = BuildFaceLivenessExternalResult(false, operation, "External", "Timed Out Face Bridge", "Timeout", request, null, auditRef, 0, 0,
+                "External face/liveness bridge timed out. Check the local bridge service.", ["Timeout is limited to 8 seconds."]);
+            await WriteFaceLivenessLogAsync(logs, $"External{operation}", result, request, context, auditRef, cancellationToken);
+            return Results.Ok(result);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or InvalidOperationException)
+        {
+            var result = BuildFaceLivenessExternalResult(false, operation, "External", "Unavailable Face Bridge", "Failed", request, null, auditRef, 0, 0,
+                "External face/liveness bridge could not be reached. Check the local service and Message Logs.", [ex.GetType().Name]);
+            await WriteFaceLivenessLogAsync(logs, $"External{operation}", result, request, context, auditRef, cancellationToken);
+            return Results.Ok(result);
+        }
+    }
+
+    private static object BuildFaceLivenessExternalPayload(FaceLivenessBridgeRequest request)
+        => new
+        {
+            request.EmployeeId,
+            employeeCode = string.IsNullOrWhiteSpace(request.EmployeeCode) ? "SIM-FACE-001" : request.EmployeeCode.Trim(),
+            employeeName = string.IsNullOrWhiteSpace(request.EmployeeName) ? "Face Simulator Employee" : request.EmployeeName.Trim(),
+            request.PhotoProofId,
+            faceTemplateRef = string.IsNullOrWhiteSpace(request.FaceTemplateRef) ? null : request.FaceTemplateRef.Trim(),
+            consentAuditRef = string.IsNullOrWhiteSpace(request.ConsentAuditRef) ? null : request.ConsentAuditRef.Trim(),
+            request.CompanyId,
+            request.StoreGroupId,
+            request.StoreId,
+            requestedAtUtc = DateTimeOffset.UtcNow,
+            rawPayloadAllowed = false
+        };
+
+    private static FaceLivenessBridgeResultDto ParseFaceLivenessExternalResponse(
+        string body,
+        string operation,
+        FaceLivenessBridgeRequest request,
+        Guid auditRef,
+        bool success,
+        IReadOnlyList<string> warnings)
+    {
+        using var document = string.IsNullOrWhiteSpace(body) ? null : JsonDocument.Parse(body);
+        var root = document?.RootElement;
+        var responseSuccess = GetBool(root, "success") ?? success;
+        var matchStatus = GetString(root, "matchStatus") ?? (responseSuccess ? operation.Equals("Health", StringComparison.OrdinalIgnoreCase) ? "Healthy" : "Accepted" : "Failed");
+        var employeeId = GetGuid(root, "employeeId") ?? (request.EmployeeId == Guid.Empty ? null : request.EmployeeId);
+        return BuildFaceLivenessExternalResult(
+            success && responseSuccess,
+            operation,
+            GetString(root, "bridgeMode") ?? "External",
+            GetString(root, "vendor") ?? "Face Liveness Bridge",
+            matchStatus,
+            request,
+            employeeId,
+            GetGuid(root, "auditRef") ?? auditRef,
+            GetInt(root, "qualityScore") ?? 0,
+            GetInt(root, "livenessScore") ?? 0,
+            GetString(root, "message") ?? $"{operation} external face/liveness handshake completed.",
+            warnings);
+    }
+
+    private static FaceLivenessBridgeResultDto BuildFaceLivenessExternalResult(
+        bool success,
+        string operation,
+        string bridgeMode,
+        string vendor,
+        string matchStatus,
+        FaceLivenessBridgeRequest request,
+        Guid? employeeId,
+        Guid auditRef,
+        int qualityScore,
+        int livenessScore,
+        string message,
+        IReadOnlyList<string> warnings)
+    {
+        var employeeCode = string.IsNullOrWhiteSpace(request.EmployeeCode) ? "SIM-FACE-001" : request.EmployeeCode.Trim();
+        return new FaceLivenessBridgeResultDto(
+            success,
+            message,
+            bridgeMode,
+            vendor,
+            matchStatus,
+            employeeId,
+            employeeCode,
+            string.IsNullOrWhiteSpace(request.EmployeeName) ? "Face Simulator Employee" : request.EmployeeName.Trim(),
+            request.PhotoProofId,
+            success ? NormalizeFaceTemplateRef(request.FaceTemplateRef, employeeCode) : null,
+            qualityScore,
+            livenessScore,
+            DateTimeOffset.UtcNow,
+            auditRef,
+            NormalizeConsentAuditRef(request.ConsentAuditRef, auditRef),
+            false,
+            warnings);
+    }
+
+    private static async Task WriteFaceLivenessLogAsync(
+        ApplicationMessageLogService logs,
+        string eventPrefix,
+        FaceLivenessBridgeResultDto result,
+        FaceLivenessBridgeRequest request,
+        HttpContext context,
+        Guid auditRef,
+        CancellationToken cancellationToken)
+    {
+        var details = new
+        {
+            bridgeBaseUrl = SanitizeBridgeUrl(request.BridgeBaseUrl),
+            result.BridgeMode,
+            result.Vendor,
+            result.MatchStatus,
+            result.EmployeeId,
+            result.EmployeeCode,
+            result.PhotoProofId,
+            result.FaceTemplateRef,
+            result.ConsentAuditRef,
+            result.QualityScore,
+            result.LivenessScore,
+            result.AuditRef,
+            result.RawPayloadStored,
+            result.Warnings
+        };
+        if (result.Success)
+        {
+            await logs.SuccessAsync("Attendance Face Liveness", $"{eventPrefix}Succeeded", result.Message, details,
+                request.CompanyId ?? WorkspaceScope.ClaimGuid(context, "companyId"),
+                request.StoreGroupId ?? WorkspaceScope.ClaimGuid(context, "storeGroupId"),
+                request.StoreId ?? WorkspaceScope.ClaimGuid(context, "storeId"),
+                null, context.User.Identity?.Name, "/attendance/face-liveness", auditRef, cancellationToken);
+            return;
+        }
+
+        await logs.ErrorAsync("Attendance Face Liveness", $"{eventPrefix}Failed", result.Message, details,
+            request.CompanyId ?? WorkspaceScope.ClaimGuid(context, "companyId"),
+            request.StoreGroupId ?? WorkspaceScope.ClaimGuid(context, "storeGroupId"),
+            request.StoreId ?? WorkspaceScope.ClaimGuid(context, "storeId"),
+            null, context.User.Identity?.Name, "/attendance/face-liveness", auditRef, cancellationToken);
+    }
+
+    private static string NormalizeFaceTemplateRef(string? value, string employeeCode)
+        => string.IsNullOrWhiteSpace(value)
+            ? $"sim-face-ref-{employeeCode.ToLowerInvariant()}"
+            : value.Trim();
+
+    private static string NormalizeConsentAuditRef(string? value, Guid auditRef)
+        => string.IsNullOrWhiteSpace(value)
+            ? $"consent-audit-{auditRef:N}"
+            : value.Trim();
 
     private static async Task<IResult> KioskBootstrapAsync(AttendanceKioskBootstrapRequest request, IAttendanceService service, CancellationToken cancellationToken)
     {

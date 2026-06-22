@@ -37,9 +37,15 @@ export function useAttendance() {
   const deviceBridgeExternalIdentify = (body: any) => api.create<any>('attendance/device-bridge/external/identify', body)
   const deviceBridgeExternalEnroll = (body: any) => api.create<any>('attendance/device-bridge/external/enroll', body)
   const faceLivenessStatus = () => api.get<any>('attendance/face-liveness/status')
+  const faceLivenessSimulatorHealth = () => api.get<any>('attendance/face-liveness/simulator/health')
+  const faceLivenessSimulatorProof = (body: any = {}) => api.create<any>('attendance/face-liveness/simulator/proof', body)
+  const faceLivenessSimulatorVerify = (body: any = {}) => api.create<any>('attendance/face-liveness/simulator/verify', body)
+  const faceLivenessExternalHealth = (body: any) => api.create<any>('attendance/face-liveness/external/health', body)
+  const faceLivenessExternalProof = (body: any) => api.create<any>('attendance/face-liveness/external/proof', body)
+  const faceLivenessExternalVerify = (body: any) => api.create<any>('attendance/face-liveness/external/verify', body)
   const mobileKioskStatus = () => api.get<any>('attendance/mobile-kiosk/status')
   const mobileKioskOfflineContract = () => api.get<any>('attendance/mobile-kiosk/offline-contract')
   const mobileKioskRehearsal = () => api.get<any>('attendance/mobile-kiosk/rehearsal')
   const finalAcceptance = () => api.get<any>('attendance/final-acceptance')
-  return { today, monthly, history, manualPunch, regularization, createRegularization, approveRegularization, rejectRegularization, recalculate, lockMonth, payrollSummary, payrollReview, rebuildPayrollReview, markPayrollReview, salarySlipDrafts, rebuildSalarySlipDrafts, markSalarySlipDraft, generateSalarySlipsFromDrafts, salaryPaymentCandidates, generateSalaryPaymentsFromDrafts, deviceBridgeStatus, deviceBridgeSimulatorHealth, deviceBridgeSimulatorCapture, deviceBridgeSimulatorIdentify, deviceBridgeSimulatorEnroll, deviceBridgeExternalHealth, deviceBridgeExternalCapture, deviceBridgeExternalIdentify, deviceBridgeExternalEnroll, faceLivenessStatus, mobileKioskStatus, mobileKioskOfflineContract, mobileKioskRehearsal, finalAcceptance }
+  return { today, monthly, history, manualPunch, regularization, createRegularization, approveRegularization, rejectRegularization, recalculate, lockMonth, payrollSummary, payrollReview, rebuildPayrollReview, markPayrollReview, salarySlipDrafts, rebuildSalarySlipDrafts, markSalarySlipDraft, generateSalarySlipsFromDrafts, salaryPaymentCandidates, generateSalaryPaymentsFromDrafts, deviceBridgeStatus, deviceBridgeSimulatorHealth, deviceBridgeSimulatorCapture, deviceBridgeSimulatorIdentify, deviceBridgeSimulatorEnroll, deviceBridgeExternalHealth, deviceBridgeExternalCapture, deviceBridgeExternalIdentify, deviceBridgeExternalEnroll, faceLivenessStatus, faceLivenessSimulatorHealth, faceLivenessSimulatorProof, faceLivenessSimulatorVerify, faceLivenessExternalHealth, faceLivenessExternalProof, faceLivenessExternalVerify, mobileKioskStatus, mobileKioskOfflineContract, mobileKioskRehearsal, finalAcceptance }
 }

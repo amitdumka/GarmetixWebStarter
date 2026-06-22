@@ -1,13 +1,13 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Garmetix.FingerprintBridge</RootNamespace>
     <AssemblyName>Garmetix.FingerprintBridge</AssemblyName>
-    <Version>4.11.13</Version>
-    <AssemblyVersion>4.11.13.0</AssemblyVersion>
-    <FileVersion>4.11.13.0</FileVersion>
-    <InformationalVersion>4.11.13-stage11c-face-liveness-readiness-contract</InformationalVersion>
+    <Version>4.11.14</Version>
+    <AssemblyVersion>4.11.14.0</AssemblyVersion>
+    <FileVersion>4.11.14.0</FileVersion>
+    <InformationalVersion>4.11.14-stage11c2-face-liveness-simulator-bridge</InformationalVersion>
   </PropertyGroup>
 </Project>

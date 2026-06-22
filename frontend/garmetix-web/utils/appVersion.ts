@@ -1,10 +1,11 @@
-export const APP_VERSION = '4.11.13'
-export const APP_STAGE = "Stage 11C Face Liveness Readiness Contract"
-export const APP_RELEASE_NAME = "Stage 11C: Face Liveness Readiness Contract"
+﻿export const APP_VERSION = '4.11.14'
+export const APP_STAGE = "Stage 11C-2 Face Liveness Simulator Bridge"
+export const APP_RELEASE_NAME = "Stage 11C-2: Face Liveness Simulator Bridge"
 export const APP_BUILD_DATE = '2026-06-22'
-export const APP_BUILD_CODE = 'GARMETIX-11C-20260622-4113'
+export const APP_BUILD_CODE = 'GARMETIX-11C-20260622-4114'
 
 export const APP_HIGHLIGHTS = [
+  'Stage 11C-2 adds face/liveness simulator and local/private external bridge proof checks with Message Logs and raw face payload blocking.',
   'Stage 11C adds a privacy-safe face liveness readiness contract with blocked raw payload fields, provider checklist and operator page.',
   'Stage 11B-10 adds Windows and Linux Mantra contract rehearsal drills for safe enroll and raw-response blocking.',
   'Stage 11B-9 adds a local Mantra mock service harness for safe adapter rehearsal before the official SDK/service is installed.',

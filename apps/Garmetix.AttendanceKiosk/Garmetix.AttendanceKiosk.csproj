@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>net10.0-android</TargetFrameworks>
     <OutputType>Exe</OutputType>
@@ -9,8 +9,8 @@
     <Nullable>enable</Nullable>
     <ApplicationTitle>Garmetix Kiosk</ApplicationTitle>
     <ApplicationId>com.garmetix.attendancekiosk</ApplicationId>
-    <ApplicationDisplayVersion>4.11.13</ApplicationDisplayVersion>
-    <ApplicationVersion>4113</ApplicationVersion>
+    <ApplicationDisplayVersion>4.11.14</ApplicationDisplayVersion>
+    <ApplicationVersion>4114</ApplicationVersion>
     <SupportedOSPlatformVersion>23.0</SupportedOSPlatformVersion>
   </PropertyGroup>
 

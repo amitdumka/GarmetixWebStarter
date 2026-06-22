@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Reflection;
 
 namespace Garmetix.Api.AppInfo;
@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.11.13";
-    public const string Stage = "Stage 11C Face Liveness Readiness Contract";
-    public const string ReleaseName = "Stage 11C: Face Liveness Readiness Contract";
+    public const string Version = "4.11.14";
+    public const string Stage = "Stage 11C-2 Face Liveness Simulator Bridge";
+    public const string ReleaseName = "Stage 11C-2: Face Liveness Simulator Bridge";
     public const string BuildDate = "2026-06-22";
-    public const string BuildCode = "GARMETIX-11C-20260622-4113";
+    public const string BuildCode = "GARMETIX-11C-20260622-4114";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,7 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Stage 11C-2 adds face/liveness simulator and local/private external bridge proof checks with Message Logs and raw face payload blocking.",
         "Stage 11C adds a privacy-safe face liveness readiness contract with blocked raw payload fields, provider checklist and operator page.",
         "Stage 11B-10 adds Windows and Linux Mantra contract rehearsal drills for safe enroll and raw-response blocking.",
         "Stage 11B-9 adds a local Mantra mock service harness for safe adapter rehearsal before the official SDK/service is installed.",

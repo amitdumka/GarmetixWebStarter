@@ -50,20 +50,20 @@ linux_rehearsal = read("scripts/linux/stage11b-mantra-contract-rehearsal.sh")
 
 add(
     "version identity",
-    all(token in app_info for token in ['Version = "4.11.13"', "Stage 11C Face Liveness Readiness Contract", "GARMETIX-11C-20260622-4113"])
-    and "APP_VERSION = '4.11.13'" in app_version
-    and "Stage 11C Face Liveness Readiness Contract" in app_version
-    and "GARMETIX-11C-20260622-4113" in app_version
-    and "<Version>4.11.13</Version>" in api_project
-    and "<ApplicationDisplayVersion>4.11.13</ApplicationDisplayVersion>" in kiosk_project
-    and "<ApplicationVersion>4113</ApplicationVersion>" in kiosk_project,
+    all(token in app_info for token in ['Version = "4.11.14"', "Stage 11C-2 Face Liveness Simulator Bridge", "GARMETIX-11C-20260622-4114"])
+    and "APP_VERSION = '4.11.14'" in app_version
+    and "Stage 11C-2 Face Liveness Simulator Bridge" in app_version
+    and "GARMETIX-11C-20260622-4114" in app_version
+    and "<Version>4.11.14</Version>" in api_project
+    and "<ApplicationDisplayVersion>4.11.14</ApplicationDisplayVersion>" in kiosk_project
+    and "<ApplicationVersion>4114</ApplicationVersion>" in kiosk_project,
 )
 add(
     "local bridge template project",
     exists("apps/Garmetix.FingerprintBridge/Garmetix.FingerprintBridge.csproj")
     and '<TargetFramework>net10.0</TargetFramework>' in bridge_project
-    and '<Version>4.11.13</Version>' in bridge_project
-    and "4.11.13-stage11c-face-liveness-readiness-contract" in bridge_project
+    and '<Version>4.11.14</Version>' in bridge_project
+    and "4.11.14-stage11c2-face-liveness-simulator-bridge" in bridge_project
     and "IFingerprintVendorAdapter" in bridge_program
     and "SimulatorFingerprintVendorAdapter" in bridge_program
     and "MantraFingerprintVendorAdapter" in bridge_program
@@ -81,8 +81,8 @@ add(
     "mantra mock service harness",
     exists("apps/Garmetix.MantraMockService/Garmetix.MantraMockService.csproj")
     and '<TargetFramework>net10.0</TargetFramework>' in mock_mantra_project
-    and '<Version>4.11.13</Version>' in mock_mantra_project
-    and "4.11.13-stage11c-face-liveness-readiness-contract" in mock_mantra_project
+    and '<Version>4.11.14</Version>' in mock_mantra_project
+    and "4.11.14-stage11c2-face-liveness-simulator-bridge" in mock_mantra_project
     and 'app.MapGet("/health"' in mock_mantra_program
     and 'app.MapPost("/capture"' in mock_mantra_program
     and 'app.MapPost("/identify"' in mock_mantra_program
@@ -290,8 +290,8 @@ add(
     and exists("docs/operations/Stage11B8-Mantra-Local-Service-Adapter-v4.11.10.md")
     and exists("docs/operations/Stage11B9-Mantra-Service-Harness-v4.11.11.md")
     and exists("docs/operations/Stage11B10-Mantra-Contract-Rehearsal-Drill-v4.11.12.md")
-    and "Stage 11C Face Liveness Readiness Contract" in readme
-    and "Stage 11C Face Liveness Readiness Contract" in roadmap
+    and "Stage 11C-2 Face Liveness Simulator Bridge" in readme
+    and "Stage 11C-2 Face Liveness Simulator Bridge" in roadmap
     and "Stage 11B-6 Biometric Enrollment Consent Hardening" in operations_doc_11b6
     and "BiometricEnrollmentSaveRequest" in operations_doc_11b6
     and "Attendance Biometric Enrollment" in operations_doc_11b6

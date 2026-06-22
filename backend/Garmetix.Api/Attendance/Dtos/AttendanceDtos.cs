@@ -489,6 +489,38 @@ public sealed record FingerprintBridgeExternalRequest(
     Guid? StoreGroupId,
     Guid? StoreId);
 
+public sealed record FaceLivenessBridgeRequest(
+    string? Scenario,
+    string? BridgeBaseUrl,
+    Guid? EmployeeId,
+    string? EmployeeCode,
+    string? EmployeeName,
+    Guid? PhotoProofId,
+    string? FaceTemplateRef,
+    string? ConsentAuditRef,
+    Guid? CompanyId,
+    Guid? StoreGroupId,
+    Guid? StoreId);
+
+public sealed record FaceLivenessBridgeResultDto(
+    bool Success,
+    string Message,
+    string BridgeMode,
+    string Vendor,
+    string MatchStatus,
+    Guid? EmployeeId,
+    string EmployeeCode,
+    string EmployeeName,
+    Guid? PhotoProofId,
+    string? FaceTemplateRef,
+    int QualityScore,
+    int LivenessScore,
+    DateTimeOffset CapturedAtUtc,
+    Guid AuditRef,
+    string? ConsentAuditRef,
+    bool RawPayloadStored,
+    IReadOnlyList<string> Warnings);
+
 public sealed record AttendanceFinalAcceptanceDto(
     string Version,
     string Stage,

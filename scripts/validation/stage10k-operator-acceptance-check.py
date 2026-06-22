@@ -64,11 +64,11 @@ add(
         and "<Version>4.11.1</Version>" in csproj
     )
     or (
-        all(token in app_info for token in ['Version = "4.11.13"', "Stage 11C Face Liveness Readiness Contract", "GARMETIX-11C-20260622-4113"])
-        and "APP_VERSION = '4.11.13'" in app_version
-        and "Stage 11C Face Liveness Readiness Contract" in app_version
-        and "GARMETIX-11C-20260622-4113" in app_version
-        and "<Version>4.11.13</Version>" in csproj
+        all(token in app_info for token in ['Version = "4.11.14"', "Stage 11C-2 Face Liveness Simulator Bridge", "GARMETIX-11C-20260622-4114"])
+        and "APP_VERSION = '4.11.14'" in app_version
+        and "Stage 11C-2 Face Liveness Simulator Bridge" in app_version
+        and "GARMETIX-11C-20260622-4114" in app_version
+        and "<Version>4.11.14</Version>" in csproj
     ),
 )
 add(

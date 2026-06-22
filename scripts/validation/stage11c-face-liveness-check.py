@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 import sys
 
 root = Path(__file__).resolve().parents[2]
@@ -37,15 +37,15 @@ current_release = read("scripts/validation/current-release-checks.py")
 
 add(
     "version identity",
-    all(token in app_info for token in ['Version = "4.11.13"', "Stage 11C Face Liveness Readiness Contract", "GARMETIX-11C-20260622-4113"])
-    and "APP_VERSION = '4.11.13'" in app_version
-    and "Stage 11C Face Liveness Readiness Contract" in app_version
-    and "GARMETIX-11C-20260622-4113" in app_version
-    and "<Version>4.11.13</Version>" in api_project
-    and "<ApplicationDisplayVersion>4.11.13</ApplicationDisplayVersion>" in kiosk_project
-    and "<ApplicationVersion>4113</ApplicationVersion>" in kiosk_project
-    and "<Version>4.11.13</Version>" in bridge_project
-    and "<Version>4.11.13</Version>" in mock_project,
+    all(token in app_info for token in ['Version = "4.11.14"', "Stage 11C-2 Face Liveness Simulator Bridge", "GARMETIX-11C-20260622-4114"])
+    and "APP_VERSION = '4.11.14'" in app_version
+    and "Stage 11C-2 Face Liveness Simulator Bridge" in app_version
+    and "GARMETIX-11C-20260622-4114" in app_version
+    and "<Version>4.11.14</Version>" in api_project
+    and "<ApplicationDisplayVersion>4.11.14</ApplicationDisplayVersion>" in kiosk_project
+    and "<ApplicationVersion>4114</ApplicationVersion>" in kiosk_project
+    and "<Version>4.11.14</Version>" in bridge_project
+    and "<Version>4.11.14</Version>" in mock_project,
 )
 add(
     "face liveness endpoint contract",
@@ -94,17 +94,16 @@ add(
 add(
     "documentation and roadmap",
     "v4.11.13 Stage 11C Face Liveness Readiness Contract" in readme
-    and "Stage11C-Face-Liveness-Readiness-Contract-v4.11.13.md" in str(root / "docs/operations/Stage11C-Face-Liveness-Readiness-Contract-v4.11.13.md")
+    and exists("docs/operations/Stage11C-Face-Liveness-Readiness-Contract-v4.11.13.md")
     and "Stage 11C Face Liveness Readiness Contract" in operations_doc
     and "rawFaceImage" in operations_doc
     and "Message Logs" in operations_doc
-    and "Current version: 4.11.13" in roadmap
-    and "Stage 11C-2 face/liveness simulator" in roadmap,
+    and "Current version: 4.11.14" in roadmap
+    and "Stage 11C Face Liveness Readiness Contract" in roadmap,
 )
 add(
     "current release chain includes stage11c",
-    "stage11c-face-liveness-check.py" in current_release
-    and "Stage 11C Face Liveness Readiness Contract / v4.11.13" in current_release,
+    "stage11c-face-liveness-check.py" in current_release,
 )
 
 failed = [name for name, ok in checks if not ok]

@@ -44,7 +44,7 @@ version_identity = (
     and "APP_VERSION = '4.10.21'" in app_version
     and '<Version>4.10.21</Version>' in csproj
 ) or (
-    all(token in app_info for token in ['Version = "4.10.22"', 'Stage 10J Real Excel Import Export Engine', 'GARMETIX-10J-20260620-4113'])
+    all(token in app_info for token in ['Version = "4.10.22"', 'Stage 10J Real Excel Import Export Engine', 'GARMETIX-10J-20260620-4114'])
     and "APP_VERSION = '4.10.22'" in app_version
     and '<Version>4.10.22</Version>' in csproj
 ) or (
@@ -92,9 +92,9 @@ version_identity = (
     and "APP_VERSION = '4.11.1'" in app_version
     and '<Version>4.11.1</Version>' in csproj
 ) or (
-    all(token in app_info for token in ['Version = "4.11.13"', 'Stage 11C Face Liveness Readiness Contract', 'GARMETIX-11C-20260622-4113'])
-    and "APP_VERSION = '4.11.13'" in app_version
-    and '<Version>4.11.13</Version>' in csproj
+    all(token in app_info for token in ['Version = "4.11.14"', 'Stage 11C-2 Face Liveness Simulator Bridge', 'GARMETIX-11C-20260622-4114'])
+    and "APP_VERSION = '4.11.14'" in app_version
+    and '<Version>4.11.14</Version>' in csproj
 )
 add('version identity', version_identity)
 add('new master modules', all(token in import_export for token in ['["products"]', '["customers"]', '["vendors"]', '["stock-opening"]']))

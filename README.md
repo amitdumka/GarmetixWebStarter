@@ -1,3 +1,11 @@
+## v4.11.14 Stage 11C-2 Face Liveness Simulator Bridge
+
+- Added simulator endpoints for face/liveness health, proof and verify checks with sanitized Message Logs.
+- Added external bridge endpoints for local/private face/liveness provider adapters with the same no-raw-payload contract.
+- `/attendance/face-liveness` can now run simulator proof, verify and raw-payload block scenarios.
+- The external connector blocks raw face images, embeddings, landmarks, template payloads and biometric payload fields.
+- Mobile kiosk, API, bridge and Nuxt package version identity now report v4.11.14.
+
 ## v4.11.13 Stage 11C Face Liveness Readiness Contract
 
 - Added `/api/attendance/face-liveness/status` as a privacy-safe readiness contract before any face recognition SDK/provider is connected.
@@ -195,7 +203,7 @@ New pages: `/barcode-final-acceptance`, `/gst-production`, `/google-drive-backup
 
 # Garmetix Web Starter
 
-> Current package: Stage 11C Face Liveness Readiness Contract v4.11.13 (`GARMETIX-11C-20260622-4113`).
+> Current package: Stage 11C-2 Face Liveness Simulator Bridge v4.11.14 (`GARMETIX-11C-20260622-4114`).
 
 Project documentation is organized under [`docs/`](docs/README.md). The authoritative remaining-work list is [`docs/planning/CURRENT-ROADMAP.md`](docs/planning/CURRENT-ROADMAP.md).
 

@@ -2,7 +2,13 @@
 const reports = useAttendanceReports()
 const feedback = useUiFeedback()
 const loading = ref(false)
+const runningSimulator = ref('')
+const runningExternal = ref('')
 const status = ref<any | null>(null)
+const simulatorHealth = ref<any | null>(null)
+const simulatorResult = ref<any | null>(null)
+const externalBridgeUrl = ref('http://127.0.0.1:8791/garmetix-face/')
+const externalResult = ref<any | null>(null)
 
 const summaryCards = computed(() => [
   { label: 'Stage', value: status.value?.status || 'Loading', detail: status.value?.buildCode || '-', icon: 'i-lucide-scan-face' },
@@ -14,11 +20,72 @@ const summaryCards = computed(() => [
 async function refresh() {
   loading.value = true
   try {
-    status.value = await reports.faceLivenessStatus()
+    const [statusResult, healthResult] = await Promise.allSettled([
+      reports.faceLivenessStatus(),
+      reports.faceLivenessSimulatorHealth()
+    ])
+    if (statusResult.status === 'fulfilled') status.value = statusResult.value
+    else throw statusResult.reason
+    if (healthResult.status === 'fulfilled') simulatorHealth.value = healthResult.value
   } catch (error: any) {
     feedback.fromError('Face liveness readiness failed', error)
   } finally {
     loading.value = false
+  }
+}
+
+async function runSimulator(action: 'proof' | 'verify', scenario = 'Success') {
+  runningSimulator.value = `${action}-${scenario}`
+  try {
+    const body = {
+      scenario,
+      employeeCode: 'SIM-FACE-001',
+      employeeName: 'Face Simulator Employee',
+      faceTemplateRef: 'sim-face-ref-sim-face-001',
+      consentAuditRef: 'consent-audit-simulator'
+    }
+    const runners: Record<string, (payload: any) => Promise<any>> = {
+      proof: reports.faceLivenessSimulatorProof,
+      verify: reports.faceLivenessSimulatorVerify
+    }
+    simulatorResult.value = await runners[action](body)
+    if (simulatorResult.value?.success) {
+      feedback.success('Face/liveness simulator completed', simulatorResult.value.message)
+    } else {
+      feedback.notify('Face/liveness simulator returned controlled result', simulatorResult.value?.message || 'Check Message Logs for sanitized details.', 'warning')
+    }
+  } catch (error: any) {
+    feedback.fromError('Face/liveness simulator failed', error)
+  } finally {
+    runningSimulator.value = ''
+  }
+}
+
+async function runExternal(action: 'health' | 'proof' | 'verify') {
+  runningExternal.value = action
+  try {
+    const body = {
+      bridgeBaseUrl: externalBridgeUrl.value,
+      employeeCode: 'SIM-FACE-001',
+      employeeName: 'Face Simulator Employee',
+      faceTemplateRef: 'external-face-ref-sim-face-001',
+      consentAuditRef: 'consent-audit-external'
+    }
+    const runners: Record<string, (payload: any) => Promise<any>> = {
+      health: reports.faceLivenessExternalHealth,
+      proof: reports.faceLivenessExternalProof,
+      verify: reports.faceLivenessExternalVerify
+    }
+    externalResult.value = await runners[action](body)
+    if (externalResult.value?.success) {
+      feedback.success('External face/liveness bridge completed', externalResult.value.message)
+    } else {
+      feedback.notify('External face/liveness bridge returned blocked or failed result', externalResult.value?.message || 'Check Message Logs for sanitized details.', 'warning')
+    }
+  } catch (error: any) {
+    feedback.fromError('External face/liveness bridge failed', error)
+  } finally {
+    runningExternal.value = ''
   }
 }
 
@@ -58,6 +125,132 @@ onMounted(refresh)
               <p class="mt-1 truncate text-xs text-muted">{{ card.detail }}</p>
             </div>
             <UIcon :name="card.icon" class="size-5 shrink-0 text-primary" />
+          </div>
+        </UCard>
+      </div>
+
+      <div class="grid gap-4 xl:grid-cols-2">
+        <UCard>
+          <template #header>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div class="flex items-center gap-2">
+                <UIcon name="i-lucide-flask-conical" class="size-5 text-primary" />
+                <h2 class="text-base font-semibold text-highlighted">Simulator Proof</h2>
+              </div>
+              <UBadge color="success" variant="soft">{{ simulatorHealth?.bridgeMode || 'Simulator' }}</UBadge>
+            </div>
+          </template>
+          <div class="space-y-4">
+            <div class="rounded-md border border-default bg-muted/30 p-3">
+              <p class="text-xs font-semibold uppercase tracking-wide text-muted">Health</p>
+              <p class="mt-1 text-sm text-toned">{{ simulatorHealth?.message || 'Health not loaded yet.' }}</p>
+            </div>
+            <div class="grid gap-2 sm:grid-cols-3">
+              <UButton icon="i-lucide-badge-check" label="Proof" :loading="runningSimulator === 'proof-Success'" @click="runSimulator('proof')" />
+              <UButton icon="i-lucide-search-check" label="Verify" color="neutral" variant="subtle" :loading="runningSimulator === 'verify-Success'" @click="runSimulator('verify')" />
+              <UButton icon="i-lucide-shield-alert" label="Block Raw" color="warning" variant="subtle" :loading="runningSimulator === 'verify-RawPayload'" @click="runSimulator('verify', 'RawPayload')" />
+            </div>
+            <div class="rounded-md border border-default p-3">
+              <p class="text-xs font-semibold uppercase tracking-wide text-muted">Last simulator result</p>
+              <div v-if="simulatorResult" class="mt-3 grid gap-2 sm:grid-cols-2">
+                <div class="rounded-md border border-default p-3">
+                  <p class="text-xs text-muted">Status</p>
+                  <p class="font-medium">{{ simulatorResult.success ? 'Success' : 'Blocked / Failed' }}</p>
+                </div>
+                <div class="rounded-md border border-default p-3">
+                  <p class="text-xs text-muted">Match</p>
+                  <p class="font-medium">{{ simulatorResult.matchStatus }}</p>
+                </div>
+                <div class="rounded-md border border-default p-3">
+                  <p class="text-xs text-muted">Quality / Liveness</p>
+                  <p class="font-medium">{{ simulatorResult.qualityScore }} / {{ simulatorResult.livenessScore }}</p>
+                </div>
+                <div class="rounded-md border border-default p-3">
+                  <p class="text-xs text-muted">Raw Payload Stored</p>
+                  <p class="font-medium">{{ simulatorResult.rawPayloadStored ? 'Yes' : 'No' }}</p>
+                </div>
+                <div class="rounded-md border border-default p-3 sm:col-span-2">
+                  <p class="text-xs text-muted">Audit Ref</p>
+                  <code class="mt-1 block break-all text-xs">{{ simulatorResult.auditRef }}</code>
+                </div>
+                <div class="rounded-md border border-default p-3 sm:col-span-2">
+                  <p class="text-xs text-muted">Message</p>
+                  <p class="mt-1 text-sm">{{ simulatorResult.message }}</p>
+                </div>
+                <div v-if="simulatorResult.warnings?.length" class="rounded-md border border-warning/40 p-3 sm:col-span-2">
+                  <p class="text-xs text-muted">Warnings</p>
+                  <p v-for="item in simulatorResult.warnings" :key="item" class="mt-1 text-sm">{{ item }}</p>
+                </div>
+              </div>
+              <p v-else class="mt-3 text-sm text-muted">Run a simulator action to create a sanitized Message Logs audit reference.</p>
+            </div>
+          </div>
+        </UCard>
+
+        <UCard>
+          <template #header>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div class="flex items-center gap-2">
+                <UIcon name="i-lucide-plug" class="size-5 text-primary" />
+                <h2 class="text-base font-semibold text-highlighted">External Bridge</h2>
+              </div>
+              <UBadge color="info" variant="soft">Local/private only</UBadge>
+            </div>
+          </template>
+          <div class="space-y-4">
+            <UFormField label="Bridge base URL">
+              <UInput v-model="externalBridgeUrl" placeholder="http://127.0.0.1:8791/garmetix-face/" />
+            </UFormField>
+            <div class="grid gap-2 sm:grid-cols-3">
+              <UButton icon="i-lucide-heart-pulse" label="Health" color="neutral" variant="subtle" :loading="runningExternal === 'health'" @click="runExternal('health')" />
+              <UButton icon="i-lucide-badge-check" label="Proof" color="neutral" variant="subtle" :loading="runningExternal === 'proof'" @click="runExternal('proof')" />
+              <UButton icon="i-lucide-search-check" label="Verify" color="neutral" variant="subtle" :loading="runningExternal === 'verify'" @click="runExternal('verify')" />
+            </div>
+            <div class="rounded-md border border-default bg-muted/30 p-3 text-sm text-muted">
+              Allowed hosts are localhost, loopback, host.docker.internal and private LAN addresses. Raw face images, embeddings, landmarks and template payloads are blocked.
+            </div>
+            <div class="rounded-md border border-default p-3">
+              <p class="text-xs font-semibold uppercase tracking-wide text-muted">Last external result</p>
+              <div v-if="externalResult" class="mt-3 grid gap-2 sm:grid-cols-2">
+                <div class="rounded-md border border-default p-3">
+                  <p class="text-xs text-muted">Status</p>
+                  <p class="font-medium">{{ externalResult.success ? 'Success' : 'Blocked / Failed' }}</p>
+                </div>
+                <div class="rounded-md border border-default p-3">
+                  <p class="text-xs text-muted">Vendor</p>
+                  <p class="font-medium">{{ externalResult.vendor || '-' }}</p>
+                </div>
+                <div class="rounded-md border border-default p-3">
+                  <p class="text-xs text-muted">Match</p>
+                  <p class="font-medium">{{ externalResult.matchStatus }}</p>
+                </div>
+                <div class="rounded-md border border-default p-3">
+                  <p class="text-xs text-muted">Quality / Liveness</p>
+                  <p class="font-medium">{{ externalResult.qualityScore }} / {{ externalResult.livenessScore }}</p>
+                </div>
+                <div class="rounded-md border border-default p-3">
+                  <p class="text-xs text-muted">Raw Payload Stored</p>
+                  <p class="font-medium">{{ externalResult.rawPayloadStored ? 'Yes' : 'No' }}</p>
+                </div>
+                <div class="rounded-md border border-default p-3">
+                  <p class="text-xs text-muted">Template Ref</p>
+                  <p class="truncate font-medium">{{ externalResult.faceTemplateRef || '-' }}</p>
+                </div>
+                <div class="rounded-md border border-default p-3 sm:col-span-2">
+                  <p class="text-xs text-muted">Audit Ref</p>
+                  <code class="mt-1 block break-all text-xs">{{ externalResult.auditRef }}</code>
+                </div>
+                <div class="rounded-md border border-default p-3 sm:col-span-2">
+                  <p class="text-xs text-muted">Message</p>
+                  <p class="mt-1 text-sm">{{ externalResult.message }}</p>
+                </div>
+                <div v-if="externalResult.warnings?.length" class="rounded-md border border-warning/40 p-3 sm:col-span-2">
+                  <p class="text-xs text-muted">Warnings</p>
+                  <p v-for="item in externalResult.warnings" :key="item" class="mt-1 text-sm">{{ item }}</p>
+                </div>
+              </div>
+              <p v-else class="mt-3 text-sm text-muted">Run a connector action after starting a compatible local face/liveness bridge.</p>
+            </div>
           </div>
         </UCard>
       </div>

@@ -1,6 +1,15 @@
+## v4.11.14 Stage 11C-2 Face Liveness Simulator Bridge
+
+- Current version: 4.11.14 / `GARMETIX-11C-20260622-4114`.
+- Added `/api/attendance/face-liveness/simulator/health`, `/proof` and `/verify` for safe contract rehearsal without real face matching.
+- Added `/api/attendance/face-liveness/external/health`, `/proof` and `/verify` for local/private provider bridge proof checks.
+- `/attendance/face-liveness` now runs simulator proof, verify and `RawPayload` block tests from the operator page.
+- External bridge responses containing raw face image, embedding, landmark, template payload or biometric payload fields are blocked.
+- Simulator and external bridge results write sanitized Message Logs under `Attendance Face Liveness`.
+
 ## v4.11.13 Stage 11C Face Liveness Readiness Contract
 
-- Current version: 4.11.13 / `GARMETIX-11C-20260622-4113`.
+- Previous version: 4.11.13 / `GARMETIX-11C-20260622-4113`.
 - Added `/api/attendance/face-liveness/status` as the Stage 11C readiness contract before any real face recognition or liveness SDK is connected.
 - Added `/attendance/face-liveness` with current safe base, approved inputs, response contract, blocked fields, provider candidates, checklist and blockers.
 - Face recognition and liveness remain disabled until consent, retention, threshold, audit and appeal requirements are approved.
@@ -50,6 +59,7 @@
 
 ## Recently Completed Stage 10
 
+- v4.11.14: Stage 11C-2 Face Liveness Simulator Bridge with simulator/external bridge proof checks, raw face payload blocking and Message Logs.
 - v4.11.13: Stage 11C Face Liveness Readiness Contract with a privacy-safe status endpoint, Nuxt readiness page, blocked raw fields and provider checklist.
 - v4.11.12: Stage 11B-10 Mantra Contract Rehearsal Drill with Windows and Linux/Mac host scripts for safe Mantra enroll and raw-response blocking.
 - v4.11.11: Stage 11B-9 Mantra Service Harness with a local Mantra-compatible service harness for adapter rehearsal before real SDK setup.
@@ -94,7 +104,7 @@ python scripts/validation/current-release-checks.py
 2. Until real SDK setup is ready, run the Stage 11B-10 rehearsal scripts with the Mantra mock service and fingerprint bridge.
 3. Set `Bridge:Adapter=Mantra` and `Bridge:MantraServiceUrl` to the installed local/private Mantra service.
 4. Run Mantra health, capture, enroll and identify through `/attendance/device-bridge` and `/attendance/biometric-enrollment`.
-5. Stage 11C-2 face/liveness simulator or external bridge proof of concept only after consent, retention and provider rules are approved.
+5. Stage 11C-3 local face/liveness bridge template only after provider choice and consent/retention rules are accepted.
 6. Stage 11D mobile/device deployment packaging after kiosk shell and fingerprint bridge are accepted.
 7. Stage 12A SaaS/super-admin plan if multi-company hosted licensing is needed.
 
