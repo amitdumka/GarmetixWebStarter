@@ -24,9 +24,11 @@ This workspace starts the Version5 split without changing the backend API or Pos
 - `packages/shared-api`: common API client boundary.
 - `packages/shared-auth`: auth token and permission helpers.
 - `packages/shared-types`: common TypeScript contracts.
+- `packages/shared-utils`: date, money, string, and safe-message utilities.
 - `packages/shared-ui`: shared app registry and layout metadata.
 
 ## First Stage
 
 This stage creates the folder base and safe project shells. The actual page migration should happen module by module from `legacy/frontend/garmetix-web` into these apps.
 
+Version5 Stage 12 onward frontend changes should stay inside this `modular/` folder. The `legacy/` folder is the Version4/Stage 11 reference and fallback until modular apps reach parity.

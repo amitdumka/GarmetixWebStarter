@@ -10,6 +10,21 @@ export type GarmetixRole =
   | 'Cashier'
   | 'Salesman'
 
+export type FrontendAppId = 'main' | 'pos' | 'hr' | 'ai-sense' | 'books' | 'admin'
+
+export interface RouteOwner {
+  appId: FrontendAppId
+  path: string
+  label: string
+  module: string
+  roles: string[]
+}
+
+export interface SelectOption<TValue extends string = string> {
+  label: string
+  value: TValue
+}
+
 export interface WorkspaceContext {
   companyId?: string
   storeGroupId?: string
@@ -25,4 +40,3 @@ export interface CurrentUser {
   permissions: string[]
   workspace?: WorkspaceContext
 }
-

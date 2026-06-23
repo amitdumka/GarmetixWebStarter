@@ -7,6 +7,12 @@ export interface ApiRequestOptions extends RequestInit {
   query?: Record<string, string | number | boolean | null | undefined>
 }
 
+export function createApiUrl(baseUrl: string, path: string) {
+  const base = String(baseUrl || '').replace(/\/+$/, '')
+  const nextPath = String(path || '').replace(/^\/+/, '')
+  return nextPath ? `${base}/${nextPath}` : base
+}
+
 export function createGarmetixApiClient(options: GarmetixApiClientOptions) {
   const baseUrl = options.baseUrl.replace(/\/$/, '')
 
@@ -38,4 +44,3 @@ export function createGarmetixApiClient(options: GarmetixApiClientOptions) {
     delete: <T>(path: string, options?: ApiRequestOptions) => request<T>(path, { ...options, method: 'DELETE' })
   }
 }
-

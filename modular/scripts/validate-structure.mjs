@@ -14,6 +14,7 @@ const requiredPaths = [
   'packages/shared-api/src/index.ts',
   'packages/shared-auth/src/index.ts',
   'packages/shared-types/src/index.ts',
+  'packages/shared-utils/src/index.ts',
   'packages/shared-ui/src/index.ts',
   'apps/main/package.json',
   'apps/pos/package.json',

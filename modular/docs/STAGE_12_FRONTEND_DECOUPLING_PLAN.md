@@ -428,7 +428,7 @@ Admin/SaaS should be owner/developer/super-admin focused. It should not become t
 | Permission helper | `legacy/frontend/garmetix-web/composables/useAccessControl.ts` | `modular/packages/shared-auth` or `modular/packages/shared-types` plus app adapters |
 | Workspace helper | `legacy/frontend/garmetix-web/composables/useWorkspace.ts` | `modular/packages/shared-auth` or `modular/packages/shared-api` |
 | Common types/interfaces | Inline composable/page types and generated DTO shapes | `modular/packages/shared-types` |
-| Date/money formatting | Currently scattered in pages/components | `modular/packages/shared-ui` or `modular/packages/shared-types` utility folder |
+| Date/money formatting | Currently scattered in pages/components | `modular/packages/shared-utils` |
 | Error/message handling | `useUiFeedback.ts`, `utils/applicationMessageLog.ts`, `plugins/application-message-log.client.ts` | Shared UI/API package split |
 | Product lookup | `useProductLookup.ts` | Shared API package, used by POS and main app |
 | Document print | `useServerDocumentPrint.ts` | Shared API/UI package, used by POS, Books, HR |
@@ -456,6 +456,7 @@ GarmetixWebStarter/
       shared-api/
       shared-auth/
       shared-types/
+      shared-utils/
       shared-ui/
     config/
       apps.ts
@@ -465,8 +466,6 @@ GarmetixWebStarter/
     deploy/
       docker/
       cloudflare/
-  docs/
-    STAGE_12_FRONTEND_DECOUPLING_PLAN.md
 ```
 
 Recommended route registry shape:
@@ -506,4 +505,3 @@ This gives one source for menus, permissions, and route extraction instead of co
    - AI Sense: dashboards and reports.
 9. Update Docker/Cloudflare deployment after at least one modular app has real route parity.
 10. Keep `legacy/` available as fallback until all target apps pass acceptance.
-
