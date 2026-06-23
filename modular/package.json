@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "5.12.13",
+  "version": "5.12.14",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -16,7 +16,8 @@
     "build:books": "npm --workspace @garmetix/books-web run build",
     "build:admin": "npm --workspace @garmetix/admin-web run build",
     "deploy:pos": "bash deploy/pos-static-deploy.sh",
-    "deploy:hr": "bash deploy/hr-static-deploy.sh"
+    "deploy:hr": "bash deploy/hr-static-deploy.sh",
+    "deploy:ai-sense": "bash deploy/ai-sense-static-deploy.sh"
   },
   "overrides": {
     "@babel/generator": "8.0.0-rc.6",

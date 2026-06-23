@@ -63,11 +63,12 @@ Goal: build read-only analytics first, then connect backend endpoints.
 
 - 12D.1 complete: add AI Sense shell, auth guard, login, business dashboard, stock risk, and route coverage for planned analysis screens.
 - 12D.2 complete: add read-only `/api/ai-sense/*` analytics endpoints and connect modular analysis pages.
+- 12D.3 complete: add AI Sense static deploy script and deployment notes.
 - Planned routes: `/login`, `/`, `/sales-analysis`, `/purchase-analysis`, `/profit-analysis`, `/stock-risk`, `/vendor-analysis`, `/customer-analysis`, `/daily-summary`, `/monthly-summary`.
 - Add empty/loading/error states before backend analytics endpoints are complete.
 - Read-only analytics endpoints are added to the existing ASP.NET API.
 - AI Sense planned pages are connected to real endpoints.
-- After AI Sense builds, add an Ubuntu deploy script for AI Sense static output.
+- AI Sense Ubuntu static deploy script is available at `modular/deploy/ai-sense-static-deploy.sh`.
 
 ## Stage 12E: Books
 

@@ -81,3 +81,41 @@ server {
 ```
 
 Cloudflare Tunnel should route the HR public hostname to this static server.
+
+## AI Sense Static Deploy
+
+The AI Sense frontend uses the same static release pattern as POS and HR.
+
+Example:
+
+```bash
+cd /path/to/GarmetixWebStarter
+AI_SENSE_DEPLOY_TARGET=amit@192.168.11.126 \
+AI_SENSE_DEPLOY_REMOTE_DIR=/var/www/garmetix/ai-sense \
+NUXT_PUBLIC_GARMETIX_API_BASE_URL=https://api.your-domain.example/api \
+NUXT_PUBLIC_GARMETIX_AI_SENSE_URL=https://ai-sense.your-domain.example \
+bash modular/deploy/ai-sense-static-deploy.sh
+```
+
+For the Ubuntu desktop target, set:
+
+```bash
+AI_SENSE_DEPLOY_TARGET=amitkumar@192.168.11.127
+```
+
+Point the AI Sense host root to the `current` symlink created by the deploy script:
+
+```nginx
+server {
+    listen 80;
+    server_name ai-sense.your-domain.example;
+    root /var/www/garmetix/ai-sense/current;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+Cloudflare Tunnel should route the AI Sense public hostname to this static server.

@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '5.12.13',
-  stage: 'Stage 12D.2',
-  label: 'Version5 Stage 12D.2 AI Sense Analytics Endpoints',
-  summary: 'Read-only AI Sense backend analytics endpoints and connected modular analysis pages.'
+  version: '5.12.14',
+  stage: 'Stage 12D.3',
+  label: 'Version5 Stage 12D.3 AI Sense Static Deploy',
+  summary: 'Static deployment automation and hosting notes for the modular AI Sense app.'
 } as const
