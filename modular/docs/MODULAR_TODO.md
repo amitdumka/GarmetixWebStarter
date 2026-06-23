@@ -74,9 +74,10 @@ Goal: build read-only analytics first, then connect backend endpoints.
 
 Goal: split accountant/CA workflows.
 
-- Add Books pages inside `modular/apps/books`.
+- 12E.1 complete: add Books shell, auth guard, login, read-only dashboard foundation, and route coverage placeholders.
 - Planned areas: accounting dashboard, ledgers, parties, vouchers, petty cash, cash details, debit notes, credit notes, GST reports, GST returns, audit/message logs.
 - Keep banking and audit-sensitive flows explicit.
+- First writable accounting actions are intentionally deferred until endpoint contracts, ledger posting behavior, and print/audit expectations are verified.
 - After Books builds, add an Ubuntu deploy script for Books static output.
 
 ## Stage 12F: Admin/SaaS
