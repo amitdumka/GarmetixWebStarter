@@ -79,6 +79,7 @@ Goal: split accountant/CA workflows.
 - 12E.3 complete: connect read-only bank operations for bank transactions, statements, reconciliation, cheque logs, vendor bank accounts, and bank account details.
 - 12E.4 complete: connect read-only voucher review with ledger, party, bank, employee labels and authenticated PDF download readiness.
 - 12E.5 complete: connect read-only petty cash review with sheet list, calculated daily summary, mismatch visibility, and authenticated A5 PDF download readiness.
+- 12E.6 complete: connect read-only vendor payment and settlement review with voucher, purchase invoice, bank, allocation, and PDF handoff visibility.
 - Planned areas: accounting dashboard, ledgers, parties, vouchers, petty cash, cash details, debit notes, credit notes, GST reports, GST returns, audit/message logs.
 - Keep banking and audit-sensitive flows explicit.
 - First writable accounting actions are intentionally deferred until endpoint contracts, ledger posting behavior, and print/audit expectations are verified.
