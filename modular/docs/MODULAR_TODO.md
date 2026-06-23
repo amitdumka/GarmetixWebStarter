@@ -37,11 +37,12 @@ Goal: split the fastest billing counter workflows first.
 - 12B.5 complete: add POS sales return invoice lookup, item selection, credit note save, and print handoff.
 - 12B.6 complete: add POS local held-bill queue with hold, resume, remove, and shortcut support.
 - 12B.7 complete: connect POS day open/close to store-day API with petty cash preview and print.
+- 12B.8 complete: add POS static deploy script and deployment notes.
 - Planned routes: `/login`, `/`, `/day-open`, `/sale`, `/hold-bills`, `/returns`, `/print`, `/day-close`.
 - Reuse `modular/packages/shared-api` and `modular/packages/shared-auth`.
 - Keep sale invoice and print flows compatible with existing API behavior.
 - Add POS build validation.
-- After POS builds, add an Ubuntu deploy script for POS static output.
+- POS Ubuntu static deploy script is available at `modular/deploy/pos-static-deploy.sh`.
 
 ## Stage 12C: HR
 
