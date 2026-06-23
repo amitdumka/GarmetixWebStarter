@@ -11,6 +11,7 @@
         </div>
         <div class="flex flex-wrap gap-2">
           <UButton color="neutral" variant="soft" icon="i-lucide-refresh-cw" :loading="loading" @click="refresh">Refresh</UButton>
+          <UButton color="neutral" variant="soft" icon="i-lucide-pause-circle" :disabled="!cart.length" @click="holdCurrentBill">Hold Bill</UButton>
           <UButton icon="i-lucide-printer" :loading="saving" :disabled="!canSave" @click="saveAndPrint">Save & Print</UButton>
         </div>
       </div>
@@ -264,6 +265,18 @@ interface PrintQueueItem {
   printedAt?: string
 }
 
+interface HeldBill {
+  id: string
+  heldAt: string
+  customerName: string
+  customerMobileNumber: string
+  itemCount: number
+  quantity: number
+  payableTotal: number
+  note?: string
+  draft: Record<string, unknown>
+}
+
 const paymentModeValue = {
   cash: 0,
   card: 1,
@@ -294,6 +307,7 @@ const paymentModeOptions = [
 
 const draftKey = 'garmetix.pos.sale.draft.v1'
 const printQueueKey = 'garmetix.pos.print.queue.v1'
+const holdQueueKey = 'garmetix.pos.held-bills.v1'
 const runtimeConfig = useRuntimeConfig()
 const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
 const loading = ref(false)
@@ -445,6 +459,10 @@ function handleCounterShortcut(event: KeyboardEvent) {
   if (event.key === 'F8') {
     event.preventDefault()
     addPayment()
+  }
+  if (event.key === 'F9') {
+    event.preventDefault()
+    holdCurrentBill()
   }
   if (event.key === 'Escape' && productSearch.value) {
     event.preventDefault()
@@ -714,6 +732,41 @@ function syncCashPayment(autoFill = true) {
   saveDraft()
 }
 
+function buildSaleDraft() {
+  return {
+    form: { ...form },
+    cart: cart.value,
+    payments: payments.value,
+    adjustments: { ...adjustments }
+  }
+}
+
+function holdCurrentBill() {
+  if (!cart.value.length) {
+    showMessage('warning', 'Add at least one item before holding the bill.')
+    return
+  }
+
+  const rows = readHeldBills()
+  const id = crypto?.randomUUID?.() || `held-${Date.now()}`
+  const heldBill: HeldBill = {
+    id,
+    heldAt: new Date().toISOString(),
+    customerName: form.customerName || 'Walk-in Customer',
+    customerMobileNumber: form.customerMobileNumber || '',
+    itemCount: cart.value.length,
+    quantity: totalQuantity.value,
+    payableTotal: payableTotal.value,
+    note: cart.value.map(item => item.name).slice(0, 3).join(', '),
+    draft: buildSaleDraft()
+  }
+  rows.unshift(heldBill)
+  localStorage.setItem(holdQueueKey, JSON.stringify(rows.slice(0, 100)))
+  clearDraft()
+  resetForNext()
+  showMessage('success', 'Bill held. Open Hold Bills to resume it.')
+}
+
 function buildPayments() {
   const rows = payments.value
     .filter(item => Number(item.amount || 0) > 0)
@@ -874,6 +927,16 @@ function addPrintQueueItem(item: PrintQueueItem) {
   localStorage.setItem(printQueueKey, JSON.stringify(rows.slice(0, 50)))
 }
 
+function readHeldBills(): HeldBill[] {
+  if (!import.meta.client) return []
+  try {
+    const rows = JSON.parse(localStorage.getItem(holdQueueKey) || '[]')
+    return Array.isArray(rows) ? rows : []
+  } catch {
+    return []
+  }
+}
+
 function readPrintQueue(): PrintQueueItem[] {
   if (!import.meta.client) return []
   try {
@@ -886,12 +949,7 @@ function readPrintQueue(): PrintQueueItem[] {
 
 function saveDraft() {
   if (!import.meta.client) return
-  localStorage.setItem(draftKey, JSON.stringify({
-    form,
-    cart: cart.value,
-    payments: payments.value,
-    adjustments
-  }))
+  localStorage.setItem(draftKey, JSON.stringify(buildSaleDraft()))
 }
 
 function restoreDraft() {
