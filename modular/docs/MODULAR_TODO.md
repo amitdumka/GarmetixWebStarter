@@ -49,6 +49,7 @@ Goal: split the fastest billing counter workflows first.
 Goal: split employees, attendance, payroll, and salary payment screens.
 
 - 12C.1 complete: add HR shell, auth guard, login, read-only dashboard, employee summary, attendance, payroll, salary payment, device pages, and placeholder route coverage.
+- 12C.2 complete: connect safe HR actions for attendance payroll review rebuild/mark, salary draft rebuild/mark, regularization approve/reject, and salary payment preview.
 - Planned first routes: `/login`, `/`, `/hr`, `/attendance`, `/attendance/today`, `/attendance/monthly`, `/attendance/payroll-summary`, `/payroll`, `/attendance/salary-payment`, `/attendance/devices`.
 - Use existing attendance/payroll endpoints where available.
 - Keep salary and attendance pages non-destructive until endpoint contracts are verified.

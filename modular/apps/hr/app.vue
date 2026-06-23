@@ -111,7 +111,10 @@ const baseHrMenuRoutes = [
   { id: 'attendance', label: 'Attendance', href: '/attendance', icon: 'i-lucide-calendar-check', protected: true },
   { id: 'today', label: 'Today', href: '/attendance/today', icon: 'i-lucide-calendar-check-2', protected: true },
   { id: 'monthly', label: 'Monthly', href: '/attendance/monthly', icon: 'i-lucide-calendar-range', protected: true },
+  { id: 'regularization', label: 'Regularization', href: '/attendance/regularization', icon: 'i-lucide-calendar-clock', protected: true },
   { id: 'payroll-summary', label: 'Payroll Summary', href: '/attendance/payroll-summary', icon: 'i-lucide-table-properties', protected: true },
+  { id: 'payroll-review', label: 'Payroll Review', href: '/attendance/payroll-review', icon: 'i-lucide-clipboard-check', protected: true },
+  { id: 'salary-draft', label: 'Salary Draft', href: '/attendance/salary-draft', icon: 'i-lucide-file-pen-line', protected: true },
   { id: 'payroll', label: 'Payroll', href: '/payroll', icon: 'i-lucide-receipt-indian-rupee', protected: true },
   { id: 'salary-payment', label: 'Salary Payment', href: '/attendance/salary-payment', icon: 'i-lucide-badge-indian-rupee', protected: true },
   { id: 'devices', label: 'Devices', href: '/attendance/devices', icon: 'i-lucide-fingerprint', protected: true }

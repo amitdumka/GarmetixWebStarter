@@ -16,7 +16,16 @@ export function useHrApiClient() {
     return await api.get<T>(path, { query })
   }
 
-  return { apiBaseUrl, get }
+  async function post<T>(path: string, body?: unknown) {
+    if (!apiBaseUrl.value) throw new Error('API base URL is not configured.')
+    const api = createGarmetixApiClient({
+      baseUrl: apiBaseUrl.value,
+      getToken: () => getStoredToken(window.localStorage)
+    })
+    return await api.post<T>(path, body)
+  }
+
+  return { apiBaseUrl, get, post }
 }
 
 export function toLocalDateInput(value = new Date()) {
@@ -48,4 +57,12 @@ export function readText(source: ApiRecord | null | undefined, keys: string[], f
     if (value !== null && value !== undefined && String(value).trim() !== '') return String(value)
   }
   return fallback
+}
+
+export function readArray(source: ApiRecord | null | undefined, keys: string[]) {
+  for (const key of keys) {
+    const value = source?.[key]
+    if (Array.isArray(value)) return value as ApiRecord[]
+  }
+  return []
 }
