@@ -34,6 +34,7 @@ Goal: split the fastest billing counter workflows first.
 - 12B.2 complete: add POS sale draft with product lookup, cart totals, payments, save and print.
 - 12B.3 complete: add POS customer profile adjustments and print queue hardening.
 - 12B.4 complete: add POS route guard, scanner focus, keyboard shortcuts, and save validation polish.
+- 12B.5 complete: add POS sales return invoice lookup, item selection, credit note save, and print handoff.
 - Planned routes: `/login`, `/`, `/day-open`, `/sale`, `/hold-bills`, `/returns`, `/print`, `/day-close`.
 - Reuse `modular/packages/shared-api` and `modular/packages/shared-auth`.
 - Keep sale invoice and print flows compatible with existing API behavior.
