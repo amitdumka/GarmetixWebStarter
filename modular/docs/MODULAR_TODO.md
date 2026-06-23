@@ -48,8 +48,8 @@ Goal: split the fastest billing counter workflows first.
 
 Goal: split employees, attendance, payroll, and salary payment screens.
 
-- Add HR pages inside `modular/apps/hr`.
-- Planned routes: `/login`, `/`, `/employees`, `/attendance`, `/attendance-summary`, `/payroll`, `/payslips`, `/salary-payments`, `/kiosk-devices`.
+- 12C.1 complete: add HR shell, auth guard, login, read-only dashboard, employee summary, attendance, payroll, salary payment, device pages, and placeholder route coverage.
+- Planned first routes: `/login`, `/`, `/hr`, `/attendance`, `/attendance/today`, `/attendance/monthly`, `/attendance/payroll-summary`, `/payroll`, `/attendance/salary-payment`, `/attendance/devices`.
 - Use existing attendance/payroll endpoints where available.
 - Keep salary and attendance pages non-destructive until endpoint contracts are verified.
 - Add HR build validation.

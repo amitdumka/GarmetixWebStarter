@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/hr-web",
   "private": true,
-  "version": "5.0.0",
+  "version": "5.12.9",
   "type": "module",
   "scripts": {
     "dev": "nuxt dev --port 3102",
@@ -12,7 +12,7 @@
     "@garmetix/shared-api": "5.0.0",
     "@garmetix/shared-auth": "5.0.0",
     "@garmetix/shared-types": "5.0.0",
+    "@garmetix/shared-utils": "5.0.0",
     "@garmetix/shared-ui": "5.0.0"
   }
 }
-

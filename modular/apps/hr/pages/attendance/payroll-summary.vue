@@ -1,0 +1,58 @@
+<template>
+  <section class="space-y-4">
+    <div class="border border-default bg-muted/10 p-5">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p class="text-sm text-muted">Payroll attendance</p>
+          <h2 class="mt-1 text-2xl font-semibold">Payroll Summary</h2>
+          <p class="mt-2 text-sm text-muted">Attendance totals used for salary draft and payslip review.</p>
+        </div>
+        <form class="flex flex-wrap items-end gap-2" @submit.prevent="load">
+          <UFormField label="Year" name="year">
+            <UInput v-model.number="year" type="number" min="2020" max="2100" />
+          </UFormField>
+          <UFormField label="Month" name="month">
+            <UInput v-model.number="month" type="number" min="1" max="12" />
+          </UFormField>
+          <UButton type="submit" icon="i-lucide-refresh-cw" :loading="loading">Load</UButton>
+        </form>
+      </div>
+    </div>
+
+    <UAlert v-if="error" color="error" variant="subtle" icon="i-lucide-circle-alert" :description="error" />
+
+    <div class="border border-default bg-muted/10 p-4">
+      <h3 class="text-base font-semibold">Summary</h3>
+      <pre class="mt-3 max-h-[560px] overflow-auto border border-default bg-default/40 p-3 text-xs">{{ formattedSummary }}</pre>
+    </div>
+  </section>
+</template>
+
+<script setup lang="ts">
+import { currentYearMonth, type ApiRecord, useHrApiClient } from '../../utils/hr-api'
+
+useHead({ title: 'Payroll Summary - Garmetix HR' })
+
+const { get } = useHrApiClient()
+const current = currentYearMonth()
+const year = ref(current.year)
+const month = ref(current.month)
+const loading = ref(false)
+const error = ref('')
+const summary = ref<ApiRecord | null>(null)
+const formattedSummary = computed(() => summary.value ? JSON.stringify(summary.value, null, 2) : 'No payroll summary loaded.')
+
+async function load() {
+  loading.value = true
+  error.value = ''
+  try {
+    summary.value = await get<ApiRecord>('api/attendance/payroll-summary', { year: year.value, month: month.value })
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to load payroll summary.'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(load)
+</script>
