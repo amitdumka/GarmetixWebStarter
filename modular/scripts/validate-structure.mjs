@@ -37,6 +37,7 @@ const requiredPaths = [
   'docs/stage-12e4-books-voucher-review.md',
   'docs/stage-12e5-books-petty-cash-review.md',
   'docs/stage-12e6-books-vendor-payment-review.md',
+  'docs/stage-12e7-books-gst-review.md',
   'deploy/README.md',
   'deploy/pos-static-deploy.sh',
   'deploy/hr-static-deploy.sh',
