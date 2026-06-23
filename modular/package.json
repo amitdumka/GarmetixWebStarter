@@ -1,0 +1,31 @@
+{
+  "name": "@garmetix/modular",
+  "private": true,
+  "version": "5.0.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "check": "node scripts/validate-structure.mjs",
+    "build:main": "npm --workspace @garmetix/main-web run build",
+    "build:pos": "npm --workspace @garmetix/pos-web run build",
+    "build:hr": "npm --workspace @garmetix/hr-web run build",
+    "build:ai-sense": "npm --workspace @garmetix/ai-sense-web run build",
+    "build:books": "npm --workspace @garmetix/books-web run build",
+    "build:admin": "npm --workspace @garmetix/admin-web run build"
+  },
+  "overrides": {
+    "@babel/generator": "8.0.0-rc.6",
+    "@babel/parser": "8.0.0-rc.6",
+    "@babel/types": "8.0.0-rc.6"
+  },
+  "devDependencies": {
+    "@iconify-json/lucide": "1.2.114",
+    "@nuxt/ui": "4.9.0",
+    "nuxt": "4.4.8",
+    "tailwindcss": "4.3.1",
+    "vue": "3.5.38"
+  }
+}

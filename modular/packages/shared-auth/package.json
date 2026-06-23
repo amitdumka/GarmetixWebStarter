@@ -1,0 +1,12 @@
+{
+  "name": "@garmetix/shared-auth",
+  "private": true,
+  "version": "5.0.0",
+  "type": "module",
+  "dependencies": {
+    "@garmetix/shared-types": "5.0.0"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

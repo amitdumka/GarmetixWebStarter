@@ -1,32 +1,23 @@
-# Garmetix local/private files
+# Root workspace ignores for Version5 modular layout.
+node_modules/
+.nuxt/
+.output/
+dist/
 .env
 .env.*
 !.env.example
 !.env.production.example
 
-# Deployment secrets
-deploy/macmini.env
-~/.garmetix/macmini.env
-secrets/
-*.pem
-*.key
-*.p12
-*.pfx
-*.crt
-*.csr
+# Modular app outputs.
+modular/**/.nuxt/
+modular/**/.output/
+modular/**/node_modules/
+modular/**/dist/
 
-# Build and package outputs
-**/bin/
-**/obj/
-**/node_modules/
-**/.nuxt/
-**/.output/
-backups/
-*.tar.gz
-*.zip
+# Legacy keeps its own moved ignore rules under legacy/.gitignore.
+legacy/**/node_modules/
+legacy/**/.nuxt/
+legacy/**/.output/
+legacy/**/bin/
+legacy/**/obj/
 
-# IDE/OS
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db

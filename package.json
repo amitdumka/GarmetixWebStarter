@@ -1,0 +1,12 @@
+{
+  "name": "garmetix-version5-workspace",
+  "private": true,
+  "version": "5.0.0",
+  "scripts": {
+    "legacy:api:test": "dotnet test legacy/backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release",
+    "legacy:api:build": "dotnet build legacy/backend/Garmetix.Api/Garmetix.Api.csproj -c Release",
+    "legacy:web:build": "npm --prefix legacy/frontend/garmetix-web run build",
+    "modular:check": "node modular/scripts/validate-structure.mjs"
+  }
+}
+

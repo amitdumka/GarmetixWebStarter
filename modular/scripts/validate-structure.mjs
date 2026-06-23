@@ -1,0 +1,59 @@
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const root = fileURLToPath(new URL('..', import.meta.url))
+const requiredPaths = [
+  '../legacy/README.md',
+  'README.md',
+  '.env.example',
+  'package.json',
+  'config/apps.ts',
+  'docs/stage-01-foundation.md',
+  'docs/cloudflare-subdomains.md',
+  'packages/shared-api/src/index.ts',
+  'packages/shared-auth/src/index.ts',
+  'packages/shared-types/src/index.ts',
+  'packages/shared-ui/src/index.ts',
+  'apps/main/package.json',
+  'apps/pos/package.json',
+  'apps/hr/package.json',
+  'apps/ai-sense/package.json',
+  'apps/books/package.json',
+  'apps/admin/package.json'
+]
+
+const failures = []
+for (const relativePath of requiredPaths) {
+  const fullPath = relativePath.startsWith('../')
+    ? join(root, relativePath)
+    : join(root, relativePath)
+  if (!existsSync(fullPath)) {
+    failures.push(`Missing ${relativePath}`)
+  }
+}
+
+const env = readFileSync(join(root, '.env.example'), 'utf8')
+for (const key of [
+  'NUXT_PUBLIC_GARMETIX_API_BASE_URL',
+  'NUXT_PUBLIC_GARMETIX_MAIN_URL',
+  'NUXT_PUBLIC_GARMETIX_POS_URL',
+  'NUXT_PUBLIC_GARMETIX_HR_URL',
+  'NUXT_PUBLIC_GARMETIX_AI_SENSE_URL',
+  'NUXT_PUBLIC_GARMETIX_BOOKS_URL',
+  'NUXT_PUBLIC_GARMETIX_ADMIN_URL'
+]) {
+  if (!env.includes(key)) failures.push(`Missing env key ${key}`)
+}
+
+const packageJson = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
+if (packageJson.devDependencies?.['@nuxt/ui'] !== '4.9.0') {
+  failures.push('Nuxt UI 4.9.0 dependency is not pinned exactly in modular/package.json')
+}
+
+if (failures.length > 0) {
+  console.error(failures.join('\n'))
+  process.exit(1)
+}
+
+console.log('Garmetix modular folder structure validation passed.')
