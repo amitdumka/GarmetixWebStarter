@@ -27,18 +27,16 @@
           </nav>
         </header>
 
-        <section class="grid gap-4 md:grid-cols-3">
-          <div class="border border-default bg-muted/20 p-4">
-            <p class="text-sm text-muted">Owned route entries</p>
-            <p class="mt-2 text-3xl font-semibold">{{ shell.routeCount }}</p>
-          </div>
-          <div class="border border-default bg-muted/20 p-4">
-            <p class="text-sm text-muted">API base</p>
-            <p class="mt-2 truncate text-sm font-medium">{{ apiBaseUrl }}</p>
-          </div>
-          <div class="border border-default bg-muted/20 p-4">
-            <p class="text-sm text-muted">Current stage</p>
-            <p class="mt-2 text-sm font-medium">Stage 12A.4 menu foundation</p>
+        <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div v-for="status in statusCards" :key="status.key" class="border border-default bg-muted/20 p-4">
+            <div class="flex items-center justify-between gap-3">
+              <p class="text-sm text-muted">{{ status.label }}</p>
+              <UBadge size="xs" :color="status.tone" variant="soft">
+                <UIcon :name="status.icon" class="size-3" />
+              </UBadge>
+            </div>
+            <p class="mt-2 truncate text-sm font-semibold">{{ status.value }}</p>
+            <p class="mt-1 line-clamp-2 text-xs text-muted">{{ status.detail }}</p>
           </div>
         </section>
 
@@ -67,17 +65,65 @@
 </template>
 
 <script setup lang="ts">
-import { buildAppShellModel } from '@garmetix/shared-ui'
+import { checkApiHealth, type ApiHealthResult } from '@garmetix/shared-api'
+import { getAuthSessionSnapshot, type AuthSessionSnapshot } from '@garmetix/shared-auth'
+import { buildAppShellModel, buildShellStatusCards } from '@garmetix/shared-ui'
 import { buildAppTargetLinks, garmetixRoutes } from '../../config/routes'
 
 const appId = 'hr' as const
 const runtimeConfig = useRuntimeConfig()
 const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
 const appUrls = computed(() => (runtimeConfig.public.appUrls ?? {}) as Record<string, string | undefined>)
+const apiHealth = ref<ApiHealthResult>({
+  state: 'checking',
+  label: 'Checking API',
+  message: 'Waiting for the health endpoint.'
+})
+const authSnapshot = ref<AuthSessionSnapshot>({
+  state: 'anonymous',
+  hasToken: false,
+  label: 'Checking auth',
+  message: 'Reading browser token storage.'
+})
 const shell = computed(() => buildAppShellModel({
   appId,
   routes: garmetixRoutes,
   env: appUrls.value,
   appLinks: buildAppTargetLinks(appUrls.value, appId)
 }))
+const statusCards = computed(() => buildShellStatusCards([
+  {
+    key: 'routes',
+    label: 'Owned routes',
+    value: String(shell.value.routeCount),
+    detail: 'Route registry entries assigned to this app.',
+    tone: 'primary'
+  },
+  {
+    key: 'api',
+    label: 'API service',
+    value: apiHealth.value.label,
+    detail: apiHealth.value.message,
+    tone: apiHealth.value.state === 'live' ? 'success' : apiHealth.value.state === 'checking' ? 'warning' : 'error'
+  },
+  {
+    key: 'auth',
+    label: 'Auth session',
+    value: authSnapshot.value.label,
+    detail: authSnapshot.value.message,
+    tone: authSnapshot.value.hasToken ? 'success' : 'neutral'
+  },
+  {
+    key: 'stage',
+    label: 'Current stage',
+    value: 'Stage 12A.5',
+    detail: 'Shared shell layout and status contracts.',
+    tone: 'neutral'
+  }
+]))
+
+onMounted(async () => {
+  authSnapshot.value = getAuthSessionSnapshot(window.localStorage)
+  apiHealth.value = await checkApiHealth(apiBaseUrl.value)
+})
 </script>

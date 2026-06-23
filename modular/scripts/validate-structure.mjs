@@ -15,6 +15,7 @@ const requiredPaths = [
   'docs/MODULAR_TODO.md',
   'docs/stage-12a3-route-ownership.md',
   'docs/stage-12a4-shell-menu-links.md',
+  'docs/stage-12a5-shared-shell-status.md',
   'packages/shared-api/src/index.ts',
   'packages/shared-auth/src/index.ts',
   'packages/shared-types/src/index.ts',

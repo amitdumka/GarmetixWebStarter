@@ -1,3 +1,5 @@
+import { stripServerUrl } from '@garmetix/shared-utils'
+
 export interface GarmetixApiClientOptions {
   baseUrl: string
   getToken?: () => string | null | undefined
@@ -7,10 +9,65 @@ export interface ApiRequestOptions extends RequestInit {
   query?: Record<string, string | number | boolean | null | undefined>
 }
 
+export type ApiHealthState = 'checking' | 'live' | 'offline'
+
+export interface ApiHealthResult {
+  state: ApiHealthState
+  label: string
+  message: string
+  checkedAt?: string
+}
+
 export function createApiUrl(baseUrl: string, path: string) {
   const base = String(baseUrl || '').replace(/\/+$/, '')
   const nextPath = String(path || '').replace(/^\/+/, '')
   return nextPath ? `${base}/${nextPath}` : base
+}
+
+export function createApiHealthUrl(baseUrl: string, healthPath = '/health') {
+  return createApiUrl(baseUrl, healthPath)
+}
+
+export async function checkApiHealth(baseUrl: string, healthPath = '/health'): Promise<ApiHealthResult> {
+  const checkedAt = new Date().toISOString()
+  if (!baseUrl) {
+    return {
+      state: 'offline',
+      label: 'API not configured',
+      message: 'Set the API base URL in the app environment.',
+      checkedAt
+    }
+  }
+
+  try {
+    const response = await fetch(createApiHealthUrl(baseUrl, healthPath), {
+      method: 'GET',
+      cache: 'no-store'
+    })
+
+    if (!response.ok) {
+      return {
+        state: 'offline',
+        label: 'API error',
+        message: stripServerUrl(`Health check failed with ${response.status}`),
+        checkedAt
+      }
+    }
+
+    return {
+      state: 'live',
+      label: 'API live',
+      message: 'Service health endpoint responded.',
+      checkedAt
+    }
+  } catch (error) {
+    return {
+      state: 'offline',
+      label: 'API unreachable',
+      message: stripServerUrl(error instanceof Error ? error.message : 'Health check failed.'),
+      checkedAt
+    }
+  }
 }
 
 export function createGarmetixApiClient(options: GarmetixApiClientOptions) {
@@ -30,7 +87,7 @@ export function createGarmetixApiClient(options: GarmetixApiClientOptions) {
     const response = await fetch(url, { ...requestOptions, headers })
     if (!response.ok) {
       const message = await response.text()
-      throw new Error(message || `Garmetix API request failed with ${response.status}`)
+      throw new Error(stripServerUrl(message || `Garmetix API request failed with ${response.status}`))
     }
 
     if (response.status === 204) return undefined as T

@@ -24,6 +24,7 @@ Status: in progress.
 - 12A.3: Create `modular/config/routes.ts` and document ownership.
 - 12A.4: Build app switch/sidebar link helpers from the route registry.
 - 12A.5: Add shared shell layout contracts for all modular apps.
+- 12A.5 complete: shared API health, auth snapshot, and shell status cards.
 
 ## Stage 12B: POS First
 

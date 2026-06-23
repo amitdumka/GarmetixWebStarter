@@ -68,6 +68,20 @@ export interface ShellModel {
   appLinks: ShellAppLink[]
 }
 
+export type ShellStatusTone = 'primary' | 'success' | 'warning' | 'error' | 'neutral'
+
+export interface ShellStatusInput {
+  key: string
+  label: string
+  value: string
+  detail?: string
+  tone?: ShellStatusTone
+}
+
+export interface ShellStatusCard extends Required<ShellStatusInput> {
+  icon: string
+}
+
 const appCopy: Record<FrontendAppId, { title: string, subtitle: string, badge: string }> = {
   main: {
     title: 'Garmetix Back Office',
@@ -157,4 +171,26 @@ export function buildAppShellModel(options: {
     groups,
     appLinks: options.appLinks ?? []
   }
+}
+
+export function buildShellStatusCards(items: ShellStatusInput[]): ShellStatusCard[] {
+  const toneIcons: Record<ShellStatusTone, string> = {
+    primary: 'i-lucide-sparkles',
+    success: 'i-lucide-circle-check',
+    warning: 'i-lucide-triangle-alert',
+    error: 'i-lucide-circle-x',
+    neutral: 'i-lucide-info'
+  }
+
+  return items.map(item => {
+    const tone = item.tone ?? 'neutral'
+    return {
+      key: item.key,
+      label: item.label,
+      value: item.value,
+      detail: item.detail ?? '',
+      tone,
+      icon: toneIcons[tone]
+    }
+  })
 }
