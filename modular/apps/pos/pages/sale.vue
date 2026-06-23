@@ -60,10 +60,13 @@
         <div class="grid gap-3 border border-default bg-muted/10 p-4 lg:grid-cols-[1fr_110px_110px_auto]">
           <UFormField label="Barcode / product" name="productSearch">
             <UInput
+              ref="productSearchInput"
               v-model="productSearch"
               list="pos-product-suggestions"
               icon="i-lucide-scan-line"
               placeholder="Scan barcode or type product name"
+              autofocus
+              data-pos-product-search
               @change="selectProductFromInput"
               @keyup.enter="lookupAndAdd"
             />
@@ -311,6 +314,7 @@ const selectedCustomerId = ref<string | null>(null)
 const customerSearch = ref('')
 const searchingCustomer = ref(false)
 const productSearch = ref('')
+const productSearchInput = ref<any>(null)
 const quantity = ref('1')
 const lineDiscount = ref('')
 const cart = ref<CartItem[]>([])
@@ -406,6 +410,48 @@ function money(value: number | string | null | undefined) {
 function showMessage(tone: typeof messageTone.value, text: string) {
   messageTone.value = tone
   message.value = text
+}
+
+function normalizeGstin(value: string) {
+  return String(value || '').trim().toUpperCase()
+}
+
+function isValidGstin(value: string) {
+  if (!value) return true
+  return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(normalizeGstin(value))
+}
+
+function focusProductSearch() {
+  if (!import.meta.client) return
+  void nextTick(() => {
+    const input = productSearchInput.value?.inputRef
+      || productSearchInput.value?.$el?.querySelector?.('input')
+      || document.querySelector<HTMLInputElement>('[data-pos-product-search]')
+    input?.focus?.()
+    input?.select?.()
+  })
+}
+
+function handleCounterShortcut(event: KeyboardEvent) {
+  if (event.defaultPrevented) return
+  if (event.key === 'F2') {
+    event.preventDefault()
+    focusProductSearch()
+  }
+  if (event.key === 'F4') {
+    event.preventDefault()
+    void saveAndPrint()
+  }
+  if (event.key === 'F8') {
+    event.preventDefault()
+    addPayment()
+  }
+  if (event.key === 'Escape' && productSearch.value) {
+    event.preventDefault()
+    productSearch.value = ''
+    selectedProduct.value = null
+    focusProductSearch()
+  }
 }
 
 function paymentRequiresBank(payment: PaymentRow) {
@@ -712,6 +758,11 @@ async function saveAndPrint() {
     showMessage('warning', 'Select store and add at least one item.')
     return
   }
+  const validation = validateSaleInputs()
+  if (validation) {
+    showMessage('warning', validation)
+    return
+  }
   const missingBank = payments.value.find(item => Number(item.amount || 0) > 0 && paymentRequiresBank(item) && !item.bankAccountId)
   if (missingBank) {
     showMessage('warning', `Select bank account for ${paymentReferenceLabel(missingBank)}.`)
@@ -734,7 +785,7 @@ async function saveAndPrint() {
       salesmanId: form.salesmanId || null,
       customerName: form.customerName || 'Walk-in Customer',
       customerMobileNumber: form.customerMobileNumber || '',
-      customerGstin: form.customerGstin || '',
+      customerGstin: normalizeGstin(form.customerGstin),
       paymentMode: salePayments.length > 1 ? paymentModeValue.mixPayments : Number(salePayments[0]?.paymentMode ?? paymentModeValue.cash),
       bankAccountId: salePayments.find(item => item.bankAccountId)?.bankAccountId || null,
       paidAmount: salePayments.reduce((sum, item) => sum + Number(item.amount || 0), 0),
@@ -779,6 +830,24 @@ async function printInvoice(invoiceId: string) {
   window.open(blobUrl, '_blank', 'noopener,noreferrer')
 }
 
+function validateSaleInputs() {
+  if (!isValidGstin(form.customerGstin)) return 'Enter a valid GSTIN or leave it blank.'
+  if (Number(form.billDiscountAmount || 0) < 0) return 'Bill discount cannot be negative.'
+  if (Number(form.billDiscountAmount || 0) > cartTotal.value) return 'Bill discount cannot be more than bill gross amount.'
+  if (Number(adjustments.storeCreditAmount || 0) > Number(selectedCustomerProfile.value?.customer?.creditBalance || 0)) {
+    return 'Store credit amount is more than available customer credit.'
+  }
+  if (adjustments.creditNoteId && Number(adjustments.creditNoteAmount || 0) <= 0) return 'Enter credit note amount.'
+  if (Number(adjustments.creditNoteAmount || 0) > Number(selectedCreditNote.value?.availableAmount || 0)) return 'Credit note amount is more than available amount.'
+  if (adjustments.advanceReceiptId && Number(adjustments.advanceAmount || 0) <= 0) return 'Enter advance receipt amount.'
+  if (Number(adjustments.advanceAmount || 0) > Number(selectedAdvance.value?.availableAmount || 0)) return 'Advance amount is more than available amount.'
+  if (Number(adjustments.loyaltyPointsToRedeem || 0) > Number(selectedCustomerProfile.value?.customer?.loyaltyPoints || 0)) {
+    return 'Loyalty points are more than available points.'
+  }
+  if (adjustmentTotal.value > payableTotal.value) return 'Customer adjustments cannot be more than payable amount.'
+  return ''
+}
+
 function resetForNext() {
   form.customerId = null
   form.customerName = 'Walk-in Customer'
@@ -795,6 +864,7 @@ function resetForNext() {
   quantity.value = '1'
   lineDiscount.value = ''
   setDefaultSalesman()
+  focusProductSearch()
 }
 
 function addPrintQueueItem(item: PrintQueueItem) {
@@ -856,6 +926,12 @@ watch(adjustments, () => {
 }, { deep: true })
 
 onMounted(() => {
+  window.addEventListener('keydown', handleCounterShortcut)
   void refresh()
+  focusProductSearch()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleCounterShortcut)
 })
 </script>

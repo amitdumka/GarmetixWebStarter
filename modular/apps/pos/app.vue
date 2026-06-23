@@ -104,16 +104,17 @@ const shell = computed(() => buildAppShellModel({
   appLinks: buildAppTargetLinks(appUrls.value, appId)
 }))
 const currentPath = computed(() => route.path)
-const posMenuRoutes = [
-  { id: 'dashboard', label: 'Counter', href: '/', icon: 'i-lucide-layout-dashboard' },
-  { id: 'login', label: 'Login', href: '/login', icon: 'i-lucide-log-in' },
-  { id: 'day-open', label: 'Day Open', href: '/day-open', icon: 'i-lucide-sunrise' },
-  { id: 'sale', label: 'Sale', href: '/sale', icon: 'i-lucide-scan-barcode' },
-  { id: 'hold-bills', label: 'Hold Bills', href: '/hold-bills', icon: 'i-lucide-pause-circle' },
-  { id: 'returns', label: 'Returns', href: '/returns', icon: 'i-lucide-undo-2' },
-  { id: 'print', label: 'Print Queue', href: '/print', icon: 'i-lucide-printer' },
-  { id: 'day-close', label: 'Day Close', href: '/day-close', icon: 'i-lucide-sunset' }
+const basePosMenuRoutes = [
+  { id: 'dashboard', label: 'Counter', href: '/', icon: 'i-lucide-layout-dashboard', protected: true },
+  { id: 'login', label: 'Login', href: '/login', icon: 'i-lucide-log-in', protected: false },
+  { id: 'day-open', label: 'Day Open', href: '/day-open', icon: 'i-lucide-sunrise', protected: true },
+  { id: 'sale', label: 'Sale', href: '/sale', icon: 'i-lucide-scan-barcode', protected: true },
+  { id: 'hold-bills', label: 'Hold Bills', href: '/hold-bills', icon: 'i-lucide-pause-circle', protected: true },
+  { id: 'returns', label: 'Returns', href: '/returns', icon: 'i-lucide-undo-2', protected: true },
+  { id: 'print', label: 'Print Queue', href: '/print', icon: 'i-lucide-printer', protected: true },
+  { id: 'day-close', label: 'Day Close', href: '/day-close', icon: 'i-lucide-sunset', protected: true }
 ]
+const posMenuRoutes = computed(() => basePosMenuRoutes.filter(item => authSnapshot.value.hasToken ? item.id !== 'login' : !item.protected))
 const activeUserLabel = computed(() => {
   if (!authSnapshot.value.hasToken) return 'POS module foundation - sign in to start protected counter flows.'
   const user = authSnapshot.value.user
@@ -163,5 +164,9 @@ function logout() {
 onMounted(async () => {
   refreshAuthSnapshot()
   apiHealth.value = await checkApiHealth(apiBaseUrl.value)
+})
+
+watch(() => route.fullPath, () => {
+  if (import.meta.client) refreshAuthSnapshot()
 })
 </script>

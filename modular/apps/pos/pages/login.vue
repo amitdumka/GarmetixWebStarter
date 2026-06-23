@@ -31,6 +31,7 @@ import { setStoredExpiry, setStoredToken, setStoredUser, type StoredAuthUser } f
 useHead({ title: 'Login - Garmetix POS' })
 
 const runtimeConfig = useRuntimeConfig()
+const route = useRoute()
 const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
 const loading = ref(false)
 const message = ref('')
@@ -56,7 +57,8 @@ async function submit() {
     form.password = ''
     messageTone.value = 'success'
     message.value = 'Login successful.'
-    await navigateTo('/')
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    await navigateTo(redirect.startsWith('/login') ? '/' : redirect)
   } catch (error) {
     messageTone.value = 'error'
     message.value = error instanceof Error ? error.message : 'Login failed. Check the username and password.'
