@@ -61,7 +61,7 @@ Goal: split employees, attendance, payroll, and salary payment screens.
 
 Goal: build read-only analytics first, then connect backend endpoints.
 
-- Add AI Sense pages inside `modular/apps/ai-sense`.
+- 12D.1 complete: add AI Sense shell, auth guard, login, business dashboard, stock risk, and route coverage for planned analysis screens.
 - Planned routes: `/login`, `/`, `/sales-analysis`, `/purchase-analysis`, `/profit-analysis`, `/stock-risk`, `/vendor-analysis`, `/customer-analysis`, `/daily-summary`, `/monthly-summary`.
 - Add empty/loading/error states before backend analytics endpoints are complete.
 - Add read-only analytics endpoints to the existing ASP.NET API.
