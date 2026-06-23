@@ -1,8 +1,8 @@
 <template>
-  <AiAnalysisPlaceholder
+  <AiConnectedAnalysis
     title="Vendor Analysis"
     description="Vendor aging, settlement risk, purchase concentration, and payment pattern signals will be connected here."
-    :items="['Vendor aging', 'Settlement risk', 'Purchase concentration']"
+    endpoint="api/ai-sense/vendor-analysis"
   />
 </template>
 

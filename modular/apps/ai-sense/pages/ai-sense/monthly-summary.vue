@@ -1,8 +1,8 @@
 <template>
-  <AiAnalysisPlaceholder
+  <AiConnectedAnalysis
     title="Monthly Summary"
     description="Monthly business trend, store comparison, margin movement, and risk summaries will be connected here."
-    :items="['Monthly trend', 'Store comparison', 'Risk summary']"
+    endpoint="api/ai-sense/monthly-summary"
   />
 </template>
 

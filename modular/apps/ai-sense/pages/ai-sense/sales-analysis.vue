@@ -1,8 +1,8 @@
 <template>
-  <AiAnalysisPlaceholder
+  <AiConnectedAnalysis
     title="Sales Analysis"
     description="Sales trend, invoice mix, discount behavior, payment mode, and store comparison signals will be connected here."
-    :items="['Sales trend', 'Invoice mix', 'Store comparison']"
+    endpoint="api/ai-sense/sales-analysis"
   />
 </template>
 

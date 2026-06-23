@@ -1,8 +1,8 @@
 <template>
-  <AiAnalysisPlaceholder
+  <AiConnectedAnalysis
     title="Daily Summary"
     description="Daily sales, purchase, cash, stock, and exception summaries will be connected here from dashboard endpoints."
-    :items="['Daily cash', 'Daily sales', 'Exceptions']"
+    endpoint="api/ai-sense/daily-summary"
   />
 </template>
 

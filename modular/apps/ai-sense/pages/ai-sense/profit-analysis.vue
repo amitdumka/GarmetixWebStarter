@@ -1,8 +1,8 @@
 <template>
-  <AiAnalysisPlaceholder
+  <AiConnectedAnalysis
     title="Profit Analysis"
     description="Margin, gross profit, discount leakage, tailoring margin impact, and stock cost movement will be connected here."
-    :items="['Gross margin', 'Discount leakage', 'Cost movement']"
+    endpoint="api/ai-sense/profit-analysis"
   />
 </template>
 

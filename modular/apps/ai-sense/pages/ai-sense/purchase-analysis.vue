@@ -1,8 +1,8 @@
 <template>
-  <AiAnalysisPlaceholder
+  <AiConnectedAnalysis
     title="Purchase Analysis"
     description="Vendor purchase trends, landed cost movement, purchase return impact, and replenishment signals will be connected here."
-    :items="['Vendor trend', 'Cost movement', 'Replenishment signal']"
+    endpoint="api/ai-sense/purchase-analysis"
   />
 </template>
 

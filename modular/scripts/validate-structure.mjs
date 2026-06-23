@@ -29,6 +29,7 @@ const requiredPaths = [
   'docs/stage-12c2-hr-safe-actions.md',
   'docs/stage-12c3-hr-static-deploy.md',
   'docs/stage-12d1-ai-sense-foundation.md',
+  'docs/stage-12d2-ai-sense-analytics-endpoints.md',
   'deploy/README.md',
   'deploy/pos-static-deploy.sh',
   'deploy/hr-static-deploy.sh',
@@ -74,6 +75,7 @@ const requiredPaths = [
   'apps/ai-sense/pages/ai-sense/customer-analysis.vue',
   'apps/ai-sense/pages/ai-sense/daily-summary.vue',
   'apps/ai-sense/pages/ai-sense/monthly-summary.vue',
+  'apps/ai-sense/components/AiConnectedAnalysis.vue',
   'apps/ai-sense/middleware/auth.global.ts',
   'apps/books/package.json',
   'apps/admin/package.json'

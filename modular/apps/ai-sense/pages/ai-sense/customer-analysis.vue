@@ -1,8 +1,8 @@
 <template>
-  <AiAnalysisPlaceholder
+  <AiConnectedAnalysis
     title="Customer Analysis"
     description="Customer due aging, repeat purchase, loyalty behavior, and high-value customer signals will be connected here."
-    :items="['Due aging', 'Repeat purchase', 'Customer value']"
+    endpoint="api/ai-sense/customer-analysis"
   />
 </template>
 
