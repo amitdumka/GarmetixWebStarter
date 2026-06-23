@@ -64,6 +64,7 @@ export function formatDate(value: unknown) {
 }
 
 export function optionLabel(options: ReadonlyArray<{ value: number, label: string }>, value: unknown, fallback = '-') {
+  if (typeof value === 'string' && value.trim() !== '' && Number.isNaN(Number(value))) return value
   const numericValue = typeof value === 'number' ? value : Number(value)
   return options.find(item => item.value === numericValue)?.label ?? fallback
 }
@@ -103,4 +104,23 @@ export const accountTypeOptions = [
   { value: 4, label: 'Others' },
   { value: 5, label: 'Loan' },
   { value: 6, label: 'CF' }
+] as const
+
+export const transactionTypeOptions = [
+  { value: 0, label: 'Deposit' },
+  { value: 1, label: 'Withdraw' }
+] as const
+
+export const transactionModeOptions = [
+  { value: 0, label: 'Cash' },
+  { value: 1, label: 'Cheque' },
+  { value: 2, label: 'NEFT' },
+  { value: 3, label: 'RTGS' },
+  { value: 4, label: 'UPI' },
+  { value: 5, label: 'Net Banking' },
+  { value: 6, label: 'IMPS' },
+  { value: 7, label: 'DD' },
+  { value: 8, label: 'ATM' },
+  { value: 9, label: 'Swipe' },
+  { value: 10, label: 'Other' }
 ] as const

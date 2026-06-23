@@ -33,6 +33,7 @@ const requiredPaths = [
   'docs/stage-12d3-ai-sense-static-deploy.md',
   'docs/stage-12e1-books-foundation.md',
   'docs/stage-12e2-books-master-data.md',
+  'docs/stage-12e3-books-bank-operations.md',
   'deploy/README.md',
   'deploy/pos-static-deploy.sh',
   'deploy/hr-static-deploy.sh',

@@ -76,6 +76,7 @@ Goal: split accountant/CA workflows.
 
 - 12E.1 complete: add Books shell, auth guard, login, read-only dashboard foundation, and route coverage placeholders.
 - 12E.2 complete: connect read-only accounting master data for ledger groups, ledgers, parties, bank accounts, trial balance, and ledger sync health.
+- 12E.3 complete: connect read-only bank operations for bank transactions, statements, reconciliation, cheque logs, vendor bank accounts, and bank account details.
 - Planned areas: accounting dashboard, ledgers, parties, vouchers, petty cash, cash details, debit notes, credit notes, GST reports, GST returns, audit/message logs.
 - Keep banking and audit-sensitive flows explicit.
 - First writable accounting actions are intentionally deferred until endpoint contracts, ledger posting behavior, and print/audit expectations are verified.

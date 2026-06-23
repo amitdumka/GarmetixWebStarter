@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '5.12.16',
-  stage: 'Stage 12E.2',
-  label: 'Version5 Stage 12E.2 Books Master Data',
-  summary: 'Read-only Books accounting master data for ledger groups, ledgers, parties, bank accounts, trial balance, and ledger sync.'
+  version: '5.12.17',
+  stage: 'Stage 12E.3',
+  label: 'Version5 Stage 12E.3 Books Bank Operations',
+  summary: 'Read-only Books bank operations for transactions, statements, reconciliation, cheques, vendor banks, and bank account details.'
 } as const
