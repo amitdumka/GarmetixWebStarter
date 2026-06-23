@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '5.12.10',
-  stage: 'Stage 12C.2',
-  label: 'Version5 Stage 12C.2 HR Safe Actions',
-  summary: 'HR payroll review, salary draft, regularization decisions, and salary payment preview actions in the modular app.'
+  version: '5.12.11',
+  stage: 'Stage 12C.3',
+  label: 'Version5 Stage 12C.3 HR Static Deploy',
+  summary: 'HR static deploy script, deployment documentation, and environment variable guidance.'
 } as const
