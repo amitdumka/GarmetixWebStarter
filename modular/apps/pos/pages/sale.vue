@@ -28,11 +28,33 @@
             <USelect v-model="form.salesmanId" :items="salesmanOptions" placeholder="Manager" />
           </UFormField>
           <UFormField label="Customer mobile" name="customerMobileNumber">
-            <UInput v-model="form.customerMobileNumber" icon="i-lucide-phone" placeholder="Optional" />
+            <UInput v-model="form.customerMobileNumber" icon="i-lucide-phone" placeholder="Optional" @keyup.enter="searchCustomer" />
           </UFormField>
           <UFormField label="Customer name" name="customerName">
             <UInput v-model="form.customerName" icon="i-lucide-user-round" />
           </UFormField>
+        </div>
+
+        <div class="grid gap-3 border border-default bg-muted/10 p-4 lg:grid-cols-[1fr_1fr_auto]">
+          <UFormField label="Customer search" name="customerSearch">
+            <UInput v-model="customerSearch" icon="i-lucide-search" placeholder="Mobile, name or GSTIN" @keyup.enter="searchCustomer" />
+          </UFormField>
+          <UFormField label="Matched customer" name="customerMatch">
+            <USelect v-model="selectedCustomerId" :items="customerMatchOptions" placeholder="Walk-in / new customer" @change="selectCustomer" />
+          </UFormField>
+          <div class="flex items-end gap-2">
+            <UButton icon="i-lucide-search" :loading="searchingCustomer" @click="searchCustomer">Search</UButton>
+            <UButton color="neutral" variant="soft" icon="i-lucide-user-x" @click="clearCustomer">Clear</UButton>
+          </div>
+          <UFormField label="Customer GSTIN" name="customerGstin">
+            <UInput v-model="form.customerGstin" icon="i-lucide-badge-indian-rupee" placeholder="Optional B2B GSTIN" />
+          </UFormField>
+          <div v-if="selectedCustomerProfile" class="grid gap-2 text-sm lg:col-span-2 lg:grid-cols-4">
+            <div class="border border-default p-3"><p class="text-muted">Credit</p><strong>{{ money(selectedCustomerProfile.customer?.creditBalance || 0) }}</strong></div>
+            <div class="border border-default p-3"><p class="text-muted">Loyalty points</p><strong>{{ Number(selectedCustomerProfile.customer?.loyaltyPoints || 0) }}</strong></div>
+            <div class="border border-default p-3"><p class="text-muted">Credit notes</p><strong>{{ selectedCustomerProfile.creditNotes?.length || 0 }}</strong></div>
+            <div class="border border-default p-3"><p class="text-muted">Advances</p><strong>{{ selectedCustomerProfile.advanceReceipts?.length || 0 }}</strong></div>
+          </div>
         </div>
 
         <div class="grid gap-3 border border-default bg-muted/10 p-4 lg:grid-cols-[1fr_110px_110px_auto]">
@@ -126,6 +148,30 @@
         </div>
 
         <div class="border border-default bg-muted/10 p-4">
+          <h3 class="text-base font-semibold">Customer adjustments</h3>
+          <div class="mt-4 space-y-3">
+            <UFormField label="Store credit">
+              <UInput v-model="adjustments.storeCreditAmount" inputmode="decimal" :disabled="!selectedCustomerProfile" @input="syncCashPayment" />
+            </UFormField>
+            <UFormField label="Credit note">
+              <USelect v-model="adjustments.creditNoteId" :items="creditNoteOptions" placeholder="Select credit note" :disabled="!creditNoteOptions.length" />
+            </UFormField>
+            <UFormField label="Credit note amount">
+              <UInput v-model="adjustments.creditNoteAmount" inputmode="decimal" :disabled="!adjustments.creditNoteId" @input="syncCashPayment" />
+            </UFormField>
+            <UFormField label="Advance receipt">
+              <USelect v-model="adjustments.advanceReceiptId" :items="advanceOptions" placeholder="Select advance" :disabled="!advanceOptions.length" />
+            </UFormField>
+            <UFormField label="Advance amount">
+              <UInput v-model="adjustments.advanceAmount" inputmode="decimal" :disabled="!adjustments.advanceReceiptId" @input="syncCashPayment" />
+            </UFormField>
+            <UFormField label="Loyalty points">
+              <UInput v-model="adjustments.loyaltyPointsToRedeem" inputmode="decimal" :disabled="!selectedCustomerProfile?.loyaltyProgram?.enabled" @input="syncCashPayment" />
+            </UFormField>
+          </div>
+        </div>
+
+        <div class="border border-default bg-muted/10 p-4">
           <h3 class="text-base font-semibold">Totals</h3>
           <dl class="mt-4 space-y-2 text-sm">
             <div class="flex justify-between gap-3"><dt class="text-muted">Items</dt><dd>{{ cart.length }}</dd></div>
@@ -137,6 +183,7 @@
             </div>
             <div class="flex justify-between gap-3"><dt class="text-muted">Round off</dt><dd>{{ money(roundOff) }}</dd></div>
             <div class="flex justify-between gap-3 border-t border-default pt-2 text-lg font-semibold"><dt>Payable</dt><dd>{{ money(payableTotal) }}</dd></div>
+            <div class="flex justify-between gap-3"><dt class="text-muted">Adjustments</dt><dd>{{ money(adjustmentTotal) }}</dd></div>
             <div class="flex justify-between gap-3"><dt class="text-muted">Paid</dt><dd>{{ money(paymentTotal) }}</dd></div>
             <div class="flex justify-between gap-3"><dt class="text-muted">Balance</dt><dd>{{ money(paymentBalance) }}</dd></div>
           </dl>
@@ -178,6 +225,42 @@ interface PaymentRow {
   referenceNumber: string
 }
 
+interface CustomerProfile {
+  customer?: {
+    id: string
+    name: string
+    mobileNumber: string
+    gstin?: string
+    creditBalance?: number
+    loyaltyPoints?: number
+  }
+  creditNotes?: AdjustmentOption[]
+  advanceReceipts?: AdjustmentOption[]
+  loyaltyProgram?: {
+    enabled: boolean
+    redeemValuePerPoint: number
+    earnPointsPerRupee: number
+    minimumBillAmount: number
+  }
+}
+
+interface AdjustmentOption {
+  id: string
+  number: string
+  availableAmount: number
+  sourceType: string
+  referenceNumber?: string
+}
+
+interface PrintQueueItem {
+  invoiceId: string
+  invoiceNumber: string
+  customerName: string
+  billAmount: number
+  savedAt: string
+  printedAt?: string
+}
+
 const paymentModeValue = {
   cash: 0,
   card: 1,
@@ -188,6 +271,9 @@ const paymentModeValue = {
   neft: 6,
   cheque: 7,
   demandDraft: 8,
+  creditNote: 9,
+  coupons: 11,
+  creditBalance: 15,
   mixPayments: 12
 }
 
@@ -204,6 +290,7 @@ const paymentModeOptions = [
 ]
 
 const draftKey = 'garmetix.pos.sale.draft.v1'
+const printQueueKey = 'garmetix.pos.print.queue.v1'
 const runtimeConfig = useRuntimeConfig()
 const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
 const loading = ref(false)
@@ -218,6 +305,11 @@ const salesmen = ref<any[]>([])
 const bankAccounts = ref<any[]>([])
 const productSuggestions = ref<ProductLookupItem[]>([])
 const selectedProduct = ref<ProductLookupItem | null>(null)
+const customerMatches = ref<any[]>([])
+const selectedCustomerProfile = ref<CustomerProfile | null>(null)
+const selectedCustomerId = ref<string | null>(null)
+const customerSearch = ref('')
+const searchingCustomer = ref(false)
 const productSearch = ref('')
 const quantity = ref('1')
 const lineDiscount = ref('')
@@ -233,6 +325,14 @@ const form = reactive({
   customerGstin: '',
   salesmanId: null as string | null,
   billDiscountAmount: 0
+})
+const adjustments = reactive({
+  storeCreditAmount: 0,
+  loyaltyPointsToRedeem: 0,
+  creditNoteId: null as string | null,
+  creditNoteAmount: 0,
+  advanceReceiptId: null as string | null,
+  advanceAmount: 0
 })
 
 const api = computed(() => createGarmetixApiClient({
@@ -254,12 +354,39 @@ const bankAccountOptions = computed(() => bankAccounts.value
     value: account.id,
     label: `${account.accountHolderName || account.bankName || 'Bank'} ${account.accountNumber || ''}`.trim()
   })))
+const customerMatchOptions = computed(() => customerMatches.value.map(customer => ({
+  value: customer.id,
+  label: customer.label || `${customer.name || 'Customer'} ${customer.mobileNumber || ''}`.trim()
+})))
+const creditNoteOptions = computed(() => (selectedCustomerProfile.value?.creditNotes || []).map(item => ({
+  value: item.id,
+  label: `${item.number} | Available ${money(item.availableAmount)}`
+})))
+const advanceOptions = computed(() => (selectedCustomerProfile.value?.advanceReceipts || []).map(item => ({
+  value: item.id,
+  label: `${item.number} | Available ${money(item.availableAmount)}`
+})))
+const selectedCreditNote = computed(() => (selectedCustomerProfile.value?.creditNotes || []).find(item => item.id === adjustments.creditNoteId))
+const selectedAdvance = computed(() => (selectedCustomerProfile.value?.advanceReceipts || []).find(item => item.id === adjustments.advanceReceiptId))
+const storeCreditAmount = computed(() => Math.min(
+  Number(adjustments.storeCreditAmount || 0),
+  Number(selectedCustomerProfile.value?.customer?.creditBalance || 0)
+))
+const creditNoteAmount = computed(() => Math.min(Number(adjustments.creditNoteAmount || 0), Number(selectedCreditNote.value?.availableAmount || 0)))
+const advanceAmount = computed(() => Math.min(Number(adjustments.advanceAmount || 0), Number(selectedAdvance.value?.availableAmount || 0)))
+const loyaltyValue = computed(() => {
+  const profile = selectedCustomerProfile.value
+  const points = Math.min(Number(adjustments.loyaltyPointsToRedeem || 0), Number(profile?.customer?.loyaltyPoints || 0))
+  return Math.max(points * Number(profile?.loyaltyProgram?.redeemValuePerPoint || 0), 0)
+})
+const adjustmentTotal = computed(() => storeCreditAmount.value + creditNoteAmount.value + advanceAmount.value + loyaltyValue.value)
 const cartTotal = computed(() => cart.value.reduce((sum, item) => sum + lineTotal(item), 0))
 const totalQuantity = computed(() => cart.value.reduce((sum, item) => sum + Number(item.quantity || 0), 0))
 const unroundedPayable = computed(() => Math.max(cartTotal.value - Number(form.billDiscountAmount || 0), 0))
 const payableTotal = computed(() => Math.round(unroundedPayable.value))
 const roundOff = computed(() => payableTotal.value - unroundedPayable.value)
-const paymentTotal = computed(() => payments.value.reduce((sum, item) => sum + Number(item.amount || 0), 0))
+const manualPaymentTotal = computed(() => payments.value.reduce((sum, item) => sum + Number(item.amount || 0), 0))
+const paymentTotal = computed(() => manualPaymentTotal.value + adjustmentTotal.value)
 const paymentBalance = computed(() => Math.max(payableTotal.value - paymentTotal.value, 0))
 const canSave = computed(() => Boolean(form.companyId && form.storeGroupId && form.storeId && cart.value.length && !saving.value))
 
@@ -321,6 +448,7 @@ async function refresh() {
     form.storeId = storedUser?.storeId || status?.storeId || form.storeId || storeRows[0]?.id || ''
     await loadBillingOptions()
     restoreDraft()
+    if (form.customerId) await loadCustomerProfile(form.customerId)
     syncCashPayment()
   } catch (error) {
     showMessage('error', error instanceof Error ? error.message : 'Could not load POS sale data.')
@@ -350,6 +478,82 @@ function setDefaultSalesman() {
   if (form.salesmanId) return
   const manager = salesmen.value.find(item => String(item.name || '').trim().toLowerCase() === 'manager')
   form.salesmanId = manager?.id || salesmen.value[0]?.id || null
+}
+
+async function searchCustomer() {
+  const term = String(customerSearch.value || form.customerMobileNumber || form.customerName || '').trim()
+  if (!term || term === 'Walk-in Customer') {
+    showMessage('warning', 'Enter customer mobile, name, or GSTIN to search.')
+    return
+  }
+
+  searchingCustomer.value = true
+  try {
+    const query = new URLSearchParams({ q: term, take: '10' })
+    if (form.companyId) query.set('companyId', form.companyId)
+    customerMatches.value = await api.value.get<any[]>(`billing/customers/search?${query.toString()}`)
+    const exact = customerMatches.value.filter(customer => String(customer.mobileNumber || '').trim() === term)
+    if (exact.length === 1) {
+      selectedCustomerId.value = exact[0].id
+      await selectCustomer()
+      return
+    }
+    if (!customerMatches.value.length) {
+      form.customerId = null
+      selectedCustomerId.value = null
+      selectedCustomerProfile.value = null
+      if (!form.customerName || form.customerName === 'Walk-in Customer') form.customerName = 'New Customer'
+      showMessage('neutral', 'No existing customer matched. This customer will be saved with the invoice.')
+    }
+  } catch (error) {
+    showMessage('error', error instanceof Error ? error.message : 'Could not search customer.')
+  } finally {
+    searchingCustomer.value = false
+  }
+}
+
+async function selectCustomer() {
+  const customer = customerMatches.value.find(item => item.id === selectedCustomerId.value)
+  if (!customer) return
+  form.customerId = customer.id
+  form.customerName = customer.name || 'Customer'
+  form.customerMobileNumber = customer.mobileNumber || ''
+  form.customerGstin = customer.gstin || ''
+  await loadCustomerProfile(customer.id)
+  saveDraft()
+}
+
+async function loadCustomerProfile(customerId: string) {
+  try {
+    const query = new URLSearchParams()
+    if (form.storeId) query.set('storeId', form.storeId)
+    selectedCustomerProfile.value = await api.value.get<CustomerProfile>(`billing/customers/${customerId}/profile?${query.toString()}`)
+  } catch (error) {
+    selectedCustomerProfile.value = null
+    showMessage('error', error instanceof Error ? error.message : 'Could not load customer balance.')
+  }
+}
+
+function clearCustomer() {
+  form.customerId = null
+  form.customerName = 'Walk-in Customer'
+  form.customerMobileNumber = ''
+  form.customerGstin = ''
+  customerSearch.value = ''
+  selectedCustomerId.value = null
+  customerMatches.value = []
+  selectedCustomerProfile.value = null
+  resetAdjustments()
+  syncCashPayment()
+}
+
+function resetAdjustments() {
+  adjustments.storeCreditAmount = 0
+  adjustments.loyaltyPointsToRedeem = 0
+  adjustments.creditNoteId = null
+  adjustments.creditNoteAmount = 0
+  adjustments.advanceReceiptId = null
+  adjustments.advanceAmount = 0
 }
 
 function suggestionLabel(item: ProductLookupItem) {
@@ -465,7 +669,7 @@ function syncCashPayment(autoFill = true) {
 }
 
 function buildPayments() {
-  return payments.value
+  const rows = payments.value
     .filter(item => Number(item.amount || 0) > 0)
     .map(item => ({
       paymentMode: Number(item.paymentMode),
@@ -477,6 +681,30 @@ function buildPayments() {
       adjustmentSourceType: null,
       adjustmentSourceId: null
     }))
+  if (storeCreditAmount.value > 0) rows.push(adjustmentPayment(paymentModeValue.creditBalance, storeCreditAmount.value, 'Customer credit balance', 'CustomerCreditBalance'))
+  if (creditNoteAmount.value > 0 && adjustments.creditNoteId) {
+    rows.push(adjustmentPayment(paymentModeValue.creditNote, creditNoteAmount.value, selectedCreditNote.value?.number || 'Credit note', 'CreditNote', adjustments.creditNoteId))
+  }
+  if (advanceAmount.value > 0 && adjustments.advanceReceiptId) {
+    rows.push(adjustmentPayment(paymentModeValue.creditBalance, advanceAmount.value, selectedAdvance.value?.number || 'Customer advance', 'CustomerAdvanceReceipt', adjustments.advanceReceiptId))
+  }
+  if (loyaltyValue.value > 0) {
+    rows.push(adjustmentPayment(paymentModeValue.coupons, loyaltyValue.value, `${adjustments.loyaltyPointsToRedeem} loyalty points`, 'LoyaltyRedemption'))
+  }
+  return rows
+}
+
+function adjustmentPayment(paymentMode: number, amount: number, referenceNumber: string, sourceType: string, sourceId: string | null = null) {
+  return {
+    paymentMode,
+    amount,
+    bankAccountId: null,
+    referenceNumber,
+    gatewayReference: null,
+    settlementStatus: null,
+    adjustmentSourceType: sourceType,
+    adjustmentSourceId: sourceId
+  }
 }
 
 async function saveAndPrint() {
@@ -520,6 +748,13 @@ async function saveAndPrint() {
         discountAmount: Number(item.discountAmount)
       }))
     })
+    addPrintQueueItem({
+      invoiceId: response.invoiceId,
+      invoiceNumber: response.invoiceNumber || '',
+      customerName: form.customerName || 'Walk-in Customer',
+      billAmount: Number(response.billAmount || payableTotal.value),
+      savedAt: new Date().toISOString()
+    })
     clearDraft()
     resetForNext()
     showMessage('success', `Invoice ${response.invoiceNumber || ''} saved.`.trim())
@@ -550,6 +785,10 @@ function resetForNext() {
   form.customerMobileNumber = ''
   form.customerGstin = ''
   form.billDiscountAmount = 0
+  selectedCustomerId.value = null
+  customerMatches.value = []
+  selectedCustomerProfile.value = null
+  resetAdjustments()
   cart.value = []
   payments.value = [emptyPayment(0)]
   productSearch.value = ''
@@ -558,12 +797,30 @@ function resetForNext() {
   setDefaultSalesman()
 }
 
+function addPrintQueueItem(item: PrintQueueItem) {
+  if (!import.meta.client || !item.invoiceId) return
+  const rows = readPrintQueue().filter(row => row.invoiceId !== item.invoiceId)
+  rows.unshift(item)
+  localStorage.setItem(printQueueKey, JSON.stringify(rows.slice(0, 50)))
+}
+
+function readPrintQueue(): PrintQueueItem[] {
+  if (!import.meta.client) return []
+  try {
+    const rows = JSON.parse(localStorage.getItem(printQueueKey) || '[]')
+    return Array.isArray(rows) ? rows : []
+  } catch {
+    return []
+  }
+}
+
 function saveDraft() {
   if (!import.meta.client) return
   localStorage.setItem(draftKey, JSON.stringify({
     form,
     cart: cart.value,
-    payments: payments.value
+    payments: payments.value,
+    adjustments
   }))
 }
 
@@ -573,6 +830,7 @@ function restoreDraft() {
     const draft = JSON.parse(localStorage.getItem(draftKey) || 'null')
     if (!draft) return
     Object.assign(form, draft.form || {})
+    Object.assign(adjustments, draft.adjustments || {})
     cart.value = Array.isArray(draft.cart) ? draft.cart : []
     payments.value = Array.isArray(draft.payments) && draft.payments.length ? draft.payments : [emptyPayment(0)]
   } catch {
@@ -592,6 +850,10 @@ watch(productSearch, (value) => {
 
 watch(() => [form.customerName, form.customerMobileNumber, form.billDiscountAmount, form.salesmanId], () => saveDraft())
 watch(payments, () => saveDraft(), { deep: true })
+watch(adjustments, () => {
+  syncCashPayment()
+  saveDraft()
+}, { deep: true })
 
 onMounted(() => {
   void refresh()

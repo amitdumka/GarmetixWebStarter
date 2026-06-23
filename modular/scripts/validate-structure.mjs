@@ -19,6 +19,7 @@ const requiredPaths = [
   'docs/stage-12a5-shared-shell-status.md',
   'docs/stage-12b1-pos-foundation.md',
   'docs/stage-12b2-pos-sale-draft.md',
+  'docs/stage-12b3-pos-customer-print-queue.md',
   'packages/shared-api/src/index.ts',
   'packages/shared-auth/src/index.ts',
   'packages/shared-types/src/index.ts',

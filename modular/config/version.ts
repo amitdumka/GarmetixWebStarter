@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '5.12.2',
-  stage: 'Stage 12B.2',
-  label: 'Version5 Stage 12B.2 POS Sale Draft',
-  summary: 'POS sale invoice draft, product lookup, totals, save and print foundation.'
+  version: '5.12.3',
+  stage: 'Stage 12B.3',
+  label: 'Version5 Stage 12B.3 POS Customer And Print Queue',
+  summary: 'POS customer profile adjustments and invoice print queue hardening.'
 } as const

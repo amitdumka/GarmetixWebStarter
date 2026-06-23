@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/pos-web",
   "private": true,
-  "version": "5.0.0",
+  "version": "5.12.3",
   "type": "module",
   "scripts": {
     "dev": "nuxt dev --port 3101",
@@ -15,4 +15,3 @@
     "@garmetix/shared-ui": "5.0.0"
   }
 }
-
