@@ -32,6 +32,7 @@ const requiredPaths = [
   'docs/stage-12d2-ai-sense-analytics-endpoints.md',
   'docs/stage-12d3-ai-sense-static-deploy.md',
   'docs/stage-12e1-books-foundation.md',
+  'docs/stage-12e2-books-master-data.md',
   'deploy/README.md',
   'deploy/pos-static-deploy.sh',
   'deploy/hr-static-deploy.sh',
@@ -102,6 +103,7 @@ const requiredPaths = [
   'apps/books/pages/credit-notes/new.vue',
   'apps/books/pages/credit-notes/[id].vue',
   'apps/books/components/BooksPlaceholder.vue',
+  'apps/books/components/BooksMasterTable.vue',
   'apps/books/middleware/auth.global.ts',
   'apps/books/utils/books-api.ts',
   'apps/admin/package.json'

@@ -51,3 +51,56 @@ export function toRows(value: unknown): ApiRecord[] {
   }
   return []
 }
+
+export function formatDate(value: unknown) {
+  if (!value) return '-'
+  const date = new Date(String(value))
+  if (Number.isNaN(date.getTime())) return String(value)
+  return new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  }).format(date)
+}
+
+export function optionLabel(options: ReadonlyArray<{ value: number, label: string }>, value: unknown, fallback = '-') {
+  const numericValue = typeof value === 'number' ? value : Number(value)
+  return options.find(item => item.value === numericValue)?.label ?? fallback
+}
+
+export const ledgerTypeOptions = [
+  { value: 0, label: 'Asset' },
+  { value: 1, label: 'Cash' },
+  { value: 2, label: 'Bank Account' },
+  { value: 3, label: 'Loan' },
+  { value: 4, label: 'Expenses' },
+  { value: 7, label: 'Income' },
+  { value: 11, label: 'Sale' },
+  { value: 12, label: 'Stock Item' },
+  { value: 15, label: 'Capital Account' },
+  { value: 16, label: 'Current Asset' },
+  { value: 18, label: 'Current Liability' },
+  { value: 20, label: 'Sundry Debtor' },
+  { value: 21, label: 'Sundry Creditor' },
+  { value: 23, label: 'Suspense' }
+] as const
+
+export const partyTypeOptions = [
+  { value: 0, label: 'Customer' },
+  { value: 1, label: 'Supplier' },
+  { value: 2, label: 'Employee' },
+  { value: 3, label: 'Vendor' },
+  { value: 4, label: 'Debtor' },
+  { value: 5, label: 'Creditor' },
+  { value: 6, label: 'Others' }
+] as const
+
+export const accountTypeOptions = [
+  { value: 0, label: 'Saving' },
+  { value: 1, label: 'Current' },
+  { value: 2, label: 'Cash Credit' },
+  { value: 3, label: 'Over Draft' },
+  { value: 4, label: 'Others' },
+  { value: 5, label: 'Loan' },
+  { value: 6, label: 'CF' }
+] as const
