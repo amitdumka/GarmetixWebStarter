@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '5.12.17',
-  stage: 'Stage 12E.3',
-  label: 'Version5 Stage 12E.3 Books Bank Operations',
-  summary: 'Read-only Books bank operations for transactions, statements, reconciliation, cheques, vendor banks, and bank account details.'
+  version: '5.12.18',
+  stage: 'Stage 12E.4',
+  label: 'Version5 Stage 12E.4 Books Voucher Review',
+  summary: 'Read-only Books voucher review with ledger, party, bank, employee labels and authenticated PDF download readiness.'
 } as const

@@ -1,5 +1,6 @@
-import { createGarmetixApiClient } from '@garmetix/shared-api'
+import { createApiUrl, createGarmetixApiClient } from '@garmetix/shared-api'
 import { getStoredToken } from '@garmetix/shared-auth'
+import { stripServerUrl } from '@garmetix/shared-utils'
 
 export type ApiRecord = Record<string, unknown>
 
@@ -16,7 +17,41 @@ export function useBooksApiClient() {
     return await api.get<T>(path, { query })
   }
 
-  return { apiBaseUrl, get }
+  function apiUrl(path: string, query?: Record<string, string | number | boolean | null | undefined>) {
+    if (!apiBaseUrl.value) throw new Error('API base URL is not configured.')
+    const url = new URL(createApiUrl(apiBaseUrl.value, path))
+    for (const [key, value] of Object.entries(query ?? {})) {
+      if (value !== null && value !== undefined) url.searchParams.set(key, String(value))
+    }
+    return url.toString()
+  }
+
+  async function download(path: string, query?: Record<string, string | number | boolean | null | undefined>, fallbackFileName = 'garmetix-document.pdf') {
+    const token = getStoredToken(window.localStorage)
+    const headers = new Headers()
+    if (token) headers.set('Authorization', `Bearer ${token}`)
+
+    const response = await fetch(apiUrl(path, query), { headers })
+    if (!response.ok) {
+      const message = await response.text()
+      throw new Error(stripServerUrl(message || `Download failed with ${response.status}`))
+    }
+
+    const blob = await response.blob()
+    const disposition = response.headers.get('content-disposition') ?? ''
+    const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition)
+    const fileName = match?.[1] ? decodeURIComponent(match[1]) : fallbackFileName
+    const objectUrl = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = objectUrl
+    anchor.download = fileName
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(objectUrl)
+  }
+
+  return { apiBaseUrl, apiUrl, download, get }
 }
 
 export function readNumber(source: ApiRecord | null | undefined, keys: string[]) {
@@ -104,6 +139,31 @@ export const accountTypeOptions = [
   { value: 4, label: 'Others' },
   { value: 5, label: 'Loan' },
   { value: 6, label: 'CF' }
+] as const
+
+export const voucherTypeOptions = [
+  { value: 0, label: 'Payment' },
+  { value: 1, label: 'Receipt' },
+  { value: 2, label: 'Expense' }
+] as const
+
+export const paymentModeOptions = [
+  { value: 0, label: 'Cash' },
+  { value: 1, label: 'Card' },
+  { value: 2, label: 'UPI' },
+  { value: 3, label: 'Wallets' },
+  { value: 4, label: 'IMPS' },
+  { value: 5, label: 'RTGS' },
+  { value: 6, label: 'NEFT' },
+  { value: 7, label: 'Cheque' },
+  { value: 8, label: 'Demand Draft' },
+  { value: 9, label: 'Credit Note' },
+  { value: 10, label: 'Debit Note' },
+  { value: 11, label: 'Coupons' },
+  { value: 12, label: 'Mix Payments' },
+  { value: 13, label: 'Sale Return' },
+  { value: 14, label: 'Others' },
+  { value: 15, label: 'Credit Balance' }
 ] as const
 
 export const transactionTypeOptions = [
