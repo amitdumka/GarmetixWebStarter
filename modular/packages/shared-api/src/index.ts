@@ -18,6 +18,17 @@ export interface ApiHealthResult {
   checkedAt?: string
 }
 
+export interface AuthLoginRequest {
+  userName: string
+  password: string
+}
+
+export interface AuthLoginResponse<TUser = unknown> {
+  token: string
+  expiresAtUtc: string
+  user: TUser
+}
+
 export function createApiUrl(baseUrl: string, path: string) {
   const base = String(baseUrl || '').replace(/\/+$/, '')
   const nextPath = String(path || '').replace(/^\/+/, '')
@@ -26,6 +37,10 @@ export function createApiUrl(baseUrl: string, path: string) {
 
 export function createApiHealthUrl(baseUrl: string, healthPath = '/health') {
   return createApiUrl(baseUrl, healthPath)
+}
+
+export function createAuthUrl(baseUrl: string, path: string) {
+  return createApiUrl(baseUrl, `auth/${String(path).replace(/^\/+/, '')}`)
 }
 
 export async function checkApiHealth(baseUrl: string, healthPath = '/health'): Promise<ApiHealthResult> {
@@ -100,4 +115,19 @@ export function createGarmetixApiClient(options: GarmetixApiClientOptions) {
     put: <T>(path: string, body?: unknown, options?: ApiRequestOptions) => request<T>(path, { ...options, method: 'PUT', body: body === undefined ? undefined : JSON.stringify(body) }),
     delete: <T>(path: string, options?: ApiRequestOptions) => request<T>(path, { ...options, method: 'DELETE' })
   }
+}
+
+export async function loginToGarmetix<TUser = unknown>(baseUrl: string, request: AuthLoginRequest): Promise<AuthLoginResponse<TUser>> {
+  const response = await fetch(createAuthUrl(baseUrl, 'login'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request)
+  })
+
+  if (!response.ok) {
+    const message = await response.text()
+    throw new Error(stripServerUrl(message || 'Login failed. Check the username and password.'))
+  }
+
+  return await response.json() as AuthLoginResponse<TUser>
 }
