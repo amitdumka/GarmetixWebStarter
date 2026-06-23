@@ -79,6 +79,7 @@ import { checkApiHealth, type ApiHealthResult } from '@garmetix/shared-api'
 import { clearStoredSession, getAuthSessionSnapshot, type AuthSessionSnapshot } from '@garmetix/shared-auth'
 import { buildAppShellModel, buildShellStatusCards } from '@garmetix/shared-ui'
 import { buildAppTargetLinks, garmetixRoutes } from '../../config/routes'
+import { garmetixModularVersion } from '../../config/version'
 
 const appId = 'pos' as const
 const route = useRoute()
@@ -143,8 +144,8 @@ const statusCards = computed(() => buildShellStatusCards([
   {
     key: 'stage',
     label: 'Current stage',
-    value: 'Stage 12B.1',
-    detail: 'POS route shell, login bridge, and counter page foundation.',
+    value: garmetixModularVersion.stage,
+    detail: garmetixModularVersion.summary,
     tone: 'neutral'
   }
 ]))

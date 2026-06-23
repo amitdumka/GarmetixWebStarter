@@ -31,6 +31,7 @@ Status: in progress.
 Goal: split the fastest billing counter workflows first.
 
 - 12B.1 complete: add POS route shell, login bridge, and first route pages inside `modular/apps/pos`.
+- 12B.2 complete: add POS sale draft with product lookup, cart totals, payments, save and print.
 - Planned routes: `/login`, `/`, `/day-open`, `/sale`, `/hold-bills`, `/returns`, `/print`, `/day-close`.
 - Reuse `modular/packages/shared-api` and `modular/packages/shared-auth`.
 - Keep sale invoice and print flows compatible with existing API behavior.
