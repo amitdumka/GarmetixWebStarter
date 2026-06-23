@@ -23,6 +23,7 @@ const requiredPaths = [
   'docs/stage-12b4-pos-operator-hardening.md',
   'docs/stage-12b5-pos-returns-foundation.md',
   'docs/stage-12b6-pos-held-bills.md',
+  'docs/stage-12b7-pos-day-open-close.md',
   'packages/shared-api/src/index.ts',
   'packages/shared-auth/src/index.ts',
   'packages/shared-types/src/index.ts',
