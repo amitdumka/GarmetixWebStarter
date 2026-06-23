@@ -4,6 +4,7 @@ export interface GarmetixFrontendDefinition {
   id: GarmetixFrontendId
   name: string
   envUrlKey: string
+  envUrlAliases?: string[]
   localPort: number
   subdomain: string
   primaryRoles: string[]
@@ -15,6 +16,7 @@ export const garmetixFrontends: GarmetixFrontendDefinition[] = [
     id: 'main',
     name: 'Garmetix Back Office',
     envUrlKey: 'NUXT_PUBLIC_GARMETIX_MAIN_URL',
+    envUrlAliases: ['NUXT_PUBLIC_MAIN_WEB_URL'],
     localPort: 3100,
     subdomain: 'garmetix',
     primaryRoles: ['Owner', 'Admin', 'PowerUser', 'StoreManager', 'Accountant'],
@@ -24,6 +26,7 @@ export const garmetixFrontends: GarmetixFrontendDefinition[] = [
     id: 'pos',
     name: 'Garmetix POS',
     envUrlKey: 'NUXT_PUBLIC_GARMETIX_POS_URL',
+    envUrlAliases: ['NUXT_PUBLIC_POS_WEB_URL'],
     localPort: 3101,
     subdomain: 'pos.garmetix',
     primaryRoles: ['Owner', 'Admin', 'StoreManager', 'Cashier', 'Salesman'],
@@ -33,6 +36,7 @@ export const garmetixFrontends: GarmetixFrontendDefinition[] = [
     id: 'hr',
     name: 'Garmetix HR',
     envUrlKey: 'NUXT_PUBLIC_GARMETIX_HR_URL',
+    envUrlAliases: ['NUXT_PUBLIC_HR_WEB_URL'],
     localPort: 3102,
     subdomain: 'hr.garmetix',
     primaryRoles: ['Owner', 'Admin', 'PowerUser', 'HrManager'],
@@ -42,6 +46,7 @@ export const garmetixFrontends: GarmetixFrontendDefinition[] = [
     id: 'ai-sense',
     name: 'Garmetix AI Sense',
     envUrlKey: 'NUXT_PUBLIC_GARMETIX_AI_SENSE_URL',
+    envUrlAliases: ['NUXT_PUBLIC_AI_SENSE_WEB_URL'],
     localPort: 3103,
     subdomain: 'ai-sense.garmetix',
     primaryRoles: ['Owner', 'Admin', 'PowerUser'],
@@ -51,6 +56,7 @@ export const garmetixFrontends: GarmetixFrontendDefinition[] = [
     id: 'books',
     name: 'Garmetix Books',
     envUrlKey: 'NUXT_PUBLIC_GARMETIX_BOOKS_URL',
+    envUrlAliases: ['NUXT_PUBLIC_ACCOUNTING_WEB_URL'],
     localPort: 3104,
     subdomain: 'books.garmetix',
     primaryRoles: ['Owner', 'Admin', 'Accountant', 'CA'],
@@ -60,6 +66,7 @@ export const garmetixFrontends: GarmetixFrontendDefinition[] = [
     id: 'admin',
     name: 'Garmetix Admin SaaS',
     envUrlKey: 'NUXT_PUBLIC_GARMETIX_ADMIN_URL',
+    envUrlAliases: ['NUXT_PUBLIC_SAAS_WEB_URL'],
     localPort: 3105,
     subdomain: 'admin.garmetix',
     primaryRoles: ['SuperAdmin', 'Owner'],
@@ -67,3 +74,11 @@ export const garmetixFrontends: GarmetixFrontendDefinition[] = [
   }
 ]
 
+export function getGarmetixFrontend(id: GarmetixFrontendId) {
+  return garmetixFrontends.find(app => app.id === id)
+}
+
+export function getFrontendEnvKeys(id: GarmetixFrontendId) {
+  const app = getGarmetixFrontend(id)
+  return app ? [app.envUrlKey, ...(app.envUrlAliases ?? [])] : []
+}

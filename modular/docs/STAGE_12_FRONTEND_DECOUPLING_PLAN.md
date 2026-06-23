@@ -490,18 +490,19 @@ This gives one source for menus, permissions, and route extraction instead of co
 
 ## Exact Next Implementation Steps
 
-1. Create a shared route registry in `modular/config/routes.ts` using this audit as the source of truth.
-2. Extract `useAuth` session types and token helpers into `modular/packages/shared-auth` without changing legacy behavior.
-3. Extract `useGarmetixApi` request logic into `modular/packages/shared-api`, keeping auth headers injectable so every app can reuse it.
-4. Extract route-role rules from `useAccessControl.ts` into shared permission utilities.
-5. Add a minimal login/auth guard to all six modular app shells using the shared auth package.
-6. Add one smoke page per modular app that calls `/health` or `/auth/bootstrap-status` through the shared API client.
-7. Validate all six static modular builds.
-8. Only after shared auth/API is stable, begin route extraction in this order:
+1. Keep the shared route registry in `modular/config/routes.ts` as the source of truth for modular ownership and app links.
+2. Wire route/menu helpers into shared shell UI so each modular app shows only its owned routes.
+3. Extract `useAuth` session types and token helpers into `modular/packages/shared-auth` without changing legacy behavior.
+4. Extract `useGarmetixApi` request logic into `modular/packages/shared-api`, keeping auth headers injectable so every app can reuse it.
+5. Extract route-role rules from `useAccessControl.ts` into shared permission utilities.
+6. Add a minimal login/auth guard to all six modular app shells using the shared auth package.
+7. Add one smoke page per modular app that calls `/health` or `/auth/bootstrap-status` through the shared API client.
+8. Validate all six static modular builds.
+9. Only after shared auth/API is stable, begin route extraction in this order:
    - POS: `/billing/new`, product lookup, customer lookup.
    - HR: attendance dashboard and today/monthly attendance.
    - Books: accounting, vouchers, petty cash.
    - Admin: system health, message logs, users/roles.
    - AI Sense: dashboards and reports.
-9. Update Docker/Cloudflare deployment after at least one modular app has real route parity.
-10. Keep `legacy/` available as fallback until all target apps pass acceptance.
+10. Update Docker/Cloudflare deployment after at least one modular app has real route parity.
+11. Keep `legacy/` available as fallback until all target apps pass acceptance.
