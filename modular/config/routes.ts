@@ -104,6 +104,8 @@ export const garmetixRoutes: GarmetixRouteDefinition[] = [
 
   route({ id: 'accounting', path: '/accounting', label: 'Accounting', icon: 'i-lucide-book-open-check', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books], status: 'shell-ready' }),
   route({ id: 'financial-year-locks', path: '/financial-year-locks', label: 'Financial Year Locks', icon: 'i-lucide-lock-keyhole', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books] }),
+  route({ id: 'books-audit', path: '/audit', label: 'Books Audit', icon: 'i-lucide-search-check', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books], notes: 'Accounting-scoped audit view; admin app keeps full audit ownership.' }),
+  route({ id: 'books-message-logs', path: '/message-logs', label: 'Books Message Logs', icon: 'i-lucide-message-square-warning', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books], notes: 'Accounting-scoped message log view; admin app keeps full log ownership.' }),
   route({ id: 'petty-cash', path: '/petty-cash', label: 'Petty Cash', icon: 'i-lucide-wallet', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books] }),
   route({ id: 'cash-details', path: '/cash-details', label: 'Cash Details', icon: 'i-lucide-banknote', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books] }),
   route({ id: 'vouchers', path: '/vouchers', label: 'Vouchers', icon: 'i-lucide-file-signature', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books] }),

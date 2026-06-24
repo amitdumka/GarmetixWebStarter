@@ -120,7 +120,9 @@ const baseBooksMenuRoutes = [
   { id: 'gst-returns', label: 'GST Returns', href: '/gst-returns', icon: 'i-lucide-file-check-2', protected: true },
   { id: 'gst-reports', label: 'GST Reports', href: '/gst-reports', icon: 'i-lucide-chart-column', protected: true },
   { id: 'gst-production', label: 'GST Readiness', href: '/gst-production', icon: 'i-lucide-factory', protected: true },
-  { id: 'locks', label: 'FY Locks', href: '/financial-year-locks', icon: 'i-lucide-lock-keyhole', protected: true }
+  { id: 'locks', label: 'FY Locks', href: '/financial-year-locks', icon: 'i-lucide-lock-keyhole', protected: true },
+  { id: 'audit', label: 'Audit', href: '/audit', icon: 'i-lucide-search-check', protected: true },
+  { id: 'message-logs', label: 'Message Logs', href: '/message-logs', icon: 'i-lucide-message-square-warning', protected: true }
 ]
 const booksMenuRoutes = computed(() => baseBooksMenuRoutes.filter(item => authSnapshot.value.hasToken ? item.id !== 'login' : !item.protected))
 const activeUserLabel = computed(() => {
