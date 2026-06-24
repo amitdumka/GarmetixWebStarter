@@ -169,6 +169,7 @@ Goal: move from production smoke tooling into deeper POS workflow parity and saf
 - 13B.2 complete: harden POS browser-local sale draft, held bill, return print queue and day open/close actions against corrupt local storage and duplicate clicks.
 - 13B.3 complete: separate POS save success from PDF print-window failures and normalize scanned invoice references for return lookup.
 - 13B.4 complete: normalize store-day API responses and keep day close successful when petty cash PDF print is blocked or fails.
+- 13B.5 complete: centralize POS sales return request construction and extend contract parity checks for sale, return and exchange DTOs.
 - Harden held bill, returns, print queue, day open and day close edge cases.
 - Add cashier/operator acceptance notes for 14 inch laptop use.
 - Keep off-book cash voucher and non-GST flows separated from regular books.

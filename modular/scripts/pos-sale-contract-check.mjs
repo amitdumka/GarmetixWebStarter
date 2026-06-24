@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url'
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(scriptDir, '../..')
 const backendDtoPath = join(repoRoot, 'legacy/backend/Garmetix.Api/Billing/BillingDtos.cs')
-const frontendContractPath = join(repoRoot, 'modular/apps/pos/utils/sale-contract.ts')
+const saleContractPath = join(repoRoot, 'modular/apps/pos/utils/sale-contract.ts')
+const returnContractPath = join(repoRoot, 'modular/apps/pos/utils/return-contract.ts')
 
 const pascalToCamel = (value) => value ? value[0].toLowerCase() + value.slice(1) : value
 
@@ -44,10 +45,15 @@ function compare(label, backendKeys, frontendKeys) {
 }
 
 const backend = readFileSync(backendDtoPath, 'utf8')
-const frontend = readFileSync(frontendContractPath, 'utf8')
+const saleFrontend = readFileSync(saleContractPath, 'utf8')
+const returnFrontend = readFileSync(returnContractPath, 'utf8')
 
-compare('PosSaleRequest', parseRecordParameters(backend, 'PosSaleRequest'), parseArray(frontend, 'posSaleRequestKeys'))
-compare('PosSaleItemRequest', parseRecordParameters(backend, 'PosSaleItemRequest'), parseArray(frontend, 'posSaleItemKeys'))
-compare('InvoicePaymentDetailRequest', parseRecordParameters(backend, 'InvoicePaymentDetailRequest'), parseArray(frontend, 'posSalePaymentKeys'))
+compare('PosSaleRequest', parseRecordParameters(backend, 'PosSaleRequest'), parseArray(saleFrontend, 'posSaleRequestKeys'))
+compare('PosSaleItemRequest', parseRecordParameters(backend, 'PosSaleItemRequest'), parseArray(saleFrontend, 'posSaleItemKeys'))
+compare('InvoicePaymentDetailRequest', parseRecordParameters(backend, 'InvoicePaymentDetailRequest'), parseArray(saleFrontend, 'posSalePaymentKeys'))
+compare('SalesReturnRequest', parseRecordParameters(backend, 'SalesReturnRequest'), parseArray(returnFrontend, 'salesReturnRequestKeys'))
+compare('SalesReturnItemRequest', parseRecordParameters(backend, 'SalesReturnItemRequest'), parseArray(returnFrontend, 'salesReturnItemKeys'))
+compare('SalesExchangeRequest', parseRecordParameters(backend, 'SalesExchangeRequest'), parseArray(returnFrontend, 'salesExchangeRequestKeys'))
+compare('ExchangeSaleItemRequest', parseRecordParameters(backend, 'ExchangeSaleItemRequest'), parseArray(returnFrontend, 'exchangeSaleItemKeys'))
 
-console.log('Garmetix POS sale contract parity check passed.')
+console.log('Garmetix POS billing contract parity check passed.')

@@ -164,6 +164,7 @@ import { getStoredToken } from '@garmetix/shared-auth'
 import { formatIndianMoney } from '@garmetix/shared-utils'
 import { upsertPrintQueueItem, type PosPrintQueueItem } from '../utils/local-pos-storage'
 import { normalizePosDocumentSearch, openBillingInvoicePdf, textMatchesDocumentSearch } from '../utils/pos-documents'
+import { createSalesReturnRequest } from '../utils/return-contract'
 
 useHead({ title: 'Sales Returns - Garmetix POS' })
 
@@ -284,7 +285,13 @@ const returnTotal = computed(() => returnLines.value.reduce((sum, item) => sum +
 const selectedReturnItemCount = computed(() => returnLines.value.filter(item => Number(item.returnQuantity || 0) > 0).length)
 const selectedReturnQuantity = computed(() => returnLines.value.reduce((sum, item) => sum + Number(item.returnQuantity || 0), 0))
 const storeCreditAmount = computed(() => Math.max(returnTotal.value - Number(returnForm.refundAmount || 0), 0))
-const canSubmitReturn = computed(() => Boolean(selectedInvoice.value && selectedReturnItemCount.value && returnTotal.value > 0 && !returning.value))
+const canSubmitReturn = computed(() => Boolean(
+  selectedInvoice.value
+  && selectedReturnItemCount.value
+  && returnTotal.value > 0
+  && (!refundRequiresBank.value || returnForm.bankAccountId)
+  && !returning.value
+))
 
 function money(value: number | string | null | undefined) {
   return formatIndianMoney(value)
@@ -416,7 +423,7 @@ async function submitReturn() {
 
   returning.value = true
   try {
-    const response = await api.value.post<SalesReturnResponse>(`billing/sales/${selectedInvoice.value.id}/returns`, {
+    const response = await api.value.post<SalesReturnResponse>(`billing/sales/${selectedInvoice.value.id}/returns`, createSalesReturnRequest({
       refundAmount: Number(returnForm.refundAmount || 0),
       refundPaymentMode: Number(returnForm.refundAmount || 0) > 0 ? Number(returnForm.refundPaymentMode) : null,
       bankAccountId: refundRequiresBank.value ? returnForm.bankAccountId : null,
@@ -427,7 +434,7 @@ async function submitReturn() {
           invoiceItemId: item.invoiceItemId,
           quantity: Number(item.returnQuantity || 0)
         }))
-    })
+    }))
     addPrintQueueItem({
       invoiceId: response.returnInvoiceId,
       invoiceNumber: response.creditNoteNumber || '',
