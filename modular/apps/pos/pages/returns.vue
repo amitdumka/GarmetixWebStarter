@@ -162,6 +162,7 @@
 import { createApiUrl, createGarmetixApiClient } from '@garmetix/shared-api'
 import { getStoredToken } from '@garmetix/shared-auth'
 import { formatIndianMoney } from '@garmetix/shared-utils'
+import { upsertPrintQueueItem, type PosPrintQueueItem } from '../utils/local-pos-storage'
 
 useHead({ title: 'Sales Returns - Garmetix POS' })
 
@@ -213,15 +214,6 @@ interface SalesReturnResponse {
   originalInvoiceStatus: string
 }
 
-interface PrintQueueItem {
-  invoiceId: string
-  invoiceNumber: string
-  customerName: string
-  billAmount: number
-  savedAt: string
-  printedAt?: string
-}
-
 const paymentModeValue = {
   cash: 0,
   card: 1,
@@ -246,7 +238,6 @@ const paymentModeOptions = [
   { value: paymentModeValue.demandDraft, label: 'Demand Draft' }
 ]
 
-const printQueueKey = 'garmetix.pos.print.queue.v1'
 const runtimeConfig = useRuntimeConfig()
 const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
 const loading = ref(false)
@@ -413,6 +404,7 @@ function validateReturn() {
 }
 
 async function submitReturn() {
+  if (returning.value) return
   const validation = validateReturn()
   if (validation) {
     showMessage('warning', validation)
@@ -465,21 +457,9 @@ async function printReturn(returnInvoiceId: string) {
   window.open(blobUrl, '_blank', 'noopener,noreferrer')
 }
 
-function addPrintQueueItem(item: PrintQueueItem) {
+function addPrintQueueItem(item: PosPrintQueueItem) {
   if (!import.meta.client || !item.invoiceId) return
-  const rows = readPrintQueue().filter(row => row.invoiceId !== item.invoiceId)
-  rows.unshift(item)
-  localStorage.setItem(printQueueKey, JSON.stringify(rows.slice(0, 50)))
-}
-
-function readPrintQueue(): PrintQueueItem[] {
-  if (!import.meta.client) return []
-  try {
-    const rows = JSON.parse(localStorage.getItem(printQueueKey) || '[]')
-    return Array.isArray(rows) ? rows : []
-  } catch {
-    return []
-  }
+  upsertPrintQueueItem(item)
 }
 
 function resetSelection() {

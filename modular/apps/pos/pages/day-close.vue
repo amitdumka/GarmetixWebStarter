@@ -234,6 +234,7 @@ async function refresh() {
 }
 
 async function closeDay() {
+  if (loading.value) return
   if (!form.storeId) {
     showMessage('warning', 'Select store before closing day.')
     return
@@ -274,6 +275,7 @@ async function deleteDayClose() {
 }
 
 async function correction(path: string, successMessage: string) {
+  if (loading.value) return
   if (!form.storeId) return
   loading.value = true
   try {
@@ -292,6 +294,7 @@ async function correction(path: string, successMessage: string) {
 }
 
 async function printPettyCash() {
+  if (loading.value) return
   if (!pettyCashSheetId.value) {
     showMessage('warning', 'Close the day before printing petty cash.')
     return

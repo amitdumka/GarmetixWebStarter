@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '5.13.6',
-  stage: 'Stage 13B.1',
-  label: 'Version5 Stage 13B.1 POS Sale Contract Parity',
-  summary: 'Added POS sale request contract helpers and a contract check against the current ASP.NET billing DTOs before deeper writable POS hardening.'
+  version: '5.13.7',
+  stage: 'Stage 13B.2',
+  label: 'Version5 Stage 13B.2 POS Local Workflow Hardening',
+  summary: 'Centralized POS browser draft, held bill and print queue storage so sale, returns and print workflows recover safely from corrupt local data and duplicate actions.'
 } as const

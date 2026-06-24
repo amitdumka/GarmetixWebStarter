@@ -202,6 +202,16 @@
 import { createGarmetixApiClient, createApiUrl } from '@garmetix/shared-api'
 import { getStoredToken, getStoredUser } from '@garmetix/shared-auth'
 import { formatIndianMoney } from '@garmetix/shared-utils'
+import {
+  clearSaleDraft,
+  createLocalPosId,
+  readSaleDraft,
+  upsertHeldBill,
+  upsertPrintQueueItem,
+  writeSaleDraft,
+  type PosHeldBill,
+  type PosPrintQueueItem
+} from '../utils/local-pos-storage'
 import { createPosSaleRequest, type PosSalePaymentPayload } from '../utils/sale-contract'
 
 useHead({ title: 'New Sale - Garmetix POS' })
@@ -257,27 +267,6 @@ interface AdjustmentOption {
   referenceNumber?: string
 }
 
-interface PrintQueueItem {
-  invoiceId: string
-  invoiceNumber: string
-  customerName: string
-  billAmount: number
-  savedAt: string
-  printedAt?: string
-}
-
-interface HeldBill {
-  id: string
-  heldAt: string
-  customerName: string
-  customerMobileNumber: string
-  itemCount: number
-  quantity: number
-  payableTotal: number
-  note?: string
-  draft: Record<string, unknown>
-}
-
 const paymentModeValue = {
   cash: 0,
   card: 1,
@@ -306,9 +295,6 @@ const paymentModeOptions = [
   { value: paymentModeValue.demandDraft, label: 'Demand Draft' }
 ]
 
-const draftKey = 'garmetix.pos.sale.draft.v1'
-const printQueueKey = 'garmetix.pos.print.queue.v1'
-const holdQueueKey = 'garmetix.pos.held-bills.v1'
 const runtimeConfig = useRuntimeConfig()
 const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
 const loading = ref(false)
@@ -748,10 +734,8 @@ function holdCurrentBill() {
     return
   }
 
-  const rows = readHeldBills()
-  const id = crypto?.randomUUID?.() || `held-${Date.now()}`
-  const heldBill: HeldBill = {
-    id,
+  const heldBill: PosHeldBill = {
+    id: createLocalPosId('held'),
     heldAt: new Date().toISOString(),
     customerName: form.customerName || 'Walk-in Customer',
     customerMobileNumber: form.customerMobileNumber || '',
@@ -761,8 +745,7 @@ function holdCurrentBill() {
     note: cart.value.map(item => item.name).slice(0, 3).join(', '),
     draft: buildSaleDraft()
   }
-  rows.unshift(heldBill)
-  localStorage.setItem(holdQueueKey, JSON.stringify(rows.slice(0, 100)))
+  upsertHeldBill(heldBill)
   clearDraft()
   resetForNext()
   showMessage('success', 'Bill held. Open Hold Bills to resume it.')
@@ -920,42 +903,20 @@ function resetForNext() {
   focusProductSearch()
 }
 
-function addPrintQueueItem(item: PrintQueueItem) {
+function addPrintQueueItem(item: PosPrintQueueItem) {
   if (!import.meta.client || !item.invoiceId) return
-  const rows = readPrintQueue().filter(row => row.invoiceId !== item.invoiceId)
-  rows.unshift(item)
-  localStorage.setItem(printQueueKey, JSON.stringify(rows.slice(0, 50)))
-}
-
-function readHeldBills(): HeldBill[] {
-  if (!import.meta.client) return []
-  try {
-    const rows = JSON.parse(localStorage.getItem(holdQueueKey) || '[]')
-    return Array.isArray(rows) ? rows : []
-  } catch {
-    return []
-  }
-}
-
-function readPrintQueue(): PrintQueueItem[] {
-  if (!import.meta.client) return []
-  try {
-    const rows = JSON.parse(localStorage.getItem(printQueueKey) || '[]')
-    return Array.isArray(rows) ? rows : []
-  } catch {
-    return []
-  }
+  upsertPrintQueueItem(item)
 }
 
 function saveDraft() {
   if (!import.meta.client) return
-  localStorage.setItem(draftKey, JSON.stringify(buildSaleDraft()))
+  writeSaleDraft(buildSaleDraft())
 }
 
 function restoreDraft() {
   if (!import.meta.client) return
   try {
-    const draft = JSON.parse(localStorage.getItem(draftKey) || 'null')
+    const draft = readSaleDraft()
     if (!draft) return
     Object.assign(form, draft.form || {})
     Object.assign(adjustments, draft.adjustments || {})
@@ -967,7 +928,7 @@ function restoreDraft() {
 }
 
 function clearDraft() {
-  if (import.meta.client) localStorage.removeItem(draftKey)
+  clearSaleDraft()
 }
 
 watch(productSearch, (value) => {

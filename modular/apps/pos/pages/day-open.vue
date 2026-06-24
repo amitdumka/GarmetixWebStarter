@@ -181,6 +181,7 @@ async function refresh() {
 }
 
 async function openDay() {
+  if (loading.value) return
   if (!form.storeId) {
     showMessage('warning', 'Select store before opening day.')
     return
@@ -204,6 +205,7 @@ async function openDay() {
 }
 
 async function markHoliday() {
+  if (loading.value) return
   if (!form.storeId) {
     showMessage('warning', 'Select store before marking holiday.')
     return

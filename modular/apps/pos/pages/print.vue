@@ -60,19 +60,15 @@
 import { createApiUrl, createGarmetixApiClient } from '@garmetix/shared-api'
 import { getStoredToken } from '@garmetix/shared-auth'
 import { formatIndianMoney } from '@garmetix/shared-utils'
+import {
+  clearPrintQueue,
+  readPrintQueue,
+  writePrintQueue,
+  type PosPrintQueueItem
+} from '../utils/local-pos-storage'
 
 useHead({ title: 'Print Queue - Garmetix POS' })
 
-interface PrintQueueItem {
-  invoiceId: string
-  invoiceNumber: string
-  customerName: string
-  billAmount: number
-  savedAt: string
-  printedAt?: string
-}
-
-const printQueueKey = 'garmetix.pos.print.queue.v1'
 const runtimeConfig = useRuntimeConfig()
 const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
 const loading = ref(false)
@@ -80,7 +76,7 @@ const printingId = ref('')
 const message = ref('')
 const messageTone = ref<'success' | 'error' | 'warning' | 'neutral'>('neutral')
 const messageIcon = computed(() => messageTone.value === 'success' ? 'i-lucide-circle-check' : messageTone.value === 'error' ? 'i-lucide-circle-alert' : messageTone.value === 'warning' ? 'i-lucide-triangle-alert' : 'i-lucide-info')
-const localQueue = ref<PrintQueueItem[]>([])
+const localQueue = ref<PosPrintQueueItem[]>([])
 const recentInvoices = ref<any[]>([])
 const api = computed(() => createGarmetixApiClient({
   baseUrl: apiBaseUrl.value,
@@ -108,17 +104,12 @@ function showMessage(tone: typeof messageTone.value, text: string) {
 
 function loadLocalQueue() {
   if (!import.meta.client) return
-  try {
-    const rows = JSON.parse(localStorage.getItem(printQueueKey) || '[]')
-    localQueue.value = Array.isArray(rows) ? rows : []
-  } catch {
-    localQueue.value = []
-  }
+  localQueue.value = readPrintQueue()
 }
 
 function saveLocalQueue() {
   if (!import.meta.client) return
-  localStorage.setItem(printQueueKey, JSON.stringify(localQueue.value.slice(0, 50)))
+  writePrintQueue(localQueue.value)
 }
 
 async function refresh() {
@@ -142,6 +133,7 @@ async function refresh() {
 }
 
 async function printInvoice(invoiceId: string, reprint: boolean) {
+  if (printingId.value) return
   const token = getStoredToken(window.localStorage)
   if (!token) {
     showMessage('warning', 'Login is required before printing invoices.')
@@ -179,7 +171,8 @@ async function printInvoice(invoiceId: string, reprint: boolean) {
 
 function clearLocalQueue() {
   localQueue.value = []
-  if (import.meta.client) localStorage.removeItem(printQueueKey)
+  clearPrintQueue()
+  showMessage('neutral', 'Local print queue cleared.')
 }
 
 onMounted(() => {

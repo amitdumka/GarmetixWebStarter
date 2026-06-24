@@ -61,25 +61,19 @@
 
 <script setup lang="ts">
 import { formatIndianMoney } from '@garmetix/shared-utils'
+import {
+  clearHeldBills,
+  readHeldBills,
+  removeHeldBill,
+  writeHeldBills,
+  writeSaleDraft,
+  type PosHeldBill
+} from '../utils/local-pos-storage'
 
 useHead({ title: 'Hold Bills - Garmetix POS' })
 
-interface HeldBill {
-  id: string
-  heldAt: string
-  customerName: string
-  customerMobileNumber: string
-  itemCount: number
-  quantity: number
-  payableTotal: number
-  note?: string
-  draft: Record<string, unknown>
-}
-
-const holdQueueKey = 'garmetix.pos.held-bills.v1'
-const draftKey = 'garmetix.pos.sale.draft.v1'
 const search = ref('')
-const heldBills = ref<HeldBill[]>([])
+const heldBills = ref<PosHeldBill[]>([])
 const message = ref('')
 const messageTone = ref<'success' | 'error' | 'warning' | 'neutral'>('neutral')
 const messageIcon = computed(() => messageTone.value === 'success' ? 'i-lucide-circle-check' : messageTone.value === 'error' ? 'i-lucide-circle-alert' : messageTone.value === 'warning' ? 'i-lucide-triangle-alert' : 'i-lucide-info')
@@ -116,22 +110,17 @@ function showMessage(tone: typeof messageTone.value, text: string) {
 
 function loadHeldBills() {
   if (!import.meta.client) return
-  try {
-    const rows = JSON.parse(localStorage.getItem(holdQueueKey) || '[]')
-    heldBills.value = Array.isArray(rows) ? rows : []
-  } catch {
-    heldBills.value = []
-  }
+  heldBills.value = readHeldBills()
 }
 
 function saveHeldBills() {
   if (!import.meta.client) return
-  localStorage.setItem(holdQueueKey, JSON.stringify(heldBills.value.slice(0, 100)))
+  writeHeldBills(heldBills.value)
 }
 
-async function resumeBill(bill: HeldBill) {
+async function resumeBill(bill: PosHeldBill) {
   if (!import.meta.client) return
-  localStorage.setItem(draftKey, JSON.stringify(bill.draft || {}))
+  writeSaleDraft(bill.draft || {})
   heldBills.value = heldBills.value.filter(item => item.id !== bill.id)
   saveHeldBills()
   showMessage('success', 'Held bill restored to sale screen.')
@@ -140,13 +129,13 @@ async function resumeBill(bill: HeldBill) {
 
 function removeBill(id: string) {
   heldBills.value = heldBills.value.filter(item => item.id !== id)
-  saveHeldBills()
+  removeHeldBill(id)
   showMessage('neutral', 'Held bill removed.')
 }
 
 function clearAll() {
   heldBills.value = []
-  if (import.meta.client) localStorage.removeItem(holdQueueKey)
+  clearHeldBills()
   showMessage('neutral', 'All held bills cleared from this POS browser.')
 }
 
