@@ -94,9 +94,10 @@ Goal: split owner/developer/admin controls.
 
 - 12F.1 complete: add Admin/SaaS shell, auth guard, login, dashboard and read-only setup, access, logs, runtime, production, license, import/export and onboarding foundation pages.
 - 12F.2 complete: connect safe read-only admin diagnostics for backup, Google Drive backup, system health, database migrations, data consistency, production support drills and rehearsal.
+- 12F.3 complete: add Admin/SaaS static deploy script and deployment notes for the Admin subdomain.
 - Planned areas: setup/company/store, users/roles/permissions, license, feature/module enablement, client onboarding, system health, message logs, backup/restore, deployment diagnostics.
 - Keep SuperAdmin-specific visibility rules explicit.
-- After Admin builds, add an Ubuntu deploy script for Admin static output.
+- Admin Ubuntu static deploy script is available at `modular/deploy/admin-static-deploy.sh`.
 
 ## Stage 12G: Main Back Office Cleanup
 

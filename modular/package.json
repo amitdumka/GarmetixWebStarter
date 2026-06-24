@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "5.12.25",
+  "version": "5.12.26",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -18,7 +18,8 @@
     "deploy:pos": "bash deploy/pos-static-deploy.sh",
     "deploy:hr": "bash deploy/hr-static-deploy.sh",
     "deploy:ai-sense": "bash deploy/ai-sense-static-deploy.sh",
-    "deploy:books": "bash deploy/books-static-deploy.sh"
+    "deploy:books": "bash deploy/books-static-deploy.sh",
+    "deploy:admin": "bash deploy/admin-static-deploy.sh"
   },
   "overrides": {
     "@babel/generator": "8.0.0-rc.6",

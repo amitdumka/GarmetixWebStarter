@@ -157,3 +157,41 @@ server {
 ```
 
 Cloudflare Tunnel should route the Books public hostname to this static server.
+
+## Admin/SaaS Static Deploy
+
+The Admin/SaaS frontend uses the same static release pattern as POS, HR, AI Sense and Books.
+
+Example:
+
+```bash
+cd /path/to/GarmetixWebStarter
+ADMIN_DEPLOY_TARGET=amit@192.168.11.126 \
+ADMIN_DEPLOY_REMOTE_DIR=/var/www/garmetix/admin \
+NUXT_PUBLIC_GARMETIX_API_BASE_URL=https://api.your-domain.example/api \
+NUXT_PUBLIC_GARMETIX_ADMIN_URL=https://admin.your-domain.example \
+bash modular/deploy/admin-static-deploy.sh
+```
+
+For the Ubuntu desktop target, set:
+
+```bash
+ADMIN_DEPLOY_TARGET=amitkumar@192.168.11.127
+```
+
+Point the Admin host root to the `current` symlink created by the deploy script:
+
+```nginx
+server {
+    listen 80;
+    server_name admin.your-domain.example;
+    root /var/www/garmetix/admin/current;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+Cloudflare Tunnel should route the Admin public hostname to this static server.
