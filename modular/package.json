@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "5.13.1",
+  "version": "5.13.2",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -13,6 +13,7 @@
     "deploy:preflight": "node scripts/deploy-preflight.mjs",
     "release:checklist": "node scripts/release-checklist.mjs",
     "smoke:checklist": "node scripts/smoke-checklist.mjs",
+    "smoke:routes": "node scripts/smoke-local-routes.mjs",
     "build:main": "npm --workspace @garmetix/main-web run build",
     "build:pos": "npm --workspace @garmetix/pos-web run build",
     "build:hr": "npm --workspace @garmetix/hr-web run build",

@@ -15,6 +15,11 @@ const steps = [
     name: 'Modular structure check',
     cwd: repoRoot,
     args: ['run', 'modular:check']
+  },
+  {
+    name: 'Modular route smoke dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:smoke:routes']
   }
 ]
 

@@ -1,96 +1,25 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const scriptDir = dirname(fileURLToPath(import.meta.url))
-const repoRoot = resolve(scriptDir, '../..')
-const modularRoot = join(repoRoot, 'modular')
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import {
+  buildRouteUrl,
+  getSmokeHosts,
+  getSmokeVersion,
+  modularRoot,
+  parseSmokeOptions,
+  selectSmokeApps
+} from './smoke-routes.mjs'
 
 const args = process.argv.slice(2)
-const option = (name, fallback) => {
-  const prefix = `${name}=`
-  const match = args.find((arg) => arg.startsWith(prefix))
-  return match ? match.slice(prefix.length) : fallback
-}
-
-const mode = option('--mode', 'local')
-const appFilter = option('--app', 'all')
-const shouldWrite = args.includes('--write')
-
-const hosts = {
-  local: {
-    api: 'http://localhost:5080/api/health',
-    main: 'http://localhost:3100',
-    pos: 'http://localhost:3101',
-    hr: 'http://localhost:3102',
-    'ai-sense': 'http://localhost:3103',
-    books: 'http://localhost:3104',
-    admin: 'http://localhost:3105'
-  },
-  public: {
-    api: 'https://api.garmetix.aadwikafashion.in/api/health',
-    main: 'https://garmetix.aadwikafashion.in',
-    pos: 'https://pos.garmetix.aadwikafashion.in',
-    hr: 'https://hr.garmetix.aadwikafashion.in',
-    'ai-sense': 'https://ai-sense.garmetix.aadwikafashion.in',
-    books: 'https://books.garmetix.aadwikafashion.in',
-    admin: 'https://admin.garmetix.aadwikafashion.in'
-  }
-}
-
-const apps = [
-  {
-    id: 'main',
-    label: 'Main Back Office',
-    routes: ['/', '/login', '/dashboard', '/billing', '/purchase', '/inventory', '/customers', '/reports', '/access-denied']
-  },
-  {
-    id: 'pos',
-    label: 'POS',
-    routes: ['/', '/login', '/sale', '/hold-bills', '/returns', '/print', '/day-open', '/day-close']
-  },
-  {
-    id: 'hr',
-    label: 'HR',
-    routes: ['/', '/login', '/hr', '/attendance/today', '/attendance/monthly', '/attendance/payroll-review', '/attendance/salary-payment', '/attendance/devices']
-  },
-  {
-    id: 'ai-sense',
-    label: 'AI Sense',
-    routes: ['/', '/login', '/dashboard/business', '/ai-sense/sales-analysis', '/ai-sense/purchase-analysis', '/ai-sense/profit-analysis', '/ai-sense/stock-risk']
-  },
-  {
-    id: 'books',
-    label: 'Books',
-    routes: ['/', '/login', '/accounting', '/vouchers', '/petty-cash', '/vendor-payments', '/gst-returns', '/audit', '/message-logs']
-  },
-  {
-    id: 'admin',
-    label: 'Admin/SaaS',
-    routes: ['/', '/login', '/setup', '/access', '/system-health', '/runtime-diagnostics', '/production-readiness', '/message-logs']
-  }
-]
-
-if (!hosts[mode]) {
-  console.error('Unknown mode. Use --mode=local or --mode=public.')
-  process.exit(1)
-}
-
-const selectedApps = appFilter === 'all' ? apps : apps.filter((app) => app.id === appFilter)
-if (selectedApps.length === 0) {
-  console.error('Unknown app. Use all, main, pos, hr, ai-sense, books, or admin.')
-  process.exit(1)
-}
-
-const versionText = readFileSync(join(modularRoot, 'config/version.ts'), 'utf8')
-const version = versionText.match(/version: '([^']+)'/)?.[1] ?? 'unknown'
-const stage = versionText.match(/stage: '([^']+)'/)?.[1] ?? 'unknown'
+const { mode, appFilter, shouldWrite } = parseSmokeOptions(args)
+const hosts = getSmokeHosts(mode)
+const selectedApps = selectSmokeApps(appFilter)
+const { version, stage } = getSmokeVersion()
 const generatedAt = new Date().toISOString()
 
 const routeRows = selectedApps
   .flatMap((app) => app.routes.map((route) => {
-    const baseUrl = hosts[mode][app.id]
-    return `| ${app.label} | \`${route}\` | \`${baseUrl}${route === '/' ? '' : route}\` | [ ] |`
+    const baseUrl = hosts[app.id]
+    return `| ${app.label} | \`${route}\` | \`${buildRouteUrl(baseUrl, route)}\` | [ ] |`
   }))
   .join('\n')
 
@@ -104,7 +33,7 @@ Generated: ${generatedAt}
 
 ## Before Running
 
-- [ ] Confirm API is running: \`${hosts[mode].api}\`.
+- [ ] Confirm API is running: \`${hosts.api}\`.
 - [ ] Confirm the selected frontend dev/static servers are running.
 - [ ] Confirm browser cache is refreshed for the selected apps.
 - [ ] Confirm test user credentials and roles are available outside source control.
@@ -113,7 +42,7 @@ Generated: ${generatedAt}
 ## API Health
 
 \`\`\`bash
-curl -I ${hosts[mode].api}
+curl -I ${hosts.api}
 \`\`\`
 
 ## Route Smoke Matrix
@@ -134,7 +63,7 @@ ${routeRows}
 
 ## Next Automation Step
 
-Convert this checklist into Playwright tests in Stage 13A.2.
+Run \`npm.cmd run modular:smoke:routes -- --live\` after local app servers and Playwright are available.
 `
 
 if (shouldWrite) {
