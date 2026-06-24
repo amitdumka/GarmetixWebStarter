@@ -115,6 +115,7 @@ Goal: make `modular/apps/main` a lean back-office app instead of a catch-all UI.
 
 Goal: deploy each app independently while keeping one API and one database.
 
+- 12H.1 complete: add consolidated deployment split guide for all modular static apps, the shared API, Cloudflare Tunnel hostnames, and the one-backend/one-database rule.
 - Add static build output handling per app.
 - Add deployment scripts under `modular/deploy/`.
 - Target hosts:

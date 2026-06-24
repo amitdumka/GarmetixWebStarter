@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '5.12.30',
-  stage: 'Stage 12G.4',
-  label: 'Version5 Stage 12G.4 Main Static Deploy',
-  summary: 'Main Back Office static deploy script, deployment documentation, environment handoff, and validation coverage for garmetix.aadwikafashion.in.'
+  version: '5.12.31',
+  stage: 'Stage 12H.1',
+  label: 'Version5 Stage 12H.1 Deployment Split Guide',
+  summary: 'Consolidated modular deployment guide for all static frontends, the shared API, Cloudflare Tunnel hostnames, and the one-backend one-database rule.'
 } as const

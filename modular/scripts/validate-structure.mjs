@@ -47,6 +47,7 @@ const requiredPaths = [
   'docs/stage-12g2-main-readonly-dashboard-data.md',
   'docs/stage-12g3-main-readonly-operations-review.md',
   'docs/stage-12g4-main-static-deploy.md',
+  'docs/stage-12h1-deployment-split-guide.md',
   'deploy/README.md',
   'deploy/main-static-deploy.sh',
   'deploy/pos-static-deploy.sh',
