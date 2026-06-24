@@ -82,10 +82,11 @@ Goal: split accountant/CA workflows.
 - 12E.6 complete: connect read-only vendor payment and settlement review with voucher, purchase invoice, bank, allocation, and PDF handoff visibility.
 - 12E.7 complete: connect read-only GST returns, GST reports and GST production/provider readiness with export handoff visibility.
 - 12E.8 complete: connect financial year lock review, journal validation, accounting-scoped audit trail, and accounting-scoped message log visibility.
+- 12E.9 complete: add Books static deploy script and deployment notes for the Books subdomain.
 - Planned areas: accounting dashboard, ledgers, parties, vouchers, petty cash, cash details, debit notes, credit notes, GST reports, GST returns, audit/message logs.
 - Keep banking and audit-sensitive flows explicit.
 - First writable accounting actions are intentionally deferred until endpoint contracts, ledger posting behavior, and print/audit expectations are verified.
-- After Books builds, add an Ubuntu deploy script for Books static output.
+- Books Ubuntu static deploy script is available at `modular/deploy/books-static-deploy.sh`.
 
 ## Stage 12F: Admin/SaaS
 

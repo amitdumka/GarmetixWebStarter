@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/books-web",
   "private": true,
-  "version": "5.12.22",
+  "version": "5.12.23",
   "type": "module",
   "scripts": {
     "dev": "nuxt dev --port 3104",
