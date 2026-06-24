@@ -1,8 +1,12 @@
 <template>
-  <MainPlaceholder
+  <MainDashboardReadModel
     title="Store Manager Dashboard"
     description="Manager route for store checklist, team activity and operations exceptions."
-    :items="['Opening checklist', 'Stock exceptions', 'Team follow-up']"
+    endpoint="dashboard/store-manager"
+    :primary-keys="['recentSales', 'workQueue']"
+    :secondary-keys="['stockAlerts', 'quickActions']"
+    primary-title="Recent Sales"
+    secondary-title="Stock Alerts"
   />
 </template>
 

@@ -1,8 +1,12 @@
 <template>
-  <MainPlaceholder
+  <MainDashboardReadModel
     title="Dashboard"
     description="Back Office dashboard route reserved for store-level summary, alerts and action queues."
-    :items="['Store summary', 'Operator alerts', 'Module handoff']"
+    endpoint="dashboard/business"
+    :primary-keys="['stores', 'storeGroups']"
+    :secondary-keys="['recentSales', 'recentPurchases', 'quickActions']"
+    primary-title="Store Performance"
+    secondary-title="Recent Activity"
   />
 </template>
 

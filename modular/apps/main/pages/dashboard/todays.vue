@@ -1,8 +1,14 @@
 <template>
-  <MainPlaceholder
+  <MainDashboardReadModel
     title="Today's Dashboard"
     description="Daily Back Office view for store activity, collections, stock movement and pending reviews."
-    :items="['Today sales summary', 'Cash and store day', 'Pending approvals']"
+    endpoint="dashboard/todays"
+    :primary-keys="['recentActivities']"
+    :secondary-keys="['quickActions']"
+    :signal-keys="['attendance']"
+    :trend-keys="['salesTrend']"
+    primary-title="Recent Activity"
+    secondary-title="Quick Actions"
   />
 </template>
 

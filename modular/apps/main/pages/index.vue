@@ -1,10 +1,12 @@
 <template>
-  <MainPlaceholder
+  <MainDashboardReadModel
     title="Back Office Dashboard"
     description="Lean landing page for store operations, purchase, inventory, customers and reports. Heavy POS, HR, Books, AI Sense and Admin screens stay in their own modular apps."
-    badge="Main foundation"
-    badge-color="primary"
-    :items="['Store performance', 'Pending operations', 'Cross-app handoff']"
+    endpoint="dashboard/business"
+    :primary-keys="['stores', 'storeGroups']"
+    :secondary-keys="['recentSales', 'recentPurchases', 'quickActions']"
+    primary-title="Store Performance"
+    secondary-title="Recent Activity"
   />
 </template>
 
