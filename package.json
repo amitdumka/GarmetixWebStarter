@@ -1,7 +1,7 @@
 {
   "name": "garmetix-version5-workspace",
   "private": true,
-  "version": "5.13.3",
+  "version": "5.13.4",
   "scripts": {
     "legacy:api:test": "dotnet test legacy/backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release",
     "legacy:api:build": "dotnet build legacy/backend/Garmetix.Api/Garmetix.Api.csproj -c Release",
@@ -12,6 +12,7 @@
     "modular:release:checklist": "node modular/scripts/release-checklist.mjs",
     "modular:smoke:checklist": "node modular/scripts/smoke-checklist.mjs",
     "modular:smoke:routes": "node modular/scripts/smoke-local-routes.mjs",
-    "modular:smoke:api": "node modular/scripts/smoke-api-auth.mjs"
+    "modular:smoke:api": "node modular/scripts/smoke-api-auth.mjs",
+    "modular:smoke:public": "node modular/scripts/smoke-public-report.mjs"
   }
 }

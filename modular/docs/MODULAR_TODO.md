@@ -156,6 +156,7 @@ Goal: make the modular split deployable and testable in real environments before
 - 13A.1 complete: add production hardening roadmap and smoke-checklist generator for route/API-health verification across Main, POS, HR, AI Sense, Books and Admin.
 - 13A.2 complete: add local route smoke tests with dry-run validation and optional Playwright live browser checks for modular apps.
 - 13A.3 complete: add API health and auth-state smoke checks for local and public URL modes with optional token validation.
+- 13A.4 complete: add Cloudflare-facing public URL smoke report generation with optional live app/API reachability checks.
 - Add visual smoke notes for login, shell layout, app switching and access-denied pages.
 - Keep all checks secret-free and compatible with one shared API and one PostgreSQL database.
 - Defer live Ubuntu/Cloudflare deployment until SSH keys, tunnel credentials and static-server config are ready on the host.

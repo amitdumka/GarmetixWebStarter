@@ -25,6 +25,11 @@ const steps = [
     name: 'Modular API/auth smoke dry-run',
     cwd: repoRoot,
     args: ['run', 'modular:smoke:api']
+  },
+  {
+    name: 'Modular public URL smoke dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:smoke:public']
   }
 ]
 
