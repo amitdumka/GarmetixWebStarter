@@ -50,6 +50,7 @@ const requiredPaths = [
   'docs/stage-12h1-deployment-split-guide.md',
   'docs/stage-12h2-all-app-validation.md',
   'docs/stage-12h3-deploy-preflight.md',
+  'docs/stage-12h4-host-deployment-notes.md',
   'deploy/README.md',
   'deploy/main-static-deploy.sh',
   'deploy/pos-static-deploy.sh',

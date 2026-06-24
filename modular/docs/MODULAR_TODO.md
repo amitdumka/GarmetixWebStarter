@@ -118,6 +118,7 @@ Goal: deploy each app independently while keeping one API and one database.
 - 12H.1 complete: add consolidated deployment split guide for all modular static apps, the shared API, Cloudflare Tunnel hostnames, and the one-backend/one-database rule.
 - 12H.2 complete: add one-command local validation for structure, all modular frontend static builds, and shared API build.
 - 12H.3 complete: add deployment preflight for local static outputs, deploy scripts, env examples, secret hygiene, and optional SSH remote host readiness.
+- 12H.4 complete: add host-specific Ubuntu server and Ubuntu desktop deployment notes with Nginx roots, Cloudflare Tunnel mapping, preflight commands, and rollback guidance.
 - Add static build output handling per app.
 - Add deployment scripts under `modular/deploy/`.
 - Target hosts:
