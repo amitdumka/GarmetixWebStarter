@@ -53,6 +53,7 @@ const requiredPaths = [
   'docs/stage-12h4-host-deployment-notes.md',
   'docs/stage-12h5-release-checklist.md',
   'docs/stage-12h6-deployment-acceptance.md',
+  'docs/stage-12z-final-verification.md',
   'deploy/README.md',
   'deploy/main-static-deploy.sh',
   'deploy/pos-static-deploy.sh',

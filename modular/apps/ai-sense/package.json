@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/ai-sense-web",
   "private": true,
-  "version": "5.12.36",
+  "version": "5.12.37",
   "type": "module",
   "scripts": {
     "dev": "nuxt dev --port 3103",

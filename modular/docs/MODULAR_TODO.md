@@ -140,6 +140,7 @@ Goal: deploy each app independently while keeping one API and one database.
 
 Goal: final verification before calling Stage 12 complete.
 
+- 12Z complete: consolidate final Stage 12 verification for modular validation, legacy web/API builds, deploy docs, no database split, accepted warnings and next-stage risks.
 - Build legacy web.
 - Build legacy API.
 - Build modular main, POS, HR, AI Sense, Books, and Admin.
