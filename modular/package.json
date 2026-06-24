@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "5.13.4",
+  "version": "5.13.5",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -16,6 +16,7 @@
     "smoke:routes": "node scripts/smoke-local-routes.mjs",
     "smoke:api": "node scripts/smoke-api-auth.mjs",
     "smoke:public": "node scripts/smoke-public-report.mjs",
+    "smoke:visual": "node scripts/smoke-visual-notes.mjs",
     "build:main": "npm --workspace @garmetix/main-web run build",
     "build:pos": "npm --workspace @garmetix/pos-web run build",
     "build:hr": "npm --workspace @garmetix/hr-web run build",

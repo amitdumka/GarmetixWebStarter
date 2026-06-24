@@ -30,6 +30,11 @@ const steps = [
     name: 'Modular public URL smoke dry-run',
     cwd: repoRoot,
     args: ['run', 'modular:smoke:public']
+  },
+  {
+    name: 'Modular visual smoke notes',
+    cwd: repoRoot,
+    args: ['run', 'modular:smoke:visual']
   }
 ]
 
