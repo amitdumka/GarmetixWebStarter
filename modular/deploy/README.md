@@ -2,6 +2,46 @@
 
 Deployment scripts live here and should not contain passwords, Cloudflare tokens, or private keys.
 
+## Main Back Office Static Deploy
+
+The Main Back Office frontend is generated as a static Nuxt app and can be served by Nginx, Caddy, Apache, or any static file server.
+
+Example:
+
+```bash
+cd /path/to/GarmetixWebStarter
+MAIN_DEPLOY_TARGET=amit@192.168.11.126 \
+MAIN_DEPLOY_REMOTE_DIR=/var/www/garmetix/main \
+NUXT_PUBLIC_GARMETIX_API_BASE_URL=https://api.your-domain.example/api \
+NUXT_PUBLIC_GARMETIX_MAIN_URL=https://garmetix.your-domain.example \
+bash modular/deploy/main-static-deploy.sh
+```
+
+For the Ubuntu desktop target, set:
+
+```bash
+MAIN_DEPLOY_TARGET=amitkumar@192.168.11.127
+```
+
+Use SSH keys or let SSH prompt interactively. Do not commit credentials.
+
+Point the Main Back Office host root to the `current` symlink created by the deploy script:
+
+```nginx
+server {
+    listen 80;
+    server_name garmetix.your-domain.example;
+    root /var/www/garmetix/main/current;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+Cloudflare Tunnel should route the Main Back Office public hostname to this static server.
+
 ## POS Static Deploy
 
 The POS frontend is generated as a static Nuxt app and can be served by Nginx, Caddy, Apache, or any static file server.

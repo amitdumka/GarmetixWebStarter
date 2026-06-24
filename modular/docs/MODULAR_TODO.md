@@ -106,6 +106,7 @@ Goal: make `modular/apps/main` a lean back-office app instead of a catch-all UI.
 - 12G.1 complete: add authenticated Main shell, route-level placeholders, ownership audit notes, and build validation for Back Office-owned routes.
 - 12G.2 complete: connect Main Back Office dashboard pages to existing safe read-only dashboard summary endpoints.
 - 12G.3 complete: connect sale invoice, purchase, inventory, stock operation, customer and operational report review pages to existing safe read-only endpoints.
+- 12G.4 complete: add Main Back Office static deploy script and deployment notes for the root Garmetix subdomain.
 - Keep dashboard, purchase, inventory, reports, customer/vendor operations, and store operations.
 - Remove heavy POS/HR/AI/Books work from main only after target apps have parity.
 - Optimize route-level loading and avoid layout-level data fetching.
