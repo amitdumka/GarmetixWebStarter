@@ -199,7 +199,7 @@
 </template>
 
 <script setup lang="ts">
-import { createGarmetixApiClient, createApiUrl } from '@garmetix/shared-api'
+import { createGarmetixApiClient } from '@garmetix/shared-api'
 import { getStoredToken, getStoredUser } from '@garmetix/shared-auth'
 import { formatIndianMoney } from '@garmetix/shared-utils'
 import {
@@ -212,6 +212,7 @@ import {
   type PosHeldBill,
   type PosPrintQueueItem
 } from '../utils/local-pos-storage'
+import { openBillingInvoicePdf } from '../utils/pos-documents'
 import { createPosSaleRequest, type PosSalePaymentPayload } from '../utils/sale-contract'
 
 useHead({ title: 'New Sale - Garmetix POS' })
@@ -844,8 +845,14 @@ async function saveAndPrint() {
     })
     clearDraft()
     resetForNext()
-    showMessage('success', `Invoice ${response.invoiceNumber || ''} saved.`.trim())
-    await printInvoice(response.invoiceId)
+    try {
+      await printInvoice(response.invoiceId)
+      showMessage('success', `Invoice ${response.invoiceNumber || ''} saved and opened for printing.`.trim())
+    } catch (printError) {
+      showMessage('warning', printError instanceof Error
+        ? `Invoice ${response.invoiceNumber || ''} saved. ${printError.message}`.trim()
+        : `Invoice ${response.invoiceNumber || ''} saved. Use Print Queue to retry printing.`.trim())
+    }
   } catch (error) {
     showMessage('error', error instanceof Error ? error.message : 'Could not save invoice.')
   } finally {
@@ -854,16 +861,12 @@ async function saveAndPrint() {
 }
 
 async function printInvoice(invoiceId: string) {
-  const token = getStoredToken(window.localStorage)
-  const url = createApiUrl(apiBaseUrl.value, `billing/sales/${invoiceId}/pdf?format=a4&copy=customer&reprint=false&signatures=true`)
-  const response = await fetch(url, {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined
+  await openBillingInvoicePdf({
+    apiBaseUrl: apiBaseUrl.value,
+    invoiceId,
+    token: getStoredToken(window.localStorage),
+    reprint: false
   })
-  if (!response.ok) throw new Error('Invoice saved, but PDF print could not start.')
-
-  const blob = await response.blob()
-  const blobUrl = URL.createObjectURL(blob)
-  window.open(blobUrl, '_blank', 'noopener,noreferrer')
 }
 
 function validateSaleInputs() {

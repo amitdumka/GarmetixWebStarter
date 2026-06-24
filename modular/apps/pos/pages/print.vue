@@ -57,7 +57,7 @@
 </template>
 
 <script setup lang="ts">
-import { createApiUrl, createGarmetixApiClient } from '@garmetix/shared-api'
+import { createGarmetixApiClient } from '@garmetix/shared-api'
 import { getStoredToken } from '@garmetix/shared-auth'
 import { formatIndianMoney } from '@garmetix/shared-utils'
 import {
@@ -66,6 +66,7 @@ import {
   writePrintQueue,
   type PosPrintQueueItem
 } from '../utils/local-pos-storage'
+import { openBillingInvoicePdf } from '../utils/pos-documents'
 
 useHead({ title: 'Print Queue - Garmetix POS' })
 
@@ -142,20 +143,12 @@ async function printInvoice(invoiceId: string, reprint: boolean) {
 
   printingId.value = invoiceId
   try {
-    const query = new URLSearchParams({
-      format: 'a4',
-      copy: 'customer',
-      reprint: String(reprint),
-      signatures: 'true'
+    await openBillingInvoicePdf({
+      apiBaseUrl: apiBaseUrl.value,
+      invoiceId,
+      token,
+      reprint
     })
-    const response = await fetch(createApiUrl(apiBaseUrl.value, `billing/sales/${invoiceId}/pdf?${query.toString()}`), {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    if (!response.ok) throw new Error('Could not load invoice PDF.')
-
-    const blob = await response.blob()
-    const blobUrl = URL.createObjectURL(blob)
-    window.open(blobUrl, '_blank', 'noopener,noreferrer')
     const job = localQueue.value.find(item => item.invoiceId === invoiceId)
     if (job) {
       job.printedAt = new Date().toISOString()

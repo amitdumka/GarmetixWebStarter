@@ -159,10 +159,11 @@
 </template>
 
 <script setup lang="ts">
-import { createApiUrl, createGarmetixApiClient } from '@garmetix/shared-api'
+import { createGarmetixApiClient } from '@garmetix/shared-api'
 import { getStoredToken } from '@garmetix/shared-auth'
 import { formatIndianMoney } from '@garmetix/shared-utils'
 import { upsertPrintQueueItem, type PosPrintQueueItem } from '../utils/local-pos-storage'
+import { normalizePosDocumentSearch, openBillingInvoicePdf, textMatchesDocumentSearch } from '../utils/pos-documents'
 
 useHead({ title: 'Sales Returns - Garmetix POS' })
 
@@ -265,13 +266,13 @@ const api = computed(() => createGarmetixApiClient({
 }))
 
 const filteredInvoices = computed(() => {
-  const term = invoiceSearch.value.trim().toLowerCase()
+  const term = normalizePosDocumentSearch(invoiceSearch.value).toLowerCase()
   return invoices.value
-    .filter(invoice => invoice.invoiceStatus !== 'Cancelled' && invoice.invoiceStatus !== 'Refunded' && !String(invoice.invoiceNumber || '').startsWith('SR-'))
+    .filter(invoice => !['cancelled', 'refunded'].includes(String(invoice.invoiceStatus || '').toLowerCase()) && !String(invoice.invoiceNumber || '').toUpperCase().startsWith('SR-'))
     .filter((invoice) => {
       if (!term) return true
-      return [invoice.invoiceNumber, invoice.customerName, invoice.customerMobileNumber, invoice.invoiceStatus]
-        .some(value => String(value || '').toLowerCase().includes(term))
+      return [invoice.id, invoice.invoiceNumber, invoice.customerName, invoice.customerMobileNumber, invoice.invoiceStatus]
+        .some(value => textMatchesDocumentSearch(value, term))
     })
 })
 const bankAccountOptions = computed(() => bankAccounts.value.map(account => ({
@@ -336,6 +337,7 @@ async function refresh() {
 }
 
 async function selectBestMatch() {
+  invoiceSearch.value = normalizePosDocumentSearch(invoiceSearch.value)
   if (!filteredInvoices.value.length) {
     showMessage('warning', 'No invoice matched the search.')
     return
@@ -433,8 +435,14 @@ async function submitReturn() {
       billAmount: Number(response.creditAmount || returnTotal.value),
       savedAt: new Date().toISOString()
     })
-    showMessage('success', `Return ${response.creditNoteNumber || ''} saved.`.trim())
-    await printReturn(response.returnInvoiceId)
+    try {
+      await printReturn(response.returnInvoiceId)
+      showMessage('success', `Return ${response.creditNoteNumber || ''} saved and opened for printing.`.trim())
+    } catch (printError) {
+      showMessage('warning', printError instanceof Error
+        ? `Return ${response.creditNoteNumber || ''} saved. ${printError.message}`.trim()
+        : `Return ${response.creditNoteNumber || ''} saved. Use Print Queue to retry printing.`.trim())
+    }
     resetSelection()
     await refresh()
   } catch (error) {
@@ -445,16 +453,12 @@ async function submitReturn() {
 }
 
 async function printReturn(returnInvoiceId: string) {
-  const token = getStoredToken(window.localStorage)
-  const url = createApiUrl(apiBaseUrl.value, `billing/sales/${returnInvoiceId}/pdf?format=a4&copy=customer&reprint=false&signatures=true`)
-  const response = await fetch(url, {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined
+  await openBillingInvoicePdf({
+    apiBaseUrl: apiBaseUrl.value,
+    invoiceId: returnInvoiceId,
+    token: getStoredToken(window.localStorage),
+    reprint: false
   })
-  if (!response.ok) throw new Error('Return saved, but PDF print could not start.')
-
-  const blob = await response.blob()
-  const blobUrl = URL.createObjectURL(blob)
-  window.open(blobUrl, '_blank', 'noopener,noreferrer')
 }
 
 function addPrintQueueItem(item: PosPrintQueueItem) {
