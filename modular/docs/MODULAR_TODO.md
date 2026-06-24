@@ -103,6 +103,7 @@ Goal: split owner/developer/admin controls.
 
 Goal: make `modular/apps/main` a lean back-office app instead of a catch-all UI.
 
+- 12G.1 complete: add authenticated Main shell, route-level placeholders, ownership audit notes, and build validation for Back Office-owned routes.
 - Keep dashboard, purchase, inventory, reports, customer/vendor operations, and store operations.
 - Remove heavy POS/HR/AI/Books work from main only after target apps have parity.
 - Optimize route-level loading and avoid layout-level data fetching.
