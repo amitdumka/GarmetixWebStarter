@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '5.13.2',
-  stage: 'Stage 13A.2',
-  label: 'Version5 Stage 13A.2 Local Route Smoke Tests',
-  summary: 'Added reusable smoke route definitions and a local modular route smoke runner with dry-run validation and optional Playwright live checks.'
+  version: '5.13.3',
+  stage: 'Stage 13A.3',
+  label: 'Version5 Stage 13A.3 API And Auth Smoke Checks',
+  summary: 'Added dry-run and optional live API health/auth smoke checks for local and public modes without committing credentials.'
 } as const

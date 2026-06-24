@@ -109,3 +109,7 @@ export function getSmokeHosts(mode) {
 export function buildRouteUrl(baseUrl, route) {
   return `${baseUrl}${route === '/' ? '' : route}`
 }
+
+export function getApiBaseUrl(healthUrl) {
+  return String(healthUrl || '').replace(/\/health\/?$/, '')
+}
