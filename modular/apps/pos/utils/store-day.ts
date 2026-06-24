@@ -123,3 +123,24 @@ export function copyBookSummaryToPettyCashDraft(target: PettyCashDraft, summary:
     nonCashSale: Number(summary?.nonCashSale || 0)
   })
 }
+
+export function extractStoreDayStatus(response: any) {
+  return response?.status && typeof response.status === 'object'
+    ? response.status
+    : response
+}
+
+export function extractPettyCashSheetId(response: any, fallbackStatus?: any) {
+  return String(response?.pettyCashSheetId || response?.status?.pettyCashSheetId || fallbackStatus?.pettyCashSheetId || '')
+}
+
+export function parseStoreDayErrorPayload(error: unknown) {
+  try {
+    const message = error instanceof Error ? error.message : ''
+    const start = message.indexOf('{')
+    if (start >= 0) return JSON.parse(message.slice(start))
+  } catch {
+    return null
+  }
+  return null
+}

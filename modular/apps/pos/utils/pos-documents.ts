@@ -10,6 +10,12 @@ export interface BillingPdfOptions {
   signatures?: boolean
 }
 
+export interface PettyCashPdfOptions {
+  apiBaseUrl: string
+  pettyCashSheetId: string
+  token: string | null
+}
+
 export async function openBillingInvoicePdf(options: BillingPdfOptions) {
   if (!options.invoiceId) throw new Error('Invoice reference is missing.')
 
@@ -19,14 +25,42 @@ export async function openBillingInvoicePdf(options: BillingPdfOptions) {
     reprint: String(options.reprint ?? false),
     signatures: String(options.signatures ?? true)
   })
-  const response = await fetch(createApiUrl(options.apiBaseUrl, `billing/sales/${options.invoiceId}/pdf?${query.toString()}`), {
+  await openApiPdf({
+    apiBaseUrl: options.apiBaseUrl,
+    path: `billing/sales/${options.invoiceId}/pdf?${query.toString()}`,
+    token: options.token,
+    missingMessage: 'Could not load invoice PDF.',
+    blockedMessage: 'PDF was generated, but the browser blocked the print window. Use Print Queue to retry.'
+  })
+}
+
+export async function openPettyCashSheetPdf(options: PettyCashPdfOptions) {
+  if (!options.pettyCashSheetId) throw new Error('Petty cash sheet reference is missing.')
+
+  await openApiPdf({
+    apiBaseUrl: options.apiBaseUrl,
+    path: `petty-cash-sheets/${options.pettyCashSheetId}/pdf`,
+    token: options.token,
+    missingMessage: 'Could not load petty cash PDF.',
+    blockedMessage: 'Petty cash PDF was generated, but the browser blocked the print window. Use Print Petty Cash to retry.'
+  })
+}
+
+async function openApiPdf(options: {
+  apiBaseUrl: string
+  path: string
+  token: string | null
+  missingMessage: string
+  blockedMessage: string
+}) {
+  const response = await fetch(createApiUrl(options.apiBaseUrl, options.path), {
     headers: options.token ? { Authorization: `Bearer ${options.token}` } : undefined
   })
 
   if (!response.ok) {
     throw new Error(response.status === 401 || response.status === 403
-      ? 'Login is required before opening the invoice PDF.'
-      : 'Could not load invoice PDF.')
+      ? 'Login is required before opening this PDF.'
+      : options.missingMessage)
   }
 
   const blob = await response.blob()
@@ -34,7 +68,7 @@ export async function openBillingInvoicePdf(options: BillingPdfOptions) {
   const opened = window.open(blobUrl, '_blank', 'noopener,noreferrer')
   if (!opened) {
     setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
-    throw new Error('PDF was generated, but the browser blocked the print window. Use Print Queue to retry.')
+    throw new Error(options.blockedMessage)
   }
 
   setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000)

@@ -11,7 +11,7 @@
         </div>
         <div class="flex flex-wrap gap-2">
           <UButton color="neutral" variant="soft" icon="i-lucide-refresh-cw" :loading="loading" @click="refresh">Refresh</UButton>
-          <UButton icon="i-lucide-printer" color="neutral" variant="soft" :disabled="!pettyCashSheetId" @click="printPettyCash">Print Petty Cash</UButton>
+          <UButton icon="i-lucide-printer" color="neutral" variant="soft" :loading="printing" :disabled="!pettyCashSheetId || printing" @click="printPettyCash()">Print Petty Cash</UButton>
         </div>
       </div>
     </div>
@@ -125,7 +125,7 @@
 </template>
 
 <script setup lang="ts">
-import { createApiUrl, createGarmetixApiClient } from '@garmetix/shared-api'
+import { createGarmetixApiClient } from '@garmetix/shared-api'
 import { getStoredToken, getStoredUser } from '@garmetix/shared-auth'
 import { formatIndianMoney } from '@garmetix/shared-utils'
 import {
@@ -134,16 +134,21 @@ import {
   cashBlank,
   cashDenominations,
   copyBookSummaryToPettyCashDraft,
+  extractPettyCashSheetId,
+  extractStoreDayStatus,
   localDateValue,
+  parseStoreDayErrorPayload,
   pettyCashBlank,
   toCashPayload
 } from '../utils/store-day'
+import { openPettyCashSheetPdf } from '../utils/pos-documents'
 
 useHead({ title: 'Day Close - Garmetix POS' })
 
 const runtimeConfig = useRuntimeConfig()
 const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
 const loading = ref(false)
+const printing = ref(false)
 const stores = ref<any[]>([])
 const status = ref<any | null>(null)
 const closingResult = ref<any | null>(null)
@@ -169,7 +174,7 @@ const storeOptions = computed(() => stores.value.map(store => ({
 })))
 const closingCashAmount = computed(() => calculateCash(closingCash))
 const pettyCashBookCash = computed(() => calculatePettyCashBookCash(pettyCash))
-const pettyCashSheetId = computed(() => closingResult.value?.pettyCashSheetId || status.value?.pettyCashSheetId || '')
+const pettyCashSheetId = computed(() => extractPettyCashSheetId(closingResult.value, status.value))
 const canClose = computed(() => Boolean(status.value?.isOpened && !status.value?.isClosed && (!status.value?.bookSummary?.openingBalanceMismatch || confirmMismatch.value) && !loading.value))
 const statusCards = computed(() => [
   {
@@ -250,10 +255,17 @@ async function closeDay() {
       pettyCashSheet: { ...pettyCash },
       remarks: form.remarks
     })
-    status.value = closingResult.value?.status || status.value
-    showMessage('success', 'Store day closed and petty cash sheet updated.')
+    status.value = extractStoreDayStatus(closingResult.value) || status.value
+    try {
+      await printPettyCash(false)
+      showMessage('success', 'Store day closed, petty cash sheet updated and PDF opened for printing.')
+    } catch (printError) {
+      showMessage('warning', printError instanceof Error
+        ? `Store day closed and petty cash sheet updated. ${printError.message}`
+        : 'Store day closed and petty cash sheet updated. Use Print Petty Cash to retry.')
+    }
   } catch (error: any) {
-    const payload = parseErrorPayload(error)
+    const payload = parseStoreDayErrorPayload(error)
     if (payload?.requiresConfirmation || payload?.summary?.openingBalanceMismatch) {
       if (payload.summary) copyBookSummaryToPettyCashDraft(pettyCash, payload.summary)
       confirmMismatch.value = true
@@ -279,11 +291,12 @@ async function correction(path: string, successMessage: string) {
   if (!form.storeId) return
   loading.value = true
   try {
-    status.value = await api.value.post<any>(path, {
+    const response = await api.value.post<any>(path, {
       storeId: form.storeId,
       onDate: form.onDate,
       reason: 'Correction from POS app'
     })
+    status.value = extractStoreDayStatus(response)
     closingResult.value = null
     showMessage('success', successMessage)
   } catch (error) {
@@ -293,33 +306,29 @@ async function correction(path: string, successMessage: string) {
   }
 }
 
-async function printPettyCash() {
-  if (loading.value) return
+async function printPettyCash(showSuccess = true) {
+  if (printing.value) return
   if (!pettyCashSheetId.value) {
     showMessage('warning', 'Close the day before printing petty cash.')
     return
   }
-  const token = getStoredToken(window.localStorage)
-  const response = await fetch(createApiUrl(apiBaseUrl.value, `petty-cash-sheets/${pettyCashSheetId.value}/pdf`), {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined
-  })
-  if (!response.ok) {
-    showMessage('error', 'Could not open petty cash PDF.')
-    return
-  }
-  const blob = await response.blob()
-  window.open(URL.createObjectURL(blob), '_blank', 'noopener,noreferrer')
-}
-
-function parseErrorPayload(error: any) {
+  printing.value = true
   try {
-    const message = error instanceof Error ? error.message : ''
-    const start = message.indexOf('{')
-    if (start >= 0) return JSON.parse(message.slice(start))
-  } catch {
-    return null
+    await openPettyCashSheetPdf({
+      apiBaseUrl: apiBaseUrl.value,
+      pettyCashSheetId: pettyCashSheetId.value,
+      token: getStoredToken(window.localStorage)
+    })
+    if (showSuccess) showMessage('success', 'Petty cash PDF opened for printing.')
+  } catch (error) {
+    if (showSuccess) {
+      showMessage('error', error instanceof Error ? error.message : 'Could not open petty cash PDF.')
+      return
+    }
+    throw error
+  } finally {
+    printing.value = false
   }
-  return null
 }
 
 onMounted(() => {

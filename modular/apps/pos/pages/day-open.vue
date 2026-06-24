@@ -89,7 +89,7 @@
 import { createGarmetixApiClient } from '@garmetix/shared-api'
 import { getStoredToken, getStoredUser } from '@garmetix/shared-auth'
 import { formatIndianMoney } from '@garmetix/shared-utils'
-import { calculateCash, cashBlank, cashDenominations, localDateValue, toCashPayload } from '../utils/store-day'
+import { calculateCash, cashBlank, cashDenominations, extractStoreDayStatus, localDateValue, toCashPayload } from '../utils/store-day'
 
 useHead({ title: 'Day Open - Garmetix POS' })
 
@@ -188,15 +188,16 @@ async function openDay() {
   }
   loading.value = true
   try {
-    status.value = await api.value.post<any>('store-day/open', {
+    const response = await api.value.post<any>('store-day/open', {
       storeId: form.storeId,
       onDate: form.onDate,
       openingBalance: Number(form.openingBalance || 0),
       cashDetail: toCashPayload(openingCash, Number(form.openingBalance || 0)),
       remarks: form.remarks
     })
+    status.value = extractStoreDayStatus(response)
     form.openingBalance = Number(status.value?.openingBalance || form.openingBalance || 0)
-    showMessage('success', 'Store day opened.')
+    showMessage('success', status.value?.entryAllowed ? 'Store day opened. Billing entries are allowed.' : (status.value?.message || 'Store day opened.'))
   } catch (error) {
     showMessage('error', error instanceof Error ? error.message : 'Store day opening failed.')
   } finally {
@@ -212,12 +213,13 @@ async function markHoliday() {
   }
   loading.value = true
   try {
-    status.value = await api.value.post<any>('store-day/holiday', {
+    const response = await api.value.post<any>('store-day/holiday', {
       storeId: form.storeId,
       onDate: form.onDate,
       reason: holidayReason.value
     })
-    showMessage('success', 'Store holiday/closed day marked.')
+    status.value = extractStoreDayStatus(response)
+    showMessage('success', status.value?.message || 'Store holiday/closed day marked.')
   } catch (error) {
     showMessage('error', error instanceof Error ? error.message : 'Holiday marking failed.')
   } finally {

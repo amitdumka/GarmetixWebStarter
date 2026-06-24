@@ -62,6 +62,7 @@ const requiredPaths = [
   'docs/stage-13b1-pos-sale-contract-parity.md',
   'docs/stage-13b2-pos-local-workflow-hardening.md',
   'docs/stage-13b3-pos-print-recovery-document-search.md',
+  'docs/stage-13b4-pos-store-day-print-recovery.md',
   'deploy/README.md',
   'deploy/main-static-deploy.sh',
   'deploy/pos-static-deploy.sh',
