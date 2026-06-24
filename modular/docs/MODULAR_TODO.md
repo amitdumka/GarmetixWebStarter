@@ -92,7 +92,7 @@ Goal: split accountant/CA workflows.
 
 Goal: split owner/developer/admin controls.
 
-- Add Admin pages inside `modular/apps/admin`.
+- 12F.1 complete: add Admin/SaaS shell, auth guard, login, dashboard and read-only setup, access, logs, runtime, production, license, import/export and onboarding foundation pages.
 - Planned areas: setup/company/store, users/roles/permissions, license, feature/module enablement, client onboarding, system health, message logs, backup/restore, deployment diagnostics.
 - Keep SuperAdmin-specific visibility rules explicit.
 - After Admin builds, add an Ubuntu deploy script for Admin static output.

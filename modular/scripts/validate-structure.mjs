@@ -40,6 +40,7 @@ const requiredPaths = [
   'docs/stage-12e7-books-gst-review.md',
   'docs/stage-12e8-books-audit-controls.md',
   'docs/stage-12e9-books-static-deploy.md',
+  'docs/stage-12f1-admin-foundation.md',
   'deploy/README.md',
   'deploy/pos-static-deploy.sh',
   'deploy/hr-static-deploy.sh',
@@ -117,6 +118,25 @@ const requiredPaths = [
   'apps/books/middleware/auth.global.ts',
   'apps/books/utils/books-api.ts',
   'apps/admin/package.json'
+  ,
+  'apps/admin/app.vue',
+  'apps/admin/pages/index.vue',
+  'apps/admin/pages/login.vue',
+  'apps/admin/pages/access-denied.vue',
+  'apps/admin/pages/setup.vue',
+  'apps/admin/pages/access.vue',
+  'apps/admin/pages/message-logs.vue',
+  'apps/admin/pages/system-health.vue',
+  'apps/admin/pages/runtime-diagnostics.vue',
+  'apps/admin/pages/production-readiness.vue',
+  'apps/admin/pages/license-activation.vue',
+  'apps/admin/pages/import-export.vue',
+  'apps/admin/pages/data-consistency.vue',
+  'apps/admin/pages/client-onboarding.vue',
+  'apps/admin/components/AdminMasterTable.vue',
+  'apps/admin/components/AdminPlaceholder.vue',
+  'apps/admin/middleware/auth.global.ts',
+  'apps/admin/utils/admin-api.ts'
 ]
 
 const failures = []
