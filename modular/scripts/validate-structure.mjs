@@ -41,6 +41,7 @@ const requiredPaths = [
   'docs/stage-12e8-books-audit-controls.md',
   'docs/stage-12e9-books-static-deploy.md',
   'docs/stage-12f1-admin-foundation.md',
+  'docs/stage-12f2-admin-safe-diagnostics.md',
   'deploy/README.md',
   'deploy/pos-static-deploy.sh',
   'deploy/hr-static-deploy.sh',
@@ -133,8 +134,13 @@ const requiredPaths = [
   'apps/admin/pages/import-export.vue',
   'apps/admin/pages/data-consistency.vue',
   'apps/admin/pages/client-onboarding.vue',
+  'apps/admin/pages/backup-maintenance.vue',
+  'apps/admin/pages/google-drive-backup.vue',
+  'apps/admin/pages/production-support.vue',
+  'apps/admin/pages/production-rehearsal.vue',
   'apps/admin/components/AdminMasterTable.vue',
   'apps/admin/components/AdminPlaceholder.vue',
+  'apps/admin/components/SupportDrillPage.vue',
   'apps/admin/middleware/auth.global.ts',
   'apps/admin/utils/admin-api.ts'
 ]

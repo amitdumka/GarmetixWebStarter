@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '5.12.24',
-  stage: 'Stage 12F.1',
-  label: 'Version5 Stage 12F.1 Admin SaaS Foundation',
-  summary: 'Admin/SaaS shell, auth guard, login, read-only company, access, logs, runtime, production, license, import/export and onboarding foundation.'
+  version: '5.12.25',
+  stage: 'Stage 12F.2',
+  label: 'Version5 Stage 12F.2 Admin Safe Diagnostics',
+  summary: 'Admin read-only backup, cloud backup, system health, migrations, data consistency, support drills, and production rehearsal diagnostics.'
 } as const

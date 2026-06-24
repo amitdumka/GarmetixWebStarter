@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "5.12.24",
+  "version": "5.12.25",
   "type": "module",
   "workspaces": [
     "apps/*",

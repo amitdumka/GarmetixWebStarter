@@ -115,9 +115,13 @@ const baseAdminMenuRoutes = [
   { id: 'message-logs', label: 'Message Logs', href: '/message-logs', icon: 'i-lucide-message-square-warning', protected: true },
   { id: 'import-export', label: 'Import Export', href: '/import-export', icon: 'i-lucide-arrow-up-down', protected: true },
   { id: 'data-consistency', label: 'Data Consistency', href: '/data-consistency', icon: 'i-lucide-database-zap', protected: true },
+  { id: 'backup', label: 'Backup', href: '/backup-maintenance', icon: 'i-lucide-hard-drive-download', protected: true },
+  { id: 'drive', label: 'Google Drive', href: '/google-drive-backup', icon: 'i-lucide-cloud-upload', protected: true },
   { id: 'system-health', label: 'System Health', href: '/system-health', icon: 'i-lucide-heart-pulse', protected: true },
   { id: 'runtime', label: 'Runtime', href: '/runtime-diagnostics', icon: 'i-lucide-bug', protected: true },
-  { id: 'production', label: 'Production', href: '/production-readiness', icon: 'i-lucide-rocket', protected: true }
+  { id: 'production', label: 'Production', href: '/production-readiness', icon: 'i-lucide-rocket', protected: true },
+  { id: 'support', label: 'Support', href: '/production-support', icon: 'i-lucide-life-buoy', protected: true },
+  { id: 'rehearsal', label: 'Rehearsal', href: '/production-rehearsal', icon: 'i-lucide-play-circle', protected: true }
 ]
 const adminMenuRoutes = computed(() => baseAdminMenuRoutes.filter(item => authSnapshot.value.hasToken ? item.id !== 'login' : !item.protected))
 const activeUserLabel = computed(() => {
