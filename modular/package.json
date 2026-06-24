@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "5.12.34",
+  "version": "5.12.35",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -11,6 +11,7 @@
     "check": "node scripts/validate-structure.mjs",
     "validate": "node scripts/validate-all.mjs",
     "deploy:preflight": "node scripts/deploy-preflight.mjs",
+    "release:checklist": "node scripts/release-checklist.mjs",
     "build:main": "npm --workspace @garmetix/main-web run build",
     "build:pos": "npm --workspace @garmetix/pos-web run build",
     "build:hr": "npm --workspace @garmetix/hr-web run build",

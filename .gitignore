@@ -13,6 +13,7 @@ modular/**/.nuxt/
 modular/**/.output/
 modular/**/node_modules/
 modular/**/dist/
+modular/docs/generated/
 
 # Legacy keeps its own moved ignore rules under legacy/.gitignore.
 legacy/**/node_modules/
@@ -20,4 +21,3 @@ legacy/**/.nuxt/
 legacy/**/.output/
 legacy/**/bin/
 legacy/**/obj/
-

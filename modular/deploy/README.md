@@ -4,6 +4,8 @@ Deployment scripts live here and should not contain passwords, Cloudflare tokens
 
 For the host-specific Ubuntu server and Ubuntu desktop runbook, see `modular/docs/stage-12h4-host-deployment-notes.md`.
 
+For a release-day checklist, run `npm run modular:release:checklist` from the repository root.
+
 ## Main Back Office Static Deploy
 
 The Main Back Office frontend is generated as a static Nuxt app and can be served by Nginx, Caddy, Apache, or any static file server.

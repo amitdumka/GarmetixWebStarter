@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '5.12.34',
-  stage: 'Stage 12H.4',
-  label: 'Version5 Stage 12H.4 Host Deployment Notes',
-  summary: 'Added host-specific Ubuntu server and desktop deployment notes for modular static apps, Cloudflare Tunnel routing, Nginx roots, and secret-free operations.'
+  version: '5.12.35',
+  stage: 'Stage 12H.5',
+  label: 'Version5 Stage 12H.5 Release Checklist',
+  summary: 'Added a release-day checklist generator for modular deployment with target selection, app filtering, and optional local generated markdown output.'
 } as const
