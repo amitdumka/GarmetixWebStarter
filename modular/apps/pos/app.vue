@@ -111,6 +111,7 @@ const basePosMenuRoutes = [
   { id: 'sale', label: 'Sale', href: '/sale', icon: 'i-lucide-scan-barcode', protected: true },
   { id: 'hold-bills', label: 'Hold Bills', href: '/hold-bills', icon: 'i-lucide-pause-circle', protected: true },
   { id: 'returns', label: 'Returns', href: '/returns', icon: 'i-lucide-undo-2', protected: true },
+  { id: 'exchange', label: 'Exchange', href: '/exchange', icon: 'i-lucide-repeat-2', protected: true },
   { id: 'print', label: 'Print Queue', href: '/print', icon: 'i-lucide-printer', protected: true },
   { id: 'day-close', label: 'Day Close', href: '/day-close', icon: 'i-lucide-sunset', protected: true }
 ]

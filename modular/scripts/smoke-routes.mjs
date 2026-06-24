@@ -36,7 +36,7 @@ export const smokeApps = [
   {
     id: 'pos',
     label: 'POS',
-    routes: ['/', '/login', '/sale', '/hold-bills', '/returns', '/print', '/day-open', '/day-close']
+    routes: ['/', '/login', '/sale', '/hold-bills', '/returns', '/exchange', '/print', '/day-open', '/day-close']
   },
   {
     id: 'hr',
