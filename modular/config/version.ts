@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '5.12.35',
-  stage: 'Stage 12H.5',
-  label: 'Version5 Stage 12H.5 Release Checklist',
-  summary: 'Added a release-day checklist generator for modular deployment with target selection, app filtering, and optional local generated markdown output.'
+  version: '5.12.36',
+  stage: 'Stage 12H.6',
+  label: 'Version5 Stage 12H.6 Deployment Acceptance',
+  summary: 'Added modular deployment acceptance criteria for each frontend app, shared API expectations, release gates, and known go/no-go checks.'
 } as const

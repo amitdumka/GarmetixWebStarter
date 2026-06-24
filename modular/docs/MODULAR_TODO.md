@@ -120,6 +120,7 @@ Goal: deploy each app independently while keeping one API and one database.
 - 12H.3 complete: add deployment preflight for local static outputs, deploy scripts, env examples, secret hygiene, and optional SSH remote host readiness.
 - 12H.4 complete: add host-specific Ubuntu server and Ubuntu desktop deployment notes with Nginx roots, Cloudflare Tunnel mapping, preflight commands, and rollback guidance.
 - 12H.5 complete: add release-day checklist generator with target/app filters and optional ignored markdown output.
+- 12H.6 complete: add deployment acceptance criteria for shared API, per-app deploy readiness, release gates, and go/no-go checks.
 - Add static build output handling per app.
 - Add deployment scripts under `modular/deploy/`.
 - Target hosts:
