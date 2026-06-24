@@ -202,6 +202,7 @@
 import { createGarmetixApiClient, createApiUrl } from '@garmetix/shared-api'
 import { getStoredToken, getStoredUser } from '@garmetix/shared-auth'
 import { formatIndianMoney } from '@garmetix/shared-utils'
+import { createPosSaleRequest, type PosSalePaymentPayload } from '../utils/sale-contract'
 
 useHead({ title: 'New Sale - Garmetix POS' })
 
@@ -767,7 +768,7 @@ function holdCurrentBill() {
   showMessage('success', 'Bill held. Open Hold Bills to resume it.')
 }
 
-function buildPayments() {
+function buildPayments(): PosSalePaymentPayload[] {
   const rows = payments.value
     .filter(item => Number(item.amount || 0) > 0)
     .map(item => ({
@@ -830,18 +831,17 @@ async function saveAndPrint() {
   message.value = ''
   try {
     const salePayments = buildPayments()
-    const response = await api.value.post<any>('billing/sales', {
+    const response = await api.value.post<any>('billing/sales', createPosSaleRequest({
       companyId: form.companyId,
       storeGroupId: form.storeGroupId,
       storeId: form.storeId,
-      customerId: form.customerId || null,
-      salesmanId: form.salesmanId || null,
-      customerName: form.customerName || 'Walk-in Customer',
-      customerMobileNumber: form.customerMobileNumber || '',
+      customerId: form.customerId,
+      salesmanId: form.salesmanId,
+      customerName: form.customerName,
+      customerMobileNumber: form.customerMobileNumber,
       customerGstin: normalizeGstin(form.customerGstin),
-      paymentMode: salePayments.length > 1 ? paymentModeValue.mixPayments : Number(salePayments[0]?.paymentMode ?? paymentModeValue.cash),
-      bankAccountId: salePayments.find(item => item.bankAccountId)?.bankAccountId || null,
-      paidAmount: salePayments.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+      fallbackPaymentMode: paymentModeValue.cash,
+      mixedPaymentMode: paymentModeValue.mixPayments,
       billDiscountAmount: Number(form.billDiscountAmount || 0),
       payments: salePayments,
       items: cart.value.map(item => ({
@@ -851,7 +851,7 @@ async function saveAndPrint() {
         mrp: Number(item.mrp),
         discountAmount: Number(item.discountAmount)
       }))
-    })
+    }))
     addPrintQueueItem({
       invoiceId: response.invoiceId,
       invoiceNumber: response.invoiceNumber || '',

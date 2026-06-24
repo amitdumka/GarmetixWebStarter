@@ -35,6 +35,11 @@ const steps = [
     name: 'Modular visual smoke notes',
     cwd: repoRoot,
     args: ['run', 'modular:smoke:visual']
+  },
+  {
+    name: 'POS sale contract parity',
+    cwd: repoRoot,
+    args: ['run', 'modular:pos:contract']
   }
 ]
 

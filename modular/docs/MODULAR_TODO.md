@@ -165,7 +165,7 @@ Goal: make the modular split deployable and testable in real environments before
 
 Goal: move from production smoke tooling into deeper POS workflow parity and safe writable workflow checks.
 
-- Verify POS sale draft against the current sale invoice API contract.
+- 13B.1 complete: verify POS sale draft payload keys against the current ASP.NET billing sale DTO contract and centralize POS sale payload construction.
 - Harden held bill, returns, print queue, day open and day close edge cases.
 - Add cashier/operator acceptance notes for 14 inch laptop use.
 - Keep off-book cash voucher and non-GST flows separated from regular books.

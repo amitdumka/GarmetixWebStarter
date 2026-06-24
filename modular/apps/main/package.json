@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/main-web",
   "private": true,
-  "version": "5.13.5",
+  "version": "5.13.6",
   "type": "module",
   "scripts": {
     "dev": "nuxt dev --port 3100",
