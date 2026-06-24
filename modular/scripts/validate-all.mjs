@@ -5,7 +5,6 @@ import { fileURLToPath } from 'node:url'
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(scriptDir, '../..')
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm'
-const useShell = process.platform === 'win32'
 
 const args = new Set(process.argv.slice(2))
 const skipBuilds = args.has('--skip-builds')
@@ -42,9 +41,14 @@ const runStep = (step) => new Promise((resolve, reject) => {
   console.log(`\n==> ${step.name}`)
   console.log(`    npm ${step.args.join(' ')}`)
 
-  const child = spawn(npmCommand, step.args, {
+  const command = process.platform === 'win32'
+    ? `${npmCommand} ${step.args.join(' ')}`
+    : npmCommand
+  const args = process.platform === 'win32' ? [] : step.args
+
+  const child = spawn(command, args, {
     cwd: step.cwd,
-    shell: useShell,
+    shell: process.platform === 'win32',
     stdio: 'inherit',
     env: {
       ...process.env,

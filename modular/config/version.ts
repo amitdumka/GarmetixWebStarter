@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '5.12.32',
-  stage: 'Stage 12H.2',
-  label: 'Version5 Stage 12H.2 All-App Validation',
-  summary: 'Added one-command local validation for the modular workspace, all static frontend builds, and the shared legacy API build.'
+  version: '5.12.33',
+  stage: 'Stage 12H.3',
+  label: 'Version5 Stage 12H.3 Deploy Preflight',
+  summary: 'Added local deployment preflight and optional SSH remote readiness checks without storing passwords, tokens, or secrets.'
 } as const
