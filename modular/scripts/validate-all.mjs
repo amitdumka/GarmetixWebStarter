@@ -1,0 +1,80 @@
+import { spawn } from 'node:child_process'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const scriptDir = dirname(fileURLToPath(import.meta.url))
+const repoRoot = resolve(scriptDir, '../..')
+const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+const useShell = process.platform === 'win32'
+
+const args = new Set(process.argv.slice(2))
+const skipBuilds = args.has('--skip-builds')
+const skipApi = args.has('--skip-api')
+
+const steps = [
+  {
+    name: 'Modular structure check',
+    cwd: repoRoot,
+    args: ['run', 'modular:check']
+  }
+]
+
+if (!skipBuilds) {
+  for (const app of ['main', 'pos', 'hr', 'ai-sense', 'books', 'admin']) {
+    steps.push({
+      name: `Build modular ${app}`,
+      cwd: repoRoot,
+      args: ['--prefix', 'modular', 'run', `build:${app}`]
+    })
+  }
+}
+
+if (!skipApi) {
+  steps.push({
+    name: 'Build shared ASP.NET API',
+    cwd: repoRoot,
+    args: ['run', 'legacy:api:build']
+  })
+}
+
+const runStep = (step) => new Promise((resolve, reject) => {
+  const startedAt = Date.now()
+  console.log(`\n==> ${step.name}`)
+  console.log(`    npm ${step.args.join(' ')}`)
+
+  const child = spawn(npmCommand, step.args, {
+    cwd: step.cwd,
+    shell: useShell,
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      npm_config_update_notifier: 'false'
+    }
+  })
+
+  child.on('error', reject)
+  child.on('exit', (code) => {
+    const seconds = ((Date.now() - startedAt) / 1000).toFixed(1)
+    if (code === 0) {
+      console.log(`    Passed in ${seconds}s`)
+      resolve()
+      return
+    }
+
+    reject(new Error(`${step.name} failed with exit code ${code}`))
+  })
+})
+
+console.log('Garmetix Version5 validation started.')
+console.log(`Options: skipBuilds=${skipBuilds}, skipApi=${skipApi}`)
+
+try {
+  for (const step of steps) {
+    await runStep(step)
+  }
+
+  console.log('\nGarmetix Version5 validation passed.')
+} catch (error) {
+  console.error(`\nGarmetix Version5 validation failed: ${error.message}`)
+  process.exit(1)
+}

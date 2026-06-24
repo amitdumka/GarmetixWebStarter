@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '5.12.31',
-  stage: 'Stage 12H.1',
-  label: 'Version5 Stage 12H.1 Deployment Split Guide',
-  summary: 'Consolidated modular deployment guide for all static frontends, the shared API, Cloudflare Tunnel hostnames, and the one-backend one-database rule.'
+  version: '5.12.32',
+  stage: 'Stage 12H.2',
+  label: 'Version5 Stage 12H.2 All-App Validation',
+  summary: 'Added one-command local validation for the modular workspace, all static frontend builds, and the shared legacy API build.'
 } as const
