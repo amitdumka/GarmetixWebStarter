@@ -1,8 +1,12 @@
 <template>
-  <MainPlaceholder
+  <MainDashboardReadModel
     title="Reports"
     description="Back Office reports route for operational reports. AI analysis remains in AI Sense and accounting reports remain in Books."
-    :items="['Operational reports', 'Exports', 'App-specific handoff']"
+    endpoint="dashboard/business"
+    :primary-keys="['stores', 'storeGroups']"
+    :secondary-keys="['healthSignals', 'quickActions']"
+    primary-title="Operational Store Rows"
+    secondary-title="Report Signals"
   />
 </template>
 

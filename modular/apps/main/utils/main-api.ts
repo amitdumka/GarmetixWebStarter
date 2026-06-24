@@ -43,3 +43,22 @@ export function readArray(source: ApiRecord | null | undefined, keys: string[]) 
   }
   return []
 }
+
+export function toRows(value: unknown, keys: string[] = ['items', 'rows', 'data', 'results']) {
+  if (Array.isArray(value)) return value as ApiRecord[]
+  if (value && typeof value === 'object') {
+    return readArray(value as ApiRecord, keys)
+  }
+  return []
+}
+
+export function formatDate(value: unknown) {
+  if (!value) return '-'
+  const date = new Date(String(value))
+  if (Number.isNaN(date.getTime())) return String(value)
+  return new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  }).format(date)
+}
