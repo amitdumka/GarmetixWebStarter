@@ -149,3 +149,14 @@ Goal: final verification before calling Stage 12 complete.
 - Confirm no database split and no destructive migration.
 - Document known issues and next stage.
 
+## Stage 13A: Production Hardening
+
+Goal: make the modular split deployable and testable in real environments before deeper parity work.
+
+- 13A.1 complete: add production hardening roadmap and smoke-checklist generator for route/API-health verification across Main, POS, HR, AI Sense, Books and Admin.
+- Add Playwright route smoke tests for modular apps.
+- Add API health checks for local and public URL modes.
+- Add visual smoke notes for login, shell layout, app switching and access-denied pages.
+- Keep all checks secret-free and compatible with one shared API and one PostgreSQL database.
+- Defer live Ubuntu/Cloudflare deployment until SSH keys, tunnel credentials and static-server config are ready on the host.
+
