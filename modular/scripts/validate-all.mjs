@@ -40,6 +40,11 @@ const steps = [
     name: 'POS sale contract parity',
     cwd: repoRoot,
     args: ['run', 'modular:pos:contract']
+  },
+  {
+    name: 'POS operator acceptance checklist',
+    cwd: repoRoot,
+    args: ['run', 'modular:pos:operator-acceptance']
   }
 ]
 

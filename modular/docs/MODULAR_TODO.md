@@ -171,8 +171,8 @@ Goal: move from production smoke tooling into deeper POS workflow parity and saf
 - 13B.4 complete: normalize store-day API responses and keep day close successful when petty cash PDF print is blocked or fails.
 - 13B.5 complete: centralize POS sales return request construction and extend contract parity checks for sale, return and exchange DTOs.
 - 13B.6 complete: add dedicated POS sales exchange screen with original invoice return lines, replacement item scan cart, additional payment validation and print queue recovery.
-- Harden held bill, returns, print queue, day open and day close edge cases.
-- Add cashier/operator acceptance notes for 14 inch laptop use.
+- 13B.7 complete: add repeatable POS cashier/operator acceptance checklist covering Sale, Return, Exchange, day flow, print recovery and 14 inch laptop usability.
+- Add server-backed held bill persistence and live acceptance evidence when test credentials are available.
 - Keep off-book cash voucher and non-GST flows separated from regular books.
 - Preserve unified API/database until a future backend split is explicitly approved.
 
