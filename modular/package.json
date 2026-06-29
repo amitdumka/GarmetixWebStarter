@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "5.13.24",
+  "version": "5.13.25",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -30,6 +30,7 @@
     "hr:device-bridge-readiness": "node scripts/hr-device-bridge-readiness.mjs",
     "hr:payroll-preview-readiness": "node scripts/hr-payroll-preview-readiness.mjs",
     "hr:stage13c-closure": "node scripts/hr-stage13c-closure.mjs",
+    "books:accounting-readiness": "node scripts/books-accounting-readiness.mjs",
     "build:main": "npm --workspace @garmetix/main-web run build",
     "build:pos": "npm --workspace @garmetix/pos-web run build",
     "build:hr": "npm --workspace @garmetix/hr-web run build",

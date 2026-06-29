@@ -1,7 +1,7 @@
 {
   "name": "garmetix-version5-workspace",
   "private": true,
-  "version": "5.13.24",
+  "version": "5.13.25",
   "scripts": {
     "legacy:api:test": "dotnet test legacy/backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release",
     "legacy:api:build": "dotnet build legacy/backend/Garmetix.Api/Garmetix.Api.csproj -c Release",
@@ -27,6 +27,7 @@
     "modular:hr:browser-acceptance": "node modular/scripts/hr-browser-acceptance.mjs",
     "modular:hr:device-bridge-readiness": "node modular/scripts/hr-device-bridge-readiness.mjs",
     "modular:hr:payroll-preview-readiness": "node modular/scripts/hr-payroll-preview-readiness.mjs",
-    "modular:hr:stage13c-closure": "node modular/scripts/hr-stage13c-closure.mjs"
+    "modular:hr:stage13c-closure": "node modular/scripts/hr-stage13c-closure.mjs",
+    "modular:books:accounting-readiness": "node modular/scripts/books-accounting-readiness.mjs"
   }
 }

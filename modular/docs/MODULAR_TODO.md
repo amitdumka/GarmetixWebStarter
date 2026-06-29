@@ -195,10 +195,16 @@ Goal: move the HR/payroll module lane through the same pattern: route readiness,
 - Keep all real data mutation behind explicit opt-in flags.
 - Continue one shared ASP.NET API and one PostgreSQL database until a future split is explicitly approved.
 
-## Stage 13D: Next Modular Hardening Lane
+## Stage 13D: Books Accounting Audit And Posting Readiness
 
-Goal: choose the next post-HR lane after Stage 13C closure.
+Goal: move the Books/accounting module lane through the same pattern: route readiness, contract checks, browser safety, ledger sync checks, dry smoke, optional live readiness and closure.
 
-- Candidate lane: Books accounting audit/live posting readiness or Main back-office operations parity.
+- 13D.1 complete: add non-mutating Books/accounting readiness checks for route ownership, ledger and party masters, bank operations, vouchers, petty cash, audit, message logs, financial year locks and GST accounting summary endpoints.
+- 13D.2 planned: add Books accounting contract checks for voucher, ledger, party, bank account, audit and GST summary field expectations.
+- 13D.3 planned: add Books browser acceptance checks for vouchers, petty cash, cash details, audit and GST pages on 14 inch laptop layouts.
+- 13D.4 planned: add ledger/party/bank-account sync readiness validation to keep hidden party and bank ledgers internal.
+- 13D.5 planned: add controlled live posting readiness preflight without creating vouchers or journals.
 - Preserve off-book cash voucher and non-GST flows separately from regular accounting books.
+- Keep all real data mutation behind explicit opt-in flags.
+- Continue one shared ASP.NET API and one PostgreSQL database until a future split is explicitly approved.
 

@@ -100,6 +100,11 @@ const steps = [
     name: 'HR Stage 13C closure',
     cwd: repoRoot,
     args: ['run', 'modular:hr:stage13c-closure']
+  },
+  {
+    name: 'Books accounting readiness dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:books:accounting-readiness']
   }
 ]
 
