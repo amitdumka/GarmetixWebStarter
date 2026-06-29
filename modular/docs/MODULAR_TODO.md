@@ -176,6 +176,7 @@ Goal: move from production smoke tooling into deeper POS workflow parity and saf
 - 13B.9 complete: add dry-run and optional live POS held-bill API smoke checks for auth gating, list access and create/delete lifecycle validation.
 - 13B.10 complete: add dry-run and optional live browser acceptance for POS held-bill render, resume navigation and sale-draft recovery.
 - 13B.11 complete: add POS save-after-resume readiness checks for resumed draft recovery, sale request construction, payment safety and Manager salesman fallback.
+- 13B.12 complete: add dry-run and optional live POS fixture readiness checks for store scope, billing options, sellable stock, bank readiness and save payload safety.
 - Add live acceptance evidence when test credentials are available.
 - Keep off-book cash voucher and non-GST flows separated from regular books.
 - Preserve unified API/database until a future backend split is explicitly approved.

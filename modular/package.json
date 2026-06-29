@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "5.13.16",
+  "version": "5.13.17",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -22,6 +22,7 @@
     "pos:held-bill-smoke": "node scripts/pos-held-bill-smoke.mjs",
     "pos:held-bill-browser": "node scripts/pos-held-bill-browser-acceptance.mjs",
     "pos:save-after-resume": "node scripts/pos-save-after-resume-readiness.mjs",
+    "pos:live-save-fixtures": "node scripts/pos-live-save-fixture-readiness.mjs",
     "build:main": "npm --workspace @garmetix/main-web run build",
     "build:pos": "npm --workspace @garmetix/pos-web run build",
     "build:hr": "npm --workspace @garmetix/hr-web run build",

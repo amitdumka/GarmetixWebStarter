@@ -60,6 +60,11 @@ const steps = [
     name: 'POS save-after-resume readiness',
     cwd: repoRoot,
     args: ['run', 'modular:pos:save-after-resume']
+  },
+  {
+    name: 'POS live save fixture readiness dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:pos:live-save-fixtures']
   }
 ]
 
