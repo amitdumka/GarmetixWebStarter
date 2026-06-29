@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/pos-web",
   "private": true,
-  "version": "5.13.33",
+  "version": "5.13.34",
   "type": "module",
   "scripts": {
     "dev": "nuxt dev --port 3101",

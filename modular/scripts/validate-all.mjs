@@ -52,6 +52,11 @@ const steps = [
     args: ['run', 'modular:main:browser-acceptance']
   },
   {
+    name: 'Main Back Office writable readiness dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:main:writable-readiness']
+  },
+  {
     name: 'POS sale contract parity',
     cwd: repoRoot,
     args: ['run', 'modular:pos:contract']

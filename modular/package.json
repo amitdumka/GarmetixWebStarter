@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "5.13.33",
+  "version": "5.13.34",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -20,6 +20,7 @@
     "main:backoffice-readiness": "node scripts/main-backoffice-readiness.mjs",
     "main:backoffice-contract": "node scripts/main-backoffice-contract-check.mjs",
     "main:browser-acceptance": "node scripts/main-backoffice-browser-acceptance.mjs",
+    "main:writable-readiness": "node scripts/main-writable-readiness.mjs",
     "pos:contract": "node scripts/pos-sale-contract-check.mjs",
     "pos:operator-acceptance": "node scripts/pos-operator-acceptance.mjs",
     "pos:held-bill-smoke": "node scripts/pos-held-bill-smoke.mjs",
