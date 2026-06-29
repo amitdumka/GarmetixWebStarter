@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "5.13.30",
+  "version": "5.13.31",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -17,6 +17,7 @@
     "smoke:api": "node scripts/smoke-api-auth.mjs",
     "smoke:public": "node scripts/smoke-public-report.mjs",
     "smoke:visual": "node scripts/smoke-visual-notes.mjs",
+    "main:backoffice-readiness": "node scripts/main-backoffice-readiness.mjs",
     "pos:contract": "node scripts/pos-sale-contract-check.mjs",
     "pos:operator-acceptance": "node scripts/pos-operator-acceptance.mjs",
     "pos:held-bill-smoke": "node scripts/pos-held-bill-smoke.mjs",

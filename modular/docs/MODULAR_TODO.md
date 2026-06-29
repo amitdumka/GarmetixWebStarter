@@ -211,8 +211,11 @@ Goal: move the Books/accounting module lane through the same pattern: route read
 
 ## Stage 13E: Next Modular Hardening Lane
 
-Goal: choose the next post-Books lane after Stage 13D closure.
+Goal: move Main Back Office through the same hardening pattern used for POS, HR and Books.
 
-- Candidate lane: Main back-office operations parity or Admin/SaaS production support hardening.
+- 13E.1 complete: add non-mutating Main Back Office readiness checks for route ownership, dashboard read models, recent sale/purchase review, stock summary, customer search, product lookup and workspace scope.
+- 13E.2 next: add contract parity checks for Main Back Office sale review, purchase review, inventory summary and customer preview DTO fields.
+- Keep Main focused on back-office operational review while POS, HR, Books and Admin/SaaS retain their dedicated workflows.
+- Keep store-day, tailoring, purchase return and document scan writable behavior deferred until endpoint contracts are promoted.
 - Preserve one shared ASP.NET API and one PostgreSQL database until a future split is explicitly approved.
 
