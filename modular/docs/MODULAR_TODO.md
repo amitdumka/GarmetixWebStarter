@@ -182,11 +182,22 @@ Goal: move from production smoke tooling into deeper POS workflow parity and saf
 - Keep off-book cash voucher and non-GST flows separated from regular books.
 - Preserve unified API/database until a future backend split is explicitly approved.
 
-## Stage 13C: Next Modular Hardening Lane
+## Stage 13C: HR Payroll Attendance Hardening
 
-Goal: move the next module lane through the same pattern: contract checks, read/write safety, dry smoke, optional live readiness and closure.
+Goal: move the HR/payroll module lane through the same pattern: route readiness, contract checks, read/write safety, dry smoke, optional live readiness and closure.
 
-- Candidate lane: HR/payroll attendance device readiness, Books accounting audit/live posting readiness, or Main back-office operations parity.
+- 13C.1 complete: add non-mutating HR/payroll readiness checks for HR route ownership, attendance read models, payroll review, salary payment candidates, attendance devices, fingerprint bridge status, face/liveness status, recent payslips and salary payment list endpoints.
+- 13C.2 planned: add HR attendance contract checks for monthly attendance, payroll summary, payroll review, salary draft and salary payment preview DTO field expectations.
+- 13C.3 planned: add HR browser acceptance notes/checks for attendance, payroll review and salary payment pages on 14 inch laptop layouts.
+- 13C.4 planned: add Mantra/fingerprint device bridge readiness docs and simulator checks without raw biometric storage.
+- 13C.5 planned: add controlled live payroll preview validation without creating salary payment vouchers.
 - Keep all real data mutation behind explicit opt-in flags.
 - Continue one shared ASP.NET API and one PostgreSQL database until a future split is explicitly approved.
+
+## Stage 13D: Next Modular Hardening Lane
+
+Goal: choose the next post-HR lane after Stage 13C closure.
+
+- Candidate lane: Books accounting audit/live posting readiness or Main back-office operations parity.
+- Preserve off-book cash voucher and non-GST flows separately from regular accounting books.
 

@@ -70,6 +70,11 @@ const steps = [
     name: 'POS Stage 13B closure',
     cwd: repoRoot,
     args: ['run', 'modular:pos:stage13b-closure']
+  },
+  {
+    name: 'HR payroll readiness dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:hr:payroll-readiness']
   }
 ]
 

@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "5.13.18",
+  "version": "5.13.19",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -24,6 +24,7 @@
     "pos:save-after-resume": "node scripts/pos-save-after-resume-readiness.mjs",
     "pos:live-save-fixtures": "node scripts/pos-live-save-fixture-readiness.mjs",
     "pos:stage13b-closure": "node scripts/pos-stage13b-closure.mjs",
+    "hr:payroll-readiness": "node scripts/hr-payroll-readiness.mjs",
     "build:main": "npm --workspace @garmetix/main-web run build",
     "build:pos": "npm --workspace @garmetix/pos-web run build",
     "build:hr": "npm --workspace @garmetix/hr-web run build",
