@@ -55,6 +55,11 @@ const steps = [
     name: 'POS held-bill browser acceptance dry-run',
     cwd: repoRoot,
     args: ['run', 'modular:pos:held-bill-browser']
+  },
+  {
+    name: 'POS save-after-resume readiness',
+    cwd: repoRoot,
+    args: ['run', 'modular:pos:save-after-resume']
   }
 ]
 
