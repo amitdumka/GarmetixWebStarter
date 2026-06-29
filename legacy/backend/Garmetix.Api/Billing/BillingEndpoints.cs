@@ -744,6 +744,7 @@ public static class BillingEndpoints
             .ToListAsync(cancellationToken);
         var originalBankAccountId = await db.BankTransactions
             .Where(item => item.CompanyId == invoice.CompanyId &&
+                item.Reference != null &&
                 (item.Reference == $"SI-{invoice.InvoiceNumber}" || item.Reference.StartsWith($"SI-{invoice.InvoiceNumber}-PAY-")))
             .Select(item => (Guid?)item.BankAccountId)
             .FirstOrDefaultAsync(cancellationToken);

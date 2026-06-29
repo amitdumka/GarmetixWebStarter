@@ -1,7 +1,7 @@
 {
   "name": "garmetix-version5-workspace",
   "private": true,
-  "version": "5.13.14",
+  "version": "5.13.15",
   "scripts": {
     "legacy:api:test": "dotnet test legacy/backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release",
     "legacy:api:build": "dotnet build legacy/backend/Garmetix.Api/Garmetix.Api.csproj -c Release",
@@ -17,6 +17,7 @@
     "modular:smoke:visual": "node modular/scripts/smoke-visual-notes.mjs",
     "modular:pos:contract": "node modular/scripts/pos-sale-contract-check.mjs",
     "modular:pos:operator-acceptance": "node modular/scripts/pos-operator-acceptance.mjs",
-    "modular:pos:held-bill-smoke": "node modular/scripts/pos-held-bill-smoke.mjs"
+    "modular:pos:held-bill-smoke": "node modular/scripts/pos-held-bill-smoke.mjs",
+    "modular:pos:held-bill-browser": "node modular/scripts/pos-held-bill-browser-acceptance.mjs"
   }
 }

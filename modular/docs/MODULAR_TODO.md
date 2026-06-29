@@ -174,6 +174,7 @@ Goal: move from production smoke tooling into deeper POS workflow parity and saf
 - 13B.7 complete: add repeatable POS cashier/operator acceptance checklist covering Sale, Return, Exchange, day flow, print recovery and 14 inch laptop usability.
 - 13B.8 complete: add server-backed POS held bill persistence with local browser fallback for hold, resume, remove and clear workflows.
 - 13B.9 complete: add dry-run and optional live POS held-bill API smoke checks for auth gating, list access and create/delete lifecycle validation.
+- 13B.10 complete: add dry-run and optional live browser acceptance for POS held-bill render, resume navigation and sale-draft recovery.
 - Add live acceptance evidence when test credentials are available.
 - Keep off-book cash voucher and non-GST flows separated from regular books.
 - Preserve unified API/database until a future backend split is explicitly approved.

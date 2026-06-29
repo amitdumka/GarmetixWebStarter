@@ -50,6 +50,11 @@ const steps = [
     name: 'POS held-bill smoke dry-run',
     cwd: repoRoot,
     args: ['run', 'modular:pos:held-bill-smoke']
+  },
+  {
+    name: 'POS held-bill browser acceptance dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:pos:held-bill-browser']
   }
 ]
 
