@@ -172,7 +172,8 @@ Goal: move from production smoke tooling into deeper POS workflow parity and saf
 - 13B.5 complete: centralize POS sales return request construction and extend contract parity checks for sale, return and exchange DTOs.
 - 13B.6 complete: add dedicated POS sales exchange screen with original invoice return lines, replacement item scan cart, additional payment validation and print queue recovery.
 - 13B.7 complete: add repeatable POS cashier/operator acceptance checklist covering Sale, Return, Exchange, day flow, print recovery and 14 inch laptop usability.
-- Add server-backed held bill persistence and live acceptance evidence when test credentials are available.
+- 13B.8 complete: add server-backed POS held bill persistence with local browser fallback for hold, resume, remove and clear workflows.
+- Add live acceptance evidence when test credentials are available.
 - Keep off-book cash voucher and non-GST flows separated from regular books.
 - Preserve unified API/database until a future backend split is explicitly approved.
 

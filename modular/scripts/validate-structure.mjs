@@ -66,6 +66,7 @@ const requiredPaths = [
   'docs/stage-13b5-pos-return-contract-parity.md',
   'docs/stage-13b6-pos-exchange-workflow.md',
   'docs/stage-13b7-pos-operator-acceptance.md',
+  'docs/stage-13b8-pos-server-held-bills.md',
   'deploy/README.md',
   'deploy/main-static-deploy.sh',
   'deploy/pos-static-deploy.sh',

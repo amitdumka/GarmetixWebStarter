@@ -7,6 +7,7 @@ export interface PosSaleDraft {
 
 export interface PosHeldBill {
   id: string
+  clientHeldBillId?: string
   heldAt: string
   customerName: string
   customerMobileNumber: string
@@ -14,6 +15,11 @@ export interface PosHeldBill {
   quantity: number
   payableTotal: number
   note?: string
+  status?: string
+  companyId?: string
+  storeGroupId?: string
+  storeId?: string
+  heldByUserName?: string
   draft: PosSaleDraft
 }
 

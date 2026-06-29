@@ -91,6 +91,67 @@ public static class DatabaseSchemaRepairService
     }
 
 
+public static async Task RepairPosHeldBillStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
+{
+    await db.Database.ExecuteSqlRawAsync("""
+        CREATE TABLE IF NOT EXISTS "PosHeldBills" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "CompanyId" uuid NOT NULL,
+            "CreatedBy" text NULL,
+            "StoreGroupId" uuid NOT NULL,
+            "StoreId" uuid NOT NULL,
+            "ClientHeldBillId" character varying(80) NOT NULL DEFAULT '',
+            "HeldAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "CustomerName" character varying(160) NOT NULL DEFAULT 'Walk-in Customer',
+            "CustomerMobileNumber" character varying(40) NOT NULL DEFAULT '',
+            "ItemCount" integer NOT NULL DEFAULT 0,
+            "Quantity" numeric(18,2) NOT NULL DEFAULT 0,
+            "PayableTotal" numeric(18,2) NOT NULL DEFAULT 0,
+            "Note" character varying(500) NOT NULL DEFAULT '',
+            "DraftJson" text NOT NULL DEFAULT '{{}}',
+            "Status" character varying(40) NOT NULL DEFAULT 'Held',
+            "HeldByUserId" uuid NULL,
+            "HeldByUserName" character varying(160) NOT NULL DEFAULT '',
+            "ResumedAt" timestamp without time zone NULL,
+            CONSTRAINT "PK_PosHeldBills" PRIMARY KEY ("Id")
+        );
+
+        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "CreatedAt" timestamp without time zone NOT NULL DEFAULT now();
+        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "UpdatedAt" timestamp without time zone NULL;
+        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "Synced" boolean NOT NULL DEFAULT false;
+        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "Deleted" boolean NOT NULL DEFAULT false;
+        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "CompanyId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "CreatedBy" text NULL;
+        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "StoreGroupId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "StoreId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "ClientHeldBillId" character varying(80) NOT NULL DEFAULT '';
+        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "HeldAt" timestamp without time zone NOT NULL DEFAULT now();
+        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "CustomerName" character varying(160) NOT NULL DEFAULT 'Walk-in Customer';
+        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "CustomerMobileNumber" character varying(40) NOT NULL DEFAULT '';
+        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "ItemCount" integer NOT NULL DEFAULT 0;
+        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "Quantity" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "PayableTotal" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "Note" character varying(500) NOT NULL DEFAULT '';
+        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "DraftJson" text NOT NULL DEFAULT '{{}}';
+        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "Status" character varying(40) NOT NULL DEFAULT 'Held';
+        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "HeldByUserId" uuid NULL;
+        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "HeldByUserName" character varying(160) NOT NULL DEFAULT '';
+        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "ResumedAt" timestamp without time zone NULL;
+
+        CREATE INDEX IF NOT EXISTS "IX_PosHeldBills_CompanyId_StoreGroupId_StoreId_Status_HeldAt"
+            ON "PosHeldBills" ("CompanyId", "StoreGroupId", "StoreId", "Status", "HeldAt");
+        CREATE INDEX IF NOT EXISTS "IX_PosHeldBills_CompanyId_ClientHeldBillId"
+            ON "PosHeldBills" ("CompanyId", "ClientHeldBillId");
+        """, cancellationToken);
+
+    logger.LogInformation("POS held bill storage repair check completed.");
+}
+
+
 public static async Task RepairCashVoucherConversionStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
 {
     // Older Docker volumes can have the cash-voucher conversion DbSet in the code
@@ -758,6 +819,7 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
         try
         {
             await RepairGstReturnStorageAsync(db, logger, cancellationToken);
+            await RepairPosHeldBillStorageAsync(db, logger, cancellationToken);
             await RepairCashVoucherConversionStorageAsync(db, logger, cancellationToken);
             await RepairStoreDayStorageAsync(db, logger, cancellationToken);
             await RepairHrEmployeeMasterAndBenefitsAsync(db, logger, cancellationToken);

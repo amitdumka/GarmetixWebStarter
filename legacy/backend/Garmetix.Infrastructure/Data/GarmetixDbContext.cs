@@ -56,6 +56,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Vendor> Vendors => Set<Vendor>();
     public DbSet<Salesman> Salesmen => Set<Salesman>();
+    public DbSet<PosHeldBill> PosHeldBills => Set<PosHeldBill>();
     public DbSet<Invoice> SalesInvoices => Set<Invoice>();
     public DbSet<PurchaseInvoice> PurchaseInvoices => Set<PurchaseInvoice>();
     public DbSet<PurchaseReturn> PurchaseReturns => Set<PurchaseReturn>();
@@ -151,6 +152,9 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<AuditLogEntry>().HasIndex(entry => new { entry.CompanyId, entry.StoreId, entry.OccurredAt });
         modelBuilder.Entity<AuditLogEntry>().HasIndex(entry => new { entry.EntityName, entry.EntityId });
         modelBuilder.Entity<AuditLogEntry>().HasIndex(entry => new { entry.Module, entry.Action, entry.OccurredAt });
+        modelBuilder.Entity<PosHeldBill>().ToTable("PosHeldBills");
+        modelBuilder.Entity<PosHeldBill>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.Status, item.HeldAt });
+        modelBuilder.Entity<PosHeldBill>().HasIndex(item => new { item.CompanyId, item.ClientHeldBillId });
         modelBuilder.Entity<VoucherBase>().UseTpcMappingStrategy();
         modelBuilder.Entity<Voucher>().ToTable("Vouchers");
         modelBuilder.Entity<CashVoucher>().ToTable("CashVouchers");

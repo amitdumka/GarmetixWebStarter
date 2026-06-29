@@ -237,6 +237,7 @@ auth.MapPut("/me", UpdateCurrentUserProfileAsync).RequireAuthorization();
 app.MapSetupEndpoints();
 app.MapWorkspaceEndpoints();
 app.MapStoreDayEndpoints();
+app.MapPosHeldBillEndpoints();
 app.MapCashDetailsEndpoints();
 app.MapBillingEndpoints();
 app.MapTailoringEndpoints();

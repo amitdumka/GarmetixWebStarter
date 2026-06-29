@@ -11,7 +11,7 @@
         </div>
         <div class="flex flex-wrap gap-2">
           <UButton color="neutral" variant="soft" icon="i-lucide-refresh-cw" :loading="loading" @click="refresh">Refresh</UButton>
-          <UButton color="neutral" variant="soft" icon="i-lucide-pause-circle" :disabled="!cart.length" @click="holdCurrentBill">Hold Bill</UButton>
+          <UButton color="neutral" variant="soft" icon="i-lucide-pause-circle" :loading="holding" :disabled="!cart.length || holding" @click="holdCurrentBill">Hold Bill</UButton>
           <UButton icon="i-lucide-printer" :loading="saving" :disabled="!canSave" @click="saveAndPrint">Save & Print</UButton>
         </div>
       </div>
@@ -206,6 +206,7 @@ import {
   clearSaleDraft,
   createLocalPosId,
   readSaleDraft,
+  removeHeldBill,
   upsertHeldBill,
   upsertPrintQueueItem,
   writeSaleDraft,
@@ -300,6 +301,7 @@ const runtimeConfig = useRuntimeConfig()
 const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
 const loading = ref(false)
 const saving = ref(false)
+const holding = ref(false)
 const productLoading = ref(false)
 const message = ref('')
 const messageTone = ref<'success' | 'error' | 'warning' | 'neutral'>('neutral')
@@ -450,7 +452,7 @@ function handleCounterShortcut(event: KeyboardEvent) {
   }
   if (event.key === 'F9') {
     event.preventDefault()
-    holdCurrentBill()
+    void holdCurrentBill()
   }
   if (event.key === 'Escape' && productSearch.value) {
     event.preventDefault()
@@ -729,14 +731,17 @@ function buildSaleDraft() {
   }
 }
 
-function holdCurrentBill() {
+async function holdCurrentBill() {
+  if (holding.value) return
   if (!cart.value.length) {
     showMessage('warning', 'Add at least one item before holding the bill.')
     return
   }
 
+  holding.value = true
   const heldBill: PosHeldBill = {
     id: createLocalPosId('held'),
+    clientHeldBillId: createLocalPosId('held-client'),
     heldAt: new Date().toISOString(),
     customerName: form.customerName || 'Walk-in Customer',
     customerMobileNumber: form.customerMobileNumber || '',
@@ -744,12 +749,28 @@ function holdCurrentBill() {
     quantity: totalQuantity.value,
     payableTotal: payableTotal.value,
     note: cart.value.map(item => item.name).slice(0, 3).join(', '),
+    companyId: form.companyId,
+    storeGroupId: form.storeGroupId,
+    storeId: form.storeId,
     draft: buildSaleDraft()
   }
   upsertHeldBill(heldBill)
-  clearDraft()
-  resetForNext()
-  showMessage('success', 'Bill held. Open Hold Bills to resume it.')
+  try {
+    const saved = await api.value.post<PosHeldBill>('pos/held-bills', {
+      ...heldBill,
+      id: null,
+      clientHeldBillId: heldBill.clientHeldBillId || heldBill.id
+    })
+    removeHeldBill(heldBill.id)
+    upsertHeldBill(saved)
+    showMessage('success', 'Bill held on server. Open Hold Bills to resume it from any POS browser.')
+  } catch {
+    showMessage('warning', 'Bill held locally in this POS browser. API sync was not available.')
+  } finally {
+    clearDraft()
+    resetForNext()
+    holding.value = false
+  }
 }
 
 function buildPayments(): PosSalePaymentPayload[] {
