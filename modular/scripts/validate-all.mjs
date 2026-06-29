@@ -45,6 +45,11 @@ const steps = [
     name: 'POS operator acceptance checklist',
     cwd: repoRoot,
     args: ['run', 'modular:pos:operator-acceptance']
+  },
+  {
+    name: 'POS held-bill smoke dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:pos:held-bill-smoke']
   }
 ]
 

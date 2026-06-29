@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "5.13.13",
+  "version": "5.13.14",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -19,6 +19,7 @@
     "smoke:visual": "node scripts/smoke-visual-notes.mjs",
     "pos:contract": "node scripts/pos-sale-contract-check.mjs",
     "pos:operator-acceptance": "node scripts/pos-operator-acceptance.mjs",
+    "pos:held-bill-smoke": "node scripts/pos-held-bill-smoke.mjs",
     "build:main": "npm --workspace @garmetix/main-web run build",
     "build:pos": "npm --workspace @garmetix/pos-web run build",
     "build:hr": "npm --workspace @garmetix/hr-web run build",

@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/admin-web",
   "private": true,
-  "version": "5.13.13",
+  "version": "5.13.14",
   "type": "module",
   "scripts": {
     "dev": "nuxt dev --port 3105",
