@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "5.13.25",
+  "version": "5.13.30",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -31,6 +31,11 @@
     "hr:payroll-preview-readiness": "node scripts/hr-payroll-preview-readiness.mjs",
     "hr:stage13c-closure": "node scripts/hr-stage13c-closure.mjs",
     "books:accounting-readiness": "node scripts/books-accounting-readiness.mjs",
+    "books:accounting-contract": "node scripts/books-accounting-contract-check.mjs",
+    "books:browser-acceptance": "node scripts/books-browser-acceptance.mjs",
+    "books:ledger-sync-readiness": "node scripts/books-ledger-sync-readiness.mjs",
+    "books:posting-preflight": "node scripts/books-posting-preflight.mjs",
+    "books:stage13d-closure": "node scripts/books-stage13d-closure.mjs",
     "build:main": "npm --workspace @garmetix/main-web run build",
     "build:pos": "npm --workspace @garmetix/pos-web run build",
     "build:hr": "npm --workspace @garmetix/hr-web run build",

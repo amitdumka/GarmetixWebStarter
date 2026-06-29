@@ -129,7 +129,8 @@ const cards = computed(() => [
   { label: 'Active Locks', value: activeLocks.value.length, detail: 'Currently blocking protected periods' },
   { label: 'Unlocked History', value: inactiveLocks.value.length, detail: 'Retained for audit review' },
   { label: 'GST Locked', value: locks.value.filter(item => item.active !== false && item.lockGst !== false).length, detail: 'Active GST lock coverage' },
-  { label: 'Journal Difference', value: formatIndianMoney(readNumber(journalValidation.value, ['difference'])), detail: `${journalIssueCount.value} journal issue(s)` }
+  { label: 'Journal Checked', value: readNumber(journalValidation.value, ['checkedEntries']), detail: `${journalIssueCount.value} journal issue(s)` },
+  { label: 'Journal Difference', value: formatIndianMoney(readNumber(journalValidation.value, ['difference'])), detail: 'Debit and credit variance' }
 ])
 const filteredLocks = computed(() => {
   const term = search.value.trim().toLowerCase()

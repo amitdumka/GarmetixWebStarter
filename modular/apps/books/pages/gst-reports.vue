@@ -99,7 +99,9 @@ const cards = computed(() => [
   { label: 'Tax Rows', value: readNumber(taxReport.value, ['rowCount']), detail: 'GST rate summary rows' },
   { label: 'Output Taxable', value: money(readNumber(taxReport.value, ['outputTaxableValue'])), detail: returnPeriod.value },
   { label: 'Input Taxable', value: money(readNumber(taxReport.value, ['inputTaxableValue'])), detail: returnPeriod.value },
-  { label: 'Net Payable', value: money(readNumber(taxReport.value, ['netTaxPayable'])), detail: 'Sales tax minus input tax' }
+  { label: 'Net Payable', value: money(readNumber(taxReport.value, ['netTaxPayable'])), detail: 'Sales tax minus input tax' },
+  { label: 'HSN Taxable', value: money(readNumber(hsnReport.value, ['totalTaxableValue'])), detail: `${readNumber(hsnReport.value, ['rowCount'])} HSN row(s)` },
+  { label: 'HSN Tax', value: money(readNumber(hsnReport.value, ['totalTaxAmount'])), detail: 'CGST, SGST and IGST total' }
 ])
 const reportRows = computed<Record<GstReportTab, ApiRecord[]>>(() => ({
   tax: readArray(taxReport.value, ['rows']).map(row => ({

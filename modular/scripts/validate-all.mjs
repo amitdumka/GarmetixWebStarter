@@ -105,6 +105,31 @@ const steps = [
     name: 'Books accounting readiness dry-run',
     cwd: repoRoot,
     args: ['run', 'modular:books:accounting-readiness']
+  },
+  {
+    name: 'Books accounting contract parity',
+    cwd: repoRoot,
+    args: ['run', 'modular:books:accounting-contract']
+  },
+  {
+    name: 'Books browser acceptance dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:books:browser-acceptance']
+  },
+  {
+    name: 'Books ledger sync readiness dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:books:ledger-sync-readiness']
+  },
+  {
+    name: 'Books posting preflight dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:books:posting-preflight']
+  },
+  {
+    name: 'Books Stage 13D closure',
+    cwd: repoRoot,
+    args: ['run', 'modular:books:stage13d-closure']
   }
 ]
 
