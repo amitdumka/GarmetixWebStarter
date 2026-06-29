@@ -65,6 +65,11 @@ const steps = [
     name: 'POS live save fixture readiness dry-run',
     cwd: repoRoot,
     args: ['run', 'modular:pos:live-save-fixtures']
+  },
+  {
+    name: 'POS Stage 13B closure',
+    cwd: repoRoot,
+    args: ['run', 'modular:pos:stage13b-closure']
   }
 ]
 

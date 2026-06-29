@@ -177,7 +177,16 @@ Goal: move from production smoke tooling into deeper POS workflow parity and saf
 - 13B.10 complete: add dry-run and optional live browser acceptance for POS held-bill render, resume navigation and sale-draft recovery.
 - 13B.11 complete: add POS save-after-resume readiness checks for resumed draft recovery, sale request construction, payment safety and Manager salesman fallback.
 - 13B.12 complete: add dry-run and optional live POS fixture readiness checks for store scope, billing options, sellable stock, bank readiness and save payload safety.
+- 13B closed: POS parity and writable hardening now has repeatable dry validation for contract parity, local workflows, print recovery, returns, exchange, server held bills, browser resume and save-readiness fixtures.
 - Add live acceptance evidence when test credentials are available.
 - Keep off-book cash voucher and non-GST flows separated from regular books.
 - Preserve unified API/database until a future backend split is explicitly approved.
+
+## Stage 13C: Next Modular Hardening Lane
+
+Goal: move the next module lane through the same pattern: contract checks, read/write safety, dry smoke, optional live readiness and closure.
+
+- Candidate lane: HR/payroll attendance device readiness, Books accounting audit/live posting readiness, or Main back-office operations parity.
+- Keep all real data mutation behind explicit opt-in flags.
+- Continue one shared ASP.NET API and one PostgreSQL database until a future split is explicitly approved.
 
