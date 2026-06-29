@@ -42,6 +42,11 @@ const steps = [
     args: ['run', 'modular:main:backoffice-readiness']
   },
   {
+    name: 'Main Back Office contract parity',
+    cwd: repoRoot,
+    args: ['run', 'modular:main:backoffice-contract']
+  },
+  {
     name: 'POS sale contract parity',
     cwd: repoRoot,
     args: ['run', 'modular:pos:contract']
