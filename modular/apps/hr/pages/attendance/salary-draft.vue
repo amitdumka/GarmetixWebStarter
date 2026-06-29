@@ -71,6 +71,7 @@
                 <UBadge v-if="readText(row, ['payrollPostStatus'], '').toLowerCase().includes('generated')" color="success" variant="subtle">
                   Generated
                 </UBadge>
+                <p v-if="readText(row, ['generatedSalaryPaySlipId'], '')" class="text-xs text-muted">Payslip linked</p>
               </td>
               <td class="px-3 py-2">
                 <div class="flex min-w-56 flex-col gap-2">

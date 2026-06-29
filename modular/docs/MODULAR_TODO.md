@@ -187,10 +187,11 @@ Goal: move from production smoke tooling into deeper POS workflow parity and saf
 Goal: move the HR/payroll module lane through the same pattern: route readiness, contract checks, read/write safety, dry smoke, optional live readiness and closure.
 
 - 13C.1 complete: add non-mutating HR/payroll readiness checks for HR route ownership, attendance read models, payroll review, salary payment candidates, attendance devices, fingerprint bridge status, face/liveness status, recent payslips and salary payment list endpoints.
-- 13C.2 planned: add HR attendance contract checks for monthly attendance, payroll summary, payroll review, salary draft and salary payment preview DTO field expectations.
-- 13C.3 planned: add HR browser acceptance notes/checks for attendance, payroll review and salary payment pages on 14 inch laptop layouts.
-- 13C.4 planned: add Mantra/fingerprint device bridge readiness docs and simulator checks without raw biometric storage.
-- 13C.5 planned: add controlled live payroll preview validation without creating salary payment vouchers.
+- 13C.2 complete: add HR attendance contract checks for monthly attendance, payroll summary, payroll review, salary draft and salary payment preview DTO field expectations.
+- 13C.3 complete: add HR browser acceptance notes/checks for attendance, payroll review and salary payment pages on 14 inch laptop layouts.
+- 13C.4 complete: add Mantra/fingerprint device bridge readiness docs and simulator checks without raw biometric storage.
+- 13C.5 complete: add controlled live payroll preview validation without creating salary payment vouchers.
+- 13C closed: HR/payroll attendance hardening now has repeatable dry validation for endpoint readiness, DTO contracts, browser layout acceptance, device bridge readiness and non-mutating salary payment preview.
 - Keep all real data mutation behind explicit opt-in flags.
 - Continue one shared ASP.NET API and one PostgreSQL database until a future split is explicitly approved.
 

@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "5.13.19",
+  "version": "5.13.24",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -25,6 +25,11 @@
     "pos:live-save-fixtures": "node scripts/pos-live-save-fixture-readiness.mjs",
     "pos:stage13b-closure": "node scripts/pos-stage13b-closure.mjs",
     "hr:payroll-readiness": "node scripts/hr-payroll-readiness.mjs",
+    "hr:attendance-contract": "node scripts/hr-attendance-contract-check.mjs",
+    "hr:browser-acceptance": "node scripts/hr-browser-acceptance.mjs",
+    "hr:device-bridge-readiness": "node scripts/hr-device-bridge-readiness.mjs",
+    "hr:payroll-preview-readiness": "node scripts/hr-payroll-preview-readiness.mjs",
+    "hr:stage13c-closure": "node scripts/hr-stage13c-closure.mjs",
     "build:main": "npm --workspace @garmetix/main-web run build",
     "build:pos": "npm --workspace @garmetix/pos-web run build",
     "build:hr": "npm --workspace @garmetix/hr-web run build",

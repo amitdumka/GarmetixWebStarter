@@ -53,6 +53,7 @@
               <th class="px-3 py-2">OT</th>
               <th class="px-3 py-2">Est. Gross</th>
               <th class="px-3 py-2">Status</th>
+              <th class="px-3 py-2">Payroll</th>
               <th class="px-3 py-2">Action</th>
             </tr>
           </thead>
@@ -73,6 +74,7 @@
               <td class="px-3 py-2">
                 <UBadge :color="reviewTone(row)" variant="subtle">{{ readText(row, ['reviewStatus']) }}</UBadge>
               </td>
+              <td class="px-3 py-2">{{ readText(row, ['payrollActionStatus']) }}</td>
               <td class="px-3 py-2">
                 <div class="flex min-w-64 flex-col gap-2">
                   <UInput v-model="notes[rowKey(row, index)]" size="xs" placeholder="Review note" />
@@ -85,7 +87,7 @@
               </td>
             </tr>
             <tr v-if="!rows.length">
-              <td class="px-3 py-6 text-center text-muted" colspan="11">No review rows found. Rebuild after monthly attendance is calculated.</td>
+              <td class="px-3 py-6 text-center text-muted" colspan="12">No review rows found. Rebuild after monthly attendance is calculated.</td>
             </tr>
           </tbody>
         </table>

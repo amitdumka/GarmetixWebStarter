@@ -21,6 +21,13 @@
 
     <UAlert v-if="error" color="error" variant="subtle" icon="i-lucide-circle-alert" :description="error" />
 
+    <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div v-for="card in cards" :key="card.label" class="border border-default bg-muted/20 p-4">
+        <p class="text-xs text-muted">{{ card.label }}</p>
+        <p class="mt-1 text-xl font-semibold">{{ card.value }}</p>
+      </div>
+    </div>
+
     <div class="border border-default bg-muted/10 p-4">
       <h3 class="text-base font-semibold">Summary</h3>
       <pre class="mt-3 max-h-[560px] overflow-auto border border-default bg-default/40 p-3 text-xs">{{ formattedSummary }}</pre>
@@ -29,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { currentYearMonth, type ApiRecord, useHrApiClient } from '../../utils/hr-api'
+import { currentYearMonth, readNumber, readText, type ApiRecord, useHrApiClient } from '../../utils/hr-api'
 
 useHead({ title: 'Payroll Summary - Garmetix HR' })
 
@@ -40,6 +47,14 @@ const month = ref(current.month)
 const loading = ref(false)
 const error = ref('')
 const summary = ref<ApiRecord | null>(null)
+const cards = computed(() => [
+  { label: 'Employees', value: readNumber(summary.value, ['employees']) },
+  { label: 'Present Days', value: readNumber(summary.value, ['presentDays']) },
+  { label: 'Absent Days', value: readNumber(summary.value, ['absentDays']) },
+  { label: 'Late Days', value: readNumber(summary.value, ['lateDays']) },
+  { label: 'Half Days', value: readNumber(summary.value, ['halfDays']) },
+  { label: 'Locked Rows', value: readText(summary.value, ['hasLockedRows'], 'false') === 'true' ? 'Yes' : 'No' }
+])
 const formattedSummary = computed(() => summary.value ? JSON.stringify(summary.value, null, 2) : 'No payroll summary loaded.')
 
 async function load() {

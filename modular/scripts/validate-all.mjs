@@ -75,6 +75,31 @@ const steps = [
     name: 'HR payroll readiness dry-run',
     cwd: repoRoot,
     args: ['run', 'modular:hr:payroll-readiness']
+  },
+  {
+    name: 'HR attendance contract parity',
+    cwd: repoRoot,
+    args: ['run', 'modular:hr:attendance-contract']
+  },
+  {
+    name: 'HR browser acceptance dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:hr:browser-acceptance']
+  },
+  {
+    name: 'HR device bridge readiness dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:hr:device-bridge-readiness']
+  },
+  {
+    name: 'HR payroll preview readiness dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:hr:payroll-preview-readiness']
+  },
+  {
+    name: 'HR Stage 13C closure',
+    cwd: repoRoot,
+    args: ['run', 'modular:hr:stage13c-closure']
   }
 ]
 
