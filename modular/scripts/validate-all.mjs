@@ -47,6 +47,11 @@ const steps = [
     args: ['run', 'modular:main:backoffice-contract']
   },
   {
+    name: 'Main Back Office browser acceptance dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:main:browser-acceptance']
+  },
+  {
     name: 'POS sale contract parity',
     cwd: repoRoot,
     args: ['run', 'modular:pos:contract']

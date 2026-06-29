@@ -215,7 +215,8 @@ Goal: move Main Back Office through the same hardening pattern used for POS, HR 
 
 - 13E.1 complete: add non-mutating Main Back Office readiness checks for route ownership, dashboard read models, recent sale/purchase review, stock summary, customer search, product lookup and workspace scope.
 - 13E.2 complete: add contract parity checks for Main Back Office dashboard, sale review, purchase review, inventory summary, customer preview, product lookup and workspace DTO fields.
-- 13E.3 next: add Main browser acceptance checks for 14 inch laptop usability, table scrolling, safe messages and app boundary clarity.
+- 13E.3 complete: add Main browser acceptance checks for 14 inch laptop usability, route headings, table scrolling, safe messages and app boundary clarity.
+- 13E.4 next: add writable-readiness preflight for Main sale-review actions, purchase intake/review, customer profile handoff and inventory operations without mutations by default.
 - Keep Main focused on back-office operational review while POS, HR, Books and Admin/SaaS retain their dedicated workflows.
 - Keep store-day, tailoring, purchase return and document scan writable behavior deferred until endpoint contracts are promoted.
 - Preserve one shared ASP.NET API and one PostgreSQL database until a future split is explicitly approved.
