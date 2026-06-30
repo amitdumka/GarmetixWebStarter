@@ -160,6 +160,11 @@ const steps = [
     name: 'Admin/SaaS readiness dry-run',
     cwd: repoRoot,
     args: ['run', 'modular:admin:saas-readiness']
+  },
+  {
+    name: 'Admin/SaaS browser acceptance dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:admin:browser-acceptance']
   }
 ]
 
