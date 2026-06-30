@@ -217,8 +217,18 @@ Goal: move Main Back Office through the same hardening pattern used for POS, HR 
 - 13E.2 complete: add contract parity checks for Main Back Office dashboard, sale review, purchase review, inventory summary, customer preview, product lookup and workspace DTO fields.
 - 13E.3 complete: add Main browser acceptance checks for 14 inch laptop usability, route headings, table scrolling, safe messages and app boundary clarity.
 - 13E.4 complete: add writable-readiness preflight for Main sale-review actions, purchase intake/review, customer profile handoff and inventory operations without mutations by default.
-- 13E.5 next: add Main closure checklist for dashboard, billing review, purchase review, inventory, customers, reports, deployment readiness and residual writable risks.
+- 13E.5 complete: add Main closure checklist for dashboard, billing review, purchase review, inventory, customers, reports, deployment readiness and residual writable risks.
+- 13E closed: Main Back Office hardening now has repeatable dry validation for route ownership, read models, DTO contracts, browser acceptance, writable preflight and deployment handoff.
+- Main closed route set: `/`, `/dashboard`, `/dashboard/todays`, `/dashboard/store-manager`, `/billing`, `/purchase`, `/inventory`, `/stock-operations`, `/customers`, `/reports`.
 - Keep Main focused on back-office operational review while POS, HR, Books and Admin/SaaS retain their dedicated workflows.
 - Keep store-day, tailoring, purchase return and document scan writable behavior deferred until endpoint contracts are promoted.
 - Preserve one shared ASP.NET API and one PostgreSQL database until a future split is explicitly approved.
+
+## Stage 13F: Admin/SaaS Live Operations Hardening
+
+Goal: move Admin/SaaS through the same closure pattern with live-operations safety before production use.
+
+- 13F.1 next: add Admin/SaaS readiness checks for SuperAdmin-only visibility, setup/admin diagnostics, message logs, backup/restore, factory reset guardrails, import/export controls and deployment governance.
+- Keep factory reset and restore destructive flows behind explicit live/admin confirmation gates.
+- Keep production secrets out of repository scripts and docs.
 

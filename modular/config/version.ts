@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '5.13.34',
-  stage: 'Stage 13E.4 Main Writable Readiness',
-  label: 'Version5 Stage 13E.4 Main Back Office Writable Readiness',
-  summary: 'Added non-mutating writable-readiness preflight for Main sale review handoffs, purchase intake prerequisites, customer profile handoff and inventory operation guards.'
+  version: '5.13.35',
+  stage: 'Stage 13E.5 Main Closure',
+  label: 'Version5 Stage 13E.5 Main Back Office Closure',
+  summary: 'Closed the Main Back Office hardening lane with a repeatable closure gate for readiness, contracts, browser acceptance, writable preflight and deployment handoff.'
 } as const

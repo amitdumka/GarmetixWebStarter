@@ -57,6 +57,11 @@ const steps = [
     args: ['run', 'modular:main:writable-readiness']
   },
   {
+    name: 'Main Back Office Stage 13E closure',
+    cwd: repoRoot,
+    args: ['run', 'modular:main:stage13e-closure']
+  },
+  {
     name: 'POS sale contract parity',
     cwd: repoRoot,
     args: ['run', 'modular:pos:contract']
