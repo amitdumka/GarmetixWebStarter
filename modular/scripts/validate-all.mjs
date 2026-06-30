@@ -165,6 +165,11 @@ const steps = [
     name: 'Admin/SaaS browser acceptance dry-run',
     cwd: repoRoot,
     args: ['run', 'modular:admin:browser-acceptance']
+  },
+  {
+    name: 'Admin/SaaS writable preflight dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:admin:writable-preflight']
   }
 ]
 

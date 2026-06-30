@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "5.13.37",
+  "version": "5.13.38",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -43,6 +43,7 @@
     "books:stage13d-closure": "node scripts/books-stage13d-closure.mjs",
     "admin:saas-readiness": "node scripts/admin-saas-readiness.mjs",
     "admin:browser-acceptance": "node scripts/admin-browser-acceptance.mjs",
+    "admin:writable-preflight": "node scripts/admin-writable-preflight.mjs",
     "build:main": "npm --workspace @garmetix/main-web run build",
     "build:pos": "npm --workspace @garmetix/pos-web run build",
     "build:hr": "npm --workspace @garmetix/hr-web run build",
