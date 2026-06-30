@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '5.13.35',
-  stage: 'Stage 13E.5 Main Closure',
-  label: 'Version5 Stage 13E.5 Main Back Office Closure',
-  summary: 'Closed the Main Back Office hardening lane with a repeatable closure gate for readiness, contracts, browser acceptance, writable preflight and deployment handoff.'
+  version: '5.13.36',
+  stage: 'Stage 13F.1 Admin/SaaS Readiness',
+  label: 'Version5 Stage 13F.1 Admin/SaaS Readiness',
+  summary: 'Added non-mutating Admin/SaaS readiness checks for access guardrails, setup diagnostics, logs, backup, factory reset, import/export, license and deployment governance.'
 } as const

@@ -155,6 +155,11 @@ const steps = [
     name: 'Books Stage 13D closure',
     cwd: repoRoot,
     args: ['run', 'modular:books:stage13d-closure']
+  },
+  {
+    name: 'Admin/SaaS readiness dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:admin:saas-readiness']
   }
 ]
 
