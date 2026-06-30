@@ -231,7 +231,8 @@ Goal: move Admin/SaaS through the same closure pattern with live-operations safe
 - 13F.1 complete: add Admin/SaaS readiness checks for SuperAdmin/Admin visibility, setup/admin diagnostics, message logs, backup/restore, factory reset guardrails, import/export controls and deployment governance.
 - 13F.2 complete: add Admin browser acceptance checks for login, access denied, setup, users, system health, message logs, backup, import/export and production pages on 14 inch laptop layouts.
 - 13F.3 complete: add guarded Admin writable/live preflight for backup restore, factory reset, license generation/activation and import/export commit without executing dangerous mutations by default.
-- 13F.4 next: close the Admin/SaaS hardening lane with a repeatable closure gate and remaining-risk handoff.
+- 13F.4 complete: close the Admin/SaaS hardening lane with a repeatable closure gate and remaining-risk handoff.
+- 13F closed: Admin/SaaS hardening now has repeatable dry validation for readiness, browser acceptance, writable preflight and deployment handoff.
 - Current Admin risk: backend factory reset is Admin-policy protected and confirmation-gated with safety backup, but not yet SuperAdmin-only in code.
 - Keep factory reset and restore destructive flows behind explicit live/admin confirmation gates.
 - Keep production secrets out of repository scripts and docs.

@@ -170,6 +170,11 @@ const steps = [
     name: 'Admin/SaaS writable preflight dry-run',
     cwd: repoRoot,
     args: ['run', 'modular:admin:writable-preflight']
+  },
+  {
+    name: 'Admin/SaaS Stage 13F closure',
+    cwd: repoRoot,
+    args: ['run', 'modular:admin:stage13f-closure']
   }
 ]
 
