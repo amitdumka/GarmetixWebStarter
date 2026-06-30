@@ -15,6 +15,9 @@ Usage:
 Reads config from:
   $GARMETIX_SRP_DEPLOY_CONFIG, or ~/.config/garmetix/srp-deploy.env
 
+Optional private secrets file:
+  $SRP_SECRETS_PATH, or ~/.config/garmetix/srp-deploy.secrets.env
+
 The default SRP shape is one public hostname:
   /          Main Back Office
   /pos/      POS
@@ -70,7 +73,16 @@ else
   echo "Config not found at $CONFIG_PATH; using safe defaults. Run --init-config to create it."
 fi
 
-SRP_DEPLOY_TARGET="${SRP_DEPLOY_TARGET:-amitkumr@192.168.11.127}"
+SRP_SECRETS_PATH="${SRP_SECRETS_PATH:-$HOME/.config/garmetix/srp-deploy.secrets.env}"
+if [[ "$SRP_SECRETS_PATH" == "~/"* ]]; then
+  SRP_SECRETS_PATH="$HOME/${SRP_SECRETS_PATH#"~/"}"
+fi
+if [ -f "$SRP_SECRETS_PATH" ]; then
+  # shellcheck disable=SC1090
+  source "$SRP_SECRETS_PATH"
+fi
+
+SRP_DEPLOY_TARGET="${SRP_DEPLOY_TARGET:-amitkumar@192.168.11.127}"
 SRP_SSH_PORT="${SRP_SSH_PORT:-22}"
 SRP_DOMAIN="${SRP_DOMAIN:-srp.aadwikafashion.in}"
 SRP_REMOTE_BASE="${SRP_REMOTE_BASE:-/opt/garmetix-srp}"
@@ -112,6 +124,8 @@ SRP deployment plan
   Nginx port:    $SRP_NGINX_PORT
   API port:      $SRP_API_PORT
   Config file:   $CONFIG_PATH
+  Secrets file:  $SRP_SECRETS_PATH
+  Auth mode:     $(if [ -n "${SRP_SSH_PASSWORD:-}" ]; then echo "password via sshpass"; else echo "SSH key or interactive"; fi)
   Local release: $LOCAL_RELEASE
 
 Routes:
@@ -130,6 +144,65 @@ need_command() {
     echo "Missing required command: $1" >&2
     exit 1
   fi
+}
+
+shell_quote() {
+  printf "%q" "$1"
+}
+
+ssh_base_args() {
+  printf "%s\n" "-p" "$SRP_SSH_PORT" "-o" "StrictHostKeyChecking=accept-new"
+}
+
+ssh_cmd() {
+  if [ -n "${SRP_SSH_PASSWORD:-}" ]; then
+    need_command sshpass
+    SSHPASS="$SRP_SSH_PASSWORD" sshpass -e ssh -p "$SRP_SSH_PORT" -o StrictHostKeyChecking=accept-new "$SRP_DEPLOY_TARGET" "$@"
+  else
+    ssh -p "$SRP_SSH_PORT" -o StrictHostKeyChecking=accept-new "$SRP_DEPLOY_TARGET" "$@"
+  fi
+}
+
+rsync_cmd() {
+  if [ -n "${SRP_SSH_PASSWORD:-}" ]; then
+    need_command sshpass
+    SSHPASS="$SRP_SSH_PASSWORD" sshpass -e rsync -az --delete -e "ssh -p $SRP_SSH_PORT -o StrictHostKeyChecking=accept-new" "$LOCAL_RELEASE/" "$SRP_DEPLOY_TARGET:$REMOTE_RELEASE/"
+  else
+    rsync -az --delete -e "ssh -p $SRP_SSH_PORT -o StrictHostKeyChecking=accept-new" "$LOCAL_RELEASE/" "$SRP_DEPLOY_TARGET:$REMOTE_RELEASE/"
+  fi
+}
+
+upload_payload() {
+  if command -v rsync >/dev/null 2>&1; then
+    rsync_cmd
+    return
+  fi
+
+  need_command tar
+  echo "rsync not found; using tar stream upload."
+  (
+    cd "$LOCAL_RELEASE"
+    tar -czf - .
+  ) | ssh_cmd "rm -rf '$REMOTE_RELEASE' && mkdir -p '$REMOTE_RELEASE' && tar -xzf - -C '$REMOTE_RELEASE'"
+}
+
+remote_sudo_env_prefix() {
+  local sudo_password="${SRP_SUDO_PASSWORD:-${SRP_SSH_PASSWORD:-}}"
+  if [ -n "$sudo_password" ]; then
+    printf "export SRP_REMOTE_SUDO_PASSWORD=%s; " "$(shell_quote "$sudo_password")"
+  fi
+}
+
+remote_sudo_function() {
+  cat <<'REMOTE_SUDO'
+sudo_cmd() {
+  if [ -n "${SRP_REMOTE_SUDO_PASSWORD:-}" ]; then
+    printf '%s\n' "$SRP_REMOTE_SUDO_PASSWORD" | sudo -S -p '' "$@"
+  else
+    sudo "$@"
+  fi
+};
+REMOTE_SUDO
 }
 
 copy_public_output() {
@@ -268,25 +341,33 @@ REMOTE_BASE="$SRP_REMOTE_BASE"
 API_ENV_PATH="$SRP_API_ENV_PATH"
 CLOUDFLARE_CONFIG_PATH="$SRP_CLOUDFLARE_CONFIG_PATH"
 
-sudo mkdir -p "\$(dirname "\$API_ENV_PATH")" "\$(dirname "\$CLOUDFLARE_CONFIG_PATH")"
+sudo_cmd() {
+  if [ -n "\${SRP_REMOTE_SUDO_PASSWORD:-}" ]; then
+    printf '%s\n' "\$SRP_REMOTE_SUDO_PASSWORD" | sudo -S -p '' "\$@"
+  else
+    sudo "\$@"
+  fi
+}
+
+sudo_cmd mkdir -p "\$(dirname "\$API_ENV_PATH")" "\$(dirname "\$CLOUDFLARE_CONFIG_PATH")"
 
 if [ ! -f "\$API_ENV_PATH" ]; then
-  sudo cp "\$REMOTE_BASE/current/ops/srp-api.env.template" "\$API_ENV_PATH"
+  sudo_cmd cp "\$REMOTE_BASE/current/ops/srp-api.env.template" "\$API_ENV_PATH"
   echo "Created \$API_ENV_PATH. Edit database/JWT values before starting the API."
 fi
 
-sudo cp "\$REMOTE_BASE/current/ops/nginx-garmetix-srp.conf" /etc/nginx/sites-available/garmetix-srp.conf
-sudo ln -sfn /etc/nginx/sites-available/garmetix-srp.conf /etc/nginx/sites-enabled/garmetix-srp.conf
-sudo nginx -t
-sudo systemctl reload nginx
+sudo_cmd cp "\$REMOTE_BASE/current/ops/nginx-garmetix-srp.conf" /etc/nginx/sites-available/garmetix-srp.conf
+sudo_cmd ln -sfn /etc/nginx/sites-available/garmetix-srp.conf /etc/nginx/sites-enabled/garmetix-srp.conf
+sudo_cmd nginx -t
+sudo_cmd systemctl reload nginx
 
-sudo cp "\$REMOTE_BASE/current/ops/garmetix-srp-api.service" /etc/systemd/system/garmetix-srp-api.service
-sudo systemctl daemon-reload
-sudo systemctl enable garmetix-srp-api.service
-sudo systemctl restart garmetix-srp-api.service
+sudo_cmd cp "\$REMOTE_BASE/current/ops/garmetix-srp-api.service" /etc/systemd/system/garmetix-srp-api.service
+sudo_cmd systemctl daemon-reload
+sudo_cmd systemctl enable garmetix-srp-api.service
+sudo_cmd systemctl restart garmetix-srp-api.service
 
 if [ ! -f "\$CLOUDFLARE_CONFIG_PATH" ]; then
-  sudo cp "\$REMOTE_BASE/current/ops/cloudflared-garmetix-srp.yml" "\$CLOUDFLARE_CONFIG_PATH"
+  sudo_cmd cp "\$REMOTE_BASE/current/ops/cloudflared-garmetix-srp.yml" "\$CLOUDFLARE_CONFIG_PATH"
   echo "Created \$CLOUDFLARE_CONFIG_PATH. Add the real Cloudflare tunnel credentials before enabling cloudflared."
 fi
 
@@ -307,14 +388,17 @@ publish_api() {
 
 upload_release() {
   need_command ssh
-  need_command rsync
-  ssh -p "$SRP_SSH_PORT" "$SRP_DEPLOY_TARGET" "mkdir -p '$SRP_REMOTE_BASE/releases'"
-  rsync -az --delete -e "ssh -p $SRP_SSH_PORT" "$LOCAL_RELEASE/" "$SRP_DEPLOY_TARGET:$REMOTE_RELEASE/"
-  ssh -p "$SRP_SSH_PORT" "$SRP_DEPLOY_TARGET" "ln -sfn '$REMOTE_RELEASE' '$SRP_REMOTE_BASE/current' && find '$SRP_REMOTE_BASE/releases' -mindepth 1 -maxdepth 1 -type d | sort -r | tail -n +$((SRP_KEEP_RELEASES + 1)) | xargs -r rm -rf"
+  local sudo_prefix
+  sudo_prefix="$(remote_sudo_env_prefix)"
+  ssh_cmd "${sudo_prefix}$(remote_sudo_function) sudo_cmd mkdir -p '$SRP_REMOTE_BASE/releases'; sudo_cmd chown -R \"\$(id -u):\$(id -g)\" '$SRP_REMOTE_BASE'"
+  upload_payload
+  ssh_cmd "ln -sfn '$REMOTE_RELEASE' '$SRP_REMOTE_BASE/current' && find '$SRP_REMOTE_BASE/releases' -mindepth 1 -maxdepth 1 -type d | sort -r | tail -n +$((SRP_KEEP_RELEASES + 1)) | xargs -r rm -rf"
 }
 
 install_remote() {
-  ssh -p "$SRP_SSH_PORT" "$SRP_DEPLOY_TARGET" "bash '$SRP_REMOTE_BASE/current/ops/install-srp-on-host.sh'"
+  local sudo_prefix
+  sudo_prefix="$(remote_sudo_env_prefix)"
+  ssh_cmd "${sudo_prefix}bash '$SRP_REMOTE_BASE/current/ops/install-srp-on-host.sh'"
 }
 
 print_plan

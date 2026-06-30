@@ -26,6 +26,18 @@ npm run modular:deploy:srp -- --init-config
 
 Then edit `~/.config/garmetix/srp-deploy.env`. Keep passwords, tunnel credentials and database secrets outside git. On Windows the npm command uses Git Bash automatically when WSL bash is not available.
 
+For non-interactive SSH/sudo, create the private secrets file referenced by `SRP_SECRETS_PATH`:
+
+```bash
+cat > ~/.config/garmetix/srp-deploy.secrets.env <<'EOF'
+SRP_SSH_PASSWORD=your-ssh-password
+SRP_SUDO_PASSWORD=your-sudo-password
+EOF
+chmod 600 ~/.config/garmetix/srp-deploy.secrets.env
+```
+
+The password mode requires `sshpass` on the machine running the deploy script. `rsync` is optional; when it is missing the script uploads a compressed tar stream over SSH. SSH keys are still the preferred long-term option.
+
 Check the plan:
 
 ```bash

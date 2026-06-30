@@ -1,6 +1,6 @@
 # Stage 13G.1 SRP Deployment Foundation
 
-Version: 5.13.40
+Version: 5.13.41
 
 ## Goal
 
@@ -52,7 +52,22 @@ Create it with:
 npm run modular:deploy:srp -- --init-config
 ```
 
-The checked-in example defaults to `amitkumr@192.168.11.127` because that is the latest requested target. If the Ubuntu user is actually `amitkumar`, edit only the generated config file.
+The checked-in example defaults to `amitkumar@192.168.11.127`.
+
+For non-interactive deploys, keep passwords in a private file outside git:
+
+```bash
+~/.config/garmetix/srp-deploy.secrets.env
+```
+
+Supported keys:
+
+```bash
+SRP_SSH_PASSWORD=your-ssh-password
+SRP_SUDO_PASSWORD=your-sudo-password
+```
+
+This mode requires `sshpass` on the machine running the deploy script. `rsync` is optional because the script can fall back to a compressed tar upload stream. The script never commits or prints password values.
 
 ## Generated Server Artifacts
 
@@ -111,7 +126,7 @@ The real tunnel credential file must stay on the server and must not be committe
 - First live install still needs server package readiness: `nginx`, `dotnet`, `cloudflared`, PostgreSQL access and SSH.
 - `srp-api.env.template` contains placeholders only. The real server file must be edited before API start.
 - Path-based hosting depends on all app links respecting the configured public URLs and base paths.
-- If the actual Linux username differs from `amitkumr`, update `SRP_DEPLOY_TARGET` in the local config before upload.
+- If the actual Linux username differs from `amitkumar`, update `SRP_DEPLOY_TARGET` in the local config before upload.
 
 ## Next Stage
 
