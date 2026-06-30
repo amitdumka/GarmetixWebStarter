@@ -237,3 +237,13 @@ Goal: move Admin/SaaS through the same closure pattern with live-operations safe
 - Keep factory reset and restore destructive flows behind explicit live/admin confirmation gates.
 - Keep production secrets out of repository scripts and docs.
 
+## Stage 13G: SRP Whole-Site Deployment
+
+Goal: deploy the complete modular website to the Ubuntu desktop SRP target without disturbing the existing production hostname.
+
+- 13G.1 complete: add SRP whole-site deploy foundation for `srp.aadwikafashion.in`, path-based modular static apps, reusable config, API publish staging, Nginx, systemd and Cloudflare Tunnel templates.
+- 13G.2 next: run live host readiness for SSH, Nginx, dotnet, cloudflared, PostgreSQL and tunnel credentials on `192.168.11.127`.
+- 13G.3 next: perform first controlled SRP upload and install with reviewed `/etc/garmetix/srp-api.env` values.
+- 13G.4 next: verify public Cloudflare route, app path loading, API health, login and cross-app navigation from `https://srp.aadwikafashion.in`.
+- Keep SRP secrets and tunnel credentials outside git.
+

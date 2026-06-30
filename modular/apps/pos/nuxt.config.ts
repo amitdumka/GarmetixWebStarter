@@ -2,6 +2,7 @@ export default defineNuxtConfig({
   ssr: false,
   modules: ['@nuxt/ui'],
   app: {
+    baseURL: process.env.NUXT_APP_BASE_URL || process.env.NUXT_PUBLIC_GARMETIX_POS_BASE_PATH || '/',
     head: {
       title: 'Garmetix POS'
     }

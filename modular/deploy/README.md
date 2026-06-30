@@ -6,6 +6,52 @@ For the host-specific Ubuntu server and Ubuntu desktop runbook, see `modular/doc
 
 For a release-day checklist, run `npm run modular:release:checklist` from the repository root.
 
+## SRP Whole-Site Deploy
+
+The SRP lane deploys the complete modular website to one Ubuntu desktop host and one Cloudflare hostname:
+
+- `https://srp.aadwikafashion.in/` -> Main Back Office
+- `https://srp.aadwikafashion.in/pos/` -> POS
+- `https://srp.aadwikafashion.in/hr/` -> HR
+- `https://srp.aadwikafashion.in/ai-sense/` -> AI Sense
+- `https://srp.aadwikafashion.in/books/` -> Accounting/Books
+- `https://srp.aadwikafashion.in/admin/` -> Admin/SaaS
+- `https://srp.aadwikafashion.in/api/` -> ASP.NET Core API
+
+Create the reusable local config once:
+
+```bash
+npm run modular:deploy:srp -- --init-config
+```
+
+Then edit `~/.config/garmetix/srp-deploy.env`. Keep passwords, tunnel credentials and database secrets outside git. On Windows the npm command uses Git Bash automatically when WSL bash is not available.
+
+Check the plan:
+
+```bash
+npm run modular:deploy:srp -- --dry-run
+```
+
+Build and stage locally:
+
+```bash
+npm run modular:deploy:srp -- --build-only
+```
+
+Build and upload to the configured host:
+
+```bash
+npm run modular:deploy:srp
+```
+
+Build, upload and apply Nginx/API service templates:
+
+```bash
+npm run modular:deploy:srp -- --install-remote
+```
+
+This lane does not change the existing `garmetix.aadwikafashion.in` production host.
+
 ## Main Back Office Static Deploy
 
 The Main Back Office frontend is generated as a static Nuxt app and can be served by Nginx, Caddy, Apache, or any static file server.

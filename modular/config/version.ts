@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '5.13.39',
-  stage: 'Stage 13F.4 Admin/SaaS Closure',
-  label: 'Version5 Stage 13F.4 Admin/SaaS Closure',
-  summary: 'Closed the Admin/SaaS hardening lane with repeatable readiness, browser acceptance, writable preflight, deployment handoff and remaining-risk validation.'
+  version: '5.13.40',
+  stage: 'Stage 13G.1 SRP Deployment Foundation',
+  label: 'Version5 Stage 13G.1 SRP Deployment Foundation',
+  summary: 'Added a reusable SRP whole-site deployment lane for srp.aadwikafashion.in with path-based modular static apps, API publishing, Nginx, systemd and Cloudflare Tunnel templates.'
 } as const

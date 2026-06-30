@@ -93,6 +93,7 @@ const requiredPaths = [
   'docs/stage-13f2-admin-browser-acceptance.md',
   'docs/stage-13f3-admin-writable-preflight.md',
   'docs/stage-13f-final-admin-closure.md',
+  'docs/stage-13g1-srp-deployment-foundation.md',
   'deploy/README.md',
   'deploy/main-static-deploy.sh',
   'deploy/pos-static-deploy.sh',
@@ -100,7 +101,10 @@ const requiredPaths = [
   'deploy/ai-sense-static-deploy.sh',
   'deploy/books-static-deploy.sh',
   'deploy/admin-static-deploy.sh',
+  'deploy/srp-deploy.config.example.env',
+  'deploy/srp-whole-site-deploy.sh',
   'scripts/validate-all.mjs',
+  'scripts/run-bash-script.mjs',
   'scripts/deploy-preflight.mjs',
   'scripts/release-checklist.mjs',
   'scripts/smoke-routes.mjs',
@@ -289,7 +293,13 @@ for (const key of [
   'NUXT_PUBLIC_GARMETIX_HR_URL',
   'NUXT_PUBLIC_GARMETIX_AI_SENSE_URL',
   'NUXT_PUBLIC_GARMETIX_BOOKS_URL',
-  'NUXT_PUBLIC_GARMETIX_ADMIN_URL'
+  'NUXT_PUBLIC_GARMETIX_ADMIN_URL',
+  'NUXT_PUBLIC_GARMETIX_MAIN_BASE_PATH',
+  'NUXT_PUBLIC_GARMETIX_POS_BASE_PATH',
+  'NUXT_PUBLIC_GARMETIX_HR_BASE_PATH',
+  'NUXT_PUBLIC_GARMETIX_AI_SENSE_BASE_PATH',
+  'NUXT_PUBLIC_GARMETIX_BOOKS_BASE_PATH',
+  'NUXT_PUBLIC_GARMETIX_ADMIN_BASE_PATH'
 ]) {
   if (!env.includes(key)) failures.push(`Missing env key ${key}`)
 }

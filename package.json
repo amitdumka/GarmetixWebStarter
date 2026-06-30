@@ -1,7 +1,7 @@
 {
   "name": "garmetix-version5-workspace",
   "private": true,
-  "version": "5.13.39",
+  "version": "5.13.40",
   "scripts": {
     "legacy:api:test": "dotnet test legacy/backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release",
     "legacy:api:build": "dotnet build legacy/backend/Garmetix.Api/Garmetix.Api.csproj -c Release",
@@ -42,6 +42,7 @@
     "modular:admin:saas-readiness": "node modular/scripts/admin-saas-readiness.mjs",
     "modular:admin:browser-acceptance": "node modular/scripts/admin-browser-acceptance.mjs",
     "modular:admin:writable-preflight": "node modular/scripts/admin-writable-preflight.mjs",
-    "modular:admin:stage13f-closure": "node modular/scripts/admin-stage13f-closure.mjs"
+    "modular:admin:stage13f-closure": "node modular/scripts/admin-stage13f-closure.mjs",
+    "modular:deploy:srp": "node modular/scripts/run-bash-script.mjs modular/deploy/srp-whole-site-deploy.sh"
   }
 }
