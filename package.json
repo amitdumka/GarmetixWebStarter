@@ -1,7 +1,7 @@
 {
   "name": "garmetix-version5-workspace",
   "private": true,
-  "version": "5.13.44",
+  "version": "5.13.45",
   "scripts": {
     "legacy:api:test": "dotnet test legacy/backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release",
     "legacy:api:build": "dotnet build legacy/backend/Garmetix.Api/Garmetix.Api.csproj -c Release",
@@ -45,6 +45,7 @@
     "modular:admin:stage13f-closure": "node modular/scripts/admin-stage13f-closure.mjs",
     "modular:deploy:srp": "node modular/scripts/run-bash-script.mjs modular/deploy/srp-whole-site-deploy.sh",
     "modular:deploy:srp:readiness": "node modular/scripts/run-bash-script.mjs modular/deploy/srp-host-readiness.sh",
-    "modular:deploy:srp:runtime": "node modular/scripts/run-bash-script.mjs modular/deploy/srp-runtime-bootstrap.sh"
+    "modular:deploy:srp:runtime": "node modular/scripts/run-bash-script.mjs modular/deploy/srp-runtime-bootstrap.sh",
+    "modular:deploy:srp:cloudflare": "node modular/scripts/run-bash-script.mjs modular/deploy/srp-cloudflare-activate.sh"
   }
 }

@@ -84,6 +84,24 @@ bash modular/deploy/srp-runtime-bootstrap.sh
 
 This creates the database, writes `/etc/garmetix/srp-api.env`, starts the API service and installs `cloudflared` when possible. Cloudflare tunnel credentials still require Cloudflare account login or a tunnel token.
 
+Check Cloudflare tunnel status from the SRP host:
+
+```bash
+bash modular/deploy/srp-cloudflare-activate.sh
+```
+
+Activate the Cloudflare tunnel after adding one private credential option to `~/.config/garmetix/srp-deploy.secrets.env`:
+
+```bash
+bash modular/deploy/srp-cloudflare-activate.sh --install
+```
+
+Supported private credential options are `SRP_CLOUDFLARE_TUNNEL_TOKEN`, `SRP_CLOUDFLARE_LOCAL_CREDENTIALS_FILE`, or `SRP_CLOUDFLARE_CREDENTIALS_JSON_B64`. Verify the public hostname after Cloudflare DNS/tunnel routing is active:
+
+```bash
+bash modular/deploy/srp-cloudflare-activate.sh --verify-public
+```
+
 This lane does not change the existing `garmetix.aadwikafashion.in` production host.
 
 ## Main Back Office Static Deploy
