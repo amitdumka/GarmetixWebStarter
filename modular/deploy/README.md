@@ -76,6 +76,14 @@ bash modular/deploy/srp-whole-site-deploy.sh --install-remote
 
 When running from WSL with Windows Node/npm on PATH, prefer direct `bash modular/deploy/...` commands so WSL can use `sshpass` and `rsync`.
 
+Bootstrap PostgreSQL/API runtime on the SRP host:
+
+```bash
+bash modular/deploy/srp-runtime-bootstrap.sh
+```
+
+This creates the database, writes `/etc/garmetix/srp-api.env`, starts the API service and installs `cloudflared` when possible. Cloudflare tunnel credentials still require Cloudflare account login or a tunnel token.
+
 This lane does not change the existing `garmetix.aadwikafashion.in` production host.
 
 ## Main Back Office Static Deploy

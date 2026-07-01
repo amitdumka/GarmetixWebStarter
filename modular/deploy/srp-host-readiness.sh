@@ -231,7 +231,7 @@ else
 fi
 remote_check "cloudflared is installed" "command -v cloudflared && cloudflared --version" false
 remote_check "PostgreSQL client is installed" "command -v psql && psql --version" false
-remote_check "SRP API env exists" "test -f '$SRP_API_ENV_PATH' && sed -n '1,12p' '$SRP_API_ENV_PATH' | sed 's/Password=.*/Password=***REDACTED/'" false
+remote_sudo_check "SRP API env exists" "sudo_cmd test -f '$SRP_API_ENV_PATH' && sudo_cmd sed -n '1,12p' '$SRP_API_ENV_PATH' | sed -E 's/(Password=)[^;[:space:]]+/\\1***REDACTED/g; s/(Jwt__SigningKey=).*/\\1***REDACTED/g'" false
 remote_check "Cloudflare tunnel credentials exist" "test -f '$SRP_CLOUDFLARE_CREDENTIALS_FILE' && ls -l '$SRP_CLOUDFLARE_CREDENTIALS_FILE'" false
 remote_check "Cloudflare SRP config exists" "test -f '$SRP_CLOUDFLARE_CONFIG_PATH' && sed -n '1,20p' '$SRP_CLOUDFLARE_CONFIG_PATH'" false
 remote_check "SRP remote base status" "if [ -d '$SRP_REMOTE_BASE' ]; then ls -ld '$SRP_REMOTE_BASE'; else echo '$SRP_REMOTE_BASE not created yet'; fi" false
