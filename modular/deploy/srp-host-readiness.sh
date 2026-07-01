@@ -53,6 +53,7 @@ if [ -z "${GARMETIX_SRP_DEPLOY_CONFIG:-}" ] && [ ! -f "$CONFIG_PATH" ]; then
   DETECTED_CONFIG_PATH="$(detect_windows_config_path || true)"
   if [ -n "${DETECTED_CONFIG_PATH:-}" ] && [ -f "$DETECTED_CONFIG_PATH" ]; then
     CONFIG_PATH="$DETECTED_CONFIG_PATH"
+    CONFIG_WAS_AUTO_DETECTED=true
   fi
 fi
 
@@ -68,10 +69,10 @@ RAW_SRP_SECRETS_PATH="$SRP_SECRETS_PATH"
 if [[ "$SRP_SECRETS_PATH" == "~/"* ]]; then
   SRP_SECRETS_PATH="$HOME/${SRP_SECRETS_PATH#"~/"}"
 fi
-if [ ! -f "$SRP_SECRETS_PATH" ] && [[ "$RAW_SRP_SECRETS_PATH" == "~/"* ]]; then
-  CONFIG_DIR="$(dirname "$CONFIG_PATH")"
-  CONFIG_SIDE_SECRETS="$CONFIG_DIR/$(basename "$RAW_SRP_SECRETS_PATH")"
-  if [ -f "$CONFIG_SIDE_SECRETS" ]; then
+CONFIG_DIR="$(dirname "$CONFIG_PATH")"
+CONFIG_SIDE_SECRETS="$CONFIG_DIR/srp-deploy.secrets.env"
+if [ -f "$CONFIG_SIDE_SECRETS" ]; then
+  if [[ "$RAW_SRP_SECRETS_PATH" == "~/"* ]] || [[ "$SRP_SECRETS_PATH" == "$HOME/.config/garmetix/srp-deploy.secrets.env" ]]; then
     SRP_SECRETS_PATH="$CONFIG_SIDE_SECRETS"
   fi
 fi
@@ -87,6 +88,7 @@ SRP_REMOTE_BASE="${SRP_REMOTE_BASE:-/opt/garmetix-srp}"
 SRP_NGINX_PORT="${SRP_NGINX_PORT:-8088}"
 SRP_API_PORT="${SRP_API_PORT:-5080}"
 SRP_API_ENV_PATH="${SRP_API_ENV_PATH:-/etc/garmetix/srp-api.env}"
+SRP_API_PUBLISH_SELF_CONTAINED="${SRP_API_PUBLISH_SELF_CONTAINED:-true}"
 SRP_CLOUDFLARE_CREDENTIALS_FILE="${SRP_CLOUDFLARE_CREDENTIALS_FILE:-/etc/cloudflared/garmetix-srp.json}"
 SRP_CLOUDFLARE_CONFIG_PATH="${SRP_CLOUDFLARE_CONFIG_PATH:-/etc/cloudflared/garmetix-srp.yml}"
 
@@ -100,8 +102,11 @@ fail() { FAILURES=$((FAILURES + 1)); echo "FAIL $1"; }
 check_local_command() {
   local command_name="$1"
   local required="${2:-true}"
+  local fallback_name="${3:-}"
   if command -v "$command_name" >/dev/null 2>&1; then
     pass "local command '$command_name' is available"
+  elif [ -n "$fallback_name" ] && command -v "$fallback_name" >/dev/null 2>&1; then
+    pass "local command '$command_name' is available through '$fallback_name'"
   elif [ "$required" = true ]; then
     fail "local command '$command_name' is missing"
   else
@@ -182,9 +187,9 @@ PLAN
 
 echo
 echo "Local checks"
-check_local_command node
+check_local_command node true node.exe
 check_local_command npm
-check_local_command dotnet
+check_local_command dotnet true dotnet.exe
 check_local_command ssh
 check_local_command tar
 check_local_command rsync false
@@ -217,8 +222,13 @@ if [ "$INSTALL_REMOTE_PACKAGES" = true ]; then
 fi
 
 remote_check "Nginx is installed" "command -v nginx && nginx -v" false
-remote_check "dotnet is installed" "command -v dotnet && dotnet --list-runtimes | sed -n '1,8p'" false
-remote_check "ASP.NET Core runtime is available" "dotnet --list-runtimes 2>/dev/null | grep -E 'Microsoft.AspNetCore.App (10|[1-9][0-9])\\.'" false
+if [ "$SRP_API_PUBLISH_SELF_CONTAINED" = true ]; then
+  remote_check "dotnet is installed (optional for self-contained API)" "command -v dotnet && dotnet --list-runtimes | sed -n '1,8p'" false
+  remote_check "ASP.NET Core runtime is available (optional for self-contained API)" "dotnet --list-runtimes 2>/dev/null | grep -E 'Microsoft.AspNetCore.App (10|[1-9][0-9])\\.'" false
+else
+  remote_check "dotnet is installed" "command -v dotnet && dotnet --list-runtimes | sed -n '1,8p'" false
+  remote_check "ASP.NET Core runtime is available" "dotnet --list-runtimes 2>/dev/null | grep -E 'Microsoft.AspNetCore.App (10|[1-9][0-9])\\.'" false
+fi
 remote_check "cloudflared is installed" "command -v cloudflared && cloudflared --version" false
 remote_check "PostgreSQL client is installed" "command -v psql && psql --version" false
 remote_check "SRP API env exists" "test -f '$SRP_API_ENV_PATH' && sed -n '1,12p' '$SRP_API_ENV_PATH' | sed 's/Password=.*/Password=***REDACTED/'" false

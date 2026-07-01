@@ -56,6 +56,7 @@ if [ -z "${GARMETIX_SRP_DEPLOY_CONFIG:-}" ] && [ ! -f "$CONFIG_PATH" ]; then
   DETECTED_CONFIG_PATH="$(detect_windows_config_path || true)"
   if [ -n "${DETECTED_CONFIG_PATH:-}" ] && [ -f "$DETECTED_CONFIG_PATH" ]; then
     CONFIG_PATH="$DETECTED_CONFIG_PATH"
+    CONFIG_WAS_AUTO_DETECTED=true
   fi
 fi
 
@@ -103,10 +104,10 @@ RAW_SRP_SECRETS_PATH="$SRP_SECRETS_PATH"
 if [[ "$SRP_SECRETS_PATH" == "~/"* ]]; then
   SRP_SECRETS_PATH="$HOME/${SRP_SECRETS_PATH#"~/"}"
 fi
-if [ ! -f "$SRP_SECRETS_PATH" ] && [[ "$RAW_SRP_SECRETS_PATH" == "~/"* ]]; then
-  CONFIG_DIR="$(dirname "$CONFIG_PATH")"
-  CONFIG_SIDE_SECRETS="$CONFIG_DIR/$(basename "$RAW_SRP_SECRETS_PATH")"
-  if [ -f "$CONFIG_SIDE_SECRETS" ]; then
+CONFIG_DIR="$(dirname "$CONFIG_PATH")"
+CONFIG_SIDE_SECRETS="$CONFIG_DIR/srp-deploy.secrets.env"
+if [ -f "$CONFIG_SIDE_SECRETS" ]; then
+  if [[ "$RAW_SRP_SECRETS_PATH" == "~/"* ]] || [[ "$SRP_SECRETS_PATH" == "$HOME/.config/garmetix/srp-deploy.secrets.env" ]]; then
     SRP_SECRETS_PATH="$CONFIG_SIDE_SECRETS"
   fi
 fi
@@ -137,6 +138,8 @@ SRP_BOOKS_BASE_PATH="${SRP_BOOKS_BASE_PATH:-/books/}"
 SRP_ADMIN_BASE_PATH="${SRP_ADMIN_BASE_PATH:-/admin/}"
 SRP_API_PROJECT="${SRP_API_PROJECT:-legacy/backend/Garmetix.Api/Garmetix.Api.csproj}"
 SRP_SKIP_API_PUBLISH="${SRP_SKIP_API_PUBLISH:-false}"
+SRP_API_PUBLISH_SELF_CONTAINED="${SRP_API_PUBLISH_SELF_CONTAINED:-true}"
+SRP_API_RUNTIME="${SRP_API_RUNTIME:-linux-x64}"
 SRP_API_ENV_PATH="${SRP_API_ENV_PATH:-/etc/garmetix/srp-api.env}"
 SRP_CLOUDFLARE_TUNNEL_NAME="${SRP_CLOUDFLARE_TUNNEL_NAME:-garmetix-srp}"
 SRP_CLOUDFLARE_CREDENTIALS_FILE="${SRP_CLOUDFLARE_CREDENTIALS_FILE:-/etc/cloudflared/garmetix-srp.json}"
@@ -176,6 +179,29 @@ need_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "Missing required command: $1" >&2
     exit 1
+  fi
+}
+
+resolve_command() {
+  local command_name="$1"
+  local fallback_name="${2:-}"
+  if command -v "$command_name" >/dev/null 2>&1; then
+    command -v "$command_name"
+    return 0
+  fi
+  if [ -n "$fallback_name" ] && command -v "$fallback_name" >/dev/null 2>&1; then
+    command -v "$fallback_name"
+    return 0
+  fi
+  return 1
+}
+
+dotnet_path_arg() {
+  local path_value="$1"
+  if [[ "$DOTNET_COMMAND" == *dotnet.exe ]] && command -v wslpath >/dev/null 2>&1; then
+    wslpath -w "$path_value"
+  else
+    printf '%s' "$path_value"
   fi
 }
 
@@ -266,7 +292,7 @@ build_app() {
       NUXT_PUBLIC_GARMETIX_AI_SENSE_URL="$SRP_AI_SENSE_URL" \
       NUXT_PUBLIC_GARMETIX_BOOKS_URL="$SRP_BOOKS_URL" \
       NUXT_PUBLIC_GARMETIX_ADMIN_URL="$SRP_ADMIN_URL" \
-      npm run "build:$app_name"
+      "$NPM_COMMAND" run "build:$app_name"
     )
   fi
   copy_public_output "$app_name" "$dest"
@@ -274,6 +300,12 @@ build_app() {
 
 write_templates() {
   mkdir -p "$OPS_ROOT"
+  local api_exec_start
+  if [ "$SRP_API_PUBLISH_SELF_CONTAINED" = true ]; then
+    api_exec_start="$SRP_REMOTE_BASE/current/api/Garmetix.Api"
+  else
+    api_exec_start="/usr/bin/dotnet $SRP_REMOTE_BASE/current/api/Garmetix.Api.dll"
+  fi
   cat > "$OPS_ROOT/nginx-garmetix-srp.conf" <<NGINX
 server {
     listen $SRP_NGINX_PORT;
@@ -327,7 +359,7 @@ After=network.target
 
 [Service]
 WorkingDirectory=$SRP_REMOTE_BASE/current/api
-ExecStart=/usr/bin/dotnet $SRP_REMOTE_BASE/current/api/Garmetix.Api.dll
+ExecStart=$api_exec_start
 Restart=always
 RestartSec=10
 KillSignal=SIGINT
@@ -397,7 +429,11 @@ sudo_cmd systemctl reload nginx
 sudo_cmd cp "\$REMOTE_BASE/current/ops/garmetix-srp-api.service" /etc/systemd/system/garmetix-srp-api.service
 sudo_cmd systemctl daemon-reload
 sudo_cmd systemctl enable garmetix-srp-api.service
-sudo_cmd systemctl restart garmetix-srp-api.service
+if sudo_cmd grep -q 'CHANGE_ME' "\$API_ENV_PATH"; then
+  echo "\$API_ENV_PATH still contains CHANGE_ME placeholders. API service was installed but not started."
+else
+  sudo_cmd systemctl restart garmetix-srp-api.service
+fi
 
 if [ ! -f "\$CLOUDFLARE_CONFIG_PATH" ]; then
   sudo_cmd cp "\$REMOTE_BASE/current/ops/cloudflared-garmetix-srp.yml" "\$CLOUDFLARE_CONFIG_PATH"
@@ -415,8 +451,14 @@ publish_api() {
     mkdir -p "$LOCAL_RELEASE/api"
     return
   fi
-  need_command dotnet
-  dotnet publish "$REPO_ROOT/$SRP_API_PROJECT" -c Release -o "$LOCAL_RELEASE/api"
+  local project_path output_path
+  project_path="$(dotnet_path_arg "$REPO_ROOT/$SRP_API_PROJECT")"
+  output_path="$(dotnet_path_arg "$LOCAL_RELEASE/api")"
+  if [ "$SRP_API_PUBLISH_SELF_CONTAINED" = true ]; then
+    "$DOTNET_COMMAND" publish "$project_path" -c Release -r "$SRP_API_RUNTIME" --self-contained true -o "$output_path"
+  else
+    "$DOTNET_COMMAND" publish "$project_path" -c Release -o "$output_path"
+  fi
 }
 
 upload_release() {
@@ -439,7 +481,16 @@ if [ "$DRY_RUN" = true ]; then
   exit 0
 fi
 
-need_command npm
+NPM_COMMAND="$(resolve_command npm npm.cmd || true)"
+DOTNET_COMMAND="$(resolve_command dotnet dotnet.exe || true)"
+if [ -z "$NPM_COMMAND" ]; then
+  echo "Missing required command: npm" >&2
+  exit 1
+fi
+if [ -z "$DOTNET_COMMAND" ] && [ "$SKIP_API" = false ] && [ "$SRP_SKIP_API_PUBLISH" != true ]; then
+  echo "Missing required command: dotnet or dotnet.exe" >&2
+  exit 1
+fi
 rm -rf "$LOCAL_RELEASE"
 mkdir -p "$WEB_ROOT"
 

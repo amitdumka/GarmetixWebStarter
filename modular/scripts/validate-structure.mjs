@@ -95,6 +95,7 @@ const requiredPaths = [
   'docs/stage-13f-final-admin-closure.md',
   'docs/stage-13g1-srp-deployment-foundation.md',
   'docs/stage-13g2-srp-host-readiness.md',
+  'docs/stage-13g3-srp-deployment-packaging.md',
   'deploy/README.md',
   'deploy/main-static-deploy.sh',
   'deploy/pos-static-deploy.sh',

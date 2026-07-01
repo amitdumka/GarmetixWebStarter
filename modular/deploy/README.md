@@ -59,20 +59,22 @@ npm run modular:deploy:srp:readiness -- --install-remote-packages
 Build and stage locally:
 
 ```bash
-npm run modular:deploy:srp -- --build-only
+bash modular/deploy/srp-whole-site-deploy.sh --build-only
 ```
 
 Build and upload to the configured host:
 
 ```bash
-npm run modular:deploy:srp
+bash modular/deploy/srp-whole-site-deploy.sh
 ```
 
 Build, upload and apply Nginx/API service templates:
 
 ```bash
-npm run modular:deploy:srp -- --install-remote
+bash modular/deploy/srp-whole-site-deploy.sh --install-remote
 ```
+
+When running from WSL with Windows Node/npm on PATH, prefer direct `bash modular/deploy/...` commands so WSL can use `sshpass` and `rsync`.
 
 This lane does not change the existing `garmetix.aadwikafashion.in` production host.
 
