@@ -32,7 +32,32 @@ USAGE
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MODULAR_ROOT="$REPO_ROOT/modular"
 CONFIG_EXAMPLE="$MODULAR_ROOT/deploy/srp-deploy.config.example.env"
-CONFIG_PATH="${GARMETIX_SRP_DEPLOY_CONFIG:-$HOME/.config/garmetix/srp-deploy.env}"
+DEFAULT_CONFIG_PATH="$HOME/.config/garmetix/srp-deploy.env"
+CONFIG_PATH="${GARMETIX_SRP_DEPLOY_CONFIG:-$DEFAULT_CONFIG_PATH}"
+
+detect_windows_config_path() {
+  case "$REPO_ROOT" in
+    /mnt/?/Users/*/*)
+      local drive user
+      drive="$(printf '%s' "$REPO_ROOT" | cut -d/ -f3)"
+      user="$(printf '%s' "$REPO_ROOT" | cut -d/ -f5)"
+      printf '/mnt/%s/Users/%s/.config/garmetix/srp-deploy.env' "$drive" "$user"
+      ;;
+    /?/Users/*/*)
+      local drive user
+      drive="$(printf '%s' "$REPO_ROOT" | cut -d/ -f2)"
+      user="$(printf '%s' "$REPO_ROOT" | cut -d/ -f4)"
+      printf '/%s/Users/%s/.config/garmetix/srp-deploy.env' "$drive" "$user"
+      ;;
+  esac
+}
+
+if [ -z "${GARMETIX_SRP_DEPLOY_CONFIG:-}" ] && [ ! -f "$CONFIG_PATH" ]; then
+  DETECTED_CONFIG_PATH="$(detect_windows_config_path || true)"
+  if [ -n "${DETECTED_CONFIG_PATH:-}" ] && [ -f "$DETECTED_CONFIG_PATH" ]; then
+    CONFIG_PATH="$DETECTED_CONFIG_PATH"
+  fi
+fi
 
 INIT_CONFIG=false
 DRY_RUN=false
@@ -74,8 +99,16 @@ else
 fi
 
 SRP_SECRETS_PATH="${SRP_SECRETS_PATH:-$HOME/.config/garmetix/srp-deploy.secrets.env}"
+RAW_SRP_SECRETS_PATH="$SRP_SECRETS_PATH"
 if [[ "$SRP_SECRETS_PATH" == "~/"* ]]; then
   SRP_SECRETS_PATH="$HOME/${SRP_SECRETS_PATH#"~/"}"
+fi
+if [ ! -f "$SRP_SECRETS_PATH" ] && [[ "$RAW_SRP_SECRETS_PATH" == "~/"* ]]; then
+  CONFIG_DIR="$(dirname "$CONFIG_PATH")"
+  CONFIG_SIDE_SECRETS="$CONFIG_DIR/$(basename "$RAW_SRP_SECRETS_PATH")"
+  if [ -f "$CONFIG_SIDE_SECRETS" ]; then
+    SRP_SECRETS_PATH="$CONFIG_SIDE_SECRETS"
+  fi
 fi
 if [ -f "$SRP_SECRETS_PATH" ]; then
   # shellcheck disable=SC1090

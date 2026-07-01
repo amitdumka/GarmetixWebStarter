@@ -243,8 +243,8 @@ Goal: deploy the complete modular website to the Ubuntu desktop SRP target witho
 
 - 13G.1 complete: add SRP whole-site deploy foundation for `srp.aadwikafashion.in`, path-based modular static apps, reusable config, API publish staging, Nginx, systemd and Cloudflare Tunnel templates.
 - 13G.1a complete: correct SRP SSH target to `amitkumar@192.168.11.127` and add private non-interactive SSH/sudo password support through a secrets file and `sshpass`.
-- 13G.2 next: run live host readiness for SSH, Nginx, dotnet, cloudflared, PostgreSQL and tunnel credentials on `192.168.11.127`.
-- 13G.3 next: perform first controlled SRP upload and install with reviewed `/etc/garmetix/srp-api.env` values.
+- 13G.2 complete: add WSL-friendly SRP host readiness checks for local tools, SSH, sudo, Nginx, dotnet, cloudflared, PostgreSQL client, API env and Cloudflare tunnel files.
+- 13G.3 next: run live host readiness from WSL, fix missing prerequisites and perform the first controlled SRP upload/install with reviewed `/etc/garmetix/srp-api.env` values.
 - 13G.4 next: verify public Cloudflare route, app path loading, API health, login and cross-app navigation from `https://srp.aadwikafashion.in`.
 - Keep SRP secrets and tunnel credentials outside git.
 

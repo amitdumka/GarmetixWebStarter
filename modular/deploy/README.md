@@ -44,6 +44,18 @@ Check the plan:
 npm run modular:deploy:srp -- --dry-run
 ```
 
+Run the WSL/local and remote host readiness checks:
+
+```bash
+npm run modular:deploy:srp:readiness
+```
+
+If the remote host is missing base packages such as Nginx or PostgreSQL client, install only those base packages:
+
+```bash
+npm run modular:deploy:srp:readiness -- --install-remote-packages
+```
+
 Build and stage locally:
 
 ```bash

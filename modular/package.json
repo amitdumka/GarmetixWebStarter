@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "5.13.41",
+  "version": "5.13.42",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -57,7 +57,8 @@
     "deploy:ai-sense": "bash deploy/ai-sense-static-deploy.sh",
     "deploy:books": "bash deploy/books-static-deploy.sh",
     "deploy:admin": "bash deploy/admin-static-deploy.sh",
-    "deploy:srp": "node scripts/run-bash-script.mjs deploy/srp-whole-site-deploy.sh"
+    "deploy:srp": "node scripts/run-bash-script.mjs deploy/srp-whole-site-deploy.sh",
+    "deploy:srp:readiness": "node scripts/run-bash-script.mjs deploy/srp-host-readiness.sh"
   },
   "overrides": {
     "@babel/generator": "8.0.0-rc.6",
