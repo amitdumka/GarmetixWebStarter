@@ -247,6 +247,7 @@ Goal: deploy the complete modular website to the Ubuntu desktop SRP target witho
 - 13G.3 complete: run live WSL readiness, install base host packages, add self-contained Linux API publish and guard API startup until real env values exist.
 - 13G.4 complete: add runtime bootstrap for PostgreSQL server, generated API env secrets, API service startup and cloudflared package installation.
 - 13G.5 complete: add credential-safe Cloudflare tunnel activation/status script and public SRP endpoint verification flow.
-- 13G.6 next: add real Cloudflare tunnel credentials outside git, run public verification, then complete login, app path loading, API health and cross-app navigation checks from `https://srp.aadwikafashion.in`.
+- 13G.6 complete: add SRP public acceptance runner for DNS, public routes, API health and LAN fallback verification, with strict mode for final Cloudflare acceptance.
+- 13G.7 next: add real Cloudflare tunnel credentials outside git, run strict public acceptance, then complete browser login, app path loading, API health and cross-app navigation checks from `https://srp.aadwikafashion.in`.
 - Keep SRP secrets and tunnel credentials outside git.
 

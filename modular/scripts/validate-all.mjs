@@ -32,6 +32,11 @@ const steps = [
     args: ['run', 'modular:smoke:public']
   },
   {
+    name: 'SRP public acceptance dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:deploy:srp:acceptance']
+  },
+  {
     name: 'Modular visual smoke notes',
     cwd: repoRoot,
     args: ['run', 'modular:smoke:visual']

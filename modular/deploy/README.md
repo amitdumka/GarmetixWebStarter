@@ -102,6 +102,24 @@ Supported private credential options are `SRP_CLOUDFLARE_TUNNEL_TOKEN`, `SRP_CLO
 bash modular/deploy/srp-cloudflare-activate.sh --verify-public
 ```
 
+Run the fuller SRP acceptance matrix. Default mode is dry-run:
+
+```bash
+npm run modular:deploy:srp:acceptance
+```
+
+Live mode checks DNS, public app routes, API health and LAN fallback without failing while Cloudflare is still pending:
+
+```bash
+npm run modular:deploy:srp:acceptance -- --live
+```
+
+After Cloudflare is configured, strict mode should pass:
+
+```bash
+npm run modular:deploy:srp:acceptance -- --live --strict
+```
+
 This lane does not change the existing `garmetix.aadwikafashion.in` production host.
 
 ## Main Back Office Static Deploy

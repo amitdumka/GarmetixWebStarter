@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "5.13.45",
+  "version": "5.13.46",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -60,7 +60,8 @@
     "deploy:srp": "node scripts/run-bash-script.mjs deploy/srp-whole-site-deploy.sh",
     "deploy:srp:readiness": "node scripts/run-bash-script.mjs deploy/srp-host-readiness.sh",
     "deploy:srp:runtime": "node scripts/run-bash-script.mjs deploy/srp-runtime-bootstrap.sh",
-    "deploy:srp:cloudflare": "node scripts/run-bash-script.mjs deploy/srp-cloudflare-activate.sh"
+    "deploy:srp:cloudflare": "node scripts/run-bash-script.mjs deploy/srp-cloudflare-activate.sh",
+    "deploy:srp:acceptance": "node scripts/srp-public-acceptance.mjs"
   },
   "overrides": {
     "@babel/generator": "8.0.0-rc.6",
