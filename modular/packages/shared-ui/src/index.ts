@@ -115,6 +115,14 @@ const appCopy: Record<FrontendAppId, { title: string, subtitle: string, badge: s
   }
 }
 
+export function isFrontendAppId(value: unknown): value is FrontendAppId {
+  return typeof value === 'string' && value in appCopy
+}
+
+export function normalizeFrontendAppId(value: unknown, fallback: FrontendAppId = 'main'): FrontendAppId {
+  return isFrontendAppId(value) ? value : fallback
+}
+
 export function resolveShellRouteHref(route: ShellRouteDefinition, env: Record<string, string | undefined>) {
   if (route.targetApp === 'main') return route.path
 
@@ -126,9 +134,10 @@ export function resolveShellRouteHref(route: ShellRouteDefinition, env: Record<s
 }
 
 export function buildShellRouteGroups(appId: FrontendAppId, routes: ShellRouteDefinition[], env: Record<string, string | undefined>) {
+  const targetAppId = normalizeFrontendAppId(appId)
   const groups = new Map<string, ShellRouteGroup>()
   for (const route of routes) {
-    if (route.targetApp !== appId || !route.showInMenu) continue
+    if (route.targetApp !== targetAppId || !route.showInMenu) continue
 
     const group = groups.get(route.moduleKey) ?? {
       key: route.moduleKey,
@@ -153,17 +162,18 @@ export function buildShellRouteGroups(appId: FrontendAppId, routes: ShellRouteDe
 }
 
 export function buildAppShellModel(options: {
-  appId: FrontendAppId
+  appId?: FrontendAppId | string
   routes: ShellRouteDefinition[]
   env?: Record<string, string | undefined>
   appLinks?: ShellAppLink[]
 }): ShellModel {
   const env = options.env ?? {}
-  const groups = buildShellRouteGroups(options.appId, options.routes, env)
-  const copy = appCopy[options.appId]
+  const appId = normalizeFrontendAppId(options.appId)
+  const groups = buildShellRouteGroups(appId, options.routes, env)
+  const copy = appCopy[appId]
 
   return {
-    appId: options.appId,
+    appId,
     title: copy.title,
     subtitle: copy.subtitle,
     badge: copy.badge,

@@ -169,7 +169,7 @@
 import type { FrontendAppId } from '@garmetix/shared-types'
 import { checkApiHealth, type ApiHealthResult } from '@garmetix/shared-api'
 import { clearStoredSession, getAuthSessionSnapshot, type AuthSessionSnapshot } from '@garmetix/shared-auth'
-import { buildAppShellModel } from '../src'
+import { buildAppShellModel, normalizeFrontendAppId } from '../src'
 import { buildAppTargetLinks, garmetixRoutes } from '../../../config/routes'
 import { garmetixModularVersion } from '../../../config/version'
 
@@ -187,7 +187,7 @@ type MenuGroup = {
 }
 
 const props = defineProps<{
-  appId: FrontendAppId
+  appId?: FrontendAppId
 }>()
 
 const route = useRoute()
@@ -195,6 +195,7 @@ const runtimeConfig = useRuntimeConfig()
 const colorMode = useColorMode()
 const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
 const appUrls = computed(() => (runtimeConfig.public.appUrls ?? {}) as Record<string, string | undefined>)
+const effectiveAppId = computed<FrontendAppId>(() => normalizeFrontendAppId(props.appId || runtimeConfig.public.appId))
 const version = garmetixModularVersion
 const mobileNavOpen = ref(false)
 const now = ref<Date | null>(null)
@@ -225,10 +226,10 @@ const selectedTheme = computed({
 })
 
 const shell = computed(() => buildAppShellModel({
-  appId: props.appId,
+  appId: effectiveAppId.value,
   routes: garmetixRoutes,
   env: appUrls.value,
-  appLinks: buildAppTargetLinks(appUrls.value, props.appId)
+  appLinks: buildAppTargetLinks(appUrls.value, effectiveAppId.value)
 }))
 
 const appCopy = computed(() => ({
@@ -374,7 +375,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
   ]
 }
 
-const menuGroups = computed(() => localMenus[props.appId])
+const menuGroups = computed(() => localMenus[effectiveAppId.value] ?? localMenus.main)
 
 function isActive(href: string) {
   return route.path === href || (href !== '/' && route.path.startsWith(`${href}/`))
