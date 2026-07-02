@@ -27,7 +27,7 @@ Route layout:
 
 ## Files Updated
 
-- Each modular Nuxt app now supports `NUXT_APP_BASE_URL` and app-specific base path env variables so static apps can run under path prefixes.
+- Each modular Nuxt app now supports `GARMETIX_NUXT_BASE_URL` and app-specific base path env variables so static apps can run under path prefixes.
 - `modular/.env.example` documents the base path variables and SRP config location.
 - `modular/deploy/README.md` documents SRP commands.
 - `modular/scripts/validate-structure.mjs` requires the SRP deploy files.

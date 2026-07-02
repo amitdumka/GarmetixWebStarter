@@ -289,7 +289,16 @@ copy_public_output() {
 
 patch_static_runtime_config() {
   local dest="$1"
+  local base_path="${2:-/}"
+  local asset_base
+  if [ "$base_path" = "/" ]; then
+    asset_base="/_nuxt/"
+  else
+    asset_base="${base_path%/}/_nuxt/"
+  fi
   find "$dest" -type f -name '*.html' -print0 | while IFS= read -r -d '' file; do
+    perl -0pi -e "s#(href|src)=\"/_nuxt/#\$1=\"$asset_base#g" "$file"
+    perl -0pi -e "s#baseURL:\"[^\"]*\"#baseURL:\"$base_path\"#g" "$file"
     perl -0pi -e "s#apiBaseUrl:\"[^\"]*\"#apiBaseUrl:\"$SRP_PUBLIC_API_BASE_URL\"#g" "$file"
     perl -0pi -e "s#NUXT_PUBLIC_GARMETIX_MAIN_URL:\"[^\"]*\"#NUXT_PUBLIC_GARMETIX_MAIN_URL:\"$SRP_MAIN_URL\"#g" "$file"
     perl -0pi -e "s#NUXT_PUBLIC_GARMETIX_POS_URL:\"[^\"]*\"#NUXT_PUBLIC_GARMETIX_POS_URL:\"$SRP_POS_URL\"#g" "$file"
@@ -307,9 +316,10 @@ build_app() {
   echo "Building $app_name with base path $base_path"
   if [ "$SKIP_BUILD" = false ]; then
     rm -rf "$MODULAR_ROOT/apps/$app_name/.output"
+    rm -rf "$MODULAR_ROOT/node_modules/.cache/nuxt"
     (
       cd "$MODULAR_ROOT"
-      NUXT_APP_BASE_URL="$base_path" \
+      GARMETIX_NUXT_BASE_URL="$base_path" \
       NUXT_PUBLIC_GARMETIX_API_BASE_URL="$SRP_PUBLIC_API_BASE_URL" \
       NUXT_PUBLIC_GARMETIX_MAIN_URL="$SRP_MAIN_URL" \
       NUXT_PUBLIC_GARMETIX_POS_URL="$SRP_POS_URL" \
@@ -321,7 +331,7 @@ build_app() {
     )
   fi
   copy_public_output "$app_name" "$dest"
-  patch_static_runtime_config "$dest"
+  patch_static_runtime_config "$dest" "$base_path"
 }
 
 write_templates() {

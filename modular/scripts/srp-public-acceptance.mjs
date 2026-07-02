@@ -30,6 +30,8 @@ const endpoints = [
   { id: 'api-health', label: 'API Health', path: '/api/health', expected: '200' }
 ]
 
+const appEndpoints = endpoints.filter((endpoint) => endpoint.id !== 'api-health')
+
 const expectedOk = (status, expected) => {
   if (expected.includes('-')) {
     const [min, max] = expected.split('-').map(Number)
@@ -93,6 +95,109 @@ const probeUrl = async (url, expected) => {
   }
 }
 
+const getText = async (url) => {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  const startedAt = Date.now()
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      redirect: 'manual',
+      signal: controller.signal,
+      cache: 'no-store'
+    })
+    const text = await response.text()
+    return {
+      ok: response.ok,
+      status: response.status,
+      elapsedMs: Date.now() - startedAt,
+      detail: text,
+      contentType: response.headers.get('content-type') ?? ''
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      status: 'error',
+      elapsedMs: Date.now() - startedAt,
+      detail: describeError(error),
+      contentType: ''
+    }
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+const probeAppAssets = async (baseUrl, endpoint) => {
+  const htmlUrl = `${baseUrl}${endpoint.path}`
+  const html = await getText(htmlUrl)
+  if (!html.ok) {
+    return {
+      ok: false,
+      status: html.status,
+      elapsedMs: html.elapsedMs,
+      detail: `HTML fetch failed: ${html.detail.slice(0, 140)}`
+    }
+  }
+
+  const htmlText = html.detail
+  const scriptSrc = htmlText.match(/<script[^>]+src="([^"]+)"/)?.[1]
+  const cssHref = htmlText.match(/<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"/)?.[1]
+  if (!scriptSrc || !cssHref) {
+    return {
+      ok: false,
+      status: 'missing-assets',
+      elapsedMs: html.elapsedMs,
+      detail: 'HTML does not contain Nuxt script and stylesheet asset links.'
+    }
+  }
+
+  const expectedPrefix = endpoint.path === '/' ? '/_nuxt/' : `${endpoint.path}_nuxt/`
+  const assetPaths = [scriptSrc, cssHref]
+  const wrongPrefix = assetPaths.find((assetPath) => !assetPath.startsWith(expectedPrefix))
+  if (wrongPrefix) {
+    return {
+      ok: false,
+      status: 'wrong-base',
+      elapsedMs: html.elapsedMs,
+      detail: `Expected assets under ${expectedPrefix}, got ${wrongPrefix}`
+    }
+  }
+
+  const assetResults = []
+  for (const assetPath of assetPaths) {
+    const assetUrl = new URL(assetPath, baseUrl).toString()
+    const asset = await fetch(assetUrl, { method: 'GET', redirect: 'manual', cache: 'no-store' })
+    const contentType = asset.headers.get('content-type') ?? ''
+    const isJs = assetPath.endsWith('.js')
+    const isCss = assetPath.endsWith('.css')
+    const contentOk = isJs ? contentType.includes('javascript') : isCss ? contentType.includes('text/css') : !contentType.includes('text/html')
+    assetResults.push({
+      ok: asset.ok && contentOk,
+      status: asset.status,
+      assetPath,
+      contentType
+    })
+  }
+
+  const failedAsset = assetResults.find((asset) => !asset.ok)
+  if (failedAsset) {
+    return {
+      ok: false,
+      status: failedAsset.status,
+      elapsedMs: html.elapsedMs,
+      detail: `${failedAsset.assetPath} returned ${failedAsset.contentType || 'no content type'}`
+    }
+  }
+
+  return {
+    ok: true,
+    status: 'assets-ok',
+    elapsedMs: html.elapsedMs,
+    detail: assetPaths.join(', ')
+  }
+}
+
 const resolvePublicDns = async () => {
   try {
     const result = await lookup(publicHost)
@@ -136,6 +241,11 @@ if (live) {
     addRow('Public', endpoint.label, publicUrl, endpoint.expected, await probeUrl(publicUrl, endpoint.expected))
     addRow('LAN', endpoint.label, lanUrl, endpoint.expected, await probeUrl(lanUrl, endpoint.expected))
   }
+
+  for (const endpoint of appEndpoints) {
+    addRow('Public Assets', endpoint.label, `${publicBaseUrl}${endpoint.path}`, 'js/css', await probeAppAssets(publicBaseUrl, endpoint))
+    addRow('LAN Assets', endpoint.label, `${lanBaseUrl}${endpoint.path}`, 'js/css', await probeAppAssets(lanBaseUrl, endpoint))
+  }
 } else {
   rows.push({ scope: 'DNS', label: publicHost, url: publicHost, expected: 'resolved', ok: true, status: 'dry', elapsedMs: 0, detail: '' })
   console.log(`DRY DNS ${publicHost} should resolve after Cloudflare route is active`)
@@ -145,6 +255,13 @@ if (live) {
     rows.push({ scope: 'LAN', label: endpoint.label, url: `${lanBaseUrl}${endpoint.path}`, expected: endpoint.expected, ok: true, status: 'dry', elapsedMs: 0, detail: '' })
     console.log(`DRY Public ${endpoint.label} ${publicBaseUrl}${endpoint.path} expected ${endpoint.expected}`)
     console.log(`DRY LAN ${endpoint.label} ${lanBaseUrl}${endpoint.path} expected ${endpoint.expected}`)
+  }
+
+  for (const endpoint of appEndpoints) {
+    rows.push({ scope: 'Public Assets', label: endpoint.label, url: `${publicBaseUrl}${endpoint.path}`, expected: 'js/css', ok: true, status: 'dry', elapsedMs: 0, detail: '' })
+    rows.push({ scope: 'LAN Assets', label: endpoint.label, url: `${lanBaseUrl}${endpoint.path}`, expected: 'js/css', ok: true, status: 'dry', elapsedMs: 0, detail: '' })
+    console.log(`DRY Public Assets ${endpoint.label} should serve Nuxt JS/CSS from its app base path`)
+    console.log(`DRY LAN Assets ${endpoint.label} should serve Nuxt JS/CSS from its app base path`)
   }
 }
 

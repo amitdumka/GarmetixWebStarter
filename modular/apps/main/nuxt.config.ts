@@ -3,7 +3,7 @@ export default defineNuxtConfig({
   modules: ['@nuxt/ui'],
   css: ['~/assets/css/main.css'],
   app: {
-    baseURL: process.env.NUXT_APP_BASE_URL || process.env.NUXT_PUBLIC_GARMETIX_MAIN_BASE_PATH || '/',
+    baseURL: process.env.GARMETIX_NUXT_BASE_URL || process.env.NUXT_PUBLIC_GARMETIX_MAIN_BASE_PATH || '/',
     head: {
       title: 'Garmetix Back Office'
     }
