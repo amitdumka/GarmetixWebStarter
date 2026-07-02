@@ -15,6 +15,28 @@ if (!existsSync(scriptPath)) {
   process.exit(1)
 }
 
+if (process.platform === 'win32' && process.env.GARMETIX_PREFER_WSL !== 'false') {
+  const distro = process.env.GARMETIX_WSL_DISTRO || 'Ubuntu'
+  const windowsSafeScriptPath = scriptPath.replace(/\\/g, '/')
+  const wslPath = spawnSync('wsl.exe', ['-d', distro, '--', 'wslpath', '-a', windowsSafeScriptPath], {
+    encoding: 'utf8',
+    windowsHide: true
+  })
+
+  if (!wslPath.error && wslPath.status === 0) {
+    const translatedScriptPath = wslPath.stdout.trim()
+    const result = spawnSync('wsl.exe', ['-d', distro, '--', 'bash', translatedScriptPath, ...args], {
+      stdio: 'inherit',
+      shell: false,
+      windowsHide: true
+    })
+
+    if (!result.error) {
+      process.exit(result.status ?? 0)
+    }
+  }
+}
+
 const bashCandidates = [
   process.env.GARMETIX_BASH_PATH,
   'C:\\Program Files\\Git\\bin\\bash.exe',

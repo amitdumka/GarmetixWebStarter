@@ -306,6 +306,7 @@ build_app() {
   local dest="$3"
   echo "Building $app_name with base path $base_path"
   if [ "$SKIP_BUILD" = false ]; then
+    rm -rf "$MODULAR_ROOT/apps/$app_name/.output"
     (
       cd "$MODULAR_ROOT"
       NUXT_APP_BASE_URL="$base_path" \
@@ -335,6 +336,9 @@ write_templates() {
 server {
     listen $SRP_NGINX_PORT;
     server_name $SRP_DOMAIN;
+    absolute_redirect off;
+    port_in_redirect off;
+    server_name_in_redirect off;
 
     root $SRP_REMOTE_BASE/current/web-root;
     index index.html;
