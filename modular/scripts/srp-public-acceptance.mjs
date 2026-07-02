@@ -39,6 +39,20 @@ const expectedOk = (status, expected) => {
   return status === Number(expected)
 }
 
+const describeError = (error) => {
+  if (!(error instanceof Error)) {
+    return 'Request failed'
+  }
+
+  const parts = [error.message]
+  if (error.cause instanceof Error) {
+    const causeCode = typeof error.cause.code === 'string' ? `${error.cause.code}: ` : ''
+    parts.push(`${causeCode}${error.cause.message}`)
+  }
+
+  return parts.join(' - ').replace(/\s+/g, ' ').slice(0, 220)
+}
+
 const probeUrl = async (url, expected) => {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), timeoutMs)
@@ -72,7 +86,7 @@ const probeUrl = async (url, expected) => {
       ok: false,
       status: 'error',
       elapsedMs: Date.now() - startedAt,
-      detail: error instanceof Error ? error.message.replace(/\s+/g, ' ').slice(0, 120) : 'Request failed'
+      detail: describeError(error)
     }
   } finally {
     clearTimeout(timeout)

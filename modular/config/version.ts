@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '5.13.48',
-  stage: 'Stage 13G.8 SRP Cloudflare Token Activation',
-  label: 'Version5 Stage 13G.8 SRP Cloudflare Token Activation',
-  summary: 'Activated the SRP Cloudflare tunnel token service, redacted deployment status output, and documented the remaining DNS/public-hostname requirement.'
+  version: '5.13.49',
+  stage: 'Stage 13G.9 SRP Cloudflare Duplicate Connector Repair',
+  label: 'Version5 Stage 13G.9 SRP Cloudflare Duplicate Connector Repair',
+  summary: 'Removed the duplicate Docker cloudflared connector, added duplicate-connector detection, and improved public acceptance TLS diagnostics.'
 } as const

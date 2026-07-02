@@ -8,6 +8,7 @@ Garmetix SRP Cloudflare activation
 Usage:
   bash modular/deploy/srp-cloudflare-activate.sh
   bash modular/deploy/srp-cloudflare-activate.sh --install
+  bash modular/deploy/srp-cloudflare-activate.sh --cleanup-docker-cloudflared
   bash modular/deploy/srp-cloudflare-activate.sh --verify-public
 
 Status mode is read-only. Install mode activates cloudflared when the private
@@ -25,10 +26,12 @@ DEFAULT_CONFIG_PATH="$HOME/.config/garmetix/srp-deploy.env"
 CONFIG_PATH="${GARMETIX_SRP_DEPLOY_CONFIG:-$DEFAULT_CONFIG_PATH}"
 INSTALL=false
 VERIFY_PUBLIC=false
+CLEANUP_DOCKER_CLOUDFLARED=false
 
 for arg in "$@"; do
   case "$arg" in
     --install) INSTALL=true ;;
+    --cleanup-docker-cloudflared) CLEANUP_DOCKER_CLOUDFLARED=true ;;
     --verify-public) VERIFY_PUBLIC=true ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $arg" >&2; usage; exit 1 ;;
@@ -251,6 +254,31 @@ install_token_service() {
   sudo_cmd systemctl restart cloudflared.service
 }
 
+docker_cloudflared_containers() {
+  if ! command -v docker >/dev/null 2>&1; then
+    return 0
+  fi
+
+  sudo_cmd docker ps -a --filter ancestor=cloudflare/cloudflared:latest --format '{{.ID}} {{.Image}} {{.Status}} {{.Names}}' 2>/dev/null || true
+}
+
+cleanup_docker_cloudflared() {
+  local containers ids
+  containers="$(docker_cloudflared_containers)"
+  if [ -z "$containers" ]; then
+    echo "No duplicate Docker cloudflared containers found."
+    return 0
+  fi
+
+  echo "$containers" | redact_secret_stream
+  ids="$(printf '%s\n' "$containers" | awk '{print $1}')"
+  echo "Stopping duplicate Docker cloudflared container(s)."
+  # shellcheck disable=SC2086
+  sudo_cmd docker stop $ids >/dev/null 2>&1 || true
+  # shellcheck disable=SC2086
+  sudo_cmd docker rm $ids >/dev/null 2>&1 || true
+}
+
 echo "Cloudflared status on SRP host"
 if command -v cloudflared >/dev/null 2>&1; then
   cloudflared --version
@@ -266,6 +294,21 @@ if [ "${SRP_INSTALL_CLOUDFLARE}" = "true" ]; then
   else
     echo "Installing cloudflared service using named tunnel credentials."
     install_named_tunnel_service
+  fi
+fi
+
+echo
+echo "Docker cloudflared duplicate check:"
+if [ "${SRP_CLEANUP_DOCKER_CLOUDFLARED}" = "true" ]; then
+  cleanup_docker_cloudflared
+else
+  duplicate_containers="$(docker_cloudflared_containers)"
+  if [ -n "$duplicate_containers" ]; then
+    echo "$duplicate_containers" | redact_secret_stream
+    echo "WARN duplicate Docker cloudflared connector can make Cloudflare return 502 when service URL is localhost:${SRP_NGINX_PORT}."
+    echo "Run with --cleanup-docker-cloudflared to stop and remove only cloudflare/cloudflared Docker containers."
+  else
+    echo "No duplicate Docker cloudflared containers found."
   fi
 fi
 
@@ -309,6 +352,7 @@ SRP Cloudflare activation
   Config file:  $CONFIG_PATH
   Secrets file: $SRP_SECRETS_PATH
   Mode:         $(if [ "$INSTALL" = true ]; then echo "install"; else echo "status"; fi)
+  Docker clean: $(if [ "$CLEANUP_DOCKER_CLOUDFLARED" = true ]; then echo "yes"; else echo "no"; fi)
 PLAN
 
 if [ "$INSTALL" = true ] && [ -z "${SRP_CLOUDFLARE_TUNNEL_TOKEN:-}" ] && [ -z "${SRP_CLOUDFLARE_LOCAL_CREDENTIALS_FILE:-}" ] && [ -z "${SRP_CLOUDFLARE_CREDENTIALS_JSON_B64:-}" ]; then
@@ -318,4 +362,4 @@ if [ "$INSTALL" = true ] && [ -z "${SRP_CLOUDFLARE_TUNNEL_TOKEN:-}" ] && [ -z "$
   INSTALL=false
 fi
 
-ssh_cmd "${sudo_prefix} export SRP_INSTALL_CLOUDFLARE=$(shell_quote "$INSTALL"); export SRP_DOMAIN=$(shell_quote "$SRP_DOMAIN"); export SRP_NGINX_PORT=$(shell_quote "$SRP_NGINX_PORT"); export SRP_CLOUDFLARE_TUNNEL_NAME=$(shell_quote "$SRP_CLOUDFLARE_TUNNEL_NAME"); export SRP_CLOUDFLARE_CREDENTIALS_FILE=$(shell_quote "$SRP_CLOUDFLARE_CREDENTIALS_FILE"); export SRP_CLOUDFLARE_CONFIG_PATH=$(shell_quote "$SRP_CLOUDFLARE_CONFIG_PATH"); export SRP_CLOUDFLARE_TUNNEL_TOKEN=$(shell_quote "${SRP_CLOUDFLARE_TUNNEL_TOKEN:-}"); export SRP_CLOUDFLARE_CREDENTIALS_JSON_B64=$(shell_quote "${SRP_CLOUDFLARE_CREDENTIALS_JSON_B64:-}"); export SRP_REMOTE_CREDENTIALS_STAGING=$(shell_quote "$REMOTE_CREDENTIALS_STAGING"); bash -s" <<<"$remote_script"
+ssh_cmd "${sudo_prefix} export SRP_INSTALL_CLOUDFLARE=$(shell_quote "$INSTALL"); export SRP_CLEANUP_DOCKER_CLOUDFLARED=$(shell_quote "$CLEANUP_DOCKER_CLOUDFLARED"); export SRP_DOMAIN=$(shell_quote "$SRP_DOMAIN"); export SRP_NGINX_PORT=$(shell_quote "$SRP_NGINX_PORT"); export SRP_CLOUDFLARE_TUNNEL_NAME=$(shell_quote "$SRP_CLOUDFLARE_TUNNEL_NAME"); export SRP_CLOUDFLARE_CREDENTIALS_FILE=$(shell_quote "$SRP_CLOUDFLARE_CREDENTIALS_FILE"); export SRP_CLOUDFLARE_CONFIG_PATH=$(shell_quote "$SRP_CLOUDFLARE_CONFIG_PATH"); export SRP_CLOUDFLARE_TUNNEL_TOKEN=$(shell_quote "${SRP_CLOUDFLARE_TUNNEL_TOKEN:-}"); export SRP_CLOUDFLARE_CREDENTIALS_JSON_B64=$(shell_quote "${SRP_CLOUDFLARE_CREDENTIALS_JSON_B64:-}"); export SRP_REMOTE_CREDENTIALS_STAGING=$(shell_quote "$REMOTE_CREDENTIALS_STAGING"); bash -s" <<<"$remote_script"
