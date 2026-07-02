@@ -1,6 +1,7 @@
 export default defineNuxtConfig({
   ssr: false,
   modules: ['@nuxt/ui'],
+  css: ['~/assets/css/main.css'],
   app: {
     baseURL: process.env.NUXT_APP_BASE_URL || process.env.NUXT_PUBLIC_GARMETIX_ADMIN_BASE_PATH || '/',
     head: {

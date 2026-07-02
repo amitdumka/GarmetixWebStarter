@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '5.13.49',
-  stage: 'Stage 13G.9 SRP Cloudflare Duplicate Connector Repair',
-  label: 'Version5 Stage 13G.9 SRP Cloudflare Duplicate Connector Repair',
-  summary: 'Removed the duplicate Docker cloudflared connector, added duplicate-connector detection, and improved public acceptance TLS diagnostics.'
+  version: '5.13.50',
+  stage: 'Stage 13G.10 Modular Nuxt UI CSS Repair',
+  label: 'Version5 Stage 13G.10 Modular Nuxt UI CSS Repair',
+  summary: 'Added the required Tailwind and Nuxt UI CSS entry to every modular app so deployed pages render with full styling instead of plain text.'
 } as const
