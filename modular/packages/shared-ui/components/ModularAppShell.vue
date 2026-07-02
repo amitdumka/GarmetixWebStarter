@@ -1,20 +1,52 @@
 <template>
   <UApp>
-    <main class="modular-shell">
-      <aside class="modular-sidebar">
-        <div class="modular-sidebar-header">
-          <NuxtLink class="modular-brand" :to="homePath">
-            <span class="modular-brand-mark">
-              <img src="/garmetix-icon-512.png" alt="Garmetix" class="modular-brand-logo">
-            </span>
-            <span class="min-w-0">
-              <span class="modular-brand-title">Garmetix</span>
-              <span class="modular-brand-subtitle">{{ appCopy.badge }} | v{{ version.version }}</span>
-            </span>
-          </NuxtLink>
-        </div>
+    <UDashboardGroup unit="rem" class="garmetix-dashboard-group">
+      <UDashboardSidebar
+        id="garmetix-modular-sidebar"
+        v-model:open="sidebarOpen"
+        collapsible
+        resizable
+        class="garmetix-dashboard-sidebar bg-elevated/25"
+        :ui="{ footer: 'lg:border-t lg:border-default' }"
+      >
+        <template #header="{ collapsed }">
+          <UDropdownMenu
+            :items="appSwitcherItems"
+            :content="{ align: 'center', collisionPadding: 12 }"
+            :ui="{ content: collapsed ? 'w-52' : 'w-(--reka-dropdown-menu-trigger-width)' }"
+          >
+            <UButton
+              color="neutral"
+              variant="ghost"
+              block
+              :square="collapsed"
+              class="garmetix-shell-brand data-[state=open]:bg-elevated"
+              :avatar="{ src: '/garmetix-icon-512.png', alt: 'Garmetix' }"
+              :label="collapsed ? undefined : 'Garmetix'"
+              :trailing-icon="collapsed ? undefined : 'i-lucide-chevrons-up-down'"
+              :ui="{ trailingIcon: 'text-dimmed' }"
+            >
+              <template v-if="!collapsed" #default>
+                <span class="min-w-0 text-left">
+                  <span class="block truncate text-sm font-bold text-highlighted">Garmetix</span>
+                  <span class="block truncate text-xs text-muted">{{ appCopy.badge }} | v{{ version.version }}</span>
+                </span>
+              </template>
+            </UButton>
+          </UDropdownMenu>
+        </template>
 
-        <div class="modular-sidebar-body">
+        <template #default="{ collapsed }">
+          <UDashboardSearchButton :collapsed="collapsed" class="bg-transparent ring-default" />
+
+          <div v-if="!collapsed" class="garmetix-shell-context">
+            <div class="flex items-center justify-between gap-2">
+              <span class="truncate text-xs font-semibold text-highlighted">{{ appCopy.badge }}</span>
+              <UBadge color="primary" variant="subtle" size="xs">{{ ownedRouteCount }}</UBadge>
+            </div>
+            <p>{{ appCopy.subtitle }}</p>
+          </div>
+
           <UButton
             v-if="!authSnapshot.hasToken"
             to="/login"
@@ -22,150 +54,146 @@
             color="primary"
             variant="soft"
             block
+            :square="collapsed"
             class="justify-start"
           >
-            Login
+            <span v-if="!collapsed">Login</span>
           </UButton>
 
-          <div v-if="authSnapshot.hasToken" class="modular-stage-card">
-            <div class="flex items-center justify-between gap-2">
-              <span class="truncate text-sm font-semibold">{{ appCopy.badge }}</span>
-              <UBadge color="primary" variant="subtle" size="xs">{{ ownedRouteCount }}</UBadge>
-            </div>
-            <p>{{ appCopy.subtitle }}</p>
-          </div>
+          <UNavigationMenu
+            v-if="authSnapshot.hasToken"
+            :collapsed="collapsed"
+            :items="navigationItems"
+            orientation="vertical"
+            tooltip
+            popover
+            class="garmetix-shell-navigation"
+          />
 
-          <nav v-if="authSnapshot.hasToken" class="modular-nav" :aria-label="`${appCopy.badge} routes`">
-            <section v-for="group in menuGroups" :key="group.key" class="modular-nav-group">
-              <p class="modular-nav-label">{{ group.label }}</p>
-              <UButton
-                v-for="item in group.items"
-                :key="item.id"
-                :to="item.href"
-                :icon="item.icon"
-                color="neutral"
-                :variant="isActive(item.href) ? 'soft' : 'ghost'"
-                block
-                class="modular-nav-link justify-start"
-              >
-                {{ item.label }}
-              </UButton>
-            </section>
-          </nav>
-        </div>
+          <UNavigationMenu
+            :collapsed="collapsed"
+            :items="supportItems"
+            orientation="vertical"
+            tooltip
+            class="mt-auto"
+          />
+        </template>
 
-        <div class="modular-sidebar-footer">
-          <UButton
-            color="neutral"
-            variant="ghost"
-            icon="i-lucide-activity"
-            block
-            class="justify-start"
+        <template #footer="{ collapsed }">
+          <UDropdownMenu
+            :items="userMenuItems"
+            :content="{ align: 'center', collisionPadding: 12 }"
+            :ui="{ content: collapsed ? 'w-56' : 'w-(--reka-dropdown-menu-trigger-width)' }"
           >
-            Status
-            <UBadge :color="apiHealth.state === 'live' ? 'success' : apiHealth.state === 'checking' ? 'warning' : 'error'" variant="subtle" size="xs" class="ml-auto">
-              {{ apiHealth.label }}
-            </UBadge>
-          </UButton>
-          <UButton
-            color="neutral"
-            variant="ghost"
-            icon="i-lucide-bell"
-            block
-            class="justify-start"
-          >
-            Notifications
-            <UBadge color="neutral" variant="subtle" size="xs" class="ml-auto">0</UBadge>
-          </UButton>
-        </div>
-      </aside>
-
-      <section class="modular-main">
-        <header class="modular-topbar">
-          <div class="flex min-w-0 items-center gap-3">
             <UButton
-              icon="i-lucide-panel-left"
               color="neutral"
               variant="ghost"
-              class="lg:hidden"
-              aria-label="Menu"
-              @click="mobileNavOpen = true"
+              block
+              :square="collapsed"
+              class="data-[state=open]:bg-elevated"
+              :avatar="{ icon: authSnapshot.hasToken ? 'i-lucide-user-round-check' : 'i-lucide-user-round' }"
+              :label="collapsed ? undefined : userMenuLabel"
+              :trailing-icon="collapsed ? undefined : 'i-lucide-chevrons-up-down'"
+              :ui="{ trailingIcon: 'text-dimmed' }"
             />
-            <div class="min-w-0">
-              <div class="flex min-w-0 flex-wrap items-center gap-2">
-                <h1 class="modular-page-title">{{ appCopy.title }}</h1>
-                <UBadge color="primary" variant="subtle">{{ appCopy.badge }}</UBadge>
+          </UDropdownMenu>
+        </template>
+      </UDashboardSidebar>
+
+      <UDashboardSearch :groups="searchGroups" />
+
+      <UDashboardPanel :id="`${effectiveAppId}-workspace`" class="garmetix-dashboard-panel">
+        <template #header>
+          <UDashboardNavbar :title="appCopy.title" :ui="{ right: 'gap-2' }">
+            <template #leading>
+              <UDashboardSidebarCollapse />
+            </template>
+
+            <template #trailing>
+              <UBadge color="primary" variant="subtle">{{ appCopy.badge }}</UBadge>
+            </template>
+
+            <template #right>
+              <UBadge color="neutral" variant="subtle" class="hidden xl:inline-flex">
+                <UIcon name="i-lucide-store" class="size-3" />
+                {{ workspaceLabel }}
+              </UBadge>
+              <UBadge color="neutral" variant="subtle" class="hidden xl:inline-flex">
+                <UIcon name="i-lucide-clock-3" class="size-3" />
+                {{ currentClock }}
+              </UBadge>
+              <UBadge :color="apiHealth.state === 'live' ? 'success' : apiHealth.state === 'checking' ? 'warning' : 'error'" variant="subtle" class="hidden lg:inline-flex">
+                <UIcon :name="apiHealth.state === 'live' ? 'i-lucide-wifi' : 'i-lucide-wifi-off'" class="size-3" />
+                {{ apiHealth.label }}
+              </UBadge>
+              <UTooltip text="Notifications" :shortcuts="['N']">
+                <UButton color="neutral" variant="ghost" square @click="notificationsOpen = true">
+                  <UChip color="error" inset>
+                    <UIcon name="i-lucide-bell" class="size-5 shrink-0" />
+                  </UChip>
+                </UButton>
+              </UTooltip>
+              <UColorModeButton color="neutral" variant="ghost" />
+            </template>
+          </UDashboardNavbar>
+
+          <UDashboardToolbar>
+            <template #left>
+              <div class="garmetix-app-switcher">
+                <UButton
+                  v-for="link in appLinks"
+                  :key="link.id"
+                  size="sm"
+                  :color="link.current ? 'primary' : 'neutral'"
+                  :variant="link.current ? 'solid' : 'ghost'"
+                  :to="link.href || undefined"
+                  :disabled="link.current || !link.configured"
+                  :external="!link.current"
+                >
+                  {{ link.label }}
+                </UButton>
               </div>
-              <p class="modular-page-subtitle">{{ activeUserLabel }}</p>
-            </div>
-          </div>
+            </template>
 
-          <div class="modular-toolbar">
-            <nav class="modular-app-switcher" aria-label="Garmetix apps">
-              <UButton
-                v-for="link in appLinks"
-                :key="link.id"
-                size="sm"
-                :color="link.current ? 'primary' : 'neutral'"
-                :variant="link.current ? 'solid' : 'subtle'"
-                :to="link.href || undefined"
-                :disabled="link.current || !link.configured"
-                :external="!link.current"
-              >
-                {{ link.label }}
-              </UButton>
-            </nav>
+            <template #right>
+              <span class="hidden text-xs text-muted md:inline">{{ activeUserLabel }}</span>
+            </template>
+          </UDashboardToolbar>
+        </template>
 
-            <UBadge color="neutral" variant="subtle" class="hidden xl:inline-flex">
-              <UIcon name="i-lucide-store" class="size-3" />
-              {{ workspaceLabel }}
-            </UBadge>
-            <UBadge color="neutral" variant="subtle" class="hidden xl:inline-flex">
-              <UIcon name="i-lucide-clock-3" class="size-3" />
-              {{ currentClock }}
-            </UBadge>
-            <UBadge :color="apiHealth.state === 'live' ? 'success' : apiHealth.state === 'checking' ? 'warning' : 'error'" variant="subtle" class="hidden 2xl:inline-flex">
-              <UIcon :name="apiHealth.state === 'live' ? 'i-lucide-wifi' : 'i-lucide-wifi-off'" class="size-3" />
-              {{ apiHealth.label }}
-            </UBadge>
-            <USelect v-model="selectedTheme" :items="themeOptions" class="hidden 2xl:flex w-28" aria-label="Theme" />
-            <UColorModeButton color="neutral" variant="ghost" />
-            <UButton v-if="authSnapshot.hasToken" color="neutral" variant="ghost" icon="i-lucide-log-out" aria-label="Logout" @click="logout" />
-          </div>
-        </header>
-
-        <div class="modular-content">
-          <slot />
-        </div>
-      </section>
-
-      <USlideover v-model:open="mobileNavOpen" title="Garmetix">
         <template #body>
-          <nav class="modular-nav">
-            <section v-for="group in menuGroups" :key="group.key" class="modular-nav-group">
-              <p class="modular-nav-label">{{ group.label }}</p>
-              <UButton
-                v-for="item in group.items"
-                :key="item.id"
-                :to="item.href"
-                :icon="item.icon"
-                color="neutral"
-                :variant="isActive(item.href) ? 'soft' : 'ghost'"
-                block
-                class="modular-nav-link justify-start"
-                @click="mobileNavOpen = false"
-              >
-                {{ item.label }}
-              </UButton>
-            </section>
-          </nav>
+          <div class="garmetix-dashboard-content">
+            <slot />
+          </div>
+        </template>
+      </UDashboardPanel>
+
+      <USlideover v-model:open="notificationsOpen" title="Notifications">
+        <template #body>
+          <div class="grid gap-3">
+            <UAlert
+              icon="i-lucide-activity"
+              :color="apiHealth.state === 'live' ? 'success' : 'warning'"
+              variant="subtle"
+              :title="apiHealth.label"
+              :description="apiHealth.message"
+            />
+            <UAlert
+              icon="i-lucide-info"
+              color="neutral"
+              variant="subtle"
+              title="No new notifications"
+              description="Operational alerts and message-log items will appear here."
+            />
+          </div>
         </template>
       </USlideover>
-    </main>
+    </UDashboardGroup>
   </UApp>
 </template>
 
 <script setup lang="ts">
+import type { DropdownMenuItem, NavigationMenuItem } from '@nuxt/ui'
 import type { FrontendAppId } from '@garmetix/shared-types'
 import { checkApiHealth, type ApiHealthResult } from '@garmetix/shared-api'
 import { clearStoredSession, getAuthSessionSnapshot, type AuthSessionSnapshot } from '@garmetix/shared-auth'
@@ -197,7 +225,8 @@ const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
 const appUrls = computed(() => (runtimeConfig.public.appUrls ?? {}) as Record<string, string | undefined>)
 const effectiveAppId = computed<FrontendAppId>(() => normalizeFrontendAppId(props.appId || runtimeConfig.public.appId))
 const version = garmetixModularVersion
-const mobileNavOpen = ref(false)
+const sidebarOpen = ref(false)
+const notificationsOpen = ref(false)
 const now = ref<Date | null>(null)
 const apiHealth = ref<ApiHealthResult>({
   state: 'checking',
@@ -211,19 +240,6 @@ const authSnapshot = ref<AuthSessionSnapshot>({
   message: 'Reading browser token storage.'
 })
 let clockTimer: ReturnType<typeof setInterval> | undefined
-
-const themeOptions = [
-  { label: 'System', value: 'system' },
-  { label: 'Dark', value: 'dark' },
-  { label: 'Light', value: 'light' }
-]
-
-const selectedTheme = computed({
-  get: () => colorMode.preference,
-  set: (value: string) => {
-    colorMode.preference = value
-  }
-})
 
 const shell = computed(() => buildAppShellModel({
   appId: effectiveAppId.value,
@@ -240,7 +256,6 @@ const appCopy = computed(() => ({
 
 const appLinks = computed(() => shell.value.appLinks)
 const ownedRouteCount = computed(() => shell.value.routeCount)
-const homePath = computed(() => menuGroups.value[0]?.items[0]?.href || '/')
 const currentClock = computed(() => now.value?.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) || '--:--')
 const workspaceLabel = computed(() => {
   const user = authSnapshot.value.user
@@ -252,6 +267,7 @@ const activeUserLabel = computed(() => {
   const role = user?.role || user?.userType || (user?.isSuperAdmin ? 'SuperAdmin' : user?.admin ? 'Admin' : 'User')
   return `${user?.name || user?.userName || 'Signed in'} | ${role}`
 })
+const userMenuLabel = computed(() => authSnapshot.value.hasToken ? (authSnapshot.value.user?.name || authSnapshot.value.user?.userName || 'Signed in') : 'Not signed in')
 
 const localMenus: Record<FrontendAppId, MenuGroup[]> = {
   main: [
@@ -377,6 +393,113 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
 
 const menuGroups = computed(() => localMenus[effectiveAppId.value] ?? localMenus.main)
 
+const navigationItems = computed<NavigationMenuItem[]>(() => menuGroups.value.map(group => ({
+  label: group.label,
+  icon: group.items[0]?.icon || 'i-lucide-folder',
+  type: 'trigger',
+  defaultOpen: true,
+  children: group.items.map(item => ({
+    label: item.label,
+    icon: item.icon,
+    to: item.href,
+    active: isActive(item.href),
+    onSelect: () => {
+      sidebarOpen.value = false
+    }
+  }))
+})))
+
+const supportItems = computed<NavigationMenuItem[]>(() => [{
+  label: 'Status',
+  icon: 'i-lucide-activity',
+  badge: apiHealth.value.label,
+  onSelect: () => {
+    notificationsOpen.value = true
+  }
+}, {
+  label: 'Notifications',
+  icon: 'i-lucide-bell',
+  badge: '0',
+  onSelect: () => {
+    notificationsOpen.value = true
+  }
+}])
+
+const appSwitcherItems = computed<DropdownMenuItem[][]>(() => [appLinks.value.map(link => ({
+  label: link.label,
+  icon: link.current ? 'i-lucide-circle-check' : 'i-lucide-panels-top-left',
+  disabled: link.current || !link.configured,
+  to: link.href,
+  target: link.href?.startsWith('http') ? '_self' : undefined
+}))])
+
+const userMenuItems = computed<DropdownMenuItem[][]>(() => [[{
+  type: 'label',
+  label: userMenuLabel.value,
+  icon: authSnapshot.value.hasToken ? 'i-lucide-user-round-check' : 'i-lucide-user-round'
+}], [{
+  label: 'Profile',
+  icon: 'i-lucide-user',
+  to: '/profile',
+  disabled: !authSnapshot.value.hasToken
+}, {
+  label: 'Theme',
+  icon: 'i-lucide-palette',
+  children: [{
+    label: 'System',
+    icon: 'i-lucide-monitor',
+    type: 'checkbox',
+    checked: colorMode.preference === 'system',
+    onSelect: (event?: Event) => {
+      event?.preventDefault()
+      colorMode.preference = 'system'
+    }
+  }, {
+    label: 'Dark',
+    icon: 'i-lucide-moon',
+    type: 'checkbox',
+    checked: colorMode.preference === 'dark',
+    onSelect: (event?: Event) => {
+      event?.preventDefault()
+      colorMode.preference = 'dark'
+    }
+  }, {
+    label: 'Light',
+    icon: 'i-lucide-sun',
+    type: 'checkbox',
+    checked: colorMode.preference === 'light',
+    onSelect: (event?: Event) => {
+      event?.preventDefault()
+      colorMode.preference = 'light'
+    }
+  }]
+}], [{
+  label: 'Log out',
+  icon: 'i-lucide-log-out',
+  disabled: !authSnapshot.value.hasToken,
+  onSelect: logout
+}]])
+
+const searchGroups = computed(() => [{
+  id: 'routes',
+  label: `${appCopy.value.badge} routes`,
+  items: menuGroups.value.flatMap(group => group.items.map(item => ({
+    id: item.id,
+    label: item.label,
+    icon: item.icon,
+    to: item.href
+  })))
+}, {
+  id: 'apps',
+  label: 'Garmetix apps',
+  items: appLinks.value.filter(link => link.configured).map(link => ({
+    id: link.id,
+    label: link.label,
+    icon: link.current ? 'i-lucide-circle-check' : 'i-lucide-panels-top-left',
+    to: link.href
+  }))
+}])
+
 function isActive(href: string) {
   return route.path === href || (href !== '/' && route.path.startsWith(`${href}/`))
 }
@@ -390,6 +513,17 @@ function logout() {
   refreshAuthSnapshot()
   navigateTo('/login')
 }
+
+defineShortcuts({
+  n: () => {
+    notificationsOpen.value = !notificationsOpen.value
+  },
+  'g-h': () => navigateTo('/'),
+  'g-s': () => {
+    const firstStoreRoute = menuGroups.value[0]?.items[0]?.href || '/'
+    navigateTo(firstStoreRoute)
+  }
+})
 
 onMounted(async () => {
   now.value = new Date()
