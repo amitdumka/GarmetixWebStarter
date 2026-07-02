@@ -184,6 +184,13 @@ sudo_cmd() {
   fi
 }
 
+redact_secret_stream() {
+  sed -E \
+    -e 's/(--token[= ]+)[A-Za-z0-9._=-]+/\1[redacted]/g' \
+    -e 's/(run --token )[A-Za-z0-9._=-]+/\1[redacted]/g' \
+    -e 's/eyJ[A-Za-z0-9._=-]{40,}/[redacted-token]/g'
+}
+
 write_root_file() {
   local path="$1"
   local content="$2"
@@ -264,11 +271,17 @@ fi
 
 echo
 echo "Service:"
-sudo_cmd systemctl --no-pager --full status cloudflared.service 2>&1 | sed -n '1,18p' || true
+{
+  sudo_cmd systemctl --no-pager show cloudflared.service \
+    -p LoadState -p ActiveState -p SubState -p UnitFileState -p MainPID 2>&1 || true
+  sudo_cmd journalctl -u cloudflared.service -n 8 --no-pager 2>&1 || true
+} | redact_secret_stream | sed -n '1,18p'
 
 echo
 echo "Files:"
-if [ -f "$SRP_CLOUDFLARE_CREDENTIALS_FILE" ]; then
+if [ -n "${SRP_CLOUDFLARE_TUNNEL_TOKEN:-}" ]; then
+  echo "token-managed service active; named-tunnel credential JSON is not required"
+elif [ -f "$SRP_CLOUDFLARE_CREDENTIALS_FILE" ]; then
   sudo_cmd ls -l "$SRP_CLOUDFLARE_CREDENTIALS_FILE"
 else
   echo "missing $SRP_CLOUDFLARE_CREDENTIALS_FILE"
