@@ -19,7 +19,8 @@ export function useBooksApiClient() {
 
   function apiUrl(path: string, query?: Record<string, string | number | boolean | null | undefined>) {
     if (!apiBaseUrl.value) throw new Error('API base URL is not configured.')
-    const url = new URL(createApiUrl(apiBaseUrl.value, path))
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost'
+    const url = new URL(createApiUrl(apiBaseUrl.value, path), origin)
     for (const [key, value] of Object.entries(query ?? {})) {
       if (value !== null && value !== undefined) url.searchParams.set(key, String(value))
     }
@@ -54,8 +55,8 @@ export function useBooksApiClient() {
   return { apiBaseUrl, apiUrl, download, get }
 }
 
-export function readNumber(source: ApiRecord | null | undefined, keys: string[]) {
-  for (const key of keys) {
+export function readNumber(source: ApiRecord | null | undefined, keys: string[] | null | undefined) {
+  for (const key of keys ?? []) {
     const value = source?.[key]
     if (typeof value === 'number') return value
     if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) return Number(value)
@@ -63,16 +64,16 @@ export function readNumber(source: ApiRecord | null | undefined, keys: string[])
   return 0
 }
 
-export function readText(source: ApiRecord | null | undefined, keys: string[], fallback = '-') {
-  for (const key of keys) {
+export function readText(source: ApiRecord | null | undefined, keys: string[] | null | undefined, fallback = '-') {
+  for (const key of keys ?? []) {
     const value = source?.[key]
     if (value !== null && value !== undefined && String(value).trim() !== '') return String(value)
   }
   return fallback
 }
 
-export function readArray(source: ApiRecord | null | undefined, keys: string[]) {
-  for (const key of keys) {
+export function readArray(source: ApiRecord | null | undefined, keys: string[] | null | undefined) {
+  for (const key of keys ?? []) {
     const value = source?.[key]
     if (Array.isArray(value)) return value as ApiRecord[]
   }

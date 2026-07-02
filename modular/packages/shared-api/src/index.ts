@@ -29,8 +29,28 @@ export interface AuthLoginResponse<TUser = unknown> {
   user: TUser
 }
 
+export function normalizeApiBaseUrl(baseUrl: string) {
+  const rawBase = String(baseUrl || '').trim().replace(/\/+$/, '')
+  if (!rawBase || typeof window === 'undefined') return rawBase
+
+  try {
+    const currentUrl = window.location
+    const parsed = new URL(rawBase, currentUrl.origin)
+    const sameHost = parsed.hostname === currentUrl.hostname
+    const localHost = ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname)
+
+    if (currentUrl.protocol === 'https:' && parsed.protocol === 'http:' && (sameHost || localHost)) {
+      return `${currentUrl.origin}${parsed.pathname.replace(/\/+$/, '')}`
+    }
+
+    return parsed.toString().replace(/\/+$/, '')
+  } catch {
+    return rawBase
+  }
+}
+
 export function createApiUrl(baseUrl: string, path: string) {
-  const base = String(baseUrl || '').replace(/\/+$/, '')
+  const base = normalizeApiBaseUrl(baseUrl)
   const nextPath = String(path || '').replace(/^\/+/, '')
   return nextPath ? `${base}/${nextPath}` : base
 }
@@ -94,7 +114,7 @@ export async function checkApiHealth(baseUrl: string, healthPath = '/health'): P
 }
 
 export function createGarmetixApiClient(options: GarmetixApiClientOptions) {
-  const baseUrl = options.baseUrl.replace(/\/$/, '')
+  const baseUrl = normalizeApiBaseUrl(options.baseUrl)
 
   async function request<T>(path: string, requestOptions: ApiRequestOptions = {}): Promise<T> {
     const url = createBrowserSafeUrl(baseUrl, path)

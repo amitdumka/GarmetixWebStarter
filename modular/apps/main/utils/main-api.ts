@@ -19,8 +19,8 @@ export function useMainApiClient() {
   return { apiBaseUrl, get }
 }
 
-export function readNumber(source: ApiRecord | null | undefined, keys: string[]) {
-  for (const key of keys) {
+export function readNumber(source: ApiRecord | null | undefined, keys: string[] | null | undefined) {
+  for (const key of keys ?? []) {
     const value = source?.[key]
     if (typeof value === 'number') return value
     if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) return Number(value)
@@ -28,16 +28,16 @@ export function readNumber(source: ApiRecord | null | undefined, keys: string[])
   return 0
 }
 
-export function readText(source: ApiRecord | null | undefined, keys: string[], fallback = '-') {
-  for (const key of keys) {
+export function readText(source: ApiRecord | null | undefined, keys: string[] | null | undefined, fallback = '-') {
+  for (const key of keys ?? []) {
     const value = source?.[key]
     if (value !== null && value !== undefined && String(value).trim() !== '') return String(value)
   }
   return fallback
 }
 
-export function readArray(source: ApiRecord | null | undefined, keys: string[]) {
-  for (const key of keys) {
+export function readArray(source: ApiRecord | null | undefined, keys: string[] | null | undefined) {
+  for (const key of keys ?? []) {
     const value = source?.[key]
     if (Array.isArray(value)) return value as ApiRecord[]
   }
