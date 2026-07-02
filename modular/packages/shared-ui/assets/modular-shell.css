@@ -66,7 +66,10 @@ body.garmetix-dashboard-shell #__nuxt {
 }
 
 .garmetix-dashboard-sidebar {
-  min-width: 0;
+  --sidebar-width: 18rem;
+  --sidebar-width-icon: 4rem;
+  flex: 0 0 auto;
+  min-width: var(--sidebar-width-icon);
 }
 
 .garmetix-shell-brand {
@@ -97,17 +100,6 @@ body.garmetix-dashboard-shell #__nuxt {
 .garmetix-dashboard-panel {
   min-width: 0;
   min-height: 0;
-}
-
-.garmetix-app-switcher {
-  display: flex;
-  min-width: 0;
-  max-width: min(72vw, 720px);
-  align-items: center;
-  gap: 4px;
-  overflow-x: auto;
-  padding-bottom: 1px;
-  scrollbar-width: thin;
 }
 
 .garmetix-dashboard-content {

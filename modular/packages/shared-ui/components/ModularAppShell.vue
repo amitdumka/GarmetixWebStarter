@@ -6,6 +6,10 @@
         v-model:open="sidebarOpen"
         collapsible
         resizable
+        :default-size="18"
+        :min-size="14"
+        :max-size="24"
+        :collapsed-size="4"
         class="garmetix-dashboard-sidebar bg-elevated/25"
         :ui="{ footer: 'lg:border-t lg:border-default' }"
       >
@@ -106,7 +110,7 @@
         <template #header>
           <UDashboardNavbar :title="appCopy.title" :ui="{ right: 'gap-2' }">
             <template #leading>
-              <UDashboardSidebarCollapse />
+              <UDashboardSidebarCollapse title="Collapse sidebar" />
             </template>
 
             <template #trailing>
@@ -136,29 +140,6 @@
               <UColorModeButton color="neutral" variant="ghost" />
             </template>
           </UDashboardNavbar>
-
-          <UDashboardToolbar>
-            <template #left>
-              <div class="garmetix-app-switcher">
-                <UButton
-                  v-for="link in appLinks"
-                  :key="link.id"
-                  size="sm"
-                  :color="link.current ? 'primary' : 'neutral'"
-                  :variant="link.current ? 'solid' : 'ghost'"
-                  :to="link.href || undefined"
-                  :disabled="link.current || !link.configured"
-                  :external="!link.current"
-                >
-                  {{ link.label }}
-                </UButton>
-              </div>
-            </template>
-
-            <template #right>
-              <span class="hidden text-xs text-muted md:inline">{{ activeUserLabel }}</span>
-            </template>
-          </UDashboardToolbar>
         </template>
 
         <template #body>
@@ -254,7 +235,10 @@ const appCopy = computed(() => ({
   badge: shell.value.badge
 }))
 
-const appLinks = computed(() => shell.value.appLinks)
+const appLinks = computed(() => shell.value.appLinks.map(link => ({
+  ...link,
+  href: normalizeShellHref(link.href || appDefaultBase(link.id))
+})))
 const ownedRouteCount = computed(() => shell.value.routeCount)
 const currentClock = computed(() => now.value?.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) || '--:--')
 const workspaceLabel = computed(() => {
@@ -409,13 +393,47 @@ const navigationItems = computed<NavigationMenuItem[]>(() => menuGroups.value.ma
   }))
 })))
 
+const statusMenuItems = computed<NavigationMenuItem[]>(() => [
+  {
+    label: workspaceLabel.value,
+    icon: 'i-lucide-store',
+    disabled: true
+  },
+  {
+    label: currentClock.value,
+    icon: 'i-lucide-clock-3',
+    disabled: true
+  },
+  {
+    label: `${apiHealth.value.label}: ${apiHealth.value.message}`,
+    icon: apiHealth.value.state === 'live' ? 'i-lucide-wifi' : 'i-lucide-wifi-off',
+    disabled: true
+  },
+  {
+    label: `${version.stage} | v${version.version}`,
+    icon: 'i-lucide-badge-info',
+    disabled: true
+  },
+  {
+    type: 'separator'
+  },
+  statusRouteItem('System Health', 'i-lucide-activity', 'admin', '/system-health'),
+  statusRouteItem('Runtime Diagnostics', 'i-lucide-stethoscope', 'admin', '/runtime-diagnostics'),
+  statusRouteItem('Backup Maintenance', 'i-lucide-hard-drive-download', 'admin', '/backup-maintenance'),
+  statusRouteItem('Google Drive Backup', 'i-lucide-cloud-upload', 'admin', '/google-drive-backup'),
+  statusRouteItem('Production Readiness', 'i-lucide-shield-check', 'admin', '/production-readiness'),
+  statusRouteItem('Production Support', 'i-lucide-life-buoy', 'admin', '/production-support'),
+  statusRouteItem('Oracle Sync', 'i-lucide-database-zap', 'admin', '/oracle-sync'),
+  statusRouteItem('Message Logs', 'i-lucide-list-collapse', 'admin', '/message-logs'),
+  statusRouteItem('About Version', 'i-lucide-info', 'main', '/about-us')
+])
+
 const supportItems = computed<NavigationMenuItem[]>(() => [{
   label: 'Status',
-  icon: 'i-lucide-activity',
+  icon: apiHealth.value.state === 'live' ? 'i-lucide-wifi' : 'i-lucide-wifi-off',
   badge: apiHealth.value.label,
-  onSelect: () => {
-    notificationsOpen.value = true
-  }
+  type: 'trigger',
+  children: statusMenuItems.value
 }, {
   label: 'Notifications',
   icon: 'i-lucide-bell',
@@ -429,8 +447,10 @@ const appSwitcherItems = computed<DropdownMenuItem[][]>(() => [appLinks.value.ma
   label: link.label,
   icon: link.current ? 'i-lucide-circle-check' : 'i-lucide-panels-top-left',
   disabled: link.current || !link.configured,
-  to: link.href,
-  target: link.href?.startsWith('http') ? '_self' : undefined
+  onSelect: (event?: Event) => {
+    event?.preventDefault()
+    openShellHref(link.href)
+  }
 }))])
 
 const userMenuItems = computed<DropdownMenuItem[][]>(() => [[{
@@ -438,10 +458,13 @@ const userMenuItems = computed<DropdownMenuItem[][]>(() => [[{
   label: userMenuLabel.value,
   icon: authSnapshot.value.hasToken ? 'i-lucide-user-round-check' : 'i-lucide-user-round'
 }], [{
-  label: 'Profile',
+  label: 'Back Office Profile',
   icon: 'i-lucide-user',
-  to: '/profile',
-  disabled: !authSnapshot.value.hasToken
+  disabled: !authSnapshot.value.hasToken,
+  onSelect: (event?: Event) => {
+    event?.preventDefault()
+    openAppPath('main', '/profile')
+  }
 }, {
   label: 'Theme',
   icon: 'i-lucide-palette',
@@ -496,9 +519,61 @@ const searchGroups = computed(() => [{
     id: link.id,
     label: link.label,
     icon: link.current ? 'i-lucide-circle-check' : 'i-lucide-panels-top-left',
-    to: link.href
+    onSelect: () => openShellHref(link.href)
   }))
 }])
+
+function appDefaultBase(appId: FrontendAppId) {
+  const bases: Record<FrontendAppId, string> = {
+    main: '/',
+    pos: '/pos/',
+    hr: '/hr/',
+    'ai-sense': '/ai-sense/',
+    books: '/books/',
+    admin: '/admin/'
+  }
+  return bases[appId]
+}
+
+function normalizeShellHref(href?: string) {
+  const raw = String(href || '/').trim()
+  if (!raw) return '/'
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw
+  const withLeadingSlash = raw.startsWith('/') ? raw : `/${raw}`
+  return withLeadingSlash.endsWith('/') ? withLeadingSlash : `${withLeadingSlash}/`
+}
+
+function joinShellPath(baseHref: string | undefined, path: string) {
+  const base = normalizeShellHref(baseHref)
+  const child = path.startsWith('/') ? path : `/${path}`
+  if (base.startsWith('http://') || base.startsWith('https://')) {
+    return `${base.replace(/\/+$/, '')}${child}`
+  }
+  return base === '/' ? child : `${base.replace(/\/+$/, '')}${child}`
+}
+
+function openShellHref(href?: string) {
+  const target = normalizeShellHref(href)
+  if (!import.meta.client || !target) return
+  window.location.assign(target)
+}
+
+function openAppPath(appId: FrontendAppId, path: string) {
+  const link = appLinks.value.find(item => item.id === appId)
+  const baseHref = link?.href || appDefaultBase(appId)
+  openShellHref(joinShellPath(baseHref, path))
+}
+
+function statusRouteItem(label: string, icon: string, appId: FrontendAppId, path: string): NavigationMenuItem {
+  return {
+    label,
+    icon,
+    onSelect: (event?: Event) => {
+      event?.preventDefault()
+      openAppPath(appId, path)
+    }
+  }
+}
 
 function isActive(href: string) {
   return route.path === href || (href !== '/' && route.path.startsWith(`${href}/`))

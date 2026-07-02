@@ -4,19 +4,19 @@
       <table class="w-full min-w-[760px] text-left text-sm">
         <thead class="bg-muted/30 text-xs uppercase text-muted">
           <tr>
-            <th v-for="column in columns" :key="column.key" class="whitespace-nowrap px-3 py-2 font-medium">
+            <th v-for="column in safeColumns" :key="column.key" class="whitespace-nowrap px-3 py-2 font-medium">
               {{ column.label }}
             </th>
           </tr>
         </thead>
         <tbody class="divide-y divide-default">
-          <tr v-if="rows.length === 0">
-            <td :colspan="columns.length" class="px-3 py-8 text-center text-muted">
+          <tr v-if="safeRows.length === 0">
+            <td :colspan="safeColumns.length || 1" class="px-3 py-8 text-center text-muted">
               {{ emptyText }}
             </td>
           </tr>
-          <tr v-for="(row, index) in rows" :key="rowKey(row, index)" class="bg-default/40">
-            <td v-for="column in columns" :key="column.key" class="max-w-80 truncate px-3 py-2">
+          <tr v-for="(row, index) in safeRows" :key="rowKey(row, index)" class="bg-default/40">
+            <td v-for="column in safeColumns" :key="column.key" class="max-w-80 truncate px-3 py-2">
               {{ cellValue(row, column.key) }}
             </td>
           </tr>
@@ -29,11 +29,14 @@
 <script setup lang="ts">
 import { readText, type ApiRecord } from '../utils/admin-api'
 
-defineProps<{
-  columns: Array<{ key: string, label: string }>
-  rows: ApiRecord[]
+const props = defineProps<{
+  columns?: Array<{ key: string, label: string }>
+  rows?: ApiRecord[]
   emptyText?: string
 }>()
+
+const safeColumns = computed(() => Array.isArray(props.columns) ? props.columns : [])
+const safeRows = computed(() => Array.isArray(props.rows) ? props.rows : [])
 
 function rowKey(row: ApiRecord, index: number) {
   return readText(row, ['id', 'code', 'name', 'title'], String(index))
