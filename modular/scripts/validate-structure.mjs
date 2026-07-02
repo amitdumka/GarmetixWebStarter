@@ -99,6 +99,7 @@ const requiredPaths = [
   'docs/stage-13g4-srp-runtime-bootstrap.md',
   'docs/stage-13g5-srp-cloudflare-activation.md',
   'docs/stage-13g6-srp-public-acceptance.md',
+  'docs/stage-13g7-srp-same-origin-api-fix.md',
   'deploy/README.md',
   'deploy/main-static-deploy.sh',
   'deploy/pos-static-deploy.sh',

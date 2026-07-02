@@ -123,19 +123,30 @@ SRP_REMOTE_BASE="${SRP_REMOTE_BASE:-/opt/garmetix-srp}"
 SRP_NGINX_PORT="${SRP_NGINX_PORT:-8088}"
 SRP_API_PORT="${SRP_API_PORT:-5080}"
 SRP_KEEP_RELEASES="${SRP_KEEP_RELEASES:-5}"
-SRP_PUBLIC_API_BASE_URL="${SRP_PUBLIC_API_BASE_URL:-https://$SRP_DOMAIN/api}"
-SRP_MAIN_URL="${SRP_MAIN_URL:-https://$SRP_DOMAIN}"
-SRP_POS_URL="${SRP_POS_URL:-https://$SRP_DOMAIN/pos}"
-SRP_HR_URL="${SRP_HR_URL:-https://$SRP_DOMAIN/hr}"
-SRP_AI_SENSE_URL="${SRP_AI_SENSE_URL:-https://$SRP_DOMAIN/ai-sense}"
-SRP_BOOKS_URL="${SRP_BOOKS_URL:-https://$SRP_DOMAIN/books}"
-SRP_ADMIN_URL="${SRP_ADMIN_URL:-https://$SRP_DOMAIN/admin}"
+SRP_PATH_BASED_URLS="${SRP_PATH_BASED_URLS:-true}"
 SRP_MAIN_BASE_PATH="${SRP_MAIN_BASE_PATH:-/}"
 SRP_POS_BASE_PATH="${SRP_POS_BASE_PATH:-/pos/}"
 SRP_HR_BASE_PATH="${SRP_HR_BASE_PATH:-/hr/}"
 SRP_AI_SENSE_BASE_PATH="${SRP_AI_SENSE_BASE_PATH:-/ai-sense/}"
 SRP_BOOKS_BASE_PATH="${SRP_BOOKS_BASE_PATH:-/books/}"
 SRP_ADMIN_BASE_PATH="${SRP_ADMIN_BASE_PATH:-/admin/}"
+if [ "$SRP_PATH_BASED_URLS" = true ]; then
+  SRP_PUBLIC_API_BASE_URL="/api"
+  SRP_MAIN_URL="$SRP_MAIN_BASE_PATH"
+  SRP_POS_URL="$SRP_POS_BASE_PATH"
+  SRP_HR_URL="$SRP_HR_BASE_PATH"
+  SRP_AI_SENSE_URL="$SRP_AI_SENSE_BASE_PATH"
+  SRP_BOOKS_URL="$SRP_BOOKS_BASE_PATH"
+  SRP_ADMIN_URL="$SRP_ADMIN_BASE_PATH"
+else
+  SRP_PUBLIC_API_BASE_URL="${SRP_PUBLIC_API_BASE_URL:-https://$SRP_DOMAIN/api}"
+  SRP_MAIN_URL="${SRP_MAIN_URL:-https://$SRP_DOMAIN}"
+  SRP_POS_URL="${SRP_POS_URL:-https://$SRP_DOMAIN/pos}"
+  SRP_HR_URL="${SRP_HR_URL:-https://$SRP_DOMAIN/hr}"
+  SRP_AI_SENSE_URL="${SRP_AI_SENSE_URL:-https://$SRP_DOMAIN/ai-sense}"
+  SRP_BOOKS_URL="${SRP_BOOKS_URL:-https://$SRP_DOMAIN/books}"
+  SRP_ADMIN_URL="${SRP_ADMIN_URL:-https://$SRP_DOMAIN/admin}"
+fi
 SRP_API_PROJECT="${SRP_API_PROJECT:-legacy/backend/Garmetix.Api/Garmetix.Api.csproj}"
 SRP_SKIP_API_PUBLISH="${SRP_SKIP_API_PUBLISH:-false}"
 SRP_API_PUBLISH_SELF_CONTAINED="${SRP_API_PUBLISH_SELF_CONTAINED:-true}"
@@ -276,6 +287,19 @@ copy_public_output() {
   cp -a "$public_dir/." "$dest/"
 }
 
+patch_static_runtime_config() {
+  local dest="$1"
+  find "$dest" -type f -name '*.html' -print0 | while IFS= read -r -d '' file; do
+    perl -0pi -e "s#apiBaseUrl:\"[^\"]*\"#apiBaseUrl:\"$SRP_PUBLIC_API_BASE_URL\"#g" "$file"
+    perl -0pi -e "s#NUXT_PUBLIC_GARMETIX_MAIN_URL:\"[^\"]*\"#NUXT_PUBLIC_GARMETIX_MAIN_URL:\"$SRP_MAIN_URL\"#g" "$file"
+    perl -0pi -e "s#NUXT_PUBLIC_GARMETIX_POS_URL:\"[^\"]*\"#NUXT_PUBLIC_GARMETIX_POS_URL:\"$SRP_POS_URL\"#g" "$file"
+    perl -0pi -e "s#NUXT_PUBLIC_GARMETIX_HR_URL:\"[^\"]*\"#NUXT_PUBLIC_GARMETIX_HR_URL:\"$SRP_HR_URL\"#g" "$file"
+    perl -0pi -e "s#NUXT_PUBLIC_GARMETIX_AI_SENSE_URL:\"[^\"]*\"#NUXT_PUBLIC_GARMETIX_AI_SENSE_URL:\"$SRP_AI_SENSE_URL\"#g" "$file"
+    perl -0pi -e "s#NUXT_PUBLIC_GARMETIX_BOOKS_URL:\"[^\"]*\"#NUXT_PUBLIC_GARMETIX_BOOKS_URL:\"$SRP_BOOKS_URL\"#g" "$file"
+    perl -0pi -e "s#NUXT_PUBLIC_GARMETIX_ADMIN_URL:\"[^\"]*\"#NUXT_PUBLIC_GARMETIX_ADMIN_URL:\"$SRP_ADMIN_URL\"#g" "$file"
+  done
+}
+
 build_app() {
   local app_name="$1"
   local base_path="$2"
@@ -296,6 +320,7 @@ build_app() {
     )
   fi
   copy_public_output "$app_name" "$dest"
+  patch_static_runtime_config "$dest"
 }
 
 write_templates() {

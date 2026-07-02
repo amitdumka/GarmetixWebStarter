@@ -18,6 +18,8 @@ The SRP lane deploys the complete modular website to one Ubuntu desktop host and
 - `https://srp.aadwikafashion.in/admin/` -> Admin/SaaS
 - `https://srp.aadwikafashion.in/api/` -> ASP.NET Core API
 
+SRP builds default to same-origin paths (`/api`, `/pos/`, `/hr/`, `/ai-sense/`, `/books/`, `/admin/`) so the same static files work from LAN IP and Cloudflare. Set `SRP_PATH_BASED_URLS=false` only when separate absolute app/API hostnames are intentionally required.
+
 Create the reusable local config once:
 
 ```bash

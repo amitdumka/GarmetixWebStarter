@@ -35,6 +35,14 @@ export function createApiUrl(baseUrl: string, path: string) {
   return nextPath ? `${base}/${nextPath}` : base
 }
 
+function createBrowserSafeUrl(baseUrl: string, path: string) {
+  const apiUrl = createApiUrl(baseUrl, path)
+  const fallbackOrigin = typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin
+    : 'http://localhost'
+  return new URL(apiUrl, fallbackOrigin)
+}
+
 export function createApiHealthUrl(baseUrl: string, healthPath = '/health') {
   return createApiUrl(baseUrl, healthPath)
 }
@@ -89,7 +97,7 @@ export function createGarmetixApiClient(options: GarmetixApiClientOptions) {
   const baseUrl = options.baseUrl.replace(/\/$/, '')
 
   async function request<T>(path: string, requestOptions: ApiRequestOptions = {}): Promise<T> {
-    const url = new URL(`${baseUrl}/${path.replace(/^\//, '')}`)
+    const url = createBrowserSafeUrl(baseUrl, path)
     for (const [key, value] of Object.entries(requestOptions.query ?? {})) {
       if (value !== null && value !== undefined) url.searchParams.set(key, String(value))
     }
