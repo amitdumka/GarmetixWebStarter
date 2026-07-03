@@ -1,11 +1,14 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p class="text-sm text-muted">Business dashboard</p>
-          <h2 class="mt-1 text-2xl font-semibold">{{ title }}</h2>
-          <p class="mt-2 max-w-3xl text-sm text-muted">{{ subtitle }}</p>
+          <p class="garmetix-dashboard-kicker">
+            <UIcon name="i-lucide-chart-no-axes-combined" class="size-4" />
+            Business dashboard
+          </p>
+          <h2 class="garmetix-dashboard-title">{{ title }}</h2>
+          <p class="garmetix-dashboard-subtitle">{{ subtitle }}</p>
         </div>
         <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="load">Refresh</UButton>
       </div>
@@ -14,17 +17,20 @@
     <UAlert v-if="error" color="error" variant="subtle" icon="i-lucide-circle-alert" :description="error" />
 
     <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <div v-for="card in cards" :key="card.label" class="border border-default bg-muted/20 p-4">
-        <p class="text-sm text-muted">{{ card.label }}</p>
-        <p class="mt-2 text-2xl font-semibold">{{ card.value }}</p>
-        <p class="mt-1 text-xs text-muted">{{ card.detail }}</p>
+      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ card.label }}</p>
+        <p class="garmetix-metric-value">{{ card.value }}</p>
+        <p class="garmetix-metric-caption">{{ card.detail }}</p>
       </div>
     </div>
 
     <section class="grid gap-4 xl:grid-cols-2">
-      <div class="overflow-hidden border border-default bg-muted/10">
-        <div class="border-b border-default p-4">
-          <h3 class="text-base font-semibold">Store Performance</h3>
+      <div class="garmetix-table-panel">
+        <div class="garmetix-panel-header">
+          <div>
+            <h3 class="garmetix-panel-title">Store Performance</h3>
+            <p class="garmetix-panel-subtitle">{{ stores.length }} store row(s)</p>
+          </div>
         </div>
         <div class="overflow-auto">
           <table class="w-full min-w-[760px] text-left text-sm">
@@ -53,12 +59,15 @@
         </div>
       </div>
 
-      <div class="overflow-hidden border border-default bg-muted/10">
-        <div class="border-b border-default p-4">
-          <h3 class="text-base font-semibold">Due Signals</h3>
+      <div class="garmetix-table-panel">
+        <div class="garmetix-panel-header">
+          <div>
+            <h3 class="garmetix-panel-title">Due Signals</h3>
+            <p class="garmetix-panel-subtitle">Customer, vendor and movement follow-up</p>
+          </div>
         </div>
-        <div class="space-y-3 p-4">
-          <div v-for="item in dueCards" :key="item.label" class="flex items-center justify-between gap-3 border border-default bg-default/40 p-3">
+        <div class="garmetix-list-stack p-4">
+          <div v-for="item in dueCards" :key="item.label" class="garmetix-row-card flex items-center justify-between gap-3">
             <div>
               <p class="text-sm font-medium">{{ item.label }}</p>
               <p class="text-xs text-muted">{{ item.detail }}</p>

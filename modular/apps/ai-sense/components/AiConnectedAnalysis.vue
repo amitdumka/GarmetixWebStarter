@@ -1,11 +1,14 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p class="text-sm text-muted">AI Sense read model</p>
-          <h2 class="mt-1 text-2xl font-semibold">{{ title }}</h2>
-          <p class="mt-2 max-w-3xl text-sm text-muted">{{ description }}</p>
+          <p class="garmetix-dashboard-kicker">
+            <UIcon name="i-lucide-brain-circuit" class="size-4" />
+            AI Sense read model
+          </p>
+          <h2 class="garmetix-dashboard-title">{{ title }}</h2>
+          <p class="garmetix-dashboard-subtitle">{{ description }}</p>
         </div>
         <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="load">Refresh</UButton>
       </div>
@@ -14,23 +17,23 @@
     <UAlert v-if="error" color="error" variant="subtle" icon="i-lucide-circle-alert" :description="error" />
 
     <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <div v-for="metric in metrics" :key="readText(metric, ['label'])" class="border border-default bg-muted/20 p-4">
-        <p class="text-sm text-muted">{{ readText(metric, ['label']) }}</p>
-        <p class="mt-2 text-2xl font-semibold">{{ readText(metric, ['displayValue'], formatValue(readNumber(metric, ['value']))) }}</p>
-        <p class="mt-1 text-xs text-muted">{{ readText(metric, ['caption']) }}</p>
+      <div v-for="metric in metrics" :key="readText(metric, ['label'])" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ readText(metric, ['label']) }}</p>
+        <p class="garmetix-metric-value">{{ readText(metric, ['displayValue'], formatValue(readNumber(metric, ['value']))) }}</p>
+        <p class="garmetix-metric-caption">{{ readText(metric, ['caption']) }}</p>
       </div>
-      <div v-if="!metrics.length" class="border border-default bg-muted/20 p-4">
-        <p class="text-sm text-muted">Endpoint</p>
-        <p class="mt-2 text-lg font-semibold">Ready</p>
-        <p class="mt-1 text-xs text-muted">No metrics returned yet.</p>
+      <div v-if="!metrics.length" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">Endpoint</p>
+        <p class="garmetix-metric-value text-lg">Ready</p>
+        <p class="garmetix-metric-caption">No metrics returned yet.</p>
       </div>
     </div>
 
     <section class="grid gap-4 xl:grid-cols-2">
-      <div class="border border-default bg-muted/10 p-4">
-        <h3 class="text-base font-semibold">Rows</h3>
-        <div v-if="rows.length" class="mt-3 space-y-2">
-          <div v-for="(row, index) in rows.slice(0, 12)" :key="rowKey(row, index)" class="border border-default bg-default/40 p-3">
+      <div class="garmetix-section-card">
+        <h3 class="garmetix-panel-title">Rows</h3>
+        <div v-if="rows.length" class="garmetix-list-stack">
+          <div v-for="(row, index) in rows.slice(0, 12)" :key="rowKey(row, index)" class="garmetix-row-card">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
                 <p class="truncate text-sm font-medium">{{ rowTitle(row, index) }}</p>
@@ -43,10 +46,10 @@
         <p v-else class="mt-3 text-sm text-muted">No detail rows returned.</p>
       </div>
 
-      <div class="border border-default bg-muted/10 p-4">
-        <h3 class="text-base font-semibold">Signals</h3>
-        <div v-if="signals.length" class="mt-3 space-y-2">
-          <div v-for="(signal, index) in signals.slice(0, 12)" :key="rowKey(signal, index)" class="border border-default bg-default/40 p-3">
+      <div class="garmetix-section-card">
+        <h3 class="garmetix-panel-title">Signals</h3>
+        <div v-if="signals.length" class="garmetix-list-stack">
+          <div v-for="(signal, index) in signals.slice(0, 12)" :key="rowKey(signal, index)" class="garmetix-row-card">
             <div class="flex items-center justify-between gap-3">
               <div>
                 <p class="text-sm font-medium">{{ readText(signal, ['label', 'ageBucket', 'status'], `Signal ${index + 1}`) }}</p>
@@ -60,10 +63,10 @@
       </div>
     </section>
 
-    <div class="border border-default bg-muted/10 p-4">
-      <h3 class="text-base font-semibold">Trend</h3>
-      <div v-if="trend.length" class="mt-3 grid gap-2 md:grid-cols-3 xl:grid-cols-6">
-        <div v-for="point in trend.slice(-12)" :key="readText(point, ['label', 'date'])" class="border border-default bg-default/40 p-3">
+    <div class="garmetix-section-card">
+      <h3 class="garmetix-panel-title">Trend</h3>
+      <div v-if="trend.length" class="garmetix-trend-grid">
+        <div v-for="point in trend.slice(-12)" :key="readText(point, ['label', 'date'])" class="garmetix-row-card">
           <p class="text-xs text-muted">{{ readText(point, ['label', 'date']) }}</p>
           <p class="mt-1 text-sm font-semibold">{{ formatValue(readNumber(point, ['sales'])) }}</p>
           <p class="text-xs text-muted">Profit {{ formatValue(readNumber(point, ['profit'])) }}</p>

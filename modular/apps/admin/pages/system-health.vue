@@ -1,11 +1,14 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p class="text-sm text-muted">System diagnostics</p>
-          <h2 class="mt-1 text-2xl font-semibold">System Health</h2>
-          <p class="mt-2 max-w-3xl text-sm text-muted">Combined read-only view of API health, app version, runtime probes, database migrations and backup status.</p>
+          <p class="garmetix-dashboard-kicker">
+            <UIcon name="i-lucide-heart-pulse" class="size-4" />
+            System diagnostics
+          </p>
+          <h2 class="garmetix-dashboard-title">System Health</h2>
+          <p class="garmetix-dashboard-subtitle">Combined read-only view of API health, app version, runtime probes, database migrations and backup status.</p>
         </div>
         <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refresh">Refresh</UButton>
       </div>
@@ -14,20 +17,20 @@
     <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
 
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <div v-for="card in cards" :key="card.label" class="border border-default bg-muted/20 p-4">
-        <p class="text-sm text-muted">{{ card.label }}</p>
-        <p class="mt-2 text-2xl font-semibold">{{ card.value }}</p>
-        <p class="mt-1 text-xs text-muted">{{ card.detail }}</p>
+      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ card.label }}</p>
+        <p class="garmetix-metric-value">{{ card.value }}</p>
+        <p class="garmetix-metric-caption">{{ card.detail }}</p>
       </div>
     </section>
 
     <section class="grid gap-4 xl:grid-cols-2">
-      <div class="border border-default bg-muted/10 p-4">
-        <h3 class="mb-3 text-base font-semibold">Runtime Probes</h3>
+      <div class="garmetix-section-card">
+        <h3 class="garmetix-panel-title mb-3">Runtime Probes</h3>
         <AdminMasterTable :columns="probeColumns" :rows="probeRows" empty-text="No runtime probes returned." />
       </div>
-      <div class="border border-default bg-muted/10 p-4">
-        <h3 class="mb-3 text-base font-semibold">Migration Status</h3>
+      <div class="garmetix-section-card">
+        <h3 class="garmetix-panel-title mb-3">Migration Status</h3>
         <AdminMasterTable :columns="migrationColumns" :rows="migrationRows" empty-text="No migration status returned." />
       </div>
     </section>

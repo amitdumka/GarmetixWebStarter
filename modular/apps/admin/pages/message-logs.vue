@@ -1,11 +1,14 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p class="text-sm text-muted">System diagnostics</p>
-          <h2 class="mt-1 text-2xl font-semibold">Message Logs</h2>
-          <p class="mt-2 max-w-3xl text-sm text-muted">Admin-wide view of errors, warnings, success events and frontend/client logs. Detailed diagnostics stay here instead of leaking into user save messages.</p>
+          <p class="garmetix-dashboard-kicker">
+            <UIcon name="i-lucide-message-square-warning" class="size-4" />
+            System diagnostics
+          </p>
+          <h2 class="garmetix-dashboard-title">Message Logs</h2>
+          <p class="garmetix-dashboard-subtitle">Admin-wide view of errors, warnings, success events and frontend/client logs. Detailed diagnostics stay here instead of leaking into user save messages.</p>
         </div>
         <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refresh">Refresh</UButton>
       </div>
@@ -14,18 +17,18 @@
     <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
 
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <div v-for="card in cards" :key="card.label" class="border border-default bg-muted/20 p-4">
-        <p class="text-sm text-muted">{{ card.label }}</p>
-        <p class="mt-2 text-2xl font-semibold">{{ card.value }}</p>
-        <p class="mt-1 text-xs text-muted">{{ card.detail }}</p>
+      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ card.label }}</p>
+        <p class="garmetix-metric-value">{{ card.value }}</p>
+        <p class="garmetix-metric-caption">{{ card.detail }}</p>
       </div>
     </section>
 
     <section class="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(360px,0.8fr)]">
-      <div class="border border-default bg-muted/10 p-4">
+      <div class="garmetix-section-card">
         <div class="mb-3 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <h3 class="text-base font-semibold">Log Register</h3>
+            <h3 class="garmetix-panel-title">Log Register</h3>
             <p class="text-xs text-muted">{{ filteredRows.length }} log(s)</p>
           </div>
           <div class="flex flex-col gap-2 sm:flex-row">
@@ -36,10 +39,10 @@
         <AdminMasterTable :columns="columns" :rows="filteredRows" empty-text="No message logs found." />
       </div>
 
-      <aside class="border border-default bg-muted/10 p-4">
+      <aside class="garmetix-detail-panel">
         <div class="flex items-start justify-between gap-3">
           <div>
-            <h3 class="text-base font-semibold">Selected Log</h3>
+            <h3 class="garmetix-panel-title">Selected Log</h3>
             <p class="text-xs text-muted">{{ selectedLabel }}</p>
           </div>
           <UBadge :color="selectedLog?.success === false ? 'warning' : selectedLog ? 'success' : 'neutral'" variant="subtle">{{ selectedLog ? readText(selectedLog, ['level']) : 'None' }}</UBadge>

@@ -121,6 +121,163 @@ body.garmetix-dashboard-shell #__nuxt {
   min-width: 0;
 }
 
+.garmetix-page-stack {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+}
+
+.garmetix-dashboard-hero,
+.garmetix-section-card,
+.garmetix-metric-card,
+.garmetix-row-card,
+.garmetix-table-panel,
+.garmetix-detail-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 88%, var(--bg));
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--line) 55%, transparent);
+}
+
+.garmetix-dashboard-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 18px;
+}
+
+.garmetix-dashboard-hero::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: linear-gradient(180deg, var(--accent), #f59e0b);
+  content: "";
+}
+
+.garmetix-dashboard-hero > * {
+  position: relative;
+}
+
+.garmetix-dashboard-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.garmetix-dashboard-title {
+  margin-top: 4px;
+  color: var(--ink);
+  font-size: 24px;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.garmetix-dashboard-subtitle {
+  margin-top: 8px;
+  max-width: 72ch;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.garmetix-metric-card {
+  min-width: 0;
+  padding: 14px;
+}
+
+.garmetix-metric-card p,
+.garmetix-row-card p,
+.garmetix-section-card p,
+.garmetix-table-panel p,
+.garmetix-detail-panel p {
+  margin: 0;
+}
+
+.garmetix-metric-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.garmetix-metric-value {
+  margin-top: 8px;
+  color: var(--ink);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.garmetix-metric-caption {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.garmetix-section-card,
+.garmetix-table-panel,
+.garmetix-detail-panel {
+  min-width: 0;
+  overflow: hidden;
+  padding: 16px;
+}
+
+.garmetix-table-panel {
+  padding: 0;
+}
+
+.garmetix-panel-header {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  padding: 14px 16px;
+}
+
+.garmetix-panel-title {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.garmetix-panel-subtitle {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.garmetix-row-card {
+  min-width: 0;
+  padding: 12px;
+  background: color-mix(in srgb, var(--panel) 76%, var(--bg));
+}
+
+.garmetix-list-stack {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.garmetix-trend-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.garmetix-log-panel {
+  display: grid;
+  gap: 12px;
+}
+
 .modular-shell {
   display: grid;
   grid-template-columns: 19rem minmax(0, 1fr);
@@ -396,6 +553,10 @@ body.garmetix-dashboard-shell #__nuxt {
   .planner-metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .garmetix-trend-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
@@ -405,5 +566,13 @@ body.garmetix-dashboard-shell #__nuxt {
 
   .modular-content {
     padding: 12px;
+  }
+
+  .garmetix-dashboard-title {
+    font-size: 21px;
+  }
+
+  .garmetix-trend-grid {
+    grid-template-columns: 1fr;
   }
 }
