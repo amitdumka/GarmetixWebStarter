@@ -1,11 +1,11 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
         <div>
-          <p class="text-sm text-muted">GST filing review</p>
-          <h2 class="mt-1 text-2xl font-semibold">GST Returns</h2>
-          <p class="mt-2 max-w-3xl text-sm text-muted">
+          <p class="garmetix-kicker"><UIcon name="i-lucide-file-check-2" class="size-4" /> GST filing review</p>
+          <h2 class="garmetix-dashboard-title">GST Returns</h2>
+          <p class="garmetix-dashboard-subtitle">
             Review saved GST return drafts, books-derived GSTR-1/GSTR-3B totals, export readiness and accounting settlement visibility. Draft save, filing and posting stay in controlled flows.
           </p>
         </div>
@@ -20,30 +20,30 @@
     <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
 
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <div v-for="card in cards" :key="card.label" class="border border-default bg-muted/20 p-4">
-        <p class="text-sm text-muted">{{ card.label }}</p>
-        <p class="mt-2 text-2xl font-semibold">{{ card.value }}</p>
-        <p class="mt-1 text-xs text-muted">{{ card.detail }}</p>
+      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ card.label }}</p>
+        <p class="garmetix-metric-value">{{ card.value }}</p>
+        <p class="garmetix-metric-caption">{{ card.detail }}</p>
       </div>
     </section>
 
     <section class="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(360px,0.9fr)]">
-      <div class="border border-default bg-muted/10 p-4">
+      <div class="garmetix-section-card">
         <div class="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h3 class="text-base font-semibold">Saved Drafts</h3>
-            <p class="text-xs text-muted">{{ filteredDrafts.length }} row(s) shown</p>
+            <h3 class="garmetix-panel-title">Saved Drafts</h3>
+            <p class="garmetix-panel-subtitle">{{ filteredDrafts.length }} row(s) shown</p>
           </div>
           <UInput v-model="search" icon="i-lucide-search" placeholder="Search GST drafts" class="lg:w-72" />
         </div>
         <BooksMasterTable :columns="draftColumns" :rows="filteredDraftRows" empty-text="No GST return drafts found." />
       </div>
 
-      <aside class="border border-default bg-muted/10 p-4">
+      <aside class="garmetix-detail-panel">
         <div class="flex items-start justify-between gap-3">
           <div>
-            <h3 class="text-base font-semibold">Draft Detail</h3>
-            <p class="text-xs text-muted">{{ selectedDraftTitle }}</p>
+            <h3 class="garmetix-panel-title">Draft Detail</h3>
+            <p class="garmetix-panel-subtitle">{{ selectedDraftTitle }}</p>
           </div>
           <UBadge :color="selectedDraft ? 'success' : 'neutral'" variant="subtle">{{ selectedDraft ? readText(selectedDraft, ['status']) : 'None' }}</UBadge>
         </div>
@@ -66,21 +66,21 @@
     </section>
 
     <section class="grid gap-4 xl:grid-cols-2">
-      <div class="border border-default bg-muted/10 p-4">
+      <div class="garmetix-section-card">
         <div class="mb-3 flex items-start justify-between gap-3">
           <div>
-            <h3 class="text-base font-semibold">From Books Preview</h3>
-            <p class="text-xs text-muted">Calculated from sales and purchase books for {{ returnPeriod }}</p>
+            <h3 class="garmetix-panel-title">From Books Preview</h3>
+            <p class="garmetix-panel-subtitle">Calculated from sales and purchase books for {{ returnPeriod }}</p>
           </div>
           <UBadge :color="booksLoading ? 'warning' : 'primary'" variant="subtle">{{ booksLoading ? 'Loading' : 'Preview' }}</UBadge>
         </div>
         <BooksMasterTable :columns="booksColumns" :rows="booksRows" empty-text="No books-derived GST preview loaded." />
       </div>
 
-      <div class="border border-default bg-muted/10 p-4">
+      <div class="garmetix-section-card">
         <div class="mb-3">
-          <h3 class="text-base font-semibold">Accounting Summary</h3>
-          <p class="text-xs text-muted">GST settlement journal visibility only, no posting action.</p>
+          <h3 class="garmetix-panel-title">Accounting Summary</h3>
+          <p class="garmetix-panel-subtitle">GST settlement journal visibility only, no posting action.</p>
         </div>
         <BooksMasterTable :columns="accountingColumns" :rows="accountingRows" empty-text="No GST accounting summary found." />
       </div>

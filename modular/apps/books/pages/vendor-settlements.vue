@@ -1,11 +1,11 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p class="text-sm text-muted">Debit note settlement</p>
-          <h2 class="mt-1 text-2xl font-semibold">Vendor Settlement Review</h2>
-          <p class="mt-2 max-w-3xl text-sm text-muted">
+          <p class="garmetix-kicker"><UIcon name="i-lucide-file-check-2" class="size-4" /> Debit note settlement</p>
+          <h2 class="garmetix-dashboard-title">Vendor Settlement Review</h2>
+          <p class="garmetix-dashboard-subtitle">
             Review debit-note settlements, invoice allocations, refund voucher links, bank references and journal handoff. Settlement posting remains in the controlled purchase return flow.
           </p>
         </div>
@@ -20,24 +20,24 @@
     <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
 
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <div v-for="card in cards" :key="card.label" class="border border-default bg-muted/20 p-4">
-        <p class="text-sm text-muted">{{ card.label }}</p>
-        <p class="mt-2 text-2xl font-semibold">{{ card.value }}</p>
-        <p class="mt-1 text-xs text-muted">{{ card.detail }}</p>
+      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ card.label }}</p>
+        <p class="garmetix-metric-value">{{ card.value }}</p>
+        <p class="garmetix-metric-caption">{{ card.detail }}</p>
       </div>
     </section>
 
     <section class="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.85fr)]">
-      <div class="border border-default bg-muted/10 p-4">
+      <div class="garmetix-table-panel">
         <div class="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h3 class="text-base font-semibold">Recent Settlements</h3>
-            <p class="text-xs text-muted">{{ filteredSettlements.length }} row(s) shown</p>
+            <h3 class="garmetix-panel-title">Recent Settlements</h3>
+            <p class="garmetix-panel-subtitle">{{ filteredSettlements.length }} row(s) shown</p>
           </div>
           <UInput v-model="search" icon="i-lucide-search" placeholder="Search vendor settlements" class="lg:w-72" />
         </div>
 
-        <div class="overflow-hidden border border-default">
+        <div class="overflow-hidden rounded-lg border border-default">
           <div class="overflow-x-auto">
             <table class="w-full min-w-[960px] text-left text-sm">
               <thead class="bg-muted/30 text-xs uppercase text-muted">
@@ -85,11 +85,11 @@
         </div>
       </div>
 
-      <aside class="border border-default bg-muted/10 p-4">
+      <aside class="garmetix-detail-panel">
         <div class="flex items-start justify-between gap-3">
           <div>
-            <h3 class="text-base font-semibold">Settlement Detail</h3>
-            <p class="text-xs text-muted">{{ selectedSettlementTitle }}</p>
+            <h3 class="garmetix-panel-title">Settlement Detail</h3>
+            <p class="garmetix-panel-subtitle">{{ selectedSettlementTitle }}</p>
           </div>
           <UBadge :color="selectedSettlement ? 'success' : 'neutral'" variant="subtle">{{ selectedSettlement ? readText(selectedSettlement, ['settlementType']) : 'None' }}</UBadge>
         </div>

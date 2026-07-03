@@ -1,11 +1,11 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p class="text-sm text-muted">Bank and cash audit</p>
-          <h2 class="mt-1 text-2xl font-semibold">Bank Operations</h2>
-          <p class="mt-2 max-w-3xl text-sm text-muted">
+          <p class="garmetix-kicker"><UIcon name="i-lucide-landmark" class="size-4" /> Bank and cash audit</p>
+          <h2 class="garmetix-dashboard-title">Bank Operations</h2>
+          <p class="garmetix-dashboard-subtitle">
             Read-only bank transactions, statements, reconciliation, cheque lifecycle, vendor bank accounts and bank access details. Posting and reconciliation actions stay disabled.
           </p>
         </div>
@@ -19,30 +19,30 @@
     <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
 
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <div v-for="card in cards" :key="card.label" class="border border-default bg-muted/20 p-4">
-        <p class="text-sm text-muted">{{ card.label }}</p>
-        <p class="mt-2 text-2xl font-semibold">{{ card.value }}</p>
-        <p class="mt-1 text-xs text-muted">{{ card.detail }}</p>
+      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ card.label }}</p>
+        <p class="garmetix-metric-value">{{ card.value }}</p>
+        <p class="garmetix-metric-caption">{{ card.detail }}</p>
       </div>
     </section>
 
     <section class="grid gap-4 xl:grid-cols-3">
-      <div class="border border-default bg-muted/10 p-4 xl:col-span-2">
+      <div class="garmetix-section-card xl:col-span-2">
         <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 class="text-base font-semibold">Bank Statement</h3>
-            <p class="text-xs text-muted">{{ statementRows.length }} lines for {{ selectedBankAccountLabel }}</p>
+            <h3 class="garmetix-panel-title">Bank Statement</h3>
+            <p class="garmetix-panel-subtitle">{{ statementRows.length }} lines for {{ selectedBankAccountLabel }}</p>
           </div>
           <UBadge :color="statementLoading ? 'warning' : 'primary'" variant="subtle">{{ statementLoading ? 'Loading' : 'Read only' }}</UBadge>
         </div>
         <BooksMasterTable :columns="statementColumns" :rows="statementRows" empty-text="No bank statement lines found." />
       </div>
 
-      <div class="border border-default bg-muted/10 p-4">
-        <h3 class="text-base font-semibold">Reconciliation Summary</h3>
+      <div class="garmetix-section-card">
+        <h3 class="garmetix-panel-title">Reconciliation Summary</h3>
         <div class="mt-3 space-y-3">
-          <div v-for="item in reconciliationCards" :key="item.label" class="border border-default bg-default/40 p-3">
-            <p class="text-xs text-muted">{{ item.label }}</p>
+          <div v-for="item in reconciliationCards" :key="item.label" class="garmetix-row-card block">
+            <p class="garmetix-metric-label">{{ item.label }}</p>
             <p class="mt-1 text-lg font-semibold">{{ item.value }}</p>
           </div>
         </div>
@@ -63,11 +63,11 @@
       </UButton>
     </div>
 
-    <section class="border border-default bg-muted/10 p-4">
+    <section class="garmetix-section-card">
       <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 class="text-base font-semibold">{{ currentTab.label }}</h3>
-          <p class="text-xs text-muted">{{ currentTab.description }}</p>
+          <h3 class="garmetix-panel-title">{{ currentTab.label }}</h3>
+          <p class="garmetix-panel-subtitle">{{ currentTab.description }}</p>
         </div>
         <UInput v-model="search" icon="i-lucide-search" placeholder="Search bank operation rows" class="sm:w-72" />
       </div>

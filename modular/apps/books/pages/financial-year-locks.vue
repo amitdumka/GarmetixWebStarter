@@ -1,11 +1,11 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p class="text-sm text-muted">Accounting controls</p>
-          <h2 class="mt-1 text-2xl font-semibold">Financial Year Locks</h2>
-          <p class="mt-2 max-w-3xl text-sm text-muted">
+          <p class="garmetix-kicker"><UIcon name="i-lucide-lock-keyhole" class="size-4" /> Accounting controls</p>
+          <h2 class="garmetix-dashboard-title">Financial Year Locks</h2>
+          <p class="garmetix-dashboard-subtitle">
             Review active and historical period locks, module lock coverage, operator trace and journal balance checks. Lock and unlock actions remain in the audited legacy/admin flow for now.
           </p>
         </div>
@@ -19,19 +19,19 @@
     <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
 
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <div v-for="card in cards" :key="card.label" class="border border-default bg-muted/20 p-4">
-        <p class="text-sm text-muted">{{ card.label }}</p>
-        <p class="mt-2 text-2xl font-semibold">{{ card.value }}</p>
-        <p class="mt-1 text-xs text-muted">{{ card.detail }}</p>
+      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ card.label }}</p>
+        <p class="garmetix-metric-value">{{ card.value }}</p>
+        <p class="garmetix-metric-caption">{{ card.detail }}</p>
       </div>
     </section>
 
     <section class="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(340px,0.8fr)]">
-      <div class="border border-default bg-muted/10 p-4">
+      <div class="garmetix-section-card">
         <div class="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h3 class="text-base font-semibold">Lock Register</h3>
-            <p class="text-xs text-muted">{{ filteredLocks.length }} period lock(s) shown</p>
+            <h3 class="garmetix-panel-title">Lock Register</h3>
+            <p class="garmetix-panel-subtitle">{{ filteredLocks.length }} period lock(s) shown</p>
           </div>
           <div class="flex flex-col gap-2 sm:flex-row">
             <USelect v-model="statusFilter" :items="statusItems" class="sm:w-40" />
@@ -43,11 +43,11 @@
       </div>
 
       <aside class="space-y-4">
-        <div class="border border-default bg-muted/10 p-4">
+        <div class="garmetix-detail-panel">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <h3 class="text-base font-semibold">Selected Period</h3>
-              <p class="text-xs text-muted">{{ selectedLockLabel }}</p>
+              <h3 class="garmetix-panel-title">Selected Period</h3>
+              <p class="garmetix-panel-subtitle">{{ selectedLockLabel }}</p>
             </div>
             <UBadge :color="selectedLock?.active === false ? 'neutral' : 'success'" variant="subtle">{{ selectedLock?.active === false ? 'Unlocked' : 'Active' }}</UBadge>
           </div>
@@ -63,11 +63,11 @@
           <p v-else class="mt-6 text-sm text-muted">Select a lock row to review its period and operator trace.</p>
         </div>
 
-        <div class="border border-default bg-muted/10 p-4">
+        <div class="garmetix-section-card">
           <div class="mb-3 flex items-start justify-between gap-3">
             <div>
-              <h3 class="text-base font-semibold">Journal Balance Check</h3>
-              <p class="text-xs text-muted">Last 5000 journal entries in current scope.</p>
+              <h3 class="garmetix-panel-title">Journal Balance Check</h3>
+              <p class="garmetix-panel-subtitle">Last 5000 journal entries in current scope.</p>
             </div>
             <UBadge :color="journalIssueCount > 0 ? 'warning' : 'success'" variant="subtle">{{ journalIssueCount }} issue(s)</UBadge>
           </div>

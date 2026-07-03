@@ -1,11 +1,11 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p class="text-sm text-muted">Purchase settlement</p>
-          <h2 class="mt-1 text-2xl font-semibold">Vendor Payment Review</h2>
-          <p class="mt-2 max-w-3xl text-sm text-muted">
+          <p class="garmetix-kicker"><UIcon name="i-lucide-hand-coins" class="size-4" /> Purchase settlement</p>
+          <h2 class="garmetix-dashboard-title">Vendor Payment Review</h2>
+          <p class="garmetix-dashboard-subtitle">
             Review recent purchase payments, advances, linked vouchers and purchase invoice print handoff. Payment creation stays in the controlled purchase workflow.
           </p>
         </div>
@@ -20,24 +20,24 @@
     <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
 
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <div v-for="card in cards" :key="card.label" class="border border-default bg-muted/20 p-4">
-        <p class="text-sm text-muted">{{ card.label }}</p>
-        <p class="mt-2 text-2xl font-semibold">{{ card.value }}</p>
-        <p class="mt-1 text-xs text-muted">{{ card.detail }}</p>
+      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ card.label }}</p>
+        <p class="garmetix-metric-value">{{ card.value }}</p>
+        <p class="garmetix-metric-caption">{{ card.detail }}</p>
       </div>
     </section>
 
     <section class="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,0.85fr)]">
-      <div class="border border-default bg-muted/10 p-4">
+      <div class="garmetix-table-panel">
         <div class="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h3 class="text-base font-semibold">Recent Payments</h3>
-            <p class="text-xs text-muted">{{ filteredPayments.length }} row(s) shown</p>
+            <h3 class="garmetix-panel-title">Recent Payments</h3>
+            <p class="garmetix-panel-subtitle">{{ filteredPayments.length }} row(s) shown</p>
           </div>
           <UInput v-model="search" icon="i-lucide-search" placeholder="Search vendor payments" class="lg:w-72" />
         </div>
 
-        <div class="overflow-hidden border border-default">
+        <div class="overflow-hidden rounded-lg border border-default">
           <div class="overflow-x-auto">
             <table class="w-full min-w-[920px] text-left text-sm">
               <thead class="bg-muted/30 text-xs uppercase text-muted">
@@ -79,11 +79,11 @@
         </div>
       </div>
 
-      <aside class="border border-default bg-muted/10 p-4">
+      <aside class="garmetix-detail-panel">
         <div class="flex items-start justify-between gap-3">
           <div>
-            <h3 class="text-base font-semibold">Payment Detail</h3>
-            <p class="text-xs text-muted">{{ selectedPaymentTitle }}</p>
+            <h3 class="garmetix-panel-title">Payment Detail</h3>
+            <p class="garmetix-panel-subtitle">{{ selectedPaymentTitle }}</p>
           </div>
           <UBadge :color="selectedPayment ? 'success' : 'neutral'" variant="subtle">{{ selectedPayment ? readText(selectedPayment, ['paymentKind']) : 'None' }}</UBadge>
         </div>

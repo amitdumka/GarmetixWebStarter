@@ -1,11 +1,11 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p class="text-sm text-muted">Production readiness</p>
-          <h2 class="mt-1 text-2xl font-semibold">GST Production Readiness</h2>
-          <p class="mt-2 max-w-3xl text-sm text-muted">
+          <p class="garmetix-kicker"><UIcon name="i-lucide-shield-check" class="size-4" /> Production readiness</p>
+          <h2 class="garmetix-dashboard-title">GST Production Readiness</h2>
+          <p class="garmetix-dashboard-subtitle">
             Review GST export readiness, e-invoice provider status, GSTIN provider configuration and portal schema mapping. Admin-only final acceptance remains outside this Books screen.
           </p>
         </div>
@@ -19,37 +19,37 @@
     <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
 
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <div v-for="card in cards" :key="card.label" class="border border-default bg-muted/20 p-4">
-        <p class="text-sm text-muted">{{ card.label }}</p>
-        <p class="mt-2 text-2xl font-semibold">{{ card.value }}</p>
-        <p class="mt-1 text-xs text-muted">{{ card.detail }}</p>
+      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ card.label }}</p>
+        <p class="garmetix-metric-value">{{ card.value }}</p>
+        <p class="garmetix-metric-caption">{{ card.detail }}</p>
       </div>
     </section>
 
     <section class="grid gap-4 xl:grid-cols-2">
-      <div class="border border-default bg-muted/10 p-4">
-        <h3 class="mb-3 text-base font-semibold">Readiness</h3>
+      <div class="garmetix-section-card">
+        <h3 class="garmetix-panel-title mb-3">Readiness</h3>
         <BooksMasterTable :columns="detailColumns" :rows="readinessRows" empty-text="No readiness rows found." />
       </div>
-      <div class="border border-default bg-muted/10 p-4">
-        <h3 class="mb-3 text-base font-semibold">Provider Status</h3>
+      <div class="garmetix-section-card">
+        <h3 class="garmetix-panel-title mb-3">Provider Status</h3>
         <BooksMasterTable :columns="detailColumns" :rows="providerRows" empty-text="No provider rows found." />
       </div>
     </section>
 
-    <section class="border border-default bg-muted/10 p-4">
+    <section class="garmetix-section-card">
       <div class="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h3 class="text-base font-semibold">GST Schema Review</h3>
-          <p class="text-xs text-muted">{{ readText(schemaReview, ['title']) }}</p>
+          <h3 class="garmetix-panel-title">GST Schema Review</h3>
+          <p class="garmetix-panel-subtitle">{{ readText(schemaReview, ['title']) }}</p>
         </div>
         <USelect v-model="schemaTab" :items="schemaItems" class="lg:w-44" />
       </div>
       <BooksMasterTable :columns="schemaColumns" :rows="schemaRows" empty-text="No schema review rows found." />
     </section>
 
-    <section class="border border-default bg-muted/10 p-4">
-      <h3 class="mb-3 text-base font-semibold">Warnings and Notes</h3>
+    <section class="garmetix-section-card">
+      <h3 class="garmetix-panel-title mb-3">Warnings and Notes</h3>
       <ul class="space-y-2 text-sm text-muted">
         <li v-for="note in notes" :key="note" class="border-b border-default pb-2">{{ note }}</li>
         <li v-if="notes.length === 0">No readiness notes available.</li>

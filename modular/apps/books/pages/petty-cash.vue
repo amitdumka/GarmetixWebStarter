@@ -1,11 +1,11 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
         <div>
-          <p class="text-sm text-muted">Daily cash control</p>
-          <h2 class="mt-1 text-2xl font-semibold">Petty Cash Review</h2>
-          <p class="mt-2 max-w-3xl text-sm text-muted">
+          <p class="garmetix-kicker"><UIcon name="i-lucide-wallet" class="size-4" /> Daily cash control</p>
+          <h2 class="garmetix-dashboard-title">Petty Cash Review</h2>
+          <p class="garmetix-dashboard-subtitle">
             Review saved petty cash sheets against the calculated daily cash summary. Saving, editing and owner alerts stay in the existing controlled workflow.
           </p>
         </div>
@@ -20,24 +20,24 @@
     <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
 
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <div v-for="card in cards" :key="card.label" class="border border-default bg-muted/20 p-4">
-        <p class="text-sm text-muted">{{ card.label }}</p>
-        <p class="mt-2 text-2xl font-semibold">{{ card.value }}</p>
-        <p class="mt-1 text-xs text-muted">{{ card.detail }}</p>
+      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ card.label }}</p>
+        <p class="garmetix-metric-value">{{ card.value }}</p>
+        <p class="garmetix-metric-caption">{{ card.detail }}</p>
       </div>
     </section>
 
     <section class="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(360px,0.9fr)]">
-      <div class="border border-default bg-muted/10 p-4">
+      <div class="garmetix-table-panel">
         <div class="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h3 class="text-base font-semibold">Saved Sheets</h3>
-            <p class="text-xs text-muted">{{ filteredSheets.length }} row(s) shown for {{ selectedStoreName }}</p>
+            <h3 class="garmetix-panel-title">Saved Sheets</h3>
+            <p class="garmetix-panel-subtitle">{{ filteredSheets.length }} row(s) shown for {{ selectedStoreName }}</p>
           </div>
           <UInput v-model="search" icon="i-lucide-search" placeholder="Search sheet rows" class="lg:w-72" />
         </div>
 
-        <div class="overflow-hidden border border-default">
+        <div class="overflow-hidden rounded-lg border border-default">
           <div class="overflow-x-auto">
             <table class="w-full min-w-[880px] text-left text-sm">
               <thead class="bg-muted/30 text-xs uppercase text-muted">
@@ -83,11 +83,11 @@
         </div>
       </div>
 
-      <aside class="border border-default bg-muted/10 p-4">
+      <aside class="garmetix-detail-panel">
         <div class="flex items-start justify-between gap-3">
           <div>
-            <h3 class="text-base font-semibold">Selected Sheet</h3>
-            <p class="text-xs text-muted">{{ selectedSheetTitle }}</p>
+            <h3 class="garmetix-panel-title">Selected Sheet</h3>
+            <p class="garmetix-panel-subtitle">{{ selectedSheetTitle }}</p>
           </div>
           <UBadge :color="mismatchRows.length ? 'warning' : 'success'" variant="subtle">
             {{ mismatchRows.length ? `${mismatchRows.length} mismatch` : 'Balanced' }}
@@ -97,7 +97,7 @@
         <div v-if="selectedSheet" class="mt-4 space-y-4">
           <BooksMasterTable :columns="detailColumns" :rows="detailRows" empty-text="No petty cash detail rows found." />
 
-          <div v-if="mismatchRows.length" class="border border-warning/40 bg-warning/10 p-3">
+          <div v-if="mismatchRows.length" class="rounded-lg border border-warning/40 bg-warning/10 p-3">
             <h4 class="text-sm font-semibold">Calculated Mismatch</h4>
             <BooksMasterTable :columns="mismatchColumns" :rows="mismatchRows" empty-text="No mismatch rows." />
           </div>
@@ -115,19 +115,19 @@
     </section>
 
     <section class="grid gap-4 xl:grid-cols-3">
-      <div class="border border-default bg-muted/10 p-4 xl:col-span-2">
+      <div class="garmetix-section-card xl:col-span-2">
         <div class="mb-3 flex items-start justify-between gap-3">
           <div>
-            <h3 class="text-base font-semibold">Calculated Daily Summary</h3>
-            <p class="text-xs text-muted">{{ prepareSummary }}</p>
+            <h3 class="garmetix-panel-title">Calculated Daily Summary</h3>
+            <p class="garmetix-panel-subtitle">{{ prepareSummary }}</p>
           </div>
           <UBadge :color="prepareLoading ? 'warning' : 'primary'" variant="subtle">{{ prepareLoading ? 'Loading' : 'Calculated' }}</UBadge>
         </div>
         <BooksMasterTable :columns="prepareColumns" :rows="prepareRows" empty-text="Select a store and date to calculate petty cash." />
       </div>
 
-      <div class="border border-default bg-muted/10 p-4">
-        <h3 class="text-base font-semibold">Calculation Notes</h3>
+      <div class="garmetix-section-card">
+        <h3 class="garmetix-panel-title">Calculation Notes</h3>
         <ul class="mt-3 space-y-2 text-sm text-muted">
           <li v-for="note in calculationNotes" :key="note" class="border-b border-default pb-2">{{ note }}</li>
           <li v-if="calculationNotes.length === 0">No calculation notes available.</li>
