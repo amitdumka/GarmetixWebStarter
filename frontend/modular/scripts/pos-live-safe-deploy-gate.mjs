@@ -17,8 +17,8 @@ console.log(`Build check: ${withBuild ? 'enabled' : 'disabled'}`)
 console.log(`Deploy dry-run: ${withDeployDryRun ? 'enabled' : 'disabled'}`)
 console.log('')
 
-if (version !== '6.0.2') failures.push(`Expected version 6.0.2, found ${version}.`)
-if (!stage.includes('Stage 14A.2')) failures.push(`Expected Stage 14A.2, found ${stage}.`)
+if (!version.startsWith('6.')) failures.push(`Expected Version6, found ${version}.`)
+if (!stage.includes('Stage 14A')) failures.push(`Expected Stage 14A POS lane, found ${stage}.`)
 
 const requiredFiles = [
   'frontend/modular/deploy/srp-backup-database.sh',

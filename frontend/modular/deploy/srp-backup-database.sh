@@ -22,6 +22,7 @@ USAGE
 }
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+MODULAR_ROOT="$REPO_ROOT/frontend/modular"
 DEFAULT_CONFIG_PATH="$HOME/.config/garmetix/srp-deploy.env"
 CONFIG_PATH="${GARMETIX_SRP_DEPLOY_CONFIG:-$DEFAULT_CONFIG_PATH}"
 
@@ -90,6 +91,11 @@ SRP_SSH_PORT="${SRP_SSH_PORT:-22}"
 SRP_REMOTE_BASE="${SRP_REMOTE_BASE:-/opt/garmetix-srp}"
 SRP_API_ENV_PATH="${SRP_API_ENV_PATH:-/etc/garmetix/srp-api.env}"
 SRP_BACKUP_DIR="${SRP_BACKUP_DIR:-$SRP_REMOTE_BASE/backups}"
+SRP_GARMETIX_VERSION="${GARMETIX_VERSION:-}"
+if [ -z "$SRP_GARMETIX_VERSION" ] && [ -f "$MODULAR_ROOT/config/version.ts" ]; then
+  SRP_GARMETIX_VERSION="$(sed -n "s/.*version: '\([^']*\)'.*/\1/p" "$MODULAR_ROOT/config/version.ts" | head -1)"
+fi
+SRP_GARMETIX_VERSION="${SRP_GARMETIX_VERSION:-6.0.0}"
 
 need_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -123,6 +129,7 @@ SRP database backup plan
   Target:       $SRP_DEPLOY_TARGET
   API env:      $SRP_API_ENV_PATH
   Backup dir:   $SRP_BACKUP_DIR
+  Version:      $SRP_GARMETIX_VERSION
   Config file:  $CONFIG_PATH
   Secrets file: $SRP_SECRETS_PATH
   Mode:         $(if [ "$DRY_RUN" = true ]; then echo "dry-run"; elif [ "$LIST_ONLY" = true ]; then echo "list"; else echo "backup"; fi)
@@ -205,4 +212,4 @@ ls -lh "$BACKUP_FILE" "$BACKUP_FILE.sha256"
 REMOTE
 )"
 
-ssh_cmd "${sudo_prefix} export SRP_API_ENV_PATH=$(shell_quote "$SRP_API_ENV_PATH"); export SRP_BACKUP_DIR=$(shell_quote "$SRP_BACKUP_DIR"); export GARMETIX_VERSION=$(shell_quote "${GARMETIX_VERSION:-6.0.2}"); export LIST_ONLY=$(shell_quote "$LIST_ONLY"); bash -s" <<<"$remote_script"
+ssh_cmd "${sudo_prefix} export SRP_API_ENV_PATH=$(shell_quote "$SRP_API_ENV_PATH"); export SRP_BACKUP_DIR=$(shell_quote "$SRP_BACKUP_DIR"); export GARMETIX_VERSION=$(shell_quote "$SRP_GARMETIX_VERSION"); export LIST_ONLY=$(shell_quote "$LIST_ONLY"); bash -s" <<<"$remote_script"

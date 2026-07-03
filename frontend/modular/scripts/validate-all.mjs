@@ -107,6 +107,11 @@ const steps = [
     args: ['run', 'modular:pos:live-safe-gate']
   },
   {
+    name: 'POS live sale acceptance dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:pos:live-sale-acceptance']
+  },
+  {
     name: 'POS Stage 13B closure',
     cwd: repoRoot,
     args: ['run', 'modular:pos:stage13b-closure']

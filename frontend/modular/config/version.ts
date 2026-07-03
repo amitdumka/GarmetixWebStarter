@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.2',
-  stage: 'Stage 14A.2 POS Live-Safe Deploy Gate',
-  label: 'Version6 Stage 14A.2 POS Live-Safe Deploy Gate',
-  summary: 'Added the POS live-safe deploy gate and SRP database backup command so .127 deployment is gated by non-mutating checks before live POS write acceptance.'
+  version: '6.0.3',
+  stage: 'Stage 14A.3 POS Controlled Live Sale Acceptance',
+  label: 'Version6 Stage 14A.3 POS Controlled Live Sale Acceptance',
+  summary: 'Added controlled POS live sale acceptance for SRP: deployed POS/API checks by default, with actual invoice creation guarded by token, backup file and explicit live-sale confirmation.'
 } as const
