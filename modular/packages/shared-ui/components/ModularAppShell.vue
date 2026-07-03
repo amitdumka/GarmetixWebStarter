@@ -73,34 +73,37 @@
             popover
             class="garmetix-shell-navigation"
           />
-
-          <UNavigationMenu
-            :collapsed="collapsed"
-            :items="supportItems"
-            orientation="vertical"
-            tooltip
-            class="mt-auto"
-          />
         </template>
 
         <template #footer="{ collapsed }">
-          <UDropdownMenu
-            :items="userMenuItems"
-            :content="{ align: 'center', collisionPadding: 12 }"
-            :ui="{ content: collapsed ? 'w-56' : 'w-(--reka-dropdown-menu-trigger-width)' }"
-          >
-            <UButton
-              color="neutral"
-              variant="ghost"
-              block
-              :square="collapsed"
-              class="data-[state=open]:bg-elevated"
-              :avatar="{ icon: authSnapshot.hasToken ? 'i-lucide-user-round-check' : 'i-lucide-user-round' }"
-              :label="collapsed ? undefined : userMenuLabel"
-              :trailing-icon="collapsed ? undefined : 'i-lucide-chevrons-up-down'"
-              :ui="{ trailingIcon: 'text-dimmed' }"
+          <div class="garmetix-shell-footer">
+            <UNavigationMenu
+              :collapsed="collapsed"
+              :items="supportItems"
+              orientation="vertical"
+              tooltip
+              popover
+              class="garmetix-shell-footer-nav"
             />
-          </UDropdownMenu>
+
+            <UDropdownMenu
+              :items="userMenuItems"
+              :content="{ align: 'center', collisionPadding: 12 }"
+              :ui="{ content: collapsed ? 'w-64' : 'w-(--reka-dropdown-menu-trigger-width)' }"
+            >
+              <UButton
+                color="neutral"
+                variant="ghost"
+                block
+                :square="collapsed"
+                class="data-[state=open]:bg-elevated"
+                :avatar="{ icon: authSnapshot.hasToken ? 'i-lucide-user-round-check' : 'i-lucide-user-round' }"
+                :label="collapsed ? undefined : userMenuLabel"
+                :trailing-icon="collapsed ? undefined : 'i-lucide-chevrons-up-down'"
+                :ui="{ trailingIcon: 'text-dimmed' }"
+              />
+            </UDropdownMenu>
+          </div>
         </template>
       </UDashboardSidebar>
 
@@ -381,7 +384,7 @@ const navigationItems = computed<NavigationMenuItem[]>(() => menuGroups.value.ma
   label: group.label,
   icon: group.items[0]?.icon || 'i-lucide-folder',
   type: 'trigger',
-  defaultOpen: true,
+  defaultOpen: group.items.some(item => isActive(item.href)),
   children: group.items.map(item => ({
     label: item.label,
     icon: item.icon,
@@ -413,19 +416,7 @@ const statusMenuItems = computed<NavigationMenuItem[]>(() => [
     label: `${version.stage} | v${version.version}`,
     icon: 'i-lucide-badge-info',
     disabled: true
-  },
-  {
-    type: 'separator'
-  },
-  statusRouteItem('System Health', 'i-lucide-activity', 'admin', '/system-health'),
-  statusRouteItem('Runtime Diagnostics', 'i-lucide-stethoscope', 'admin', '/runtime-diagnostics'),
-  statusRouteItem('Backup Maintenance', 'i-lucide-hard-drive-download', 'admin', '/backup-maintenance'),
-  statusRouteItem('Google Drive Backup', 'i-lucide-cloud-upload', 'admin', '/google-drive-backup'),
-  statusRouteItem('Production Readiness', 'i-lucide-shield-check', 'admin', '/production-readiness'),
-  statusRouteItem('Production Support', 'i-lucide-life-buoy', 'admin', '/production-support'),
-  statusRouteItem('Oracle Sync', 'i-lucide-database-zap', 'admin', '/oracle-sync'),
-  statusRouteItem('Message Logs', 'i-lucide-list-collapse', 'admin', '/message-logs'),
-  statusRouteItem('About Version', 'i-lucide-info', 'main', '/about-us')
+  }
 ])
 
 const supportItems = computed<NavigationMenuItem[]>(() => [{
@@ -442,6 +433,18 @@ const supportItems = computed<NavigationMenuItem[]>(() => [{
     notificationsOpen.value = true
   }
 }])
+
+const footerToolItems = computed<DropdownMenuItem[]>(() => [
+  dropdownRouteItem('System Health', 'i-lucide-activity', 'admin', '/system-health'),
+  dropdownRouteItem('Runtime Diagnostics', 'i-lucide-stethoscope', 'admin', '/runtime-diagnostics'),
+  dropdownRouteItem('Backup Maintenance', 'i-lucide-hard-drive-download', 'admin', '/backup-maintenance'),
+  dropdownRouteItem('Google Drive Backup', 'i-lucide-cloud-upload', 'admin', '/google-drive-backup'),
+  dropdownRouteItem('Production Readiness', 'i-lucide-shield-check', 'admin', '/production-readiness'),
+  dropdownRouteItem('Production Support', 'i-lucide-life-buoy', 'admin', '/production-support'),
+  dropdownRouteItem('Oracle Sync', 'i-lucide-database-zap', 'admin', '/oracle-sync'),
+  dropdownRouteItem('Message Logs', 'i-lucide-list-collapse', 'admin', '/message-logs'),
+  dropdownRouteItem('About Version', 'i-lucide-info', 'main', '/about-us')
+])
 
 const appSwitcherItems = computed<DropdownMenuItem[][]>(() => [appLinks.value.map(link => ({
   label: link.label,
@@ -496,6 +499,10 @@ const userMenuItems = computed<DropdownMenuItem[][]>(() => [[{
       colorMode.preference = 'light'
     }
   }]
+}, {
+  label: 'System Tools',
+  icon: 'i-lucide-settings-2',
+  children: footerToolItems.value
 }], [{
   label: 'Log out',
   icon: 'i-lucide-log-out',
@@ -564,7 +571,7 @@ function openAppPath(appId: FrontendAppId, path: string) {
   openShellHref(joinShellPath(baseHref, path))
 }
 
-function statusRouteItem(label: string, icon: string, appId: FrontendAppId, path: string): NavigationMenuItem {
+function dropdownRouteItem(label: string, icon: string, appId: FrontendAppId, path: string): DropdownMenuItem {
   return {
     label,
     icon,

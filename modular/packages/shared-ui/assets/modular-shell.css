@@ -97,6 +97,16 @@ body.garmetix-dashboard-shell #__nuxt {
   min-height: 0;
 }
 
+.garmetix-shell-footer {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.garmetix-shell-footer-nav {
+  min-width: 0;
+}
+
 .garmetix-dashboard-panel {
   min-width: 0;
   min-height: 0;
