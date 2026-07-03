@@ -11,16 +11,29 @@ const cards = computed(() => [
   { label: 'Late', value: today.value?.late || 0, icon: 'i-lucide-clock' },
   { label: 'Needs Review', value: today.value?.needsReview || 0, icon: 'i-lucide-alert-circle' }
 ])
+function isActiveEmployee(employee: any) {
+  const status = String(employee?.employeeStatus || '').trim().toLowerCase()
+  return Boolean(employee?.working) && !['resigned', 'terminated', 'inactive'].includes(status)
+}
+
 async function refresh() {
   loading.value = true
-  try { today.value = await attendance.today(); employees.value = await api.list('employees') }
+  try {
+    today.value = await attendance.today()
+    const employeeRows = await api.list<any>('employees')
+    employees.value = employeeRows.filter(isActiveEmployee)
+  }
   catch (error: any) { feedback.fromError('Attendance refresh failed', error) }
   finally { loading.value = false }
 }
 async function punch(body: any) {
   const employee = employees.value.find(e => e.id === body.employeeId)
-  await attendance.manualPunch({ ...body, companyId: employee?.companyId, storeGroupId: employee?.storeGroupId, storeId: employee?.storeId })
-  feedback.success('Attendance punch saved', 'Manual punch was recorded.')
+  const result = await attendance.manualPunch({ ...body, companyId: employee?.companyId, storeGroupId: employee?.storeGroupId, storeId: employee?.storeId })
+  if (result?.duplicate) {
+    feedback.warning('Duplicate punch ignored', result.message || 'A punch for this employee already exists within the duplicate window.')
+  } else {
+    feedback.success('Attendance punch saved', result?.message || 'Manual punch was recorded.')
+  }
   await refresh()
 }
 onMounted(refresh)

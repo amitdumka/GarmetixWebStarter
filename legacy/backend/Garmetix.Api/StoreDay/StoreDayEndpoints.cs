@@ -1,5 +1,6 @@
 
 using Garmetix.Api.Auth;
+using Garmetix.Api.DotMatrix;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
 using Garmetix.Infrastructure.Data;
@@ -157,6 +158,7 @@ public static class StoreDayEndpoints
         StoreDayOpenRequest request,
         HttpContext context,
         GarmetixDbContext db,
+        DotMatrixJournalService dotMatrixJournal,
         CancellationToken cancellationToken)
     {
         if (!CanUseStore(context, request.StoreId))
@@ -196,6 +198,7 @@ public static class StoreDayEndpoints
         }
 
         await db.SaveChangesAsync(cancellationToken);
+        await dotMatrixJournal.QueueDayOpeningAsync(request.StoreId, day, begin.Id, cash.Id, context.User?.Identity?.Name, cancellationToken);
         return Results.Ok(await BuildStatusAsync(db, request.StoreId, day, cancellationToken));
     }
 
@@ -203,6 +206,7 @@ public static class StoreDayEndpoints
         StoreDayCloseRequest request,
         HttpContext context,
         GarmetixDbContext db,
+        DotMatrixJournalService dotMatrixJournal,
         CancellationToken cancellationToken)
     {
         if (!CanUseStore(context, request.StoreId))
@@ -264,6 +268,7 @@ public static class StoreDayEndpoints
 
         var sheet = await UpsertPettyCashSheetAsync(db, request.StoreId, day, summary, cash.Amount, "DayClosing", cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
+        await dotMatrixJournal.QueueDayClosingSummaryAsync(request.StoreId, day, end.Id, cash.Id, summary, context.User?.Identity?.Name, cancellationToken);
 
         return Results.Ok(new
         {
@@ -650,7 +655,7 @@ private static async Task<IResult> VoidDayCloseAsync(
             .ToListAsync(cancellationToken);
         var currentInvoiceIds = invoices.Select(item => item.Id).ToHashSet();
         var dueReceipts = invoicePayments.Where(item => item.PaymentMode == PaymentMode.Cash && !currentInvoiceIds.Contains(item.InvoiceId)).Sum(item => item.Amount);
-        var nonCashSales = invoices.Where(item => item.PaymentMode.HasValue && item.PaymentMode.Value != PaymentMode.Cash && !item.CreditSale).Sum(item => item.PaidAmount > 0 ? item.PaidAmount : item.BillAmount);
+        var nonCashSales = invoicePayments.Where(item => currentInvoiceIds.Contains(item.InvoiceId) && item.PaymentMode != PaymentMode.Cash).Sum(item => item.Amount);
         var customerDue = invoices.Where(item => item.CreditSale || item.BillAmount > item.PaidAmount).Sum(item => Math.Max(0, item.BillAmount - item.PaidAmount));
 
         var vouchers = await db.Vouchers.AsNoTracking()

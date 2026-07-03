@@ -98,6 +98,7 @@ onMounted(refresh)
 </script>
 
 <template>
+  <AppShell title="Stage 10K Operator Acceptance">
   <div class="space-y-6">
     <div class="page-header">
       <div>
@@ -212,4 +213,5 @@ onMounted(refresh)
       </div>
     </UCard>
   </div>
+  </AppShell>
 </template>

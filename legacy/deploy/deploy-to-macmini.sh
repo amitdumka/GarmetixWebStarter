@@ -49,7 +49,7 @@ source "$CONFIG_FILE"
 : "${DOMAIN:=garmetix.aadwikafashion.in}"
 : "${PUBLIC_HTTPS_URL:=https://${DOMAIN}}"
 : "${RESET_DATABASE_ON_DEPLOY:=false}"
-: "${DATABASE_SCHEMA_BOOTSTRAP_MODE:=FreshBaseline}"
+: "${DATABASE_SCHEMA_BOOTSTRAP_MODE:=Migrate}"
 
 SSH_BASE=(-p "$SSH_PORT" -o StrictHostKeyChecking=accept-new)
 SCP_BASE=(-P "$SSH_PORT" -o StrictHostKeyChecking=accept-new)
@@ -95,7 +95,9 @@ fi
 
 RELEASE="release-$(date +%Y%m%d-%H%M%S)"
 ARCHIVE="/tmp/garmetix-${RELEASE}.tar.gz"
+ENV_ARCHIVE="/tmp/garmetix-${RELEASE}.env.production"
 REMOTE_ARCHIVE="/tmp/garmetix-${RELEASE}.tar.gz"
+REMOTE_ENV_ARCHIVE="/tmp/garmetix-${RELEASE}.env.production"
 
 cd "$ROOT_DIR"
 echo "Creating deployment archive..."
@@ -108,6 +110,12 @@ tar \
   --exclude='./backend/**/obj' \
   --exclude='./backups' \
   -czf "$ARCHIVE" .
+
+# The Mac mini uses /opt/garmetix/shared/env/.env.production. Upload the freshly
+# generated env file every deployment so new Cloudflare tunnel tokens and one-time
+# RESET_DATABASE_ON_DEPLOY=true are not lost behind an old persistent env symlink.
+cp "${ROOT_DIR}/.env.production" "$ENV_ARCHIVE"
+chmod 600 "$ENV_ARCHIVE" 2>/dev/null || true
 
 if [[ "${RESET_DATABASE_ON_DEPLOY,,}" == "true" || "${RESET_DATABASE_ON_DEPLOY,,}" == "yes" || "${RESET_DATABASE_ON_DEPLOY}" == "1" ]]; then
   echo "A one-time clean database reset has been included in this release archive."
@@ -123,6 +131,7 @@ fi
 SUDO_PASS_B64="$(printf '%s' "$SUDO_PASS" | base64 | tr -d '\n')"
 
 run_scp "$ARCHIVE" "${SERVER_USER}@${SERVER_HOST}:${REMOTE_ARCHIVE}"
+run_scp "$ENV_ARCHIVE" "${SERVER_USER}@${SERVER_HOST}:${REMOTE_ENV_ARCHIVE}"
 run_scp "${ROOT_DIR}/deploy/install-docker-ubuntu.sh" "${SERVER_USER}@${SERVER_HOST}:/tmp/install-docker-ubuntu.sh"
 
 remote_script=$(cat <<'EOS'
@@ -130,6 +139,7 @@ set -Eeuo pipefail
 REMOTE_APP_DIR="__REMOTE_APP_DIR__"
 RELEASE="__RELEASE__"
 REMOTE_ARCHIVE="__REMOTE_ARCHIVE__"
+REMOTE_ENV_ARCHIVE="__REMOTE_ENV_ARCHIVE__"
 SUDO_PASS_B64="__SUDO_PASS_B64__"
 
 sudo_run() {
@@ -149,15 +159,19 @@ tar -xzf "$REMOTE_ARCHIVE" -C "${REMOTE_APP_DIR}/releases/${RELEASE}"
 ln -sfn "${REMOTE_APP_DIR}/releases/${RELEASE}" "${REMOTE_APP_DIR}/current"
 cd "${REMOTE_APP_DIR}/current"
 
-if [[ -f "${REMOTE_APP_DIR}/shared/env/.env.production" ]]; then
-  ln -sfn "${REMOTE_APP_DIR}/shared/env/.env.production" .env.production
+sudo_run mkdir -p "${REMOTE_APP_DIR}/shared/env"
+sudo_run chown -R "$USER:$USER" "${REMOTE_APP_DIR}/shared/env"
+if [[ -f "$REMOTE_ENV_ARCHIVE" ]]; then
+  cp "$REMOTE_ENV_ARCHIVE" "${REMOTE_APP_DIR}/shared/env/.env.production"
   chmod 600 "${REMOTE_APP_DIR}/shared/env/.env.production" 2>/dev/null || true
-  echo "Linked persistent production env: ${REMOTE_APP_DIR}/shared/env/.env.production"
-else
-  echo "Missing persistent production env: ${REMOTE_APP_DIR}/shared/env/.env.production" >&2
-  echo "Create it once by copying a working .env.production to ${REMOTE_APP_DIR}/shared/env/.env.production" >&2
+  rm -f "$REMOTE_ENV_ARCHIVE"
+  echo "Updated persistent production env: ${REMOTE_APP_DIR}/shared/env/.env.production"
+elif [[ ! -f "${REMOTE_APP_DIR}/shared/env/.env.production" ]]; then
+  echo "Missing uploaded and persistent production env: ${REMOTE_APP_DIR}/shared/env/.env.production" >&2
   exit 1
 fi
+ln -sfn "${REMOTE_APP_DIR}/shared/env/.env.production" .env.production
+chmod 600 "${REMOTE_APP_DIR}/shared/env/.env.production" 2>/dev/null || true
 
 chmod +x deploy/*.sh 2>/dev/null || true
 ./deploy/run-production.sh
@@ -167,9 +181,10 @@ EOS
 remote_script="${remote_script//__REMOTE_APP_DIR__/$REMOTE_APP_DIR}"
 remote_script="${remote_script//__RELEASE__/$RELEASE}"
 remote_script="${remote_script//__REMOTE_ARCHIVE__/$REMOTE_ARCHIVE}"
+remote_script="${remote_script//__REMOTE_ENV_ARCHIVE__/$REMOTE_ENV_ARCHIVE}"
 remote_script="${remote_script//__SUDO_PASS_B64__/$SUDO_PASS_B64}"
 
 run_ssh "bash -s" <<<"$remote_script"
-rm -f "$ARCHIVE"
+rm -f "$ARCHIVE" "$ENV_ARCHIVE"
 
 echo "Deployment complete. Open: https://${DOMAIN}"

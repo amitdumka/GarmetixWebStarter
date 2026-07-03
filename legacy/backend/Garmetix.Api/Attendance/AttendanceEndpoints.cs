@@ -29,8 +29,9 @@ public static class AttendanceEndpoints
 
         group.MapGet("/today", TodayAsync);
         group.MapGet("/monthly", MonthlyAsync);
+        group.MapPost("/monthly/delete-selected", DeleteMonthlySelectedAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapGet("/employee/{employeeId:guid}/history", EmployeeHistoryAsync);
-        group.MapPost("/manual-punch", ManualPunchAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapPost("/manual-punch", ManualPunchAsync); // Attendance policy is enough for entry punches; edit/admin remains required for setup/correction endpoints.
         group.MapPost("/recalculate", RecalculateAsync);
         group.MapPost("/lock-month", LockMonthAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapGet("/payroll-summary", PayrollSummaryAsync);
@@ -72,7 +73,11 @@ public static class AttendanceEndpoints
         group.MapGet("/shifts", ListShiftsAsync);
         group.MapPost("/shifts", CreateShiftAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPut("/shifts/{id:guid}", UpdateShiftAsync).RequireAuthorization(GarmetixPolicies.Edit);
-        group.MapDelete("/shifts/{id:guid}", DeleteShiftAsync).RequireAuthorization(GarmetixPolicies.Delete);
+        group.MapDelete("/shifts/{id:guid}", DeleteShiftAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapGet("/shift-rules", ListShiftRulesAsync);
+        group.MapPost("/shift-rules", CreateShiftRuleAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapPut("/shift-rules/{id:guid}", UpdateShiftRuleAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapDelete("/shift-rules/{id:guid}", DeleteShiftRuleAsync).RequireAuthorization(GarmetixPolicies.Edit);
 
         group.MapGet("/policies", ListPoliciesAsync);
         group.MapPost("/policies", CreatePolicyAsync).RequireAuthorization(GarmetixPolicies.Edit);
@@ -127,7 +132,7 @@ public static class AttendanceEndpoints
     private static async Task<IResult> ManualPunchAsync(AttendancePunchRequest request, IAttendanceService service, HttpContext context, CancellationToken cancellationToken)
     {
         var result = await service.RecordPunchAsync(request with { Source = "Manual" }, context, requireDevice: false, cancellationToken);
-        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+        return result.Success || result.Duplicate ? Results.Ok(result) : Results.BadRequest(result);
     }
 
     private static async Task<IResult> RecalculateAsync(AttendanceRecalculateRequest request, IAttendanceService service, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
@@ -145,7 +150,7 @@ public static class AttendanceEndpoints
             var first = await WorkspaceScope.ApplyTo(db.Employees.AsNoTracking(), context).FirstOrDefaultAsync(item => item.Id == employeeRows.Key, cancellationToken);
             if (first is null) continue;
             var summary = await WorkspaceScope.ApplyTo(db.AttendanceMonthlySummaries, context)
-                .FirstOrDefaultAsync(item => item.EmployeeId == employeeRows.Key && item.Year == request.Year && item.Month == request.Month, cancellationToken);
+                .FirstOrDefaultAsync(item => item.EmployeeId == employeeRows.Key && item.Year == request.Year && item.Month == request.Month && !item.Deleted, cancellationToken);
             summary ??= new AttendanceMonthlySummary
             {
                 Id = Guid.NewGuid(),
@@ -175,7 +180,7 @@ public static class AttendanceEndpoints
     private static async Task<IResult> LockMonthAsync(AttendanceLockMonthRequest request, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
     {
         var rows = await WorkspaceScope.ApplyTo(db.AttendanceMonthlySummaries, context)
-            .Where(item => item.Year == request.Year && item.Month == request.Month)
+            .Where(item => item.Year == request.Year && item.Month == request.Month && !item.Deleted)
             .ToListAsync(cancellationToken);
         foreach (var row in rows)
         {
@@ -188,13 +193,144 @@ public static class AttendanceEndpoints
         return Results.Ok(new { request.Year, request.Month, request.Locked, Count = rows.Count });
     }
 
+
+
+    private static async Task<IResult> DeleteMonthlySelectedAsync(AttendanceMonthlyBulkDeleteRequest request, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
+    {
+        if (!CanManageAttendanceSetup(context.User)) return Results.Forbid();
+        if (request.Items is null || request.Items.Count == 0)
+        {
+            return Results.BadRequest(new { message = "Select at least one monthly attendance row to delete." });
+        }
+
+        if (request.Items.Count > 1000)
+        {
+            return Results.BadRequest(new { message = "You can delete a maximum of 1000 attendance rows at a time." });
+        }
+
+        var selected = request.Items
+            .Where(item => item.EmployeeId != Guid.Empty)
+            .Select(item => new AttendanceMonthlyDeleteItem(item.EmployeeId, item.OnDate.Date))
+            .Distinct()
+            .ToList();
+
+        if (selected.Count == 0)
+        {
+            return Results.BadRequest(new { message = "Selected rows are not valid." });
+        }
+
+        var employeeIds = selected.Select(item => item.EmployeeId).Distinct().ToList();
+        var minDate = selected.Min(item => item.OnDate).Date;
+        var maxDate = selected.Max(item => item.OnDate).Date.AddDays(1);
+        var selectedKeys = selected.Select(item => $"{item.EmployeeId:N}|{item.OnDate:yyyy-MM-dd}").ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var allowedEmployees = await WorkspaceScope.ApplyTo(db.Employees.AsNoTracking(), context)
+            .Where(item => employeeIds.Contains(item.Id) && !item.Deleted)
+            .Select(item => item.Id)
+            .ToListAsync(cancellationToken);
+        var allowedEmployeeSet = allowedEmployees.ToHashSet();
+        var blocked = selected.Where(item => !allowedEmployeeSet.Contains(item.EmployeeId)).ToList();
+        if (blocked.Count > 0)
+        {
+            return Results.BadRequest(new { message = $"{blocked.Count} selected row(s) are outside your workspace or employee is not available." });
+        }
+
+        var selectedYears = selected.Select(row => row.OnDate.Year).Distinct().ToList();
+        var selectedMonths = selected.Select(row => row.OnDate.Month).Distinct().ToList();
+        var lockedMonths = await WorkspaceScope.ApplyTo(db.AttendanceMonthlySummaries.AsNoTracking(), context)
+            .Where(item => employeeIds.Contains(item.EmployeeId)
+                && !item.Deleted
+                && item.Locked
+                && selectedYears.Contains(item.Year)
+                && selectedMonths.Contains(item.Month))
+            .Select(item => new { item.EmployeeId, item.Year, item.Month })
+            .ToListAsync(cancellationToken);
+        var lockedSet = lockedMonths.Select(item => $"{item.EmployeeId:N}|{item.Year:0000}-{item.Month:00}").ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var lockedRows = selected.Where(item => lockedSet.Contains($"{item.EmployeeId:N}|{item.OnDate:yyyy-MM}")).ToList();
+        if (lockedRows.Count > 0)
+        {
+            return Results.BadRequest(new { message = $"{lockedRows.Count} selected row(s) are in locked payroll/attendance months. Unlock the month before deleting." });
+        }
+
+        var reason = string.IsNullOrWhiteSpace(request.Reason)
+            ? "Monthly attendance bulk delete"
+            : request.Reason.Trim();
+        var userName = context.User.Identity?.Name ?? context.User.FindFirst(ClaimTypes.Name)?.Value ?? context.User.FindFirst("userName")?.Value ?? "system";
+        var now = DateTime.UtcNow;
+        var deletedDailyRows = 0;
+        var deletedPunches = 0;
+        var deletedPhotoProofs = 0;
+        var deletedSummaries = 0;
+
+        if (request.DeleteDailyAttendance)
+        {
+            var dailyRows = await WorkspaceScope.ApplyTo(db.Attendance, context)
+                .Where(item => employeeIds.Contains(item.EmployeeId) && item.OnDate >= minDate && item.OnDate < maxDate && !item.Deleted)
+                .ToListAsync(cancellationToken);
+            foreach (var row in dailyRows.Where(item => selectedKeys.Contains($"{item.EmployeeId:N}|{item.OnDate.Date:yyyy-MM-dd}")))
+            {
+                row.Deleted = true;
+                row.UpdatedAt = now;
+                row.Remarks = MergeText(row.Remarks, $"Bulk monthly attendance delete by {userName}: {reason}");
+                deletedDailyRows++;
+            }
+        }
+
+        if (request.DeletePunches)
+        {
+            var punches = await WorkspaceScope.ApplyTo(db.AttendancePunches, context)
+                .Where(item => employeeIds.Contains(item.EmployeeId) && item.LocalPunchTime >= minDate && item.LocalPunchTime < maxDate && !item.Deleted)
+                .ToListAsync(cancellationToken);
+            foreach (var punch in punches.Where(item => selectedKeys.Contains($"{item.EmployeeId:N}|{item.LocalPunchTime.Date:yyyy-MM-dd}")))
+            {
+                punch.Deleted = true;
+                punch.UpdatedAt = now;
+                punch.Remarks = MergeText(punch.Remarks, $"Bulk monthly attendance delete by {userName}: {reason}");
+                deletedPunches++;
+            }
+
+            var proofs = await WorkspaceScope.ApplyTo(db.AttendancePhotoProofs, context)
+                .Where(item => employeeIds.Contains(item.EmployeeId) && item.UploadedAtUtc >= minDate.AddDays(-1) && item.UploadedAtUtc < maxDate.AddDays(1) && !item.Deleted)
+                .ToListAsync(cancellationToken);
+            foreach (var proof in proofs.Where(item => selectedKeys.Contains($"{item.EmployeeId:N}|{ToIndiaDate(item.UploadedAtUtc):yyyy-MM-dd}")))
+            {
+                proof.Deleted = true;
+                proof.UpdatedAt = now;
+                proof.ReviewRemarks = MergeText(proof.ReviewRemarks, $"Bulk monthly attendance delete by {userName}: {reason}");
+                deletedPhotoProofs++;
+            }
+        }
+
+        var monthKeys = selected.Select(item => new { item.EmployeeId, item.OnDate.Year, item.OnDate.Month }).Distinct().ToList();
+        var summaryRows = await WorkspaceScope.ApplyTo(db.AttendanceMonthlySummaries, context)
+            .Where(item => employeeIds.Contains(item.EmployeeId) && !item.Deleted)
+            .ToListAsync(cancellationToken);
+        foreach (var summary in summaryRows.Where(item => monthKeys.Any(key => key.EmployeeId == item.EmployeeId && key.Year == item.Year && key.Month == item.Month)))
+        {
+            summary.Deleted = true;
+            summary.UpdatedAt = now;
+            deletedSummaries++;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(new
+        {
+            message = "Selected monthly attendance rows deleted.",
+            selected = selected.Count,
+            deletedDailyRows,
+            deletedPunches,
+            deletedPhotoProofs,
+            deletedSummaries
+        });
+    }
+
     private static async Task<IResult> PayrollSummaryAsync(int? year, int? month, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
     {
         var today = DateTime.Today;
         var y = year ?? today.Year;
         var m = month ?? today.Month;
         var rows = await WorkspaceScope.ApplyTo(db.AttendanceMonthlySummaries.AsNoTracking(), context)
-            .Where(item => item.Year == y && item.Month == m)
+            .Where(item => item.Year == y && item.Month == m && !item.Deleted)
             .OrderBy(item => item.EmployeeId)
             .ToListAsync(cancellationToken);
         return Results.Ok(new AttendancePayrollSummaryDto(
@@ -817,21 +953,30 @@ public static class AttendanceEndpoints
 
     private static async Task<IResult> ListPhotoProofsAsync(GarmetixDbContext db, HttpContext context, int? take, string? status, CancellationToken cancellationToken)
     {
-        var limit = Math.Clamp(take ?? 100, 1, 500);
-        var query = WorkspaceScope.ApplyTo(db.AttendancePhotoProofs.AsNoTracking(), context)
-            .Where(item => !item.Deleted);
-
-        if (!string.IsNullOrWhiteSpace(status))
+        try
         {
-            var normalized = status.Trim();
-            query = query.Where(item => item.ReviewStatus == normalized || item.VerificationStatus == normalized);
-        }
+            var limit = Math.Clamp(take ?? 100, 1, 500);
+            var query = WorkspaceScope.ApplyTo(db.AttendancePhotoProofs.AsNoTracking(), context)
+                .Where(item => !item.Deleted);
 
-        var rows = await query
-            .OrderByDescending(item => item.CapturedAtUtc)
-            .Take(limit)
-            .ToListAsync(cancellationToken);
-        return Results.Ok(rows);
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                var normalized = status.Trim();
+                query = query.Where(item => item.ReviewStatus == normalized || item.VerificationStatus == normalized);
+            }
+
+            var rows = await query
+                .OrderByDescending(item => item.CapturedAtUtc)
+                .Take(limit)
+                .ToListAsync(cancellationToken);
+            return Results.Ok(rows);
+        }
+        catch (Exception ex) when (IsKioskMonitorStorageUnavailable(ex))
+        {
+            // Older/live databases may not yet have the Stage 9C kiosk monitor tables/columns.
+            // Keep the monitor page open and allow the database repair service/deployment to catch up.
+            return Results.Ok(Array.Empty<AttendancePhotoProof>());
+        }
     }
 
     private static async Task<IResult> PhotoProofReviewSummaryAsync(GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
@@ -951,20 +1096,83 @@ public static class AttendanceEndpoints
 
     private static async Task<IResult> ListSyncBatchesAsync(GarmetixDbContext db, HttpContext context, int? take, CancellationToken cancellationToken)
     {
-        var limit = Math.Clamp(take ?? 100, 1, 500);
-        var rows = await WorkspaceScope.ApplyTo(db.AttendanceKioskSyncBatches.AsNoTracking(), context)
-            .OrderByDescending(item => item.ReceivedAtUtc)
-            .Take(limit)
-            .ToListAsync(cancellationToken);
-        return Results.Ok(rows);
+        try
+        {
+            var limit = Math.Clamp(take ?? 100, 1, 500);
+            var rows = await WorkspaceScope.ApplyTo(db.AttendanceKioskSyncBatches.AsNoTracking(), context)
+                .OrderByDescending(item => item.ReceivedAtUtc)
+                .Take(limit)
+                .ToListAsync(cancellationToken);
+            return Results.Ok(rows);
+        }
+        catch (Exception ex) when (IsKioskMonitorStorageUnavailable(ex))
+        {
+            // Older/live databases may not yet have the Stage 9C kiosk monitor tables/columns.
+            // Keep the monitor page open and allow the database repair service/deployment to catch up.
+            return Results.Ok(Array.Empty<AttendanceKioskSyncBatch>());
+        }
+    }
+
+    private static bool IsKioskMonitorStorageUnavailable(Exception ex)
+    {
+        var message = ex.ToString();
+        var mentionsKioskMonitorStorage = message.Contains("AttendancePhotoProofs", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("AttendanceKioskSyncBatches", StringComparison.OrdinalIgnoreCase);
+        if (!mentionsKioskMonitorStorage) return false;
+
+        return message.Contains("does not exist", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("relation", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("column", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("42703", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("42P01", StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<IResult> ListShiftsAsync(GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
-        => Results.Ok(await WorkspaceScope.ApplyTo(db.AttendanceShifts.AsNoTracking(), context).OrderBy(item => item.Name).ToListAsync(cancellationToken));
+    {
+        if (!CanManageAttendanceSetup(context.User)) return Results.Forbid();
+        var shifts = await WorkspaceScope.ApplyTo(db.AttendanceShifts.AsNoTracking(), context)
+            .Where(item => !item.Deleted)
+            .OrderBy(item => item.Name)
+            .ToListAsync(cancellationToken);
+        var rows = shifts.Select(item => new
+            {
+                item.Id,
+                item.CompanyId,
+                item.StoreGroupId,
+                item.StoreId,
+                item.Name,
+                item.StartTimeMinutes,
+                item.EndTimeMinutes,
+                item.GraceMinutes,
+                item.LateAfterMinutes,
+                item.HalfDayAfterMinutes,
+                item.MinimumFullDayMinutes,
+                item.MinimumHalfDayMinutes,
+                item.OvertimeAfterMinutes,
+                item.AutoCheckoutEnabled,
+                item.AutoCheckoutTimeMinutes,
+                item.WeeklyOffDays,
+                item.Active,
+                item.AttendanceMode,
+                item.ShiftCategory,
+                item.HasBreak,
+                item.RequiresBreakPunch,
+                item.BreakStartMinutes,
+                item.BreakEndMinutes,
+                item.RequiredSessionsForFullDay,
+                item.RequiredSessionsForHalfDay,
+                item.CountBreakAsWork,
+                IsProtectedDefault = IsProtectedDefaultStoreShift(item)
+            })
+            .ToList();
+        return Results.Ok(rows);
+    }
 
     private static async Task<IResult> CreateShiftAsync(AttendanceShift request, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
     {
+        if (!CanManageAttendanceSetup(context.User)) return Results.Forbid();
         PrepareScopedEntity(request, context);
+        NormalizeShift(request);
         db.AttendanceShifts.Add(request);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Created($"/api/attendance/shifts/{request.Id}", request);
@@ -972,8 +1180,10 @@ public static class AttendanceEndpoints
 
     private static async Task<IResult> UpdateShiftAsync(Guid id, AttendanceShift request, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
     {
+        if (!CanManageAttendanceSetup(context.User)) return Results.Forbid();
         var entity = await WorkspaceScope.ApplyTo(db.AttendanceShifts, context).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (entity is null) return Results.NotFound();
+        NormalizeShift(request);
         entity.Name = request.Name.Trim();
         entity.StartTimeMinutes = request.StartTimeMinutes;
         entity.EndTimeMinutes = request.EndTimeMinutes;
@@ -986,6 +1196,15 @@ public static class AttendanceEndpoints
         entity.AutoCheckoutEnabled = request.AutoCheckoutEnabled;
         entity.AutoCheckoutTimeMinutes = request.AutoCheckoutTimeMinutes;
         entity.WeeklyOffDays = request.WeeklyOffDays;
+        entity.AttendanceMode = string.IsNullOrWhiteSpace(request.AttendanceMode) ? "SessionBased" : request.AttendanceMode.Trim();
+        entity.ShiftCategory = string.IsNullOrWhiteSpace(request.ShiftCategory) ? null : request.ShiftCategory.Trim();
+        entity.HasBreak = request.HasBreak;
+        entity.RequiresBreakPunch = request.RequiresBreakPunch;
+        entity.BreakStartMinutes = request.BreakStartMinutes;
+        entity.BreakEndMinutes = request.BreakEndMinutes;
+        entity.RequiredSessionsForFullDay = Math.Max(1, request.RequiredSessionsForFullDay);
+        entity.RequiredSessionsForHalfDay = Math.Max(1, request.RequiredSessionsForHalfDay);
+        entity.CountBreakAsWork = request.CountBreakAsWork;
         entity.Active = request.Active;
         entity.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
@@ -994,11 +1213,218 @@ public static class AttendanceEndpoints
 
     private static async Task<IResult> DeleteShiftAsync(Guid id, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
     {
+        if (!CanManageAttendanceSetup(context.User)) return Results.Forbid();
         var entity = await WorkspaceScope.ApplyTo(db.AttendanceShifts, context).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (entity is null) return Results.NotFound();
+        if (IsProtectedDefaultStoreShift(entity))
+        {
+            return Results.BadRequest(new { message = "Default Store Split Shift 09:00-21:00 is protected. You can edit it, but it cannot be deleted." });
+        }
+
         entity.Deleted = true;
+        entity.Active = false;
+        entity.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
         return Results.NoContent();
+    }
+
+
+    private static async Task<IResult> ListShiftRulesAsync(GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
+    {
+        if (!CanManageAttendanceSetup(context.User)) return Results.Forbid();
+        var rows = await (from rule in WorkspaceScope.ApplyTo(db.EmployeeAttendanceShiftRules.AsNoTracking(), context).Where(item => !item.Deleted)
+                          join shift in db.AttendanceShifts.AsNoTracking() on rule.AttendanceShiftId equals shift.Id into shiftJoin
+                          from shift in shiftJoin.DefaultIfEmpty()
+                          join employee in db.Employees.AsNoTracking() on rule.EmployeeId equals employee.Id into employeeJoin
+                          from employee in employeeJoin.DefaultIfEmpty()
+                          orderby rule.Priority, rule.RuleType, rule.CreatedAt
+                          select new
+                          {
+                              rule.Id,
+                              rule.CompanyId,
+                              rule.StoreGroupId,
+                              rule.StoreId,
+                              rule.RuleType,
+                              rule.MatchValue,
+                              rule.EmployeeId,
+                              EmployeeName = employee == null ? null : ((employee.FirstName ?? "") + " " + (employee.LastName ?? "")).Trim(),
+                              EmployeeCode = employee == null ? null : employee.EmployeeCode,
+                              rule.AttendanceShiftId,
+                              ShiftName = shift == null ? null : shift.Name,
+                              rule.EffectiveFrom,
+                              rule.EffectiveTo,
+                              rule.Priority,
+                              rule.Active,
+                              rule.Notes
+                          }).ToListAsync(cancellationToken);
+        return Results.Ok(rows);
+    }
+
+    private static async Task<IResult> CreateShiftRuleAsync(EmployeeAttendanceShiftRuleSaveRequest request, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
+    {
+        if (!CanManageAttendanceSetup(context.User)) return Results.Forbid();
+        var validation = ValidateShiftRule(request);
+        if (validation is not null) return Results.BadRequest(new { message = validation });
+        var entity = BuildShiftRule(request, context);
+        db.EmployeeAttendanceShiftRules.Add(entity);
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Created($"/api/attendance/shift-rules/{entity.Id}", entity);
+    }
+
+    private static async Task<IResult> UpdateShiftRuleAsync(Guid id, EmployeeAttendanceShiftRuleSaveRequest request, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
+    {
+        if (!CanManageAttendanceSetup(context.User)) return Results.Forbid();
+        var validation = ValidateShiftRule(request);
+        if (validation is not null) return Results.BadRequest(new { message = validation });
+        var entity = await WorkspaceScope.ApplyTo(db.EmployeeAttendanceShiftRules, context).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (entity is null) return Results.NotFound();
+        ApplyShiftRule(request, entity);
+        entity.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(entity);
+    }
+
+    private static async Task<IResult> DeleteShiftRuleAsync(Guid id, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
+    {
+        if (!CanManageAttendanceSetup(context.User)) return Results.Forbid();
+        var entity = await WorkspaceScope.ApplyTo(db.EmployeeAttendanceShiftRules, context).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (entity is null) return Results.NotFound();
+        entity.Deleted = true;
+        entity.Active = false;
+        entity.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.NoContent();
+    }
+
+    private static EmployeeAttendanceShiftRule BuildShiftRule(EmployeeAttendanceShiftRuleSaveRequest request, HttpContext context)
+    {
+        var entity = new EmployeeAttendanceShiftRule { Id = request.Id.GetValueOrDefault(Guid.NewGuid()) };
+        PrepareScopedEntity(entity, context);
+        entity.CompanyId = request.CompanyId == Guid.Empty ? entity.CompanyId : request.CompanyId;
+        entity.StoreGroupId = request.StoreGroupId == Guid.Empty ? entity.StoreGroupId : request.StoreGroupId;
+        entity.StoreId = request.StoreId == Guid.Empty ? entity.StoreId : request.StoreId;
+        ApplyShiftRule(request, entity);
+        return entity;
+    }
+
+    private static void ApplyShiftRule(EmployeeAttendanceShiftRuleSaveRequest request, EmployeeAttendanceShiftRule entity)
+    {
+        entity.RuleType = NormalizeShiftRuleType(request.RuleType);
+        entity.MatchValue = string.IsNullOrWhiteSpace(request.MatchValue) ? null : request.MatchValue.Trim();
+        entity.EmployeeId = request.EmployeeId.HasValue && request.EmployeeId.Value != Guid.Empty ? request.EmployeeId.Value : null;
+        entity.AttendanceShiftId = request.AttendanceShiftId;
+        entity.EffectiveFrom = (request.EffectiveFrom ?? DateTime.Today).Date;
+        entity.EffectiveTo = request.EffectiveTo?.Date;
+        entity.Priority = Math.Clamp(request.Priority ?? DefaultShiftRulePriority(request.RuleType), 1, 999);
+        entity.Active = request.Active;
+        entity.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+    }
+
+    private static string NormalizeShiftRuleType(string? value)
+    {
+        var type = string.IsNullOrWhiteSpace(value) ? "StoreDefault" : value.Trim();
+        return type.Equals("Employee", StringComparison.OrdinalIgnoreCase) ? "Employee" :
+            type.Equals("Gender", StringComparison.OrdinalIgnoreCase) ? "Gender" :
+            type.Equals("Category", StringComparison.OrdinalIgnoreCase) ? "Category" :
+            type.Equals("Department", StringComparison.OrdinalIgnoreCase) ? "Department" :
+            type.Equals("Designation", StringComparison.OrdinalIgnoreCase) ? "Designation" : "StoreDefault";
+    }
+
+    private static int DefaultShiftRulePriority(string? value)
+    {
+        var type = NormalizeShiftRuleType(value);
+        return type switch
+        {
+            "Employee" => 100,
+            "Category" => 200,
+            "Department" => 250,
+            "Designation" => 275,
+            "Gender" => 300,
+            _ => 900
+        };
+    }
+
+    private static void NormalizeShift(AttendanceShift shift)
+    {
+        shift.Name = string.IsNullOrWhiteSpace(shift.Name) ? "Attendance Shift" : shift.Name.Trim();
+        shift.AttendanceMode = string.IsNullOrWhiteSpace(shift.AttendanceMode) ? "SessionBased" : shift.AttendanceMode.Trim();
+        shift.ShiftCategory = string.IsNullOrWhiteSpace(shift.ShiftCategory) ? null : shift.ShiftCategory.Trim();
+        shift.WeeklyOffDays = string.IsNullOrWhiteSpace(shift.WeeklyOffDays) ? "Sunday" : shift.WeeklyOffDays.Trim();
+        shift.RequiredSessionsForFullDay = Math.Max(1, shift.RequiredSessionsForFullDay);
+        shift.RequiredSessionsForHalfDay = Math.Max(1, Math.Min(shift.RequiredSessionsForHalfDay, shift.RequiredSessionsForFullDay));
+        if (!shift.HasBreak)
+        {
+            shift.RequiresBreakPunch = false;
+            shift.BreakStartMinutes = null;
+            shift.BreakEndMinutes = null;
+            shift.RequiredSessionsForFullDay = Math.Max(1, shift.RequiredSessionsForFullDay);
+            shift.RequiredSessionsForHalfDay = 1;
+        }
+    }
+
+
+    private static void NormalizePolicy(AttendancePolicy policy)
+    {
+        policy.Name = string.IsNullOrWhiteSpace(policy.Name) ? "Attendance Policy" : policy.Name.Trim();
+        policy.GraceMinutes = Math.Max(0, policy.GraceMinutes);
+        policy.LateAfterMinutes = Math.Max(0, policy.LateAfterMinutes);
+        policy.HalfDayAfterMinutes = Math.Clamp(policy.HalfDayAfterMinutes, 0, 1439);
+        policy.MinimumFullDayMinutes = Math.Max(0, policy.MinimumFullDayMinutes);
+        policy.MinimumHalfDayMinutes = Math.Max(0, policy.MinimumHalfDayMinutes);
+        if (policy.MinimumFullDayMinutes > 0 && policy.MinimumHalfDayMinutes > policy.MinimumFullDayMinutes)
+        {
+            policy.MinimumHalfDayMinutes = policy.MinimumFullDayMinutes;
+        }
+        policy.OvertimeAfterMinutes = Math.Max(0, policy.OvertimeAfterMinutes);
+        policy.AutoCheckoutAfterMinutes = policy.AutoCheckoutEnabled ? Math.Max(0, policy.AutoCheckoutAfterMinutes ?? 0) : null;
+        policy.DuplicateWindowMinutes = Math.Clamp(policy.DuplicateWindowMinutes, 0, 120);
+    }
+
+    private static bool IsProtectedDefaultStoreShift(AttendanceShift shift)
+        => shift.Name.Equals("Default Store Split Shift 09:00-21:00", StringComparison.OrdinalIgnoreCase)
+           || (shift.StartTimeMinutes == 540 && shift.EndTimeMinutes == 1260 && string.Equals(shift.ShiftCategory, "StoreDefault", StringComparison.OrdinalIgnoreCase));
+
+
+    private static string MergeText(string? current, string next)
+    {
+        if (string.IsNullOrWhiteSpace(current)) return next;
+        if (current.Contains(next, StringComparison.OrdinalIgnoreCase)) return current;
+        return $"{current} | {next}";
+    }
+
+    private static DateTime ToIndiaDate(DateTime utc)
+    {
+        try
+        {
+            var zone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Kolkata");
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), zone).Date;
+        }
+        catch
+        {
+            return utc.AddMinutes(330).Date;
+        }
+    }
+
+    private static bool CanManageAttendanceSetup(ClaimsPrincipal user)
+        => AccessPermissionMatrix.IsAdminOrOwner(user) || user.IsInRole(LoginRole.PowerUser.ToString());
+
+    private static string? ValidateShiftRule(EmployeeAttendanceShiftRuleSaveRequest request)
+    {
+        var type = NormalizeShiftRuleType(request.RuleType);
+        if (request.AttendanceShiftId == Guid.Empty) return "Select a shift before saving the rule.";
+        if (type.Equals("Employee", StringComparison.OrdinalIgnoreCase) && (!request.EmployeeId.HasValue || request.EmployeeId.Value == Guid.Empty))
+        {
+            return "Select an employee for employee-specific shift rule.";
+        }
+        if (!type.Equals("Employee", StringComparison.OrdinalIgnoreCase) && !type.Equals("StoreDefault", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(request.MatchValue))
+        {
+            return "Enter or select a match value for this shift rule.";
+        }
+        if (request.EffectiveTo.HasValue && request.EffectiveFrom.HasValue && request.EffectiveTo.Value.Date < request.EffectiveFrom.Value.Date)
+        {
+            return "Effective To cannot be before Effective From.";
+        }
+        return null;
     }
 
     private static async Task<IResult> ListPoliciesAsync(GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
@@ -1007,6 +1433,7 @@ public static class AttendanceEndpoints
     private static async Task<IResult> CreatePolicyAsync(AttendancePolicy request, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
     {
         PrepareScopedEntity(request, context);
+        NormalizePolicy(request);
         db.AttendancePolicies.Add(request);
         await db.SaveChangesAsync(cancellationToken);
         return Results.Created($"/api/attendance/policies/{request.Id}", request);
@@ -1016,6 +1443,7 @@ public static class AttendanceEndpoints
     {
         var entity = await WorkspaceScope.ApplyTo(db.AttendancePolicies, context).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (entity is null) return Results.NotFound();
+        NormalizePolicy(request);
         entity.Name = request.Name.Trim();
         entity.GraceMinutes = request.GraceMinutes;
         entity.LateAfterMinutes = request.LateAfterMinutes;
@@ -2781,7 +3209,7 @@ public static class AttendanceEndpoints
     private static async Task<IResult> KioskPunchAsync(AttendancePunchRequest request, IAttendanceService service, HttpContext context, CancellationToken cancellationToken)
     {
         var result = await service.RecordPunchAsync(request, context, requireDevice: true, cancellationToken);
-        return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+        return result.Success || result.Duplicate ? Results.Ok(result) : Results.BadRequest(result);
     }
 
     private static async Task<IResult> KioskSyncPendingAsync(AttendanceSyncPendingRequest request, IAttendanceSyncService service, HttpContext context, CancellationToken cancellationToken)

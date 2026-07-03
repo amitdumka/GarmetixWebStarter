@@ -175,8 +175,18 @@ resolve_zone_id
 TUNNEL_ID="${CLOUDFLARE_TUNNEL_ID:-}"
 TUNNEL_TOKEN="${CLOUDFLARE_TUNNEL_TOKEN:-}"
 
-if [[ -z "$TUNNEL_ID" || -z "$TUNNEL_TOKEN" || "$TUNNEL_TOKEN" == CHANGE_ME* ]]; then
+is_probably_tunnel_uuid() {
+  local value="${1:-}"
+  [[ "$value" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]
+}
+
+extract_tunnel_token() {
+  jq -r 'if type == "string" then . elif (.result? | type) == "string" then .result else empty end'
+}
+
+create_new_tunnel() {
   echo "Creating Cloudflare Tunnel '${TUNNEL_NAME}'..."
+  local payload create_err response
   payload="$(jq -n --arg name "$TUNNEL_NAME" '{name:$name, config_src:"cloudflare"}')"
   create_err="$(safe_temp_file garmetix-cf-create)"
   if ! response="$(cf POST "/accounts/${CLOUDFLARE_ACCOUNT_ID}/cfd_tunnel" "$payload" 2>"$create_err")"; then
@@ -190,6 +200,39 @@ if [[ -z "$TUNNEL_ID" || -z "$TUNNEL_TOKEN" || "$TUNNEL_TOKEN" == CHANGE_ME* ]];
   rm -f "${create_err:-}"
   TUNNEL_ID="$(printf '%s' "$response" | jq -r '.result.id')"
   TUNNEL_TOKEN="$(printf '%s' "$response" | jq -r '.result.token')"
+}
+
+refresh_existing_tunnel_token() {
+  local token_err token_response fetched_token
+  echo "Fetching connector token for existing Cloudflare Tunnel ${TUNNEL_ID}..."
+  token_err="$(safe_temp_file garmetix-cf-token)"
+  if ! token_response="$(cf GET "/accounts/${CLOUDFLARE_ACCOUNT_ID}/cfd_tunnel/${TUNNEL_ID}/token" 2>"$token_err")"; then
+    echo "Could not fetch connector token for tunnel ${TUNNEL_ID}." >&2
+    echo "This script stops here to avoid deploying DNS for one tunnel and running cloudflared with a stale token from another tunnel." >&2
+    echo "Cloudflare API error:" >&2
+    cat "$token_err" >&2 || true
+    rm -f "$token_err"
+    exit 1
+  fi
+  rm -f "$token_err"
+  fetched_token="$(printf '%s' "$token_response" | extract_tunnel_token)"
+  if [[ -z "$fetched_token" || "$fetched_token" == "null" ]]; then
+    echo "Cloudflare token endpoint returned an empty token for tunnel ${TUNNEL_ID}." >&2
+    exit 1
+  fi
+  TUNNEL_TOKEN="$fetched_token"
+}
+
+if is_blank_or_placeholder "$TUNNEL_ID"; then
+  create_new_tunnel
+else
+  if ! is_probably_tunnel_uuid "$TUNNEL_ID"; then
+    echo "Invalid CLOUDFLARE_TUNNEL_ID '${TUNNEL_ID}'. Use the dashed tunnel UUID shown in Cloudflare Zero Trust." >&2
+    exit 1
+  fi
+  # Always refresh the connector token from the tunnel ID. This prevents the common mismatch where
+  # CLOUDFLARE_TUNNEL_ID is new but CLOUDFLARE_TUNNEL_TOKEN still belongs to an older tunnel.
+  refresh_existing_tunnel_token
 fi
 
 if [[ -z "$TUNNEL_ID" || "$TUNNEL_ID" == "null" || -z "$TUNNEL_TOKEN" || "$TUNNEL_TOKEN" == "null" ]]; then
@@ -223,10 +266,14 @@ set_env_var "$ENV_FILE" CORS_ALLOWED_ORIGINS "https://${DOMAIN}"
 set_env_var "$ENV_FILE" API_BASE_URL "https://${DOMAIN}/api"
 chmod_private_if_possible "$ENV_FILE"
 
-# Save resolved IDs back into the local deploy config, but do not rewrite the token.
+# Save resolved Cloudflare values back into the local private deploy config so the next deploy
+# cannot reuse an old tunnel token accidentally. Keep deploy/macmini.env private.
 if [[ -f "${ROOT_DIR}/deploy/macmini.env" ]]; then
   set_env_var "${ROOT_DIR}/deploy/macmini.env" CLOUDFLARE_ACCOUNT_ID "$CLOUDFLARE_ACCOUNT_ID"
   set_env_var "${ROOT_DIR}/deploy/macmini.env" CLOUDFLARE_ZONE_ID "$CLOUDFLARE_ZONE_ID"
+  set_env_var "${ROOT_DIR}/deploy/macmini.env" CLOUDFLARE_TUNNEL_ID "$TUNNEL_ID"
+  set_env_var "${ROOT_DIR}/deploy/macmini.env" CLOUDFLARE_TUNNEL_TOKEN "$TUNNEL_TOKEN"
+  chmod_private_if_possible "${ROOT_DIR}/deploy/macmini.env"
 fi
 
 echo "Cloudflare Tunnel ready. Tunnel ID: ${TUNNEL_ID}"

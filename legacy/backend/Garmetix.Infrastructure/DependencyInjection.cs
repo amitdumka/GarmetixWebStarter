@@ -14,10 +14,14 @@ public static class DependencyInjection
 
         services.AddDbContext<GarmetixDbContext>(options =>
             options
-                .UseNpgsql(connectionString, postgres =>
-                {
-                    postgres.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
-                })
+                // Keep the default non-retrying Npgsql execution strategy here.
+                // Many existing write endpoints use explicit EF transactions for stock, billing,
+                // purchase, payroll, import/export, and settlement posting. Enabling
+                // EnableRetryOnFailure globally switches to NpgsqlRetryingExecutionStrategy,
+                // which rejects user-initiated transactions unless every transaction block is
+                // wrapped in Database.CreateExecutionStrategy(). Until those endpoints are
+                // refactored together, the non-retrying strategy is the safe production default.
+                .UseNpgsql(connectionString)
                 // Stage 5E adds an idempotent consolidated migration for the Stage 3A-5D schema.
                 // Keep EF runtime migration stable for hand-written/idempotent migrations;
                 // schema drift is now checked through /api/database/migrations/status and

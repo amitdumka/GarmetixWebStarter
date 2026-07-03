@@ -25,6 +25,7 @@ public sealed class ProductMasterRequest
     public Guid? ProductSubCategoryId { get; set; }
     public string? StyleCode { get; set; }
     public string? BaseColor { get; set; }
+    public string? SizeLabel { get; set; }
     public string? Brand { get; set; }
     public Guid? VendorId { get; set; }
 }
@@ -41,6 +42,9 @@ public sealed record ProductMasterOptionsResponse(
     IReadOnlyList<ProductSubCategoryOptionDto> SubCategories,
     IReadOnlyList<TaxOptionDto> Taxes,
     IReadOnlyList<VendorOptionDto> Vendors,
+    IReadOnlyList<string> Brands,
+    IReadOnlyList<string> BaseColors,
+    IReadOnlyList<string> Sizes,
     IReadOnlyList<EnumOptionDto> Units,
     IReadOnlyList<EnumOptionDto> TaxTypes,
     IReadOnlyList<EnumOptionDto> ProductTypes,
@@ -76,6 +80,22 @@ public sealed class ProductMasterRow
     public Guid? StoreId { get; set; }
     public string? StyleCode { get; set; }
     public string? BaseColor { get; set; }
+    public string? SizeLabel { get; set; }
     public string? Brand { get; set; }
     public Guid? VendorId { get; set; }
+    public DateTime? LastInwardAt { get; set; }
+    public int? AgeDays { get; set; }
+    public string? AgeBucket { get; set; }
 }
+
+
+
+public sealed record PagedProductMasterResponse(
+    IReadOnlyList<ProductMasterRow> Items,
+    int Total,
+    int Page,
+    int PageSize,
+    decimal TotalCurrentStock,
+    decimal TotalMrpValue,
+    int InStockCount,
+    int OutOfStockCount);

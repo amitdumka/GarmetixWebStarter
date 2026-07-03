@@ -35,15 +35,15 @@ current_release = read("scripts/validation/current-release-checks.py")
 
 add(
     "version identity",
-    all(token in app_info for token in ['Version = "4.11.17"', "Stage 11D-2 Nuxt UI 4.9 Package Update", "GARMETIX-11D2-20260622-4117"])
-    and "APP_VERSION = '4.11.17'" in app_version
-    and "Stage 11D-2 Nuxt UI 4.9 Package Update" in app_version
-    and "GARMETIX-11D2-20260622-4117" in app_version
-    and "<Version>4.11.17</Version>" in api_project
-    and "<ApplicationDisplayVersion>4.11.17</ApplicationDisplayVersion>" in kiosk_project
-    and "<ApplicationVersion>4117</ApplicationVersion>" in kiosk_project
-    and "<Version>4.11.17</Version>" in bridge_project
-    and "<Version>4.11.17</Version>" in mock_project,
+    all(token in app_info for token in ['Version = "4.11.19"', "Stage 11D-4 Factory Reset Admin Identity Fix", "GARMETIX-11D4-20260624-4119"])
+    and "APP_VERSION = '4.11.19'" in app_version
+    and "Stage 11D-4 Factory Reset Admin Identity Fix" in app_version
+    and "GARMETIX-11D4-20260624-4119" in app_version
+    and "<Version>4.11.19</Version>" in api_project
+    and "<ApplicationDisplayVersion>4.11.19</ApplicationDisplayVersion>" in kiosk_project
+    and "<ApplicationVersion>4119</ApplicationVersion>" in kiosk_project
+    and "<Version>4.11.19</Version>" in bridge_project
+    and "<Version>4.11.19</Version>" in mock_project,
 )
 add(
     "face bridge dtos",
@@ -104,7 +104,7 @@ add(
     and "Simulator `RawPayload` blocking scenario" in operations_doc
     and "Attendance Face Liveness" in operations_doc
     and "v4.11.14 Stage 11C-2 Face Liveness Simulator Bridge" in readme
-    and "Current version: 4.11.17" in roadmap
+    and "Current version: 4.11.19" in roadmap
     and "Stage 11C-3 local face/liveness bridge template" in roadmap
     and "stage11c2-face-liveness-bridge-check.py" in current_release,
 )

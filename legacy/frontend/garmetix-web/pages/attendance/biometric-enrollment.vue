@@ -34,7 +34,12 @@ const consentMethods = [
   { label: 'Manager verified', value: 'ManagerVerified' }
 ]
 
-const employeeOptions = computed(() => employees.value.map((employee) => ({
+const activeEmployees = computed(() => employees.value.filter((employee) => {
+  const status = String(employee?.employeeStatus || '').trim().toLowerCase()
+  return Boolean(employee?.working) && !['resigned', 'terminated', 'inactive'].includes(status)
+}))
+
+const employeeOptions = computed(() => activeEmployees.value.map((employee) => ({
   label: `${employee.employeeCode || 'EMP'} - ${[employee.firstName, employee.lastName].filter(Boolean).join(' ') || employee.fullName || 'Employee'}`,
   value: employee.id
 })))

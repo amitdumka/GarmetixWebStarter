@@ -12,26 +12,37 @@ using Garmetix.Api.Attendance.Services;
 using Garmetix.Api.Accounting;
 using Garmetix.Api.Automation;
 using Garmetix.Api.Backup;
+using Garmetix.Api.BankReconciliation;
 using Garmetix.Api.Commercial;
+using Garmetix.Api.Closeout;
+using Garmetix.Api.Customers;
 using Garmetix.Api.Billing;
 using Garmetix.Api.Database;
+using Garmetix.Api.DayBook;
+using Garmetix.Api.DotMatrix;
 using Garmetix.Api.Dashboard;
 using Garmetix.Api.Hr;
 using Garmetix.Api.GstReturns;
 using Garmetix.Api.Gstin;
+using Garmetix.Api.GoodsReturn;
 using Garmetix.Api.ImportExport;
 using Garmetix.Api.Licensing;
 using Garmetix.Api.Messages;
+using Garmetix.Api.Marketing;
 using Garmetix.Api.Inventory;
+using Garmetix.Api.InvoiceReplacement;
 using Garmetix.Api.OffBook;
 using Garmetix.Api.Onboarding;
 using Garmetix.Api.Numbering;
 using Garmetix.Api.NonGstGoods;
 using Garmetix.Api.Payroll;
 using Garmetix.Api.Purchase;
+using Garmetix.Api.PurchaseImport;
 using Garmetix.Api.ProductLookup;
+using Garmetix.Api.PriceTags;
 using Garmetix.Api.Production;
 using Garmetix.Api.Release;
+using Garmetix.Api.Reports;
 using Garmetix.Api.Setup;
 using Garmetix.Api.Tailoring;
 using Garmetix.Api.Testing;
@@ -39,6 +50,7 @@ using Garmetix.Api.Seeds;
 using Garmetix.Api.StoreDay;
 using Garmetix.Api.Validation;
 using Garmetix.Api.SecondarySync;
+using Garmetix.Api.SaleImport;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
 using Garmetix.Infrastructure;
@@ -88,6 +100,7 @@ builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<PasswordResetEmailService>();
 builder.Services.AddScoped<MonthlyAttendanceService>();
 builder.Services.AddScoped<PayrollService>();
+builder.Services.AddScoped<PayrollFinalizationService>();
 builder.Services.Configure<AttendanceFingerprintOptions>(builder.Configuration.GetSection("AttendanceFingerprint"));
 builder.Services.AddScoped<IAttendanceRuleEngine, AttendanceRuleEngine>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
@@ -99,12 +112,24 @@ builder.Services.AddScoped<SystemDefaultsService>();
 builder.Services.AddScoped<DocumentNumberService>();
 builder.Services.AddScoped<StockLedgerService>();
 builder.Services.AddScoped<ApplicationMessageLogService>();
+builder.Services.AddScoped<DigitalBillCrmService>();
+builder.Services.AddScoped<DigitalBillWhatsAppService>();
+builder.Services.AddScoped<PurchaseInvoiceImportService>();
+builder.Services.AddScoped<VyaparSaleImportService>();
+builder.Services.AddHttpClient("DigitalBillWhatsApp", client => client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddSingleton<PersistentApplicationLogQueue>();
 builder.Services.AddSingleton<ILoggerProvider, PersistentApplicationLoggerProvider>();
 builder.Services.AddHostedService<PersistentApplicationLogHostedService>();
 builder.Services.Configure<PayrollAutomationOptions>(builder.Configuration.GetSection("PayrollAutomation"));
 builder.Services.AddHostedService<PayrollAutomationHostedService>();
 builder.Services.Configure<BackupOptions>(builder.Configuration.GetSection("Backup"));
+builder.Services.Configure<DotMatrixPrintingOptions>(builder.Configuration.GetSection("DotMatrixPrinting"));
+builder.Services.AddScoped<DotMatrixJournalService>();
+if (builder.Configuration.GetValue<bool>("DotMatrixPrinting:RunWorker"))
+{
+    // Legacy/local-only mode. Production should keep this false and use the Ubuntu host-side DotMatrix Bridge.
+    builder.Services.AddHostedService<DotMatrixPrintWorker>();
+}
 builder.Services.Configure<GstinLookupOptions>(builder.Configuration.GetSection("GstinLookup"));
 builder.Services.AddHttpClient<GstinLookupService>();
 builder.Services.Configure<GoogleDriveBackupOptions>(builder.Configuration.GetSection("GoogleDriveBackup"));
@@ -150,11 +175,12 @@ builder.Services.AddAuthorization(options =>
     AddMatrixPolicy(options, GarmetixPolicies.Hr);
     AddMatrixPolicy(options, GarmetixPolicies.Payroll);
     AddMatrixPolicy(options, GarmetixPolicies.Attendance);
+    AddMatrixPolicy(options, GarmetixPolicies.Marketing);
 });
 
 var app = builder.Build();
 
-const string FreshSchemaBaselineMigrationId = "20260622145928_Initial";
+const string FreshSchemaBaselineMigrationId = "20260623123000_InitialCreate";
 const string FreshSchemaBaselineProductVersion = "10.0.8";
 
 using (var scope = app.Services.CreateScope())
@@ -235,14 +261,24 @@ auth.MapGet("/me", GetCurrentUserAsync).RequireAuthorization();
 auth.MapPut("/me", UpdateCurrentUserProfileAsync).RequireAuthorization();
 
 app.MapSetupEndpoints();
+app.MapMasterDataEndpoints();
 app.MapWorkspaceEndpoints();
 app.MapStoreDayEndpoints();
-app.MapPosHeldBillEndpoints();
 app.MapCashDetailsEndpoints();
+app.MapDotMatrixPrintEndpoints();
 app.MapBillingEndpoints();
+app.MapPosHeldBillEndpoints();
+app.MapBillingFinalQaEndpoints();
+app.MapGoodsReturnAcceptanceEndpoints();
+app.MapSaleReviewEndpoints();
+app.MapVyaparSaleImportEndpoints();
+app.MapInvoiceReplacementEndpoints();
 app.MapTailoringEndpoints();
 app.MapPurchaseEndpoints();
+app.MapPurchaseInvoiceImportEndpoints();
 app.MapVendorSettlementEndpoints();
+app.MapVendorPayableReconciliationEndpoints();
+app.MapPurchaseReturnAdvancedSettlementEndpoints();
 app.MapUserManagementEndpoints();
 app.MapAccessMatrixEndpoints();
 app.MapHrEndpoints();
@@ -250,8 +286,10 @@ app.MapAttendanceEndpoints();
 app.MapPayrollEndpoints();
 app.MapSalaryPaymentEndpoints();
 app.MapImportExportEndpoints();
+app.MapAdminJsonDataEndpoints();
 app.MapAuditEndpoints();
 app.MapAccountingEndpoints();
+app.MapDayBookEndpoints();
 app.MapPettyCashEndpoints();
 app.MapCashVoucherEndpoints();
 app.MapBackupEndpoints();
@@ -259,13 +297,24 @@ app.MapFactoryResetEndpoints();
 app.MapGstReturnEndpoints();
 app.MapGstinEndpoints();
 app.MapCommercialEndpoints();
+app.MapCustomerDuesReconciliationEndpoints();
+app.MapFinancialYearCloseoutEndpoints();
+app.MapBankReconciliationClosureEndpoints();
+app.MapProfitLossReportEndpoints();
+app.MapStockValuationClosureEndpoints();
+app.MapOwnerCloseoutCommandCenterEndpoints();
+app.MapProductionGoLiveMasterAcceptanceEndpoints();
+app.MapFinalOwnerSignoffEndpoints();
+app.MapProductionHostBuildQaEndpoints();
 app.MapProductLookupEndpoints();
 app.MapInventoryProductMasterEndpoints();
 app.MapInventoryStockOperationEndpoints();
 app.MapInventoryStockReportEndpoints();
+app.MapPriceTagEndpoints();
 app.MapNonGstGoodsEndpoints();
 app.MapOracleSecondarySyncEndpoints();
 app.MapDataConsistencyEndpoints();
+app.MapPostImportLiveValidationEndpoints();
 app.MapDataConsistencyRepairEndpoints();
 app.MapDatabaseMigrationEndpoints();
 app.MapDashboardEndpoints();
@@ -291,6 +340,7 @@ app.MapCompanyMergeEndpoints();
 app.MapSeederVerificationEndpoints();
 app.MapClientOnboardingEndpoints();
 app.MapApplicationMessageLogEndpoints();
+app.MapDigitalBillCrmEndpoints();
 app.MapAppInfoEndpoints();
 app.MapTestAutomationEndpoints();
 
@@ -305,7 +355,8 @@ MapCrud<ProductDetail>(app, "/api/product-details", GarmetixPolicies.Inventory);
 MapCrud<Brand>(app, "/api/brands", GarmetixPolicies.Inventory);
 MapCrud<Tax>(app, "/api/taxes", GarmetixPolicies.Inventory);
 MapCrud<Customer>(app, "/api/customers", GarmetixPolicies.Billing);
-MapCrud<Vendor>(app, "/api/vendors", GarmetixPolicies.Purchase);
+// Vendor master has a custom endpoint in Setup/MasterDataEndpoints.
+// Do not also map generic CRUD here, otherwise /api/vendors can be ambiguous and return 500.
 MapCrud<Invoice>(app, "/api/sales-invoices", GarmetixPolicies.Billing);
 MapCrud<PurchaseInvoice>(app, "/api/purchase-invoices", GarmetixPolicies.Purchase);
 MapCrud<LedgerGroup>(app, "/api/ledger-groups", GarmetixPolicies.Accounting);
@@ -382,6 +433,7 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
 
         db.Set<T>().Add(entity);
         await SyncEmployeeSalesmanAsync(entity, db, cancellationToken);
+        await SyncAttendancePunchesFromDailyRecordAsync(entity, db, context, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
 
         if (entity is Company company)
@@ -424,6 +476,7 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
 
         db.Entry(entity).State = EntityState.Modified;
         await SyncEmployeeSalesmanAsync(entity, db, cancellationToken);
+        await SyncAttendancePunchesFromDailyRecordAsync(entity, db, context, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         if (entity is Company company)
         {
@@ -474,6 +527,119 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         .RequireAuthorization(GarmetixPolicies.Delete);
 
     return group;
+}
+
+static async Task SyncAttendancePunchesFromDailyRecordAsync<T>(T entity, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken) where T : class
+{
+    if (entity is not Attendance attendance)
+    {
+        return;
+    }
+
+    attendance.OnDate = attendance.OnDate.Date;
+    var employee = await db.Employees.AsNoTracking()
+        .FirstOrDefaultAsync(item => item.Id == attendance.EmployeeId && !item.Deleted, cancellationToken);
+    if (employee is null)
+    {
+        return;
+    }
+
+    attendance.CompanyId = employee.CompanyId;
+    attendance.StoreGroupId = employee.StoreGroupId;
+    attendance.StoreId = employee.StoreId;
+    attendance.UpdatedAt = DateTime.UtcNow;
+
+    await SyncAttendancePunchFromDailyFieldAsync(attendance, employee, "CheckIn", attendance.CheckInTime, db, context, cancellationToken);
+    await SyncAttendancePunchFromDailyFieldAsync(attendance, employee, "BreakOut", attendance.BreakOutTime, db, context, cancellationToken);
+    await SyncAttendancePunchFromDailyFieldAsync(attendance, employee, "BreakIn", attendance.BreakInTime, db, context, cancellationToken);
+    await SyncAttendancePunchFromDailyFieldAsync(attendance, employee, "CheckOut", attendance.CheckOutTime, db, context, cancellationToken);
+}
+
+static async Task SyncAttendancePunchFromDailyFieldAsync(
+    Attendance attendance,
+    Employee employee,
+    string punchType,
+    TimeSpan? localTime,
+    GarmetixDbContext db,
+    HttpContext context,
+    CancellationToken cancellationToken)
+{
+    if (localTime.HasValue)
+    {
+        await UpsertAttendancePunchFromDailyRecordAsync(attendance, employee, punchType, localTime.Value, db, context, cancellationToken);
+        return;
+    }
+
+    var dayStart = attendance.OnDate.Date;
+    var dayEnd = dayStart.AddDays(1);
+    var existing = await db.AttendancePunches
+        .Where(item => item.EmployeeId == employee.Id
+            && item.PunchType == punchType
+            && item.LocalPunchTime >= dayStart
+            && item.LocalPunchTime < dayEnd
+            && !item.Deleted
+            && (item.Source == "HR Attendance" || item.VerificationStatus == "DailyAttendanceSynced"))
+        .ToListAsync(cancellationToken);
+    foreach (var punch in existing)
+    {
+        punch.Deleted = true;
+        punch.UpdatedAt = DateTime.UtcNow;
+        punch.Remarks = MergeText(punch.Remarks, $"Attendance table {punchType} cleared for {attendance.OnDate:yyyy-MM-dd}.");
+    }
+}
+
+static async Task UpsertAttendancePunchFromDailyRecordAsync(
+    Attendance attendance,
+    Employee employee,
+    string punchType,
+    TimeSpan localTime,
+    GarmetixDbContext db,
+    HttpContext context,
+    CancellationToken cancellationToken)
+{
+    var localPunch = attendance.OnDate.Date.Add(localTime);
+    var punchUtc = DateTime.SpecifyKind(localPunch, DateTimeKind.Local).ToUniversalTime();
+    var dayStart = attendance.OnDate.Date;
+    var dayEnd = dayStart.AddDays(1);
+
+    var punch = await db.AttendancePunches
+        .FirstOrDefaultAsync(item => item.EmployeeId == employee.Id
+            && item.PunchType == punchType
+            && item.LocalPunchTime >= dayStart
+            && item.LocalPunchTime < dayEnd
+            && !item.Deleted, cancellationToken);
+
+    if (punch is null)
+    {
+        punch = new Garmetix.Core.Models.Attendance.AttendancePunch
+        {
+            Id = Guid.NewGuid(),
+            EmployeeId = employee.Id,
+            PunchType = punchType,
+            Source = "HR Attendance",
+            VerificationStatus = "DailyAttendanceSynced",
+            IsManual = true,
+            IsSynced = true,
+            CreatedBy = context.User.Identity?.Name ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? context.User.FindFirst("userName")?.Value
+        };
+        db.AttendancePunches.Add(punch);
+    }
+
+    punch.CompanyId = employee.CompanyId;
+    punch.StoreGroupId = employee.StoreGroupId;
+    punch.StoreId = employee.StoreId;
+    punch.LocalPunchTime = localPunch;
+    punch.PunchTimeUtc = punchUtc;
+    punch.Reason = "Synced from daily attendance record.";
+    punch.Remarks = MergeText(punch.Remarks, $"Attendance table {punchType} sync for {attendance.OnDate:yyyy-MM-dd}.");
+    punch.UpdatedAt = DateTime.UtcNow;
+}
+
+static string? MergeText(string? existing, string next)
+{
+    if (string.IsNullOrWhiteSpace(existing)) return next;
+    if (existing.Contains(next, StringComparison.OrdinalIgnoreCase)) return existing;
+    return existing.Length + next.Length + 3 > 300 ? existing : $"{existing} | {next}";
 }
 
 static async Task<string?> PrepareEmployeeMasterAsync<T>(T entity, GarmetixDbContext db, CancellationToken cancellationToken) where T : class

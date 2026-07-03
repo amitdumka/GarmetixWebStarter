@@ -18,6 +18,7 @@ ACCESS_FILE = ROOT / "frontend/garmetix-web/composables/useAccessControl.ts"
 APPROVED_EXCEPTIONS = {
     "/access-denied",  # public denial/explanation page handled by auth.global.ts
     "/[module]",      # legacy dynamic placeholder; real modules should use concrete pages
+    "/i/[token]",     # public digital invoice page; runtime allows actual /i/<token> paths
 }
 
 

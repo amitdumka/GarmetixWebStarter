@@ -1,11 +1,70 @@
-using Garmetix.Infrastructure.Data;
+﻿using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace Garmetix.Api.Database;
 
 public static class DatabaseSchemaRepairService
 {
-    
+    public static async Task RepairPosHeldBillStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
+    {
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "PosHeldBills" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "CompanyId" uuid NOT NULL,
+                "CreatedBy" text NULL,
+                "StoreGroupId" uuid NOT NULL,
+                "StoreId" uuid NOT NULL,
+                "ClientHeldBillId" character varying(80) NOT NULL DEFAULT '',
+                "HeldAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "CustomerName" character varying(160) NOT NULL DEFAULT 'Walk-in Customer',
+                "CustomerMobileNumber" character varying(40) NOT NULL DEFAULT '',
+                "ItemCount" integer NOT NULL DEFAULT 0,
+                "Quantity" numeric(18,2) NOT NULL DEFAULT 0,
+                "PayableTotal" numeric(18,2) NOT NULL DEFAULT 0,
+                "Note" character varying(500) NOT NULL DEFAULT '',
+                "DraftJson" text NOT NULL DEFAULT '{{}}',
+                "Status" character varying(40) NOT NULL DEFAULT 'Held',
+                "HeldByUserId" uuid NULL,
+                "HeldByUserName" character varying(160) NOT NULL DEFAULT '',
+                "ResumedAt" timestamp without time zone NULL,
+                CONSTRAINT "PK_PosHeldBills" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "CreatedAt" timestamp without time zone NOT NULL DEFAULT now();
+            ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "UpdatedAt" timestamp without time zone NULL;
+            ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "Synced" boolean NOT NULL DEFAULT false;
+            ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "Deleted" boolean NOT NULL DEFAULT false;
+            ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "CompanyId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "CreatedBy" text NULL;
+            ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "StoreGroupId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "StoreId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "ClientHeldBillId" character varying(80) NOT NULL DEFAULT '';
+            ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "HeldAt" timestamp without time zone NOT NULL DEFAULT now();
+            ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "CustomerName" character varying(160) NOT NULL DEFAULT 'Walk-in Customer';
+            ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "CustomerMobileNumber" character varying(40) NOT NULL DEFAULT '';
+            ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "ItemCount" integer NOT NULL DEFAULT 0;
+            ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "Quantity" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "PayableTotal" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "Note" character varying(500) NOT NULL DEFAULT '';
+            ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "DraftJson" text NOT NULL DEFAULT '{{}}';
+            ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "Status" character varying(40) NOT NULL DEFAULT 'Held';
+            ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "HeldByUserId" uuid NULL;
+            ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "HeldByUserName" character varying(160) NOT NULL DEFAULT '';
+            ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "ResumedAt" timestamp without time zone NULL;
+
+            CREATE INDEX IF NOT EXISTS "IX_PosHeldBills_CompanyId_StoreGroupId_StoreId_Status_HeldAt"
+                ON "PosHeldBills" ("CompanyId", "StoreGroupId", "StoreId", "Status", "HeldAt");
+            CREATE INDEX IF NOT EXISTS "IX_PosHeldBills_CompanyId_ClientHeldBillId"
+                ON "PosHeldBills" ("CompanyId", "ClientHeldBillId");
+            """, cancellationToken);
+
+        logger.LogInformation("POS held bill storage repair check completed.");
+    }
+
     public static async Task RepairGstReturnStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
     {
         // Keep this repair intentionally small and separate from the general schema repair.
@@ -89,67 +148,6 @@ public static class DatabaseSchemaRepairService
 
         logger.LogInformation("GST return draft storage repair check completed.");
     }
-
-
-public static async Task RepairPosHeldBillStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
-{
-    await db.Database.ExecuteSqlRawAsync("""
-        CREATE TABLE IF NOT EXISTS "PosHeldBills" (
-            "Id" uuid NOT NULL,
-            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
-            "UpdatedAt" timestamp without time zone NULL,
-            "Synced" boolean NOT NULL DEFAULT false,
-            "Deleted" boolean NOT NULL DEFAULT false,
-            "CompanyId" uuid NOT NULL,
-            "CreatedBy" text NULL,
-            "StoreGroupId" uuid NOT NULL,
-            "StoreId" uuid NOT NULL,
-            "ClientHeldBillId" character varying(80) NOT NULL DEFAULT '',
-            "HeldAt" timestamp without time zone NOT NULL DEFAULT now(),
-            "CustomerName" character varying(160) NOT NULL DEFAULT 'Walk-in Customer',
-            "CustomerMobileNumber" character varying(40) NOT NULL DEFAULT '',
-            "ItemCount" integer NOT NULL DEFAULT 0,
-            "Quantity" numeric(18,2) NOT NULL DEFAULT 0,
-            "PayableTotal" numeric(18,2) NOT NULL DEFAULT 0,
-            "Note" character varying(500) NOT NULL DEFAULT '',
-            "DraftJson" text NOT NULL DEFAULT '{{}}',
-            "Status" character varying(40) NOT NULL DEFAULT 'Held',
-            "HeldByUserId" uuid NULL,
-            "HeldByUserName" character varying(160) NOT NULL DEFAULT '',
-            "ResumedAt" timestamp without time zone NULL,
-            CONSTRAINT "PK_PosHeldBills" PRIMARY KEY ("Id")
-        );
-
-        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "CreatedAt" timestamp without time zone NOT NULL DEFAULT now();
-        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "UpdatedAt" timestamp without time zone NULL;
-        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "Synced" boolean NOT NULL DEFAULT false;
-        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "Deleted" boolean NOT NULL DEFAULT false;
-        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "CompanyId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
-        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "CreatedBy" text NULL;
-        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "StoreGroupId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
-        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "StoreId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
-        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "ClientHeldBillId" character varying(80) NOT NULL DEFAULT '';
-        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "HeldAt" timestamp without time zone NOT NULL DEFAULT now();
-        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "CustomerName" character varying(160) NOT NULL DEFAULT 'Walk-in Customer';
-        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "CustomerMobileNumber" character varying(40) NOT NULL DEFAULT '';
-        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "ItemCount" integer NOT NULL DEFAULT 0;
-        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "Quantity" numeric(18,2) NOT NULL DEFAULT 0;
-        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "PayableTotal" numeric(18,2) NOT NULL DEFAULT 0;
-        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "Note" character varying(500) NOT NULL DEFAULT '';
-        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "DraftJson" text NOT NULL DEFAULT '{{}}';
-        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "Status" character varying(40) NOT NULL DEFAULT 'Held';
-        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "HeldByUserId" uuid NULL;
-        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "HeldByUserName" character varying(160) NOT NULL DEFAULT '';
-        ALTER TABLE "PosHeldBills" ADD COLUMN IF NOT EXISTS "ResumedAt" timestamp without time zone NULL;
-
-        CREATE INDEX IF NOT EXISTS "IX_PosHeldBills_CompanyId_StoreGroupId_StoreId_Status_HeldAt"
-            ON "PosHeldBills" ("CompanyId", "StoreGroupId", "StoreId", "Status", "HeldAt");
-        CREATE INDEX IF NOT EXISTS "IX_PosHeldBills_CompanyId_ClientHeldBillId"
-            ON "PosHeldBills" ("CompanyId", "ClientHeldBillId");
-        """, cancellationToken);
-
-    logger.LogInformation("POS held bill storage repair check completed.");
-}
 
 
 public static async Task RepairCashVoucherConversionStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
@@ -393,6 +391,8 @@ public static async Task RepairHrEmployeeMasterAndBenefitsAsync(GarmetixDbContex
 public static async Task RepairAttendanceCoreStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
 {
     await db.Database.ExecuteSqlRawAsync("""
+        CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
         CREATE TABLE IF NOT EXISTS "AttendanceDevices" (
             "Id" uuid NOT NULL,
             "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
@@ -472,8 +472,30 @@ public static async Task RepairAttendanceCoreStorageAsync(GarmetixDbContext db, 
             "AutoCheckoutTimeMinutes" integer NULL,
             "WeeklyOffDays" character varying(80) NOT NULL DEFAULT 'Sunday',
             "Active" boolean NOT NULL DEFAULT true,
+            "AttendanceMode" character varying(40) NOT NULL DEFAULT 'SessionBased',
+            "ShiftCategory" character varying(80) NULL,
+            "HasBreak" boolean NOT NULL DEFAULT false,
+            "RequiresBreakPunch" boolean NOT NULL DEFAULT false,
+            "BreakStartMinutes" integer NULL,
+            "BreakEndMinutes" integer NULL,
+            "RequiredSessionsForFullDay" integer NOT NULL DEFAULT 1,
+            "RequiredSessionsForHalfDay" integer NOT NULL DEFAULT 1,
+            "CountBreakAsWork" boolean NOT NULL DEFAULT false,
             CONSTRAINT "PK_AttendanceShifts" PRIMARY KEY ("Id")
         );
+
+        ALTER TABLE "AttendanceShifts" ADD COLUMN IF NOT EXISTS "AttendanceMode" character varying(40) NOT NULL DEFAULT 'SessionBased';
+        ALTER TABLE "AttendanceShifts" ADD COLUMN IF NOT EXISTS "ShiftCategory" character varying(80) NULL;
+        ALTER TABLE "AttendanceShifts" ADD COLUMN IF NOT EXISTS "HasBreak" boolean NOT NULL DEFAULT false;
+        ALTER TABLE "AttendanceShifts" ADD COLUMN IF NOT EXISTS "RequiresBreakPunch" boolean NOT NULL DEFAULT false;
+        ALTER TABLE "AttendanceShifts" ADD COLUMN IF NOT EXISTS "BreakStartMinutes" integer NULL;
+        ALTER TABLE "AttendanceShifts" ADD COLUMN IF NOT EXISTS "BreakEndMinutes" integer NULL;
+        ALTER TABLE "AttendanceShifts" ADD COLUMN IF NOT EXISTS "RequiredSessionsForFullDay" integer NOT NULL DEFAULT 1;
+        ALTER TABLE "AttendanceShifts" ADD COLUMN IF NOT EXISTS "RequiredSessionsForHalfDay" integer NOT NULL DEFAULT 1;
+        ALTER TABLE "AttendanceShifts" ADD COLUMN IF NOT EXISTS "CountBreakAsWork" boolean NOT NULL DEFAULT false;
+
+        ALTER TABLE IF EXISTS "Attendance" ADD COLUMN IF NOT EXISTS "BreakOutTime" interval NULL;
+        ALTER TABLE IF EXISTS "Attendance" ADD COLUMN IF NOT EXISTS "BreakInTime" interval NULL;
 
         CREATE TABLE IF NOT EXISTS "AttendancePolicies" (
             "Id" uuid NOT NULL,
@@ -497,6 +519,28 @@ public static async Task RepairAttendanceCoreStorageAsync(GarmetixDbContext db, 
             "DuplicateWindowMinutes" integer NOT NULL DEFAULT 5,
             "Active" boolean NOT NULL DEFAULT true,
             CONSTRAINT "PK_AttendancePolicies" PRIMARY KEY ("Id")
+        );
+
+        CREATE TABLE IF NOT EXISTS "EmployeeAttendanceShiftRules" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "CompanyId" uuid NOT NULL,
+            "CreatedBy" text NULL,
+            "StoreGroupId" uuid NOT NULL,
+            "StoreId" uuid NOT NULL,
+            "RuleType" character varying(40) NOT NULL DEFAULT 'StoreDefault',
+            "MatchValue" character varying(120) NULL,
+            "EmployeeId" uuid NULL,
+            "AttendanceShiftId" uuid NOT NULL,
+            "EffectiveFrom" timestamp without time zone NOT NULL DEFAULT CURRENT_DATE,
+            "EffectiveTo" timestamp without time zone NULL,
+            "Priority" integer NOT NULL DEFAULT 500,
+            "Active" boolean NOT NULL DEFAULT true,
+            "Notes" character varying(300) NULL,
+            CONSTRAINT "PK_EmployeeAttendanceShiftRules" PRIMARY KEY ("Id")
         );
 
         CREATE TABLE IF NOT EXISTS "EmployeeBiometricEnrollments" (
@@ -602,6 +646,57 @@ public static async Task RepairAttendanceCoreStorageAsync(GarmetixDbContext db, 
         CREATE INDEX IF NOT EXISTS "IX_AttendancePunches_CompanyId_ClientPunchId" ON "AttendancePunches" ("CompanyId", "ClientPunchId");
         CREATE INDEX IF NOT EXISTS "IX_AttendanceShifts_CompanyId_StoreId_Active" ON "AttendanceShifts" ("CompanyId", "StoreId", "Active");
         CREATE INDEX IF NOT EXISTS "IX_AttendancePolicies_CompanyId_StoreId_Active" ON "AttendancePolicies" ("CompanyId", "StoreId", "Active");
+        CREATE INDEX IF NOT EXISTS "IX_EmployeeAttendanceShiftRules_CompanyId_StoreId_Active_Priority" ON "EmployeeAttendanceShiftRules" ("CompanyId", "StoreId", "Active", "Priority");
+        CREATE INDEX IF NOT EXISTS "IX_EmployeeAttendanceShiftRules_CompanyId_StoreId_EmployeeId_Active" ON "EmployeeAttendanceShiftRules" ("CompanyId", "StoreId", "EmployeeId", "Active");
+
+        INSERT INTO "AttendanceShifts" ("Id", "CreatedAt", "UpdatedAt", "Synced", "Deleted", "CompanyId", "CreatedBy", "StoreGroupId", "StoreId", "Name", "StartTimeMinutes", "EndTimeMinutes", "GraceMinutes", "LateAfterMinutes", "HalfDayAfterMinutes", "MinimumFullDayMinutes", "MinimumHalfDayMinutes", "OvertimeAfterMinutes", "AutoCheckoutEnabled", "AutoCheckoutTimeMinutes", "WeeklyOffDays", "Active", "AttendanceMode", "ShiftCategory", "HasBreak", "RequiresBreakPunch", "BreakStartMinutes", "BreakEndMinutes", "RequiredSessionsForFullDay", "RequiredSessionsForHalfDay", "CountBreakAsWork")
+        SELECT gen_random_uuid(), now(), NULL, false, false, s."CompanyId", 'system-shift-seed', s."StoreGroupId", s."Id", 'Default Store Split Shift 09:00-21:00', 540, 1260, 10, 10, 780, 0, 0, 1260, false, NULL, 'Sunday', true, 'SessionBased', 'StoreDefault', true, true, 780, 870, 2, 1, false
+        FROM "Stores" s
+        WHERE NOT EXISTS (SELECT 1 FROM "AttendanceShifts" a WHERE a."StoreId" = s."Id" AND a."Name" = 'Default Store Split Shift 09:00-21:00' AND NOT a."Deleted");
+
+        INSERT INTO "AttendanceShifts" ("Id", "CreatedAt", "UpdatedAt", "Synced", "Deleted", "CompanyId", "CreatedBy", "StoreGroupId", "StoreId", "Name", "StartTimeMinutes", "EndTimeMinutes", "GraceMinutes", "LateAfterMinutes", "HalfDayAfterMinutes", "MinimumFullDayMinutes", "MinimumHalfDayMinutes", "OvertimeAfterMinutes", "AutoCheckoutEnabled", "AutoCheckoutTimeMinutes", "WeeklyOffDays", "Active", "AttendanceMode", "ShiftCategory", "HasBreak", "RequiresBreakPunch", "BreakStartMinutes", "BreakEndMinutes", "RequiredSessionsForFullDay", "RequiredSessionsForHalfDay", "CountBreakAsWork")
+        SELECT gen_random_uuid(), now(), NULL, false, false, s."CompanyId", 'system-shift-seed', s."StoreGroupId", s."Id", 'Female Staff Shift 10:00-20:00', 600, 1200, 10, 10, 780, 0, 0, 1200, false, NULL, 'Sunday', true, 'SessionBased', 'Female', false, false, NULL, NULL, 1, 1, false
+        FROM "Stores" s
+        WHERE NOT EXISTS (SELECT 1 FROM "AttendanceShifts" a WHERE a."StoreId" = s."Id" AND a."Name" = 'Female Staff Shift 10:00-20:00' AND NOT a."Deleted");
+
+        INSERT INTO "AttendanceShifts" ("Id", "CreatedAt", "UpdatedAt", "Synced", "Deleted", "CompanyId", "CreatedBy", "StoreGroupId", "StoreId", "Name", "StartTimeMinutes", "EndTimeMinutes", "GraceMinutes", "LateAfterMinutes", "HalfDayAfterMinutes", "MinimumFullDayMinutes", "MinimumHalfDayMinutes", "OvertimeAfterMinutes", "AutoCheckoutEnabled", "AutoCheckoutTimeMinutes", "WeeklyOffDays", "Active", "AttendanceMode", "ShiftCategory", "HasBreak", "RequiresBreakPunch", "BreakStartMinutes", "BreakEndMinutes", "RequiredSessionsForFullDay", "RequiredSessionsForHalfDay", "CountBreakAsWork")
+        SELECT gen_random_uuid(), now(), NULL, false, false, s."CompanyId", 'system-shift-seed', s."StoreGroupId", s."Id", 'Accounts Shift 10:00-19:00', 600, 1140, 10, 10, 780, 0, 0, 1140, false, NULL, 'Sunday', true, 'SessionBased', 'Accounts', false, false, NULL, NULL, 1, 1, false
+        FROM "Stores" s
+        WHERE NOT EXISTS (SELECT 1 FROM "AttendanceShifts" a WHERE a."StoreId" = s."Id" AND a."Name" = 'Accounts Shift 10:00-19:00' AND NOT a."Deleted");
+
+        INSERT INTO "AttendanceShifts" ("Id", "CreatedAt", "UpdatedAt", "Synced", "Deleted", "CompanyId", "CreatedBy", "StoreGroupId", "StoreId", "Name", "StartTimeMinutes", "EndTimeMinutes", "GraceMinutes", "LateAfterMinutes", "HalfDayAfterMinutes", "MinimumFullDayMinutes", "MinimumHalfDayMinutes", "OvertimeAfterMinutes", "AutoCheckoutEnabled", "AutoCheckoutTimeMinutes", "WeeklyOffDays", "Active", "AttendanceMode", "ShiftCategory", "HasBreak", "RequiresBreakPunch", "BreakStartMinutes", "BreakEndMinutes", "RequiredSessionsForFullDay", "RequiredSessionsForHalfDay", "CountBreakAsWork")
+        SELECT gen_random_uuid(), now(), NULL, false, false, s."CompanyId", 'system-shift-seed', s."StoreGroupId", s."Id", 'Housekeeping Morning Shift', 420, 900, 10, 10, 720, 0, 0, 900, false, NULL, 'Sunday', true, 'SessionBased', 'HouseKeeping', false, false, NULL, NULL, 1, 1, false
+        FROM "Stores" s
+        WHERE NOT EXISTS (SELECT 1 FROM "AttendanceShifts" a WHERE a."StoreId" = s."Id" AND a."Name" = 'Housekeeping Morning Shift' AND NOT a."Deleted");
+
+        INSERT INTO "AttendanceShifts" ("Id", "CreatedAt", "UpdatedAt", "Synced", "Deleted", "CompanyId", "CreatedBy", "StoreGroupId", "StoreId", "Name", "StartTimeMinutes", "EndTimeMinutes", "GraceMinutes", "LateAfterMinutes", "HalfDayAfterMinutes", "MinimumFullDayMinutes", "MinimumHalfDayMinutes", "OvertimeAfterMinutes", "AutoCheckoutEnabled", "AutoCheckoutTimeMinutes", "WeeklyOffDays", "Active", "AttendanceMode", "ShiftCategory", "HasBreak", "RequiresBreakPunch", "BreakStartMinutes", "BreakEndMinutes", "RequiredSessionsForFullDay", "RequiredSessionsForHalfDay", "CountBreakAsWork")
+        SELECT gen_random_uuid(), now(), NULL, false, false, s."CompanyId", 'system-shift-seed', s."StoreGroupId", s."Id", 'Housekeeping Evening Shift', 840, 1320, 10, 10, 1020, 0, 0, 1320, false, NULL, 'Sunday', true, 'SessionBased', 'HouseKeeping', false, false, NULL, NULL, 1, 1, false
+        FROM "Stores" s
+        WHERE NOT EXISTS (SELECT 1 FROM "AttendanceShifts" a WHERE a."StoreId" = s."Id" AND a."Name" = 'Housekeeping Evening Shift' AND NOT a."Deleted");
+
+
+        INSERT INTO "AttendanceShifts" ("Id", "CreatedAt", "UpdatedAt", "Synced", "Deleted", "CompanyId", "CreatedBy", "StoreGroupId", "StoreId", "Name", "StartTimeMinutes", "EndTimeMinutes", "GraceMinutes", "LateAfterMinutes", "HalfDayAfterMinutes", "MinimumFullDayMinutes", "MinimumHalfDayMinutes", "OvertimeAfterMinutes", "AutoCheckoutEnabled", "AutoCheckoutTimeMinutes", "WeeklyOffDays", "Active", "AttendanceMode", "ShiftCategory", "HasBreak", "RequiresBreakPunch", "BreakStartMinutes", "BreakEndMinutes", "RequiredSessionsForFullDay", "RequiredSessionsForHalfDay", "CountBreakAsWork")
+        SELECT gen_random_uuid(), now(), NULL, false, false, s."CompanyId", 'system-shift-seed', s."StoreGroupId", s."Id", 'Housekeeping Double Shift', 420, 1320, 10, 10, 900, 0, 0, 1320, false, NULL, 'Sunday', true, 'SessionBased', 'HouseKeeping', true, true, 900, 1080, 2, 1, false
+        FROM "Stores" s
+        WHERE NOT EXISTS (SELECT 1 FROM "AttendanceShifts" a WHERE a."StoreId" = s."Id" AND a."Name" = 'Housekeeping Double Shift' AND NOT a."Deleted");
+
+        INSERT INTO "EmployeeAttendanceShiftRules" ("Id", "CreatedAt", "UpdatedAt", "Synced", "Deleted", "CompanyId", "CreatedBy", "StoreGroupId", "StoreId", "RuleType", "MatchValue", "EmployeeId", "AttendanceShiftId", "EffectiveFrom", "EffectiveTo", "Priority", "Active", "Notes")
+        SELECT gen_random_uuid(), now(), NULL, false, false, sh."CompanyId", 'system-shift-seed', sh."StoreGroupId", sh."StoreId", 'StoreDefault', NULL, NULL, sh."Id", CURRENT_DATE, NULL, 900, true, 'Default male/store timing 09:00-21:00 with 1.5 hour lunch break.'
+        FROM "AttendanceShifts" sh
+        WHERE sh."Name" = 'Default Store Split Shift 09:00-21:00' AND NOT sh."Deleted"
+          AND NOT EXISTS (SELECT 1 FROM "EmployeeAttendanceShiftRules" r WHERE r."StoreId" = sh."StoreId" AND r."RuleType" = 'StoreDefault' AND r."AttendanceShiftId" = sh."Id" AND NOT r."Deleted");
+
+        INSERT INTO "EmployeeAttendanceShiftRules" ("Id", "CreatedAt", "UpdatedAt", "Synced", "Deleted", "CompanyId", "CreatedBy", "StoreGroupId", "StoreId", "RuleType", "MatchValue", "EmployeeId", "AttendanceShiftId", "EffectiveFrom", "EffectiveTo", "Priority", "Active", "Notes")
+        SELECT gen_random_uuid(), now(), NULL, false, false, sh."CompanyId", 'system-shift-seed', sh."StoreGroupId", sh."StoreId", 'Gender', 'Female', NULL, sh."Id", CURRENT_DATE, NULL, 300, true, 'Female employee default timing 10:00-20:00.'
+        FROM "AttendanceShifts" sh
+        WHERE sh."Name" = 'Female Staff Shift 10:00-20:00' AND NOT sh."Deleted"
+          AND NOT EXISTS (SELECT 1 FROM "EmployeeAttendanceShiftRules" r WHERE r."StoreId" = sh."StoreId" AND r."RuleType" = 'Gender' AND r."MatchValue" = 'Female' AND NOT r."Deleted");
+
+        INSERT INTO "EmployeeAttendanceShiftRules" ("Id", "CreatedAt", "UpdatedAt", "Synced", "Deleted", "CompanyId", "CreatedBy", "StoreGroupId", "StoreId", "RuleType", "MatchValue", "EmployeeId", "AttendanceShiftId", "EffectiveFrom", "EffectiveTo", "Priority", "Active", "Notes")
+        SELECT gen_random_uuid(), now(), NULL, false, false, sh."CompanyId", 'system-shift-seed', sh."StoreGroupId", sh."StoreId", 'Category', 'HouseKeeping', NULL, sh."Id", CURRENT_DATE, NULL, 200, true, 'Housekeeping double-shift rule: one completed shift/session = half day, both sessions = full day.'
+        FROM "AttendanceShifts" sh
+        WHERE sh."Name" = 'Housekeeping Double Shift' AND NOT sh."Deleted"
+          AND NOT EXISTS (SELECT 1 FROM "EmployeeAttendanceShiftRules" r WHERE r."StoreId" = sh."StoreId" AND r."RuleType" = 'Category' AND r."MatchValue" = 'HouseKeeping' AND NOT r."Deleted");
         CREATE INDEX IF NOT EXISTS "IX_EmployeeBiometricEnrollments_CompanyId_StoreId_EmployeeId" ON "EmployeeBiometricEnrollments" ("CompanyId", "StoreId", "EmployeeId");
         CREATE INDEX IF NOT EXISTS "IX_AttendanceRegularizationRequests_CompanyId_StoreId_EmployeeId_Status" ON "AttendanceRegularizationRequests" ("CompanyId", "StoreId", "EmployeeId", "Status");
         CREATE INDEX IF NOT EXISTS "IX_AttendanceApprovals_CompanyId_StoreId_RequestId" ON "AttendanceApprovals" ("CompanyId", "StoreId", "RequestId");
@@ -814,6 +909,395 @@ public static async Task RepairAttendanceCoreStorageAsync(GarmetixDbContext db, 
     logger.LogInformation("Attendance Core storage repair check completed.");
 }
 
+
+public static async Task RepairDigitalBillCrmStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
+{
+    await db.Database.ExecuteSqlRawAsync("""
+        CREATE TABLE IF NOT EXISTS "DigitalInvoices" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "CompanyId" uuid NOT NULL,
+            "CreatedBy" text NULL,
+            "StoreGroupId" uuid NOT NULL,
+            "StoreId" uuid NOT NULL,
+            "InvoiceId" uuid NOT NULL,
+            "InvoiceType" character varying(40) NOT NULL DEFAULT 'Sale',
+            "InvoiceNumber" character varying(80) NOT NULL DEFAULT '',
+            "InvoiceDate" timestamp without time zone NOT NULL DEFAULT now(),
+            "CustomerName" character varying(160) NOT NULL DEFAULT '',
+            "CustomerMobile" character varying(30) NOT NULL DEFAULT '',
+            "Amount" numeric(18,2) NOT NULL DEFAULT 0,
+            "PublicToken" character varying(80) NOT NULL,
+            "PublicUrl" character varying(300) NULL,
+            "PdfPath" character varying(300) NULL,
+            "HtmlSnapshotJson" text NULL,
+            "ExpiresAt" timestamp without time zone NULL,
+            "IsActive" boolean NOT NULL DEFAULT true,
+            "DisabledAt" timestamp without time zone NULL,
+            "DisabledBy" character varying(120) NULL,
+            "DisableReason" character varying(300) NULL,
+            "LastOpenedAt" timestamp without time zone NULL,
+            "OpenCount" integer NOT NULL DEFAULT 0,
+            "PdfDownloadCount" integer NOT NULL DEFAULT 0,
+            "ReviewClickCount" integer NOT NULL DEFAULT 0,
+            "FeedbackCount" integer NOT NULL DEFAULT 0,
+            "WhatsAppStatus" character varying(40) NOT NULL DEFAULT 'NotConfigured',
+            "LastWhatsAppSentAt" timestamp without time zone NULL,
+            CONSTRAINT "PK_DigitalInvoices" PRIMARY KEY ("Id")
+        );
+
+        CREATE TABLE IF NOT EXISTS "DigitalInvoiceEvents" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "CompanyId" uuid NOT NULL,
+            "CreatedBy" text NULL,
+            "StoreGroupId" uuid NOT NULL,
+            "StoreId" uuid NOT NULL,
+            "DigitalInvoiceId" uuid NOT NULL,
+            "EventType" character varying(60) NOT NULL DEFAULT '',
+            "Source" character varying(80) NULL,
+            "IpAddress" character varying(120) NULL,
+            "UserAgent" character varying(500) NULL,
+            "TargetUrl" character varying(500) NULL,
+            "DetailsJson" text NULL,
+            "EventAt" timestamp without time zone NOT NULL DEFAULT now(),
+            CONSTRAINT "PK_DigitalInvoiceEvents" PRIMARY KEY ("Id")
+        );
+
+        CREATE TABLE IF NOT EXISTS "StoreReviewSettings" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "CompanyId" uuid NOT NULL,
+            "CreatedBy" text NULL,
+            "StoreGroupId" uuid NOT NULL,
+            "StoreId" uuid NOT NULL,
+            "GoogleReviewUrl" character varying(500) NULL,
+            "InstagramUrl" character varying(500) NULL,
+            "FacebookUrl" character varying(500) NULL,
+            "WhatsAppSupportNumber" character varying(30) NULL,
+            "EnableGoogleReview" boolean NOT NULL DEFAULT true,
+            "EnableInstagram" boolean NOT NULL DEFAULT true,
+            "EnableFacebook" boolean NOT NULL DEFAULT false,
+            "EnableWhatsappSupport" boolean NOT NULL DEFAULT true,
+            "EnablePrivateFeedback" boolean NOT NULL DEFAULT true,
+            "ReviewButtonText" character varying(160) NULL,
+            "FeedbackButtonText" character varying(160) NULL,
+            CONSTRAINT "PK_StoreReviewSettings" PRIMARY KEY ("Id")
+        );
+
+        CREATE TABLE IF NOT EXISTS "CustomerFeedback" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "CompanyId" uuid NOT NULL,
+            "CreatedBy" text NULL,
+            "StoreGroupId" uuid NOT NULL,
+            "StoreId" uuid NOT NULL,
+            "DigitalInvoiceId" uuid NOT NULL,
+            "CustomerId" uuid NULL,
+            "CustomerName" character varying(160) NOT NULL DEFAULT '',
+            "CustomerMobile" character varying(30) NOT NULL DEFAULT '',
+            "Rating" integer NOT NULL DEFAULT 0,
+            "Message" character varying(1000) NULL,
+            "Source" character varying(60) NOT NULL DEFAULT 'DigitalInvoice',
+            "SubmittedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            CONSTRAINT "PK_CustomerFeedback" PRIMARY KEY ("Id")
+        );
+
+
+        CREATE TABLE IF NOT EXISTS "WhatsAppProviderSettings" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "CompanyId" uuid NOT NULL,
+            "CreatedBy" text NULL,
+            "StoreGroupId" uuid NOT NULL,
+            "StoreId" uuid NOT NULL,
+            "IsEnabled" boolean NOT NULL DEFAULT false,
+            "AutoSendDigitalBills" boolean NOT NULL DEFAULT false,
+            "Provider" character varying(80) NOT NULL DEFAULT 'ManualOnly',
+            "ApiBaseUrl" character varying(500) NULL,
+            "ApiToken" character varying(1000) NULL,
+            "PhoneNumberId" character varying(120) NULL,
+            "SenderId" character varying(120) NULL,
+            "TemplateName" character varying(120) NULL,
+            "LanguageCode" character varying(20) NOT NULL DEFAULT 'en',
+            "MessageTemplateText" character varying(2000) NOT NULL DEFAULT 'Hello {{customerName}}, thank you for shopping at {{storeName}}. Your invoice {{invoiceNumber}} of ₹{{amount}} is ready. View bill: {{publicUrl}}',
+            "SendPdfLink" boolean NOT NULL DEFAULT true,
+            "FallbackToManualLog" boolean NOT NULL DEFAULT true,
+            "RetryLimit" integer NOT NULL DEFAULT 3,
+            "LastTestAt" timestamp without time zone NULL,
+            "LastError" character varying(1000) NULL,
+            CONSTRAINT "PK_WhatsAppProviderSettings" PRIMARY KEY ("Id")
+        );
+
+        CREATE TABLE IF NOT EXISTS "WhatsAppMessageLogs" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "CompanyId" uuid NOT NULL,
+            "CreatedBy" text NULL,
+            "StoreGroupId" uuid NOT NULL,
+            "StoreId" uuid NOT NULL,
+            "DigitalInvoiceId" uuid NULL,
+            "CustomerMobile" character varying(30) NOT NULL DEFAULT '',
+            "Provider" character varying(80) NOT NULL DEFAULT 'ManualOnly',
+            "TemplateName" character varying(120) NULL,
+            "MessageBody" character varying(2000) NOT NULL DEFAULT '',
+            "Status" character varying(60) NOT NULL DEFAULT 'Queued',
+            "ProviderMessageId" character varying(160) NULL,
+            "ErrorMessage" character varying(1000) NULL,
+            "RetryCount" integer NOT NULL DEFAULT 0,
+            "SentAt" timestamp without time zone NULL,
+            "DeliveredAt" timestamp without time zone NULL,
+            "ReadAt" timestamp without time zone NULL,
+            CONSTRAINT "PK_WhatsAppMessageLogs" PRIMARY KEY ("Id")
+        );
+
+        CREATE TABLE IF NOT EXISTS "InvoiceAdBanners" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "CompanyId" uuid NOT NULL,
+            "CreatedBy" text NULL,
+            "StoreGroupId" uuid NULL,
+            "StoreId" uuid NULL,
+            "Title" character varying(160) NOT NULL DEFAULT '',
+            "ImageUrl" character varying(500) NOT NULL DEFAULT '',
+            "TargetUrl" character varying(500) NULL,
+            "Position" character varying(40) NOT NULL DEFAULT 'Footer',
+            "StartDate" timestamp without time zone NULL,
+            "EndDate" timestamp without time zone NULL,
+            "IsActive" boolean NOT NULL DEFAULT true,
+            "Priority" integer NOT NULL DEFAULT 0,
+            "ClickCount" integer NOT NULL DEFAULT 0,
+            CONSTRAINT "PK_InvoiceAdBanners" PRIMARY KEY ("Id")
+        );
+
+        CREATE TABLE IF NOT EXISTS "DigitalBillCampaigns" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "CompanyId" uuid NOT NULL,
+            "CreatedBy" text NULL,
+            "StoreGroupId" uuid NULL,
+            "StoreId" uuid NULL,
+            "Name" character varying(160) NOT NULL DEFAULT '',
+            "Segment" character varying(60) NOT NULL DEFAULT 'all',
+            "FromDate" timestamp without time zone NOT NULL DEFAULT now(),
+            "ToDate" timestamp without time zone NOT NULL DEFAULT now(),
+            "SearchText" character varying(160) NULL,
+            "Channel" character varying(60) NOT NULL DEFAULT 'WhatsAppManual',
+            "Status" character varying(60) NOT NULL DEFAULT 'Draft',
+            "TemplateName" character varying(160) NULL,
+            "MessageTitle" character varying(200) NOT NULL DEFAULT 'Digital bill campaign',
+            "MessageBody" character varying(2000) NOT NULL DEFAULT '',
+            "OfferUrl" character varying(500) NULL,
+            "Notes" character varying(2000) NULL,
+            "RecipientCount" integer NOT NULL DEFAULT 0,
+            "PreparedCount" integer NOT NULL DEFAULT 0,
+            "SentCount" integer NOT NULL DEFAULT 0,
+            "FailedCount" integer NOT NULL DEFAULT 0,
+            "OpenCountAtCreate" integer NOT NULL DEFAULT 0,
+            "ReviewClickCountAtCreate" integer NOT NULL DEFAULT 0,
+            "FeedbackCountAtCreate" integer NOT NULL DEFAULT 0,
+            "ScheduledAt" timestamp without time zone NULL,
+            "QueuedAt" timestamp without time zone NULL,
+            "CompletedAt" timestamp without time zone NULL,
+            "CancelledAt" timestamp without time zone NULL,
+            CONSTRAINT "PK_DigitalBillCampaigns" PRIMARY KEY ("Id")
+        );
+
+        CREATE TABLE IF NOT EXISTS "DigitalBillCampaignRecipients" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "CompanyId" uuid NOT NULL,
+            "CreatedBy" text NULL,
+            "StoreGroupId" uuid NOT NULL,
+            "StoreId" uuid NOT NULL,
+            "CampaignId" uuid NOT NULL,
+            "DigitalInvoiceId" uuid NOT NULL,
+            "AudienceKey" character varying(120) NOT NULL DEFAULT '',
+            "CustomerName" character varying(160) NOT NULL DEFAULT '',
+            "CustomerMobile" character varying(30) NOT NULL DEFAULT '',
+            "InvoiceNumber" character varying(80) NOT NULL DEFAULT '',
+            "PublicPath" character varying(300) NOT NULL DEFAULT '',
+            "LastInvoiceAmount" numeric(18,2) NOT NULL DEFAULT 0,
+            "Status" character varying(60) NOT NULL DEFAULT 'Prepared',
+            "MessageBody" character varying(2000) NOT NULL DEFAULT '',
+            "ErrorMessage" character varying(1000) NULL,
+            "QueuedAt" timestamp without time zone NULL,
+            "SentAt" timestamp without time zone NULL,
+            "FailedAt" timestamp without time zone NULL,
+            CONSTRAINT "PK_DigitalBillCampaignRecipients" PRIMARY KEY ("Id")
+        );
+
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "StoreGroupId" uuid NULL;
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "StoreId" uuid NULL;
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "Name" character varying(160) NOT NULL DEFAULT '';
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "Segment" character varying(60) NOT NULL DEFAULT 'all';
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "FromDate" timestamp without time zone NOT NULL DEFAULT now();
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "ToDate" timestamp without time zone NOT NULL DEFAULT now();
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "SearchText" character varying(160) NULL;
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "Channel" character varying(60) NOT NULL DEFAULT 'WhatsAppManual';
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "Status" character varying(60) NOT NULL DEFAULT 'Draft';
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "TemplateName" character varying(160) NULL;
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "MessageTitle" character varying(200) NOT NULL DEFAULT 'Digital bill campaign';
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "MessageBody" character varying(2000) NOT NULL DEFAULT '';
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "OfferUrl" character varying(500) NULL;
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "Notes" character varying(2000) NULL;
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "RecipientCount" integer NOT NULL DEFAULT 0;
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "PreparedCount" integer NOT NULL DEFAULT 0;
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "SentCount" integer NOT NULL DEFAULT 0;
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "FailedCount" integer NOT NULL DEFAULT 0;
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "OpenCountAtCreate" integer NOT NULL DEFAULT 0;
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "ReviewClickCountAtCreate" integer NOT NULL DEFAULT 0;
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "FeedbackCountAtCreate" integer NOT NULL DEFAULT 0;
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "ScheduledAt" timestamp without time zone NULL;
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "QueuedAt" timestamp without time zone NULL;
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "CompletedAt" timestamp without time zone NULL;
+        ALTER TABLE "DigitalBillCampaigns" ADD COLUMN IF NOT EXISTS "CancelledAt" timestamp without time zone NULL;
+
+        ALTER TABLE "DigitalBillCampaignRecipients" ADD COLUMN IF NOT EXISTS "CampaignId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+        ALTER TABLE "DigitalBillCampaignRecipients" ADD COLUMN IF NOT EXISTS "DigitalInvoiceId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+        ALTER TABLE "DigitalBillCampaignRecipients" ADD COLUMN IF NOT EXISTS "AudienceKey" character varying(120) NOT NULL DEFAULT '';
+        ALTER TABLE "DigitalBillCampaignRecipients" ADD COLUMN IF NOT EXISTS "CustomerName" character varying(160) NOT NULL DEFAULT '';
+        ALTER TABLE "DigitalBillCampaignRecipients" ADD COLUMN IF NOT EXISTS "CustomerMobile" character varying(30) NOT NULL DEFAULT '';
+        ALTER TABLE "DigitalBillCampaignRecipients" ADD COLUMN IF NOT EXISTS "InvoiceNumber" character varying(80) NOT NULL DEFAULT '';
+        ALTER TABLE "DigitalBillCampaignRecipients" ADD COLUMN IF NOT EXISTS "PublicPath" character varying(300) NOT NULL DEFAULT '';
+        ALTER TABLE "DigitalBillCampaignRecipients" ADD COLUMN IF NOT EXISTS "LastInvoiceAmount" numeric(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE "DigitalBillCampaignRecipients" ADD COLUMN IF NOT EXISTS "Status" character varying(60) NOT NULL DEFAULT 'Prepared';
+        ALTER TABLE "DigitalBillCampaignRecipients" ADD COLUMN IF NOT EXISTS "MessageBody" character varying(2000) NOT NULL DEFAULT '';
+        ALTER TABLE "DigitalBillCampaignRecipients" ADD COLUMN IF NOT EXISTS "ErrorMessage" character varying(1000) NULL;
+        ALTER TABLE "DigitalBillCampaignRecipients" ADD COLUMN IF NOT EXISTS "QueuedAt" timestamp without time zone NULL;
+        ALTER TABLE "DigitalBillCampaignRecipients" ADD COLUMN IF NOT EXISTS "SentAt" timestamp without time zone NULL;
+        ALTER TABLE "DigitalBillCampaignRecipients" ADD COLUMN IF NOT EXISTS "FailedAt" timestamp without time zone NULL;
+
+        CREATE UNIQUE INDEX IF NOT EXISTS "IX_DigitalInvoices_PublicToken" ON "DigitalInvoices" ("PublicToken");
+        CREATE INDEX IF NOT EXISTS "IX_DigitalInvoices_CompanyId_StoreId_InvoiceDate" ON "DigitalInvoices" ("CompanyId", "StoreId", "InvoiceDate");
+        CREATE INDEX IF NOT EXISTS "IX_DigitalInvoices_CompanyId_InvoiceId_InvoiceType" ON "DigitalInvoices" ("CompanyId", "InvoiceId", "InvoiceType");
+        CREATE INDEX IF NOT EXISTS "IX_DigitalInvoiceEvents_CompanyId_DigitalInvoiceId_EventAt" ON "DigitalInvoiceEvents" ("CompanyId", "DigitalInvoiceId", "EventAt");
+        CREATE INDEX IF NOT EXISTS "IX_DigitalInvoiceEvents_CompanyId_StoreId_EventType_EventAt" ON "DigitalInvoiceEvents" ("CompanyId", "StoreId", "EventType", "EventAt");
+        CREATE INDEX IF NOT EXISTS "IX_StoreReviewSettings_CompanyId_StoreId" ON "StoreReviewSettings" ("CompanyId", "StoreId");
+        CREATE INDEX IF NOT EXISTS "IX_CustomerFeedback_CompanyId_StoreId_SubmittedAt" ON "CustomerFeedback" ("CompanyId", "StoreId", "SubmittedAt");
+        CREATE INDEX IF NOT EXISTS "IX_CustomerFeedback_CompanyId_DigitalInvoiceId" ON "CustomerFeedback" ("CompanyId", "DigitalInvoiceId");
+
+        CREATE INDEX IF NOT EXISTS "IX_WhatsAppProviderSettings_CompanyId_StoreId" ON "WhatsAppProviderSettings" ("CompanyId", "StoreId");
+        CREATE INDEX IF NOT EXISTS "IX_WhatsAppProviderSettings_CompanyId_StoreId_IsEnabled_AutoSendDigitalBills" ON "WhatsAppProviderSettings" ("CompanyId", "StoreId", "IsEnabled", "AutoSendDigitalBills");
+        CREATE INDEX IF NOT EXISTS "IX_WhatsAppMessageLogs_CompanyId_StoreId_Status_CreatedAt" ON "WhatsAppMessageLogs" ("CompanyId", "StoreId", "Status", "CreatedAt");
+        CREATE INDEX IF NOT EXISTS "IX_WhatsAppMessageLogs_CompanyId_DigitalInvoiceId" ON "WhatsAppMessageLogs" ("CompanyId", "DigitalInvoiceId");
+        CREATE INDEX IF NOT EXISTS "IX_InvoiceAdBanners_CompanyId_StoreId_Position_IsActive" ON "InvoiceAdBanners" ("CompanyId", "StoreId", "Position", "IsActive");
+        CREATE INDEX IF NOT EXISTS "IX_DigitalBillCampaigns_CompanyId_StoreId_Status_CreatedAt" ON "DigitalBillCampaigns" ("CompanyId", "StoreId", "Status", "CreatedAt");
+        CREATE INDEX IF NOT EXISTS "IX_DigitalBillCampaigns_CompanyId_Segment_FromDate_ToDate" ON "DigitalBillCampaigns" ("CompanyId", "Segment", "FromDate", "ToDate");
+        CREATE INDEX IF NOT EXISTS "IX_DigitalBillCampaignRecipients_CompanyId_CampaignId_Status" ON "DigitalBillCampaignRecipients" ("CompanyId", "CampaignId", "Status");
+        CREATE INDEX IF NOT EXISTS "IX_DigitalBillCampaignRecipients_CompanyId_CustomerMobile_CreatedAt" ON "DigitalBillCampaignRecipients" ("CompanyId", "CustomerMobile", "CreatedAt");
+        """, cancellationToken);
+
+    logger.LogInformation("Digital Bill CRM storage repair check completed.");
+}
+
+
+public static async Task RepairDotMatrixPrintStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
+{
+    await db.Database.ExecuteSqlRawAsync("""
+        CREATE TABLE IF NOT EXISTS "DotMatrixPrintSettings" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "CompanyId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+            "CreatedBy" text NULL,
+            "StoreGroupId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+            "StoreId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+            "PrinterName" character varying(120) NOT NULL DEFAULT 'EPSON_LX810',
+            "OutputMode" character varying(40) NOT NULL DEFAULT 'BridgeService',
+            "SpoolDirectory" character varying(500) NOT NULL DEFAULT '/app/data/dotmatrix-spool',
+            "TimeZoneId" character varying(80) NOT NULL DEFAULT 'Asia/Kolkata',
+            "Enabled" boolean NOT NULL DEFAULT false,
+            "PrintTransactions" boolean NOT NULL DEFAULT true,
+            "PrintDayOpeningClosing" boolean NOT NULL DEFAULT true,
+            "PrintEditsAndDeletes" boolean NOT NULL DEFAULT true,
+            "PrintAttendanceInDaySummary" boolean NOT NULL DEFAULT true,
+            "PrintBankUpiSummary" boolean NOT NULL DEFAULT true,
+            "LineWidth" integer NOT NULL DEFAULT 136,
+            "RetryLimit" integer NOT NULL DEFAULT 10,
+            "PollSeconds" integer NOT NULL DEFAULT 5,
+            "Remarks" character varying(300) NULL,
+            CONSTRAINT "PK_DotMatrixPrintSettings" PRIMARY KEY ("Id")
+        );
+
+        CREATE TABLE IF NOT EXISTS "DotMatrixPrintQueueEntries" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "CompanyId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+            "CreatedBy" text NULL,
+            "StoreGroupId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+            "StoreId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+            "BusinessDate" timestamp without time zone NOT NULL,
+            "OperationTimeUtc" timestamp without time zone NOT NULL DEFAULT now(),
+            "EventType" character varying(40) NOT NULL DEFAULT 'Transaction',
+            "ActionType" character varying(40) NOT NULL DEFAULT 'Create',
+            "SourceType" character varying(80) NOT NULL DEFAULT '',
+            "SourceId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+            "SourceNumber" character varying(120) NOT NULL DEFAULT '',
+            "PartyName" character varying(120) NOT NULL DEFAULT '',
+            "PaymentMode" character varying(120) NOT NULL DEFAULT '',
+            "Amount" numeric(18,2) NOT NULL DEFAULT 0,
+            "SequenceNo" bigint NOT NULL DEFAULT 0,
+            "LineWidth" integer NOT NULL DEFAULT 136,
+            "PrinterName" character varying(120) NOT NULL DEFAULT 'EPSON_LX810',
+            "Status" character varying(40) NOT NULL DEFAULT 'Pending',
+            "RetryCount" integer NOT NULL DEFAULT 0,
+            "PrintedAtUtc" timestamp without time zone NULL,
+            "ErrorMessage" character varying(500) NULL,
+            "DeduplicationKey" character varying(240) NOT NULL DEFAULT '',
+            "PrintableText" text NOT NULL DEFAULT '',
+            CONSTRAINT "PK_DotMatrixPrintQueueEntries" PRIMARY KEY ("Id")
+        );
+
+        ALTER TABLE "DotMatrixPrintSettings" ALTER COLUMN "PrinterName" SET DEFAULT 'EPSON_LX810';
+        ALTER TABLE "DotMatrixPrintSettings" ALTER COLUMN "OutputMode" SET DEFAULT 'BridgeService';
+        ALTER TABLE "DotMatrixPrintQueueEntries" ALTER COLUMN "PrinterName" SET DEFAULT 'EPSON_LX810';
+        ALTER TABLE "DotMatrixPrintSettings" ADD COLUMN IF NOT EXISTS "PrintBankUpiSummary" boolean NOT NULL DEFAULT true;
+        ALTER TABLE "DotMatrixPrintQueueEntries" ADD COLUMN IF NOT EXISTS "PrintableText" text NOT NULL DEFAULT '';
+        ALTER TABLE "DotMatrixPrintQueueEntries" ADD COLUMN IF NOT EXISTS "DeduplicationKey" character varying(240) NOT NULL DEFAULT '';
+
+        CREATE INDEX IF NOT EXISTS "IX_DotMatrixPrintSettings_CompanyId_StoreId" ON "DotMatrixPrintSettings" ("CompanyId", "StoreId");
+        CREATE INDEX IF NOT EXISTS "IX_DotMatrixPrintQueueEntries_CompanyId_StoreId_BusinessDate_SequenceNo" ON "DotMatrixPrintQueueEntries" ("CompanyId", "StoreId", "BusinessDate", "SequenceNo");
+        CREATE INDEX IF NOT EXISTS "IX_DotMatrixPrintQueueEntries_Status_CreatedAt" ON "DotMatrixPrintQueueEntries" ("Status", "CreatedAt");
+        CREATE INDEX IF NOT EXISTS "IX_DotMatrixPrintQueueEntries_SourceType_SourceId_ActionType" ON "DotMatrixPrintQueueEntries" ("SourceType", "SourceId", "ActionType");
+        CREATE INDEX IF NOT EXISTS "IX_DotMatrixPrintQueueEntries_DeduplicationKey" ON "DotMatrixPrintQueueEntries" ("DeduplicationKey");
+        """, cancellationToken);
+
+    logger.LogInformation("Dot-matrix print storage repair check completed.");
+}
+
 public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
     {
         try
@@ -822,8 +1306,10 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
             await RepairPosHeldBillStorageAsync(db, logger, cancellationToken);
             await RepairCashVoucherConversionStorageAsync(db, logger, cancellationToken);
             await RepairStoreDayStorageAsync(db, logger, cancellationToken);
+            await RepairDotMatrixPrintStorageAsync(db, logger, cancellationToken);
             await RepairHrEmployeeMasterAndBenefitsAsync(db, logger, cancellationToken);
             await RepairAttendanceCoreStorageAsync(db, logger, cancellationToken);
+            await RepairDigitalBillCrmStorageAsync(db, logger, cancellationToken);
 
             await db.Database.ExecuteSqlRawAsync("""
                 CREATE TABLE IF NOT EXISTS "FinancialYearLocks" (
@@ -901,7 +1387,12 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
             // tested in between. These statements are idempotent and only add missing columns.
             await db.Database.ExecuteSqlRawAsync("""
                 ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "IsActive" boolean NOT NULL DEFAULT true;
-                UPDATE "Users" SET "Admin" = ("Role" = 0);
+                ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "IsSuperAdmin" boolean NOT NULL DEFAULT false;
+                ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "PinHash" text NOT NULL DEFAULT '';
+                ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "RemoteUserId" uuid NULL;
+                ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "AppOperation" integer NOT NULL DEFAULT 0;
+                UPDATE "Users" SET "Admin" = ("Role" = 0) WHERE "Admin" IS DISTINCT FROM ("Role" = 0);
+                UPDATE "Users" SET "IsSuperAdmin" = true WHERE "UserName" = 'garmetix' OR "Admin" = true;
 
                 ALTER TABLE "Customers" ADD COLUMN IF NOT EXISTS "GSTLegalName" text NULL;
                 ALTER TABLE "Customers" ADD COLUMN IF NOT EXISTS "GSTTradeName" text NULL;
@@ -915,6 +1406,12 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                 ALTER TABLE "Customers" ADD COLUMN IF NOT EXISTS "GSTMismatchAlert" text NULL;
                 ALTER TABLE "Customers" ADD COLUMN IF NOT EXISTS "CreditBalance" numeric(18,2) NOT NULL DEFAULT 0;
                 ALTER TABLE "Customers" ADD COLUMN IF NOT EXISTS "LoyaltyPoints" numeric(18,2) NOT NULL DEFAULT 0;
+
+                -- Stage 11D-94: v4.12.05 added SalesInvoices.Remarks for Vyapar import source metadata.
+                -- Some deployed Docker volumes had AutoMigrate disabled or migration history drift, so
+                -- sale list, recent sales, invoice replacement and Vyapar imported-list endpoints failed
+                -- with PostgreSQL 42703 (column s.Remarks does not exist). Keep this repair idempotent.
+                ALTER TABLE "SalesInvoices" ADD COLUMN IF NOT EXISTS "Remarks" text NULL;
 
                 ALTER TABLE "Vendors" ADD COLUMN IF NOT EXISTS "GSTLegalName" text NULL;
                 ALTER TABLE "Vendors" ADD COLUMN IF NOT EXISTS "GSTTradeName" text NULL;
@@ -1190,14 +1687,9 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                 ALTER TABLE IF EXISTS "InvoiceItems" ADD COLUMN IF NOT EXISTS "SGSTAmount" numeric(18,2) NULL;
                 ALTER TABLE IF EXISTS "InvoiceItems" ADD COLUMN IF NOT EXISTS "IGSTAmount" numeric(18,2) NULL;
 
-                ALTER TABLE IF EXISTS "PurchaseInvoiceItems" ADD COLUMN IF NOT EXISTS "ProductName" text NULL;
-                ALTER TABLE IF EXISTS "PurchaseInvoiceItems" ADD COLUMN IF NOT EXISTS "HSNCode" text NULL;
-                ALTER TABLE IF EXISTS "PurchaseInvoiceItems" ADD COLUMN IF NOT EXISTS "Unit" integer NULL;
-                ALTER TABLE IF EXISTS "PurchaseInvoiceItems" ADD COLUMN IF NOT EXISTS "ProductCategoryId" uuid NULL;
-                ALTER TABLE IF EXISTS "PurchaseInvoiceItems" ADD COLUMN IF NOT EXISTS "ProductSubCategoryId" uuid NULL;
-                ALTER TABLE IF EXISTS "PurchaseInvoiceItems" ADD COLUMN IF NOT EXISTS "CGSTAmount" numeric(18,2) NULL;
-                ALTER TABLE IF EXISTS "PurchaseInvoiceItems" ADD COLUMN IF NOT EXISTS "SGSTAmount" numeric(18,2) NULL;
-                ALTER TABLE IF EXISTS "PurchaseInvoiceItems" ADD COLUMN IF NOT EXISTS "IGSTAmount" numeric(18,2) NULL;
+                -- PurchaseInvoiceItem is mapped into InvoiceItems using a discriminator in the current model.
+                -- Some imported databases also have a compatibility VIEW named PurchaseInvoiceItems.
+                -- Do not ALTER that view here; add/repair required columns on InvoiceItems only.
 
                 ALTER TABLE IF EXISTS "InvoicePayments" ADD COLUMN IF NOT EXISTS "BankAccountId" uuid NULL;
                 ALTER TABLE IF EXISTS "InvoicePayments" ADD COLUMN IF NOT EXISTS "AdjustmentSourceType" text NULL;
@@ -1972,6 +2464,201 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                 CREATE INDEX IF NOT EXISTS "IX_StockOperationDocuments_CompanyId_JournalEntryId" ON "StockOperationDocuments" ("CompanyId", "JournalEntryId");
                 CREATE INDEX IF NOT EXISTS "IX_StockOperationItems_CompanyId_StockOperationDocumentId" ON "StockOperationItems" ("CompanyId", "StockOperationDocumentId");
                 CREATE INDEX IF NOT EXISTS "IX_StockOperationItems_CompanyId_ProductId_StockId" ON "StockOperationItems" ("CompanyId", "ProductId", "StockId");
+
+                CREATE INDEX IF NOT EXISTS "IX_Attendance_CompanyId_StoreId_OnDate" ON "Attendance" ("CompanyId", "StoreId", "OnDate");
+                CREATE INDEX IF NOT EXISTS "IX_Attendance_CompanyId_StoreId_EmployeeId_OnDate" ON "Attendance" ("CompanyId", "StoreId", "EmployeeId", "OnDate");
+                CREATE INDEX IF NOT EXISTS "IX_PurchaseInvoices_CompanyId_StoreId_OnDate" ON "PurchaseInvoices" ("CompanyId", "StoreId", "OnDate");
+                CREATE INDEX IF NOT EXISTS "IX_PurchaseInvoices_CompanyId_StoreId_InwardDate" ON "PurchaseInvoices" ("CompanyId", "StoreId", "InwardDate");
+                CREATE INDEX IF NOT EXISTS "IX_PurchaseInvoices_CompanyId_StoreId_VendorId_OnDate" ON "PurchaseInvoices" ("CompanyId", "StoreId", "VendorId", "OnDate");
+                CREATE INDEX IF NOT EXISTS "IX_InvoiceItems_CompanyId_InvoiceId" ON "InvoiceItems" ("CompanyId", "InvoiceId");
+                CREATE INDEX IF NOT EXISTS "IX_Stocks_CompanyId_StoreId_ProductId_IsOFB" ON "Stocks" ("CompanyId", "StoreId", "ProductId", "IsOFB");
+                CREATE INDEX IF NOT EXISTS "IX_Stocks_CompanyId_StoreId_Barcode" ON "Stocks" ("CompanyId", "StoreId", "Barcode");
+                CREATE INDEX IF NOT EXISTS "IX_ProductDetails_CompanyId_ProductId_Brand" ON "ProductDetails" ("CompanyId", "ProductId", "Brand");
+                CREATE INDEX IF NOT EXISTS "IX_StockMovements_CompanyId_StoreId_ProductId_OnDate" ON "StockMovements" ("CompanyId", "StoreId", "ProductId", "OnDate");
+                """, cancellationToken);
+
+            await db.Database.ExecuteSqlRawAsync("""
+                CREATE TABLE IF NOT EXISTS "PurchaseInvoiceImportBatches" (
+                    "Id" uuid NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "StoreGroupId" uuid NOT NULL,
+                    "StoreId" uuid NOT NULL,
+                    "Status" text NOT NULL DEFAULT 'Uploaded',
+                    "SourceFileName" text NOT NULL DEFAULT '',
+                    "StoredFilePath" text NOT NULL DEFAULT '',
+                    "ContentType" text NOT NULL DEFAULT '',
+                    "FileSizeBytes" bigint NOT NULL DEFAULT 0,
+                    "Sha256Hash" text NOT NULL DEFAULT '',
+                    "OcrProvider" text NOT NULL DEFAULT '',
+                    "OcrStatus" text NOT NULL DEFAULT 'Pending',
+                    "RawTextPath" text NULL,
+                    "RawJsonPath" text NULL,
+                    "ConfidenceScore" numeric(18,2) NOT NULL DEFAULT 0,
+                    "ParserTemplate" text NULL,
+                    "ParserTemplateReason" text NULL,
+                    "ImportQaNotes" text NULL,
+                    "AcceptanceStatus" text NULL,
+                    "AcceptanceNotes" text NULL,
+                    "AcceptanceTestedAt" timestamp without time zone NULL,
+                    "AcceptanceTestedBy" text NULL,
+                    "CorrectionStatus" text NULL,
+                    "CorrectionNotes" text NULL,
+                    "CorrectionRequestedAt" timestamp without time zone NULL,
+                    "CorrectionRequestedBy" text NULL,
+                    "VendorId" uuid NULL,
+                    "VendorNameRaw" text NULL,
+                    "VendorNameFinal" text NULL,
+                    "VendorGstinRaw" text NULL,
+                    "VendorGstinFinal" text NULL,
+                    "VendorMobileNumber" text NULL,
+                    "VendorAddress" text NULL,
+                    "SupplierInvoiceNumber" text NULL,
+                    "SupplierInvoiceDate" timestamp without time zone NULL,
+                    "DueDate" timestamp without time zone NULL,
+                    "TaxableAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "CgstAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "SgstAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "IgstAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "FreightAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "DiscountAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "RoundOff" numeric(18,2) NOT NULL DEFAULT 0,
+                    "BillAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "PaidAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "PaymentMode" integer NOT NULL DEFAULT 0,
+                    "BankAccountId" uuid NULL,
+                    "DuplicatePurchaseInvoiceId" uuid NULL,
+                    "PostedPurchaseInvoiceId" uuid NULL,
+                    "ErrorMessage" text NULL,
+                    "PostedAt" timestamp without time zone NULL,
+                    "RejectedAt" timestamp without time zone NULL,
+                    "VerifiedBy" text NULL,
+                    "DuplicateOverrideReason" text NULL,
+                    "DuplicateOverrideBy" text NULL,
+                    "DuplicateOverrideAt" timestamp without time zone NULL,
+                    CONSTRAINT "PK_PurchaseInvoiceImportBatches" PRIMARY KEY ("Id")
+                );
+
+                CREATE TABLE IF NOT EXISTS "PurchaseInvoiceImportLines" (
+                    "Id" uuid NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "StoreGroupId" uuid NOT NULL,
+                    "StoreId" uuid NOT NULL,
+                    "BatchId" uuid NOT NULL,
+                    "LineNumber" integer NOT NULL DEFAULT 0,
+                    "ProductId" uuid NULL,
+                    "ProductNameRaw" text NULL,
+                    "ProductNameFinal" text NULL,
+                    "BarcodeRaw" text NULL,
+                    "BarcodeFinal" text NULL,
+                    "HsnCode" text NULL,
+                    "Unit" integer NOT NULL DEFAULT 2,
+                    "Quantity" numeric(18,2) NOT NULL DEFAULT 0,
+                    "Mrp" numeric(18,2) NOT NULL DEFAULT 0,
+                    "CostPrice" numeric(18,2) NOT NULL DEFAULT 0,
+                    "UnitDiscount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "LineDiscount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "TaxRate" numeric(18,2) NOT NULL DEFAULT 0,
+                    "GstPriceMode" text NOT NULL DEFAULT 'Inclusive',
+                    "TaxId" uuid NULL,
+                    "TaxableAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "TaxAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "CgstAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "SgstAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "IgstAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "LineTotal" numeric(18,2) NOT NULL DEFAULT 0,
+                    "ConfidenceScore" numeric(18,2) NOT NULL DEFAULT 0,
+                    "MatchStatus" text NOT NULL DEFAULT 'NeedsManualReview',
+                    "ReviewRequired" boolean NOT NULL DEFAULT true,
+                    "ReviewMessage" text NULL,
+                    "ProductCategoryId" uuid NULL,
+                    "ProductSubCategoryId" uuid NULL,
+                    "ProductType" integer NOT NULL DEFAULT 0,
+                    "ProductGroup" integer NOT NULL DEFAULT 0,
+                    "Ignored" boolean NOT NULL DEFAULT false,
+                    CONSTRAINT "PK_PurchaseInvoiceImportLines" PRIMARY KEY ("Id")
+                );
+
+                CREATE TABLE IF NOT EXISTS "PurchaseInvoiceImportFiles" (
+                    "Id" uuid NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "StoreGroupId" uuid NOT NULL,
+                    "StoreId" uuid NOT NULL,
+                    "BatchId" uuid NOT NULL,
+                    "FileKind" text NOT NULL DEFAULT 'OriginalUpload',
+                    "OriginalFileName" text NOT NULL DEFAULT '',
+                    "StoredFilePath" text NOT NULL DEFAULT '',
+                    "ContentType" text NOT NULL DEFAULT '',
+                    "FileSizeBytes" bigint NOT NULL DEFAULT 0,
+                    "Sha256Hash" text NOT NULL DEFAULT '',
+                    CONSTRAINT "PK_PurchaseInvoiceImportFiles" PRIMARY KEY ("Id")
+                );
+
+                CREATE TABLE IF NOT EXISTS "PurchaseInvoiceImportVendorProfiles" (
+                    "Id" uuid NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    "CompanyId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "StoreGroupId" uuid NOT NULL,
+                    "StoreId" uuid NOT NULL,
+                    "VendorId" uuid NULL,
+                    "VendorGstin" text NULL,
+                    "VendorName" text NULL,
+                    "IgnoredLinePatternsJson" text NULL,
+                    "ProductAliasesJson" text NULL,
+                    "LastLearnedAt" timestamp without time zone NULL,
+                    "SuccessfulDraftCount" integer NOT NULL DEFAULT 0,
+                    "LearningNotes" text NULL,
+                    "PreferredParserTemplate" text NULL,
+                    CONSTRAINT "PK_PurchaseInvoiceImportVendorProfiles" PRIMARY KEY ("Id")
+                );
+
+                ALTER TABLE IF EXISTS "PurchaseInvoiceImportBatches" ADD COLUMN IF NOT EXISTS "DuplicateOverrideReason" text NULL;
+                ALTER TABLE IF EXISTS "PurchaseInvoiceImportBatches" ADD COLUMN IF NOT EXISTS "DuplicateOverrideBy" text NULL;
+                ALTER TABLE IF EXISTS "PurchaseInvoiceImportBatches" ADD COLUMN IF NOT EXISTS "DuplicateOverrideAt" timestamp without time zone NULL;
+                ALTER TABLE IF EXISTS "PurchaseInvoiceImportLines" ADD COLUMN IF NOT EXISTS "GstPriceMode" text NOT NULL DEFAULT 'Inclusive';
+                ALTER TABLE IF EXISTS "PurchaseInvoiceImportBatches" ADD COLUMN IF NOT EXISTS "ParserTemplate" text NULL;
+                ALTER TABLE IF EXISTS "PurchaseInvoiceImportBatches" ADD COLUMN IF NOT EXISTS "ParserTemplateReason" text NULL;
+                ALTER TABLE IF EXISTS "PurchaseInvoiceImportBatches" ADD COLUMN IF NOT EXISTS "ImportQaNotes" text NULL;
+                ALTER TABLE IF EXISTS "PurchaseInvoiceImportBatches" ADD COLUMN IF NOT EXISTS "AcceptanceStatus" text NULL;
+                ALTER TABLE IF EXISTS "PurchaseInvoiceImportBatches" ADD COLUMN IF NOT EXISTS "AcceptanceNotes" text NULL;
+                ALTER TABLE IF EXISTS "PurchaseInvoiceImportBatches" ADD COLUMN IF NOT EXISTS "AcceptanceTestedAt" timestamp without time zone NULL;
+                ALTER TABLE IF EXISTS "PurchaseInvoiceImportBatches" ADD COLUMN IF NOT EXISTS "AcceptanceTestedBy" text NULL;
+                ALTER TABLE IF EXISTS "PurchaseInvoiceImportBatches" ADD COLUMN IF NOT EXISTS "CorrectionStatus" text NULL;
+                ALTER TABLE IF EXISTS "PurchaseInvoiceImportBatches" ADD COLUMN IF NOT EXISTS "CorrectionNotes" text NULL;
+                ALTER TABLE IF EXISTS "PurchaseInvoiceImportBatches" ADD COLUMN IF NOT EXISTS "CorrectionRequestedAt" timestamp without time zone NULL;
+                ALTER TABLE IF EXISTS "PurchaseInvoiceImportBatches" ADD COLUMN IF NOT EXISTS "CorrectionRequestedBy" text NULL;
+                ALTER TABLE IF EXISTS "PurchaseInvoiceImportVendorProfiles" ADD COLUMN IF NOT EXISTS "PreferredParserTemplate" text NULL;
+
+                CREATE INDEX IF NOT EXISTS "IX_PurchaseInvoiceImportBatches_CompanyId_StoreId_Status_CreatedAt" ON "PurchaseInvoiceImportBatches" ("CompanyId", "StoreId", "Status", "CreatedAt");
+                CREATE INDEX IF NOT EXISTS "IX_PurchaseInvoiceImportBatches_CompanyId_VendorGstinFinal_SupplierInvoiceNumber" ON "PurchaseInvoiceImportBatches" ("CompanyId", "VendorGstinFinal", "SupplierInvoiceNumber");
+                CREATE INDEX IF NOT EXISTS "IX_PurchaseInvoiceImportBatches_Sha256Hash" ON "PurchaseInvoiceImportBatches" ("Sha256Hash");
+                CREATE INDEX IF NOT EXISTS "IX_PurchaseInvoiceImportBatches_PostedPurchaseInvoiceId" ON "PurchaseInvoiceImportBatches" ("PostedPurchaseInvoiceId");
+                CREATE INDEX IF NOT EXISTS "IX_PurchaseInvoiceImportBatches_CompanyId_AcceptanceStatus" ON "PurchaseInvoiceImportBatches" ("CompanyId", "AcceptanceStatus");
+                CREATE INDEX IF NOT EXISTS "IX_PurchaseInvoiceImportBatches_CompanyId_CorrectionStatus" ON "PurchaseInvoiceImportBatches" ("CompanyId", "CorrectionStatus");
+                CREATE INDEX IF NOT EXISTS "IX_PurchaseInvoiceImportLines_CompanyId_BatchId_LineNumber" ON "PurchaseInvoiceImportLines" ("CompanyId", "BatchId", "LineNumber");
+                CREATE INDEX IF NOT EXISTS "IX_PurchaseInvoiceImportLines_CompanyId_ProductId" ON "PurchaseInvoiceImportLines" ("CompanyId", "ProductId");
+                CREATE INDEX IF NOT EXISTS "IX_PurchaseInvoiceImportFiles_CompanyId_BatchId_FileKind" ON "PurchaseInvoiceImportFiles" ("CompanyId", "BatchId", "FileKind");
+                CREATE INDEX IF NOT EXISTS "IX_PurchaseInvoiceImportFiles_Sha256Hash" ON "PurchaseInvoiceImportFiles" ("Sha256Hash");
+                CREATE INDEX IF NOT EXISTS "IX_PurchaseInvoiceImportVendorProfiles_CompanyId_VendorGstin" ON "PurchaseInvoiceImportVendorProfiles" ("CompanyId", "VendorGstin");
+                CREATE INDEX IF NOT EXISTS "IX_PurchaseInvoiceImportVendorProfiles_CompanyId_VendorId" ON "PurchaseInvoiceImportVendorProfiles" ("CompanyId", "VendorId");
                 """, cancellationToken);
 
             logger.LogInformation("Known database schema drift repair check completed.");

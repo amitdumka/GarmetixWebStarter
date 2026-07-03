@@ -1,0 +1,13 @@
+GarmetixWebStarter v4.12.51
+Stage 11D-136 API Publish Build Fix
+
+Fixes reported dotnet publish blockers after v4.12.50:
+- PostImportLiveValidationEndpoints: nullable StoreGroupId projected into non-null PurchaseRow safely.
+- BillingFinalQaEndpoints: renamed inner invoice check list to avoid CS0136 local-name conflict.
+- PayrollEndpoints: renamed per-employee issue list to avoid CS0136 local-name conflict.
+
+DotMatrix feature remains code-level complete from Stage 11D-134/135:
+- Separate Ubuntu DotMatrix Bridge service.
+- Epson LX-810 default printer queue.
+- Database print queue.
+- Live transaction print, edit/delete audit print, day opening/closing, full-width day summary.

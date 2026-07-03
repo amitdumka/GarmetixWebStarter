@@ -45,6 +45,25 @@ public sealed record CashDetailResponse(
     bool LinkedToDayOpening,
     bool LinkedToDayClosing);
 
+
+public sealed record CashDetailDayCheckResponse(
+    Guid StoreId,
+    DateTime OnDate,
+    decimal? OpeningBalance,
+    Guid? OpeningCashDetailId,
+    decimal? ClosingBalance,
+    Guid? ClosingCashDetailId,
+    decimal? PettyCashCashInHand,
+    decimal LatestCashAmount,
+    string? LatestCashSource,
+    DateTime? LatestCashUpdatedAt,
+    decimal? OpeningVariance,
+    decimal? ClosingVariance,
+    decimal? PettyCashVariance,
+    int CashDetailCount,
+    int ManualCashDetailCount,
+    IReadOnlyList<CashDetailResponse> Items);
+
 public sealed record CashDetailHistoryResponse(
     Guid StoreId,
     DateTime? From,
@@ -74,6 +93,7 @@ public static class CashDetailsEndpoints
 
         group.MapGet("/", ListAsync);
         group.MapGet("/history", HistoryAsync);
+        group.MapGet("/day-check", DayCheckAsync);
         group.MapGet("/{id:guid}", GetAsync);
         group.MapPost("/", CreateAsync);
         group.MapPut("/{id:guid}", UpdateAsync);
@@ -179,6 +199,59 @@ public static class CashDetailsEndpoints
             responses.Sum(item => item.NC5),
             responses.Sum(item => item.NC2),
             responses.Sum(item => item.NC1),
+            responses));
+    }
+
+    private static async Task<IResult> DayCheckAsync(
+        Guid storeId,
+        DateTime? onDate,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        if (!CanUseStore(context, storeId))
+        {
+            return Results.BadRequest(new { message = "Selected store is outside your access scope." });
+        }
+
+        var day = (onDate ?? DateTime.Today).Date;
+        var opening = await db.DayBegins.AsNoTracking()
+            .Where(item => item.StoreId == storeId && item.OnDate == day && !item.Deleted)
+            .OrderByDescending(item => item.UpdatedAt ?? item.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        var closing = await db.DayEnds.AsNoTracking()
+            .Where(item => item.StoreId == storeId && item.OnDate == day && !item.Deleted)
+            .OrderByDescending(item => item.UpdatedAt ?? item.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        var sheet = await db.PettyCashSheets.AsNoTracking()
+            .Where(item => item.StoreId == storeId && item.OnDate == day && !item.Deleted)
+            .OrderByDescending(item => item.UpdatedAt ?? item.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+        var cashRows = await db.CashDetails.AsNoTracking()
+            .Where(item => item.StoreId == storeId && item.OnDate == day && !item.Deleted)
+            .OrderByDescending(item => item.UpdatedAt ?? item.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var responses = await ToResponsesAsync(db, cashRows, cancellationToken);
+        var latest = responses.FirstOrDefault();
+        var latestAmount = latest?.Amount ?? 0m;
+
+        return Results.Ok(new CashDetailDayCheckResponse(
+            storeId,
+            day,
+            opening?.OpeningBalance,
+            opening is null || opening.CashDetailId == Guid.Empty ? null : opening.CashDetailId,
+            closing?.ClosingBalance,
+            closing is null || closing.CashDetailId == Guid.Empty ? null : closing.CashDetailId,
+            sheet?.CashInHand,
+            latestAmount,
+            latest?.Source,
+            latest?.UpdatedAt ?? latest?.CreatedAt,
+            opening is null || latest is null ? null : Math.Round(latestAmount - opening.OpeningBalance, 2),
+            closing is null || latest is null ? null : Math.Round(latestAmount - closing.ClosingBalance, 2),
+            sheet is null || latest is null ? null : Math.Round(latestAmount - sheet.CashInHand, 2),
+            responses.Count,
+            responses.Count(item => !item.LinkedToDayOpening && !item.LinkedToDayClosing),
             responses));
     }
 

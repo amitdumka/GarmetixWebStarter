@@ -48,7 +48,12 @@ const statusOptions = [
 
 const form = reactive<any>(emptyForm())
 
-const employeeOptions = computed(() => employees.value.map((employee) => ({
+const activeEmployees = computed(() => employees.value.filter((employee) => {
+  const status = String(employee?.employeeStatus || '').trim().toLowerCase()
+  return Boolean(employee?.working) && !['resigned', 'terminated', 'inactive'].includes(status)
+}))
+
+const employeeOptions = computed(() => activeEmployees.value.map((employee) => ({
   value: employee.id,
   label: `${employee.employeeCode || `EMP-${String(employee.empId || 0).padStart(4, '0')}`} - ${employee.firstName || ''} ${employee.lastName || ''}`.trim()
 })))

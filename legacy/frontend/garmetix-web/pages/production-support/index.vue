@@ -92,6 +92,7 @@ onMounted(refresh)
 </script>
 
 <template>
+  <AppShell title="Production Support">
   <div class="space-y-6">
     <div class="page-header">
       <div>
@@ -202,4 +203,5 @@ onMounted(refresh)
       </div>
     </UCard>
   </div>
+  </AppShell>
 </template>

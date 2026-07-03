@@ -1,0 +1,15 @@
+GarmetixWebStarter v4.12.49
+Stage 11D-134 DotMatrix Final Controls Closure
+
+This package closes the DotMatrix Daily Audit Journal feature for code-level delivery:
+
+- API remains a queue producer only; Ubuntu host bridge remains the printer worker.
+- Manual/day opening/day closing/test queue entries now use stable deduplication instead of timestamp-only keys.
+- Admin page now supports Pause, Resume, Reprint, Retry, Skip, Text preview, Reset stuck and status counters.
+- Exact-row reprint creates a new paper copy with a REPRINT COPY header and original queue reference.
+- Added Ubuntu bridge health/status script for service, CUPS, printer and recent logs.
+- README-dotmatrix documents production operation, printer change, queue controls, health checks and physical QA.
+
+Still required after deployment:
+- dotnet build / docker compose build on a machine with .NET SDK.
+- Real Epson LX-810 CUPS and 136-column alignment test.

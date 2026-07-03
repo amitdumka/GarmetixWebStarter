@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Reflection;
 
 namespace Garmetix.Api.AppInfo;
@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.11.17";
-    public const string Stage = "Stage 11D-2 Nuxt UI 4.9 Package Update";
-    public const string ReleaseName = "Stage 11D-2: Nuxt UI 4.9 Package Update";
-    public const string BuildDate = "2026-06-22";
-    public const string BuildCode = "GARMETIX-11D2-20260622-4117";
+    public const string Version = "4.12.69";
+    public const string Stage = "Stage 11D-154 Stock Operation Product Autocomplete";
+    public const string ReleaseName = "Stage 11D-154: Stock Operation Product Autocomplete";
+    public const string BuildDate = "2026-07-03";
+    public const string BuildCode = "GARMETIX-11D154-20260703-4269";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,7 +81,76 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
-        "Stage 11D-2 upgrades the Nuxt frontend package line to Nuxt UI 4.9.0 and refreshes the lockfile for the current web shell.",
+        "Stage 11D-154 replaces Stock Operations product dropdowns with searchable autocomplete pickers across Adjustment, Transfer, Physical Count and Write-off tabs, including barcode/store/stock/MRP selection hints.",
+        "Stage 11D-153 fixes the Financial Year Closeout metric DTO constructor mismatch, removes invalid StoreGroupId access from sale invoice closeout scope, and computes production go-live purchase paid evidence from PurchasePayment rows instead of a missing PurchaseInvoice.Paid field.",
+        "Stage 11D-150 adds Production Host Build QA plus Purchase Return Advanced Settlement acceptance with formal supplier return, exact ITC reversal, debit-note settlement, refund bank proof and accounting audit evidence.",
+        "Stage 11D-149 adds Final Owner Sign-off with Ready / Not Ready status, printable owner declaration, CSV sign-off evidence and signature-proof checklist.",
+        "Stage 11D-148 adds Production Go-Live Master Acceptance with master setup, sales, purchase, stock, accounting, bank, return, payroll, FY-lock and backup/restore gate checks.",
+        "Stage 11D-147 adds Owner Closeout Command Center with profit, stock valuation, customer dues, vendor payable, note control, bank settlement and journal-balance evidence in one CSV-ready dashboard.",
+        "Stage 11D-146 adds Stock Valuation Closure with negative-stock, zero-cost, movement-proof and stock-type valuation evidence before month/FY close.",
+        "Stage 11D-145 adds invoice-wise and item-wise Profit/Loss reporting using sale item revenue and linked stock-out cost evidence.",
+        "Stage 11D-144 adds Bank Reconciliation / Payment Settlement Closure with Complete / Not Complete status, CSV evidence export, non-cash settlement rows, payment-mode summaries, bank-account evidence, bank transaction journal checks and statement-line reconciliation warnings.",
+        "Stage 11D-143 adds a Financial Year Closeout Dashboard with Complete / Not Complete status, consolidated section matrix, GST/accounting checks, customer/vendor balances, payroll readiness, stock risk, FY lock evidence and CSV closeout export.",
+        "Stage 11D-141 adds Vendor Payable / Purchase Settlement Reconciliation with Complete / Not Complete status, CSV evidence export, vendor master bill/paid checks, invoice status/payment-row checks, debit-note settlement checks, voucher/journal evidence and non-cash bank mapping validation.",
+        "Stage 11D-140 adds Customer Dues / Credit Balance Reconciliation with Complete / Not Complete status, CSV evidence export, customer-wise due/advance/credit-note checks, non-cash advance bank mapping checks, closeout checklist and next-module handoff guidance.",
+        "Stage 11D-139 adds a public Goods Return & Exchange Policy page, links it from digital invoice pages, and prints the policy URL/summary on invoice PDFs with no refund and credit-note validity guidance.",
+        "Stage 11D-138 wraps acceptance, GST, backup and maintenance pages inside the main AppShell, keeps navigation/sidebar/header visible, carries the LX-310 CRLF bridge hotfix, and hardens Attendance Kiosk Monitor APIs against older live database schemas.",
+        "Stage 11D-129 adds final Print/PDF closure status, CSV evidence export, core sale/purchase sample blocking, live-printer operator rules, closeout checklist and next-module handoff guidance.",
+        "Stage 11D-128 adds Day Book CSV evidence export, print/save-PDF view, export closure card, 5,000-row export scope and stronger source-opening return hints with source ID/type/date anchors.",
+        "Stage 11D-127 adds Accounting/GST post-import live validation with Complete / Not Complete status, CSV evidence, GST/payment summaries, journal checks, stock movement checks, purchase-import proof acceptance checks, closeout checklist and next-module handoff guidance.",
+        "Stage 11D-126 adds Attendance/Payroll real-month validation with Complete / Not Complete status, blocking/warning issue list, employee-wise evidence table, CSV export, final closeout checklist, known limitations and next outside-module handoff guidance.",
+        "Stage 11D-124 closes Purchase Import with a Complete / Not Complete status, final closeout checklist, visible known limitations and next outside-module handoff guidance.",
+        "Stage 11D-123 adds purchase import correction/revision guidance, parser QA summaries, and backup/restore proof checklists for safer real-invoice acceptance.",
+        "Stage 11D-121 makes sale invoice barcode visibility mandatory in receipt view and print/PDF output, and adds wrapped/collapsible invoice remarks in the sale invoice list.",
+        "Stage 11D-118 adds public Privacy Policy and Terms of Usage pages for Meta/WhatsApp verification, fixes the /privcy spelling with a redirect to /privacy, and exposes both pages without login.",
+        "Stage 11D-117 keeps the Meta Cloud API fixes and aligns invoice WhatsApp sends to the 4-variable Aadwika approved template: customer, invoice number, amount and public bill URL.",
+        "Stage 11D-114 polishes Purchase Inward final QA with inward-date based register filtering, clearer inward/entry date columns, wider purchase receipt view, purchase deep-link aliases and Day Book-aware return from new/revised inward.",
+        "Stage 11D-113 completes vendor payment final QA polish with view, edit, delete, direct payment deep-link opening and Day Book vendor-payment source links routed to the Vendor Payments page.",
+        "Stage 11D-112 adds Back to Day Book return navigation on sale, purchase, voucher, cash voucher, vendor payment and accounting source pages while preserving the last Day Book date/type/search/page state.",
+        "Stage 11D-108 restores the missing Day Book plus/New button with quick-create actions for sale, purchase, vendor payment, voucher and cash voucher, and fixes route/menu validation hygiene.",
+        "Stage 11D-107 adds source page deep links from Day Book so sale invoice, purchase inward, vendor payment, voucher and cash voucher rows open their exact detail/print drawer on the original page.",
+        "Stage 11D-104 adds admin purchase/vendor payment reconciliation endpoints to report and repair vendor paid totals, purchase invoice payment status/mode, and stale voucher/accounting artifacts after vendor payment edit/delete.",
+        "Stage 11D-103 hardens vendor payment edit/delete by recalculating vendor paid totals and purchase invoice status from active payment rows, clearing stale bank artifacts when payment mode changes to cash, and allowing payment reference/remark correction.",
+        "Stage 11D-100 makes purchase inward date user-controlled on new/edit purchase inward and posts stock ledger/purchase payment dates from the selected inward date.",
+        "Stage 11D-99 fixes historical Vyapar sale import stock posting by checking ledger availability on the sale date and creating controlled bridge stock before stock-out when enabled.",
+        "Stage 11D-96 enforces exact bank/POS/UPI column-to-bank-account mapping for Vyapar sale import so each non-cash receipt posts to the correct Garmetix bank ledger, with default bank kept only as fallback for old files.",
+        "Stage 11D-94 fixes deployed database drift by ensuring SalesInvoices.Remarks exists at startup and adds runtime repair scripts for sale list, replacement approval and Vyapar imported invoice endpoints.",
+        "Stage 11D-93 adds Vyapar import batch history, admin-only batch undo/reversal, bulk barcode mapping upload, mismatch export workflow, and final approval before database posting.",
+        "Stage 11D-91 adds Vyapar Sale Import runtime validation scripts, database safety checks, deployment smoke checks, import verification guidance and explicit next-stage tracking for batch undo and barcode mapping upload.",
+        "Stage 11D-88 adds Vyapar Sale Import for Sale Report Excel files with backend preview, barcode/stock matching, missing-product review, optional product/stock bridge creation and confirm-to-database posting.",
+        "Stage 11D-87 adds Product Master size-wise filtering, detected size display, and server-side size filtering for imported/split stock items.",
+        "Stage 11D-83 adds Purchase Import Acceptance: final QA summary, posting report endpoint/page, readiness checklist, status-wise import health, protected proof storage visibility and recent batch diagnostics before moving outside purchase import.",
+        "Stage 11D-82 adds Cash Details day reconciliation, CSV export, copy-as-verification, denomination breakdown and variance checks against Day Opening/Closing and petty cash sheet cash-in-hand.",
+        "Stage 11D-81 links posted supplier invoice imports and purchase inwards directly to price-tag printing, supports route-based auto-loading into 50×30/50×25 tag pages, and adds reprint tag actions from purchase invoice list/receipt.",
+        "Stage 11D-80 adds supplier invoice import storage summary: protected posted proof bytes, unposted OCR/proof storage, status-wise draft counts, and refreshable storage visibility on the import page.",
+        "Stage 11D-77 adds purchase import posting QA: stricter gross/discount/taxable/grand-total reconciliation, size split templates, bulk similar-product scanning, and failed/rejected scanned-history cleanup while protecting posted proofs.",
+        "Stage 11D-76 restores the missing column product-name helper used by the Tally/S.K APPARELS discount parser so API publish succeeds while keeping line-discount reconciliation intact.",
+        "Stage 11D-70 adds supplier invoice review tools: draft health summary, bulk default copying, MRP fill, ignored-line restore, and duplicate barcode blocking before posting.",
+        "Stage 11D-67 improves supplier invoice recognition with item-table detection, header/footer filtering, amount plausibility checks, and vendor-wise correction learning.",
+        "Stage 11D-63 adds optional local OCR helpers for supplier invoice PDFs/images, stronger parser heuristics for HSN/qty/rate/GST/line totals, extracted text download and draft reparse usability.",
+        "Stage 11D-62 improves supplier invoice import with GST inclusive/exclusive review, product matching, duplicate override audit and proof backup retention.",
+        "Stage 11D-60 restores missing campaign WhatsApp helper methods so API publish succeeds after the Digital Bill permission and UI polish slice.",
+        "Stage 11D-58 adds approved WhatsApp marketing-template campaign sending, production readiness checks, and Digital Bill CRM final acceptance page.",
+        "Stage 11D-53 fixes Nuxt UI SelectItem runtime crashes by replacing empty-string store filter options with safe sentinel values in Digital Bill Ad Banners and Analytics pages.",
+        "Stage 11D-52 adds a Digital Bill Activity drawer with customer opens, PDF downloads, review/social clicks, banner clicks, feedback submissions and WhatsApp delivery/read history, and fixes the v4.11.66 Digital Bill generate endpoint signature typo.",
+        "Stage 11D-50 fixes Digital Bill manual generation so admin users can generate customer invoice links from either the sale invoice GUID or the visible invoice number such as S-20260625-0001.",
+        "Stage 11D-48 adds WhatsApp provider settings, ManualOnly/MetaCloudApi dispatch, auto-send after sale finalization, resend/retry logs, and public DigitalBills__PublicBaseUrl support.",
+        "Stage 11D-47 adds Digital Bill CRM MVP with secure public invoice links, PDF download, review/social settings, private feedback, public noindex invoice page, admin Digital Bills register, permissions, schema repair and roadmap docs.",
+        "Stage 11D-46 adds a runtime validation runner for Docker build/up, API health, app-info version, web reachability, DB connectivity, sale payment mismatch checks, mixed-payment allocation review, invoice replacement readiness and Royalwood import validation hooks.",
+        "Stage 11D-46 keeps v4.11.60 functional fixes intact and packages final deployment checks so post-deploy issues can be caught before store use.",
+        "Stage 11D-43 fixes the API publish failure in InvoiceReplacementEndpoints by removing the invalid PurchaseInvoice.PaidAmount reference and keeping purchase replacement approval audit snapshots compatible with the current domain model.",
+        "Invoice replacement pending sales now uses a safe fallback party name to remove the nullable PartyName warning during publish.",
+        "Stage 11D-42 stores final PDF/print acceptance evidence in AuditLogEntries and expands Print Final Acceptance into sale/purchase A4/A5, large invoice, amount box, footer, signature and page-summary checks.",
+        "Print Final Acceptance now has backend evidence history so final handover proof survives browser/device changes.",
+        "Stage 11D-41 adds invoice replacement approval so revised sale/purchase invoices are linked to originals and old invoices are cancelled/reversed only after owner/admin approval.",
+        "Invoice Replacement Approvals now shows pending revised invoices and an audit ledger for requested, approved, completed and failed replacement events.",
+        "Stage 11D-40 hardens payroll finalization with one backend transaction for review approval, salary draft preparation, payslip generation, optional salary payment posting, payroll adjustment recovery and month locking.",
+        "Stage 11D-38 adds multi-select bulk delete to Monthly Attendance with selected employee/date deletion, linked punch cleanup and locked-month protection.",
+        "Stage 11D-37 makes backup files portable and visible after redeploy by scanning backup folders recursively and naming backups with company, app version, IST date/time and sequence number.",
+        "Stage 11D-29 applies GSTIN state-code tax splitting for purchase and sale invoices and changes sales invoice numbering to StoreCode/YYYYMM/INV/series.",
+        "Stage 11D-16 adds multi-page Tally-style A4/A5 purchase and sales invoice PDFs with page summary and final grand totals.",
+        "Stage 11D-11 adds housekeeping double-shift handling, admin/owner timing correction for check-in/break/check-out, shift CRUD protection, restricted shift-rule management, and duplicate punch no-error handling.",
+        "Stage 11D-3 changes the HR Attendance tab to month-scoped server-side pagination so full attendance history imports do not slow the HR page.",
         "Stage 11D-1 guards startup migrations when an old Docker/Postgres volume already has Garmetix tables but the fresh Initial migration history marker is missing.",
         "Stage 11D resets EF migrations to one current Initial baseline and adds app super-admin, Indian accounting defaults and automatic Manager salesman defaults.",
         "Stage 11C-2 adds face/liveness simulator and local/private external bridge proof checks with Message Logs and raw face payload blocking.",

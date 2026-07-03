@@ -49,13 +49,15 @@ const emit = defineEmits<{
       <USkeleton v-for="row in 6" :key="row" class="h-11 w-full" />
     </div>
 
-    <UiCrudEmptyState
-      v-else-if="empty"
-      :title="emptyTitle"
-      :description="emptyDescription"
-      :icon="emptyIcon"
-    />
+    <template v-else>
+      <slot />
 
-    <slot v-else />
+      <UiCrudEmptyState
+        v-if="empty"
+        :title="emptyTitle"
+        :description="emptyDescription"
+        :icon="emptyIcon"
+      />
+    </template>
   </UCard>
 </template>

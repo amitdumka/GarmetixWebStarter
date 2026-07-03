@@ -23,6 +23,7 @@ onMounted(load)
 </script>
 
 <template>
+  <AppShell title="Audit Trail Final Acceptance">
   <UContainer class="space-y-6 py-6">
     <div class="flex items-center justify-between gap-3">
       <div>
@@ -57,4 +58,5 @@ onMounted(load)
       </div>
     </UCard>
   </UContainer>
+  </AppShell>
 </template>

@@ -4,6 +4,7 @@ import type { TableColumn } from '@nuxt/ui'
 
 const api = useGarmetixApi()
 const router = useRouter()
+const route = useRoute()
 const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
@@ -12,6 +13,8 @@ const documentPrint = useServerDocumentPrint()
 const config = useRuntimeConfig()
 const isAuthenticated = auth.isAuthenticated
 const canDelete = auth.canDelete
+const canEditInvoice = computed(() => auth.canSeeAdmin.value || ['PowerUser', 'Accountant', 'RemoteAccountant'].some((role) => String(auth.user.value?.role || auth.user.value?.userType || '').toLowerCase() === role.toLowerCase()))
+const canAdminHardDelete = auth.canSeeAdmin
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
@@ -26,9 +29,11 @@ const invoices = ref<any[]>([])
 const bankAccounts = ref<any[]>([])
 const selectedReceipt = ref<any | null>(null)
 const pendingCancel = ref<any | null>(null)
+const pendingEditInvoice = ref<any | null>(null)
 const loading = ref(false)
 const saving = ref(false)
 const cancelling = ref(false)
+const hardDeleting = ref(false)
 const returnOpen = ref(false)
 const returning = ref(false)
 const pendingReturnInvoice = ref<any | null>(null)
@@ -45,14 +50,33 @@ const saleGstinChecking = ref(false)
 const selectedCustomerProfile = ref<any | null>(null)
 const loadingCustomerProfile = ref(false)
 const search = ref('')
+const expandedRemarkInvoiceIds = ref<Record<string, boolean>>({})
 const invoiceStatusFilter = ref('all')
+const now = new Date()
+const saleDatePreset = ref('today')
+const invoiceMonth = ref(now.getMonth() + 1)
+const invoiceYear = ref(now.getFullYear())
+const customFromDate = ref(todayInputDate())
+const customToDate = ref(todayInputDate())
+const invoicePage = ref(1)
+const invoicePageSize = ref(50)
+const invoiceTotal = ref(0)
+const invoiceServerSummary = reactive({ billAmount: 0, paidAmount: 0, balanceAmount: 0, cancelled: 0 })
 const loadError = ref('')
 const saleOpen = ref(false)
+const editInvoiceOpen = ref(false)
+const editingInvoice = ref(false)
 const cancelOpen = ref(false)
 const invoicePrintFormat = ref<'a4' | 'a5' | 'thermal-2' | 'thermal-3'>('a4')
 const invoiceCopyType = ref<'customer' | 'office' | 'duplicate'>('customer')
 const invoiceReprint = ref(false)
 const invoiceSignatures = ref(true)
+const editInvoiceForm = reactive<any>({ invoiceNumber: '', onDate: '', customerName: '', customerMobileNumber: '', customerGstin: '', salesmanId: null, remarks: '' })
+
+const restoringBillingState = ref(false)
+const lastOpenedBillingDeepLink = ref('')
+const BILLING_STATE_KEY = 'garmetix.billing.invoiceRegisterState.v1'
+const fromDayBook = computed(() => route.query.fromDayBook === '1')
 
 const paymentModeValue = {
   cash: 0,
@@ -97,6 +121,43 @@ const invoiceCopyOptions = [
   { value: 'duplicate', label: 'Duplicate copy' }
 ]
 
+const saleDatePresetOptions = [
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'month', label: 'This month' },
+  { value: 'last-month', label: 'Last month' },
+  { value: 'year', label: 'This year' },
+  { value: 'month-year', label: 'Month-year' },
+  { value: 'custom', label: 'Custom' }
+]
+
+const monthOptions = [
+  { value: 1, label: 'January' },
+  { value: 2, label: 'February' },
+  { value: 3, label: 'March' },
+  { value: 4, label: 'April' },
+  { value: 5, label: 'May' },
+  { value: 6, label: 'June' },
+  { value: 7, label: 'July' },
+  { value: 8, label: 'August' },
+  { value: 9, label: 'September' },
+  { value: 10, label: 'October' },
+  { value: 11, label: 'November' },
+  { value: 12, label: 'December' }
+]
+
+const yearOptions = computed(() => {
+  const current = new Date().getFullYear()
+  return Array.from({ length: 7 }, (_, index) => current - index).map((value) => ({ value, label: String(value) }))
+})
+
+const pageSizeOptions = [
+  { value: 25, label: '25 / page' },
+  { value: 50, label: '50 / page' },
+  { value: 100, label: '100 / page' },
+  { value: 200, label: '200 / page' }
+]
+
 const saleForm = reactive<any>(emptySaleForm())
 const returnForm = reactive<any>(emptyReturnForm())
 const exchangeForm = reactive<any>(emptyExchangeForm())
@@ -113,7 +174,7 @@ const receiptOpen = computed({
 })
 
 const productOptions = computed(() => [
-  { value: '', label: 'Select product' },
+  { value: '__select__', label: 'Select product' },
   ...products.value.map((product) => ({
     value: product.id,
     label: `${product.name || 'Product'} - ${product.barcode || 'No barcode'}`
@@ -182,29 +243,12 @@ const exchangeReturnTotal = computed(() => exchangeReturnLines.value.reduce((sum
 const exchangeNewTotal = computed(() => exchangeCart.value.reduce((sum, item) => sum + lineTotal(item), 0))
 const exchangeNetDue = computed(() => Math.max(exchangeNewTotal.value - exchangeReturnTotal.value, 0))
 
-const invoiceSummary = computed(() => {
-  return invoices.value.reduce((summary, invoice) => {
-    const billAmount = Number(invoice.billAmount || 0)
-    const paidAmount = Number(invoice.paidAmount || 0)
-    summary.billAmount += billAmount
-    summary.paidAmount += paidAmount
-    summary.balanceAmount += Number(invoice.balanceAmount || (billAmount - paidAmount))
-    if (invoice.invoiceStatus === 'Cancelled') {
-      summary.cancelled += 1
-    }
-    return summary
-  }, {
-    billAmount: 0,
-    paidAmount: 0,
-    balanceAmount: 0,
-    cancelled: 0
-  })
-})
+const invoiceSummary = computed(() => invoiceServerSummary)
 
 const metrics = computed(() => [
   {
     label: 'Invoices',
-    value: invoices.value.length,
+    value: invoiceTotal.value,
     meta: `${invoiceSummary.value.cancelled} cancelled`,
     icon: 'i-lucide-receipt-indian-rupee',
     color: 'primary'
@@ -240,24 +284,184 @@ const tableRows = computed(() => invoices.value.map((invoice) => ({
   billAmount: money(Number(invoice.billAmount || 0)),
   paidAmount: money(Number(invoice.paidAmount || 0)),
   balanceAmount: money(Number(invoice.balanceAmount || (Number(invoice.billAmount || 0) - Number(invoice.paidAmount || 0)))),
-  invoiceStatus: invoice.invoiceStatus || 'Saved',
+  invoiceStatus: invoice.invoiceStatus || 'Pending',
+  digitalBillStatus: invoice.digitalBillPublicPath
+    ? `${invoice.digitalBillWhatsAppStatus || 'Link Ready'}${invoice.digitalBillIsActive === false ? ' / Disabled' : ''}`
+    : 'Not Generated',
+  remarks: invoice.remarks || '',
   raw: invoice
 })))
 
-const filteredRows = computed(() => {
-  const term = search.value.trim().toLowerCase()
-  return tableRows.value.filter((row) => {
-    const matchesStatus = invoiceStatusFilter.value === 'all'
-      || row.invoiceStatus.toLowerCase() === invoiceStatusFilter.value
-    const matchesSearch = !term || JSON.stringify(row).toLowerCase().includes(term)
-    return matchesStatus && matchesSearch
-  })
+const filteredRows = computed(() => tableRows.value)
+const invoicePageFrom = computed(() => invoiceTotal.value === 0 ? 0 : ((invoicePage.value - 1) * invoicePageSize.value) + 1)
+const invoicePageTo = computed(() => Math.min(invoicePage.value * invoicePageSize.value, invoiceTotal.value))
+const invoiceTotalPages = computed(() => Math.max(1, Math.ceil(invoiceTotal.value / invoicePageSize.value)))
+const saleDateRangeLabel = computed(() => {
+  if (saleDatePreset.value === 'month-year') {
+    const monthName = monthOptions.find((item) => item.value === invoiceMonth.value)?.label || String(invoiceMonth.value)
+    return `${monthName} ${invoiceYear.value}`
+  }
+  if (saleDatePreset.value === 'custom') {
+    return `${customFromDate.value || 'From'} to ${customToDate.value || 'To'}`
+  }
+  return saleDatePresetOptions.find((item) => item.value === saleDatePreset.value)?.label || 'Today'
 })
+
+const receiptSummaryRows = computed(() => {
+  const receipt = selectedReceipt.value
+  if (!receipt) return []
+  return [
+    { label: 'Invoice ID', value: receipt.id, mono: true },
+    { label: 'Invoice No.', value: receipt.invoiceNumber || '-' },
+    { label: 'Date', value: formatDateTime(receipt.onDate) },
+    { label: 'Customer', value: receipt.customerName || 'Walk-in Customer' },
+    { label: 'Mobile', value: receipt.customerMobileNumber || '-' },
+    { label: 'Bill amount', value: money(Number(receipt.billAmount || 0)) },
+    { label: 'Paid', value: money(Number(receipt.paidAmount || 0)) },
+    { label: 'Balance', value: money(Number(receipt.balanceAmount || 0)) },
+    { label: 'Remarks', value: receipt.remarks || '-' }
+  ]
+})
+
+const selectedReceiptPaymentRows = computed(() => (selectedReceipt.value?.payments || []).map((payment: any) => ({
+  id: payment.id || '',
+  onDate: formatDateTime(payment.onDate),
+  paymentMode: paymentModeLabel(payment.paymentMode),
+  amount: money(Number(payment.amount || 0)),
+  reference: payment.referenceNumber || payment.gatewayReference || '-',
+  status: payment.settlementStatus || payment.adjustmentSourceType || '-'
+})))
+
+function saleItemBarcode(item: any) {
+  const barcode = String(item?.barcode || '').trim()
+  return barcode || 'Barcode missing'
+}
+
+function saleItemDisplayName(item: any) {
+  return String(item?.productName || item?.name || item?.barcode || 'Product').trim() || 'Product'
+}
+
+function shortRemark(value: unknown, length = 10) {
+  const text = String(value || '').trim()
+  if (!text) return '-'
+  return text.length <= length ? text : `${text.slice(0, length)}...`
+}
+
+function isRemarkExpanded(invoiceId: string) {
+  return expandedRemarkInvoiceIds.value[invoiceId] === true
+}
+
+function toggleRemark(invoiceId: string) {
+  expandedRemarkInvoiceIds.value = {
+    ...expandedRemarkInvoiceIds.value,
+    [invoiceId]: !expandedRemarkInvoiceIds.value[invoiceId]
+  }
+}
+
+
+function isValidOptionValue(value: unknown, options: { value: string | number }[]) {
+  return options.some((option) => option.value === value)
+}
+
+function isInputDate(value: unknown): value is string {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+}
+
+function safePositiveInt(value: unknown, fallback: number) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback
+}
+
+function currentBillingState() {
+  return {
+    search: search.value,
+    invoiceStatusFilter: invoiceStatusFilter.value,
+    saleDatePreset: saleDatePreset.value,
+    invoiceMonth: invoiceMonth.value,
+    invoiceYear: invoiceYear.value,
+    customFromDate: customFromDate.value,
+    customToDate: customToDate.value,
+    invoicePage: invoicePage.value,
+    invoicePageSize: invoicePageSize.value,
+    savedAt: new Date().toISOString()
+  }
+}
+
+function persistBillingState() {
+  if (!import.meta.client || restoringBillingState.value) return
+  sessionStorage.setItem(BILLING_STATE_KEY, JSON.stringify(currentBillingState()))
+}
+
+function restoreBillingState() {
+  if (!import.meta.client) return
+  const raw = sessionStorage.getItem(BILLING_STATE_KEY)
+  if (!raw) return
+  try {
+    const stored = JSON.parse(raw)
+    restoringBillingState.value = true
+    search.value = typeof stored.search === 'string' ? stored.search : ''
+    invoiceStatusFilter.value = isValidOptionValue(stored.invoiceStatusFilter, [
+      { value: 'all' }, { value: 'pending' }, { value: 'paid' }, { value: 'partiallyPaid' },
+      { value: 'cancelled' }, { value: 'refunded' }, { value: 'partiallyRefunded' }, { value: 'overdue' }, { value: 'draft' }
+    ]) ? stored.invoiceStatusFilter : 'all'
+    saleDatePreset.value = isValidOptionValue(stored.saleDatePreset, saleDatePresetOptions) ? stored.saleDatePreset : 'today'
+    invoiceMonth.value = isValidOptionValue(stored.invoiceMonth, monthOptions) ? Number(stored.invoiceMonth) : now.getMonth() + 1
+    invoiceYear.value = isValidOptionValue(stored.invoiceYear, yearOptions.value) ? Number(stored.invoiceYear) : now.getFullYear()
+    if (isInputDate(stored.customFromDate)) customFromDate.value = stored.customFromDate
+    if (isInputDate(stored.customToDate)) customToDate.value = stored.customToDate
+    invoicePage.value = safePositiveInt(stored.invoicePage, 1)
+    invoicePageSize.value = isValidOptionValue(stored.invoicePageSize, pageSizeOptions) ? Number(stored.invoicePageSize) : 50
+  } catch {
+    sessionStorage.removeItem(BILLING_STATE_KEY)
+  } finally {
+    nextTick(() => { restoringBillingState.value = false })
+  }
+}
+
+function sourceWithDayBookReturnHint(source: string) {
+  if (!fromDayBook.value || !source) return source
+  const [pathAndQuery, hash = ''] = source.split('#')
+  const [path, rawQuery = ''] = pathAndQuery.split('?')
+  const params = new URLSearchParams(rawQuery)
+  params.set('fromDayBook', '1')
+  const query = params.toString()
+  return `${path}${query ? `?${query}` : ''}${hash ? `#${hash}` : ''}`
+}
 
 const columns: TableColumn<any>[] = [
   { accessorKey: 'invoiceNumber', header: 'Invoice' },
   { accessorKey: 'onDate', header: 'Date' },
   { accessorKey: 'customerName', header: 'Customer' },
+  {
+    accessorKey: 'remarks',
+    header: 'Remarks',
+    cell: ({ row }) => {
+      const invoice = row.original.raw
+      const text = String(row.original.remarks || '').trim()
+      if (!text) {
+        return h('span', { class: 'text-muted' }, '-')
+      }
+      const expanded = isRemarkExpanded(invoice.id)
+      const displayText = expanded ? text : shortRemark(text, 10)
+      const children = [
+        h('span', { class: 'invoice-remark-text' }, displayText)
+      ]
+      if (text.length > 10) {
+        children.push(h(UButton, {
+          color: 'neutral',
+          variant: 'link',
+          size: 'xs',
+          class: 'invoice-remark-toggle',
+          label: expanded ? 'Hide' : 'Full',
+          onClick: (event: Event) => {
+            event.stopPropagation()
+            toggleRemark(invoice.id)
+          }
+        }))
+      }
+      return h('div', { class: ['invoice-remark-cell', expanded ? 'is-expanded' : ''] }, children)
+    }
+  },
   { accessorKey: 'billAmount', header: 'Amount' },
   { accessorKey: 'paidAmount', header: 'Paid' },
   { accessorKey: 'balanceAmount', header: 'Balance' },
@@ -268,6 +472,17 @@ const columns: TableColumn<any>[] = [
       color: row.original.invoiceStatus === 'Cancelled' ? 'error' : 'success',
       variant: 'subtle'
     }, () => row.original.invoiceStatus)
+  },
+  {
+    accessorKey: 'digitalBillStatus',
+    header: 'Digital Bill',
+    cell: ({ row }) => {
+      const invoice = row.original.raw
+      const color = invoice.digitalBillPublicPath
+        ? (invoice.digitalBillIsActive === false ? 'warning' : 'success')
+        : 'neutral'
+      return h(UBadge, { color, variant: 'subtle' }, () => row.original.digitalBillStatus)
+    }
   },
   {
     id: 'actions',
@@ -283,6 +498,63 @@ const columns: TableColumn<any>[] = [
           onClick: () => viewReceipt(invoice.id)
         })
       ]
+
+      if (invoice.digitalBillPublicPath) {
+        actions.push(h(UButton, {
+          color: 'success',
+          variant: 'ghost',
+          icon: 'i-lucide-copy',
+          label: 'Copy Bill',
+          onClick: () => copyDigitalBillLink(invoice)
+        }))
+        actions.push(h(UButton, {
+          color: 'primary',
+          variant: 'ghost',
+          icon: 'i-lucide-external-link',
+          label: 'Open Bill',
+          to: invoice.digitalBillPublicPath,
+          target: '_blank'
+        }))
+        actions.push(h(UButton, {
+          color: 'info',
+          variant: 'ghost',
+          icon: 'i-lucide-activity',
+          label: 'Activity',
+          onClick: () => openDigitalBillActivity(invoice)
+        }))
+        actions.push(h(UButton, {
+          color: 'primary',
+          variant: 'ghost',
+          icon: 'i-lucide-send',
+          label: 'WhatsApp',
+          onClick: () => sendInvoiceDigitalBillWhatsApp(invoice)
+        }))
+      } else if (invoice.invoiceStatus !== 'Cancelled') {
+        actions.push(h(UButton, {
+          color: 'success',
+          variant: 'ghost',
+          icon: 'i-lucide-link',
+          label: 'Digital Bill',
+          onClick: () => generateInvoiceDigitalBill(invoice)
+        }))
+      }
+
+      if (canEditInvoice.value && invoice.invoiceStatus !== 'Cancelled') {
+        actions.push(h(UButton, {
+          color: 'warning',
+          variant: 'ghost',
+          icon: 'i-lucide-pencil',
+          label: 'Edit',
+          onClick: () => startEditInvoice(invoice)
+        }))
+        actions.push(h(UButton, {
+          color: 'primary',
+          variant: 'ghost',
+          icon: 'i-lucide-copy-plus',
+          label: 'Revise',
+          onClick: () => startRevisedSale(invoice)
+        }))
+      }
 
       if (invoice.invoiceStatus !== 'Cancelled' && invoice.invoiceStatus !== 'Refunded' && !String(invoice.invoiceNumber || '').startsWith('SR-')) {
         actions.push(h(UButton, {
@@ -305,9 +577,20 @@ const columns: TableColumn<any>[] = [
         actions.push(h(UButton, {
           color: 'error',
           variant: 'ghost',
-          icon: 'i-lucide-ban',
-          label: 'Cancel',
+          icon: 'i-lucide-trash-2',
+          label: 'Delete',
           onClick: () => askCancel(invoice)
+        }))
+      }
+
+      if (canAdminHardDelete.value && invoice.invoiceStatus === 'Cancelled') {
+        actions.push(h(UButton, {
+          color: 'error',
+          variant: 'soft',
+          icon: 'i-lucide-shredder',
+          label: 'Hard Delete',
+          disabled: hardDeleting.value,
+          onClick: () => hardDeleteInvoice(invoice)
         }))
       }
 
@@ -380,6 +663,7 @@ async function refresh() {
     return
   }
 
+  persistBillingState()
   loading.value = true
   loadError.value = ''
   try {
@@ -390,11 +674,30 @@ async function refresh() {
     if (selectedCompanyId) billingOptionQuery.set('companyId', selectedCompanyId)
     if (selectedStoreId) billingOptionQuery.set('storeId', selectedStoreId)
 
-    const [companyRows, storeRows, productRows, invoiceRows, bankAccountRows, billingOptions] = await Promise.all([
+    const invoiceQuery = new URLSearchParams({
+      datePreset: saleDatePreset.value,
+      page: String(invoicePage.value),
+      pageSize: String(invoicePageSize.value)
+    })
+    if (saleDatePreset.value === 'month-year') {
+      invoiceQuery.set('month', String(invoiceMonth.value))
+      invoiceQuery.set('year', String(invoiceYear.value))
+    }
+    if (saleDatePreset.value === 'year') {
+      invoiceQuery.set('year', String(invoiceYear.value))
+    }
+    if (saleDatePreset.value === 'custom') {
+      if (customFromDate.value) invoiceQuery.set('from', customFromDate.value)
+      if (customToDate.value) invoiceQuery.set('to', customToDate.value)
+    }
+    if (search.value.trim()) invoiceQuery.set('q', search.value.trim())
+    if (invoiceStatusFilter.value !== 'all') invoiceQuery.set('status', invoiceStatusFilter.value)
+
+    const [companyRows, storeRows, productRows, invoicePageRows, bankAccountRows, billingOptions] = await Promise.all([
       api.list<any>('companies'),
       api.list<any>('stores'),
       api.list<any>('products'),
-      api.get<any[]>('billing/sales/recent?take=100'),
+      api.get<any>(`billing/sales?${invoiceQuery.toString()}`),
       api.list<any>('bank-accounts'),
       api.get<any>(`billing/options?${billingOptionQuery.toString()}`)
     ])
@@ -403,7 +706,12 @@ async function refresh() {
     stores.value = storeRows
     products.value = productRows
     productLookup.saveCache(productRows.map((product: any) => ({ productId: product.id, name: product.name, barcode: product.barcode, availableQty: product.currentStock || 0, mrp: product.mrp || 0, taxRate: product.taxRate || 0, taxType: String(product.taxType || 'GST'), unit: String(product.unit || 'Pcs'), category: product.productCategoryName || '', subCategory: product.productSubCategoryName || '' })))
-    invoices.value = invoiceRows
+    invoices.value = invoicePageRows?.items || []
+    invoiceTotal.value = Number(invoicePageRows?.total || 0)
+    invoiceServerSummary.billAmount = Number(invoicePageRows?.billAmount || 0)
+    invoiceServerSummary.paidAmount = Number(invoicePageRows?.paidAmount || 0)
+    invoiceServerSummary.balanceAmount = Number(invoicePageRows?.balanceAmount || 0)
+    invoiceServerSummary.cancelled = Number(invoicePageRows?.cancelledCount || 0)
     bankAccounts.value = bankAccountRows
     customers.value = billingOptions?.customers || []
     salesmen.value = billingOptions?.salesmen || []
@@ -415,8 +723,15 @@ async function refresh() {
   }
 }
 
+function resetInvoicePageAndRefresh() {
+  if (restoringBillingState.value) return
+  invoicePage.value = 1
+  persistBillingState()
+  refresh()
+}
+
 function startCreate() {
-  void router.push('/billing/new')
+  void router.push(sourceWithDayBookReturnHint('/billing/new'))
 }
 
 async function applySelectedCustomer() {
@@ -726,6 +1041,119 @@ async function submitSale() {
   }
 }
 
+function digitalBillFullUrl(row: any) {
+  const path = row?.digitalBillPublicPath
+  if (!path) return ''
+  if (/^https?:\/\//i.test(path)) return path
+  if (import.meta.client) return `${window.location.origin}${path}`
+  return path
+}
+
+function applyDigitalBillToInvoice(invoiceId: string, digitalBill: any) {
+  const index = invoices.value.findIndex((item) => item.id === invoiceId)
+  if (index >= 0) {
+    invoices.value[index] = {
+      ...invoices.value[index],
+      digitalBillId: digitalBill.id || invoices.value[index].digitalBillId,
+      digitalBillPublicPath: digitalBill.publicPath || invoices.value[index].digitalBillPublicPath,
+      digitalBillPublicToken: digitalBill.publicToken || invoices.value[index].digitalBillPublicToken,
+      digitalBillIsActive: digitalBill.isActive ?? invoices.value[index].digitalBillIsActive,
+      digitalBillWhatsAppStatus: digitalBill.whatsAppStatus || invoices.value[index].digitalBillWhatsAppStatus || 'Link Ready'
+    }
+  }
+
+  if (selectedReceipt.value?.id === invoiceId) {
+    selectedReceipt.value = {
+      ...selectedReceipt.value,
+      digitalBillId: digitalBill.id || selectedReceipt.value.digitalBillId,
+      digitalBillPublicPath: digitalBill.publicPath || selectedReceipt.value.digitalBillPublicPath,
+      digitalBillPublicToken: digitalBill.publicToken || selectedReceipt.value.digitalBillPublicToken,
+      digitalBillIsActive: digitalBill.isActive ?? selectedReceipt.value.digitalBillIsActive,
+      digitalBillWhatsAppStatus: digitalBill.whatsAppStatus || selectedReceipt.value.digitalBillWhatsAppStatus || 'Link Ready'
+    }
+  }
+}
+
+async function generateInvoiceDigitalBill(invoice: any) {
+  if (!invoice?.id) return
+  try {
+    const response = await api.create<any>(`billing/sales/${invoice.id}/digital-bill`, {})
+    applyDigitalBillToInvoice(invoice.id, response)
+    feedback.notify('Digital bill ready', response.publicPath || 'Link generated.', 'success')
+  } catch (error) {
+    feedback.failed('Could not generate digital bill', error)
+  }
+}
+
+async function copyDigitalBillLink(row: any) {
+  const link = digitalBillFullUrl(row)
+  if (!link) {
+    feedback.notify('Digital bill missing', 'Generate the digital bill link first.', 'warning')
+    return
+  }
+
+  try {
+    await navigator.clipboard.writeText(link)
+    feedback.notify('Digital bill link copied', link, 'success')
+  } catch {
+    window.prompt('Copy Digital Bill link', link)
+  }
+}
+
+async function sendInvoiceDigitalBillWhatsApp(invoice: any) {
+  if (!invoice?.id) return
+  try {
+    const response = await api.create<any>(`billing/sales/${invoice.id}/digital-bill/send-whatsapp`, { force: true })
+    const index = invoices.value.findIndex((item) => item.id === invoice.id)
+    if (index >= 0) {
+      invoices.value[index] = {
+        ...invoices.value[index],
+        digitalBillId: response.digitalInvoiceId || invoices.value[index].digitalBillId,
+        digitalBillWhatsAppStatus: response.status || invoices.value[index].digitalBillWhatsAppStatus
+      }
+    }
+    if (selectedReceipt.value?.id === invoice.id) {
+      selectedReceipt.value = { ...selectedReceipt.value, digitalBillWhatsAppStatus: response.status || selectedReceipt.value.digitalBillWhatsAppStatus }
+    }
+    feedback.notify(`WhatsApp status: ${response.status || 'Queued'}`, response.errorMessage || response.messageBody || 'Digital bill WhatsApp action completed.', response.status === 'Sent' ? 'success' : 'warning')
+  } catch (error) {
+    feedback.failed('Could not send digital bill WhatsApp', error)
+  }
+}
+
+async function openDigitalBillActivity(invoice: any) {
+  if (!invoice?.digitalBillId) {
+    feedback.notify('Digital bill missing', 'Generate the digital bill link first, then open activity.', 'warning')
+    return
+  }
+  await navigateTo({ path: '/marketing/digital-bills', query: { activityId: invoice.digitalBillId } })
+}
+
+
+async function openBillingDeepLinkFromRoute() {
+  if (!auth.isAuthenticated.value) return
+  const invoiceId = String(route.query.invoiceId || '')
+  const paymentId = String(route.query.paymentId || '')
+  if (!invoiceId && !paymentId) return
+  const deepLinkKey = `${invoiceId}:${paymentId}`
+  if (lastOpenedBillingDeepLink.value === deepLinkKey) return
+  lastOpenedBillingDeepLink.value = deepLinkKey
+
+  try {
+    if (invoiceId) {
+      const receipt = await viewReceipt(invoiceId)
+      await focusInvoiceInRegister(receipt)
+      return
+    }
+
+    // Customer receipt deep links generated from Day Book include invoiceId. If a legacy link
+    // has only paymentId, keep the page stable and show a clear message instead of failing.
+    feedback.notify('Open source needs invoice', 'This payment link does not include its sale invoice id. Open it from Day Book detail or use the invoice link.', 'warning')
+  } catch (error) {
+    feedback.failed('Could not open linked sale invoice', error)
+  }
+}
+
 async function viewReceipt(invoiceId: string) {
   try {
     selectedReceipt.value = await api.get<any>(`billing/sales/${invoiceId}/receipt`)
@@ -733,9 +1161,28 @@ async function viewReceipt(invoiceId: string) {
     invoiceCopyType.value = 'customer'
     invoiceReprint.value = false
     invoiceSignatures.value = true
+    return selectedReceipt.value
   } catch (error) {
     feedback.failed('Could not open receipt', error)
+    return null
   }
+}
+
+async function focusInvoiceInRegister(receipt: any) {
+  if (!receipt?.onDate) return
+  const invoiceDate = dateInput(receipt.onDate)
+  if (!invoiceDate) return
+  restoringBillingState.value = true
+  saleDatePreset.value = 'custom'
+  customFromDate.value = invoiceDate
+  customToDate.value = invoiceDate
+  search.value = receipt.invoiceNumber || ''
+  invoiceStatusFilter.value = 'all'
+  invoicePage.value = 1
+  await nextTick()
+  restoringBillingState.value = false
+  persistBillingState()
+  await refresh()
 }
 
 
@@ -900,6 +1347,61 @@ function clampReturnQuantity(item: any) {
   item.returnQuantity = Math.min(Math.max(value, 0), Number(item.quantity || 0))
 }
 
+function startRevisedSale(invoice: any) {
+  if (!invoice?.id) return
+  router.push(sourceWithDayBookReturnHint(`/billing/new?copyFrom=${encodeURIComponent(invoice.id)}`))
+}
+
+
+function dateInput(value: any) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function startEditInvoice(invoice: any) {
+  pendingEditInvoice.value = invoice
+  Object.assign(editInvoiceForm, {
+    invoiceNumber: invoice.invoiceNumber || '',
+    onDate: dateInput(invoice.onDate),
+    customerName: invoice.customerName || 'Walk-in Customer',
+    customerMobileNumber: invoice.customerMobileNumber || '',
+    customerGstin: invoice.customerGstin || invoice.customerGSTIN || '',
+    salesmanId: invoice.salesmanId || invoice.salemanId || null,
+    remarks: invoice.remarks || ''
+  })
+  editInvoiceOpen.value = true
+}
+
+async function saveEditInvoice() {
+  if (!pendingEditInvoice.value) return
+  editingInvoice.value = true
+  try {
+    await api.update<any>('billing/sales', pendingEditInvoice.value.id, {
+      invoiceNumber: editInvoiceForm.invoiceNumber,
+      onDate: editInvoiceForm.onDate || null,
+      customerName: editInvoiceForm.customerName,
+      customerMobileNumber: editInvoiceForm.customerMobileNumber,
+      customerGstin: editInvoiceForm.customerGstin,
+      salesmanId: editInvoiceForm.salesmanId || null,
+      remarks: editInvoiceForm.remarks || null
+    })
+    feedback.saved('Sales invoice updated')
+    editInvoiceOpen.value = false
+    pendingEditInvoice.value = null
+    if (selectedReceipt.value?.id) selectedReceipt.value = null
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not update sales invoice', error)
+  } finally {
+    editingInvoice.value = false
+  }
+}
+
 function askCancel(invoice: any) {
   if (invoice.invoiceStatus === 'Cancelled') {
     return
@@ -924,7 +1426,7 @@ async function confirmCancel() {
       selectedReceipt.value = null
     }
 
-    feedback.notify('Invoice cancelled', 'Stock quantities were reversed.', 'warning')
+    feedback.notify('Invoice deleted/cancelled', 'Stock quantities were reversed.', 'warning')
     cancelOpen.value = false
     pendingCancel.value = null
     await refresh()
@@ -932,6 +1434,37 @@ async function confirmCancel() {
     feedback.failed('Could not cancel invoice', error)
   } finally {
     cancelling.value = false
+  }
+}
+
+async function hardDeleteInvoice(invoice: any) {
+  if (!canAdminHardDelete.value || !invoice?.id) return
+  if (invoice.invoiceStatus !== 'Cancelled') {
+    feedback.notify('Cancel first', 'Hard delete is allowed only after stock, payment and accounting are reversed by cancellation.', 'warning')
+    return
+  }
+
+  const typed = window.prompt(`Type invoice number ${invoice.invoiceNumber} to permanently hard delete this cancelled invoice and its linked rows.`)
+  if (typed !== invoice.invoiceNumber) {
+    feedback.notify('Hard delete cancelled', 'Invoice number confirmation did not match.', 'warning')
+    return
+  }
+
+  const reason = window.prompt('Reason for admin hard delete?', 'Wrong/revised invoice cleanup after cancellation') || 'Admin hard delete after cancellation'
+  hardDeleting.value = true
+  try {
+    const query = new URLSearchParams({
+      confirmInvoiceNumber: invoice.invoiceNumber,
+      reason
+    })
+    const result = await api.remove(`billing/sales/${invoice.id}`, `hard-delete?${query.toString()}`) as any
+    if (selectedReceipt.value?.id === invoice.id) selectedReceipt.value = null
+    feedback.notify('Invoice hard deleted', `Removed rows: items ${result.removedInvoiceItems || 0}, payments ${result.removedInvoicePayments || 0}, journals ${result.removedJournalEntries || 0}.`, 'warning')
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not hard delete invoice', error)
+  } finally {
+    hardDeleting.value = false
   }
 }
 
@@ -988,12 +1521,34 @@ async function downloadInvoicePdf() {
   }
 }
 
+function todayInputDate(offsetDays = 0) {
+  const date = new Date()
+  date.setDate(date.getDate() + offsetDays)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function lineTotal(item: any) {
   return Math.max((Number(item.mrp || 0) - Number(item.discountAmount || 0)) * Number(item.quantity || 0), 0)
 }
 
 function formatDate(value: string) {
   return value ? new Date(value).toLocaleDateString() : '-'
+}
+
+function formatDateTime(value: string) {
+  return value ? new Date(value).toLocaleString('en-IN') : '-'
+}
+
+function paymentModeLabel(value: any) {
+  const text = String(value || '').trim()
+  if (!text) return '-'
+  return text
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/_/g, ' ')
+    .replace(/^./, (match) => match.toUpperCase())
 }
 
 function money(value: number) {
@@ -1006,7 +1561,30 @@ function money(value: number) {
 
 onMounted(async () => {
   auth.restore()
+  restoreBillingState()
   await refresh()
+  await openBillingDeepLinkFromRoute()
+})
+
+watch(() => route.fullPath, async () => {
+  await openBillingDeepLinkFromRoute()
+})
+
+watch([saleDatePreset, invoiceMonth, invoiceYear, customFromDate, customToDate, invoiceStatusFilter, invoicePageSize], () => {
+  resetInvoicePageAndRefresh()
+})
+
+watch(invoicePage, () => {
+  if (restoringBillingState.value) return
+  persistBillingState()
+  refresh()
+})
+
+let saleSearchTimer: ReturnType<typeof setTimeout> | null = null
+watch(search, () => {
+  if (restoringBillingState.value) return
+  if (saleSearchTimer) clearTimeout(saleSearchTimer)
+  saleSearchTimer = setTimeout(() => resetInvoicePageAndRefresh(), 350)
 })
 
 watch(() => saleForm.customerId, async () => {
@@ -1086,11 +1664,14 @@ watch(() => exchangeForm.additionalPaidAmount, () => {
       >
         <template #actions>
           <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
-            {{ loading ? 'Loading' : `${invoices.length} invoices` }}
+            {{ loading ? 'Loading' : `${invoiceTotal} invoices` }}
           </UBadge>
+          <UButton to="/billing/final-qa" icon="i-lucide-badge-check" label="Final QA" variant="subtle" />
           <UButton icon="i-lucide-plus" label="New Invoice" @click="startCreate" />
         </template>
       </UiModulePageHeader>
+
+      <UiDayBookReturnButton />
 
       <div class="planner-metric-grid">
         <UCard v-for="metric in metrics" :key="metric.label" class="planner-metric-card">
@@ -1107,12 +1688,12 @@ watch(() => exchangeForm.additionalPaidAmount, () => {
 
       <UiRegisterPanel
         title="Invoice Register"
-        :description="`${filteredRows.length} of ${invoices.length} invoices`"
+        :description="`Showing ${invoicePageFrom}-${invoicePageTo} of ${invoiceTotal} invoices • ${saleDateRangeLabel}`"
         :loading="loading"
         :error="loadError"
         :empty="filteredRows.length === 0"
-        :empty-title="search || invoiceStatusFilter !== 'all' ? 'No matching invoices' : 'No invoices yet'"
-        :empty-description="search || invoiceStatusFilter !== 'all' ? 'Change the search or status filter.' : 'Create the first sales invoice from the POS billing workflow.'"
+        :empty-title="search || invoiceStatusFilter !== 'all' ? 'No matching invoices' : 'No invoices for this period'"
+        :empty-description="search || invoiceStatusFilter !== 'all' ? 'Change the search, status, or date filter.' : 'Create the first sales invoice or choose a wider date filter.'"
         empty-icon="i-lucide-receipt-indian-rupee"
         @retry="refresh"
       >
@@ -1128,15 +1709,60 @@ watch(() => exchangeForm.additionalPaidAmount, () => {
           >
             <template #filters>
               <USelect
+                v-model="saleDatePreset"
+                :items="saleDatePresetOptions"
+                aria-label="Filter sale date range"
+                class="min-w-36"
+              />
+              <USelect
+                v-if="saleDatePreset === 'month-year'"
+                v-model="invoiceMonth"
+                :items="monthOptions"
+                aria-label="Filter sale month"
+                class="min-w-36"
+              />
+              <USelect
+                v-if="saleDatePreset === 'month-year' || saleDatePreset === 'year'"
+                v-model="invoiceYear"
+                :items="yearOptions"
+                aria-label="Filter sale year"
+                class="min-w-28"
+              />
+              <UInput
+                v-if="saleDatePreset === 'custom'"
+                v-model="customFromDate"
+                type="date"
+                aria-label="Custom sale from date"
+                class="min-w-36"
+              />
+              <UInput
+                v-if="saleDatePreset === 'custom'"
+                v-model="customToDate"
+                type="date"
+                aria-label="Custom sale to date"
+                class="min-w-36"
+              />
+              <USelect
                 v-model="invoiceStatusFilter"
                 :items="[
                   { label: 'All statuses', value: 'all' },
-                  { label: 'Saved', value: 'saved' },
+                  { label: 'Pending', value: 'pending' },
+                  { label: 'Paid', value: 'paid' },
+                  { label: 'Partially paid', value: 'partiallyPaid' },
                   { label: 'Cancelled', value: 'cancelled' },
-                  { label: 'Refunded', value: 'refunded' }
+                  { label: 'Refunded', value: 'refunded' },
+                  { label: 'Partially refunded', value: 'partiallyRefunded' },
+                  { label: 'Overdue', value: 'overdue' },
+                  { label: 'Draft', value: 'draft' }
                 ]"
                 aria-label="Filter invoice status"
                 class="min-w-36"
+              />
+              <USelect
+                v-model="invoicePageSize"
+                :items="pageSizeOptions"
+                aria-label="Sale invoice page size"
+                class="min-w-32"
               />
             </template>
           </UiCrudToolbar>
@@ -1144,6 +1770,14 @@ watch(() => exchangeForm.additionalPaidAmount, () => {
 
         <div class="planner-table-wrap">
           <UTable :data="filteredRows" :columns="columns" />
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
+          <span>Showing {{ invoicePageFrom }}-{{ invoicePageTo }} of {{ invoiceTotal }}</span>
+          <div class="flex items-center gap-2">
+            <UButton size="sm" variant="outline" color="neutral" icon="i-lucide-chevron-left" label="Previous" :disabled="invoicePage <= 1 || loading" @click="invoicePage--" />
+            <span>Page {{ invoicePage }} / {{ invoiceTotalPages }}</span>
+            <UButton size="sm" variant="outline" color="neutral" icon="i-lucide-chevron-right" trailing label="Next" :disabled="invoicePage >= invoiceTotalPages || loading" @click="invoicePage++" />
+          </div>
         </div>
       </UiRegisterPanel>
 
@@ -1327,7 +1961,7 @@ watch(() => exchangeForm.additionalPaidAmount, () => {
         </div>
       </UiFormSlideover>
 
-      <UModal v-model:open="receiptOpen" title="Invoice Receipt" :ui="{ content: 'max-w-3xl' }">
+      <UModal v-model:open="receiptOpen" title="Invoice Receipt" :ui="{ content: 'max-w-5xl' }">
         <template #body>
           <div v-if="selectedReceipt" class="invoice-print-toolbar no-print">
             <UFormField label="Format">
@@ -1338,6 +1972,72 @@ watch(() => exchangeForm.additionalPaidAmount, () => {
             </UFormField>
             <UCheckbox v-model="invoiceReprint" label="Reprint" />
             <UCheckbox v-model="invoiceSignatures" label="Signature lines" />
+          </div>
+
+          <div v-if="selectedReceipt" class="planner-table-wrap no-print">
+            <table class="planner-table">
+              <tbody>
+                <tr v-for="row in receiptSummaryRows" :key="row.label">
+                  <th class="w-40 text-left text-muted">{{ row.label }}</th>
+                  <td :class="row.mono ? 'break-all font-mono text-xs' : ''">{{ row.value }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div v-if="selectedReceipt" class="digital-bill-receipt-actions no-print">
+            <div>
+              <strong>Digital Bill CRM</strong>
+              <p>{{ selectedReceipt.digitalBillPublicPath ? `Link ready • WhatsApp: ${selectedReceipt.digitalBillWhatsAppStatus || 'Not sent'} • Opened ${selectedReceipt.digitalBillOpenCount || 0}x` : 'No digital bill link generated yet for this invoice.' }}</p>
+            </div>
+            <div class="table-action-buttons">
+              <UButton
+                v-if="!selectedReceipt.digitalBillPublicPath"
+                size="sm"
+                color="success"
+                variant="subtle"
+                icon="i-lucide-link"
+                label="Generate Digital Bill"
+                @click="generateInvoiceDigitalBill(selectedReceipt)"
+              />
+              <UButton
+                v-if="selectedReceipt.digitalBillPublicPath"
+                size="sm"
+                color="success"
+                variant="subtle"
+                icon="i-lucide-copy"
+                label="Copy Link"
+                @click="copyDigitalBillLink(selectedReceipt)"
+              />
+              <UButton
+                v-if="selectedReceipt.digitalBillPublicPath"
+                size="sm"
+                color="primary"
+                variant="subtle"
+                icon="i-lucide-external-link"
+                label="Open Web Bill"
+                :to="selectedReceipt.digitalBillPublicPath"
+                target="_blank"
+              />
+              <UButton
+                v-if="selectedReceipt.digitalBillPublicPath"
+                size="sm"
+                color="primary"
+                variant="subtle"
+                icon="i-lucide-send"
+                label="Send WhatsApp"
+                @click="sendInvoiceDigitalBillWhatsApp(selectedReceipt)"
+              />
+              <UButton
+                v-if="selectedReceipt.digitalBillPublicPath"
+                size="sm"
+                color="info"
+                variant="subtle"
+                icon="i-lucide-activity"
+                label="Activity"
+                @click="openDigitalBillActivity(selectedReceipt)"
+              />
+            </div>
           </div>
 
           <div
@@ -1362,7 +2062,7 @@ watch(() => exchangeForm.additionalPaidAmount, () => {
             <table class="receipt-table">
               <thead>
                 <tr>
-                  <th>Item</th>
+                  <th>Item / Barcode</th>
                   <th>Qty</th>
                   <th>MRP</th>
                   <th>Tax</th>
@@ -1371,7 +2071,10 @@ watch(() => exchangeForm.additionalPaidAmount, () => {
               </thead>
               <tbody>
                 <tr v-for="item in selectedReceipt.items" :key="`${item.barcode}-${item.productName}`">
-                  <td>{{ item.productName }}</td>
+                  <td class="receipt-item-cell">
+                    <strong>{{ saleItemDisplayName(item) }}</strong>
+                    <small>Barcode: {{ saleItemBarcode(item) }}</small>
+                  </td>
                   <td>{{ item.quantity }}</td>
                   <td>{{ money(Number(item.mrp || 0)) }}</td>
                   <td>{{ money(Number(item.taxAmount || 0)) }}</td>
@@ -1390,15 +2093,17 @@ watch(() => exchangeForm.additionalPaidAmount, () => {
               <span>Balance</span><strong>{{ money(Number(selectedReceipt.balanceAmount || 0)) }}</strong>
             </div>
 
-            <div v-if="selectedReceipt.payments?.length" class="planner-table-wrap no-print">
+            <div v-if="selectedReceiptPaymentRows.length" class="planner-table-wrap no-print">
               <table class="planner-table">
-                <thead><tr><th>Payment</th><th>Amount</th><th>Reference</th><th>Source</th></tr></thead>
+                <thead><tr><th>Payment ID</th><th>Date</th><th>Mode</th><th>Amount</th><th>Reference</th><th>Status / source</th></tr></thead>
                 <tbody>
-                  <tr v-for="payment in selectedReceipt.payments" :key="`${payment.paymentMode}-${payment.amount}-${payment.referenceNumber}`">
+                  <tr v-for="payment in selectedReceiptPaymentRows" :key="payment.id || `${payment.paymentMode}-${payment.amount}-${payment.reference}`">
+                    <td class="break-all font-mono text-xs">{{ payment.id || '-' }}</td>
+                    <td>{{ payment.onDate }}</td>
                     <td>{{ payment.paymentMode }}</td>
-                    <td>{{ money(Number(payment.amount || 0)) }}</td>
-                    <td>{{ payment.referenceNumber || payment.gatewayReference || '-' }}</td>
-                    <td>{{ payment.adjustmentSourceType || payment.settlementStatus || '-' }}</td>
+                    <td>{{ payment.amount }}</td>
+                    <td>{{ payment.reference }}</td>
+                    <td>{{ payment.status }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -1592,11 +2297,47 @@ watch(() => exchangeForm.additionalPaidAmount, () => {
         </div>
       </UiFormSlideover>
 
+
+      <UiFormSlideover
+        v-model:open="editInvoiceOpen"
+        title="Edit Sales Invoice"
+        description="Edit header details only. Item lines, stock and accounting values are protected; cancel and recreate if amounts/items are wrong."
+        submit-label="Save Invoice"
+        layout="modal"
+        content-class="sm:max-w-2xl"
+        :loading="editingInvoice"
+        @submit="saveEditInvoice"
+      >
+        <div class="form-two-column">
+          <UFormField label="Invoice number" required>
+            <UInput v-model="editInvoiceForm.invoiceNumber" required />
+          </UFormField>
+          <UFormField label="Invoice date">
+            <UInput v-model="editInvoiceForm.onDate" type="date" />
+          </UFormField>
+          <UFormField label="Customer name">
+            <UInput v-model="editInvoiceForm.customerName" />
+          </UFormField>
+          <UFormField label="Customer mobile">
+            <UInput v-model="editInvoiceForm.customerMobileNumber" />
+          </UFormField>
+          <UFormField label="Customer GSTIN">
+            <UInput v-model="editInvoiceForm.customerGstin" />
+          </UFormField>
+          <UFormField label="Salesman">
+            <USelect v-model="editInvoiceForm.salesmanId" :items="salesmen.map((item) => ({ value: item.id, label: item.name }))" placeholder="Select salesman" />
+          </UFormField>
+          <UFormField label="Remarks / note" class="md:col-span-2">
+            <UTextarea v-model="editInvoiceForm.remarks" :rows="3" placeholder="Optional invoice note" />
+          </UFormField>
+        </div>
+      </UiFormSlideover>
+
       <UiConfirmDeleteModal
         v-model:open="cancelOpen"
-        title="Cancel Invoice"
+        title="Delete / Cancel Invoice"
         :description="`Cancel invoice ${pendingCancel?.invoiceNumber || ''}? Stock will be reversed.`"
-        confirm-label="Cancel Invoice"
+        confirm-label="Delete / Cancel Invoice"
         :loading="cancelling"
         @confirm="confirmCancel"
       />

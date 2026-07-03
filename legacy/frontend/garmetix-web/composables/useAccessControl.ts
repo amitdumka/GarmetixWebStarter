@@ -28,7 +28,7 @@ type AccessDecision = {
   matchedRule?: PageAccessRule
 }
 
-const PUBLIC_PATHS = new Set<string>([])
+const PUBLIC_PATHS = new Set<string>(['/privacy', '/privcy', '/terms', '/terms-of-usage'])
 
 const roleRank: Record<AccessRole, number> = {
   admin: 100,
@@ -52,32 +52,64 @@ const routeRules: PageAccessRule[] = [
   { path: '/dashboard/store-manager', label: 'Store Dashboard', module: 'Dashboards', exact: true, roles: ['admin', 'owner', 'powerUser', 'storeManager', 'salesman'] },
   { path: '/dashboard/business', label: 'Company Dashboard', module: 'Dashboards', exact: true, roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant'] },
   { path: '/reports', label: 'Reports Center', module: 'Reports', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
+  { path: '/reports/profit-loss', label: 'Profit/Loss Report', module: 'Reports', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant'] },
   { path: '/document-scan', label: 'Document Scanner', module: 'Reports', roles: ['authenticated'] },
   { path: '/gst-returns', label: 'GST Returns', module: 'GST', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant'] },
   { path: '/gst-reports', label: 'GST Reports', module: 'GST', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant'] },
 
+  { path: '/billing/sale-review', label: 'Sale Review', module: 'Sales', exact: true, roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
+  { path: '/billing/final-qa', label: 'Billing Final QA', module: 'Sales', exact: true, roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
   { path: '/billing', label: 'Billing', module: 'Sales', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'salesman'] },
   { path: '/sales-return', label: 'Sales Return', module: 'Sales', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'salesman'] },
+  { path: '/goods-return-acceptance', label: 'Goods Return Acceptance', module: 'Sales', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
+  { path: '/invoice-replacements', label: 'Invoice Replacement Approvals', module: 'Sales', roles: ['admin', 'owner'] },
   { path: '/inventory', label: 'Product Master', module: 'Inventory', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
   { path: '/stock-operations', label: 'Stock Operations', module: 'Inventory', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
   { path: '/stock-reports', label: 'Stock Reports', module: 'Inventory', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
+  { path: '/inventory/stock-valuation-closure', label: 'Stock Valuation Closure', module: 'Inventory', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant'] },
+  { path: '/price-tags', label: 'Price Tag Printing', module: 'Inventory', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
+  { path: '/brands', label: 'Brands', module: 'Inventory', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
+  { path: '/product-categories', label: 'Product Categories', module: 'Inventory', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
+  { path: '/product-subcategories', label: 'Product Sub-categories', module: 'Inventory', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
   { path: '/non-gst-goods', label: 'Non-GST Goods', module: 'Off Book', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
   { path: '/purchase', label: 'Purchase', module: 'Purchase', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
   { path: '/purchase/new', label: 'New Purchase Inward', module: 'Purchase', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
+  { path: '/purchase/import', label: 'Import Supplier Invoice', module: 'Purchase', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
+  { path: '/purchase/import-acceptance', label: 'Purchase Import Acceptance', module: 'Purchase', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
+  { path: '/purchase/import-profiles', label: 'Purchase Import Learning', module: 'Purchase', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
   { path: '/vendor-payments', label: 'Vendor Payments', module: 'Purchase', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
+  { path: '/vendors', label: 'Vendors', module: 'Purchase', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
+  { path: '/purchase-return/advanced-settlement', label: 'Purchase Return Advanced Settlement', module: 'Purchase', exact: true, roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
   { path: '/purchase-return', label: 'Purchase Return', module: 'Purchase', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
   { path: '/vendor-settlements', label: 'Vendor Settlements', module: 'Purchase', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
   { path: '/customers', label: 'Customers', module: 'CRM', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'salesman'] },
-  { path: '/parties', label: 'Parties & Vendors', module: 'CRM', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
+  { path: '/parties', label: 'Parties', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
+  { path: '/day-book', label: 'Day Book', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
   { path: '/vouchers', label: 'Vouchers', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
   { path: '/debit-notes', label: 'Debit Notes', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
   { path: '/credit-notes', label: 'Credit Notes', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
   { path: '/commercial-notes', label: 'Commercial Summary', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
   { path: '/loyalty', label: 'Loyalty', module: 'CRM', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'salesman'] },
+
+  { path: '/marketing/digital-bills', label: 'Digital Bills', module: 'Marketing & CRM', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
+  { path: '/marketing/review-settings', label: 'Review Settings', module: 'Marketing & CRM', roles: ['admin', 'owner', 'powerUser'] },
+  { path: '/marketing/whatsapp-settings', label: 'WhatsApp Settings', module: 'Marketing & CRM', roles: ['admin', 'owner', 'powerUser'] },
+  { path: '/marketing/whatsapp-logs', label: 'WhatsApp Logs', module: 'Marketing & CRM', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
+  { path: '/marketing/ad-banners', label: 'Ad Banners', module: 'Marketing & CRM', roles: ['admin', 'owner', 'powerUser'] },
+  { path: '/marketing/customer-feedback', label: 'Customer Feedback', module: 'Marketing & CRM', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
+  { path: '/marketing/campaign-audiences', label: 'Campaign Audiences', module: 'Marketing & CRM', roles: ['admin', 'owner', 'powerUser'] },
+  { path: '/marketing/campaigns', label: 'Campaigns', module: 'Marketing & CRM', roles: ['admin', 'owner', 'powerUser'] },
+  { path: '/marketing/digital-bill-analytics', label: 'Digital Bill Analytics', module: 'Marketing & CRM', roles: ['admin', 'owner', 'powerUser', 'storeManager'] },
+  { path: '/marketing/digital-bill-acceptance', label: 'Digital Bill Acceptance', module: 'Marketing & CRM', roles: ['admin', 'owner', 'powerUser'] },
   { path: '/accounting', label: 'Accounting', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
   { path: '/financial-year-locks', label: 'Financial Year Locks', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant'] },
+  { path: '/financial-year-closeout', label: 'FY Closeout', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant'] },
+  { path: '/owner-closeout-command-center', label: 'Owner Closeout', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant'] },
+  { path: '/final-owner-signoff', label: 'Final Owner Sign-off', module: 'Accounting', roles: ['admin', 'owner'] },
+  { path: '/bank-reconciliation-closure', label: 'Bank Reco Closure', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant'] },
   { path: '/petty-cash', label: 'Petty Cash', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
   { path: '/cash-details', label: 'Cash Details', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
+  { path: '/dot-matrix-print', label: 'Dot Matrix Print', module: 'Accounting', roles: ['admin', 'owner', 'powerUser', 'accountant', 'remoteAccountant', 'storeManager'] },
   { path: '/store-day', label: 'Store Operations', module: 'Store Operations', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'salesman'] },
   { path: '/tailoring', label: 'Tailoring & Alteration', module: 'Sales', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'salesman'] },
 
@@ -92,7 +124,8 @@ const routeRules: PageAccessRule[] = [
   { path: '/attendance/kiosk-monitor', label: 'Kiosk Monitor', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
   { path: '/attendance/photo-review', label: 'Face Photo Review', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
   { path: '/attendance/face-liveness', label: 'Face Liveness Readiness', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
-  { path: '/attendance/shifts', label: 'Shifts', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
+  { path: '/attendance/shifts', label: 'Shifts', module: 'People', roles: ['admin', 'owner', 'powerUser'] },
+  { path: '/attendance/shift-rules', label: 'Employee Shift Rules', module: 'People', roles: ['admin', 'owner', 'powerUser'] },
   { path: '/attendance/policies', label: 'Attendance Policy', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
   { path: '/attendance/regularization', label: 'Attendance Regularization', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
   { path: '/attendance/biometric-enrollment', label: 'Biometric Enrollment', module: 'People', roles: ['admin', 'owner', 'powerUser', 'storeManager', 'hr'] },
@@ -114,6 +147,7 @@ const routeRules: PageAccessRule[] = [
   { path: '/ui-audit', label: 'UI Layout Audit', module: 'Data', roles: ['admin', 'owner'] },
   { path: '/access', label: 'Roles & Users', module: 'Admin', roles: ['admin', 'owner'] },
   { path: '/import-export', label: 'Excel Import / Export', module: 'Data', roles: ['admin', 'owner'] },
+  { path: '/admin-data', label: 'Admin JSON Data', module: 'Data', roles: ['admin', 'owner'] },
   { path: '/audit', label: 'Audit Trail', module: 'Data', roles: ['admin', 'owner'] },
   { path: '/system-health', label: 'System Health', module: 'Maintenance', roles: ['admin', 'owner'] },
   { path: '/runtime-diagnostics', label: 'Runtime Diagnostics', module: 'Maintenance', roles: ['admin', 'owner'] },
@@ -129,6 +163,8 @@ const routeRules: PageAccessRule[] = [
   { path: '/permission-final-acceptance', label: 'Permission Final Acceptance', module: 'Maintenance', roles: ['admin', 'owner'] },
   { path: '/post-go-live-acceptance', label: 'Post-Go-Live Acceptance', module: 'Maintenance', roles: ['admin', 'owner'] },
   { path: '/production-final-acceptance', label: 'Production Final Acceptance', module: 'Maintenance', roles: ['admin', 'owner'] },
+  { path: '/production-go-live-master-acceptance', label: 'Production Go-Live Master Acceptance', module: 'Maintenance', roles: ['admin', 'owner'] },
+  { path: '/production-host-build-qa', label: 'Production Host Build QA', module: 'Maintenance', roles: ['admin', 'owner'] },
   { path: '/stage10k-operator-acceptance', label: 'Stage 10K Operator Acceptance', module: 'Maintenance', roles: ['admin', 'owner'] },
   { path: '/production-support', label: 'Production Support', module: 'Maintenance', roles: ['admin', 'owner'] },
   { path: '/production-rehearsal', label: 'Production Rehearsal', module: 'Maintenance', roles: ['admin', 'owner'] },
@@ -142,6 +178,10 @@ const routeRules: PageAccessRule[] = [
   { path: '/profile', label: 'My profile', module: 'Account', roles: ['authenticated'] },
   { path: '/about-us', label: 'About us', module: 'Help', roles: ['authenticated'] },
   { path: '/contact-us', label: 'Contact us', module: 'Help', roles: ['authenticated'] },
+  { path: '/privacy', label: 'Privacy Policy', module: 'Help', roles: ['authenticated'] },
+  { path: '/privcy', label: 'Privacy Policy redirect', module: 'Help', roles: ['authenticated'] },
+  { path: '/terms', label: 'Terms of Usage', module: 'Help', roles: ['authenticated'] },
+  { path: '/terms-of-usage', label: 'Terms of Usage redirect', module: 'Help', roles: ['authenticated'] },
   { path: '/faq', label: 'FAQ', module: 'Help', roles: ['authenticated'] }
 ]
 
@@ -193,7 +233,7 @@ export function useAccessControl() {
   const primaryRole = computed(() => userRoles.value[0] || 'authenticated')
 
   function canAccessPath(path: string) {
-    if (PUBLIC_PATHS.has(path)) return true
+    if (PUBLIC_PATHS.has((path || '').replace(/\/$/, '') || '/') || path.startsWith('/i/')) return true
     return isAllowedForRule(matchRule(path), auth.user.value)
   }
 
@@ -202,8 +242,8 @@ export function useAccessControl() {
   }
 
   function checkPath(path: string): AccessDecision {
-    if (PUBLIC_PATHS.has(path)) {
-      return { allowed: true, reason: 'Public login/bootstrap page.' }
+    if (PUBLIC_PATHS.has((path || '').replace(/\/$/, '') || '/') || path.startsWith('/i/')) {
+      return { allowed: true, reason: 'Public digital invoice page.' }
     }
 
     const matchedRule = matchRule(path)

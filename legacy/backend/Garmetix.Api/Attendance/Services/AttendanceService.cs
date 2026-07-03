@@ -6,6 +6,7 @@ using Garmetix.Api.AppInfo;
 using Garmetix.Api.Attendance.Dtos;
 using Garmetix.Api.Messages;
 using Garmetix.Api.Workspace;
+using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Attendance;
 using Garmetix.Core.Models.HRM;
 using Garmetix.Infrastructure.Data;
@@ -73,12 +74,12 @@ public sealed class AttendanceService(
             return new(false, "Active employee was not found in this workspace.", null, null, false);
         }
 
-        var punchUtc = NormalizeUtc(request.PunchTimeUtc ?? DateTime.UtcNow);
-        var localPunch = request.LocalPunchTime ?? punchUtc.ToLocalTime();
+        var punchUtc = ResolvePunchUtc(request);
+        var localPunch = ResolveIndiaLocalPunchTime(request, punchUtc);
         var punchType = NormalizePunchType(request.PunchType);
         if (punchType == "Auto")
         {
-            punchType = await DetectNextPunchTypeAsync(employee.Id, localPunch.Date, context, cancellationToken);
+            punchType = await DetectNextPunchTypeAsync(employee, localPunch.Date, context, cancellationToken);
         }
 
         var fingerprintPolicy = fingerprintOptions.Value;
@@ -126,7 +127,7 @@ public sealed class AttendanceService(
             Remarks = Clean(MergeFingerprintRemarks(request.Remarks, request.FingerprintProof), 300),
             IsManual = !requireDevice,
             IsSynced = true,
-            CreatedBy = context.User.Identity?.Name ?? context.User.FindFirstValue(ClaimTypes.Name) ?? context.User.FindFirstValue("userName")
+            CreatedBy = context.User.Identity?.Name ?? context.User.FindFirst(ClaimTypes.Name)?.Value ?? context.User.FindFirst("userName")?.Value
         };
 
         if (!WorkspaceScope.CanWrite(entity, context, out var message))
@@ -135,14 +136,120 @@ public sealed class AttendanceService(
         }
 
         db.AttendancePunches.Add(entity);
+        await UpsertDailyAttendanceFromPunchAsync(employee, entity, context, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         var dayStatus = await BuildEmployeeDayStatusAsync(employee, localPunch.Date, context, cancellationToken);
         return new(true, $"{punchType} saved for {employee.StaffName}.", entity, dayStatus, false);
     }
 
+    private async Task UpsertDailyAttendanceFromPunchAsync(Employee employee, AttendancePunch punch, HttpContext context, CancellationToken cancellationToken)
+    {
+        if (!IsDailyAttendancePunch(punch.PunchType))
+        {
+            return;
+        }
+
+        var onDate = punch.LocalPunchTime.Date;
+        var punchTime = punch.LocalPunchTime.TimeOfDay;
+        var daily = await db.Attendance
+            .FirstOrDefaultAsync(item => item.EmployeeId == employee.Id && item.OnDate == onDate && !item.Deleted, cancellationToken);
+
+        if (daily is null)
+        {
+            daily = new Garmetix.Core.Models.HRM.Attendance
+            {
+                Id = Guid.NewGuid(),
+                CompanyId = employee.CompanyId,
+                StoreGroupId = employee.StoreGroupId,
+                StoreId = employee.StoreId,
+                EmployeeId = employee.Id,
+                OnDate = onDate,
+                Status = AttendanceStatus.Present,
+                CheckInTime = null,
+                CheckOutTime = null,
+                EntryTime = FormatTime(punchTime),
+                Remarks = $"{punch.Source} {punch.PunchType} punch"
+            };
+            db.Attendance.Add(daily);
+        }
+        else
+        {
+            daily.CompanyId = employee.CompanyId;
+            daily.StoreGroupId = employee.StoreGroupId;
+            daily.StoreId = employee.StoreId;
+            daily.UpdatedAt = DateTime.UtcNow;
+            daily.Remarks = MergeRemarks(daily.Remarks, $"{punch.Source} {punch.PunchType} sync");
+        }
+
+        if (punch.PunchType.Equals("CheckIn", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!daily.CheckInTime.HasValue || punchTime < daily.CheckInTime.Value)
+            {
+                daily.CheckInTime = punchTime;
+                daily.EntryTime = FormatTime(punchTime);
+            }
+            daily.Status = AttendanceStatus.Present;
+        }
+        else if (punch.PunchType.Equals("BreakOut", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!daily.BreakOutTime.HasValue || punchTime < daily.BreakOutTime.Value)
+            {
+                daily.BreakOutTime = punchTime;
+            }
+            daily.Status = AttendanceStatus.Present;
+        }
+        else if (punch.PunchType.Equals("BreakIn", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!daily.BreakInTime.HasValue || punchTime > daily.BreakInTime.Value)
+            {
+                daily.BreakInTime = punchTime;
+            }
+            daily.Status = AttendanceStatus.Present;
+        }
+        else if (punch.PunchType.Equals("CheckOut", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!daily.CheckOutTime.HasValue || punchTime > daily.CheckOutTime.Value)
+            {
+                daily.CheckOutTime = punchTime;
+            }
+            daily.Status = AttendanceStatus.Present;
+        }
+
+        var start = onDate;
+        var end = start.AddDays(1);
+        var existingPunches = await WorkspaceScope.ApplyTo(db.AttendancePunches.AsNoTracking(), context)
+            .Where(item => item.EmployeeId == employee.Id && item.LocalPunchTime >= start && item.LocalPunchTime < end && !item.Deleted)
+            .ToListAsync(cancellationToken);
+        var calculationPunches = existingPunches.Any(item => item.Id == punch.Id)
+            ? existingPunches
+            : existingPunches.Concat(new[] { punch }).ToList();
+        var shift = await ResolveEmployeeShiftAsync(employee, onDate, context, cancellationToken);
+        var policy = await ResolveStorePolicyAsync(employee, context, cancellationToken);
+        var dayStatus = ruleEngine.CalculateDay(employee, onDate, calculationPunches, shift, policy);
+        daily.Status = MapDailyAttendanceStatus(dayStatus.Status);
+        daily.Remarks = MergeRemarks(daily.Remarks, $"Shift: {dayStatus.ShiftName ?? "Default"}; sessions {dayStatus.CompletedSessions}/{dayStatus.RequiredSessionsForFullDay}; {dayStatus.Status}");
+    }
+
+    private static bool IsDailyAttendancePunch(string? punchType)
+        => punchType is not null
+            && (punchType.Equals("CheckIn", StringComparison.OrdinalIgnoreCase)
+                || punchType.Equals("CheckOut", StringComparison.OrdinalIgnoreCase)
+                || punchType.Equals("BreakOut", StringComparison.OrdinalIgnoreCase)
+                || punchType.Equals("BreakIn", StringComparison.OrdinalIgnoreCase));
+
+    private static string FormatTime(TimeSpan value)
+        => value.ToString(@"hh\:mm");
+
+    private static string? MergeRemarks(string? existing, string next)
+    {
+        if (string.IsNullOrWhiteSpace(existing)) return next;
+        if (existing.Contains(next, StringComparison.OrdinalIgnoreCase)) return existing;
+        return existing.Length + next.Length + 3 > 100 ? existing : $"{existing} | {next}";
+    }
+
     public async Task<AttendanceTodayDto> BuildTodayAsync(HttpContext context, DateTime? onDate, CancellationToken cancellationToken)
     {
-        var date = (onDate ?? DateTime.Today).Date;
+        var date = (onDate ?? IndiaNow()).Date;
         var employees = await WorkspaceScope.ApplyTo(db.Employees.AsNoTracking(), context)
             .Where(item => item.Working && !item.Deleted)
             .OrderBy(item => item.FirstName).ThenBy(item => item.LastName)
@@ -214,7 +321,7 @@ public sealed class AttendanceService(
             Notes = Clean(request.Notes, 200),
             Status = "Active",
             RegisteredAtUtc = DateTime.UtcNow,
-            RegisteredByUserName = context.User.Identity?.Name ?? context.User.FindFirstValue(ClaimTypes.Name) ?? context.User.FindFirstValue("userName")
+            RegisteredByUserName = context.User.Identity?.Name ?? context.User.FindFirst(ClaimTypes.Name)?.Value ?? context.User.FindFirst("userName")?.Value
         };
         if (!WorkspaceScope.CanWrite(device, context, out var message))
         {
@@ -245,41 +352,183 @@ public sealed class AttendanceService(
             .Where(item => item.EmployeeId == employee.Id && item.LocalPunchTime >= start && item.LocalPunchTime < end && !item.Deleted)
             .OrderBy(item => item.LocalPunchTime)
             .ToListAsync(cancellationToken);
-        var shift = await WorkspaceScope.ApplyTo(db.AttendanceShifts.AsNoTracking(), context)
-            .Where(item => item.Active && item.StoreId == employee.StoreId)
-            .OrderByDescending(item => item.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
-        var policy = await WorkspaceScope.ApplyTo(db.AttendancePolicies.AsNoTracking(), context)
-            .Where(item => item.Active && item.StoreId == employee.StoreId)
-            .OrderByDescending(item => item.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
+        var shift = await ResolveEmployeeShiftAsync(employee, date, context, cancellationToken);
+        var policy = await ResolveStorePolicyAsync(employee, context, cancellationToken);
         return ruleEngine.CalculateDay(employee, date, punches, shift, policy);
     }
 
-    private async Task<string> DetectNextPunchTypeAsync(Guid employeeId, DateTime date, HttpContext context, CancellationToken cancellationToken)
+    private async Task<string> DetectNextPunchTypeAsync(Employee employee, DateTime date, HttpContext context, CancellationToken cancellationToken)
     {
         var start = date.Date;
         var end = start.AddDays(1);
         var last = await WorkspaceScope.ApplyTo(db.AttendancePunches.AsNoTracking(), context)
-            .Where(item => item.EmployeeId == employeeId && item.LocalPunchTime >= start && item.LocalPunchTime < end && !item.Deleted)
+            .Where(item => item.EmployeeId == employee.Id && item.LocalPunchTime >= start && item.LocalPunchTime < end && !item.Deleted)
             .OrderByDescending(item => item.LocalPunchTime)
             .FirstOrDefaultAsync(cancellationToken);
-        return last is null || last.PunchType.Equals("CheckOut", StringComparison.OrdinalIgnoreCase) ? "CheckIn" : "CheckOut";
+        var shift = await ResolveEmployeeShiftAsync(employee, date, context, cancellationToken);
+        var needsBreak = shift?.HasBreak == true;
+
+        if (last is null || last.PunchType.Equals("CheckOut", StringComparison.OrdinalIgnoreCase)) return "CheckIn";
+        if (!needsBreak) return last.PunchType.Equals("CheckIn", StringComparison.OrdinalIgnoreCase) ? "CheckOut" : "CheckIn";
+        if (last.PunchType.Equals("CheckIn", StringComparison.OrdinalIgnoreCase)) return "BreakOut";
+        if (last.PunchType.Equals("BreakOut", StringComparison.OrdinalIgnoreCase)) return "BreakIn";
+        if (last.PunchType.Equals("BreakIn", StringComparison.OrdinalIgnoreCase)) return "CheckOut";
+        return "CheckOut";
     }
 
     private async Task<int> DuplicateWindowMinutesAsync(Employee employee, HttpContext context, CancellationToken cancellationToken)
     {
-        var policy = await WorkspaceScope.ApplyTo(db.AttendancePolicies.AsNoTracking(), context)
+        var policy = await ResolveStorePolicyAsync(employee, context, cancellationToken);
+        return Math.Clamp(policy?.DuplicateWindowMinutes ?? 5, 1, 60);
+    }
+
+    private async Task<AttendancePolicy?> ResolveStorePolicyAsync(Employee employee, HttpContext context, CancellationToken cancellationToken)
+        => await WorkspaceScope.ApplyTo(db.AttendancePolicies.AsNoTracking(), context)
             .Where(item => item.Active && item.StoreId == employee.StoreId)
             .OrderByDescending(item => item.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
-        return Math.Clamp(policy?.DuplicateWindowMinutes ?? 5, 1, 60);
+
+    private async Task<AttendanceShift?> ResolveEmployeeShiftAsync(Employee employee, DateTime onDate, HttpContext context, CancellationToken cancellationToken)
+    {
+        var date = onDate.Date;
+        var rules = await WorkspaceScope.ApplyTo(db.EmployeeAttendanceShiftRules.AsNoTracking(), context)
+            .Where(item => item.Active && item.StoreId == employee.StoreId && item.EffectiveFrom.Date <= date && (!item.EffectiveTo.HasValue || item.EffectiveTo.Value.Date >= date) && !item.Deleted)
+            .OrderBy(item => item.Priority)
+            .ThenByDescending(item => item.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var match = rules.FirstOrDefault(rule => MatchesShiftRule(rule, employee));
+        if (match is not null)
+        {
+            var assigned = await WorkspaceScope.ApplyTo(db.AttendanceShifts.AsNoTracking(), context)
+                .FirstOrDefaultAsync(item => item.Id == match.AttendanceShiftId && item.Active && !item.Deleted, cancellationToken);
+            if (assigned is not null)
+            {
+                return assigned;
+            }
+        }
+
+        return await WorkspaceScope.ApplyTo(db.AttendanceShifts.AsNoTracking(), context)
+            .Where(item => item.Active && item.StoreId == employee.StoreId && !item.Deleted)
+            .OrderBy(item => item.Name.Contains("Default") ? 0 : 1)
+            .ThenByDescending(item => item.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private static bool MatchesShiftRule(EmployeeAttendanceShiftRule rule, Employee employee)
+    {
+        var type = (rule.RuleType ?? string.Empty).Trim();
+        var value = (rule.MatchValue ?? string.Empty).Trim();
+
+        if (type.Equals("Employee", StringComparison.OrdinalIgnoreCase))
+        {
+            return rule.EmployeeId == employee.Id;
+        }
+
+        if (type.Equals("Gender", StringComparison.OrdinalIgnoreCase))
+        {
+            return value.Equals(employee.Gender.ToString(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (type.Equals("Category", StringComparison.OrdinalIgnoreCase))
+        {
+            return value.Equals(employee.Category.ToString(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (type.Equals("Department", StringComparison.OrdinalIgnoreCase))
+        {
+            return !string.IsNullOrWhiteSpace(employee.Department) && value.Equals(employee.Department.Trim(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (type.Equals("Designation", StringComparison.OrdinalIgnoreCase))
+        {
+            return !string.IsNullOrWhiteSpace(employee.Designation) && value.Equals(employee.Designation.Trim(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        return type.Equals("StoreDefault", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static AttendanceStatus MapDailyAttendanceStatus(string? status)
+    {
+        if (status is not null && status.Equals("Absent", StringComparison.OrdinalIgnoreCase)) return AttendanceStatus.Absent;
+        if (status is not null && status.Equals("HalfDay", StringComparison.OrdinalIgnoreCase)) return AttendanceStatus.HalfDay;
+        return AttendanceStatus.Present;
     }
 
     internal static string HashToken(string token)
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));
         return Convert.ToHexString(bytes);
+    }
+
+    private static readonly TimeZoneInfo IndiaTimeZone = ResolveIndiaTimeZone();
+
+    private static TimeZoneInfo ResolveIndiaTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Asia/Kolkata");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("India Standard Time");
+        }
+    }
+
+    private static DateTime IndiaNow()
+        => DateTime.SpecifyKind(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, IndiaTimeZone), DateTimeKind.Unspecified);
+
+    private static DateTime ResolvePunchUtc(AttendancePunchRequest request)
+    {
+        if (request.PunchTimeUtc.HasValue)
+        {
+            return NormalizeUtc(request.PunchTimeUtc.Value);
+        }
+
+        if (request.LocalPunchTime.HasValue)
+        {
+            return IndiaLocalToUtc(request.LocalPunchTime.Value);
+        }
+
+        return DateTime.UtcNow;
+    }
+
+    private static DateTime ResolveIndiaLocalPunchTime(AttendancePunchRequest request, DateTime punchUtc)
+    {
+        if (!request.LocalPunchTime.HasValue)
+        {
+            return IndiaLocalFromUtc(punchUtc);
+        }
+
+        var supplied = request.LocalPunchTime.Value;
+
+        // Nuxt/kiosk pages were sending localPunchTime as new Date().toISOString().
+        // That is UTC (Z), so storing it directly made attendance show UTC instead of India time.
+        if (supplied.Kind == DateTimeKind.Utc || supplied.Kind == DateTimeKind.Local)
+        {
+            return IndiaLocalFromUtc(NormalizeUtc(supplied));
+        }
+
+        // Unspecified means the caller intentionally sent a local wall-clock time, e.g. 2026-06-24T18:05:00.
+        return DateTime.SpecifyKind(supplied, DateTimeKind.Unspecified);
+    }
+
+    private static DateTime IndiaLocalFromUtc(DateTime utcValue)
+        => DateTime.SpecifyKind(TimeZoneInfo.ConvertTimeFromUtc(NormalizeUtc(utcValue), IndiaTimeZone), DateTimeKind.Unspecified);
+
+    private static DateTime IndiaLocalToUtc(DateTime localValue)
+    {
+        if (localValue.Kind == DateTimeKind.Utc)
+        {
+            return localValue;
+        }
+
+        if (localValue.Kind == DateTimeKind.Local)
+        {
+            return localValue.ToUniversalTime();
+        }
+
+        return TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(localValue, DateTimeKind.Unspecified), IndiaTimeZone);
     }
 
     private static DateTime NormalizeUtc(DateTime value)
@@ -617,7 +866,7 @@ public sealed class BiometricEnrollmentService(GarmetixDbContext db, Application
             entity.CompanyId,
             entity.StoreGroupId,
             entity.StoreId,
-            userName: context.User.Identity?.Name ?? context.User.FindFirstValue(ClaimTypes.Name) ?? context.User.FindFirstValue("userName"),
+            userName: context.User.Identity?.Name ?? context.User.FindFirst(ClaimTypes.Name)?.Value ?? context.User.FindFirst("userName")?.Value,
             resource: "/attendance/biometric-enrollment",
             operationId: entity.Id,
             cancellationToken: cancellationToken);

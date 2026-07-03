@@ -55,10 +55,10 @@ if not checks[0][1]:
         and "APP_VERSION = '4.11.1'" in app_version
         and '<Version>4.11.1</Version>' in csproj
     ) or (
-        'Stage 11D-2 Nuxt UI 4.9 Package Update' in app_info
-        and 'GARMETIX-11D2-20260622-4117' in app_info
-        and "APP_VERSION = '4.11.17'" in app_version
-        and '<Version>4.11.17</Version>' in csproj
+        'Stage 11D-4 Factory Reset Admin Identity Fix' in app_info
+        and 'GARMETIX-11D4-20260624-4119' in app_info
+        and "APP_VERSION = '4.11.19'" in app_version
+        and '<Version>4.11.19</Version>' in csproj
     ))
 add('day closing uses day open opening', all(token in store_day_api for token in ['DayBegins.AsNoTracking()', 'OpeningBalance = opening', 'Today day opening', "Opening balance is taken from today's Day Open entry"]))
 add('previous petty cash mismatch control', all(token in store_day_api for token in ['GetPreviousPettyCashClosingInfoAsync', 'OpeningBalanceMismatch', 'ConfirmOpeningBalanceMismatch', 'Results.Conflict', 'PreviousPettyCashClosingBalance']))

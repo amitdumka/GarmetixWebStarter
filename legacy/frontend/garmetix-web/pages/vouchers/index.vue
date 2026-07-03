@@ -3,6 +3,7 @@ import { h, resolveComponent } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 
 const api = useGarmetixApi()
+const route = useRoute()
 const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
@@ -301,6 +302,25 @@ async function refresh() {
   }
 }
 
+
+function openVoucherDeepLinkFromRoute() {
+  const voucherId = String(route.query.voucherId || '')
+  if (!voucherId) return
+  const voucher = vouchers.value.find((item) => item.id === voucherId)
+  if (voucher) {
+    openPrintVoucher(voucher)
+  } else if (!loading.value && vouchers.value.length) {
+    feedback.notify('Voucher not visible', 'The linked voucher is not in the current workspace/filter. Change workspace or open it from Day Book detail.', 'warning')
+  }
+}
+
+function openCreateVoucherFromRoute() {
+  const createRequested = String(route.query.new || route.query.create || '')
+  if (createRequested === '1' || createRequested.toLowerCase() === 'true') {
+    startCreate()
+  }
+}
+
 function startCreate() {
   editMode.value = 'create'
   Object.assign(form, emptyVoucher())
@@ -583,6 +603,13 @@ function money(value: number) {
 onMounted(async () => {
   auth.restore()
   await refresh()
+  openVoucherDeepLinkFromRoute()
+  openCreateVoucherFromRoute()
+})
+
+watch(() => route.fullPath, () => {
+  openVoucherDeepLinkFromRoute()
+  openCreateVoucherFromRoute()
 })
 
 watch(() => form.partyId, (partyId) => {
@@ -641,6 +668,8 @@ watch(() => form.paymentMode, () => {
           <UButton icon="i-lucide-plus" label="New Voucher" @click="startCreate" />
         </template>
       </UiModulePageHeader>
+
+      <UiDayBookReturnButton />
 
       <div class="planner-metric-grid">
         <UCard v-for="metric in metrics" :key="metric.label" class="planner-metric-card">

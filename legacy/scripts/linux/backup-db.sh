@@ -20,6 +20,13 @@ docker compose -f "${COMPOSE_FILE}" cp "${DB_SERVICE}:/tmp/garmetix-${STAMP}.dum
 docker compose -f "${COMPOSE_FILE}" exec -T "${DB_SERVICE}" rm -f "/tmp/garmetix-${STAMP}.dump"
 
 sha256sum "${OUT}" > "${OUT}.sha256"
+APP_DATA_VOLUME="${APP_DATA_VOLUME:-${COMPOSE_PROJECT_NAME:-garmetix}_garmetix_app_data}"
+if docker volume inspect "${APP_DATA_VOLUME}" >/dev/null 2>&1; then
+  docker run --rm -v "${APP_DATA_VOLUME}:/appdata:ro" -v "$(cd "${BACKUP_DIR}" && pwd):/backup" alpine sh -lc 'if [ -d /appdata/purchase-imports ] && [ "$(find /appdata/purchase-imports -type f | head -1)" ]; then tar -czf "/backup/'"$(basename "${OUT}")"'.purchase-import-proofs.tar.gz" -C /appdata purchase-imports; fi'
+elif [[ -d "./data/purchase-imports" ]]; then
+  tar -czf "${OUT}.purchase-import-proofs.tar.gz" -C ./data purchase-imports
+fi
+[[ -f "${OUT}.purchase-import-proofs.tar.gz" ]] && sha256sum "${OUT}.purchase-import-proofs.tar.gz" > "${OUT}.purchase-import-proofs.tar.gz.sha256"
 cat > "${OUT}.manifest.json" <<JSON
 {
   "fileName": "$(basename "${OUT}")",
@@ -28,7 +35,9 @@ cat > "${OUT}.manifest.json" <<JSON
   "database": "${DB_NAME}",
   "service": "${DB_SERVICE}",
   "format": "PostgreSQL custom pg_dump",
-  "sha256": "$(cut -d ' ' -f1 "${OUT}.sha256")"
+  "sha256": "$(cut -d ' ' -f1 "${OUT}.sha256")",
+  "proofArchiveFileName": "$(basename "${OUT}").purchase-import-proofs.tar.gz",
+  "proofArchivePresent": $(if [[ -f "${OUT}.purchase-import-proofs.tar.gz" ]]; then echo true; else echo false; fi)
 }
 JSON
 

@@ -7,9 +7,19 @@ const syncBatches = ref<any[]>([])
 async function refresh() {
   loading.value = true
   try {
-    const [proofRows, batchRows] = await Promise.all([devicesApi.photoProofs(), devicesApi.syncBatches()])
-    photoProofs.value = proofRows
-    syncBatches.value = batchRows
+    const [proofResult, batchResult] = await Promise.allSettled([devicesApi.photoProofs(), devicesApi.syncBatches()])
+    if (proofResult.status === 'fulfilled') {
+      photoProofs.value = proofResult.value
+    } else {
+      photoProofs.value = []
+      feedback.fromError('Kiosk photo proofs could not be loaded', proofResult.reason)
+    }
+    if (batchResult.status === 'fulfilled') {
+      syncBatches.value = batchResult.value
+    } else {
+      syncBatches.value = []
+      feedback.fromError('Kiosk sync batches could not be loaded', batchResult.reason)
+    }
   } catch (error: any) {
     feedback.fromError('Kiosk monitor refresh failed', error)
   } finally {

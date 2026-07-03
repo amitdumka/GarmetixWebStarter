@@ -85,7 +85,12 @@ watch(canManageSalaryStructures, (allowed) => {
 const structureForm = reactive<any>(emptyStructure())
 const paymentForm = reactive<any>(emptyPayment())
 
-const employeeOptions = computed(() => employees.value.map((employee) => ({
+const activeEmployees = computed(() => employees.value.filter((employee) => {
+  const status = String(employee?.employeeStatus || '').trim().toLowerCase()
+  return Boolean(employee?.working) && !['resigned', 'terminated', 'inactive'].includes(status)
+}))
+
+const employeeOptions = computed(() => activeEmployees.value.map((employee) => ({
   value: employee.id,
   label: employeeName(employee.id)
 })))

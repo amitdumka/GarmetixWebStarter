@@ -241,11 +241,18 @@ private static async Task<IReadOnlyList<PettyCashTransactionLine>> BuildTransact
         .Select(item => new { item.Id, item.InvoiceNumber, item.CustomerName, item.BillAmount, item.PaidAmount, item.PaymentMode, item.CreditSale })
         .ToListAsync(cancellationToken);
     var currentInvoiceIds = invoices.Select(item => item.Id).ToHashSet();
+    var sameDayInvoicePaymentRows = await db.InvoicePayments.AsNoTracking()
+        .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd && currentInvoiceIds.Contains(item.InvoiceId))
+        .Select(item => new { item.InvoiceId, item.PaymentMode, item.Amount, item.ReferenceNumber })
+        .ToListAsync(cancellationToken);
+    var paymentsByInvoice = sameDayInvoicePaymentRows
+        .GroupBy(item => item.InvoiceId)
+        .ToDictionary(group => group.Key, group => group.ToList());
+
     foreach (var invoice in invoices)
     {
-        var cashAmount = invoice.PaymentMode == PaymentMode.Cash
-            ? invoice.PaidAmount > 0 ? invoice.PaidAmount : invoice.BillAmount
-            : 0m;
+        paymentsByInvoice.TryGetValue(invoice.Id, out var invoicePayments);
+        var cashAmount = invoicePayments?.Where(item => item.PaymentMode == PaymentMode.Cash).Sum(item => item.Amount) ?? 0m;
         if (cashAmount > 0)
         {
             lines.Add(new PettyCashTransactionLine("Income", "Cash Sale", invoice.InvoiceNumber, invoice.CustomerName ?? "Customer", cashAmount));
@@ -257,12 +264,15 @@ private static async Task<IReadOnlyList<PettyCashTransactionLine>> BuildTransact
             lines.Add(new PettyCashTransactionLine("Adjustment", "Customer Due", invoice.InvoiceNumber, invoice.CustomerName ?? "Customer", due));
         }
 
-        if (invoice.PaymentMode.HasValue && invoice.PaymentMode.Value != PaymentMode.Cash && !invoice.CreditSale)
+        if (invoicePayments is not null)
         {
-            var nonCash = invoice.PaidAmount > 0 ? invoice.PaidAmount : invoice.BillAmount;
-            if (nonCash > 0)
+            foreach (var nonCash in invoicePayments
+                .Where(item => item.PaymentMode != PaymentMode.Cash)
+                .GroupBy(item => item.PaymentMode)
+                .Select(group => new { PaymentMode = group.Key, Amount = group.Sum(item => item.Amount) })
+                .Where(item => item.Amount > 0))
             {
-                lines.Add(new PettyCashTransactionLine("Adjustment", $"Non-cash Sale ({invoice.PaymentMode})", invoice.InvoiceNumber, invoice.CustomerName ?? "Customer", nonCash));
+                lines.Add(new PettyCashTransactionLine("Adjustment", $"Non-cash Sale ({nonCash.PaymentMode})", invoice.InvoiceNumber, invoice.CustomerName ?? "Customer", nonCash.Amount));
             }
         }
     }
@@ -343,9 +353,9 @@ private static async Task<IReadOnlyList<PettyCashTransactionLine>> BuildTransact
         var dueReceipts = invoicePayments
             .Where(item => item.PaymentMode == PaymentMode.Cash && !currentInvoiceIds.Contains(item.InvoiceId))
             .Sum(item => item.Amount);
-        var nonCashSales = invoices
-            .Where(item => item.PaymentMode.HasValue && item.PaymentMode.Value != PaymentMode.Cash && !item.CreditSale)
-            .Sum(item => item.PaidAmount > 0 ? item.PaidAmount : item.BillAmount);
+        var nonCashSales = invoicePayments
+            .Where(item => currentInvoiceIds.Contains(item.InvoiceId) && item.PaymentMode != PaymentMode.Cash)
+            .Sum(item => item.Amount);
         var customerDue = invoices
             .Where(item => item.CreditSale || item.BillAmount > item.PaidAmount)
             .Sum(item => Math.Max(0, item.BillAmount - item.PaidAmount));

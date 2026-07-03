@@ -70,6 +70,8 @@ const REVIEWED_ROUTES = [
   '/profile',
   '/about-us',
   '/contact-us',
+  '/privacy',
+  '/terms',
   '/faq'
 ]
 

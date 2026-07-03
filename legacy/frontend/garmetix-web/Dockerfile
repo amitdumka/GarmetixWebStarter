@@ -12,7 +12,9 @@ RUN npm config set registry https://registry.npmjs.org/ \
     && npm config set fetch-retries 5 \
     && npm config set fetch-retry-mintimeout 20000 \
     && npm config set fetch-retry-maxtimeout 120000 \
-    && npm ci --prefer-online --no-audit --no-fund
+    && npm ci --prefer-online --include=optional --no-audit --no-fund \
+    && (node -e "require.resolve('@oxc-transform/binding-linux-x64-musl')" \
+        || npm install --no-save --prefer-online --no-audit --no-fund @oxc-transform/binding-linux-x64-musl@$(node -p "require('./node_modules/oxc-transform/package.json').optionalDependencies['@oxc-transform/binding-linux-x64-musl'] || require('./node_modules/oxc-transform/package.json').version"))
 COPY frontend/garmetix-web/ ./
 RUN npm run build
 

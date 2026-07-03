@@ -20,6 +20,7 @@ onMounted(load)
 </script>
 
 <template>
+  <AppShell title="Stage 10 Final Acceptance">
   <UContainer class="space-y-6 py-6">
     <div class="flex items-center justify-between gap-3">
       <div>
@@ -44,4 +45,5 @@ onMounted(load)
       </UCard>
     </div>
   </UContainer>
+  </AppShell>
 </template>

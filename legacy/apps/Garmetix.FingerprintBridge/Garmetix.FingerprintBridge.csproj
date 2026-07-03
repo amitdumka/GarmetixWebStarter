@@ -5,9 +5,9 @@
     <Nullable>enable</Nullable>
     <RootNamespace>Garmetix.FingerprintBridge</RootNamespace>
     <AssemblyName>Garmetix.FingerprintBridge</AssemblyName>
-    <Version>4.11.17</Version>
-    <AssemblyVersion>4.11.17.0</AssemblyVersion>
-    <FileVersion>4.11.17.0</FileVersion>
-    <InformationalVersion>4.11.17-stage11d2-nuxt-ui-49-package-update</InformationalVersion>
+    <Version>4.11.19</Version>
+    <AssemblyVersion>4.11.19.0</AssemblyVersion>
+    <FileVersion>4.11.19.0</FileVersion>
+    <InformationalVersion>4.11.19-stage11d4-factory-reset-admin-identity-fix</InformationalVersion>
   </PropertyGroup>
 </Project>

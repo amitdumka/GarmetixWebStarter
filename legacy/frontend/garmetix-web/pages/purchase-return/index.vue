@@ -434,6 +434,7 @@ onMounted(refresh)
         <template #actions>
           <UBadge color="success" variant="subtle">{{ purchaseReturns.length }} posted returns</UBadge>
           <UBadge color="neutral" variant="subtle">{{ filteredInvoices.length }} returnable purchases</UBadge>
+          <UButton to="/purchase-return/advanced-settlement" icon="i-lucide-shield-check" label="Settlement QA" variant="subtle" />
         </template>
       </UiModulePageHeader>
 

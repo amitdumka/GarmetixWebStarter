@@ -73,6 +73,7 @@ onMounted(refresh)
 </script>
 
 <template>
+  <AppShell title="Post-Go-Live Acceptance">
   <div class="space-y-6">
     <div class="page-header">
       <div>
@@ -138,4 +139,5 @@ onMounted(refresh)
       </div>
     </UCard>
   </div>
+  </AppShell>
 </template>

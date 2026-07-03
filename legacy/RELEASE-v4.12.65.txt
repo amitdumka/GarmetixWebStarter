@@ -1,0 +1,26 @@
+GarmetixWebStarter v4.12.65
+Stage 11D-150 Production Host QA + Purchase Return Settlement
+Build code: GARMETIX-11D150-20260703-4265
+
+Added:
+- Production Host Build QA page and API.
+- Production Host Build QA CSV evidence export.
+- Purchase Return Advanced Settlement Acceptance page and API.
+- Purchase Return Advanced Settlement CSV evidence export.
+- Menu/access-control links for Host Build QA and Return Settlement QA.
+- Build hardening fix for duplicate Printed parameter in PurchaseReturnDetailDto.
+
+Purchase Return Advanced Settlement checks:
+- Formal return document workflow.
+- Item/header quantity, taxable, GST and amount consistency.
+- Exact CGST/SGST/IGST ITC reversal evidence.
+- Purchase-return stock-out evidence.
+- Vendor debit note linkage and source proof.
+- Debit-note settlement allocation and supplier refund evidence.
+- Refund voucher, bank mapping, UTR/reference, journal and bank transaction proof.
+- Purchase-return accounting journal balance and Input GST reversal audit.
+
+Production Host Build QA checks:
+- Database/table runtime probes.
+- Production environment/JWT/CORS review.
+- Manual docker build, health, role login, menu, CSV, PDF, backup/restore and message-log checklist.

@@ -11,6 +11,7 @@ fi
 
 # shellcheck source=deploy/lib/env-file.sh
 source "${ROOT_DIR}/deploy/lib/env-file.sh"
+normalize_env_file .env.production
 
 DOCKER=(docker)
 if ! docker ps >/dev/null 2>&1; then
@@ -22,38 +23,30 @@ if ! docker ps >/dev/null 2>&1; then
   fi
 fi
 
-dotenv_get() {
-  local key="$1" default_value="${2:-}" line value
-  line="$(grep -E "^${key}=" .env.production 2>/dev/null | tail -n 1 || true)"
-  if [[ -z "$line" ]]; then
-    printf '%s' "$default_value"
-    return
-  fi
-  value="${line#*=}"
-  value="${value%$'\r'}"
-  if [[ "${value:0:1}" == '"' && "${value: -1}" == '"' ]]; then
-    value="${value:1:${#value}-2}"
-  elif [[ "${value:0:1}" == "'" && "${value: -1}" == "'" ]]; then
-    value="${value:1:${#value}-2}"
-  fi
-  printf '%s' "${value:-$default_value}"
-}
-
-CLOUDFLARE_TUNNEL_TOKEN="$(dotenv_get CLOUDFLARE_TUNNEL_TOKEN "")"
+CLOUDFLARE_TUNNEL_TOKEN="$(dotenv_get .env.production CLOUDFLARE_TUNNEL_TOKEN "")"
 COMPOSE_FILES=(-f docker-compose.prod.yml)
 if [[ -n "${CLOUDFLARE_TUNNEL_TOKEN:-}" && "${CLOUDFLARE_TUNNEL_TOKEN}" != CHANGE_ME* ]]; then
   COMPOSE_FILES+=(-f deploy/docker-compose.cloudflare.yml)
 fi
 
-export COMPOSE_PROJECT_NAME=garmetix
-
-echo "WARNING: this will remove the Garmetix PostgreSQL Docker volume and delete all local app data."
 if [[ "${1:-}" != "--yes" ]]; then
+  echo "WARNING: this will remove the Garmetix PostgreSQL Docker volume and delete all local app data."
   echo "Run: ./deploy/reset-production-database.sh --yes"
   exit 1
 fi
 
-"${DOCKER[@]}" compose --env-file .env.production "${COMPOSE_FILES[@]}" down --remove-orphans --volumes
+echo "Removing Garmetix containers and PostgreSQL volumes for a clean initial migration database..."
+"${DOCKER[@]}" compose --env-file .env.production -p garmetix "${COMPOSE_FILES[@]}" down --remove-orphans --volumes || true
+"${DOCKER[@]}" compose --env-file .env.production -p current "${COMPOSE_FILES[@]}" down --remove-orphans --volumes || true
+"${DOCKER[@]}" rm -f \
+  garmetix-cloudflared-1 garmetix-web-1 garmetix-api-1 garmetix-postgres-1 \
+  current-cloudflared-1 current-web-1 current-api-1 current-postgres-1 2>/dev/null || true
+"${DOCKER[@]}" volume rm -f \
+  garmetix_garmetix_pg current_garmetix_pg garmetix_pg \
+  garmetix_postgres_data current_postgres_data postgres_data 2>/dev/null || true
+
+set_env_var .env.production DATABASE_AUTO_MIGRATE true
+set_env_var .env.production DATABASE_SCHEMA_BOOTSTRAP_MODE Migrate
 set_env_var .env.production RESET_DATABASE_ON_DEPLOY false
 
-echo "Database volume removed. Run ./deploy/run-production.sh to create a clean database from the current schema baseline."
+echo "Database volume removed. Run ./deploy/run-production.sh to create a clean database from the current InitialCreate migration/schema baseline."

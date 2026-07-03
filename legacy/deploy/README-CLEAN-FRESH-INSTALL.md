@@ -5,9 +5,9 @@ This package is intended for a clean Mac mini production installation.
 ## What changed
 
 - Old incremental EF Core migration files have been removed.
-- One baseline migration marker remains: `20260617000000_InitialFreshSchema`.
-- Production Docker uses `DATABASE_SCHEMA_BOOTSTRAP_MODE=FreshBaseline`.
-- The API creates the schema from the current `GarmetixDbContext` model with `EnsureCreated()`, then marks the baseline migration as applied.
+- One clean baseline migration remains: `20260623123000_InitialCreate`.
+- Production Docker uses `DATABASE_SCHEMA_BOOTSTRAP_MODE=Migrate` for the new single `InitialCreate` migration.
+- The API creates a clean PostgreSQL schema by applying the single `InitialCreate` EF migration after the old Docker volume is removed.
 
 ## Important warning
 
@@ -26,11 +26,11 @@ Do not enable it after live business data exists.
 Create `deploy/macmini.env` locally from `deploy/macmini.env.example`; the private env file should have:
 
 ```bash
-DATABASE_SCHEMA_BOOTSTRAP_MODE=FreshBaseline
+DATABASE_SCHEMA_BOOTSTRAP_MODE=Migrate
 RESET_DATABASE_ON_DEPLOY=false
 ```
 
-During WSL deployment, the archive carries the safe `false` default to the Mac mini. Use `deploy/reset-production-database.sh --yes` for an intentional manual reset instead of leaving auto-reset enabled.
+During WSL deployment, the script uploads the freshly generated `.env.production` to `/opt/garmetix/shared/env/.env.production`. Set `RESET_DATABASE_ON_DEPLOY=true` for one deploy only when you want to wipe the Mac mini PostgreSQL Docker volume and create a clean database from `InitialCreate`. The local flag is automatically returned to `false` after packaging.
 
 ## WSL deploy command
 

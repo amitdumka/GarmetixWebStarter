@@ -20,6 +20,11 @@ services:
       Backup__RunMinute: "30"
       Backup__RunOnStartup: "false"
       Backup__RetentionCount: "14"
+      PurchaseImport__StorageRoot: /app/data/purchase-imports
+      PurchaseImport__TesseractPath: tesseract
+      PurchaseImport__PdfToTextPath: pdftotext
+      PurchaseImport__PdfToPpmPath: pdftoppm
+      PurchaseImport__OcrLanguage: eng
       AttendanceFingerprint__KioskPunchMode: "Off"
       AttendanceFingerprint__BridgeBaseUrl: "http://127.0.0.1:8787/garmetix-fingerprint/"
       AttendanceFingerprint__MinQualityScore: "60"
@@ -58,10 +63,20 @@ services:
       OracleSync__TrustedSourceApplicationsCsv: "${ORACLE_SYNC_TRUSTED_SOURCES:-}"
       OracleSync__RequireTrustedSourceForAutoApply: "${ORACLE_SYNC_REQUIRE_TRUSTED_SOURCE_FOR_AUTO_APPLY:-true}"
       OracleSync__AutoApplyBatchSize: "${ORACLE_SYNC_AUTO_APPLY_BATCH_SIZE:-50}"
+      DotMatrixPrinting__Enabled: "${DOTMATRIX_PRINTING_ENABLED:-false}"
+      DotMatrixPrinting__RunWorker: "${DOTMATRIX_PRINTING_RUN_WORKER:-false}"
+      DotMatrixPrinting__PrinterName: "${DOTMATRIX_PRINTER_NAME:-EPSON_LX310}"
+      DotMatrixPrinting__OutputMode: "${DOTMATRIX_OUTPUT_MODE:-BridgeService}"
+      DotMatrixPrinting__SpoolDirectory: "${DOTMATRIX_SPOOL_DIRECTORY:-/app/data/dotmatrix-spool}"
+      DotMatrixPrinting__TimeZoneId: "${DOTMATRIX_TIMEZONE_ID:-Asia/Kolkata}"
+      DotMatrixPrinting__LineWidth: "${DOTMATRIX_LINE_WIDTH:-136}"
+      DotMatrixPrinting__PollSeconds: "${DOTMATRIX_POLL_SECONDS:-5}"
+      DotMatrixPrinting__RetryLimit: "${DOTMATRIX_RETRY_LIMIT:-10}"
     ports:
       - "5080:5080"
     volumes:
       - ./backups:/app/backups
+      - ./data:/app/data
       - ./secrets:/app/secrets:ro
     restart: unless-stopped
     depends_on:

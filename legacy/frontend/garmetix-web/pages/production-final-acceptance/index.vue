@@ -103,6 +103,7 @@ onMounted(refresh)
 </script>
 
 <template>
+  <AppShell title="Production Final Acceptance">
   <div class="space-y-6">
     <div class="page-header">
       <div>
@@ -209,4 +210,5 @@ onMounted(refresh)
       </UCard>
     </div>
   </div>
+  </AppShell>
 </template>

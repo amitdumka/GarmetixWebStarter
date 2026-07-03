@@ -74,7 +74,13 @@ const moduleGroups = [
     items: [
       { to: '/billing', label: 'Billing', icon: 'i-lucide-receipt-indian-rupee' },
       { to: '/billing/new', label: 'New Sale Invoice', icon: 'i-lucide-file-plus-2', keywords: ['new bill', 'new invoice', 'create sale'] },
+      { to: '/billing/final-qa', label: 'Billing Final QA', icon: 'i-lucide-badge-check', roles: ['admin', 'owner', 'poweruser', 'storemanager', 'accountant', 'remoteaccountant'], keywords: ['sale billing qa', 'mixed payment', 'invoice replacement', 'billing closeout'] },
       { to: '/sales-return', label: 'Sales Return', icon: 'i-lucide-rotate-ccw' },
+      { to: '/goods-return-acceptance', label: 'Goods Return Acceptance', icon: 'i-lucide-shield-check', roles: ['admin', 'owner', 'poweruser', 'storemanager', 'accountant'], keywords: ['goods return', 'exchange policy', 'credit note expiry', 'return acceptance'] },
+      { to: '/billing/vyapar-import', label: 'Vyapar Sale Import', icon: 'i-lucide-file-spreadsheet', keywords: ['vyapar', 'sale import', 'excel sale import', 'old sale'] },
+      { to: '/billing/vyapar-imported', label: 'Imported Vyapar Sales', icon: 'i-lucide-list-checks', keywords: ['vyapar imported', 'sale import history', 'old sale invoice mapping'] },
+      { to: '/billing/vyapar-import-batches', label: 'Vyapar Import Batches', icon: 'i-lucide-rotate-ccw-square', keywords: ['vyapar batch', 'sale import undo', 'import rollback'] },
+      { to: '/invoice-replacements', label: 'Invoice Replacements', icon: 'i-lucide-badge-check', adminOnly: true, keywords: ['revise', 'replacement', 'approval', 'invoice audit'] },
       { to: '/tailoring', label: 'Tailoring & Alteration', icon: 'i-lucide-scissors', keywords: ['stitching', 'alteration', 'tailor', 'delivery', 'service invoice'] }
     ]
   },
@@ -83,8 +89,14 @@ const moduleGroups = [
     items: [
       { to: '/purchase', label: 'Purchase', icon: 'i-lucide-package-plus' },
       { to: '/purchase/new', label: 'New Inward', icon: 'i-lucide-file-plus-2', keywords: ['inward', 'supplier invoice', 'purchase bill'] },
+      { to: '/purchase/import', label: 'Import Supplier Invoice', icon: 'i-lucide-file-scan', keywords: ['invoice import', 'supplier bill', 'ocr', 'purchase draft', 'proof'] },
+      { to: '/purchase/import-acceptance', label: 'Import Acceptance', icon: 'i-lucide-clipboard-check', keywords: ['purchase import qa', 'supplier invoice acceptance', 'ocr posting report', 'import final check'] },
+      { to: '/purchase/import-profiles', label: 'Import Learning', icon: 'i-lucide-brain-circuit', keywords: ['invoice learning', 'vendor profile', 'ocr profile', 'supplier import settings'] },
+      { to: '/vendors', label: 'Vendors', icon: 'i-lucide-truck', keywords: ['vendor', 'supplier', 'party'] },
       { to: '/vendor-payments', label: 'Vendor Payments', icon: 'i-lucide-hand-coins', keywords: ['supplier payment', 'advance payment', 'purchase payment'] },
+      { to: '/purchase/vendor-payable-reconciliation', label: 'Vendor Payable Reco', icon: 'i-lucide-shield-check', roles: ['admin', 'owner', 'poweruser', 'accountant', 'remoteaccountant'], keywords: ['vendor payable', 'supplier dues', 'purchase settlement', 'debit note reconciliation'] },
       { to: '/purchase-return', label: 'Purchase Return', icon: 'i-lucide-undo-2' },
+      { to: '/purchase-return/advanced-settlement', label: 'Return Settlement QA', icon: 'i-lucide-shield-check', roles: ['admin', 'owner', 'poweruser', 'accountant', 'remoteaccountant', 'storemanager'], keywords: ['purchase return settlement', 'itc reversal', 'supplier refund', 'debit note audit'] },
       { to: '/vendor-settlements', label: 'Vendor Settlements', icon: 'i-lucide-hand-coins' }
     ]
   },
@@ -93,16 +105,27 @@ const moduleGroups = [
     items: [
       { to: '/inventory', label: 'Product Master', icon: 'i-lucide-boxes' },
       { to: '/stock-operations', label: 'Stock Operations', icon: 'i-lucide-arrow-left-right' },
-      { to: '/stock-reports', label: 'Stock Reports', icon: 'i-lucide-chart-column-stacked', keywords: ['ageing', 'low stock', 'valuation', 'reconciliation'] }
+      { to: '/stock-reports', label: 'Stock Reports', icon: 'i-lucide-chart-column-stacked', keywords: ['ageing', 'low stock', 'valuation', 'reconciliation'] },
+      { to: '/inventory/stock-valuation-closure', label: 'Stock Valuation Closure', icon: 'i-lucide-warehouse', roles: ['admin', 'owner', 'poweruser', 'accountant', 'remoteaccountant'], keywords: ['stock valuation', 'inventory closeout', 'negative stock', 'cost value'] },
+      { to: '/price-tags', label: 'Price Tags', icon: 'i-lucide-printer', keywords: ['thermal', 'barcode', 'label', 'mrp', 'price tag', '50x30', '50x25'] },
+      { to: '/brands', label: 'Brands', icon: 'i-lucide-tags' },
+      { to: '/product-categories', label: 'Categories', icon: 'i-lucide-folder-tree' },
+      { to: '/product-subcategories', label: 'Sub-categories', icon: 'i-lucide-list-tree' }
     ]
   },
   {
     label: 'Accounting',
     items: [
       { to: '/accounting', label: 'Accounting', icon: 'i-lucide-landmark' },
+      { to: '/day-book', label: 'Day Book', icon: 'i-lucide-book-open-check', keywords: ['day book', 'tally', 'transactions', 'voucher book', 'daily book'] },
       { to: '/financial-year-locks', label: 'FY Locks', icon: 'i-lucide-lock-keyhole' },
+      { to: '/financial-year-closeout', label: 'FY Closeout', icon: 'i-lucide-lock-keyhole', roles: ['admin', 'owner', 'poweruser', 'accountant', 'remoteaccountant'], keywords: ['financial year closeout', 'fy close', 'period close', 'year lock', 'final closeout'] },
+      { to: '/owner-closeout-command-center', label: 'Owner Closeout', icon: 'i-lucide-layout-dashboard', roles: ['admin', 'owner', 'poweruser', 'accountant', 'remoteaccountant'], keywords: ['owner dashboard', 'closeout command', 'profit stock dues payable bank'] },
+      { to: '/final-owner-signoff', label: 'Owner Sign-off', icon: 'i-lucide-pen-line', roles: ['admin', 'owner'], keywords: ['owner signoff', 'final owner sign off', 'signature', 'go live signoff'] },
+      { to: '/bank-reconciliation-closure', label: 'Bank Reco Closure', icon: 'i-lucide-banknote', roles: ['admin', 'owner', 'poweruser', 'accountant', 'remoteaccountant'], keywords: ['bank reconciliation', 'bank reco', 'payment settlement', 'upi settlement', 'card settlement', 'bank closure'] },
       { to: '/petty-cash', label: 'Petty Cash', icon: 'i-lucide-circle-dollar-sign' },
       { to: '/cash-details', label: 'Cash Details', icon: 'i-lucide-coins', keywords: ['cash notes', 'coin history', 'denomination', 'manual cash'] },
+      { to: '/dot-matrix-print', label: 'Dot Matrix Print', icon: 'i-lucide-printer', keywords: ['epson', 'dot matrix', 'journal print', 'day summary', 'audit print'] },
       { to: '/vouchers', label: 'Vouchers', icon: 'i-lucide-banknote' },
       { to: '/debit-notes', label: 'Debit Notes', icon: 'i-lucide-file-minus-2' },
       { to: '/debit-notes/new', label: 'New Debit Note', icon: 'i-lucide-file-minus-2', keywords: ['create debit note'] },
@@ -115,9 +138,25 @@ const moduleGroups = [
     label: 'CRM',
     items: [
       { to: '/customers', label: 'Customers', icon: 'i-lucide-user-round' },
+      { to: '/customers/dues-reconciliation', label: 'Customer Dues Reco', icon: 'i-lucide-wallet-cards', keywords: ['customer dues', 'credit balance', 'advance receipt', 'credit note reconciliation'] },
       { to: '/customers/new', label: 'New Customer', icon: 'i-lucide-user-plus', keywords: ['add customer', 'create customer'] },
-      { to: '/parties', label: 'Parties & Vendors', icon: 'i-lucide-users-round' },
+      { to: '/parties', label: 'Parties', icon: 'i-lucide-users-round', keywords: ['customer vendor party master'] },
       { to: '/loyalty', label: 'Loyalty', icon: 'i-lucide-gift' }
+    ]
+  },
+  {
+    label: 'Marketing & CRM',
+    items: [
+      { to: '/marketing/digital-bills', label: 'Digital Bills', icon: 'i-lucide-receipt-text', keywords: ['billfree', 'digital invoice', 'whatsapp bill', 'review'] },
+      { to: '/marketing/review-settings', label: 'Review Settings', icon: 'i-lucide-star', roles: ['admin', 'owner', 'poweruser'], keywords: ['google review', 'instagram', 'feedback'] },
+      { to: '/marketing/whatsapp-settings', label: 'WhatsApp Settings', icon: 'i-lucide-message-circle', roles: ['admin', 'owner', 'poweruser'] },
+      { to: '/marketing/whatsapp-logs', label: 'WhatsApp Logs', icon: 'i-lucide-list-collapse' },
+      { to: '/marketing/ad-banners', label: 'Ad Banners', icon: 'i-lucide-image', roles: ['admin', 'owner', 'poweruser'], keywords: ['ads', 'campaign', 'banner'] },
+      { to: '/marketing/customer-feedback', label: 'Customer Feedback', icon: 'i-lucide-message-square-text' },
+      { to: '/marketing/campaign-audiences', label: 'Campaign Audiences', icon: 'i-lucide-users-round', roles: ['admin', 'owner', 'poweruser'], keywords: ['audience', 'segment', 'campaign', 'retention'] },
+      { to: '/marketing/campaigns', label: 'Campaigns', icon: 'i-lucide-megaphone', roles: ['admin', 'owner', 'poweruser'], keywords: ['campaign', 'marketing', 'message', 'audience'] },
+      { to: '/marketing/digital-bill-analytics', label: 'Digital Bill Analytics', icon: 'i-lucide-chart-no-axes-combined' },
+      { to: '/marketing/digital-bill-acceptance', label: 'Digital Bill Acceptance', icon: 'i-lucide-badge-check', roles: ['admin', 'owner', 'poweruser'], keywords: ['acceptance', 'production', 'digital bill'] }
     ]
   },
   {
@@ -125,6 +164,7 @@ const moduleGroups = [
     items: [
       { to: '/gst-returns', label: 'GST Returns', icon: 'i-lucide-file-json-2' },
       { to: '/gst-reports', label: 'GST Reports', icon: 'i-lucide-table-properties' },
+      { to: '/accounting-gst-validation', label: 'Accounting/GST Validation', icon: 'i-lucide-shield-check', roles: ['admin', 'owner', 'accountant', 'remoteaccountant', 'poweruser'], keywords: ['post import validation', 'gst accounting', 'vyapar', 'purchase import', 'month close'] },
       { to: '/gst-final-acceptance', label: 'GST Final Acceptance', icon: 'i-lucide-badge-check', adminOnly: true },
       { to: '/gst-production', label: 'GST/e-Invoice Readiness', icon: 'i-lucide-file-check-2', adminOnly: true }
     ]
@@ -133,8 +173,9 @@ const moduleGroups = [
     label: 'Reports',
     items: [
       { to: '/reports', label: 'Reports Center', icon: 'i-lucide-file-text' },
+      { to: '/reports/profit-loss', label: 'Profit/Loss Report', icon: 'i-lucide-chart-no-axes-combined', roles: ['admin', 'owner', 'poweruser', 'accountant', 'remoteaccountant'], keywords: ['profit loss', 'gross profit', 'invoice wise profit', 'item wise profit'] },
       { to: '/document-scan', label: 'Document Scanner', icon: 'i-lucide-scan-qr-code', keywords: ['qr', 'barcode', 'voucher', 'invoice', 'payslip'] },
-      { to: '/print-final-acceptance', label: 'Print Final Acceptance', icon: 'i-lucide-printer-check', adminOnly: true },
+      { to: '/print-final-acceptance', label: 'Print Final Acceptance', icon: 'i-lucide-printer', adminOnly: true },
       { to: '/barcode-final-acceptance', label: 'Barcode Final Acceptance', icon: 'i-lucide-barcode', adminOnly: true }
     ]
   },
@@ -156,6 +197,7 @@ const moduleGroups = [
         { to: '/attendance/today', label: 'Today Attendance', icon: 'i-lucide-calendar-days' },
       { to: '/attendance/monthly', label: 'Monthly Attendance', icon: 'i-lucide-calendar-range' },
       { to: '/attendance/shifts', label: 'Shifts', icon: 'i-lucide-clock-3' },
+      { to: '/attendance/shift-rules', label: 'Employee Shift Rules', icon: 'i-lucide-user-cog' },
       { to: '/attendance/policies', label: 'Attendance Policy', icon: 'i-lucide-sliders-horizontal' },
       { to: '/attendance/devices', label: 'Kiosk Devices', icon: 'i-lucide-tablet-smartphone' },
       { to: '/attendance/kiosk-monitor', label: 'Kiosk Monitor', icon: 'i-lucide-monitor-check' },
@@ -170,7 +212,8 @@ const moduleGroups = [
       { to: '/attendance/device-bridge', label: 'Fingerprint Bridge', icon: 'i-lucide-fingerprint', keywords: ['stage 11b', 'fingerprint', 'biometric', 'device bridge'] },
       { to: '/attendance/final-acceptance', label: 'Stage 9 Final Acceptance', icon: 'i-lucide-clipboard-check' },
       { to: '/hr-benefits', label: 'HR Benefits', icon: 'i-lucide-hand-coins' },
-      { to: '/payroll', label: 'Payroll', icon: 'i-lucide-badge-indian-rupee' }
+      { to: '/payroll', label: 'Payroll', icon: 'i-lucide-badge-indian-rupee' },
+      { to: '/payroll/finalization', label: 'Payroll Finalization', icon: 'i-lucide-clipboard-check' }
     ]
   },
   {
@@ -187,6 +230,7 @@ const moduleGroups = [
     label: 'Data',
     items: [
       { to: '/import-export', label: 'Excel Import / Export', icon: 'i-lucide-file-down', adminOnly: true },
+      { to: '/admin-data', label: 'Admin JSON Data', icon: 'i-lucide-database-backup', adminOnly: true },
       { to: '/data-consistency', label: 'Data Consistency', icon: 'i-lucide-shield-alert', adminOnly: true },
       { to: '/message-logs', label: 'Message Logs', icon: 'i-lucide-list-collapse', adminOnly: true },
       { to: '/audit', label: 'Audit Trail', icon: 'i-lucide-history', adminOnly: true },
@@ -203,6 +247,8 @@ const moduleGroups = [
       { to: '/google-drive-backup', label: 'Google Drive Backup', icon: 'i-lucide-cloud-upload', adminOnly: true },
       { to: '/production-readiness', label: 'Production Readiness', icon: 'i-lucide-shield-check', adminOnly: true },
       { to: '/production-final-acceptance', label: 'Production Final Acceptance', icon: 'i-lucide-shield-check', adminOnly: true, keywords: ['stage 10a', 'final acceptance', 'go live', 'release gate'] },
+      { to: '/production-go-live-master-acceptance', label: 'Go-Live Master Gate', icon: 'i-lucide-rocket', adminOnly: true, keywords: ['production go live', 'master acceptance', 'owner signoff', 'release gate'] },
+      { to: '/production-host-build-qa', label: 'Host Build QA', icon: 'i-lucide-server-cog', adminOnly: true, keywords: ['docker build', 'runtime qa', 'host build', 'go live smoke'] },
       { to: '/stage10-final-acceptance', label: 'Stage 10 Final Acceptance', icon: 'i-lucide-clipboard-check', adminOnly: true },
       { to: '/stage10k-operator-acceptance', label: 'Stage 10K Operator Acceptance', icon: 'i-lucide-list-checks', adminOnly: true, keywords: ['stage 10k', 'operator acceptance', 'daily checklist', 'store rehearsal'] },
       { to: '/production-support', label: 'Production Support', icon: 'i-lucide-life-buoy', adminOnly: true, keywords: ['stage 10l', 'support', 'troubleshooting', 'save failure', 'print failure', 'api mismatch'] },
@@ -232,6 +278,8 @@ const moduleGroups = [
     items: [
       { to: '/about-us', label: 'About Garmetix', icon: 'i-lucide-info' },
       { to: '/contact-us', label: 'Contact Us', icon: 'i-lucide-message-circle' },
+      { to: '/privacy', label: 'Privacy Policy', icon: 'i-lucide-shield-check' },
+      { to: '/terms', label: 'Terms of Usage', icon: 'i-lucide-file-check-2' },
       { to: '/faq', label: 'FAQ', icon: 'i-lucide-circle-help' }
     ]
   }

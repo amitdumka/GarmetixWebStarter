@@ -37,15 +37,15 @@ current_release = read("scripts/validation/current-release-checks.py")
 
 add(
     "version identity",
-    all(token in app_info for token in ['Version = "4.11.17"', "Stage 11D-2 Nuxt UI 4.9 Package Update", "GARMETIX-11D2-20260622-4117"])
-    and "APP_VERSION = '4.11.17'" in app_version
-    and "Stage 11D-2 Nuxt UI 4.9 Package Update" in app_version
-    and "GARMETIX-11D2-20260622-4117" in app_version
-    and "<Version>4.11.17</Version>" in api_project
-    and "<ApplicationDisplayVersion>4.11.17</ApplicationDisplayVersion>" in kiosk_project
-    and "<ApplicationVersion>4117</ApplicationVersion>" in kiosk_project
-    and "<Version>4.11.17</Version>" in bridge_project
-    and "<Version>4.11.17</Version>" in mock_project,
+    all(token in app_info for token in ['Version = "4.11.19"', "Stage 11D-4 Factory Reset Admin Identity Fix", "GARMETIX-11D4-20260624-4119"])
+    and "APP_VERSION = '4.11.19'" in app_version
+    and "Stage 11D-4 Factory Reset Admin Identity Fix" in app_version
+    and "GARMETIX-11D4-20260624-4119" in app_version
+    and "<Version>4.11.19</Version>" in api_project
+    and "<ApplicationDisplayVersion>4.11.19</ApplicationDisplayVersion>" in kiosk_project
+    and "<ApplicationVersion>4119</ApplicationVersion>" in kiosk_project
+    and "<Version>4.11.19</Version>" in bridge_project
+    and "<Version>4.11.19</Version>" in mock_project,
 )
 add(
     "face liveness endpoint contract",
@@ -98,7 +98,7 @@ add(
     and "Stage 11C Face Liveness Readiness Contract" in operations_doc
     and "rawFaceImage" in operations_doc
     and "Message Logs" in operations_doc
-    and "Current version: 4.11.17" in roadmap
+    and "Current version: 4.11.19" in roadmap
     and "Stage 11C Face Liveness Readiness Contract" in roadmap,
 )
 add(

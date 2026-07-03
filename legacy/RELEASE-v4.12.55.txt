@@ -1,0 +1,6 @@
+GarmetixWebStarter v4.12.55
+Stage 11D-140: Customer Dues Credit Reconciliation
+
+Adds CRM → Customer Dues Reco with Complete / Not Complete status, CSV evidence export, customer-wise invoice due checks, advance receipt and credit-note reconciliation, customer credit balance mismatch detection, non-cash advance bank mapping checks, operator rules and closeout checklist.
+
+Base used: uploaded v4.12.54 Stage 11D-139 Goods Return Policy Invoice Link.

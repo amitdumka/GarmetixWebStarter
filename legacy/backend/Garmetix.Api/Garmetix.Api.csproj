@@ -1,13 +1,13 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);AD0001</NoWarn>
-    <Version>4.11.17</Version>
-    <AssemblyVersion>4.11.17.0</AssemblyVersion>
-    <FileVersion>4.11.17.0</FileVersion>
-    <InformationalVersion>4.11.17-stage11d2-nuxt-ui-49-package-update</InformationalVersion>
+    <Version>4.12.69</Version>
+    <AssemblyVersion>4.12.69.0</AssemblyVersion>
+    <FileVersion>4.12.69.0</FileVersion>
+    <InformationalVersion>4.12.69-stage11d154-stock-operation-product-autocomplete</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

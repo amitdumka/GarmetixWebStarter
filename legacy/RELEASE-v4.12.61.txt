@@ -1,0 +1,4 @@
+GarmetixWebStarter v4.12.61
+Stage 11D-146 Stock Valuation Closure
+
+Adds stock valuation closure with current quantity, cost value, MRP value, negative-stock, zero-cost and movement-proof evidence.

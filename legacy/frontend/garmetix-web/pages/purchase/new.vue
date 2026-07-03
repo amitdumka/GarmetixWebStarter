@@ -3,6 +3,7 @@ const api = useGarmetixApi()
 const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
+const route = useRoute()
 const isAuthenticated = auth.isAuthenticated
 
 const NONE = '__none__'
@@ -20,6 +21,12 @@ const productSearch = ref('')
 const productResults = ref<any[]>([])
 const productLookupLoading = ref(false)
 const productDialogOpen = ref(false)
+const copyLoading = ref(false)
+const copiedFromInvoiceId = ref('')
+const copiedFromInvoiceLabel = ref('')
+const replaceOriginalAfterSave = ref(false)
+const replacementReason = ref('')
+const purchaseReturnUrl = computed(() => route.query.fromDayBook ? '/purchase?fromDayBook=1' : '/purchase')
 
 const form = reactive<any>({
   vendorId: MANUAL_VENDOR,
@@ -27,6 +34,7 @@ const form = reactive<any>({
   vendorMobileNumber: '',
   vendorGstin: '',
   invoiceNumber: '',
+  inwardDate: todayInputDate(),
   supplierInvoiceDate: todayInputDate(),
   dueDate: todayInputDate(45),
   paymentMode: 0,
@@ -85,7 +93,7 @@ const selectedCompanyId = computed(() => workspace.companyId.value || selectedSt
 const selectedStoreGroupId = computed(() => workspace.storeGroupId.value || selectedStore.value?.storeGroupId || stores.value[0]?.storeGroupId || null)
 const selectedStoreId = computed(() => workspace.storeId.value || stores.value[0]?.id || null)
 const safeStoreCode = computed(() => String(selectedStore.value?.storeCode || selectedStore.value?.code || 'STORE').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '') || 'STORE')
-const inwardNumberPreview = computed(() => `${safeStoreCode.value}/${todayInputDate().slice(0, 7).replace('-', '')}/INW/auto`)
+const inwardNumberPreview = computed(() => `${safeStoreCode.value}-${String(form.inwardDate || todayInputDate()).slice(0, 7).replace('-', '')}-INW-auto`)
 
 const unitOptions = computed(() => lookup.value.units || [])
 const productTypeOptions = computed(() => lookup.value.productTypes || [])
@@ -119,6 +127,78 @@ function nullableSelect(value: any) {
   return value && value !== NONE ? value : null
 }
 
+function unitValueFromLabel(label: any) {
+  const match = unitOptions.value.find((item: any) => String(item.label || item.name || item.value).toLowerCase() === String(label || '').toLowerCase())
+  return match?.value ?? 2
+}
+
+function taxIdFromRate(rate: any) {
+  const taxRate = Number(rate || 0)
+  const match = lookup.value.taxes?.find((item: any) => Math.abs(Number(item.rate || item.compositeRate || 0) - taxRate) < 0.01)
+  return match?.id || NONE
+}
+
+function asInputDate(value: any, fallback = '') {
+  if (!value) return fallback
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return fallback
+  return date.toISOString().slice(0, 10)
+}
+
+async function maybeLoadCopyFromInvoice() {
+  const sourceId = typeof route.query.copyFrom === 'string' ? route.query.copyFrom : ''
+  if (!sourceId || copiedFromInvoiceId.value === sourceId) return
+
+  copyLoading.value = true
+  try {
+    const receipt = await api.get<any>(`purchase/invoices/${sourceId}/receipt`)
+    copiedFromInvoiceId.value = sourceId
+    copiedFromInvoiceLabel.value = `${receipt.invoiceNumber || '-'} / ${receipt.inwardNumber || '-'}`
+    replaceOriginalAfterSave.value = false
+    replacementReason.value = ''
+
+    const vendorExists = lookup.value.vendors?.some((vendor: any) => vendor.id === receipt.vendorId)
+    form.vendorId = vendorExists ? receipt.vendorId : MANUAL_VENDOR
+    form.vendorName = receipt.vendorName || form.vendorName
+    form.vendorGstin = receipt.vendorGstin || ''
+    form.vendorMobileNumber = ''
+    form.invoiceNumber = receipt.invoiceNumber ? `${receipt.invoiceNumber}-REV` : ''
+    form.inwardDate = todayInputDate()
+    form.supplierInvoiceDate = asInputDate(receipt.supplierInvoiceDate || receipt.onDate, todayInputDate())
+    form.dueDate = asInputDate(receipt.dueDate, todayInputDate(45))
+    form.frightAmount = Number(receipt.freightAmount || 0)
+    form.paidAmount = 0
+    form.paymentMode = 0
+    form.bankAccountId = null
+
+    cart.value = (receipt.items || []).map((item: any) => {
+      const quantity = Number(item.quantity || 0)
+      return {
+        productId: null,
+        productName: item.productName,
+        barcode: item.barcode,
+        hsnCode: item.hsnCode || '',
+        productUnit: unitValueFromLabel(item.unit),
+        productType: 0,
+        productGroup: 0,
+        quantity,
+        costPrice: Number(item.costPrice || item.amount / Math.max(quantity, 1) || 0),
+        mrp: Number(item.mrp || 0),
+        discountAmount: quantity > 0 ? Number(item.discountAmount || 0) / quantity : 0,
+        taxId: taxIdFromRate(item.taxPercentage),
+        productCategoryId: null,
+        productSubCategoryId: null
+      }
+    })
+
+    feedback.notify('Revised inward draft loaded', 'Change the required item, qty, rate, discount or vendor details, then save as a new inward. Original invoice is not changed.', 'success')
+  } catch (error) {
+    feedback.failed('Could not load invoice for revised inward', error)
+  } finally {
+    copyLoading.value = false
+  }
+}
+
 function todayInputDate(offsetDays = 0) {
   const date = new Date()
   date.setDate(date.getDate() + offsetDays)
@@ -140,6 +220,7 @@ async function refresh() {
     lookup.value = lookupRows
     bankAccounts.value = bankRows
     applyLookupDefaults()
+    await maybeLoadCopyFromInvoice()
   } catch (error) {
     feedback.failed('Purchase inward setup failed', error)
   } finally {
@@ -327,6 +408,8 @@ async function submitPurchase() {
     if (!cart.value.length) throw new Error('Add at least one item to the inward cart.')
     if (requiresBankAccount.value && !form.bankAccountId) throw new Error('Select bank account for non-cash payment.')
 
+    const sourceInvoiceId = copiedFromInvoiceId.value
+    const shouldReplaceOriginal = Boolean(sourceInvoiceId && replaceOriginalAfterSave.value)
     const response = await api.create<any>('purchase/inward', {
       companyId,
       storeGroupId,
@@ -337,16 +420,25 @@ async function submitPurchase() {
       vendorGstin: form.vendorGstin,
       invoiceNumber: form.invoiceNumber,
       inwardNumber: null,
+      inwardDate: form.inwardDate,
       supplierInvoiceDate: form.supplierInvoiceDate,
       dueDate: form.dueDate,
       paymentMode: Number(form.paymentMode),
       paidAmount: Number(form.paidAmount || 0),
       frightAmount: Number(form.frightAmount || 0),
       bankAccountId: form.bankAccountId || null,
+      originalInvoiceId: shouldReplaceOriginal ? sourceInvoiceId : null,
+      replacementApprovalRequested: shouldReplaceOriginal,
+      replacementReason: replacementReason.value || `Revised inward requested from ${copiedFromInvoiceLabel.value || 'old inward'}`,
       items: cart.value
     })
+
+    if (shouldReplaceOriginal) {
+      feedback.notify('Replacement approval submitted', 'The old purchase invoice is not cancelled yet. Approve it from Invoice Replacement Approvals to reverse stock, GST ITC, vendor and accounting safely.', 'warning')
+    }
+
     feedback.notify('Purchase inward saved', response.inwardNumber || response.invoiceNumber || 'Stock updated.', 'success')
-    await navigateTo('/purchase')
+    await navigateTo(purchaseReturnUrl.value)
   } catch (error) {
     feedback.failed('Could not save purchase inward', error)
   } finally {
@@ -373,18 +465,20 @@ onMounted(async () => { auth.restore(); await refresh() })
   <AppShell v-else title="New Purchase Inward" :companies="companies" :stores="stores" @refresh="refresh" @workspace-change="refresh">
     <section class="planner-dashboard">
       <UiModulePageHeader
-        title="New Purchase Inward"
-        description="Full page inward entry with auto inward number, product lookup, inline product creation, stock receiving and first payment."
+        :title="copiedFromInvoiceId ? 'Create Revised Purchase Inward' : 'New Purchase Inward'"
+        :description="copiedFromInvoiceId ? 'Loaded from existing invoice. Change only the wrong lines and save as a new inward; original stays unchanged until you cancel it.' : 'Full page inward entry with auto inward number, product lookup, inline product creation, stock receiving and first payment.'"
         icon="i-lucide-package-plus"
         primary-label="Save Inward"
         primary-icon="i-lucide-save"
         @primary="submitPurchase"
       >
         <template #actions>
-          <UButton color="neutral" variant="subtle" icon="i-lucide-arrow-left" label="Back to Purchase" to="/purchase" />
-          <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">{{ loading ? 'Loading' : 'Ready' }}</UBadge>
+          <UButton color="neutral" variant="subtle" icon="i-lucide-arrow-left" label="Back to Purchase" :to="purchaseReturnUrl" />
+          <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">{{ loading || copyLoading ? 'Loading' : (copiedFromInvoiceId ? 'Revised draft' : 'Ready') }}</UBadge>
         </template>
       </UiModulePageHeader>
+
+      <UiDayBookReturnButton />
 
       <div class="planner-metric-grid">
         <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-file-digit" color="primary" variant="subtle" /><div><p>Inward no.</p><strong>{{ inwardNumberPreview }}</strong><span>Auto generated on save</span></div></div></UCard>
@@ -392,6 +486,26 @@ onMounted(async () => { auth.restore(); await refresh() })
         <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-indian-rupee" color="success" variant="subtle" /><div><p>Total</p><strong>{{ money(payableTotal) }}</strong><span>Including freight</span></div></div></UCard>
         <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-credit-card" color="neutral" variant="subtle" /><div><p>Paid</p><strong>{{ money(Number(form.paidAmount || 0)) }}</strong><span>First payment</span></div></div></UCard>
       </div>
+
+      <UCard v-if="copiedFromInvoiceId" class="setup-card border border-amber-200 bg-amber-50/70 dark:border-amber-700 dark:bg-amber-950/30">
+        <div class="space-y-3">
+          <UAlert
+            color="warning"
+            variant="soft"
+            icon="i-lucide-copy-plus"
+            title="Revised inward draft"
+            :description="`Copied from ${copiedFromInvoiceLabel}. Edit item rows as required and save. New inward number will be generated automatically.`"
+          />
+          <USwitch
+            v-model="replaceOriginalAfterSave"
+            label="After saving revised inward, submit replacement for owner/admin approval"
+            description="Old purchase invoice will be cancelled/reversed only after approval from Invoice Replacement Approvals."
+          />
+          <UFormField v-if="replaceOriginalAfterSave" label="Approval note / reason">
+            <UTextarea v-model="replacementReason" :rows="2" placeholder="Example: supplier bill corrected and revised inward verified." />
+          </UFormField>
+        </div>
+      </UCard>
 
       <UCard class="setup-card">
         <template #header><h2 class="section-title">Supplier and invoice details</h2></template>
@@ -406,8 +520,11 @@ onMounted(async () => { auth.restore(); await refresh() })
           <UFormField label="Inward number"><UInput :model-value="inwardNumberPreview" readonly /></UFormField>
         </div>
         <div class="form-three-column">
+          <UFormField label="Inward date" required><UInput v-model="form.inwardDate" type="date" /></UFormField>
           <UFormField label="Supplier invoice date"><UInput v-model="form.supplierInvoiceDate" type="date" /></UFormField>
           <UFormField label="Due date"><UInput v-model="form.dueDate" type="date" /></UFormField>
+        </div>
+        <div class="form-three-column">
           <UFormField label="Freight"><UInput v-model="form.frightAmount" type="number" min="0" /></UFormField>
         </div>
       </UCard>

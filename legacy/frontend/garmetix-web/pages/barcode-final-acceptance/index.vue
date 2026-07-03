@@ -37,6 +37,7 @@ onMounted(load)
 </script>
 
 <template>
+  <AppShell title="Barcode Final Acceptance">
   <UContainer class="space-y-6 py-6">
     <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
@@ -86,4 +87,5 @@ onMounted(load)
       </div>
     </UCard>
   </UContainer>
+  </AppShell>
 </template>

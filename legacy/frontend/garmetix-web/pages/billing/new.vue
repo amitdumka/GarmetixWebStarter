@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const api = useGarmetixApi()
+const route = useRoute()
 const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
@@ -35,6 +36,44 @@ const paymentModeOptions = [
   { value: paymentModeValue.demandDraft, label: 'Demand Draft' }
 ]
 
+function paymentModeFromLabel(value: any) {
+  const label = String(value || '').trim().toLowerCase()
+  if (!label) return paymentModeValue.cash
+  if (label === 'cash') return paymentModeValue.cash
+  if (label === 'card') return paymentModeValue.card
+  if (label === 'upi') return paymentModeValue.upi
+  if (label === 'wallet' || label === 'wallets') return paymentModeValue.wallets
+  if (label === 'imps') return paymentModeValue.imps
+  if (label === 'rtgs') return paymentModeValue.rtgs
+  if (label === 'neft') return paymentModeValue.neft
+  if (label === 'cheque') return paymentModeValue.cheque
+  if (label === 'demanddraft' || label === 'demand draft') return paymentModeValue.demandDraft
+  return paymentModeValue.cash
+}
+
+function receiptPaymentRows(receipt: any) {
+  const receiptPayments = Array.isArray(receipt?.payments) ? receipt.payments : []
+  if (receiptPayments.length) {
+    return receiptPayments
+      .filter((payment: any) => Number(payment.amount || 0) > 0)
+      .map((payment: any) => {
+        const mode = paymentModeFromLabel(payment.paymentMode)
+        const needsBank = mode !== paymentModeValue.cash
+        return {
+          paymentMode: mode,
+          amount: Number(payment.amount || 0),
+          bankAccountId: needsBank ? (bankAccounts.value[0]?.id || null) : null,
+          referenceNumber: payment.referenceNumber || payment.gatewayReference || '',
+          gatewayReference: payment.gatewayReference || '',
+          settlementStatus: payment.settlementStatus || ''
+        }
+      })
+  }
+
+  const paidAmount = Number(receipt?.paidAmount || 0)
+  return paidAmount > 0 ? [emptyPayment(paidAmount)] : [emptyPayment(0)]
+}
+
 const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const salesmen = ref<any[]>([])
@@ -58,6 +97,14 @@ const payments = ref<any[]>([])
 
 const form = reactive(emptyForm())
 const draftKey = 'garmetix.billing.new.draft.v1'
+const copiedFromInvoiceId = ref('')
+const copiedFromInvoiceLabel = ref('')
+const copyLoading = ref(false)
+const replaceOriginalAfterSave = ref(false)
+const replacementReason = ref('')
+const isRevisedSaleDraft = computed(() => Boolean(copiedFromInvoiceId.value))
+
+const billingReturnUrl = computed(() => route.query.fromDayBook ? '/billing?fromDayBook=1' : '/billing')
 
 function emptyForm() {
   return {
@@ -67,6 +114,7 @@ function emptyForm() {
     customerGstin: '',
     salesmanId: null as string | null,
     billDiscountAmount: 0,
+    remarks: '',
     productSearch: '',
     barcodeScan: '',
     quantity: 1,
@@ -170,6 +218,61 @@ function showSettlement(payment: any) {
   return Number(payment.paymentMode) !== paymentModeValue.cash
 }
 
+
+function asInputDate(value: any, fallback = '') {
+  if (!value) return fallback
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return fallback
+  return date.toISOString().slice(0, 10)
+}
+
+async function maybeLoadCopyFromInvoice() {
+  const sourceId = typeof route.query.copyFrom === 'string' ? route.query.copyFrom : ''
+  if (!sourceId || copiedFromInvoiceId.value === sourceId) return
+
+  copyLoading.value = true
+  try {
+    clearDraft()
+    const receipt = await api.get<any>(`billing/sales/${sourceId}/receipt`)
+    copiedFromInvoiceId.value = sourceId
+    copiedFromInvoiceLabel.value = receipt.invoiceNumber || ''
+    replaceOriginalAfterSave.value = false
+    replacementReason.value = ''
+
+    Object.assign(form, emptyForm(), {
+      customerId: null,
+      customerName: receipt.customerName || 'Walk-in Customer',
+      customerMobileNumber: receipt.customerMobileNumber || '',
+      customerGstin: receipt.customerGstin || receipt.customerGSTIN || '',
+      salesmanId: null,
+      billDiscountAmount: 0
+    })
+
+    cart.value = (receipt.items || [])
+      .filter((item: any) => item.productId && item.barcode)
+      .map((item: any) => ({
+        productId: item.productId,
+        name: item.productName || item.name || item.barcode,
+        barcode: item.barcode,
+        quantity: Number(item.quantity || 0),
+        mrp: Number(item.mrp || 0),
+        basicRate: Number(item.taxPercentage || 0) > 0 ? Number(item.mrp || 0) / (1 + Number(item.taxPercentage || 0) / 100) : Number(item.mrp || 0),
+        discountAmount: Number(item.discountAmount || 0),
+        taxRate: Number(item.taxPercentage || 0)
+      }))
+
+    const copiedCartTotal = Math.round(cart.value.reduce((sum, item) => sum + lineTotal(item), 0))
+    const oldBillAmount = Number(receipt.billAmount || copiedCartTotal)
+    form.billDiscountAmount = Math.max(copiedCartTotal - oldBillAmount, 0)
+    payments.value = receiptPaymentRows(receipt)
+    feedback.notify('Revised sale draft loaded', 'Items, bill discount and payment split were copied from the old invoice. Correct what is required, then save as a new invoice. Original sale is not changed.', 'success')
+  } catch (error) {
+    feedback.failed('Could not load invoice for revised sale', error)
+  } finally {
+    copyLoading.value = false
+  }
+}
+
 async function refresh() {
   if (!auth.isAuthenticated.value) return
   loading.value = true
@@ -194,6 +297,7 @@ async function refresh() {
     salesmen.value = options?.salesmen || []
     setDefaultSalesman()
     restoreDraft()
+    await maybeLoadCopyFromInvoice()
   } catch (error) {
     loadError.value = feedback.errorMessage(error, 'Could not load the sales invoice workspace.', 'Sales invoice load failed')
   } finally {
@@ -456,6 +560,8 @@ async function submitSale() {
   saving.value = true
   try {
     if (form.customerGstin && !gstinValidation.value) await validateGstin()
+    const sourceInvoiceId = copiedFromInvoiceId.value
+    const shouldReplaceOriginal = Boolean(sourceInvoiceId && replaceOriginalAfterSave.value)
     const response = await api.create<any>('billing/sales', {
       companyId,
       storeGroupId,
@@ -469,7 +575,11 @@ async function submitSale() {
       bankAccountId: salePayments.find((item) => item.bankAccountId)?.bankAccountId || null,
       paidAmount: totalPaid,
       billDiscountAmount: Number(form.billDiscountAmount || 0),
+      remarks: form.remarks || null,
       payments: salePayments,
+      originalInvoiceId: shouldReplaceOriginal ? sourceInvoiceId : null,
+      replacementApprovalRequested: shouldReplaceOriginal,
+      replacementReason: replacementReason.value || `Revised sale invoice requested from ${copiedFromInvoiceLabel.value || 'old invoice'}`,
       items: cart.value.map((item) => ({
         productId: item.productId,
         barcode: item.barcode,
@@ -481,6 +591,11 @@ async function submitSale() {
     lastSavedInvoice.value = response
     feedback.saved(`Invoice ${response.invoiceNumber || ''}`.trim())
     if (response.gstinAlerts?.length) feedback.notify('GSTIN alert saved', response.gstinAlerts.join(' '), 'warning')
+
+    if (shouldReplaceOriginal) {
+      feedback.notify('Replacement approval submitted', 'The old invoice is not cancelled yet. Approve it from Invoice Replacement Approvals to reverse stock, payment and accounting safely.', 'warning')
+    }
+
     try {
       await documentPrint.printPdf(`billing/sales/${response.invoiceId}/pdf?format=a4&copy=customer&reprint=false&signatures=true`)
     } catch (printError) {
@@ -492,6 +607,34 @@ async function submitSale() {
   } finally {
     saving.value = false
   }
+}
+
+async function sendLastDigitalBillWhatsApp() {
+  const current = lastSavedInvoice.value
+  const invoiceId = current?.invoiceId
+  if (!invoiceId) return
+  try {
+    const response = await api.create<any>(`billing/sales/${invoiceId}/digital-bill/send-whatsapp`, { force: true })
+    lastSavedInvoice.value = {
+      ...current,
+      digitalBillWhatsAppStatus: response.status || current.digitalBillWhatsAppStatus,
+      digitalBillWhatsAppMessage: response.errorMessage || response.messageBody || current.digitalBillWhatsAppMessage
+    }
+    feedback.notify(`WhatsApp status: ${response.status || 'Queued'}`, response.errorMessage || response.messageBody || 'Digital bill WhatsApp action completed.', response.status === 'Sent' ? 'success' : 'warning')
+  } catch (error) {
+    feedback.failed('Could not send digital bill WhatsApp', error)
+  }
+}
+
+async function copyLastDigitalBillLink() {
+  const path = lastSavedInvoice.value?.digitalBillPublicPath
+  if (!path) {
+    feedback.notify('Digital bill link not ready', 'Open Marketing & CRM → Digital Bills to generate it manually.', 'warning')
+    return
+  }
+  const link = `${window.location.origin}${path}`
+  await navigator.clipboard?.writeText(link)
+  feedback.notify('Digital bill link copied', link, 'success')
 }
 
 function resetForNextInvoice() {
@@ -511,6 +654,10 @@ function resetForNextInvoice() {
   customerMatches.value = []
   customerSearchComplete.value = false
   gstinValidation.value = null
+  copiedFromInvoiceId.value = ''
+  copiedFromInvoiceLabel.value = ''
+  replaceOriginalAfterSave.value = false
+  replacementReason.value = ''
   setDefaultSalesman()
   clearDraft()
 }
@@ -582,7 +729,7 @@ watch([form, adjustments, cart, payments], persistDraft, { deep: true })
   <AuthScreen v-if="!isAuthenticated" @authenticated="refresh" />
   <AppShell
     v-else
-    title="New Sales Invoice"
+    :title="isRevisedSaleDraft ? 'Revised Sales Invoice' : 'New Sales Invoice'"
     :companies="companies"
     :stores="stores"
     @refresh="refresh"
@@ -590,25 +737,93 @@ watch([form, adjustments, cart, payments], persistDraft, { deep: true })
   >
     <section class="invoice-page">
       <UiModulePageHeader
-        title="New Sales Invoice"
-        description="Create, collect and print a complete invoice without leaving the billing workspace."
+        :title="isRevisedSaleDraft ? 'Revised Sales Invoice Draft' : 'New Sales Invoice'"
+        :description="isRevisedSaleDraft ? 'Copied from old invoice. Correct required lines and save as a new invoice.' : 'Create, collect and print a complete invoice without leaving the billing workspace.'"
         icon="i-lucide-receipt-indian-rupee"
       >
         <template #actions>
-          <UButton to="/billing" color="neutral" variant="outline" icon="i-lucide-arrow-left" label="Invoice Register" />
+          <UButton :to="billingReturnUrl" color="neutral" variant="outline" icon="i-lucide-arrow-left" label="Invoice Register" />
           <UButton icon="i-lucide-save" label="Save & Print" :loading="saving" @click="submitSale" />
         </template>
       </UiModulePageHeader>
 
+      <UiDayBookReturnButton />
+
       <UAlert v-if="loadError" color="error" variant="subtle" title="Invoice workspace unavailable" :description="loadError" />
+      <UCard v-if="isRevisedSaleDraft" class="border border-amber-200 bg-amber-50/70 dark:border-amber-700 dark:bg-amber-950/30">
+        <div class="space-y-3">
+          <UAlert
+            color="warning"
+            variant="subtle"
+            icon="i-lucide-copy-plus"
+            title="Revised sale draft"
+            :description="`Copied from ${copiedFromInvoiceLabel || 'old invoice'}. Save as a new invoice after correcting item/qty/rate/customer details.`"
+          />
+          <USwitch
+            v-model="replaceOriginalAfterSave"
+            label="After saving revised sale invoice, submit replacement for owner/admin approval"
+            description="Old invoice will be cancelled/reversed only after approval from Invoice Replacement Approvals."
+          />
+          <UFormField v-if="replaceOriginalAfterSave" label="Approval note / reason">
+            <UTextarea v-model="replacementReason" :rows="2" placeholder="Example: wrong size/rate corrected and revised invoice verified." />
+          </UFormField>
+        </div>
+      </UCard>
+      <UAlert
+        v-if="copyLoading"
+        color="info"
+        variant="subtle"
+        icon="i-lucide-loader"
+        title="Loading revised invoice draft"
+        description="Please wait while old invoice data is copied."
+      />
       <UAlert
         v-if="lastSavedInvoice"
         color="success"
         variant="subtle"
         icon="i-lucide-circle-check"
         title="Invoice saved and next bill is ready"
-        :description="`${lastSavedInvoice.invoiceNumber} was saved for ${money(lastSavedInvoice.billAmount)}.`"
-      />
+        :description="`${lastSavedInvoice.invoiceNumber} was saved for ${money(lastSavedInvoice.billAmount)}.${lastSavedInvoice.digitalBillWhatsAppStatus ? ' WhatsApp: ' + lastSavedInvoice.digitalBillWhatsAppStatus + '.' : ''}`"
+      >
+        <template #actions>
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="subtle"
+            icon="i-lucide-receipt-text"
+            label="Open in Register"
+            :to="`${billingReturnUrl}${billingReturnUrl.includes('?') ? '&' : '?'}invoiceId=${lastSavedInvoice.invoiceId}`"
+          />
+          <UButton
+            v-if="lastSavedInvoice.digitalBillPublicPath"
+            size="xs"
+            color="success"
+            variant="solid"
+            icon="i-lucide-copy"
+            label="Copy Digital Bill"
+            @click="copyLastDigitalBillLink"
+          />
+          <UButton
+            v-if="lastSavedInvoice.digitalBillPublicPath"
+            size="xs"
+            color="neutral"
+            variant="subtle"
+            icon="i-lucide-external-link"
+            label="Open"
+            :to="lastSavedInvoice.digitalBillPublicPath"
+            target="_blank"
+          />
+          <UButton
+            v-if="lastSavedInvoice.digitalBillPublicPath"
+            size="xs"
+            color="primary"
+            variant="subtle"
+            icon="i-lucide-send"
+            label="Send WhatsApp"
+            @click="sendLastDigitalBillWhatsApp"
+          />
+        </template>
+      </UAlert>
 
       <div class="invoice-grid" :aria-busy="loading">
         <main class="sale-entry-main">
@@ -640,6 +855,9 @@ watch([form, adjustments, cart, payments], persistDraft, { deep: true })
                   <UInput v-model="form.customerGstin" maxlength="15" placeholder="22AAAAA0000A1Z5" />
                   <UButton color="neutral" variant="subtle" icon="i-lucide-search-check" label="Check" :loading="checkingGstin" @click="validateGstin" />
                 </div>
+              </UFormField>
+              <UFormField label="Invoice remark / note" class="md:col-span-2">
+                <UTextarea v-model="form.remarks" :rows="2" placeholder="Optional note printed/saved with invoice" />
               </UFormField>
             </div>
 

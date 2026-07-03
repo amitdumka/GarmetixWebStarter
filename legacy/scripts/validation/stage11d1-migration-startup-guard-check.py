@@ -25,25 +25,25 @@ readme = read("README.md")
 roadmap = read("docs/planning/CURRENT-ROADMAP.md")
 
 add(
-    "release identity v4.11.17",
-    all(token in app_info for token in ['Version = "4.11.17"', "Stage 11D-2 Nuxt UI 4.9 Package Update", "GARMETIX-11D2-20260622-4117"])
-    and "APP_VERSION = '4.11.17'" in app_version
-    and "Stage 11D-2 Nuxt UI 4.9 Package Update" in app_version
-    and "GARMETIX-11D2-20260622-4117" in app_version
-    and "<Version>4.11.17</Version>" in api_project
-    and "<ApplicationDisplayVersion>4.11.17</ApplicationDisplayVersion>" in kiosk_project
-    and "<ApplicationVersion>4117</ApplicationVersion>" in kiosk_project
-    and "<Version>4.11.17</Version>" in bridge_project
-    and "<Version>4.11.17</Version>" in mock_project,
+    "release identity v4.11.19",
+    all(token in app_info for token in ['Version = "4.11.19"', "Stage 11D-4 Factory Reset Admin Identity Fix", "GARMETIX-11D4-20260624-4119"])
+    and "APP_VERSION = '4.11.19'" in app_version
+    and "Stage 11D-4 Factory Reset Admin Identity Fix" in app_version
+    and "GARMETIX-11D4-20260624-4119" in app_version
+    and "<Version>4.11.19</Version>" in api_project
+    and "<ApplicationDisplayVersion>4.11.19</ApplicationDisplayVersion>" in kiosk_project
+    and "<ApplicationVersion>4119</ApplicationVersion>" in kiosk_project
+    and "<Version>4.11.19</Version>" in bridge_project
+    and "<Version>4.11.19</Version>" in mock_project,
 )
 add("startup uses guarded migration helper", "ApplyDatabaseStartupMigrationsAsync" in program and "MarkFreshBaselineForExistingSchemaAsync" in program)
 add("reset is explicit only", "GARMETIX_RESET_DATABASE" in program and "Database:ResetOnStartup" in program and "EnsureDeletedAsync" in program)
 add("existing schema baseline is conservative", "existingTableCount < 40" in program and '["Users", "Companies", "Stores", "AttendanceApprovals", "Ledgers", "LedgerGroups", "Employees", "Products", "SalesInvoices", "Vouchers"]' in program)
 add("baseline marker inserted with conflict safety", "InsertBaselineMigrationHistoryAsync" in program and 'ON CONFLICT ("MigrationId") DO NOTHING' in program)
 add("migration diagnostics logged", "Database provider:" in program and "Database migration status before migrate" in program and "Pending:" in program)
-add("documentation records startup guard", "Stage 11D-2 Nuxt UI 4.9 Package Update" in readme and "GARMETIX_RESET_DATABASE=true" in readme and "Current version: 4.11.17" in roadmap)
+add("documentation records startup guard", "Stage 11D-4 Factory Reset Admin Identity Fix" in readme and "GARMETIX_RESET_DATABASE=true" in readme and "Current version: 4.11.19" in roadmap)
 
 if failures:
-    raise SystemExit("Stage 11D-2 Nuxt UI 4.9 Package Update validation failed: " + ", ".join(failures))
+    raise SystemExit("Stage 11D-4 Factory Reset Admin Identity Fix validation failed: " + ", ".join(failures))
 
-print("Stage 11D-2 Nuxt UI 4.9 Package Update validation passed.")
+print("Stage 11D-4 Factory Reset Admin Identity Fix validation passed.")

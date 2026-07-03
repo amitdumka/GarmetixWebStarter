@@ -1219,6 +1219,8 @@ watch(() => transactionForm.bankAccountId, () => {
         </template>
       </UiModulePageHeader>
 
+      <UiDayBookReturnButton />
+
       <div class="planner-metric-grid">
         <UCard v-for="metric in metrics" :key="metric.label" class="planner-metric-card">
           <div class="planner-metric-body">

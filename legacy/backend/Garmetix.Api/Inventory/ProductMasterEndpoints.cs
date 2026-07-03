@@ -5,6 +5,7 @@ using Garmetix.Core.Enums;
 using Garmetix.Core.Models.Inventory;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 using InventoryProductCategory = Garmetix.Core.Models.Inventory.ProductCategory;
 using InventoryProductSubCategory = Garmetix.Core.Models.Inventory.ProductSubCategory;
 
@@ -19,6 +20,7 @@ public static class ProductMasterEndpoints
             .RequireAuthorization(GarmetixPolicies.Inventory);
 
         group.MapGet("/", ListAsync);
+        group.MapGet("/paged", ListPagedAsync);
         group.MapGet("/options", OptionsAsync);
         group.MapPost("/", CreateAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPut("/{id:guid}", UpdateAsync).RequireAuthorization(GarmetixPolicies.Edit);
@@ -58,6 +60,362 @@ public static class ProductMasterEndpoints
             .ToList();
     }
 
+    private static async Task<PagedProductMasterResponse> ListPagedAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        int page = 1,
+        int pageSize = 50,
+        string? q = null,
+        Guid? categoryId = null,
+        Guid? subCategoryId = null,
+        string? brand = null,
+        Guid? vendorId = null,
+        string? color = null,
+        string? size = null,
+        string stockMode = "in-stock",
+        string? ageBucket = null,
+        string? health = null,
+        decimal? minStock = null,
+        decimal? maxStock = null,
+        CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 25, 200);
+        var term = q?.Trim().ToLowerInvariant();
+        var brandTerm = brand?.Trim().ToLowerInvariant();
+        var colorTerm = color?.Trim().ToLowerInvariant();
+        var sizeTerm = NormalizeSize(size);
+        var healthFilter = health?.Trim().ToLowerInvariant();
+        var today = DateTime.Today;
+
+        var scopedStocks = WorkspaceScope.ApplyTo(db.Stocks.AsNoTracking(), context)
+            .Where(stock => !stock.IsOFB);
+        var scopedDetails = WorkspaceScope.ApplyTo(db.ProductDetails.AsNoTracking(), context);
+
+        var query = WorkspaceScope.ApplyTo(db.Products.AsNoTracking(), context)
+            .Include(item => item.ProductCategory)
+            .Include(item => item.ProductSubCategory)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(term))
+        {
+            query = query.Where(product =>
+                product.Name.ToLower().Contains(term) ||
+                product.Barcode.ToLower().Contains(term) ||
+                (product.HSNCode != null && product.HSNCode.ToLower().Contains(term)) ||
+                (product.ProductCategory != null && product.ProductCategory.Name.ToLower().Contains(term)) ||
+                (product.ProductSubCategory != null && product.ProductSubCategory.Name.ToLower().Contains(term)) ||
+                scopedDetails.Any(detail =>
+                    detail.ProductId == product.Id &&
+                    ((detail.Brand != null && detail.Brand.ToLower().Contains(term)) ||
+                     (detail.StyleCode != null && detail.StyleCode.ToLower().Contains(term)) ||
+                     (detail.BaseColor != null && detail.BaseColor.ToLower().Contains(term)))));
+        }
+
+        if (categoryId.HasValue)
+        {
+            query = query.Where(product => product.ProductCategoryId == categoryId.Value);
+        }
+
+        if (subCategoryId.HasValue)
+        {
+            query = query.Where(product => product.ProductSubCategoryId == subCategoryId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(brandTerm))
+        {
+            query = query.Where(product => scopedDetails.Any(detail => detail.ProductId == product.Id && detail.Brand != null && detail.Brand.ToLower().Contains(brandTerm)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(colorTerm))
+        {
+            query = query.Where(product => scopedDetails.Any(detail => detail.ProductId == product.Id && detail.BaseColor != null && detail.BaseColor.ToLower().Contains(colorTerm)));
+        }
+
+        if (vendorId.HasValue)
+        {
+            query = query.Where(product => scopedDetails.Any(detail => detail.ProductId == product.Id && detail.VendorId == vendorId.Value));
+        }
+
+        if (stockMode.Equals("in-stock", StringComparison.OrdinalIgnoreCase) || stockMode.Equals("instock", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(product => scopedStocks.Any(stock => stock.ProductId == product.Id && (stock.PurchaseQty - stock.SoldQty) > 0));
+        }
+        else if (stockMode.Equals("out-of-stock", StringComparison.OrdinalIgnoreCase) || stockMode.Equals("outofstock", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(product => !scopedStocks.Any(stock => stock.ProductId == product.Id && (stock.PurchaseQty - stock.SoldQty) > 0));
+        }
+
+        if (minStock.HasValue)
+        {
+            query = query.Where(product => scopedStocks.Where(stock => stock.ProductId == product.Id).Select(stock => (decimal?)(stock.PurchaseQty - stock.SoldQty)).Sum() >= minStock.Value);
+        }
+
+        if (maxStock.HasValue)
+        {
+            query = query.Where(product => scopedStocks.Where(stock => stock.ProductId == product.Id).Select(stock => (decimal?)(stock.PurchaseQty - stock.SoldQty)).Sum() <= maxStock.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(healthFilter) && !healthFilter.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            query = ApplyProductHealthFilter(query, scopedStocks, scopedDetails, healthFilter, today);
+        }
+
+        if (!string.IsNullOrWhiteSpace(ageBucket) && !ageBucket.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            query = ApplyProductAgeFilter(query, db, context, ageBucket, today);
+        }
+
+        if (!string.IsNullOrWhiteSpace(sizeTerm) && !sizeTerm.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            var sizeProductIds = await ResolveProductIdsBySizeAsync(query, scopedDetails, sizeTerm, cancellationToken);
+            query = query.Where(product => sizeProductIds.Contains(product.Id));
+        }
+
+        var total = await query.CountAsync(cancellationToken);
+        var products = await query
+            .OrderBy(item => item.Name)
+            .ThenBy(item => item.Barcode)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        var productIds = products.Select(item => item.Id).ToArray();
+        var stocks = await scopedStocks
+            .Where(item => productIds.Contains(item.ProductId))
+            .ToListAsync(cancellationToken);
+        var details = await scopedDetails
+            .Where(item => productIds.Contains(item.ProductId))
+            .ToListAsync(cancellationToken);
+        var lastInwardLookup = await WorkspaceScope.ApplyTo(db.StockMovements.AsNoTracking(), context)
+            .Where(movement => productIds.Contains(movement.ProductId) && movement.QuantityIn > 0)
+            .GroupBy(movement => movement.ProductId)
+            .Select(group => new { ProductId = group.Key, LastInwardAt = group.Max(movement => (DateTime?)movement.OnDate) })
+            .ToDictionaryAsync(row => row.ProductId, row => row.LastInwardAt, cancellationToken);
+
+        var rows = products.Select(product =>
+        {
+            var productStocks = stocks.Where(stock => stock.ProductId == product.Id).ToList();
+            var row = ToRow(product, productStocks, details.FirstOrDefault(detail => detail.ProductId == product.Id));
+            lastInwardLookup.TryGetValue(product.Id, out var lastInwardAt);
+            row.LastInwardAt = lastInwardAt;
+            row.AgeDays = lastInwardAt is null ? null : Math.Max(0, (today - lastInwardAt.Value.Date).Days);
+            row.AgeBucket = StockReportCalculator.AgeBucket(row.CurrentStock, lastInwardAt, today);
+            return row;
+        }).ToList();
+
+        var totalCurrentStock = await scopedStocks
+            .Select(stock => (decimal?)(stock.PurchaseQty - stock.SoldQty))
+            .SumAsync(cancellationToken) ?? 0;
+        var inStockCount = await WorkspaceScope.ApplyTo(db.Products.AsNoTracking(), context)
+            .CountAsync(product => scopedStocks.Any(stock => stock.ProductId == product.Id && (stock.PurchaseQty - stock.SoldQty) > 0), cancellationToken);
+        var productCount = await WorkspaceScope.ApplyTo(db.Products.AsNoTracking(), context).CountAsync(cancellationToken);
+
+        return new PagedProductMasterResponse(
+            rows,
+            total,
+            page,
+            pageSize,
+            totalCurrentStock,
+            await scopedStocks.Select(stock => (decimal?)((stock.PurchaseQty - stock.SoldQty) * stock.MRP)).SumAsync(cancellationToken) ?? 0,
+            inStockCount,
+            Math.Max(productCount - inStockCount, 0));
+    }
+
+    private static async Task<Guid[]> ResolveProductIdsBySizeAsync(
+        IQueryable<Product> query,
+        IQueryable<ProductDetail> scopedDetails,
+        string sizeTerm,
+        CancellationToken cancellationToken)
+    {
+        var productInfos = await query
+            .Select(product => new { product.Id, product.Name, product.Descriptions })
+            .Take(20000)
+            .ToListAsync(cancellationToken);
+        if (productInfos.Count == 0)
+        {
+            return Array.Empty<Guid>();
+        }
+
+        var productIds = productInfos.Select(item => item.Id).ToArray();
+        var detailRows = await scopedDetails
+            .Where(detail => productIds.Contains(detail.ProductId))
+            .Select(detail => new { detail.ProductId, detail.StyleCode })
+            .ToListAsync(cancellationToken);
+        var detailLookup = detailRows
+            .GroupBy(item => item.ProductId)
+            .ToDictionary(group => group.Key, group => group.Select(item => item.StyleCode).FirstOrDefault(item => !string.IsNullOrWhiteSpace(item)));
+
+        return productInfos
+            .Where(item =>
+            {
+                detailLookup.TryGetValue(item.Id, out var styleCode);
+                var detected = NormalizeSize(DetectProductSize(item.Name, styleCode, item.Descriptions));
+                return string.Equals(detected, sizeTerm, StringComparison.OrdinalIgnoreCase);
+            })
+            .Select(item => item.Id)
+            .ToArray();
+    }
+
+    private static string? DetectProductSize(params string?[] sources)
+    {
+        foreach (var source in sources)
+        {
+            var size = DetectProductSizeFromText(source);
+            if (!string.IsNullOrWhiteSpace(size))
+            {
+                return size;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? DetectProductSizeFromText(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
+        var normalized = text.ToUpperInvariant()
+            .Replace("FREE-SIZE", "FREE SIZE")
+            .Replace("FREESIZE", "FREE SIZE")
+            .Replace("FREE_SIZE", "FREE SIZE");
+        if (normalized.Contains("FREE SIZE"))
+        {
+            return "Free Size";
+        }
+
+        var tokens = Regex.Split(normalized, @"[^A-Z0-9]+")
+            .Where(token => !string.IsNullOrWhiteSpace(token))
+            .ToArray();
+
+        for (var index = tokens.Length - 1; index >= 0; index--)
+        {
+            var size = NormalizeSize(tokens[index]);
+            if (!string.IsNullOrWhiteSpace(size) && IsLikelySizeToken(size))
+            {
+                return size;
+            }
+        }
+
+        return null;
+    }
+
+    private static string? NormalizeSize(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var token = value.Trim().ToUpperInvariant()
+            .Replace("FREE-SIZE", "FREE SIZE")
+            .Replace("FREESIZE", "FREE SIZE")
+            .Replace("FREE_SIZE", "FREE SIZE");
+        if (token == "ALL") return "all";
+        if (token is "FS" or "FREE") return "Free Size";
+        if (token == "FREE SIZE") return "Free Size";
+        if (token is "STD" or "STANDARD") return "STD";
+        if (token is "NS" or "NA" or "N/A") return "NS";
+        if (token.StartsWith("C") && token.Length > 1 && int.TryParse(token[1..], out var cSize)) return cSize.ToString();
+        if (token.StartsWith("T") && token.Length > 1 && int.TryParse(token[1..], out var tSize)) return tSize.ToString();
+        if (token.StartsWith("B") && token.Length > 1 && int.TryParse(token[1..], out var bSize)) return bSize.ToString();
+        if (int.TryParse(token, out var number) && number is >= 2 and <= 60) return number.ToString();
+        return token switch
+        {
+            "XS" or "S" or "M" or "L" or "XL" or "XXL" or "XXXL" or "XXXXL" => token,
+            _ => null
+        };
+    }
+
+    private static bool IsLikelySizeToken(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return false;
+        }
+
+        if (token is "XS" or "S" or "M" or "L" or "XL" or "XXL" or "XXXL" or "XXXXL" or "STD" or "NS" or "Free Size")
+        {
+            return true;
+        }
+
+        return int.TryParse(token, out var size) && size is >= 2 and <= 60;
+    }
+
+    private static int SizeSortKey(string value)
+    {
+        var normalized = NormalizeSize(value) ?? value;
+        if (int.TryParse(normalized, out var number))
+        {
+            return 100 + number;
+        }
+
+        return normalized switch
+        {
+            "XS" => 10,
+            "S" => 20,
+            "M" => 30,
+            "L" => 40,
+            "XL" => 50,
+            "XXL" => 60,
+            "XXXL" => 70,
+            "XXXXL" => 80,
+            "STD" => 90,
+            "Free Size" => 95,
+            "NS" => 99,
+            _ => 1000
+        };
+    }
+
+    private static IQueryable<Product> ApplyProductHealthFilter(
+        IQueryable<Product> query,
+        IQueryable<Stock> scopedStocks,
+        IQueryable<ProductDetail> scopedDetails,
+        string healthFilter,
+        DateTime today)
+    {
+        return healthFilter switch
+        {
+            "low-stock" => query.Where(product => scopedStocks.Where(stock => stock.ProductId == product.Id).Select(stock => (decimal?)(stock.PurchaseQty - stock.SoldQty)).Sum() > 0
+                && scopedStocks.Where(stock => stock.ProductId == product.Id).Select(stock => (decimal?)(stock.PurchaseQty - stock.SoldQty)).Sum() <= 2),
+            "dead-stock" => query.Where(product => scopedStocks.Any(stock => stock.ProductId == product.Id && (stock.PurchaseQty - stock.SoldQty) > 0)
+                && scopedStocks.Where(stock => stock.ProductId == product.Id).Max(stock => (DateTime?)stock.UpdatedAt) < today.AddDays(-180)),
+            "high-value" => query.Where(product => scopedStocks.Where(stock => stock.ProductId == product.Id).Select(stock => (decimal?)((stock.PurchaseQty - stock.SoldQty) * stock.MRP)).Sum() >= 10000),
+            "missing-hsn" => query.Where(product => product.HSNCode == null || product.HSNCode == ""),
+            "missing-category" => query.Where(product => product.ProductCategoryId == Guid.Empty || product.ProductSubCategoryId == Guid.Empty),
+            "missing-brand" => query.Where(product => !scopedDetails.Any(detail => detail.ProductId == product.Id && detail.Brand != null && detail.Brand != "")),
+            "missing-vendor" => query.Where(product => !scopedDetails.Any(detail => detail.ProductId == product.Id && detail.VendorId != null)),
+            "missing-color" => query.Where(product => !scopedDetails.Any(detail => detail.ProductId == product.Id && detail.BaseColor != null && detail.BaseColor != "")),
+            _ => query
+        };
+    }
+
+    private static IQueryable<Product> ApplyProductAgeFilter(
+        IQueryable<Product> query,
+        GarmetixDbContext db,
+        HttpContext context,
+        string ageBucket,
+        DateTime today)
+    {
+        var movements = WorkspaceScope.ApplyTo(db.StockMovements.AsNoTracking(), context)
+            .Where(movement => movement.QuantityIn > 0);
+
+        return ageBucket switch
+        {
+            "0-30 Days" => query.Where(product => movements.Where(movement => movement.ProductId == product.Id).Max(movement => (DateTime?)movement.OnDate) >= today.AddDays(-30)),
+            "31-60 Days" => query.Where(product => movements.Where(movement => movement.ProductId == product.Id).Max(movement => (DateTime?)movement.OnDate) < today.AddDays(-30) && movements.Where(movement => movement.ProductId == product.Id).Max(movement => (DateTime?)movement.OnDate) >= today.AddDays(-60)),
+            "61-90 Days" => query.Where(product => movements.Where(movement => movement.ProductId == product.Id).Max(movement => (DateTime?)movement.OnDate) < today.AddDays(-60) && movements.Where(movement => movement.ProductId == product.Id).Max(movement => (DateTime?)movement.OnDate) >= today.AddDays(-90)),
+            "91-180 Days" => query.Where(product => movements.Where(movement => movement.ProductId == product.Id).Max(movement => (DateTime?)movement.OnDate) < today.AddDays(-90) && movements.Where(movement => movement.ProductId == product.Id).Max(movement => (DateTime?)movement.OnDate) >= today.AddDays(-180)),
+            "180+ Days" => query.Where(product => movements.Where(movement => movement.ProductId == product.Id).Max(movement => (DateTime?)movement.OnDate) < today.AddDays(-180)),
+            "No Receipt History" => query.Where(product => !movements.Any(movement => movement.ProductId == product.Id)),
+            "Out of Stock" => query.Where(product => !WorkspaceScope.ApplyTo(db.Stocks.AsNoTracking(), context).Any(stock => !stock.IsOFB && stock.ProductId == product.Id && (stock.PurchaseQty - stock.SoldQty) > 0)),
+            _ => query
+        };
+    }
+
     private static async Task<ProductMasterOptionsResponse> OptionsAsync(HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
     {
         var categories = await WorkspaceScope.ApplyTo(db.ProductCategories.AsNoTracking(), context)
@@ -81,11 +439,49 @@ public static class ProductMasterEndpoints
             .Select(item => new VendorOptionDto(item.Id, item.Name, item.MobileNumber, item.GSTIN))
             .ToListAsync(cancellationToken);
 
+        var brands = await WorkspaceScope.ApplyTo(db.ProductDetails.AsNoTracking(), context)
+            .Where(item => item.Brand != null && item.Brand != "")
+            .Select(item => item.Brand!)
+            .Distinct()
+            .OrderBy(item => item)
+            .Take(500)
+            .ToListAsync(cancellationToken);
+
+        var baseColors = await WorkspaceScope.ApplyTo(db.ProductDetails.AsNoTracking(), context)
+            .Where(item => item.BaseColor != null && item.BaseColor != "")
+            .Select(item => item.BaseColor!)
+            .Distinct()
+            .OrderBy(item => item)
+            .Take(500)
+            .ToListAsync(cancellationToken);
+
+        var sizeSources = await WorkspaceScope.ApplyTo(db.Products.AsNoTracking(), context)
+            .Select(item => new { item.Name, item.Descriptions })
+            .Take(5000)
+            .ToListAsync(cancellationToken);
+        var sizeDetailSources = await WorkspaceScope.ApplyTo(db.ProductDetails.AsNoTracking(), context)
+            .Select(item => new { item.StyleCode })
+            .Take(5000)
+            .ToListAsync(cancellationToken);
+        var sizes = sizeSources
+            .Select(item => DetectProductSize(item.Name, item.Descriptions, null))
+            .Concat(sizeDetailSources.Select(item => DetectProductSize(item.StyleCode, null, null)))
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Select(item => item!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(SizeSortKey)
+            .ThenBy(item => item)
+            .Take(250)
+            .ToList();
+
         return new ProductMasterOptionsResponse(
             categories,
             subCategories,
             taxes,
             vendors,
+            brands,
+            baseColors,
+            sizes,
             EnumOptions<Unit>(),
             EnumOptions<TaxType>(),
             EnumOptions<ProductType>("Readmade"),
@@ -437,6 +833,7 @@ public static class ProductMasterEndpoints
             StoreId = selectedStock?.StoreId,
             StyleCode = detail?.StyleCode,
             BaseColor = detail?.BaseColor,
+            SizeLabel = DetectProductSize(product.Name, detail?.StyleCode, product.Descriptions),
             Brand = detail?.Brand,
             VendorId = detail?.VendorId
         };

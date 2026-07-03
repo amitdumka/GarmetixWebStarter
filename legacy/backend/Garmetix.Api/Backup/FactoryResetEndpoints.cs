@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Garmetix.Api.Auth;
 using Garmetix.Api.Setup;
 using Garmetix.Infrastructure.Data;
@@ -33,15 +34,23 @@ public static class FactoryResetEndpoints
             return Results.BadRequest(new { message = "Type FACTORY RESET to confirm removal of all business data." });
         }
 
-        if (!Guid.TryParse(context.User.FindFirst("sub")?.Value, out var userId))
+        var userId = ResolveCurrentUserId(context);
+        if (userId is null)
         {
-            return Results.BadRequest(new { message = "The current administrator identity could not be verified." });
+            return Results.BadRequest(new { message = "The current administrator identity could not be verified. Please sign out, sign in again, and retry factory reset." });
         }
 
-        var currentUser = await db.Users.AsNoTracking().FirstOrDefaultAsync(user => user.Id == userId, cancellationToken);
+        var currentUser = await db.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(user => user.Id == userId.Value, cancellationToken);
         if (currentUser is null)
         {
-            return Results.BadRequest(new { message = "The current administrator account was not found." });
+            return Results.BadRequest(new { message = "The current administrator account was not found. Please sign out and sign in again before retrying factory reset." });
+        }
+
+        if (!currentUser.IsActive || (!currentUser.Admin && !currentUser.IsSuperAdmin))
+        {
+            return Results.Forbid();
         }
 
         var safetyBackup = await backupService.CreateBackupAsync("pre-factory-reset", cancellationToken);
@@ -85,4 +94,29 @@ public static class FactoryResetEndpoints
             throw;
         }
     }
+    private static Guid? ResolveCurrentUserId(HttpContext context)
+    {
+        // JwtBearer can map the JWT `sub` claim to ClaimTypes.NameIdentifier depending on
+        // token validation settings. Factory reset previously checked only `sub`, which made
+        // valid admin sessions fail with "identity could not be verified" even though the
+        // Admin policy had already authorized the request.
+        var claimValues = new[]
+        {
+            context.User.FindFirstValue(ClaimTypes.NameIdentifier),
+            context.User.FindFirstValue("sub"),
+            context.User.FindFirstValue("nameid"),
+            context.User.FindFirstValue("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")
+        };
+
+        foreach (var value in claimValues)
+        {
+            if (Guid.TryParse(value, out var userId))
+            {
+                return userId;
+            }
+        }
+
+        return null;
+    }
+
 }

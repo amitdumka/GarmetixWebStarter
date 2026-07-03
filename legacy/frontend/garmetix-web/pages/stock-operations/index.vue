@@ -46,9 +46,16 @@ const transferForm = reactive({ fromStockId: '', toStoreId: '', quantity: 0, rea
 const countForm = reactive({ stockId: '', countedQuantity: 0, reason: '' })
 const writeOffForm = reactive({ stockId: '', quantity: 0, reason: '' })
 
+const stockProductSearchInput = { placeholder: 'Type product name, barcode, HSN or store...' }
+
 const stockOptions = computed(() => (options.value.products || []).map((item: any) => ({
   value: item.stockId,
-  label: item.label || `${item.productName} | ${item.barcode}`
+  label: item.label || `${item.productName} | ${item.barcode} | ${item.storeName || 'Store'} | Qty ${Number(item.currentStock || 0).toFixed(2)}`,
+  description: `${item.hsnCode || 'No HSN'} • ${item.unit || ''} • MRP ${money(Number(item.mrp || 0))} • Cost ${money(Number(item.costPrice || 0))}`,
+  search: [item.productName, item.barcode, item.hsnCode, item.storeName, item.label, item.unit]
+    .map(value => String(value || '').trim())
+    .filter(Boolean)
+    .join(' ')
 })))
 
 const storeOptions = computed(() => (options.value.stores || []).map((item: any) => ({ value: item.id, label: item.name })))
@@ -377,6 +384,13 @@ function findStock(stockId: string) {
   return (options.value.products || []).find((item: any) => item.stockId === stockId)
 }
 
+function stockSelectionText(stock: any) {
+  if (!stock) return ''
+  const qty = Number(stock.currentStock || 0).toFixed(2)
+  const mrp = money(Number(stock.mrp || 0))
+  return `Barcode ${stock.barcode || '-'} • ${stock.storeName || 'Store'} • Available ${qty} • MRP ${mrp}`
+}
+
 function nullIfEmpty(value: unknown) {
   const text = String(value || '').trim()
   return text ? text : null
@@ -491,7 +505,18 @@ onMounted(async () => {
 
         <div v-if="activeTab === 'adjustment'" class="form-grid mt-4">
           <UFormField label="Stock item" required>
-            <USelect v-model="adjustmentForm.stockId" :items="stockOptions" placeholder="Select product/barcode/store" />
+            <USelectMenu
+              v-model="adjustmentForm.stockId"
+              :items="stockOptions"
+              value-key="value"
+              label-key="label"
+              :search-input="stockProductSearchInput"
+              placeholder="Search product / barcode / store"
+              class="w-full"
+            />
+            <p v-if="selectedAdjustmentStock" class="mt-1 text-xs text-muted">
+              {{ stockSelectionText(selectedAdjustmentStock) }}
+            </p>
           </UFormField>
           <UFormField label="Direction" required>
             <USelect v-model="adjustmentForm.direction" :items="[
@@ -513,7 +538,18 @@ onMounted(async () => {
 
         <div v-else-if="activeTab === 'transfer'" class="form-grid mt-4">
           <UFormField label="Source stock" required>
-            <USelect v-model="transferForm.fromStockId" :items="stockOptions" placeholder="Select source stock" />
+            <USelectMenu
+              v-model="transferForm.fromStockId"
+              :items="stockOptions"
+              value-key="value"
+              label-key="label"
+              :search-input="stockProductSearchInput"
+              placeholder="Search source product / barcode / store"
+              class="w-full"
+            />
+            <p v-if="selectedTransferStock" class="mt-1 text-xs text-muted">
+              {{ stockSelectionText(selectedTransferStock) }}
+            </p>
           </UFormField>
           <UFormField label="Destination store" required>
             <USelect v-model="transferForm.toStoreId" :items="destinationStoreOptions" placeholder="Select destination store" />
@@ -532,7 +568,18 @@ onMounted(async () => {
 
         <div v-else-if="activeTab === 'count'" class="form-grid mt-4">
           <UFormField label="Stock item" required>
-            <USelect v-model="countForm.stockId" :items="stockOptions" placeholder="Select counted stock" />
+            <USelectMenu
+              v-model="countForm.stockId"
+              :items="stockOptions"
+              value-key="value"
+              label-key="label"
+              :search-input="stockProductSearchInput"
+              placeholder="Search counted product / barcode / store"
+              class="w-full"
+            />
+            <p v-if="selectedCountStock" class="mt-1 text-xs text-muted">
+              {{ stockSelectionText(selectedCountStock) }}
+            </p>
           </UFormField>
           <UFormField label="Counted quantity" required>
             <UInput v-model="countForm.countedQuantity" type="number" min="0" step="1" />
@@ -551,7 +598,18 @@ onMounted(async () => {
 
         <div v-else class="form-grid mt-4">
           <UFormField label="Stock item" required>
-            <USelect v-model="writeOffForm.stockId" :items="stockOptions" placeholder="Select damaged or unusable stock" />
+            <USelectMenu
+              v-model="writeOffForm.stockId"
+              :items="stockOptions"
+              value-key="value"
+              label-key="label"
+              :search-input="stockProductSearchInput"
+              placeholder="Search damaged/unusable product"
+              class="w-full"
+            />
+            <p v-if="selectedWriteOffStock" class="mt-1 text-xs text-muted">
+              {{ stockSelectionText(selectedWriteOffStock) }}
+            </p>
           </UFormField>
           <UFormField label="Write-off quantity" required>
             <UInput v-model="writeOffForm.quantity" type="number" min="0" step="1" />

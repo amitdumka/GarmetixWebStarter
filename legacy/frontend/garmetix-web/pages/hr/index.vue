@@ -11,6 +11,7 @@ const feedback = useUiFeedback()
 const isAuthenticated = auth.isAuthenticated
 const canEdit = auth.canEdit
 const canDelete = auth.canDelete
+const canManageAttendanceTimes = auth.canSeeAdmin
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
@@ -99,7 +100,49 @@ const generateForm = reactive({
   storeId: ALL_STORES_VALUE
 })
 
-const employeeOptions = computed(() => employees.value.map((employee) => ({
+const currentDate = new Date()
+const attendanceFilters = reactive({
+  year: currentDate.getFullYear(),
+  month: currentDate.getMonth() + 1,
+  page: 1,
+  pageSize: 50,
+  employeeId: ALL_STORES_VALUE,
+  status: ALL_STORES_VALUE
+})
+const attendanceTotal = ref(0)
+
+const monthOptions = Array.from({ length: 12 }, (_, index) => ({
+  value: index + 1,
+  label: new Date(2000, index, 1).toLocaleString(undefined, { month: 'long' })
+}))
+
+const yearOptions = computed(() => {
+  const currentYear = new Date().getFullYear()
+  return Array.from({ length: Math.max(3, currentYear - 2023 + 2) }, (_, index) => {
+    const year = 2024 + index
+    return { value: year, label: String(year) }
+  })
+})
+
+const pageSizeOptions = [25, 50, 100, 200].map((value) => ({ value, label: String(value) }))
+
+const attendanceStatusFilterOptions = computed(() => [
+  { value: ALL_STORES_VALUE, label: 'All statuses' },
+  ...attendanceStatusOptions.map((item) => ({ value: String(item.value), label: item.label }))
+])
+
+const attendanceEmployeeFilterOptions = computed(() => [
+  { value: ALL_STORES_VALUE, label: 'All employees' },
+  ...employeeOptions.value
+])
+
+const attendancePageCount = computed(() => Math.max(1, Math.ceil(attendanceTotal.value / Number(attendanceFilters.pageSize || 50))))
+const attendanceShownFrom = computed(() => attendanceTotal.value === 0 ? 0 : ((Number(attendanceFilters.page || 1) - 1) * Number(attendanceFilters.pageSize || 50)) + 1)
+const attendanceShownTo = computed(() => Math.min(attendanceTotal.value, Number(attendanceFilters.page || 1) * Number(attendanceFilters.pageSize || 50)))
+
+const activeEmployees = computed(() => employees.value.filter(isActiveEmployee))
+
+const employeeOptions = computed(() => activeEmployees.value.map((employee) => ({
   value: employee.id,
   label: employeeName(employee.id)
 })))
@@ -126,8 +169,8 @@ const metrics = computed(() => [
   },
   {
     label: 'Daily Attendance',
-    value: attendanceRows.value.length,
-    meta: 'Attendance rows',
+    value: activeTab.value === 'attendance' ? attendanceTotal.value : attendanceRows.value.length,
+    meta: activeTab.value === 'attendance' ? `${monthOptions.find((item) => item.value === Number(attendanceFilters.month))?.label || 'Month'} ${attendanceFilters.year}` : 'Attendance rows',
     icon: 'i-lucide-calendar-check',
     color: 'success'
   },
@@ -166,9 +209,11 @@ const employeeRows = computed(() => employees.value.map((employee) => ({
 const attendanceTableRows = computed(() => attendanceRows.value.map((row) => ({
   id: row.id,
   onDate: formatDate(row.onDate),
-  employee: employeeName(row.employeeId),
+  employee: row.employeeName || employeeName(row.employeeId),
   status: statusLabel(row.status),
   checkInTime: toTimeInput(row.checkInTime) || '-',
+  breakOutTime: toTimeInput(row.breakOutTime) || '-',
+  breakInTime: toTimeInput(row.breakInTime) || '-',
   checkOutTime: toTimeInput(row.checkOutTime) || '-',
   remarks: row.remarks || '-',
   raw: row
@@ -177,7 +222,7 @@ const attendanceTableRows = computed(() => attendanceRows.value.map((row) => ({
 const monthlyTableRows = computed(() => monthlyRows.value.map((row) => ({
   id: row.id,
   month: formatMonth(row.onDate),
-  employee: employeeName(row.employeeId),
+  employee: row.employeeName || employeeName(row.employeeId),
   present: Number(row.present || 0),
   halfDay: Number(row.halfDay || 0),
   paidLeave: Number(row.paidLeave || 0),
@@ -229,6 +274,8 @@ const attendanceColumns: TableColumn<any>[] = [
     cell: ({ row }) => h(UBadge, { color: 'primary', variant: 'subtle' }, () => row.original.status)
   },
   { accessorKey: 'checkInTime', header: 'In' },
+  { accessorKey: 'breakOutTime', header: 'Break out' },
+  { accessorKey: 'breakInTime', header: 'Break in' },
   { accessorKey: 'checkOutTime', header: 'Out' },
   { accessorKey: 'remarks', header: 'Remarks' },
   actionColumn('attendance')
@@ -337,6 +384,8 @@ function emptyAttendance() {
     onDate: localDateInput(),
     status: 0,
     checkInTime: '',
+    breakOutTime: '',
+    breakInTime: '',
     checkOutTime: '',
     entryTime: '',
     remarks: ''
@@ -352,11 +401,10 @@ async function refresh() {
   loadError.value = ''
   try {
     setupStatus.value = await api.get<any>('setup/status')
-    const [companyRows, storeRows, employeeData, attendanceData, monthlyData] = await Promise.all([
+    const [companyRows, storeRows, employeeData, monthlyData] = await Promise.all([
       api.list<any>('companies'),
       api.list<any>('stores'),
       api.list<any>('employees'),
-      api.list<any>('attendance'),
       api.list<any>('monthly-attendance')
     ])
 
@@ -364,8 +412,11 @@ async function refresh() {
     stores.value = storeRows
     employees.value = employeeData
     employeeSummary.value = await api.get<any>('hr/employee-master/summary')
-    attendanceRows.value = attendanceData.sort((a, b) => String(b.onDate).localeCompare(String(a.onDate)))
     monthlyRows.value = monthlyData.sort((a, b) => String(b.onDate).localeCompare(String(a.onDate)))
+
+    if (activeTab.value === 'attendance') {
+      await refreshAttendancePage(false)
+    }
   } catch (error) {
     loadError.value = feedback.cleanMessage(error instanceof Error ? error.message : 'Please check the service and try again.')
     feedback.failed('HR refresh failed', error)
@@ -374,9 +425,71 @@ async function refresh() {
   }
 }
 
-function showTab(tab: HrTab) {
+async function refreshAttendancePage(showLoader = true) {
+  if (!auth.isAuthenticated.value) {
+    return
+  }
+
+  if (showLoader) {
+    loading.value = true
+    loadError.value = ''
+  }
+
+  try {
+    const query = new URLSearchParams({
+      year: String(attendanceFilters.year || new Date().getFullYear()),
+      month: String(attendanceFilters.month || new Date().getMonth() + 1),
+      page: String(Math.max(1, Number(attendanceFilters.page || 1))),
+      pageSize: String(Number(attendanceFilters.pageSize || 50))
+    })
+
+    if (attendanceFilters.employeeId && attendanceFilters.employeeId !== ALL_STORES_VALUE) {
+      query.set('employeeId', String(attendanceFilters.employeeId))
+    }
+
+    if (attendanceFilters.status && attendanceFilters.status !== ALL_STORES_VALUE) {
+      query.set('status', String(attendanceFilters.status))
+    }
+
+    const response = await api.get<any>(`hr/attendance?${query.toString()}`)
+    attendanceRows.value = response.items || []
+    attendanceTotal.value = Number(response.total || 0)
+    attendanceFilters.page = Number(response.page || attendanceFilters.page || 1)
+    attendanceFilters.pageSize = Number(response.pageSize || attendanceFilters.pageSize || 50)
+  } catch (error) {
+    loadError.value = feedback.cleanMessage(error instanceof Error ? error.message : 'Please check attendance filters and try again.')
+    feedback.failed('Attendance refresh failed', error)
+  } finally {
+    if (showLoader) {
+      loading.value = false
+    }
+  }
+}
+
+async function showTab(tab: HrTab) {
   activeTab.value = tab
   search.value = ''
+  if (tab === 'attendance') {
+    attendanceFilters.page = 1
+    await refreshAttendancePage()
+  }
+}
+
+async function onAttendanceFilterChanged() {
+  attendanceFilters.page = 1
+  if (activeTab.value === 'attendance') {
+    await refreshAttendancePage()
+  }
+}
+
+async function changeAttendancePage(page: number) {
+  const nextPage = Math.min(Math.max(1, page), attendancePageCount.value)
+  if (nextPage === Number(attendanceFilters.page)) {
+    return
+  }
+
+  attendanceFilters.page = nextPage
+  await refreshAttendancePage()
 }
 
 function startEmployeeCreate() {
@@ -418,6 +531,8 @@ function startAttendanceEdit(row: any) {
     ...row,
     onDate: toDateInput(row.onDate || localDateInput()),
     checkInTime: toTimeInput(row.checkInTime),
+    breakOutTime: toTimeInput(row.breakOutTime),
+    breakInTime: toTimeInput(row.breakInTime),
     checkOutTime: toTimeInput(row.checkOutTime),
     employee: null
   })
@@ -509,8 +624,10 @@ function attendancePayload() {
     employeeId: attendanceForm.employeeId,
     onDate: toApiDate(attendanceForm.onDate),
     status: Number(attendanceForm.status),
-    checkInTime: toApiTime(attendanceForm.checkInTime),
-    checkOutTime: toApiTime(attendanceForm.checkOutTime),
+    checkInTime: canManageAttendanceTimes.value ? toApiTime(attendanceForm.checkInTime) : undefined,
+    breakOutTime: canManageAttendanceTimes.value ? toApiTime(attendanceForm.breakOutTime) : undefined,
+    breakInTime: canManageAttendanceTimes.value ? toApiTime(attendanceForm.breakInTime) : undefined,
+    checkOutTime: canManageAttendanceTimes.value ? toApiTime(attendanceForm.checkOutTime) : undefined,
     entryTime: String(attendanceForm.entryTime || ''),
     remarks: String(attendanceForm.remarks || '').trim() || null,
     employee: null,
@@ -546,7 +663,11 @@ async function saveEmployee() {
     }
 
     formOpen.value = false
-    await refresh()
+    if (activeTab.value === 'attendance') {
+      await refreshAttendancePage()
+    } else {
+      await refresh()
+    }
   } catch (error) {
     feedback.failed('Could not save employee', error)
   } finally {
@@ -567,7 +688,7 @@ async function saveAttendance() {
     }
 
     formOpen.value = false
-    await refresh()
+    await refreshAttendancePage()
   } catch (error) {
     feedback.failed('Could not save attendance', error)
   } finally {
@@ -598,7 +719,11 @@ async function confirmDelete() {
 
     deleteOpen.value = false
     pendingDelete.value = null
-    await refresh()
+    if (formKind.value === 'attendance') {
+      await refreshAttendancePage()
+    } else {
+      await refresh()
+    }
   } catch (error) {
     feedback.failed('Could not delete HR record', error)
   } finally {
@@ -689,6 +814,11 @@ function onEmployeePhotoSelected(event: Event) {
 function printIdCard() {
   if (!import.meta.client) return
   window.print()
+}
+
+function isActiveEmployee(employee: any) {
+  const status = String(employee?.employeeStatus || '').trim().toLowerCase()
+  return Boolean(employee?.working) && !['resigned', 'terminated', 'inactive'].includes(status)
 }
 
 function employeeName(employeeId: string) {
@@ -802,7 +932,7 @@ onMounted(async () => {
 
       <UiRegisterPanel
         :title="`${activeLabel} Register`"
-        :description="`${currentRows.length} records shown`"
+        :description="activeTab === 'attendance' ? `Showing ${attendanceShownFrom}-${attendanceShownTo} of ${attendanceTotal} attendance rows` : `${currentRows.length} records shown`"
         :loading="loading"
         :error="loadError"
         :empty="currentRows.length === 0"
@@ -824,7 +954,7 @@ onMounted(async () => {
                 @click="showTab(tab.key)"
               />
             </div>
-            <UBadge color="neutral" variant="subtle">{{ currentRows.length }} shown</UBadge>
+            <UBadge color="neutral" variant="subtle">{{ activeTab === 'attendance' ? `${attendanceTotal} total` : `${currentRows.length} shown` }}</UBadge>
           </div>
         </template>
 
@@ -841,6 +971,25 @@ onMounted(async () => {
           <UButton icon="i-lucide-refresh-cw" :loading="generating" label="Generate" @click="generateMonthlyAttendance" />
         </div>
 
+        <div v-if="activeTab === 'attendance'" class="attendance-filter-bar">
+          <UFormField label="Month">
+            <USelect v-model="attendanceFilters.month" :items="monthOptions" @update:model-value="onAttendanceFilterChanged" />
+          </UFormField>
+          <UFormField label="Year">
+            <USelect v-model="attendanceFilters.year" :items="yearOptions" @update:model-value="onAttendanceFilterChanged" />
+          </UFormField>
+          <UFormField label="Employee">
+            <USelect v-model="attendanceFilters.employeeId" :items="attendanceEmployeeFilterOptions" @update:model-value="onAttendanceFilterChanged" />
+          </UFormField>
+          <UFormField label="Status">
+            <USelect v-model="attendanceFilters.status" :items="attendanceStatusFilterOptions" @update:model-value="onAttendanceFilterChanged" />
+          </UFormField>
+          <UFormField label="Page size">
+            <USelect v-model="attendanceFilters.pageSize" :items="pageSizeOptions" @update:model-value="onAttendanceFilterChanged" />
+          </UFormField>
+          <UButton icon="i-lucide-refresh-cw" :loading="loading" label="Apply" @click="refreshAttendancePage" />
+        </div>
+
         <UiCrudToolbar
           v-model:search="search"
           :search-placeholder="`Search ${activeLabel.toLowerCase()}`"
@@ -853,6 +1002,29 @@ onMounted(async () => {
 
         <div class="planner-table-wrap">
           <UTable :data="currentRows" :columns="activeColumns" />
+        </div>
+
+        <div v-if="activeTab === 'attendance'" class="attendance-pagination-bar">
+          <span>Showing {{ attendanceShownFrom }}-{{ attendanceShownTo }} of {{ attendanceTotal }}</span>
+          <div class="attendance-pagination-actions">
+            <UButton
+              color="neutral"
+              variant="subtle"
+              icon="i-lucide-chevron-left"
+              label="Previous"
+              :disabled="attendanceFilters.page <= 1 || loading"
+              @click="changeAttendancePage(Number(attendanceFilters.page) - 1)"
+            />
+            <UBadge color="neutral" variant="subtle">Page {{ attendanceFilters.page }} / {{ attendancePageCount }}</UBadge>
+            <UButton
+              color="neutral"
+              variant="subtle"
+              trailing-icon="i-lucide-chevron-right"
+              label="Next"
+              :disabled="attendanceFilters.page >= attendancePageCount || loading"
+              @click="changeAttendancePage(Number(attendanceFilters.page) + 1)"
+            />
+          </div>
         </div>
       </UiRegisterPanel>
 
@@ -937,13 +1109,29 @@ onMounted(async () => {
           <UFormField label="Status">
             <USelect v-model="attendanceForm.status" :items="attendanceStatusOptions" />
           </UFormField>
-          <div class="form-two-column">
-            <UFormField label="Check in">
-              <UInput v-model="attendanceForm.checkInTime" type="time" />
-            </UFormField>
-            <UFormField label="Check out">
-              <UInput v-model="attendanceForm.checkOutTime" type="time" />
-            </UFormField>
+          <div v-if="canManageAttendanceTimes" class="space-y-3">
+            <div class="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-muted">
+              Admin/Owner timing correction. Saving these times also creates or updates the linked punch rows. Clearing a time removes the synced HR Attendance punch for that punch type.
+            </div>
+            <div class="form-two-column">
+              <UFormField label="Check in">
+                <UInput v-model="attendanceForm.checkInTime" type="time" />
+              </UFormField>
+              <UFormField label="Break out">
+                <UInput v-model="attendanceForm.breakOutTime" type="time" />
+              </UFormField>
+            </div>
+            <div class="form-two-column">
+              <UFormField label="Break in">
+                <UInput v-model="attendanceForm.breakInTime" type="time" />
+              </UFormField>
+              <UFormField label="Check out">
+                <UInput v-model="attendanceForm.checkOutTime" type="time" />
+              </UFormField>
+            </div>
+          </div>
+          <div v-else class="rounded-lg border border-default p-3 text-xs text-muted">
+            Check-in, break and check-out timing can be corrected only by Admin/Owner.
           </div>
           <UFormField label="Remarks">
             <UTextarea v-model="attendanceForm.remarks" autoresize />
@@ -992,6 +1180,29 @@ onMounted(async () => {
 
 
 <style scoped>
+.attendance-filter-bar,
+.attendance-pagination-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 14px;
+  background: rgb(248 250 252 / 0.8);
+}
+.attendance-pagination-bar {
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  color: rgb(71 85 105);
+}
+.attendance-pagination-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
 .employee-photo-preview {
   width: 96px;
   height: 96px;

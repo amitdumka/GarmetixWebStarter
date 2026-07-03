@@ -82,6 +82,7 @@ onMounted(async () => { auth.restore(); await refresh() })
     >
       <template #actions>
         <UButton icon="i-lucide-plus" label="New Customer" @click="router.push('/customers/new')" />
+        <UButton color="neutral" variant="subtle" icon="i-lucide-wallet-cards" label="Dues Reco" @click="router.push('/customers/dues-reconciliation')" />
         <UButton color="neutral" variant="subtle" icon="i-lucide-gift" label="Loyalty Setup" @click="router.push('/loyalty')" />
       </template>
     </UiModulePageHeader>

@@ -1,4 +1,4 @@
-const publicPaths = new Set(['/access-denied'])
+const publicPaths = new Set(['/access-denied', '/privacy', '/privcy', '/terms', '/terms-of-usage'])
 
 export default defineNuxtRouteMiddleware((to) => {
   if (import.meta.server) {
@@ -20,7 +20,7 @@ export default defineNuxtRouteMiddleware((to) => {
     return
   }
 
-  if (publicPaths.has(to.path)) {
+  if (publicPaths.has(to.path) || to.path.startsWith('/i/')) {
     return
   }
 

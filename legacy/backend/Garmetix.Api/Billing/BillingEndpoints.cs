@@ -3,9 +3,12 @@ using Garmetix.Api.Auth;
 using Garmetix.Api.Commercial;
 using Garmetix.Api.Gstin;
 using Garmetix.Api.Inventory;
+using Garmetix.Api.InvoiceReplacement;
+using Garmetix.Api.Marketing;
 using Garmetix.Api.Numbering;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
+using Garmetix.Core.Models.Audit;
 using Garmetix.Core.Models.Inventory;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -26,9 +29,15 @@ public static class BillingEndpoints
         group.MapGet("/customers/search", SearchCustomersAsync);
         group.MapGet("/customers/{customerId:guid}/profile", GetCustomerBillingProfileAsync);
         group.MapPost("/sales", CreateSaleAsync);
+        group.MapGet("/sales", SearchSalesAsync);
         group.MapGet("/sales/recent", GetRecentSalesAsync);
         group.MapGet("/sales/{id:guid}/receipt", GetReceiptAsync);
+        group.MapPost("/sales/{id:guid}/digital-bill", EnsureSaleDigitalBillAsync);
+        group.MapPost("/sales/{id:guid}/digital-bill/send-whatsapp", SendSaleDigitalBillWhatsAppAsync);
         group.MapGet("/sales/{id:guid}/pdf", DownloadInvoicePdfAsync);
+        group.MapPut("/sales/{id:guid}", UpdateSaleInvoiceAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapDelete("/sales/{id:guid}", DeleteSaleInvoiceAsync).RequireAuthorization(GarmetixPolicies.Delete);
+        group.MapDelete("/sales/{id:guid}/hard-delete", HardDeleteSaleInvoiceAsync).RequireAuthorization(GarmetixPolicies.Admin);
         group.MapPost("/sales/{id:guid}/returns", CreateSalesReturnAsync);
         group.MapPost("/sales/{id:guid}/exchange", CreateSalesExchangeAsync);
         group.MapPost("/sales/{id:guid}/cancel", CancelSaleAsync).RequireAuthorization(GarmetixPolicies.Delete);
@@ -206,32 +215,334 @@ public static class BillingEndpoints
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    private static async Task<PagedSaleInvoicesDto> SearchSalesAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        string? datePreset = "today",
+        int? year = null,
+        int? month = null,
+        int page = 1,
+        int pageSize = 50,
+        string? q = null,
+        string? status = null,
+        DateTime? from = null,
+        DateTime? to = null,
+        CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 25, 200);
+
+        var (fromDate, toDateExclusive, resolvedPreset) = ResolveSalesDateRange(datePreset, year, month, from, to);
+        var term = q?.Trim().ToLowerInvariant();
+
+        var query = WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context)
+            .Where(invoice => invoice.OnDate >= fromDate && invoice.OnDate < toDateExclusive);
+
+        if (!string.IsNullOrWhiteSpace(status) && !status.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            if (Enum.TryParse<InvoiceStatus>(status, true, out var parsedStatus))
+            {
+                query = query.Where(invoice => invoice.InvoiceStatus == parsedStatus);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(term))
+        {
+            query = query.Where(invoice =>
+                invoice.InvoiceNumber.ToLower().Contains(term) ||
+                (invoice.CustomerName != null && invoice.CustomerName.ToLower().Contains(term)) ||
+                (invoice.CustomerMobileNumber != null && invoice.CustomerMobileNumber.ToLower().Contains(term)) ||
+                (invoice.CustomerGSTIN != null && invoice.CustomerGSTIN.ToLower().Contains(term)));
+        }
+
+        var total = await query.CountAsync(cancellationToken);
+        var totals = await query
+            .GroupBy(_ => 1)
+            .Select(group => new
+            {
+                BillAmount = group.Sum(invoice => invoice.BillAmount),
+                PaidAmount = group.Sum(invoice => invoice.PaidAmount),
+                CancelledCount = group.Count(invoice => invoice.InvoiceStatus == InvoiceStatus.Cancelled)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var invoiceRows = await query
+            .OrderByDescending(invoice => invoice.OnDate)
+            .ThenByDescending(invoice => invoice.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(invoice => new
+            {
+                invoice.Id,
+                invoice.InvoiceNumber,
+                invoice.OnDate,
+                CustomerName = invoice.CustomerName ?? "Walk-in Customer",
+                invoice.CustomerMobileNumber,
+                invoice.BillAmount,
+                invoice.PaidAmount,
+                BalanceAmount = invoice.BillAmount - invoice.PaidAmount,
+                InvoiceStatus = invoice.InvoiceStatus.ToString(),
+                PaymentMode = invoice.PaymentMode.HasValue ? invoice.PaymentMode.Value.ToString() : string.Empty,
+                invoice.Remarks
+            })
+            .ToListAsync(cancellationToken);
+
+        var digitalBills = await LoadDigitalBillSummariesAsync(context, db, invoiceRows.Select(item => item.Id), cancellationToken);
+
+        var items = invoiceRows
+            .Select(invoice =>
+            {
+                digitalBills.TryGetValue(invoice.Id, out var digitalBill);
+                return ToRecentInvoiceDto(
+                    invoice.Id,
+                    invoice.InvoiceNumber,
+                    invoice.OnDate,
+                    invoice.CustomerName,
+                    invoice.CustomerMobileNumber,
+                    invoice.BillAmount,
+                    invoice.PaidAmount,
+                    invoice.BalanceAmount,
+                    invoice.InvoiceStatus,
+                    invoice.PaymentMode,
+                    digitalBill,
+                    invoice.Remarks);
+            })
+            .ToList();
+
+        return new PagedSaleInvoicesDto(
+            items,
+            total,
+            page,
+            pageSize,
+            resolvedPreset,
+            fromDate,
+            toDateExclusive.AddDays(-1),
+            totals?.BillAmount ?? 0,
+            totals?.PaidAmount ?? 0,
+            (totals?.BillAmount ?? 0) - (totals?.PaidAmount ?? 0),
+            totals?.CancelledCount ?? 0);
+    }
+
+    private static (DateTime FromDate, DateTime ToDateExclusive, string ResolvedPreset) ResolveSalesDateRange(
+        string? datePreset,
+        int? year,
+        int? month,
+        DateTime? from,
+        DateTime? to)
+    {
+        var today = DateTime.Today;
+        var preset = string.IsNullOrWhiteSpace(datePreset) ? "today" : datePreset.Trim().ToLowerInvariant();
+
+        if (preset is "custom")
+        {
+            var fromDate = from?.Date ?? today;
+            var toDate = to?.Date ?? fromDate;
+            if (toDate < fromDate)
+            {
+                (fromDate, toDate) = (toDate, fromDate);
+            }
+
+            return (fromDate, toDate.AddDays(1), "custom");
+        }
+
+        if (preset is "month-year" or "monthyear")
+        {
+            var selectedYear = year.GetValueOrDefault(today.Year);
+            var selectedMonth = Math.Clamp(month.GetValueOrDefault(today.Month), 1, 12);
+            var start = new DateTime(selectedYear, selectedMonth, 1);
+            return (start, start.AddMonths(1), "month-year");
+        }
+
+        if (preset is "year" or "yearly")
+        {
+            var selectedYear = year.GetValueOrDefault(today.Year);
+            var start = new DateTime(selectedYear, 1, 1);
+            return (start, start.AddYears(1), "year");
+        }
+
+        if (preset is "last-month" or "lastmonth")
+        {
+            var start = new DateTime(today.Year, today.Month, 1).AddMonths(-1);
+            return (start, start.AddMonths(1), "last-month");
+        }
+
+        if (preset is "month" or "current-month" or "currentmonth")
+        {
+            var start = new DateTime(today.Year, today.Month, 1);
+            return (start, start.AddMonths(1), "month");
+        }
+
+        if (preset is "yesterday")
+        {
+            var start = today.AddDays(-1);
+            return (start, today, "yesterday");
+        }
+
+        return (today, today.AddDays(1), "today");
+    }
+
     private static async Task<IReadOnlyList<RecentInvoiceDto>> GetRecentSalesAsync(HttpContext context, GarmetixDbContext db, int take = 25, CancellationToken cancellationToken = default)
     {
         take = Math.Clamp(take, 1, 100);
 
-        return await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context)
+        var invoiceRows = await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context)
             .OrderByDescending(invoice => invoice.OnDate)
             .ThenByDescending(invoice => invoice.CreatedAt)
             .Take(take)
-            .Select(invoice => new RecentInvoiceDto(
+            .Select(invoice => new
+            {
                 invoice.Id,
                 invoice.InvoiceNumber,
                 invoice.OnDate,
-                invoice.CustomerName ?? "Walk-in Customer",
+                CustomerName = invoice.CustomerName ?? "Walk-in Customer",
                 invoice.CustomerMobileNumber,
                 invoice.BillAmount,
                 invoice.PaidAmount,
-                invoice.BillAmount - invoice.PaidAmount,
-                invoice.InvoiceStatus.ToString(),
-                invoice.PaymentMode.HasValue ? invoice.PaymentMode.Value.ToString() : string.Empty))
+                BalanceAmount = invoice.BillAmount - invoice.PaidAmount,
+                InvoiceStatus = invoice.InvoiceStatus.ToString(),
+                PaymentMode = invoice.PaymentMode.HasValue ? invoice.PaymentMode.Value.ToString() : string.Empty,
+                invoice.Remarks
+            })
             .ToListAsync(cancellationToken);
+
+        var digitalBills = await LoadDigitalBillSummariesAsync(context, db, invoiceRows.Select(item => item.Id), cancellationToken);
+
+        return invoiceRows
+            .Select(invoice =>
+            {
+                digitalBills.TryGetValue(invoice.Id, out var digitalBill);
+                return ToRecentInvoiceDto(
+                    invoice.Id,
+                    invoice.InvoiceNumber,
+                    invoice.OnDate,
+                    invoice.CustomerName,
+                    invoice.CustomerMobileNumber,
+                    invoice.BillAmount,
+                    invoice.PaidAmount,
+                    invoice.BalanceAmount,
+                    invoice.InvoiceStatus,
+                    invoice.PaymentMode,
+                    digitalBill,
+                    invoice.Remarks);
+            })
+            .ToList();
     }
+
+    private sealed record DigitalBillSaleSummary(
+        Guid Id,
+        Guid InvoiceId,
+        string PublicToken,
+        bool IsActive,
+        string WhatsAppStatus,
+        int OpenCount,
+        int PdfDownloadCount,
+        int ReviewClickCount,
+        DateTime? LastWhatsAppSentAt);
+
+    private static async Task<Dictionary<Guid, DigitalBillSaleSummary>> LoadDigitalBillSummariesAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        IEnumerable<Guid> invoiceIds,
+        CancellationToken cancellationToken)
+    {
+        var ids = invoiceIds.Distinct().ToArray();
+        if (ids.Length == 0)
+        {
+            return new Dictionary<Guid, DigitalBillSaleSummary>();
+        }
+
+        var rows = await WorkspaceScope.ApplyTo(db.DigitalInvoices.AsNoTracking(), context)
+            .Where(item => ids.Contains(item.InvoiceId) && item.InvoiceType == "Sale" && !item.Deleted)
+            .OrderByDescending(item => item.CreatedAt)
+            .Select(item => new DigitalBillSaleSummary(
+                item.Id,
+                item.InvoiceId,
+                item.PublicToken,
+                item.IsActive,
+                item.WhatsAppStatus,
+                item.OpenCount,
+                item.PdfDownloadCount,
+                item.ReviewClickCount,
+                item.LastWhatsAppSentAt))
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .GroupBy(item => item.InvoiceId)
+            .ToDictionary(group => group.Key, group => group.First());
+    }
+
+    private static RecentInvoiceDto ToRecentInvoiceDto(
+        Guid id,
+        string invoiceNumber,
+        DateTime onDate,
+        string customerName,
+        string? customerMobileNumber,
+        decimal billAmount,
+        decimal paidAmount,
+        decimal balanceAmount,
+        string invoiceStatus,
+        string paymentMode,
+        DigitalBillSaleSummary? digitalBill,
+        string? remarks = null)
+        => new(
+            id,
+            invoiceNumber,
+            onDate,
+            customerName,
+            customerMobileNumber ?? string.Empty,
+            billAmount,
+            paidAmount,
+            balanceAmount,
+            invoiceStatus,
+            paymentMode,
+            digitalBill?.Id,
+            digitalBill is null ? null : BuildDigitalBillPublicPath(digitalBill.PublicToken),
+            digitalBill?.PublicToken,
+            digitalBill?.IsActive,
+            digitalBill?.WhatsAppStatus,
+            digitalBill?.OpenCount ?? 0,
+            digitalBill?.PdfDownloadCount ?? 0,
+            digitalBill?.ReviewClickCount ?? 0,
+            digitalBill?.LastWhatsAppSentAt,
+            remarks);
+
+    private static string BuildDigitalBillPublicPath(string token) => $"/i/{Uri.EscapeDataString(token)}";
 
     private static async Task<IResult> GetReceiptAsync(Guid id, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
     {
         var receipt = await LoadReceiptAsync(id, context, db, cancellationToken);
         return receipt is null ? Results.NotFound() : Results.Ok(receipt);
+    }
+
+    private static async Task<IResult> EnsureSaleDigitalBillAsync(
+        Guid id,
+        HttpContext context,
+        DigitalBillCrmService digitalBills,
+        CancellationToken cancellationToken)
+    {
+        var response = await digitalBills.EnsureForSaleInvoiceAsync(id, context, cancellationToken);
+        return response is null
+            ? Results.NotFound(new { message = "Sale invoice was not found in your workspace." })
+            : Results.Ok(response);
+    }
+
+    private static async Task<IResult> SendSaleDigitalBillWhatsAppAsync(
+        Guid id,
+        HttpContext context,
+        DigitalBillCrmService digitalBills,
+        DigitalBillWhatsAppService whatsApp,
+        CancellationToken cancellationToken)
+    {
+        var digitalBill = await digitalBills.EnsureForSaleInvoiceAsync(id, context, cancellationToken);
+        if (digitalBill is null)
+        {
+            return Results.NotFound(new { message = "Sale invoice was not found in your workspace." });
+        }
+
+        var response = await whatsApp.SendForDigitalInvoiceAsync(digitalBill.Id, context, cancellationToken, force: true);
+        return response is null
+            ? Results.NotFound(new { message = "Digital bill was not found in your workspace." })
+            : Results.Ok(response);
     }
 
     private static async Task<IResult> DownloadInvoicePdfAsync(
@@ -242,6 +553,7 @@ public static class BillingEndpoints
         bool? signatures,
         HttpContext context,
         GarmetixDbContext db,
+        IConfiguration configuration,
         CancellationToken cancellationToken)
     {
         var invoice = await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
@@ -262,6 +574,7 @@ public static class BillingEndpoints
             .OrderBy(item => item.CreatedAt)
             .Select(item => new ReceiptItemDto(
                 item.Id,
+                item.ProductId,
                 item.ProductName ?? (item.Product != null ? item.Product.Name : item.Barcode),
                 item.Barcode,
                 item.BilledQuantity,
@@ -282,6 +595,7 @@ public static class BillingEndpoints
             .Where(item => item.InvoiceId == id)
             .OrderBy(item => item.OnDate)
             .Select(item => new ReceiptPaymentDto(
+                item.Id,
                 item.OnDate,
                 item.Amount,
                 item.PaymentMode.ToString(),
@@ -312,7 +626,9 @@ public static class BillingEndpoints
             invoice.BalanceAmount,
             items,
             payments,
-            Garmetix.Api.ProductLookup.DocumentCodeService.Create(Garmetix.Api.ProductLookup.DocumentCodeService.SaleInvoice, invoice.Id));
+            Garmetix.Api.ProductLookup.DocumentCodeService.Create(Garmetix.Api.ProductLookup.DocumentCodeService.SaleInvoice, invoice.Id),
+            invoice.Remarks,
+            BuildGoodsReturnPolicyUrl(context, configuration));
 
         var pdf = InvoicePdfDocument.Build(
             model,
@@ -322,6 +638,20 @@ public static class BillingEndpoints
             signatures != false);
         var safeNumber = Regex.Replace(invoice.InvoiceNumber, @"[^A-Za-z0-9_-]+", "-").Trim('-');
         return Results.File(pdf, "application/pdf", $"{(safeNumber.Length > 0 ? safeNumber : "invoice")}-{NormalizePdfFormat(format)}.pdf");
+    }
+
+
+    private static string BuildGoodsReturnPolicyUrl(HttpContext context, IConfiguration configuration)
+    {
+        var configuredBase = configuration["DigitalBills:PublicBaseUrl"]?.Trim().TrimEnd('/');
+        if (!string.IsNullOrWhiteSpace(configuredBase))
+        {
+            return $"{configuredBase}/goods-return-policy";
+        }
+
+        var scheme = string.IsNullOrWhiteSpace(context.Request.Scheme) ? "https" : context.Request.Scheme;
+        var host = context.Request.Host.HasValue ? context.Request.Host.Value : "garmetix.aadwikafashion.in";
+        return $"{scheme}://{host}/goods-return-policy";
     }
 
     private static async Task<ReceiptDto?> LoadReceiptAsync(Guid id, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
@@ -351,6 +681,7 @@ public static class BillingEndpoints
             .OrderBy(item => item.CreatedAt)
             .Select(item => new ReceiptItemDto(
                 item.Id,
+                item.ProductId,
                 item.ProductName ?? (item.Product != null ? item.Product.Name : item.Barcode),
                 item.Barcode,
                 item.BilledQuantity,
@@ -371,6 +702,7 @@ public static class BillingEndpoints
             .Where(item => item.InvoiceId == id)
             .OrderBy(item => item.OnDate)
             .Select(item => new ReceiptPaymentDto(
+                item.Id,
                 item.OnDate,
                 item.Amount,
                 item.PaymentMode.ToString(),
@@ -379,6 +711,9 @@ public static class BillingEndpoints
                 item.SettlementStatus,
                 item.AdjustmentSourceType))
             .ToListAsync(cancellationToken);
+
+        var digitalBills = await LoadDigitalBillSummariesAsync(context, db, new[] { invoice.Id }, cancellationToken);
+        digitalBills.TryGetValue(invoice.Id, out var digitalBill);
 
         return new ReceiptDto(
             invoice.Id,
@@ -397,7 +732,17 @@ public static class BillingEndpoints
             invoice.PaidAmount,
             invoice.BalanceAmount,
             items,
-            payments);
+            payments,
+            digitalBill?.Id,
+            digitalBill is null ? null : BuildDigitalBillPublicPath(digitalBill.PublicToken),
+            digitalBill?.PublicToken,
+            digitalBill?.IsActive,
+            digitalBill?.WhatsAppStatus,
+            digitalBill?.OpenCount ?? 0,
+            digitalBill?.PdfDownloadCount ?? 0,
+            digitalBill?.ReviewClickCount ?? 0,
+            digitalBill?.LastWhatsAppSentAt,
+            invoice.Remarks);
     }
 
     private static string FormatAddress(params string?[] parts)
@@ -421,6 +766,8 @@ public static class BillingEndpoints
         AccountingPostingService accounting,
         GstinLookupService gstinLookup,
         StockLedgerService stockLedger,
+        DigitalBillCrmService digitalBills,
+        DigitalBillWhatsAppService digitalBillWhatsApp,
         CancellationToken cancellationToken)
     {
         var strategy = db.Database.CreateExecutionStrategy();
@@ -432,6 +779,8 @@ public static class BillingEndpoints
             accounting,
             gstinLookup,
             stockLedger,
+            digitalBills,
+            digitalBillWhatsApp,
             cancellationToken));
     }
 
@@ -443,6 +792,8 @@ public static class BillingEndpoints
         AccountingPostingService accounting,
         GstinLookupService gstinLookup,
         StockLedgerService stockLedger,
+        DigitalBillCrmService digitalBills,
+        DigitalBillWhatsAppService digitalBillWhatsApp,
         CancellationToken cancellationToken)
     {
         if (request.Items.Count == 0)
@@ -537,7 +888,7 @@ public static class BillingEndpoints
                 SGSTAmount = split.Sgst,
                 IGSTAmount = split.Igst,
                 Amount = lineAmount,
-                TaxType = stock.TaxType,
+                TaxType = interState ? TaxType.IGST : stock.TaxType,
                 TaxId = stock.TaxId,
                 BilledQuantity = requestItem.Quantity,
                 CompanyId = request.CompanyId
@@ -626,6 +977,24 @@ public static class BillingEndpoints
             ? PaymentMode.MixPayments
             : paymentDetails.FirstOrDefault()?.PaymentMode ?? request.PaymentMode;
 
+        if (request.OriginalInvoiceId.HasValue)
+        {
+            var originalInvoice = await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context)
+                .FirstOrDefaultAsync(item => item.Id == request.OriginalInvoiceId.Value, cancellationToken);
+            if (originalInvoice is null)
+            {
+                return Results.BadRequest(new { message = "Original sale invoice for replacement was not found." });
+            }
+            if (originalInvoice.CompanyId != request.CompanyId || originalInvoice.StoreId != request.StoreId)
+            {
+                return Results.BadRequest(new { message = "Replacement sale invoice must use the same company and store as the original invoice." });
+            }
+            if (originalInvoice.InvoiceStatus == InvoiceStatus.Cancelled)
+            {
+                return Results.Conflict(new { message = "Original sale invoice is already cancelled." });
+            }
+        }
+
         var invoice = new Invoice
         {
             Id = invoiceId,
@@ -658,7 +1027,8 @@ public static class BillingEndpoints
             PaidAmount = paidAmount,
             BillDiscountAmount = request.BillDiscountAmount,
             StoreId = request.StoreId,
-            CompanyId = request.CompanyId
+            CompanyId = request.CompanyId,
+            OriginalInvoiceId = request.OriginalInvoiceId
         };
 
         var paymentAdjustmentError = await ApplyInvoicePaymentAdjustmentsAsync(invoice, customer, paymentDetails, request.StoreGroupId, db, cancellationToken);
@@ -670,6 +1040,25 @@ public static class BillingEndpoints
         db.SalesInvoices.Add(invoice);
         db.InvoiceItems.AddRange(invoiceItems);
         AddInvoicePayments(invoice, paymentDetails, db);
+        if (request.OriginalInvoiceId.HasValue || request.ReplacementApprovalRequested)
+        {
+            InvoiceReplacementAudit.Add(
+                db,
+                context,
+                "Requested",
+                nameof(Invoice),
+                invoice.Id,
+                "Sales Invoice Replacement",
+                invoice.InvoiceNumber,
+                invoice.CompanyId,
+                request.StoreGroupId,
+                invoice.StoreId,
+                string.IsNullOrWhiteSpace(request.ReplacementReason)
+                    ? $"Revised sale invoice {invoice.InvoiceNumber} created for replacement approval."
+                    : request.ReplacementReason.Trim(),
+                before: new { originalInvoiceId = request.OriginalInvoiceId },
+                after: new { revisedInvoiceId = invoice.Id, revisedInvoiceNumber = invoice.InvoiceNumber, invoice.BillAmount });
+        }
 
         customer.BillCount += 1;
         customer.Amount += billAmount;
@@ -678,6 +1067,22 @@ public static class BillingEndpoints
 
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+
+        DigitalBillActionResponseDto? digitalBill = null;
+        WhatsAppSendResultDto? digitalBillWhatsAppResult = null;
+        try
+        {
+            digitalBill = await digitalBills.EnsureForSaleInvoiceAsync(invoice.Id, context, cancellationToken);
+            if (digitalBill is not null)
+            {
+                digitalBillWhatsAppResult = await digitalBillWhatsApp.TryAutoSendForDigitalInvoiceAsync(digitalBill.Id, context, cancellationToken);
+            }
+        }
+        catch
+        {
+            // Digital bill generation/WhatsApp sending must never fail or roll back a completed sale invoice.
+            // The admin can regenerate the link or resend WhatsApp manually from Marketing & CRM → Digital Bills.
+        }
 
         return Results.Created($"/api/sales-invoices/{invoice.Id}", new PosSaleResponse(
             invoice.Id,
@@ -689,8 +1094,302 @@ public static class BillingEndpoints
             invoice.BalanceAmount,
             invoice.ItemCount,
             invoice.Quantity,
-            customerValidation?.Alerts ?? Array.Empty<string>()));
+            customerValidation?.Alerts ?? Array.Empty<string>(),
+            digitalBill?.PublicPath,
+            digitalBill?.PublicToken,
+            digitalBillWhatsAppResult?.Status,
+            digitalBillWhatsAppResult?.ErrorMessage));
     }
+
+
+    private static async Task<IResult> UpdateSaleInvoiceAsync(
+        Guid id,
+        UpdateSaleInvoiceRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var invoice = await WorkspaceScope.ApplyTo(db.SalesInvoices, context)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (invoice is null)
+        {
+            return Results.NotFound(new { message = "Sales invoice was not found." });
+        }
+
+        if (invoice.InvoiceStatus == InvoiceStatus.Cancelled)
+        {
+            return Results.Conflict(new { message = "Cancelled sales invoices cannot be edited." });
+        }
+
+        var invoiceNumber = request.InvoiceNumber?.Trim();
+        if (!string.IsNullOrWhiteSpace(invoiceNumber))
+        {
+            var exists = await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context)
+                .AnyAsync(item => item.Id != id && item.CompanyId == invoice.CompanyId && item.InvoiceNumber == invoiceNumber, cancellationToken);
+            if (exists)
+            {
+                return Results.Conflict(new { message = $"Sales invoice number {invoiceNumber} already exists." });
+            }
+            invoice.InvoiceNumber = invoiceNumber;
+        }
+
+        if (request.OnDate.HasValue) invoice.OnDate = request.OnDate.Value.Date;
+        if (!string.IsNullOrWhiteSpace(request.CustomerName)) invoice.CustomerName = request.CustomerName.Trim();
+        if (!string.IsNullOrWhiteSpace(request.CustomerMobileNumber)) invoice.CustomerMobileNumber = request.CustomerMobileNumber.Trim();
+        invoice.CustomerGSTIN = string.IsNullOrWhiteSpace(request.CustomerGstin) ? null : request.CustomerGstin.Trim().ToUpperInvariant();
+        if (request.SalesmanId.HasValue && request.SalesmanId.Value != Guid.Empty) invoice.SalemanId = request.SalesmanId.Value;
+        invoice.Remarks = string.IsNullOrWhiteSpace(request.Remarks) ? null : request.Remarks.Trim();
+        invoice.UpdatedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(new { invoice.Id, invoice.InvoiceNumber, invoice.OnDate, invoice.CustomerName, invoice.CustomerMobileNumber, invoice.CustomerGSTIN, salesmanId = invoice.SalemanId, invoice.Remarks });
+    }
+
+    private static Task<IResult> DeleteSaleInvoiceAsync(
+        Guid id,
+        HttpContext context,
+        GarmetixDbContext db,
+        AccountingPostingService accounting,
+        StockLedgerService stockLedger,
+        CancellationToken cancellationToken)
+        => CancelSaleAsync(
+            id,
+            new CancelInvoiceRequest("Deleted/cancelled from sales invoice register"),
+            context,
+            db,
+            accounting,
+            stockLedger,
+            cancellationToken);
+
+
+    private static Task<IResult> HardDeleteSaleInvoiceAsync(
+        Guid id,
+        HttpContext context,
+        GarmetixDbContext db,
+        string? confirmInvoiceNumber = null,
+        string? reason = null,
+        bool deleteAudit = false,
+        CancellationToken cancellationToken = default)
+    {
+        var strategy = db.Database.CreateExecutionStrategy();
+        return strategy.ExecuteAsync(() => HardDeleteSaleInvoiceCoreAsync(
+            id,
+            context,
+            db,
+            confirmInvoiceNumber,
+            reason,
+            deleteAudit,
+            cancellationToken));
+    }
+
+    private static async Task<IResult> HardDeleteSaleInvoiceCoreAsync(
+        Guid id,
+        HttpContext context,
+        GarmetixDbContext db,
+        string? confirmInvoiceNumber,
+        string? reason,
+        bool deleteAudit,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        var invoice = await WorkspaceScope.ApplyTo(db.SalesInvoices, context)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (invoice is null)
+        {
+            return Results.NotFound(new { message = "Sales invoice was not found." });
+        }
+
+        if (!string.Equals(confirmInvoiceNumber?.Trim(), invoice.InvoiceNumber, StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.BadRequest(new { message = $"Type invoice number {invoice.InvoiceNumber} to confirm hard delete." });
+        }
+
+        if (invoice.InvoiceStatus != InvoiceStatus.Cancelled)
+        {
+            return Results.Conflict(new { message = "Hard delete is allowed only after invoice is cancelled/reversed. First use Delete/Cancel so stock, payment and accounting are reversed safely." });
+        }
+
+        var linkedInvoices = await db.SalesInvoices.AsNoTracking()
+            .Where(item => item.OriginalInvoiceId == invoice.Id && item.CompanyId == invoice.CompanyId)
+            .Select(item => item.InvoiceNumber)
+            .Take(5)
+            .ToListAsync(cancellationToken);
+        if (linkedInvoices.Count > 0)
+        {
+            return Results.Conflict(new { message = $"This invoice has linked revised/return/exchange documents: {string.Join(", ", linkedInvoices)}. Hard delete those linked documents first or keep the audit chain." });
+        }
+
+        var invoiceNumber = invoice.InvoiceNumber;
+        var companyId = invoice.CompanyId;
+        var storeId = invoice.StoreId;
+        var storeGroupId = await db.Stores.AsNoTracking()
+            .Where(item => item.Id == storeId)
+            .Select(item => item.StoreGroupId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var saleBankReference = $"SI-{invoiceNumber}";
+        var saleCancelBankReference = $"SIC-{invoiceNumber}";
+        var saleReturnBankReference = $"SR-{invoiceNumber}";
+        var saleExchangeBankReference = $"SX-{invoiceNumber}";
+
+        var bankTransactions = await db.BankTransactions
+            .Where(item => item.CompanyId == companyId && item.Reference != null &&
+                (item.Reference == saleBankReference || item.Reference.StartsWith(saleBankReference + "-") ||
+                 item.Reference == saleCancelBankReference || item.Reference.StartsWith(saleCancelBankReference + "-") ||
+                 item.Reference == saleReturnBankReference || item.Reference.StartsWith(saleReturnBankReference + "-") ||
+                 item.Reference == saleExchangeBankReference || item.Reference.StartsWith(saleExchangeBankReference + "-")))
+            .ToListAsync(cancellationToken);
+        var bankTransactionIds = bankTransactions.Select(item => item.Id).ToList();
+
+        var bankStatementLines = bankTransactionIds.Count == 0
+            ? new List<Garmetix.Core.Models.Accounting.BankStatementLine>()
+            : await db.BankStatementLines.Where(item => item.BankTransactionId.HasValue && bankTransactionIds.Contains(item.BankTransactionId.Value)).ToListAsync(cancellationToken);
+        var chequeLogs = bankTransactionIds.Count == 0
+            ? new List<Garmetix.Core.Models.Accounting.ChequeLog>()
+            : await db.ChequeLogs.Where(item => item.BankTransactionId.HasValue && bankTransactionIds.Contains(item.BankTransactionId.Value)).ToListAsync(cancellationToken);
+
+        var journalEntries = await db.JournalEntries
+            .Where(item => item.CompanyId == companyId &&
+                ((item.SourceId.HasValue && item.SourceId.Value == invoice.Id) ||
+                 item.ReferenceNumber == $"SI-{invoiceNumber}" ||
+                 item.ReferenceNumber == $"SIC-{invoiceNumber}" ||
+                 item.ReferenceNumber == $"SR-{invoiceNumber}" ||
+                 item.ReferenceNumber == $"SX-{invoiceNumber}"))
+            .ToListAsync(cancellationToken);
+        var journalEntryIds = journalEntries.Select(item => item.Id).ToList();
+        var journalLines = journalEntryIds.Count == 0
+            ? new List<Garmetix.Core.Models.Accounting.JournalLine>()
+            : await db.JournalLines.Where(item => journalEntryIds.Contains(item.JournalEntryId)).ToListAsync(cancellationToken);
+
+        var invoiceItems = await db.InvoiceItems.Where(item => item.InvoiceId == invoice.Id).ToListAsync(cancellationToken);
+        var invoicePayments = await db.InvoicePayments.Where(item => item.InvoiceId == invoice.Id).ToListAsync(cancellationToken);
+        var cardPayments = await db.CardPayments.Where(item => item.InvoiceId == invoice.Id).ToListAsync(cancellationToken);
+        var stockMovements = await db.StockMovements
+            .Where(item => item.CompanyId == companyId &&
+                ((item.SourceId.HasValue && item.SourceId.Value == invoice.Id) ||
+                 item.SourceNumber == invoiceNumber ||
+                 item.SourceNumber == $"SI-{invoiceNumber}" ||
+                 item.SourceNumber == $"SIC-{invoiceNumber}"))
+            .ToListAsync(cancellationToken);
+        var commercialNotes = await db.CommercialNotes
+            .Where(item => item.CompanyId == companyId &&
+                ((item.SourceId.HasValue && item.SourceId.Value == invoice.Id) || item.SourceNumber == invoiceNumber))
+            .ToListAsync(cancellationToken);
+        var loyaltyLedgers = await db.LoyaltyPointLedgers
+            .Where(item => item.CompanyId == companyId &&
+                ((item.SourceId.HasValue && item.SourceId.Value == invoice.Id) || item.SourceNumber == invoiceNumber))
+            .ToListAsync(cancellationToken);
+        var auditEntries = deleteAudit
+            ? await db.AuditLogEntries.Where(item => item.EntityId == invoice.Id || item.Reference == invoiceNumber || item.Reference == $"SI-{invoiceNumber}" || item.Reference == $"SIC-{invoiceNumber}").ToListAsync(cancellationToken)
+            : new List<AuditLogEntry>();
+
+        var response = new AdminHardDeleteSaleResponse(
+            invoice.Id,
+            invoiceNumber,
+            "HardDeleted",
+            invoiceItems.Count,
+            invoicePayments.Count,
+            cardPayments.Count,
+            stockMovements.Count,
+            journalEntries.Count,
+            journalLines.Count,
+            bankTransactions.Count,
+            bankStatementLines.Count,
+            chequeLogs.Count,
+            commercialNotes.Count,
+            loyaltyLedgers.Count,
+            auditEntries.Count);
+
+        db.BankStatementLines.RemoveRange(bankStatementLines);
+        db.ChequeLogs.RemoveRange(chequeLogs);
+        db.BankTransactions.RemoveRange(bankTransactions);
+        db.JournalLines.RemoveRange(journalLines);
+        db.JournalEntries.RemoveRange(journalEntries);
+        db.InvoicePayments.RemoveRange(invoicePayments);
+        db.CardPayments.RemoveRange(cardPayments);
+        db.InvoiceItems.RemoveRange(invoiceItems);
+        db.StockMovements.RemoveRange(stockMovements);
+        db.CommercialNotes.RemoveRange(commercialNotes);
+        db.LoyaltyPointLedgers.RemoveRange(loyaltyLedgers);
+        db.SalesInvoices.Remove(invoice);
+        if (auditEntries.Count > 0)
+        {
+            db.AuditLogEntries.RemoveRange(auditEntries);
+        }
+
+        AddBillingAudit(
+            db,
+            context,
+            "HardDeleted",
+            invoice.Id,
+            invoiceNumber,
+            companyId,
+            storeGroupId,
+            storeId,
+            string.IsNullOrWhiteSpace(reason) ? "Admin hard delete after cancellation/reversal" : reason.Trim(),
+            before: new { invoice.Id, invoice.InvoiceNumber, invoice.BillAmount, invoice.PaidAmount, invoice.InvoiceStatus },
+            after: response);
+
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return Results.Ok(response);
+    }
+
+    private static void AddBillingAudit(
+        GarmetixDbContext db,
+        HttpContext context,
+        string action,
+        Guid entityId,
+        string invoiceNumber,
+        Guid companyId,
+        Guid storeGroupId,
+        Guid storeId,
+        string reason,
+        object? before,
+        object? after)
+    {
+        var now = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
+        db.AuditLogEntries.Add(new AuditLogEntry
+        {
+            Id = Guid.NewGuid(),
+            OccurredAt = now,
+            CreatedAt = now,
+            UpdatedAt = now,
+            Action = action,
+            Module = "Billing",
+            EntityName = nameof(Invoice),
+            EntityDisplayName = "Sales Invoice",
+            EntityId = entityId,
+            Reference = invoiceNumber,
+            CompanyId = companyId,
+            StoreGroupId = storeGroupId,
+            StoreId = storeId,
+            UserId = Guid.TryParse(context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var userId) ? userId : null,
+            UserName = context.User.Identity?.Name ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "System",
+            Source = "BillingAdminHardDelete",
+            RequestMethod = context.Request.Method,
+            RequestPath = context.Request.Path.Value,
+            IpAddress = context.Connection.RemoteIpAddress?.ToString(),
+            Reason = reason,
+            BeforeJson = before is null ? null : JsonSerializer.Serialize(before),
+            AfterJson = after is null ? null : JsonSerializer.Serialize(after),
+            ChangesJson = JsonSerializer.Serialize(new[] { new { field = "HardDelete", before = "Cancelled invoice", after = "Removed with linked rows" } }),
+            ChangedFieldCount = 1,
+            TraceIdentifier = context.TraceIdentifier
+        });
+    }
+
+    internal static Task<IResult> CancelSaleForReplacementApprovalAsync(
+        Guid id,
+        CancelInvoiceRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        AccountingPostingService accounting,
+        StockLedgerService stockLedger,
+        CancellationToken cancellationToken)
+        => CancelSaleAsync(id, request, context, db, accounting, stockLedger, cancellationToken);
 
     private static Task<IResult> CancelSaleAsync(
         Guid id,
@@ -744,7 +1443,6 @@ public static class BillingEndpoints
             .ToListAsync(cancellationToken);
         var originalBankAccountId = await db.BankTransactions
             .Where(item => item.CompanyId == invoice.CompanyId &&
-                item.Reference != null &&
                 (item.Reference == $"SI-{invoice.InvoiceNumber}" || item.Reference.StartsWith($"SI-{invoice.InvoiceNumber}-PAY-")))
             .Select(item => (Guid?)item.BankAccountId)
             .FirstOrDefaultAsync(cancellationToken);

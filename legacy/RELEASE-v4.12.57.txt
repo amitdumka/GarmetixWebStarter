@@ -1,0 +1,13 @@
+GarmetixWebStarter v4.12.57
+Stage 11D-142: Goods Return Exchange Acceptance
+Build code: GARMETIX-11D142-20260703-4257
+
+Added Goods Return / Exchange Operational Acceptance from v4.12.56 base.
+
+Highlights:
+- New /api/goods-return/acceptance endpoint.
+- New /api/goods-return/acceptance/evidence.csv endpoint.
+- New /goods-return-acceptance frontend page.
+- Checks 7-day exchange policy, no-refund policy, original invoice linkage, linked credit notes, over-adjustment, barcode evidence and exchange-credit linkage.
+- Tracks credit-note expiry according to policy: 31 March FY validity, or six months for Jan/Feb/Mar issued notes.
+- Adds CSV evidence export and menu link.

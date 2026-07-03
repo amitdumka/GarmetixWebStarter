@@ -3,6 +3,7 @@ import { h, resolveComponent } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 
 const api = useGarmetixApi()
+const route = useRoute()
 const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
@@ -389,6 +390,25 @@ function formatDateTime(value: unknown) {
   return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('en-IN')
 }
 
+
+function openCashVoucherDeepLinkFromRoute() {
+  const cashVoucherId = String(route.query.cashVoucherId || '')
+  if (!cashVoucherId) return
+  const voucher = cashVouchers.value.find((item) => item.id === cashVoucherId)
+  if (voucher) {
+    openPrint(voucher)
+  } else if (!loading.value && cashVouchers.value.length) {
+    feedback.notify('Cash voucher not visible', 'The linked cash voucher is not in the current workspace/filter. Change workspace or open it from Day Book detail.', 'warning')
+  }
+}
+
+function openCreateCashVoucherFromRoute() {
+  const createRequested = String(route.query.new || route.query.create || '')
+  if (createRequested === '1' || createRequested.toLowerCase() === 'true') {
+    startCreate()
+  }
+}
+
 function startCreate() {
   editMode.value = 'create'
   Object.assign(form, emptyCashVoucher())
@@ -638,6 +658,13 @@ function money(value: number) {
 onMounted(async () => {
   auth.restore()
   await refresh()
+  openCashVoucherDeepLinkFromRoute()
+  openCreateCashVoucherFromRoute()
+})
+
+watch(() => route.fullPath, () => {
+  openCashVoucherDeepLinkFromRoute()
+  openCreateCashVoucherFromRoute()
 })
 </script>
 
@@ -672,6 +699,8 @@ onMounted(async () => {
           <UButton icon="i-lucide-plus" label="New Cash Voucher" @click="startCreate" />
         </template>
       </UiModulePageHeader>
+
+      <UiDayBookReturnButton />
 
       <UAlert
         color="warning"

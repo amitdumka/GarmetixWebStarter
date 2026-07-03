@@ -61,6 +61,34 @@ public class AttendanceShift : StoreBase
     public int? AutoCheckoutTimeMinutes { get; set; }
     [MaxLength(80)] public string WeeklyOffDays { get; set; } = "Sunday";
     public bool Active { get; set; } = true;
+
+    // Stage 11D-10: session-based retail attendance rules.
+    // For regular store shifts, one completed session = half-day, two completed sessions = full day.
+    [MaxLength(40)] public string AttendanceMode { get; set; } = "SessionBased";
+    [MaxLength(80)] public string? ShiftCategory { get; set; }
+    public bool HasBreak { get; set; }
+    public bool RequiresBreakPunch { get; set; }
+    public int? BreakStartMinutes { get; set; }
+    public int? BreakEndMinutes { get; set; }
+    public int RequiredSessionsForFullDay { get; set; } = 1;
+    public int RequiredSessionsForHalfDay { get; set; } = 1;
+    public bool CountBreakAsWork { get; set; }
+}
+
+public class EmployeeAttendanceShiftRule : StoreBase
+{
+    [MaxLength(40)] public string RuleType { get; set; } = "StoreDefault"; // Employee, Gender, Category, Department, Designation, StoreDefault
+    [MaxLength(120)] public string? MatchValue { get; set; }
+    public Guid? EmployeeId { get; set; }
+    public Guid AttendanceShiftId { get; set; }
+    public DateTime EffectiveFrom { get; set; } = DateTime.Today;
+    public DateTime? EffectiveTo { get; set; }
+    public int Priority { get; set; } = 500;
+    public bool Active { get; set; } = true;
+    [MaxLength(300)] public string? Notes { get; set; }
+
+    [JsonIgnore] public virtual Employee? Employee { get; set; }
+    [JsonIgnore] public virtual AttendanceShift? AttendanceShift { get; set; }
 }
 
 public class AttendancePolicy : StoreBase

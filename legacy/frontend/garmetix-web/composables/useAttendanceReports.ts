@@ -30,6 +30,7 @@ export function useAttendanceReports() {
     faceLivenessExternalVerify: attendance.faceLivenessExternalVerify,
     finalAcceptance: attendance.finalAcceptance,
     recalculate: attendance.recalculate,
+    deleteMonthlySelected: attendance.deleteMonthlySelected,
     lockMonth: attendance.lockMonth
   }
 }

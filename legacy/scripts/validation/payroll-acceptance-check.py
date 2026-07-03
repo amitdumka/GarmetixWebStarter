@@ -51,9 +51,9 @@ version_identity = (
     and "APP_VERSION = '4.11.1'" in app_version
     and "<Version>4.11.1</Version>" in csproj
 ) or (
-    all(token in app_info for token in ['Version = "4.11.17"', "Stage 11D-2 Nuxt UI 4.9 Package Update", "GARMETIX-11D2-20260622-4117"])
-    and "APP_VERSION = '4.11.17'" in app_version
-    and "<Version>4.11.17</Version>" in csproj
+    all(token in app_info for token in ['Version = "4.11.19"', "Stage 11D-4 Factory Reset Admin Identity Fix", "GARMETIX-11D4-20260624-4119"])
+    and "APP_VERSION = '4.11.19'" in app_version
+    and "<Version>4.11.19</Version>" in csproj
 )
 add("version identity", version_identity)
 add(

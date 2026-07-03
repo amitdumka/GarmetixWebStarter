@@ -16,9 +16,13 @@ public sealed record PurchaseInwardRequest(
     Guid? BankAccountId,
     decimal FrightAmount,
     IReadOnlyList<PurchaseInwardItemRequest> Items,
+    DateTime? InwardDate = null,
     DateTime? SupplierInvoiceDate = null,
     DateTime? DueDate = null,
-    Guid? VendorId = null);
+    Guid? VendorId = null,
+    Guid? OriginalInvoiceId = null,
+    bool ReplacementApprovalRequested = false,
+    string? ReplacementReason = null);
 
 public sealed record PurchaseInwardItemRequest(
     Guid? ProductId,
@@ -65,7 +69,9 @@ public sealed record RecentPurchaseInvoiceDto(
     int ItemCount,
     decimal Quantity,
     string InvoiceStatus,
-    string PaymentMode);
+    string PaymentMode,
+    bool HasImportProof,
+    Guid? ImportBatchId);
 
 public sealed record PurchaseReceiptDto(
     Guid Id,
@@ -94,6 +100,8 @@ public sealed record PurchaseReceiptDto(
     decimal BalanceAmount,
     string InvoiceStatus,
     string PaymentMode,
+    bool HasImportProof,
+    Guid? ImportBatchId,
     IReadOnlyList<PurchaseReceiptItemDto> Items,
     IReadOnlyList<PurchasePaymentDto> Payments);
 
@@ -104,13 +112,28 @@ public sealed record PurchaseReceiptItemDto(
     string Unit,
     decimal Quantity,
     decimal Mrp,
+    decimal BasicRate,
+    decimal CostPrice,
+    decimal DiscountRate,
     decimal DiscountAmount,
+    decimal BasicValue,
     decimal TaxPercentage,
     decimal TaxAmount,
     decimal? CgstAmount,
     decimal? SgstAmount,
     decimal? IgstAmount,
     decimal Amount);
+
+
+public sealed record UpdatePurchaseInvoiceRequest(
+    string? InvoiceNumber,
+    string? InwardNumber,
+    DateTime? OnDate,
+    DateTime? InwardDate,
+    DateTime? SupplierInvoiceDate,
+    DateTime? DueDate,
+    string? VendorName,
+    string? VendorGstin);
 
 public sealed record CancelPurchaseInvoiceRequest(string? Reason);
 
@@ -348,6 +371,50 @@ public sealed record PurchaseVendorOptionDto(
 public sealed record PurchaseEnumOptionDto(int Value, string Label);
 
 
+
+public sealed record VendorPaymentReconciliationSummaryDto(
+    int VendorMismatchCount,
+    int InvoiceMismatchCount,
+    int ArtifactMismatchCount,
+    decimal VendorMismatchAmount,
+    decimal InvoiceMismatchAmount);
+
+public sealed record VendorPaymentVendorMismatchDto(
+    Guid VendorId,
+    string VendorName,
+    decimal StoredPaid,
+    decimal ActivePaymentTotal,
+    decimal Difference);
+
+public sealed record VendorPaymentInvoiceMismatchDto(
+    Guid PurchaseInvoiceId,
+    string InvoiceNumber,
+    Guid VendorId,
+    string VendorName,
+    decimal BillAmount,
+    decimal ActivePaymentTotal,
+    string StoredStatus,
+    string ExpectedStatus,
+    string? StoredPaymentMode,
+    string? ExpectedPaymentMode);
+
+public sealed record VendorPaymentArtifactMismatchDto(
+    Guid VoucherId,
+    string VoucherNumber,
+    string Issue);
+
+public sealed record VendorPaymentReconciliationDto(
+    VendorPaymentReconciliationSummaryDto Summary,
+    IReadOnlyList<VendorPaymentVendorMismatchDto> VendorMismatches,
+    IReadOnlyList<VendorPaymentInvoiceMismatchDto> InvoiceMismatches,
+    IReadOnlyList<VendorPaymentArtifactMismatchDto> ArtifactMismatches);
+
+public sealed record VendorPaymentReconciliationRepairResponse(
+    int VendorsRepaired,
+    int InvoicesRepaired,
+    int ArtifactsRepaired,
+    string Message);
+
 public sealed record PurchasePaymentRegisterDto(
     Guid Id,
     DateTime OnDate,
@@ -357,10 +424,27 @@ public sealed record PurchasePaymentRegisterDto(
     string PurchaseInvoiceNumber,
     string PaymentKind,
     decimal Amount,
+    int PaymentModeValue,
     string PaymentMode,
+    Guid? BankAccountId,
     string? ReferenceNumber,
+    string? PaymentDetails,
     string? Remarks,
-    Guid? VoucherId);
+    Guid? VoucherId,
+    string? VoucherNumber);
+
+public sealed record PagedPurchasePaymentsDto(
+    IReadOnlyList<PurchasePaymentRegisterDto> Items,
+    int Total,
+    int Page,
+    int PageSize,
+    int Year,
+    int Month,
+    decimal Amount,
+    decimal CashAmount,
+    decimal NonCashAmount,
+    int ActiveCount,
+    int DeletedCount);
 
 public sealed record VendorAdvancePaymentRequest(
     Guid VendorId,
@@ -385,6 +469,15 @@ public sealed record VendorPaymentVoucherRequest(
     Guid? BankAccountId,
     string? PaymentDetails,
     string? SlipNumber,
+    string? Remarks);
+
+public sealed record UpdatePurchasePaymentRequest(
+    DateTime? OnDate,
+    decimal Amount,
+    PaymentMode PaymentMode,
+    Guid? BankAccountId,
+    string? PaymentDetails,
+    string? ReferenceNumber,
     string? Remarks);
 
 public sealed record VendorPaymentVoucherResponse(
@@ -508,3 +601,16 @@ public sealed record VendorSettlementResponse(
     string SettlementStatus,
     Guid? VoucherId,
     string? VoucherNumber);
+
+
+public sealed record PagedPurchaseInvoicesDto(
+    IReadOnlyList<RecentPurchaseInvoiceDto> Items,
+    int Total,
+    int Page,
+    int PageSize,
+    int Year,
+    int Month,
+    decimal BillAmount,
+    decimal PaidAmount,
+    decimal FreightAmount,
+    int CancelledCount);

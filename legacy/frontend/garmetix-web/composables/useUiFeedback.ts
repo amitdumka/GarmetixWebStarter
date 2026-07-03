@@ -61,6 +61,31 @@ export function useUiFeedback() {
     addLog(title, message, parsed.details, 'error', parsed.statusCode, parsed.resource)
   }
 
+  function error(title = 'Action failed', descriptionOrError?: unknown) {
+    if (descriptionOrError instanceof Error || looksLikeFetchError(descriptionOrError)) {
+      failed(title, descriptionOrError)
+      return
+    }
+
+    const cleanTitle = sanitizeMessage(title)
+    const cleanDescription = typeof descriptionOrError === 'string'
+      ? sanitizeMessage(descriptionOrError)
+      : undefined
+
+    toast.add({
+      title: cleanTitle,
+      description: cleanDescription,
+      color: 'error'
+    })
+
+    addLog(cleanTitle, cleanDescription || cleanTitle, undefined, 'error')
+  }
+
+  function looksLikeFetchError(value: unknown) {
+    const raw = value as any
+    return Boolean(raw && typeof raw === 'object' && (raw.data || raw.response || raw.statusCode || raw.status || raw.garmetixRequest))
+  }
+
   function errorMessage(error: unknown, fallback = 'Action failed.', title = 'Action failed') {
     const parsed = parseError(error)
     const message = parsed.message || fallback
@@ -236,6 +261,7 @@ export function useUiFeedback() {
     updated,
     deleted,
     failed,
+    error,
     errorMessage,
     cleanMessage,
     addLog,

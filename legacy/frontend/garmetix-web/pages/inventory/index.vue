@@ -34,6 +34,20 @@ const loadError = ref('')
 const saving = ref(false)
 const deleting = ref(false)
 const search = ref('')
+const productPage = ref(1)
+const productPageSize = ref(50)
+const productTotal = ref(0)
+const stockModeFilter = ref('in-stock')
+const categoryFilter = ref('all')
+const subCategoryFilter = ref('all')
+const ageFilter = ref('all')
+const brandFilter = ref('all')
+const vendorFilter = ref('all')
+const colorFilter = ref('all')
+const sizeFilter = ref('all')
+const healthFilter = ref('all')
+const minStockFilter = ref('')
+const maxStockFilter = ref('')
 const formOpen = ref(false)
 const deleteOpen = ref(false)
 const editMode = ref<'create' | 'edit'>('create')
@@ -41,14 +55,10 @@ const pendingDelete = ref<any | null>(null)
 
 const productForm = reactive<any>(emptyProduct())
 
-const filteredRows = computed(() => {
-  const term = search.value.trim().toLowerCase()
-  if (!term) {
-    return tableRows.value
-  }
-
-  return tableRows.value.filter((row) => JSON.stringify(row).toLowerCase().includes(term))
-})
+const filteredRows = computed(() => tableRows.value)
+const productPageFrom = computed(() => productTotal.value === 0 ? 0 : ((productPage.value - 1) * productPageSize.value) + 1)
+const productPageTo = computed(() => Math.min(productPage.value * productPageSize.value, productTotal.value))
+const productTotalPages = computed(() => Math.max(1, Math.ceil(productTotal.value / productPageSize.value)))
 
 const categoryOptions = computed(() => {
   const selectedGroup = Number(productForm.productGroup)
@@ -84,6 +94,74 @@ const vendorOptions = computed(() => [
     label: `${item.name || 'Vendor'}${item.gstin ? ` - ${item.gstin}` : ''}`
   }))
 ])
+
+const inventoryCategoryFilterOptions = computed(() => [
+  { value: 'all', label: 'All categories' },
+  ...(productOptions.value.categories || []).map((item: any) => ({ value: item.id, label: item.name }))
+])
+
+const inventorySubCategoryFilterOptions = computed(() => [
+  { value: 'all', label: 'All sub-categories' },
+  ...(productOptions.value.subCategories || [])
+    .filter((item: any) => categoryFilter.value === 'all' || !item.categoryId || item.categoryId === categoryFilter.value)
+    .map((item: any) => ({ value: item.id, label: item.name }))
+])
+
+const inventoryBrandFilterOptions = computed(() => [
+  { value: 'all', label: 'All brands' },
+  ...(productOptions.value.brands || []).map((name: string) => ({ value: name, label: name }))
+])
+
+const inventoryColorFilterOptions = computed(() => [
+  { value: 'all', label: 'All colors' },
+  ...(productOptions.value.baseColors || []).map((name: string) => ({ value: name, label: name }))
+])
+
+const inventorySizeFilterOptions = computed(() => [
+  { value: 'all', label: 'All sizes' },
+  ...(productOptions.value.sizes || []).map((name: string) => ({ value: name, label: name }))
+])
+
+const inventoryVendorFilterOptions = computed(() => [
+  { value: 'all', label: 'All vendors' },
+  ...(productOptions.value.vendors || []).map((item: any) => ({ value: item.id, label: item.name || 'Vendor' }))
+])
+
+const healthOptions = [
+  { value: 'all', label: 'All quality' },
+  { value: 'low-stock', label: 'Low stock (1-2)' },
+  { value: 'dead-stock', label: 'Dead stock' },
+  { value: 'high-value', label: 'High value' },
+  { value: 'missing-hsn', label: 'Missing HSN' },
+  { value: 'missing-category', label: 'Missing category' },
+  { value: 'missing-brand', label: 'Missing brand' },
+  { value: 'missing-vendor', label: 'Missing vendor' },
+  { value: 'missing-color', label: 'Missing color' }
+]
+
+const stockModeOptions = [
+  { value: 'in-stock', label: 'In stock only' },
+  { value: 'out-of-stock', label: 'Out of stock' },
+  { value: 'all', label: 'All products' }
+]
+
+const ageOptions = [
+  { value: 'all', label: 'All ages' },
+  { value: '0-30 Days', label: '0-30 days' },
+  { value: '31-60 Days', label: '31-60 days' },
+  { value: '61-90 Days', label: '61-90 days' },
+  { value: '91-180 Days', label: '91-180 days' },
+  { value: '180+ Days', label: '180+ days' },
+  { value: 'No Receipt History', label: 'No receipt history' },
+  { value: 'Out of Stock', label: 'Out of stock' }
+]
+
+const pageSizeOptions = [
+  { value: 25, label: '25 / page' },
+  { value: 50, label: '50 / page' },
+  { value: 100, label: '100 / page' },
+  { value: 200, label: '200 / page' }
+]
 
 const stockSummary = computed(() => products.value.reduce((summary, product) => {
   summary.purchaseQty += Number(product.purchaseQty || 0)
@@ -138,12 +216,18 @@ const tableRows = computed(() => products.value.map((product) => ({
   productGroup: labelFor(product.productGroup, productGroupOptions.value),
   category: product.categoryName || labelFor(product.productCategoryId, allCategoryOptions.value) || '-',
   subCategory: product.subCategoryName || '-',
+  brand: product.brand || '-',
+  baseColor: product.baseColor || '-',
+  sizeLabel: product.sizeLabel || '-',
+  vendorName: labelFor(product.vendorId, inventoryVendorFilterOptions.value) || '-',
   mrp: money(Number(product.mrp || 0)),
   costPrice: money(Number(product.costPrice || 0)),
   purchased: Number(product.purchaseQty || 0),
   sold: Number(product.soldQty || 0),
   currentStock: Number(product.currentStock || 0),
   stockValue: money(Number(product.mrp || 0) * Number(product.currentStock || 0)),
+  ageBucket: product.ageBucket || '-',
+  ageDays: product.ageDays == null ? '-' : `${product.ageDays} days`,
   raw: product
 })))
 
@@ -159,6 +243,9 @@ const columns: TableColumn<any>[] = [
   { accessorKey: 'barcode', header: 'Barcode' },
   { accessorKey: 'hsnCode', header: 'HSN' },
   { accessorKey: 'category', header: 'Category' },
+  { accessorKey: 'brand', header: 'Brand' },
+  { accessorKey: 'baseColor', header: 'Color' },
+  { accessorKey: 'sizeLabel', header: 'Size' },
   { accessorKey: 'mrp', header: 'MRP' },
   { accessorKey: 'costPrice', header: 'Cost' },
   {
@@ -170,6 +257,7 @@ const columns: TableColumn<any>[] = [
     }, () => String(row.original.currentStock))
   },
   { accessorKey: 'stockValue', header: 'Value' },
+  { accessorKey: 'ageBucket', header: 'Age' },
   {
     id: 'actions',
     header: '',
@@ -230,23 +318,46 @@ async function refresh() {
   loadError.value = ''
   try {
     setupStatus.value = await api.get<any>('setup/status')
-    const [companyRows, storeRows, optionRows, productRows] = await Promise.all([
+    const query = new URLSearchParams({
+      page: String(productPage.value),
+      pageSize: String(productPageSize.value),
+      stockMode: stockModeFilter.value
+    })
+    if (search.value.trim()) query.set('q', search.value.trim())
+    if (categoryFilter.value !== 'all') query.set('categoryId', categoryFilter.value)
+    if (subCategoryFilter.value !== 'all') query.set('subCategoryId', subCategoryFilter.value)
+    if (brandFilter.value !== 'all') query.set('brand', brandFilter.value)
+    if (vendorFilter.value !== 'all') query.set('vendorId', vendorFilter.value)
+    if (colorFilter.value !== 'all') query.set('color', colorFilter.value)
+    if (sizeFilter.value !== 'all') query.set('size', sizeFilter.value)
+    if (ageFilter.value !== 'all') query.set('ageBucket', ageFilter.value)
+    if (healthFilter.value !== 'all') query.set('health', healthFilter.value)
+    if (String(minStockFilter.value || '').trim()) query.set('minStock', String(minStockFilter.value).trim())
+    if (String(maxStockFilter.value || '').trim()) query.set('maxStock', String(maxStockFilter.value).trim())
+
+    const [companyRows, storeRows, optionRows, productPageRows] = await Promise.all([
       api.list<any>('companies'),
       api.list<any>('stores'),
       api.get<any>('inventory/product-master/options'),
-      api.list<any>('inventory/product-master')
+      api.get<any>(`inventory/product-master/paged?${query.toString()}`)
     ])
 
     companies.value = companyRows
     stores.value = storeRows
     productOptions.value = optionRows
-    products.value = productRows
+    products.value = productPageRows?.items || []
+    productTotal.value = Number(productPageRows?.total || 0)
   } catch (error) {
     loadError.value = 'Product master data could not be loaded. Check the selected workspace and try again.'
     feedback.failed('Inventory refresh failed', error)
   } finally {
     loading.value = false
   }
+}
+
+function resetProductPageAndRefresh() {
+  productPage.value = 1
+  refresh()
 }
 
 function startCreate() {
@@ -382,6 +493,24 @@ function money(value: number) {
   }).format(value || 0)
 }
 
+watch([stockModeFilter, categoryFilter, subCategoryFilter, ageFilter, brandFilter, vendorFilter, colorFilter, sizeFilter, healthFilter, minStockFilter, maxStockFilter, productPageSize], () => {
+  resetProductPageAndRefresh()
+})
+
+watch(productPage, () => {
+  refresh()
+})
+
+let inventorySearchTimer: ReturnType<typeof setTimeout> | null = null
+watch(search, () => {
+  if (inventorySearchTimer) clearTimeout(inventorySearchTimer)
+  inventorySearchTimer = setTimeout(() => resetProductPageAndRefresh(), 350)
+})
+
+watch(categoryFilter, () => {
+  subCategoryFilter.value = 'all'
+})
+
 watch(() => productForm.productGroup, () => {
   if (editMode.value === 'create' && !categoryOptions.value.some((item) => item.value === productForm.productCategoryId)) {
     productForm.productCategoryId = categoryOptions.value[0]?.value || ''
@@ -422,7 +551,7 @@ onMounted(async () => {
       >
         <template #actions>
           <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
-            {{ loading ? 'Loading' : `${products.length} products` }}
+            {{ loading ? 'Loading' : `${productTotal} products` }}
           </UBadge>
           <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" :loading="loading" label="Refresh" @click="refresh" />
           <UButton icon="i-lucide-package-plus" label="New Product" @click="startCreate" />
@@ -444,28 +573,43 @@ onMounted(async () => {
 
       <UiRegisterPanel
         title="Product Master"
-        description="Maintain full garment product metadata before billing, purchase, and GST reporting."
+        :description="`Showing ${productPageFrom}-${productPageTo} of ${productTotal}. Default view shows only stock greater than zero. Advanced filters run on server.`"
         :loading="loading"
         :error="loadError"
         :empty="!filteredRows.length"
         empty-title="No products found"
-        empty-description="Create the first product with HSN, product type/group, GST, and stock defaults."
+        :empty-description="search || stockModeFilter !== 'in-stock' || categoryFilter !== 'all' || subCategoryFilter !== 'all' || ageFilter !== 'all' || brandFilter !== 'all' || vendorFilter !== 'all' || colorFilter !== 'all' || sizeFilter !== 'all' || healthFilter !== 'all' || minStockFilter || maxStockFilter ? 'No products match the selected filters. Change stock mode/category/age/search to see records.' : 'No products with stock greater than zero. Change Stock Mode to All products or Out of stock, or create a new product.'"
         empty-icon="i-lucide-package-search"
         @retry="refresh"
       >
         <template #actions>
-            <UBadge color="neutral" variant="subtle">{{ filteredRows.length }} shown</UBadge>
+            <UBadge color="neutral" variant="subtle">{{ productPageFrom }}-{{ productPageTo }} of {{ productTotal }}</UBadge>
         </template>
 
         <UiCrudToolbar
           v-model:search="search"
-          search-placeholder="Search product, barcode, HSN, category, brand, style"
+          search-placeholder="Search product, barcode, HSN, category, brand, style, color, size"
           :loading="loading"
           refresh-label="Sync"
           create-label="New Product"
           @refresh="refresh"
           @create="startCreate"
-        />
+        >
+          <template #filters>
+            <USelect v-model="stockModeFilter" :items="stockModeOptions" class="min-w-36" aria-label="Stock mode" />
+            <USelect v-model="categoryFilter" :items="inventoryCategoryFilterOptions" class="min-w-40" aria-label="Category filter" />
+            <USelect v-model="subCategoryFilter" :items="inventorySubCategoryFilterOptions" class="min-w-40" aria-label="Sub-category filter" />
+            <USelect v-model="brandFilter" :items="inventoryBrandFilterOptions" class="min-w-36" aria-label="Brand filter" />
+            <USelect v-model="vendorFilter" :items="inventoryVendorFilterOptions" class="min-w-40" aria-label="Vendor filter" />
+            <USelect v-model="colorFilter" :items="inventoryColorFilterOptions" class="min-w-32" aria-label="Color filter" />
+            <USelect v-model="sizeFilter" :items="inventorySizeFilterOptions" class="min-w-32" aria-label="Size filter" />
+            <USelect v-model="ageFilter" :items="ageOptions" class="min-w-40" aria-label="Age filter" />
+            <USelect v-model="healthFilter" :items="healthOptions" class="min-w-40" aria-label="Stock quality filter" />
+            <UInput v-model="minStockFilter" type="number" min="0" class="w-24" placeholder="Min" aria-label="Minimum stock" />
+            <UInput v-model="maxStockFilter" type="number" min="0" class="w-24" placeholder="Max" aria-label="Maximum stock" />
+            <USelect v-model="productPageSize" :items="pageSizeOptions" class="min-w-32" aria-label="Page size" />
+          </template>
+        </UiCrudToolbar>
 
         <UTable
           v-if="filteredRows.length"
@@ -473,6 +617,15 @@ onMounted(async () => {
           :columns="columns"
           :loading="loading"
         />
+
+        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
+          <span>Showing {{ productPageFrom }}-{{ productPageTo }} of {{ productTotal }}</span>
+          <div class="flex items-center gap-2">
+            <UButton size="sm" variant="outline" color="neutral" icon="i-lucide-chevron-left" label="Previous" :disabled="productPage <= 1 || loading" @click="productPage--" />
+            <span>Page {{ productPage }} / {{ productTotalPages }}</span>
+            <UButton size="sm" variant="outline" color="neutral" icon="i-lucide-chevron-right" trailing label="Next" :disabled="productPage >= productTotalPages || loading" @click="productPage++" />
+          </div>
+        </div>
 
       </UiRegisterPanel>
 

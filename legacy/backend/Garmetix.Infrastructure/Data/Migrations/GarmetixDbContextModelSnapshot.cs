@@ -2751,6 +2751,10 @@ namespace Garmetix.Infrastructure.Data.Migrations
 
                     b.HasIndex("EmployeeId");
 
+                    b.HasIndex("CompanyId", "StoreId", "OnDate");
+
+                    b.HasIndex("CompanyId", "StoreId", "EmployeeId", "OnDate");
+
                     b.ToTable("Attendance");
                 });
 
@@ -4020,6 +4024,9 @@ namespace Garmetix.Infrastructure.Data.Migrations
 
                     b.Property<bool>("ReturnInvoice")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("text");
 
                     b.Property<decimal>("RoundOff")
                         .HasPrecision(18, 2)

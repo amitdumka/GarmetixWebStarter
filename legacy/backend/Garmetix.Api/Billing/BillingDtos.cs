@@ -16,7 +16,11 @@ public sealed record PosSaleRequest(
     IReadOnlyList<PosSaleItemRequest> Items,
     Guid? CustomerId = null,
     Guid? SalesmanId = null,
-    IReadOnlyList<InvoicePaymentDetailRequest>? Payments = null);
+    IReadOnlyList<InvoicePaymentDetailRequest>? Payments = null,
+    Guid? OriginalInvoiceId = null,
+    bool ReplacementApprovalRequested = false,
+    string? ReplacementReason = null,
+    string? Remarks = null);
 
 public sealed record InvoicePaymentDetailRequest(
     PaymentMode PaymentMode,
@@ -99,7 +103,11 @@ public sealed record PosSaleResponse(
     decimal BalanceAmount,
     int ItemCount,
     decimal Quantity,
-    IReadOnlyList<string> GstinAlerts);
+    IReadOnlyList<string> GstinAlerts,
+    string? DigitalBillPublicPath = null,
+    string? DigitalBillPublicToken = null,
+    string? DigitalBillWhatsAppStatus = null,
+    string? DigitalBillWhatsAppMessage = null);
 
 public sealed record RecentInvoiceDto(
     Guid Id,
@@ -111,7 +119,30 @@ public sealed record RecentInvoiceDto(
     decimal PaidAmount,
     decimal BalanceAmount,
     string InvoiceStatus,
-    string PaymentMode);
+    string PaymentMode,
+    Guid? DigitalBillId = null,
+    string? DigitalBillPublicPath = null,
+    string? DigitalBillPublicToken = null,
+    bool? DigitalBillIsActive = null,
+    string? DigitalBillWhatsAppStatus = null,
+    int DigitalBillOpenCount = 0,
+    int DigitalBillPdfDownloadCount = 0,
+    int DigitalBillReviewClickCount = 0,
+    DateTime? DigitalBillLastWhatsAppSentAt = null,
+    string? Remarks = null);
+
+public sealed record PagedSaleInvoicesDto(
+    IReadOnlyList<RecentInvoiceDto> Items,
+    int Total,
+    int Page,
+    int PageSize,
+    string DatePreset,
+    DateTime FromDate,
+    DateTime ToDate,
+    decimal BillAmount,
+    decimal PaidAmount,
+    decimal BalanceAmount,
+    int CancelledCount);
 
 public sealed record ReceiptDto(
     Guid Id,
@@ -130,10 +161,21 @@ public sealed record ReceiptDto(
     decimal PaidAmount,
     decimal BalanceAmount,
     IReadOnlyList<ReceiptItemDto> Items,
-    IReadOnlyList<ReceiptPaymentDto> Payments);
+    IReadOnlyList<ReceiptPaymentDto> Payments,
+    Guid? DigitalBillId = null,
+    string? DigitalBillPublicPath = null,
+    string? DigitalBillPublicToken = null,
+    bool? DigitalBillIsActive = null,
+    string? DigitalBillWhatsAppStatus = null,
+    int DigitalBillOpenCount = 0,
+    int DigitalBillPdfDownloadCount = 0,
+    int DigitalBillReviewClickCount = 0,
+    DateTime? DigitalBillLastWhatsAppSentAt = null,
+    string? Remarks = null);
 
 public sealed record ReceiptItemDto(
     Guid Id,
+    Guid? ProductId,
     string ProductName,
     string Barcode,
     decimal Quantity,
@@ -149,6 +191,7 @@ public sealed record ReceiptItemDto(
     decimal Amount);
 
 public sealed record ReceiptPaymentDto(
+    Guid Id,
     DateTime OnDate,
     decimal Amount,
     string PaymentMode,
@@ -156,6 +199,16 @@ public sealed record ReceiptPaymentDto(
     string? GatewayReference,
     string? SettlementStatus,
     string? AdjustmentSourceType);
+
+
+public sealed record UpdateSaleInvoiceRequest(
+    string? InvoiceNumber,
+    DateTime? OnDate,
+    string? CustomerName,
+    string? CustomerMobileNumber,
+    string? CustomerGstin,
+    Guid? SalesmanId,
+    string? Remarks = null);
 
 public sealed record CancelInvoiceRequest(string? Reason);
 
@@ -165,6 +218,23 @@ public sealed record CancelInvoiceResponse(
     string InvoiceStatus,
     decimal ReversedQuantity,
     decimal ReversedAmount);
+
+public sealed record AdminHardDeleteSaleResponse(
+    Guid InvoiceId,
+    string InvoiceNumber,
+    string Status,
+    int RemovedInvoiceItems,
+    int RemovedInvoicePayments,
+    int RemovedCardPayments,
+    int RemovedStockMovements,
+    int RemovedJournalEntries,
+    int RemovedJournalLines,
+    int RemovedBankTransactions,
+    int RemovedBankStatementLines,
+    int RemovedChequeLogs,
+    int RemovedCommercialNotes,
+    int RemovedLoyaltyLedgers,
+    int RemovedAuditEntries);
 
 public sealed record SalesReturnItemRequest(
     Guid InvoiceItemId,

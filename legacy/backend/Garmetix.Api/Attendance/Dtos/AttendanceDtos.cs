@@ -68,7 +68,14 @@ public sealed record AttendanceDayStatusDto(
     int WorkingMinutes,
     int OvertimeMinutes,
     int LateMinutes,
-    bool NeedsReview);
+    bool NeedsReview,
+    DateTime? BreakOut = null,
+    DateTime? BreakIn = null,
+    string? ShiftName = null,
+    string? AttendanceMode = null,
+    int CompletedSessions = 0,
+    int RequiredSessionsForFullDay = 1,
+    bool ShiftHasBreak = false);
 
 public sealed record AttendanceTodayDto(
     DateTime OnDate,
@@ -92,6 +99,16 @@ public sealed record AttendanceMonthlyDto(
     int OvertimeMinutes,
     bool Locked,
     IReadOnlyList<AttendanceDayStatusDto> Days);
+
+public sealed record AttendanceMonthlyDeleteItem(
+    Guid EmployeeId,
+    DateTime OnDate);
+
+public sealed record AttendanceMonthlyBulkDeleteRequest(
+    IReadOnlyList<AttendanceMonthlyDeleteItem>? Items,
+    bool DeletePunches,
+    bool DeleteDailyAttendance,
+    string? Reason);
 
 public sealed record AttendanceDeviceRegisterRequest(
     string DeviceName,
@@ -196,6 +213,22 @@ public sealed record BiometricEnrollmentRowDto(
     string? RevokedReason,
     string? Notes,
     IReadOnlyList<string> AuditFlags);
+
+
+public sealed record EmployeeAttendanceShiftRuleSaveRequest(
+    Guid? Id,
+    string RuleType,
+    string? MatchValue,
+    Guid? EmployeeId,
+    Guid AttendanceShiftId,
+    DateTime? EffectiveFrom,
+    DateTime? EffectiveTo,
+    int? Priority,
+    bool Active,
+    string? Notes,
+    Guid CompanyId,
+    Guid StoreGroupId,
+    Guid StoreId);
 
 public sealed record AttendanceRecalculateRequest(
     int Year,

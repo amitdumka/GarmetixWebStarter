@@ -3,6 +3,7 @@ using Garmetix.Api.Auth;
 using Garmetix.Api.Commercial;
 using Garmetix.Api.Gstin;
 using Garmetix.Api.Inventory;
+using Garmetix.Api.InvoiceReplacement;
 using Garmetix.Api.Numbering;
 using Garmetix.Api.ProductLookup;
 using Garmetix.Api.Workspace;
@@ -23,8 +24,15 @@ public static class PurchaseEndpoints
             .RequireAuthorization(GarmetixPolicies.Purchase);
 
         group.MapGet("/lookup-options", GetLookupOptionsAsync);
+        group.MapGet("/invoices", SearchPurchaseInvoicesAsync);
         group.MapGet("/invoices/recent", GetRecentPurchaseInvoicesAsync);
+        group.MapGet("/payments", SearchPurchasePaymentsAsync);
         group.MapGet("/payments/recent", GetRecentPurchasePaymentsAsync);
+        group.MapGet("/payments/{id:guid}", GetPurchasePaymentAsync);
+        group.MapPut("/payments/{id:guid}", UpdatePurchasePaymentAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapDelete("/payments/{id:guid}", DeletePurchasePaymentAsync).RequireAuthorization(GarmetixPolicies.Delete);
+        group.MapGet("/payments/reconciliation", GetPurchasePaymentReconciliationAsync).RequireAuthorization(GarmetixPolicies.Admin);
+        group.MapPost("/payments/reconciliation/repair", RepairPurchasePaymentReconciliationAsync).RequireAuthorization(GarmetixPolicies.Admin);
         group.MapGet("/returns/recent", GetRecentPurchaseReturnsAsync);
         group.MapGet("/returns/{id:guid}", GetPurchaseReturnAsync);
         group.MapGet("/returns/{id:guid}/reconciliation", GetPurchaseReturnReconciliationAsync);
@@ -33,6 +41,8 @@ public static class PurchaseEndpoints
         group.MapGet("/invoices/{id:guid}/receipt", GetReceiptAsync);
         group.MapGet("/invoices/{id:guid}/returnable", GetReturnablePurchaseInvoiceAsync);
         group.MapGet("/invoices/{id:guid}/pdf", DownloadPurchasePdfAsync);
+        group.MapPut("/invoices/{id:guid}", UpdatePurchaseInvoiceAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapDelete("/invoices/{id:guid}", DeletePurchaseInvoiceAsync).RequireAuthorization(GarmetixPolicies.Delete);
         group.MapPost("/inward", CreateInwardAsync);
         group.MapPost("/invoices/{id:guid}/partial-return", CreatePartialPurchaseReturnAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/invoices/{id:guid}/payment-voucher", CreateVendorPaymentVoucherAsync);
@@ -85,20 +95,93 @@ public static class PurchaseEndpoints
             EnumOptions<ProductGroup>());
     }
 
-    private static async Task<IReadOnlyList<RecentPurchaseInvoiceDto>> GetRecentPurchaseInvoicesAsync(HttpContext context, GarmetixDbContext db, int take = 50, CancellationToken cancellationToken = default)
+    private static async Task<PagedPurchaseInvoicesDto> SearchPurchaseInvoicesAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        int? year,
+        int? month,
+        int page = 1,
+        int pageSize = 50,
+        string? q = null,
+        string? status = null,
+        string? dateMode = "inward",
+        Guid? vendorId = null,
+        DateTime? from = null,
+        DateTime? to = null,
+        CancellationToken cancellationToken = default)
     {
-        var invoices = await WorkspaceScope.ApplyTo(db.PurchaseInvoices.AsNoTracking(), context)
-            .OrderByDescending(item => item.OnDate)
-            .ThenByDescending(item => item.CreatedAt)
-            .Take(Math.Clamp(take, 1, 200))
+        var useEntryDate = string.Equals(dateMode, "entry", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(dateMode, "onDate", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(dateMode, "created", StringComparison.OrdinalIgnoreCase);
+        var now = DateTime.Today;
+        var selectedYear = year.GetValueOrDefault(now.Year);
+        var selectedMonth = month.GetValueOrDefault(now.Month);
+        if (selectedMonth < 1 || selectedMonth > 12)
+        {
+            selectedMonth = now.Month;
+        }
+
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 25, 200);
+
+        var fromDate = from?.Date ?? new DateTime(selectedYear, selectedMonth, 1);
+        var toDateExclusive = to?.Date.AddDays(1) ?? fromDate.AddMonths(1);
+        var term = q?.Trim().ToLowerInvariant();
+
+        var query = WorkspaceScope.ApplyTo(db.PurchaseInvoices.AsNoTracking(), context);
+        query = useEntryDate
+            ? query.Where(item => item.OnDate >= fromDate && item.OnDate < toDateExclusive)
+            : query.Where(item => item.InwardDate >= fromDate && item.InwardDate < toDateExclusive);
+
+        if (vendorId.HasValue)
+        {
+            query = query.Where(item => item.VendorId == vendorId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(status) && !status.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            if (Enum.TryParse<InvoiceStatus>(status, true, out var parsedStatus))
+            {
+                query = query.Where(item => item.InvoiceStatus == parsedStatus);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(term))
+        {
+            query = query.Where(item =>
+                item.InvoiceNumber.ToLower().Contains(term) ||
+                item.InwardNumber.ToLower().Contains(term) ||
+                (item.VendorName != null && item.VendorName.ToLower().Contains(term)) ||
+                (item.VendorGSTIN != null && item.VendorGSTIN.ToLower().Contains(term)));
+        }
+
+        var total = await query.CountAsync(cancellationToken);
+        var totals = await query
+            .GroupBy(_ => 1)
+            .Select(group => new
+            {
+                BillAmount = group.Sum(item => item.BillAmount),
+                FreightAmount = group.Sum(item => item.FrightAmount),
+                CancelledCount = group.Count(item => item.InvoiceStatus == InvoiceStatus.Cancelled)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var orderedQuery = useEntryDate
+            ? query.OrderByDescending(item => item.OnDate).ThenByDescending(item => item.CreatedAt)
+            : query.OrderByDescending(item => item.InwardDate).ThenByDescending(item => item.CreatedAt);
+
+        var invoices = await orderedQuery
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync(cancellationToken);
 
         var invoiceIds = invoices.Select(item => item.Id).ToArray();
         var paidLookup = await GetPaidAmountLookupAsync(invoiceIds, db, cancellationToken);
-
-        return invoices.Select(invoice =>
+        var importProofLookup = await GetPurchaseImportProofLookupAsync(invoiceIds, context, db, cancellationToken);
+        var items = invoices.Select(invoice =>
         {
             paidLookup.TryGetValue(invoice.Id, out var paidAmount);
+            importProofLookup.TryGetValue(invoice.Id, out var importBatchId);
             paidAmount = invoice.InvoiceStatus == InvoiceStatus.Cancelled ? 0 : paidAmount;
             return new RecentPurchaseInvoiceDto(
                 invoice.Id,
@@ -118,7 +201,63 @@ public static class PurchaseEndpoints
                 invoice.ItemCount,
                 invoice.Quantity,
                 invoice.InvoiceStatus.ToString(),
-                invoice.PaymentMode?.ToString() ?? "-"
+                invoice.PaymentMode?.ToString() ?? "-",
+                importBatchId != Guid.Empty,
+                importBatchId == Guid.Empty ? null : importBatchId
+            );
+        }).ToList();
+
+        return new PagedPurchaseInvoicesDto(
+            items,
+            total,
+            page,
+            pageSize,
+            selectedYear,
+            selectedMonth,
+            totals?.BillAmount ?? 0,
+            items.Sum(item => item.PaidAmount),
+            totals?.FreightAmount ?? 0,
+            totals?.CancelledCount ?? 0);
+    }
+
+    private static async Task<IReadOnlyList<RecentPurchaseInvoiceDto>> GetRecentPurchaseInvoicesAsync(HttpContext context, GarmetixDbContext db, int take = 50, CancellationToken cancellationToken = default)
+    {
+        var invoices = await WorkspaceScope.ApplyTo(db.PurchaseInvoices.AsNoTracking(), context)
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .Take(Math.Clamp(take, 1, 200))
+            .ToListAsync(cancellationToken);
+
+        var invoiceIds = invoices.Select(item => item.Id).ToArray();
+        var paidLookup = await GetPaidAmountLookupAsync(invoiceIds, db, cancellationToken);
+        var importProofLookup = await GetPurchaseImportProofLookupAsync(invoiceIds, context, db, cancellationToken);
+
+        return invoices.Select(invoice =>
+        {
+            paidLookup.TryGetValue(invoice.Id, out var paidAmount);
+            importProofLookup.TryGetValue(invoice.Id, out var importBatchId);
+            paidAmount = invoice.InvoiceStatus == InvoiceStatus.Cancelled ? 0 : paidAmount;
+            return new RecentPurchaseInvoiceDto(
+                invoice.Id,
+                invoice.InvoiceNumber,
+                invoice.InwardNumber,
+                invoice.OnDate,
+                invoice.InwardDate,
+                invoice.SupplierInvoiceDate,
+                invoice.DueDate,
+                invoice.VendorId,
+                invoice.VendorName ?? "Supplier",
+                invoice.VendorGSTIN,
+                invoice.BillAmount,
+                paidAmount,
+                Math.Max(invoice.BillAmount - paidAmount, 0),
+                invoice.FrightAmount,
+                invoice.ItemCount,
+                invoice.Quantity,
+                invoice.InvoiceStatus.ToString(),
+                invoice.PaymentMode?.ToString() ?? "-",
+                importBatchId != Guid.Empty,
+                importBatchId == Guid.Empty ? null : importBatchId
             );
         }).ToList();
     }
@@ -486,6 +625,8 @@ public static class PurchaseEndpoints
                 receipt.InvoiceNumber,
                 receipt.InwardNumber,
                 receipt.OnDate,
+                receipt.InwardDate,
+                receipt.SupplierInvoiceDate,
                 receipt.InvoiceStatus,
                 receipt.VendorName,
                 receipt.VendorGstin,
@@ -910,23 +1051,37 @@ public static class PurchaseEndpoints
             ? await db.Stores.AsNoTracking().Where(item => item.Id == resolvedStoreId.Value).Select(item => item.Name).FirstOrDefaultAsync(cancellationToken) ?? "Purchase Store"
             : "Purchase Store";
 
-        var items = await db.PurchaseInvoiceItems.AsNoTracking()
+        var receiptItemRows = await db.PurchaseInvoiceItems.AsNoTracking()
             .Where(item => item.InvoiceId == invoice.Id)
-            .Join(db.Products.AsNoTracking(), item => item.ProductId, product => product.Id, (item, product) => new PurchaseReceiptItemDto(
-                item.ProductName ?? product.Name,
-                item.Barcode,
-                string.IsNullOrWhiteSpace(item.HSNCode) ? product.HSNCode : item.HSNCode,
-                (item.Unit ?? product.Unit).ToString(),
-                item.BilledQuantity,
-                item.MRP,
-                item.DiscountAmount,
-                item.TaxPercentage,
-                item.TaxAmount,
-                item.CGSTAmount,
-                item.SGSTAmount,
-                item.IGSTAmount,
-                item.Amount))
+            .Join(db.Products.AsNoTracking(), item => item.ProductId, product => product.Id, (item, product) => new { item, product })
             .ToListAsync(cancellationToken);
+
+        var items = receiptItemRows.Select(row =>
+        {
+            var quantity = row.item.BilledQuantity <= 0 ? 0 : row.item.BilledQuantity;
+            var basicRate = quantity <= 0 ? 0 : Math.Round(row.item.BasePrice / quantity, 2);
+            var costPrice = quantity <= 0 ? 0 : Math.Round(row.item.Amount / quantity, 2);
+            var discountBase = row.item.BasePrice + row.item.DiscountAmount;
+            var discountRate = discountBase <= 0 ? 0 : Math.Round(row.item.DiscountAmount * 100 / discountBase, 2);
+            return new PurchaseReceiptItemDto(
+                row.item.ProductName ?? row.product.Name,
+                row.item.Barcode,
+                string.IsNullOrWhiteSpace(row.item.HSNCode) ? row.product.HSNCode : row.item.HSNCode,
+                (row.item.Unit ?? row.product.Unit).ToString(),
+                row.item.BilledQuantity,
+                row.item.MRP,
+                basicRate,
+                costPrice,
+                discountRate,
+                row.item.DiscountAmount,
+                row.item.BasePrice,
+                row.item.TaxPercentage,
+                row.item.TaxAmount,
+                row.item.CGSTAmount,
+                row.item.SGSTAmount,
+                row.item.IGSTAmount,
+                row.item.Amount);
+        }).ToList();
 
         var payments = await db.PurchasePayments.AsNoTracking()
             .Where(payment => payment.PurchaseInvoiceId == invoice.Id)
@@ -949,6 +1104,9 @@ public static class PurchaseEndpoints
         {
             paidAmount = 0;
         }
+
+        var importProofLookup = await GetPurchaseImportProofLookupAsync(new[] { invoice.Id }, context, db, cancellationToken);
+        importProofLookup.TryGetValue(invoice.Id, out var importBatchId);
 
         return new PurchaseReceiptDto(
             invoice.Id,
@@ -977,6 +1135,8 @@ public static class PurchaseEndpoints
             Math.Max(invoice.BillAmount - paidAmount, 0),
             invoice.InvoiceStatus.ToString(),
             invoice.PaymentMode?.ToString() ?? "-",
+            importBatchId != Guid.Empty,
+            importBatchId == Guid.Empty ? null : importBatchId,
             items,
             payments);
     }
@@ -1006,9 +1166,14 @@ public static class PurchaseEndpoints
             return Results.BadRequest(new { message = "Quantity, cost price, and MRP must be valid." });
         }
 
-        var storeAllowed = await WorkspaceScope.ApplyTo(db.Stores.AsNoTracking(), context)
-            .AnyAsync(store => store.Id == request.StoreId && store.CompanyId == request.CompanyId && store.StoreGroupId == request.StoreGroupId, cancellationToken);
-        if (!storeAllowed)
+        var purchaseStore = await WorkspaceScope.ApplyTo(db.Stores.AsNoTracking().Include(store => store.Company), context)
+            .Where(store => store.Id == request.StoreId && store.CompanyId == request.CompanyId && store.StoreGroupId == request.StoreGroupId)
+            .Select(store => new
+            {
+                CompanyGstin = store.Company != null ? store.Company.GSTIN : string.Empty
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (purchaseStore is null)
         {
             return Results.BadRequest(new { message = "Selected purchase store is outside your access scope." });
         }
@@ -1019,13 +1184,17 @@ public static class PurchaseEndpoints
             ? await gstinLookup.ValidatePartyAsync("Vendor", request.VendorGstin, request.VendorName, null, cancellationToken)
             : null;
         var vendor = await GetOrCreateVendorAsync(request, db, gstinLookup, vendorValidation, cancellationToken);
+        var interState = IsInterStateSupply(purchaseStore.CompanyGstin, vendor.GSTIN);
+        var inwardDate = request.InwardDate?.Date ?? DateTime.Today;
+        var invoiceDate = request.SupplierInvoiceDate?.Date ?? inwardDate;
+
         var invoiceNumber = string.IsNullOrWhiteSpace(request.InvoiceNumber)
             ? await documentNumbers.NextPurchaseInvoiceAsync(request.CompanyId, request.StoreGroupId, request.StoreId, cancellationToken)
             : request.InvoiceNumber.Trim();
         // Inward numbers are always server generated so users cannot accidentally
         // duplicate or break the store/month/INW/series format.
         var inwardNumber = await documentNumbers.NextPurchaseInwardAsync(
-            request.CompanyId, request.StoreGroupId, request.StoreId, cancellationToken);
+            request.CompanyId, request.StoreGroupId, request.StoreId, inwardDate, cancellationToken);
         var invoiceId = Guid.NewGuid();
 
         var invoiceItems = new List<PurchaseInvoiceItem>();
@@ -1064,7 +1233,7 @@ public static class PurchaseEndpoints
             var taxable = Math.Round(lineNet / (1 + (tax.CompositeRate / 100)), 2);
             var taxValue = Math.Round(taxable * (tax.CompositeRate / 100), 2);
             var lineAmount = taxable + taxValue;
-            var split = SplitGst(taxValue, tax.TaxType);
+            var split = SplitGst(taxValue, tax.TaxType, interState);
             var hsnCode = string.IsNullOrWhiteSpace(requestItem.HsnCode) ? product.HSNCode : requestItem.HsnCode.Trim();
             var unit = requestItem.ProductUnit ?? product.Unit;
 
@@ -1087,7 +1256,7 @@ public static class PurchaseEndpoints
                 SGSTAmount = split.Sgst,
                 IGSTAmount = split.Igst,
                 Amount = lineAmount,
-                TaxType = tax.TaxType,
+                TaxType = interState ? TaxType.IGST : tax.TaxType,
                 TaxId = tax.Id,
                 BilledQuantity = requestItem.Quantity,
                 CompanyId = request.CompanyId
@@ -1145,8 +1314,8 @@ public static class PurchaseEndpoints
                 SourceType = "PurchaseInvoice",
                 SourceId = invoiceId,
                 SourceNumber = invoiceNumber,
-                Remarks = "Purchase inward",
-                OnDate = DateTime.Now,
+                Remarks = $"Purchase inward dated {inwardDate:yyyy-MM-dd}",
+                OnDate = inwardDate,
                 CompanyId = request.CompanyId,
                 StoreGroupId = request.StoreGroupId,
                 StoreId = request.StoreId
@@ -1183,13 +1352,31 @@ public static class PurchaseEndpoints
         var billAmount = Math.Round(netAmount, 0);
         var paidAmount = Math.Min(Math.Max(request.PaidAmount, 0), billAmount);
 
+        if (request.OriginalInvoiceId.HasValue)
+        {
+            var originalInvoice = await WorkspaceScope.ApplyTo(db.PurchaseInvoices.AsNoTracking(), context)
+                .FirstOrDefaultAsync(item => item.Id == request.OriginalInvoiceId.Value, cancellationToken);
+            if (originalInvoice is null)
+            {
+                return Results.BadRequest(new { message = "Original purchase invoice for replacement was not found." });
+            }
+            if (originalInvoice.CompanyId != request.CompanyId || originalInvoice.StoreGroupId != request.StoreGroupId || originalInvoice.StoreId != request.StoreId)
+            {
+                return Results.BadRequest(new { message = "Replacement inward must use the same company/store as the original purchase invoice." });
+            }
+            if (originalInvoice.InvoiceStatus == InvoiceStatus.Cancelled)
+            {
+                return Results.Conflict(new { message = "Original purchase invoice is already cancelled." });
+            }
+        }
+
         var invoice = new PurchaseInvoice
         {
             Id = invoiceId,
             InvoiceNumber = invoiceNumber,
             InwardNumber = inwardNumber,
-            InwardDate = DateTime.Now,
-            OnDate = DateTime.Now,
+            InwardDate = inwardDate,
+            OnDate = invoiceDate,
             InvoiceType = InvoiceType.Regular,
             InvoiceStatus = paidAmount <= 0
                 ? InvoiceStatus.Pending
@@ -1201,7 +1388,7 @@ public static class PurchaseEndpoints
             CGSTAmount = cgstAmount,
             SGSTAmount = sgstAmount,
             IGSTAmount = igstAmount,
-            InterState = igstAmount > 0,
+            InterState = interState,
             NetAmount = taxableAmount + taxAmount,
             RoundOff = billAmount - netAmount,
             BillAmount = billAmount,
@@ -1212,11 +1399,12 @@ public static class PurchaseEndpoints
             VendorName = vendor.Name,
             VendorGSTIN = vendor.GSTIN,
             FrightAmount = request.FrightAmount,
-            SupplierInvoiceDate = request.SupplierInvoiceDate,
-            DueDate = request.DueDate ?? DateTime.Today.AddDays(45),
+            SupplierInvoiceDate = request.SupplierInvoiceDate?.Date,
+            DueDate = request.DueDate?.Date ?? invoiceDate.AddDays(45),
             StoreGroupId = request.StoreGroupId,
             StoreId = request.StoreId,
-            CompanyId = request.CompanyId
+            CompanyId = request.CompanyId,
+            OriginalInvoiceId = request.OriginalInvoiceId
         };
 
         if (!WorkspaceScope.CanWrite(invoice, context, out var invoiceScopeMessage))
@@ -1226,13 +1414,32 @@ public static class PurchaseEndpoints
 
         db.PurchaseInvoices.Add(invoice);
         db.PurchaseInvoiceItems.AddRange(invoiceItems);
+        if (request.OriginalInvoiceId.HasValue || request.ReplacementApprovalRequested)
+        {
+            InvoiceReplacementAudit.Add(
+                db,
+                context,
+                "Requested",
+                nameof(PurchaseInvoice),
+                invoice.Id,
+                "Purchase Invoice Replacement",
+                invoice.InwardNumber,
+                invoice.CompanyId,
+                request.StoreGroupId,
+                request.StoreId,
+                string.IsNullOrWhiteSpace(request.ReplacementReason)
+                    ? $"Revised inward {invoice.InwardNumber} created for replacement approval."
+                    : request.ReplacementReason.Trim(),
+                before: new { originalInvoiceId = request.OriginalInvoiceId },
+                after: new { revisedInvoiceId = invoice.Id, revisedInwardNumber = invoice.InwardNumber, invoice.BillAmount });
+        }
         if (paidAmount > 0)
         {
             db.PurchasePayments.Add(new PurchasePayment
             {
                 PurchaseInvoiceId = invoice.Id,
                 VendorId = vendor.Id,
-                OnDate = DateTime.Now,
+                OnDate = inwardDate,
                 Amount = paidAmount,
                 PaymentMode = request.PaymentMode,
                 BankAccountId = request.BankAccountId,
@@ -1265,20 +1472,699 @@ public static class PurchaseEndpoints
     }
 
 
+
+    private static InvoiceStatus ResolvePurchaseInvoiceStatus(decimal billAmount, decimal paidAmount)
+    {
+        if (paidAmount <= 0)
+        {
+            return InvoiceStatus.Pending;
+        }
+
+        return paidAmount >= billAmount ? InvoiceStatus.Paid : InvoiceStatus.PartiallyPaid;
+    }
+
+    private static async Task<IResult> GetPurchasePaymentReconciliationAsync(HttpContext context, GarmetixDbContext db, int take = 50, CancellationToken cancellationToken = default)
+    {
+        take = Math.Clamp(take, 10, 200);
+
+        var activePaymentRows = await WorkspaceScope.ApplyTo(db.PurchasePayments.AsNoTracking(), context)
+            .Where(item => !item.Deleted)
+            .Select(item => new
+            {
+                item.Id,
+                item.VendorId,
+                item.PurchaseInvoiceId,
+                item.Amount,
+                item.PaymentMode,
+                item.OnDate,
+                item.CreatedAt,
+                item.VoucherId
+            })
+            .ToListAsync(cancellationToken);
+
+        var vendorIds = activePaymentRows.Select(item => item.VendorId).Distinct().ToArray();
+        var vendors = vendorIds.Length == 0
+            ? new Dictionary<Guid, Vendor>()
+            : await WorkspaceScope.ApplyTo(db.Vendors.AsNoTracking(), context)
+                .Where(item => vendorIds.Contains(item.Id))
+                .ToDictionaryAsync(item => item.Id, cancellationToken);
+
+        var vendorMismatches = activePaymentRows
+            .GroupBy(item => item.VendorId)
+            .Select(group =>
+            {
+                vendors.TryGetValue(group.Key, out var vendor);
+                var activeTotal = group.Sum(item => item.Amount);
+                var storedPaid = vendor?.Paid ?? 0m;
+                var difference = Math.Round(storedPaid - activeTotal, 2);
+                return new VendorPaymentVendorMismatchDto(
+                    group.Key,
+                    vendor?.Name ?? "Vendor",
+                    storedPaid,
+                    activeTotal,
+                    difference);
+            })
+            .Where(item => item.Difference != 0m)
+            .OrderByDescending(item => Math.Abs(item.Difference))
+            .Take(take)
+            .ToList();
+
+        var invoiceIds = activePaymentRows
+            .Where(item => item.PurchaseInvoiceId != Guid.Empty)
+            .Select(item => item.PurchaseInvoiceId)
+            .Distinct()
+            .ToArray();
+        var invoices = invoiceIds.Length == 0
+            ? new Dictionary<Guid, PurchaseInvoice>()
+            : await WorkspaceScope.ApplyTo(db.PurchaseInvoices.AsNoTracking(), context)
+                .Where(item => invoiceIds.Contains(item.Id))
+                .ToDictionaryAsync(item => item.Id, cancellationToken);
+
+        var invoiceMismatches = activePaymentRows
+            .Where(item => item.PurchaseInvoiceId != Guid.Empty)
+            .GroupBy(item => item.PurchaseInvoiceId)
+            .Select(group =>
+            {
+                if (!invoices.TryGetValue(group.Key, out var invoice))
+                {
+                    return null;
+                }
+
+                vendors.TryGetValue(invoice.VendorId, out var vendor);
+                var activePaid = group.Sum(item => item.Amount);
+                var expectedStatus = ResolvePurchaseInvoiceStatus(invoice.BillAmount, activePaid);
+                var expectedMode = activePaid <= 0
+                    ? null
+                    : group.OrderByDescending(item => item.OnDate).ThenByDescending(item => item.CreatedAt).FirstOrDefault()?.PaymentMode;
+                var storedMode = invoice.PaymentMode;
+                var statusMismatch = invoice.InvoiceStatus != expectedStatus;
+                var modeMismatch = storedMode != expectedMode;
+                if (!statusMismatch && !modeMismatch)
+                {
+                    return null;
+                }
+
+                return new VendorPaymentInvoiceMismatchDto(
+                    invoice.Id,
+                    invoice.InvoiceNumber,
+                    invoice.VendorId,
+                    vendor?.Name ?? "Vendor",
+                    invoice.BillAmount,
+                    activePaid,
+                    invoice.InvoiceStatus.ToString(),
+                    expectedStatus.ToString(),
+                    storedMode?.ToString(),
+                    expectedMode?.ToString());
+            })
+            .Where(item => item is not null)
+            .Select(item => item!)
+            .OrderByDescending(item => Math.Abs(item.BillAmount - item.ActivePaymentTotal))
+            .Take(take)
+            .ToList();
+
+        var deletedPaymentsWithVoucher = await WorkspaceScope.ApplyTo(db.PurchasePayments.AsNoTracking(), context)
+            .Where(item => item.Deleted && item.VoucherId.HasValue)
+            .Select(item => new { item.Id, item.VoucherId })
+            .Take(take * 5)
+            .ToListAsync(cancellationToken);
+        var deletedVoucherIds = deletedPaymentsWithVoucher.Select(item => item.VoucherId!.Value).Distinct().ToArray();
+        var activeDeletedVouchers = deletedVoucherIds.Length == 0
+            ? new List<Voucher>()
+            : await db.Vouchers.AsNoTracking()
+                .Where(item => deletedVoucherIds.Contains(item.Id) && !item.Deleted)
+                .Take(take)
+                .ToListAsync(cancellationToken);
+
+        var artifactMismatches = activeDeletedVouchers
+            .Select(item => new VendorPaymentArtifactMismatchDto(
+                item.Id,
+                item.VoucherNumber,
+                "Linked vendor payment is deleted but voucher is still active."))
+            .ToList();
+
+        var summary = new VendorPaymentReconciliationSummaryDto(
+            vendorMismatches.Count,
+            invoiceMismatches.Count,
+            artifactMismatches.Count,
+            vendorMismatches.Sum(item => Math.Abs(item.Difference)),
+            invoiceMismatches.Sum(item => Math.Abs(item.BillAmount - item.ActivePaymentTotal)));
+
+        return Results.Ok(new VendorPaymentReconciliationDto(
+            summary,
+            vendorMismatches,
+            invoiceMismatches,
+            artifactMismatches));
+    }
+
+    private static async Task<IResult> RepairPurchasePaymentReconciliationAsync(HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        var activePaymentRows = await WorkspaceScope.ApplyTo(db.PurchasePayments.AsNoTracking(), context)
+            .Where(item => !item.Deleted)
+            .Select(item => new
+            {
+                item.VendorId,
+                item.PurchaseInvoiceId,
+                item.Amount,
+                item.PaymentMode,
+                item.OnDate,
+                item.CreatedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        var vendorIds = activePaymentRows.Select(item => item.VendorId).Distinct().ToArray();
+        var vendors = vendorIds.Length == 0
+            ? new List<Vendor>()
+            : await WorkspaceScope.ApplyTo(db.Vendors, context)
+                .Where(item => vendorIds.Contains(item.Id))
+                .ToListAsync(cancellationToken);
+
+        var vendorsRepaired = 0;
+        foreach (var vendor in vendors)
+        {
+            var activeTotal = activePaymentRows.Where(item => item.VendorId == vendor.Id).Sum(item => item.Amount);
+            if (Math.Round(vendor.Paid - activeTotal, 2) == 0m)
+            {
+                continue;
+            }
+
+            vendor.Paid = activeTotal;
+            vendor.UpdatedAt = DateTime.UtcNow;
+            vendorsRepaired++;
+        }
+
+        var invoiceIds = activePaymentRows
+            .Where(item => item.PurchaseInvoiceId != Guid.Empty)
+            .Select(item => item.PurchaseInvoiceId)
+            .Distinct()
+            .ToArray();
+        var invoices = invoiceIds.Length == 0
+            ? new List<PurchaseInvoice>()
+            : await WorkspaceScope.ApplyTo(db.PurchaseInvoices, context)
+                .Where(item => invoiceIds.Contains(item.Id))
+                .ToListAsync(cancellationToken);
+
+        var invoicesRepaired = 0;
+        foreach (var invoice in invoices)
+        {
+            var invoicePayments = activePaymentRows
+                .Where(item => item.PurchaseInvoiceId == invoice.Id)
+                .OrderByDescending(item => item.OnDate)
+                .ThenByDescending(item => item.CreatedAt)
+                .ToList();
+            var paid = invoicePayments.Sum(item => item.Amount);
+            var expectedStatus = ResolvePurchaseInvoiceStatus(invoice.BillAmount, paid);
+            var expectedMode = paid <= 0 ? null : invoicePayments.FirstOrDefault()?.PaymentMode;
+            if (invoice.InvoiceStatus == expectedStatus && invoice.PaymentMode == expectedMode)
+            {
+                continue;
+            }
+
+            invoice.InvoiceStatus = expectedStatus;
+            invoice.PaymentMode = expectedMode;
+            invoice.UpdatedAt = DateTime.UtcNow;
+            invoicesRepaired++;
+        }
+
+        var deletedPayments = await WorkspaceScope.ApplyTo(db.PurchasePayments.AsNoTracking(), context)
+            .Where(item => item.Deleted && item.VoucherId.HasValue)
+            .Select(item => new { item.VoucherId })
+            .ToListAsync(cancellationToken);
+        var voucherIds = deletedPayments.Select(item => item.VoucherId!.Value).Distinct().ToArray();
+        var vouchers = voucherIds.Length == 0
+            ? new List<Voucher>()
+            : await db.Vouchers
+                .Where(item => voucherIds.Contains(item.Id) && !item.Deleted)
+                .ToListAsync(cancellationToken);
+
+        var artifactsRepaired = 0;
+        foreach (var voucher in vouchers)
+        {
+            voucher.Deleted = true;
+            voucher.UpdatedAt = DateTime.UtcNow;
+            await SoftDeleteVoucherBankArtifactsAsync(db, voucher.VoucherNumber, cancellationToken);
+
+            var journals = await db.JournalEntries
+                .Where(entry => entry.SourceType == "VendorPaymentVoucher" && entry.SourceId == voucher.Id && !entry.Deleted)
+                .ToListAsync(cancellationToken);
+            var journalIds = journals.Select(entry => entry.Id).ToArray();
+            foreach (var journal in journals)
+            {
+                journal.Deleted = true;
+                journal.UpdatedAt = DateTime.UtcNow;
+            }
+
+            if (journalIds.Length > 0)
+            {
+                var lines = await db.JournalLines
+                    .Where(line => journalIds.Contains(line.JournalEntryId) && !line.Deleted)
+                    .ToListAsync(cancellationToken);
+                foreach (var line in lines)
+                {
+                    line.Deleted = true;
+                    line.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+
+            artifactsRepaired++;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return Results.Ok(new VendorPaymentReconciliationRepairResponse(
+            vendorsRepaired,
+            invoicesRepaired,
+            artifactsRepaired,
+            "Vendor payment reconciliation repair completed."));
+    }
+
+    private static async Task<PagedPurchasePaymentsDto> SearchPurchasePaymentsAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        int? year,
+        int? month,
+        int page = 1,
+        int pageSize = 50,
+        string? q = null,
+        string? paymentMode = null,
+        Guid? vendorId = null,
+        DateTime? from = null,
+        DateTime? to = null,
+        bool includeDeleted = false,
+        CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.Today;
+        var selectedYear = year.GetValueOrDefault(now.Year);
+        var selectedMonth = month.GetValueOrDefault(now.Month);
+        if (selectedMonth < 1 || selectedMonth > 12)
+        {
+            selectedMonth = now.Month;
+        }
+
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 25, 200);
+
+        var fromDate = from?.Date ?? new DateTime(selectedYear, selectedMonth, 1);
+        var toDateExclusive = to?.Date.AddDays(1) ?? fromDate.AddMonths(1);
+        var term = q?.Trim().ToLowerInvariant();
+
+        var query = WorkspaceScope.ApplyTo(db.PurchasePayments.AsNoTracking(), context)
+            .Where(item => item.OnDate >= fromDate && item.OnDate < toDateExclusive);
+
+        if (!includeDeleted)
+        {
+            query = query.Where(item => !item.Deleted);
+        }
+
+        if (vendorId.HasValue)
+        {
+            query = query.Where(item => item.VendorId == vendorId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(paymentMode) && !paymentMode.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            if (Enum.TryParse<PaymentMode>(paymentMode, true, out var parsedMode))
+            {
+                query = query.Where(item => item.PaymentMode == parsedMode);
+            }
+            else if (int.TryParse(paymentMode, out var paymentModeValue) && Enum.IsDefined(typeof(PaymentMode), paymentModeValue))
+            {
+                var mode = (PaymentMode)paymentModeValue;
+                query = query.Where(item => item.PaymentMode == mode);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(term))
+        {
+            query = query.Where(item =>
+                (item.ReferenceNumber != null && item.ReferenceNumber.ToLower().Contains(term)) ||
+                (item.Remarks != null && item.Remarks.ToLower().Contains(term)) ||
+                db.Vendors.Any(vendor => vendor.Id == item.VendorId && vendor.Name.ToLower().Contains(term)) ||
+                db.PurchaseInvoices.Any(invoice => invoice.Id == item.PurchaseInvoiceId &&
+                    (invoice.InvoiceNumber.ToLower().Contains(term) || invoice.InwardNumber.ToLower().Contains(term))));
+        }
+
+        var total = await query.CountAsync(cancellationToken);
+        var totals = await query
+            .GroupBy(_ => 1)
+            .Select(group => new
+            {
+                Amount = group.Sum(item => item.Amount),
+                CashAmount = group.Sum(item => item.PaymentMode == PaymentMode.Cash ? item.Amount : 0m),
+                NonCashAmount = group.Sum(item => item.PaymentMode == PaymentMode.Cash ? 0m : item.Amount),
+                ActiveCount = group.Count(item => !item.Deleted),
+                DeletedCount = group.Count(item => item.Deleted)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var payments = await query
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        var items = await BuildPurchasePaymentDtosAsync(payments, db, cancellationToken);
+        return new PagedPurchasePaymentsDto(
+            items,
+            total,
+            page,
+            pageSize,
+            selectedYear,
+            selectedMonth,
+            totals?.Amount ?? 0m,
+            totals?.CashAmount ?? 0m,
+            totals?.NonCashAmount ?? 0m,
+            totals?.ActiveCount ?? 0,
+            totals?.DeletedCount ?? 0);
+    }
+
     private static async Task<IReadOnlyList<PurchasePaymentRegisterDto>> GetRecentPurchasePaymentsAsync(HttpContext context, GarmetixDbContext db, int take = 100, CancellationToken cancellationToken = default)
     {
         var payments = await WorkspaceScope.ApplyTo(db.PurchasePayments.AsNoTracking(), context)
+            .Where(item => !item.Deleted)
             .OrderByDescending(item => item.OnDate)
             .ThenByDescending(item => item.CreatedAt)
             .Take(Math.Clamp(take, 1, 300))
             .ToListAsync(cancellationToken);
 
+        return await BuildPurchasePaymentDtosAsync(payments, db, cancellationToken);
+    }
+
+    private static async Task<IResult> GetPurchasePaymentAsync(Guid id, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
+    {
+        var payment = await WorkspaceScope.ApplyTo(db.PurchasePayments.AsNoTracking(), context)
+            .FirstOrDefaultAsync(item => item.Id == id && !item.Deleted, cancellationToken);
+        if (payment is null)
+        {
+            return Results.NotFound(new { message = "Vendor payment was not found." });
+        }
+
+        var rows = await BuildPurchasePaymentDtosAsync([payment], db, cancellationToken);
+        return Results.Ok(rows.First());
+    }
+
+    private static async Task<IResult> UpdatePurchasePaymentAsync(
+        Guid id,
+        UpdatePurchasePaymentRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        AccountingPostingService accounting,
+        CancellationToken cancellationToken)
+    {
+        if (request.Amount <= 0)
+        {
+            return Results.BadRequest(new { message = "Payment amount must be greater than zero." });
+        }
+        if (request.PaymentMode != PaymentMode.Cash && (!request.BankAccountId.HasValue || request.BankAccountId == Guid.Empty))
+        {
+            return Results.BadRequest(new { message = "Select bank account for non-cash vendor payment." });
+        }
+
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        var payment = await WorkspaceScope.ApplyTo(db.PurchasePayments, context)
+            .FirstOrDefaultAsync(item => item.Id == id && !item.Deleted, cancellationToken);
+        if (payment is null)
+        {
+            return Results.NotFound(new { message = "Vendor payment was not found." });
+        }
+
+        var vendor = await db.Vendors.FirstOrDefaultAsync(item => item.Id == payment.VendorId, cancellationToken);
+        if (vendor is null)
+        {
+            return Results.BadRequest(new { message = "Vendor was not found for this payment." });
+        }
+
+        PurchaseInvoice? invoice = null;
+        if (payment.PurchaseInvoiceId != Guid.Empty)
+        {
+            invoice = await WorkspaceScope.ApplyTo(db.PurchaseInvoices, context)
+                .FirstOrDefaultAsync(item => item.Id == payment.PurchaseInvoiceId, cancellationToken);
+            if (invoice is null)
+            {
+                return Results.BadRequest(new { message = "Linked purchase invoice was not found." });
+            }
+
+            var paidExcludingThis = await db.PurchasePayments.AsNoTracking()
+                .Where(item => item.PurchaseInvoiceId == invoice.Id && item.Id != payment.Id && !item.Deleted)
+                .SumAsync(item => item.Amount, cancellationToken);
+            var allowed = Math.Max(invoice.BillAmount - paidExcludingThis, 0);
+            if (request.Amount > allowed)
+            {
+                return Results.BadRequest(new { message = $"Payment amount cannot exceed remaining purchase balance {allowed:N2}." });
+            }
+        }
+
+        var onDate = request.OnDate?.Date ?? payment.OnDate.Date;
+        payment.OnDate = onDate;
+        payment.Amount = request.Amount;
+        payment.PaymentMode = request.PaymentMode;
+        payment.BankAccountId = request.PaymentMode == PaymentMode.Cash ? null : request.BankAccountId;
+        payment.ReferenceNumber = NormalizeOptional(request.ReferenceNumber);
+        payment.Remarks = NormalizeOptional(request.Remarks);
+        payment.UpdatedAt = DateTime.UtcNow;
+
+        Voucher? voucher = null;
+        if (payment.VoucherId.HasValue)
+        {
+            voucher = await db.Vouchers.FirstOrDefaultAsync(item => item.Id == payment.VoucherId.Value && !item.Deleted, cancellationToken);
+            if (voucher is not null)
+            {
+                voucher.OnDate = onDate;
+                voucher.Amount = request.Amount;
+                voucher.PaymentMode = request.PaymentMode;
+                voucher.AccountNumber = request.PaymentMode == PaymentMode.Cash ? null : request.BankAccountId;
+                voucher.SlipNumber = NormalizeOptional(request.ReferenceNumber);
+                voucher.PaymentDetails = NormalizeOptional(request.PaymentDetails);
+                voucher.Remarks = NormalizeOptional(request.Remarks);
+                voucher.Particulars = string.IsNullOrWhiteSpace(request.PaymentDetails)
+                    ? $"Vendor payment {voucher.VoucherNumber}"
+                    : request.PaymentDetails.Trim();
+                voucher.UpdatedAt = DateTime.UtcNow;
+
+                if (request.PaymentMode == PaymentMode.Cash)
+                {
+                    await SoftDeleteVoucherBankArtifactsAsync(db, voucher.VoucherNumber, cancellationToken);
+                }
+
+                await accounting.PostVendorPaymentVoucherAsync(voucher, vendor, payment.StoreGroupId, payment.StoreId, voucher.AccountNumber, cancellationToken);
+            }
+        }
+
+        await RecalculateVendorAndPurchasePaymentStateAsync(
+            db,
+            payment.VendorId,
+            payment.PurchaseInvoiceId == Guid.Empty ? null : payment.PurchaseInvoiceId,
+            request.PaymentMode,
+            cancellationToken);
+
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        var rows = await BuildPurchasePaymentDtosAsync([payment], db, cancellationToken);
+        return Results.Ok(rows.First());
+    }
+
+    private static async Task<IResult> DeletePurchasePaymentAsync(
+        Guid id,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        var payment = await WorkspaceScope.ApplyTo(db.PurchasePayments, context)
+            .FirstOrDefaultAsync(item => item.Id == id && !item.Deleted, cancellationToken);
+        if (payment is null)
+        {
+            return Results.NotFound(new { message = "Vendor payment was not found." });
+        }
+
+        PurchaseInvoice? invoice = null;
+        if (payment.PurchaseInvoiceId != Guid.Empty)
+        {
+            invoice = await WorkspaceScope.ApplyTo(db.PurchaseInvoices, context)
+                .FirstOrDefaultAsync(item => item.Id == payment.PurchaseInvoiceId, cancellationToken);
+            if (invoice is null)
+            {
+                return Results.BadRequest(new { message = "Linked purchase invoice was not found." });
+            }
+        }
+
+        payment.Deleted = true;
+        payment.UpdatedAt = DateTime.UtcNow;
+
+        if (payment.VoucherId.HasValue)
+        {
+            var voucher = await db.Vouchers.FirstOrDefaultAsync(item => item.Id == payment.VoucherId.Value, cancellationToken);
+            if (voucher is not null)
+            {
+                voucher.Deleted = true;
+                voucher.UpdatedAt = DateTime.UtcNow;
+
+                var bankTransactions = await db.BankTransactions
+                    .Where(item => item.Reference == voucher.VoucherNumber)
+                    .ToListAsync(cancellationToken);
+                foreach (var bankTransaction in bankTransactions)
+                {
+                    bankTransaction.Deleted = true;
+                    bankTransaction.UpdatedAt = DateTime.UtcNow;
+                }
+
+                var bankTransactionIds = bankTransactions.Select(item => item.Id).ToArray();
+                if (bankTransactionIds.Length > 0)
+                {
+                    var statementLines = await db.BankStatementLines
+                        .Where(item => item.BankTransactionId.HasValue && bankTransactionIds.Contains(item.BankTransactionId.Value))
+                        .ToListAsync(cancellationToken);
+                    foreach (var line in statementLines)
+                    {
+                        line.Deleted = true;
+                        line.UpdatedAt = DateTime.UtcNow;
+                    }
+
+                    var chequeLogs = await db.ChequeLogs
+                        .Where(item => item.BankTransactionId.HasValue && bankTransactionIds.Contains(item.BankTransactionId.Value))
+                        .ToListAsync(cancellationToken);
+                    foreach (var cheque in chequeLogs)
+                    {
+                        cheque.Deleted = true;
+                        cheque.UpdatedAt = DateTime.UtcNow;
+                    }
+                }
+
+                var journals = await db.JournalEntries
+                    .Where(entry => entry.SourceType == "VendorPaymentVoucher" && entry.SourceId == voucher.Id)
+                    .ToListAsync(cancellationToken);
+                var journalIds = journals.Select(entry => entry.Id).ToArray();
+                foreach (var journal in journals)
+                {
+                    journal.Deleted = true;
+                    journal.UpdatedAt = DateTime.UtcNow;
+                }
+                if (journalIds.Length > 0)
+                {
+                    var lines = await db.JournalLines.Where(line => journalIds.Contains(line.JournalEntryId)).ToListAsync(cancellationToken);
+                    foreach (var line in lines)
+                    {
+                        line.Deleted = true;
+                        line.UpdatedAt = DateTime.UtcNow;
+                    }
+                }
+            }
+        }
+
+        await RecalculateVendorAndPurchasePaymentStateAsync(
+            db,
+            payment.VendorId,
+            payment.PurchaseInvoiceId == Guid.Empty ? null : payment.PurchaseInvoiceId,
+            null,
+            cancellationToken);
+
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return Results.Ok(new { id, deleted = true, message = "Vendor payment deleted and linked voucher/accounting entries were reversed from active views." });
+    }
+
+    private static string? NormalizeOptional(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static async Task RecalculateVendorAndPurchasePaymentStateAsync(
+        GarmetixDbContext db,
+        Guid vendorId,
+        Guid? purchaseInvoiceId,
+        PaymentMode? preferredPaymentMode,
+        CancellationToken cancellationToken)
+    {
+        var vendor = await db.Vendors.FirstOrDefaultAsync(item => item.Id == vendorId, cancellationToken);
+        if (vendor is not null)
+        {
+            vendor.Paid = await db.PurchasePayments.AsNoTracking()
+                .Where(item => item.VendorId == vendorId && !item.Deleted)
+                .SumAsync(item => item.Amount, cancellationToken);
+            vendor.UpdatedAt = DateTime.UtcNow;
+        }
+
+        if (!purchaseInvoiceId.HasValue || purchaseInvoiceId.Value == Guid.Empty)
+        {
+            return;
+        }
+
+        var invoice = await db.PurchaseInvoices.FirstOrDefaultAsync(item => item.Id == purchaseInvoiceId.Value, cancellationToken);
+        if (invoice is null)
+        {
+            return;
+        }
+
+        var activePayments = await db.PurchasePayments.AsNoTracking()
+            .Where(item => item.PurchaseInvoiceId == invoice.Id && !item.Deleted)
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .ToListAsync(cancellationToken);
+        var paid = activePayments.Sum(item => item.Amount);
+        invoice.PaymentMode = paid <= 0
+            ? null
+            : preferredPaymentMode ?? activePayments.FirstOrDefault()?.PaymentMode;
+        invoice.InvoiceStatus = paid <= 0
+            ? InvoiceStatus.Pending
+            : paid >= invoice.BillAmount ? InvoiceStatus.Paid : InvoiceStatus.PartiallyPaid;
+        invoice.UpdatedAt = DateTime.UtcNow;
+    }
+
+    private static async Task SoftDeleteVoucherBankArtifactsAsync(GarmetixDbContext db, string voucherNumber, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(voucherNumber))
+        {
+            return;
+        }
+
+        var bankTransactions = await db.BankTransactions
+            .Where(item => item.Reference == voucherNumber && !item.Deleted)
+            .ToListAsync(cancellationToken);
+        foreach (var bankTransaction in bankTransactions)
+        {
+            bankTransaction.Deleted = true;
+            bankTransaction.UpdatedAt = DateTime.UtcNow;
+        }
+
+        var bankTransactionIds = bankTransactions.Select(item => item.Id).ToArray();
+        if (bankTransactionIds.Length == 0)
+        {
+            return;
+        }
+
+        var statementLines = await db.BankStatementLines
+            .Where(item => item.BankTransactionId.HasValue && bankTransactionIds.Contains(item.BankTransactionId.Value) && !item.Deleted)
+            .ToListAsync(cancellationToken);
+        foreach (var line in statementLines)
+        {
+            line.Deleted = true;
+            line.UpdatedAt = DateTime.UtcNow;
+        }
+
+        var chequeLogs = await db.ChequeLogs
+            .Where(item => item.BankTransactionId.HasValue && bankTransactionIds.Contains(item.BankTransactionId.Value) && !item.Deleted)
+            .ToListAsync(cancellationToken);
+        foreach (var cheque in chequeLogs)
+        {
+            cheque.Deleted = true;
+            cheque.UpdatedAt = DateTime.UtcNow;
+        }
+    }
+
+    private static async Task<IReadOnlyList<PurchasePaymentRegisterDto>> BuildPurchasePaymentDtosAsync(IReadOnlyList<PurchasePayment> payments, GarmetixDbContext db, CancellationToken cancellationToken)
+    {
         var invoiceIds = payments
             .Where(item => item.PurchaseInvoiceId != Guid.Empty)
             .Select(item => item.PurchaseInvoiceId)
             .Distinct()
             .ToArray();
         var vendorIds = payments.Select(item => item.VendorId).Distinct().ToArray();
+        var voucherIds = payments.Where(item => item.VoucherId.HasValue).Select(item => item.VoucherId!.Value).Distinct().ToArray();
 
         var invoices = invoiceIds.Length == 0
             ? new Dictionary<Guid, string>()
@@ -1292,10 +2178,17 @@ public static class PurchaseEndpoints
                 .Where(item => vendorIds.Contains(item.Id))
                 .ToDictionaryAsync(item => item.Id, item => item.Name, cancellationToken);
 
+        var vouchers = voucherIds.Length == 0
+            ? new Dictionary<Guid, Voucher>()
+            : await db.Vouchers.AsNoTracking()
+                .Where(item => voucherIds.Contains(item.Id))
+                .ToDictionaryAsync(item => item.Id, cancellationToken);
+
         return payments.Select(payment =>
         {
             invoices.TryGetValue(payment.PurchaseInvoiceId, out var invoiceNumber);
             vendors.TryGetValue(payment.VendorId, out var vendorName);
+            var voucher = payment.VoucherId.HasValue && vouchers.TryGetValue(payment.VoucherId.Value, out var row) ? row : null;
             var isAdvance = payment.PurchaseInvoiceId == Guid.Empty || string.Equals(payment.AdjustmentSourceType, "VendorAdvance", StringComparison.OrdinalIgnoreCase);
             return new PurchasePaymentRegisterDto(
                 payment.Id,
@@ -1306,10 +2199,14 @@ public static class PurchaseEndpoints
                 isAdvance ? "Advance" : invoiceNumber ?? "Purchase invoice",
                 isAdvance ? "Advance" : "Invoice",
                 payment.Amount,
+                (int)payment.PaymentMode,
                 payment.PaymentMode.ToString(),
+                payment.BankAccountId,
                 payment.ReferenceNumber,
+                voucher?.PaymentDetails,
                 payment.Remarks,
-                payment.VoucherId);
+                payment.VoucherId,
+                voucher?.VoucherNumber);
         }).ToList();
     }
 
@@ -1543,6 +2440,106 @@ public static class PurchaseEndpoints
             Math.Max(invoice.BillAmount - newPaidAmount, 0),
             invoice.InvoiceStatus.ToString()));
     }
+
+
+    private static async Task<IResult> UpdatePurchaseInvoiceAsync(
+        Guid id,
+        UpdatePurchaseInvoiceRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var invoice = await WorkspaceScope.ApplyTo(db.PurchaseInvoices, context)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (invoice is null)
+        {
+            return Results.NotFound(new { message = "Purchase invoice was not found." });
+        }
+
+        if (invoice.InvoiceStatus == InvoiceStatus.Cancelled)
+        {
+            return Results.Conflict(new { message = "Cancelled purchase invoices cannot be edited." });
+        }
+
+        var invoiceNumber = request.InvoiceNumber?.Trim();
+        if (!string.IsNullOrWhiteSpace(invoiceNumber))
+        {
+            var exists = await WorkspaceScope.ApplyTo(db.PurchaseInvoices.AsNoTracking(), context)
+                .AnyAsync(item => item.Id != id && item.CompanyId == invoice.CompanyId && item.InvoiceNumber == invoiceNumber, cancellationToken);
+            if (exists)
+            {
+                return Results.Conflict(new { message = $"Purchase invoice number {invoiceNumber} already exists." });
+            }
+            invoice.InvoiceNumber = invoiceNumber;
+        }
+
+        var inwardNumber = request.InwardNumber?.Trim();
+        if (!string.IsNullOrWhiteSpace(inwardNumber))
+        {
+            var exists = await WorkspaceScope.ApplyTo(db.PurchaseInvoices.AsNoTracking(), context)
+                .AnyAsync(item => item.Id != id && item.CompanyId == invoice.CompanyId && item.InwardNumber == inwardNumber, cancellationToken);
+            if (exists)
+            {
+                return Results.Conflict(new { message = $"Inward number {inwardNumber} already exists." });
+            }
+            invoice.InwardNumber = inwardNumber;
+        }
+
+        if (request.OnDate.HasValue) invoice.OnDate = request.OnDate.Value.Date;
+        if (request.InwardDate.HasValue)
+        {
+            var newInwardDate = request.InwardDate.Value.Date;
+            if (invoice.InwardDate.Date != newInwardDate)
+            {
+                var movements = await db.StockMovements
+                    .Where(item => item.SourceType == "PurchaseInvoice" && item.SourceId == invoice.Id && !item.Deleted)
+                    .ToListAsync(cancellationToken);
+                foreach (var movement in movements)
+                {
+                    movement.OnDate = newInwardDate;
+                    movement.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+            invoice.InwardDate = newInwardDate;
+        }
+        invoice.SupplierInvoiceDate = request.SupplierInvoiceDate?.Date;
+        if (request.DueDate.HasValue) invoice.DueDate = request.DueDate.Value.Date;
+        if (!string.IsNullOrWhiteSpace(request.VendorName)) invoice.VendorName = request.VendorName.Trim();
+        invoice.VendorGSTIN = string.IsNullOrWhiteSpace(request.VendorGstin) ? null : request.VendorGstin.Trim().ToUpperInvariant();
+        invoice.UpdatedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.Ok(new { invoice.Id, invoice.InvoiceNumber, invoice.InwardNumber, invoice.OnDate, invoice.InwardDate, invoice.SupplierInvoiceDate, invoice.DueDate, invoice.VendorName, invoice.VendorGSTIN });
+    }
+
+    private static Task<IResult> DeletePurchaseInvoiceAsync(
+        Guid id,
+        HttpContext context,
+        GarmetixDbContext db,
+        AccountingPostingService accounting,
+        DocumentNumberService numbering,
+        StockLedgerService stockLedger,
+        CancellationToken cancellationToken)
+        => CancelPurchaseAsync(
+            id,
+            new CancelPurchaseInvoiceRequest("Deleted/cancelled from purchase invoice register"),
+            context,
+            db,
+            accounting,
+            numbering,
+            stockLedger,
+            cancellationToken);
+
+    internal static Task<IResult> CancelPurchaseForReplacementApprovalAsync(
+        Guid id,
+        CancelPurchaseInvoiceRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        AccountingPostingService accounting,
+        DocumentNumberService numbering,
+        StockLedgerService stockLedger,
+        CancellationToken cancellationToken)
+        => CancelPurchaseAsync(id, request, context, db, accounting, numbering, stockLedger, cancellationToken);
 
     private static async Task<IResult> CancelPurchaseAsync(
         Guid id,
@@ -1921,6 +2918,24 @@ public static class PurchaseEndpoints
         return product;
     }
 
+    private static async Task<Dictionary<Guid, Guid>> GetPurchaseImportProofLookupAsync(Guid[] invoiceIds, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
+    {
+        if (invoiceIds.Length == 0)
+        {
+            return new Dictionary<Guid, Guid>();
+        }
+
+        var rows = await WorkspaceScope.ApplyTo(db.PurchaseInvoiceImportBatches.AsNoTracking(), context)
+            .Where(item => item.PostedPurchaseInvoiceId.HasValue && invoiceIds.Contains(item.PostedPurchaseInvoiceId.Value))
+            .OrderByDescending(item => item.PostedAt ?? item.UpdatedAt ?? item.CreatedAt)
+            .Select(item => new { PurchaseInvoiceId = item.PostedPurchaseInvoiceId!.Value, item.Id })
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .GroupBy(item => item.PurchaseInvoiceId)
+            .ToDictionary(group => group.Key, group => group.First().Id);
+    }
+
     private static async Task<Dictionary<Guid, decimal>> GetPaidAmountLookupAsync(Guid[] invoiceIds, GarmetixDbContext db, CancellationToken cancellationToken)
     {
         if (invoiceIds.Length == 0)
@@ -1929,7 +2944,7 @@ public static class PurchaseEndpoints
         }
 
         var purchasePayments = await db.PurchasePayments.AsNoTracking()
-            .Where(payment => invoiceIds.Contains(payment.PurchaseInvoiceId))
+            .Where(payment => invoiceIds.Contains(payment.PurchaseInvoiceId) && !payment.Deleted)
             .Select(payment => new { InvoiceId = payment.PurchaseInvoiceId, Amount = payment.Amount })
             .ToListAsync(cancellationToken);
 
@@ -1939,7 +2954,9 @@ public static class PurchaseEndpoints
         }
 
         var rows = await db.JournalLines.AsNoTracking()
-            .Where(line => line.JournalEntry != null
+            .Where(line => !line.Deleted
+                && line.JournalEntry != null
+                && !line.JournalEntry.Deleted
                 && line.JournalEntry.SourceType == "PurchaseInvoice"
                 && line.JournalEntry.SourceId.HasValue
                 && invoiceIds.Contains(line.JournalEntry.SourceId.Value)
@@ -1961,6 +2978,29 @@ public static class PurchaseEndpoints
         return lookup.TryGetValue(invoiceId, out var paidAmount) ? paidAmount : 0;
     }
 
+    private static async Task RecalculatePurchaseInvoiceStatusAsync(PurchaseInvoice invoice, GarmetixDbContext db, CancellationToken cancellationToken)
+    {
+        if (invoice.InvoiceStatus == InvoiceStatus.Cancelled)
+        {
+            return;
+        }
+
+        var paidAmount = await GetPaidAmountAsync(invoice.Id, db, cancellationToken);
+        var lastPaymentMode = paidAmount <= 0
+            ? (PaymentMode?)null
+            : await db.PurchasePayments.AsNoTracking()
+                .Where(item => item.PurchaseInvoiceId == invoice.Id && !item.Deleted)
+                .OrderByDescending(item => item.OnDate)
+                .ThenByDescending(item => item.CreatedAt)
+                .Select(item => (PaymentMode?)item.PaymentMode)
+                .FirstOrDefaultAsync(cancellationToken);
+        invoice.PaymentMode = lastPaymentMode;
+        invoice.InvoiceStatus = paidAmount <= 0
+            ? InvoiceStatus.Pending
+            : paidAmount >= invoice.BillAmount ? InvoiceStatus.Paid : InvoiceStatus.PartiallyPaid;
+        invoice.UpdatedAt = DateTime.UtcNow;
+    }
+
     private static string BuildCompanyAddress(Garmetix.Core.Models.Stores.Company? company)
     {
         if (company is null)
@@ -1972,9 +3012,34 @@ public static class PurchaseEndpoints
     }
 
 
-    private static (decimal Cgst, decimal Sgst, decimal Igst) SplitGst(decimal totalTax, TaxType taxType)
+    private static bool IsInterStateSupply(string? companyGstin, string? partyGstin)
+    {
+        var companyState = GstStateCode(companyGstin);
+        var partyState = GstStateCode(partyGstin);
+        return companyState is not null
+            && partyState is not null
+            && !string.Equals(companyState, partyState, StringComparison.Ordinal);
+    }
+
+    private static string? GstStateCode(string? gstin)
+    {
+        var normalized = new string((gstin ?? string.Empty)
+            .Where(char.IsLetterOrDigit)
+            .ToArray())
+            .ToUpperInvariant();
+        return normalized.Length == 15 && normalized[..2].All(char.IsDigit)
+            ? normalized[..2]
+            : null;
+    }
+
+    private static (decimal Cgst, decimal Sgst, decimal Igst) SplitGst(decimal totalTax, TaxType taxType, bool interState = false)
     {
         totalTax = Math.Round(totalTax, 2);
+        if (interState && taxType is TaxType.GST or TaxType.CGST or TaxType.SGST or TaxType.IGST)
+        {
+            return (0, 0, totalTax);
+        }
+
         return taxType switch
         {
             TaxType.IGST => (0, 0, totalTax),

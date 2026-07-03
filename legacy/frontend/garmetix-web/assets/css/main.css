@@ -3732,3 +3732,56 @@ select {
   color: var(--muted);
   font-size: 13px;
 }
+
+.invoice-remark-cell {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  max-width: 12rem;
+  min-width: 7rem;
+}
+
+.invoice-remark-cell.is-expanded {
+  max-width: 20rem;
+}
+
+.invoice-remark-text {
+  display: inline-block;
+  max-width: 10ch;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.25;
+}
+
+.invoice-remark-cell.is-expanded .invoice-remark-text {
+  max-width: 18rem;
+}
+
+.invoice-remark-toggle {
+  padding-inline: 0 !important;
+  min-height: 0 !important;
+}
+
+.receipt-item-cell {
+  min-width: 12rem;
+  white-space: normal;
+}
+
+.receipt-item-cell strong,
+.receipt-item-cell small {
+  display: block;
+}
+
+.receipt-item-cell small {
+  margin-top: 2px;
+  color: var(--ui-text-muted);
+  font-size: 0.78em;
+  overflow-wrap: anywhere;
+}
+
+@media print {
+  .receipt-item-cell small {
+    color: #374151;
+  }
+}

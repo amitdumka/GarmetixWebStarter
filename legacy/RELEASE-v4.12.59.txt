@@ -1,0 +1,21 @@
+GarmetixWebStarter v4.12.59
+Stage 11D-144: Bank Reconciliation Closure
+Build code: GARMETIX-11D144-20260703-4259
+
+Added in this release:
+- New Accounting → Bank Reco Closure page.
+- New GET /api/bank-reconciliation/settlement-closure endpoint.
+- New GET /api/bank-reconciliation/settlement-closure/evidence.csv endpoint.
+- Complete / Not Complete status for payment settlement closeout.
+- Non-cash sale receipt, vendor payment, customer advance, voucher and salary payment evidence rows.
+- Payment mode summary for UPI/Card/NEFT/RTGS/IMPS/Cheque/Wallet/MixPayments.
+- Bank account-wise settlement, bank transaction and statement-line evidence.
+- Critical issue detection for missing bank mapping and missing bank transaction journals.
+- Warning detection for missing references, unmatched settlements, unreconciled bank transactions and unmatched statement lines.
+- CSV evidence export for owner/accountant closeout packet.
+- Final closeout checklist, operator rules, known limitations and next-module handoff.
+
+Validation:
+- ZIP integrity check expected to pass.
+- Static validation script included.
+- Full Docker/.NET/Nuxt build should be run on the target machine.

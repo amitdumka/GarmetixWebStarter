@@ -100,3 +100,113 @@ public sealed record SalaryPaymentUpsertRequest(
     Guid CompanyId,
     Guid StoreGroupId,
     Guid StoreId);
+
+public sealed record PayrollFinalizeMonthRequest(
+    int Year,
+    int Month,
+    Guid? EmployeeId,
+    Guid? CompanyId,
+    Guid? StoreGroupId,
+    Guid? StoreId,
+    bool Confirm,
+    bool PostSalaryPayments,
+    bool LockMonth,
+    PaymentMode PaymentMode,
+    DateTime? PaymentDate,
+    decimal OvertimeRateMultiplier,
+    decimal LatePenaltyPerDay,
+    string? Notes);
+
+public sealed record PayrollFinalizeMonthResponse(
+    int Year,
+    int Month,
+    int EmployeesFinalized,
+    int ReviewRowsApproved,
+    int DraftRowsReady,
+    int PayslipsCreated,
+    int PayslipsUpdated,
+    int SalaryPaymentsCreated,
+    int LockedRows,
+    decimal TotalGross,
+    decimal TotalDeductions,
+    decimal TotalNet,
+    decimal TotalPaid,
+    bool PaymentPostingEnabled,
+    bool MonthLockEnabled,
+    IReadOnlyList<string> StepLogs);
+
+public sealed record PayrollRealMonthValidationDto(
+    int Year,
+    int Month,
+    string MonthYear,
+    bool Complete,
+    string Status,
+    string GeneratedAtUtc,
+    PayrollRealMonthCountsDto Counts,
+    PayrollRealMonthMoneyDto Money,
+    IReadOnlyList<PayrollRealMonthCheckDto> Checks,
+    IReadOnlyList<PayrollRealMonthIssueDto> Issues,
+    IReadOnlyList<PayrollRealMonthEmployeeDto> Employees,
+    IReadOnlyList<string> CloseoutChecklist,
+    IReadOnlyList<string> KnownLimitations,
+    IReadOnlyList<string> NextModuleCandidates);
+
+public sealed record PayrollRealMonthCountsDto(
+    int ActiveEmployees,
+    int MonthlySummaryRows,
+    int EmployeesWithoutSummary,
+    int PayrollReviewRows,
+    int ApprovedReviewRows,
+    int SalaryDraftRows,
+    int ReadySalaryDraftRows,
+    int Payslips,
+    int SalaryPayments,
+    int LockedMonthlyRows,
+    int PendingRegularizations,
+    int PendingPhotoProofs,
+    int UnpaidPayslips,
+    int DuplicatePayslipEmployees);
+
+public sealed record PayrollRealMonthMoneyDto(
+    decimal TotalGross,
+    decimal TotalDeductions,
+    decimal TotalNet,
+    decimal TotalPaid,
+    decimal Outstanding);
+
+public sealed record PayrollRealMonthCheckDto(
+    string Key,
+    string Title,
+    bool Ok,
+    string Status,
+    string Detail);
+
+public sealed record PayrollRealMonthIssueDto(
+    string Severity,
+    string Code,
+    string Message,
+    int Count,
+    string Action);
+
+public sealed record PayrollRealMonthEmployeeDto(
+    Guid EmployeeId,
+    string EmployeeName,
+    string? EmployeeCode,
+    decimal PresentDays,
+    decimal AbsentDays,
+    decimal HalfDays,
+    decimal LateDays,
+    decimal PayableDays,
+    decimal DeductionDays,
+    string ReviewStatus,
+    string DraftStatus,
+    string PayrollPostStatus,
+    bool HasPayslip,
+    bool HasSalaryPayment,
+    bool Locked,
+    decimal NetSalary,
+    decimal PaidAmount,
+    decimal OutstandingAmount,
+    string Status,
+    IReadOnlyList<string> Issues);
+

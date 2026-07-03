@@ -23,6 +23,7 @@ public static class AccessPermissionMatrix
         GarmetixPolicies.Hr,
         GarmetixPolicies.Payroll,
         GarmetixPolicies.Attendance,
+        GarmetixPolicies.Marketing,
         "Reports",
         "GST"
     ];
@@ -79,6 +80,12 @@ public static class AccessPermissionMatrix
                 Role(LoginRole.StoreManager),
                 Role(LoginRole.HR),
                 Role(LoginRole.Payroll)
+            ],
+            [GarmetixPolicies.Marketing] =
+            [
+                Role(LoginRole.Admin),
+                Role(LoginRole.PowerUser),
+                Role(LoginRole.StoreManager)
             ]
         };
 
@@ -90,8 +97,8 @@ public static class AccessPermissionMatrix
         Profile(Role(LoginRole.PowerUser), false, true, false, AllModules, "All operational modules without Admin or delete rights."),
         Profile(Role(LoginRole.Accountant), false, true, false, [GarmetixPolicies.Accounting, GarmetixPolicies.Payroll, "Reports", "GST"], "Accounting, payroll, reports, and GST operations."),
         Profile(Role(LoginRole.RemoteAccountant), false, false, false, [GarmetixPolicies.Accounting, GarmetixPolicies.Payroll, "Reports", "GST"], "Accounting review, salary payment review, reports, and GST without global edit/delete rights."),
-        Profile(Role(LoginRole.StoreManager), false, false, false, [GarmetixPolicies.Billing, GarmetixPolicies.Inventory, GarmetixPolicies.Purchase, GarmetixPolicies.Accounting, GarmetixPolicies.Hr, GarmetixPolicies.Attendance, "Reports"], "Store views, HR attendance, and new entries; no Admin, payroll, edit, or delete rights."),
-        Profile(Role(LoginRole.Salesman), false, false, false, [GarmetixPolicies.Billing], "Billing and customer-facing entries."),
+        Profile(Role(LoginRole.StoreManager), false, false, false, [GarmetixPolicies.Billing, GarmetixPolicies.Inventory, GarmetixPolicies.Purchase, GarmetixPolicies.Accounting, GarmetixPolicies.Hr, GarmetixPolicies.Attendance, GarmetixPolicies.Marketing, "Reports"], "Store views, HR attendance, and new entries; no Admin, payroll, edit, or delete rights."),
+        Profile(Role(LoginRole.Salesman), false, false, false, [GarmetixPolicies.Billing], "Billing and customer-facing digital bill entries from sale invoice screens only."),
         Profile(Role(LoginRole.HR), false, false, false, [GarmetixPolicies.Hr, GarmetixPolicies.Attendance], "HR and attendance entries."),
         Profile(Role(LoginRole.Payroll), false, false, false, [GarmetixPolicies.Payroll, GarmetixPolicies.Attendance], "Payroll and salary processing entries."),
         Profile(Role(LoginRole.Member), false, false, false, [], "Authenticated account with no operational module assignment.")

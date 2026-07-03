@@ -115,6 +115,9 @@ const backupRows = computed(() => backups.value.map((backup) => ({
   ...backup,
   size: formatBytes(backup.sizeBytes),
   created: formatDateTime(backup.createdAtUtc),
+  location: backup.relativePath && backup.relativePath !== backup.fileName ? backup.relativePath : 'backup folder',
+  company: backup.companyName || '-',
+  appVersion: backup.appVersion || '-',
   integrity: backup.hasChecksum && backup.hasManifest
     ? 'Checksum + manifest'
     : backup.hasChecksum ? 'Checksum only' : 'Legacy / unchecked'
@@ -267,6 +270,7 @@ onMounted(async () => {
 </script>
 
 <template>
+  <AppShell title="Backup Maintenance">
   <main class="page-shell space-y-6">
     <section class="page-hero rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -274,7 +278,7 @@ onMounted(async () => {
           <p class="text-sm font-semibold uppercase tracking-wide text-primary">Stage 8I Package 17</p>
           <h1 class="mt-2 text-3xl font-bold text-slate-950 dark:text-white">Backup Maintenance</h1>
           <p class="mt-2 max-w-3xl text-sm text-slate-600 dark:text-slate-300">
-            Monitor local PostgreSQL backups, verify checksums, run restore dry-run previews, track retention policy and confirm the Mac mini can recover data before production use.
+            Monitor local PostgreSQL backups, verify checksums, run restore dry-run previews, track retention policy and confirm the Mac mini can recover data before production use. Backups copied into the backup folder are scanned again after redeploy, so an Admin can restore them on another system.
           </p>
         </div>
         <div class="flex flex-wrap gap-2">
@@ -367,9 +371,12 @@ onMounted(async () => {
             <tr>
               <th class="px-3 py-2">File</th>
               <th class="px-3 py-2">Created</th>
+              <th class="px-3 py-2">Company</th>
+              <th class="px-3 py-2">App</th>
               <th class="px-3 py-2">Size</th>
               <th class="px-3 py-2">Integrity</th>
               <th class="px-3 py-2">Source</th>
+              <th class="px-3 py-2">Location</th>
               <th class="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
@@ -377,15 +384,18 @@ onMounted(async () => {
             <tr v-for="backup in backupRows" :key="backup.fileName" class="border-t border-slate-100 dark:border-slate-800">
               <td class="px-3 py-2 font-mono text-xs">{{ backup.fileName }}</td>
               <td class="px-3 py-2">{{ backup.created }}</td>
+              <td class="px-3 py-2">{{ backup.company }}</td>
+              <td class="px-3 py-2">{{ backup.appVersion }}</td>
               <td class="px-3 py-2">{{ backup.size }}</td>
               <td class="px-3 py-2">{{ backup.integrity }}</td>
               <td class="px-3 py-2 capitalize">{{ backup.source }}</td>
+              <td class="px-3 py-2 text-xs text-slate-500">{{ backup.location }}</td>
               <td class="px-3 py-2 text-right">
                 <UButton size="xs" icon="i-lucide-search-check" variant="soft" :loading="previewingFile === backup.fileName" @click="previewLocalBackup(backup.fileName)">Preview restore</UButton>
               </td>
             </tr>
             <tr v-if="!backupRows.length">
-              <td colspan="6" class="px-3 py-6 text-center text-slate-500">No backup files found yet.</td>
+              <td colspan="9" class="px-3 py-6 text-center text-slate-500">No backup files found yet.</td>
             </tr>
           </tbody>
         </table>
@@ -526,4 +536,5 @@ onMounted(async () => {
       </UCard>
     </div>
   </main>
+  </AppShell>
 </template>

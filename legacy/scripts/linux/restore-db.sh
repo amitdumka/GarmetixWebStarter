@@ -51,4 +51,15 @@ docker compose -f "${COMPOSE_FILE}" exec -T "${DB_SERVICE}" \
   --username "${DB_USER}" --dbname "${DB_NAME}" "/tmp/garmetix-restore.dump"
 
 docker compose -f "${COMPOSE_FILE}" exec -T "${DB_SERVICE}" rm -f "/tmp/garmetix-restore.dump"
+PROOF_ARCHIVE="${BACKUP}.purchase-import-proofs.tar.gz"
+if [[ -f "${PROOF_ARCHIVE}" ]]; then
+  echo "Restoring purchase invoice proof files from ${PROOF_ARCHIVE}..."
+  APP_DATA_VOLUME="${APP_DATA_VOLUME:-${COMPOSE_PROJECT_NAME:-garmetix}_garmetix_app_data}"
+  if docker volume inspect "${APP_DATA_VOLUME}" >/dev/null 2>&1; then
+    docker run --rm -v "${APP_DATA_VOLUME}:/appdata" -v "$(cd "$(dirname "${PROOF_ARCHIVE}")" && pwd):/backup:ro" alpine sh -lc 'mkdir -p /appdata && tar -xzf "/backup/'"$(basename "${PROOF_ARCHIVE}")"'" -C /appdata'
+  else
+    mkdir -p ./data
+    tar -xzf "${PROOF_ARCHIVE}" -C ./data
+  fi
+fi
 echo "Restore completed. Restart application services if needed."

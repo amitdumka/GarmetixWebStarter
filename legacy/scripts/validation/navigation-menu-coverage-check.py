@@ -16,6 +16,8 @@ SHELL_FILES = [
 
 APPROVED_NO_MENU = {
     "/access-denied",  # Auth guard target; should not appear as a normal menu item.
+    "/privcy",  # Backward-compatible spelling redirect to /privacy.
+    "/terms-of-usage",  # Backward-compatible redirect to /terms.
 }
 
 

@@ -6,7 +6,7 @@ cd "$ROOT_DIR"
 
 DOMAIN="${DOMAIN:-garmetix.aadwikafashion.in}"
 PUBLIC_HTTPS_URL="${PUBLIC_HTTPS_URL:-https://${DOMAIN}}"
-export DOMAIN PUBLIC_HTTPS_URL
+export DOMAIN PUBLIC_HTTPS_URL COMPOSE_PROJECT_NAME=garmetix
 
 if [[ ! -f .env.production ]]; then
   ./deploy/create-production-env.sh
@@ -21,6 +21,11 @@ API_PORT="$(dotenv_get .env.production API_PORT 5080)"
 PUBLIC_DOMAIN="$(dotenv_get .env.production PUBLIC_DOMAIN "$DOMAIN")"
 CLOUDFLARE_TUNNEL_TOKEN="$(dotenv_get .env.production CLOUDFLARE_TUNNEL_TOKEN "")"
 RESET_DATABASE_ON_DEPLOY="$(dotenv_get .env.production RESET_DATABASE_ON_DEPLOY false)"
+
+if [[ "${CLOUDFLARE_TUNNEL_TOKEN:-}" == *'${CLOUDFLARE_TUNNEL_TOKEN}'* || "${CLOUDFLARE_TUNNEL_TOKEN:-}" == *'$${CLOUDFLARE_TUNNEL_TOKEN}'* || "${CLOUDFLARE_TUNNEL_TOKEN:-}" == *'cloudflared'* || "${CLOUDFLARE_TUNNEL_TOKEN:-}" == *'--token'* ]]; then
+  echo "CLOUDFLARE_TUNNEL_TOKEN in .env.production is invalid. Paste only the connector token, not a literal variable or full cloudflared command." >&2
+  exit 1
+fi
 
 mkdir -p backups secrets
 chmod 700 secrets 2>/dev/null || true
@@ -43,23 +48,27 @@ else
   echo "CLOUDFLARE_TUNNEL_TOKEN is blank; starting local Docker stack without Cloudflare Tunnel."
 fi
 
+compose_garmetix() {
+  "${DOCKER[@]}" compose --env-file .env.production -p garmetix "${COMPOSE_FILES[@]}" "$@"
+}
+
 show_diagnostics() {
   echo ""
   echo "==== Docker container status ===="
-  "${DOCKER[@]}" compose --env-file .env.production "${COMPOSE_FILES[@]}" ps || true
+  compose_garmetix ps || true
   echo ""
   echo "==== API logs, last 160 lines ===="
-  "${DOCKER[@]}" compose --env-file .env.production "${COMPOSE_FILES[@]}" logs --tail=160 api || true
+  compose_garmetix logs --tail=160 api || true
   echo ""
   echo "==== Web logs, last 120 lines ===="
-  "${DOCKER[@]}" compose --env-file .env.production "${COMPOSE_FILES[@]}" logs --tail=120 web || true
+  compose_garmetix logs --tail=120 web || true
   echo ""
   echo "==== Postgres logs, last 80 lines ===="
-  "${DOCKER[@]}" compose --env-file .env.production "${COMPOSE_FILES[@]}" logs --tail=80 postgres || true
+  compose_garmetix logs --tail=80 postgres || true
   if [[ -n "${CLOUDFLARE_TUNNEL_TOKEN:-}" && "${CLOUDFLARE_TUNNEL_TOKEN}" != CHANGE_ME* ]]; then
     echo ""
     echo "==== Cloudflared logs, last 100 lines ===="
-    "${DOCKER[@]}" compose --env-file .env.production "${COMPOSE_FILES[@]}" logs --tail=100 cloudflared || true
+    compose_garmetix logs --tail=100 cloudflared || true
   fi
 }
 
@@ -90,16 +99,40 @@ wait_for_url() {
   return 1
 }
 
-export COMPOSE_PROJECT_NAME=garmetix
+truthy() {
+  local value="${1:-}"
+  [[ "${value,,}" == "true" || "${value,,}" == "yes" || "$value" == "1" ]]
+}
 
-if [[ "${RESET_DATABASE_ON_DEPLOY,,}" == "true" || "${RESET_DATABASE_ON_DEPLOY,,}" == "yes" || "${RESET_DATABASE_ON_DEPLOY}" == "1" ]]; then
-  echo "RESET_DATABASE_ON_DEPLOY is enabled. Removing existing Garmetix containers and PostgreSQL volume for a clean database."
-  echo "This is intended only for fresh installs or failed test deployments."
-  "${DOCKER[@]}" compose --env-file .env.production "${COMPOSE_FILES[@]}" down --remove-orphans --volumes || true
+reset_database_volume() {
+  echo "RESET_DATABASE_ON_DEPLOY is enabled. Removing old Garmetix containers and PostgreSQL volumes for a clean initial migration database."
+  echo "This is destructive and intended only for fresh installs/test redeploys."
+
+  # Stop both the intended project name and the accidental symlink-derived project name used by older deploys.
+  "${DOCKER[@]}" compose --env-file .env.production -p garmetix "${COMPOSE_FILES[@]}" down --remove-orphans --volumes || true
+  "${DOCKER[@]}" compose --env-file .env.production -p current "${COMPOSE_FILES[@]}" down --remove-orphans --volumes || true
+
+  # Remove stale containers that block ports even when they were created by a different compose file/name.
+  "${DOCKER[@]}" rm -f \
+    garmetix-cloudflared-1 garmetix-web-1 garmetix-api-1 garmetix-postgres-1 \
+    current-cloudflared-1 current-web-1 current-api-1 current-postgres-1 2>/dev/null || true
+
+  # Remove only known Garmetix Postgres volumes. Do not use docker volume prune.
+  "${DOCKER[@]}" volume rm -f \
+    garmetix_garmetix_pg current_garmetix_pg garmetix_pg \
+    garmetix_postgres_data current_postgres_data postgres_data 2>/dev/null || true
+
+  # Force the first API start to build a clean schema and then mark the reset flag as consumed.
+  set_env_var .env.production DATABASE_AUTO_MIGRATE true
+  set_env_var .env.production DATABASE_SCHEMA_BOOTSTRAP_MODE Migrate
   set_env_var .env.production RESET_DATABASE_ON_DEPLOY false
+}
+
+if truthy "$RESET_DATABASE_ON_DEPLOY"; then
+  reset_database_volume
 fi
 
-"${DOCKER[@]}" compose --env-file .env.production "${COMPOSE_FILES[@]}" up -d --build
+compose_garmetix up -d --build
 
 if ! wait_for_url "API direct health endpoint" "http://127.0.0.1:${API_PORT}/api/health" 120 3; then
   echo "API direct health check did not pass. Showing diagnostics:" >&2
@@ -113,8 +146,21 @@ if ! wait_for_url "Nuxt web proxy health endpoint" "http://127.0.0.1:${WEB_PORT}
   exit 1
 fi
 
-"${DOCKER[@]}" compose --env-file .env.production "${COMPOSE_FILES[@]}" ps
+compose_garmetix ps
 
 echo "Local web URL: http://127.0.0.1:${WEB_PORT}"
 echo "Local API URL: http://127.0.0.1:${API_PORT}/api/health"
 echo "Public URL: https://${PUBLIC_DOMAIN}"
+
+DOTMATRIX_BRIDGE_AUTO_INSTALL="$(dotenv_get .env.production DOTMATRIX_BRIDGE_AUTO_INSTALL false)"
+DOTMATRIX_PRINTER_NAME="$(dotenv_get .env.production DOTMATRIX_PRINTER_NAME EPSON_LX310)"
+if truthy "$DOTMATRIX_BRIDGE_AUTO_INSTALL"; then
+  echo "Installing/updating Garmetix DotMatrix Bridge service for printer ${DOTMATRIX_PRINTER_NAME}."
+  if [[ $EUID -eq 0 ]]; then
+    PROJECT_DIR="$ROOT_DIR" GARMETIX_DOTMATRIX_PRINTER="$DOTMATRIX_PRINTER_NAME" ./deploy/install-dotmatrix-bridge-ubuntu.sh || true
+  else
+    sudo env PROJECT_DIR="$ROOT_DIR" GARMETIX_DOTMATRIX_PRINTER="$DOTMATRIX_PRINTER_NAME" ./deploy/install-dotmatrix-bridge-ubuntu.sh || true
+  fi
+else
+  echo "DotMatrix Bridge auto-install is off. Manual install: sudo PROJECT_DIR=$ROOT_DIR GARMETIX_DOTMATRIX_PRINTER=$DOTMATRIX_PRINTER_NAME ./deploy/install-dotmatrix-bridge-ubuntu.sh"
+fi

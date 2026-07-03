@@ -168,6 +168,26 @@ async function verifyFingerprint() {
   }
 }
 
+
+function indiaLocalIso(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).format(date)
+  return parts.replace(' ', 'T')
+}
+
+function currentPunchClock() {
+  const now = new Date()
+  return { punchTimeUtc: now.toISOString(), localPunchTime: indiaLocalIso(now) }
+}
+
 async function punch(punchType = 'Auto') {
   if (!selectedEmployee.value) return feedback.error('Select employee', 'Lookup and select employee first.')
   const clientPunchId = `KIOSK-${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -182,8 +202,7 @@ async function punch(punchType = 'Auto') {
     const body = {
       employeeId: selectedEmployee.value.id,
       punchType,
-      punchTimeUtc: new Date().toISOString(),
-      localPunchTime: new Date().toISOString(),
+      ...currentPunchClock(),
       source: photoDataUrl.value ? 'FacePhotoProof' : 'Kiosk',
       deviceId: deviceId.value,
       deviceToken: deviceToken.value,
@@ -208,8 +227,7 @@ async function punch(punchType = 'Auto') {
     const queued = {
       employeeId: selectedEmployee.value.id,
       punchType,
-      punchTimeUtc: new Date().toISOString(),
-      localPunchTime: new Date().toISOString(),
+      ...currentPunchClock(),
       source: photoDataUrl.value ? 'FacePhotoProof' : 'Kiosk',
       deviceId: deviceId.value,
       deviceToken: deviceToken.value,

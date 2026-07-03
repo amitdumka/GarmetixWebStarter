@@ -36,6 +36,7 @@ echo "Linked $APP_DIR/deploy/macmini.env -> $LOCAL_ENV"
 ssh "${REMOTE_USER}@${REMOTE_HOST}" "mkdir -p '${REMOTE_APP_DIR}/shared/env' && chmod 750 '${REMOTE_APP_DIR}/shared/env'"
 
 ssh "${REMOTE_USER}@${REMOTE_HOST}" "
+mkdir -p '${REMOTE_APP_DIR}/shared/env' && chmod 750 '${REMOTE_APP_DIR}/shared/env' 2>/dev/null || true
 if [[ -f '${REMOTE_APP_DIR}/shared/env/.env.production' ]]; then
   if [[ -d '${REMOTE_APP_DIR}/current' ]]; then
     ln -sfn '${REMOTE_APP_DIR}/shared/env/.env.production' '${REMOTE_APP_DIR}/current/.env.production'
@@ -43,9 +44,7 @@ if [[ -f '${REMOTE_APP_DIR}/shared/env/.env.production' ]]; then
   chmod 600 '${REMOTE_APP_DIR}/shared/env/.env.production' 2>/dev/null || true
   echo 'Persistent production env is ready.'
 else
-  echo 'Missing ${REMOTE_APP_DIR}/shared/env/.env.production' >&2
-  echo 'Copy your working .env.production there once, then deploy again.' >&2
-  exit 1
+  echo 'Persistent production env will be created/updated by the next deploy.'
 fi
 "
 

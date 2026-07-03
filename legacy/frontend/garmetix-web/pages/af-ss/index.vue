@@ -26,7 +26,7 @@ const seedForm = reactive({
   profileCode: 'AF',
   includeUsers: true,
   includeEmployees: true,
-  includeProducts: true,
+  includeProducts: false,
   resetDefaultUserPasswords: false,
   confirm: false
 })
@@ -87,7 +87,7 @@ async function seedDefaults() {
       profileCode: seedForm.profileCode,
       includeUsers: seedForm.includeUsers,
       includeEmployees: seedForm.includeEmployees,
-      includeProducts: seedForm.includeProducts,
+      includeProducts: false,
       resetDefaultUserPasswords: seedForm.resetDefaultUserPasswords
     })
     feedback.success(result.value?.message || 'AF/SS default data seeded')
@@ -213,7 +213,7 @@ onMounted(refresh)
     <div v-else class="space-y-6">
       <UiModulePageHeader
         title="AF/SS Defaults"
-        description="Create a full company/store seed, export current data as portable JSON, or import a saved JSON seeder after crash/migration."
+        description="Create company/store/accounting/user defaults, export current data as portable JSON, or import a saved JSON seeder after crash/migration. Inventory/stock seeding is disabled."
         icon="i-lucide-database-backup"
       >
         <template #actions>
@@ -259,7 +259,7 @@ onMounted(refresh)
               color="primary"
               icon="i-lucide-building-2"
               title="Seeder will create the company"
-              description="No need to create company first. The selected AF/SS profile will create company, store group, store, Indian accounting defaults, users, employees and products as selected."
+              description="No need to create company first. The selected AF/SS profile will create company, store group, store, Indian accounting defaults and users. Employee defaults are created only for Smart Menswear. Inventory/stock seeding is disabled."
             />
 
             <UFormField label="AF/SS profile" required>
@@ -280,9 +280,9 @@ onMounted(refresh)
             <USeparator />
 
             <div class="space-y-3">
-              <UCheckbox v-model="seedForm.includeEmployees" label="Seed employees and Manager salesman" />
+              <UCheckbox v-model="seedForm.includeEmployees" label="Seed Smart Menswear employees and Manager salesman" help="Employees are skipped for Aadwika Fashion MBO / Shalini MBO profiles." />
               <UCheckbox v-model="seedForm.includeUsers" label="Seed default users" help="Admin, Owner and StoreManager are created only if missing." />
-              <UCheckbox v-model="seedForm.includeProducts" label="Seed default product masters and opening stock" />
+              <UAlert color="neutral" variant="subtle" icon="i-lucide-package-x" title="Inventory/stock seeding disabled" description="AF/SS seeder will not create product masters, vendors, brands, stock or opening stock movements." />
               <UCheckbox v-model="seedForm.resetDefaultUserPasswords" label="Reset default user passwords" help="Only enable when you intentionally want code-prefixed users reset to Admin@1234 / Owner@1234 / StoreManager@1234." />
             </div>
 

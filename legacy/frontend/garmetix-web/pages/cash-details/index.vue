@@ -9,18 +9,52 @@ const companies = ref<any[]>([])
 const stores = ref<any[]>([])
 const rows = ref<any[]>([])
 const history = ref<any | null>(null)
+const dayCheck = ref<any | null>(null)
 const loading = ref(false)
 const saving = ref(false)
 const filterFrom = ref('')
 const filterTo = ref('')
 const filterSource = ref('')
+const dayCheckDate = ref(localDateValue())
 const editId = ref('')
 const form = reactive(blankForm())
 
 const activeStoreId = computed(() => workspace.storeId.value || stores.value[0]?.id || '')
 const selectedStoreName = computed(() => stores.value.find((store) => store.id === activeStoreId.value)?.name || 'No store selected')
 const computedAmount = computed(() => calculateCash(form))
+const countedPieces = computed(() => denominationRows.value.reduce((sum, row) => sum + Number(row.count || 0), 0))
 const totalAmount = computed(() => rows.value.reduce((sum, row) => sum + Number(row.amount || 0), 0))
+const amountOverrideVariance = computed(() => {
+  if (!form.amount || computedAmount.value <= 0) return 0
+  return Number(form.amount || 0) - computedAmount.value
+})
+const dayCheckWarnings = computed(() => {
+  const check = dayCheck.value
+  if (!check) return [] as string[]
+  const warnings: string[] = []
+  if (check.openingVariance !== null && check.openingVariance !== undefined && Math.abs(Number(check.openingVariance)) > 0.01) {
+    warnings.push(`Latest physical cash differs from day opening by ${money(check.openingVariance)}`)
+  }
+  if (check.closingVariance !== null && check.closingVariance !== undefined && Math.abs(Number(check.closingVariance)) > 0.01) {
+    warnings.push(`Latest physical cash differs from day closing by ${money(check.closingVariance)}`)
+  }
+  if (check.pettyCashVariance !== null && check.pettyCashVariance !== undefined && Math.abs(Number(check.pettyCashVariance)) > 0.01) {
+    warnings.push(`Latest physical cash differs from petty cash sheet by ${money(check.pettyCashVariance)}`)
+  }
+  return warnings
+})
+const denominationRows = computed(() => [
+  { key: 'n2000', label: '₹2000', value: 2000, count: Number(form.n2000 || 0) },
+  { key: 'n500', label: '₹500', value: 500, count: Number(form.n500 || 0) },
+  { key: 'n200', label: '₹200', value: 200, count: Number(form.n200 || 0) },
+  { key: 'n100', label: '₹100', value: 100, count: Number(form.n100 || 0) },
+  { key: 'n50', label: '₹50', value: 50, count: Number(form.n50 || 0) },
+  { key: 'nC20', label: '₹20', value: 20, count: Number(form.nC20 || 0) },
+  { key: 'nC10', label: '₹10', value: 10, count: Number(form.nC10 || 0) },
+  { key: 'nC5', label: '₹5', value: 5, count: Number(form.nC5 || 0) },
+  { key: 'nC2', label: '₹2', value: 2, count: Number(form.nC2 || 0) },
+  { key: 'nC1', label: '₹1', value: 1, count: Number(form.nC1 || 0) }
+])
 
 function blankForm() {
   return {
@@ -46,7 +80,7 @@ function localDateValue(date = new Date()) {
   return local.toISOString().slice(0, 10)
 }
 
-function money(value: number) {
+function money(value: number | string | null | undefined) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(value || 0))
 }
 
@@ -108,11 +142,20 @@ async function refresh() {
     if (filterFrom.value) historyParams.set('from', filterFrom.value)
     if (filterTo.value) historyParams.set('to', filterTo.value)
     history.value = await api.get<any>(`cash-details/history?${historyParams.toString()}`)
+    await refreshDayCheck()
   } catch (error) {
     feedback.failed('Cash details load failed', error)
   } finally {
     loading.value = false
   }
+}
+
+async function refreshDayCheck() {
+  if (!activeStoreId.value) return
+  const params = new URLSearchParams()
+  params.set('storeId', activeStoreId.value)
+  params.set('onDate', dayCheckDate.value || localDateValue())
+  dayCheck.value = await api.get<any>(`cash-details/day-check?${params.toString()}`)
 }
 
 async function save() {
@@ -141,7 +184,19 @@ async function save() {
 
 function edit(row: any) {
   editId.value = row.id
-  form.onDate = String(row.onDate || '').slice(0, 10)
+  applyRow(row, row.source || 'ManualCashFlow')
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function copyRow(row: any) {
+  editId.value = ''
+  applyRow(row, 'CashVerification')
+  feedback.notify('Copied cash detail', 'Review date/source and save as a new cash verification row.')
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function applyRow(row: any, source: string) {
+  form.onDate = String(row.onDate || dayCheckDate.value || localDateValue()).slice(0, 10)
   form.amount = row.amount
   form.n2000 = row.n2000 || 0
   form.n500 = row.n500 || 0
@@ -153,8 +208,7 @@ function edit(row: any) {
   form.nC5 = row.nC5 || 0
   form.nC2 = row.nC2 || 0
   form.nC1 = row.nC1 || 0
-  form.source = row.source || 'ManualCashFlow'
-  window.scrollTo({ top: 0, behavior: 'smooth' })
+  form.source = source
 }
 
 async function remove(row: any) {
@@ -180,7 +234,60 @@ function resetForm() {
   Object.assign(form, blankForm())
 }
 
+function zeroNotes() {
+  form.n2000 = 0
+  form.n500 = 0
+  form.n200 = 0
+  form.n100 = 0
+  form.n50 = 0
+  form.nC20 = 0
+  form.nC10 = 0
+  form.nC5 = 0
+  form.nC2 = 0
+  form.nC1 = 0
+}
+
+function setToday() {
+  form.onDate = localDateValue()
+  dayCheckDate.value = form.onDate
+}
+
+function exportCsv() {
+  const header = ['Date', 'Source', 'Amount', 'N2000', 'N500', 'N200', 'N100', 'N50', 'N20', 'N10', 'N5', 'N2', 'N1', 'LinkedOpening', 'LinkedClosing']
+  const body = rows.value.map((row) => [
+    String(row.onDate || '').slice(0, 10),
+    row.source,
+    row.amount,
+    row.n2000,
+    row.n500,
+    row.n200,
+    row.n100,
+    row.n50,
+    row.nC20,
+    row.nC10,
+    row.nC5,
+    row.nC2,
+    row.nC1,
+    row.linkedToDayOpening ? 'Yes' : 'No',
+    row.linkedToDayClosing ? 'Yes' : 'No'
+  ])
+  const csv = [header, ...body].map((line) => line.map(csvCell).join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `cash-details-${filterFrom.value || 'all'}-${filterTo.value || localDateValue()}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function csvCell(value: any) {
+  const text = String(value ?? '')
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+}
+
 watch(() => [activeStoreId.value, filterFrom.value, filterTo.value, filterSource.value], () => refresh())
+watch(dayCheckDate, () => refreshDayCheck())
 
 onMounted(async () => {
   auth.restore()
@@ -203,7 +310,7 @@ onMounted(async () => {
     <section class="cash-details-page">
       <UiModulePageHeader
         title="Cash Details"
-        description="Manage cash denomination notes and coin history per store/day. Manual records can be added, edited and deleted. Day opening/closing linked rows can be edited safely."
+        description="Manage cash denomination notes and coin history per store/day. Manual records can be added, edited, copied, exported and reconciled with Day Opening/Closing."
         icon="i-lucide-coins"
         primary-label="Refresh"
         primary-icon="i-lucide-refresh-cw"
@@ -211,6 +318,7 @@ onMounted(async () => {
       >
         <template #actions>
           <UBadge color="primary" variant="subtle" :label="selectedStoreName" />
+          <UButton icon="i-lucide-download" color="neutral" variant="subtle" size="sm" label="Export CSV" @click="exportCsv" />
         </template>
       </UiModulePageHeader>
 
@@ -218,7 +326,66 @@ onMounted(async () => {
         <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-coins" color="primary" variant="subtle" /><div><p>History rows</p><strong>{{ history?.recordCount || rows.length }}</strong><span>Current filter</span></div></div></UCard>
         <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-indian-rupee" color="success" variant="subtle" /><div><p>Total cash</p><strong>{{ money(history?.totalAmount || totalAmount) }}</strong><span>Filtered total</span></div></div></UCard>
         <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-history" color="warning" variant="subtle" /><div><p>Average</p><strong>{{ money(history?.averageAmount || 0) }}</strong><span>Per row</span></div></div></UCard>
+        <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-banknote" color="neutral" variant="subtle" /><div><p>Pieces counted</p><strong>{{ countedPieces }}</strong><span>Current form</span></div></div></UCard>
       </div>
+
+      <UCard class="planner-card">
+        <template #header>
+          <div class="flex items-center justify-between gap-3">
+            <h2>Day Cash Reconciliation</h2>
+            <UBadge color="neutral" variant="subtle" :label="dayCheckDate" />
+          </div>
+        </template>
+        <div class="form-grid">
+          <UFormField label="Check date">
+            <UInput v-model="dayCheckDate" type="date" />
+          </UFormField>
+          <UFormField label="Latest counted cash">
+            <UInput :model-value="money(dayCheck?.latestCashAmount || 0)" readonly />
+          </UFormField>
+          <UFormField label="Day opening">
+            <UInput :model-value="dayCheck?.openingBalance == null ? 'Not opened' : money(dayCheck.openingBalance)" readonly />
+          </UFormField>
+          <UFormField label="Day closing">
+            <UInput :model-value="dayCheck?.closingBalance == null ? 'Not closed' : money(dayCheck.closingBalance)" readonly />
+          </UFormField>
+        </div>
+        <div class="day-check-grid">
+          <div><span>Petty cash sheet cash in hand</span><strong>{{ dayCheck?.pettyCashCashInHand == null ? 'Not created' : money(dayCheck.pettyCashCashInHand) }}</strong></div>
+          <div><span>Cash detail rows</span><strong>{{ dayCheck?.cashDetailCount || 0 }}</strong></div>
+          <div><span>Manual verification rows</span><strong>{{ dayCheck?.manualCashDetailCount || 0 }}</strong></div>
+          <div><span>Latest source</span><strong>{{ dayCheck?.latestCashSource || 'None' }}</strong></div>
+        </div>
+        <UAlert
+          v-if="dayCheckWarnings.length"
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-triangle-alert"
+          title="Cash variance detected"
+          :description="dayCheckWarnings.join(' • ')"
+        />
+        <UAlert
+          v-else
+          color="success"
+          variant="subtle"
+          icon="i-lucide-check-circle"
+          title="No cash variance for selected day"
+          description="Latest counted cash matches linked opening/closing/petty cash values, or linked records are not available yet."
+        />
+        <template #footer>
+          <div class="footer-actions">
+            <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" label="Refresh day check" @click="refreshDayCheck" />
+            <UButton
+              icon="i-lucide-copy"
+              color="primary"
+              variant="soft"
+              label="Copy latest as verification"
+              :disabled="!dayCheck?.items?.length"
+              @click="copyRow(dayCheck.items[0])"
+            />
+          </div>
+        </template>
+      </UCard>
 
       <UCard class="planner-card">
         <template #header>
@@ -252,9 +419,26 @@ onMounted(async () => {
           <UInput v-model.number="form.nC1" type="number" placeholder="₹1" />
         </div>
 
+        <div class="breakdown-table">
+          <div class="breakdown-row header"><span>Denomination</span><span>Count</span><span>Amount</span></div>
+          <div v-for="denom in denominationRows" :key="denom.key" class="breakdown-row">
+            <span>{{ denom.label }}</span><span>{{ denom.count }}</span><strong>{{ money(denom.count * denom.value) }}</strong>
+          </div>
+        </div>
+        <UAlert
+          v-if="amountOverrideVariance"
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-triangle-alert"
+          title="Amount override differs from counted notes"
+          :description="`Override variance is ${money(amountOverrideVariance)}. Save will use counted notes total when notes are entered.`"
+        />
+
         <template #footer>
           <div class="footer-actions">
             <UButton icon="i-lucide-save" color="primary" :loading="saving" :label="editId ? 'Update cash detail' : 'Add cash detail'" @click="save" />
+            <UButton icon="i-lucide-calendar-days" color="neutral" variant="subtle" label="Today" @click="setToday" />
+            <UButton icon="i-lucide-eraser" color="neutral" variant="subtle" label="Zero notes" @click="zeroNotes" />
             <UButton icon="i-lucide-x" color="neutral" variant="subtle" label="Clear" @click="resetForm" />
           </div>
         </template>
@@ -296,6 +480,7 @@ onMounted(async () => {
             </span>
             <span class="actions">
               <UButton size="xs" icon="i-lucide-pencil" color="primary" variant="soft" @click="edit(row)" />
+              <UButton size="xs" icon="i-lucide-copy" color="neutral" variant="soft" @click="copyRow(row)" />
               <UButton size="xs" icon="i-lucide-trash-2" color="error" variant="soft" :disabled="row.linkedToDayOpening || row.linkedToDayClosing" @click="remove(row)" />
             </span>
           </div>
@@ -308,16 +493,21 @@ onMounted(async () => {
 
 <style scoped>
 .cash-details-page { display: grid; gap: 1rem; }
-.metric-grid, .form-grid, .filter-grid, .notes-grid { display: grid; gap: 1rem; }
+.metric-grid, .form-grid, .filter-grid, .notes-grid, .day-check-grid { display: grid; gap: 1rem; }
 .metric-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-.form-grid, .filter-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.form-grid, .filter-grid, .day-check-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
 .notes-grid { grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); }
 .footer-actions { display: flex; gap: .75rem; flex-wrap: wrap; }
+.day-check-grid > div { border: 1px solid rgb(var(--color-gray-200)); border-radius: .75rem; padding: .75rem; display: grid; gap: .25rem; }
+.day-check-grid span { color: rgb(var(--color-gray-500)); font-size: .8rem; }
+.breakdown-table { display: grid; gap: .35rem; margin-top: 1rem; }
+.breakdown-row { display: grid; grid-template-columns: 1fr 90px 140px; gap: .75rem; align-items: center; padding: .45rem .65rem; border: 1px solid rgb(var(--color-gray-200)); border-radius: .65rem; }
+.breakdown-row.header { font-weight: 700; color: rgb(var(--color-gray-500)); background: rgb(var(--color-gray-50)); }
 .cash-table { display: grid; gap: .5rem; margin-top: 1rem; overflow-x: auto; }
-.cash-row { display: grid; grid-template-columns: 110px 150px 130px minmax(360px, 1fr) 150px 90px; gap: .75rem; align-items: center; min-width: 980px; padding: .75rem; border: 1px solid rgb(var(--color-gray-200)); border-radius: .75rem; }
+.cash-row { display: grid; grid-template-columns: 110px 150px 130px minmax(360px, 1fr) 150px 120px; gap: .75rem; align-items: center; min-width: 1040px; padding: .75rem; border: 1px solid rgb(var(--color-gray-200)); border-radius: .75rem; }
 .cash-row.header { font-weight: 700; color: rgb(var(--color-gray-500)); background: rgb(var(--color-gray-50)); }
 .notes-text { font-size: .8rem; color: rgb(var(--color-gray-500)); }
 .actions { display: flex; gap: .35rem; }
-.dark .cash-row { border-color: rgb(var(--color-gray-800)); }
-.dark .cash-row.header { background: rgb(var(--color-gray-900)); }
+.dark .cash-row, .dark .breakdown-row, .dark .day-check-grid > div { border-color: rgb(var(--color-gray-800)); }
+.dark .cash-row.header, .dark .breakdown-row.header { background: rgb(var(--color-gray-900)); }
 </style>

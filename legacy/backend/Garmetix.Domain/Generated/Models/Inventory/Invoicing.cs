@@ -192,6 +192,7 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Sale Invoice Type")] public SaleInvoiceType SaleInvoiceType { get; set; } = SaleInvoiceType.B2C;
 
         [Display(Name = "Bill Discount", AutoGenerateField = false)] public decimal BillDiscountAmount { get; set; } = 0m;
+        [Display(Name = "Remarks")] public string? Remarks { get; set; }
 
         [Display(Name = "Salesman", AutoGenerateField = false)] public virtual Salesman? Saleman { get; set; }
         [Display(Name = "Customer", AutoGenerateField = false)] public virtual Customer? Customer { get; set; }

@@ -3,6 +3,7 @@ import { h, resolveComponent } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 
 const api = useGarmetixApi()
+const route = useRoute()
 const auth = useAuth()
 const workspace = useWorkspace()
 const feedback = useUiFeedback()
@@ -11,6 +12,7 @@ const documentPrint = useServerDocumentPrint()
 const config = useRuntimeConfig()
 const isAuthenticated = auth.isAuthenticated
 const canDelete = auth.canDelete
+const canEditInvoice = computed(() => auth.canSeeAdmin.value || ['PowerUser', 'Accountant', 'RemoteAccountant'].some((role) => String(auth.user.value?.role || auth.user.value?.userType || '').toLowerCase() === role.toLowerCase()))
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
@@ -20,6 +22,7 @@ const stores = ref<any[]>([])
 const products = ref<any[]>([])
 const purchaseProductSearchOptions = ref<any[]>([])
 const purchaseInvoices = ref<any[]>([])
+const vendorPayments = ref<any[]>([])
 const purchaseLookup = ref<any>({ categories: [], subCategories: [], taxes: [] })
 const bankAccounts = ref<any[]>([])
 const loading = ref(false)
@@ -28,16 +31,43 @@ const setupStatus = ref<any | null>(null)
 const vendorGstinValidation = ref<any | null>(null)
 const vendorGstinChecking = ref(false)
 const selectedReceipt = ref<any | null>(null)
+const purchaseProofUrl = ref('')
 const pendingCancel = ref<any | null>(null)
+const pendingEditInvoice = ref<any | null>(null)
 const search = ref('')
 const invoiceStatusFilter = ref('all')
+const invoiceDateMode = ref('inward')
+const now = new Date()
+const invoiceMonth = ref(now.getMonth() + 1)
+const invoiceYear = ref(now.getFullYear())
+const invoicePage = ref(1)
+const invoicePageSize = ref(50)
+const invoiceTotal = ref(0)
+const invoiceServerSummary = reactive({ billAmount: 0, paidAmount: 0, freightAmount: 0, cancelled: 0 })
+const paymentSearch = ref('')
+const paymentModeFilter = ref('all')
+const paymentMonth = ref(now.getMonth() + 1)
+const paymentYear = ref(now.getFullYear())
+const paymentPage = ref(1)
+const paymentPageSize = ref(50)
+const paymentTotal = ref(0)
+const paymentServerSummary = reactive({ amount: 0, cashAmount: 0, nonCashAmount: 0, activeCount: 0, deletedCount: 0 })
 const loadError = ref('')
 const formOpen = ref(false)
 const cancelOpen = ref(false)
+const editInvoiceOpen = ref(false)
+const editingInvoice = ref(false)
 const cancelling = ref(false)
 const paymentOpen = ref(false)
+const paymentEditOpen = ref(false)
+const paymentViewOpen = ref(false)
+const paymentDeleteOpen = ref(false)
 const payingVendor = ref(false)
 const pendingPaymentInvoice = ref<any | null>(null)
+const selectedVendorPayment = ref<any | null>(null)
+const pendingDeletePayment = ref<any | null>(null)
+const editingVendorPayment = ref(false)
+const deletingVendorPayment = ref(false)
 const downloadingPurchasePdf = ref(false)
 const purchasePrintFormat = ref<'a4' | 'a5' | 'thermal-2' | 'thermal-3'>('a4')
 const purchaseCopyType = ref<'store' | 'supplier' | 'office' | 'duplicate'>('store')
@@ -55,6 +85,16 @@ const paymentModeOptions = [
   { value: 8, label: 'Demand Draft' }
 ]
 
+const paymentModeFilterOptions = [
+  { value: 'all', label: 'All modes' },
+  ...paymentModeOptions.map((item) => ({ value: String(item.value), label: item.label }))
+]
+
+const purchaseDateModeOptions = [
+  { value: 'inward', label: 'Inward date' },
+  { value: 'entry', label: 'Entry date' }
+]
+
 const purchasePrintFormatOptions = [
   { value: 'a4', label: 'A4 purchase invoice' },
   { value: 'a5', label: 'A5 compact invoice' },
@@ -69,12 +109,42 @@ const purchaseCopyOptions = [
   { value: 'duplicate', label: 'Duplicate copy' }
 ]
 
+const monthOptions = [
+  { value: 1, label: 'January' },
+  { value: 2, label: 'February' },
+  { value: 3, label: 'March' },
+  { value: 4, label: 'April' },
+  { value: 5, label: 'May' },
+  { value: 6, label: 'June' },
+  { value: 7, label: 'July' },
+  { value: 8, label: 'August' },
+  { value: 9, label: 'September' },
+  { value: 10, label: 'October' },
+  { value: 11, label: 'November' },
+  { value: 12, label: 'December' }
+]
+
+const yearOptions = computed(() => {
+  const current = new Date().getFullYear()
+  return Array.from({ length: 6 }, (_, index) => current - index).map((value) => ({ value, label: String(value) }))
+})
+
+const pageSizeOptions = [
+  { value: 25, label: '25 / page' },
+  { value: 50, label: '50 / page' },
+  { value: 100, label: '100 / page' },
+  { value: 200, label: '200 / page' }
+]
+
+
 const purchaseForm = reactive<any>(emptyPurchaseForm())
 const paymentVoucherForm = reactive<any>(emptyPaymentVoucherForm())
+const paymentEditForm = reactive<any>(emptyPaymentVoucherForm())
 const purchaseCart = ref<any[]>([])
+const editInvoiceForm = reactive<any>({ invoiceNumber: '', inwardNumber: '', onDate: '', inwardDate: '', supplierInvoiceDate: '', dueDate: '', vendorName: '', vendorGstin: '' })
 
 const productOptions = computed(() => [
-  { value: '', label: 'New product' },
+  { value: '__new__', label: 'New product' },
   ...products.value.map((product) => ({
     value: product.id,
     label: `${product.name || 'Product'} - ${product.barcode || 'No barcode'}`
@@ -88,7 +158,7 @@ const categoryOptions = computed(() => purchaseLookup.value.categories?.map((ite
 const subCategoryOptions = computed(() => purchaseLookup.value.subCategories?.filter((item: any) => !purchaseForm.productCategoryId || item.categoryId === purchaseForm.productCategoryId)?.map((item: any) => ({ value: item.id, label: item.name })) || [])
 const taxOptions = computed(() => purchaseLookup.value.taxes?.map((item: any) => ({ value: item.id, label: `${item.name || 'GST'} - ${Number(item.rate || 0).toFixed(2)}%` })) || [])
 const vendorOptions = computed(() => [
-  { value: '', label: 'New supplier / manual entry' },
+  { value: '__manual__', label: 'New supplier / manual entry' },
   ...(purchaseLookup.value.vendors?.map((vendor: any) => ({ value: vendor.id, label: `${vendor.name || 'Supplier'}${vendor.gstin ? ` | ${vendor.gstin}` : ''}${Number(vendor.balanceAmount || 0) > 0 ? ` | Due ${money(Number(vendor.balanceAmount || 0))}` : ''}` })) || [])
 ])
 const unitOptions = computed(() => purchaseLookup.value.units?.map((item: any) => ({ value: item.value, label: item.label })) || [])
@@ -97,6 +167,7 @@ const productGroupOptions = computed(() => purchaseLookup.value.productGroups?.m
 const selectedVendor = computed(() => purchaseLookup.value.vendors?.find((vendor: any) => vendor.id === purchaseForm.vendorId) || null)
 const requiresBankAccount = computed(() => Number(purchaseForm.paidAmount || 0) > 0 && Number(purchaseForm.paymentMode) !== 0)
 const paymentVoucherRequiresBank = computed(() => Number(paymentVoucherForm.amount || 0) > 0 && Number(paymentVoucherForm.paymentMode) !== 0)
+const paymentEditRequiresBank = computed(() => Number(paymentEditForm.amount || 0) > 0 && Number(paymentEditForm.paymentMode) !== 0)
 
 const bankAccountOptions = computed(() => bankAccounts.value.map((account) => ({
   value: account.id,
@@ -114,32 +185,18 @@ const receiptOpen = computed({
   set: (value: boolean) => {
     if (!value) {
       selectedReceipt.value = null
+      clearPurchaseProofUrl()
     }
   }
 })
 
-const invoiceSummary = computed(() => {
-  return purchaseInvoices.value.reduce((summary, invoice) => {
-    summary.billAmount += Number(invoice.billAmount || invoice.totalAmount || invoice.netAmount || 0)
-    summary.paidAmount += Number(invoice.paidAmount || 0)
-    summary.freightAmount += Number(invoice.frightAmount || 0)
-    if (invoice.invoiceStatus === 'Cancelled') {
-      summary.cancelled += 1
-    }
-    return summary
-  }, {
-    billAmount: 0,
-    paidAmount: 0,
-    freightAmount: 0,
-    cancelled: 0
-  })
-})
+const invoiceSummary = computed(() => invoiceServerSummary)
 
 const metrics = computed(() => [
   {
     label: 'Purchase Invoices',
-    value: purchaseInvoices.value.length,
-    meta: `${invoiceSummary.value.cancelled} cancelled`,
+    value: invoiceTotal.value,
+    meta: `${invoiceSummary.value.cancelled} cancelled in selected month`,
     icon: 'i-lucide-file-text',
     color: 'primary'
   },
@@ -169,8 +226,12 @@ const metrics = computed(() => [
 const tableRows = computed(() => purchaseInvoices.value.map((invoice) => ({
   id: invoice.id,
   invoiceNumber: invoice.invoiceNumber || '-',
+  hasImportProof: Boolean(invoice.hasImportProof),
+  importBatchId: invoice.importBatchId || null,
   inwardNumber: invoice.inwardNumber || '-',
-  onDate: formatDate(invoice.onDate || invoice.inwardDate),
+  inwardDate: formatDate(invoice.inwardDate || invoice.onDate),
+  entryDate: formatDate(invoice.onDate || invoice.inwardDate),
+  supplierInvoiceDateDisplay: formatDate(invoice.supplierInvoiceDate || invoice.onDate),
   vendorName: invoice.vendorName || invoice.vendor?.name || '-',
   billAmount: money(Number(invoice.billAmount || invoice.totalAmount || invoice.netAmount || 0)),
   paidAmount: money(Number(invoice.paidAmount || 0)),
@@ -179,20 +240,31 @@ const tableRows = computed(() => purchaseInvoices.value.map((invoice) => ({
   raw: invoice
 })))
 
-const filteredRows = computed(() => {
-  const term = search.value.trim().toLowerCase()
-  return tableRows.value.filter((row) => {
-    const matchesStatus = invoiceStatusFilter.value === 'all'
-      || String(row.status).toLowerCase() === invoiceStatusFilter.value
-    const matchesSearch = !term || JSON.stringify(row).toLowerCase().includes(term)
-    return matchesStatus && matchesSearch
-  })
-})
+const filteredRows = computed(() => tableRows.value)
+
+const invoicePageFrom = computed(() => invoiceTotal.value === 0 ? 0 : ((invoicePage.value - 1) * invoicePageSize.value) + 1)
+const invoicePageTo = computed(() => Math.min(invoicePage.value * invoicePageSize.value, invoiceTotal.value))
+const invoiceTotalPages = computed(() => Math.max(1, Math.ceil(invoiceTotal.value / invoicePageSize.value)))
+
+const paymentPageFrom = computed(() => paymentTotal.value === 0 ? 0 : ((paymentPage.value - 1) * paymentPageSize.value) + 1)
+const paymentPageTo = computed(() => Math.min(paymentPage.value * paymentPageSize.value, paymentTotal.value))
+const paymentTotalPages = computed(() => Math.max(1, Math.ceil(paymentTotal.value / paymentPageSize.value)))
+const paymentSummary = computed(() => paymentServerSummary)
 
 const columns: TableColumn<any>[] = [
-  { accessorKey: 'invoiceNumber', header: 'Invoice' },
-  { accessorKey: 'inwardNumber', header: 'Inward' },
-  { accessorKey: 'onDate', header: 'Date' },
+  {
+    accessorKey: 'invoiceNumber',
+    header: 'Supplier Invoice',
+    cell: ({ row }) => h('div', { class: 'flex flex-col gap-1' }, [
+      h('span', { class: 'font-medium' }, row.original.invoiceNumber),
+      row.original.hasImportProof
+        ? h(UBadge, { color: 'success', variant: 'subtle', size: 'xs' }, () => 'Supplier proof')
+        : null
+    ])
+  },
+  { accessorKey: 'inwardNumber', header: 'Inward No.' },
+  { accessorKey: 'inwardDate', header: 'Inward Date' },
+  { accessorKey: 'entryDate', header: 'Entry Date' },
   { accessorKey: 'vendorName', header: 'Vendor' },
   { accessorKey: 'billAmount', header: 'Amount' },
   { accessorKey: 'paidAmount', header: 'Paid' },
@@ -231,8 +303,42 @@ const columns: TableColumn<any>[] = [
           icon: 'i-lucide-download',
           label: 'PDF',
           onClick: () => quickDownloadPurchaseInvoice(invoice)
+        }),
+        h(UButton, {
+          color: 'success',
+          variant: 'ghost',
+          icon: 'i-lucide-tags',
+          label: 'Tags',
+          onClick: () => openPriceTags(invoice.id)
         })
       ]
+
+      if (invoice.hasImportProof) {
+        actions.push(h(UButton, {
+          color: 'success',
+          variant: 'ghost',
+          icon: 'i-lucide-file-check-2',
+          label: 'Proof',
+          onClick: () => openPurchaseImportProof(invoice.id)
+        }))
+      }
+
+      if (canEditInvoice.value && invoice.invoiceStatus !== 'Cancelled') {
+        actions.push(h(UButton, {
+          color: 'primary',
+          variant: 'ghost',
+          icon: 'i-lucide-copy-plus',
+          label: 'Revise',
+          onClick: () => startRevisedInward(invoice)
+        }))
+        actions.push(h(UButton, {
+          color: 'warning',
+          variant: 'ghost',
+          icon: 'i-lucide-pencil',
+          label: 'Edit',
+          onClick: () => startEditInvoice(invoice)
+        }))
+      }
 
       if (invoice.invoiceStatus !== 'Cancelled' && Number(invoice.balanceAmount || 0) > 0) {
         actions.push(h(UButton, {
@@ -248,8 +354,8 @@ const columns: TableColumn<any>[] = [
         actions.push(h(UButton, {
           color: 'error',
           variant: 'ghost',
-          icon: 'i-lucide-ban',
-          label: 'Cancel',
+          icon: 'i-lucide-trash-2',
+          label: 'Delete',
           onClick: () => askCancel(invoice)
         }))
       }
@@ -261,10 +367,12 @@ const columns: TableColumn<any>[] = [
 
 function emptyPaymentVoucherForm() {
   return {
+    onDate: todayInputDate(),
     amount: 0,
     paymentMode: 0,
     bankAccountId: null,
     paymentDetails: '',
+    referenceNumber: '',
     slipNumber: '',
     remarks: ''
   }
@@ -278,6 +386,7 @@ function emptyPurchaseForm() {
     vendorGstin: '',
     invoiceNumber: '',
     inwardNumber: '',
+    inwardDate: todayInputDate(),
     supplierInvoiceDate: todayInputDate(),
     dueDate: todayInputDate(45),
     paymentMode: 0,
@@ -320,20 +429,53 @@ async function refresh() {
   loadError.value = ''
   try {
     setupStatus.value = await api.get<any>('setup/status')
-    const [companyRows, storeRows, productRows, purchaseRows, bankAccountRows, lookupRows] = await Promise.all([
+    const query = new URLSearchParams({
+      year: String(invoiceYear.value),
+      month: String(invoiceMonth.value),
+      page: String(invoicePage.value),
+      pageSize: String(invoicePageSize.value),
+      dateMode: invoiceDateMode.value
+    })
+    if (search.value.trim()) query.set('q', search.value.trim())
+    if (invoiceStatusFilter.value !== 'all') query.set('status', invoiceStatusFilter.value)
+
+    const paymentQuery = new URLSearchParams({
+      year: String(paymentYear.value),
+      month: String(paymentMonth.value),
+      page: String(paymentPage.value),
+      pageSize: String(paymentPageSize.value)
+    })
+    if (paymentSearch.value.trim()) paymentQuery.set('q', paymentSearch.value.trim())
+    if (paymentModeFilter.value !== 'all') paymentQuery.set('paymentMode', paymentModeFilter.value)
+
+    const [companyRows, storeRows, productPageRows, purchasePageRows, paymentPageRows, bankAccountRows, lookupRows] = await Promise.all([
       api.list<any>('companies'),
       api.list<any>('stores'),
-      api.list<any>('products'),
-      api.get<any[]>('purchase/invoices/recent'),
+      api.get<any>('inventory/product-master/paged?page=1&pageSize=50&stockMode=in-stock'),
+      api.get<any>(`purchase/invoices?${query.toString()}`),
+      api.get<any>(`purchase/payments?${paymentQuery.toString()}`),
       api.list<any>('bank-accounts'),
       api.get<any>('purchase/lookup-options')
     ])
 
+    const productRows = productPageRows?.items || []
     companies.value = companyRows
     stores.value = storeRows
     products.value = productRows
     productLookup.saveCache(productRows.map((product: any) => ({ productId: product.id, name: product.name, barcode: product.barcode, hsnCode: product.hsnCode || product.HSNCode || '', availableQty: product.currentStock || 0, mrp: product.mrp || 0, taxRate: product.taxRate || 0, taxType: String(product.taxType || 'GST'), unit: String(product.unit || 'Pcs'), category: product.productCategoryName || product.categoryName || '', subCategory: product.productSubCategoryName || product.subCategoryName || '', taxId: product.taxId, productCategoryId: product.productCategoryId, productSubCategoryId: product.productSubCategoryId })))
-    purchaseInvoices.value = purchaseRows
+    purchaseInvoices.value = purchasePageRows?.items || []
+    vendorPayments.value = paymentPageRows?.items || []
+    paymentTotal.value = Number(paymentPageRows?.total || 0)
+    paymentServerSummary.amount = Number(paymentPageRows?.amount || 0)
+    paymentServerSummary.cashAmount = Number(paymentPageRows?.cashAmount || 0)
+    paymentServerSummary.nonCashAmount = Number(paymentPageRows?.nonCashAmount || 0)
+    paymentServerSummary.activeCount = Number(paymentPageRows?.activeCount || 0)
+    paymentServerSummary.deletedCount = Number(paymentPageRows?.deletedCount || 0)
+    invoiceTotal.value = Number(purchasePageRows?.total || 0)
+    invoiceServerSummary.billAmount = Number(purchasePageRows?.billAmount || 0)
+    invoiceServerSummary.paidAmount = Number(purchasePageRows?.paidAmount || 0)
+    invoiceServerSummary.freightAmount = Number(purchasePageRows?.freightAmount || 0)
+    invoiceServerSummary.cancelled = Number(purchasePageRows?.cancelledCount || 0)
     bankAccounts.value = bankAccountRows
     purchaseLookup.value = lookupRows
   } catch (error) {
@@ -344,8 +486,22 @@ async function refresh() {
   }
 }
 
+function resetInvoicePageAndRefresh() {
+  invoicePage.value = 1
+  refresh()
+}
+
+function resetPaymentPageAndRefresh() {
+  paymentPage.value = 1
+  refresh()
+}
+
+function dayBookQueryPart(prefix = '?') {
+  return route.query.fromDayBook ? `${prefix}fromDayBook=1` : ''
+}
+
 function startCreate() {
-  navigateTo('/purchase/new')
+  navigateTo(`/purchase/new${dayBookQueryPart()}`)
 }
 
 function startInlineCreate() {
@@ -547,6 +703,7 @@ async function submitPurchase() {
       vendorGstin: purchaseForm.vendorGstin,
       invoiceNumber: purchaseForm.invoiceNumber,
       inwardNumber: purchaseForm.inwardNumber,
+      inwardDate: purchaseForm.inwardDate || null,
       supplierInvoiceDate: purchaseForm.supplierInvoiceDate || null,
       dueDate: purchaseForm.dueDate || null,
       paymentMode: Number(purchaseForm.paymentMode),
@@ -587,6 +744,54 @@ async function submitPurchase() {
 }
 
 
+function openPriceTags(invoiceId: string) {
+  if (!invoiceId) return
+  navigateTo(`/price-tags?purchaseInwardId=${encodeURIComponent(invoiceId)}&size=50x30`)
+}
+
+async function openPurchaseImportProof(invoiceId: string) {
+  try {
+    const blob = await $fetch<Blob>(`${config.public.apiBase}/purchase-import/purchase-invoices/${invoiceId}/proof`, {
+      method: 'GET',
+      headers: api.authHeaders(),
+      responseType: 'blob'
+    })
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank', 'noopener,noreferrer')
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  } catch (error) {
+    feedback.failed('Could not open supplier invoice proof', error)
+  }
+}
+
+
+async function openPurchaseDeepLinkFromRoute() {
+  if (!auth.isAuthenticated.value) return
+  const purchaseInvoiceId = String(route.query.purchaseInvoiceId || route.query.inwardId || route.query.invoiceId || '')
+  const editPurchaseInvoiceId = String(route.query.editPurchaseInvoiceId || '')
+  const vendorPaymentId = String(route.query.vendorPaymentId || '')
+
+  try {
+    if (purchaseInvoiceId) {
+      await viewReceipt(purchaseInvoiceId)
+    }
+
+    if (editPurchaseInvoiceId) {
+      const existingInvoice = purchaseInvoices.value.find((item) => item.id === editPurchaseInvoiceId)
+      const invoice = existingInvoice || await api.get<any>(`purchase/invoices/${editPurchaseInvoiceId}/receipt`)
+      startEditInvoice(invoice)
+    }
+
+    if (vendorPaymentId) {
+      const existing = vendorPayments.value.find((item) => item.id === vendorPaymentId)
+      const payment = existing || await api.get<any>(`purchase/payments/${vendorPaymentId}`)
+      viewVendorPayment(payment)
+    }
+  } catch (error) {
+    feedback.failed('Could not open linked purchase transaction', error)
+  }
+}
+
 async function viewReceipt(invoiceId: string) {
   try {
     selectedReceipt.value = await api.get<any>(`purchase/invoices/${invoiceId}/receipt`)
@@ -594,8 +799,30 @@ async function viewReceipt(invoiceId: string) {
     purchaseCopyType.value = 'store'
     purchaseReprint.value = false
     purchaseSignatures.value = true
+    await loadPurchaseImportProof(invoiceId)
   } catch (error) {
     feedback.failed('Could not open purchase invoice', error)
+  }
+}
+
+function clearPurchaseProofUrl() {
+  if (purchaseProofUrl.value) {
+    URL.revokeObjectURL(purchaseProofUrl.value)
+    purchaseProofUrl.value = ''
+  }
+}
+
+async function loadPurchaseImportProof(invoiceId: string) {
+  clearPurchaseProofUrl()
+  try {
+    const blob = await $fetch<Blob>(`${config.public.apiBase}/purchase-import/purchase-invoices/${invoiceId}/proof`, {
+      method: 'GET',
+      headers: api.authHeaders(),
+      responseType: 'blob'
+    })
+    purchaseProofUrl.value = URL.createObjectURL(blob)
+  } catch {
+    purchaseProofUrl.value = ''
   }
 }
 
@@ -640,6 +867,74 @@ async function confirmVendorPayment() {
   }
 }
 
+function viewVendorPayment(payment: any) {
+  selectedVendorPayment.value = payment
+  paymentViewOpen.value = true
+}
+
+function startEditVendorPayment(payment: any) {
+  selectedVendorPayment.value = payment
+  Object.assign(paymentEditForm, emptyPaymentVoucherForm(), {
+    onDate: dateInput(payment.onDate),
+    amount: Number(payment.amount || 0),
+    paymentMode: Number(payment.paymentModeValue ?? payment.paymentMode ?? 0),
+    bankAccountId: payment.bankAccountId || null,
+    paymentDetails: payment.paymentDetails || '',
+    referenceNumber: payment.referenceNumber || payment.voucherNumber || '',
+    slipNumber: payment.referenceNumber || payment.voucherNumber || '',
+    remarks: payment.remarks || ''
+  })
+  paymentEditOpen.value = true
+}
+
+async function saveVendorPaymentEdit() {
+  if (!selectedVendorPayment.value?.id) return
+  editingVendorPayment.value = true
+  try {
+    if (paymentEditRequiresBank.value && !paymentEditForm.bankAccountId) {
+      throw new Error('Select bank account for non-cash vendor payment.')
+    }
+    await api.update<any>('purchase/payments', selectedVendorPayment.value.id, {
+      onDate: paymentEditForm.onDate || null,
+      amount: Number(paymentEditForm.amount || 0),
+      paymentMode: Number(paymentEditForm.paymentMode),
+      bankAccountId: paymentEditRequiresBank.value ? paymentEditForm.bankAccountId : null,
+      paymentDetails: paymentEditForm.paymentDetails,
+      referenceNumber: paymentEditForm.referenceNumber || paymentEditForm.slipNumber,
+      remarks: paymentEditForm.remarks
+    })
+    feedback.saved('Vendor payment updated')
+    paymentEditOpen.value = false
+    selectedVendorPayment.value = null
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not update vendor payment', error)
+  } finally {
+    editingVendorPayment.value = false
+  }
+}
+
+function askDeleteVendorPayment(payment: any) {
+  pendingDeletePayment.value = payment
+  paymentDeleteOpen.value = true
+}
+
+async function confirmDeleteVendorPayment() {
+  if (!pendingDeletePayment.value?.id) return
+  deletingVendorPayment.value = true
+  try {
+    await api.remove('purchase/payments', pendingDeletePayment.value.id)
+    feedback.notify('Vendor payment deleted', 'Linked voucher/accounting rows were removed from active views and vendor balance was recalculated.', 'warning')
+    paymentDeleteOpen.value = false
+    pendingDeletePayment.value = null
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not delete vendor payment', error)
+  } finally {
+    deletingVendorPayment.value = false
+  }
+}
+
 function askCancel(invoice: any) {
   if (invoice.invoiceStatus === 'Cancelled') {
     return
@@ -647,6 +942,63 @@ function askCancel(invoice: any) {
 
   pendingCancel.value = invoice
   cancelOpen.value = true
+}
+
+
+function dateInput(value: any) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function startRevisedInward(invoice: any) {
+  if (!invoice?.id) return
+  navigateTo(`/purchase/new?copyFrom=${encodeURIComponent(invoice.id)}${dayBookQueryPart('&')}`)
+}
+
+function startEditInvoice(invoice: any) {
+  pendingEditInvoice.value = invoice
+  Object.assign(editInvoiceForm, {
+    invoiceNumber: invoice.invoiceNumber || '',
+    inwardNumber: invoice.inwardNumber || '',
+    onDate: dateInput(invoice.onDate),
+    inwardDate: dateInput(invoice.inwardDate),
+    supplierInvoiceDate: dateInput(invoice.supplierInvoiceDate || invoice.onDate),
+    dueDate: dateInput(invoice.dueDate),
+    vendorName: invoice.vendorName || '',
+    vendorGstin: invoice.vendorGstin || invoice.vendorGSTIN || ''
+  })
+  editInvoiceOpen.value = true
+}
+
+async function saveEditInvoice() {
+  if (!pendingEditInvoice.value) return
+  editingInvoice.value = true
+  try {
+    await api.update<any>('purchase/invoices', pendingEditInvoice.value.id, {
+      invoiceNumber: editInvoiceForm.invoiceNumber,
+      inwardNumber: editInvoiceForm.inwardNumber,
+      onDate: editInvoiceForm.onDate || null,
+      inwardDate: editInvoiceForm.inwardDate || null,
+      supplierInvoiceDate: editInvoiceForm.supplierInvoiceDate || null,
+      dueDate: editInvoiceForm.dueDate || null,
+      vendorName: editInvoiceForm.vendorName,
+      vendorGstin: editInvoiceForm.vendorGstin
+    })
+    feedback.saved('Purchase invoice updated')
+    editInvoiceOpen.value = false
+    pendingEditInvoice.value = null
+    if (selectedReceipt.value?.id) selectedReceipt.value = null
+    await refresh()
+  } catch (error) {
+    feedback.failed('Could not update purchase invoice', error)
+  } finally {
+    editingInvoice.value = false
+  }
 }
 
 async function confirmCancel() {
@@ -662,9 +1014,10 @@ async function confirmCancel() {
 
     if (selectedReceipt.value?.id === pendingCancel.value.id) {
       selectedReceipt.value = null
+      clearPurchaseProofUrl()
     }
 
-    feedback.notify('Purchase invoice cancelled', 'Inward stock quantities were reversed.', 'warning')
+    feedback.notify('Purchase invoice deleted/cancelled', 'Inward stock quantities were reversed.', 'warning')
     cancelOpen.value = false
     pendingCancel.value = null
     await refresh()
@@ -750,6 +1103,19 @@ function lineTotal(item: any) {
   return Math.max((Number(item.costPrice || 0) - Number(item.discountAmount || 0)) * Number(item.quantity || 0), 0)
 }
 
+function formatDate(value?: string | null) {
+  if (!value) return '-'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+
+  return date.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })
+}
+
 function money(value: number) {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
@@ -761,6 +1127,11 @@ function money(value: number) {
 onMounted(async () => {
   auth.restore()
   await refresh()
+  await openPurchaseDeepLinkFromRoute()
+})
+
+watch(() => route.fullPath, async () => {
+  await openPurchaseDeepLinkFromRoute()
 })
 
 watch(() => purchaseForm.paymentMode, () => {
@@ -781,9 +1152,49 @@ watch(() => paymentVoucherForm.paymentMode, () => {
   }
 })
 
+watch(() => paymentEditForm.paymentMode, () => {
+  if (paymentEditRequiresBank.value && !paymentEditForm.bankAccountId) {
+    paymentEditForm.bankAccountId = bankAccounts.value[0]?.id || null
+  }
+})
+
+watch([invoiceMonth, invoiceYear, invoiceStatusFilter, invoiceDateMode, invoicePageSize], () => {
+  resetInvoicePageAndRefresh()
+})
+
+watch(invoicePage, () => {
+  refresh()
+})
+
+let purchaseSearchTimer: ReturnType<typeof setTimeout> | null = null
+watch(search, () => {
+  if (purchaseSearchTimer) clearTimeout(purchaseSearchTimer)
+  purchaseSearchTimer = setTimeout(() => resetInvoicePageAndRefresh(), 350)
+})
+
+watch([paymentMonth, paymentYear, paymentModeFilter, paymentPageSize], () => {
+  resetPaymentPageAndRefresh()
+})
+
+watch(paymentPage, () => {
+  refresh()
+})
+
+let paymentSearchTimer: ReturnType<typeof setTimeout> | null = null
+watch(paymentSearch, () => {
+  if (paymentSearchTimer) clearTimeout(paymentSearchTimer)
+  paymentSearchTimer = setTimeout(() => resetPaymentPageAndRefresh(), 350)
+})
+
 watch(() => paymentVoucherForm.amount, () => {
   if (paymentVoucherRequiresBank.value && !paymentVoucherForm.bankAccountId) {
     paymentVoucherForm.bankAccountId = bankAccounts.value[0]?.id || null
+  }
+})
+
+watch(() => paymentEditForm.amount, () => {
+  if (paymentEditRequiresBank.value && !paymentEditForm.bankAccountId) {
+    paymentEditForm.bankAccountId = bankAccounts.value[0]?.id || null
   }
 })
 
@@ -794,6 +1205,7 @@ watch(() => purchaseForm.productCategoryId, () => {
     purchaseForm.productSubCategoryId = ''
   }
 })
+onBeforeUnmount(clearPurchaseProofUrl)
 </script>
 
 <template>
@@ -818,11 +1230,13 @@ watch(() => purchaseForm.productCategoryId, () => {
       >
         <template #actions>
           <UBadge :color="loading ? 'warning' : 'success'" variant="subtle">
-            {{ loading ? 'Loading' : `${purchaseInvoices.length} invoices` }}
+            {{ loading ? 'Loading' : `${invoiceTotal} invoices` }}
           </UBadge>
           <UButton icon="i-lucide-plus" label="New Inward" @click="startCreate" />
         </template>
       </UiModulePageHeader>
+
+      <UiDayBookReturnButton />
 
       <div class="planner-metric-grid">
         <UCard v-for="metric in metrics" :key="metric.label" class="planner-metric-card">
@@ -839,12 +1253,12 @@ watch(() => purchaseForm.productCategoryId, () => {
 
       <UiRegisterPanel
         title="Purchase Register"
-        :description="`${filteredRows.length} of ${purchaseInvoices.length} purchase invoices`"
+        :description="`Showing ${invoicePageFrom}-${invoicePageTo} of ${invoiceTotal} purchase invoices for ${invoiceMonth}/${invoiceYear} by ${invoiceDateMode === 'entry' ? 'entry date' : 'inward date'}`"
         :loading="loading"
         :error="loadError"
         :empty="filteredRows.length === 0"
-        :empty-title="search || invoiceStatusFilter !== 'all' ? 'No matching purchase invoices' : 'No purchase invoices yet'"
-        :empty-description="search || invoiceStatusFilter !== 'all' ? 'Change the search or status filter.' : 'Create the first inward invoice to begin stock receiving.'"
+        :empty-title="search || invoiceStatusFilter !== 'all' ? 'No matching purchase invoices' : 'No purchase invoices in selected month'"
+        :empty-description="search || invoiceStatusFilter !== 'all' ? 'Change month, year, search or status filter.' : 'Change month/year or create a new inward invoice.'"
         empty-icon="i-lucide-package-plus"
         @retry="refresh"
       >
@@ -860,15 +1274,41 @@ watch(() => purchaseForm.productCategoryId, () => {
           >
             <template #filters>
               <USelect
+                v-model="invoiceDateMode"
+                :items="purchaseDateModeOptions"
+                aria-label="Purchase date basis"
+                class="min-w-36"
+              />
+              <USelect
+                v-model="invoiceMonth"
+                :items="monthOptions"
+                aria-label="Filter purchase month"
+                class="min-w-36"
+              />
+              <USelect
+                v-model="invoiceYear"
+                :items="yearOptions"
+                aria-label="Filter purchase year"
+                class="min-w-28"
+              />
+              <USelect
                 v-model="invoiceStatusFilter"
                 :items="[
                   { label: 'All statuses', value: 'all' },
-                  { label: 'Saved', value: 'saved' },
+                  { label: 'Pending', value: 'pending' },
+                  { label: 'Paid', value: 'paid' },
+                  { label: 'Partially paid', value: 'partiallyPaid' },
                   { label: 'Cancelled', value: 'cancelled' },
                   { label: 'Refunded', value: 'refunded' }
                 ]"
                 aria-label="Filter purchase status"
                 class="min-w-36"
+              />
+              <USelect
+                v-model="invoicePageSize"
+                :items="pageSizeOptions"
+                aria-label="Purchase page size"
+                class="min-w-32"
               />
             </template>
           </UiCrudToolbar>
@@ -877,7 +1317,93 @@ watch(() => purchaseForm.productCategoryId, () => {
         <div class="planner-table-wrap">
           <UTable :data="filteredRows" :columns="columns" />
         </div>
+        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
+          <span>Showing {{ invoicePageFrom }}-{{ invoicePageTo }} of {{ invoiceTotal }}</span>
+          <div class="flex items-center gap-2">
+            <UButton size="sm" variant="outline" color="neutral" icon="i-lucide-chevron-left" label="Previous" :disabled="invoicePage <= 1 || loading" @click="invoicePage--" />
+            <span>Page {{ invoicePage }} / {{ invoiceTotalPages }}</span>
+            <UButton size="sm" variant="outline" color="neutral" icon="i-lucide-chevron-right" trailing label="Next" :disabled="invoicePage >= invoiceTotalPages || loading" @click="invoicePage++" />
+          </div>
+        </div>
       </UiRegisterPanel>
+
+      <UiRegisterPanel
+        title="Vendor Payments"
+        :description="`${paymentTotal} vendor payment vouchers in selected month. View, edit or delete wrong payment entries safely.`"
+        :loading="loading"
+        :empty="vendorPayments.length === 0"
+        empty-title="No vendor payments"
+        empty-description="Create a payment from a purchase invoice balance, then manage it here."
+        empty-icon="i-lucide-wallet-cards"
+      >
+        <template #actions>
+          <div class="flex flex-wrap items-center gap-2">
+            <UInput v-model="paymentSearch" icon="i-lucide-search" placeholder="Search payment/vendor/invoice/ref" class="min-w-64" />
+            <USelect v-model="paymentMonth" :items="monthOptions" class="min-w-32" />
+            <USelect v-model="paymentYear" :items="yearOptions" class="min-w-28" />
+            <USelect v-model="paymentModeFilter" :items="paymentModeFilterOptions" class="min-w-36" />
+            <USelect v-model="paymentPageSize" :items="pageSizeOptions" class="min-w-32" />
+            <UButton color="neutral" variant="subtle" icon="i-lucide-refresh-cw" label="Refresh" :loading="loading" @click="refresh" />
+          </div>
+        </template>
+        <div class="grid gap-3 px-4 pb-4 md:grid-cols-3">
+          <div class="rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-800">
+            <span class="text-slate-500">Total payments</span>
+            <strong class="block text-lg">{{ money(paymentSummary.amount) }}</strong>
+          </div>
+          <div class="rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-800">
+            <span class="text-slate-500">Cash payments</span>
+            <strong class="block text-lg">{{ money(paymentSummary.cashAmount) }}</strong>
+          </div>
+          <div class="rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-800">
+            <span class="text-slate-500">Bank / UPI / Cheque</span>
+            <strong class="block text-lg">{{ money(paymentSummary.nonCashAmount) }}</strong>
+          </div>
+        </div>
+        <div class="planner-table-wrap">
+          <table class="native-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Vendor</th>
+                <th>Invoice</th>
+                <th>Mode</th>
+                <th>Reference</th>
+                <th>Amount</th>
+                <th>Remarks</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="payment in vendorPayments" :key="payment.id">
+                <td>{{ formatDate(payment.onDate) }}</td>
+                <td>{{ payment.vendorName || '-' }}</td>
+                <td>{{ payment.purchaseInvoiceNumber || payment.invoiceNumber || '-' }}</td>
+                <td>{{ payment.paymentMode || '-' }}</td>
+                <td>{{ payment.referenceNumber || payment.voucherNumber || '-' }}</td>
+                <td>{{ money(Number(payment.amount || 0)) }}</td>
+                <td>{{ payment.remarks || '-' }}</td>
+                <td>
+                  <div class="table-action-buttons">
+                    <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-eye" label="View" @click="viewVendorPayment(payment)" />
+                    <UButton v-if="canEditInvoice" size="xs" color="warning" variant="ghost" icon="i-lucide-pencil" label="Edit" @click="startEditVendorPayment(payment)" />
+                    <UButton v-if="canDelete" size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" label="Delete" @click="askDeleteVendorPayment(payment)" />
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
+          <span>Showing {{ paymentPageFrom }}-{{ paymentPageTo }} of {{ paymentTotal }}</span>
+          <div class="flex items-center gap-2">
+            <UButton size="sm" variant="outline" color="neutral" icon="i-lucide-chevron-left" label="Previous" :disabled="paymentPage <= 1 || loading" @click="paymentPage--" />
+            <span>Page {{ paymentPage }} / {{ paymentTotalPages }}</span>
+            <UButton size="sm" variant="outline" color="neutral" icon="i-lucide-chevron-right" trailing label="Next" :disabled="paymentPage >= paymentTotalPages || loading" @click="paymentPage++" />
+          </div>
+        </div>
+      </UiRegisterPanel>
+
 
       <UiFormSlideover
         v-model:open="formOpen"
@@ -926,7 +1452,10 @@ watch(() => purchaseForm.productCategoryId, () => {
             <UInput v-model="purchaseForm.inwardNumber" />
           </UFormField>
         </div>
-        <div class="form-two-column">
+        <div class="form-three-column">
+          <UFormField label="Inward date" required>
+            <UInput v-model="purchaseForm.inwardDate" type="date" />
+          </UFormField>
           <UFormField label="Supplier invoice date">
             <UInput v-model="purchaseForm.supplierInvoiceDate" type="date" />
           </UFormField>
@@ -1060,7 +1589,7 @@ watch(() => purchaseForm.productCategoryId, () => {
         </div>
       </UiFormSlideover>
 
-      <UModal v-model:open="receiptOpen" title="Purchase Invoice" :ui="{ content: 'max-w-3xl' }">
+      <UModal v-model:open="receiptOpen" title="Purchase Invoice" :ui="{ content: 'w-[calc(100vw-2rem)] sm:max-w-5xl xl:max-w-7xl' }">
         <template #body>
           <div v-if="selectedReceipt" class="invoice-print-toolbar no-print">
             <USelect v-model="purchasePrintFormat" :items="purchasePrintFormatOptions" />
@@ -1068,6 +1597,16 @@ watch(() => purchaseForm.productCategoryId, () => {
             <UCheckbox v-model="purchaseReprint" label="Reprint" />
             <UCheckbox v-model="purchaseSignatures" label="Signature lines" />
           </div>
+
+          <UAlert
+            v-if="selectedReceipt?.hasImportProof"
+            class="mb-3 no-print"
+            color="success"
+            variant="soft"
+            icon="i-lucide-file-check-2"
+            title="Supplier invoice proof linked"
+            description="This purchase inward was posted from a scanned supplier invoice import. Use Supplier proof below to open the original uploaded PDF/image."
+          />
 
           <div
             v-if="selectedReceipt"
@@ -1080,8 +1619,8 @@ watch(() => purchaseForm.productCategoryId, () => {
               <h2>{{ selectedReceipt.companyName }}</h2>
               <p>{{ selectedReceipt.storeName }}</p>
               <p>Purchase Invoice {{ selectedReceipt.invoiceNumber }} / Inward {{ selectedReceipt.inwardNumber }}</p>
-              <p>{{ new Date(selectedReceipt.onDate).toLocaleString() }}</p>
-              <p v-if="selectedReceipt.supplierInvoiceDate">Supplier bill date: {{ new Date(selectedReceipt.supplierInvoiceDate).toLocaleDateString() }}</p>
+              <p>Invoice date: {{ new Date(selectedReceipt.supplierInvoiceDate || selectedReceipt.onDate).toLocaleDateString() }} | Inward date: {{ new Date(selectedReceipt.inwardDate || selectedReceipt.onDate).toLocaleDateString() }}</p>
+              <p>Entry time: {{ new Date(selectedReceipt.onDate).toLocaleString() }}</p>
               <p>Due date: {{ new Date(selectedReceipt.dueDate).toLocaleDateString() }}</p>
             </header>
 
@@ -1098,6 +1637,10 @@ watch(() => purchaseForm.productCategoryId, () => {
                   <th>Unit</th>
                   <th>Qty</th>
                   <th>MRP</th>
+                  <th>Basic Rate</th>
+                  <th>Cost Price</th>
+                  <th>Disc</th>
+                  <th>Basic Value</th>
                   <th>GST</th>
                   <th>Amount</th>
                 </tr>
@@ -1109,6 +1652,10 @@ watch(() => purchaseForm.productCategoryId, () => {
                   <td>{{ item.unit || '-' }}</td>
                   <td>{{ item.quantity }}</td>
                   <td>{{ money(Number(item.mrp || 0)) }}</td>
+                  <td>{{ money(Number(item.basicRate || 0)) }}</td>
+                  <td>{{ money(Number(item.costPrice || 0)) }}</td>
+                  <td>{{ money(Number(item.discountAmount || 0)) }}<br><small v-if="Number(item.discountRate || 0) > 0">{{ Number(item.discountRate || 0).toFixed(2) }}%</small></td>
+                  <td>{{ money(Number(item.basicValue || 0)) }}</td>
                   <td>{{ money(Number(item.taxAmount || 0)) }}<br><small>CGST {{ money(Number(item.cgstAmount || 0)) }} / SGST {{ money(Number(item.sgstAmount || 0)) }} / IGST {{ money(Number(item.igstAmount || 0)) }}</small></td>
                   <td>{{ money(Number(item.amount || 0)) }}</td>
                 </tr>
@@ -1165,6 +1712,23 @@ watch(() => purchaseForm.productCategoryId, () => {
           <div class="modal-actions">
             <UButton color="neutral" variant="outline" label="Close" @click="receiptOpen = false" />
             <UButton
+              v-if="purchaseProofUrl"
+              color="neutral"
+              variant="soft"
+              icon="i-lucide-file-check-2"
+              label="Supplier proof"
+              :href="purchaseProofUrl"
+              target="_blank"
+            />
+            <UButton
+              v-if="selectedReceipt?.id"
+              color="success"
+              variant="soft"
+              icon="i-lucide-tags"
+              label="Print price tags"
+              @click="openPriceTags(selectedReceipt.id)"
+            />
+            <UButton
               color="neutral"
               variant="soft"
               icon="i-lucide-file-down"
@@ -1216,11 +1780,118 @@ watch(() => purchaseForm.productCategoryId, () => {
         </UFormField>
       </UiFormSlideover>
 
+      <UModal v-model:open="paymentViewOpen" title="Vendor Payment Details" :ui="{ content: 'sm:max-w-2xl' }">
+        <template #body>
+          <div v-if="selectedVendorPayment" class="space-y-4">
+            <div class="planner-metric-grid">
+              <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-calendar" color="primary" variant="subtle" /><div><p>Date</p><strong>{{ formatDate(selectedVendorPayment.onDate) }}</strong><span>{{ selectedVendorPayment.paymentKind || 'Payment' }}</span></div></div></UCard>
+              <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-indian-rupee" color="success" variant="subtle" /><div><p>Amount</p><strong>{{ money(Number(selectedVendorPayment.amount || 0)) }}</strong><span>{{ selectedVendorPayment.paymentMode }}</span></div></div></UCard>
+            </div>
+            <div class="receipt-totals">
+              <span>Vendor</span><strong>{{ selectedVendorPayment.vendorName || '-' }}</strong>
+              <span>Purchase invoice</span><strong>{{ selectedVendorPayment.purchaseInvoiceNumber || '-' }}</strong>
+              <span>Reference</span><strong>{{ selectedVendorPayment.referenceNumber || selectedVendorPayment.voucherNumber || '-' }}</strong>
+              <span>Voucher</span><strong>{{ selectedVendorPayment.voucherNumber || selectedVendorPayment.voucherId || '-' }}</strong>
+              <span>Payment details</span><strong>{{ selectedVendorPayment.paymentDetails || '-' }}</strong>
+              <span>Remarks</span><strong>{{ selectedVendorPayment.remarks || '-' }}</strong>
+            </div>
+          </div>
+        </template>
+        <template #footer>
+          <UButton color="neutral" variant="outline" label="Close" @click="paymentViewOpen = false" />
+          <UButton v-if="selectedVendorPayment && canEditInvoice" color="warning" icon="i-lucide-pencil" label="Edit" @click="paymentViewOpen = false; startEditVendorPayment(selectedVendorPayment)" />
+        </template>
+      </UModal>
+
+      <UiFormSlideover
+        v-model:open="paymentEditOpen"
+        title="Edit Vendor Payment"
+        description="Correct wrong amount, date, mode, reference or bank account. Vendor balance, purchase invoice status, voucher, bank and accounting rows will be reposted."
+        submit-label="Save Payment"
+        layout="modal"
+        content-class="sm:max-w-xl"
+        :loading="editingVendorPayment"
+        @submit="saveVendorPaymentEdit"
+      >
+        <UFormField label="Payment date">
+          <UInput v-model="paymentEditForm.onDate" type="date" />
+        </UFormField>
+        <UFormField label="Amount">
+          <UInput v-model="paymentEditForm.amount" min="0" step="0.01" type="number" />
+        </UFormField>
+        <UFormField label="Payment mode">
+          <USelect v-model="paymentEditForm.paymentMode" :items="paymentModeOptions" />
+        </UFormField>
+        <UFormField v-if="paymentEditRequiresBank" label="Bank account" required>
+          <USelect v-model="paymentEditForm.bankAccountId" :items="bankAccountOptions" placeholder="Select bank account" />
+        </UFormField>
+        <div class="form-two-column">
+          <UFormField label="Reference / UTR / cheque">
+            <UInput v-model="paymentEditForm.referenceNumber" />
+          </UFormField>
+          <UFormField label="Payment details">
+            <UInput v-model="paymentEditForm.paymentDetails" />
+          </UFormField>
+        </div>
+        <UFormField label="Remarks">
+          <UTextarea v-model="paymentEditForm.remarks" :rows="3" />
+        </UFormField>
+      </UiFormSlideover>
+
+      <UiConfirmDeleteModal
+        v-model:open="paymentDeleteOpen"
+        title="Delete Vendor Payment"
+        :description="`Delete vendor payment ${pendingDeletePayment?.referenceNumber || pendingDeletePayment?.voucherNumber || ''} for ${money(Number(pendingDeletePayment?.amount || 0))}? This will reverse the active voucher/accounting entry and recalculate vendor balance.`"
+        confirm-label="Delete Payment"
+        :loading="deletingVendorPayment"
+        @confirm="confirmDeleteVendorPayment"
+      />
+
+
+
+      <UiFormSlideover
+        v-model:open="editInvoiceOpen"
+        title="Edit Purchase Invoice"
+        description="Edit header details and inward date. Changing inward date also moves linked purchase stock movement dates. For wrong item rows, use Revise and replacement approval."
+        submit-label="Save Invoice"
+        layout="modal"
+        content-class="sm:max-w-2xl"
+        :loading="editingInvoice"
+        @submit="saveEditInvoice"
+      >
+        <div class="form-two-column">
+          <UFormField label="Invoice number" required>
+            <UInput v-model="editInvoiceForm.invoiceNumber" required />
+          </UFormField>
+          <UFormField label="Inward number" required>
+            <UInput v-model="editInvoiceForm.inwardNumber" required />
+          </UFormField>
+          <UFormField label="Invoice entry date">
+            <UInput v-model="editInvoiceForm.onDate" type="date" />
+          </UFormField>
+          <UFormField label="Inward date">
+            <UInput v-model="editInvoiceForm.inwardDate" type="date" />
+          </UFormField>
+          <UFormField label="Supplier invoice date">
+            <UInput v-model="editInvoiceForm.supplierInvoiceDate" type="date" />
+          </UFormField>
+          <UFormField label="Due date">
+            <UInput v-model="editInvoiceForm.dueDate" type="date" />
+          </UFormField>
+          <UFormField label="Vendor name">
+            <UInput v-model="editInvoiceForm.vendorName" />
+          </UFormField>
+          <UFormField label="Vendor GSTIN">
+            <UInput v-model="editInvoiceForm.vendorGstin" />
+          </UFormField>
+        </div>
+      </UiFormSlideover>
+
       <UiConfirmDeleteModal
         v-model:open="cancelOpen"
-        title="Cancel Purchase Invoice"
+        title="Delete / Cancel Purchase Invoice"
         :description="`Cancel purchase invoice ${pendingCancel?.invoiceNumber || ''}? Inward stock will be reversed.`"
-        confirm-label="Cancel Purchase"
+        confirm-label="Delete / Cancel Purchase"
         :loading="cancelling"
         @confirm="confirmCancel"
       />

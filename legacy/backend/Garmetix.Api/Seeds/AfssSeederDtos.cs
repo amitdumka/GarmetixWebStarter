@@ -45,7 +45,7 @@ public sealed record AfssSeedRequest(
     string ProfileCode,
     bool IncludeUsers = true,
     bool IncludeEmployees = true,
-    bool IncludeProducts = true,
+    bool IncludeProducts = false,
     bool ResetDefaultUserPasswords = false,
     bool CreateNewCompany = false);
 

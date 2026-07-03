@@ -1,0 +1,4 @@
+GarmetixWebStarter v4.12.60
+Stage 11D-145 Profit/Loss Invoice Item Reporting
+
+Adds invoice-wise and item-wise gross profit reporting using sale item revenue and linked stock-out cost evidence.

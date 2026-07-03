@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Linq.Expressions;
 using System.Text.Json;
 using Garmetix.Core.Models.Accounting;
@@ -8,6 +11,8 @@ using Garmetix.Core.Models.Base;
 using Garmetix.Core.Models.HRM;
 using Garmetix.Core.Models.GstReturns;
 using Garmetix.Core.Models.Inventory;
+using Garmetix.Core.Models.Marketing;
+using Garmetix.Core.Models.Printing;
 using Garmetix.Core.Models.Stores;
 using Garmetix.Models.DayOperations;
 using Garmetix.Infrastructure.Audit;
@@ -35,6 +40,18 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<GstReturnDraft> GstReturnDrafts => Set<GstReturnDraft>();
     public DbSet<GstReturnAuditEntry> GstReturnAuditEntries => Set<GstReturnAuditEntry>();
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
+    public DbSet<DigitalInvoice> DigitalInvoices => Set<DigitalInvoice>();
+    public DbSet<DigitalInvoiceEvent> DigitalInvoiceEvents => Set<DigitalInvoiceEvent>();
+    public DbSet<StoreReviewSetting> StoreReviewSettings => Set<StoreReviewSetting>();
+    public DbSet<CustomerFeedback> CustomerFeedback => Set<CustomerFeedback>();
+    public DbSet<WhatsAppProviderSetting> WhatsAppProviderSettings => Set<WhatsAppProviderSetting>();
+    public DbSet<WhatsAppMessageLog> WhatsAppMessageLogs => Set<WhatsAppMessageLog>();
+    public DbSet<InvoiceAdBanner> InvoiceAdBanners => Set<InvoiceAdBanner>();
+    public DbSet<DigitalBillCampaign> DigitalBillCampaigns => Set<DigitalBillCampaign>();
+    public DbSet<DigitalBillCampaignRecipient> DigitalBillCampaignRecipients => Set<DigitalBillCampaignRecipient>();
+
+    public DbSet<DotMatrixPrintSetting> DotMatrixPrintSettings => Set<DotMatrixPrintSetting>();
+    public DbSet<DotMatrixPrintQueueEntry> DotMatrixPrintQueueEntries => Set<DotMatrixPrintQueueEntry>();
 
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Stock> Stocks => Set<Stock>();
@@ -59,6 +76,10 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<PosHeldBill> PosHeldBills => Set<PosHeldBill>();
     public DbSet<Invoice> SalesInvoices => Set<Invoice>();
     public DbSet<PurchaseInvoice> PurchaseInvoices => Set<PurchaseInvoice>();
+    public DbSet<PurchaseInvoiceImportBatch> PurchaseInvoiceImportBatches => Set<PurchaseInvoiceImportBatch>();
+    public DbSet<PurchaseInvoiceImportLine> PurchaseInvoiceImportLines => Set<PurchaseInvoiceImportLine>();
+    public DbSet<PurchaseInvoiceImportFile> PurchaseInvoiceImportFiles => Set<PurchaseInvoiceImportFile>();
+    public DbSet<PurchaseInvoiceImportVendorProfile> PurchaseInvoiceImportVendorProfiles => Set<PurchaseInvoiceImportVendorProfile>();
     public DbSet<PurchaseReturn> PurchaseReturns => Set<PurchaseReturn>();
     public DbSet<PurchaseReturnItem> PurchaseReturnItems => Set<PurchaseReturnItem>();
     public DbSet<PurchaseReturnItcReversal> PurchaseReturnItcReversals => Set<PurchaseReturnItcReversal>();
@@ -119,6 +140,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<AttendancePunch> AttendancePunches => Set<AttendancePunch>();
     public DbSet<AttendanceShift> AttendanceShifts => Set<AttendanceShift>();
     public DbSet<AttendancePolicy> AttendancePolicies => Set<AttendancePolicy>();
+    public DbSet<EmployeeAttendanceShiftRule> EmployeeAttendanceShiftRules => Set<EmployeeAttendanceShiftRule>();
     public DbSet<EmployeeBiometricEnrollment> EmployeeBiometricEnrollments => Set<EmployeeBiometricEnrollment>();
     public DbSet<AttendanceRegularizationRequest> AttendanceRegularizationRequests => Set<AttendanceRegularizationRequest>();
     public DbSet<AttendanceApproval> AttendanceApprovals => Set<AttendanceApproval>();
@@ -145,6 +167,32 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<GstReturnDraft>().HasIndex(draft => new { draft.CompanyId, draft.Form, draft.ReturnPeriod, draft.Gstin });
         modelBuilder.Entity<GstReturnDraft>().HasIndex(draft => new { draft.CompanyId, draft.Status, draft.UpdatedAt });
         modelBuilder.Entity<GstReturnAuditEntry>().ToTable("GstReturnAuditEntries");
+        modelBuilder.Entity<DigitalInvoice>().ToTable("DigitalInvoices");
+        modelBuilder.Entity<DigitalInvoice>().HasIndex(item => item.PublicToken).IsUnique();
+        modelBuilder.Entity<DigitalInvoice>().HasIndex(item => new { item.CompanyId, item.StoreId, item.InvoiceDate });
+        modelBuilder.Entity<DigitalInvoice>().HasIndex(item => new { item.CompanyId, item.InvoiceId, item.InvoiceType });
+        modelBuilder.Entity<DigitalInvoiceEvent>().ToTable("DigitalInvoiceEvents");
+        modelBuilder.Entity<DigitalInvoiceEvent>().HasIndex(item => new { item.CompanyId, item.DigitalInvoiceId, item.EventAt });
+        modelBuilder.Entity<DigitalInvoiceEvent>().HasIndex(item => new { item.CompanyId, item.StoreId, item.EventType, item.EventAt });
+        modelBuilder.Entity<StoreReviewSetting>().ToTable("StoreReviewSettings");
+        modelBuilder.Entity<StoreReviewSetting>().HasIndex(item => new { item.CompanyId, item.StoreId }).IsUnique(false);
+        modelBuilder.Entity<CustomerFeedback>().ToTable("CustomerFeedback");
+        modelBuilder.Entity<CustomerFeedback>().HasIndex(item => new { item.CompanyId, item.StoreId, item.SubmittedAt });
+        modelBuilder.Entity<CustomerFeedback>().HasIndex(item => new { item.CompanyId, item.DigitalInvoiceId });
+        modelBuilder.Entity<WhatsAppProviderSetting>().ToTable("WhatsAppProviderSettings");
+        modelBuilder.Entity<WhatsAppProviderSetting>().HasIndex(item => new { item.CompanyId, item.StoreId }).IsUnique(false);
+        modelBuilder.Entity<WhatsAppProviderSetting>().HasIndex(item => new { item.CompanyId, item.StoreId, item.IsEnabled, item.AutoSendDigitalBills });
+        modelBuilder.Entity<WhatsAppMessageLog>().ToTable("WhatsAppMessageLogs");
+        modelBuilder.Entity<WhatsAppMessageLog>().HasIndex(item => new { item.CompanyId, item.StoreId, item.Status, item.CreatedAt });
+        modelBuilder.Entity<WhatsAppMessageLog>().HasIndex(item => new { item.CompanyId, item.DigitalInvoiceId });
+        modelBuilder.Entity<InvoiceAdBanner>().ToTable("InvoiceAdBanners");
+        modelBuilder.Entity<InvoiceAdBanner>().HasIndex(item => new { item.CompanyId, item.StoreId, item.Position, item.IsActive });
+        modelBuilder.Entity<DigitalBillCampaign>().ToTable("DigitalBillCampaigns");
+        modelBuilder.Entity<DigitalBillCampaign>().HasIndex(item => new { item.CompanyId, item.StoreId, item.Status, item.CreatedAt });
+        modelBuilder.Entity<DigitalBillCampaign>().HasIndex(item => new { item.CompanyId, item.Segment, item.FromDate, item.ToDate });
+        modelBuilder.Entity<DigitalBillCampaignRecipient>().ToTable("DigitalBillCampaignRecipients");
+        modelBuilder.Entity<DigitalBillCampaignRecipient>().HasIndex(item => new { item.CompanyId, item.CampaignId, item.Status });
+        modelBuilder.Entity<DigitalBillCampaignRecipient>().HasIndex(item => new { item.CompanyId, item.CustomerMobile, item.CreatedAt });
         modelBuilder.Entity<GstReturnAuditEntry>().HasIndex(entry => new { entry.CompanyId, entry.DraftId, entry.CreatedAt });
         modelBuilder.Entity<GstReturnAuditEntry>().HasIndex(entry => new { entry.CompanyId, entry.Form, entry.ReturnPeriod });
         modelBuilder.Entity<AuditLogEntry>().ToTable("AuditLogEntries");
@@ -155,6 +203,13 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<PosHeldBill>().ToTable("PosHeldBills");
         modelBuilder.Entity<PosHeldBill>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.Status, item.HeldAt });
         modelBuilder.Entity<PosHeldBill>().HasIndex(item => new { item.CompanyId, item.ClientHeldBillId });
+        modelBuilder.Entity<DotMatrixPrintSetting>().ToTable("DotMatrixPrintSettings");
+        modelBuilder.Entity<DotMatrixPrintSetting>().HasIndex(item => new { item.CompanyId, item.StoreId }).IsUnique(false);
+        modelBuilder.Entity<DotMatrixPrintQueueEntry>().ToTable("DotMatrixPrintQueueEntries");
+        modelBuilder.Entity<DotMatrixPrintQueueEntry>().HasIndex(item => new { item.CompanyId, item.StoreId, item.BusinessDate, item.SequenceNo });
+        modelBuilder.Entity<DotMatrixPrintQueueEntry>().HasIndex(item => new { item.Status, item.CreatedAt });
+        modelBuilder.Entity<DotMatrixPrintQueueEntry>().HasIndex(item => new { item.SourceType, item.SourceId, item.ActionType });
+        modelBuilder.Entity<DotMatrixPrintQueueEntry>().HasIndex(item => item.DeduplicationKey);
         modelBuilder.Entity<VoucherBase>().UseTpcMappingStrategy();
         modelBuilder.Entity<Voucher>().ToTable("Vouchers");
         modelBuilder.Entity<CashVoucher>().ToTable("CashVouchers");
@@ -208,6 +263,26 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<StockOperationItem>().HasIndex(item => new { item.CompanyId, item.StockOperationDocumentId });
         modelBuilder.Entity<StockOperationItem>().HasIndex(item => new { item.CompanyId, item.ProductId, item.StockId });
         modelBuilder.Entity<Stock>().HasIndex(stock => new { stock.CompanyId, stock.StoreId, stock.IsOFB });
+        modelBuilder.Entity<Stock>().HasIndex(stock => new { stock.CompanyId, stock.StoreId, stock.ProductId, stock.IsOFB });
+        modelBuilder.Entity<Stock>().HasIndex(stock => new { stock.CompanyId, stock.StoreId, stock.Barcode });
+        modelBuilder.Entity<PurchaseInvoiceImportBatch>().ToTable("PurchaseInvoiceImportBatches");
+        modelBuilder.Entity<PurchaseInvoiceImportBatch>().HasIndex(item => new { item.CompanyId, item.StoreId, item.Status, item.CreatedAt });
+        modelBuilder.Entity<PurchaseInvoiceImportBatch>().HasIndex(item => new { item.CompanyId, item.VendorGstinFinal, item.SupplierInvoiceNumber });
+        modelBuilder.Entity<PurchaseInvoiceImportBatch>().HasIndex(item => item.Sha256Hash);
+        modelBuilder.Entity<PurchaseInvoiceImportBatch>().HasIndex(item => item.PostedPurchaseInvoiceId);
+        modelBuilder.Entity<PurchaseInvoiceImportLine>().ToTable("PurchaseInvoiceImportLines");
+        modelBuilder.Entity<PurchaseInvoiceImportLine>().HasIndex(item => new { item.CompanyId, item.BatchId, item.LineNumber });
+        modelBuilder.Entity<PurchaseInvoiceImportLine>().HasIndex(item => new { item.CompanyId, item.ProductId });
+        modelBuilder.Entity<PurchaseInvoiceImportFile>().ToTable("PurchaseInvoiceImportFiles");
+        modelBuilder.Entity<PurchaseInvoiceImportFile>().HasIndex(item => new { item.CompanyId, item.BatchId, item.FileKind });
+        modelBuilder.Entity<PurchaseInvoiceImportFile>().HasIndex(item => item.Sha256Hash);
+        modelBuilder.Entity<PurchaseInvoiceImportVendorProfile>().ToTable("PurchaseInvoiceImportVendorProfiles");
+        modelBuilder.Entity<PurchaseInvoiceImportVendorProfile>().HasIndex(item => new { item.CompanyId, item.VendorGstin });
+        modelBuilder.Entity<PurchaseInvoiceImportVendorProfile>().HasIndex(item => new { item.CompanyId, item.VendorId });
+        modelBuilder.Entity<PurchaseInvoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.StoreId, invoice.OnDate });
+        modelBuilder.Entity<PurchaseInvoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.StoreId, invoice.InwardDate });
+        modelBuilder.Entity<PurchaseInvoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.StoreId, invoice.VendorId, invoice.OnDate });
+        modelBuilder.Entity<InvoiceItem>().HasIndex(item => new { item.CompanyId, item.InvoiceId });
         modelBuilder.Entity<NonGstGoodsDocument>().HasIndex(document => new { document.CompanyId, document.StoreId, document.DocumentType, document.OnDate });
         modelBuilder.Entity<NonGstGoodsDocument>().HasIndex(document => new { document.CompanyId, document.DocumentNumber }).IsUnique(false);
         modelBuilder.Entity<NonGstGoodsItem>().HasIndex(item => new { item.CompanyId, item.DocumentId });
@@ -294,7 +369,11 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<AttendancePunch>().HasIndex(item => new { item.CompanyId, item.StoreId, item.DeviceId, item.PunchTimeUtc });
         modelBuilder.Entity<AttendancePunch>().HasIndex(item => new { item.CompanyId, item.ClientPunchId });
         modelBuilder.Entity<AttendanceShift>().HasIndex(item => new { item.CompanyId, item.StoreId, item.Active });
+        modelBuilder.Entity<EmployeeAttendanceShiftRule>().HasIndex(item => new { item.CompanyId, item.StoreId, item.Active, item.Priority });
+        modelBuilder.Entity<EmployeeAttendanceShiftRule>().HasIndex(item => new { item.CompanyId, item.StoreId, item.EmployeeId, item.Active });
         modelBuilder.Entity<AttendancePolicy>().HasIndex(item => new { item.CompanyId, item.StoreId, item.Active });
+        modelBuilder.Entity<Attendance>().HasIndex(item => new { item.CompanyId, item.StoreId, item.OnDate });
+        modelBuilder.Entity<Attendance>().HasIndex(item => new { item.CompanyId, item.StoreId, item.EmployeeId, item.OnDate });
         modelBuilder.Entity<EmployeeBiometricEnrollment>().HasIndex(item => new { item.CompanyId, item.StoreId, item.EmployeeId });
         modelBuilder.Entity<AttendanceRegularizationRequest>().HasIndex(item => new { item.CompanyId, item.StoreId, item.EmployeeId, item.Status });
         modelBuilder.Entity<AttendanceApproval>().HasIndex(item => new { item.CompanyId, item.StoreId, item.RequestId });
@@ -353,6 +432,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         await ValidateFinancialYearLocksAsync(cancellationToken);
         ValidateChangedJournalLines();
         AddAuditLogEntries();
+        AddDotMatrixPrintQueueEntries();
         return await base.SaveChangesAsync(cancellationToken);
     }
 
@@ -362,6 +442,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         ValidateFinancialYearLocks();
         ValidateChangedJournalLines();
         AddAuditLogEntries();
+        AddDotMatrixPrintQueueEntries();
         return base.SaveChanges();
     }
 
@@ -594,6 +675,586 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         }
     }
 
+
+
+    private void AddDotMatrixPrintQueueEntries()
+    {
+        var queueEntries = BuildDotMatrixPrintQueueEntries().ToList();
+        if (queueEntries.Count == 0)
+        {
+            return;
+        }
+
+        DotMatrixPrintQueueEntries.AddRange(queueEntries);
+    }
+
+    private IEnumerable<DotMatrixPrintQueueEntry> BuildDotMatrixPrintQueueEntries()
+    {
+        var nowUtc = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
+        var nowIst = ConvertUtcToIst(nowUtc);
+        var candidates = ChangeTracker.Entries()
+            .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .Where(entry => entry.Entity is not AuditLogEntry)
+            .Where(entry => entry.Entity is not DotMatrixPrintQueueEntry)
+            .Where(entry => entry.Entity is not DotMatrixPrintSetting)
+            .Where(entry => entry.Metadata.ClrType.Namespace?.StartsWith("Microsoft.", StringComparison.Ordinal) != true)
+            .ToList();
+
+        if (candidates.Count == 0)
+        {
+            yield break;
+        }
+
+        var storeIds = candidates
+            .Select(ResolveDotMatrixStoreId)
+            .Where(storeId => storeId.HasValue && storeId.Value != Guid.Empty)
+            .Select(storeId => storeId!.Value)
+            .Distinct()
+            .ToArray();
+        var storeContexts = ResolveDotMatrixStorePrintContexts(storeIds);
+        if (storeContexts.Count == 0)
+        {
+            yield break;
+        }
+
+        var sequenceNo = nowUtc.Ticks;
+        var queuedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in candidates)
+        {
+            if (!TryBuildDotMatrixPrintLine(entry, nowUtc, nowIst, sequenceNo++, storeContexts, out var queueEntry))
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(queueEntry!.DeduplicationKey))
+            {
+                if (!queuedKeys.Add(queueEntry.DeduplicationKey) || DotMatrixDeduplicationKeyExists(queueEntry.DeduplicationKey))
+                {
+                    continue;
+                }
+            }
+
+            yield return queueEntry!;
+        }
+    }
+
+    private IReadOnlyDictionary<Guid, DotMatrixStorePrintContext> ResolveDotMatrixStorePrintContexts(IReadOnlyCollection<Guid> storeIds)
+    {
+        if (storeIds.Count == 0)
+        {
+            return new Dictionary<Guid, DotMatrixStorePrintContext>();
+        }
+
+        try
+        {
+            var stores = Stores.AsNoTracking()
+                .Where(store => storeIds.Contains(store.Id))
+                .Select(store => new { store.Id, store.CompanyId, store.StoreGroupId, store.Name, store.StoreCode })
+                .ToList()
+                .ToDictionary(store => store.Id);
+            var settings = DotMatrixPrintSettings.AsNoTracking()
+                .Where(setting => storeIds.Contains(setting.StoreId) && !setting.Deleted)
+                .Select(setting => new
+                {
+                    setting.StoreId,
+                    setting.Enabled,
+                    setting.PrinterName,
+                    setting.LineWidth,
+                    setting.PrintTransactions,
+                    setting.PrintEditsAndDeletes,
+                    setting.PrintDayOpeningClosing,
+                    setting.PrintAttendanceInDaySummary,
+                    setting.PrintBankUpiSummary,
+                    setting.TimeZoneId
+                })
+                .ToList()
+                .GroupBy(setting => setting.StoreId)
+                .ToDictionary(group => group.Key, group => group.OrderByDescending(setting => setting.Enabled).First());
+
+            var result = new Dictionary<Guid, DotMatrixStorePrintContext>();
+            foreach (var storeId in storeIds)
+            {
+                if (!stores.TryGetValue(storeId, out var store))
+                {
+                    continue;
+                }
+
+                settings.TryGetValue(storeId, out var setting);
+                var storeCode = FirstNonBlank(store.StoreCode, store.Name, store.Id.ToString("N")[..6]).Trim();
+                result[storeId] = new DotMatrixStorePrintContext(
+                    storeId,
+                    store.CompanyId,
+                    store.StoreGroupId,
+                    TruncatePlain(storeCode, 12),
+                    TruncatePlain(FirstNonBlank(store.Name, storeCode), 80),
+                    FirstNonBlank(setting?.PrinterName, "EPSON_LX810"),
+                    Math.Clamp(setting?.LineWidth ?? 136, 80, 136),
+                    setting?.Enabled ?? false,
+                    setting?.PrintTransactions ?? true,
+                    setting?.PrintEditsAndDeletes ?? true,
+                    setting?.PrintDayOpeningClosing ?? true,
+                    setting?.PrintAttendanceInDaySummary ?? true,
+                    setting?.PrintBankUpiSummary ?? true,
+                    FirstNonBlank(setting?.TimeZoneId, "Asia/Kolkata"));
+            }
+
+            return result;
+        }
+        catch
+        {
+            // DotMatrix tables may not exist yet during first schema repair or migration bootstrap.
+            // In that case, do not block the business transaction; simply do not queue hardware prints.
+            return new Dictionary<Guid, DotMatrixStorePrintContext>();
+        }
+    }
+
+    private bool DotMatrixDeduplicationKeyExists(string deduplicationKey)
+    {
+        try
+        {
+            return DotMatrixPrintQueueEntries.AsNoTracking().Any(item => item.DeduplicationKey == deduplicationKey && !item.Deleted);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private bool TryBuildDotMatrixPrintLine(EntityEntry entry, DateTime nowUtc, DateTime nowIst, long sequenceNo, IReadOnlyDictionary<Guid, DotMatrixStorePrintContext> storeContexts, out DotMatrixPrintQueueEntry? queueEntry)
+    {
+        queueEntry = null;
+        var entityName = entry.Metadata.ClrType.Name;
+        var action = ResolveDotMatrixAction(entry);
+        if (action is null)
+        {
+            return false;
+        }
+
+        var sourceType = DotMatrixSourceType(entityName);
+        if (sourceType is null)
+        {
+            return false;
+        }
+
+        if (action == "Edit" && !HasMeaningfulDotMatrixChanges(entry))
+        {
+            return false;
+        }
+
+        if (entityName == nameof(CashDetail))
+        {
+            var source = ReadStringProperty(entry, nameof(CashDetail.CreatedBy));
+            if (source is "DayOpening" or "DayClosing" or "StoreHoliday")
+            {
+                return false;
+            }
+        }
+
+        var storeId = ResolveDotMatrixStoreId(entry) ?? Guid.Empty;
+        if (storeId == Guid.Empty || !storeContexts.TryGetValue(storeId, out var storeContext) || !storeContext.Enabled)
+        {
+            return false;
+        }
+
+        var eventType = action == "Create" ? "Transaction" : "AuditMutation";
+        if (!IsDotMatrixEventEnabled(eventType, storeContext))
+        {
+            return false;
+        }
+
+        var entityId = ReadEntityId(entry);
+        if (!entityId.HasValue)
+        {
+            return false;
+        }
+
+        var businessDate = (ReadDateProperty(entry, "OnDate", "InwardDate", "TransactionDate", "LocalPunchTime") ?? nowIst).Date;
+        var printTime = nowIst;
+        var sourceNumber = ResolveDotMatrixSourceNumber(entry, entityName, entityId.Value);
+        var party = ResolveDotMatrixParty(entry, entityName);
+        var mode = ResolveDotMatrixPaymentMode(entry, entityName);
+        var amount = ReadDecimalProperty(entry, "BillAmount", "Amount", "ClosingBalance", "OpeningBalance") ?? 0m;
+        var particulars = BuildDotMatrixParticulars(entry, entityName, sourceNumber, party);
+        var changes = BuildDotMatrixChangeSummary(entry);
+        var reason = ResolveAuditReason(entry);
+        var lineWidth = storeContext.LineWidth;
+        var userName = FirstNonBlank(auditActorContext?.UserName, ReadStringProperty(entry, nameof(CompanyBase.CreatedBy)), "System");
+        var header = action switch
+        {
+            "Edit" => FullLine(lineWidth, $"EDITED RECORD BELOW - {FormatIst(nowIst)} - User: {userName}"),
+            "Delete" => FullLine(lineWidth, $"DELETED / CANCELLED RECORD BELOW - {FormatIst(nowIst)} - User: {userName}"),
+            _ => string.Empty
+        };
+        var reasonLine = string.IsNullOrWhiteSpace(reason) || action == "Create" ? string.Empty : FullLine(lineWidth, $"Reason/Remark: {reason}");
+        var line = FixedTransactionLine(lineWidth, printTime, storeContext.StoreCode, sourceType, action, sourceNumber, particulars, amount, mode);
+        var printable = string.IsNullOrEmpty(header)
+            ? line
+            : string.Join(Environment.NewLine, new[] { Repeat('=', lineWidth), header, reasonLine, line, changes, Repeat('-', lineWidth) }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        var deduplicationKey = BuildDotMatrixDeduplicationKey(sourceType, entityId.Value, action, entry);
+
+        queueEntry = new DotMatrixPrintQueueEntry
+        {
+            Id = Guid.NewGuid(),
+            CreatedAt = nowUtc,
+            UpdatedAt = nowUtc,
+            CompanyId = ReadGuidProperty(entry, nameof(CompanyBase.CompanyId)) ?? storeContext.CompanyId,
+            StoreGroupId = ReadGuidProperty(entry, nameof(StoreBase.StoreGroupId)) ?? storeContext.StoreGroupId,
+            StoreId = storeId,
+            BusinessDate = businessDate,
+            OperationTimeUtc = nowUtc,
+            EventType = eventType,
+            ActionType = action,
+            SourceType = sourceType,
+            SourceId = entityId.Value,
+            SourceNumber = sourceNumber,
+            PartyName = TruncatePlain(party, 120),
+            PaymentMode = TruncatePlain(mode, 120),
+            Amount = Math.Round(amount, 2),
+            SequenceNo = sequenceNo,
+            LineWidth = lineWidth,
+            PrinterName = storeContext.PrinterName,
+            Status = "Pending",
+            PrintableText = printable.TrimEnd() + Environment.NewLine,
+            CreatedBy = userName,
+            DeduplicationKey = deduplicationKey
+        };
+        return true;
+    }
+
+    private static Guid? ResolveDotMatrixStoreId(EntityEntry entry)
+        => ReadGuidProperty(entry, nameof(StoreBase.StoreId)) ?? ReadGuidProperty(entry, nameof(Invoice.StoreId));
+
+    private static bool IsDotMatrixEventEnabled(string eventType, DotMatrixStorePrintContext storeContext)
+        => eventType switch
+        {
+            "Transaction" => storeContext.PrintTransactions,
+            "AuditMutation" => storeContext.PrintEditsAndDeletes,
+            "DayOpening" or "DayClosing" => storeContext.PrintDayOpeningClosing,
+            _ => true
+        };
+
+    private static string? ResolveDotMatrixAction(EntityEntry entry)
+    {
+        if (entry.State == EntityState.Added)
+        {
+            return "Create";
+        }
+
+        if (entry.State == EntityState.Deleted)
+        {
+            return "Delete";
+        }
+
+        if (entry.State == EntityState.Modified)
+        {
+            var deletedProperty = entry.Properties.FirstOrDefault(property => property.Metadata.Name == nameof(BaseEntity.Deleted));
+            if (deletedProperty is not null
+                && deletedProperty.IsModified
+                && deletedProperty.CurrentValue is bool currentDeleted
+                && currentDeleted)
+            {
+                return "Delete";
+            }
+
+            return "Edit";
+        }
+
+        return null;
+    }
+
+    private static string? DotMatrixSourceType(string entityName) => entityName switch
+    {
+        nameof(Invoice) => "SALE",
+        nameof(PurchaseInvoice) => "PURCHASE",
+        nameof(Voucher) => "VOUCHER",
+        nameof(CashVoucher) => "CASH VOUCHER",
+        nameof(InvoicePayment) => "CUSTOMER RECEIPT",
+        nameof(PurchasePayment) => "VENDOR PAYMENT",
+        nameof(CustomerAdvanceReceipt) => "CUSTOMER ADVANCE",
+        nameof(CommercialNote) => "COMMERCIAL NOTE",
+        nameof(BankCashTranscation) => "BANK/CASH",
+        nameof(CashDetail) => "CASH DETAIL",
+        nameof(AttendancePunch) => "ATTENDANCE PUNCH",
+        _ => null
+    };
+
+    private static bool HasMeaningfulDotMatrixChanges(EntityEntry entry)
+        => entry.Properties.Any(property => property.IsModified && !IsDotMatrixIgnoredProperty(property.Metadata.Name));
+
+    private static bool IsDotMatrixIgnoredProperty(string propertyName)
+        => propertyName is nameof(BaseEntity.UpdatedAt) or nameof(BaseEntity.Synced) or "LastSeenAtUtc";
+
+    private string BuildDotMatrixParticulars(EntityEntry entry, string entityName, string sourceNumber, string party)
+    {
+        return entityName switch
+        {
+            nameof(Invoice) => $"Inv {sourceNumber} Qty:{ReadDecimalProperty(entry, nameof(BaseInvoice.Quantity)) ?? 0:0.##} {party} Mob:{ReadStringProperty(entry, nameof(Invoice.CustomerMobileNumber)) ?? "-"}",
+            nameof(PurchaseInvoice) => $"Inw {sourceNumber} SupInv:{ReadStringProperty(entry, nameof(BaseInvoice.InvoiceNumber)) ?? "-"} Vendor:{party} Qty:{ReadDecimalProperty(entry, nameof(BaseInvoice.Quantity)) ?? 0:0.##}",
+            nameof(Voucher) => $"{ReadStringProperty(entry, nameof(Voucher.VoucherType)) ?? "Voucher"} {party} {ReadStringProperty(entry, nameof(Voucher.Particulars)) ?? string.Empty}",
+            nameof(CashVoucher) => $"{ReadStringProperty(entry, nameof(CashVoucher.VoucherType)) ?? "Cash"} {party} {ReadStringProperty(entry, nameof(CashVoucher.Particulars)) ?? string.Empty}",
+            nameof(InvoicePayment) => BuildInvoicePaymentParticulars(entry),
+            nameof(PurchasePayment) => BuildPurchasePaymentParticulars(entry),
+            nameof(CustomerAdvanceReceipt) => $"Advance receipt {sourceNumber} {party}",
+            nameof(CommercialNote) => $"{ReadStringProperty(entry, "NoteType") ?? "Note"} {sourceNumber} {party} {ReadStringProperty(entry, "Reason") ?? string.Empty}",
+            nameof(BankCashTranscation) => $"{ReadStringProperty(entry, "TransactionType") ?? "Bank/Cash"} {ReadStringProperty(entry, "Remarks") ?? string.Empty}",
+            nameof(CashDetail) => $"Manual cash detail {ReadStringProperty(entry, nameof(CompanyBase.CreatedBy)) ?? string.Empty}",
+            nameof(AttendancePunch) => BuildAttendancePunchParticulars(entry),
+            _ => party
+        };
+    }
+
+    private string BuildInvoicePaymentParticulars(EntityEntry entry)
+    {
+        var invoiceId = ReadGuidProperty(entry, nameof(InvoicePayment.InvoiceId));
+        var invoice = invoiceId.HasValue ? FindInvoiceSnapshot(invoiceId.Value) : null;
+        var number = FirstNonBlank(invoice?.InvoiceNumber, ShortGuid(invoiceId), "-");
+        var customer = FirstNonBlank(invoice?.CustomerName, invoice?.CustomerMobileNumber, "Customer");
+        return $"Receipt for Inv:{number} {customer} Ref:{ReadStringProperty(entry, nameof(InvoicePayment.ReferenceNumber)) ?? "-"}";
+    }
+
+    private string BuildPurchasePaymentParticulars(EntityEntry entry)
+    {
+        var purchaseId = ReadGuidProperty(entry, nameof(PurchasePayment.PurchaseInvoiceId));
+        var purchase = purchaseId.HasValue ? FindPurchaseInvoiceSnapshot(purchaseId.Value) : null;
+        var vendorId = ReadGuidProperty(entry, nameof(PurchasePayment.VendorId));
+        var vendor = FirstNonBlank(purchase?.VendorName, vendorId.HasValue ? FindVendorName(vendorId.Value) : null, "Vendor");
+        var number = FirstNonBlank(purchase?.InwardNumber, purchase?.InvoiceNumber, ShortGuid(purchaseId), "-");
+        return $"Vendor payment Inw:{number} {vendor} Ref:{ReadStringProperty(entry, nameof(PurchasePayment.ReferenceNumber)) ?? ReadStringProperty(entry, nameof(PurchasePayment.Remarks)) ?? "-"}";
+    }
+
+    private string BuildAttendancePunchParticulars(EntityEntry entry)
+    {
+        var employeeId = ReadGuidProperty(entry, nameof(AttendancePunch.EmployeeId));
+        var employeeName = employeeId.HasValue ? FindEmployeeName(employeeId.Value) : null;
+        var punchType = ReadStringProperty(entry, nameof(AttendancePunch.PunchType)) ?? "Punch";
+        var punchTime = ReadDateProperty(entry, nameof(AttendancePunch.LocalPunchTime));
+        return $"Employee:{FirstNonBlank(employeeName, ShortGuid(employeeId), "-")} {punchType} {punchTime?.ToString("hh:mm tt", CultureInfo.InvariantCulture) ?? string.Empty}";
+    }
+
+    private string ResolveDotMatrixSourceNumber(EntityEntry entry, string entityName, Guid entityId)
+    {
+        if (entityName == nameof(PurchaseInvoice))
+        {
+            return FirstNonBlank(ReadStringProperty(entry, nameof(PurchaseInvoice.InwardNumber)), ReadStringProperty(entry, nameof(BaseInvoice.InvoiceNumber)), entityId.ToString("N")[..10]);
+        }
+
+        if (entityName == nameof(InvoicePayment))
+        {
+            return FirstNonBlank(ReadStringProperty(entry, nameof(InvoicePayment.ReferenceNumber)), FindInvoiceSnapshot(ReadGuidProperty(entry, nameof(InvoicePayment.InvoiceId)) ?? Guid.Empty)?.InvoiceNumber, entityId.ToString("N")[..10]);
+        }
+
+        if (entityName == nameof(PurchasePayment))
+        {
+            return FirstNonBlank(ReadStringProperty(entry, nameof(PurchasePayment.ReferenceNumber)), FindPurchaseInvoiceSnapshot(ReadGuidProperty(entry, nameof(PurchasePayment.PurchaseInvoiceId)) ?? Guid.Empty)?.InwardNumber, entityId.ToString("N")[..10]);
+        }
+
+        return FirstNonBlank(
+            ReadStringProperty(entry, nameof(BaseInvoice.InvoiceNumber)),
+            ReadStringProperty(entry, nameof(PurchaseInvoice.InwardNumber)),
+            ReadStringProperty(entry, nameof(Voucher.VoucherNumber)),
+            ReadStringProperty(entry, "ReceiptNumber"),
+            ReadStringProperty(entry, "NoteNumber"),
+            ReadStringProperty(entry, nameof(InvoicePayment.ReferenceNumber)),
+            entityId.ToString("N")[..10]);
+    }
+
+    private string ResolveDotMatrixParty(EntityEntry entry, string entityName)
+    {
+        if (entityName == nameof(InvoicePayment))
+        {
+            var invoice = FindInvoiceSnapshot(ReadGuidProperty(entry, nameof(InvoicePayment.InvoiceId)) ?? Guid.Empty);
+            return FirstNonBlank(invoice?.CustomerName, invoice?.CustomerMobileNumber, "Customer");
+        }
+
+        if (entityName == nameof(PurchasePayment))
+        {
+            var purchase = FindPurchaseInvoiceSnapshot(ReadGuidProperty(entry, nameof(PurchasePayment.PurchaseInvoiceId)) ?? Guid.Empty);
+            var vendorId = ReadGuidProperty(entry, nameof(PurchasePayment.VendorId));
+            return FirstNonBlank(purchase?.VendorName, vendorId.HasValue ? FindVendorName(vendorId.Value) : null, "Vendor");
+        }
+
+        return FirstNonBlank(
+            ReadStringProperty(entry, nameof(Invoice.CustomerName)),
+            ReadStringProperty(entry, nameof(PurchaseInvoice.VendorName)),
+            ReadStringProperty(entry, nameof(Voucher.PartyName)),
+            ReadStringProperty(entry, nameof(Invoice.CustomerMobileNumber)),
+            ReadStringProperty(entry, nameof(Voucher.Remarks)),
+            "-");
+    }
+
+    private string ResolveDotMatrixPaymentMode(EntityEntry entry, string entityName)
+    {
+        var mode = FirstNonBlank(ReadStringProperty(entry, nameof(Invoice.PaymentMode)), entityName == nameof(CashVoucher) ? "Cash" : null, "-");
+        var bankAccountId = ReadGuidProperty(entry, nameof(InvoicePayment.BankAccountId)) ?? ReadGuidProperty(entry, nameof(PurchasePayment.BankAccountId)) ?? ReadGuidProperty(entry, "AccountNumber");
+        var bank = bankAccountId.HasValue ? FindBankAccountLabel(bankAccountId.Value) : null;
+        return string.IsNullOrWhiteSpace(bank) ? mode : $"{mode}/{bank}";
+    }
+
+    private DotMatrixInvoiceSnapshot? FindInvoiceSnapshot(Guid id)
+    {
+        if (id == Guid.Empty) return null;
+        var local = ChangeTracker.Entries<Invoice>().FirstOrDefault(entry => entry.Entity.Id == id)?.Entity;
+        if (local is not null)
+        {
+            return new DotMatrixInvoiceSnapshot(local.InvoiceNumber, local.CustomerName, local.CustomerMobileNumber);
+        }
+
+        return SalesInvoices.AsNoTracking()
+            .Where(invoice => invoice.Id == id)
+            .Select(invoice => new DotMatrixInvoiceSnapshot(invoice.InvoiceNumber, invoice.CustomerName, invoice.CustomerMobileNumber))
+            .FirstOrDefault();
+    }
+
+    private DotMatrixPurchaseInvoiceSnapshot? FindPurchaseInvoiceSnapshot(Guid id)
+    {
+        if (id == Guid.Empty) return null;
+        var local = ChangeTracker.Entries<PurchaseInvoice>().FirstOrDefault(entry => entry.Entity.Id == id)?.Entity;
+        if (local is not null)
+        {
+            return new DotMatrixPurchaseInvoiceSnapshot(local.InwardNumber, local.InvoiceNumber, local.VendorName);
+        }
+
+        return PurchaseInvoices.AsNoTracking()
+            .Where(invoice => invoice.Id == id)
+            .Select(invoice => new DotMatrixPurchaseInvoiceSnapshot(invoice.InwardNumber, invoice.InvoiceNumber, invoice.VendorName))
+            .FirstOrDefault();
+    }
+
+    private string? FindVendorName(Guid id)
+    {
+        if (id == Guid.Empty) return null;
+        var local = ChangeTracker.Entries<Vendor>().FirstOrDefault(entry => entry.Entity.Id == id)?.Entity;
+        if (local is not null) return local.Name;
+        return Vendors.AsNoTracking().Where(vendor => vendor.Id == id).Select(vendor => vendor.Name).FirstOrDefault();
+    }
+
+    private string? FindEmployeeName(Guid id)
+    {
+        if (id == Guid.Empty) return null;
+        var local = ChangeTracker.Entries<Employee>().FirstOrDefault(entry => entry.Entity.Id == id)?.Entity;
+        if (local is not null) return FirstNonBlank($"{local.EmployeeCode} {local.FirstName} {local.LastName}", local.FirstName, local.LastName);
+        return Employees.AsNoTracking()
+            .Where(employee => employee.Id == id)
+            .Select(employee => (employee.EmployeeCode + " " + employee.FirstName + " " + employee.LastName).Trim())
+            .FirstOrDefault();
+    }
+
+    private string? FindBankAccountLabel(Guid id)
+    {
+        if (id == Guid.Empty) return null;
+        var bank = BankAccounts.AsNoTracking()
+            .Where(item => item.Id == id)
+            .Select(item => new { item.AccountHolderName, item.AccountNumber })
+            .FirstOrDefault();
+        return bank is null ? null : FirstNonBlank(bank.AccountHolderName, bank.AccountNumber);
+    }
+
+    private static string? ShortGuid(Guid? value)
+        => value.HasValue && value.Value != Guid.Empty ? value.Value.ToString("N")[..10] : null;
+
+    private static string BuildDotMatrixDeduplicationKey(string sourceType, Guid sourceId, string action, EntityEntry entry)
+        => TruncatePlain($"{sourceType}:{sourceId:N}:{action}:{BuildDotMatrixChangeHash(entry)}", 240);
+
+    private static string BuildDotMatrixChangeHash(EntityEntry entry)
+    {
+        var payload = entry.State switch
+        {
+            EntityState.Added => "CREATE",
+            EntityState.Deleted => "DELETE:" + string.Join("|", entry.Properties.Where(property => !IsDotMatrixIgnoredProperty(property.Metadata.Name)).OrderBy(property => property.Metadata.Name).Select(property => $"{property.Metadata.Name}={FormatAuditValue(property.OriginalValue)}")),
+            _ => string.Join("|", entry.Properties.Where(property => property.IsModified && !IsDotMatrixIgnoredProperty(property.Metadata.Name)).OrderBy(property => property.Metadata.Name).Select(property => $"{property.Metadata.Name}:{FormatAuditValue(property.OriginalValue)}->{FormatAuditValue(property.CurrentValue)}"))
+        };
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(payload));
+        return Convert.ToHexString(hash)[..16];
+    }
+
+    private sealed record DotMatrixInvoiceSnapshot(string InvoiceNumber, string? CustomerName, string CustomerMobileNumber);
+    private sealed record DotMatrixPurchaseInvoiceSnapshot(string InwardNumber, string InvoiceNumber, string? VendorName);
+
+    private static string BuildDotMatrixChangeSummary(EntityEntry entry)
+    {
+        if (entry.State != EntityState.Modified)
+        {
+            return string.Empty;
+        }
+
+        var changes = entry.Properties
+            .Where(property => property.IsModified && !IsDotMatrixIgnoredProperty(property.Metadata.Name))
+            .Take(8)
+            .Select(property => $"{property.Metadata.Name}: {FormatAuditValue(property.OriginalValue) ?? ""} -> {FormatAuditValue(property.CurrentValue) ?? ""}")
+            .ToList();
+        return changes.Count == 0 ? string.Empty : "Changed: " + string.Join(" | ", changes);
+    }
+
+    private static decimal? ReadDecimalProperty(EntityEntry entry, params string[] propertyNames)
+    {
+        foreach (var propertyName in propertyNames)
+        {
+            if (entry.Metadata.FindProperty(propertyName) is null)
+            {
+                continue;
+            }
+
+            var value = entry.State == EntityState.Deleted
+                ? entry.Property(propertyName).OriginalValue
+                : entry.Property(propertyName).CurrentValue;
+            if (value is decimal decimalValue)
+            {
+                return decimalValue;
+            }
+
+            if (value is int intValue)
+            {
+                return intValue;
+            }
+        }
+
+        return null;
+    }
+
+    private static DateTime ConvertUtcToIst(DateTime utc)
+    {
+        try
+        {
+            var tz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Kolkata");
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), tz);
+        }
+        catch
+        {
+            return DateTime.SpecifyKind(utc, DateTimeKind.Unspecified).AddHours(5).AddMinutes(30);
+        }
+    }
+
+    private static string FormatIst(DateTime value) => value.ToString("dd-MM-yyyy hh:mm tt 'IST'", CultureInfo.InvariantCulture);
+
+    private static string FixedTransactionLine(int width, DateTime onDate, string storeCode, string type, string action, string number, string particulars, decimal amount, string mode)
+    {
+        var typeText = action == "Create" ? type : $"{type} {action.ToUpperInvariant()}";
+        var storeText = FirstNonBlank(storeCode, "STORE").ToUpperInvariant();
+        var storeWidth = width >= 120 ? 10 : 6;
+        var typeWidth = width >= 120 ? 18 : 14;
+        var numberWidth = width >= 120 ? 16 : 12;
+        var amountWidth = width >= 120 ? 14 : 12;
+        var modeWidth = width >= 120 ? 18 : 12;
+        var left = $"{onDate:dd-MM-yyyy hh:mm tt} "
+            + TruncatePlain(storeText, storeWidth).PadRight(storeWidth) + " "
+            + TruncatePlain(typeText, typeWidth).PadRight(typeWidth) + " "
+            + TruncatePlain(number, numberWidth).PadRight(numberWidth) + " ";
+        var amountText = amount.ToString("0.00", CultureInfo.InvariantCulture).PadLeft(amountWidth);
+        var modeText = TruncatePlain(mode, modeWidth).PadRight(modeWidth);
+        var particularsWidth = Math.Max(10, width - left.Length - amountText.Length - modeText.Length - 2);
+        return left + TruncatePlain(particulars, particularsWidth).PadRight(particularsWidth) + " " + amountText + " " + modeText;
+    }
+
+    private static string FullLine(int width, string value)
+        => TruncatePlain(value, width).PadRight(width);
+
+    private static string Repeat(char ch, int count) => new(ch, Math.Max(1, count));
+
+    private static string TruncatePlain(string? value, int width)
+    {
+        var clean = string.IsNullOrWhiteSpace(value) ? string.Empty : value.Replace("\r", " ").Replace("\n", " ").Trim();
+        return clean.Length <= width ? clean : clean[..Math.Max(0, width - 1)] + "…";
+    }
 
     private void AddAuditLogEntries()
     {
@@ -885,6 +1546,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
 
     private sealed record AuditFieldChange(string Field, string? Before, string? After);
+    private sealed record DotMatrixStorePrintContext(Guid StoreId, Guid CompanyId, Guid StoreGroupId, string StoreCode, string StoreName, string PrinterName, int LineWidth, bool Enabled, bool PrintTransactions, bool PrintEditsAndDeletes, bool PrintDayOpeningClosing, bool PrintAttendanceInDaySummary, bool PrintBankUpiSummary, string TimeZoneId);
 
     private void PrepareEntitiesForSave()
     {

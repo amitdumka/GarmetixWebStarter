@@ -26,6 +26,7 @@ onMounted(load)
 </script>
 
 <template>
+  <AppShell title="GST Production">
   <UContainer class="space-y-6 py-6">
     <div class="flex items-center justify-between gap-3">
       <div>
@@ -52,4 +53,5 @@ onMounted(load)
     </UCard>
     <UAlert color="info" icon="i-lucide-info" title="Safety guard" description="Live e-Invoice posting stays off until provider credentials and production mode are explicitly configured." />
   </UContainer>
+  </AppShell>
 </template>
