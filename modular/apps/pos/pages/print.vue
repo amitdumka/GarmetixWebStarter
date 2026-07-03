@@ -1,11 +1,11 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <p class="text-sm text-muted">Counter documents</p>
-          <h2 class="mt-1 text-2xl font-semibold">Print Queue</h2>
-          <p class="mt-2 text-sm text-muted">Reprint recently saved POS invoices and recover failed print starts.</p>
+          <p class="garmetix-kicker"><UIcon name="i-lucide-printer" class="size-4" /> Counter documents</p>
+          <h2 class="garmetix-dashboard-title">Print Queue</h2>
+          <p class="garmetix-dashboard-subtitle">Reprint recently saved POS invoices and recover failed print starts.</p>
         </div>
         <div class="flex flex-wrap gap-2">
           <UButton color="neutral" variant="soft" icon="i-lucide-refresh-cw" :loading="loading" @click="refresh">Refresh</UButton>
@@ -17,10 +17,10 @@
     <UAlert v-if="message" :color="messageTone" variant="subtle" :icon="messageIcon" :description="message" />
 
     <section class="grid gap-4 lg:grid-cols-2">
-      <article class="border border-default bg-muted/10">
+      <article class="garmetix-section-card p-0">
         <div class="border-b border-default p-4">
-          <h3 class="font-semibold">Saved from this POS browser</h3>
-          <p class="mt-1 text-sm text-muted">Stored locally after Save & Print.</p>
+          <h3 class="garmetix-panel-title">Saved from this POS browser</h3>
+          <p class="garmetix-panel-subtitle">Stored locally after Save & Print.</p>
         </div>
         <div class="divide-y divide-default">
           <div v-if="!localQueue.length" class="p-6 text-center text-sm text-muted">No local print jobs yet.</div>
@@ -35,10 +35,10 @@
         </div>
       </article>
 
-      <article class="border border-default bg-muted/10">
+      <article class="garmetix-section-card p-0">
         <div class="border-b border-default p-4">
-          <h3 class="font-semibold">Recent invoices from server</h3>
-          <p class="mt-1 text-sm text-muted">Latest saved invoices available to this login.</p>
+          <h3 class="garmetix-panel-title">Recent invoices from server</h3>
+          <p class="garmetix-panel-subtitle">Latest saved invoices available to this login.</p>
         </div>
         <div class="divide-y divide-default">
           <div v-if="!recentInvoices.length" class="p-6 text-center text-sm text-muted">No recent invoices loaded.</div>

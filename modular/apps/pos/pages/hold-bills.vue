@@ -1,11 +1,11 @@
 <template>
-  <section class="space-y-4" :aria-busy="loading">
-    <div class="border border-default bg-muted/10 p-4">
+  <section class="garmetix-page-stack" :aria-busy="loading">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p class="text-sm text-muted">Paused counter work</p>
-          <h2 class="mt-1 text-2xl font-semibold">Hold Bills</h2>
-          <p class="mt-2 max-w-2xl text-sm text-muted">
+          <p class="garmetix-kicker"><UIcon name="i-lucide-pause-circle" class="size-4" /> Paused counter work</p>
+          <h2 class="garmetix-dashboard-title">Hold Bills</h2>
+          <p class="garmetix-dashboard-subtitle">
             Resume parked sale drafts from server storage, with this POS browser as an offline fallback.
           </p>
         </div>
@@ -18,7 +18,7 @@
 
     <UAlert v-if="message" :color="messageTone" variant="subtle" :icon="messageIcon" :description="message" />
 
-    <div class="grid gap-3 border border-default bg-muted/10 p-4 lg:grid-cols-[1fr_auto]">
+    <div class="garmetix-section-card grid gap-3 lg:grid-cols-[1fr_auto]">
       <UFormField label="Search held bill" name="search">
         <UInput v-model="search" icon="i-lucide-search" placeholder="Customer, mobile, item, or note" autofocus />
       </UFormField>
@@ -31,7 +31,7 @@
       <article
         v-for="bill in filteredHeldBills"
         :key="bill.id"
-        class="border border-default bg-muted/10 p-4"
+        class="garmetix-section-card"
       >
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">

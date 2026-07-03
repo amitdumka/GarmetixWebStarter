@@ -1,11 +1,11 @@
 <template>
-  <section class="space-y-4" :aria-busy="loading">
-    <div class="border border-default bg-muted/10 p-4">
+  <section class="garmetix-page-stack" :aria-busy="loading">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p class="text-sm text-muted">Opening control</p>
-          <h2 class="mt-1 text-2xl font-semibold">Day Open</h2>
-          <p class="mt-2 max-w-2xl text-sm text-muted">
+          <p class="garmetix-kicker"><UIcon name="i-lucide-sunrise" class="size-4" /> Opening control</p>
+          <h2 class="garmetix-dashboard-title">Day Open</h2>
+          <p class="garmetix-dashboard-subtitle">
             Open the working store day before billing. Opening cash is saved with denomination details.
           </p>
         </div>
@@ -19,16 +19,16 @@
     <UAlert v-if="message" :color="messageTone" variant="subtle" :icon="messageIcon" :description="message" />
 
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <div v-for="card in statusCards" :key="card.label" class="border border-default bg-muted/10 p-4">
-        <p class="text-sm text-muted">{{ card.label }}</p>
-        <p class="mt-2 text-lg font-semibold">{{ card.value }}</p>
-        <p class="mt-1 text-xs text-muted">{{ card.detail }}</p>
+      <div v-for="card in statusCards" :key="card.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ card.label }}</p>
+        <p class="garmetix-metric-value">{{ card.value }}</p>
+        <p class="garmetix-metric-caption">{{ card.detail }}</p>
       </div>
     </section>
 
     <section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
       <div class="space-y-4">
-        <div class="grid gap-3 border border-default bg-muted/10 p-4 md:grid-cols-2">
+        <div class="garmetix-section-card grid gap-3 md:grid-cols-2">
           <UFormField label="Working store">
             <USelect v-model="form.storeId" :items="storeOptions" placeholder="Select store" @change="refresh" />
           </UFormField>
@@ -37,7 +37,7 @@
           </UFormField>
         </div>
 
-        <div class="border border-default bg-muted/10 p-4">
+        <div class="garmetix-section-card">
           <div class="grid gap-3 md:grid-cols-2">
             <UFormField label="Opening balance">
               <UInput v-model="form.openingBalance" inputmode="decimal" />
@@ -58,8 +58,8 @@
       </div>
 
       <aside class="space-y-4">
-        <div class="border border-default bg-muted/10 p-4">
-          <h3 class="text-base font-semibold">Open Store Day</h3>
+        <div class="garmetix-detail-panel">
+          <h3 class="garmetix-panel-title">Open Store Day</h3>
           <p class="mt-2 text-sm text-muted">{{ status?.message || 'Select store and date to load status.' }}</p>
           <dl class="mt-4 space-y-2 text-sm">
             <div class="flex justify-between gap-3"><dt class="text-muted">Previous closing</dt><dd>{{ money(status?.bookSummary?.previousPettyCashClosingBalance || 0) }}</dd></div>
@@ -71,8 +71,8 @@
           </UButton>
         </div>
 
-        <div class="border border-default bg-muted/10 p-4">
-          <h3 class="text-base font-semibold">Holiday / Closed Day</h3>
+        <div class="garmetix-section-card">
+          <h3 class="garmetix-panel-title">Holiday / Closed Day</h3>
           <UFormField label="Reason" class="mt-4">
             <UTextarea v-model="holidayReason" :rows="3" />
           </UFormField>

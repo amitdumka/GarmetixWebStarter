@@ -1,11 +1,11 @@
 <template>
-  <section class="space-y-4" :aria-busy="loading || saving">
-    <div class="border border-default bg-muted/10 p-4">
+  <section class="garmetix-page-stack" :aria-busy="loading || saving">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p class="text-sm text-muted">Customer exchange counter</p>
-          <h2 class="mt-1 text-2xl font-semibold">Sales Exchange</h2>
-          <p class="mt-2 max-w-2xl text-sm text-muted">
+          <p class="garmetix-kicker"><UIcon name="i-lucide-repeat-2" class="size-4" /> Customer exchange counter</p>
+          <h2 class="garmetix-dashboard-title">Sales Exchange</h2>
+          <p class="garmetix-dashboard-subtitle">
             Load original invoice, select returned items, scan replacement items, collect extra payment if needed, and print the exchange invoice.
           </p>
         </div>
@@ -20,7 +20,7 @@
 
     <section class="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_340px]">
       <div class="space-y-4">
-        <div class="grid gap-3 border border-default bg-muted/10 p-4 lg:grid-cols-[1fr_auto]">
+        <div class="garmetix-section-card grid gap-3 lg:grid-cols-[1fr_auto]">
           <UFormField label="Invoice number / QR code / customer" name="invoiceSearch">
             <UInput
               ref="invoiceSearchInput"
@@ -38,7 +38,7 @@
           </div>
         </div>
 
-        <div class="overflow-x-auto border border-default">
+        <div class="garmetix-table-panel overflow-x-auto">
           <table class="w-full min-w-[780px] border-collapse text-sm">
             <thead class="bg-muted/30 text-left text-xs uppercase text-muted">
               <tr>
@@ -71,11 +71,11 @@
           </table>
         </div>
 
-        <div class="overflow-x-auto border border-default">
+        <div class="garmetix-table-panel overflow-x-auto">
           <div class="flex items-center justify-between gap-3 border-b border-default bg-muted/10 p-4">
             <div>
-              <h3 class="font-semibold">Returned Items</h3>
-              <p class="text-sm text-muted">{{ selectedInvoice ? `Invoice ${selectedInvoice.invoiceNumber}` : 'Select original invoice first.' }}</p>
+              <h3 class="garmetix-panel-title">Returned Items</h3>
+              <p class="garmetix-panel-subtitle">{{ selectedInvoice ? `Invoice ${selectedInvoice.invoiceNumber}` : 'Select original invoice first.' }}</p>
             </div>
             <UButton color="neutral" variant="soft" size="sm" icon="i-lucide-list-checks" :disabled="!returnLines.length" @click="returnAll">Return all</UButton>
           </div>
@@ -111,7 +111,7 @@
           </table>
         </div>
 
-        <div class="grid gap-3 border border-default bg-muted/10 p-4 lg:grid-cols-[1fr_100px_110px_auto]">
+        <div class="garmetix-section-card grid gap-3 lg:grid-cols-[1fr_100px_110px_auto]">
           <UFormField label="Replacement barcode / product" name="productSearch">
             <UInput
               ref="productSearchInput"
@@ -139,10 +139,10 @@
           </div>
         </div>
 
-        <div class="overflow-x-auto border border-default">
+        <div class="garmetix-table-panel overflow-x-auto">
           <div class="border-b border-default bg-muted/10 p-4">
-            <h3 class="font-semibold">Replacement Items</h3>
-            <p class="text-sm text-muted">These items become the new exchange invoice.</p>
+            <h3 class="garmetix-panel-title">Replacement Items</h3>
+            <p class="garmetix-panel-subtitle">These items become the new exchange invoice.</p>
           </div>
           <table class="w-full min-w-[760px] border-collapse text-sm">
             <thead class="bg-muted/30 text-left text-xs uppercase text-muted">
@@ -180,8 +180,8 @@
       </div>
 
       <aside class="space-y-4">
-        <div class="border border-default bg-muted/10 p-4">
-          <h3 class="text-base font-semibold">Exchange Summary</h3>
+        <div class="garmetix-detail-panel">
+          <h3 class="garmetix-panel-title">Exchange Summary</h3>
           <dl class="mt-4 space-y-2 text-sm">
             <div class="flex justify-between gap-3"><dt class="text-muted">Invoice</dt><dd class="text-right">{{ selectedInvoice?.invoiceNumber || '-' }}</dd></div>
             <div class="flex justify-between gap-3"><dt class="text-muted">Return items</dt><dd>{{ selectedReturnItemCount }}</dd></div>
@@ -193,8 +193,8 @@
           </dl>
         </div>
 
-        <div class="border border-default bg-muted/10 p-4">
-          <h3 class="text-base font-semibold">Additional Payment</h3>
+        <div class="garmetix-section-card">
+          <h3 class="garmetix-panel-title">Additional Payment</h3>
           <div class="mt-4 space-y-3">
             <UFormField label="Amount paid now">
               <UInput v-model="exchangeForm.additionalPaidAmount" inputmode="decimal" @input="clampAdditionalPayment" />

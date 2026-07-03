@@ -1,11 +1,11 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <p class="text-sm text-muted">POS counter</p>
-          <h2 class="mt-1 text-2xl font-semibold">Counter dashboard</h2>
-          <p class="mt-2 max-w-2xl text-sm text-muted">
+          <p class="garmetix-kicker"><UIcon name="i-lucide-scan-barcode" class="size-4" /> POS counter</p>
+          <h2 class="garmetix-dashboard-title">Counter dashboard</h2>
+          <p class="garmetix-dashboard-subtitle">
             Stage 12B.1 prepares the small POS app routes before moving the legacy sale invoice workflow.
           </p>
         </div>
@@ -20,10 +20,10 @@
     </section>
 
     <section class="grid gap-4 lg:grid-cols-3">
-      <div v-for="item in statusItems" :key="item.label" class="border border-default p-4">
-        <p class="text-sm text-muted">{{ item.label }}</p>
-        <p class="mt-2 text-xl font-semibold">{{ item.value }}</p>
-        <p class="mt-1 text-xs text-muted">{{ item.detail }}</p>
+      <div v-for="item in statusItems" :key="item.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ item.label }}</p>
+        <p class="garmetix-metric-value">{{ item.value }}</p>
+        <p class="garmetix-metric-caption">{{ item.detail }}</p>
       </div>
     </section>
   </section>

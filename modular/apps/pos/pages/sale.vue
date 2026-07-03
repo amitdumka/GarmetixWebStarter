@@ -1,11 +1,11 @@
 <template>
-  <section class="space-y-4" :aria-busy="loading">
-    <div class="border border-default bg-muted/10 p-4">
+  <section class="garmetix-page-stack" :aria-busy="loading">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p class="text-sm text-muted">Counter billing</p>
-          <h2 class="mt-1 text-2xl font-semibold">New Sale</h2>
-          <p class="mt-2 max-w-2xl text-sm text-muted">
+          <p class="garmetix-kicker"><UIcon name="i-lucide-scan-barcode" class="size-4" /> Counter billing</p>
+          <h2 class="garmetix-dashboard-title">New Sale</h2>
+          <p class="garmetix-dashboard-subtitle">
             Draft, scan, total, save and print using the existing Garmetix billing API.
           </p>
         </div>
@@ -21,7 +21,7 @@
 
     <section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div class="space-y-4">
-        <div class="grid gap-3 border border-default bg-muted/10 p-4 md:grid-cols-2 xl:grid-cols-4">
+        <div class="garmetix-section-card grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <UFormField label="Store" name="storeId">
             <USelect v-model="form.storeId" :items="storeOptions" placeholder="Select store" @change="onStoreChanged" />
           </UFormField>
@@ -36,7 +36,7 @@
           </UFormField>
         </div>
 
-        <div class="grid gap-3 border border-default bg-muted/10 p-4 lg:grid-cols-[1fr_1fr_auto]">
+        <div class="garmetix-section-card grid gap-3 lg:grid-cols-[1fr_1fr_auto]">
           <UFormField label="Customer search" name="customerSearch">
             <UInput v-model="customerSearch" icon="i-lucide-search" placeholder="Mobile, name or GSTIN" @keyup.enter="searchCustomer" />
           </UFormField>
@@ -51,14 +51,14 @@
             <UInput v-model="form.customerGstin" icon="i-lucide-badge-indian-rupee" placeholder="Optional B2B GSTIN" />
           </UFormField>
           <div v-if="selectedCustomerProfile" class="grid gap-2 text-sm lg:col-span-2 lg:grid-cols-4">
-            <div class="border border-default p-3"><p class="text-muted">Credit</p><strong>{{ money(selectedCustomerProfile.customer?.creditBalance || 0) }}</strong></div>
-            <div class="border border-default p-3"><p class="text-muted">Loyalty points</p><strong>{{ Number(selectedCustomerProfile.customer?.loyaltyPoints || 0) }}</strong></div>
-            <div class="border border-default p-3"><p class="text-muted">Credit notes</p><strong>{{ selectedCustomerProfile.creditNotes?.length || 0 }}</strong></div>
-            <div class="border border-default p-3"><p class="text-muted">Advances</p><strong>{{ selectedCustomerProfile.advanceReceipts?.length || 0 }}</strong></div>
+            <div class="garmetix-metric-card"><p class="garmetix-metric-label">Credit</p><strong>{{ money(selectedCustomerProfile.customer?.creditBalance || 0) }}</strong></div>
+            <div class="garmetix-metric-card"><p class="garmetix-metric-label">Loyalty points</p><strong>{{ Number(selectedCustomerProfile.customer?.loyaltyPoints || 0) }}</strong></div>
+            <div class="garmetix-metric-card"><p class="garmetix-metric-label">Credit notes</p><strong>{{ selectedCustomerProfile.creditNotes?.length || 0 }}</strong></div>
+            <div class="garmetix-metric-card"><p class="garmetix-metric-label">Advances</p><strong>{{ selectedCustomerProfile.advanceReceipts?.length || 0 }}</strong></div>
           </div>
         </div>
 
-        <div class="grid gap-3 border border-default bg-muted/10 p-4 lg:grid-cols-[1fr_110px_110px_auto]">
+        <div class="garmetix-section-card grid gap-3 lg:grid-cols-[1fr_110px_110px_auto]">
           <UFormField label="Barcode / product" name="productSearch">
             <UInput
               ref="productSearchInput"
@@ -86,7 +86,7 @@
           </div>
         </div>
 
-        <div class="overflow-x-auto border border-default">
+        <div class="garmetix-table-panel overflow-x-auto">
           <table class="w-full min-w-[760px] border-collapse text-sm">
             <thead class="bg-muted/30 text-left text-xs uppercase text-muted">
               <tr>
@@ -125,10 +125,10 @@
       </div>
 
       <aside class="space-y-4">
-        <div class="border border-default bg-muted/10 p-4">
-          <h3 class="text-base font-semibold">Payment</h3>
+        <div class="garmetix-section-card">
+          <h3 class="garmetix-panel-title">Payment</h3>
           <div class="mt-4 space-y-3">
-            <div v-for="(payment, index) in payments" :key="index" class="space-y-2 border border-default p-3">
+            <div v-for="(payment, index) in payments" :key="index" class="space-y-2 rounded-lg border border-default p-3">
               <div class="grid grid-cols-2 gap-2">
                 <UFormField label="Mode">
                   <USelect v-model="payment.paymentMode" :items="paymentModeOptions" @change="syncCashPayment" />
@@ -151,8 +151,8 @@
           </div>
         </div>
 
-        <div class="border border-default bg-muted/10 p-4">
-          <h3 class="text-base font-semibold">Customer adjustments</h3>
+        <div class="garmetix-section-card">
+          <h3 class="garmetix-panel-title">Customer adjustments</h3>
           <div class="mt-4 space-y-3">
             <UFormField label="Store credit">
               <UInput v-model="adjustments.storeCreditAmount" inputmode="decimal" :disabled="!selectedCustomerProfile" @input="syncCashPayment" />
@@ -175,8 +175,8 @@
           </div>
         </div>
 
-        <div class="border border-default bg-muted/10 p-4">
-          <h3 class="text-base font-semibold">Totals</h3>
+        <div class="garmetix-detail-panel">
+          <h3 class="garmetix-panel-title">Totals</h3>
           <dl class="mt-4 space-y-2 text-sm">
             <div class="flex justify-between gap-3"><dt class="text-muted">Items</dt><dd>{{ cart.length }}</dd></div>
             <div class="flex justify-between gap-3"><dt class="text-muted">Quantity</dt><dd>{{ totalQuantity }}</dd></div>
