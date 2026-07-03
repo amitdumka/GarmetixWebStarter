@@ -1,11 +1,14 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p class="text-sm text-muted">Data movement</p>
-          <h2 class="mt-1 text-2xl font-semibold">Import Export</h2>
-          <p class="mt-2 max-w-3xl text-sm text-muted">Read-only module catalog, import/export center status and engine health. Upload/commit actions remain in the legacy audited flow for now.</p>
+          <p class="garmetix-dashboard-kicker">
+            <UIcon name="i-lucide-arrow-up-down" class="size-4" />
+            Data movement
+          </p>
+          <h2 class="garmetix-dashboard-title">Import Export</h2>
+          <p class="garmetix-dashboard-subtitle">Read-only module catalog, import/export center status and engine health. Upload/commit actions remain in the legacy audited flow for now.</p>
         </div>
         <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refresh">Refresh</UButton>
       </div>
@@ -14,14 +17,14 @@
     <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
 
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <div v-for="card in cards" :key="card.label" class="border border-default bg-muted/20 p-4">
-        <p class="text-sm text-muted">{{ card.label }}</p>
-        <p class="mt-2 text-2xl font-semibold">{{ card.value }}</p>
-        <p class="mt-1 text-xs text-muted">{{ card.detail }}</p>
+      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ card.label }}</p>
+        <p class="garmetix-metric-value">{{ card.value }}</p>
+        <p class="garmetix-metric-caption">{{ card.detail }}</p>
       </div>
     </section>
 
-    <div class="border border-default bg-muted/10 p-4">
+    <div class="garmetix-section-card">
       <AdminMasterTable :columns="columns" :rows="rows" empty-text="No import/export modules returned." />
     </div>
   </section>

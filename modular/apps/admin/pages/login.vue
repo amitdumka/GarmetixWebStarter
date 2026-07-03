@@ -1,8 +1,11 @@
 <template>
-  <section class="mx-auto max-w-xl border border-default bg-muted/10 p-5">
+  <section class="mx-auto max-w-xl garmetix-section-card">
     <div class="mb-5">
-      <p class="text-sm text-muted">Admin/SaaS access</p>
-      <h2 class="mt-1 text-2xl font-semibold">Login</h2>
+      <p class="garmetix-dashboard-kicker">
+        <UIcon name="i-lucide-shield-check" class="size-4" />
+        Admin/SaaS access
+      </p>
+      <h2 class="garmetix-dashboard-title">Login</h2>
     </div>
 
     <form class="space-y-4" @submit.prevent="submit">

@@ -1,11 +1,14 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p class="text-sm text-muted">Security</p>
-          <h2 class="mt-1 text-2xl font-semibold">Users And Roles</h2>
-          <p class="mt-2 max-w-3xl text-sm text-muted">Read-only user list and role matrix review. User create, edit, reset and delete stay in later explicit write stages.</p>
+          <p class="garmetix-dashboard-kicker">
+            <UIcon name="i-lucide-shield-check" class="size-4" />
+            Security
+          </p>
+          <h2 class="garmetix-dashboard-title">Users And Roles</h2>
+          <p class="garmetix-dashboard-subtitle">Read-only user list and role matrix review. User create, edit, reset and delete stay in later explicit write stages.</p>
         </div>
         <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refresh">Refresh</UButton>
       </div>
@@ -14,29 +17,29 @@
     <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
 
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <div v-for="card in cards" :key="card.label" class="border border-default bg-muted/20 p-4">
-        <p class="text-sm text-muted">{{ card.label }}</p>
-        <p class="mt-2 text-2xl font-semibold">{{ card.value }}</p>
-        <p class="mt-1 text-xs text-muted">{{ card.detail }}</p>
+      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ card.label }}</p>
+        <p class="garmetix-metric-value">{{ card.value }}</p>
+        <p class="garmetix-metric-caption">{{ card.detail }}</p>
       </div>
     </section>
 
     <section class="grid gap-4 xl:grid-cols-2">
-      <div class="border border-default bg-muted/10 p-4">
+      <div class="garmetix-section-card">
         <div class="mb-3 flex items-center justify-between gap-3">
           <div>
-            <h3 class="text-base font-semibold">Users</h3>
-            <p class="text-xs text-muted">{{ users.length }} user(s)</p>
+            <h3 class="garmetix-panel-title">Users</h3>
+            <p class="garmetix-panel-subtitle">{{ users.length }} user(s)</p>
           </div>
           <UInput v-model="search" icon="i-lucide-search" placeholder="Search users" class="w-64" />
         </div>
         <AdminMasterTable :columns="userColumns" :rows="filteredUsers" empty-text="No users found." />
       </div>
 
-      <div class="border border-default bg-muted/10 p-4">
+      <div class="garmetix-section-card">
         <div class="mb-3">
-          <h3 class="text-base font-semibold">Role Matrix</h3>
-          <p class="text-xs text-muted">{{ matrixRows.length }} role profile(s)</p>
+          <h3 class="garmetix-panel-title">Role Matrix</h3>
+          <p class="garmetix-panel-subtitle">{{ matrixRows.length }} role profile(s)</p>
         </div>
         <AdminMasterTable :columns="matrixColumns" :rows="matrixRows" empty-text="No role matrix returned." />
       </div>

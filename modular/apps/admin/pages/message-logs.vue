@@ -54,7 +54,7 @@
             <dd class="mt-1 break-words font-medium">{{ item.value }}</dd>
           </div>
         </dl>
-        <pre v-if="selectedDetailsJson" class="mt-4 max-h-72 overflow-auto whitespace-pre-wrap border border-default bg-muted/20 p-3 text-xs text-muted">{{ selectedDetailsJson }}</pre>
+        <pre v-if="selectedDetailsJson" class="mt-4 max-h-72 overflow-auto whitespace-pre-wrap rounded-md bg-muted/30 p-3 text-xs text-muted">{{ selectedDetailsJson }}</pre>
       </aside>
     </section>
   </section>

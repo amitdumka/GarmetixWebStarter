@@ -1,11 +1,14 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p class="text-sm text-muted">Company module</p>
-          <h2 class="mt-1 text-2xl font-semibold">Company, Group And Store</h2>
-          <p class="mt-2 max-w-3xl text-sm text-muted">Read-only setup review for company, store group and store masters. Add/edit remains in the legacy flow until owner-only write rules are reviewed.</p>
+          <p class="garmetix-dashboard-kicker">
+            <UIcon name="i-lucide-building-2" class="size-4" />
+            Company module
+          </p>
+          <h2 class="garmetix-dashboard-title">Company, Group And Store</h2>
+          <p class="garmetix-dashboard-subtitle">Read-only setup review for company, store group and store masters. Add/edit remains in the legacy flow until owner-only write rules are reviewed.</p>
         </div>
         <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refresh">Refresh</UButton>
       </div>
@@ -14,10 +17,10 @@
     <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
 
     <section class="grid gap-3 md:grid-cols-3">
-      <div v-for="card in cards" :key="card.label" class="border border-default bg-muted/20 p-4">
-        <p class="text-sm text-muted">{{ card.label }}</p>
-        <p class="mt-2 text-2xl font-semibold">{{ card.value }}</p>
-        <p class="mt-1 text-xs text-muted">{{ card.detail }}</p>
+      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ card.label }}</p>
+        <p class="garmetix-metric-value">{{ card.value }}</p>
+        <p class="garmetix-metric-caption">{{ card.detail }}</p>
       </div>
     </section>
 
@@ -27,11 +30,11 @@
       </UButton>
     </div>
 
-    <section class="border border-default bg-muted/10 p-4">
+    <section class="garmetix-section-card">
       <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 class="text-base font-semibold">{{ currentTab.label }}</h3>
-          <p class="text-xs text-muted">{{ currentRows.length }} row(s)</p>
+          <h3 class="garmetix-panel-title">{{ currentTab.label }}</h3>
+          <p class="garmetix-panel-subtitle">{{ currentRows.length }} row(s)</p>
         </div>
         <UInput v-model="search" icon="i-lucide-search" placeholder="Search setup" class="sm:w-72" />
       </div>
