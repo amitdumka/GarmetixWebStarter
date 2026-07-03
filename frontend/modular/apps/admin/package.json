@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/admin-web",
   "private": true,
-  "version": "5.13.65",
+  "version": "6.0.1",
   "type": "module",
   "scripts": {
     "dev": "nuxt dev --port 3105",
@@ -9,10 +9,10 @@
     "preview": "nuxt preview --port 3105"
   },
   "dependencies": {
-    "@garmetix/shared-api": "5.0.0",
-    "@garmetix/shared-auth": "5.0.0",
-    "@garmetix/shared-types": "5.0.0",
-    "@garmetix/shared-ui": "5.0.0",
-    "@garmetix/shared-utils": "5.0.0"
+    "@garmetix/shared-api": "6.0.0",
+    "@garmetix/shared-auth": "6.0.0",
+    "@garmetix/shared-types": "6.0.0",
+    "@garmetix/shared-ui": "6.0.0",
+    "@garmetix/shared-utils": "6.0.0"
   }
 }

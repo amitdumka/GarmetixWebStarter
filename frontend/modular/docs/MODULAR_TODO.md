@@ -1,12 +1,12 @@
-# Garmetix Version5 Modular TODO
+# Garmetix Version6 Modular TODO
 
-This is the working TODO for Version5 Stage 12 onward. All frontend decoupling work belongs under `frontend/modular/`. The `legacy/` folder remains the Version4/Stage 11 fallback until modular apps reach parity.
+This is the working TODO for Version6 modular parity work. All frontend decoupling work belongs under `frontend/modular/`. The `legacy/` folder remains the Version4/Stage 11 fallback until modular apps reach parity.
 
 Prompts and external plans are reference material, not strict folder orders. Each step should be adapted to the existing `frontend/modular/apps/*`, `frontend/modular/packages/*`, `frontend/modular/config/*`, and `frontend/modular/docs/*` structure.
 
 ## Process Rules
 
-1. Pull/check the current `Version5` branch before starting a module.
+1. Pull/check the current `version6` branch before starting a module.
 2. Keep changes small and commit after each completed module/stage.
 3. Keep the ASP.NET API and PostgreSQL database unified unless a future stage explicitly changes that decision.
 4. Keep `legacy/` behavior intact until modular parity is proven.
@@ -251,4 +251,19 @@ Goal: deploy the complete modular website to the Ubuntu desktop SRP target witho
 - 13G.7 complete: fix LAN login/API unreachable issue by using same-origin SRP app/API URLs and relative API URL support in the shared client.
 - 13G.8 next: add real Cloudflare tunnel credentials outside git, run strict public acceptance, then complete browser login, app path loading, API health and cross-app navigation checks from `https://srp.aadwikafashion.in`.
 - Keep SRP secrets and tunnel credentials outside git.
+
+## Stage 14A: Version6 POS Parity Baseline
+
+Goal: restart modular parity work module-by-module, with POS first, and keep live-data safety explicit before any write-heavy test.
+
+- 14A.1 complete: bump modular version identity to `6.0.1`, align modular package/app/shared package versions to Version6, repair POS route ownership to app-local paths, and add a non-mutating POS parity baseline gate.
+- POS first closure order:
+  1. Confirm sale invoice save/print parity against legacy.
+  2. Confirm return/exchange parity and PDF/print recovery.
+  3. Confirm server held bills, local fallback, resume and remove.
+  4. Confirm day open/day close with petty cash and DotMatrix handoff.
+  5. Confirm non-GST/off-book and cash voucher boundaries before moving them fully into POS.
+  6. Run controlled live-write acceptance only after a `.127` backup.
+- HR starts only after POS acceptance is passed.
+- Books starts only after HR acceptance is passed.
 

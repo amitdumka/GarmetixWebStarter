@@ -72,6 +72,11 @@ const steps = [
     args: ['run', 'modular:pos:contract']
   },
   {
+    name: 'POS Version6 parity baseline',
+    cwd: repoRoot,
+    args: ['run', 'modular:pos:parity-baseline']
+  },
+  {
     name: 'POS operator acceptance checklist',
     cwd: repoRoot,
     args: ['run', 'modular:pos:operator-acceptance']
@@ -234,7 +239,7 @@ const runStep = (step) => new Promise((resolve, reject) => {
   })
 })
 
-console.log('Garmetix Version5 validation started.')
+console.log('Garmetix Version6 validation started.')
 console.log(`Options: skipBuilds=${skipBuilds}, skipApi=${skipApi}`)
 
 try {
@@ -242,8 +247,8 @@ try {
     await runStep(step)
   }
 
-  console.log('\nGarmetix Version5 validation passed.')
+  console.log('\nGarmetix Version6 validation passed.')
 } catch (error) {
-  console.error(`\nGarmetix Version5 validation failed: ${error.message}`)
+  console.error(`\nGarmetix Version6 validation failed: ${error.message}`)
   process.exit(1)
 }

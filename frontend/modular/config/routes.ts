@@ -88,8 +88,13 @@ export const garmetixRoutes: GarmetixRouteDefinition[] = [
   route({ id: 'dashboard-map', path: '/dashboard/map', label: 'Store Map', icon: 'i-lucide-map', targetApp: 'main', moduleKey: 'dashboard', moduleLabel: 'Dashboards', roles: [...routeRoles.adminPower] }),
 
   route({ id: 'billing', path: '/billing', label: 'Sale Invoices', icon: 'i-lucide-receipt-text', targetApp: 'main', moduleKey: 'sales', moduleLabel: 'Sales', roles: [...routeRoles.storeOps] }),
-  route({ id: 'billing-new', path: '/billing/new', label: 'POS Sale Screen', icon: 'i-lucide-scan-barcode', targetApp: 'pos', moduleKey: 'pos', moduleLabel: 'POS', roles: [...routeRoles.pos], status: 'planned', notes: 'First real extraction candidate.' }),
-  route({ id: 'sales-return', path: '/sales-return', label: 'Sales Return', icon: 'i-lucide-undo-2', targetApp: 'pos', moduleKey: 'pos', moduleLabel: 'POS', roles: [...routeRoles.pos] }),
+  route({ id: 'pos-day-open', path: '/day-open', label: 'Day Open', icon: 'i-lucide-sunrise', targetApp: 'pos', moduleKey: 'pos', moduleLabel: 'POS', roles: [...routeRoles.pos], legacyPath: '/store-day', status: 'modular-ready' }),
+  route({ id: 'billing-new', path: '/sale', label: 'POS Sale Screen', icon: 'i-lucide-scan-barcode', targetApp: 'pos', moduleKey: 'pos', moduleLabel: 'POS', roles: [...routeRoles.pos], legacyPath: '/billing/new', status: 'modular-ready', notes: 'Version6 POS first parity lane.' }),
+  route({ id: 'pos-held-bills', path: '/hold-bills', label: 'Held Bills', icon: 'i-lucide-pause-circle', targetApp: 'pos', moduleKey: 'pos', moduleLabel: 'POS', roles: [...routeRoles.pos], legacyPath: '/billing/new', status: 'modular-ready' }),
+  route({ id: 'sales-return', path: '/returns', label: 'Sales Return', icon: 'i-lucide-undo-2', targetApp: 'pos', moduleKey: 'pos', moduleLabel: 'POS', roles: [...routeRoles.pos], legacyPath: '/sales-return', status: 'modular-ready' }),
+  route({ id: 'sales-exchange', path: '/exchange', label: 'Sales Exchange', icon: 'i-lucide-repeat-2', targetApp: 'pos', moduleKey: 'pos', moduleLabel: 'POS', roles: [...routeRoles.pos], legacyPath: '/sales-return', status: 'modular-ready' }),
+  route({ id: 'pos-print', path: '/print', label: 'Print Queue', icon: 'i-lucide-printer', targetApp: 'pos', moduleKey: 'pos', moduleLabel: 'POS', roles: [...routeRoles.pos], legacyPath: '/billing', status: 'modular-ready' }),
+  route({ id: 'pos-day-close', path: '/day-close', label: 'Day Close', icon: 'i-lucide-sunset', targetApp: 'pos', moduleKey: 'pos', moduleLabel: 'POS', roles: [...routeRoles.pos], legacyPath: '/store-day', status: 'modular-ready' }),
   route({ id: 'tailoring', path: '/tailoring', label: 'Tailoring', icon: 'i-lucide-scissors', targetApp: 'main', moduleKey: 'sales', moduleLabel: 'Sales', roles: [...routeRoles.storeOps] }),
 
   route({ id: 'purchase', path: '/purchase', label: 'Purchase', icon: 'i-lucide-shopping-bag', targetApp: 'main', moduleKey: 'purchase', moduleLabel: 'Purchase', roles: [...routeRoles.storeOps] }),

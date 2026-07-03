@@ -1,10 +1,9 @@
 {
   "name": "@garmetix/shared-types",
   "private": true,
-  "version": "5.0.0",
+  "version": "6.0.0",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
   }
 }
-

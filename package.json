@@ -1,7 +1,7 @@
 {
   "name": "garmetix-version6-workspace",
   "private": true,
-  "version": "6.0.0",
+  "version": "6.0.1",
   "scripts": {
     "legacy:api:test": "dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release",
     "legacy:api:build": "dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release",
@@ -47,6 +47,7 @@
     "modular:deploy:srp:readiness": "node frontend/modular/scripts/run-bash-script.mjs frontend/modular/deploy/srp-host-readiness.sh",
     "modular:deploy:srp:runtime": "node frontend/modular/scripts/run-bash-script.mjs frontend/modular/deploy/srp-runtime-bootstrap.sh",
     "modular:deploy:srp:cloudflare": "node frontend/modular/scripts/run-bash-script.mjs frontend/modular/deploy/srp-cloudflare-activate.sh",
-    "modular:deploy:srp:acceptance": "node frontend/modular/scripts/srp-public-acceptance.mjs"
+    "modular:deploy:srp:acceptance": "node frontend/modular/scripts/srp-public-acceptance.mjs",
+    "modular:pos:parity-baseline": "node frontend/modular/scripts/pos-parity-baseline.mjs"
   }
 }
