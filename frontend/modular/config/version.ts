@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.3',
-  stage: 'Stage 14A.3 POS Controlled Live Sale Acceptance',
-  label: 'Version6 Stage 14A.3 POS Controlled Live Sale Acceptance',
-  summary: 'Added controlled POS live sale acceptance for SRP: deployed POS/API checks by default, with actual invoice creation guarded by token, backup file and explicit live-sale confirmation.'
+  version: '6.0.4',
+  stage: 'Stage 14A.4 POS Controlled Return And Exchange Acceptance',
+  label: 'Version6 Stage 14A.4 POS Controlled Return And Exchange Acceptance',
+  summary: 'Added controlled POS live return and exchange acceptance for SRP with read-only defaults and guarded return/exchange creation behind token, backup and explicit confirmation flags.'
 } as const
