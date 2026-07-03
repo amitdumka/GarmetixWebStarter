@@ -1,11 +1,11 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p class="text-sm text-muted">Daily attendance</p>
-          <h2 class="mt-1 text-2xl font-semibold">Today Attendance</h2>
-          <p class="mt-2 text-sm text-muted">Review present, late, absent, and exception rows for a selected date.</p>
+          <p class="garmetix-kicker"><UIcon name="i-lucide-calendar-check-2" class="size-4" /> Daily attendance</p>
+          <h2 class="garmetix-dashboard-title">Today Attendance</h2>
+          <p class="garmetix-dashboard-subtitle">Review present, late, absent, and exception rows for a selected date.</p>
         </div>
         <form class="flex flex-wrap items-end gap-2" @submit.prevent="load">
           <UFormField label="Date" name="onDate">
@@ -19,15 +19,18 @@
     <UAlert v-if="error" color="error" variant="subtle" icon="i-lucide-circle-alert" :description="error" />
 
     <div class="grid gap-3 md:grid-cols-5">
-      <div v-for="card in cards" :key="card.label" class="border border-default bg-muted/20 p-4">
-        <p class="text-xs text-muted">{{ card.label }}</p>
-        <p class="mt-1 text-xl font-semibold">{{ card.value }}</p>
+      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ card.label }}</p>
+        <p class="garmetix-metric-value">{{ card.value }}</p>
       </div>
     </div>
 
-    <div class="overflow-hidden border border-default bg-muted/10">
-      <div class="border-b border-default p-4">
-        <h3 class="text-base font-semibold">Rows</h3>
+    <div class="garmetix-table-panel">
+      <div class="garmetix-panel-header">
+        <div>
+          <h3 class="garmetix-panel-title">Rows</h3>
+          <p class="garmetix-panel-subtitle">{{ rows.length }} attendance row(s)</p>
+        </div>
       </div>
       <div class="overflow-auto">
         <table class="w-full min-w-[760px] text-left text-sm">

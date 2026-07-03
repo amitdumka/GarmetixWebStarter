@@ -1,11 +1,14 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <p class="text-sm text-muted">Salary payment</p>
-          <h2 class="mt-1 text-2xl font-semibold">Salary Payments</h2>
-          <p class="mt-2 max-w-3xl text-sm text-muted">
+          <p class="garmetix-dashboard-kicker">
+            <UIcon name="i-lucide-wallet-cards" class="size-4" />
+            Salary payment
+          </p>
+          <h2 class="garmetix-dashboard-title">Salary Payments</h2>
+          <p class="garmetix-dashboard-subtitle">
             Preview salary payment amounts including advance deduction, previous due, outstanding amount, and round-off. Final payment generation remains disabled here.
           </p>
         </div>
@@ -31,13 +34,13 @@
     <UAlert v-if="message" :color="messageTone" variant="subtle" :icon="messageIcon" :description="message" />
 
     <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-      <div v-for="card in cards" :key="card.label" class="border border-default bg-muted/20 p-4">
-        <p class="text-xs text-muted">{{ card.label }}</p>
-        <p class="mt-1 text-xl font-semibold">{{ card.value }}</p>
+      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ card.label }}</p>
+        <p class="garmetix-metric-value text-xl">{{ card.value }}</p>
       </div>
     </div>
 
-    <div v-if="preview" class="border border-primary/30 bg-primary/5 p-4">
+    <div v-if="preview" class="garmetix-section-card border-primary/30 bg-primary/5">
       <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p class="text-sm text-muted">Calculated preview</p>
@@ -46,7 +49,7 @@
         <UBadge color="primary" variant="subtle">Not saved</UBadge>
       </div>
       <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <div v-for="item in previewCards" :key="item.label" class="border border-default bg-default/50 p-3">
+        <div v-for="item in previewCards" :key="item.label" class="garmetix-row-card bg-default/50">
           <p class="text-xs text-muted">{{ item.label }}</p>
           <p class="mt-1 text-base font-semibold">{{ item.value }}</p>
         </div>
@@ -54,9 +57,12 @@
     </div>
 
     <section class="grid gap-4 xl:grid-cols-2">
-      <div class="overflow-hidden border border-default bg-muted/10">
-        <div class="border-b border-default p-4">
-          <h3 class="text-base font-semibold">Ready Candidates</h3>
+      <div class="garmetix-table-panel">
+        <div class="garmetix-panel-header">
+          <div>
+            <h3 class="garmetix-panel-title">Ready Candidates</h3>
+            <p class="garmetix-panel-subtitle">{{ candidates.length }} candidate row(s)</p>
+          </div>
         </div>
         <div class="overflow-auto">
           <table class="w-full min-w-[820px] text-left text-sm">
@@ -96,9 +102,12 @@
         </div>
       </div>
 
-      <div class="overflow-hidden border border-default bg-muted/10">
-        <div class="border-b border-default p-4">
-          <h3 class="text-base font-semibold">Existing Payments</h3>
+      <div class="garmetix-table-panel">
+        <div class="garmetix-panel-header">
+          <div>
+            <h3 class="garmetix-panel-title">Existing Payments</h3>
+            <p class="garmetix-panel-subtitle">{{ payments.length }} payment row(s)</p>
+          </div>
         </div>
         <div class="overflow-auto">
           <table class="w-full min-w-[760px] text-left text-sm">

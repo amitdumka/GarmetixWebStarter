@@ -1,20 +1,23 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p class="text-sm text-muted">Books route</p>
-          <h2 class="mt-1 text-2xl font-semibold">{{ title }}</h2>
-          <p class="mt-2 max-w-3xl text-sm text-muted">{{ description }}</p>
+          <p class="garmetix-dashboard-kicker">
+            <UIcon name="i-lucide-landmark" class="size-4" />
+            Books route
+          </p>
+          <h2 class="garmetix-dashboard-title">{{ title }}</h2>
+          <p class="garmetix-dashboard-subtitle">{{ description }}</p>
         </div>
         <UBadge :color="badgeColor" variant="subtle">{{ badge }}</UBadge>
       </div>
     </div>
 
     <div class="grid gap-3 md:grid-cols-3">
-      <div v-for="item in items" :key="item" class="border border-default bg-muted/20 p-4">
+      <div v-for="item in items" :key="item" class="garmetix-metric-card">
         <p class="text-sm font-medium">{{ item }}</p>
-        <p class="mt-1 text-xs text-muted">This screen is reserved in Books and will be connected after the accounting endpoint contract is reviewed.</p>
+        <p class="garmetix-metric-caption">This screen is reserved in Books and will be connected after the accounting endpoint contract is reviewed.</p>
       </div>
     </div>
   </section>

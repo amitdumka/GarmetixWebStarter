@@ -1,11 +1,14 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p class="text-sm text-muted">Payroll attendance</p>
-          <h2 class="mt-1 text-2xl font-semibold">Payroll Summary</h2>
-          <p class="mt-2 text-sm text-muted">Attendance totals used for salary draft and payslip review.</p>
+          <p class="garmetix-dashboard-kicker">
+            <UIcon name="i-lucide-file-spreadsheet" class="size-4" />
+            Payroll attendance
+          </p>
+          <h2 class="garmetix-dashboard-title">Payroll Summary</h2>
+          <p class="garmetix-dashboard-subtitle">Attendance totals used for salary draft and payslip review.</p>
         </div>
         <form class="flex flex-wrap items-end gap-2" @submit.prevent="load">
           <UFormField label="Year" name="year">
@@ -22,15 +25,15 @@
     <UAlert v-if="error" color="error" variant="subtle" icon="i-lucide-circle-alert" :description="error" />
 
     <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-      <div v-for="card in cards" :key="card.label" class="border border-default bg-muted/20 p-4">
-        <p class="text-xs text-muted">{{ card.label }}</p>
-        <p class="mt-1 text-xl font-semibold">{{ card.value }}</p>
+      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ card.label }}</p>
+        <p class="garmetix-metric-value text-xl">{{ card.value }}</p>
       </div>
     </div>
 
-    <div class="border border-default bg-muted/10 p-4">
-      <h3 class="text-base font-semibold">Summary</h3>
-      <pre class="mt-3 max-h-[560px] overflow-auto border border-default bg-default/40 p-3 text-xs">{{ formattedSummary }}</pre>
+    <div class="garmetix-section-card">
+      <h3 class="garmetix-panel-title">Summary</h3>
+      <pre class="mt-3 max-h-[560px] overflow-auto rounded-lg border border-default bg-default/40 p-3 text-xs">{{ formattedSummary }}</pre>
     </div>
   </section>
 </template>

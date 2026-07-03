@@ -1,15 +1,18 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
-      <p class="text-sm text-muted">Attendance operations</p>
-      <h2 class="mt-1 text-2xl font-semibold">Attendance</h2>
-      <p class="mt-2 max-w-3xl text-sm text-muted">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
+      <p class="garmetix-dashboard-kicker">
+        <UIcon name="i-lucide-calendar-check" class="size-4" />
+        Attendance operations
+      </p>
+      <h2 class="garmetix-dashboard-title">Attendance</h2>
+      <p class="garmetix-dashboard-subtitle">
         Start with safe read-only attendance views. Manual punch, recalculation, lock, and review actions will be wired after operator checks.
       </p>
     </div>
 
     <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      <UButton v-for="item in links" :key="item.href" :to="item.href" :icon="item.icon" color="neutral" variant="soft" class="justify-start p-4">
+      <UButton v-for="item in links" :key="item.href" :to="item.href" :icon="item.icon" color="neutral" variant="soft" class="garmetix-row-card justify-start">
         {{ item.label }}
       </UButton>
     </div>

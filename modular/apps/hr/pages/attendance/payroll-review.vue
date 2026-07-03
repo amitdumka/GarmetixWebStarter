@@ -1,11 +1,14 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <p class="text-sm text-muted">Attendance payroll control</p>
-          <h2 class="mt-1 text-2xl font-semibold">Payroll Review</h2>
-          <p class="mt-2 max-w-3xl text-sm text-muted">
+          <p class="garmetix-dashboard-kicker">
+            <UIcon name="i-lucide-hand-coins" class="size-4" />
+            Attendance payroll control
+          </p>
+          <h2 class="garmetix-dashboard-title">Payroll Review</h2>
+          <p class="garmetix-dashboard-subtitle">
             Rebuilds review rows from monthly attendance and marks rows for payroll. It does not create salary slips or salary payments.
           </p>
         </div>
@@ -32,13 +35,19 @@
     <UAlert v-if="message" :color="messageTone" variant="subtle" :icon="messageIcon" :description="message" />
 
     <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-      <div v-for="card in cards" :key="card.label" class="border border-default bg-muted/20 p-4">
-        <p class="text-xs text-muted">{{ card.label }}</p>
-        <p class="mt-1 text-xl font-semibold">{{ card.value }}</p>
+      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ card.label }}</p>
+        <p class="garmetix-metric-value text-xl">{{ card.value }}</p>
       </div>
     </div>
 
-    <div class="overflow-hidden border border-default bg-muted/10">
+    <div class="garmetix-table-panel">
+      <div class="garmetix-panel-header">
+        <div>
+          <h3 class="garmetix-panel-title">Review Rows</h3>
+          <p class="garmetix-panel-subtitle">{{ rows.length }} employee row(s)</p>
+        </div>
+      </div>
       <div class="overflow-auto">
         <table class="w-full min-w-[1120px] text-left text-sm">
           <thead class="bg-muted/30 text-xs uppercase text-muted">

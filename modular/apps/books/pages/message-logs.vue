@@ -1,11 +1,14 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p class="text-sm text-muted">Accounting diagnostics</p>
-          <h2 class="mt-1 text-2xl font-semibold">Books Message Logs</h2>
-          <p class="mt-2 max-w-3xl text-sm text-muted">
+          <p class="garmetix-dashboard-kicker">
+            <UIcon name="i-lucide-message-square-warning" class="size-4" />
+            Accounting diagnostics
+          </p>
+          <h2 class="garmetix-dashboard-title">Books Message Logs</h2>
+          <p class="garmetix-dashboard-subtitle">
             Finance-scoped error, warning, success and event logs for voucher, banking, GST, petty cash, purchase and settlement workflows.
           </p>
         </div>
@@ -19,18 +22,18 @@
     <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
 
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <div v-for="card in cards" :key="card.label" class="border border-default bg-muted/20 p-4">
-        <p class="text-sm text-muted">{{ card.label }}</p>
-        <p class="mt-2 text-2xl font-semibold">{{ card.value }}</p>
-        <p class="mt-1 text-xs text-muted">{{ card.detail }}</p>
+      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ card.label }}</p>
+        <p class="garmetix-metric-value">{{ card.value }}</p>
+        <p class="garmetix-metric-caption">{{ card.detail }}</p>
       </div>
     </section>
 
     <section class="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(360px,0.8fr)]">
-      <div class="border border-default bg-muted/10 p-4">
+      <div class="garmetix-section-card">
         <div class="mb-3 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <h3 class="text-base font-semibold">Log Register</h3>
+            <h3 class="garmetix-panel-title">Log Register</h3>
             <p class="text-xs text-muted">{{ filteredRows.length }} log(s) shown</p>
           </div>
           <div class="flex flex-col gap-2 sm:flex-row">
@@ -39,7 +42,7 @@
           </div>
         </div>
 
-        <div class="overflow-hidden border border-default">
+        <div class="overflow-hidden rounded-lg border border-default">
           <div class="overflow-x-auto">
             <table class="w-full min-w-[980px] text-left text-sm">
               <thead class="bg-muted/30 text-xs uppercase text-muted">
@@ -74,10 +77,10 @@
         </div>
       </div>
 
-      <aside class="border border-default bg-muted/10 p-4">
+      <aside class="garmetix-detail-panel">
         <div class="flex items-start justify-between gap-3">
           <div>
-            <h3 class="text-base font-semibold">Log Detail</h3>
+            <h3 class="garmetix-panel-title">Log Detail</h3>
             <p class="text-xs text-muted">{{ selectedLogLabel }}</p>
           </div>
           <UBadge :color="selectedLog?.success === false ? 'warning' : selectedLog ? 'success' : 'neutral'" variant="subtle">{{ selectedLog ? readText(selectedLog, ['level']) : 'None' }}</UBadge>
@@ -89,7 +92,7 @@
             <dd class="mt-1 break-words font-medium">{{ item.value }}</dd>
           </div>
         </dl>
-        <div v-if="selectedDetailsJson" class="mt-4 border border-default bg-muted/20 p-3">
+        <div v-if="selectedDetailsJson" class="mt-4 rounded-lg border border-default bg-muted/20 p-3">
           <h4 class="text-sm font-semibold">Details JSON</h4>
           <pre class="mt-2 max-h-72 overflow-auto whitespace-pre-wrap text-xs text-muted">{{ selectedDetailsJson }}</pre>
         </div>

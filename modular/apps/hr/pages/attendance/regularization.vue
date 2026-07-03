@@ -1,11 +1,11 @@
 <template>
-  <section class="space-y-4">
-    <div class="border border-default bg-muted/10 p-5">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p class="text-sm text-muted">Attendance correction queue</p>
-          <h2 class="mt-1 text-2xl font-semibold">Regularization</h2>
-          <p class="mt-2 max-w-3xl text-sm text-muted">
+          <p class="garmetix-kicker"><UIcon name="i-lucide-clipboard-check" class="size-4" /> Attendance correction queue</p>
+          <h2 class="garmetix-dashboard-title">Regularization</h2>
+          <p class="garmetix-dashboard-subtitle">
             Review missed punch and correction requests. Approve or reject records with an audit remark.
           </p>
         </div>
@@ -16,13 +16,19 @@
     <UAlert v-if="message" :color="messageTone" variant="subtle" :icon="messageIcon" :description="message" />
 
     <div class="grid gap-3 md:grid-cols-4">
-      <div v-for="card in cards" :key="card.label" class="border border-default bg-muted/20 p-4">
-        <p class="text-xs text-muted">{{ card.label }}</p>
-        <p class="mt-1 text-xl font-semibold">{{ card.value }}</p>
+      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ card.label }}</p>
+        <p class="garmetix-metric-value">{{ card.value }}</p>
       </div>
     </div>
 
-    <div class="overflow-hidden border border-default bg-muted/10">
+    <div class="garmetix-table-panel">
+      <div class="garmetix-panel-header">
+        <div>
+          <h3 class="garmetix-panel-title">Correction Requests</h3>
+          <p class="garmetix-panel-subtitle">{{ rows.length }} request row(s)</p>
+        </div>
+      </div>
       <div class="overflow-auto">
         <table class="w-full min-w-[1040px] text-left text-sm">
           <thead class="bg-muted/30 text-xs uppercase text-muted">
