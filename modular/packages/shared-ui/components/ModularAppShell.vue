@@ -324,12 +324,12 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
     { key: 'analytics', label: 'Analytics', items: [
       { id: 'home', label: 'AI Home', href: '/', icon: 'i-lucide-brain-circuit' },
       { id: 'business', label: 'Business Dashboard', href: '/dashboard/business', icon: 'i-lucide-chart-no-axes-combined' },
-      { id: 'sales', label: 'Sales Analysis', href: '/ai-sense/sales-analysis', icon: 'i-lucide-trending-up' },
-      { id: 'purchase', label: 'Purchase Analysis', href: '/ai-sense/purchase-analysis', icon: 'i-lucide-chart-column-increasing' },
-      { id: 'profit', label: 'Profit Analysis', href: '/ai-sense/profit-analysis', icon: 'i-lucide-chart-pie' },
-      { id: 'stock-risk', label: 'Stock Risk', href: '/ai-sense/stock-risk', icon: 'i-lucide-package-search' },
+      { id: 'sales', label: 'Sales Analysis', href: '/sales-analysis', icon: 'i-lucide-trending-up' },
+      { id: 'purchase', label: 'Purchase Analysis', href: '/purchase-analysis', icon: 'i-lucide-chart-column-increasing' },
+      { id: 'profit', label: 'Profit Analysis', href: '/profit-analysis', icon: 'i-lucide-chart-pie' },
+      { id: 'stock-risk', label: 'Stock Risk', href: '/stock-risk', icon: 'i-lucide-package-search' },
       { id: 'stock-reports', label: 'Stock Reports', href: '/stock-reports', icon: 'i-lucide-chart-column-stacked' },
-      { id: 'daily', label: 'Daily Summary', href: '/ai-sense/daily-summary', icon: 'i-lucide-calendar-days' }
+      { id: 'daily', label: 'Daily Summary', href: '/daily-summary', icon: 'i-lucide-calendar-days' }
     ] }
   ],
   books: [

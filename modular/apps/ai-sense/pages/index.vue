@@ -46,7 +46,7 @@
       <div class="garmetix-section-card">
         <div class="mb-3 flex items-center justify-between gap-3">
           <h3 class="garmetix-panel-title">Route Coverage</h3>
-          <UButton to="/ai-sense/sales-analysis" size="sm" color="neutral" variant="ghost" icon="i-lucide-arrow-right">Open</UButton>
+          <UButton to="/sales-analysis" size="sm" color="neutral" variant="ghost" icon="i-lucide-arrow-right">Open</UButton>
         </div>
         <div class="grid gap-2 sm:grid-cols-2">
           <UButton v-for="item in quickLinks" :key="item.href" :to="item.href" :icon="item.icon" color="neutral" variant="soft" class="justify-start">
@@ -83,10 +83,10 @@ const cashCards = computed(() => [
   { label: 'Net Cash', value: formatIndianMoney(readNumber(cash.value, ['netCash'])) }
 ])
 const quickLinks = [
-  { label: 'Sales Analysis', href: '/ai-sense/sales-analysis', icon: 'i-lucide-trending-up' },
-  { label: 'Purchase Analysis', href: '/ai-sense/purchase-analysis', icon: 'i-lucide-chart-column-increasing' },
-  { label: 'Profit Analysis', href: '/ai-sense/profit-analysis', icon: 'i-lucide-chart-pie' },
-  { label: 'Daily Summary', href: '/ai-sense/daily-summary', icon: 'i-lucide-calendar-days' }
+  { label: 'Sales Analysis', href: '/sales-analysis', icon: 'i-lucide-trending-up' },
+  { label: 'Purchase Analysis', href: '/purchase-analysis', icon: 'i-lucide-chart-column-increasing' },
+  { label: 'Profit Analysis', href: '/profit-analysis', icon: 'i-lucide-chart-pie' },
+  { label: 'Daily Summary', href: '/daily-summary', icon: 'i-lucide-calendar-days' }
 ]
 
 onMounted(async () => {
