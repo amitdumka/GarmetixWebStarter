@@ -260,6 +260,7 @@ Goal: restart modular parity work module-by-module, with POS first, and keep liv
 - 14A.2 complete: bump modular version identity to `6.0.2`, add an SRP `.127` PostgreSQL backup command, and add a POS live-safe deploy gate for non-mutating pre-deploy checks.
 - 14A.3 complete: bump modular version identity to `6.0.3` and add controlled POS live sale acceptance with guarded invoice creation, receipt and PDF verification.
 - 14A.4 complete: bump modular version identity to `6.0.4` and add controlled POS return/exchange acceptance with guarded return and exchange creation.
+- 14A.5 complete: bump modular version identity to `6.0.5` and add POS operations recovery acceptance for held bills, print queue recovery, day open/day close readiness and DotMatrix handoff.
 - POS first closure order:
   1. Confirm sale invoice save/print parity against legacy.
   2. Confirm return/exchange parity and PDF/print recovery.
@@ -267,7 +268,7 @@ Goal: restart modular parity work module-by-module, with POS first, and keep liv
   4. Confirm day open/day close with petty cash and DotMatrix handoff.
   5. Confirm non-GST/off-book and cash voucher boundaries before moving them fully into POS.
   6. Run controlled live-write acceptance only after a `.127` backup.
-- Stage 14A.5 next: complete held bills, print queue recovery, day open/day close and DotMatrix handoff acceptance.
+- Stage 14A.6 next: cashier workflow parity, product scan edge cases, payment split confirmation, return/exchange cashier flow polish, and browser acceptance at 14-inch laptop width.
 - HR starts only after POS acceptance is passed.
 - Books starts only after HR acceptance is passed.
 

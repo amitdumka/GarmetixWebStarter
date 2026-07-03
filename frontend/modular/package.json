@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "6.0.4",
+  "version": "6.0.5",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -29,6 +29,7 @@
     "pos:save-after-resume": "node scripts/pos-save-after-resume-readiness.mjs",
     "pos:live-save-fixtures": "node scripts/pos-live-save-fixture-readiness.mjs",
     "pos:live-safe-gate": "node scripts/pos-live-safe-deploy-gate.mjs",
+    "pos:operations-recovery": "node scripts/pos-operations-recovery-acceptance.mjs",
     "pos:stage13b-closure": "node scripts/pos-stage13b-closure.mjs",
     "hr:payroll-readiness": "node scripts/hr-payroll-readiness.mjs",
     "hr:attendance-contract": "node scripts/hr-attendance-contract-check.mjs",

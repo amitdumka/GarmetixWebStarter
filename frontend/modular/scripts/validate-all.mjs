@@ -117,6 +117,11 @@ const steps = [
     args: ['run', 'modular:pos:live-return-exchange-acceptance']
   },
   {
+    name: 'POS operations recovery acceptance dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:pos:operations-recovery']
+  },
+  {
     name: 'POS Stage 13B closure',
     cwd: repoRoot,
     args: ['run', 'modular:pos:stage13b-closure']
