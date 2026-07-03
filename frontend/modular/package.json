@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "6.0.1",
+  "version": "6.0.2",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -28,6 +28,7 @@
     "pos:held-bill-browser": "node scripts/pos-held-bill-browser-acceptance.mjs",
     "pos:save-after-resume": "node scripts/pos-save-after-resume-readiness.mjs",
     "pos:live-save-fixtures": "node scripts/pos-live-save-fixture-readiness.mjs",
+    "pos:live-safe-gate": "node scripts/pos-live-safe-deploy-gate.mjs",
     "pos:stage13b-closure": "node scripts/pos-stage13b-closure.mjs",
     "hr:payroll-readiness": "node scripts/hr-payroll-readiness.mjs",
     "hr:attendance-contract": "node scripts/hr-attendance-contract-check.mjs",
@@ -62,6 +63,7 @@
     "deploy:srp:runtime": "node scripts/run-bash-script.mjs deploy/srp-runtime-bootstrap.sh",
     "deploy:srp:cloudflare": "node scripts/run-bash-script.mjs deploy/srp-cloudflare-activate.sh",
     "deploy:srp:acceptance": "node scripts/srp-public-acceptance.mjs",
+    "deploy:srp:backup": "node scripts/run-bash-script.mjs deploy/srp-backup-database.sh",
     "pos:parity-baseline": "node scripts/pos-parity-baseline.mjs"
   },
   "overrides": {

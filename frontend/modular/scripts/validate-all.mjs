@@ -102,6 +102,11 @@ const steps = [
     args: ['run', 'modular:pos:live-save-fixtures']
   },
   {
+    name: 'POS live-safe deploy gate',
+    cwd: repoRoot,
+    args: ['run', 'modular:pos:live-safe-gate']
+  },
+  {
     name: 'POS Stage 13B closure',
     cwd: repoRoot,
     args: ['run', 'modular:pos:stage13b-closure']

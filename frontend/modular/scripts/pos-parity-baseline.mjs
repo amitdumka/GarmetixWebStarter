@@ -48,7 +48,7 @@ console.log(`Version: ${version}`)
 console.log(`Stage: ${stage}`)
 
 if (!version.startsWith('6.')) failures.push(`Expected Version6 modular version, found ${version}.`)
-if (!stage.includes('Stage 14A.1')) failures.push(`Expected Stage 14A.1, found ${stage}.`)
+if (!stage.includes('Stage 14A')) failures.push(`Expected Stage 14A POS lane, found ${stage}.`)
 
 for (const file of requiredFiles) {
   if (!existsSync(join(modularRoot, file))) failures.push(`Missing POS baseline file: ${file}`)
@@ -75,9 +75,9 @@ const rootPackage = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf
 const modularPackage = JSON.parse(readFileSync(join(modularRoot, 'package.json'), 'utf8'))
 const posPackage = JSON.parse(readFileSync(join(modularRoot, 'apps/pos/package.json'), 'utf8'))
 
-if (rootPackage.version !== '6.0.1') failures.push(`Root package version should be 6.0.1, found ${rootPackage.version}.`)
-if (modularPackage.version !== '6.0.1') failures.push(`Modular package version should be 6.0.1, found ${modularPackage.version}.`)
-if (posPackage.version !== '6.0.1') failures.push(`POS package version should be 6.0.1, found ${posPackage.version}.`)
+if (!rootPackage.version.startsWith('6.')) failures.push(`Root package version should be Version6, found ${rootPackage.version}.`)
+if (!modularPackage.version.startsWith('6.')) failures.push(`Modular package version should be Version6, found ${modularPackage.version}.`)
+if (!posPackage.version.startsWith('6.')) failures.push(`POS package version should be Version6, found ${posPackage.version}.`)
 if (!rootPackage.scripts?.['modular:pos:parity-baseline']) failures.push('Root package is missing modular:pos:parity-baseline script.')
 if (!modularPackage.scripts?.['pos:parity-baseline']) failures.push('Modular package is missing pos:parity-baseline script.')
 

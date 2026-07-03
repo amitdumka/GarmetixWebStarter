@@ -1,7 +1,7 @@
 {
   "name": "garmetix-version6-workspace",
   "private": true,
-  "version": "6.0.1",
+  "version": "6.0.2",
   "scripts": {
     "legacy:api:test": "dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release",
     "legacy:api:build": "dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release",
@@ -26,6 +26,7 @@
     "modular:pos:held-bill-browser": "node frontend/modular/scripts/pos-held-bill-browser-acceptance.mjs",
     "modular:pos:save-after-resume": "node frontend/modular/scripts/pos-save-after-resume-readiness.mjs",
     "modular:pos:live-save-fixtures": "node frontend/modular/scripts/pos-live-save-fixture-readiness.mjs",
+    "modular:pos:live-safe-gate": "node frontend/modular/scripts/pos-live-safe-deploy-gate.mjs",
     "modular:pos:stage13b-closure": "node frontend/modular/scripts/pos-stage13b-closure.mjs",
     "modular:hr:payroll-readiness": "node frontend/modular/scripts/hr-payroll-readiness.mjs",
     "modular:hr:attendance-contract": "node frontend/modular/scripts/hr-attendance-contract-check.mjs",
@@ -48,6 +49,7 @@
     "modular:deploy:srp:runtime": "node frontend/modular/scripts/run-bash-script.mjs frontend/modular/deploy/srp-runtime-bootstrap.sh",
     "modular:deploy:srp:cloudflare": "node frontend/modular/scripts/run-bash-script.mjs frontend/modular/deploy/srp-cloudflare-activate.sh",
     "modular:deploy:srp:acceptance": "node frontend/modular/scripts/srp-public-acceptance.mjs",
+    "modular:deploy:srp:backup": "node frontend/modular/scripts/run-bash-script.mjs frontend/modular/deploy/srp-backup-database.sh",
     "modular:pos:parity-baseline": "node frontend/modular/scripts/pos-parity-baseline.mjs"
   }
 }
