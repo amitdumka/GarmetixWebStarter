@@ -18,7 +18,7 @@ No source replacement has been performed yet in this analysis step.
 - Current repo branch before this work was `Version5`; a new local branch `version6` was created for this migration track.
 - Current repo root has:
   - `legacy/` containing the older legacy app.
-  - `modular/` containing Version5 modular frontend work.
+  - `frontend/modular/` containing Version5 modular frontend work.
   - root `package.json` with Version5 scripts for legacy and modular validation.
 - Uploaded v4.12.69 package has the full legacy shape:
   - `apps/`
@@ -87,7 +87,7 @@ The incoming frontend has many additional pages, including:
 
 ## Version5 Backend/API Changes To Review For Carry Forward
 
-The following Version5 backend commits touched `legacy/backend` after `origin/version4`:
+The following Version5 backend commits touched `backend` after `origin/version4`:
 
 - `c25a4c0` Stage 12D.2 AI Sense analytics endpoints.
 - `62631f3` Stage 12E.8 Books audit controls.
@@ -126,7 +126,7 @@ Goal: make `legacy/` match v4.12.69 as the latest monolithic legacy system.
 
 Tasks:
 
-- Replace `legacy/apps`, `legacy/backend`, `legacy/frontend`, `legacy/deploy`, `legacy/docs`, `legacy/infra`, `legacy/scripts`, `legacy/tools`, and root legacy docs from the incoming package.
+- Replace `legacy/apps`, `backend`, `frontend/legacy`, `legacy/deploy`, `legacy/docs`, `legacy/infra`, `legacy/scripts`, `legacy/tools`, and root legacy docs from the incoming package.
 - Exclude generated/build/runtime folders:
   - `node_modules`
   - `.nuxt`
@@ -142,8 +142,8 @@ Tasks:
 
 Validation:
 
-- `dotnet build legacy/backend/Garmetix.Api/Garmetix.Api.csproj -c Release`
-- `npm --prefix legacy/frontend/garmetix-web run build`
+- `dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release`
+- `npm --prefix frontend/legacy/garmetix-web run build`
 
 ### V6.2 Re-Apply Required Backend/API Carry-Forward
 
@@ -183,7 +183,7 @@ Tasks:
 - Keep modular scripts present but mark modular development paused in docs.
 - Ensure root README explains:
   - `legacy/` is v4.12.69 baseline.
-  - `modular/` is paused Version5 work to be resumed later.
+  - `frontend/modular/` is paused Version5 work to be resumed later.
 
 Validation:
 

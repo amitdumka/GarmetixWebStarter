@@ -1,0 +1,254 @@
+# Garmetix Version5 Modular TODO
+
+This is the working TODO for Version5 Stage 12 onward. All frontend decoupling work belongs under `frontend/modular/`. The `legacy/` folder remains the Version4/Stage 11 fallback until modular apps reach parity.
+
+Prompts and external plans are reference material, not strict folder orders. Each step should be adapted to the existing `frontend/modular/apps/*`, `frontend/modular/packages/*`, `frontend/modular/config/*`, and `frontend/modular/docs/*` structure.
+
+## Process Rules
+
+1. Pull/check the current `Version5` branch before starting a module.
+2. Keep changes small and commit after each completed module/stage.
+3. Keep the ASP.NET API and PostgreSQL database unified unless a future stage explicitly changes that decision.
+4. Keep `legacy/` behavior intact until modular parity is proven.
+5. Add or update docs for each stage.
+6. Run the safest available validation after each stage.
+7. Do not hardcode server passwords or production secrets in source control.
+8. When deployment automation is added, use SSH keys, environment variables, or prompted credentials.
+
+## Stage 12A: Registry And Foundation
+
+Status: in progress.
+
+- 12A.1: Audit current project and document route ownership.
+- 12A.2: Keep Version5 modular workspace under `frontend/modular/`.
+- 12A.3: Create `frontend/modular/config/routes.ts` and document ownership.
+- 12A.4: Build app switch/sidebar link helpers from the route registry.
+- 12A.5: Add shared shell layout contracts for all modular apps.
+- 12A.5 complete: shared API health, auth snapshot, and shell status cards.
+
+## Stage 12B: POS First
+
+Goal: split the fastest billing counter workflows first.
+
+- 12B.1 complete: add POS route shell, login bridge, and first route pages inside `frontend/modular/apps/pos`.
+- 12B.2 complete: add POS sale draft with product lookup, cart totals, payments, save and print.
+- 12B.3 complete: add POS customer profile adjustments and print queue hardening.
+- 12B.4 complete: add POS route guard, scanner focus, keyboard shortcuts, and save validation polish.
+- 12B.5 complete: add POS sales return invoice lookup, item selection, credit note save, and print handoff.
+- 12B.6 complete: add POS local held-bill queue with hold, resume, remove, and shortcut support.
+- 12B.7 complete: connect POS day open/close to store-day API with petty cash preview and print.
+- 12B.8 complete: add POS static deploy script and deployment notes.
+- Planned routes: `/login`, `/`, `/day-open`, `/sale`, `/hold-bills`, `/returns`, `/print`, `/day-close`.
+- Reuse `frontend/modular/packages/shared-api` and `frontend/modular/packages/shared-auth`.
+- Keep sale invoice and print flows compatible with existing API behavior.
+- Add POS build validation.
+- POS Ubuntu static deploy script is available at `frontend/modular/deploy/pos-static-deploy.sh`.
+
+## Stage 12C: HR
+
+Goal: split employees, attendance, payroll, and salary payment screens.
+
+- 12C.1 complete: add HR shell, auth guard, login, read-only dashboard, employee summary, attendance, payroll, salary payment, device pages, and placeholder route coverage.
+- 12C.2 complete: connect safe HR actions for attendance payroll review rebuild/mark, salary draft rebuild/mark, regularization approve/reject, and salary payment preview.
+- 12C.3 complete: add HR static deploy script and deployment notes.
+- Planned first routes: `/login`, `/`, `/hr`, `/attendance`, `/attendance/today`, `/attendance/monthly`, `/attendance/payroll-summary`, `/payroll`, `/attendance/salary-payment`, `/attendance/devices`.
+- Use existing attendance/payroll endpoints where available.
+- Keep salary and attendance pages non-destructive until endpoint contracts are verified.
+- Add HR build validation.
+- HR Ubuntu static deploy script is available at `frontend/modular/deploy/hr-static-deploy.sh`.
+
+## Stage 12D: AI Sense
+
+Goal: build read-only analytics first, then connect backend endpoints.
+
+- 12D.1 complete: add AI Sense shell, auth guard, login, business dashboard, stock risk, and route coverage for planned analysis screens.
+- 12D.2 complete: add read-only `/api/ai-sense/*` analytics endpoints and connect modular analysis pages.
+- 12D.3 complete: add AI Sense static deploy script and deployment notes.
+- Planned routes: `/login`, `/`, `/sales-analysis`, `/purchase-analysis`, `/profit-analysis`, `/stock-risk`, `/vendor-analysis`, `/customer-analysis`, `/daily-summary`, `/monthly-summary`.
+- Add empty/loading/error states before backend analytics endpoints are complete.
+- Read-only analytics endpoints are added to the existing ASP.NET API.
+- AI Sense planned pages are connected to real endpoints.
+- AI Sense Ubuntu static deploy script is available at `frontend/modular/deploy/ai-sense-static-deploy.sh`.
+
+## Stage 12E: Books
+
+Goal: split accountant/CA workflows.
+
+- 12E.1 complete: add Books shell, auth guard, login, read-only dashboard foundation, and route coverage placeholders.
+- 12E.2 complete: connect read-only accounting master data for ledger groups, ledgers, parties, bank accounts, trial balance, and ledger sync health.
+- 12E.3 complete: connect read-only bank operations for bank transactions, statements, reconciliation, cheque logs, vendor bank accounts, and bank account details.
+- 12E.4 complete: connect read-only voucher review with ledger, party, bank, employee labels and authenticated PDF download readiness.
+- 12E.5 complete: connect read-only petty cash review with sheet list, calculated daily summary, mismatch visibility, and authenticated A5 PDF download readiness.
+- 12E.6 complete: connect read-only vendor payment and settlement review with voucher, purchase invoice, bank, allocation, and PDF handoff visibility.
+- 12E.7 complete: connect read-only GST returns, GST reports and GST production/provider readiness with export handoff visibility.
+- 12E.8 complete: connect financial year lock review, journal validation, accounting-scoped audit trail, and accounting-scoped message log visibility.
+- 12E.9 complete: add Books static deploy script and deployment notes for the Books subdomain.
+- Planned areas: accounting dashboard, ledgers, parties, vouchers, petty cash, cash details, debit notes, credit notes, GST reports, GST returns, audit/message logs.
+- Keep banking and audit-sensitive flows explicit.
+- First writable accounting actions are intentionally deferred until endpoint contracts, ledger posting behavior, and print/audit expectations are verified.
+- Books Ubuntu static deploy script is available at `frontend/modular/deploy/books-static-deploy.sh`.
+
+## Stage 12F: Admin/SaaS
+
+Goal: split owner/developer/admin controls.
+
+- 12F.1 complete: add Admin/SaaS shell, auth guard, login, dashboard and read-only setup, access, logs, runtime, production, license, import/export and onboarding foundation pages.
+- 12F.2 complete: connect safe read-only admin diagnostics for backup, Google Drive backup, system health, database migrations, data consistency, production support drills and rehearsal.
+- 12F.3 complete: add Admin/SaaS static deploy script and deployment notes for the Admin subdomain.
+- Planned areas: setup/company/store, users/roles/permissions, license, feature/module enablement, client onboarding, system health, message logs, backup/restore, deployment diagnostics.
+- Keep SuperAdmin-specific visibility rules explicit.
+- Admin Ubuntu static deploy script is available at `frontend/modular/deploy/admin-static-deploy.sh`.
+
+## Stage 12G: Main Back Office Cleanup
+
+Goal: make `frontend/modular/apps/main` a lean back-office app instead of a catch-all UI.
+
+- 12G.1 complete: add authenticated Main shell, route-level placeholders, ownership audit notes, and build validation for Back Office-owned routes.
+- 12G.2 complete: connect Main Back Office dashboard pages to existing safe read-only dashboard summary endpoints.
+- 12G.3 complete: connect sale invoice, purchase, inventory, stock operation, customer and operational report review pages to existing safe read-only endpoints.
+- 12G.4 complete: add Main Back Office static deploy script and deployment notes for the root Garmetix subdomain.
+- Keep dashboard, purchase, inventory, reports, customer/vendor operations, and store operations.
+- Remove heavy POS/HR/AI/Books work from main only after target apps have parity.
+- Optimize route-level loading and avoid layout-level data fetching.
+
+## Stage 12H: Deployment Split
+
+Goal: deploy each app independently while keeping one API and one database.
+
+- 12H.1 complete: add consolidated deployment split guide for all modular static apps, the shared API, Cloudflare Tunnel hostnames, and the one-backend/one-database rule.
+- 12H.2 complete: add one-command local validation for structure, all modular frontend static builds, and shared API build.
+- 12H.3 complete: add deployment preflight for local static outputs, deploy scripts, env examples, secret hygiene, and optional SSH remote host readiness.
+- 12H.4 complete: add host-specific Ubuntu server and Ubuntu desktop deployment notes with Nginx roots, Cloudflare Tunnel mapping, preflight commands, and rollback guidance.
+- 12H.5 complete: add release-day checklist generator with target/app filters and optional ignored markdown output.
+- 12H.6 complete: add deployment acceptance criteria for shared API, per-app deploy readiness, release gates, and go/no-go checks.
+- Add static build output handling per app.
+- Add deployment scripts under `frontend/modular/deploy/`.
+- Target hosts:
+  - Ubuntu server: `amit@192.168.11.126`
+  - Ubuntu desktop: `amitkumar@192.168.11.127`
+- Do not store passwords in scripts. Use SSH keys or prompt at runtime.
+- Add Cloudflare Tunnel examples for:
+  - `garmetix.aadwikafashion.in`
+  - `pos.garmetix.aadwikafashion.in`
+  - `hr.garmetix.aadwikafashion.in`
+  - `books.garmetix.aadwikafashion.in`
+  - `ai-sense.garmetix.aadwikafashion.in`
+  - `admin.garmetix.aadwikafashion.in`
+  - `api.garmetix.aadwikafashion.in`
+
+## Stage 12Z: Verification
+
+Goal: final verification before calling Stage 12 complete.
+
+- 12Z complete: consolidate final Stage 12 verification for modular validation, legacy web/API builds, deploy docs, no database split, accepted warnings and next-stage risks.
+- Build legacy web.
+- Build legacy API.
+- Build modular main, POS, HR, AI Sense, Books, and Admin.
+- Validate env examples.
+- Validate Cloudflare/deploy docs.
+- Confirm no database split and no destructive migration.
+- Document known issues and next stage.
+
+## Stage 13A: Production Hardening
+
+Goal: make the modular split deployable and testable in real environments before deeper parity work.
+
+- 13A.1 complete: add production hardening roadmap and smoke-checklist generator for route/API-health verification across Main, POS, HR, AI Sense, Books and Admin.
+- 13A.2 complete: add local route smoke tests with dry-run validation and optional Playwright live browser checks for modular apps.
+- 13A.3 complete: add API health and auth-state smoke checks for local and public URL modes with optional token validation.
+- 13A.4 complete: add Cloudflare-facing public URL smoke report generation with optional live app/API reachability checks.
+- 13A.5 complete: add visual smoke notes for login, shell layout, app switching and access-denied pages, closing the Stage 13A hardening lane.
+- Keep all checks secret-free and compatible with one shared API and one PostgreSQL database.
+- Defer live Ubuntu/Cloudflare deployment until SSH keys, tunnel credentials and static-server config are ready on the host.
+
+## Stage 13B: POS Parity And Writable Hardening
+
+Goal: move from production smoke tooling into deeper POS workflow parity and safe writable workflow checks.
+
+- 13B.1 complete: verify POS sale draft payload keys against the current ASP.NET billing sale DTO contract and centralize POS sale payload construction.
+- 13B.2 complete: harden POS browser-local sale draft, held bill, return print queue and day open/close actions against corrupt local storage and duplicate clicks.
+- 13B.3 complete: separate POS save success from PDF print-window failures and normalize scanned invoice references for return lookup.
+- 13B.4 complete: normalize store-day API responses and keep day close successful when petty cash PDF print is blocked or fails.
+- 13B.5 complete: centralize POS sales return request construction and extend contract parity checks for sale, return and exchange DTOs.
+- 13B.6 complete: add dedicated POS sales exchange screen with original invoice return lines, replacement item scan cart, additional payment validation and print queue recovery.
+- 13B.7 complete: add repeatable POS cashier/operator acceptance checklist covering Sale, Return, Exchange, day flow, print recovery and 14 inch laptop usability.
+- 13B.8 complete: add server-backed POS held bill persistence with local browser fallback for hold, resume, remove and clear workflows.
+- 13B.9 complete: add dry-run and optional live POS held-bill API smoke checks for auth gating, list access and create/delete lifecycle validation.
+- 13B.10 complete: add dry-run and optional live browser acceptance for POS held-bill render, resume navigation and sale-draft recovery.
+- 13B.11 complete: add POS save-after-resume readiness checks for resumed draft recovery, sale request construction, payment safety and Manager salesman fallback.
+- 13B.12 complete: add dry-run and optional live POS fixture readiness checks for store scope, billing options, sellable stock, bank readiness and save payload safety.
+- 13B closed: POS parity and writable hardening now has repeatable dry validation for contract parity, local workflows, print recovery, returns, exchange, server held bills, browser resume and save-readiness fixtures.
+- Add live acceptance evidence when test credentials are available.
+- Keep off-book cash voucher and non-GST flows separated from regular books.
+- Preserve unified API/database until a future backend split is explicitly approved.
+
+## Stage 13C: HR Payroll Attendance Hardening
+
+Goal: move the HR/payroll module lane through the same pattern: route readiness, contract checks, read/write safety, dry smoke, optional live readiness and closure.
+
+- 13C.1 complete: add non-mutating HR/payroll readiness checks for HR route ownership, attendance read models, payroll review, salary payment candidates, attendance devices, fingerprint bridge status, face/liveness status, recent payslips and salary payment list endpoints.
+- 13C.2 complete: add HR attendance contract checks for monthly attendance, payroll summary, payroll review, salary draft and salary payment preview DTO field expectations.
+- 13C.3 complete: add HR browser acceptance notes/checks for attendance, payroll review and salary payment pages on 14 inch laptop layouts.
+- 13C.4 complete: add Mantra/fingerprint device bridge readiness docs and simulator checks without raw biometric storage.
+- 13C.5 complete: add controlled live payroll preview validation without creating salary payment vouchers.
+- 13C closed: HR/payroll attendance hardening now has repeatable dry validation for endpoint readiness, DTO contracts, browser layout acceptance, device bridge readiness and non-mutating salary payment preview.
+- Keep all real data mutation behind explicit opt-in flags.
+- Continue one shared ASP.NET API and one PostgreSQL database until a future split is explicitly approved.
+
+## Stage 13D: Books Accounting Audit And Posting Readiness
+
+Goal: move the Books/accounting module lane through the same pattern: route readiness, contract checks, browser safety, ledger sync checks, dry smoke, optional live readiness and closure.
+
+- 13D.1 complete: add non-mutating Books/accounting readiness checks for route ownership, ledger and party masters, bank operations, vouchers, petty cash, audit, message logs, financial year locks and GST accounting summary endpoints.
+- 13D.2 complete: add Books accounting contract checks for voucher, ledger, party, bank account, audit and GST summary field expectations.
+- 13D.3 complete: add Books browser acceptance checks for vouchers, petty cash, cash details, audit and GST pages on 14 inch laptop layouts.
+- 13D.4 complete: add ledger/party/bank-account sync readiness validation to keep hidden party and bank ledgers internal.
+- 13D.5 complete: add controlled live posting readiness preflight without creating vouchers or journals.
+- 13D closed: Books/accounting hardening now has repeatable dry validation for endpoint readiness, DTO contracts, browser layout acceptance, internal ledger sync safety and posting prerequisites without mutations.
+- Preserve off-book cash voucher and non-GST flows separately from regular accounting books.
+- Keep all real data mutation behind explicit opt-in flags.
+- Continue one shared ASP.NET API and one PostgreSQL database until a future split is explicitly approved.
+
+## Stage 13E: Next Modular Hardening Lane
+
+Goal: move Main Back Office through the same hardening pattern used for POS, HR and Books.
+
+- 13E.1 complete: add non-mutating Main Back Office readiness checks for route ownership, dashboard read models, recent sale/purchase review, stock summary, customer search, product lookup and workspace scope.
+- 13E.2 complete: add contract parity checks for Main Back Office dashboard, sale review, purchase review, inventory summary, customer preview, product lookup and workspace DTO fields.
+- 13E.3 complete: add Main browser acceptance checks for 14 inch laptop usability, route headings, table scrolling, safe messages and app boundary clarity.
+- 13E.4 complete: add writable-readiness preflight for Main sale-review actions, purchase intake/review, customer profile handoff and inventory operations without mutations by default.
+- 13E.5 complete: add Main closure checklist for dashboard, billing review, purchase review, inventory, customers, reports, deployment readiness and residual writable risks.
+- 13E closed: Main Back Office hardening now has repeatable dry validation for route ownership, read models, DTO contracts, browser acceptance, writable preflight and deployment handoff.
+- Main closed route set: `/`, `/dashboard`, `/dashboard/todays`, `/dashboard/store-manager`, `/billing`, `/purchase`, `/inventory`, `/stock-operations`, `/customers`, `/reports`.
+- Keep Main focused on back-office operational review while POS, HR, Books and Admin/SaaS retain their dedicated workflows.
+- Keep store-day, tailoring, purchase return and document scan writable behavior deferred until endpoint contracts are promoted.
+- Preserve one shared ASP.NET API and one PostgreSQL database until a future split is explicitly approved.
+
+## Stage 13F: Admin/SaaS Live Operations Hardening
+
+Goal: move Admin/SaaS through the same closure pattern with live-operations safety before production use.
+
+- 13F.1 complete: add Admin/SaaS readiness checks for SuperAdmin/Admin visibility, setup/admin diagnostics, message logs, backup/restore, factory reset guardrails, import/export controls and deployment governance.
+- 13F.2 complete: add Admin browser acceptance checks for login, access denied, setup, users, system health, message logs, backup, import/export and production pages on 14 inch laptop layouts.
+- 13F.3 complete: add guarded Admin writable/live preflight for backup restore, factory reset, license generation/activation and import/export commit without executing dangerous mutations by default.
+- 13F.4 complete: close the Admin/SaaS hardening lane with a repeatable closure gate and remaining-risk handoff.
+- 13F closed: Admin/SaaS hardening now has repeatable dry validation for readiness, browser acceptance, writable preflight and deployment handoff.
+- Current Admin risk: backend factory reset is Admin-policy protected and confirmation-gated with safety backup, but not yet SuperAdmin-only in code.
+- Keep factory reset and restore destructive flows behind explicit live/admin confirmation gates.
+- Keep production secrets out of repository scripts and docs.
+
+## Stage 13G: SRP Whole-Site Deployment
+
+Goal: deploy the complete modular website to the Ubuntu desktop SRP target without disturbing the existing production hostname.
+
+- 13G.1 complete: add SRP whole-site deploy foundation for `srp.aadwikafashion.in`, path-based modular static apps, reusable config, API publish staging, Nginx, systemd and Cloudflare Tunnel templates.
+- 13G.1a complete: correct SRP SSH target to `amitkumar@192.168.11.127` and add private non-interactive SSH/sudo password support through a secrets file and `sshpass`.
+- 13G.2 complete: add WSL-friendly SRP host readiness checks for local tools, SSH, sudo, Nginx, dotnet, cloudflared, PostgreSQL client, API env and Cloudflare tunnel files.
+- 13G.3 complete: run live WSL readiness, install base host packages, add self-contained Linux API publish and guard API startup until real env values exist.
+- 13G.4 complete: add runtime bootstrap for PostgreSQL server, generated API env secrets, API service startup and cloudflared package installation.
+- 13G.5 complete: add credential-safe Cloudflare tunnel activation/status script and public SRP endpoint verification flow.
+- 13G.6 complete: add SRP public acceptance runner for DNS, public routes, API health and LAN fallback verification, with strict mode for final Cloudflare acceptance.
+- 13G.7 complete: fix LAN login/API unreachable issue by using same-origin SRP app/API URLs and relative API URL support in the shared client.
+- 13G.8 next: add real Cloudflare tunnel credentials outside git, run strict public acceptance, then complete browser login, app path loading, API health and cross-app navigation checks from `https://srp.aadwikafashion.in`.
+- Keep SRP secrets and tunnel credentials outside git.
+

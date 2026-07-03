@@ -20,7 +20,7 @@ services:
 
   api:
     build:
-      context: .
+      context: ../..
       dockerfile: backend/Garmetix.Api/Dockerfile
     image: garmetix-api
     restart: unless-stopped
@@ -59,8 +59,8 @@ services:
 
   web:
     build:
-      context: .
-      dockerfile: frontend/garmetix-web/Dockerfile
+      context: ../..
+      dockerfile: frontend/legacy/garmetix-web/Dockerfile
     image: garmetix-web
     restart: unless-stopped
     env_file:

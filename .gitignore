@@ -1,4 +1,4 @@
-# Root workspace ignores for Version5 modular layout.
+# Root workspace ignores for Version6 backend/frontend layout.
 node_modules/
 .nuxt/
 .output/
@@ -10,15 +10,18 @@ outputs/
 !.env.production.example
 
 # Modular app outputs.
-modular/**/.nuxt/
-modular/**/.output/
-modular/**/node_modules/
-modular/**/dist/
-modular/docs/generated/
+frontend/modular/**/.nuxt/
+frontend/modular/**/.output/
+frontend/modular/**/node_modules/
+frontend/modular/**/dist/
+frontend/modular/docs/generated/
 
-# Legacy keeps its own moved ignore rules under legacy/.gitignore.
-legacy/**/node_modules/
-legacy/**/.nuxt/
-legacy/**/.output/
+# App build outputs.
+frontend/legacy/**/node_modules/
+frontend/legacy/**/.nuxt/
+frontend/legacy/**/.output/
+frontend/legacy/**/dist/
+backend/**/bin/
+backend/**/obj/
 legacy/**/bin/
 legacy/**/obj/

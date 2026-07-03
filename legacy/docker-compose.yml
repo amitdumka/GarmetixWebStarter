@@ -1,7 +1,7 @@
 services:
   api:
     build:
-      context: .
+      context: ..
       dockerfile: backend/Garmetix.Api/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -84,8 +84,8 @@ services:
 
   web:
     build:
-      context: .
-      dockerfile: frontend/garmetix-web/Dockerfile
+      context: ..
+      dockerfile: frontend/legacy/garmetix-web/Dockerfile
     environment:
       NUXT_PUBLIC_API_BASE: /api
       NUXT_API_INTERNAL_BASE: http://api:5080/api
