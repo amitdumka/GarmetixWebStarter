@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/shared-ui",
   "private": true,
-  "version": "6.0.15",
+  "version": "6.0.22",
   "type": "module",
   "dependencies": {
     "@garmetix/shared-types": "6.0.0"

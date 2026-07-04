@@ -8,19 +8,42 @@ export function useBooksApiClient() {
   const runtimeConfig = useRuntimeConfig()
   const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
 
-  async function get<T>(path: string, query?: Record<string, string | number | boolean | null | undefined>) {
+  function normalizeBooksApiPath(path: string) {
+    return String(path || '').replace(/^\/+/, '').replace(/^api\/+/i, '')
+  }
+
+  function createClient() {
     if (!apiBaseUrl.value) throw new Error('API base URL is not configured.')
-    const api = createGarmetixApiClient({
+    return createGarmetixApiClient({
       baseUrl: apiBaseUrl.value,
       getToken: () => getStoredToken(window.localStorage)
     })
-    return await api.get<T>(path, { query })
+  }
+
+  async function get<T>(path: string, query?: Record<string, string | number | boolean | null | undefined>) {
+    const api = createClient()
+    return await api.get<T>(normalizeBooksApiPath(path), { query })
+  }
+
+  async function post<T>(path: string, body?: unknown) {
+    const api = createClient()
+    return await api.post<T>(normalizeBooksApiPath(path), body)
+  }
+
+  async function put<T>(path: string, body?: unknown) {
+    const api = createClient()
+    return await api.put<T>(normalizeBooksApiPath(path), body)
+  }
+
+  async function del<T>(path: string) {
+    const api = createClient()
+    return await api.delete<T>(normalizeBooksApiPath(path))
   }
 
   function apiUrl(path: string, query?: Record<string, string | number | boolean | null | undefined>) {
     if (!apiBaseUrl.value) throw new Error('API base URL is not configured.')
     const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost'
-    const url = new URL(createApiUrl(apiBaseUrl.value, path), origin)
+    const url = new URL(createApiUrl(apiBaseUrl.value, normalizeBooksApiPath(path)), origin)
     for (const [key, value] of Object.entries(query ?? {})) {
       if (value !== null && value !== undefined) url.searchParams.set(key, String(value))
     }
@@ -52,7 +75,7 @@ export function useBooksApiClient() {
     URL.revokeObjectURL(objectUrl)
   }
 
-  return { apiBaseUrl, apiUrl, download, get }
+  return { apiBaseUrl, apiUrl, del, download, get, post, put }
 }
 
 export function readNumber(source: ApiRecord | null | undefined, keys: string[] | null | undefined) {

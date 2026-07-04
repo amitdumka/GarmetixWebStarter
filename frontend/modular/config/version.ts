@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.21',
-  stage: 'Stage 14B.12 HR Payroll Device Final Parity',
-  label: 'Version6 Stage 14B.12 HR Payroll Device Final Parity',
-  summary: 'Completed modular HR payroll parity with salary structures, salary payments, payslip PDF/share handoff, biometric enrollment, photo review and face liveness readiness pages.'
+  version: '6.0.22',
+  stage: 'Stage 14C.2 Books Voucher Ledger Parity',
+  label: 'Version6 Stage 14C.2 Books Voucher Ledger Parity',
+  summary: 'Promoted modular Books vouchers to guarded create, edit, delete and Save & Print parity with hidden party-ledger resolution, non-cash bank validation, ledger sync repair and ledger statement review.'
 } as const

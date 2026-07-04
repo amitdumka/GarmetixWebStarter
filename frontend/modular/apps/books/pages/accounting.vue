@@ -6,7 +6,7 @@
           <p class="garmetix-kicker"><UIcon name="i-lucide-book-open-check" class="size-4" /> Books master data</p>
           <h2 class="garmetix-dashboard-title">Accounting Masters</h2>
           <p class="garmetix-dashboard-subtitle">
-            Read-only view of ledger groups, ledgers, parties, bank accounts, ledger sync and trial balance. Add/edit actions remain in later audited slices.
+            Ledger groups, ledgers, parties, bank accounts, ledger sync and trial balance with guarded repair and statement review.
           </p>
         </div>
         <div class="flex flex-wrap gap-2">
@@ -46,10 +46,37 @@
           <h3 class="garmetix-panel-title">{{ currentTab.label }}</h3>
           <p class="garmetix-panel-subtitle">{{ currentTab.description }}</p>
         </div>
-        <UInput v-model="search" icon="i-lucide-search" placeholder="Search master data" class="sm:w-72" />
+        <div class="flex flex-col gap-2 sm:flex-row">
+          <UInput v-model="search" icon="i-lucide-search" placeholder="Search master data" class="sm:w-72" />
+          <UButton
+            v-if="activeTab === 'ledgerSync'"
+            icon="i-lucide-wrench"
+            color="warning"
+            variant="soft"
+            :loading="repairing"
+            @click="repairLedgerSync"
+          >
+            Repair Sync
+          </UButton>
+        </div>
       </div>
 
       <BooksMasterTable :columns="currentColumns" :rows="filteredRows" empty-text="No accounting rows found." />
+    </section>
+
+    <section class="garmetix-section-card">
+      <div class="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h3 class="garmetix-panel-title">Ledger Statement</h3>
+          <p class="garmetix-panel-subtitle">Audit posted entries for a selected ledger without exposing internal party flags.</p>
+        </div>
+        <div class="flex flex-col gap-2 sm:flex-row">
+          <USelect v-model="selectedLedgerId" :items="ledgerOptions" placeholder="Select ledger" class="sm:w-72" />
+          <UButton icon="i-lucide-file-search" color="neutral" variant="soft" :loading="statementLoading" @click="loadLedgerStatement">View</UButton>
+        </div>
+      </div>
+
+      <BooksMasterTable :columns="ledgerStatementColumns" :rows="ledgerStatementRows" empty-text="Select a ledger to view posted entries." />
     </section>
   </section>
 </template>
@@ -73,11 +100,14 @@ useHead({ title: 'Accounting - Garmetix Books' })
 
 type AccountingTab = 'ledgerGroups' | 'ledgers' | 'parties' | 'bankAccounts' | 'trialBalance' | 'ledgerSync'
 
-const { get } = useBooksApiClient()
+const { get, post } = useBooksApiClient()
 const loading = ref(true)
+const repairing = ref(false)
+const statementLoading = ref(false)
 const error = ref('')
 const search = ref('')
 const activeTab = ref<AccountingTab>('ledgers')
+const selectedLedgerId = ref('')
 const ledgerGroups = ref<ApiRecord[]>([])
 const ledgers = ref<ApiRecord[]>([])
 const parties = ref<ApiRecord[]>([])
@@ -85,6 +115,7 @@ const banks = ref<ApiRecord[]>([])
 const bankAccounts = ref<ApiRecord[]>([])
 const trialBalance = ref<ApiRecord[]>([])
 const ledgerSync = ref<ApiRecord | null>(null)
+const ledgerStatement = ref<ApiRecord[]>([])
 
 const tabs = [
   { key: 'ledgers' as const, label: 'Ledgers', icon: 'i-lucide-book-open', description: 'Chart of accounts with protected internal party/bank flags hidden.' },
@@ -98,6 +129,7 @@ const currentTab = computed(() => tabs.find(item => item.key === activeTab.value
 const groupName = (id: unknown) => readText(ledgerGroups.value.find(item => item.id === id), ['name'])
 const bankName = (id: unknown) => readText(banks.value.find(item => item.id === id), ['name'])
 const ledgerExists = (id: unknown) => Boolean(id && ledgers.value.some(item => item.id === id))
+const ledgerOptions = computed(() => ledgers.value.map(item => ({ value: readText(item, ['id'], ''), label: readText(item, ['name']) })).filter(item => item.value))
 const syncIssues = computed(() => readArray(ledgerSync.value, ['issues']))
 const syncLabel = computed(() => {
   const count = readNumber(ledgerSync.value, ['issueCount'])
@@ -211,6 +243,24 @@ const filteredRows = computed(() => {
   if (!term) return currentRows.value
   return currentRows.value.filter(row => JSON.stringify(row).toLowerCase().includes(term))
 })
+const ledgerStatementColumns = [
+  { key: 'date', label: 'Date' },
+  { key: 'entry', label: 'Entry' },
+  { key: 'source', label: 'Source' },
+  { key: 'particulars', label: 'Particulars' },
+  { key: 'debit', label: 'Debit' },
+  { key: 'credit', label: 'Credit' },
+  { key: 'balance', label: 'Balance' }
+]
+const ledgerStatementRows = computed(() => ledgerStatement.value.map(item => ({
+  date: readText(item, ['onDate']),
+  entry: readText(item, ['entryNumber', 'referenceNumber']),
+  source: readText(item, ['sourceType']),
+  particulars: readText(item, ['particulars']),
+  debit: formatIndianMoney(readNumber(item, ['debit'])),
+  credit: formatIndianMoney(readNumber(item, ['credit'])),
+  balance: `${formatIndianMoney(readNumber(item, ['balance']))} ${readText(item, ['balanceType'], '')}`.trim()
+})))
 
 async function refresh() {
   loading.value = true
@@ -232,12 +282,46 @@ async function refresh() {
     if (bankAccountData.status === 'fulfilled') bankAccounts.value = toRows(bankAccountData.value)
     if (trialData.status === 'fulfilled') trialBalance.value = toRows(trialData.value)
     if (syncData.status === 'fulfilled' && syncData.value && typeof syncData.value === 'object') ledgerSync.value = syncData.value as ApiRecord
+    if (!selectedLedgerId.value && ledgers.value.length) selectedLedgerId.value = readText(ledgers.value[0], ['id'], '')
     const failed = [groupData, ledgerData, partyData, bankData, bankAccountData, trialData, syncData].filter(item => item.status === 'rejected').length
     if (failed) error.value = `${failed} accounting master request(s) could not be loaded.`
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Unable to load accounting masters.'
   } finally {
     loading.value = false
+  }
+}
+
+async function repairLedgerSync() {
+  const phrase = window.prompt('Type REPAIR LEDGER SYNC to create missing party and bank ledgers.')
+  if (phrase !== 'REPAIR LEDGER SYNC') return
+
+  repairing.value = true
+  error.value = ''
+  try {
+    await post<unknown>('accounting/ledger-sync/repair', {})
+    await refresh()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to repair ledger sync.'
+  } finally {
+    repairing.value = false
+  }
+}
+
+async function loadLedgerStatement() {
+  if (!selectedLedgerId.value) {
+    error.value = 'Select ledger before loading statement.'
+    return
+  }
+
+  statementLoading.value = true
+  error.value = ''
+  try {
+    ledgerStatement.value = toRows(await get<unknown>(`accounting/ledger-statement/${selectedLedgerId.value}`))
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to load ledger statement.'
+  } finally {
+    statementLoading.value = false
   }
 }
 
