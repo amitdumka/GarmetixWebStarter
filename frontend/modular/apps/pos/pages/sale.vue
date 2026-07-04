@@ -19,46 +19,46 @@
 
     <UAlert v-if="message" :color="messageTone" variant="subtle" :icon="messageIcon" :description="message" />
 
-    <section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-      <div class="space-y-4">
-        <div class="garmetix-section-card grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <UFormField label="Store" name="storeId">
-            <USelect v-model="form.storeId" :items="storeOptions" placeholder="Select store" @change="onStoreChanged" />
-          </UFormField>
-          <UFormField label="Salesman" name="salesmanId">
-            <USelect v-model="form.salesmanId" :items="salesmanOptions" placeholder="Manager" />
-          </UFormField>
-          <UFormField label="Customer mobile" name="customerMobileNumber">
-            <UInput v-model="form.customerMobileNumber" icon="i-lucide-phone" placeholder="Optional" @keyup.enter="searchCustomer" />
-          </UFormField>
-          <UFormField label="Customer name" name="customerName">
-            <UInput v-model="form.customerName" icon="i-lucide-user-round" />
-          </UFormField>
-        </div>
+    <section class="space-y-4">
+      <div class="garmetix-section-card grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <UFormField label="Store" name="storeId">
+          <USelect v-model="form.storeId" :items="storeOptions" placeholder="Select store" @change="onStoreChanged" />
+        </UFormField>
+        <UFormField label="Salesman" name="salesmanId">
+          <USelect v-model="form.salesmanId" :items="salesmanOptions" placeholder="Manager" />
+        </UFormField>
+        <UFormField label="Customer mobile" name="customerMobileNumber">
+          <UInput v-model="form.customerMobileNumber" icon="i-lucide-phone" placeholder="Optional" @keyup.enter="searchCustomer" />
+        </UFormField>
+        <UFormField label="Customer name" name="customerName">
+          <UInput v-model="form.customerName" icon="i-lucide-user-round" />
+        </UFormField>
+      </div>
 
-        <div class="garmetix-section-card grid gap-3 lg:grid-cols-[1fr_1fr_auto]">
-          <UFormField label="Customer search" name="customerSearch">
-            <UInput v-model="customerSearch" icon="i-lucide-search" placeholder="Mobile, name or GSTIN" @keyup.enter="searchCustomer" />
-          </UFormField>
-          <UFormField label="Matched customer" name="customerMatch">
-            <USelect v-model="selectedCustomerId" :items="customerMatchOptions" placeholder="Walk-in / new customer" @change="selectCustomer" />
-          </UFormField>
-          <div class="flex items-end gap-2">
-            <UButton icon="i-lucide-search" :loading="searchingCustomer" @click="searchCustomer">Search</UButton>
-            <UButton color="neutral" variant="soft" icon="i-lucide-user-x" @click="clearCustomer">Clear</UButton>
-          </div>
-          <UFormField label="Customer GSTIN" name="customerGstin">
-            <UInput v-model="form.customerGstin" icon="i-lucide-badge-indian-rupee" placeholder="Optional B2B GSTIN" />
-          </UFormField>
-          <div v-if="selectedCustomerProfile" class="grid gap-2 text-sm lg:col-span-2 lg:grid-cols-4">
-            <div class="garmetix-metric-card"><p class="garmetix-metric-label">Credit</p><strong>{{ money(selectedCustomerProfile.customer?.creditBalance || 0) }}</strong></div>
-            <div class="garmetix-metric-card"><p class="garmetix-metric-label">Loyalty points</p><strong>{{ Number(selectedCustomerProfile.customer?.loyaltyPoints || 0) }}</strong></div>
-            <div class="garmetix-metric-card"><p class="garmetix-metric-label">Credit notes</p><strong>{{ selectedCustomerProfile.creditNotes?.length || 0 }}</strong></div>
-            <div class="garmetix-metric-card"><p class="garmetix-metric-label">Advances</p><strong>{{ selectedCustomerProfile.advanceReceipts?.length || 0 }}</strong></div>
-          </div>
+      <div class="garmetix-section-card grid gap-3 lg:grid-cols-[1fr_1fr_auto]">
+        <UFormField label="Customer search" name="customerSearch">
+          <UInput v-model="customerSearch" icon="i-lucide-search" placeholder="Mobile, name or GSTIN" @keyup.enter="searchCustomer" />
+        </UFormField>
+        <UFormField label="Matched customer" name="customerMatch">
+          <USelect v-model="selectedCustomerId" :items="customerMatchOptions" placeholder="Walk-in / new customer" @change="selectCustomer" />
+        </UFormField>
+        <div class="flex items-end gap-2">
+          <UButton icon="i-lucide-search" :loading="searchingCustomer" @click="searchCustomer">Search</UButton>
+          <UButton color="neutral" variant="soft" icon="i-lucide-user-x" @click="clearCustomer">Clear</UButton>
         </div>
+        <UFormField label="Customer GSTIN" name="customerGstin">
+          <UInput v-model="form.customerGstin" icon="i-lucide-badge-indian-rupee" placeholder="Optional B2B GSTIN" />
+        </UFormField>
+        <div v-if="selectedCustomerProfile" class="grid gap-2 text-sm lg:col-span-2 lg:grid-cols-4">
+          <div class="garmetix-metric-card"><p class="garmetix-metric-label">Credit</p><strong>{{ money(selectedCustomerProfile.customer?.creditBalance || 0) }}</strong></div>
+          <div class="garmetix-metric-card"><p class="garmetix-metric-label">Loyalty points</p><strong>{{ Number(selectedCustomerProfile.customer?.loyaltyPoints || 0) }}</strong></div>
+          <div class="garmetix-metric-card"><p class="garmetix-metric-label">Credit notes</p><strong>{{ selectedCustomerProfile.creditNotes?.length || 0 }}</strong></div>
+          <div class="garmetix-metric-card"><p class="garmetix-metric-label">Advances</p><strong>{{ selectedCustomerProfile.advanceReceipts?.length || 0 }}</strong></div>
+        </div>
+      </div>
 
-        <div class="garmetix-section-card grid gap-3 lg:grid-cols-[1fr_110px_110px_auto]">
+      <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div class="garmetix-section-card grid gap-3 lg:grid-cols-[1fr_110px_110px_104px]">
           <UFormField label="Barcode / product" name="productSearch">
             <UInput
               ref="productSearchInput"
@@ -86,7 +86,26 @@
           </div>
         </div>
 
-        <div class="garmetix-table-panel overflow-x-auto">
+        <div class="garmetix-detail-panel">
+          <h3 class="garmetix-panel-title">Totals</h3>
+          <dl class="mt-4 space-y-2 text-sm">
+            <div class="flex justify-between gap-3"><dt class="text-muted">Items</dt><dd>{{ cart.length }}</dd></div>
+            <div class="flex justify-between gap-3"><dt class="text-muted">Quantity</dt><dd>{{ totalQuantity }}</dd></div>
+            <div class="flex justify-between gap-3"><dt class="text-muted">Gross</dt><dd>{{ money(cartTotal) }}</dd></div>
+            <div class="flex items-center justify-between gap-3">
+              <dt class="text-muted">Bill discount</dt>
+              <dd class="w-28"><UInput v-model="form.billDiscountAmount" size="xs" inputmode="decimal" @input="syncCashPayment" /></dd>
+            </div>
+            <div class="flex justify-between gap-3"><dt class="text-muted">Round off</dt><dd>{{ money(roundOff) }}</dd></div>
+            <div class="flex justify-between gap-3 border-t border-default pt-2 text-lg font-semibold"><dt>Payable</dt><dd>{{ money(payableTotal) }}</dd></div>
+            <div class="flex justify-between gap-3"><dt class="text-muted">Adjustments</dt><dd>{{ money(adjustmentTotal) }}</dd></div>
+            <div class="flex justify-between gap-3"><dt class="text-muted">Paid</dt><dd>{{ money(paymentTotal) }}</dd></div>
+            <div class="flex justify-between gap-3"><dt class="text-muted">Balance</dt><dd>{{ money(paymentBalance) }}</dd></div>
+          </dl>
+          <UButton class="mt-4" block icon="i-lucide-printer" :loading="saving" :disabled="!canSave" @click="saveAndPrint">Save & Print</UButton>
+        </div>
+
+        <div class="garmetix-table-panel overflow-x-auto xl:col-span-2">
           <table class="w-full min-w-[760px] border-collapse text-sm">
             <thead class="bg-muted/30 text-left text-xs uppercase text-muted">
               <tr>
@@ -124,10 +143,10 @@
         </div>
       </div>
 
-      <aside class="space-y-4">
+      <div class="grid gap-4 xl:grid-cols-2">
         <div class="garmetix-section-card">
           <h3 class="garmetix-panel-title">Payment</h3>
-          <div class="mt-4 space-y-3">
+          <div class="mt-4 grid gap-3 lg:grid-cols-2">
             <div v-for="(payment, index) in payments" :key="index" class="space-y-2 rounded-lg border border-default p-3">
               <div class="grid grid-cols-2 gap-2">
                 <UFormField label="Mode">
@@ -147,13 +166,13 @@
                 Remove payment
               </UButton>
             </div>
-            <UButton color="neutral" variant="soft" icon="i-lucide-plus" block @click="addPayment">Add payment row</UButton>
           </div>
+          <UButton class="mt-3" color="neutral" variant="soft" icon="i-lucide-plus" @click="addPayment">Add payment row</UButton>
         </div>
 
         <div class="garmetix-section-card">
           <h3 class="garmetix-panel-title">Customer adjustments</h3>
-          <div class="mt-4 space-y-3">
+          <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <UFormField label="Store credit">
               <UInput v-model="adjustments.storeCreditAmount" inputmode="decimal" :disabled="!selectedCustomerProfile" @input="syncCashPayment" />
             </UFormField>
@@ -174,26 +193,7 @@
             </UFormField>
           </div>
         </div>
-
-        <div class="garmetix-detail-panel">
-          <h3 class="garmetix-panel-title">Totals</h3>
-          <dl class="mt-4 space-y-2 text-sm">
-            <div class="flex justify-between gap-3"><dt class="text-muted">Items</dt><dd>{{ cart.length }}</dd></div>
-            <div class="flex justify-between gap-3"><dt class="text-muted">Quantity</dt><dd>{{ totalQuantity }}</dd></div>
-            <div class="flex justify-between gap-3"><dt class="text-muted">Gross</dt><dd>{{ money(cartTotal) }}</dd></div>
-            <div class="flex items-center justify-between gap-3">
-              <dt class="text-muted">Bill discount</dt>
-              <dd class="w-28"><UInput v-model="form.billDiscountAmount" size="xs" inputmode="decimal" @input="syncCashPayment" /></dd>
-            </div>
-            <div class="flex justify-between gap-3"><dt class="text-muted">Round off</dt><dd>{{ money(roundOff) }}</dd></div>
-            <div class="flex justify-between gap-3 border-t border-default pt-2 text-lg font-semibold"><dt>Payable</dt><dd>{{ money(payableTotal) }}</dd></div>
-            <div class="flex justify-between gap-3"><dt class="text-muted">Adjustments</dt><dd>{{ money(adjustmentTotal) }}</dd></div>
-            <div class="flex justify-between gap-3"><dt class="text-muted">Paid</dt><dd>{{ money(paymentTotal) }}</dd></div>
-            <div class="flex justify-between gap-3"><dt class="text-muted">Balance</dt><dd>{{ money(paymentBalance) }}</dd></div>
-          </dl>
-          <UButton class="mt-4" block icon="i-lucide-printer" :loading="saving" :disabled="!canSave" @click="saveAndPrint">Save & Print</UButton>
-        </div>
-      </aside>
+      </div>
     </section>
   </section>
 </template>
@@ -614,8 +614,27 @@ function suggestionLabel(item: ProductLookupItem) {
   return `${item.barcode} | ${item.name} | Qty ${Number(item.availableQty || 0)} | MRP ${Number(item.mrp || 0)}`
 }
 
+function selectedProductFromSearch(value: string) {
+  const term = value.trim()
+  if (!term) return null
+  const normalized = term.toLowerCase()
+  return productSuggestions.value.find(item => {
+    const barcode = String(item.barcode || '').trim().toLowerCase()
+    return suggestionLabel(item).toLowerCase() === normalized
+      || barcode === normalized
+      || normalized.startsWith(`${barcode} |`)
+  }) || null
+}
+
+function productLookupTerm(value: string) {
+  const selected = selectedProductFromSearch(value)
+  if (selected?.barcode) return selected.barcode
+  const [firstPart] = value.split('|')
+  return (firstPart || value).trim()
+}
+
 async function refreshProductSuggestions(query: string) {
-  const term = query.trim()
+  const term = productLookupTerm(query)
   if (!term) return
   productSuggestions.value = await api.value.get<ProductLookupItem[]>(`product-lookup?query=${encodeURIComponent(term)}${form.storeId ? `&storeId=${form.storeId}` : ''}&take=25`)
 }
@@ -623,7 +642,11 @@ async function refreshProductSuggestions(query: string) {
 async function selectProductFromInput() {
   const value = productSearch.value.trim()
   if (!value) return
-  selectedProduct.value = productSuggestions.value.find(item => suggestionLabel(item) === value) || null
+  selectedProduct.value = selectedProductFromSearch(value)
+  if (selectedProduct.value?.barcode) {
+    productSearch.value = selectedProduct.value.barcode
+    return
+  }
   if (!selectedProduct.value) await refreshProductSuggestions(value)
 }
 
@@ -636,14 +659,15 @@ async function lookupAndAdd() {
 
   productLoading.value = true
   try {
-    let product = productSuggestions.value.find(item => suggestionLabel(item) === value) || null
+    let product = selectedProductFromSearch(value) || selectedProduct.value
+    const lookupTerm = product?.barcode || productLookupTerm(value)
     if (!product) {
       try {
-        product = await api.value.get<ProductLookupItem>(`product-lookup/barcode/${encodeURIComponent(value)}${form.storeId ? `?storeId=${form.storeId}` : ''}`)
+        product = await api.value.get<ProductLookupItem>(`product-lookup/barcode/${encodeURIComponent(lookupTerm)}${form.storeId ? `?storeId=${form.storeId}` : ''}`)
       } catch {
-        const rows = await api.value.get<ProductLookupItem[]>(`product-lookup?query=${encodeURIComponent(value)}${form.storeId ? `&storeId=${form.storeId}` : ''}&take=10`)
+        const rows = await api.value.get<ProductLookupItem[]>(`product-lookup?query=${encodeURIComponent(lookupTerm)}${form.storeId ? `&storeId=${form.storeId}` : ''}&take=10`)
         productSuggestions.value = rows
-        product = rows[0] || null
+        product = rows.find(item => String(item.barcode || '').trim().toLowerCase() === lookupTerm.toLowerCase()) || rows[0] || null
       }
     }
     if (!product) {

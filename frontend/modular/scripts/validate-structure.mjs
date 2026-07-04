@@ -109,6 +109,7 @@ const requiredPaths = [
   'docs/stage-14a5-pos-operations-recovery-acceptance.md',
   'docs/stage-14a6-pos-cashier-workflow-acceptance.md',
   'docs/stage-14a7-pos-final-closure.md',
+  'docs/stage-14a8-pos-sale-ui-search-layout-repair.md',
   'docs/deployment-validation-cadence.md',
   'deploy/README.md',
   'deploy/main-static-deploy.sh',

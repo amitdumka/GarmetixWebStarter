@@ -264,6 +264,7 @@ Goal: restart modular parity work module-by-module, with POS first, and keep liv
 - 14A.5 complete: bump modular version identity to `6.0.5` and add POS operations recovery acceptance for held bills, print queue recovery, day open/day close readiness and DotMatrix handoff.
 - 14A.6 complete: bump modular version identity to `6.0.6` and add POS cashier workflow acceptance for scan/search, split payments, bank validation, return/exchange flow and optional 14-inch browser fixture checks.
 - 14A.7 complete: bump modular version identity to `6.0.7`, add POS final closure gate, and document the every-third-checkpoint deployment/acceptance cadence.
+- 14A.8 complete: bump modular version identity to `6.0.8`, repair New Sale product search datalist/barcode resolution, and move payment/customer adjustment blocks below the item list with totals promoted upward.
 - POS first closure order:
   1. Confirm sale invoice save/print parity against legacy.
   2. Confirm return/exchange parity and PDF/print recovery.

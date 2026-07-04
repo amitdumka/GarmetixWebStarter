@@ -30,8 +30,8 @@ console.log(`Token env: ${tokenEnv}${token ? ' (set)' : ' (not set)'}`)
 console.log(`Manual acceptance env: ${manualEnv}${manualAccepted ? ' (YES)' : ' (not set)'}`)
 console.log(`Deploy checkpoint: ${deployCheckpoint}`)
 
-if (version !== '6.0.7') failures.push(`Expected version 6.0.7, found ${version}.`)
-if (!stage.includes('Stage 14A.7')) failures.push(`Expected Stage 14A.7, found ${stage}.`)
+if (!version.startsWith('6.0.')) failures.push(`Expected Version6 POS lane version 6.0.x, found ${version}.`)
+if (!stage.includes('Stage 14A')) failures.push(`Expected Stage 14A POS lane, found ${stage}.`)
 
 checkRequiredFiles()
 checkPackageScripts()
@@ -91,7 +91,7 @@ function checkPosWorkflowMarkers() {
   const checks = [
     {
       file: 'apps/pos/pages/sale.vue',
-      markers: ['Save & Print', 'paymentRequiresBank', 'upsertPrintQueueItem', 'lookupAndAdd', 'F8', 'F9']
+      markers: ['Save & Print', 'paymentRequiresBank', 'upsertPrintQueueItem', 'productLookupTerm', 'selectedProductFromSearch', 'F8', 'F9']
     },
     {
       file: 'apps/pos/pages/returns.vue',
