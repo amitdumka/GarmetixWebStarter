@@ -87,7 +87,7 @@
                     size="xs"
                     icon="i-lucide-calculator"
                     :loading="previewingId === readText(candidate, ['employeeId'], '')"
-                    :disabled="!readText(candidate, ['generatedSalaryPaySlipId', 'salaryPaySlipId'], '')"
+                    :disabled="!candidateEmployeeId(candidate)"
                     @click="previewCandidate(candidate)"
                   >
                     Preview
@@ -176,12 +176,22 @@ const previewCards = computed(() => [
   { label: 'Gross', value: formatIndianMoney(readNumber(preview.value, ['grossSalary'])) },
   { label: 'Base Deduction', value: formatIndianMoney(readNumber(preview.value, ['baseDeductions'])) },
   { label: 'Advance', value: formatIndianMoney(readNumber(preview.value, ['salaryAdvance'])) },
+  { label: 'Total Deduction', value: formatIndianMoney(readNumber(preview.value, ['totalDeductions'])) },
   { label: 'Previous Due', value: formatIndianMoney(readNumber(preview.value, ['previousDue'])) },
+  { label: 'Net Payable', value: formatIndianMoney(readNumber(preview.value, ['netPayable'])) },
   { label: 'Outstanding', value: formatIndianMoney(readNumber(preview.value, ['outstandingAmount'])) },
   { label: 'Rounded Pay', value: formatIndianMoney(readNumber(preview.value, ['roundedPaidAmount'])) },
   { label: 'Round Off', value: formatIndianMoney(readNumber(preview.value, ['roundOff'])) },
   { label: 'Already Paid', value: formatIndianMoney(readNumber(preview.value, ['alreadyPaid'])) }
 ])
+
+function candidateEmployeeId(candidate: ApiRecord) {
+  return readText(candidate, ['employeeId', 'EmployeeId'], '')
+}
+
+function candidateSalaryPaySlipId(candidate: ApiRecord) {
+  return readText(candidate, ['generatedSalaryPaySlipId', 'salaryPaySlipId', 'GeneratedSalaryPaySlipId', 'SalaryPaySlipId'], '')
+}
 
 async function load() {
   loading.value = true
@@ -202,11 +212,11 @@ async function load() {
 }
 
 async function previewCandidate(candidate: ApiRecord) {
-  const employeeId = readText(candidate, ['employeeId'], '')
-  const salaryPaySlipId = readText(candidate, ['generatedSalaryPaySlipId', 'salaryPaySlipId'], '')
-  if (!employeeId || !salaryPaySlipId) {
+  const employeeId = candidateEmployeeId(candidate)
+  const salaryPaySlipId = candidateSalaryPaySlipId(candidate)
+  if (!employeeId) {
     messageTone.value = 'warning'
-    message.value = 'This candidate does not have a generated salary slip yet.'
+    message.value = 'This candidate does not have an employee reference.'
     return
   }
 
@@ -216,7 +226,7 @@ async function previewCandidate(candidate: ApiRecord) {
     preview.value = await post<ApiRecord>('api/salary-payments/preview', {
       employeeId,
       salaryMonth: salaryMonth.value,
-      salaryPaySlipId,
+      salaryPaySlipId: salaryPaySlipId || null,
       paymentId: null
     })
     previewEmployee.value = readText(candidate, ['employeeName', 'employee'])

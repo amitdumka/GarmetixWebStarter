@@ -281,7 +281,8 @@ Goal: restart modular parity work module-by-module, with POS first, and keep liv
 Goal: move HR, attendance and payroll through module-by-module parity without touching live salary/payment data unless an explicit live-write gate is used.
 
 - 14B.1 complete: bump modular version identity to `6.0.9`, add HR parity baseline, and normalize HR API paths so existing `api/...` page calls do not duplicate the `/api` prefix.
-- Stage 14B.2 next: repair and verify salary payment preview behavior against the current backend contract, keeping salary payment generation disabled by default.
+- 14B.2 complete: bump modular version identity to `6.0.10`, repair salary payment preview so payslip id is optional, and verify advance, previous due, deductions, net payable, outstanding, rounded payment and round-off contract fields.
+- Stage 14B.3 next: tighten attendance today/monthly UI behavior and monthly attendance generation readiness, keeping real attendance writes behind explicit gates.
 - Keep actual attendance marking, payslip generation, salary payment voucher creation and device write actions behind explicit opt-in gates.
 - No database backup is required for 14B.1 because it is frontend path composition plus validation only.
 

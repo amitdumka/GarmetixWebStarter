@@ -147,6 +147,11 @@ const steps = [
     args: ['run', 'modular:hr:parity-baseline']
   },
   {
+    name: 'HR salary payment preview contract',
+    cwd: repoRoot,
+    args: ['run', 'modular:hr:salary-payment-preview-contract']
+  },
+  {
     name: 'HR attendance contract parity',
     cwd: repoRoot,
     args: ['run', 'modular:hr:attendance-contract']
