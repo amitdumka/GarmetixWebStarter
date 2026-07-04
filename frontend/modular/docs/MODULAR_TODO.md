@@ -296,7 +296,8 @@ Goal: move HR, attendance and payroll through module-by-module parity without to
 
 Goal: complete Books next, module-by-module, after HR code closure. Keep live posting actions behind explicit opt-in gates.
 
-- Stage 14C.1 next: Books parity baseline for accounting ledger, vouchers, petty cash, vendor payments, GST reports and audit/message log route ownership.
+- 14C.1 complete: bump modular version identity to `6.0.18`, add Books parity baseline for accounting ledger, vouchers, petty cash, vendor payments, GST reports and audit/message log route ownership.
+- Stage 14C.2 next: voucher and ledger parity for voucher number format, print/download behavior, party-ledger and bank-ledger background rules.
 - Reuse the Stage 13D Books readiness scripts, then upgrade them for Version6 live-safe evidence.
-- First Books checkpoint is expected to be the third post-deploy checkpoint, so deploy to `.127` after validation if the change is not broken.
+- 14C.1 is checkpoint 3 after the last `.127` deployment, so deploy to `.127` after validation if the change is not broken.
 

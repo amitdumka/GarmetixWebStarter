@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "6.0.17",
+  "version": "6.0.18",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -52,6 +52,7 @@
     "books:browser-acceptance": "node scripts/books-browser-acceptance.mjs",
     "books:ledger-sync-readiness": "node scripts/books-ledger-sync-readiness.mjs",
     "books:posting-preflight": "node scripts/books-posting-preflight.mjs",
+    "books:parity-baseline": "node scripts/books-parity-baseline.mjs",
     "books:stage13d-closure": "node scripts/books-stage13d-closure.mjs",
     "admin:saas-readiness": "node scripts/admin-saas-readiness.mjs",
     "admin:browser-acceptance": "node scripts/admin-browser-acceptance.mjs",

@@ -1,7 +1,7 @@
 {
   "name": "garmetix-version6-workspace",
   "private": true,
-  "version": "6.0.17",
+  "version": "6.0.18",
   "scripts": {
     "legacy:api:test": "dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release",
     "legacy:api:build": "dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release",
@@ -50,6 +50,7 @@
     "modular:books:browser-acceptance": "node frontend/modular/scripts/books-browser-acceptance.mjs",
     "modular:books:ledger-sync-readiness": "node frontend/modular/scripts/books-ledger-sync-readiness.mjs",
     "modular:books:posting-preflight": "node frontend/modular/scripts/books-posting-preflight.mjs",
+    "modular:books:parity-baseline": "node frontend/modular/scripts/books-parity-baseline.mjs",
     "modular:books:stage13d-closure": "node frontend/modular/scripts/books-stage13d-closure.mjs",
     "modular:admin:saas-readiness": "node frontend/modular/scripts/admin-saas-readiness.mjs",
     "modular:admin:browser-acceptance": "node frontend/modular/scripts/admin-browser-acceptance.mjs",

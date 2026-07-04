@@ -232,6 +232,11 @@ const steps = [
     args: ['run', 'modular:books:posting-preflight']
   },
   {
+    name: 'Books Version6 parity baseline',
+    cwd: repoRoot,
+    args: ['run', 'modular:books:parity-baseline']
+  },
+  {
     name: 'Books Stage 13D closure',
     cwd: repoRoot,
     args: ['run', 'modular:books:stage13d-closure']
