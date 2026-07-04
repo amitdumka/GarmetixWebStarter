@@ -291,10 +291,10 @@ Goal: move HR, attendance and payroll through module-by-module parity without to
 - 14B.9 complete: bump modular version identity to `6.0.17`, add HR final closure gate with conditional live-token/manual evidence and Books parity handoff.
 - 14B.10 complete: bump modular version identity to `6.0.19`, reopen HR after legacy comparison, add Employee Shift Rules, add Payroll Finalization, and add a legacy HR parity audit gate.
 - 14B.11 complete: bump modular version identity to `6.0.20`, compare and port listed legacy HR routes `/hr`, `/hr-benefits`, `/attendance`, `/attendance/shifts`, `/attendance/shift-rules` and `/attendance/policies`.
-- 14B.12 next: port full legacy `/payroll` with salary structures CRUD, salary payment preview/save/edit/delete, payslip print/PDF/email/WhatsApp handoff and salary payment PDF handoff.
-- 14B.13 next: verify kiosk attendance/device/biometric/photo/mobile pages against legacy v4.12.69 and add browser acceptance evidence.
+- 14B.12 complete: bump modular version identity to `6.0.21`, port full legacy `/payroll` with salary structures CRUD, salary payment preview/save/edit/delete, payslip PDF/email/WhatsApp handoff, salary payment PDF handoff, biometric enrollment save/revoke, photo proof review/regularization and face-liveness simulator readiness.
+- Books resumes after this HR deployment. Continue Stage 14C.2 voucher/ledger parity only after `.127` deploy acceptance is clean.
 - Keep actual attendance marking, payslip generation, salary payment voucher creation and device write actions behind explicit opt-in gates.
-- 14B.11 is checkpoint 2 after the last `.127` deployment. Do not deploy again until checkpoint 3 unless a high-risk or user-requested live update needs it.
+- 14B.12 is checkpoint 3 after the last `.127` deployment. Deploy modular frontend to `.127` after validation; no database backup is required because this checkpoint is frontend-only.
 
 ## Stage 14C: Version6 Books Modular Parity
 

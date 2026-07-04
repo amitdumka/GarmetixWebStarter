@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "6.0.20",
+  "version": "6.0.21",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -48,6 +48,7 @@
     "hr:final-closure": "node scripts/hr-final-closure.mjs",
     "hr:legacy-parity-audit": "node scripts/hr-legacy-parity-audit.mjs",
     "hr:listed-route-parity": "node scripts/hr-listed-route-parity.mjs",
+    "hr:payroll-device-final-parity": "node scripts/hr-payroll-device-final-parity.mjs",
     "hr:stage13c-closure": "node scripts/hr-stage13c-closure.mjs",
     "books:accounting-readiness": "node scripts/books-accounting-readiness.mjs",
     "books:accounting-contract": "node scripts/books-accounting-contract-check.mjs",

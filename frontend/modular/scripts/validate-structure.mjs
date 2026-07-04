@@ -173,6 +173,7 @@ const requiredPaths = [
   'scripts/hr-final-closure.mjs',
   'scripts/hr-legacy-parity-audit.mjs',
   'scripts/hr-listed-route-parity.mjs',
+  'scripts/hr-payroll-device-final-parity.mjs',
   'scripts/hr-browser-acceptance.mjs',
   'scripts/hr-device-bridge-readiness.mjs',
   'scripts/hr-payroll-preview-readiness.mjs',
