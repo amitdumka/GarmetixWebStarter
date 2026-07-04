@@ -10,6 +10,7 @@
           </p>
         </div>
         <div class="flex flex-wrap gap-2">
+          <UButton to="/payroll/finalization" icon="i-lucide-clipboard-check" color="primary" variant="soft">Finalization</UButton>
           <UButton icon="i-lucide-file-down" color="primary" variant="soft" :disabled="!slips.length" @click="exportPayslips">Export CSV</UButton>
           <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="load">Refresh</UButton>
         </div>

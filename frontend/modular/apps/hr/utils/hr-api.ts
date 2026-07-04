@@ -20,16 +20,54 @@ export function useHrApiClient() {
     return await api.get<T>(normalizeHrApiPath(path), { query })
   }
 
-  async function post<T>(path: string, body?: unknown) {
+  function createClient() {
     if (!apiBaseUrl.value) throw new Error('API base URL is not configured.')
-    const api = createGarmetixApiClient({
+    return createGarmetixApiClient({
       baseUrl: apiBaseUrl.value,
       getToken: () => getStoredToken(window.localStorage)
     })
+  }
+
+  async function post<T>(path: string, body?: unknown) {
+    const api = createClient()
     return await api.post<T>(normalizeHrApiPath(path), body)
   }
 
-  return { apiBaseUrl, get, post }
+  async function put<T>(path: string, body?: unknown) {
+    const api = createClient()
+    return await api.put<T>(normalizeHrApiPath(path), body)
+  }
+
+  async function del<T>(path: string) {
+    const api = createClient()
+    return await api.delete<T>(normalizeHrApiPath(path))
+  }
+
+  async function downloadFile(path: string, fileName: string, query?: Record<string, string | number | boolean | null | undefined>) {
+    if (!apiBaseUrl.value) throw new Error('API base URL is not configured.')
+    const url = new URL(`${apiBaseUrl.value.replace(/\/+$/, '')}/${normalizeHrApiPath(path)}`, window.location.origin)
+    for (const [key, value] of Object.entries(query ?? {})) {
+      if (value !== null && value !== undefined) url.searchParams.set(key, String(value))
+    }
+
+    const token = getStoredToken(window.localStorage)
+    const response = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined
+    })
+    if (!response.ok) {
+      throw new Error(await response.text() || `Download failed with ${response.status}`)
+    }
+
+    const blob = await response.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = objectUrl
+    anchor.download = fileName
+    anchor.click()
+    URL.revokeObjectURL(objectUrl)
+  }
+
+  return { apiBaseUrl, get, post, put, del, downloadFile }
 }
 
 export function toLocalDateInput(value = new Date()) {

@@ -289,15 +289,20 @@ Goal: move HR, attendance and payroll through module-by-module parity without to
 - 14B.7 complete: bump modular version identity to `6.0.15`, add payroll approval evidence columns/counts, guarded payslip generation and guarded salary payment generation with exact confirmation phrases and audit notes.
 - 14B.8 complete: bump modular version identity to `6.0.16`, add HR payroll summary and payslip CSV exports, and add a non-mutating live payroll acceptance gate for `.127`/Cloudflare.
 - 14B.9 complete: bump modular version identity to `6.0.17`, add HR final closure gate with conditional live-token/manual evidence and Books parity handoff.
+- 14B.10 complete: bump modular version identity to `6.0.19`, reopen HR after legacy comparison, add Employee Shift Rules, add Payroll Finalization, and add a legacy HR parity audit gate.
+- 14B.11 next: port full legacy `/hr` employee master with employee CRUD, photo, bank/document fields, ID card, older daily attendance, timing correction and monthly attendance generation controls.
+- 14B.12 next: port full legacy `/payroll` with salary structures CRUD, salary payment preview/save/edit/delete, payslip print/PDF/email/WhatsApp handoff and salary payment PDF handoff.
+- 14B.13 next: replace `/attendance/shifts` placeholder with full shift CRUD and verify kiosk attendance/device/biometric/photo/mobile pages against legacy v4.12.69.
 - Keep actual attendance marking, payslip generation, salary payment voucher creation and device write actions behind explicit opt-in gates.
-- 14B.9 is checkpoint 2 after the last `.127` deployment. Do not deploy again until checkpoint 3 unless a high-risk or user-requested live update needs it.
+- 14B.10 is checkpoint 1 after the last `.127` deployment. Do not deploy again until checkpoint 3 unless a high-risk or user-requested live update needs it.
 
 ## Stage 14C: Version6 Books Modular Parity
 
 Goal: complete Books next, module-by-module, after HR code closure. Keep live posting actions behind explicit opt-in gates.
 
 - 14C.1 complete: bump modular version identity to `6.0.18`, add Books parity baseline for accounting ledger, vouchers, petty cash, vendor payments, GST reports and audit/message log route ownership.
-- Stage 14C.2 next: voucher and ledger parity for voucher number format, print/download behavior, party-ledger and bank-ledger background rules.
+- Books paused: do not continue Stage 14C.2 until Stage 14B legacy HR parity is complete.
+- Stage 14C.2 later: voucher and ledger parity for voucher number format, print/download behavior, party-ledger and bank-ledger background rules.
 - Reuse the Stage 13D Books readiness scripts, then upgrade them for Version6 live-safe evidence.
-- 14C.1 is checkpoint 3 after the last `.127` deployment, so deploy to `.127` after validation if the change is not broken.
+- 14C.1 was deployed as checkpoint 3 after the prior `.127` deployment.
 
