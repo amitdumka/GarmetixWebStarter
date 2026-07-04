@@ -1,7 +1,7 @@
 {
   "name": "garmetix-version6-workspace",
   "private": true,
-  "version": "6.0.14",
+  "version": "6.0.15",
   "scripts": {
     "legacy:api:test": "dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release",
     "legacy:api:build": "dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release",
@@ -41,6 +41,7 @@
     "modular:hr:browser-acceptance": "node frontend/modular/scripts/hr-browser-acceptance.mjs",
     "modular:hr:device-bridge-readiness": "node frontend/modular/scripts/hr-device-bridge-readiness.mjs",
     "modular:hr:payroll-preview-readiness": "node frontend/modular/scripts/hr-payroll-preview-readiness.mjs",
+    "modular:hr:payroll-approval-evidence-readiness": "node frontend/modular/scripts/hr-payroll-approval-evidence-readiness.mjs",
     "modular:hr:stage13c-closure": "node frontend/modular/scripts/hr-stage13c-closure.mjs",
     "modular:books:accounting-readiness": "node frontend/modular/scripts/books-accounting-readiness.mjs",
     "modular:books:accounting-contract": "node frontend/modular/scripts/books-accounting-contract-check.mjs",

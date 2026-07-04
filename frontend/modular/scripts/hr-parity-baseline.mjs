@@ -38,6 +38,7 @@ const requiredScripts = [
   'hr-attendance-monthly-readiness.mjs',
   'hr-manual-punch-regularization-readiness.mjs',
   'hr-attendance-guarded-actions-readiness.mjs',
+  'hr-payroll-approval-evidence-readiness.mjs',
   'hr-browser-acceptance.mjs',
   'hr-device-bridge-readiness.mjs',
   'hr-payroll-preview-readiness.mjs',

@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.14',
-  stage: 'Stage 14B.6 HR Attendance Device Kiosk Readiness',
-  label: 'Version6 Stage 14B.6 HR Attendance Device Kiosk Readiness',
-  summary: 'Promoted HR attendance device, kiosk, mobile kiosk, kiosk monitor and fingerprint bridge pages from placeholders to guarded readiness consoles with existing API contracts.'
+  version: '6.0.15',
+  stage: 'Stage 14B.7 HR Payroll Approval Evidence',
+  label: 'Version6 Stage 14B.7 HR Payroll Approval Evidence',
+  summary: 'Added payroll approval evidence visibility plus guarded payslip generation and guarded salary payment generation using explicit confirmation phrases and audit notes.'
 } as const

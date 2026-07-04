@@ -27,7 +27,7 @@
       variant="subtle"
       icon="i-lucide-shield-alert"
       title="Preview-only salary draft"
-      description="Rows can be rebuilt and marked ready, but final payslip and salary payment generation remain disabled in this modular stage."
+      description="Rows can be rebuilt and marked ready. Final payslip generation is available only through the guarded action below; salary payment generation is separate."
     />
     <UAlert v-if="message" :color="messageTone" variant="subtle" :icon="messageIcon" :description="message" />
 
@@ -35,6 +35,34 @@
       <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
         <p class="garmetix-metric-label">{{ card.label }}</p>
         <p class="garmetix-metric-value">{{ card.value }}</p>
+      </div>
+    </div>
+
+    <div class="garmetix-table-panel border-warning/30">
+      <div class="garmetix-panel-header">
+        <div>
+          <h3 class="garmetix-panel-title">Guarded Payslip Generation</h3>
+          <p class="garmetix-panel-subtitle">Generates salary payslips from ReadyForPayroll rows. It does not create salary payments or accounting vouchers.</p>
+        </div>
+        <UBadge color="warning" variant="subtle">{{ payslipPhrase }}</UBadge>
+      </div>
+      <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.6fr)_auto] lg:items-end">
+        <UFormField label="Audit notes">
+          <UInput v-model="payslipNotes" placeholder="Approval reference, reviewer name, payroll period note" />
+        </UFormField>
+        <UFormField label="Type exact phrase">
+          <UInput v-model="payslipConfirm" :placeholder="payslipPhrase" />
+        </UFormField>
+        <UButton icon="i-lucide-file-check-2" color="warning" :disabled="!canGeneratePayslips" :loading="generatingPayslips" @click="generatePayslips">
+          Generate Payslips
+        </UButton>
+      </div>
+      <UAlert v-if="payslipMessage" class="mt-3" :color="payslipTone" variant="subtle" :icon="payslipIcon" :description="payslipMessage" />
+      <div v-if="payslipResult" class="mt-3 grid gap-3 md:grid-cols-4">
+        <div v-for="item in payslipResultCards" :key="item.label" class="garmetix-row-card">
+          <p class="text-xs text-muted">{{ item.label }}</p>
+          <p class="mt-1 text-base font-semibold">{{ item.value }}</p>
+        </div>
       </div>
     </div>
 
@@ -112,13 +140,24 @@ const month = ref(current.month)
 const loading = ref(false)
 const rebuilding = ref(false)
 const markingId = ref('')
+const generatingPayslips = ref(false)
 const message = ref('')
 const messageTone = ref<'success' | 'error' | 'warning' | 'neutral'>('neutral')
 const draft = ref<ApiRecord | null>(null)
 const notes = reactive<Record<string, string>>({})
+const payslipConfirm = ref('')
+const payslipNotes = ref('')
+const payslipMessage = ref('')
+const payslipTone = ref<'success' | 'error' | 'warning' | 'neutral'>('neutral')
+const payslipResult = ref<ApiRecord | null>(null)
 
 const messageIcon = computed(() => messageTone.value === 'success' ? 'i-lucide-circle-check' : messageTone.value === 'warning' ? 'i-lucide-triangle-alert' : messageTone.value === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-info')
+const payslipIcon = computed(() => payslipTone.value === 'success' ? 'i-lucide-circle-check' : payslipTone.value === 'warning' ? 'i-lucide-triangle-alert' : payslipTone.value === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-info')
 const rows = computed(() => readArray(draft.value, ['rows', 'Rows']))
+const salaryMonth = computed(() => `${year.value}${String(month.value).padStart(2, '0')}`)
+const payslipPhrase = computed(() => `GENERATE PAYSLIPS ${salaryMonth.value}`)
+const readyRows = computed(() => rows.value.filter(row => readText(row, ['draftStatus'], '').toLowerCase() === 'readyforpayroll' && !isGenerated(row)))
+const canGeneratePayslips = computed(() => readyRows.value.length > 0 && payslipConfirm.value.trim().toUpperCase() === payslipPhrase.value && payslipNotes.value.trim().length >= 8 && !generatingPayslips.value)
 const cards = computed(() => [
   { label: 'Employees', value: readNumber(draft.value, ['employees']) },
   { label: 'Ready Rows', value: readNumber(draft.value, ['readyRows']) },
@@ -126,6 +165,12 @@ const cards = computed(() => [
   { label: 'Gross Preview', value: formatIndianMoney(readNumber(draft.value, ['totalGrossPreview'])) },
   { label: 'Deduction Preview', value: formatIndianMoney(readNumber(draft.value, ['totalDeductionPreview'])) },
   { label: 'Net Preview', value: formatIndianMoney(readNumber(draft.value, ['totalNetPayPreview'])) }
+])
+const payslipResultCards = computed(() => [
+  { label: 'Selected Drafts', value: readNumber(payslipResult.value, ['selectedDrafts']) },
+  { label: 'Created', value: readNumber(payslipResult.value, ['createdPayslips']) },
+  { label: 'Updated', value: readNumber(payslipResult.value, ['updatedPayslips']) },
+  { label: 'Net Total', value: formatIndianMoney(readNumber(payslipResult.value, ['totalNet'])) }
 ])
 
 function rowKey(row: ApiRecord, index: number) {
@@ -179,6 +224,38 @@ async function rebuild() {
     message.value = caught instanceof Error ? caught.message : 'Unable to rebuild salary draft.'
   } finally {
     rebuilding.value = false
+  }
+}
+
+async function generatePayslips() {
+  if (!canGeneratePayslips.value) {
+    payslipTone.value = 'warning'
+    payslipMessage.value = `Type ${payslipPhrase.value} and enter audit notes before generating payslips.`
+    return
+  }
+
+  generatingPayslips.value = true
+  payslipMessage.value = ''
+  payslipResult.value = null
+  try {
+    const response = await post<ApiRecord>('api/attendance/salary-slip-drafts/generate-payslips', {
+      year: year.value,
+      month: month.value,
+      employeeId: null,
+      confirm: true,
+      notes: payslipNotes.value
+    })
+    payslipResult.value = response
+    draft.value = response
+    payslipTone.value = 'success'
+    payslipMessage.value = 'Salary payslips generated. Salary payments and accounting vouchers were not posted.'
+    payslipConfirm.value = ''
+    await load()
+  } catch (caught) {
+    payslipTone.value = 'error'
+    payslipMessage.value = caught instanceof Error ? caught.message : 'Unable to generate payslips.'
+  } finally {
+    generatingPayslips.value = false
   }
 }
 

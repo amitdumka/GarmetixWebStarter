@@ -41,6 +41,14 @@
       </div>
     </div>
 
+    <div class="grid gap-3 md:grid-cols-4">
+      <div v-for="item in approvalEvidence" :key="item.label" class="garmetix-row-card">
+        <p class="text-xs uppercase text-muted">{{ item.label }}</p>
+        <p class="mt-1 text-lg font-semibold">{{ item.value }}</p>
+        <p class="text-xs text-muted">{{ item.caption }}</p>
+      </div>
+    </div>
+
     <div class="garmetix-table-panel">
       <div class="garmetix-panel-header">
         <div>
@@ -49,7 +57,7 @@
         </div>
       </div>
       <div class="overflow-auto">
-        <table class="w-full min-w-[1120px] text-left text-sm">
+        <table class="w-full min-w-[1320px] text-left text-sm">
           <thead class="bg-muted/30 text-xs uppercase text-muted">
             <tr>
               <th class="px-3 py-2">Employee</th>
@@ -63,6 +71,7 @@
               <th class="px-3 py-2">Est. Gross</th>
               <th class="px-3 py-2">Status</th>
               <th class="px-3 py-2">Payroll</th>
+              <th class="px-3 py-2">Evidence</th>
               <th class="px-3 py-2">Action</th>
             </tr>
           </thead>
@@ -85,6 +94,11 @@
               </td>
               <td class="px-3 py-2">{{ readText(row, ['payrollActionStatus']) }}</td>
               <td class="px-3 py-2">
+                <p class="text-xs text-muted">By {{ readText(row, ['reviewedBy']) }}</p>
+                <p class="text-xs text-muted">{{ readText(row, ['reviewedAtUtc']) }}</p>
+                <p class="mt-1 max-w-56 truncate text-xs">{{ readText(row, ['notes']) }}</p>
+              </td>
+              <td class="px-3 py-2">
                 <div class="flex min-w-64 flex-col gap-2">
                   <UInput v-model="notes[rowKey(row, index)]" size="xs" placeholder="Review note" />
                   <div class="flex flex-wrap gap-2">
@@ -96,7 +110,7 @@
               </td>
             </tr>
             <tr v-if="!rows.length">
-              <td class="px-3 py-6 text-center text-muted" colspan="12">No review rows found. Rebuild after monthly attendance is calculated.</td>
+              <td class="px-3 py-6 text-center text-muted" colspan="13">No review rows found. Rebuild after monthly attendance is calculated.</td>
             </tr>
           </tbody>
         </table>
@@ -133,6 +147,18 @@ const cards = computed(() => [
   { label: 'OT Minutes', value: readNumber(review.value, ['overtimeMinutes']) },
   { label: 'Reviewed', value: readNumber(review.value, ['reviewedRows']) }
 ])
+const approvalEvidence = computed(() => {
+  const approved = rows.value.filter(row => readText(row, ['reviewStatus'], '').toLowerCase().includes('approved')).length
+  const reviewed = rows.value.filter(row => readText(row, ['reviewStatus'], '').toLowerCase() === 'reviewed').length
+  const hold = rows.value.filter(row => readText(row, ['reviewStatus'], '').toLowerCase().includes('hold')).length
+  const withEvidence = rows.value.filter(row => readText(row, ['reviewedAtUtc'], '') !== '-' || readText(row, ['notes'], '') !== '-').length
+  return [
+    { label: 'Approved', value: approved, caption: 'Ready for salary draft rebuild' },
+    { label: 'Reviewed', value: reviewed, caption: 'Checked but not fully approved' },
+    { label: 'On Hold', value: hold, caption: 'Blocked from payroll until cleared' },
+    { label: 'Evidence', value: withEvidence, caption: 'Rows with reviewer/time/note evidence' }
+  ]
+})
 
 function rowKey(row: ApiRecord, index: number) {
   return readText(row, ['id'], String(index))
