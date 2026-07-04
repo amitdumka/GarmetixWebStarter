@@ -1,7 +1,7 @@
 {
   "name": "garmetix-version6-workspace",
   "private": true,
-  "version": "6.0.6",
+  "version": "6.0.7",
   "scripts": {
     "legacy:api:test": "dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release",
     "legacy:api:build": "dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release",
@@ -29,6 +29,7 @@
     "modular:pos:live-safe-gate": "node frontend/modular/scripts/pos-live-safe-deploy-gate.mjs",
     "modular:pos:operations-recovery": "node frontend/modular/scripts/pos-operations-recovery-acceptance.mjs",
     "modular:pos:cashier-workflow": "node frontend/modular/scripts/pos-cashier-workflow-acceptance.mjs",
+    "modular:pos:final-closure": "node frontend/modular/scripts/pos-final-closure.mjs",
     "modular:pos:stage13b-closure": "node frontend/modular/scripts/pos-stage13b-closure.mjs",
     "modular:hr:payroll-readiness": "node frontend/modular/scripts/hr-payroll-readiness.mjs",
     "modular:hr:attendance-contract": "node frontend/modular/scripts/hr-attendance-contract-check.mjs",

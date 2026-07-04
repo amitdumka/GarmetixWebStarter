@@ -14,6 +14,7 @@ Prompts and external plans are reference material, not strict folder orders. Eac
 6. Run the safest available validation after each stage.
 7. Do not hardcode server passwords or production secrets in source control.
 8. When deployment automation is added, use SSH keys, environment variables, or prompted credentials.
+9. Deploy to `.127`, run public/LAN acceptance and create database backups by cadence, not after every small checkpoint. Use `frontend/modular/docs/deployment-validation-cadence.md`.
 
 ## Stage 12A: Registry And Foundation
 
@@ -262,6 +263,7 @@ Goal: restart modular parity work module-by-module, with POS first, and keep liv
 - 14A.4 complete: bump modular version identity to `6.0.4` and add controlled POS return/exchange acceptance with guarded return and exchange creation.
 - 14A.5 complete: bump modular version identity to `6.0.5` and add POS operations recovery acceptance for held bills, print queue recovery, day open/day close readiness and DotMatrix handoff.
 - 14A.6 complete: bump modular version identity to `6.0.6` and add POS cashier workflow acceptance for scan/search, split payments, bank validation, return/exchange flow and optional 14-inch browser fixture checks.
+- 14A.7 complete: bump modular version identity to `6.0.7`, add POS final closure gate, and document the every-third-checkpoint deployment/acceptance cadence.
 - POS first closure order:
   1. Confirm sale invoice save/print parity against legacy.
   2. Confirm return/exchange parity and PDF/print recovery.
@@ -269,7 +271,7 @@ Goal: restart modular parity work module-by-module, with POS first, and keep liv
   4. Confirm day open/day close with petty cash and DotMatrix handoff.
   5. Confirm non-GST/off-book and cash voucher boundaries before moving them fully into POS.
   6. Run controlled live-write acceptance only after a `.127` backup.
-- Stage 14A.7 next: close the POS-first lane with final live-token acceptance, manual cashier checklist evidence and a go/no-go decision before HR modular parity work starts.
-- HR starts only after POS acceptance is passed.
+- Stage 14B next: start HR modular parity from the Version6 base, with deployment deferred until the cadence or risk level requires it.
+- HR starts after POS code closure, while final live-token/manual cashier evidence remains a handover gate.
 - Books starts only after HR acceptance is passed.
 

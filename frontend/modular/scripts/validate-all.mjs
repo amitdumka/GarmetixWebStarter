@@ -127,6 +127,11 @@ const steps = [
     args: ['run', 'modular:pos:cashier-workflow']
   },
   {
+    name: 'POS final closure gate',
+    cwd: repoRoot,
+    args: ['run', 'modular:pos:final-closure']
+  },
+  {
     name: 'POS Stage 13B closure',
     cwd: repoRoot,
     args: ['run', 'modular:pos:stage13b-closure']

@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.6',
-  stage: 'Stage 14A.6 POS Cashier Workflow Acceptance',
-  label: 'Version6 Stage 14A.6 POS Cashier Workflow Acceptance',
-  summary: 'Added POS cashier workflow acceptance for product scan/search, payment split, return/exchange cashier flow, bank validation and 14-inch laptop browser fixture readiness.'
+  version: '6.0.7',
+  stage: 'Stage 14A.7 POS Final Closure And Deployment Cadence',
+  label: 'Version6 Stage 14A.7 POS Final Closure And Deployment Cadence',
+  summary: 'Added POS final closure gate and a safer deployment cadence so backups, .127 deploys and public/LAN acceptance run only when risk or checkpoint timing requires them.'
 } as const
