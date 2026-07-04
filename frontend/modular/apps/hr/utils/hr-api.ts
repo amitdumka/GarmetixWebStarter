@@ -7,13 +7,17 @@ export function useHrApiClient() {
   const runtimeConfig = useRuntimeConfig()
   const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
 
+  function normalizeHrApiPath(path: string) {
+    return String(path || '').replace(/^\/+/, '').replace(/^api\/+/i, '')
+  }
+
   async function get<T>(path: string, query?: Record<string, string | number | boolean | null | undefined>) {
     if (!apiBaseUrl.value) throw new Error('API base URL is not configured.')
     const api = createGarmetixApiClient({
       baseUrl: apiBaseUrl.value,
       getToken: () => getStoredToken(window.localStorage)
     })
-    return await api.get<T>(path, { query })
+    return await api.get<T>(normalizeHrApiPath(path), { query })
   }
 
   async function post<T>(path: string, body?: unknown) {
@@ -22,7 +26,7 @@ export function useHrApiClient() {
       baseUrl: apiBaseUrl.value,
       getToken: () => getStoredToken(window.localStorage)
     })
-    return await api.post<T>(path, body)
+    return await api.post<T>(normalizeHrApiPath(path), body)
   }
 
   return { apiBaseUrl, get, post }

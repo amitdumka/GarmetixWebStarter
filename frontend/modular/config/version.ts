@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.8',
-  stage: 'Stage 14A.8 POS Sale UI Search And Layout Repair',
-  label: 'Version6 Stage 14A.8 POS Sale UI Search And Layout Repair',
-  summary: 'Fixed POS sale product search so datalist labels resolve to barcode/product selection, moved payment and customer adjustments below the item list, and promoted bill totals above the item grid.'
+  version: '6.0.9',
+  stage: 'Stage 14B.1 HR Parity Baseline',
+  label: 'Version6 Stage 14B.1 HR Parity Baseline',
+  summary: 'Started the HR modular parity lane with a non-mutating baseline gate and normalized HR API paths so existing page calls do not duplicate the /api prefix.'
 } as const

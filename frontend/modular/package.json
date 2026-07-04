@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "6.0.8",
+  "version": "6.0.9",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -34,6 +34,7 @@
     "pos:final-closure": "node scripts/pos-final-closure.mjs",
     "pos:stage13b-closure": "node scripts/pos-stage13b-closure.mjs",
     "hr:payroll-readiness": "node scripts/hr-payroll-readiness.mjs",
+    "hr:parity-baseline": "node scripts/hr-parity-baseline.mjs",
     "hr:attendance-contract": "node scripts/hr-attendance-contract-check.mjs",
     "hr:browser-acceptance": "node scripts/hr-browser-acceptance.mjs",
     "hr:device-bridge-readiness": "node scripts/hr-device-bridge-readiness.mjs",
