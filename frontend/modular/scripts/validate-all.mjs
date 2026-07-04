@@ -122,6 +122,11 @@ const steps = [
     args: ['run', 'modular:pos:operations-recovery']
   },
   {
+    name: 'POS cashier workflow acceptance dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:pos:cashier-workflow']
+  },
+  {
     name: 'POS Stage 13B closure',
     cwd: repoRoot,
     args: ['run', 'modular:pos:stage13b-closure']

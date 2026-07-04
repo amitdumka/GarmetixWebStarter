@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.5',
-  stage: 'Stage 14A.5 POS Operations Recovery Acceptance',
-  label: 'Version6 Stage 14A.5 POS Operations Recovery Acceptance',
-  summary: 'Added POS operations recovery acceptance for held bills, print queue recovery, day open/day close readiness and DotMatrix handoff with read-only defaults and guarded mutation options.'
+  version: '6.0.6',
+  stage: 'Stage 14A.6 POS Cashier Workflow Acceptance',
+  label: 'Version6 Stage 14A.6 POS Cashier Workflow Acceptance',
+  summary: 'Added POS cashier workflow acceptance for product scan/search, payment split, return/exchange cashier flow, bank validation and 14-inch laptop browser fixture readiness.'
 } as const
