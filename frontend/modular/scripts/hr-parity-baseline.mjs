@@ -21,6 +21,10 @@ const requiredFiles = [
   'apps/hr/pages/attendance/salary-payment.vue',
   'apps/hr/pages/attendance/regularization.vue',
   'apps/hr/pages/attendance/devices.vue',
+  'apps/hr/pages/attendance/kiosk.vue',
+  'apps/hr/pages/attendance/kiosk-monitor.vue',
+  'apps/hr/pages/attendance/mobile-kiosk.vue',
+  'apps/hr/pages/attendance/mobile-kiosk-rehearsal.vue',
   'apps/hr/pages/attendance/device-bridge.vue',
   'apps/hr/pages/attendance/biometric-enrollment.vue',
   'apps/hr/pages/attendance/face-liveness.vue',
@@ -54,6 +58,9 @@ const requiredRouteMarkers = [
   "id: 'attendance-salary-draft', path: '/attendance/salary-draft'",
   "id: 'attendance-salary-payment', path: '/attendance/salary-payment'",
   "id: 'attendance-devices', path: '/attendance/devices'",
+  "id: 'attendance-kiosk', path: '/attendance/kiosk'",
+  "id: 'attendance-kiosk-monitor', path: '/attendance/kiosk-monitor'",
+  "id: 'attendance-mobile-kiosk', path: '/attendance/mobile-kiosk'",
   "id: 'attendance-device-bridge', path: '/attendance/device-bridge'"
 ]
 

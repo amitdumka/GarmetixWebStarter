@@ -2,8 +2,11 @@ import {
   getApiBaseUrl,
   getSmokeHosts,
   getSmokeVersion,
+  modularRoot,
   parseSmokeOptions
 } from './smoke-routes.mjs'
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 const args = process.argv.slice(2)
 const hasFlag = (name) => args.includes(name)
@@ -21,6 +24,7 @@ const token = process.env[tokenEnv]
 const requireToken = hasFlag('--require-token')
 const strictPermissions = hasFlag('--strict-permissions')
 const apiBaseUrl = getApiBaseUrl(hosts.api)
+const sourceFailures = []
 
 const checks = [
   { id: 'device-list', path: 'attendance/devices', expected: 'registered attendance device list' },
@@ -42,6 +46,14 @@ console.log(`Token env: ${tokenEnv}${token ? ' (set)' : ' (not set)'}`)
 console.log(`Strict permissions: ${strictPermissions ? 'enabled' : 'disabled'}`)
 console.log('Mutation check: disabled')
 console.log('Raw biometric storage check: must remain disabled')
+
+checkSourceReadiness()
+
+if (sourceFailures.length > 0) {
+  console.error('\nHR device and kiosk source readiness failed:')
+  for (const failure of sourceFailures) console.error(`- ${failure}`)
+  process.exit(1)
+}
 
 if (!live) {
   for (const check of checks) {
@@ -81,6 +93,83 @@ if (failures.length > 0) {
 }
 
 console.log('\nHR device bridge readiness passed.')
+
+function checkSourceReadiness() {
+  if (version !== '6.0.14') sourceFailures.push(`Expected version 6.0.14, found ${version}.`)
+  if (!stage.includes('Stage 14B.6')) sourceFailures.push(`Expected Stage 14B.6, found ${stage}.`)
+
+  const sources = [
+    {
+      file: 'apps/hr/pages/attendance/devices.vue',
+      tokens: [
+        'REGISTER DEVICE',
+        'REVOKE DEVICE',
+        'api/attendance/devices/register',
+        'api/attendance/devices/${id}/revoke',
+        'api/stores',
+        'registrationToken'
+      ]
+    },
+    {
+      file: 'apps/hr/pages/attendance/kiosk.vue',
+      tokens: [
+        'api/attendance/kiosk/readiness',
+        'api/attendance/kiosk/bootstrap',
+        'api/attendance/kiosk/lookup-employee',
+        'Punch action is intentionally not exposed here yet',
+        'canLookup'
+      ]
+    },
+    {
+      file: 'apps/hr/pages/attendance/kiosk-monitor.vue',
+      tokens: [
+        'api/attendance/photo-proofs/review-summary',
+        'api/attendance/photo-proofs',
+        'api/attendance/sync-batches',
+        'Kiosk Monitor'
+      ]
+    },
+    {
+      file: 'apps/hr/pages/attendance/mobile-kiosk.vue',
+      tokens: [
+        'api/attendance/mobile-kiosk/status',
+        'api/attendance/mobile-kiosk/offline-contract',
+        'Offline Queue Contract',
+        'Safety Rules'
+      ]
+    },
+    {
+      file: 'apps/hr/pages/attendance/mobile-kiosk-rehearsal.vue',
+      tokens: [
+        'api/attendance/mobile-kiosk/rehearsal',
+        'Pass Criteria',
+        'Blockers'
+      ]
+    },
+    {
+      file: 'apps/hr/pages/attendance/device-bridge.vue',
+      tokens: [
+        'api/attendance/device-bridge/status',
+        'api/attendance/device-bridge/simulator/health',
+        'api/attendance/device-bridge/simulator/${action}',
+        'SIMULATOR',
+        'Raw fingerprint payloads must remain blocked'
+      ]
+    }
+  ]
+
+  for (const source of sources) {
+    const path = join(modularRoot, source.file)
+    if (!existsSync(path)) {
+      sourceFailures.push(`Missing page source: ${source.file}`)
+      continue
+    }
+    const text = readFileSync(path, 'utf8')
+    for (const token of source.tokens) {
+      if (!text.includes(token)) sourceFailures.push(`${source.file} missing token: ${token}`)
+    }
+  }
+}
 
 async function checkEndpoint(check) {
   const response = await request(check.path)

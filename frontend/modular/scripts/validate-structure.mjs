@@ -115,6 +115,7 @@ const requiredPaths = [
   'docs/stage-14b3-hr-attendance-monthly-readiness.md',
   'docs/stage-14b4-hr-manual-punch-regularization.md',
   'docs/stage-14b5-hr-attendance-guarded-actions.md',
+  'docs/stage-14b6-hr-attendance-device-kiosk-readiness.md',
   'docs/deployment-validation-cadence.md',
   'deploy/README.md',
   'deploy/main-static-deploy.sh',
