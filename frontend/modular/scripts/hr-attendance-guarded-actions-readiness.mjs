@@ -4,66 +4,73 @@ import { modularRoot, repoRoot } from './smoke-routes.mjs'
 
 const attendanceDtoPath = join(repoRoot, 'backend/Garmetix.Api/Attendance/Dtos/AttendanceDtos.cs')
 const attendanceEndpointPath = join(repoRoot, 'backend/Garmetix.Api/Attendance/AttendanceEndpoints.cs')
-const todayPagePath = join(modularRoot, 'apps/hr/pages/attendance/today.vue')
 const monthlyPagePath = join(modularRoot, 'apps/hr/pages/attendance/monthly.vue')
-const hrApiPath = join(modularRoot, 'apps/hr/utils/hr-api.ts')
 const versionPath = join(modularRoot, 'config/version.ts')
 
 const failures = []
 
-console.log('Garmetix HR attendance monthly readiness check')
+console.log('Garmetix HR attendance guarded live actions readiness check')
 
 const dtoSource = readFileSync(attendanceDtoPath, 'utf8')
 const endpointSource = readFileSync(attendanceEndpointPath, 'utf8')
-const todayPage = readFileSync(todayPagePath, 'utf8')
 const monthlyPage = readFileSync(monthlyPagePath, 'utf8')
-const hrApi = readFileSync(hrApiPath, 'utf8')
 const version = readFileSync(versionPath, 'utf8')
 
-expectContains(version, ['6.0.', 'Stage 14B'], 'modular version identity')
-expectRecordKeys(dtoSource, 'AttendanceTodayDto', ['OnDate', 'EmployeeCount', 'Present', 'Late', 'HalfDay', 'Absent', 'NeedsReview', 'Rows'])
-expectRecordKeys(dtoSource, 'AttendanceMonthlyDto', ['Year', 'Month', 'EmployeeId', 'EmployeeCount', 'PresentDays', 'LateDays', 'HalfDays', 'AbsentDays', 'OvertimeMinutes', 'Locked', 'Days'])
+expectContains(version, ['6.0.13', 'Stage 14B.5'], 'modular version identity')
 expectRecordKeys(dtoSource, 'AttendanceRecalculateRequest', ['Year', 'Month', 'EmployeeId', 'CompanyId', 'StoreGroupId', 'StoreId'])
 expectRecordKeys(dtoSource, 'AttendanceLockMonthRequest', ['Year', 'Month', 'CompanyId', 'StoreGroupId', 'StoreId', 'Locked'])
+expectRecordKeys(dtoSource, 'AttendanceMonthlyDeleteItem', ['EmployeeId', 'OnDate'])
+expectRecordKeys(dtoSource, 'AttendanceMonthlyBulkDeleteRequest', ['Items', 'DeletePunches', 'DeleteDailyAttendance', 'Reason'])
 expectContains(endpointSource, [
-  'group.MapGet("/today"',
-  'group.MapGet("/monthly"',
   'group.MapPost("/recalculate"',
   'group.MapPost("/lock-month"',
-  'BuildMonthlyAsync',
-  'if (summary.Locked) continue'
-], 'attendance endpoint monthly generation contract')
-expectContains(hrApi, ['readBoolean', 'readArray', 'normalizeHrApiPath'], 'HR API helper casing and path helpers')
-expectContains(todayPage, [
-  'api/attendance/today',
-  'readArray(data.value',
-  'halfDay',
-  'workingMinutes',
-  'overtimeMinutes',
-  'shiftName',
-  'attendanceMode',
-  'completedSessions'
-], 'today attendance review UI')
+  'group.MapPost("/monthly/delete-selected"',
+  'CanManageAttendanceSetup',
+  'if (summary.Locked) continue',
+  'Unlock the month before deleting'
+], 'backend guarded attendance endpoints')
 expectContains(monthlyPage, [
-  'api/attendance/monthly',
+  'Guarded Live Actions',
+  'CONFIRM ${monthLabel.value}',
   'api/attendance/recalculate',
   'api/attendance/lock-month',
-  'readBoolean(data.value',
-  'readArray(data.value',
-  'recalculatePayload',
-  'generationStatus',
-  'days.length',
-  'overtimeMinutes',
-  'Preview Request'
-], 'monthly attendance readiness UI')
+  'api/attendance/monthly/delete-selected',
+  'canRunLiveAction',
+  'canDeleteSelected',
+  'deleteReason',
+  'deleteDailyAttendance',
+  'deletePunches',
+  'selectedItems',
+  'toggleAllRows',
+  'recalculateMonth',
+  'setMonthLock',
+  'deleteSelectedRows',
+  'clearLiveGate'
+], 'monthly attendance guarded UI')
+
+if (!monthlyPage.includes('post<ApiRecord>(recalculateEndpoint')) {
+  failures.push('monthly.vue must post recalculation through recalculateEndpoint.')
+}
+if (!monthlyPage.includes('post<ApiRecord>(lockEndpoint')) {
+  failures.push('monthly.vue must post lock/unlock through lockEndpoint.')
+}
+if (!monthlyPage.includes('post<ApiRecord>(deleteEndpoint')) {
+  failures.push('monthly.vue must post selected delete through deleteEndpoint.')
+}
+if (!monthlyPage.includes('Boolean(deleteReason.value.trim())')) {
+  failures.push('selected delete must require a delete reason.')
+}
+if (!monthlyPage.includes('liveConfirmText.value.trim() === confirmationPhrase.value')) {
+  failures.push('live actions must require exact confirmation phrase.')
+}
 
 if (failures.length > 0) {
-  console.error('\nHR attendance monthly readiness failed:')
+  console.error('\nHR attendance guarded live actions readiness failed:')
   for (const failure of failures) console.error(`- ${failure}`)
   process.exit(1)
 }
 
-console.log('\nGarmetix HR attendance monthly readiness check passed.')
+console.log('\nGarmetix HR attendance guarded live actions readiness check passed.')
 
 function expectContains(source, tokens, label) {
   const missing = tokens.filter((token) => !source.includes(token))

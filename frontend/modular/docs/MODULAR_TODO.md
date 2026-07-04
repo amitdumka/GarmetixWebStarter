@@ -284,7 +284,8 @@ Goal: move HR, attendance and payroll through module-by-module parity without to
 - 14B.2 complete: bump modular version identity to `6.0.10`, repair salary payment preview so payslip id is optional, and verify advance, previous due, deductions, net payable, outstanding, rounded payment and round-off contract fields.
 - 14B.3 complete: bump modular version identity to `6.0.11`, tighten attendance today/monthly UI behavior, add generated monthly day review, and add preview-only monthly attendance generation readiness.
 - 14B.4 complete: bump modular version identity to `6.0.12`, add Manual Punch entry, add regularization request creation/review parity, and validate backend punch/correction contracts.
-- Stage 14B.5 next: harden attendance recalculation, lock and delete actions behind explicit live-write gates.
+- 14B.5 complete: bump modular version identity to `6.0.13`, add guarded monthly recalculation, month lock/unlock and selected-row delete actions with exact confirmation phrase, selection and audit reason checks.
+- Stage 14B.6 next: continue HR parity with attendance device/kiosk readiness and payroll approval evidence.
 - Keep actual attendance marking, payslip generation, salary payment voucher creation and device write actions behind explicit opt-in gates.
-- 14B.4 adds live-write UI but no schema change. Deploy by the every-third-checkpoint cadence after validation.
+- 14B.5 adds guarded live-write UI but no schema change. This is checkpoint 1 after the last `.127` deployment, so deployment is deferred by cadence.
 

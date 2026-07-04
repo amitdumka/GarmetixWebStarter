@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "6.0.12",
+  "version": "6.0.13",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -39,6 +39,7 @@
     "hr:attendance-contract": "node scripts/hr-attendance-contract-check.mjs",
     "hr:attendance-monthly-readiness": "node scripts/hr-attendance-monthly-readiness.mjs",
     "hr:manual-punch-regularization-readiness": "node scripts/hr-manual-punch-regularization-readiness.mjs",
+    "hr:attendance-guarded-actions-readiness": "node scripts/hr-attendance-guarded-actions-readiness.mjs",
     "hr:browser-acceptance": "node scripts/hr-browser-acceptance.mjs",
     "hr:device-bridge-readiness": "node scripts/hr-device-bridge-readiness.mjs",
     "hr:payroll-preview-readiness": "node scripts/hr-payroll-preview-readiness.mjs",

@@ -1,7 +1,7 @@
 {
   "name": "garmetix-version6-workspace",
   "private": true,
-  "version": "6.0.12",
+  "version": "6.0.13",
   "scripts": {
     "legacy:api:test": "dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release",
     "legacy:api:build": "dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release",
@@ -37,6 +37,7 @@
     "modular:hr:attendance-contract": "node frontend/modular/scripts/hr-attendance-contract-check.mjs",
     "modular:hr:attendance-monthly-readiness": "node frontend/modular/scripts/hr-attendance-monthly-readiness.mjs",
     "modular:hr:manual-punch-regularization-readiness": "node frontend/modular/scripts/hr-manual-punch-regularization-readiness.mjs",
+    "modular:hr:attendance-guarded-actions-readiness": "node frontend/modular/scripts/hr-attendance-guarded-actions-readiness.mjs",
     "modular:hr:browser-acceptance": "node frontend/modular/scripts/hr-browser-acceptance.mjs",
     "modular:hr:device-bridge-readiness": "node frontend/modular/scripts/hr-device-bridge-readiness.mjs",
     "modular:hr:payroll-preview-readiness": "node frontend/modular/scripts/hr-payroll-preview-readiness.mjs",

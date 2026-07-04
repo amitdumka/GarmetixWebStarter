@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.12',
-  stage: 'Stage 14B.4 HR Manual Punch And Regularization',
-  label: 'Version6 Stage 14B.4 HR Manual Punch And Regularization',
-  summary: 'Added modular HR manual punch entry and regularization creation/review workflows with employee-scoped payloads, explicit live-write messaging, and dry contract readiness checks.'
+  version: '6.0.13',
+  stage: 'Stage 14B.5 HR Attendance Guarded Actions',
+  label: 'Version6 Stage 14B.5 HR Attendance Guarded Actions',
+  summary: 'Promoted monthly attendance recalculation, month lock/unlock and selected-row delete into guarded live actions requiring an exact confirmation phrase, selection and audit reason.'
 } as const
