@@ -1,7 +1,7 @@
 {
   "name": "garmetix-version6-workspace",
   "private": true,
-  "version": "6.0.10",
+  "version": "6.0.11",
   "scripts": {
     "legacy:api:test": "dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release",
     "legacy:api:build": "dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release",
@@ -35,6 +35,7 @@
     "modular:hr:parity-baseline": "node frontend/modular/scripts/hr-parity-baseline.mjs",
     "modular:hr:salary-payment-preview-contract": "node frontend/modular/scripts/hr-salary-payment-preview-contract.mjs",
     "modular:hr:attendance-contract": "node frontend/modular/scripts/hr-attendance-contract-check.mjs",
+    "modular:hr:attendance-monthly-readiness": "node frontend/modular/scripts/hr-attendance-monthly-readiness.mjs",
     "modular:hr:browser-acceptance": "node frontend/modular/scripts/hr-browser-acceptance.mjs",
     "modular:hr:device-bridge-readiness": "node frontend/modular/scripts/hr-device-bridge-readiness.mjs",
     "modular:hr:payroll-preview-readiness": "node frontend/modular/scripts/hr-payroll-preview-readiness.mjs",

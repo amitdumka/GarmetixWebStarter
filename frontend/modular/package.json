@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "6.0.10",
+  "version": "6.0.11",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -37,6 +37,7 @@
     "hr:parity-baseline": "node scripts/hr-parity-baseline.mjs",
     "hr:salary-payment-preview-contract": "node scripts/hr-salary-payment-preview-contract.mjs",
     "hr:attendance-contract": "node scripts/hr-attendance-contract-check.mjs",
+    "hr:attendance-monthly-readiness": "node scripts/hr-attendance-monthly-readiness.mjs",
     "hr:browser-acceptance": "node scripts/hr-browser-acceptance.mjs",
     "hr:device-bridge-readiness": "node scripts/hr-device-bridge-readiness.mjs",
     "hr:payroll-preview-readiness": "node scripts/hr-payroll-preview-readiness.mjs",

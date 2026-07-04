@@ -24,22 +24,96 @@
 
     <UAlert v-if="error" color="error" variant="subtle" icon="i-lucide-circle-alert" :description="error" />
 
-    <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+    <div class="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
       <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
         <p class="garmetix-metric-label">{{ card.label }}</p>
         <p class="garmetix-metric-value text-xl">{{ card.value }}</p>
       </div>
     </div>
 
-    <div class="garmetix-section-card">
-      <h3 class="garmetix-panel-title">Monthly Payload</h3>
-      <pre class="mt-3 max-h-[460px] overflow-auto rounded-lg border border-default bg-default/40 p-3 text-xs">{{ formattedData }}</pre>
+    <div class="grid gap-3 lg:grid-cols-[1.2fr_.8fr]">
+      <div class="garmetix-section-card">
+        <div class="garmetix-panel-header">
+          <div>
+            <h3 class="garmetix-panel-title">Generation Readiness</h3>
+            <p class="garmetix-panel-subtitle">{{ generationStatus }}</p>
+          </div>
+          <UBadge :color="locked ? 'warning' : 'success'" variant="subtle">{{ locked ? 'Locked' : 'Open' }}</UBadge>
+        </div>
+        <div class="mt-3 grid gap-2 text-sm text-muted md:grid-cols-2">
+          <div class="rounded-lg border border-default bg-default/40 p-3">
+            <p class="font-medium text-highlighted">Recalculate endpoint</p>
+            <p class="mt-1 font-mono text-xs">{{ recalculateEndpoint }}</p>
+          </div>
+          <div class="rounded-lg border border-default bg-default/40 p-3">
+            <p class="font-medium text-highlighted">Lock endpoint</p>
+            <p class="mt-1 font-mono text-xs">{{ lockEndpoint }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="garmetix-section-card">
+        <h3 class="garmetix-panel-title">Preview Request</h3>
+        <pre class="mt-3 max-h-[220px] overflow-auto rounded-lg border border-default bg-default/40 p-3 text-xs">{{ formattedPreviewRequest }}</pre>
+      </div>
+    </div>
+
+    <div class="garmetix-table-panel">
+      <div class="garmetix-panel-header">
+        <div>
+          <h3 class="garmetix-panel-title">Month Days</h3>
+          <p class="garmetix-panel-subtitle">{{ days.length }} generated day row(s) for {{ monthLabel }}</p>
+        </div>
+      </div>
+      <div class="overflow-auto">
+        <table class="w-full min-w-[1180px] text-left text-sm">
+          <thead class="bg-muted/30 text-xs uppercase text-muted">
+            <tr>
+              <th class="px-3 py-2">Date</th>
+              <th class="px-3 py-2">Employee</th>
+              <th class="px-3 py-2">Status</th>
+              <th class="px-3 py-2">Shift</th>
+              <th class="px-3 py-2">In</th>
+              <th class="px-3 py-2">Out</th>
+              <th class="px-3 py-2">Work</th>
+              <th class="px-3 py-2">OT</th>
+              <th class="px-3 py-2">Late</th>
+              <th class="px-3 py-2">Mode</th>
+              <th class="px-3 py-2">Review</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(row, index) in days" :key="`${readText(row, ['employeeId', 'id'], String(index))}-${readText(row, ['onDate'])}`" class="border-t border-default">
+              <td class="px-3 py-2">{{ formatDate(readText(row, ['onDate'])) }}</td>
+              <td class="px-3 py-2 font-medium">{{ readText(row, ['employeeName', 'name', 'employee']) }}</td>
+              <td class="px-3 py-2">
+                <UBadge :color="statusColor(row)" variant="subtle">{{ readText(row, ['status', 'attendanceStatus']) }}</UBadge>
+              </td>
+              <td class="px-3 py-2">{{ readText(row, ['shiftName']) }}</td>
+              <td class="px-3 py-2">{{ formatDateTime(readText(row, ['checkIn', 'inTime', 'firstIn'])) }}</td>
+              <td class="px-3 py-2">{{ formatDateTime(readText(row, ['checkOut', 'outTime', 'lastOut'])) }}</td>
+              <td class="px-3 py-2">{{ formatMinutes(readNumber(row, ['workingMinutes'])) }}</td>
+              <td class="px-3 py-2">{{ formatMinutes(readNumber(row, ['overtimeMinutes'])) }}</td>
+              <td class="px-3 py-2">{{ readNumber(row, ['lateMinutes', 'late']) }}</td>
+              <td class="px-3 py-2">{{ readText(row, ['attendanceMode']) }}</td>
+              <td class="px-3 py-2">
+                <UBadge :color="readBoolean(row, ['needsReview']) ? 'warning' : 'neutral'" variant="subtle">
+                  {{ readBoolean(row, ['needsReview']) ? 'Needs review' : 'Clear' }}
+                </UBadge>
+              </td>
+            </tr>
+            <tr v-if="!days.length">
+              <td class="px-3 py-6 text-center text-muted" colspan="11">No monthly attendance rows returned.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { currentYearMonth, readNumber, type ApiRecord, useHrApiClient } from '../../utils/hr-api'
+import { currentYearMonth, readArray, readBoolean, readNumber, readText, type ApiRecord, useHrApiClient } from '../../utils/hr-api'
 
 useHead({ title: 'Monthly Attendance - Garmetix HR' })
 
@@ -50,15 +124,65 @@ const month = ref(current.month)
 const loading = ref(false)
 const error = ref('')
 const data = ref<ApiRecord | null>(null)
+const days = computed<ApiRecord[]>(() => readArray(data.value, ['days', 'Days']))
+const locked = computed(() => readBoolean(data.value, ['locked']))
+const monthLabel = computed(() => `${String(month.value).padStart(2, '0')}/${year.value}`)
+const recalculateEndpoint = 'api/attendance/recalculate'
+const lockEndpoint = 'api/attendance/lock-month'
+const recalculatePayload = computed(() => ({
+  year: year.value,
+  month: month.value,
+  employeeId: null,
+  companyId: null,
+  storeGroupId: null,
+  storeId: null
+}))
 const cards = computed(() => [
   { label: 'Employees', value: readNumber(data.value, ['employeeCount', 'employees']) },
   { label: 'Present Days', value: readNumber(data.value, ['presentDays']) },
   { label: 'Late Days', value: readNumber(data.value, ['lateDays']) },
   { label: 'Half Days', value: readNumber(data.value, ['halfDays']) },
   { label: 'Absent Days', value: readNumber(data.value, ['absentDays']) },
-  { label: 'Locked', value: readNumber(data.value, ['locked']) ? 'Yes' : 'No' }
+  { label: 'Overtime', value: formatMinutes(readNumber(data.value, ['overtimeMinutes'])) },
+  { label: 'Locked', value: locked.value ? 'Yes' : 'No' },
+  { label: 'Day Rows', value: days.value.length }
 ])
-const formattedData = computed(() => data.value ? JSON.stringify(data.value, null, 2) : 'No monthly attendance loaded.')
+const generationStatus = computed(() => {
+  if (!data.value) return 'Load a month to verify generated attendance rows.'
+  if (locked.value) return 'Month is locked; backend recalculation will skip locked summaries.'
+  if (!days.value.length) return 'No generated day rows returned yet for this month.'
+  return 'Monthly rows are available for payroll review. This page does not execute writes.'
+})
+const formattedPreviewRequest = computed(() => JSON.stringify(recalculatePayload.value, null, 2))
+
+function formatMinutes(value: number) {
+  if (!value) return '0m'
+  const hours = Math.floor(value / 60)
+  const minutes = value % 60
+  return hours ? `${hours}h ${minutes}m` : `${minutes}m`
+}
+
+function formatDate(value: string) {
+  if (!value || value === '-') return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString()
+}
+
+function formatDateTime(value: string) {
+  if (!value || value === '-') return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function statusColor(row: ApiRecord) {
+  const status = readText(row, ['status', 'attendanceStatus'], '').toLowerCase()
+  if (status.includes('absent')) return 'error'
+  if (status.includes('late') || status.includes('half')) return 'warning'
+  if (status.includes('present')) return 'success'
+  return 'neutral'
+}
 
 async function load() {
   loading.value = true

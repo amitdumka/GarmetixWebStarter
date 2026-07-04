@@ -157,6 +157,11 @@ const steps = [
     args: ['run', 'modular:hr:attendance-contract']
   },
   {
+    name: 'HR attendance monthly readiness',
+    cwd: repoRoot,
+    args: ['run', 'modular:hr:attendance-monthly-readiness']
+  },
+  {
     name: 'HR browser acceptance dry-run',
     cwd: repoRoot,
     args: ['run', 'modular:hr:browser-acceptance']
