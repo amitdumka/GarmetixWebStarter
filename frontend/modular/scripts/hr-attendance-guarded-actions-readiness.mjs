@@ -16,7 +16,7 @@ const endpointSource = readFileSync(attendanceEndpointPath, 'utf8')
 const monthlyPage = readFileSync(monthlyPagePath, 'utf8')
 const version = readFileSync(versionPath, 'utf8')
 
-expectContains(version, ['6.0.13', 'Stage 14B.5'], 'modular version identity')
+expectContains(version, ['version: \'6.', 'Stage 14B'], 'modular version identity')
 expectRecordKeys(dtoSource, 'AttendanceRecalculateRequest', ['Year', 'Month', 'EmployeeId', 'CompanyId', 'StoreGroupId', 'StoreId'])
 expectRecordKeys(dtoSource, 'AttendanceLockMonthRequest', ['Year', 'Month', 'CompanyId', 'StoreGroupId', 'StoreId', 'Locked'])
 expectRecordKeys(dtoSource, 'AttendanceMonthlyDeleteItem', ['EmployeeId', 'OnDate'])

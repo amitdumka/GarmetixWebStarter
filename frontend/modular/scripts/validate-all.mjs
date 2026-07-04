@@ -192,6 +192,11 @@ const steps = [
     args: ['run', 'modular:hr:payroll-approval-evidence-readiness']
   },
   {
+    name: 'HR live payroll acceptance dry-run',
+    cwd: repoRoot,
+    args: ['run', 'modular:hr:live-payroll-acceptance']
+  },
+  {
     name: 'HR Stage 13C closure',
     cwd: repoRoot,
     args: ['run', 'modular:hr:stage13c-closure']

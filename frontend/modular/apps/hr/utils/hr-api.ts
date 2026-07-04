@@ -84,3 +84,26 @@ export function readArray(source: ApiRecord | null | undefined, keys: string[] |
   }
   return []
 }
+
+export interface CsvColumn {
+  key: string
+  label: string
+}
+
+export function downloadCsvFile(fileName: string, rows: ApiRecord[], columns: CsvColumn[]) {
+  const header = columns.map(column => csvCell(column.label)).join(',')
+  const body = rows.map(row => columns.map(column => csvCell(row[column.key])).join(','))
+  const csv = [header, ...body].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const objectUrl = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = objectUrl
+  anchor.download = fileName
+  anchor.click()
+  URL.revokeObjectURL(objectUrl)
+}
+
+function csvCell(value: unknown) {
+  const text = value === null || value === undefined ? '' : String(value)
+  return `"${text.replace(/"/g, '""')}"`
+}

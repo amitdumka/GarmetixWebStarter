@@ -18,6 +18,7 @@
             <UInput v-model.number="month" type="number" min="1" max="12" />
           </UFormField>
           <UButton type="submit" icon="i-lucide-refresh-cw" :loading="loading">Load</UButton>
+          <UButton icon="i-lucide-file-down" color="primary" variant="soft" :disabled="!summary" @click="exportSummary">Export CSV</UButton>
         </form>
       </div>
     </div>
@@ -32,14 +33,20 @@
     </div>
 
     <div class="garmetix-section-card">
-      <h3 class="garmetix-panel-title">Summary</h3>
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 class="garmetix-panel-title">Report Snapshot</h3>
+          <p class="garmetix-panel-subtitle">Payroll attendance evidence for salary draft review and export handoff.</p>
+        </div>
+        <UBadge color="primary" variant="subtle">CSV export ready</UBadge>
+      </div>
       <pre class="mt-3 max-h-[560px] overflow-auto rounded-lg border border-default bg-default/40 p-3 text-xs">{{ formattedSummary }}</pre>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { currentYearMonth, readNumber, readText, type ApiRecord, useHrApiClient } from '../../utils/hr-api'
+import { currentYearMonth, downloadCsvFile, readNumber, readText, type ApiRecord, useHrApiClient } from '../../utils/hr-api'
 
 useHead({ title: 'Payroll Summary - Garmetix HR' })
 
@@ -70,6 +77,29 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+function exportSummary() {
+  if (!summary.value) return
+  downloadCsvFile(`garmetix-payroll-summary-${year.value}${String(month.value).padStart(2, '0')}.csv`, [
+    {
+      salaryMonth: `${year.value}-${String(month.value).padStart(2, '0')}`,
+      employees: readNumber(summary.value, ['employees']),
+      presentDays: readNumber(summary.value, ['presentDays']),
+      absentDays: readNumber(summary.value, ['absentDays']),
+      lateDays: readNumber(summary.value, ['lateDays']),
+      halfDays: readNumber(summary.value, ['halfDays']),
+      lockedRows: readText(summary.value, ['hasLockedRows'], 'false')
+    }
+  ], [
+    { key: 'salaryMonth', label: 'Salary Month' },
+    { key: 'employees', label: 'Employees' },
+    { key: 'presentDays', label: 'Present Days' },
+    { key: 'absentDays', label: 'Absent Days' },
+    { key: 'lateDays', label: 'Late Days' },
+    { key: 'halfDays', label: 'Half Days' },
+    { key: 'lockedRows', label: 'Locked Rows' }
+  ])
 }
 
 onMounted(load)

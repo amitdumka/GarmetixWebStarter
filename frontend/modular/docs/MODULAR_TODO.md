@@ -287,7 +287,8 @@ Goal: move HR, attendance and payroll through module-by-module parity without to
 - 14B.5 complete: bump modular version identity to `6.0.13`, add guarded monthly recalculation, month lock/unlock and selected-row delete actions with exact confirmation phrase, selection and audit reason checks.
 - 14B.6 complete: bump modular version identity to `6.0.14`, replace attendance device/kiosk placeholders with device registration/revoke, web kiosk readiness, kiosk monitor, mobile kiosk contract, rehearsal checklist and fingerprint bridge simulator readiness consoles.
 - 14B.7 complete: bump modular version identity to `6.0.15`, add payroll approval evidence columns/counts, guarded payslip generation and guarded salary payment generation with exact confirmation phrases and audit notes.
-- Stage 14B.8 next: run live HR acceptance on `.127`, including payslip/payment gate checks and payroll report/export evidence.
+- 14B.8 complete: bump modular version identity to `6.0.16`, add HR payroll summary and payslip CSV exports, and add a non-mutating live payroll acceptance gate for `.127`/Cloudflare.
+- Stage 14B.9 next: close HR parity with 14 inch browser acceptance, operator checklist evidence, and a go/no-go handoff before starting Books parity.
 - Keep actual attendance marking, payslip generation, salary payment voucher creation and device write actions behind explicit opt-in gates.
-- 14B.7 adds guarded payslip/payment write UI but no schema change. This is checkpoint 3 after the last `.127` deployment, so deploy to `.127` after validation.
+- 14B.8 is checkpoint 1 after the last `.127` deployment. Do not deploy again until checkpoint 3 unless a high-risk or user-requested live update needs it.
 

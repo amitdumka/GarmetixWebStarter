@@ -6,10 +6,13 @@
           <p class="text-sm text-muted">Payroll</p>
           <h2 class="mt-1 text-2xl font-semibold">Payslips</h2>
           <p class="mt-2 max-w-3xl text-sm text-muted">
-            Recent payslips are read from the payroll API. Month generation and PDF actions will be enabled after the HR module smoke test.
+            Recent payslips are read from the payroll API. The report export below is safe and does not generate salary payments.
           </p>
         </div>
-        <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="load">Refresh</UButton>
+        <div class="flex flex-wrap gap-2">
+          <UButton icon="i-lucide-file-down" color="primary" variant="soft" :disabled="!slips.length" @click="exportPayslips">Export CSV</UButton>
+          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="load">Refresh</UButton>
+        </div>
       </div>
     </div>
 
@@ -23,8 +26,12 @@
     </div>
 
     <div class="overflow-hidden border border-default bg-muted/10">
-      <div class="border-b border-default p-4">
-        <h3 class="text-base font-semibold">Recent Payslips</h3>
+      <div class="flex flex-col gap-2 border-b border-default p-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 class="text-base font-semibold">Recent Payslips</h3>
+          <p class="text-sm text-muted">Payroll report/export evidence for salary slip review.</p>
+        </div>
+        <UBadge color="primary" variant="subtle">CSV export ready</UBadge>
       </div>
       <div class="overflow-auto">
         <table class="w-full min-w-[820px] text-left text-sm">
@@ -59,7 +66,7 @@
 
 <script setup lang="ts">
 import { formatIndianMoney } from '@garmetix/shared-utils'
-import { readNumber, readText, type ApiRecord, useHrApiClient } from '../utils/hr-api'
+import { downloadCsvFile, readNumber, readText, type ApiRecord, useHrApiClient } from '../utils/hr-api'
 
 useHead({ title: 'Payroll - Garmetix HR' })
 
@@ -89,6 +96,24 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+function exportPayslips() {
+  downloadCsvFile('garmetix-recent-payslips.csv', slips.value.map(slip => ({
+    employee: readText(slip, ['employeeName', 'employee']),
+    month: readText(slip, ['monthYear', 'month']),
+    earnings: readNumber(slip, ['totalEarnings']),
+    deductions: readNumber(slip, ['totalDeductions']),
+    netSalary: readNumber(slip, ['netSalary', 'payableAmount']),
+    status: readText(slip, ['status'])
+  })), [
+    { key: 'employee', label: 'Employee' },
+    { key: 'month', label: 'Month' },
+    { key: 'earnings', label: 'Earnings' },
+    { key: 'deductions', label: 'Deductions' },
+    { key: 'netSalary', label: 'Net Salary' },
+    { key: 'status', label: 'Status' }
+  ])
 }
 
 onMounted(load)

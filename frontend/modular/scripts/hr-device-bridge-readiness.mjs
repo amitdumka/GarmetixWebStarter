@@ -95,8 +95,8 @@ if (failures.length > 0) {
 console.log('\nHR device bridge readiness passed.')
 
 function checkSourceReadiness() {
-  if (version !== '6.0.14') sourceFailures.push(`Expected version 6.0.14, found ${version}.`)
-  if (!stage.includes('Stage 14B.6')) sourceFailures.push(`Expected Stage 14B.6, found ${stage}.`)
+  if (!version.startsWith('6.')) sourceFailures.push(`Expected Version6, found ${version}.`)
+  if (!stage.includes('Stage 14B')) sourceFailures.push(`Expected Stage 14B HR lane, found ${stage}.`)
 
   const sources = [
     {
