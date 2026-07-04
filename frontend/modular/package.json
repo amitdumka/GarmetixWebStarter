@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "6.0.16",
+  "version": "6.0.17",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -45,6 +45,7 @@
     "hr:payroll-preview-readiness": "node scripts/hr-payroll-preview-readiness.mjs",
     "hr:payroll-approval-evidence-readiness": "node scripts/hr-payroll-approval-evidence-readiness.mjs",
     "hr:live-payroll-acceptance": "node scripts/hr-live-payroll-acceptance.mjs",
+    "hr:final-closure": "node scripts/hr-final-closure.mjs",
     "hr:stage13c-closure": "node scripts/hr-stage13c-closure.mjs",
     "books:accounting-readiness": "node scripts/books-accounting-readiness.mjs",
     "books:accounting-contract": "node scripts/books-accounting-contract-check.mjs",

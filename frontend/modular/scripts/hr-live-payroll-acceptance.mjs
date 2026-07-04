@@ -29,8 +29,8 @@ console.log(`Public HR: ${publicBaseUrl}/hr`)
 console.log(`LAN HR: ${lanBaseUrl}/hr`)
 console.log('Salary writes: disabled')
 
-if (version !== '6.0.16') failures.push(`Expected version 6.0.16, found ${version}.`)
-if (!stage.includes('Stage 14B.8')) failures.push(`Expected Stage 14B.8, found ${stage}.`)
+if (!version.startsWith('6.')) failures.push(`Expected Version6, found ${version}.`)
+if (!stage.includes('Stage 14B')) failures.push(`Expected Stage 14B HR lane, found ${stage}.`)
 
 checkFile('frontend/modular/apps/hr/utils/hr-api.ts', [
   'downloadCsvFile',

@@ -288,7 +288,15 @@ Goal: move HR, attendance and payroll through module-by-module parity without to
 - 14B.6 complete: bump modular version identity to `6.0.14`, replace attendance device/kiosk placeholders with device registration/revoke, web kiosk readiness, kiosk monitor, mobile kiosk contract, rehearsal checklist and fingerprint bridge simulator readiness consoles.
 - 14B.7 complete: bump modular version identity to `6.0.15`, add payroll approval evidence columns/counts, guarded payslip generation and guarded salary payment generation with exact confirmation phrases and audit notes.
 - 14B.8 complete: bump modular version identity to `6.0.16`, add HR payroll summary and payslip CSV exports, and add a non-mutating live payroll acceptance gate for `.127`/Cloudflare.
-- Stage 14B.9 next: close HR parity with 14 inch browser acceptance, operator checklist evidence, and a go/no-go handoff before starting Books parity.
+- 14B.9 complete: bump modular version identity to `6.0.17`, add HR final closure gate with conditional live-token/manual evidence and Books parity handoff.
 - Keep actual attendance marking, payslip generation, salary payment voucher creation and device write actions behind explicit opt-in gates.
-- 14B.8 is checkpoint 1 after the last `.127` deployment. Do not deploy again until checkpoint 3 unless a high-risk or user-requested live update needs it.
+- 14B.9 is checkpoint 2 after the last `.127` deployment. Do not deploy again until checkpoint 3 unless a high-risk or user-requested live update needs it.
+
+## Stage 14C: Version6 Books Modular Parity
+
+Goal: complete Books next, module-by-module, after HR code closure. Keep live posting actions behind explicit opt-in gates.
+
+- Stage 14C.1 next: Books parity baseline for accounting ledger, vouchers, petty cash, vendor payments, GST reports and audit/message log route ownership.
+- Reuse the Stage 13D Books readiness scripts, then upgrade them for Version6 live-safe evidence.
+- First Books checkpoint is expected to be the third post-deploy checkpoint, so deploy to `.127` after validation if the change is not broken.
 

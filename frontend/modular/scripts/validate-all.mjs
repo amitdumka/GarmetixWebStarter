@@ -197,6 +197,11 @@ const steps = [
     args: ['run', 'modular:hr:live-payroll-acceptance']
   },
   {
+    name: 'HR final closure gate',
+    cwd: repoRoot,
+    args: ['run', 'modular:hr:final-closure']
+  },
+  {
     name: 'HR Stage 13C closure',
     cwd: repoRoot,
     args: ['run', 'modular:hr:stage13c-closure']
