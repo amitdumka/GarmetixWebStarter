@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.11',
-  stage: 'Stage 14B.3 HR Attendance Monthly Readiness',
-  label: 'Version6 Stage 14B.3 HR Attendance Monthly Readiness',
-  summary: 'Expanded HR today/monthly attendance review with generated day rows, locked-month visibility, overtime and review flags, plus a preview-only monthly recalculation readiness contract.'
+  version: '6.0.12',
+  stage: 'Stage 14B.4 HR Manual Punch And Regularization',
+  label: 'Version6 Stage 14B.4 HR Manual Punch And Regularization',
+  summary: 'Added modular HR manual punch entry and regularization creation/review workflows with employee-scoped payloads, explicit live-write messaging, and dry contract readiness checks.'
 } as const

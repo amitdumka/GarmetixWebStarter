@@ -147,6 +147,7 @@ export const garmetixRoutes: GarmetixRouteDefinition[] = [
   route({ id: 'attendance', path: '/attendance', label: 'Attendance', icon: 'i-lucide-calendar-check', targetApp: 'hr', moduleKey: 'hr', moduleLabel: 'HR And Payroll', roles: [...routeRoles.hr] }),
   route({ id: 'attendance-today', path: '/attendance/today', label: 'Today Attendance', icon: 'i-lucide-calendar-check-2', targetApp: 'hr', moduleKey: 'hr', moduleLabel: 'HR And Payroll', roles: [...routeRoles.hr] }),
   route({ id: 'attendance-monthly', path: '/attendance/monthly', label: 'Monthly Attendance', icon: 'i-lucide-calendar-range', targetApp: 'hr', moduleKey: 'hr', moduleLabel: 'HR And Payroll', roles: [...routeRoles.hr] }),
+  route({ id: 'attendance-manual-punch', path: '/attendance/manual-punch', label: 'Manual Punch', icon: 'i-lucide-hand', targetApp: 'hr', moduleKey: 'hr', moduleLabel: 'HR And Payroll', roles: [...routeRoles.hr] }),
   route({ id: 'attendance-shifts', path: '/attendance/shifts', label: 'Attendance Shifts', icon: 'i-lucide-clock-3', targetApp: 'hr', moduleKey: 'hr', moduleLabel: 'HR And Payroll', roles: [...routeRoles.hr] }),
   route({ id: 'attendance-policies', path: '/attendance/policies', label: 'Attendance Policies', icon: 'i-lucide-scroll-text', targetApp: 'hr', moduleKey: 'hr', moduleLabel: 'HR And Payroll', roles: [...routeRoles.hr] }),
   route({ id: 'attendance-devices', path: '/attendance/devices', label: 'Kiosk Devices', icon: 'i-lucide-fingerprint', targetApp: 'hr', moduleKey: 'hr', moduleLabel: 'HR And Payroll', roles: [...routeRoles.hr] }),

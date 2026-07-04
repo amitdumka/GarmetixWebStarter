@@ -41,7 +41,7 @@ export const smokeApps = [
   {
     id: 'hr',
     label: 'HR',
-    routes: ['/', '/login', '/hr', '/attendance/today', '/attendance/monthly', '/attendance/payroll-review', '/attendance/salary-payment', '/attendance/devices']
+    routes: ['/', '/login', '/hr', '/attendance/today', '/attendance/monthly', '/attendance/manual-punch', '/attendance/regularization', '/attendance/payroll-review', '/attendance/salary-payment', '/attendance/devices']
   },
   {
     id: 'ai-sense',

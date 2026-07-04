@@ -162,6 +162,11 @@ const steps = [
     args: ['run', 'modular:hr:attendance-monthly-readiness']
   },
   {
+    name: 'HR manual punch and regularization readiness',
+    cwd: repoRoot,
+    args: ['run', 'modular:hr:manual-punch-regularization-readiness']
+  },
+  {
     name: 'HR browser acceptance dry-run',
     cwd: repoRoot,
     args: ['run', 'modular:hr:browser-acceptance']

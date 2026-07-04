@@ -13,12 +13,54 @@
       </div>
     </div>
 
+    <UAlert
+      color="warning"
+      variant="subtle"
+      icon="i-lucide-shield-alert"
+      title="Controlled attendance correction"
+      description="Creating a request is an attendance correction entry. Approve and reject actions remain manager decisions and require an audit remark."
+    />
     <UAlert v-if="message" :color="messageTone" variant="subtle" :icon="messageIcon" :description="message" />
 
     <div class="grid gap-3 md:grid-cols-4">
       <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
         <p class="garmetix-metric-label">{{ card.label }}</p>
         <p class="garmetix-metric-value">{{ card.value }}</p>
+      </div>
+    </div>
+
+    <div class="grid gap-4 xl:grid-cols-[.9fr_1.1fr]">
+      <form class="garmetix-section-card space-y-4" @submit.prevent="createRequest">
+        <div>
+          <h3 class="garmetix-panel-title">New Correction Request</h3>
+          <p class="garmetix-panel-subtitle">Queue a missed punch or correction request for manager approval.</p>
+        </div>
+        <div class="grid gap-3 md:grid-cols-2">
+          <UFormField label="Employee" name="employeeId" required>
+            <USelect v-model="requestForm.employeeId" :items="employeeOptions" placeholder="Select employee" />
+          </UFormField>
+          <UFormField label="Request Type" name="requestType" required>
+            <USelect v-model="requestForm.requestType" :items="requestTypeOptions" />
+          </UFormField>
+          <UFormField label="Punch Type" name="requestedPunchType" required>
+            <USelect v-model="requestForm.requestedPunchType" :items="punchTypeOptions" />
+          </UFormField>
+          <UFormField label="Local Punch Time" name="requestedLocalPunchTime" required>
+            <UInput v-model="requestForm.requestedLocalPunchTime" type="datetime-local" />
+          </UFormField>
+        </div>
+        <UFormField label="Reason" name="reason" required>
+          <UTextarea v-model="requestForm.reason" :rows="3" placeholder="Why this correction is needed" />
+        </UFormField>
+        <div class="flex flex-wrap justify-end gap-2">
+          <UButton type="button" color="neutral" variant="soft" icon="i-lucide-rotate-ccw" @click="resetRequestForm">Reset</UButton>
+          <UButton type="submit" icon="i-lucide-plus" :loading="creating" :disabled="!canCreate">Create Request</UButton>
+        </div>
+      </form>
+
+      <div class="garmetix-section-card">
+        <h3 class="garmetix-panel-title">Request Preview</h3>
+        <pre class="mt-3 max-h-[330px] overflow-auto rounded-lg border border-default bg-default/40 p-3 text-xs">{{ formattedCreatePayload }}</pre>
       </div>
     </div>
 
@@ -77,19 +119,64 @@
 </template>
 
 <script setup lang="ts">
-import { readText, type ApiRecord, useHrApiClient } from '../../utils/hr-api'
+import { readText, toLocalDateInput, type ApiRecord, useHrApiClient } from '../../utils/hr-api'
 
 useHead({ title: 'Regularization - Garmetix HR' })
 
 const { get, post } = useHrApiClient()
 const loading = ref(false)
+const loadingEmployees = ref(false)
+const creating = ref(false)
 const decidingId = ref('')
 const rows = ref<ApiRecord[]>([])
+const employees = ref<ApiRecord[]>([])
 const message = ref('')
 const messageTone = ref<'success' | 'error' | 'warning' | 'neutral'>('neutral')
 const remarks = reactive<Record<string, string>>({})
+const requestForm = reactive({
+  employeeId: null as string | null,
+  requestType: 'MissedPunch',
+  requestedPunchType: 'CheckIn',
+  requestedLocalPunchTime: defaultLocalPunchTime(),
+  reason: ''
+})
+
+const requestTypeOptions = [
+  { value: 'MissedPunch', label: 'Missed Punch' },
+  { value: 'WrongPunch', label: 'Wrong Punch' },
+  { value: 'TimeCorrection', label: 'Time Correction' }
+]
+const punchTypeOptions = [
+  { value: 'CheckIn', label: 'Check In' },
+  { value: 'BreakOut', label: 'Break Out' },
+  { value: 'BreakIn', label: 'Break In' },
+  { value: 'CheckOut', label: 'Check Out' }
+]
 
 const messageIcon = computed(() => messageTone.value === 'success' ? 'i-lucide-circle-check' : messageTone.value === 'warning' ? 'i-lucide-triangle-alert' : messageTone.value === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-info')
+const selectedEmployee = computed(() => employees.value.find(employee => readText(employee, ['id'], '') === requestForm.employeeId) ?? null)
+const employeeOptions = computed(() => employees.value.map(employee => ({
+  value: readText(employee, ['id'], ''),
+  label: `${employeeName(employee)} | ${readText(employee, ['employeeCode', 'code'])}`.replace(/\s+\|\s+-$/, '')
+})))
+const canCreate = computed(() => Boolean(requestForm.employeeId && requestForm.requestType && requestForm.requestedPunchType && requestForm.requestedLocalPunchTime && requestForm.reason.trim() && !creating.value))
+const createPayload = computed(() => {
+  const employee = selectedEmployee.value
+  const localPunchTime = requestForm.requestedLocalPunchTime || defaultLocalPunchTime()
+  return {
+    employeeId: requestForm.employeeId,
+    attendancePunchId: null,
+    requestType: requestForm.requestType,
+    requestedPunchType: requestForm.requestedPunchType,
+    requestedPunchTimeUtc: new Date(localPunchTime).toISOString(),
+    requestedLocalPunchTime: localPunchTime,
+    reason: requestForm.reason,
+    companyId: employee ? readText(employee, ['companyId'], '') : '',
+    storeGroupId: employee ? readText(employee, ['storeGroupId'], '') : '',
+    storeId: employee ? readText(employee, ['storeId'], '') : ''
+  }
+})
+const formattedCreatePayload = computed(() => JSON.stringify(createPayload.value, null, 2))
 const cards = computed(() => [
   { label: 'Requests', value: rows.value.length },
   { label: 'Pending', value: rows.value.filter(isPending).length },
@@ -113,6 +200,38 @@ function statusTone(row: ApiRecord) {
   return 'neutral'
 }
 
+function defaultLocalPunchTime() {
+  const now = new Date()
+  return `${toLocalDateInput(now)}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+}
+
+function employeeName(employee: ApiRecord) {
+  const fullName = readText(employee, ['staffName', 'fullName'], '')
+  if (fullName) return fullName
+  return `${readText(employee, ['firstName'], '')} ${readText(employee, ['lastName'], '')}`.trim() || 'Employee'
+}
+
+function resetRequestForm() {
+  requestForm.requestType = 'MissedPunch'
+  requestForm.requestedPunchType = 'CheckIn'
+  requestForm.requestedLocalPunchTime = defaultLocalPunchTime()
+  requestForm.reason = ''
+}
+
+async function loadEmployees() {
+  loadingEmployees.value = true
+  try {
+    const response = await get<ApiRecord[] | { rows?: ApiRecord[], items?: ApiRecord[], data?: ApiRecord[] }>('api/employees')
+    employees.value = Array.isArray(response) ? response : (response.rows ?? response.items ?? response.data ?? [])
+    if (!requestForm.employeeId && employees.value.length) requestForm.employeeId = readText(employees.value[0], ['id'], '')
+  } catch (caught) {
+    messageTone.value = 'error'
+    message.value = caught instanceof Error ? caught.message : 'Unable to load employees.'
+  } finally {
+    loadingEmployees.value = false
+  }
+}
+
 async function load() {
   loading.value = true
   message.value = ''
@@ -124,6 +243,29 @@ async function load() {
     message.value = caught instanceof Error ? caught.message : 'Unable to load regularization requests.'
   } finally {
     loading.value = false
+  }
+}
+
+async function createRequest() {
+  if (!canCreate.value) {
+    messageTone.value = 'warning'
+    message.value = 'Select employee, punch details and reason before creating a correction request.'
+    return
+  }
+
+  creating.value = true
+  message.value = ''
+  try {
+    await post<ApiRecord>('api/attendance/regularization', createPayload.value)
+    messageTone.value = 'success'
+    message.value = 'Regularization request created.'
+    resetRequestForm()
+    await load()
+  } catch (caught) {
+    messageTone.value = 'error'
+    message.value = caught instanceof Error ? caught.message : 'Unable to create regularization request.'
+  } finally {
+    creating.value = false
   }
 }
 
@@ -152,5 +294,7 @@ async function decide(row: ApiRecord, approved: boolean) {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await Promise.all([loadEmployees(), load()])
+})
 </script>

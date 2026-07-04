@@ -7,7 +7,7 @@
       </p>
       <h2 class="garmetix-dashboard-title">Attendance</h2>
       <p class="garmetix-dashboard-subtitle">
-        Start with safe read-only attendance views. Manual punch, recalculation, lock, and review actions will be wired after operator checks.
+        Review attendance, record controlled manual punches, and clear correction requests before payroll processing.
       </p>
     </div>
 
@@ -25,6 +25,8 @@ useHead({ title: 'Attendance - Garmetix HR' })
 const links = [
   { label: 'Today Attendance', href: '/attendance/today', icon: 'i-lucide-calendar-check-2' },
   { label: 'Monthly Attendance', href: '/attendance/monthly', icon: 'i-lucide-calendar-range' },
+  { label: 'Manual Punch', href: '/attendance/manual-punch', icon: 'i-lucide-hand' },
+  { label: 'Regularization', href: '/attendance/regularization', icon: 'i-lucide-calendar-clock' },
   { label: 'Payroll Summary', href: '/attendance/payroll-summary', icon: 'i-lucide-table-properties' },
   { label: 'Salary Payment', href: '/attendance/salary-payment', icon: 'i-lucide-badge-indian-rupee' },
   { label: 'Devices', href: '/attendance/devices', icon: 'i-lucide-fingerprint' },
