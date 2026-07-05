@@ -308,6 +308,7 @@ Goal: complete Books next, module-by-module, after HR code closure. Keep live po
 - 14A.10 complete: bump modular version identity to `6.0.26`, port legacy hidden-iframe PDF printing for modular POS sale/history/print queue, move POS notifications to right-bottom toasts, change new sale invoice numbering to `StoreCode-YYYYMM-INV-NumberSeries`, and document remaining DotMatrix/server print parity checks.
 - 14A.11 complete: bump modular version identity to `6.0.27`, hotfix live invoice PDF `500` caused by missing server QR dependency, keep invoice PDFs printable with a scan-code fallback box, and switch POS document printing to a legacy-style API URL builder.
 - 14A.12 complete: bump modular version identity to `6.0.28`, remove the direct invoice PDF QR dependency from the PDF path after live testing showed the CLR failed before fallback catch handling, and keep a scan-code fallback box until QR packaging is repaired.
+- 14A.13 complete: bump modular version identity to `6.0.29`, promote POS `/history` toward legacy `/billing` invoice register parity with server-side paging, date/status filters, register totals, cancel action and hard-delete action.
 - 14C.4 next: vendor bank account edit parity, bank account detail secure edit review, bank statement import/review planning, and reconciliation closure dashboard handoff.
 - Reuse the Stage 13D Books readiness scripts, then upgrade them for Version6 live-safe evidence.
 - 14C.1 was deployed as checkpoint 3 after the prior `.127` deployment.

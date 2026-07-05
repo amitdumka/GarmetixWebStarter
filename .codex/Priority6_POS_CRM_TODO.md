@@ -44,18 +44,24 @@ Use these backups if the fullscreen counter layout must be reverted without touc
 - Port legacy hidden-iframe PDF printing into modular POS invoice/history/print queue actions.
 - Move POS operational notifications to right-bottom toast placement.
 - Change new sale invoice numbers to `StoreCode-YYYYMM-INV-NumberSeries`.
+- Promote POS `/history` toward legacy `/billing` invoice register parity:
+  - server-side `billing/sales` paging instead of the recent-100 shortcut
+  - legacy-style date preset, status, page size and search filters
+  - register totals from backend summary fields
+  - guarded cancel and hard-delete invoice actions
+  - retained print and Digital Bill CRM link/counter actions
 
 ## POS Follow-Up
 
 - Run live operator review for `/sale` on 14-inch laptop width and check scanner, cart, payments footer and right totals panel.
 - Manually verify browser print dialog and Epson/DotMatrix handoff from Save & Print, sale history print, and print queue recovery.
 - Port any remaining server/dot-matrix print-service behavior after comparing legacy LX-310 deployment scripts.
-- Confirm `/history` recent sale API fields on live data:
+- Confirm `/history` paged sale register fields on live data:
   - `digitalBillPublicPath`
   - `digitalBillPublicToken`
   - `digitalBillWhatsAppStatus`
   - CRM counters
-- Add optional date range and cashier/store filters to `/history` after live field confirmation.
+- Add cashier/store filters to `/history` after live field confirmation.
 - Add QR/barcode scan search into `/history` once standard invoice QR payload format is finalized.
 - Add sale detail Digital Bill activity timeline when backend `/api/digital-bills/{id}/activity` is ported into modular CRM.
 
