@@ -1,9 +1,5 @@
 <template>
-  <ModularAppShell app-id="pos">
+  <NuxtLayout>
     <NuxtPage />
-  </ModularAppShell>
+  </NuxtLayout>
 </template>
-
-<script setup lang="ts">
-import ModularAppShell from '../../packages/shared-ui/components/ModularAppShell.vue'
-</script>

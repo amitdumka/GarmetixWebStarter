@@ -46,5 +46,18 @@ export default defineNuxtConfig({
   },
   devServer: {
     port: 3101
+  },
+  vite: {
+    server: {
+      proxy: {
+        '/api': {
+          target: 'https://garmetix.aadwikafashion.in',
+          changeOrigin: true
+        }
+      }
+    }
+  },
+  routeRules: {
+    '/api/**': { proxy: 'https://garmetix.aadwikafashion.in/api/**' }
   }
 })

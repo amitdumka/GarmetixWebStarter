@@ -34,15 +34,64 @@ public static class LicenseEndpoints
         }
     }
 
-    private static IResult Activate(LicenseActivateRequest request, LicenseActivationService service, ClaimsPrincipal user)
+    private static async Task<IResult> Activate(
+        LicenseActivateRequest request, 
+        LicenseActivationService service, 
+        Garmetix.Infrastructure.Data.GarmetixDbContext db,
+        Garmetix.Infrastructure.Audit.AuditActorContext auditActor,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken)
     {
         try
         {
+            if (auditActor.CompanyId == null)
+            {
+                return Results.BadRequest(new { message = "You must be logged into a tenant account to activate a license." });
+            }
+
             var activatedBy = user.Identity?.Name
                 ?? user.FindFirstValue(ClaimTypes.NameIdentifier)
                 ?? user.FindFirstValue(ClaimTypes.Email)
                 ?? "admin";
-            return Results.Ok(service.Activate(request, activatedBy));
+            
+            // 1. Activate using the legacy service (validates token, writes to local file as fallback)
+            var status = service.Activate(request, activatedBy);
+
+            // 2. Save it to the SaaS TenantSubscriptions table
+            if (status.Valid)
+            {
+                var existingSub = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+                    db.TenantSubscriptions, 
+                    s => s.CompanyId == auditActor.CompanyId.Value, 
+                    cancellationToken);
+
+                if (existingSub != null)
+                {
+                    existingSub.PlanName = status.Plan ?? "Basic";
+                    existingSub.ValidTo = status.ExpiresAtUtc?.UtcDateTime ?? System.DateTime.UtcNow.AddDays(30);
+                    existingSub.MaxUsers = status.MaxUsers ?? 10;
+                    existingSub.MaxStores = status.MaxStores ?? 1;
+                    existingSub.IsActive = true;
+                }
+                else
+                {
+                    var newSub = new Garmetix.Core.Models.SaaS.TenantSubscription
+                    {
+                        CompanyId = auditActor.CompanyId.Value,
+                        PlanName = status.Plan ?? "Basic",
+                        ValidFrom = status.IssuedAtUtc?.UtcDateTime ?? System.DateTime.UtcNow,
+                        ValidTo = status.ExpiresAtUtc?.UtcDateTime ?? System.DateTime.UtcNow.AddDays(30),
+                        MaxUsers = status.MaxUsers ?? 10,
+                        MaxStores = status.MaxStores ?? 1,
+                        IsActive = true
+                    };
+                    db.TenantSubscriptions.Add(newSub);
+                }
+
+                await db.SaveChangesAsync(cancellationToken);
+            }
+
+            return Results.Ok(status);
         }
         catch (InvalidOperationException ex)
         {

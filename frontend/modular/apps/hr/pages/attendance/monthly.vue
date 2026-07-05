@@ -1,390 +1,169 @@
-<template>
-  <section class="garmetix-page-stack">
-    <div class="garmetix-dashboard-hero">
-      <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p class="garmetix-dashboard-kicker">
-            <UIcon name="i-lucide-calendar-range" class="size-4" />
-            Monthly attendance
-          </p>
-          <h2 class="garmetix-dashboard-title">Monthly Attendance</h2>
-          <p class="garmetix-dashboard-subtitle">Review monthly attendance totals before payroll generation.</p>
-        </div>
-        <form class="flex flex-wrap items-end gap-2" @submit.prevent="load">
-          <UFormField label="Year" name="year">
-            <UInput v-model.number="year" type="number" min="2020" max="2100" />
-          </UFormField>
-          <UFormField label="Month" name="month">
-            <UInput v-model.number="month" type="number" min="1" max="12" />
-          </UFormField>
-          <UButton type="submit" icon="i-lucide-refresh-cw" :loading="loading">Load</UButton>
-        </form>
-      </div>
-    </div>
-
-    <UAlert v-if="error" color="error" variant="subtle" icon="i-lucide-circle-alert" :description="error" />
-
-    <div class="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
-      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
-        <p class="garmetix-metric-label">{{ card.label }}</p>
-        <p class="garmetix-metric-value text-xl">{{ card.value }}</p>
-      </div>
-    </div>
-
-    <div class="grid gap-3 lg:grid-cols-[1.2fr_.8fr]">
-      <div class="garmetix-section-card">
-        <div class="garmetix-panel-header">
-          <div>
-            <h3 class="garmetix-panel-title">Generation Readiness</h3>
-            <p class="garmetix-panel-subtitle">{{ generationStatus }}</p>
-          </div>
-          <UBadge :color="locked ? 'warning' : 'success'" variant="subtle">{{ locked ? 'Locked' : 'Open' }}</UBadge>
-        </div>
-        <div class="mt-3 grid gap-2 text-sm text-muted md:grid-cols-3">
-          <div class="rounded-lg border border-default bg-default/40 p-3">
-            <p class="font-medium text-highlighted">Recalculate endpoint</p>
-            <p class="mt-1 font-mono text-xs">{{ recalculateEndpoint }}</p>
-          </div>
-          <div class="rounded-lg border border-default bg-default/40 p-3">
-            <p class="font-medium text-highlighted">Lock endpoint</p>
-            <p class="mt-1 font-mono text-xs">{{ lockEndpoint }}</p>
-          </div>
-          <div class="rounded-lg border border-default bg-default/40 p-3">
-            <p class="font-medium text-highlighted">Delete endpoint</p>
-            <p class="mt-1 font-mono text-xs">{{ deleteEndpoint }}</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="garmetix-section-card">
-        <h3 class="garmetix-panel-title">Preview Request</h3>
-        <pre class="mt-3 max-h-[220px] overflow-auto rounded-lg border border-default bg-default/40 p-3 text-xs">{{ formattedPreviewRequest }}</pre>
-      </div>
-    </div>
-
-    <div class="garmetix-section-card">
-      <div class="garmetix-panel-header">
-        <div>
-          <h3 class="garmetix-panel-title">Guarded Live Actions</h3>
-          <p class="garmetix-panel-subtitle">Type <span class="font-mono">{{ confirmationPhrase }}</span> before changing attendance data.</p>
-        </div>
-        <UBadge color="warning" variant="subtle">Live write</UBadge>
-      </div>
-      <UAlert
-        class="mt-3"
-        color="warning"
-        variant="subtle"
-        icon="i-lucide-shield-alert"
-        title="Attendance changes affect payroll"
-        description="Recalculate writes monthly summaries, lock/unlock changes payroll readiness, and delete selected rows removes attendance correction data inside the shared backend."
-      />
-      <UAlert v-if="actionMessage" class="mt-3" :color="actionTone" variant="subtle" :icon="actionIcon" :description="actionMessage" />
-      <div class="mt-4 grid gap-3 xl:grid-cols-[1fr_1.2fr]">
-        <div class="space-y-3">
-          <UFormField label="Confirmation phrase" name="liveConfirmText">
-            <UInput v-model="liveConfirmText" :placeholder="confirmationPhrase" />
-          </UFormField>
-          <UFormField label="Delete reason" name="deleteReason">
-            <UInput v-model="deleteReason" placeholder="Reason required for selected-row delete" />
-          </UFormField>
-          <div class="grid gap-2 text-sm text-muted md:grid-cols-2">
-            <UCheckbox v-model="deleteDailyAttendance" label="Delete daily attendance rows" />
-            <UCheckbox v-model="deletePunches" label="Delete punches and photo proofs" />
-          </div>
-        </div>
-        <div class="grid gap-2 md:grid-cols-3">
-          <UButton color="primary" variant="soft" icon="i-lucide-refresh-cw" :loading="recalculating" :disabled="!canRunLiveAction" @click="recalculateMonth">
-            Recalculate
-          </UButton>
-          <UButton color="warning" variant="soft" icon="i-lucide-lock-keyhole" :loading="locking" :disabled="!canRunLiveAction" @click="setMonthLock(!locked)">
-            {{ locked ? 'Unlock Month' : 'Lock Month' }}
-          </UButton>
-          <UButton color="error" variant="soft" icon="i-lucide-trash-2" :loading="deletingRows" :disabled="!canDeleteSelected" @click="deleteSelectedRows">
-            Delete Selected
-          </UButton>
-          <div class="rounded-lg border border-default bg-default/40 p-3 text-sm md:col-span-3">
-            <p class="font-medium text-highlighted">{{ selectedItems.length }} selected row(s)</p>
-            <p class="mt-1 text-muted">Delete uses selected employee/date pairs and is blocked by the backend when the month is locked.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="garmetix-table-panel">
-      <div class="garmetix-panel-header">
-        <div>
-          <h3 class="garmetix-panel-title">Month Days</h3>
-          <p class="garmetix-panel-subtitle">{{ days.length }} generated day row(s) for {{ monthLabel }}</p>
-        </div>
-      </div>
-      <div class="overflow-auto">
-        <table class="w-full min-w-[1180px] text-left text-sm">
-          <thead class="bg-muted/30 text-xs uppercase text-muted">
-            <tr>
-              <th class="px-3 py-2">
-                <input
-                  class="size-4"
-                  type="checkbox"
-                  :checked="allRowsSelected"
-                  :disabled="!days.length"
-                  aria-label="Select all monthly attendance rows"
-                  @change="toggleAllRows"
-                />
-              </th>
-              <th class="px-3 py-2">Date</th>
-              <th class="px-3 py-2">Employee</th>
-              <th class="px-3 py-2">Status</th>
-              <th class="px-3 py-2">Shift</th>
-              <th class="px-3 py-2">In</th>
-              <th class="px-3 py-2">Out</th>
-              <th class="px-3 py-2">Work</th>
-              <th class="px-3 py-2">OT</th>
-              <th class="px-3 py-2">Late</th>
-              <th class="px-3 py-2">Mode</th>
-              <th class="px-3 py-2">Review</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(row, index) in days" :key="`${readText(row, ['employeeId', 'id'], String(index))}-${readText(row, ['onDate'])}`" class="border-t border-default">
-              <td class="px-3 py-2">
-                <input
-                  class="size-4"
-                  type="checkbox"
-                  :checked="selectedRowKeys.has(rowKey(row, index))"
-                  :aria-label="`Select ${readText(row, ['employeeName', 'name', 'employee'])}`"
-                  @change="toggleRow(row, index)"
-                />
-              </td>
-              <td class="px-3 py-2">{{ formatDate(readText(row, ['onDate'])) }}</td>
-              <td class="px-3 py-2 font-medium">{{ readText(row, ['employeeName', 'name', 'employee']) }}</td>
-              <td class="px-3 py-2">
-                <UBadge :color="statusColor(row)" variant="subtle">{{ readText(row, ['status', 'attendanceStatus']) }}</UBadge>
-              </td>
-              <td class="px-3 py-2">{{ readText(row, ['shiftName']) }}</td>
-              <td class="px-3 py-2">{{ formatDateTime(readText(row, ['checkIn', 'inTime', 'firstIn'])) }}</td>
-              <td class="px-3 py-2">{{ formatDateTime(readText(row, ['checkOut', 'outTime', 'lastOut'])) }}</td>
-              <td class="px-3 py-2">{{ formatMinutes(readNumber(row, ['workingMinutes'])) }}</td>
-              <td class="px-3 py-2">{{ formatMinutes(readNumber(row, ['overtimeMinutes'])) }}</td>
-              <td class="px-3 py-2">{{ readNumber(row, ['lateMinutes', 'late']) }}</td>
-              <td class="px-3 py-2">{{ readText(row, ['attendanceMode']) }}</td>
-              <td class="px-3 py-2">
-                <UBadge :color="readBoolean(row, ['needsReview']) ? 'warning' : 'neutral'" variant="subtle">
-                  {{ readBoolean(row, ['needsReview']) ? 'Needs review' : 'Clear' }}
-                </UBadge>
-              </td>
-            </tr>
-            <tr v-if="!days.length">
-              <td class="px-3 py-6 text-center text-muted" colspan="12">No monthly attendance rows returned.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-</template>
-
 <script setup lang="ts">
-import { currentYearMonth, readArray, readBoolean, readNumber, readText, type ApiRecord, useHrApiClient } from '../../utils/hr-api'
-
-useHead({ title: 'Monthly Attendance - Garmetix HR' })
-
-const { get, post } = useHrApiClient()
-const current = currentYearMonth()
-const year = ref(current.year)
-const month = ref(current.month)
+const reports = useAttendanceReports()
+const feedback = useUiFeedback()
+const auth = useAuth()
 const loading = ref(false)
-const error = ref('')
-const data = ref<ApiRecord | null>(null)
-const recalculating = ref(false)
-const locking = ref(false)
-const deletingRows = ref(false)
-const actionMessage = ref('')
-const actionTone = ref<'success' | 'error' | 'warning' | 'neutral'>('neutral')
-const liveConfirmText = ref('')
-const deleteReason = ref('')
-const deleteDailyAttendance = ref(true)
-const deletePunches = ref(false)
-const selectedRowKeys = ref(new Set<string>())
-const days = computed<ApiRecord[]>(() => readArray(data.value, ['days', 'Days']))
-const locked = computed(() => readBoolean(data.value, ['locked']))
-const monthLabel = computed(() => `${String(month.value).padStart(2, '0')}/${year.value}`)
-const confirmationPhrase = computed(() => `CONFIRM ${monthLabel.value}`)
-const recalculateEndpoint = 'api/attendance/recalculate'
-const lockEndpoint = 'api/attendance/lock-month'
-const deleteEndpoint = 'api/attendance/monthly/delete-selected'
-const recalculatePayload = computed(() => ({
-  year: year.value,
-  month: month.value,
-  employeeId: null,
-  companyId: null,
-  storeGroupId: null,
-  storeId: null
-}))
-const lockPayload = computed(() => ({
-  year: year.value,
-  month: month.value,
-  companyId: null,
-  storeGroupId: null,
-  storeId: null,
-  locked: !locked.value
-}))
-const selectedItems = computed(() => days.value
-  .map((row, index) => ({ row, index, key: rowKey(row, index) }))
-  .filter(item => selectedRowKeys.value.has(item.key))
-  .map(item => ({
-    employeeId: readText(item.row, ['employeeId'], ''),
-    onDate: readText(item.row, ['onDate'], '')
-  }))
-  .filter(item => item.employeeId && item.onDate))
-const allRowsSelected = computed(() => days.value.length > 0 && selectedItems.value.length === days.value.length)
-const canRunLiveAction = computed(() => liveConfirmText.value.trim() === confirmationPhrase.value)
-const canDeleteSelected = computed(() => canRunLiveAction.value && selectedItems.value.length > 0 && Boolean(deleteReason.value.trim()) && (deleteDailyAttendance.value || deletePunches.value))
-const actionIcon = computed(() => actionTone.value === 'success' ? 'i-lucide-circle-check' : actionTone.value === 'warning' ? 'i-lucide-triangle-alert' : actionTone.value === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-info')
-const cards = computed(() => [
-  { label: 'Employees', value: readNumber(data.value, ['employeeCount', 'employees']) },
-  { label: 'Present Days', value: readNumber(data.value, ['presentDays']) },
-  { label: 'Late Days', value: readNumber(data.value, ['lateDays']) },
-  { label: 'Half Days', value: readNumber(data.value, ['halfDays']) },
-  { label: 'Absent Days', value: readNumber(data.value, ['absentDays']) },
-  { label: 'Overtime', value: formatMinutes(readNumber(data.value, ['overtimeMinutes'])) },
-  { label: 'Locked', value: locked.value ? 'Yes' : 'No' },
-  { label: 'Day Rows', value: days.value.length }
-])
-const generationStatus = computed(() => {
-  if (!data.value) return 'Load a month to verify generated attendance rows.'
-  if (locked.value) return 'Month is locked; backend recalculation will skip locked summaries.'
-  if (!days.value.length) return 'No generated day rows returned yet for this month.'
-  return 'Monthly rows are available for payroll review. Live actions require the confirmation phrase.'
+const now = new Date()
+const year = ref(now.getFullYear())
+const month = ref(now.getMonth() + 1)
+const employeeSearch = ref('')
+const pageSize = ref(50)
+const page = ref(1)
+const data = ref<any | null>(null)
+const selectedKeys = ref<string[]>([])
+const bulkDeleteReason = ref('')
+const bulkDeleting = ref(false)
+const canBulkDelete = computed(() => auth.canEdit.value)
+const monthOptions = [
+  { value: 1, label: 'January' }, { value: 2, label: 'February' }, { value: 3, label: 'March' }, { value: 4, label: 'April' },
+  { value: 5, label: 'May' }, { value: 6, label: 'June' }, { value: 7, label: 'July' }, { value: 8, label: 'August' },
+  { value: 9, label: 'September' }, { value: 10, label: 'October' }, { value: 11, label: 'November' }, { value: 12, label: 'December' }
+]
+const yearOptions = computed(() => Array.from({ length: 6 }, (_, index) => now.getFullYear() - index).map(value => ({ value, label: String(value) })))
+const pageSizeOptions = [{ value: 25, label: '25 / page' }, { value: 50, label: '50 / page' }, { value: 100, label: '100 / page' }, { value: 200, label: '200 / page' }]
+const sourceRows = computed(() => data.value?.days || [])
+const filteredRows = computed(() => {
+  const term = employeeSearch.value.trim().toLowerCase()
+  const rows = !term ? sourceRows.value : sourceRows.value.filter((row: any) => [row.employeeName, row.employeeCode, row.name].some(value => String(value || '').toLowerCase().includes(term)))
+  const start = (page.value - 1) * pageSize.value
+  return rows.slice(start, start + pageSize.value)
 })
-const formattedPreviewRequest = computed(() => JSON.stringify(recalculatePayload.value, null, 2))
-
-function rowKey(row: ApiRecord, index: number) {
-  return `${readText(row, ['employeeId', 'id'], String(index))}|${readText(row, ['onDate'], String(index))}`
+const total = computed(() => {
+  const term = employeeSearch.value.trim().toLowerCase()
+  return (!term ? sourceRows.value : sourceRows.value.filter((row: any) => [row.employeeName, row.employeeCode, row.name].some(value => String(value || '').toLowerCase().includes(term)))).length
+})
+const pageFrom = computed(() => total.value === 0 ? 0 : ((page.value - 1) * pageSize.value) + 1)
+const pageTo = computed(() => Math.min(page.value * pageSize.value, total.value))
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
+function rowKey(row: any) {
+  const date = row?.onDate ? new Date(row.onDate).toISOString().slice(0, 10) : ''
+  return `${row?.employeeId || ''}|${date}`
 }
-
-function toggleRow(row: ApiRecord, index: number) {
-  const next = new Set(selectedRowKeys.value)
-  const key = rowKey(row, index)
-  if (next.has(key)) next.delete(key)
-  else next.add(key)
-  selectedRowKeys.value = next
+const selectedRows = computed(() => sourceRows.value.filter((row: any) => selectedKeys.value.includes(rowKey(row))))
+const visibleRowKeys = computed(() => filteredRows.value.map((row: any) => rowKey(row)))
+const allVisibleSelected = computed(() => visibleRowKeys.value.length > 0 && visibleRowKeys.value.every((key: string) => selectedKeys.value.includes(key)))
+function toggleRow(row: any) {
+  const key = rowKey(row)
+  selectedKeys.value = selectedKeys.value.includes(key)
+    ? selectedKeys.value.filter((item) => item !== key)
+    : [...selectedKeys.value, key]
 }
-
-function toggleAllRows() {
-  if (allRowsSelected.value) {
-    selectedRowKeys.value = new Set()
+function toggleVisible() {
+  if (allVisibleSelected.value) {
+    selectedKeys.value = selectedKeys.value.filter((key) => !visibleRowKeys.value.includes(key))
     return
   }
-
-  selectedRowKeys.value = new Set(days.value.map((row, index) => rowKey(row, index)))
+  selectedKeys.value = Array.from(new Set([...selectedKeys.value, ...visibleRowKeys.value]))
 }
-
-function clearLiveGate() {
-  liveConfirmText.value = ''
-  selectedRowKeys.value = new Set()
-}
-
-function formatMinutes(value: number) {
-  if (!value) return '0m'
-  const hours = Math.floor(value / 60)
-  const minutes = value % 60
-  return hours ? `${hours}h ${minutes}m` : `${minutes}m`
-}
-
-function formatDate(value: string) {
-  if (!value || value === '-') return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleDateString()
-}
-
-function formatDateTime(value: string) {
-  if (!value || value === '-') return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}
-
-function statusColor(row: ApiRecord) {
-  const status = readText(row, ['status', 'attendanceStatus'], '').toLowerCase()
-  if (status.includes('absent')) return 'error'
-  if (status.includes('late') || status.includes('half')) return 'warning'
-  if (status.includes('present')) return 'success'
-  return 'neutral'
-}
-
-async function load() {
-  loading.value = true
-  error.value = ''
-  try {
-    data.value = await get<ApiRecord>('api/attendance/monthly', { year: year.value, month: month.value })
-    selectedRowKeys.value = new Set()
-  } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'Unable to load monthly attendance.'
-  } finally {
-    loading.value = false
-  }
-}
-
-async function recalculateMonth() {
-  if (!canRunLiveAction.value) return
-  recalculating.value = true
-  actionMessage.value = ''
-  try {
-    const response = await post<ApiRecord>(recalculateEndpoint, recalculatePayload.value)
-    actionTone.value = 'success'
-    actionMessage.value = `Monthly attendance recalculated. Saved: ${readNumber(response, ['saved', 'Saved'])}, employees: ${readNumber(response, ['employees', 'Employees'])}.`
-    clearLiveGate()
-    await load()
-  } catch (caught) {
-    actionTone.value = 'error'
-    actionMessage.value = caught instanceof Error ? caught.message : 'Unable to recalculate monthly attendance.'
-  } finally {
-    recalculating.value = false
-  }
-}
-
-async function setMonthLock(nextLocked: boolean) {
-  if (!canRunLiveAction.value) return
-  locking.value = true
-  actionMessage.value = ''
-  try {
-    const response = await post<ApiRecord>(lockEndpoint, { ...lockPayload.value, locked: nextLocked })
-    actionTone.value = 'success'
-    actionMessage.value = `Month ${nextLocked ? 'locked' : 'unlocked'}. Rows changed: ${readNumber(response, ['count', 'Count'])}.`
-    clearLiveGate()
-    await load()
-  } catch (caught) {
-    actionTone.value = 'error'
-    actionMessage.value = caught instanceof Error ? caught.message : `Unable to ${nextLocked ? 'lock' : 'unlock'} month.`
-  } finally {
-    locking.value = false
-  }
-}
-
+function clearSelection() { selectedKeys.value = [] }
 async function deleteSelectedRows() {
-  if (!canDeleteSelected.value) return
-  deletingRows.value = true
-  actionMessage.value = ''
+  if (!selectedRows.value.length) {
+    feedback.notify('Select rows first', 'Select one or more attendance days to delete.', 'warning')
+    return
+  }
+  const ok = window.confirm(`Delete ${selectedRows.value.length} selected attendance day(s)? This will delete daily attendance and linked punches for selected employee/date rows.`)
+  if (!ok) return
+  bulkDeleting.value = true
   try {
-    const response = await post<ApiRecord>(deleteEndpoint, {
-      items: selectedItems.value,
-      deletePunches: deletePunches.value,
-      deleteDailyAttendance: deleteDailyAttendance.value,
-      reason: deleteReason.value.trim()
+    const result = await reports.deleteMonthlySelected({
+      items: selectedRows.value.map((row: any) => ({ employeeId: row.employeeId, onDate: row.onDate })),
+      deletePunches: true,
+      deleteDailyAttendance: true,
+      reason: bulkDeleteReason.value || 'Monthly attendance bulk delete from UI'
     })
-    actionTone.value = 'success'
-    actionMessage.value = readText(response, ['message'], `Deleted ${selectedItems.value.length} selected row(s).`)
-    deleteReason.value = ''
-    clearLiveGate()
-    await load()
-  } catch (caught) {
-    actionTone.value = 'error'
-    actionMessage.value = caught instanceof Error ? caught.message : 'Unable to delete selected attendance rows.'
+    feedback.success('Monthly attendance deleted', `${result?.selected || selectedRows.value.length} selected row(s) removed.`)
+    selectedKeys.value = []
+    bulkDeleteReason.value = ''
+    await refresh()
+  } catch (error: any) {
+    feedback.failed('Monthly attendance delete failed', error)
   } finally {
-    deletingRows.value = false
+    bulkDeleting.value = false
   }
 }
-
-onMounted(load)
+async function refresh(){ loading.value=true; try{ data.value=await reports.monthly({year:year.value, month:month.value}); selectedKeys.value=[] }catch(e:any){ feedback.failed('Monthly attendance failed',e) } finally{ loading.value=false } }
+async function recalc(){ await reports.recalculate({year:year.value, month:month.value}); await refresh() }
+watch([year, month, pageSize, employeeSearch], () => { page.value = 1; selectedKeys.value = [] })
+watch([year, month], refresh)
+onMounted(refresh)
 </script>
+<template>
+  <AppShell title="Monthly Attendance" @refresh="refresh">
+    <section class="planner-dashboard">
+      <UiModulePageHeader title="Monthly Attendance" description="Month-wise attendance with persistent filters and pagination." icon="i-lucide-calendar-range">
+        <template #actions>
+          <UButton label="Recalculate" icon="i-lucide-calculator" :loading="loading" @click="recalc" />
+          <UButton
+            v-if="canBulkDelete"
+            :label="selectedRows.length ? `Delete ${selectedRows.length}` : 'Delete selected'"
+            icon="i-lucide-trash-2"
+            color="error"
+            variant="soft"
+            :disabled="!selectedRows.length || loading"
+            :loading="bulkDeleting"
+            @click="deleteSelectedRows"
+          />
+          <UButton label="Refresh" icon="i-lucide-refresh-cw" variant="subtle" :loading="loading" @click="refresh" />
+        </template>
+      </UiModulePageHeader>
+      <div class="planner-metric-grid">
+        <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-circle-check" color="success" variant="subtle"/><div><p>Present</p><strong>{{ data?.presentDays || 0 }}</strong><span>Days</span></div></div></UCard>
+        <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-clock" color="warning" variant="subtle"/><div><p>Late</p><strong>{{ data?.lateDays || 0 }}</strong><span>Days</span></div></div></UCard>
+        <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-circle-half" color="primary" variant="subtle"/><div><p>Half Day</p><strong>{{ data?.halfDays || 0 }}</strong><span>Days</span></div></div></UCard>
+        <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-circle-x" color="error" variant="subtle"/><div><p>Absent</p><strong>{{ data?.absentDays || 0 }}</strong><span>Days</span></div></div></UCard>
+      </div>
+      <UiRegisterPanel title="Monthly Attendance Register" :description="`Showing ${pageFrom}-${pageTo} of ${total} employees for ${month}/${year}`" :loading="loading" :empty="filteredRows.length===0" empty-title="No monthly attendance" empty-description="Change month/year/filter or recalculate attendance." empty-icon="i-lucide-calendar-range" @retry="refresh">
+        <template #actions>
+          <UiCrudToolbar v-model:search="employeeSearch" search-placeholder="Search employee/code" :loading="loading" refresh-label="Refresh" @refresh="refresh">
+            <template #filters>
+              <USelect v-model="month" :items="monthOptions" class="min-w-36" />
+              <USelect v-model="year" :items="yearOptions" class="min-w-28" />
+              <USelect v-model="pageSize" :items="pageSizeOptions" class="min-w-32" />
+              <UButton
+                v-if="canBulkDelete"
+                size="sm"
+                variant="outline"
+                color="neutral"
+                :label="allVisibleSelected ? 'Unselect page' : 'Select page'"
+                icon="i-lucide-check-square"
+                :disabled="!filteredRows.length"
+                @click="toggleVisible"
+              />
+              <UButton
+                v-if="auth.canEdit.value && selectedRows.length"
+                size="sm"
+                variant="ghost"
+                color="neutral"
+                label="Clear selection"
+                @click="clearSelection"
+              />
+            </template>
+          </UiCrudToolbar>
+        </template>
+        <div v-if="canBulkDelete" class="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+          <span class="font-medium">Bulk delete:</span>
+          <span>{{ selectedRows.length }} row(s) selected</span>
+          <UInput v-model="bulkDeleteReason" size="sm" placeholder="Reason / note for delete" class="min-w-60 flex-1" />
+          <UButton
+            size="sm"
+            color="error"
+            icon="i-lucide-trash-2"
+            label="Delete selected"
+            :disabled="!selectedRows.length"
+            :loading="bulkDeleting"
+            @click="deleteSelectedRows"
+          />
+        </div>
+        <AttendanceMonthlyGrid :rows="filteredRows" :selected-keys="selectedKeys" :selectable="canBulkDelete" @toggle="toggleRow" />
+        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
+          <span>Showing {{ pageFrom }}-{{ pageTo }} of {{ total }}</span>
+          <div class="flex items-center gap-2">
+            <UButton size="sm" variant="outline" color="neutral" icon="i-lucide-chevron-left" label="Previous" :disabled="page <= 1 || loading" @click="page--" />
+            <span>Page {{ page }} / {{ totalPages }}</span>
+            <UButton size="sm" variant="outline" color="neutral" icon="i-lucide-chevron-right" trailing label="Next" :disabled="page >= totalPages || loading" @click="page++" />
+          </div>
+        </div>
+      </UiRegisterPanel>
+    </section>
+  </AppShell>
+</template>

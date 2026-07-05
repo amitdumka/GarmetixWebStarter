@@ -1,345 +1,513 @@
-<template>
-  <section class="garmetix-page-stack">
-    <div class="garmetix-dashboard-hero">
-      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <p class="garmetix-kicker"><UIcon name="i-lucide-landmark" class="size-4" /> Bank and cash audit</p>
-          <h2 class="garmetix-dashboard-title">Bank Operations</h2>
-          <p class="garmetix-dashboard-subtitle">
-            Read-only bank transactions, statements, reconciliation, cheque lifecycle, vendor bank accounts and bank access details. Posting and reconciliation actions stay disabled.
-          </p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <USelect v-model="selectedBankAccountId" :items="bankAccountOptions" class="min-w-64" />
-          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refresh">Refresh</UButton>
-        </div>
-      </div>
-    </div>
-
-    <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
-
-    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
-        <p class="garmetix-metric-label">{{ card.label }}</p>
-        <p class="garmetix-metric-value">{{ card.value }}</p>
-        <p class="garmetix-metric-caption">{{ card.detail }}</p>
-      </div>
-    </section>
-
-    <section class="grid gap-4 xl:grid-cols-3">
-      <div class="garmetix-section-card xl:col-span-2">
-        <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 class="garmetix-panel-title">Bank Statement</h3>
-            <p class="garmetix-panel-subtitle">{{ statementRows.length }} lines for {{ selectedBankAccountLabel }}</p>
-          </div>
-          <UBadge :color="statementLoading ? 'warning' : 'primary'" variant="subtle">{{ statementLoading ? 'Loading' : 'Read only' }}</UBadge>
-        </div>
-        <BooksMasterTable :columns="statementColumns" :rows="statementRows" empty-text="No bank statement lines found." />
-      </div>
-
-      <div class="garmetix-section-card">
-        <h3 class="garmetix-panel-title">Reconciliation Summary</h3>
-        <div class="mt-3 space-y-3">
-          <div v-for="item in reconciliationCards" :key="item.label" class="garmetix-row-card block">
-            <p class="garmetix-metric-label">{{ item.label }}</p>
-            <p class="mt-1 text-lg font-semibold">{{ item.value }}</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <div class="flex flex-wrap gap-2">
-      <UButton
-        v-for="tab in tabs"
-        :key="tab.key"
-        :icon="tab.icon"
-        size="sm"
-        color="neutral"
-        :variant="activeTab === tab.key ? 'soft' : 'ghost'"
-        @click="activeTab = tab.key"
-      >
-        {{ tab.label }}
-      </UButton>
-    </div>
-
-    <section class="garmetix-section-card">
-      <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 class="garmetix-panel-title">{{ currentTab.label }}</h3>
-          <p class="garmetix-panel-subtitle">{{ currentTab.description }}</p>
-        </div>
-        <UInput v-model="search" icon="i-lucide-search" placeholder="Search bank operation rows" class="sm:w-72" />
-      </div>
-      <BooksMasterTable :columns="currentColumns" :rows="filteredRows" empty-text="No bank operation rows found." />
-    </section>
-  </section>
-</template>
-
 <script setup lang="ts">
-import { formatIndianMoney } from '@garmetix/shared-utils'
-import {
-  accountTypeOptions,
-  formatDate,
-  optionLabel,
-  readArray,
-  readNumber,
-  readText,
-  toRows,
-  transactionModeOptions,
-  transactionTypeOptions,
-  type ApiRecord,
-  useBooksApiClient
-} from '../utils/books-api'
+const api = useGarmetixApi()
+const auth = useAuth()
+const workspace = useWorkspace()
+const feedback = useUiFeedback()
+const isAuthenticated = auth.isAuthenticated
 
-useHead({ title: 'Cash Details - Garmetix Books' })
+const companies = ref<any[]>([])
+const stores = ref<any[]>([])
+const rows = ref<any[]>([])
+const history = ref<any | null>(null)
+const dayCheck = ref<any | null>(null)
+const loading = ref(false)
+const saving = ref(false)
+const filterFrom = ref('')
+const filterTo = ref('')
+const filterSource = ref('')
+const dayCheckDate = ref(localDateValue())
+const editId = ref('')
+const form = reactive(blankForm())
 
-type BankTab = 'transactions' | 'cheques' | 'vendorBanks' | 'accountDetails' | 'bankAccounts'
-
-const { get } = useBooksApiClient()
-const loading = ref(true)
-const statementLoading = ref(false)
-const error = ref('')
-const search = ref('')
-const activeTab = ref<BankTab>('transactions')
-const selectedBankAccountId = ref('')
-const banks = ref<ApiRecord[]>([])
-const ledgers = ref<ApiRecord[]>([])
-const parties = ref<ApiRecord[]>([])
-const vendors = ref<ApiRecord[]>([])
-const bankAccounts = ref<ApiRecord[]>([])
-const bankTransactions = ref<ApiRecord[]>([])
-const chequeLogs = ref<ApiRecord[]>([])
-const vendorBankAccounts = ref<ApiRecord[]>([])
-const bankAccountDetails = ref<ApiRecord[]>([])
-const bankStatement = ref<ApiRecord[]>([])
-const bankReconciliation = ref<ApiRecord | null>(null)
-
-const tabs = [
-  { key: 'transactions' as const, label: 'Transactions', icon: 'i-lucide-arrow-left-right', description: 'Posted bank transactions from accounting.' },
-  { key: 'cheques' as const, label: 'Cheques', icon: 'i-lucide-scroll-text', description: 'Issued and deposited cheque lifecycle log.' },
-  { key: 'vendorBanks' as const, label: 'Vendor Banks', icon: 'i-lucide-wallet-cards', description: 'Vendor bank account records and linked ledgers.' },
-  { key: 'accountDetails' as const, label: 'Account Details', icon: 'i-lucide-key-round', description: 'Bank account access/detail records.' },
-  { key: 'bankAccounts' as const, label: 'Bank Accounts', icon: 'i-lucide-landmark', description: 'Company bank account master list.' }
-]
-const currentTab = computed(() => tabs.find(item => item.key === activeTab.value) ?? tabs[0])
-const bankName = (id: unknown) => readText(banks.value.find(item => item.id === id), ['name'])
-const ledgerName = (id: unknown) => readText(ledgers.value.find(item => item.id === id), ['name'])
-const partyName = (id: unknown) => readText(parties.value.find(item => item.id === id), ['name'])
-const vendorName = (id: unknown) => readText(vendors.value.find(item => item.id === id), ['name', 'vendorName'])
-const bankAccountLabel = (item: ApiRecord | undefined) => {
-  if (!item) return '-'
-  return `${readText(item, ['accountHolderName'], 'Bank')} - ${readText(item, ['accountNumber'])}`.trim()
-}
-const bankAccountName = (id: unknown) => bankAccountLabel(bankAccounts.value.find(item => item.id === id))
-const bankAccountOptions = computed(() => {
-  const rows = bankAccounts.value.map(item => ({
-    label: bankAccountLabel(item),
-    value: String(item.id)
-  }))
-  return rows.length ? rows : [{ label: 'No bank accounts', value: '' }]
+const activeStoreId = computed(() => workspace.storeId.value || stores.value[0]?.id || '')
+const selectedStoreName = computed(() => stores.value.find((store) => store.id === activeStoreId.value)?.name || 'No store selected')
+const computedAmount = computed(() => calculateCash(form))
+const countedPieces = computed(() => denominationRows.value.reduce((sum, row) => sum + Number(row.count || 0), 0))
+const totalAmount = computed(() => rows.value.reduce((sum, row) => sum + Number(row.amount || 0), 0))
+const amountOverrideVariance = computed(() => {
+  if (!form.amount || computedAmount.value <= 0) return 0
+  return Number(form.amount || 0) - computedAmount.value
 })
-const selectedBankAccountLabel = computed(() => bankAccountName(selectedBankAccountId.value))
-const statementLines = computed(() => readArray(bankReconciliation.value, ['lines']))
-const cards = computed(() => [
-  { label: 'Bank Accounts', value: bankAccounts.value.length, detail: 'Company bank accounts' },
-  { label: 'Transactions', value: bankTransactions.value.length, detail: 'Posted bank transactions' },
-  { label: 'Cheques', value: chequeLogs.value.length, detail: 'Cheque lifecycle rows' },
-  { label: 'Open Lines', value: readNumber(bankReconciliation.value, ['openLineCount']), detail: 'Pending reconciliation' }
-])
-const reconciliationCards = computed(() => [
-  { label: 'Statement Balance', value: formatIndianMoney(readNumber(bankReconciliation.value, ['statementBalance'])) },
-  { label: 'Open Debit', value: formatIndianMoney(readNumber(bankReconciliation.value, ['openDebit'])) },
-  { label: 'Open Credit', value: formatIndianMoney(readNumber(bankReconciliation.value, ['openCredit'])) },
-  { label: 'Reconciled Lines', value: readNumber(bankReconciliation.value, ['reconciledLineCount']) }
-])
-const statementRows = computed(() => (statementLines.value.length ? statementLines.value : bankStatement.value).map(item => ({
-  date: formatDate(item.onDate),
-  description: readText(item, ['description']),
-  reference: readText(item, ['reference']),
-  bankTransactionId: readText(item, ['bankTransactionId']),
-  debit: formatIndianMoney(readNumber(item, ['debit'])),
-  credit: formatIndianMoney(readNumber(item, ['credit'])),
-  balance: formatIndianMoney(readNumber(item, ['balance'])),
-  status: item.reconciled ? 'Reconciled' : 'Open',
-  reconciledAt: formatDate(item.reconciledAt)
-})))
-const tableRows = computed<Record<BankTab, ApiRecord[]>>(() => ({
-  transactions: bankTransactions.value.map(item => ({
-    date: formatDate(item.onDate),
-    bank: bankAccountName(item.bankAccountId),
-    type: optionLabel(transactionTypeOptions, item.transactionType),
-    mode: optionLabel(transactionModeOptions, item.transactionMode),
-    ledger: ledgerName(item.ledgerId),
-    party: partyName(item.partyId),
-    reference: readText(item, ['reference']),
-    person: readText(item, ['personName']),
-    amount: formatIndianMoney(readNumber(item, ['amount']))
-  })),
-  cheques: chequeLogs.value.map(item => ({
-    date: formatDate(item.onDate),
-    cheque: readText(item, ['chequeNumber', 'cheequeNumber']),
-    bank: bankAccountName(item.bankAccountId),
-    person: readText(item, ['personName']),
-    narration: readText(item, ['narration']),
-    status: readText(item, ['status']),
-    amount: formatIndianMoney(readNumber(item, ['amount']))
-  })),
-  vendorBanks: vendorBankAccounts.value.map(item => ({
-    holder: readText(item, ['accountHolderName']),
-    account: readText(item, ['accountNumber']),
-    vendor: vendorName(item.vendorId),
-    bank: bankName(item.bankId),
-    ledger: ledgerName(item.ledgerId),
-    ifsc: readText(item, ['ifsCode', 'ifscCode', 'ifSCode']),
-    status: item.active === false ? 'Inactive' : 'Active'
-  })),
-  accountDetails: bankAccountDetails.value.map(item => ({
-    bank: bankAccountName(item.bankAccountId),
-    customerId: readText(item, ['customerId']),
-    userName: readText(item, ['userName']),
-    atmCard: readText(item, ['atmCard']),
-    status: readText(item, ['status'])
-  })),
-  bankAccounts: bankAccounts.value.map(item => ({
-    holder: readText(item, ['accountHolderName']),
-    account: readText(item, ['accountNumber']),
-    bank: bankName(item.bankId),
-    type: optionLabel(accountTypeOptions, item.accountType),
-    opening: formatIndianMoney(readNumber(item, ['openingBalance'])),
-    closing: formatIndianMoney(readNumber(item, ['closingBalance'])),
-    status: item.active === false ? 'Inactive' : 'Active'
-  }))
-}))
-const columns: Record<BankTab, Array<{ key: string, label: string }>> = {
-  transactions: [
-    { key: 'date', label: 'Date' },
-    { key: 'bank', label: 'Bank Account' },
-    { key: 'type', label: 'Type' },
-    { key: 'mode', label: 'Mode' },
-    { key: 'ledger', label: 'Against Ledger' },
-    { key: 'party', label: 'Party' },
-    { key: 'reference', label: 'Reference' },
-    { key: 'person', label: 'Person' },
-    { key: 'amount', label: 'Amount' }
-  ],
-  cheques: [
-    { key: 'date', label: 'Date' },
-    { key: 'cheque', label: 'Cheque' },
-    { key: 'bank', label: 'Bank Account' },
-    { key: 'person', label: 'Person' },
-    { key: 'narration', label: 'Narration' },
-    { key: 'status', label: 'Status' },
-    { key: 'amount', label: 'Amount' }
-  ],
-  vendorBanks: [
-    { key: 'holder', label: 'Holder' },
-    { key: 'account', label: 'Account' },
-    { key: 'vendor', label: 'Vendor' },
-    { key: 'bank', label: 'Bank' },
-    { key: 'ledger', label: 'Ledger' },
-    { key: 'ifsc', label: 'IFSC' },
-    { key: 'status', label: 'Status' }
-  ],
-  accountDetails: [
-    { key: 'bank', label: 'Bank Account' },
-    { key: 'customerId', label: 'Customer ID' },
-    { key: 'userName', label: 'User Name' },
-    { key: 'atmCard', label: 'ATM Card' },
-    { key: 'status', label: 'Status' }
-  ],
-  bankAccounts: [
-    { key: 'holder', label: 'Holder' },
-    { key: 'account', label: 'Account' },
-    { key: 'bank', label: 'Bank' },
-    { key: 'type', label: 'Type' },
-    { key: 'opening', label: 'Opening' },
-    { key: 'closing', label: 'Closing' },
-    { key: 'status', label: 'Status' }
-  ]
-}
-const statementColumns = [
-  { key: 'date', label: 'Date' },
-  { key: 'description', label: 'Description' },
-  { key: 'reference', label: 'Reference' },
-  { key: 'bankTransactionId', label: 'Bank Txn' },
-  { key: 'debit', label: 'Debit' },
-  { key: 'credit', label: 'Credit' },
-  { key: 'balance', label: 'Balance' },
-  { key: 'status', label: 'Status' },
-  { key: 'reconciledAt', label: 'Reconciled On' }
-]
-const currentColumns = computed(() => columns[activeTab.value])
-const currentRows = computed(() => tableRows.value[activeTab.value])
-const filteredRows = computed(() => {
-  const term = search.value.trim().toLowerCase()
-  if (!term) return currentRows.value
-  return currentRows.value.filter(row => JSON.stringify(row).toLowerCase().includes(term))
+const dayCheckWarnings = computed(() => {
+  const check = dayCheck.value
+  if (!check) return [] as string[]
+  const warnings: string[] = []
+  if (check.openingVariance !== null && check.openingVariance !== undefined && Math.abs(Number(check.openingVariance)) > 0.01) {
+    warnings.push(`Latest physical cash differs from day opening by ${money(check.openingVariance)}`)
+  }
+  if (check.closingVariance !== null && check.closingVariance !== undefined && Math.abs(Number(check.closingVariance)) > 0.01) {
+    warnings.push(`Latest physical cash differs from day closing by ${money(check.closingVariance)}`)
+  }
+  if (check.pettyCashVariance !== null && check.pettyCashVariance !== undefined && Math.abs(Number(check.pettyCashVariance)) > 0.01) {
+    warnings.push(`Latest physical cash differs from petty cash sheet by ${money(check.pettyCashVariance)}`)
+  }
+  return warnings
 })
+const denominationRows = computed(() => [
+  { key: 'n2000', label: '₹2000', value: 2000, count: Number(form.n2000 || 0) },
+  { key: 'n500', label: '₹500', value: 500, count: Number(form.n500 || 0) },
+  { key: 'n200', label: '₹200', value: 200, count: Number(form.n200 || 0) },
+  { key: 'n100', label: '₹100', value: 100, count: Number(form.n100 || 0) },
+  { key: 'n50', label: '₹50', value: 50, count: Number(form.n50 || 0) },
+  { key: 'nC20', label: '₹20', value: 20, count: Number(form.nC20 || 0) },
+  { key: 'nC10', label: '₹10', value: 10, count: Number(form.nC10 || 0) },
+  { key: 'nC5', label: '₹5', value: 5, count: Number(form.nC5 || 0) },
+  { key: 'nC2', label: '₹2', value: 2, count: Number(form.nC2 || 0) },
+  { key: 'nC1', label: '₹1', value: 1, count: Number(form.nC1 || 0) }
+])
+
+function blankForm() {
+  return {
+    onDate: localDateValue(),
+    amount: null as number | null,
+    n2000: 0,
+    n500: 0,
+    n200: 0,
+    n100: 0,
+    n50: 0,
+    nC20: 0,
+    nC10: 0,
+    nC5: 0,
+    nC2: 0,
+    nC1: 0,
+    source: 'ManualCashFlow'
+  }
+}
+
+function localDateValue(date = new Date()) {
+  const offset = date.getTimezoneOffset()
+  const local = new Date(date.getTime() - offset * 60000)
+  return local.toISOString().slice(0, 10)
+}
+
+function money(value: number | string | null | undefined) {
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(value || 0))
+}
+
+function calculateCash(source: any) {
+  return Number(source.n2000 || 0) * 2000
+    + Number(source.n500 || 0) * 500
+    + Number(source.n200 || 0) * 200
+    + Number(source.n100 || 0) * 100
+    + Number(source.n50 || 0) * 50
+    + Number(source.nC20 || 0) * 20
+    + Number(source.nC10 || 0) * 10
+    + Number(source.nC5 || 0) * 5
+    + Number(source.nC2 || 0) * 2
+    + Number(source.nC1 || 0)
+}
+
+function payload() {
+  const amount = computedAmount.value > 0 ? computedAmount.value : form.amount
+  return {
+    storeId: activeStoreId.value,
+    onDate: form.onDate,
+    amount,
+    n2000: Number(form.n2000 || 0),
+    n500: Number(form.n500 || 0),
+    n200: Number(form.n200 || 0),
+    n100: Number(form.n100 || 0),
+    n50: Number(form.n50 || 0),
+    nC20: Number(form.nC20 || 0),
+    nC10: Number(form.nC10 || 0),
+    nC5: Number(form.nC5 || 0),
+    nC2: Number(form.nC2 || 0),
+    nC1: Number(form.nC1 || 0),
+    source: form.source || 'ManualCashFlow'
+  }
+}
+
+async function loadShellData() {
+  const [companyRows, storeRows] = await Promise.all([
+    api.list<any>('companies'),
+    api.list<any>('stores')
+  ])
+  companies.value = companyRows
+  stores.value = storeRows
+}
 
 async function refresh() {
+  if (!auth.isAuthenticated.value || !activeStoreId.value) return
   loading.value = true
-  error.value = ''
   try {
-    const [bankData, ledgerData, partyData, vendorData, bankAccountData, transactionData, chequeData, vendorBankData, detailData] = await Promise.allSettled([
-      get<unknown>('banks'),
-      get<unknown>('ledgers'),
-      get<unknown>('parties'),
-      get<unknown>('vendors'),
-      get<unknown>('bank-accounts'),
-      get<unknown>('accounting/bank-transactions'),
-      get<unknown>('cheque-logs'),
-      get<unknown>('vendor-bank-accounts'),
-      get<unknown>('bank-account-details')
-    ])
-    if (bankData.status === 'fulfilled') banks.value = toRows(bankData.value)
-    if (ledgerData.status === 'fulfilled') ledgers.value = toRows(ledgerData.value)
-    if (partyData.status === 'fulfilled') parties.value = toRows(partyData.value)
-    if (vendorData.status === 'fulfilled') vendors.value = toRows(vendorData.value)
-    if (bankAccountData.status === 'fulfilled') bankAccounts.value = toRows(bankAccountData.value)
-    if (transactionData.status === 'fulfilled') bankTransactions.value = toRows(transactionData.value)
-    if (chequeData.status === 'fulfilled') chequeLogs.value = toRows(chequeData.value)
-    if (vendorBankData.status === 'fulfilled') vendorBankAccounts.value = toRows(vendorBankData.value)
-    if (detailData.status === 'fulfilled') bankAccountDetails.value = toRows(detailData.value)
-    if (!selectedBankAccountId.value && bankAccounts.value.length) {
-      selectedBankAccountId.value = String(bankAccounts.value[0]?.id ?? '')
-    } else {
-      await loadBankStatement()
-    }
-    const failed = [bankData, ledgerData, partyData, vendorData, bankAccountData, transactionData, chequeData, vendorBankData, detailData].filter(item => item.status === 'rejected').length
-    if (failed) error.value = `${failed} bank operation request(s) could not be loaded.`
-  } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'Unable to load bank operations.'
+    const params = new URLSearchParams()
+    params.set('storeId', activeStoreId.value)
+    if (filterFrom.value) params.set('from', filterFrom.value)
+    if (filterTo.value) params.set('to', filterTo.value)
+    if (filterSource.value) params.set('source', filterSource.value)
+    rows.value = await api.get<any[]>(`cash-details?${params.toString()}`)
+
+    const historyParams = new URLSearchParams()
+    historyParams.set('storeId', activeStoreId.value)
+    if (filterFrom.value) historyParams.set('from', filterFrom.value)
+    if (filterTo.value) historyParams.set('to', filterTo.value)
+    history.value = await api.get<any>(`cash-details/history?${historyParams.toString()}`)
+    await refreshDayCheck()
+  } catch (error) {
+    feedback.failed('Cash details load failed', error)
   } finally {
     loading.value = false
   }
 }
 
-async function loadBankStatement() {
-  if (!selectedBankAccountId.value) {
-    bankStatement.value = []
-    bankReconciliation.value = null
+async function refreshDayCheck() {
+  if (!activeStoreId.value) return
+  const params = new URLSearchParams()
+  params.set('storeId', activeStoreId.value)
+  params.set('onDate', dayCheckDate.value || localDateValue())
+  dayCheck.value = await api.get<any>(`cash-details/day-check?${params.toString()}`)
+}
+
+async function save() {
+  if (!activeStoreId.value) {
+    feedback.notify('Select store', 'Choose working store from top bar first.', 'warning')
     return
   }
 
-  statementLoading.value = true
+  saving.value = true
   try {
-    const [statementData, reconciliationData] = await Promise.all([
-      get<unknown>(`accounting/bank-statement/${selectedBankAccountId.value}`),
-      get<unknown>(`accounting/bank-reconciliation/${selectedBankAccountId.value}`)
-    ])
-    bankStatement.value = toRows(statementData)
-    bankReconciliation.value = reconciliationData && typeof reconciliationData === 'object' ? reconciliationData as ApiRecord : null
-  } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'Unable to load bank statement.'
+    if (editId.value) {
+      await api.update<any>('cash-details', editId.value, payload())
+      feedback.notify('Cash detail updated')
+    } else {
+      await api.create<any>('cash-details', payload())
+      feedback.notify('Cash detail added')
+    }
+    resetForm()
+    await refresh()
+  } catch (error) {
+    feedback.failed('Cash detail save failed', error)
   } finally {
-    statementLoading.value = false
+    saving.value = false
   }
 }
 
-watch(selectedBankAccountId, () => {
-  loadBankStatement()
-})
+function edit(row: any) {
+  editId.value = row.id
+  applyRow(row, row.source || 'ManualCashFlow')
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
 
-onMounted(refresh)
+function copyRow(row: any) {
+  editId.value = ''
+  applyRow(row, 'CashVerification')
+  feedback.notify('Copied cash detail', 'Review date/source and save as a new cash verification row.')
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function applyRow(row: any, source: string) {
+  form.onDate = String(row.onDate || dayCheckDate.value || localDateValue()).slice(0, 10)
+  form.amount = row.amount
+  form.n2000 = row.n2000 || 0
+  form.n500 = row.n500 || 0
+  form.n200 = row.n200 || 0
+  form.n100 = row.n100 || 0
+  form.n50 = row.n50 || 0
+  form.nC20 = row.nC20 || 0
+  form.nC10 = row.nC10 || 0
+  form.nC5 = row.nC5 || 0
+  form.nC2 = row.nC2 || 0
+  form.nC1 = row.nC1 || 0
+  form.source = source
+}
+
+async function remove(row: any) {
+  if (row.linkedToDayOpening || row.linkedToDayClosing) {
+    feedback.notify('Cannot delete linked cash detail', 'This row is linked to Day Opening/Closing. Edit it or reopen/delete close first.', 'warning')
+    return
+  }
+
+  saving.value = true
+  try {
+    await api.remove('cash-details', row.id)
+    feedback.notify('Cash detail deleted', undefined, 'warning')
+    await refresh()
+  } catch (error) {
+    feedback.failed('Cash detail delete failed', error)
+  } finally {
+    saving.value = false
+  }
+}
+
+function resetForm() {
+  editId.value = ''
+  Object.assign(form, blankForm())
+}
+
+function zeroNotes() {
+  form.n2000 = 0
+  form.n500 = 0
+  form.n200 = 0
+  form.n100 = 0
+  form.n50 = 0
+  form.nC20 = 0
+  form.nC10 = 0
+  form.nC5 = 0
+  form.nC2 = 0
+  form.nC1 = 0
+}
+
+function setToday() {
+  form.onDate = localDateValue()
+  dayCheckDate.value = form.onDate
+}
+
+function exportCsv() {
+  const header = ['Date', 'Source', 'Amount', 'N2000', 'N500', 'N200', 'N100', 'N50', 'N20', 'N10', 'N5', 'N2', 'N1', 'LinkedOpening', 'LinkedClosing']
+  const body = rows.value.map((row) => [
+    String(row.onDate || '').slice(0, 10),
+    row.source,
+    row.amount,
+    row.n2000,
+    row.n500,
+    row.n200,
+    row.n100,
+    row.n50,
+    row.nC20,
+    row.nC10,
+    row.nC5,
+    row.nC2,
+    row.nC1,
+    row.linkedToDayOpening ? 'Yes' : 'No',
+    row.linkedToDayClosing ? 'Yes' : 'No'
+  ])
+  const csv = [header, ...body].map((line) => line.map(csvCell).join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `cash-details-${filterFrom.value || 'all'}-${filterTo.value || localDateValue()}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function csvCell(value: any) {
+  const text = String(value ?? '')
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+}
+
+watch(() => [activeStoreId.value, filterFrom.value, filterTo.value, filterSource.value], () => refresh())
+watch(dayCheckDate, () => refreshDayCheck())
+
+onMounted(async () => {
+  auth.restore()
+  await loadShellData()
+  await refresh()
+})
 </script>
+
+<template>
+  <AuthScreen v-if="!isAuthenticated" @authenticated="refresh" />
+
+  <AppShell
+    v-else
+    title="Cash Details"
+    :companies="companies"
+    :stores="stores"
+    @refresh="refresh"
+    @workspace-change="refresh"
+  >
+    <section class="cash-details-page">
+      <UiModulePageHeader
+        title="Cash Details"
+        description="Manage cash denomination notes and coin history per store/day. Manual records can be added, edited, copied, exported and reconciled with Day Opening/Closing."
+        icon="i-lucide-coins"
+        primary-label="Refresh"
+        primary-icon="i-lucide-refresh-cw"
+        @primary="refresh"
+      >
+        <template #actions>
+          <UBadge color="primary" variant="subtle" :label="selectedStoreName" />
+          <UButton icon="i-lucide-download" color="neutral" variant="subtle" size="sm" label="Export CSV" @click="exportCsv" />
+        </template>
+      </UiModulePageHeader>
+
+      <div class="metric-grid">
+        <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-coins" color="primary" variant="subtle" /><div><p>History rows</p><strong>{{ history?.recordCount || rows.length }}</strong><span>Current filter</span></div></div></UCard>
+        <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-indian-rupee" color="success" variant="subtle" /><div><p>Total cash</p><strong>{{ money(history?.totalAmount || totalAmount) }}</strong><span>Filtered total</span></div></div></UCard>
+        <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-history" color="warning" variant="subtle" /><div><p>Average</p><strong>{{ money(history?.averageAmount || 0) }}</strong><span>Per row</span></div></div></UCard>
+        <UCard class="planner-metric-card"><div class="planner-metric-body"><UAvatar icon="i-lucide-banknote" color="neutral" variant="subtle" /><div><p>Pieces counted</p><strong>{{ countedPieces }}</strong><span>Current form</span></div></div></UCard>
+      </div>
+
+      <UCard class="planner-card">
+        <template #header>
+          <div class="flex items-center justify-between gap-3">
+            <h2>Day Cash Reconciliation</h2>
+            <UBadge color="neutral" variant="subtle" :label="dayCheckDate" />
+          </div>
+        </template>
+        <div class="form-grid">
+          <UFormField label="Check date">
+            <UInput v-model="dayCheckDate" type="date" />
+          </UFormField>
+          <UFormField label="Latest counted cash">
+            <UInput :model-value="money(dayCheck?.latestCashAmount || 0)" readonly />
+          </UFormField>
+          <UFormField label="Day opening">
+            <UInput :model-value="dayCheck?.openingBalance == null ? 'Not opened' : money(dayCheck.openingBalance)" readonly />
+          </UFormField>
+          <UFormField label="Day closing">
+            <UInput :model-value="dayCheck?.closingBalance == null ? 'Not closed' : money(dayCheck.closingBalance)" readonly />
+          </UFormField>
+        </div>
+        <div class="day-check-grid">
+          <div><span>Petty cash sheet cash in hand</span><strong>{{ dayCheck?.pettyCashCashInHand == null ? 'Not created' : money(dayCheck.pettyCashCashInHand) }}</strong></div>
+          <div><span>Cash detail rows</span><strong>{{ dayCheck?.cashDetailCount || 0 }}</strong></div>
+          <div><span>Manual verification rows</span><strong>{{ dayCheck?.manualCashDetailCount || 0 }}</strong></div>
+          <div><span>Latest source</span><strong>{{ dayCheck?.latestCashSource || 'None' }}</strong></div>
+        </div>
+        <UAlert
+          v-if="dayCheckWarnings.length"
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-triangle-alert"
+          title="Cash variance detected"
+          :description="dayCheckWarnings.join(' • ')"
+        />
+        <UAlert
+          v-else
+          color="success"
+          variant="subtle"
+          icon="i-lucide-check-circle"
+          title="No cash variance for selected day"
+          description="Latest counted cash matches linked opening/closing/petty cash values, or linked records are not available yet."
+        />
+        <template #footer>
+          <div class="footer-actions">
+            <UButton icon="i-lucide-refresh-cw" color="neutral" variant="subtle" label="Refresh day check" @click="refreshDayCheck" />
+            <UButton
+              icon="i-lucide-copy"
+              color="primary"
+              variant="soft"
+              label="Copy latest as verification"
+              :disabled="!dayCheck?.items?.length"
+              @click="copyRow(dayCheck.items[0])"
+            />
+          </div>
+        </template>
+      </UCard>
+
+      <UCard class="planner-card">
+        <template #header>
+          <h2>{{ editId ? 'Edit Cash Detail' : 'Add Manual Cash Detail' }}</h2>
+        </template>
+        <div class="form-grid">
+          <UFormField label="Date">
+            <UInput v-model="form.onDate" type="date" />
+          </UFormField>
+          <UFormField label="Source">
+            <USelectMenu v-model="form.source" :items="['ManualCashFlow', 'DayOpening', 'DayClosing', 'StoreHoliday', 'CashVerification']" />
+          </UFormField>
+          <UFormField label="Amount override">
+            <UInput v-model.number="form.amount" type="number" step="0.01" placeholder="Used when notes total is zero" />
+          </UFormField>
+          <UFormField label="Calculated notes/coin total">
+            <UInput :model-value="money(computedAmount)" readonly />
+          </UFormField>
+        </div>
+
+        <div class="notes-grid">
+          <UInput v-model.number="form.n2000" type="number" placeholder="₹2000" />
+          <UInput v-model.number="form.n500" type="number" placeholder="₹500" />
+          <UInput v-model.number="form.n200" type="number" placeholder="₹200" />
+          <UInput v-model.number="form.n100" type="number" placeholder="₹100" />
+          <UInput v-model.number="form.n50" type="number" placeholder="₹50" />
+          <UInput v-model.number="form.nC20" type="number" placeholder="₹20" />
+          <UInput v-model.number="form.nC10" type="number" placeholder="₹10" />
+          <UInput v-model.number="form.nC5" type="number" placeholder="₹5" />
+          <UInput v-model.number="form.nC2" type="number" placeholder="₹2" />
+          <UInput v-model.number="form.nC1" type="number" placeholder="₹1" />
+        </div>
+
+        <div class="breakdown-table">
+          <div class="breakdown-row header"><span>Denomination</span><span>Count</span><span>Amount</span></div>
+          <div v-for="denom in denominationRows" :key="denom.key" class="breakdown-row">
+            <span>{{ denom.label }}</span><span>{{ denom.count }}</span><strong>{{ money(denom.count * denom.value) }}</strong>
+          </div>
+        </div>
+        <UAlert
+          v-if="amountOverrideVariance"
+          color="warning"
+          variant="subtle"
+          icon="i-lucide-triangle-alert"
+          title="Amount override differs from counted notes"
+          :description="`Override variance is ${money(amountOverrideVariance)}. Save will use counted notes total when notes are entered.`"
+        />
+
+        <template #footer>
+          <div class="footer-actions">
+            <UButton icon="i-lucide-save" color="primary" :loading="saving" :label="editId ? 'Update cash detail' : 'Add cash detail'" @click="save" />
+            <UButton icon="i-lucide-calendar-days" color="neutral" variant="subtle" label="Today" @click="setToday" />
+            <UButton icon="i-lucide-eraser" color="neutral" variant="subtle" label="Zero notes" @click="zeroNotes" />
+            <UButton icon="i-lucide-x" color="neutral" variant="subtle" label="Clear" @click="resetForm" />
+          </div>
+        </template>
+      </UCard>
+
+      <UCard class="planner-card">
+        <template #header>
+          <div class="flex items-center justify-between gap-3">
+            <h2>Cash Notes / Coin History</h2>
+            <UBadge color="neutral" variant="subtle" :label="`${rows.length} rows`" />
+          </div>
+        </template>
+
+        <div class="filter-grid">
+          <UFormField label="From">
+            <UInput v-model="filterFrom" type="date" />
+          </UFormField>
+          <UFormField label="To">
+            <UInput v-model="filterTo" type="date" />
+          </UFormField>
+          <UFormField label="Source">
+            <USelectMenu v-model="filterSource" :items="['', 'ManualCashFlow', 'DayOpening', 'DayClosing', 'StoreHoliday', 'CashVerification']" />
+          </UFormField>
+        </div>
+
+        <div class="cash-table">
+          <div class="cash-row header">
+            <span>Date</span><span>Source</span><span>Amount</span><span>Notes / coins</span><span>Linked</span><span>Action</span>
+          </div>
+          <div v-for="row in rows" :key="row.id" class="cash-row">
+            <span>{{ String(row.onDate || '').slice(0, 10) }}</span>
+            <span>{{ row.source }}</span>
+            <strong>{{ money(row.amount) }}</strong>
+            <span class="notes-text">2000×{{ row.n2000 }} 500×{{ row.n500 }} 200×{{ row.n200 }} 100×{{ row.n100 }} 50×{{ row.n50 }} 20×{{ row.nC20 }} 10×{{ row.nC10 }} 5×{{ row.nC5 }} 2×{{ row.nC2 }} 1×{{ row.nC1 }}</span>
+            <span>
+              <UBadge v-if="row.linkedToDayOpening" color="success" variant="subtle" label="Opening" />
+              <UBadge v-if="row.linkedToDayClosing" color="warning" variant="subtle" label="Closing" />
+              <UBadge v-if="!row.linkedToDayOpening && !row.linkedToDayClosing" color="neutral" variant="subtle" label="Manual" />
+            </span>
+            <span class="actions">
+              <UButton size="xs" icon="i-lucide-pencil" color="primary" variant="soft" @click="edit(row)" />
+              <UButton size="xs" icon="i-lucide-copy" color="neutral" variant="soft" @click="copyRow(row)" />
+              <UButton size="xs" icon="i-lucide-trash-2" color="error" variant="soft" :disabled="row.linkedToDayOpening || row.linkedToDayClosing" @click="remove(row)" />
+            </span>
+          </div>
+          <UAlert v-if="!rows.length && !loading" color="neutral" variant="subtle" icon="i-lucide-info" title="No cash details found" description="Add a manual record or run Day Opening/Closing." />
+        </div>
+      </UCard>
+    </section>
+  </AppShell>
+</template>
+
+<style scoped>
+.cash-details-page { display: grid; gap: 1rem; }
+.metric-grid, .form-grid, .filter-grid, .notes-grid, .day-check-grid { display: grid; gap: 1rem; }
+.metric-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.form-grid, .filter-grid, .day-check-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.notes-grid { grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); }
+.footer-actions { display: flex; gap: .75rem; flex-wrap: wrap; }
+.day-check-grid > div { border: 1px solid rgb(var(--color-gray-200)); border-radius: .75rem; padding: .75rem; display: grid; gap: .25rem; }
+.day-check-grid span { color: rgb(var(--color-gray-500)); font-size: .8rem; }
+.breakdown-table { display: grid; gap: .35rem; margin-top: 1rem; }
+.breakdown-row { display: grid; grid-template-columns: 1fr 90px 140px; gap: .75rem; align-items: center; padding: .45rem .65rem; border: 1px solid rgb(var(--color-gray-200)); border-radius: .65rem; }
+.breakdown-row.header { font-weight: 700; color: rgb(var(--color-gray-500)); background: rgb(var(--color-gray-50)); }
+.cash-table { display: grid; gap: .5rem; margin-top: 1rem; overflow-x: auto; }
+.cash-row { display: grid; grid-template-columns: 110px 150px 130px minmax(360px, 1fr) 150px 120px; gap: .75rem; align-items: center; min-width: 1040px; padding: .75rem; border: 1px solid rgb(var(--color-gray-200)); border-radius: .75rem; }
+.cash-row.header { font-weight: 700; color: rgb(var(--color-gray-500)); background: rgb(var(--color-gray-50)); }
+.notes-text { font-size: .8rem; color: rgb(var(--color-gray-500)); }
+.actions { display: flex; gap: .35rem; }
+.dark .cash-row, .dark .breakdown-row, .dark .day-check-grid > div { border-color: rgb(var(--color-gray-800)); }
+.dark .cash-row.header, .dark .breakdown-row.header { background: rgb(var(--color-gray-900)); }
+</style>

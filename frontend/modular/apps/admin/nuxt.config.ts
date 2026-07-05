@@ -32,7 +32,7 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     public: {
-      apiBaseUrl: process.env.NUXT_PUBLIC_GARMETIX_API_BASE_URL || 'http://localhost:5080/api',
+      apiBaseUrl: process.env.NUXT_PUBLIC_GARMETIX_API_BASE_URL || '/api',
       appId: 'admin',
       appUrls: {
         NUXT_PUBLIC_GARMETIX_MAIN_URL: process.env.NUXT_PUBLIC_GARMETIX_MAIN_URL || process.env.NUXT_PUBLIC_MAIN_WEB_URL || '',
@@ -40,11 +40,14 @@ export default defineNuxtConfig({
         NUXT_PUBLIC_GARMETIX_HR_URL: process.env.NUXT_PUBLIC_GARMETIX_HR_URL || process.env.NUXT_PUBLIC_HR_WEB_URL || '',
         NUXT_PUBLIC_GARMETIX_AI_SENSE_URL: process.env.NUXT_PUBLIC_GARMETIX_AI_SENSE_URL || process.env.NUXT_PUBLIC_AI_SENSE_WEB_URL || '',
         NUXT_PUBLIC_GARMETIX_BOOKS_URL: process.env.NUXT_PUBLIC_GARMETIX_BOOKS_URL || process.env.NUXT_PUBLIC_ACCOUNTING_WEB_URL || '',
-        NUXT_PUBLIC_GARMETIX_ADMIN_URL: process.env.NUXT_PUBLIC_GARMETIX_ADMIN_URL || process.env.NUXT_PUBLIC_SAAS_WEB_URL || 'http://localhost:3105'
+        NUXT_PUBLIC_GARMETIX_ADMIN_URL: process.env.NUXT_PUBLIC_GARMETIX_ADMIN_URL || process.env.NUXT_PUBLIC_SAAS_WEB_URL || 'http://localhost:3106'
       }
     }
   },
+  routeRules: {
+    '/api/**': { proxy: 'http://127.0.0.1:5000/api/**' }
+  },
   devServer: {
-    port: 3105
+    port: 3106
   }
 })

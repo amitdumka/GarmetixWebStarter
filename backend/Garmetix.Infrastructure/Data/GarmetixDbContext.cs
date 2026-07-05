@@ -14,6 +14,7 @@ using Garmetix.Core.Models.Inventory;
 using Garmetix.Core.Models.Marketing;
 using Garmetix.Core.Models.Printing;
 using Garmetix.Core.Models.Stores;
+using Garmetix.Core.Models.SaaS;
 using Garmetix.Models.DayOperations;
 using Garmetix.Infrastructure.Audit;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +25,8 @@ namespace Garmetix.Infrastructure.Data;
 
 public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> options, AuditActorContext? auditActorContext = null) : DbContext(options)
 {
+    public DbSet<TenantSubscription> TenantSubscriptions => Set<TenantSubscription>();
+
     private static readonly ValueConverter<DateTime, DateTime> DateTimeKindConverter = new(
         value => NormalizeDateTime(value),
         value => NormalizeDateTime(value));
@@ -221,7 +224,10 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
 
             if (entityType.BaseType is null && typeof(BaseEntity).IsAssignableFrom(clrType))
             {
-                entityType.SetQueryFilter(CreateSoftDeleteFilter(clrType));
+                var method = typeof(GarmetixDbContext)
+                    .GetMethod(nameof(ApplyGlobalFilters), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                    ?.MakeGenericMethod(clrType);
+                method?.Invoke(this, new object[] { modelBuilder });
             }
 
             foreach (var property in entityType.GetProperties().Where(property => property.ClrType == typeof(decimal) || property.ClrType == typeof(decimal?)))
@@ -1564,6 +1570,16 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
             {
                 entry.Entity.CreatedAt = now;
                 entry.Entity.UpdatedAt = now;
+
+                if (entry.Entity is CompanyBase companyEntity && companyEntity.CompanyId == Guid.Empty && auditActorContext?.CompanyId != null)
+                {
+                    companyEntity.CompanyId = auditActorContext.CompanyId.Value;
+                }
+
+                if (entry.Entity is CompanyBase cbUser && string.IsNullOrEmpty(cbUser.CreatedBy) && auditActorContext?.UserName != null)
+                {
+                    cbUser.CreatedBy = auditActorContext.UserName;
+                }
             }
 
             if (entry.State == EntityState.Modified)
@@ -1603,11 +1619,17 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         return value.HasValue ? NormalizeDateTime(value.Value) : null;
     }
 
-    private static LambdaExpression CreateSoftDeleteFilter(Type entityType)
+    private void ApplyGlobalFilters<T>(ModelBuilder modelBuilder) where T : class
     {
-        var parameter = Expression.Parameter(entityType, "entity");
-        var property = Expression.Property(parameter, nameof(BaseEntity.Deleted));
-        var compare = Expression.Equal(property, Expression.Constant(false));
-        return Expression.Lambda(compare, parameter);
+        if (typeof(CompanyBase).IsAssignableFrom(typeof(T)))
+        {
+            modelBuilder.Entity<T>().HasQueryFilter(e => 
+                !((BaseEntity)(object)e).Deleted && 
+                (auditActorContext == null || auditActorContext.CompanyId == null || ((CompanyBase)(object)e).CompanyId == auditActorContext.CompanyId));
+        }
+        else if (typeof(BaseEntity).IsAssignableFrom(typeof(T)))
+        {
+            modelBuilder.Entity<T>().HasQueryFilter(e => !((BaseEntity)(object)e).Deleted);
+        }
     }
 }

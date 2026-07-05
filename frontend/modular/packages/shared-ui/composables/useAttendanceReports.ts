@@ -1,0 +1,36 @@
+export function useAttendanceReports() {
+  const attendance = useAttendance()
+  return {
+    monthly: attendance.monthly,
+    payrollSummary: attendance.payrollSummary,
+    payrollReview: attendance.payrollReview,
+    rebuildPayrollReview: attendance.rebuildPayrollReview,
+    markPayrollReview: attendance.markPayrollReview,
+    salarySlipDrafts: attendance.salarySlipDrafts,
+    rebuildSalarySlipDrafts: attendance.rebuildSalarySlipDrafts,
+    markSalarySlipDraft: attendance.markSalarySlipDraft,
+    generateSalarySlipsFromDrafts: attendance.generateSalarySlipsFromDrafts,
+    salaryPaymentCandidates: attendance.salaryPaymentCandidates,
+    generateSalaryPaymentsFromDrafts: attendance.generateSalaryPaymentsFromDrafts,
+    deviceBridgeStatus: attendance.deviceBridgeStatus,
+    deviceBridgeSimulatorHealth: attendance.deviceBridgeSimulatorHealth,
+    deviceBridgeSimulatorCapture: attendance.deviceBridgeSimulatorCapture,
+    deviceBridgeSimulatorIdentify: attendance.deviceBridgeSimulatorIdentify,
+    deviceBridgeSimulatorEnroll: attendance.deviceBridgeSimulatorEnroll,
+    deviceBridgeExternalHealth: attendance.deviceBridgeExternalHealth,
+    deviceBridgeExternalCapture: attendance.deviceBridgeExternalCapture,
+    deviceBridgeExternalIdentify: attendance.deviceBridgeExternalIdentify,
+    deviceBridgeExternalEnroll: attendance.deviceBridgeExternalEnroll,
+    faceLivenessStatus: attendance.faceLivenessStatus,
+    faceLivenessSimulatorHealth: attendance.faceLivenessSimulatorHealth,
+    faceLivenessSimulatorProof: attendance.faceLivenessSimulatorProof,
+    faceLivenessSimulatorVerify: attendance.faceLivenessSimulatorVerify,
+    faceLivenessExternalHealth: attendance.faceLivenessExternalHealth,
+    faceLivenessExternalProof: attendance.faceLivenessExternalProof,
+    faceLivenessExternalVerify: attendance.faceLivenessExternalVerify,
+    finalAcceptance: attendance.finalAcceptance,
+    recalculate: attendance.recalculate,
+    deleteMonthlySelected: attendance.deleteMonthlySelected,
+    lockMonth: attendance.lockMonth
+  }
+}

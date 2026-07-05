@@ -292,6 +292,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'counter', label: 'Counter Home', href: '/', icon: 'i-lucide-layout-dashboard' },
       { id: 'day-open', label: 'Day Open', href: '/day-open', icon: 'i-lucide-sunrise' },
       { id: 'sale', label: 'Sale', href: '/sale', icon: 'i-lucide-scan-barcode' },
+      { id: 'history', label: 'Sales History', href: '/history', icon: 'i-lucide-history' },
       { id: 'hold-bills', label: 'Hold Bills', href: '/hold-bills', icon: 'i-lucide-pause-circle' },
       { id: 'returns', label: 'Returns', href: '/returns', icon: 'i-lucide-rotate-ccw' },
       { id: 'exchange', label: 'Exchange', href: '/exchange', icon: 'i-lucide-repeat-2' },
@@ -338,6 +339,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'accounting', label: 'Accounting', href: '/accounting', icon: 'i-lucide-landmark' },
       { id: 'parties', label: 'Parties', href: '/parties', icon: 'i-lucide-users-round' },
       { id: 'vouchers', label: 'Vouchers', href: '/vouchers', icon: 'i-lucide-banknote' },
+      { id: 'trial-balance', label: 'Trial Balance', href: '/trial-balance', icon: 'i-lucide-scale' },
       { id: 'petty-cash', label: 'Petty Cash', href: '/petty-cash', icon: 'i-lucide-circle-dollar-sign' },
       { id: 'cash-details', label: 'Cash Details', href: '/cash-details', icon: 'i-lucide-coins' }
     ] },
@@ -362,6 +364,9 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'access', label: 'Roles And Users', href: '/access', icon: 'i-lucide-shield-check' },
       { id: 'license', label: 'License', href: '/license-activation', icon: 'i-lucide-key-round' }
     ] },
+    { key: 'sales', label: 'Sales Management', items: [
+      { id: 'sales', label: 'Sales History', href: '/sales', icon: 'i-lucide-receipt' }
+    ] },
     { key: 'data', label: 'Data And Audit', items: [
       { id: 'import-export', label: 'Import Export', href: '/import-export', icon: 'i-lucide-file-down' },
       { id: 'data-consistency', label: 'Data Consistency', href: '/data-consistency', icon: 'i-lucide-shield-alert' },
@@ -374,6 +379,18 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'drive', label: 'Google Drive Backup', href: '/google-drive-backup', icon: 'i-lucide-cloud-upload' },
       { id: 'production', label: 'Production Readiness', href: '/production-readiness', icon: 'i-lucide-shield-check' },
       { id: 'support', label: 'Production Support', href: '/production-support', icon: 'i-lucide-life-buoy' }
+    ] }
+  ],
+  inventory: [
+    { key: 'master', label: 'Master Data', items: [
+      { id: 'home', label: 'Inventory Home', href: '/', icon: 'i-lucide-package' },
+      { id: 'products', label: 'Products', href: '/products', icon: 'i-lucide-boxes' },
+      { id: 'categories', label: 'Categories', href: '/categories', icon: 'i-lucide-list-tree' },
+      { id: 'brands', label: 'Brands', href: '/brands', icon: 'i-lucide-tag' }
+    ] },
+    { key: 'stock', label: 'Stock', items: [
+      { id: 'stock-operations', label: 'Stock Operations', href: '/stock', icon: 'i-lucide-arrow-right-left' },
+      { id: 'barcode', label: 'Barcode Print', href: '/barcodes', icon: 'i-lucide-barcode' }
     ] }
   ]
 }
@@ -537,7 +554,8 @@ function appDefaultBase(appId: FrontendAppId) {
     hr: '/hr/',
     'ai-sense': '/ai-sense/',
     books: '/books/',
-    admin: '/admin/'
+    admin: '/admin/',
+    inventory: '/inventory/'
   }
   return bases[appId]
 }

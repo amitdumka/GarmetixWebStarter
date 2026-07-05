@@ -1,185 +1,20 @@
-<template>
-  <section class="garmetix-page-stack">
-    <div class="garmetix-dashboard-hero">
-      <div class="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <p class="garmetix-dashboard-kicker">
-            <UIcon name="i-lucide-hand-coins" class="size-4" />
-            Attendance payroll control
-          </p>
-          <h2 class="garmetix-dashboard-title">Payroll Review</h2>
-          <p class="garmetix-dashboard-subtitle">
-            Rebuilds review rows from monthly attendance and marks rows for payroll. It does not create salary slips or salary payments.
-          </p>
-        </div>
-        <form class="flex flex-wrap items-end gap-2" @submit.prevent="load">
-          <UFormField label="Year" name="year">
-            <UInput v-model.number="year" type="number" min="2020" max="2100" />
-          </UFormField>
-          <UFormField label="Month" name="month">
-            <UInput v-model.number="month" type="number" min="1" max="12" />
-          </UFormField>
-          <UButton type="submit" icon="i-lucide-refresh-cw" :loading="loading">Load</UButton>
-          <UButton color="primary" variant="soft" icon="i-lucide-wand-sparkles" :loading="rebuilding" @click="rebuild">Rebuild</UButton>
-        </form>
-      </div>
-    </div>
-
-    <UAlert
-      color="warning"
-      variant="subtle"
-      icon="i-lucide-shield-alert"
-      title="Safe review action"
-      description="This screen only prepares attendance numbers for payroll review. Salary slips, salary payments, and accounting vouchers are not posted here."
-    />
-    <UAlert v-if="message" :color="messageTone" variant="subtle" :icon="messageIcon" :description="message" />
-
-    <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
-        <p class="garmetix-metric-label">{{ card.label }}</p>
-        <p class="garmetix-metric-value text-xl">{{ card.value }}</p>
-      </div>
-    </div>
-
-    <div class="grid gap-3 md:grid-cols-4">
-      <div v-for="item in approvalEvidence" :key="item.label" class="garmetix-row-card">
-        <p class="text-xs uppercase text-muted">{{ item.label }}</p>
-        <p class="mt-1 text-lg font-semibold">{{ item.value }}</p>
-        <p class="text-xs text-muted">{{ item.caption }}</p>
-      </div>
-    </div>
-
-    <div class="garmetix-table-panel">
-      <div class="garmetix-panel-header">
-        <div>
-          <h3 class="garmetix-panel-title">Review Rows</h3>
-          <p class="garmetix-panel-subtitle">{{ rows.length }} employee row(s)</p>
-        </div>
-      </div>
-      <div class="overflow-auto">
-        <table class="w-full min-w-[1320px] text-left text-sm">
-          <thead class="bg-muted/30 text-xs uppercase text-muted">
-            <tr>
-              <th class="px-3 py-2">Employee</th>
-              <th class="px-3 py-2">Present</th>
-              <th class="px-3 py-2">Absent</th>
-              <th class="px-3 py-2">Half</th>
-              <th class="px-3 py-2">Late</th>
-              <th class="px-3 py-2">Payable</th>
-              <th class="px-3 py-2">Deduction</th>
-              <th class="px-3 py-2">OT</th>
-              <th class="px-3 py-2">Est. Gross</th>
-              <th class="px-3 py-2">Status</th>
-              <th class="px-3 py-2">Payroll</th>
-              <th class="px-3 py-2">Evidence</th>
-              <th class="px-3 py-2">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(row, index) in rows" :key="rowKey(row, index)" class="border-t border-default align-top">
-              <td class="px-3 py-2">
-                <p class="font-medium">{{ readText(row, ['employeeName', 'employee']) }}</p>
-                <p class="text-xs text-muted">{{ readText(row, ['employeeCode', 'code']) }}</p>
-              </td>
-              <td class="px-3 py-2">{{ readNumber(row, ['presentDays']) }}</td>
-              <td class="px-3 py-2">{{ readNumber(row, ['absentDays']) }}</td>
-              <td class="px-3 py-2">{{ readNumber(row, ['halfDays']) }}</td>
-              <td class="px-3 py-2">{{ readNumber(row, ['lateDays']) }}</td>
-              <td class="px-3 py-2 font-semibold">{{ readNumber(row, ['payableDays']) }}</td>
-              <td class="px-3 py-2 font-semibold">{{ readNumber(row, ['deductionDays']) }}</td>
-              <td class="px-3 py-2">{{ readNumber(row, ['overtimeMinutes']) }}</td>
-              <td class="px-3 py-2">{{ formatIndianMoney(readNumber(row, ['estimatedGrossPay'])) }}</td>
-              <td class="px-3 py-2">
-                <UBadge :color="reviewTone(row)" variant="subtle">{{ readText(row, ['reviewStatus']) }}</UBadge>
-              </td>
-              <td class="px-3 py-2">{{ readText(row, ['payrollActionStatus']) }}</td>
-              <td class="px-3 py-2">
-                <p class="text-xs text-muted">By {{ readText(row, ['reviewedBy']) }}</p>
-                <p class="text-xs text-muted">{{ readText(row, ['reviewedAtUtc']) }}</p>
-                <p class="mt-1 max-w-56 truncate text-xs">{{ readText(row, ['notes']) }}</p>
-              </td>
-              <td class="px-3 py-2">
-                <div class="flex min-w-64 flex-col gap-2">
-                  <UInput v-model="notes[rowKey(row, index)]" size="xs" placeholder="Review note" />
-                  <div class="flex flex-wrap gap-2">
-                    <UButton size="xs" variant="soft" :loading="markingId === readText(row, ['id'], '')" @click="mark(row, 'Reviewed')">Reviewed</UButton>
-                    <UButton size="xs" color="success" variant="soft" :loading="markingId === readText(row, ['id'], '')" @click="mark(row, 'ApprovedForPayroll')">Approve</UButton>
-                    <UButton size="xs" color="warning" variant="soft" :loading="markingId === readText(row, ['id'], '')" @click="mark(row, 'OnHold')">Hold</UButton>
-                  </div>
-                </div>
-              </td>
-            </tr>
-            <tr v-if="!rows.length">
-              <td class="px-3 py-6 text-center text-muted" colspan="13">No review rows found. Rebuild after monthly attendance is calculated.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-</template>
-
 <script setup lang="ts">
-import { formatIndianMoney } from '@garmetix/shared-utils'
-import { currentYearMonth, readArray, readNumber, readText, type ApiRecord, useHrApiClient } from '../../utils/hr-api'
-
-useHead({ title: 'Payroll Review - Garmetix HR' })
-
-const { get, post } = useHrApiClient()
-const current = currentYearMonth()
-const year = ref(current.year)
-const month = ref(current.month)
+const reports = useAttendanceReports()
+const feedback = useUiFeedback()
 const loading = ref(false)
 const rebuilding = ref(false)
-const markingId = ref('')
-const message = ref('')
-const messageTone = ref<'success' | 'error' | 'warning' | 'neutral'>('neutral')
-const review = ref<ApiRecord | null>(null)
+const now = new Date()
+const year = ref(now.getFullYear())
+const month = ref(now.getMonth() + 1)
+const review = ref<any | null>(null)
 const notes = reactive<Record<string, string>>({})
 
-const messageIcon = computed(() => messageTone.value === 'success' ? 'i-lucide-circle-check' : messageTone.value === 'warning' ? 'i-lucide-triangle-alert' : messageTone.value === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-info')
-const rows = computed(() => readArray(review.value, ['rows', 'Rows']))
-const cards = computed(() => [
-  { label: 'Employees', value: readNumber(review.value, ['employees', 'employeeCount']) },
-  { label: 'Payable Days', value: readNumber(review.value, ['payableDays']) },
-  { label: 'Deduction Days', value: readNumber(review.value, ['deductionDays']) },
-  { label: 'Late Days', value: readNumber(review.value, ['lateDays']) },
-  { label: 'OT Minutes', value: readNumber(review.value, ['overtimeMinutes']) },
-  { label: 'Reviewed', value: readNumber(review.value, ['reviewedRows']) }
-])
-const approvalEvidence = computed(() => {
-  const approved = rows.value.filter(row => readText(row, ['reviewStatus'], '').toLowerCase().includes('approved')).length
-  const reviewed = rows.value.filter(row => readText(row, ['reviewStatus'], '').toLowerCase() === 'reviewed').length
-  const hold = rows.value.filter(row => readText(row, ['reviewStatus'], '').toLowerCase().includes('hold')).length
-  const withEvidence = rows.value.filter(row => readText(row, ['reviewedAtUtc'], '') !== '-' || readText(row, ['notes'], '') !== '-').length
-  return [
-    { label: 'Approved', value: approved, caption: 'Ready for salary draft rebuild' },
-    { label: 'Reviewed', value: reviewed, caption: 'Checked but not fully approved' },
-    { label: 'On Hold', value: hold, caption: 'Blocked from payroll until cleared' },
-    { label: 'Evidence', value: withEvidence, caption: 'Rows with reviewer/time/note evidence' }
-  ]
-})
-
-function rowKey(row: ApiRecord, index: number) {
-  return readText(row, ['id'], String(index))
-}
-
-function reviewTone(row: ApiRecord) {
-  const status = readText(row, ['reviewStatus'], '').toLowerCase()
-  if (status.includes('approved')) return 'success'
-  if (status.includes('hold')) return 'warning'
-  if (status.includes('review')) return 'primary'
-  return 'neutral'
-}
-
-async function load() {
+async function refresh() {
   loading.value = true
-  message.value = ''
   try {
-    review.value = await get<ApiRecord>('api/attendance/payroll-review', { year: year.value, month: month.value })
-  } catch (caught) {
-    messageTone.value = 'error'
-    message.value = caught instanceof Error ? caught.message : 'Unable to load payroll review.'
+    review.value = await reports.payrollReview(year.value, month.value)
+  } catch (error: any) {
+    feedback.fromError('Attendance payroll review failed', error)
   } finally {
     loading.value = false
   }
@@ -187,44 +22,123 @@ async function load() {
 
 async function rebuild() {
   rebuilding.value = true
-  message.value = ''
   try {
-    review.value = await post<ApiRecord>('api/attendance/payroll-review/rebuild', { year: year.value, month: month.value })
-    messageTone.value = 'success'
-    message.value = 'Attendance payroll review rebuilt. Salary slips and payments were not posted.'
-  } catch (caught) {
-    messageTone.value = 'error'
-    message.value = caught instanceof Error ? caught.message : 'Unable to rebuild payroll review.'
+    review.value = await reports.rebuildPayrollReview({ year: year.value, month: month.value })
+    feedback.success('Attendance payroll review rebuilt', 'Review rows were refreshed from Attendance Monthly Summary. Payroll was not posted.')
+  } catch (error: any) {
+    feedback.fromError('Could not rebuild attendance payroll review', error)
   } finally {
     rebuilding.value = false
   }
 }
 
-async function mark(row: ApiRecord, status: string) {
-  const id = readText(row, ['id'], '')
-  if (!id) {
-    messageTone.value = 'warning'
-    message.value = 'This review row has no saved id. Rebuild review first.'
-    return
-  }
-
-  markingId.value = id
-  message.value = ''
+async function mark(row: any, status = 'Reviewed') {
   try {
-    await post<ApiRecord>(`api/attendance/payroll-review/${id}/mark-reviewed`, {
-      reviewStatus: status,
-      notes: notes[id] || `Marked ${status} from modular HR app.`
-    })
-    messageTone.value = 'success'
-    message.value = `${readText(row, ['employeeName', 'employee'])} marked ${status}.`
-    await load()
-  } catch (caught) {
-    messageTone.value = 'error'
-    message.value = caught instanceof Error ? caught.message : 'Unable to mark payroll review row.'
-  } finally {
-    markingId.value = ''
+    await reports.markPayrollReview(row.id, { reviewStatus: status, notes: notes[row.id] || `Marked ${status} from Stage 9D attendance payroll review.` })
+    await refresh()
+    feedback.success('Attendance payroll row updated', `${row.employeeName} marked ${status}.`)
+  } catch (error: any) {
+    feedback.fromError('Could not mark attendance payroll row', error)
   }
 }
 
-onMounted(load)
+const rows = computed(() => review.value?.rows || [])
+onMounted(refresh)
 </script>
+
+<template>
+  <AppShell title="Attendance Payroll Review" @refresh="refresh">
+    <section class="space-y-5">
+      <UiModulePageHeader
+        title="Attendance Payroll Review"
+        description="Stage 9D payroll integration foundation: present/absent/late/half-day/overtime review only. No salary auto-deduction or payroll posting yet."
+        icon="i-lucide-hand-coins"
+        :loading="loading"
+      >
+        <template #actions>
+          <UInput v-model="year" type="number" class="w-28" />
+          <UInput v-model="month" type="number" class="w-24" />
+          <UButton label="Refresh" :loading="loading" @click="refresh" />
+          <UButton label="Rebuild Review" color="primary" variant="soft" :loading="rebuilding" @click="rebuild" />
+        </template>
+      </UiModulePageHeader>
+
+      <UAlert
+        color="warning"
+        title="Payroll safety"
+        description="This page prepares attendance numbers for payroll review only. It does not change salary slips, salary payments, deductions, PF, gratuity, or posted payroll records."
+      />
+
+      <div class="grid gap-3 md:grid-cols-6">
+        <UCard><p class="text-xs text-muted">Employees</p><strong>{{ review?.employees || 0 }}</strong></UCard>
+        <UCard><p class="text-xs text-muted">Payable Days</p><strong>{{ review?.payableDays || 0 }}</strong></UCard>
+        <UCard><p class="text-xs text-muted">Deduction Days</p><strong>{{ review?.deductionDays || 0 }}</strong></UCard>
+        <UCard><p class="text-xs text-muted">Late Days</p><strong>{{ review?.lateDays || 0 }}</strong></UCard>
+        <UCard><p class="text-xs text-muted">OT Minutes</p><strong>{{ review?.overtimeMinutes || 0 }}</strong></UCard>
+        <UCard><p class="text-xs text-muted">Reviewed</p><strong>{{ review?.reviewedRows || 0 }}</strong></UCard>
+      </div>
+
+      <UCard>
+        <template #header>
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h3 class="font-semibold">Employee payroll review rows</h3>
+              <p class="text-sm text-muted">Rows are generated from Attendance Monthly Summary. Rebuild after recalculating attendance.</p>
+            </div>
+          </div>
+        </template>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="text-left text-xs uppercase text-muted">
+              <tr>
+                <th class="p-2">Employee</th>
+                <th class="p-2">Present</th>
+                <th class="p-2">Absent</th>
+                <th class="p-2">Half</th>
+                <th class="p-2">Late</th>
+                <th class="p-2">Payable</th>
+                <th class="p-2">Deduction</th>
+                <th class="p-2">OT</th>
+                <th class="p-2">Est. Gross</th>
+                <th class="p-2">Status</th>
+                <th class="p-2">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in rows" :key="row.employeeId" class="border-t border-default">
+                <td class="p-2">
+                  <div class="font-medium">{{ row.employeeName }}</div>
+                  <div class="text-xs text-muted">{{ row.employeeCode }}</div>
+                </td>
+                <td class="p-2">{{ row.presentDays }}</td>
+                <td class="p-2">{{ row.absentDays }}</td>
+                <td class="p-2">{{ row.halfDays }}</td>
+                <td class="p-2">{{ row.lateDays }}</td>
+                <td class="p-2 font-medium">{{ row.payableDays }}</td>
+                <td class="p-2 font-medium">{{ row.deductionDays }}</td>
+                <td class="p-2">{{ row.overtimeMinutes }}</td>
+                <td class="p-2">₹{{ row.estimatedGrossPay || 0 }}</td>
+                <td class="p-2">
+                  <UBadge :color="row.reviewStatus === 'ApprovedForPayroll' ? 'success' : row.reviewStatus === 'OnHold' ? 'warning' : 'neutral'">{{ row.reviewStatus }}</UBadge>
+                </td>
+                <td class="p-2">
+                  <div class="flex flex-col gap-2 min-w-52">
+                    <UInput v-model="notes[row.id]" placeholder="Review note" size="xs" />
+                    <div class="flex gap-2">
+                      <UButton size="xs" label="Reviewed" variant="soft" @click="mark(row, 'Reviewed')" />
+                      <UButton size="xs" label="Approve" color="success" variant="soft" @click="mark(row, 'ApprovedForPayroll')" />
+                      <UButton size="xs" label="Hold" color="warning" variant="soft" @click="mark(row, 'OnHold')" />
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="!rows.length">
+                <td colspan="11" class="p-6 text-center text-muted">No payroll review rows yet. Recalculate monthly attendance, then click Rebuild Review.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </UCard>
+    </section>
+  </AppShell>
+</template>

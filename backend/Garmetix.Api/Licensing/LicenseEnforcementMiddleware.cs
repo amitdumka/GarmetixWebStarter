@@ -19,7 +19,7 @@ public sealed class LicenseEnforcementMiddleware(RequestDelegate next, IOptions<
         "/api/email-diagnostics/status"
     ];
 
-    public async Task InvokeAsync(HttpContext context, LicenseActivationService licenseService)
+    public async Task InvokeAsync(HttpContext context, Garmetix.Infrastructure.Data.GarmetixDbContext db, Garmetix.Infrastructure.Audit.AuditActorContext auditActor)
     {
         var settings = options.Value;
         var path = context.Request.Path.Value ?? string.Empty;
@@ -32,8 +32,18 @@ public sealed class LicenseEnforcementMiddleware(RequestDelegate next, IOptions<
             return;
         }
 
-        var status = licenseService.GetStatus();
-        if (status.Valid)
+        if (auditActor.CompanyId == null)
+        {
+            // If they are not authenticated or don't have a CompanyId, we let the authorization middleware handle it
+            await next(context);
+            return;
+        }
+
+        var subscription = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+            db.TenantSubscriptions, 
+            s => s.CompanyId == auditActor.CompanyId.Value && s.IsActive && s.ValidTo > System.DateTime.UtcNow);
+
+        if (subscription != null)
         {
             await next(context);
             return;
@@ -42,11 +52,8 @@ public sealed class LicenseEnforcementMiddleware(RequestDelegate next, IOptions<
         context.Response.StatusCode = StatusCodes.Status402PaymentRequired;
         await context.Response.WriteAsJsonAsync(new
         {
-            message = "Garmetix license activation is required before this operation can continue.",
-            status.State,
-            status.ProductCode,
-            status.Issues,
-            action = "Open /license-activation as Admin or Owner and activate a valid license key."
+            message = "Garmetix SaaS subscription is inactive or expired.",
+            action = "Please renew your subscription to continue using Garmetix."
         });
     }
 }

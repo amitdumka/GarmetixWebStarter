@@ -1,6 +1,9 @@
 export default defineNuxtConfig({
   ssr: false,
   modules: ['@nuxt/ui'],
+  imports: {
+    dirs: ['../../packages/shared-ui/composables', '../../packages/shared-ui/utils']
+  },
   css: ['~/assets/css/main.css', '../../packages/shared-ui/assets/modular-shell.css'],
   app: {
     baseURL: process.env.GARMETIX_NUXT_BASE_URL || process.env.NUXT_PUBLIC_GARMETIX_BOOKS_BASE_PATH || '/',
@@ -32,7 +35,7 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     public: {
-      apiBaseUrl: process.env.NUXT_PUBLIC_GARMETIX_API_BASE_URL || 'http://localhost:5080/api',
+      apiBaseUrl: process.env.NUXT_PUBLIC_GARMETIX_API_BASE_URL || '/api',
       appId: 'books',
       appUrls: {
         NUXT_PUBLIC_GARMETIX_MAIN_URL: process.env.NUXT_PUBLIC_GARMETIX_MAIN_URL || process.env.NUXT_PUBLIC_MAIN_WEB_URL || '',
@@ -44,7 +47,10 @@ export default defineNuxtConfig({
       }
     }
   },
+  routeRules: {
+    '/api/**': { proxy: 'http://127.0.0.1:5000/api/**' }
+  },
   devServer: {
-    port: 3104
+    port: 3108
   }
 })
