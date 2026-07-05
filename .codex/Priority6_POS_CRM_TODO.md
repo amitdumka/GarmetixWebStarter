@@ -115,6 +115,7 @@ CRM implementation order:
 
 1. CRM app shell, route ownership, menu, smoke, deployment path and read-only register pages.
 2. Customer register/detail/new edit parity from legacy `/customers`. Completed in Version `6.0.31` with writable customer form, GSTIN check, metrics and loyalty ledger preview.
+2a. CRM Nuxt UI layout hotfix. Completed in Version `6.0.32` by restoring Tailwind/Nuxt UI CSS imports and POS/HR-style auth middleware.
 3. Dues reconciliation CSV/evidence and adjustment review parity.
 4. Loyalty program save, customer loyalty summary, ledger and manual adjustment.
 5. Digital Bills register with generate, copy/open, WhatsApp send, disable/regenerate token and activity timeline.
