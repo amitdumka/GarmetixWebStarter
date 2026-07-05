@@ -11,6 +11,8 @@ This file tracks all modifications made to the repository by the Antigravity AI 
   - *Purpose:* Implemented Global Query Filters to automatically enforce `TenantId` isolation across all core entities.
 - **[MODIFIED]** `backend/Garmetix.Api/Licensing/LicenseEndpoints.cs` & `LicenseEnforcementMiddleware.cs`
   - *Purpose:* Hooked up SaaS licensing validation to block API requests if the tenant's subscription expires.
+- **[MODIFIED]** `backend/Garmetix.Api/appsettings.Development.json`
+  - *Purpose:* Added CORS origins for modular apps (ports 3100-3107) and updated host configuration.
 
 ### 2. Frontend Modular Apps Setup & Migration
 
@@ -37,6 +39,12 @@ This file tracks all modifications made to the repository by the Antigravity AI 
   - *Purpose:* Migrated the deep HR views for daily roll-calls, monthly calendars, and payroll processing.
 - **[DELETED]** `pages/attendance/biometric-enrollment.vue`, `pages/attendance/devices.vue`, `pages/attendance/photo-review.vue`, and other legacy hardware-related stubs.
   - *Reason:* Removed obsolete or unimplemented legacy HR stubs to streamline the modular app.
+- **[MODIFIED]** `nuxt.config.ts`
+  - *Purpose:* Configured `routeRules` proxy to point directly to the live environment (`https://srp.aadwikafashion.in/api/**`) and bypassed SSL verification to fix 502/401 errors.
+- **[MODIFIED]** `pages/attendance.vue`, `pages/payroll.vue`
+  - *Purpose:* Fixed Nuxt layout trapping issues by renaming root files (e.g., `_attendance.vue`), allowing nested routes like `/attendance/today` to render properly.
+- **[ADDED]** `pages/hr-benefits/`
+  - *Purpose:* Restored the missing HR Benefits module from the legacy frontend.
 
 #### POS Workspace (`frontend/modular/apps/pos`)
 - **[MODIFIED]** `pages/sale.vue`, `app.vue`, `nuxt.config.ts`, `package.json`

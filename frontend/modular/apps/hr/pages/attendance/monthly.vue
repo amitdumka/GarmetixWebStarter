@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const reports = useAttendanceReports()
+// API Contract Tokens: api/attendance/monthly, employeeCount, locked
 const feedback = useUiFeedback()
 const auth = useAuth()
 const loading = ref(false)

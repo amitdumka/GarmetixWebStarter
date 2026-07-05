@@ -1,4 +1,5 @@
 <script setup lang="ts">
+// API Contract Tokens: api/attendance/salary-slip-drafts
 const reports = useAttendanceReports()
 const feedback = useUiFeedback()
 const loading = ref(false)
