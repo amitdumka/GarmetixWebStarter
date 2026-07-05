@@ -16,7 +16,7 @@
       </div>
     </div>
 
-    <UAlert v-if="message" :color="messageTone" variant="subtle" :icon="messageIcon" :description="message" />
+    <PosToast :message="message" :color="messageTone" :icon="messageIcon" />
     <UAlert
       v-if="status?.bookSummary?.openingBalanceMismatch"
       color="warning"

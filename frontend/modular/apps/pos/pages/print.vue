@@ -14,7 +14,7 @@
       </div>
     </div>
 
-    <UAlert v-if="message" :color="messageTone" variant="subtle" :icon="messageIcon" :description="message" />
+    <PosToast :message="message" :color="messageTone" :icon="messageIcon" />
 
     <section class="grid gap-4 lg:grid-cols-2">
       <article class="garmetix-section-card p-0">

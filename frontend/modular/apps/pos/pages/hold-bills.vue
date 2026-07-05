@@ -16,7 +16,7 @@
       </div>
     </div>
 
-    <UAlert v-if="message" :color="messageTone" variant="subtle" :icon="messageIcon" :description="message" />
+    <PosToast :message="message" :color="messageTone" :icon="messageIcon" />
 
     <div class="garmetix-section-card grid gap-3 lg:grid-cols-[1fr_auto]">
       <UFormField label="Search held bill" name="search">

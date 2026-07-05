@@ -23,10 +23,7 @@
       <!-- Left Column (Cart & Scanner) -->
       <section class="flex-1 flex flex-col border-r border-default bg-background relative min-w-0">
         
-        <!-- Alerts overlay (floating) -->
-        <div v-if="message" class="absolute top-4 left-1/2 -translate-x-1/2 z-10 w-full max-w-md shadow-lg rounded-lg">
-          <UAlert :color="messageTone" variant="solid" :icon="messageIcon" :description="message" />
-        </div>
+        <PosToast :message="message" :color="messageTone" :icon="messageIcon" />
 
         <!-- Scanner Pinned -->
         <div class="p-4 border-b border-default shrink-0 bg-muted/10 grid gap-3 lg:grid-cols-[1fr_110px_110px_104px]">

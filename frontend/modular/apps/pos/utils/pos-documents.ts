@@ -1,4 +1,5 @@
 import { createApiUrl } from '@garmetix/shared-api'
+import { stripServerUrl } from '@garmetix/shared-utils'
 
 export interface BillingPdfOptions {
   apiBaseUrl: string
@@ -58,20 +59,59 @@ async function openApiPdf(options: {
   })
 
   if (!response.ok) {
+    const detail = await response.text().catch(() => '')
     throw new Error(response.status === 401 || response.status === 403
       ? 'Login is required before opening this PDF.'
-      : options.missingMessage)
+      : stripServerUrl(detail || options.missingMessage))
   }
 
   const blob = await response.blob()
-  const blobUrl = URL.createObjectURL(blob)
-  const opened = window.open(blobUrl, '_blank', 'noopener,noreferrer')
-  if (!opened) {
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
-    throw new Error(options.blockedMessage)
+  if (blob.type !== 'application/pdf' || blob.size < 100) {
+    throw new Error(options.missingMessage)
   }
 
-  setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000)
+  await printPdfBlob(blob, options.blockedMessage)
+}
+
+async function printPdfBlob(blob: Blob, blockedMessage: string) {
+  const blobUrl = URL.createObjectURL(blob)
+  const frame = document.createElement('iframe')
+  frame.title = 'Garmetix POS PDF print document'
+  frame.style.position = 'fixed'
+  frame.style.right = '0'
+  frame.style.bottom = '0'
+  frame.style.width = '1px'
+  frame.style.height = '1px'
+  frame.style.border = '0'
+  frame.style.opacity = '0'
+  document.body.appendChild(frame)
+
+  const cleanup = () => {
+    frame.remove()
+    URL.revokeObjectURL(blobUrl)
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    frame.onerror = () => {
+      cleanup()
+      reject(new Error(blockedMessage))
+    }
+    frame.onload = () => {
+      window.setTimeout(() => {
+        try {
+          frame.contentWindow?.focus()
+          frame.contentWindow?.print()
+          resolve()
+        } catch (error) {
+          cleanup()
+          reject(error)
+          return
+        }
+        window.setTimeout(cleanup, 30_000)
+      }, 500)
+    }
+    frame.src = blobUrl
+  })
 }
 
 export function normalizePosDocumentSearch(value: string | null | undefined) {

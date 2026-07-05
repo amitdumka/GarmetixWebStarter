@@ -41,10 +41,15 @@ Use these backups if the fullscreen counter layout must be reverted without touc
   - open count
   - PDF download count
   - review click count
+- Port legacy hidden-iframe PDF printing into modular POS invoice/history/print queue actions.
+- Move POS operational notifications to right-bottom toast placement.
+- Change new sale invoice numbers to `StoreCode-YYYYMM-INV-NumberSeries`.
 
 ## POS Follow-Up
 
 - Run live operator review for `/sale` on 14-inch laptop width and check scanner, cart, payments footer and right totals panel.
+- Manually verify browser print dialog and Epson/DotMatrix handoff from Save & Print, sale history print, and print queue recovery.
+- Port any remaining server/dot-matrix print-service behavior after comparing legacy LX-310 deployment scripts.
 - Confirm `/history` recent sale API fields on live data:
   - `digitalBillPublicPath`
   - `digitalBillPublicToken`

@@ -16,7 +16,7 @@
       </div>
     </div>
 
-    <UAlert v-if="message" :color="messageTone" variant="subtle" :icon="messageIcon" :description="message" />
+    <PosToast :message="message" :color="messageTone" :icon="messageIcon" />
 
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       <div v-for="card in statusCards" :key="card.label" class="garmetix-metric-card">

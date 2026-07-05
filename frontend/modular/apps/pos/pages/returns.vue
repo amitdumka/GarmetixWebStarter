@@ -16,7 +16,7 @@
       </div>
     </div>
 
-    <UAlert v-if="message" :color="messageTone" variant="subtle" :icon="messageIcon" :description="message" />
+    <PosToast :message="message" :color="messageTone" :icon="messageIcon" />
 
     <section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
       <div class="space-y-4">
