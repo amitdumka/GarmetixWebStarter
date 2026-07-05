@@ -99,6 +99,16 @@ export function readArray(source: ApiRecord | null | undefined, keys: string[] |
   return []
 }
 
+export function readRecord(source: unknown, keys: string[] = ['item', 'row', 'data', 'customer', 'result']) {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return null
+  const record = source as ApiRecord
+  for (const key of keys) {
+    const value = record[key]
+    if (value && typeof value === 'object' && !Array.isArray(value)) return value as ApiRecord
+  }
+  return record
+}
+
 export function toRows(value: unknown, keys: string[] = ['items', 'rows', 'data', 'results']) {
   if (Array.isArray(value)) return value as ApiRecord[]
   if (value && typeof value === 'object') return readArray(value as ApiRecord, keys)

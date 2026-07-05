@@ -98,16 +98,18 @@
             <tbody>
               <tr v-if="loading"><td colspan="5" class="p-8 text-center text-muted">Loading reconciliation...</td></tr>
               <tr v-else-if="!filteredIssues.length"><td colspan="5" class="p-8 text-center text-muted">No issues found for this scope.</td></tr>
-              <tr v-for="issue in filteredIssues" v-else :key="`${readText(issue, ['customerId'])}-${readText(issue, ['code'])}-${readText(issue, ['message'])}`">
-                <td class="border-b border-default p-3"><UBadge :color="issueColor(issue)" variant="subtle">{{ readText(issue, ['severity']) }}</UBadge></td>
-                <td class="border-b border-default p-3">
-                  <p class="font-medium text-highlighted">{{ readText(issue, ['customerName']) }}</p>
-                  <p class="text-xs text-muted">{{ readText(issue, ['mobileNumber'], '') }}</p>
-                </td>
-                <td class="border-b border-default p-3">{{ readText(issue, ['code']) }}</td>
-                <td class="border-b border-default p-3">{{ readText(issue, ['message']) }}</td>
-                <td class="border-b border-default p-3 text-right">{{ money(readNumber(issue, ['amount'])) }}</td>
-              </tr>
+              <template v-else>
+                <tr v-for="issue in filteredIssues" :key="`${readText(issue, ['customerId'])}-${readText(issue, ['code'])}-${readText(issue, ['message'])}`">
+                  <td class="border-b border-default p-3"><UBadge :color="issueColor(issue)" variant="subtle">{{ readText(issue, ['severity']) }}</UBadge></td>
+                  <td class="border-b border-default p-3">
+                    <p class="font-medium text-highlighted">{{ readText(issue, ['customerName']) }}</p>
+                    <p class="text-xs text-muted">{{ readText(issue, ['mobileNumber'], '') }}</p>
+                  </td>
+                  <td class="border-b border-default p-3">{{ readText(issue, ['code']) }}</td>
+                  <td class="border-b border-default p-3">{{ readText(issue, ['message']) }}</td>
+                  <td class="border-b border-default p-3 text-right">{{ money(readNumber(issue, ['amount'])) }}</td>
+                </tr>
+              </template>
             </tbody>
           </table>
         </div>
@@ -143,22 +145,24 @@
           <tbody>
             <tr v-if="loading"><td colspan="11" class="p-8 text-center text-muted">Loading evidence...</td></tr>
             <tr v-else-if="!filteredEvidence.length"><td colspan="11" class="p-8 text-center text-muted">No evidence rows for this scope.</td></tr>
-            <tr v-for="row in filteredEvidence" v-else :key="readText(row, ['customerId'])">
-              <td class="border-b border-default p-3">
-                <p class="font-medium text-highlighted">{{ readText(row, ['customerName']) }}</p>
-                <p class="text-xs text-muted">{{ readText(row, ['mobileNumber'], '') }}</p>
-              </td>
-              <td class="border-b border-default p-3 text-right">{{ number(readNumber(row, ['invoiceCount'])) }} / {{ number(readNumber(row, ['openInvoiceCount'])) }}</td>
-              <td class="border-b border-default p-3 text-right">{{ money(readNumber(row, ['invoiceTotal'])) }}</td>
-              <td class="border-b border-default p-3 text-right">{{ money(readNumber(row, ['invoicePaid', 'paymentRowsTotal'])) }}</td>
-              <td class="border-b border-default p-3 text-right">{{ money(readNumber(row, ['invoiceDue'])) }}</td>
-              <td class="border-b border-default p-3 text-right">{{ money(readNumber(row, ['customerMasterCreditBalance'])) }}</td>
-              <td class="border-b border-default p-3 text-right">{{ money(readNumber(row, ['advanceOpen'])) }}</td>
-              <td class="border-b border-default p-3 text-right">{{ money(readNumber(row, ['creditNoteOpen'])) }}</td>
-              <td class="border-b border-default p-3 text-right">{{ money(readNumber(row, ['expectedCreditBalance'])) }}</td>
-              <td class="border-b border-default p-3 text-right font-semibold">{{ money(readNumber(row, ['creditBalanceDifference'])) }}</td>
-              <td class="border-b border-default p-3"><UBadge :color="rowStatusColor(row)" variant="subtle">{{ readText(row, ['status']) }}</UBadge></td>
-            </tr>
+            <template v-else>
+              <tr v-for="row in filteredEvidence" :key="readText(row, ['customerId'])">
+                <td class="border-b border-default p-3">
+                  <p class="font-medium text-highlighted">{{ readText(row, ['customerName']) }}</p>
+                  <p class="text-xs text-muted">{{ readText(row, ['mobileNumber'], '') }}</p>
+                </td>
+                <td class="border-b border-default p-3 text-right">{{ number(readNumber(row, ['invoiceCount'])) }} / {{ number(readNumber(row, ['openInvoiceCount'])) }}</td>
+                <td class="border-b border-default p-3 text-right">{{ money(readNumber(row, ['invoiceTotal'])) }}</td>
+                <td class="border-b border-default p-3 text-right">{{ money(readNumber(row, ['invoicePaid', 'paymentRowsTotal'])) }}</td>
+                <td class="border-b border-default p-3 text-right">{{ money(readNumber(row, ['invoiceDue'])) }}</td>
+                <td class="border-b border-default p-3 text-right">{{ money(readNumber(row, ['customerMasterCreditBalance'])) }}</td>
+                <td class="border-b border-default p-3 text-right">{{ money(readNumber(row, ['advanceOpen'])) }}</td>
+                <td class="border-b border-default p-3 text-right">{{ money(readNumber(row, ['creditNoteOpen'])) }}</td>
+                <td class="border-b border-default p-3 text-right">{{ money(readNumber(row, ['expectedCreditBalance'])) }}</td>
+                <td class="border-b border-default p-3 text-right font-semibold">{{ money(readNumber(row, ['creditBalanceDifference'])) }}</td>
+                <td class="border-b border-default p-3"><UBadge :color="rowStatusColor(row)" variant="subtle">{{ readText(row, ['status']) }}</UBadge></td>
+              </tr>
+            </template>
           </tbody>
         </table>
       </div>

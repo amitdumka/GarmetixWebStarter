@@ -93,7 +93,7 @@
 
 <script setup lang="ts">
 import { stripServerUrl } from '@garmetix/shared-utils'
-import { useCrmApiClient, type ApiRecord } from '../utils/crm-api'
+import { readRecord, toRows, useCrmApiClient, type ApiRecord } from '../utils/crm-api'
 
 const props = defineProps<{ customerId?: string }>()
 
@@ -135,7 +135,11 @@ function cleanDate(value: unknown) {
   return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10)
 }
 
-function normalizeCustomer(row: ApiRecord) {
+function normalizeCustomer(value: unknown) {
+  const row = readRecord(value)
+  if (!row) {
+    throw new Error('Customer record was not returned by the API.')
+  }
   original.value = row
   Object.assign(form, {
     companyId: String(row.companyId || form.companyId || ''),
@@ -162,10 +166,10 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    companies.value = await get<ApiRecord[]>('companies')
+    companies.value = toRows(await get<unknown>('companies'))
     form.companyId = String(companies.value[0]?.id || '')
     if (props.customerId) {
-      normalizeCustomer(await get<ApiRecord>(`customers/${props.customerId}`))
+      normalizeCustomer(await get<unknown>(`customers/${props.customerId}`))
     }
   } catch (caught) {
     error.value = stripServerUrl(caught instanceof Error ? caught.message : 'Could not load customer form.')

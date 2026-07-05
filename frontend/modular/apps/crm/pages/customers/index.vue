@@ -56,25 +56,27 @@
           <tr v-else-if="!filteredCustomers.length">
             <td colspan="7" class="p-8 text-center text-muted">{{ search ? 'No matching customers.' : 'No customers yet.' }}</td>
           </tr>
-          <tr v-for="customer in filteredCustomers" v-else :key="String(customer.id)">
-            <td class="border-b border-default p-3">
-              <p class="font-semibold text-highlighted">{{ readText(customer, ['name'], 'Customer') }}</p>
-              <p class="text-xs text-muted">{{ readText(customer, ['email', 'city', 'state']) }}</p>
-            </td>
-            <td class="border-b border-default p-3">{{ readText(customer, ['mobileNumber']) }}</td>
-            <td class="border-b border-default p-3">{{ readText(customer, ['gstin', 'gSTIN']) }}</td>
-            <td class="border-b border-default p-3 text-right">{{ money(readNumber(customer, ['creditBalance'])) }}</td>
-            <td class="border-b border-default p-3 text-right">{{ number(readNumber(customer, ['loyaltyPoints'])) }}</td>
-            <td class="border-b border-default p-3">
-              <UBadge :color="gstStatus(customer).color" variant="subtle">{{ gstStatus(customer).label }}</UBadge>
-            </td>
-            <td class="border-b border-default p-3">
-              <div class="flex flex-wrap justify-end gap-2">
-                <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-pencil" @click="router.push(`/customers/${customer.id}`)">Edit</UButton>
-                <UButton size="xs" icon="i-lucide-gift" @click="openLoyalty(customer)">Loyalty</UButton>
-              </div>
-            </td>
-          </tr>
+          <template v-else>
+            <tr v-for="customer in filteredCustomers" :key="String(customer.id)">
+              <td class="border-b border-default p-3">
+                <p class="font-semibold text-highlighted">{{ readText(customer, ['name'], 'Customer') }}</p>
+                <p class="text-xs text-muted">{{ readText(customer, ['email', 'city', 'state']) }}</p>
+              </td>
+              <td class="border-b border-default p-3">{{ readText(customer, ['mobileNumber']) }}</td>
+              <td class="border-b border-default p-3">{{ readText(customer, ['gstin', 'gSTIN']) }}</td>
+              <td class="border-b border-default p-3 text-right">{{ money(readNumber(customer, ['creditBalance'])) }}</td>
+              <td class="border-b border-default p-3 text-right">{{ number(readNumber(customer, ['loyaltyPoints'])) }}</td>
+              <td class="border-b border-default p-3">
+                <UBadge :color="gstStatus(customer).color" variant="subtle">{{ gstStatus(customer).label }}</UBadge>
+              </td>
+              <td class="border-b border-default p-3">
+                <div class="flex flex-wrap justify-end gap-2">
+                  <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-pencil" @click="router.push(`/customers/${customer.id}`)">Edit</UButton>
+                  <UButton size="xs" icon="i-lucide-gift" @click="openLoyalty(customer)">Loyalty</UButton>
+                </div>
+              </td>
+            </tr>
+          </template>
         </tbody>
       </table>
     </div>
@@ -103,14 +105,16 @@
           <tbody>
             <tr v-if="ledgerLoading"><td colspan="6" class="p-6 text-center text-muted">Loading loyalty ledger...</td></tr>
             <tr v-else-if="!ledger.length"><td colspan="6" class="p-6 text-center text-muted">No loyalty activity.</td></tr>
-            <tr v-for="row in ledger" v-else :key="String(row.id || `${row.onDate}-${row.sourceNumber}`)">
-              <td class="border-b border-default p-3">{{ formatDate(readText(row, ['onDate'], '')) }}</td>
-              <td class="border-b border-default p-3">{{ readText(row, ['sourceType']) }} {{ readText(row, ['sourceNumber'], '') }}</td>
-              <td class="border-b border-default p-3 text-right">{{ number(readNumber(row, ['pointsIn'])) }}</td>
-              <td class="border-b border-default p-3 text-right">{{ number(readNumber(row, ['pointsOut'])) }}</td>
-              <td class="border-b border-default p-3 text-right font-semibold">{{ number(readNumber(row, ['balanceAfter'])) }}</td>
-              <td class="border-b border-default p-3">{{ readText(row, ['remarks']) }}</td>
-            </tr>
+            <template v-else>
+              <tr v-for="row in ledger" :key="String(row.id || `${row.onDate}-${row.sourceNumber}`)">
+                <td class="border-b border-default p-3">{{ formatDate(readText(row, ['onDate'], '')) }}</td>
+                <td class="border-b border-default p-3">{{ readText(row, ['sourceType']) }} {{ readText(row, ['sourceNumber'], '') }}</td>
+                <td class="border-b border-default p-3 text-right">{{ number(readNumber(row, ['pointsIn'])) }}</td>
+                <td class="border-b border-default p-3 text-right">{{ number(readNumber(row, ['pointsOut'])) }}</td>
+                <td class="border-b border-default p-3 text-right font-semibold">{{ number(readNumber(row, ['balanceAfter'])) }}</td>
+                <td class="border-b border-default p-3">{{ readText(row, ['remarks']) }}</td>
+              </tr>
+            </template>
           </tbody>
         </table>
       </div>

@@ -147,17 +147,19 @@
           <tbody>
             <tr v-if="ledgerLoading"><td colspan="6" class="p-8 text-center text-muted">Loading loyalty ledger...</td></tr>
             <tr v-else-if="!filteredLedger.length"><td colspan="6" class="p-8 text-center text-muted">No loyalty activity for the selected customer.</td></tr>
-            <tr v-for="row in filteredLedger" v-else :key="String(row.id || `${row.onDate}-${row.sourceNumber}`)">
-              <td class="border-b border-default p-3">{{ formatDate(readText(row, ['onDate'], '')) }}</td>
-              <td class="border-b border-default p-3">
-                <p class="font-medium text-highlighted">{{ readText(row, ['sourceType']) }}</p>
-                <p class="text-xs text-muted">{{ readText(row, ['sourceNumber'], '') }}</p>
-              </td>
-              <td class="border-b border-default p-3 text-right">{{ number(readNumber(row, ['pointsIn'])) }}</td>
-              <td class="border-b border-default p-3 text-right">{{ number(readNumber(row, ['pointsOut'])) }}</td>
-              <td class="border-b border-default p-3 text-right font-semibold">{{ number(readNumber(row, ['balanceAfter'])) }}</td>
-              <td class="border-b border-default p-3">{{ readText(row, ['remarks']) }}</td>
-            </tr>
+            <template v-else>
+              <tr v-for="row in filteredLedger" :key="String(row.id || `${row.onDate}-${row.sourceNumber}`)">
+                <td class="border-b border-default p-3">{{ formatDate(readText(row, ['onDate'], '')) }}</td>
+                <td class="border-b border-default p-3">
+                  <p class="font-medium text-highlighted">{{ readText(row, ['sourceType']) }}</p>
+                  <p class="text-xs text-muted">{{ readText(row, ['sourceNumber'], '') }}</p>
+                </td>
+                <td class="border-b border-default p-3 text-right">{{ number(readNumber(row, ['pointsIn'])) }}</td>
+                <td class="border-b border-default p-3 text-right">{{ number(readNumber(row, ['pointsOut'])) }}</td>
+                <td class="border-b border-default p-3 text-right font-semibold">{{ number(readNumber(row, ['balanceAfter'])) }}</td>
+                <td class="border-b border-default p-3">{{ readText(row, ['remarks']) }}</td>
+              </tr>
+            </template>
           </tbody>
         </table>
       </div>

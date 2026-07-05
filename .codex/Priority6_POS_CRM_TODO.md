@@ -118,12 +118,13 @@ CRM implementation order:
 2a. CRM Nuxt UI layout hotfix. Completed in Version `6.0.32` by restoring Tailwind/Nuxt UI CSS imports and POS/HR-style auth middleware.
 3. Dues reconciliation CSV/evidence and adjustment review parity. Completed in Version `6.0.33` with scoped filters, issue/evidence tables, source summaries and CSV export.
 4. Loyalty program save, customer loyalty summary, ledger and manual adjustment. Completed in Version `6.0.33` with store-scoped program setup and guarded manual point posting.
-5. Digital Bills register with generate, copy/open, WhatsApp send, disable/regenerate token and activity timeline.
-6. Digital Bill analytics with date/store filters and export handoff.
-7. Feedback, review settings, WhatsApp settings/logs and retry/test-send guarded actions.
-8. Audience segmentation and campaign create/preview/queue/send/mark-sent/cancel workflows.
-9. Invoice ad banners create/edit/delete.
-10. Public `/i/:token` digital bill customer page, privacy/terms/review links and public PDF handoff.
+5. Digital Bills register with generate, copy/open, WhatsApp send, disable/regenerate token and activity timeline. Completed in Version `6.0.34` with a working modular register and activity panel.
+6. Digital Bill analytics with date/store filters and export handoff. Completed in Version `6.0.34` with analytics metrics and daily trend table.
+7. Audience segmentation and campaign audience export/copy handoff. Completed in Version `6.0.34` with segment cards, filters, CSV export, mobile copy and campaign handoff.
+8. Feedback, review settings, WhatsApp settings/logs and retry/test-send guarded actions.
+9. Campaign create/preview/queue/send/mark-sent/cancel workflows.
+10. Invoice ad banners create/edit/delete.
+11. Public `/i/:token` digital bill customer page, privacy/terms/review links and public PDF handoff.
 
 ## Deployment Notes
 
