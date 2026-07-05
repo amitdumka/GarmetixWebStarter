@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/crm-web",
   "private": true,
-  "version": "6.0.30",
+  "version": "6.0.31",
   "type": "module",
   "scripts": {
     "dev": "nuxt dev --port 3106",

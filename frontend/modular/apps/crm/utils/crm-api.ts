@@ -29,7 +29,17 @@ export function useCrmApiClient() {
     return await api.post<T>(normalizeCrmApiPath(path), body)
   }
 
-  return { apiBaseUrl, get, post }
+  async function put<T>(path: string, body?: unknown) {
+    const api = createClient()
+    return await api.put<T>(normalizeCrmApiPath(path), body)
+  }
+
+  async function remove<T>(path: string) {
+    const api = createClient()
+    return await api.delete<T>(normalizeCrmApiPath(path))
+  }
+
+  return { apiBaseUrl, get, post, put, remove }
 }
 
 export function readNumber(source: ApiRecord | null | undefined, keys: string[] | null | undefined) {

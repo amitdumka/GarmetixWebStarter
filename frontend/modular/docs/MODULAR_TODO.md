@@ -319,7 +319,7 @@ Goal: complete Books next, module-by-module, after HR code closure. Keep live po
 Goal: merge customer CRM and Digital Bill CRM into a dedicated `crm` modular app, while keeping POS focused on counter speed and Main Back Office lean.
 
 - 14D.1 complete: bump modular version identity to `6.0.30`, create `frontend/modular/apps/crm`, add route ownership, app switcher/menu, smoke route coverage, SRP `/crm/` deployment path, read-only CRM registers and the CRM/Digital CRM roadmap.
-- 14D.2 next: customer register/detail/new write parity from legacy `/customers`, including GST, store credit, consent and sale-history handoff.
+- 14D.2 complete: bump modular version identity to `6.0.31`, promote customer register, new customer and edit customer to writable parity from legacy `/customers`, including metrics, GSTIN validation and loyalty ledger preview.
 - 14D.3 next: dues reconciliation evidence/export and loyalty program/customer loyalty ledger/manual adjustment parity.
 - 14D.4 next: Digital Bill register actions: generate, copy/open, send WhatsApp, activity timeline, disable and regenerate token.
 - 14D.5 next: feedback/review/WhatsApp settings/logs, test-send and retry actions with guarded permissions.

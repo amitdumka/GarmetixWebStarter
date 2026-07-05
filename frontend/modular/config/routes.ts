@@ -129,9 +129,9 @@ export const garmetixRoutes: GarmetixRouteDefinition[] = [
   route({ id: 'gst-final-acceptance', path: '/gst-final-acceptance', label: 'GST Final Acceptance', icon: 'i-lucide-badge-check', targetApp: 'admin', moduleKey: 'admin', moduleLabel: 'Admin SaaS', roles: [...routeRoles.ownerAdmin] }),
 
   route({ id: 'crm-home', path: '/', label: 'CRM Home', icon: 'i-lucide-heart-handshake', targetApp: 'crm', moduleKey: 'crm', moduleLabel: 'CRM', roles: [...routeRoles.storeOps], legacyPath: '/customers', status: 'shell-ready', showInMenu: false }),
-  route({ id: 'customers', path: '/customers', label: 'Customers', icon: 'i-lucide-users', targetApp: 'crm', moduleKey: 'crm', moduleLabel: 'CRM', roles: [...routeRoles.storeOps], status: 'shell-ready' }),
-  route({ id: 'customer-detail', path: '/customers/:id', label: 'Customer Detail', icon: 'i-lucide-user-round', targetApp: 'crm', moduleKey: 'crm', moduleLabel: 'CRM', roles: [...routeRoles.storeOps], showInMenu: false, status: 'planned' }),
-  route({ id: 'customer-new', path: '/customers/new', label: 'New Customer', icon: 'i-lucide-user-plus', targetApp: 'crm', moduleKey: 'crm', moduleLabel: 'CRM', roles: [...routeRoles.storeOps], status: 'planned' }),
+  route({ id: 'customers', path: '/customers', label: 'Customers', icon: 'i-lucide-users', targetApp: 'crm', moduleKey: 'crm', moduleLabel: 'CRM', roles: [...routeRoles.storeOps], status: 'live' }),
+  route({ id: 'customer-detail', path: '/customers/:id', label: 'Customer Detail', icon: 'i-lucide-user-round', targetApp: 'crm', moduleKey: 'crm', moduleLabel: 'CRM', roles: [...routeRoles.storeOps], showInMenu: false, status: 'live' }),
+  route({ id: 'customer-new', path: '/customers/new', label: 'New Customer', icon: 'i-lucide-user-plus', targetApp: 'crm', moduleKey: 'crm', moduleLabel: 'CRM', roles: [...routeRoles.storeOps], status: 'live' }),
   route({ id: 'customer-dues-reconciliation', path: '/customers/dues-reconciliation', label: 'Dues Reconciliation', icon: 'i-lucide-wallet-cards', targetApp: 'crm', moduleKey: 'crm', moduleLabel: 'CRM', roles: [...routeRoles.storeOps], status: 'shell-ready' }),
   route({ id: 'parties', path: '/parties', label: 'Parties', icon: 'i-lucide-contact-round', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books] }),
   route({ id: 'loyalty', path: '/loyalty', label: 'Loyalty', icon: 'i-lucide-gift', targetApp: 'crm', moduleKey: 'crm', moduleLabel: 'CRM', roles: [...routeRoles.storeOps], status: 'shell-ready' }),
