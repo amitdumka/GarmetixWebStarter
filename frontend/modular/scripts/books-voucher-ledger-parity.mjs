@@ -11,7 +11,7 @@ console.log(`Stage: ${stage}`)
 console.log('Mutation check: disabled')
 console.log('Live voucher posting: disabled')
 
-if (version !== '6.0.22') failures.push(`Expected version 6.0.22, found ${version}.`)
+if (version !== '6.0.23') failures.push(`Expected version 6.0.23, found ${version}.`)
 if (!stage.includes('Stage 14C.2')) failures.push(`Expected Stage 14C.2, found ${stage}.`)
 
 checkFile('apps/books/utils/books-api.ts', [
