@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.32',
-  stage: 'Stage 14D.2a CRM Nuxt UI Layout Hotfix',
-  label: 'Version6 Stage 14D.2a CRM Nuxt UI Layout Hotfix',
-  summary: 'Restored CRM Tailwind and Nuxt UI stylesheet imports and aligned CRM auth middleware with POS/HR route redirect behavior.'
+  version: '6.0.33',
+  stage: 'Stage 14D.3 CRM Loyalty And Dues Reconciliation Parity',
+  label: 'Version6 Stage 14D.3 CRM Loyalty And Dues Reconciliation Parity',
+  summary: 'Promoted CRM loyalty and customer dues reconciliation from placeholders to store-scoped writable/auditable workflows with CSV evidence export.'
 } as const

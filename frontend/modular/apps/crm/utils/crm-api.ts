@@ -1,5 +1,6 @@
-import { createGarmetixApiClient } from '@garmetix/shared-api'
+import { createApiUrl, createGarmetixApiClient } from '@garmetix/shared-api'
 import { getStoredToken } from '@garmetix/shared-auth'
+import { stripServerUrl } from '@garmetix/shared-utils'
 
 export type ApiRecord = Record<string, unknown>
 
@@ -17,6 +18,24 @@ export function useCrmApiClient() {
       baseUrl: apiBaseUrl.value,
       getToken: () => getStoredToken(window.localStorage)
     })
+  }
+
+  function createUrl(path: string, query?: Record<string, string | number | boolean | null | undefined>) {
+    if (!apiBaseUrl.value) throw new Error('API base URL is not configured.')
+    const fallbackOrigin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'http://localhost'
+    const url = new URL(createApiUrl(apiBaseUrl.value, normalizeCrmApiPath(path)), fallbackOrigin)
+    for (const [key, value] of Object.entries(query ?? {})) {
+      if (value !== null && value !== undefined && value !== '') url.searchParams.set(key, String(value))
+    }
+
+    return url
+  }
+
+  function createAuthHeaders() {
+    const headers = new Headers()
+    const token = typeof window !== 'undefined' ? getStoredToken(window.localStorage) : null
+    if (token) headers.set('Authorization', `Bearer ${token}`)
+    return headers
   }
 
   async function get<T>(path: string, query?: Record<string, string | number | boolean | null | undefined>) {
@@ -39,7 +58,20 @@ export function useCrmApiClient() {
     return await api.delete<T>(normalizeCrmApiPath(path))
   }
 
-  return { apiBaseUrl, get, post, put, remove }
+  async function getBlob(path: string, query?: Record<string, string | number | boolean | null | undefined>) {
+    const response = await fetch(createUrl(path, query), {
+      method: 'GET',
+      headers: createAuthHeaders()
+    })
+    if (!response.ok) {
+      const message = await response.text()
+      throw new Error(stripServerUrl(message || `Garmetix API request failed with ${response.status}`))
+    }
+
+    return await response.blob()
+  }
+
+  return { apiBaseUrl, createUrl, get, post, put, remove, getBlob }
 }
 
 export function readNumber(source: ApiRecord | null | undefined, keys: string[] | null | undefined) {
