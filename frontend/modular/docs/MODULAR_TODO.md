@@ -303,7 +303,8 @@ Goal: complete Books next, module-by-module, after HR code closure. Keep live po
 - 14C.1 complete: bump modular version identity to `6.0.18`, add Books parity baseline for accounting ledger, vouchers, petty cash, vendor payments, GST reports and audit/message log route ownership.
 - 14C.2 complete: bump modular version identity to `6.0.22`, add voucher create/edit/delete, Save & Print PDF handoff, hidden party-ledger resolution, non-cash bank account validation, ledger sync repair and ledger statement audit review.
 - 14C.2 deploy repair complete: bump modular version identity to `6.0.23`, move Codex active workspace to `C:\AIArea\Codex\GarmetixWebStarter`, fix SRP deploy config auto-detection from `C:\AIArea`, and verify LAN/public route delivery.
-- 14C.3 next: bank transaction, cheque log, bank statement and reconciliation write parity with exact confirmation gates.
+- 14C.3 complete: bump modular version identity to `6.0.24`, add guarded bank transaction create/edit/delete, bank statement reconcile/unreconcile, cheque lifecycle update, and bank audit readiness script.
+- 14C.4 next: vendor bank account edit parity, bank account detail secure edit review, bank statement import/review planning, and reconciliation closure dashboard handoff.
 - Reuse the Stage 13D Books readiness scripts, then upgrade them for Version6 live-safe evidence.
 - 14C.1 was deployed as checkpoint 3 after the prior `.127` deployment.
 - 14C.2 is checkpoint 1 after the Stage 14B.12 `.127` deployment. Deploy on checkpoint 3 unless live testing is explicitly requested earlier.

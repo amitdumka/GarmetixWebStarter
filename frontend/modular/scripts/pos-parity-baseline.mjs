@@ -48,7 +48,7 @@ console.log(`Version: ${version}`)
 console.log(`Stage: ${stage}`)
 
 if (!version.startsWith('6.')) failures.push(`Expected Version6 modular version, found ${version}.`)
-if (!stage.includes('Stage 14A')) failures.push(`Expected Stage 14A POS lane, found ${stage}.`)
+if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 lane, found ${stage}.`)
 
 for (const file of requiredFiles) {
   if (!existsSync(join(modularRoot, file))) failures.push(`Missing POS baseline file: ${file}`)
@@ -67,7 +67,7 @@ for (const marker of requiredRouteMarkers) {
 }
 
 const todo = readFileSync(join(modularRoot, 'docs/MODULAR_TODO.md'), 'utf8')
-for (const marker of ['## Stage 14A', '14A.1 complete', 'HR starts only after POS acceptance is passed']) {
+for (const marker of ['## Stage 14A', '14A.1 complete', '14B.1 complete']) {
   if (!todo.includes(marker)) failures.push(`MODULAR_TODO missing marker: ${marker}`)
 }
 

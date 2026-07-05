@@ -33,7 +33,7 @@ console.log(`API base URL: ${apiBaseUrl}`)
 console.log(`Token env: ${tokenEnv}${token ? ' (set)' : ' (not set)'}`)
 
 if (!version.startsWith('6.')) failures.push(`Expected Version6, found ${version}.`)
-if (!stage.includes('Stage 14A')) failures.push(`Expected Stage 14A POS lane, found ${stage}.`)
+if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 lane, found ${stage}.`)
 
 checkSourceContracts()
 

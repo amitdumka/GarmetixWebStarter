@@ -6,17 +6,20 @@
           <p class="garmetix-kicker"><UIcon name="i-lucide-landmark" class="size-4" /> Bank and cash audit</p>
           <h2 class="garmetix-dashboard-title">Bank Operations</h2>
           <p class="garmetix-dashboard-subtitle">
-            Read-only bank transactions, statements, reconciliation, cheque lifecycle, vendor bank accounts and bank access details. Posting and reconciliation actions stay disabled.
+            Bank transactions, statement reconciliation, cheque lifecycle, vendor bank accounts and bank access detail with guarded write controls for accounting audit.
           </p>
         </div>
         <div class="flex flex-wrap gap-2">
           <USelect v-model="selectedBankAccountId" :items="bankAccountOptions" class="min-w-64" />
+          <UButton icon="i-lucide-plus" color="primary" @click="startTransactionCreate">New Transaction</UButton>
           <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refresh">Refresh</UButton>
+          <UBadge color="success" variant="subtle">Writable parity</UBadge>
         </div>
       </div>
     </div>
 
     <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
+    <UAlert v-if="message" color="success" variant="subtle" icon="i-lucide-circle-check" :description="message" />
 
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
@@ -26,16 +29,130 @@
       </div>
     </section>
 
+    <section v-if="showTransactionForm" class="garmetix-section-card">
+      <div class="mb-3 flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h3 class="garmetix-panel-title">{{ transactionFormMode === 'edit' ? 'Edit Bank Transaction' : 'New Bank Transaction' }}</h3>
+          <p class="garmetix-panel-subtitle">
+            Posts a bank transaction, creates or updates the bank statement line, and records the accounting journal. Type <strong>POST BANK TRANSACTION</strong> to save.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <UBadge color="neutral" variant="subtle">{{ selectedStoreLabel }}</UBadge>
+          <UBadge color="warning" variant="subtle">Guarded write</UBadge>
+        </div>
+      </div>
+
+      <form class="grid gap-3 xl:grid-cols-12" @submit.prevent="saveBankTransaction">
+        <label class="space-y-1 text-sm xl:col-span-2">
+          <span class="text-muted">Date</span>
+          <UInput v-model="transactionForm.onDate" type="date" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-3">
+          <span class="text-muted">Bank Account</span>
+          <USelect v-model="transactionForm.bankAccountId" :items="bankAccountOptions" placeholder="Select bank" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-2">
+          <span class="text-muted">Type</span>
+          <USelect v-model="transactionForm.transactionType" :items="transactionTypeSelectItems" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-2">
+          <span class="text-muted">Mode</span>
+          <USelect v-model="transactionForm.transactionMode" :items="transactionModeSelectItems" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-3">
+          <span class="text-muted">Amount</span>
+          <UInput v-model="transactionForm.amount" type="number" min="0" step="0.01" placeholder="0.00" />
+        </label>
+
+        <label class="space-y-1 text-sm xl:col-span-4">
+          <span class="text-muted">Contra Ledger</span>
+          <USelect v-model="transactionForm.ledgerId" :items="contraLedgerOptions" placeholder="Select ledger" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-4">
+          <span class="text-muted">Party</span>
+          <USelect v-model="transactionForm.partyId" :items="partySelectItems" placeholder="Optional party" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-4">
+          <span class="text-muted">Reference / UTR / Cheque</span>
+          <UInput v-model="transactionForm.reference" placeholder="Reference number" />
+        </label>
+
+        <label class="space-y-1 text-sm xl:col-span-4">
+          <span class="text-muted">Person / Payee</span>
+          <UInput v-model="transactionForm.personName" placeholder="Person name" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-4">
+          <span class="text-muted">Confirmation</span>
+          <UInput v-model="transactionConfirmation" placeholder="POST BANK TRANSACTION" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-4">
+          <span class="text-muted">Narration</span>
+          <UTextarea v-model="transactionForm.narration" :rows="3" placeholder="Bank narration" />
+        </label>
+
+        <div class="flex flex-wrap justify-end gap-2 xl:col-span-12">
+          <UButton type="button" icon="i-lucide-x" color="neutral" variant="ghost" @click="cancelTransactionForm">Cancel</UButton>
+          <UButton type="submit" icon="i-lucide-save" color="primary" :loading="savingTransaction">
+            {{ transactionFormMode === 'edit' ? 'Update Transaction' : 'Post Transaction' }}
+          </UButton>
+        </div>
+      </form>
+    </section>
+
     <section class="grid gap-4 xl:grid-cols-3">
       <div class="garmetix-section-card xl:col-span-2">
         <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 class="garmetix-panel-title">Bank Statement</h3>
-            <p class="garmetix-panel-subtitle">{{ statementRows.length }} lines for {{ selectedBankAccountLabel }}</p>
+            <p class="garmetix-panel-subtitle">{{ statementDisplayRows.length }} lines for {{ selectedBankAccountLabel }}</p>
           </div>
-          <UBadge :color="statementLoading ? 'warning' : 'primary'" variant="subtle">{{ statementLoading ? 'Loading' : 'Read only' }}</UBadge>
+          <UBadge :color="statementLoading ? 'warning' : 'primary'" variant="subtle">{{ statementLoading ? 'Loading' : 'Reconcile ready' }}</UBadge>
         </div>
-        <BooksMasterTable :columns="statementColumns" :rows="statementRows" empty-text="No bank statement lines found." />
+        <div class="overflow-hidden rounded-lg border border-default">
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[1060px] text-left text-sm">
+              <thead class="bg-muted/30 text-xs uppercase text-muted">
+                <tr>
+                  <th v-for="column in statementColumns" :key="column.key" class="whitespace-nowrap px-3 py-2 font-medium">{{ column.label }}</th>
+                  <th class="whitespace-nowrap px-3 py-2 font-medium">Action</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-default">
+                <tr v-if="statementDisplayRows.length === 0">
+                  <td :colspan="statementColumns.length + 1" class="px-3 py-8 text-center text-muted">No bank statement lines found.</td>
+                </tr>
+                <tr v-for="line in statementDisplayRows" :key="readText(line, ['id'])" class="bg-default/40">
+                  <td v-for="column in statementColumns" :key="column.key" class="max-w-72 truncate px-3 py-2">{{ line[column.key] || '-' }}</td>
+                  <td class="px-3 py-2">
+                    <div class="flex flex-wrap gap-1">
+                      <UButton
+                        v-if="!line.rawReconciled"
+                        icon="i-lucide-link"
+                        size="xs"
+                        color="primary"
+                        variant="soft"
+                        @click="startStatementAction(line, 'reconcile')"
+                      >
+                        Reconcile
+                      </UButton>
+                      <UButton
+                        v-else
+                        icon="i-lucide-unlink"
+                        size="xs"
+                        color="warning"
+                        variant="soft"
+                        @click="startStatementAction(line, 'unreconcile')"
+                      >
+                        Unreconcile
+                      </UButton>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <div class="garmetix-section-card">
@@ -47,6 +164,44 @@
           </div>
         </div>
       </div>
+    </section>
+
+    <section v-if="statementAction.lineId" class="garmetix-section-card">
+      <div class="mb-3 flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h3 class="garmetix-panel-title">{{ statementAction.mode === 'reconcile' ? 'Reconcile Statement Line' : 'Unreconcile Statement Line' }}</h3>
+          <p class="garmetix-panel-subtitle">
+            Type <strong>{{ statementAction.mode === 'reconcile' ? 'RECONCILE BANK LINE' : 'UNRECONCILE BANK LINE' }}</strong> before saving the reconciliation action.
+          </p>
+        </div>
+        <UBadge color="warning" variant="subtle">Audit action</UBadge>
+      </div>
+      <form class="grid gap-3 xl:grid-cols-12" @submit.prevent="submitStatementAction">
+        <label v-if="statementAction.mode === 'reconcile'" class="space-y-1 text-sm xl:col-span-4">
+          <span class="text-muted">Matching Bank Transaction</span>
+          <USelect v-model="statementAction.bankTransactionId" :items="bankTransactionSelectItems" placeholder="Optional matching transaction" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-3">
+          <span class="text-muted">Action Date</span>
+          <UInput v-model="statementAction.reconciledAt" type="date" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-3">
+          <span class="text-muted">Reference</span>
+          <UInput v-model="statementAction.reconciliationReference" placeholder="Settlement reference" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-2">
+          <span class="text-muted">Confirmation</span>
+          <UInput v-model="statementAction.confirmation" :placeholder="statementAction.mode === 'reconcile' ? 'RECONCILE BANK LINE' : 'UNRECONCILE BANK LINE'" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-12">
+          <span class="text-muted">Remarks</span>
+          <UTextarea v-model="statementAction.remarks" :rows="3" placeholder="Reconciliation remarks" />
+        </label>
+        <div class="flex flex-wrap justify-end gap-2 xl:col-span-12">
+          <UButton type="button" icon="i-lucide-x" color="neutral" variant="ghost" @click="clearStatementAction">Cancel</UButton>
+          <UButton type="submit" icon="i-lucide-check-check" color="primary" :loading="savingStatementAction">Save Reconciliation</UButton>
+        </div>
+      </form>
     </section>
 
     <div class="flex flex-wrap gap-2">
@@ -63,6 +218,47 @@
       </UButton>
     </div>
 
+    <section v-if="activeTab === 'cheques' && selectedChequeId" class="garmetix-section-card">
+      <div class="mb-3 flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h3 class="garmetix-panel-title">Cheque Lifecycle</h3>
+          <p class="garmetix-panel-subtitle">
+            Track issue, deposit, clear, bounce or cancel state. Type <strong>UPDATE CHEQUE STATUS</strong> before saving.
+          </p>
+        </div>
+        <UBadge color="warning" variant="subtle">Cheque audit</UBadge>
+      </div>
+      <form class="grid gap-3 xl:grid-cols-12" @submit.prevent="saveChequeLifecycle">
+        <label class="space-y-1 text-sm xl:col-span-3">
+          <span class="text-muted">Selected Cheque</span>
+          <USelect v-model="selectedChequeId" :items="chequeSelectItems" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-2">
+          <span class="text-muted">Status</span>
+          <USelect v-model="chequeLifecycle.status" :items="chequeStatusItems" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-2">
+          <span class="text-muted">Action Date</span>
+          <UInput v-model="chequeLifecycle.actionDate" type="date" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-3">
+          <span class="text-muted">Matching Transaction</span>
+          <USelect v-model="chequeLifecycle.bankTransactionId" :items="bankTransactionSelectItems" placeholder="Optional transaction" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-2">
+          <span class="text-muted">Confirmation</span>
+          <UInput v-model="chequeLifecycle.confirmation" placeholder="UPDATE CHEQUE STATUS" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-12">
+          <span class="text-muted">Remarks</span>
+          <UTextarea v-model="chequeLifecycle.remarks" :rows="3" placeholder="Lifecycle remarks" />
+        </label>
+        <div class="flex flex-wrap justify-end gap-2 xl:col-span-12">
+          <UButton type="submit" icon="i-lucide-save" color="primary" :loading="savingChequeLifecycle">Save Cheque Status</UButton>
+        </div>
+      </form>
+    </section>
+
     <section class="garmetix-section-card">
       <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -71,7 +267,59 @@
         </div>
         <UInput v-model="search" icon="i-lucide-search" placeholder="Search bank operation rows" class="sm:w-72" />
       </div>
-      <BooksMasterTable :columns="currentColumns" :rows="filteredRows" empty-text="No bank operation rows found." />
+
+      <div v-if="activeTab === 'transactions'" class="overflow-hidden rounded-lg border border-default">
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[1120px] text-left text-sm">
+            <thead class="bg-muted/30 text-xs uppercase text-muted">
+              <tr>
+                <th v-for="column in currentColumns" :key="column.key" class="whitespace-nowrap px-3 py-2 font-medium">{{ column.label }}</th>
+                <th class="whitespace-nowrap px-3 py-2 font-medium">Action</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-default">
+              <tr v-if="filteredRows.length === 0">
+                <td :colspan="currentColumns.length + 1" class="px-3 py-8 text-center text-muted">No bank operation rows found.</td>
+              </tr>
+              <tr v-for="row in filteredRows" :key="readText(row, ['id'])" class="bg-default/40">
+                <td v-for="column in currentColumns" :key="column.key" class="max-w-72 truncate px-3 py-2">{{ row[column.key] || '-' }}</td>
+                <td class="px-3 py-2">
+                  <div class="flex flex-wrap gap-1">
+                    <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="soft" @click="startTransactionEdit(row.raw)">Edit</UButton>
+                    <UButton icon="i-lucide-trash-2" size="xs" color="error" variant="soft" @click="deleteBankTransaction(row.raw)">Delete</UButton>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div v-else-if="activeTab === 'cheques'" class="overflow-hidden rounded-lg border border-default">
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[980px] text-left text-sm">
+            <thead class="bg-muted/30 text-xs uppercase text-muted">
+              <tr>
+                <th v-for="column in currentColumns" :key="column.key" class="whitespace-nowrap px-3 py-2 font-medium">{{ column.label }}</th>
+                <th class="whitespace-nowrap px-3 py-2 font-medium">Action</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-default">
+              <tr v-if="filteredRows.length === 0">
+                <td :colspan="currentColumns.length + 1" class="px-3 py-8 text-center text-muted">No cheque rows found.</td>
+              </tr>
+              <tr v-for="row in filteredRows" :key="readText(row, ['id'])" class="bg-default/40">
+                <td v-for="column in currentColumns" :key="column.key" class="max-w-72 truncate px-3 py-2">{{ row[column.key] || '-' }}</td>
+                <td class="px-3 py-2">
+                  <UButton icon="i-lucide-activity" size="xs" color="primary" variant="soft" @click="selectCheque(row.raw)">Lifecycle</UButton>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <BooksMasterTable v-else :columns="currentColumns" :rows="filteredRows" empty-text="No bank operation rows found." />
     </section>
   </section>
 </template>
@@ -95,14 +343,37 @@ import {
 useHead({ title: 'Cash Details - Garmetix Books' })
 
 type BankTab = 'transactions' | 'cheques' | 'vendorBanks' | 'accountDetails' | 'bankAccounts'
+type TransactionFormMode = 'create' | 'edit'
+type StatementActionMode = 'reconcile' | 'unreconcile'
 
-const { get } = useBooksApiClient()
+interface BankTransactionForm {
+  id: string
+  onDate: string
+  bankAccountId: string
+  ledgerId: string
+  partyId: string
+  transactionType: number
+  transactionMode: number
+  narration: string
+  reference: string
+  amount: number
+  personName: string
+}
+
+const { del, get, post, put } = useBooksApiClient()
 const loading = ref(true)
 const statementLoading = ref(false)
+const savingTransaction = ref(false)
+const savingStatementAction = ref(false)
+const savingChequeLifecycle = ref(false)
 const error = ref('')
+const message = ref('')
 const search = ref('')
 const activeTab = ref<BankTab>('transactions')
 const selectedBankAccountId = ref('')
+const setupStatus = ref<ApiRecord | null>(null)
+const companies = ref<ApiRecord[]>([])
+const stores = ref<ApiRecord[]>([])
 const banks = ref<ApiRecord[]>([])
 const ledgers = ref<ApiRecord[]>([])
 const parties = ref<ApiRecord[]>([])
@@ -114,32 +385,91 @@ const vendorBankAccounts = ref<ApiRecord[]>([])
 const bankAccountDetails = ref<ApiRecord[]>([])
 const bankStatement = ref<ApiRecord[]>([])
 const bankReconciliation = ref<ApiRecord | null>(null)
+const showTransactionForm = ref(false)
+const transactionFormMode = ref<TransactionFormMode>('create')
+const transactionConfirmation = ref('')
+const selectedChequeId = ref('')
+
+const transactionForm = reactive<BankTransactionForm>(emptyTransactionForm())
+const statementAction = reactive({
+  lineId: '',
+  mode: 'reconcile' as StatementActionMode,
+  bankTransactionId: '',
+  reconciledAt: localDateValue(),
+  reconciliationReference: '',
+  remarks: '',
+  confirmation: ''
+})
+const chequeLifecycle = reactive({
+  status: 'Issued',
+  actionDate: localDateValue(),
+  bankTransactionId: '',
+  remarks: '',
+  confirmation: ''
+})
 
 const tabs = [
-  { key: 'transactions' as const, label: 'Transactions', icon: 'i-lucide-arrow-left-right', description: 'Posted bank transactions from accounting.' },
+  { key: 'transactions' as const, label: 'Transactions', icon: 'i-lucide-arrow-left-right', description: 'Posted bank transactions from accounting with edit/delete guards.' },
   { key: 'cheques' as const, label: 'Cheques', icon: 'i-lucide-scroll-text', description: 'Issued and deposited cheque lifecycle log.' },
   { key: 'vendorBanks' as const, label: 'Vendor Banks', icon: 'i-lucide-wallet-cards', description: 'Vendor bank account records and linked ledgers.' },
   { key: 'accountDetails' as const, label: 'Account Details', icon: 'i-lucide-key-round', description: 'Bank account access/detail records.' },
   { key: 'bankAccounts' as const, label: 'Bank Accounts', icon: 'i-lucide-landmark', description: 'Company bank account master list.' }
 ]
+const chequeStatusItems = ['Issued', 'Deposited', 'Cleared', 'Bounced', 'Cancelled'].map(value => ({ label: value, value }))
+const transactionTypeSelectItems = transactionTypeOptions.map(item => ({ label: item.label, value: item.value }))
+const transactionModeSelectItems = transactionModeOptions.map(item => ({ label: item.label, value: item.value }))
 const currentTab = computed(() => tabs.find(item => item.key === activeTab.value) ?? tabs[0])
-const bankName = (id: unknown) => readText(banks.value.find(item => item.id === id), ['name'])
-const ledgerName = (id: unknown) => readText(ledgers.value.find(item => item.id === id), ['name'])
-const partyName = (id: unknown) => readText(parties.value.find(item => item.id === id), ['name'])
-const vendorName = (id: unknown) => readText(vendors.value.find(item => item.id === id), ['name', 'vendorName'])
+const bankName = (id: unknown) => readText(banks.value.find(item => readText(item, ['id'], '') === String(id ?? '')), ['name'])
+const ledgerName = (id: unknown) => readText(ledgers.value.find(item => readText(item, ['id'], '') === String(id ?? '')), ['name'])
+const partyName = (id: unknown) => readText(parties.value.find(item => readText(item, ['id'], '') === String(id ?? '')), ['name'])
+const vendorName = (id: unknown) => readText(vendors.value.find(item => readText(item, ['id'], '') === String(id ?? '')), ['name', 'vendorName'])
 const bankAccountLabel = (item: ApiRecord | undefined) => {
   if (!item) return '-'
-  return `${readText(item, ['accountHolderName'], 'Bank')} - ${readText(item, ['accountNumber'])}`.trim()
+  const bank = bankName(item.bankId)
+  const holder = readText(item, ['accountHolderName'], 'Bank')
+  const account = readText(item, ['accountNumber'])
+  return `${bank} - ${holder} - ${account}`.trim()
 }
-const bankAccountName = (id: unknown) => bankAccountLabel(bankAccounts.value.find(item => item.id === id))
+const bankAccountName = (id: unknown) => bankAccountLabel(bankAccounts.value.find(item => readText(item, ['id'], '') === String(id ?? '')))
+const selectedBankAccount = computed(() => bankAccounts.value.find(item => readText(item, ['id'], '') === selectedBankAccountId.value))
+const selectedBankAccountLabel = computed(() => bankAccountName(selectedBankAccountId.value))
+const selectedStoreLabel = computed(() => {
+  const storeId = readText(setupStatus.value, ['storeId'], '') || readText(stores.value[0], ['id'], '')
+  const store = stores.value.find(item => readText(item, ['id'], '') === storeId)
+  return store ? readText(store, ['storeName', 'name'], 'Store') : 'Store not selected'
+})
 const bankAccountOptions = computed(() => {
   const rows = bankAccounts.value.map(item => ({
     label: bankAccountLabel(item),
-    value: String(item.id)
-  }))
+    value: readText(item, ['id'], '')
+  })).filter(item => item.value)
   return rows.length ? rows : [{ label: 'No bank accounts', value: '' }]
 })
-const selectedBankAccountLabel = computed(() => bankAccountName(selectedBankAccountId.value))
+const contraLedgerOptions = computed(() => {
+  const bankLedgerId = readText(selectedBankAccount.value, ['ledgerId'], '')
+  return ledgers.value
+    .filter(item => readText(item, ['id'], '') !== bankLedgerId)
+    .map(item => ({ label: readText(item, ['name']), value: readText(item, ['id'], '') }))
+    .filter(item => item.value)
+})
+const partySelectItems = computed(() => [
+  { label: 'No party', value: '' },
+  ...parties.value.map(item => ({ label: readText(item, ['name']), value: readText(item, ['id'], '') })).filter(item => item.value)
+])
+const bankTransactionSelectItems = computed(() => [
+  { label: 'No linked transaction', value: '' },
+  ...bankTransactions.value
+    .filter(item => !selectedBankAccountId.value || readText(item, ['bankAccountId'], '') === selectedBankAccountId.value)
+    .map(item => ({
+      label: `${formatDate(item.onDate)} - ${readText(item, ['reference'])} - ${formatIndianMoney(readNumber(item, ['amount']))}`,
+      value: readText(item, ['id'], '')
+    }))
+    .filter(item => item.value)
+])
+const chequeSelectItems = computed(() => chequeLogs.value.map(item => ({
+  label: `${readText(item, ['chequeNumber', 'cheequeNumber'])} - ${readText(item, ['personName'])} - ${formatIndianMoney(readNumber(item, ['amount']))}`,
+  value: readText(item, ['id'], '')
+})).filter(item => item.value))
 const statementLines = computed(() => readArray(bankReconciliation.value, ['lines']))
 const cards = computed(() => [
   { label: 'Bank Accounts', value: bankAccounts.value.length, detail: 'Company bank accounts' },
@@ -153,7 +483,8 @@ const reconciliationCards = computed(() => [
   { label: 'Open Credit', value: formatIndianMoney(readNumber(bankReconciliation.value, ['openCredit'])) },
   { label: 'Reconciled Lines', value: readNumber(bankReconciliation.value, ['reconciledLineCount']) }
 ])
-const statementRows = computed(() => (statementLines.value.length ? statementLines.value : bankStatement.value).map(item => ({
+const statementDisplayRows = computed(() => (statementLines.value.length ? statementLines.value : bankStatement.value).map(item => ({
+  id: readText(item, ['id'], ''),
   date: formatDate(item.onDate),
   description: readText(item, ['description']),
   reference: readText(item, ['reference']),
@@ -162,10 +493,13 @@ const statementRows = computed(() => (statementLines.value.length ? statementLin
   credit: formatIndianMoney(readNumber(item, ['credit'])),
   balance: formatIndianMoney(readNumber(item, ['balance'])),
   status: item.reconciled ? 'Reconciled' : 'Open',
-  reconciledAt: formatDate(item.reconciledAt)
+  reconciledAt: formatDate(item.reconciledAt),
+  rawReconciled: Boolean(item.reconciled),
+  raw: item
 })))
 const tableRows = computed<Record<BankTab, ApiRecord[]>>(() => ({
   transactions: bankTransactions.value.map(item => ({
+    id: readText(item, ['id'], ''),
     date: formatDate(item.onDate),
     bank: bankAccountName(item.bankAccountId),
     type: optionLabel(transactionTypeOptions, item.transactionType),
@@ -174,16 +508,19 @@ const tableRows = computed<Record<BankTab, ApiRecord[]>>(() => ({
     party: partyName(item.partyId),
     reference: readText(item, ['reference']),
     person: readText(item, ['personName']),
-    amount: formatIndianMoney(readNumber(item, ['amount']))
+    amount: formatIndianMoney(readNumber(item, ['amount'])),
+    raw: item
   })),
   cheques: chequeLogs.value.map(item => ({
+    id: readText(item, ['id'], ''),
     date: formatDate(item.onDate),
     cheque: readText(item, ['chequeNumber', 'cheequeNumber']),
     bank: bankAccountName(item.bankAccountId),
     person: readText(item, ['personName']),
     narration: readText(item, ['narration']),
     status: readText(item, ['status']),
-    amount: formatIndianMoney(readNumber(item, ['amount']))
+    amount: formatIndianMoney(readNumber(item, ['amount'])),
+    raw: item
   })),
   vendorBanks: vendorBankAccounts.value.map(item => ({
     holder: readText(item, ['accountHolderName']),
@@ -277,42 +614,308 @@ const filteredRows = computed(() => {
   return currentRows.value.filter(row => JSON.stringify(row).toLowerCase().includes(term))
 })
 
+function emptyTransactionForm(): BankTransactionForm {
+  return {
+    id: '',
+    onDate: localDateValue(),
+    bankAccountId: '',
+    ledgerId: '',
+    partyId: '',
+    transactionType: 0,
+    transactionMode: 0,
+    narration: '',
+    reference: '',
+    amount: 0,
+    personName: ''
+  }
+}
+
+function localDateValue(value: unknown = new Date()) {
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10)
+  const date = value instanceof Date ? value : new Date(String(value || new Date()))
+  if (Number.isNaN(date.getTime())) return localDateValue(new Date())
+  const offsetMs = date.getTimezoneOffset() * 60_000
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 10)
+}
+
+function accountingDateTimeForApi(value: string) {
+  return `${localDateValue(value)}T00:00:00`
+}
+
+function setupIds() {
+  const selectedStoreId = readText(setupStatus.value, ['storeId'], '') || readText(stores.value[0], ['id'], '')
+  const selectedStore = stores.value.find(item => readText(item, ['id'], '') === selectedStoreId) ?? stores.value[0]
+  const companyId = readText(selectedBankAccount.value, ['companyId'], '') || readText(setupStatus.value, ['companyId'], '') || readText(selectedStore, ['companyId'], '') || readText(companies.value[0], ['id'], '')
+  const storeGroupId = readText(setupStatus.value, ['storeGroupId'], '') || readText(selectedStore, ['storeGroupId'], '')
+  const storeId = selectedStoreId || readText(selectedStore, ['id'], '')
+
+  if (!companyId || !storeGroupId || !storeId) throw new Error('Run quick setup before saving bank transactions.')
+  return { companyId, storeGroupId, storeId }
+}
+
+function startTransactionCreate() {
+  activeTab.value = 'transactions'
+  showTransactionForm.value = true
+  transactionFormMode.value = 'create'
+  Object.assign(transactionForm, emptyTransactionForm())
+  transactionForm.bankAccountId = selectedBankAccountId.value || readText(bankAccounts.value[0], ['id'], '')
+  transactionForm.ledgerId = contraLedgerOptions.value[0]?.value || ''
+  transactionConfirmation.value = ''
+  error.value = ''
+  message.value = ''
+}
+
+function startTransactionEdit(transaction: ApiRecord | undefined) {
+  if (!transaction) return
+  activeTab.value = 'transactions'
+  showTransactionForm.value = true
+  transactionFormMode.value = 'edit'
+  Object.assign(transactionForm, {
+    id: readText(transaction, ['id'], ''),
+    onDate: localDateValue(transaction.onDate),
+    bankAccountId: readText(transaction, ['bankAccountId'], ''),
+    ledgerId: readText(transaction, ['ledgerId'], ''),
+    partyId: readText(transaction, ['partyId'], ''),
+    transactionType: Number(transaction.transactionType ?? 0),
+    transactionMode: Number(transaction.transactionMode ?? 0),
+    narration: readText(transaction, ['narration'], ''),
+    reference: readText(transaction, ['reference'], ''),
+    amount: readNumber(transaction, ['amount']),
+    personName: readText(transaction, ['personName'], '')
+  })
+  selectedBankAccountId.value = transactionForm.bankAccountId || selectedBankAccountId.value
+  transactionConfirmation.value = ''
+  error.value = ''
+  message.value = ''
+}
+
+function cancelTransactionForm() {
+  showTransactionForm.value = false
+  transactionConfirmation.value = ''
+}
+
+function buildTransactionPayload() {
+  if (transactionConfirmation.value !== 'POST BANK TRANSACTION') throw new Error('Type POST BANK TRANSACTION before saving.')
+  if (!transactionForm.bankAccountId) throw new Error('Select bank account before saving.')
+  if (!transactionForm.ledgerId) throw new Error('Select contra ledger before saving.')
+  if (Number(transactionForm.amount || 0) <= 0) throw new Error('Enter amount greater than zero.')
+  const { companyId, storeGroupId, storeId } = setupIds()
+
+  return {
+    id: transactionFormMode.value === 'edit' && transactionForm.id ? transactionForm.id : null,
+    companyId,
+    storeGroupId,
+    storeId,
+    bankAccountId: transactionForm.bankAccountId,
+    ledgerId: transactionForm.ledgerId,
+    partyId: transactionForm.partyId || null,
+    onDate: accountingDateTimeForApi(transactionForm.onDate),
+    transactionType: Number(transactionForm.transactionType),
+    transactionMode: Number(transactionForm.transactionMode),
+    narration: String(transactionForm.narration || '').trim(),
+    reference: String(transactionForm.reference || '').trim() || null,
+    amount: Number(transactionForm.amount || 0),
+    personName: String(transactionForm.personName || '').trim() || null
+  }
+}
+
+async function saveBankTransaction() {
+  savingTransaction.value = true
+  error.value = ''
+  message.value = ''
+  try {
+    const payload = buildTransactionPayload()
+    if (transactionFormMode.value === 'edit' && transactionForm.id) {
+      await put<unknown>(`accounting/bank-transactions/${transactionForm.id}`, payload)
+      message.value = 'Bank transaction updated.'
+    } else {
+      await post<unknown>('accounting/bank-transactions', payload)
+      message.value = 'Bank transaction posted.'
+    }
+    showTransactionForm.value = false
+    transactionConfirmation.value = ''
+    await refresh()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to save bank transaction.'
+  } finally {
+    savingTransaction.value = false
+  }
+}
+
+async function deleteBankTransaction(transaction: ApiRecord | undefined) {
+  if (!transaction) return
+  const reference = readText(transaction, ['reference'])
+  const confirmation = window.prompt(`Type DELETE BANK TRANSACTION to delete bank transaction ${reference}.`)
+  if (confirmation !== 'DELETE BANK TRANSACTION') return
+  error.value = ''
+  message.value = ''
+  try {
+    await del<unknown>(`accounting/bank-transactions/${readText(transaction, ['id'], '')}`)
+    message.value = 'Bank transaction deleted.'
+    await refresh()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to delete bank transaction.'
+  }
+}
+
+function startStatementAction(line: ApiRecord, mode: StatementActionMode) {
+  Object.assign(statementAction, {
+    lineId: readText(line, ['id'], ''),
+    mode,
+    bankTransactionId: readText(line, ['bankTransactionId'], ''),
+    reconciledAt: localDateValue(),
+    reconciliationReference: readText(line.raw as ApiRecord, ['reconciliationReference', 'reference'], ''),
+    remarks: readText(line.raw as ApiRecord, ['reconciliationRemarks'], ''),
+    confirmation: ''
+  })
+  error.value = ''
+  message.value = ''
+}
+
+function clearStatementAction() {
+  Object.assign(statementAction, {
+    lineId: '',
+    mode: 'reconcile' as StatementActionMode,
+    bankTransactionId: '',
+    reconciledAt: localDateValue(),
+    reconciliationReference: '',
+    remarks: '',
+    confirmation: ''
+  })
+}
+
+async function submitStatementAction() {
+  if (!statementAction.lineId) return
+  const expected = statementAction.mode === 'reconcile' ? 'RECONCILE BANK LINE' : 'UNRECONCILE BANK LINE'
+  if (statementAction.confirmation !== expected) {
+    error.value = `Type ${expected} before saving.`
+    return
+  }
+
+  savingStatementAction.value = true
+  error.value = ''
+  message.value = ''
+  try {
+    const payload = {
+      bankTransactionId: statementAction.mode === 'reconcile' && statementAction.bankTransactionId ? statementAction.bankTransactionId : null,
+      reconciledAt: accountingDateTimeForApi(statementAction.reconciledAt),
+      reconciliationReference: String(statementAction.reconciliationReference || '').trim() || null,
+      remarks: String(statementAction.remarks || '').trim() || null
+    }
+    await post<unknown>(`accounting/bank-statement-lines/${statementAction.lineId}/${statementAction.mode}`, payload)
+    message.value = statementAction.mode === 'reconcile' ? 'Bank statement line reconciled.' : 'Bank statement line unreconciled.'
+    clearStatementAction()
+    await loadBankStatement()
+    await loadBankOperations()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to save reconciliation.'
+  } finally {
+    savingStatementAction.value = false
+  }
+}
+
+function selectCheque(cheque: ApiRecord | undefined) {
+  if (!cheque) return
+  selectedChequeId.value = readText(cheque, ['id'], '')
+  Object.assign(chequeLifecycle, {
+    status: readText(cheque, ['status'], 'Issued') || 'Issued',
+    actionDate: localDateValue(),
+    bankTransactionId: readText(cheque, ['bankTransactionId'], ''),
+    remarks: readText(cheque, ['lifecycleRemarks'], ''),
+    confirmation: ''
+  })
+}
+
+async function saveChequeLifecycle() {
+  if (!selectedChequeId.value) {
+    error.value = 'Select a cheque before saving lifecycle.'
+    return
+  }
+  if (chequeLifecycle.confirmation !== 'UPDATE CHEQUE STATUS') {
+    error.value = 'Type UPDATE CHEQUE STATUS before saving.'
+    return
+  }
+
+  savingChequeLifecycle.value = true
+  error.value = ''
+  message.value = ''
+  try {
+    await post<unknown>(`accounting/cheque-logs/${selectedChequeId.value}/lifecycle`, {
+      status: chequeLifecycle.status,
+      actionDate: accountingDateTimeForApi(chequeLifecycle.actionDate),
+      remarks: String(chequeLifecycle.remarks || '').trim() || null,
+      bankTransactionId: chequeLifecycle.bankTransactionId || null
+    })
+    message.value = 'Cheque lifecycle updated.'
+    chequeLifecycle.confirmation = ''
+    await loadBankOperations()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to update cheque lifecycle.'
+  } finally {
+    savingChequeLifecycle.value = false
+  }
+}
+
 async function refresh() {
   loading.value = true
   error.value = ''
   try {
-    const [bankData, ledgerData, partyData, vendorData, bankAccountData, transactionData, chequeData, vendorBankData, detailData] = await Promise.allSettled([
+    const [setupData, companyData, storeData, bankData, ledgerData, partyData, vendorData, bankAccountData] = await Promise.allSettled([
+      get<unknown>('setup/status'),
+      get<unknown>('companies'),
+      get<unknown>('stores'),
       get<unknown>('banks'),
       get<unknown>('ledgers'),
       get<unknown>('parties'),
       get<unknown>('vendors'),
-      get<unknown>('bank-accounts'),
-      get<unknown>('accounting/bank-transactions'),
-      get<unknown>('cheque-logs'),
-      get<unknown>('vendor-bank-accounts'),
-      get<unknown>('bank-account-details')
+      get<unknown>('bank-accounts')
     ])
+    if (setupData.status === 'fulfilled' && setupData.value && typeof setupData.value === 'object') setupStatus.value = setupData.value as ApiRecord
+    if (companyData.status === 'fulfilled') companies.value = toRows(companyData.value)
+    if (storeData.status === 'fulfilled') stores.value = toRows(storeData.value)
     if (bankData.status === 'fulfilled') banks.value = toRows(bankData.value)
     if (ledgerData.status === 'fulfilled') ledgers.value = toRows(ledgerData.value)
     if (partyData.status === 'fulfilled') parties.value = toRows(partyData.value)
     if (vendorData.status === 'fulfilled') vendors.value = toRows(vendorData.value)
     if (bankAccountData.status === 'fulfilled') bankAccounts.value = toRows(bankAccountData.value)
-    if (transactionData.status === 'fulfilled') bankTransactions.value = toRows(transactionData.value)
-    if (chequeData.status === 'fulfilled') chequeLogs.value = toRows(chequeData.value)
-    if (vendorBankData.status === 'fulfilled') vendorBankAccounts.value = toRows(vendorBankData.value)
-    if (detailData.status === 'fulfilled') bankAccountDetails.value = toRows(detailData.value)
-    if (!selectedBankAccountId.value && bankAccounts.value.length) {
-      selectedBankAccountId.value = String(bankAccounts.value[0]?.id ?? '')
-    } else {
-      await loadBankStatement()
+
+    if (!ledgers.value.length || !bankAccounts.value.length) {
+      await post<unknown>('setup/accounting-defaults', {})
+      const [refreshedLedgers, refreshedBankAccounts] = await Promise.all([
+        get<unknown>('ledgers'),
+        get<unknown>('bank-accounts')
+      ])
+      ledgers.value = toRows(refreshedLedgers)
+      bankAccounts.value = toRows(refreshedBankAccounts)
     }
-    const failed = [bankData, ledgerData, partyData, vendorData, bankAccountData, transactionData, chequeData, vendorBankData, detailData].filter(item => item.status === 'rejected').length
-    if (failed) error.value = `${failed} bank operation request(s) could not be loaded.`
+
+    if (!selectedBankAccountId.value && bankAccounts.value.length) {
+      selectedBankAccountId.value = readText(bankAccounts.value[0], ['id'], '')
+    }
+    await loadBankOperations()
+    await loadBankStatement()
+    if (!transactionForm.bankAccountId) transactionForm.bankAccountId = selectedBankAccountId.value
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Unable to load bank operations.'
   } finally {
     loading.value = false
   }
+}
+
+async function loadBankOperations() {
+  const [transactionData, chequeData, vendorBankData, detailData] = await Promise.allSettled([
+    get<unknown>('accounting/bank-transactions'),
+    get<unknown>('cheque-logs'),
+    get<unknown>('vendor-bank-accounts'),
+    get<unknown>('bank-account-details')
+  ])
+  if (transactionData.status === 'fulfilled') bankTransactions.value = toRows(transactionData.value)
+  if (chequeData.status === 'fulfilled') chequeLogs.value = toRows(chequeData.value)
+  if (vendorBankData.status === 'fulfilled') vendorBankAccounts.value = toRows(vendorBankData.value)
+  if (detailData.status === 'fulfilled') bankAccountDetails.value = toRows(detailData.value)
+  const failed = [transactionData, chequeData, vendorBankData, detailData].filter(item => item.status === 'rejected').length
+  if (failed) error.value = `${failed} bank operation request(s) could not be loaded.`
+  if (!selectedChequeId.value && chequeLogs.value.length) selectCheque(chequeLogs.value[0])
 }
 
 async function loadBankStatement() {
@@ -338,7 +941,14 @@ async function loadBankStatement() {
 }
 
 watch(selectedBankAccountId, () => {
+  transactionForm.bankAccountId = selectedBankAccountId.value || transactionForm.bankAccountId
+  clearStatementAction()
   loadBankStatement()
+})
+
+watch(selectedChequeId, () => {
+  const cheque = chequeLogs.value.find(item => readText(item, ['id'], '') === selectedChequeId.value)
+  if (cheque) selectCheque(cheque)
 })
 
 onMounted(refresh)

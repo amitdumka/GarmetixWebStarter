@@ -162,7 +162,7 @@ function checkBooksPages() {
 
 function checkTodoHandoff() {
   const todo = readFileSync(join(modularRoot, 'docs/MODULAR_TODO.md'), 'utf8')
-  const markers = ['## Stage 14C', '14C.1 complete', 'Stage 14C.2 next']
+  const markers = ['## Stage 14C', '14C.1 complete', '14C.2 complete']
   for (const marker of markers) {
     if (!todo.includes(marker)) failures.push(`MODULAR_TODO missing marker: ${marker}`)
   }

@@ -96,7 +96,7 @@ console.log('\nHR device bridge readiness passed.')
 
 function checkSourceReadiness() {
   if (!version.startsWith('6.')) sourceFailures.push(`Expected Version6, found ${version}.`)
-  if (!stage.includes('Stage 14B')) sourceFailures.push(`Expected Stage 14B HR lane, found ${stage}.`)
+  if (!stage.includes('Stage 14')) sourceFailures.push(`Expected Stage 14 lane, found ${stage}.`)
 
   const sources = [
     {

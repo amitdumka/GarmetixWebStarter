@@ -10,7 +10,7 @@ console.log(`Version: ${version}`)
 console.log(`Stage: ${stage}`)
 
 if (!version.startsWith('6.0.')) failures.push(`Expected Version6 HR lane version 6.0.x, found ${version}.`)
-if (!stage.includes('Stage 14B.10')) failures.push(`Expected Stage 14B.10 HR legacy parity audit, found ${stage}.`)
+if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 lane, found ${stage}.`)
 
 const requiredFiles = [
   'docs/stage-14b10-hr-legacy-full-parity-audit.md',

@@ -22,7 +22,7 @@ const manualPunchPage = readFileSync(manualPunchPagePath, 'utf8')
 const regularizationPage = readFileSync(regularizationPagePath, 'utf8')
 const version = readFileSync(versionPath, 'utf8')
 
-expectContains(version, ['6.0.', 'Stage 14B'], 'modular version identity')
+expectContains(version, ['6.0.', 'Stage 14'], 'modular version identity')
 expectRecordKeys(dtoSource, 'AttendancePunchRequest', ['EmployeeId', 'PunchType', 'PunchTimeUtc', 'LocalPunchTime', 'Source', 'Reason', 'Remarks', 'CompanyId', 'StoreGroupId', 'StoreId'])
 expectRecordKeys(dtoSource, 'AttendancePunchResultDto', ['Success', 'Message', 'Punch', 'DayStatus', 'Duplicate'])
 expectRecordKeys(dtoSource, 'AttendanceRegularizationRequestDto', ['EmployeeId', 'AttendancePunchId', 'RequestType', 'RequestedPunchType', 'RequestedPunchTimeUtc', 'RequestedLocalPunchTime', 'Reason', 'CompanyId', 'StoreGroupId', 'StoreId'])

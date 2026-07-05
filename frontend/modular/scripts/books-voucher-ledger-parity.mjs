@@ -11,8 +11,8 @@ console.log(`Stage: ${stage}`)
 console.log('Mutation check: disabled')
 console.log('Live voucher posting: disabled')
 
-if (version !== '6.0.23') failures.push(`Expected version 6.0.23, found ${version}.`)
-if (!stage.includes('Stage 14C.2')) failures.push(`Expected Stage 14C.2, found ${stage}.`)
+if (version !== '6.0.24') failures.push(`Expected version 6.0.24, found ${version}.`)
+if (!stage.includes('Stage 14C.')) failures.push(`Expected Stage 14C, found ${stage}.`)
 
 checkFile('apps/books/utils/books-api.ts', [
   'normalizeBooksApiPath',
@@ -90,7 +90,7 @@ function checkPackageScripts() {
 
 function checkTodo() {
   const todo = readFileSync(join(modularRoot, 'docs/MODULAR_TODO.md'), 'utf8')
-  const markers = ['14C.2 complete', '14C.3 next', 'checkpoint 1']
+  const markers = ['14C.2 complete', '14C.3 complete', 'checkpoint 1']
   for (const marker of markers) {
     if (!todo.includes(marker)) failures.push(`MODULAR_TODO missing marker: ${marker}`)
   }

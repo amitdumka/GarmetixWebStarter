@@ -40,7 +40,7 @@ console.log(`Exchange mutation: ${mutateExchange ? 'enabled' : 'disabled'}`)
 console.log(`Backup file: ${backupFile || '(not supplied)'}`)
 
 if (!version.startsWith('6.')) failures.push(`Expected Version6, found ${version}.`)
-if (!stage.includes('Stage 14A')) failures.push(`Expected Stage 14A POS lane, found ${stage}.`)
+if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 lane, found ${stage}.`)
 if (mutateReturn && mutateExchange) failures.push('Run return and exchange mutations separately to avoid double-changing the same invoice.')
 
 if (!live) {

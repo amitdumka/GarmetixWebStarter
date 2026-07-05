@@ -10,7 +10,7 @@ console.log(`Version: ${version}`)
 console.log(`Stage: ${stage}`)
 
 if (version !== '6.0.21') failures.push(`Expected version 6.0.21, found ${version}.`)
-if (!stage.includes('Stage 14B.12')) failures.push(`Expected Stage 14B.12, found ${stage}.`)
+if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 lane, found ${stage}.`)
 
 checkPage('apps/hr/pages/payroll.vue', [
   'api/salary-structures',

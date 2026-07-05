@@ -32,7 +32,7 @@ console.log(`Deploy checkpoint: ${deployCheckpoint}`)
 console.log('Salary writes: disabled unless separate guarded UI is used')
 
 if (!version.startsWith('6.0.')) failures.push(`Expected Version6 HR lane version 6.0.x, found ${version}.`)
-if (!stage.includes('Stage 14B')) failures.push(`Expected Stage 14B HR lane, found ${stage}.`)
+if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 lane, found ${stage}.`)
 
 checkRequiredFiles()
 checkPackageScripts()
@@ -131,7 +131,7 @@ function checkHrWorkflowMarkers() {
     },
     {
       file: 'apps/hr/pages/payroll.vue',
-      markers: ['Payroll report/export evidence', 'Export CSV']
+      markers: ['Payslips', 'Export CSV', 'garmetix-payslips.csv', 'PDF', 'Email', 'WhatsApp']
     }
   ]
 

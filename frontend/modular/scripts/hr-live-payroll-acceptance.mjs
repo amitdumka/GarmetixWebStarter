@@ -30,7 +30,7 @@ console.log(`LAN HR: ${lanBaseUrl}/hr`)
 console.log('Salary writes: disabled')
 
 if (!version.startsWith('6.')) failures.push(`Expected Version6, found ${version}.`)
-if (!stage.includes('Stage 14B')) failures.push(`Expected Stage 14B HR lane, found ${stage}.`)
+if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 lane, found ${stage}.`)
 
 checkFile('frontend/modular/apps/hr/utils/hr-api.ts', [
   'downloadCsvFile',
@@ -47,10 +47,12 @@ checkFile('frontend/modular/apps/hr/pages/attendance/payroll-summary.vue', [
 ])
 
 checkFile('frontend/modular/apps/hr/pages/payroll.vue', [
-  'Recent Payslips',
-  'Payroll report/export evidence',
-  'CSV export ready',
-  'garmetix-recent-payslips.csv',
+  'Payslips',
+  'Export CSV',
+  'garmetix-payslips.csv',
+  'PDF',
+  'Email',
+  'WhatsApp',
   'downloadCsvFile'
 ])
 

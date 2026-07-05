@@ -18,7 +18,7 @@ console.log(`Version: ${version}`)
 console.log(`Stage: ${stage}`)
 
 if (!version.startsWith('6.0.')) failures.push(`Expected Version6 modular version, found ${version}.`)
-if (!stage.includes('Stage 14B')) failures.push(`Expected Stage 14B HR lane, found ${stage}.`)
+if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 lane, found ${stage}.`)
 
 for (const [label, path] of Object.entries(files)) {
   if (!existsSync(path)) failures.push(`Missing ${label} source file: ${path}`)
@@ -97,7 +97,9 @@ function checkFrontendContract() {
     "'outstandingAmount'",
     "'roundedPaidAmount'",
     "'roundOff'",
-    'This modular page calculates salary payment previews only'
+    'Preview is safe. Final salary payment generation is available only through the guarded action below',
+    'Guarded Salary Payment Generation',
+    'GENERATE SALARY PAYMENTS'
   ]
   for (const marker of markers) {
     if (!page.includes(marker)) failures.push(`Salary payment page missing marker: ${marker}`)

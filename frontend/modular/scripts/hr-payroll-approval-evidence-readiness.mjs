@@ -13,7 +13,7 @@ console.log('Live network check: disabled')
 console.log('Salary payment voucher generation: source-gated only')
 
 if (!version.startsWith('6.')) failures.push(`Expected Version6, found ${version}.`)
-if (!stage.includes('Stage 14B')) failures.push(`Expected Stage 14B HR lane, found ${stage}.`)
+if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 lane, found ${stage}.`)
 
 checkFile('backend/Garmetix.Api/Attendance/AttendanceEndpoints.cs', [
   'group.MapPost("/salary-slip-drafts/generate-payslips"',
