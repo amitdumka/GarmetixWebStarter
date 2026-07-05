@@ -11,6 +11,7 @@ const requiredFiles = [
   'apps/pos/pages/login.vue',
   'apps/pos/pages/day-open.vue',
   'apps/pos/pages/sale.vue',
+  'apps/pos/pages/history.vue',
   'apps/pos/pages/hold-bills.vue',
   'apps/pos/pages/returns.vue',
   'apps/pos/pages/exchange.vue',
@@ -36,6 +37,7 @@ const requiredScripts = [
 const requiredRouteMarkers = [
   "id: 'pos-day-open', path: '/day-open'",
   "id: 'billing-new', path: '/sale'",
+  "id: 'pos-history', path: '/history'",
   "id: 'pos-held-bills', path: '/hold-bills'",
   "id: 'sales-return', path: '/returns'",
   "id: 'sales-exchange', path: '/exchange'",

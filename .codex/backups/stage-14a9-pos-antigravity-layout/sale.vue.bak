@@ -1,66 +1,113 @@
 <template>
-  <div class="h-screen w-screen overflow-hidden flex flex-col bg-elevated/25 text-sm">
-    <!-- Top Bar -->
-    <header class="h-14 shrink-0 flex items-center justify-between border-b border-default px-4 bg-background">
-      <div class="flex items-center gap-6">
-        <NuxtLink to="/" class="font-bold text-highlighted flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <UIcon name="i-lucide-arrow-left" class="size-5" /> New Sale
-        </NuxtLink>
-        <div class="h-6 w-px bg-default hidden sm:block"></div>
-        <div class="flex items-center gap-3">
-          <USelect v-model="form.storeId" :items="storeOptions" placeholder="Select store" size="sm" class="w-48" @change="onStoreChanged" />
-          <USelect v-model="form.salesmanId" :items="salesmanOptions" placeholder="Manager" size="sm" class="w-40" />
+  <section class="garmetix-page-stack" :aria-busy="loading">
+    <div class="garmetix-dashboard-hero">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p class="garmetix-kicker"><UIcon name="i-lucide-scan-barcode" class="size-4" /> Counter billing</p>
+          <h2 class="garmetix-dashboard-title">New Sale</h2>
+          <p class="garmetix-dashboard-subtitle">
+            Draft, scan, total, save and print using the existing Garmetix billing API.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <UButton color="neutral" variant="soft" icon="i-lucide-refresh-cw" :loading="loading" @click="refresh">Refresh</UButton>
+          <UButton color="neutral" variant="soft" icon="i-lucide-pause-circle" :loading="holding" :disabled="!cart.length || holding" @click="holdCurrentBill">Hold Bill</UButton>
+          <UButton icon="i-lucide-printer" :loading="saving" :disabled="!canSave" @click="saveAndPrint">Save & Print</UButton>
         </div>
       </div>
-      <div class="flex items-center gap-2">
-        <UButton color="neutral" variant="ghost" icon="i-lucide-refresh-cw" :loading="loading" @click="refresh" />
-        <UButton color="warning" variant="soft" icon="i-lucide-pause-circle" :loading="holding" :disabled="!cart.length || holding" @click="holdCurrentBill">Hold Bill</UButton>
+    </div>
+
+    <UAlert v-if="message" :color="messageTone" variant="subtle" :icon="messageIcon" :description="message" />
+
+    <section class="space-y-4">
+      <div class="garmetix-section-card grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <UFormField label="Store" name="storeId">
+          <USelect v-model="form.storeId" :items="storeOptions" placeholder="Select store" @change="onStoreChanged" />
+        </UFormField>
+        <UFormField label="Salesman" name="salesmanId">
+          <USelect v-model="form.salesmanId" :items="salesmanOptions" placeholder="Manager" />
+        </UFormField>
+        <UFormField label="Customer mobile" name="customerMobileNumber">
+          <UInput v-model="form.customerMobileNumber" icon="i-lucide-phone" placeholder="Optional" @keyup.enter="searchCustomer" />
+        </UFormField>
+        <UFormField label="Customer name" name="customerName">
+          <UInput v-model="form.customerName" icon="i-lucide-user-round" />
+        </UFormField>
       </div>
-    </header>
 
-    <!-- Main Split Area -->
-    <main class="flex-1 flex overflow-hidden">
-      <!-- Left Column (Cart & Scanner) -->
-      <section class="flex-1 flex flex-col border-r border-default bg-background relative min-w-0">
-        
-        <!-- Alerts overlay (floating) -->
-        <div v-if="message" class="absolute top-4 left-1/2 -translate-x-1/2 z-10 w-full max-w-md shadow-lg rounded-lg">
-          <UAlert :color="messageTone" variant="solid" :icon="messageIcon" :description="message" />
+      <div class="garmetix-section-card grid gap-3 lg:grid-cols-[1fr_1fr_auto]">
+        <UFormField label="Customer search" name="customerSearch">
+          <UInput v-model="customerSearch" icon="i-lucide-search" placeholder="Mobile, name or GSTIN" @keyup.enter="searchCustomer" />
+        </UFormField>
+        <UFormField label="Matched customer" name="customerMatch">
+          <USelect v-model="selectedCustomerId" :items="customerMatchOptions" placeholder="Walk-in / new customer" @change="selectCustomer" />
+        </UFormField>
+        <div class="flex items-end gap-2">
+          <UButton icon="i-lucide-search" :loading="searchingCustomer" @click="searchCustomer">Search</UButton>
+          <UButton color="neutral" variant="soft" icon="i-lucide-user-x" @click="clearCustomer">Clear</UButton>
         </div>
+        <UFormField label="Customer GSTIN" name="customerGstin">
+          <UInput v-model="form.customerGstin" icon="i-lucide-badge-indian-rupee" placeholder="Optional B2B GSTIN" />
+        </UFormField>
+        <div v-if="selectedCustomerProfile" class="grid gap-2 text-sm lg:col-span-2 lg:grid-cols-4">
+          <div class="garmetix-metric-card"><p class="garmetix-metric-label">Credit</p><strong>{{ money(selectedCustomerProfile.customer?.creditBalance || 0) }}</strong></div>
+          <div class="garmetix-metric-card"><p class="garmetix-metric-label">Loyalty points</p><strong>{{ Number(selectedCustomerProfile.customer?.loyaltyPoints || 0) }}</strong></div>
+          <div class="garmetix-metric-card"><p class="garmetix-metric-label">Credit notes</p><strong>{{ selectedCustomerProfile.creditNotes?.length || 0 }}</strong></div>
+          <div class="garmetix-metric-card"><p class="garmetix-metric-label">Advances</p><strong>{{ selectedCustomerProfile.advanceReceipts?.length || 0 }}</strong></div>
+        </div>
+      </div>
 
-        <!-- Scanner Pinned -->
-        <div class="p-4 border-b border-default shrink-0 bg-muted/10 grid gap-3 lg:grid-cols-[1fr_110px_110px_104px]">
-          <UFormField name="productSearch">
+      <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div class="garmetix-section-card grid gap-3 lg:grid-cols-[1fr_110px_110px_104px]">
+          <UFormField label="Barcode / product" name="productSearch">
             <UInput
               ref="productSearchInput"
               v-model="productSearch"
               list="pos-product-suggestions"
               icon="i-lucide-scan-line"
               placeholder="Scan barcode or type product name"
-              size="lg"
               autofocus
               data-pos-product-search
               @change="selectProductFromInput"
               @keyup.enter="lookupAndAdd"
-              :loading="productLoading"
             />
             <datalist id="pos-product-suggestions">
               <option v-for="item in productSuggestions" :key="`${item.productId}:${item.barcode}`" :value="suggestionLabel(item)" />
             </datalist>
           </UFormField>
-          <UFormField name="quantity">
-            <UInput v-model="quantity" inputmode="decimal" size="lg" placeholder="Qty" />
+          <UFormField label="Qty" name="quantity">
+            <UInput v-model="quantity" inputmode="decimal" />
           </UFormField>
-          <UFormField name="discount">
-            <UInput v-model="lineDiscount" size="lg" placeholder="Disc (10%)" />
+          <UFormField label="Disc / unit" name="discount">
+            <UInput v-model="lineDiscount" placeholder="0 or 10%" />
           </UFormField>
-          <UButton size="lg" icon="i-lucide-plus" :loading="productLoading" @click="lookupAndAdd" block>Add</UButton>
+          <div class="flex items-end">
+            <UButton class="w-full" icon="i-lucide-plus" :loading="productLoading" @click="lookupAndAdd">Add</UButton>
+          </div>
         </div>
 
-        <!-- Cart Table Scrollable -->
-        <div class="flex-1 overflow-y-auto">
-          <table class="w-full text-sm">
-            <thead class="bg-muted/30 text-left text-xs uppercase text-muted sticky top-0 z-10 shadow-sm backdrop-blur-sm">
+        <div class="garmetix-detail-panel">
+          <h3 class="garmetix-panel-title">Totals</h3>
+          <dl class="mt-4 space-y-2 text-sm">
+            <div class="flex justify-between gap-3"><dt class="text-muted">Items</dt><dd>{{ cart.length }}</dd></div>
+            <div class="flex justify-between gap-3"><dt class="text-muted">Quantity</dt><dd>{{ totalQuantity }}</dd></div>
+            <div class="flex justify-between gap-3"><dt class="text-muted">Gross</dt><dd>{{ money(cartTotal) }}</dd></div>
+            <div class="flex items-center justify-between gap-3">
+              <dt class="text-muted">Bill discount</dt>
+              <dd class="w-28"><UInput v-model="form.billDiscountAmount" size="xs" inputmode="decimal" @input="syncCashPayment" /></dd>
+            </div>
+            <div class="flex justify-between gap-3"><dt class="text-muted">Round off</dt><dd>{{ money(roundOff) }}</dd></div>
+            <div class="flex justify-between gap-3 border-t border-default pt-2 text-lg font-semibold"><dt>Payable</dt><dd>{{ money(payableTotal) }}</dd></div>
+            <div class="flex justify-between gap-3"><dt class="text-muted">Adjustments</dt><dd>{{ money(adjustmentTotal) }}</dd></div>
+            <div class="flex justify-between gap-3"><dt class="text-muted">Paid</dt><dd>{{ money(paymentTotal) }}</dd></div>
+            <div class="flex justify-between gap-3"><dt class="text-muted">Balance</dt><dd>{{ money(paymentBalance) }}</dd></div>
+          </dl>
+          <UButton class="mt-4" block icon="i-lucide-printer" :loading="saving" :disabled="!canSave" @click="saveAndPrint">Save & Print</UButton>
+        </div>
+
+        <div class="garmetix-table-panel overflow-x-auto xl:col-span-2">
+          <table class="w-full min-w-[760px] border-collapse text-sm">
+            <thead class="bg-muted/30 text-left text-xs uppercase text-muted">
               <tr>
                 <th class="border-b border-default p-3">Item</th>
                 <th class="border-b border-default p-3">Barcode</th>
@@ -69,193 +116,86 @@
                 <th class="border-b border-default p-3 text-right">Discount</th>
                 <th class="border-b border-default p-3 text-right">Tax</th>
                 <th class="border-b border-default p-3 text-right">Total</th>
-                <th class="border-b border-default p-3 w-12"></th>
+                <th class="border-b border-default p-3"></th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="!cart.length">
-                <td colspan="8" class="p-12 text-center text-muted flex-col gap-2">
-                  <UIcon name="i-lucide-shopping-basket" class="size-12 opacity-20 mx-auto mb-2 block" />
-                  Scan or search a product to begin the invoice.
-                </td>
+                <td colspan="8" class="p-6 text-center text-muted">Scan or search a product to begin the invoice.</td>
               </tr>
-              <tr v-for="(item, index) in cart" :key="`${item.productId}:${item.barcode}:${index}`" class="hover:bg-muted/5 transition-colors">
+              <tr v-for="(item, index) in cart" :key="`${item.productId}:${item.barcode}:${index}`">
                 <td class="border-b border-default p-3">
-                  <strong class="text-highlighted">{{ item.name }}</strong>
-                  <small class="block text-muted">{{ item.unit || 'Unit' }} | Avail: {{ item.availableQty }}</small>
+                  <strong>{{ item.name }}</strong>
+                  <small class="block text-muted">{{ item.unit || 'Unit' }} | Available {{ item.availableQty }}</small>
                 </td>
-                <td class="border-b border-default p-3 tabular-nums">{{ item.barcode }}</td>
-                <td class="border-b border-default p-3 text-right tabular-nums">{{ item.quantity }}</td>
-                <td class="border-b border-default p-3 text-right tabular-nums">{{ money(item.mrp) }}</td>
-                <td class="border-b border-default p-3 text-right tabular-nums text-error">{{ item.discountAmount ? '-' + money(item.discountAmount) : '' }}</td>
-                <td class="border-b border-default p-3 text-right tabular-nums">{{ item.taxRate }}%</td>
-                <td class="border-b border-default p-3 text-right font-semibold tabular-nums">{{ money(lineTotal(item)) }}</td>
+                <td class="border-b border-default p-3">{{ item.barcode }}</td>
+                <td class="border-b border-default p-3 text-right">{{ item.quantity }}</td>
+                <td class="border-b border-default p-3 text-right">{{ money(item.mrp) }}</td>
+                <td class="border-b border-default p-3 text-right">{{ money(item.discountAmount) }}</td>
+                <td class="border-b border-default p-3 text-right">{{ item.taxRate }}%</td>
+                <td class="border-b border-default p-3 text-right font-semibold">{{ money(lineTotal(item)) }}</td>
                 <td class="border-b border-default p-3 text-right">
-                  <UButton color="error" variant="ghost" size="sm" icon="i-lucide-trash-2" @click="removeItem(index)" />
+                  <UButton color="error" variant="ghost" size="xs" icon="i-lucide-trash-2" @click="removeItem(index)" />
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
+      </div>
 
-        <!-- Payments Footer (Left Side) -->
-        <div class="shrink-0 border-t border-default bg-muted/5 p-4 flex flex-col gap-2">
-          <div class="flex items-center justify-between mb-1">
-            <h3 class="font-semibold text-highlighted flex items-center gap-2"><UIcon name="i-lucide-wallet" /> Payments</h3>
-            <UButton color="neutral" variant="ghost" size="xs" icon="i-lucide-plus" @click="addPayment">Add payment row</UButton>
-          </div>
-          <div class="flex flex-col gap-2 max-h-32 overflow-y-auto">
-            <div v-for="(payment, index) in payments" :key="index" class="flex items-end gap-2">
-              <USelect v-model="payment.paymentMode" :items="paymentModeOptions" @change="syncCashPayment" size="sm" class="w-40 shrink-0" />
-              <UInput v-model="payment.amount" inputmode="decimal" @input="syncCashPayment(false)" size="sm" class="w-32 text-right font-semibold shrink-0" />
-              <USelect v-if="paymentRequiresBank(payment)" v-model="payment.bankAccountId" :items="bankAccountOptions" placeholder="Select bank" size="sm" class="w-48 shrink-0" />
-              <UInput v-if="paymentRequiresBank(payment)" v-model="payment.referenceNumber" :placeholder="paymentReferenceLabel(payment)" size="sm" class="flex-1 min-w-[120px]" />
-              <UButton v-if="payments.length > 1" color="error" variant="ghost" size="sm" icon="i-lucide-trash-2" @click="removePayment(index)" class="shrink-0" />
+      <div class="grid gap-4 xl:grid-cols-2">
+        <div class="garmetix-section-card">
+          <h3 class="garmetix-panel-title">Payment</h3>
+          <div class="mt-4 grid gap-3 lg:grid-cols-2">
+            <div v-for="(payment, index) in payments" :key="index" class="space-y-2 rounded-lg border border-default p-3">
+              <div class="grid grid-cols-2 gap-2">
+                <UFormField label="Mode">
+                  <USelect v-model="payment.paymentMode" :items="paymentModeOptions" @change="syncCashPayment" />
+                </UFormField>
+                <UFormField label="Amount">
+                  <UInput v-model="payment.amount" inputmode="decimal" @input="syncCashPayment(false)" />
+                </UFormField>
+              </div>
+              <UFormField v-if="paymentRequiresBank(payment)" label="Bank account">
+                <USelect v-model="payment.bankAccountId" :items="bankAccountOptions" placeholder="Select bank" />
+              </UFormField>
+              <UFormField v-if="paymentRequiresBank(payment)" label="Reference">
+                <UInput v-model="payment.referenceNumber" :placeholder="paymentReferenceLabel(payment)" />
+              </UFormField>
+              <UButton v-if="payments.length > 1" color="error" variant="ghost" size="xs" icon="i-lucide-trash-2" @click="removePayment(index)">
+                Remove payment
+              </UButton>
             </div>
           </div>
+          <UButton class="mt-3" color="neutral" variant="soft" icon="i-lucide-plus" @click="addPayment">Add payment row</UButton>
         </div>
-      </section>
 
-      <!-- Right Column (Customer, Adjustments, Payments, Totals) -->
-      <section class="w-96 shrink-0 flex flex-col bg-background relative z-20 shadow-[-4px_0_15px_rgba(0,0,0,0.03)]">
-        
-        <!-- Scrollable settings/inputs -->
-        <div class="flex-1 overflow-y-auto p-4 space-y-6">
-          
-          <div class="flex items-center gap-2">
-            <UBadge :color="isB2B ? 'primary' : 'neutral'" variant="soft">{{ isB2B ? 'B2B Sale' : 'B2C Sale' }}</UBadge>
-            <UBadge :color="isInterstate ? 'warning' : 'success'" variant="soft">{{ isInterstate ? 'Interstate (IGST)' : 'Intrastate (CGST/SGST)' }}</UBadge>
-          </div>
-
-          <!-- Customer Section -->
-          <div>
-            <h3 class="font-semibold text-highlighted mb-3 flex items-center gap-2"><UIcon name="i-lucide-user" /> Customer</h3>
-            <div class="space-y-3">
-              <UFormField name="customerSearch">
-                <div class="flex gap-2">
-                  <UInput v-model="customerSearch" icon="i-lucide-search" placeholder="Mobile, name or GSTIN" class="flex-1" @keyup.enter="searchCustomer" />
-                  <UButton icon="i-lucide-search" :loading="searchingCustomer" @click="searchCustomer" />
-                </div>
-              </UFormField>
-              
-              <UFormField v-if="customerMatchOptions.length > 1" name="customerMatch">
-                <USelect v-model="selectedCustomerId" :items="customerMatchOptions" placeholder="Walk-in / new customer" @change="selectCustomer" />
-              </UFormField>
-
-              <div class="grid grid-cols-2 gap-3">
-                <UFormField label="Mobile" name="customerMobileNumber">
-                  <UInput v-model="form.customerMobileNumber" icon="i-lucide-phone" placeholder="Optional" />
-                </UFormField>
-                <UFormField label="Name" name="customerName">
-                  <UInput v-model="form.customerName" icon="i-lucide-user-round" />
-                </UFormField>
-              </div>
-              <UFormField v-if="!selectedCustomerProfile" label="GSTIN" name="customerGstin">
-                <UInput v-model="form.customerGstin" icon="i-lucide-badge-indian-rupee" placeholder="B2B GSTIN (Optional)" />
-              </UFormField>
-            </div>
-
-            <!-- Customer Metrics -->
-            <div v-if="selectedCustomerProfile" class="mt-4 grid grid-cols-2 gap-2 text-xs">
-              <div class="p-2 rounded bg-primary/10 border border-primary/20">
-                <span class="block text-muted mb-0.5">Credit</span>
-                <strong class="text-primary text-sm">{{ money(selectedCustomerProfile.customer?.creditBalance || 0) }}</strong>
-              </div>
-              <div class="p-2 rounded bg-primary/10 border border-primary/20">
-                <span class="block text-muted mb-0.5">Loyalty</span>
-                <strong class="text-primary text-sm">{{ Number(selectedCustomerProfile.customer?.loyaltyPoints || 0) }}</strong>
-              </div>
-            </div>
-          </div>
-
-          <USeparator />
-
-          <!-- Bill Discount -->
-          <div>
-            <UFormField label="Bill Discount">
-              <UInput v-model="form.billDiscountAmount" inputmode="decimal" @input="syncCashPayment" icon="i-lucide-tag" />
+        <div class="garmetix-section-card">
+          <h3 class="garmetix-panel-title">Customer adjustments</h3>
+          <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <UFormField label="Store credit">
+              <UInput v-model="adjustments.storeCreditAmount" inputmode="decimal" :disabled="!selectedCustomerProfile" @input="syncCashPayment" />
+            </UFormField>
+            <UFormField label="Credit note">
+              <USelect v-model="adjustments.creditNoteId" :items="creditNoteOptions" placeholder="Select credit note" :disabled="!creditNoteOptions.length" />
+            </UFormField>
+            <UFormField label="Credit note amount">
+              <UInput v-model="adjustments.creditNoteAmount" inputmode="decimal" :disabled="!adjustments.creditNoteId" @input="syncCashPayment" />
+            </UFormField>
+            <UFormField label="Advance receipt">
+              <USelect v-model="adjustments.advanceReceiptId" :items="advanceOptions" placeholder="Select advance" :disabled="!advanceOptions.length" />
+            </UFormField>
+            <UFormField label="Advance amount">
+              <UInput v-model="adjustments.advanceAmount" inputmode="decimal" :disabled="!adjustments.advanceReceiptId" @input="syncCashPayment" />
+            </UFormField>
+            <UFormField label="Loyalty points">
+              <UInput v-model="adjustments.loyaltyPointsToRedeem" inputmode="decimal" :disabled="!selectedCustomerProfile?.loyaltyProgram?.enabled" @input="syncCashPayment" />
             </UFormField>
           </div>
-
-          <!-- Adjustments Accordion -->
-          <details v-if="customerHasAdjustmentsAvailable" class="group">
-            <summary class="font-semibold text-highlighted cursor-pointer list-none flex items-center justify-between select-none mb-3">
-              <span class="flex items-center gap-2"><UIcon name="i-lucide-sliders-horizontal" /> Adjustments</span>
-              <UIcon name="i-lucide-chevron-down" class="group-open:rotate-180 transition-transform" />
-            </summary>
-            <div class="mt-3 space-y-3">
-              <div class="grid grid-cols-2 gap-3">
-                <UFormField label="Store credit">
-                  <UInput v-model="adjustments.storeCreditAmount" inputmode="decimal" :disabled="!selectedCustomerProfile" @input="syncCashPayment" />
-                </UFormField>
-                <UFormField label="Loyalty">
-                  <UInput v-model="adjustments.loyaltyPointsToRedeem" inputmode="decimal" :disabled="!selectedCustomerProfile?.loyaltyProgram?.enabled" @input="syncCashPayment" />
-                </UFormField>
-              </div>
-              <div class="space-y-2 p-3 rounded-lg border border-default bg-muted/5">
-                <USelect v-model="adjustments.creditNoteId" :items="creditNoteOptions" placeholder="Select credit note" :disabled="!creditNoteOptions.length" size="sm" />
-                <UInput v-model="adjustments.creditNoteAmount" inputmode="decimal" placeholder="Apply amount" :disabled="!adjustments.creditNoteId" @input="syncCashPayment" size="sm" />
-              </div>
-              <div class="space-y-2 p-3 rounded-lg border border-default bg-muted/5">
-                <USelect v-model="adjustments.advanceReceiptId" :items="advanceOptions" placeholder="Select advance" :disabled="!advanceOptions.length" size="sm" />
-                <UInput v-model="adjustments.advanceAmount" inputmode="decimal" placeholder="Apply amount" :disabled="!adjustments.advanceReceiptId" @input="syncCashPayment" size="sm" />
-              </div>
-            </div>
-          </details>
-
-          <USeparator />
-
         </div>
-
-        <!-- Fixed Totals Footer -->
-        <div class="shrink-0 p-4 border-t border-default bg-muted/5 shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.05)]">
-          <dl class="space-y-1.5 text-sm mb-4 tabular-nums">
-            <div class="flex justify-between text-muted"><dt>Items (Qty)</dt><dd>{{ cart.length }} ({{ totalQuantity }})</dd></div>
-            <div class="flex justify-between text-muted"><dt>Gross Amount</dt><dd>{{ money(cartTotal) }}</dd></div>
-            <div v-if="form.billDiscountAmount > 0" class="flex justify-between text-error"><dt>Bill Discount</dt><dd>-{{ money(form.billDiscountAmount) }}</dd></div>
-            
-            <!-- Tax -->
-            <div v-if="totalTaxAmount > 0" class="flex flex-col gap-1 pt-1">
-              <div v-if="isInterstate" class="flex justify-between text-xs text-muted/80 pl-2"><dt>IGST</dt><dd>{{ money(igstTotal) }}</dd></div>
-              <template v-else>
-                <div class="flex justify-between text-xs text-muted/80 pl-2"><dt>CGST</dt><dd>{{ money(cgstTotal) }}</dd></div>
-                <div class="flex justify-between text-xs text-muted/80 pl-2"><dt>SGST</dt><dd>{{ money(sgstTotal) }}</dd></div>
-              </template>
-              <div class="flex justify-between text-muted font-medium"><dt>Total Tax</dt><dd>{{ money(totalTaxAmount) }}</dd></div>
-            </div>
-
-            <div class="flex justify-between text-muted"><dt>Round off</dt><dd>{{ money(roundOff) }}</dd></div>
-            
-            <!-- Big Payable -->
-            <div class="flex justify-between items-end border-t border-default mt-2 pt-2">
-              <dt class="text-lg font-bold text-highlighted">Payable</dt>
-              <dd class="text-2xl font-black text-primary tracking-tight">{{ money(payableTotal) }}</dd>
-            </div>
-            
-            <div v-if="adjustmentTotal > 0" class="flex justify-between text-xs text-success"><dt>Adjustments</dt><dd>{{ money(adjustmentTotal) }}</dd></div>
-            <div class="flex justify-between text-xs text-muted mt-1 border-t border-default/50 pt-1">
-              <dt>Paid Total</dt>
-              <dd :class="paymentBalance > 0 ? 'text-error font-semibold' : 'text-success font-semibold'">{{ money(paymentTotal) }}</dd>
-            </div>
-            <div v-if="paymentBalance > 0" class="flex justify-between text-xs text-error"><dt>Shortfall / Balance</dt><dd>{{ money(paymentBalance) }}</dd></div>
-          </dl>
-
-          <UButton 
-            block 
-            size="xl" 
-            icon="i-lucide-printer" 
-            color="primary" 
-            :loading="saving" 
-            :disabled="!canSave || paymentTotal < payableTotal" 
-            @click="saveAndPrint"
-            class="text-base font-bold shadow-lg"
-          >
-            Save & Print
-          </UButton>
-        </div>
-      </section>
-    </main>
-  </div>
+      </div>
+    </section>
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -277,7 +217,6 @@ import { openBillingInvoicePdf } from '../utils/pos-documents'
 import { createPosSaleRequest, type PosSalePaymentPayload } from '../utils/sale-contract'
 
 useHead({ title: 'New Sale - Garmetix POS' })
-definePageMeta({ layout: 'fullscreen' })
 
 interface ProductLookupItem {
   productId: string
@@ -458,46 +397,6 @@ const manualPaymentTotal = computed(() => payments.value.reduce((sum, item) => s
 const paymentTotal = computed(() => manualPaymentTotal.value + adjustmentTotal.value)
 const paymentBalance = computed(() => Math.max(payableTotal.value - paymentTotal.value, 0))
 const canSave = computed(() => Boolean(form.companyId && form.storeGroupId && form.storeId && cart.value.length && !saving.value))
-
-const companyGstin = computed(() => String(setupStatus.value?.companyGstin || setupStatus.value?.gstin || '20').trim())
-
-const isB2B = computed(() => {
-  const custGstin = String(form.customerGstin || '').trim()
-  const profileGstin = String(selectedCustomerProfile.value?.customer?.gstin || '').trim()
-  return Boolean(custGstin || profileGstin)
-})
-
-const customerHasAdjustmentsAvailable = computed(() => {
-  return Number(selectedCustomerProfile.value?.customer?.creditBalance || 0) > 0 ||
-         Number(selectedCustomerProfile.value?.customer?.loyaltyPoints || 0) > 0 ||
-         creditNoteOptions.value.length > 0 ||
-         advanceOptions.value.length > 0
-})
-
-const isInterstate = computed(() => {
-  let custGstin = String(form.customerGstin || '').trim().toUpperCase()
-  if (!custGstin) custGstin = String(selectedCustomerProfile.value?.customer?.gstin || '').trim().toUpperCase()
-  if (custGstin.length >= 2 && companyGstin.value.length >= 2) {
-    return custGstin.substring(0, 2) !== companyGstin.value.substring(0, 2)
-  }
-  return false
-})
-
-const totalTaxAmount = computed(() => {
-  return cart.value.reduce((sum, item) => {
-    const total = lineTotal(item)
-    const rate = Number(item.taxRate || 0)
-    if (rate <= 0) return sum
-    if (item.taxType === 'Exclusive') {
-      return sum + (total * rate / 100)
-    }
-    // Inclusive tax formula: (Amount * Rate) / (100 + Rate)
-    return sum + (total * rate / (100 + rate))
-  }, 0)
-})
-const igstTotal = computed(() => isInterstate.value ? totalTaxAmount.value : 0)
-const cgstTotal = computed(() => isInterstate.value ? 0 : totalTaxAmount.value / 2)
-const sgstTotal = computed(() => isInterstate.value ? 0 : totalTaxAmount.value / 2)
 
 function emptyPayment(amount = 0): PaymentRow {
   return {
@@ -826,11 +725,7 @@ function removeItem(index: number) {
 }
 
 function lineTotal(item: CartItem) {
-  const baseTotal = Math.max((Number(item.mrp || 0) - Number(item.discountAmount || 0)) * Number(item.quantity || 0), 0)
-  if (item.taxType === 'Exclusive') {
-    return baseTotal + (baseTotal * Number(item.taxRate || 0) / 100)
-  }
-  return baseTotal
+  return Math.max((Number(item.mrp || 0) - Number(item.discountAmount || 0)) * Number(item.quantity || 0), 0)
 }
 
 function addPayment() {

@@ -304,6 +304,7 @@ Goal: complete Books next, module-by-module, after HR code closure. Keep live po
 - 14C.2 complete: bump modular version identity to `6.0.22`, add voucher create/edit/delete, Save & Print PDF handoff, hidden party-ledger resolution, non-cash bank account validation, ledger sync repair and ledger statement audit review.
 - 14C.2 deploy repair complete: bump modular version identity to `6.0.23`, move Codex active workspace to `C:\AIArea\Codex\GarmetixWebStarter`, fix SRP deploy config auto-detection from `C:\AIArea`, and verify LAN/public route delivery.
 - 14C.3 complete: bump modular version identity to `6.0.24`, add guarded bank transaction create/edit/delete, bank statement reconcile/unreconcile, cheque lifecycle update, and bank audit readiness script.
+- 14A.9 complete: bump modular version identity to `6.0.25`, port the Antigravity fullscreen POS counter layout into `/sale`, enable POS Nuxt layouts, add `/history` sale listing with print/detail and Digital Bill CRM signals, wire the route/sidebar/smoke checks, and create `.codex/Priority6_POS_CRM_TODO.md`.
 - 14C.4 next: vendor bank account edit parity, bank account detail secure edit review, bank statement import/review planning, and reconciliation closure dashboard handoff.
 - Reuse the Stage 13D Books readiness scripts, then upgrade them for Version6 live-safe evidence.
 - 14C.1 was deployed as checkpoint 3 after the prior `.127` deployment.

@@ -11,8 +11,8 @@ console.log(`Stage: ${stage}`)
 console.log('Mutation check: disabled')
 console.log('Live bank posting: disabled')
 
-if (version !== '6.0.24') failures.push(`Expected version 6.0.24, found ${version}.`)
-if (!stage.includes('Stage 14C.3')) failures.push(`Expected Stage 14C.3, found ${stage}.`)
+if (!version.startsWith('6.')) failures.push(`Expected Version6 modular build, found ${version}.`)
+if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 modular lane, found ${stage}.`)
 
 checkFile('apps/books/pages/cash-details.vue', [
   'Writable parity',

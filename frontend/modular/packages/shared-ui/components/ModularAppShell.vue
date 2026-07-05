@@ -292,6 +292,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'counter', label: 'Counter Home', href: '/', icon: 'i-lucide-layout-dashboard' },
       { id: 'day-open', label: 'Day Open', href: '/day-open', icon: 'i-lucide-sunrise' },
       { id: 'sale', label: 'Sale', href: '/sale', icon: 'i-lucide-scan-barcode' },
+      { id: 'history', label: 'Sales History', href: '/history', icon: 'i-lucide-history' },
       { id: 'hold-bills', label: 'Hold Bills', href: '/hold-bills', icon: 'i-lucide-pause-circle' },
       { id: 'returns', label: 'Returns', href: '/returns', icon: 'i-lucide-rotate-ccw' },
       { id: 'exchange', label: 'Exchange', href: '/exchange', icon: 'i-lucide-repeat-2' },

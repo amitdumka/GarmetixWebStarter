@@ -6,10 +6,13 @@
           <p class="garmetix-kicker"><UIcon name="i-lucide-scan-barcode" class="size-4" /> POS counter</p>
           <h2 class="garmetix-dashboard-title">Counter dashboard</h2>
           <p class="garmetix-dashboard-subtitle">
-            Stage 12B.1 prepares the small POS app routes before moving the legacy sale invoice workflow.
+            Open the counter, review sales, manage held bills, and close the store day from the lightweight POS app.
           </p>
         </div>
-        <UButton to="/sale" icon="i-lucide-scan-barcode">Open Sale</UButton>
+        <div class="flex flex-wrap gap-2">
+          <UButton to="/sale" icon="i-lucide-scan-barcode">Open Sale</UButton>
+          <UButton to="/history" color="neutral" variant="soft" icon="i-lucide-history">Sales History</UButton>
+        </div>
       </div>
     </div>
 
@@ -35,13 +38,14 @@ useHead({ title: 'POS Counter - Garmetix POS' })
 const quickActions = [
   { label: 'Day Open', to: '/day-open', icon: 'i-lucide-sunrise' },
   { label: 'New Sale', to: '/sale', icon: 'i-lucide-scan-barcode' },
+  { label: 'Sales History', to: '/history', icon: 'i-lucide-history' },
   { label: 'Held Bills', to: '/hold-bills', icon: 'i-lucide-pause-circle' },
   { label: 'Day Close', to: '/day-close', icon: 'i-lucide-sunset' }
 ]
 
 const statusItems = [
-  { label: 'Billing mode', value: 'GST / Non-GST split', detail: 'Final endpoints will reuse the existing unified API.' },
-  { label: 'Print mode', value: 'Invoice ready', detail: 'Print queue route is prepared for generated invoices.' },
-  { label: 'Migration state', value: 'Foundation', detail: 'Legacy billing remains untouched until POS parity is ready.' }
+  { label: 'Billing mode', value: 'Counter ready', detail: 'Fullscreen counter layout is active for faster billing.' },
+  { label: 'Print mode', value: 'Invoice ready', detail: 'Saved invoices can be reprinted from history or print queue.' },
+  { label: 'CRM signal', value: 'Digital bills', detail: 'Sales history shows Digital Bill link and WhatsApp status.' }
 ]
 </script>
