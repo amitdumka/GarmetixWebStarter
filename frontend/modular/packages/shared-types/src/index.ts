@@ -10,7 +10,7 @@ export type GarmetixRole =
   | 'Cashier'
   | 'Salesman'
 
-export type FrontendAppId = 'main' | 'pos' | 'hr' | 'ai-sense' | 'books' | 'admin'
+export type FrontendAppId = 'main' | 'pos' | 'hr' | 'ai-sense' | 'books' | 'crm' | 'admin'
 
 export interface RouteOwner {
   appId: FrontendAppId

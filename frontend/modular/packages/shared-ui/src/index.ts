@@ -108,6 +108,11 @@ const appCopy: Record<FrontendAppId, { title: string, subtitle: string, badge: s
     subtitle: 'Accounting, vouchers, petty cash, GST, audit and CA workflows.',
     badge: 'Books'
   },
+  crm: {
+    title: 'Garmetix CRM',
+    subtitle: 'Customers, loyalty, digital bills, WhatsApp, feedback and campaigns.',
+    badge: 'CRM'
+  },
   admin: {
     title: 'Garmetix Admin SaaS',
     subtitle: 'Owner/developer controls for setup, access, license, logs and deployment readiness.',

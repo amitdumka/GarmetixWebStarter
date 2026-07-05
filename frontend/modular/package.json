@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "6.0.29",
+  "version": "6.0.30",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -66,12 +66,14 @@
     "build:hr": "npm --workspace @garmetix/hr-web run build",
     "build:ai-sense": "npm --workspace @garmetix/ai-sense-web run build",
     "build:books": "npm --workspace @garmetix/books-web run build",
+    "build:crm": "npm --workspace @garmetix/crm-web run build",
     "build:admin": "npm --workspace @garmetix/admin-web run build",
     "deploy:main": "bash deploy/main-static-deploy.sh",
     "deploy:pos": "bash deploy/pos-static-deploy.sh",
     "deploy:hr": "bash deploy/hr-static-deploy.sh",
     "deploy:ai-sense": "bash deploy/ai-sense-static-deploy.sh",
     "deploy:books": "bash deploy/books-static-deploy.sh",
+    "deploy:crm": "bash deploy/crm-static-deploy.sh",
     "deploy:admin": "bash deploy/admin-static-deploy.sh",
     "deploy:srp": "node scripts/run-bash-script.mjs deploy/srp-whole-site-deploy.sh",
     "deploy:srp:readiness": "node scripts/run-bash-script.mjs deploy/srp-host-readiness.sh",

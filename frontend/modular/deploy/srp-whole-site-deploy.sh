@@ -24,6 +24,7 @@ The default SRP shape is one public hostname:
   /hr/       HR
   /ai-sense/ AI Sense
   /books/    Accounting/Books
+  /crm/      CRM/Digital CRM
   /admin/    Admin/SaaS
   /api/      ASP.NET Core API reverse proxy
 USAGE
@@ -141,6 +142,7 @@ SRP_POS_BASE_PATH="${SRP_POS_BASE_PATH:-/pos/}"
 SRP_HR_BASE_PATH="${SRP_HR_BASE_PATH:-/hr/}"
 SRP_AI_SENSE_BASE_PATH="${SRP_AI_SENSE_BASE_PATH:-/ai-sense/}"
 SRP_BOOKS_BASE_PATH="${SRP_BOOKS_BASE_PATH:-/books/}"
+SRP_CRM_BASE_PATH="${SRP_CRM_BASE_PATH:-/crm/}"
 SRP_ADMIN_BASE_PATH="${SRP_ADMIN_BASE_PATH:-/admin/}"
 if [ "$SRP_PATH_BASED_URLS" = true ]; then
   SRP_PUBLIC_API_BASE_URL="/api"
@@ -149,6 +151,7 @@ if [ "$SRP_PATH_BASED_URLS" = true ]; then
   SRP_HR_URL="$SRP_HR_BASE_PATH"
   SRP_AI_SENSE_URL="$SRP_AI_SENSE_BASE_PATH"
   SRP_BOOKS_URL="$SRP_BOOKS_BASE_PATH"
+  SRP_CRM_URL="$SRP_CRM_BASE_PATH"
   SRP_ADMIN_URL="$SRP_ADMIN_BASE_PATH"
 else
   SRP_PUBLIC_API_BASE_URL="${SRP_PUBLIC_API_BASE_URL:-https://$SRP_DOMAIN/api}"
@@ -157,6 +160,7 @@ else
   SRP_HR_URL="${SRP_HR_URL:-https://$SRP_DOMAIN/hr}"
   SRP_AI_SENSE_URL="${SRP_AI_SENSE_URL:-https://$SRP_DOMAIN/ai-sense}"
   SRP_BOOKS_URL="${SRP_BOOKS_URL:-https://$SRP_DOMAIN/books}"
+  SRP_CRM_URL="${SRP_CRM_URL:-https://$SRP_DOMAIN/crm}"
   SRP_ADMIN_URL="${SRP_ADMIN_URL:-https://$SRP_DOMAIN/admin}"
 fi
 SRP_API_PROJECT="${SRP_API_PROJECT:-backend/Garmetix.Api/Garmetix.Api.csproj}"
@@ -200,6 +204,7 @@ Routes:
   $SRP_HR_URL -> /hr/
   $SRP_AI_SENSE_URL -> /ai-sense/
   $SRP_BOOKS_URL -> /books/
+  $SRP_CRM_URL -> /crm/
   $SRP_ADMIN_URL -> /admin/
   $SRP_PUBLIC_API_BASE_URL -> /api/
 PLAN
@@ -324,6 +329,7 @@ patch_static_runtime_config() {
     perl -0pi -e "s#NUXT_PUBLIC_GARMETIX_HR_URL:\"[^\"]*\"#NUXT_PUBLIC_GARMETIX_HR_URL:\"$SRP_HR_URL\"#g" "$file"
     perl -0pi -e "s#NUXT_PUBLIC_GARMETIX_AI_SENSE_URL:\"[^\"]*\"#NUXT_PUBLIC_GARMETIX_AI_SENSE_URL:\"$SRP_AI_SENSE_URL\"#g" "$file"
     perl -0pi -e "s#NUXT_PUBLIC_GARMETIX_BOOKS_URL:\"[^\"]*\"#NUXT_PUBLIC_GARMETIX_BOOKS_URL:\"$SRP_BOOKS_URL\"#g" "$file"
+    perl -0pi -e "s#NUXT_PUBLIC_GARMETIX_CRM_URL:\"[^\"]*\"#NUXT_PUBLIC_GARMETIX_CRM_URL:\"$SRP_CRM_URL\"#g" "$file"
     perl -0pi -e "s#NUXT_PUBLIC_GARMETIX_ADMIN_URL:\"[^\"]*\"#NUXT_PUBLIC_GARMETIX_ADMIN_URL:\"$SRP_ADMIN_URL\"#g" "$file"
   done
 }
@@ -345,6 +351,7 @@ build_app() {
       NUXT_PUBLIC_GARMETIX_HR_URL="$SRP_HR_URL" \
       NUXT_PUBLIC_GARMETIX_AI_SENSE_URL="$SRP_AI_SENSE_URL" \
       NUXT_PUBLIC_GARMETIX_BOOKS_URL="$SRP_BOOKS_URL" \
+      NUXT_PUBLIC_GARMETIX_CRM_URL="$SRP_CRM_URL" \
       NUXT_PUBLIC_GARMETIX_ADMIN_URL="$SRP_ADMIN_URL" \
       "$NPM_COMMAND" run "build:$app_name"
     )
@@ -398,6 +405,10 @@ server {
 
     location /books/ {
         try_files \$uri \$uri/ /books/index.html;
+    }
+
+    location /crm/ {
+        try_files \$uri \$uri/ /crm/index.html;
     }
 
     location /admin/ {
@@ -557,6 +568,7 @@ build_app pos "$SRP_POS_BASE_PATH" "$WEB_ROOT/pos"
 build_app hr "$SRP_HR_BASE_PATH" "$WEB_ROOT/hr"
 build_app ai-sense "$SRP_AI_SENSE_BASE_PATH" "$WEB_ROOT/ai-sense"
 build_app books "$SRP_BOOKS_BASE_PATH" "$WEB_ROOT/books"
+build_app crm "$SRP_CRM_BASE_PATH" "$WEB_ROOT/crm"
 build_app admin "$SRP_ADMIN_BASE_PATH" "$WEB_ROOT/admin"
 publish_api
 write_templates

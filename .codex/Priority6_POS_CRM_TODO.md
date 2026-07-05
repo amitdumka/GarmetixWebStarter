@@ -69,6 +69,9 @@ Use these backups if the fullscreen counter layout must be reverted without touc
 
 Preferred module name: `crm`.
 
+Stage 14D starts the dedicated modular CRM app under `frontend/modular/apps/crm`.
+Customer CRM and Digital Bill CRM should be merged here so POS remains a fast counter app and Main Back Office stays lean.
+
 Routes to port from legacy:
 
 - `/customers`
@@ -107,6 +110,19 @@ CRM implementation order:
 8. Ad banners and campaign audiences.
 9. Digital bill analytics cards/trends.
 10. Campaign creation/scheduling, send logs and ROI reporting.
+
+## Stage 14D CRM Modular Order
+
+1. CRM app shell, route ownership, menu, smoke, deployment path and read-only register pages.
+2. Customer register/detail/new edit parity from legacy `/customers`.
+3. Dues reconciliation CSV/evidence and adjustment review parity.
+4. Loyalty program save, customer loyalty summary, ledger and manual adjustment.
+5. Digital Bills register with generate, copy/open, WhatsApp send, disable/regenerate token and activity timeline.
+6. Digital Bill analytics with date/store filters and export handoff.
+7. Feedback, review settings, WhatsApp settings/logs and retry/test-send guarded actions.
+8. Audience segmentation and campaign create/preview/queue/send/mark-sent/cancel workflows.
+9. Invoice ad banners create/edit/delete.
+10. Public `/i/:token` digital bill customer page, privacy/terms/review links and public PDF handoff.
 
 ## Deployment Notes
 

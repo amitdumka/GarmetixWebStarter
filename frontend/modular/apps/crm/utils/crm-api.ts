@@ -1,0 +1,75 @@
+import { createGarmetixApiClient } from '@garmetix/shared-api'
+import { getStoredToken } from '@garmetix/shared-auth'
+
+export type ApiRecord = Record<string, unknown>
+
+export function useCrmApiClient() {
+  const runtimeConfig = useRuntimeConfig()
+  const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
+
+  function normalizeCrmApiPath(path: string) {
+    return String(path || '').replace(/^\/+/, '').replace(/^api\/+/i, '')
+  }
+
+  function createClient() {
+    if (!apiBaseUrl.value) throw new Error('API base URL is not configured.')
+    return createGarmetixApiClient({
+      baseUrl: apiBaseUrl.value,
+      getToken: () => getStoredToken(window.localStorage)
+    })
+  }
+
+  async function get<T>(path: string, query?: Record<string, string | number | boolean | null | undefined>) {
+    const api = createClient()
+    return await api.get<T>(normalizeCrmApiPath(path), { query })
+  }
+
+  async function post<T>(path: string, body?: unknown) {
+    const api = createClient()
+    return await api.post<T>(normalizeCrmApiPath(path), body)
+  }
+
+  return { apiBaseUrl, get, post }
+}
+
+export function readNumber(source: ApiRecord | null | undefined, keys: string[] | null | undefined) {
+  for (const key of keys ?? []) {
+    const value = source?.[key]
+    if (typeof value === 'number') return value
+    if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) return Number(value)
+  }
+  return 0
+}
+
+export function readText(source: ApiRecord | null | undefined, keys: string[] | null | undefined, fallback = '-') {
+  for (const key of keys ?? []) {
+    const value = source?.[key]
+    if (value !== null && value !== undefined && String(value).trim() !== '') return String(value)
+  }
+  return fallback
+}
+
+export function readArray(source: ApiRecord | null | undefined, keys: string[] | null | undefined) {
+  for (const key of keys ?? []) {
+    const value = source?.[key]
+    if (Array.isArray(value)) return value as ApiRecord[]
+  }
+  return []
+}
+
+export function toRows(value: unknown, keys: string[] = ['items', 'rows', 'data', 'results']) {
+  if (Array.isArray(value)) return value as ApiRecord[]
+  if (value && typeof value === 'object') return readArray(value as ApiRecord, keys)
+  return []
+}
+
+export function formatDate(value: unknown) {
+  if (!value) return '-'
+  const date = new Date(String(value))
+  if (Number.isNaN(date.getTime())) return String(value)
+  return new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  }).format(date)
+}

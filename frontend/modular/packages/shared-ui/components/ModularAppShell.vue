@@ -355,6 +355,29 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'message-logs', label: 'Message Logs', href: '/message-logs', icon: 'i-lucide-message-square-warning' }
     ] }
   ],
+  crm: [
+    { key: 'customers', label: 'Customers', items: [
+      { id: 'home', label: 'CRM Home', href: '/', icon: 'i-lucide-heart-handshake' },
+      { id: 'customers', label: 'Customers', href: '/customers', icon: 'i-lucide-users-round' },
+      { id: 'customer-new', label: 'New Customer', href: '/customers/new', icon: 'i-lucide-user-plus' },
+      { id: 'dues', label: 'Dues Reconciliation', href: '/customers/dues-reconciliation', icon: 'i-lucide-wallet-cards' },
+      { id: 'loyalty', label: 'Loyalty', href: '/loyalty', icon: 'i-lucide-gift' }
+    ] },
+    { key: 'digital-crm', label: 'Digital CRM', items: [
+      { id: 'digital-bills', label: 'Digital Bills', href: '/marketing/digital-bills', icon: 'i-lucide-receipt-text' },
+      { id: 'analytics', label: 'Analytics', href: '/marketing/digital-bill-analytics', icon: 'i-lucide-chart-no-axes-combined' },
+      { id: 'audiences', label: 'Audiences', href: '/marketing/campaign-audiences', icon: 'i-lucide-users-round' },
+      { id: 'campaigns', label: 'Campaigns', href: '/marketing/campaigns', icon: 'i-lucide-megaphone' },
+      { id: 'feedback', label: 'Feedback', href: '/marketing/customer-feedback', icon: 'i-lucide-message-square-heart' }
+    ] },
+    { key: 'settings', label: 'Settings And Logs', items: [
+      { id: 'review-settings', label: 'Review Settings', href: '/marketing/review-settings', icon: 'i-lucide-star' },
+      { id: 'whatsapp-settings', label: 'WhatsApp Settings', href: '/marketing/whatsapp-settings', icon: 'i-lucide-message-circle' },
+      { id: 'whatsapp-logs', label: 'WhatsApp Logs', href: '/marketing/whatsapp-logs', icon: 'i-lucide-message-square-text' },
+      { id: 'ad-banners', label: 'Ad Banners', href: '/marketing/ad-banners', icon: 'i-lucide-badge-percent' },
+      { id: 'acceptance', label: 'Acceptance', href: '/marketing/digital-bill-acceptance', icon: 'i-lucide-badge-check' }
+    ] }
+  ],
   admin: [
     { key: 'setup', label: 'Company', items: [
       { id: 'home', label: 'Admin Home', href: '/', icon: 'i-lucide-layout-dashboard' },
@@ -538,6 +561,7 @@ function appDefaultBase(appId: FrontendAppId) {
     hr: '/hr/',
     'ai-sense': '/ai-sense/',
     books: '/books/',
+    crm: '/crm/',
     admin: '/admin/'
   }
   return bases[appId]

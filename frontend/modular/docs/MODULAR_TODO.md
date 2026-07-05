@@ -314,3 +314,15 @@ Goal: complete Books next, module-by-module, after HR code closure. Keep live po
 - 14C.1 was deployed as checkpoint 3 after the prior `.127` deployment.
 - 14C.2 is checkpoint 1 after the Stage 14B.12 `.127` deployment. Deploy on checkpoint 3 unless live testing is explicitly requested earlier.
 
+## Stage 14D: Version6 CRM And Digital CRM Modular Parity
+
+Goal: merge customer CRM and Digital Bill CRM into a dedicated `crm` modular app, while keeping POS focused on counter speed and Main Back Office lean.
+
+- 14D.1 complete: bump modular version identity to `6.0.30`, create `frontend/modular/apps/crm`, add route ownership, app switcher/menu, smoke route coverage, SRP `/crm/` deployment path, read-only CRM registers and the CRM/Digital CRM roadmap.
+- 14D.2 next: customer register/detail/new write parity from legacy `/customers`, including GST, store credit, consent and sale-history handoff.
+- 14D.3 next: dues reconciliation evidence/export and loyalty program/customer loyalty ledger/manual adjustment parity.
+- 14D.4 next: Digital Bill register actions: generate, copy/open, send WhatsApp, activity timeline, disable and regenerate token.
+- 14D.5 next: feedback/review/WhatsApp settings/logs, test-send and retry actions with guarded permissions.
+- 14D.6 next: audience segmentation, campaign preview/create/queue/send/mark-sent/cancel and ROI review.
+- 14D.7 next: invoice ad banners and public `/i/:token` digital bill customer page.
+

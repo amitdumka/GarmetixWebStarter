@@ -14,6 +14,7 @@ export const smokeHosts = {
     hr: 'http://localhost:3102',
     'ai-sense': 'http://localhost:3103',
     books: 'http://localhost:3104',
+    crm: 'http://localhost:3106',
     admin: 'http://localhost:3105'
   },
   public: {
@@ -23,6 +24,7 @@ export const smokeHosts = {
     hr: 'https://hr.garmetix.aadwikafashion.in',
     'ai-sense': 'https://ai-sense.garmetix.aadwikafashion.in',
     books: 'https://books.garmetix.aadwikafashion.in',
+    crm: 'https://crm.garmetix.aadwikafashion.in',
     admin: 'https://admin.garmetix.aadwikafashion.in'
   }
 }
@@ -52,6 +54,11 @@ export const smokeApps = [
     id: 'books',
     label: 'Books',
     routes: ['/', '/login', '/accounting', '/vouchers', '/petty-cash', '/vendor-payments', '/gst-returns', '/audit', '/message-logs']
+  },
+  {
+    id: 'crm',
+    label: 'CRM',
+    routes: ['/', '/login', '/customers', '/customers/new', '/customers/dues-reconciliation', '/loyalty', '/marketing/digital-bills', '/marketing/digital-bill-analytics', '/marketing/campaign-audiences', '/marketing/campaigns', '/marketing/customer-feedback', '/marketing/review-settings', '/marketing/whatsapp-settings', '/marketing/whatsapp-logs', '/marketing/ad-banners', '/marketing/digital-bill-acceptance']
   },
   {
     id: 'admin',
@@ -91,7 +98,7 @@ export function selectSmokeApps(appFilter) {
     : smokeApps.filter((app) => app.id === appFilter)
 
   if (selectedApps.length === 0) {
-    throw new Error('Unknown app. Use all, main, pos, hr, ai-sense, books, or admin.')
+    throw new Error('Unknown app. Use all, main, pos, hr, ai-sense, books, crm, or admin.')
   }
 
   return selectedApps
