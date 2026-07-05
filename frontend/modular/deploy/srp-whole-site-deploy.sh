@@ -49,6 +49,18 @@ detect_windows_config_path() {
       user="$(printf '%s' "$REPO_ROOT" | cut -d/ -f4)"
       printf '/%s/Users/%s/.config/garmetix/srp-deploy.env' "$drive" "$user"
       ;;
+    /mnt/?/*)
+      local drive user
+      drive="$(printf '%s' "$REPO_ROOT" | cut -d/ -f3)"
+      user="${USER:-}"
+      if [ -n "$user" ] && [ -f "/mnt/$drive/Users/$user/.config/garmetix/srp-deploy.env" ]; then
+        printf '/mnt/%s/Users/%s/.config/garmetix/srp-deploy.env' "$drive" "$user"
+        return 0
+      fi
+      if [ -d "/mnt/$drive/Users" ]; then
+        find "/mnt/$drive/Users" -maxdepth 3 -path '*/.config/garmetix/srp-deploy.env' -print -quit 2>/dev/null
+      fi
+      ;;
   esac
 }
 
