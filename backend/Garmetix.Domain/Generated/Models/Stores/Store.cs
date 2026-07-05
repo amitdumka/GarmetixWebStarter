@@ -48,6 +48,10 @@ namespace Garmetix.Core.Models.Stores
         [Display(Name = "CIN")] public string CIN { get; set; } = string.Empty;
         [Display(Name = "Company Type")] public CompanyType CompanyType { get; set; } = CompanyType.Proprietorship;
 
+        [ForeignKey("SaaSClient")]
+        [Display(Name = "SaaS Client", AutoGenerateField = false)] public Guid? SaaSClientId { get; set; }
+        [Display(Name = "SaaS Client", AutoGenerateField = false)] public virtual Garmetix.Core.Models.SaaS.SaaSClient? SaaSClient { get; set; }
+
     }
     public class StoreGroup : BaseEntity
     {

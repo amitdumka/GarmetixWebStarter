@@ -26,6 +26,9 @@ namespace Garmetix.Infrastructure.Data;
 public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> options, AuditActorContext? auditActorContext = null) : DbContext(options)
 {
     public DbSet<TenantSubscription> TenantSubscriptions => Set<TenantSubscription>();
+    public DbSet<SaaSClient> SaaSClients => Set<SaaSClient>();
+    public DbSet<SaaSPlan> SaaSPlans => Set<SaaSPlan>();
+    public DbSet<SaaSToken> SaaSTokens => Set<SaaSToken>();
 
     private static readonly ValueConverter<DateTime, DateTime> DateTimeKindConverter = new(
         value => NormalizeDateTime(value),

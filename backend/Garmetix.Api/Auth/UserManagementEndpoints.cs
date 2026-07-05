@@ -46,12 +46,22 @@ public static class UserManagementEndpoints
         GarmetixDbContext db,
         ApplicationMessageLogService logs,
         ILoggerFactory loggerFactory,
+        Garmetix.Api.Licensing.SaaSValidationService saasValidation,
         CancellationToken cancellationToken)
     {
         var validation = ValidateUserRequest(request, requirePassword: true);
         if (validation is not null)
         {
             return validation;
+        }
+
+        if (request.CompanyId.HasValue)
+        {
+            var limitMessage = await saasValidation.EnsureCanAddUserAsync(request.CompanyId.Value, cancellationToken);
+            if (limitMessage is not null)
+            {
+                return Results.BadRequest(new { message = limitMessage });
+            }
         }
 
         var normalizedUserName = request.UserName.Trim();

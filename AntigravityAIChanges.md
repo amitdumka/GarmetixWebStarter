@@ -61,3 +61,29 @@ This file tracks all modifications made to the repository by the Antigravity AI 
   - *Purpose:* Exported new shared typescript interfaces.
 - **[MODIFIED]** Package JSON files in `shared-api`, `shared-auth`, `shared-ui`, `admin`, `pos`, `books`, `hr`, `ai-sense`
   - *Purpose:* Synced workspace dependencies and resolved port conflicts during dev server execution.
+
+### 4. SaaS Trial Mode and Limits Enforcement
+- **[MODIFIED]** `backend/Garmetix.Api/Licensing/SaaSValidationService.cs`
+  - *Purpose:* Implemented default trial mode limits (1 Company, 1 Store Group, 2 Stores, 20 Users).
+- **[MODIFIED]** `backend/Garmetix.Api/Program.cs`, `UserManagementEndpoints.cs`
+  - *Purpose:* Integrated SaaS validation limits into `MapCrud<T>` entity creation endpoints and User creation.
+- **[MODIFIED]** `backend/Garmetix.Api/Licensing/LicenseEnforcementMiddleware.cs`
+  - *Purpose:* Allowed trial mode by not blocking API requests when no active subscription is found.
+- **[MODIFIED]** `frontend/modular/apps/admin/pages/saas-manager.vue`
+  - *Purpose:* Added an "Active Tenant Subscriptions" tab for super-admins.
+
+### 5. SaaS Developer/Owner Module (Phase 6)
+- **[ADDED]** `backend/Garmetix.Domain/Generated/Models/SaaS/SaaSClient.cs`, `SaaSPlan.cs`, `SaaSToken.cs`
+  - *Purpose:* Created models to manage SaaS Clients (Owners), Plans (Basic, Pro, Ultimate, etc.), and generated Tokens.
+- **[MODIFIED]** `backend/Garmetix.Domain/Generated/Models/Stores/Store.cs`
+  - *Purpose:* Added `SaaSClientId` foreign key to `Company` model to link tenants to their owners.
+- **[MODIFIED]** `backend/Garmetix.Infrastructure/Data/GarmetixDbContext.cs`
+  - *Purpose:* Added DbSets for the new SaaS models.
+- **[MODIFIED]** `backend/Garmetix.Api/Licensing/SaaSValidationService.cs`
+  - *Purpose:* Updated `EnsureCanAddCompanyAsync` to validate `MaxCompanies` against the Client's active SaaS plan instead of a global limit when a Client ID is provided.
+- **[ADDED]** `backend/Garmetix.Api/Licensing/SaaSManagerEndpoints.cs`
+  - *Purpose:* Implemented endpoints for CRUD operations on Clients, Plans, and Token generation/activation.
+- **[MODIFIED]** `backend/Garmetix.Api/Program.cs`
+  - *Purpose:* Registered the new `MapSaaSManagerEndpoints()`.
+- **[MODIFIED]** `frontend/modular/apps/admin/pages/saas-manager.vue`
+  - *Purpose:* Completely overhauled the UI into a tabbed interface. Added tabs for "Clients", "License Plans", "License Tokens" (for generation), and "Tenant Subscriptions" to manage the complete developer/owner workflow.

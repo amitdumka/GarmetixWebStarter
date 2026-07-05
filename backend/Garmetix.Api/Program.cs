@@ -95,6 +95,7 @@ builder.Services.AddSingleton<PasswordResetTokenService>();
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
 builder.Services.Configure<LicenseOptions>(builder.Configuration.GetSection("License"));
 builder.Services.AddSingleton<LicenseActivationService>();
+builder.Services.AddScoped<SaaSValidationService>();
 builder.Services.Configure<PasswordResetOptions>(builder.Configuration.GetSection("PasswordReset"));
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<PasswordResetEmailService>();
@@ -332,6 +333,7 @@ app.MapStage10KOperatorAcceptanceEndpoints();
 app.MapStage10LProductionSupportEndpoints();
 app.MapStage10MProductionRehearsalEndpoints();
 app.MapEmailDeliveryDiagnosticsEndpoints();
+app.MapSaaSManagerEndpoints();
 app.MapLicenseEndpoints();
 app.MapReleaseStabilizationEndpoints();
 app.MapAfssSeederEndpoints();
@@ -406,7 +408,7 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         get.RequireAuthorization(readPolicyName);
     }
 
-    group.MapPost("/", async (T entity, GarmetixDbContext db, HttpContext context, GstinLookupService gstinLookup, SystemDefaultsService systemDefaults, CancellationToken cancellationToken) =>
+    group.MapPost("/", async (T entity, GarmetixDbContext db, HttpContext context, GstinLookupService gstinLookup, SystemDefaultsService systemDefaults, SaaSValidationService saasValidation, CancellationToken cancellationToken) =>
     {
         if (!WorkspaceScope.CanWrite(entity, context, out var message))
         {
@@ -429,6 +431,39 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         if (duplicateDailyMessage is not null)
         {
             return Results.BadRequest(new { message = duplicateDailyMessage });
+        }
+
+        if (entity is Company companyEntity)
+        {
+            var limitMessage = await saasValidation.EnsureCanAddCompanyAsync(cancellationToken);
+            if (limitMessage is not null)
+            {
+                return Results.BadRequest(new { message = limitMessage });
+            }
+        }
+        else if (entity is StoreGroup storeGroupEntity)
+        {
+            var limitMessage = await saasValidation.EnsureCanAddStoreGroupAsync(storeGroupEntity.CompanyId, cancellationToken);
+            if (limitMessage is not null)
+            {
+                return Results.BadRequest(new { message = limitMessage });
+            }
+        }
+        else if (entity is Store storeEntity)
+        {
+            var limitMessage = await saasValidation.EnsureCanAddStoreAsync(storeEntity.CompanyId, cancellationToken);
+            if (limitMessage is not null)
+            {
+                return Results.BadRequest(new { message = limitMessage });
+            }
+        }
+        else if (entity is Employee employeeEntity)
+        {
+            var limitMessage = await saasValidation.EnsureCanAddEmployeeAsync(employeeEntity.CompanyId, cancellationToken);
+            if (limitMessage is not null)
+            {
+                return Results.BadRequest(new { message = limitMessage });
+            }
         }
 
         db.Set<T>().Add(entity);

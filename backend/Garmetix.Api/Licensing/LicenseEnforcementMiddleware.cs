@@ -41,9 +41,9 @@ public sealed class LicenseEnforcementMiddleware(RequestDelegate next, IOptions<
 
         var subscription = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
             db.TenantSubscriptions, 
-            s => s.CompanyId == auditActor.CompanyId.Value && s.IsActive && s.ValidTo > System.DateTime.UtcNow);
+            s => s.CompanyId == auditActor.CompanyId.Value);
 
-        if (subscription != null)
+        if (subscription == null || (subscription.IsActive && subscription.ValidTo > System.DateTime.UtcNow))
         {
             await next(context);
             return;

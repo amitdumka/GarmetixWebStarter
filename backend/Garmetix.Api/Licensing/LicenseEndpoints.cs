@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Garmetix.Api.Auth;
+using Microsoft.EntityFrameworkCore;
 
 namespace Garmetix.Api.Licensing;
 
@@ -12,6 +13,7 @@ public static class LicenseEndpoints
             .RequireAuthorization(GarmetixPolicies.Admin);
 
         group.MapGet("/status", Status);
+        group.MapGet("/subscriptions", ListSubscriptions);
         group.MapPost("/generate", Generate);
         group.MapPost("/activate", Activate);
         group.MapDelete("/activation", RemoveActivation);
@@ -101,4 +103,34 @@ public static class LicenseEndpoints
 
     private static IResult RemoveActivation(LicenseActivationService service)
         => Results.Ok(service.RemoveActivation());
+
+    private static async Task<IResult> ListSubscriptions(
+        HttpContext context, 
+        Garmetix.Infrastructure.Data.GarmetixDbContext db, 
+        CancellationToken cancellationToken)
+    {
+        var isSuperAdmin = bool.TryParse(context.User.FindFirstValue("superAdmin"), out var superAdmin) && superAdmin;
+        if (!isSuperAdmin)
+        {
+            return Results.Forbid();
+        }
+
+        var subscriptions = await db.TenantSubscriptions
+            .AsNoTracking()
+            .Include(s => s.Company)
+            .ToListAsync(cancellationToken);
+
+        return Results.Ok(subscriptions.Select(s => new {
+            s.Id,
+            s.CompanyId,
+            CompanyName = s.Company?.Name,
+            s.PlanName,
+            s.ValidFrom,
+            s.ValidTo,
+            s.IsActive,
+            s.MaxStores,
+            s.MaxUsers,
+            s.IncludedModulesCsv
+        }));
+    }
 }
