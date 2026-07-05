@@ -596,7 +596,19 @@ public static class InvoicePdfDocument
         }
 
         public void Qr(string payload, double left, double top, double size)
-            => DocumentCodeService.AppendPdfCommands(builder, pageHeight, left, top, size, payload);
+        {
+            try
+            {
+                DocumentCodeService.AppendPdfCommands(builder, pageHeight, left, top, size, payload);
+            }
+            catch
+            {
+                FillRect(left, top, size, size, 1, 1, 1);
+                StrokeRect(left, top, size, size, 0.6, 0.08, 0.12, 0.18);
+                CenteredText("SCAN", left, top + size * 0.32, size, Math.Max(5, size * 0.13), true, 0.08, 0.12, 0.18);
+                CenteredText("CODE", left, top + size * 0.52, size, Math.Max(5, size * 0.13), true, 0.08, 0.12, 0.18);
+            }
+        }
 
         private static List<string> Wrap(string value, int maxLength, int maxLines)
         {

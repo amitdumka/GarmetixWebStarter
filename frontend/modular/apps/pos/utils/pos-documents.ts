@@ -1,4 +1,3 @@
-import { createApiUrl } from '@garmetix/shared-api'
 import { stripServerUrl } from '@garmetix/shared-utils'
 
 export interface BillingPdfOptions {
@@ -54,7 +53,7 @@ async function openApiPdf(options: {
   missingMessage: string
   blockedMessage: string
 }) {
-  const response = await fetch(createApiUrl(options.apiBaseUrl, options.path), {
+  const response = await fetch(apiUrl(options.apiBaseUrl, options.path), {
     headers: options.token ? { Authorization: `Bearer ${options.token}` } : undefined
   })
 
@@ -112,6 +111,30 @@ async function printPdfBlob(blob: Blob, blockedMessage: string) {
     }
     frame.src = blobUrl
   })
+}
+
+function apiUrl(apiBaseUrl: string, path: string) {
+  const cleanPath = String(path || '').replace(/^\/+/, '')
+  const rawBase = String(apiBaseUrl || '/api').replace(/\/+$/, '')
+
+  if (typeof window !== 'undefined' && rawBase.startsWith('http')) {
+    try {
+      const parsed = new URL(rawBase)
+      const isLocalApiBase = ['localhost', '127.0.0.1', '0.0.0.0'].includes(parsed.hostname)
+      const currentHostIsLocal = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname)
+      if (isLocalApiBase && !currentHostIsLocal) {
+        return `${window.location.origin}${parsed.pathname.replace(/\/+$/, '')}/${cleanPath}`
+      }
+
+      if (parsed.origin === window.location.origin) {
+        return `${window.location.origin}${parsed.pathname.replace(/\/+$/, '')}/${cleanPath}`
+      }
+    } catch {
+      // Fall back to raw base.
+    }
+  }
+
+  return `${rawBase || '/api'}/${cleanPath}`
 }
 
 export function normalizePosDocumentSearch(value: string | null | undefined) {

@@ -306,6 +306,7 @@ Goal: complete Books next, module-by-module, after HR code closure. Keep live po
 - 14C.3 complete: bump modular version identity to `6.0.24`, add guarded bank transaction create/edit/delete, bank statement reconcile/unreconcile, cheque lifecycle update, and bank audit readiness script.
 - 14A.9 complete: bump modular version identity to `6.0.25`, port the Antigravity fullscreen POS counter layout into `/sale`, enable POS Nuxt layouts, add `/history` sale listing with print/detail and Digital Bill CRM signals, wire the route/sidebar/smoke checks, and create `.codex/Priority6_POS_CRM_TODO.md`.
 - 14A.10 complete: bump modular version identity to `6.0.26`, port legacy hidden-iframe PDF printing for modular POS sale/history/print queue, move POS notifications to right-bottom toasts, change new sale invoice numbering to `StoreCode-YYYYMM-INV-NumberSeries`, and document remaining DotMatrix/server print parity checks.
+- 14A.11 complete: bump modular version identity to `6.0.27`, hotfix live invoice PDF `500` caused by missing server QR dependency, keep invoice PDFs printable with a scan-code fallback box, and switch POS document printing to a legacy-style API URL builder.
 - 14C.4 next: vendor bank account edit parity, bank account detail secure edit review, bank statement import/review planning, and reconciliation closure dashboard handoff.
 - Reuse the Stage 13D Books readiness scripts, then upgrade them for Version6 live-safe evidence.
 - 14C.1 was deployed as checkpoint 3 after the prior `.127` deployment.
