@@ -139,3 +139,6 @@ This file tracks all modifications made to the repository by the Antigravity AI 
   - *Purpose:* Rebuilt the read-only Company setup page into a fully functional CRUD interface. Added full Add/Edit/Delete Modals for Companies, Store Groups, and Stores, fully wired up to the `MapCrud` API endpoints.
 - **[MODIFIED]** frontend/modular/apps/admin/pages/client-onboarding.vue
   - *Purpose:* Rebuilt the read-only onboarding summary into a full 6-step wizard (Owner -> Company -> Address -> Config -> Key People -> Review), submitting directly to the `POST /api/client-onboarding/submit` endpoint.
+- **[MODIFIED]** frontend/modular/apps/admin/pages/access.vue
+  - *Purpose:* Rebuilt the read-only Users and Roles stub into a fully functional CRUD interface. Added Users table, Role Matrix table, Add/Edit User Slideover (with workspace scope cascading), and Reset Password/Delete Modals.
+
