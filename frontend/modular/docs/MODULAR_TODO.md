@@ -329,5 +329,7 @@ Goal: merge customer CRM and Digital Bill CRM into a dedicated `crm` modular app
 - 14E.2 complete: bump modular version identity to `6.0.38`, force `ApiDocs__Enabled=true` in SRP API deployment/runtime bootstrap configuration, and keep API docs enabled on the `.127` live service after deployment restarts.
 - 14D.7 complete: bump modular version identity to `6.0.39`, replace the read-only CRM campaign table with a campaign workbench for preview/create, queue, WhatsApp send, mark-sent, cancel, recipient message copy and ROI review.
 - 14D.8 complete: bump modular version identity to `6.0.40`, promote invoice ad banners to create/edit/delete CRM workbench, and add anonymous `/i/:token` digital bill customer page with PDF, review, WhatsApp support, feedback and banner-click tracking.
-- 14D.9 next: CRM final parity acceptance, public bill browser review on live QR links, and handoff remaining cross-module Digital Bill activity actions back into POS/Main where needed.
+- 14D.9 complete: bump modular version identity to `6.0.41`, promote Digital Bill Acceptance to a real final-readiness console, add public token/PDF smoke launchers, add CRM final closure gate, and wire CRM closure/build into validation.
+- CRM lane is code-ready. Production handover remains conditional on real public-token/manual browser evidence.
+- Next: resume Books `14C.4` vendor bank account edit parity, bank account detail secure edit review, bank statement import/review planning, and reconciliation closure dashboard handoff.
 

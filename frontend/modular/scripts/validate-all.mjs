@@ -242,6 +242,11 @@ const steps = [
     args: ['run', 'modular:books:stage13d-closure']
   },
   {
+    name: 'CRM final closure gate',
+    cwd: repoRoot,
+    args: ['run', 'modular:crm:final-closure']
+  },
+  {
     name: 'Admin/SaaS readiness dry-run',
     cwd: repoRoot,
     args: ['run', 'modular:admin:saas-readiness']
@@ -264,7 +269,7 @@ const steps = [
 ]
 
 if (!skipBuilds) {
-  for (const app of ['main', 'pos', 'hr', 'ai-sense', 'books', 'admin']) {
+  for (const app of ['main', 'pos', 'hr', 'ai-sense', 'books', 'crm', 'admin']) {
     steps.push({
       name: `Build modular ${app}`,
       cwd: repoRoot,

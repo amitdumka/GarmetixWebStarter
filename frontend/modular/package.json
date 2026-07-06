@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "6.0.40",
+  "version": "6.0.41",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -68,6 +68,7 @@
     "build:books": "npm --workspace @garmetix/books-web run build",
     "build:crm": "npm --workspace @garmetix/crm-web run build",
     "build:admin": "npm --workspace @garmetix/admin-web run build",
+    "crm:final-closure": "node scripts/crm-final-closure.mjs",
     "deploy:main": "bash deploy/main-static-deploy.sh",
     "deploy:pos": "bash deploy/pos-static-deploy.sh",
     "deploy:hr": "bash deploy/hr-static-deploy.sh",

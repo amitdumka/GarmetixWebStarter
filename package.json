@@ -1,7 +1,7 @@
 {
   "name": "garmetix-version6-workspace",
   "private": true,
-  "version": "6.0.32",
+  "version": "6.0.41",
   "scripts": {
     "legacy:api:test": "dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release",
     "legacy:api:build": "dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release",
@@ -56,6 +56,7 @@
     "modular:books:parity-baseline": "node frontend/modular/scripts/books-parity-baseline.mjs",
     "modular:books:stage13d-closure": "node frontend/modular/scripts/books-stage13d-closure.mjs",
     "modular:crm:build": "npm --prefix frontend/modular --workspace @garmetix/crm-web run build",
+    "modular:crm:final-closure": "node frontend/modular/scripts/crm-final-closure.mjs",
     "modular:admin:saas-readiness": "node frontend/modular/scripts/admin-saas-readiness.mjs",
     "modular:admin:browser-acceptance": "node frontend/modular/scripts/admin-browser-acceptance.mjs",
     "modular:admin:writable-preflight": "node frontend/modular/scripts/admin-writable-preflight.mjs",

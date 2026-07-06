@@ -126,7 +126,14 @@ CRM implementation order:
 10. Campaign create/preview/queue/send/mark-sent/cancel workflows. Completed in Version `6.0.39` with modular CRM campaign workbench, lifecycle actions, recipient copy and ROI review.
 11. Invoice ad banners create/edit/delete. Completed in Version `6.0.40` with filters, metrics, store scope, image preview, create/edit modal and guarded delete.
 12. Public `/i/:token` digital bill customer page, privacy/terms/review links and public PDF handoff. Completed in Version `6.0.40` with anonymous root route, shell bypass, invoice items, totals, PDF download, review, WhatsApp support, private feedback and banner-click tracking.
-13. CRM final parity acceptance, public QR/browser review and Digital Bill activity/action handoff where POS/Main still need entry points.
+13. CRM final parity acceptance, public QR/browser review and Digital Bill activity/action handoff where POS/Main still need entry points. Completed in Version `6.0.41` with Digital Bill Acceptance console, public token/PDF launchers, route checklist and `crm-final-closure` dry gate.
+
+## CRM Remaining Evidence
+
+- Capture real public token review from a recent sale invoice.
+- Confirm public PDF print/download from `/i/:token`.
+- Confirm review, WhatsApp support, private feedback and banner click behavior on a real customer-facing bill.
+- Decide later whether POS history needs the full Digital Bill activity timeline or should keep that detail inside CRM.
 
 ## Deployment Notes
 
