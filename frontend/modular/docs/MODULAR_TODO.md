@@ -324,7 +324,7 @@ Goal: merge customer CRM and Digital Bill CRM into a dedicated `crm` modular app
 - 14D.3 complete: bump modular version identity to `6.0.33`, promote loyalty program/customer ledger/manual adjustment and customer dues reconciliation evidence/export to usable CRM workflows.
 - 14D.4 complete: bump modular version identity to `6.0.34`, fix CRM runtime table rendering/customer edit data loading, and port Digital Bills register actions, analytics and audience segmentation.
 - 14D.5 complete: bump modular version identity to `6.0.35`, add customer register filters/pagination, harden edit/loyalty row ID handling, and move customer loyalty preview into a slideover.
-- 14D.6 next: feedback/review/WhatsApp settings/logs, test-send and retry actions with guarded permissions.
+- 14D.6 complete: bump modular version identity to `6.0.36`, promote customer feedback, review settings, WhatsApp settings/test-send and WhatsApp logs/retry into usable CRM workflows.
 - 14D.7 next: campaign preview/create/queue/send/mark-sent/cancel and ROI review.
 - 14D.8 next: invoice ad banners and public `/i/:token` digital bill customer page.
 

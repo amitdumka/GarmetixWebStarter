@@ -122,7 +122,7 @@ CRM implementation order:
 6. Digital Bill analytics with date/store filters and export handoff. Completed in Version `6.0.34` with analytics metrics and daily trend table.
 7. Audience segmentation and campaign audience export/copy handoff. Completed in Version `6.0.34` with segment cards, filters, CSV export, mobile copy and campaign handoff.
 8. Customer register filtering, pagination, edit ID hardening and loyalty slideover. Completed in Version `6.0.35` so list actions no longer depend on only `customer.id` and loyalty preview does not expand below the table.
-9. Feedback, review settings, WhatsApp settings/logs and retry/test-send guarded actions.
+9. Feedback, review settings, WhatsApp settings/logs and retry/test-send guarded actions. Completed in Version `6.0.36` with feedback filters, writable review/WhatsApp setup, provider test-send and WhatsApp retry logs.
 10. Campaign create/preview/queue/send/mark-sent/cancel workflows.
 11. Invoice ad banners create/edit/delete.
 12. Public `/i/:token` digital bill customer page, privacy/terms/review links and public PDF handoff.
