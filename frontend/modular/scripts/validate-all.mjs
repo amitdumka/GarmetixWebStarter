@@ -47,6 +47,11 @@ const steps = [
     args: ['run', 'modular:assistant:tool-catalog']
   },
   {
+    name: 'AI Sense API path normalization readiness',
+    cwd: repoRoot,
+    args: ['run', 'modular:ai-sense:api-path']
+  },
+  {
     name: 'Main Back Office readiness dry-run',
     cwd: repoRoot,
     args: ['run', 'modular:main:backoffice-readiness']

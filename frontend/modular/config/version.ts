@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.46',
-  stage: 'Stage 14F.4 AI Sense Tool Catalog',
-  label: 'Version6 Stage 14F.4 AI Sense Tool Catalog',
-  summary: 'Expanded the assistant read-only tool catalog with business and today dashboard snapshots, and enabled the modular assistant launcher flag for signed-in users.'
+  version: '6.0.47',
+  stage: 'Stage 14F.5 AI Sense API Path Hotfix',
+  label: 'Version6 Stage 14F.5 AI Sense API Path Hotfix',
+  summary: 'Normalized shared API paths so AI Sense and other modular pages can pass api/... paths without producing duplicate /api/api/... requests.'
 } as const

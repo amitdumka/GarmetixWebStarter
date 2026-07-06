@@ -1,7 +1,7 @@
 {
   "name": "garmetix-version6-workspace",
   "private": true,
-  "version": "6.0.46",
+  "version": "6.0.47",
   "scripts": {
     "legacy:api:test": "dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release",
     "legacy:api:build": "dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release",
@@ -76,6 +76,7 @@
     "modular:assistant:mcp-intake": "node frontend/modular/scripts/assistant-mcp-intake-readiness.mjs",
     "modular:assistant:backend-foundation": "node frontend/modular/scripts/assistant-backend-foundation-readiness.mjs",
     "modular:assistant:frontend-panel": "node frontend/modular/scripts/assistant-frontend-panel-readiness.mjs",
-    "modular:assistant:tool-catalog": "node frontend/modular/scripts/assistant-tool-catalog-readiness.mjs"
+    "modular:assistant:tool-catalog": "node frontend/modular/scripts/assistant-tool-catalog-readiness.mjs",
+    "modular:ai-sense:api-path": "node frontend/modular/scripts/ai-sense-api-path-readiness.mjs"
   }
 }

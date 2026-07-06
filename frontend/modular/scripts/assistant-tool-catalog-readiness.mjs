@@ -12,8 +12,9 @@ console.log(`Stage: ${stage}`)
 console.log('Mutation check: disabled')
 console.log('Provider key check: source only')
 
-if (version !== '6.0.46') failures.push(`Expected modular version 6.0.46, found ${version}.`)
-if (!stage.includes('Stage 14F.4')) failures.push(`Expected Stage 14F.4, found ${stage}.`)
+if (compareVersion(version, '6.0.46') < 0) {
+  failures.push(`Expected modular version 6.0.46 or newer, found ${version}.`)
+}
 
 checkFile('backend/Garmetix.Api/Assistant/AssistantToolCatalog.cs', [
   'get_business_snapshot',
@@ -112,4 +113,14 @@ function checkNoSourceSecrets() {
     }
   }
   console.log('CHECK source secrets -> no Anthropic-style key markers in assistant tool catalog files')
+}
+
+function compareVersion(left, right) {
+  const leftParts = String(left).split('.').map((part) => Number.parseInt(part, 10) || 0)
+  const rightParts = String(right).split('.').map((part) => Number.parseInt(part, 10) || 0)
+  for (let index = 0; index < Math.max(leftParts.length, rightParts.length); index += 1) {
+    const diff = (leftParts[index] || 0) - (rightParts[index] || 0)
+    if (diff !== 0) return diff
+  }
+  return 0
 }

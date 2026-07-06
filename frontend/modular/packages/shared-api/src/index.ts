@@ -51,7 +51,10 @@ export function normalizeApiBaseUrl(baseUrl: string) {
 
 export function createApiUrl(baseUrl: string, path: string) {
   const base = normalizeApiBaseUrl(baseUrl)
-  const nextPath = String(path || '').replace(/^\/+/, '')
+  let nextPath = String(path || '').replace(/^\/+/, '')
+  if (base.replace(/\/+$/, '').toLowerCase().endsWith('/api')) {
+    nextPath = nextPath.replace(/^api\/+/i, '')
+  }
   return nextPath ? `${base}/${nextPath}` : base
 }
 

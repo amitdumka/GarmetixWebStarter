@@ -67,13 +67,18 @@ Status: intake complete, patch not applied directly.
 - Every query must apply workspace scope and current user permissions.
 - Add a max row/token cap for every tool.
 
-### 14F.5 MCP Server Layer
+### 14F.5 AI Sense API Path Hotfix
+
+- Complete in `6.0.47`: fixed shared API URL normalization so modular pages can pass `api/...` paths when the configured base URL is already `/api`.
+- Complete in `6.0.47`: added regression readiness for the AI Sense dashboard and stock report paths that were failing as `/api/api/...`.
+
+### 14F.6 MCP Server Layer
 
 - After in-app assistant is stable, expose the same read-only tool catalog through MCP.
 - Prefer an additive wrapper around the tool catalog instead of duplicating business logic.
 - Keep MCP auth/network exposure local or private-tunnel only until reviewed.
 
-### 14F.6 Live Acceptance
+### 14F.7 Live Acceptance
 
 - Validate with assistant disabled.
 - Validate with assistant enabled using a rotated key on `.127`.

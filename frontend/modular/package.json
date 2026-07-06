@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "6.0.46",
+  "version": "6.0.47",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -91,7 +91,8 @@
     "assistant:mcp-intake": "node scripts/assistant-mcp-intake-readiness.mjs",
     "assistant:backend-foundation": "node scripts/assistant-backend-foundation-readiness.mjs",
     "assistant:frontend-panel": "node scripts/assistant-frontend-panel-readiness.mjs",
-    "assistant:tool-catalog": "node scripts/assistant-tool-catalog-readiness.mjs"
+    "assistant:tool-catalog": "node scripts/assistant-tool-catalog-readiness.mjs",
+    "ai-sense:api-path": "node scripts/ai-sense-api-path-readiness.mjs"
   },
   "overrides": {
     "@babel/generator": "8.0.0-rc.6",
