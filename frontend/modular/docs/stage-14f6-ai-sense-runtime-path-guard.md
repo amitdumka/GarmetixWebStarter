@@ -1,6 +1,6 @@
 # Stage 14F.6 - AI Sense Runtime Path Guard
 
-Version: 6.0.50
+Version: 6.0.51
 
 ## What Changed
 
@@ -9,11 +9,15 @@ Version: 6.0.50
 - Wired the workspace-link repair into SRP deployment before modular app builds.
 - Fixed SRP deployment to run the repair script through the detected npm command, which supports WSL environments where `npm.cmd` exists but Linux `node` does not.
 - Added Stage 14F.6B hosting follow-up so modular deep routes are served from generated `index.html` files before directory redirects.
+- Added Stage 14F.6C runtime props follow-up so connected analysis pages preserve `title`, `description`, and `endpoint` props in production bundles.
+- Added an empty endpoint guard so a missing connected-analysis endpoint fails with a clear page error instead of calling `/api/`.
 - Kept the previous shared API duplicate `/api` normalization as a second guard.
 
 ## Why
 
 The source package was fixed in `6.0.47`, but the local install had stale copied `@garmetix` packages at `6.0.22`. Nuxt bundled the stale shared API client, so the live AI Sense app still requested `/api/api/...`.
+
+After the deep-route hosting fix, the report pages loaded but the production bundle dropped type-only props for the shared connected-analysis component. That made `endpoint` undefined, which created API-root calls like `https://srp.aadwikafashion.in/api/`. Runtime prop declarations now keep the endpoint stable in the generated bundle.
 
 ## Validation
 

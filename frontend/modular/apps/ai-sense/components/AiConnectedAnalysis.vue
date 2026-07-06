@@ -81,11 +81,20 @@
 import { formatIndianMoney } from '@garmetix/shared-utils'
 import { readArray, readNumber, readText, type ApiRecord, useAiApiClient } from '../utils/ai-api'
 
-const props = defineProps<{
-  title: string
-  description: string
-  endpoint: string
-}>()
+const props = defineProps({
+  title: {
+    type: String,
+    required: true
+  },
+  description: {
+    type: String,
+    required: true
+  },
+  endpoint: {
+    type: String,
+    required: true
+  }
+})
 
 const { get } = useAiApiClient()
 const loading = ref(false)

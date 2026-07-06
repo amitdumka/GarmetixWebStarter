@@ -13,11 +13,13 @@ export function useAiApiClient() {
 
   async function get<T>(path: string, query?: Record<string, string | number | boolean | null | undefined>) {
     if (!apiBaseUrl.value) throw new Error('API base URL is not configured.')
+    const apiPath = normalizeAiApiPath(path)
+    if (!apiPath) throw new Error('API endpoint is not configured.')
     const api = createGarmetixApiClient({
       baseUrl: apiBaseUrl.value,
       getToken: () => getStoredToken(window.localStorage)
     })
-    return await api.get<T>(normalizeAiApiPath(path), { query })
+    return await api.get<T>(apiPath, { query })
   }
 
   return { apiBaseUrl, get }

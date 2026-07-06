@@ -11,8 +11,8 @@ console.log(`Version: ${version}`)
 console.log(`Stage: ${stage}`)
 console.log('Mutation check: disabled')
 
-if (version !== '6.0.50') failures.push(`Expected modular version 6.0.50, found ${version}.`)
-if (!stage.includes('Stage 14F.6B')) failures.push(`Expected Stage 14F.6B, found ${stage}.`)
+if (version !== '6.0.51') failures.push(`Expected modular version 6.0.51, found ${version}.`)
+if (!stage.includes('Stage 14F.6C')) failures.push(`Expected Stage 14F.6C, found ${stage}.`)
 
 checkUrl('/api', 'api/dashboard/business', '/api/dashboard/business')
 checkUrl('/api', '/api/dashboard/business', '/api/dashboard/business')
@@ -33,7 +33,15 @@ checkFile('frontend/modular/apps/ai-sense/pages/index.vue', [
 checkFile('frontend/modular/apps/ai-sense/utils/ai-api.ts', [
   'normalizeAiApiPath',
   'replace(/^api\\/+',
-  'normalizeAiApiPath(path)'
+  'normalizeAiApiPath(path)',
+  'API endpoint is not configured.'
+])
+
+checkFile('frontend/modular/apps/ai-sense/components/AiConnectedAnalysis.vue', [
+  'const props = defineProps({',
+  'type: String',
+  'required: true',
+  'props.endpoint'
 ])
 
 checkFile('frontend/modular/docs/stage-14f5-ai-sense-api-path-hotfix.md', [
@@ -45,15 +53,16 @@ checkFile('frontend/modular/docs/stage-14f5-ai-sense-api-path-hotfix.md', [
 
 checkFile('frontend/modular/docs/stage-14f6-ai-sense-runtime-path-guard.md', [
   'Stage 14F.6',
-  '6.0.50',
+  '6.0.51',
   'stale copied',
-  'workspace-link'
+  'workspace-link',
+  'runtime props'
 ])
 
 checkFile('frontend/modular/docs/MODULAR_TODO.md', [
-  '14F.6B complete',
-  '6.0.50',
-  'AI Sense API path'
+  '14F.6C complete',
+  '6.0.51',
+  'API root'
 ])
 
 checkPackageScripts()

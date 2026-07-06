@@ -82,6 +82,11 @@ Status: intake complete, patch not applied directly.
 - Complete in `6.0.50`: changed SRP Nginx static hosting to serve generated modular route `index.html` files before directory redirects.
 - Complete in `6.0.50`: added acceptance probes for AI Sense sales, purchase, daily and profit analysis deep routes.
 
+### 14F.6C AI Sense Runtime Props API Guard
+
+- Complete in `6.0.51`: changed connected analysis props from type-only props to runtime props so production AI Sense pages keep their configured endpoint.
+- Complete in `6.0.51`: added an empty endpoint guard in the AI Sense API client so missing page configuration cannot call `/api/`.
+
 ### 14F.7 MCP Server Layer
 
 - After in-app assistant is stable, expose the same read-only tool catalog through MCP.

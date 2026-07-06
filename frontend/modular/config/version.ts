@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.50',
-  stage: 'Stage 14F.6B AI Sense Deep Route Hosting Fix',
-  label: 'Version6 Stage 14F.6B AI Sense Deep Route Hosting Fix',
-  summary: 'Fixed SRP static hosting for AI Sense and other modular app deep routes so prerendered pages serve without redirecting to trailing-slash client routes.'
+  version: '6.0.51',
+  stage: 'Stage 14F.6C AI Sense Runtime Props API Guard',
+  label: 'Version6 Stage 14F.6C AI Sense Runtime Props API Guard',
+  summary: 'Fixed AI Sense connected analysis runtime props and added an empty endpoint guard so report pages do not call the API root.'
 } as const
