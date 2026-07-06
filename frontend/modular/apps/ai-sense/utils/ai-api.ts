@@ -7,13 +7,17 @@ export function useAiApiClient() {
   const runtimeConfig = useRuntimeConfig()
   const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
 
+  function normalizeAiApiPath(path: string) {
+    return String(path || '').replace(/^\/+/, '').replace(/^api\/+/i, '')
+  }
+
   async function get<T>(path: string, query?: Record<string, string | number | boolean | null | undefined>) {
     if (!apiBaseUrl.value) throw new Error('API base URL is not configured.')
     const api = createGarmetixApiClient({
       baseUrl: apiBaseUrl.value,
       getToken: () => getStoredToken(window.localStorage)
     })
-    return await api.get<T>(path, { query })
+    return await api.get<T>(normalizeAiApiPath(path), { query })
   }
 
   return { apiBaseUrl, get }

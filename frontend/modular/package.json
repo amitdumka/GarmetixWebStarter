@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "6.0.47",
+  "version": "6.0.48",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -92,7 +92,8 @@
     "assistant:backend-foundation": "node scripts/assistant-backend-foundation-readiness.mjs",
     "assistant:frontend-panel": "node scripts/assistant-frontend-panel-readiness.mjs",
     "assistant:tool-catalog": "node scripts/assistant-tool-catalog-readiness.mjs",
-    "ai-sense:api-path": "node scripts/ai-sense-api-path-readiness.mjs"
+    "ai-sense:api-path": "node scripts/ai-sense-api-path-readiness.mjs",
+    "workspace-links": "node scripts/workspace-link-readiness.mjs"
   },
   "overrides": {
     "@babel/generator": "8.0.0-rc.6",

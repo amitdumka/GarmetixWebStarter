@@ -17,6 +17,11 @@ const steps = [
     args: ['run', 'modular:check']
   },
   {
+    name: 'Modular workspace link readiness',
+    cwd: repoRoot,
+    args: ['run', 'modular:workspace-links']
+  },
+  {
     name: 'Modular route smoke dry-run',
     cwd: repoRoot,
     args: ['run', 'modular:smoke:routes']

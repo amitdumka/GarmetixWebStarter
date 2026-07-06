@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.47',
-  stage: 'Stage 14F.5 AI Sense API Path Hotfix',
-  label: 'Version6 Stage 14F.5 AI Sense API Path Hotfix',
-  summary: 'Normalized shared API paths so AI Sense and other modular pages can pass api/... paths without producing duplicate /api/api/... requests.'
+  version: '6.0.48',
+  stage: 'Stage 14F.6 AI Sense Runtime Path Guard',
+  label: 'Version6 Stage 14F.6 AI Sense Runtime Path Guard',
+  summary: 'Added an AI Sense local API path guard and workspace-link repair so stale installed packages cannot reintroduce duplicate /api/api/... requests.'
 } as const

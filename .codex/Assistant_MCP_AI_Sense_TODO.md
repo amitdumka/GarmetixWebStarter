@@ -72,13 +72,18 @@ Status: intake complete, patch not applied directly.
 - Complete in `6.0.47`: fixed shared API URL normalization so modular pages can pass `api/...` paths when the configured base URL is already `/api`.
 - Complete in `6.0.47`: added regression readiness for the AI Sense dashboard and stock report paths that were failing as `/api/api/...`.
 
-### 14F.6 MCP Server Layer
+### 14F.6 AI Sense Runtime Path Guard
+
+- Complete in `6.0.48`: added local AI Sense path normalization so stale installed shared packages cannot create `/api/api/...` calls.
+- Complete in `6.0.48`: added workspace-link readiness/repair and wired it into SRP deploy builds.
+
+### 14F.7 MCP Server Layer
 
 - After in-app assistant is stable, expose the same read-only tool catalog through MCP.
 - Prefer an additive wrapper around the tool catalog instead of duplicating business logic.
 - Keep MCP auth/network exposure local or private-tunnel only until reviewed.
 
-### 14F.7 Live Acceptance
+### 14F.8 Live Acceptance
 
 - Validate with assistant disabled.
 - Validate with assistant enabled using a rotated key on `.127`.
