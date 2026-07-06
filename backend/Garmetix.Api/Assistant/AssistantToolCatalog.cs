@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Garmetix.Api.Dashboard;
 using Garmetix.Api.Workspace;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -87,6 +88,41 @@ public sealed class AssistantToolCatalog(GarmetixDbContext db)
                 },
                 required = new[] { "partyType" }
             }
+        },
+        new
+        {
+            name = "get_business_snapshot",
+            description = "Get a broad business snapshot for a date range: key metrics, top stores and store groups, customer/vendor dues grouped by age, cash payment summary and health warnings. Use this for open-ended questions like 'how is the business doing' or 'give me an overview'.",
+            input_schema = new
+            {
+                type = "object",
+                properties = new
+                {
+                    companyId = new { type = "string", description = "Optional company GUID to filter by." },
+                    storeGroupId = new { type = "string", description = "Optional store group GUID to filter by." },
+                    storeId = new { type = "string", description = "Optional store GUID to filter by." },
+                    fromDate = new { type = "string", description = "Start date, format yyyy-MM-dd. Defaults to the start of the current month." },
+                    toDate = new { type = "string", description = "End date inclusive, format yyyy-MM-dd. Defaults to today." }
+                },
+                required = Array.Empty<string>()
+            }
+        },
+        new
+        {
+            name = "get_today_snapshot",
+            description = "Get today's snapshot: cash flow, staff attendance, absent employees and quick action items. Use this for 'how is today going', 'who is absent today' or 'what is our cash position today'.",
+            input_schema = new
+            {
+                type = "object",
+                properties = new
+                {
+                    companyId = new { type = "string", description = "Optional company GUID to filter by." },
+                    storeGroupId = new { type = "string", description = "Optional store group GUID to filter by." },
+                    storeId = new { type = "string", description = "Optional store GUID to filter by." },
+                    date = new { type = "string", description = "Date, format yyyy-MM-dd. Defaults to today." }
+                },
+                required = Array.Empty<string>()
+            }
         }
     ];
 
@@ -101,8 +137,87 @@ public sealed class AssistantToolCatalog(GarmetixDbContext db)
             "compare_store_performance" => await CompareStorePerformanceAsync(root, context, cancellationToken),
             "get_low_stock_items" => await GetLowStockItemsAsync(root, context, cancellationToken),
             "get_outstanding_dues" => await GetOutstandingDuesAsync(root, context, cancellationToken),
+            "get_business_snapshot" => await GetBusinessSnapshotAsync(root, context, cancellationToken),
+            "get_today_snapshot" => await GetTodaySnapshotAsync(root, context, cancellationToken),
             _ => JsonSerializer.Serialize(new { error = $"Unknown tool '{toolName}'." })
         };
+    }
+
+    private async Task<string> GetBusinessSnapshotAsync(JsonElement input, HttpContext context, CancellationToken cancellationToken)
+    {
+        var (from, to) = ResolveRange(input);
+        var companyId = ReadGuid(input, "companyId");
+        var storeGroupId = ReadGuid(input, "storeGroupId");
+        var storeId = ReadGuid(input, "storeId");
+
+        var dashboard = await DashboardEndpoints.BusinessAsync(
+            context,
+            db,
+            companyId,
+            storeGroupId,
+            storeId,
+            from,
+            to.AddDays(-1),
+            cancellationToken);
+
+        return JsonSerializer.Serialize(new
+        {
+            dashboard.Scope,
+            dashboard.Period,
+            metrics = dashboard.Metrics.Select(item => new { item.Label, item.DisplayValue, item.Caption }),
+            topStores = dashboard.Stores
+                .OrderByDescending(item => item.SalesMonth)
+                .Take(10)
+                .Select(item => new { item.StoreName, item.SalesMonth, item.PurchaseMonth, item.StockValue, item.InvoiceCount, item.CurrentStockQty }),
+            topStoreGroups = dashboard.StoreGroups
+                .OrderByDescending(item => item.SalesMonth)
+                .Take(10)
+                .Select(item => new { item.StoreGroupName, item.StoreCount, item.SalesMonth, item.PurchaseMonth, item.StockValue, item.InvoiceCount, item.CurrentStockQty }),
+            dashboard.CashPaymentSummary,
+            customerDuesByAge = dashboard.CustomerDues
+                .GroupBy(item => item.AgeBucket)
+                .Select(group => new { ageBucket = group.Key, count = group.Count(), dueAmount = group.Sum(item => item.DueAmount) }),
+            vendorDuesByAge = dashboard.VendorDues
+                .GroupBy(item => item.AgeBucket)
+                .Select(group => new { ageBucket = group.Key, count = group.Count(), dueAmount = group.Sum(item => item.DueAmount) }),
+            dashboard.HealthSignals
+        });
+    }
+
+    private async Task<string> GetTodaySnapshotAsync(JsonElement input, HttpContext context, CancellationToken cancellationToken)
+    {
+        var companyId = ReadGuid(input, "companyId");
+        var storeGroupId = ReadGuid(input, "storeGroupId");
+        var storeId = ReadGuid(input, "storeId");
+        var date = ReadDate(input, "date");
+
+        var today = await DashboardEndpoints.TodaysAsync(
+            context,
+            db,
+            companyId,
+            storeGroupId,
+            storeId,
+            date,
+            cancellationToken);
+
+        return JsonSerializer.Serialize(new
+        {
+            today.Scope,
+            businessDate = today.BusinessDate.ToString("yyyy-MM-dd"),
+            metrics = today.Metrics.Select(item => new { item.Label, item.DisplayValue, item.Caption }),
+            today.CashFlow,
+            attendance = new
+            {
+                today.Attendance.ActiveEmployees,
+                today.Attendance.PresentEmployees,
+                today.Attendance.AbsentEmployees,
+                today.Attendance.PendingReviewEmployees,
+                absentEmployees = today.Attendance.Absent
+                    .Take(25)
+                    .Select(item => new { item.EmployeeCode, item.EmployeeName, item.Department, item.Designation })
+            },
+            today.QuickActions
+        });
     }
 
     private async Task<string> GetStoreSalesSummaryAsync(JsonElement input, HttpContext context, CancellationToken cancellationToken)

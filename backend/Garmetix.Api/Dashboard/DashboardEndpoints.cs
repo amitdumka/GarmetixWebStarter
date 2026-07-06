@@ -100,7 +100,7 @@ public static class DashboardEndpoints
     }
 
 
-    private static async Task<TodayDashboardDto> TodaysAsync(
+    internal static async Task<TodayDashboardDto> TodaysAsync(
         HttpContext context,
         GarmetixDbContext db,
         [FromQuery] Guid? companyId,
@@ -532,7 +532,7 @@ public static class DashboardEndpoints
             period.Dto);
     }
 
-    private static async Task<BusinessDashboardDto> BusinessAsync(
+    internal static async Task<BusinessDashboardDto> BusinessAsync(
         HttpContext context,
         GarmetixDbContext db,
         [FromQuery] Guid? companyId,

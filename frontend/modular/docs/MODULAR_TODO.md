@@ -341,8 +341,8 @@ Goal: add an embedded Garmetix Assistant and later MCP tool layer without splitt
 - 14F.1 complete: bump modular version identity to `6.0.43`, review Claude-provided assistant patch, create `.codex/Assistant_MCP_AI_Sense_TODO.md`, document the Assistant/MCP roadmap, add a non-mutating intake readiness check, and mark the pasted provider key as rotate/revoke before live use.
 - 14F.2 complete: bump modular version identity to `6.0.44`, adapt backend assistant options, DTOs, endpoints, conversation storage, read-only store tools and current `Program.cs` wiring into the Version6 API with Assistant disabled by default.
 - 14F.3 complete: bump modular version identity to `6.0.45`, add the feature-flagged shared Assistant frontend panel/launcher in the current Nuxt UI 4.9 shell, and keep the launcher hidden unless a token exists and `NUXT_PUBLIC_GARMETIX_ASSISTANT_ENABLED=true`.
-- 14F.4 next: expose additional AI Sense read-only tools through a workspace-scoped tool catalog with row/token caps and Message Log audit entries.
+- 14F.4 complete: bump modular version identity to `6.0.46`, expose `get_business_snapshot` and `get_today_snapshot` through the AI Sense read-only tool catalog, reuse current dashboard aggregations with workspace scope, and enable the modular assistant launcher flag with `NUXT_PUBLIC_GARMETIX_ASSISTANT_ENABLED=true`.
 - 14F.5 next: add MCP wrapper around the same read-only tool catalog after the in-app assistant is stable.
-- Assistant remains disabled by default and secrets must be provided only through server-side environment variables.
+- Assistant backend provider secrets must be provided only through server-side environment variables.
 - Regular module sequence still continues with Books `14C.5` unless Assistant/MCP is explicitly prioritized next.
 

@@ -42,6 +42,11 @@ const steps = [
     args: ['run', 'modular:smoke:visual']
   },
   {
+    name: 'Assistant AI Sense tool catalog readiness',
+    cwd: repoRoot,
+    args: ['run', 'modular:assistant:tool-catalog']
+  },
+  {
     name: 'Main Back Office readiness dry-run',
     cwd: repoRoot,
     args: ['run', 'modular:main:backoffice-readiness']

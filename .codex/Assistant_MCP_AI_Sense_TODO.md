@@ -48,13 +48,15 @@ Status: intake complete, patch not applied directly.
 
 - Complete in `6.0.45`: added `frontend/modular/packages/shared-ui/components/GarmetixAssistantPanel.vue`.
 - Complete in `6.0.45`: added a Nuxt UI top-bar launcher and right-side assistant slideover to the shared modular shell.
-- Complete in `6.0.45`: added `NUXT_PUBLIC_GARMETIX_ASSISTANT_ENABLED=false` to the modular env example and runtime config for each modular app.
+- Complete in `6.0.45`: added the modular assistant feature flag and runtime config for each modular app.
+- Updated in `6.0.46`: set `NUXT_PUBLIC_GARMETIX_ASSISTANT_ENABLED=true` for modular builds so the launcher is visible after login.
 - Use the existing shared API/auth clients.
 - Keep UI compact, right-side slideover, bottom-right error toasts, and Nuxt UI 4.9 components.
 - Show tool-call badges so users know when data was queried.
 
 ### 14F.4 AI Sense Tool Catalog
 
+- Complete in `6.0.46`: added dashboard-backed `get_business_snapshot` and `get_today_snapshot` tools.
 - Start with read-only tools only:
   - sales summary,
   - store comparison,
