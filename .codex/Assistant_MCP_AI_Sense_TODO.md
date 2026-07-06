@@ -77,6 +77,11 @@ Status: intake complete, patch not applied directly.
 - Complete in `6.0.49`: added local AI Sense path normalization so stale installed shared packages cannot create `/api/api/...` calls.
 - Complete in `6.0.49`: added workspace-link readiness/repair and wired it into SRP deploy builds through the detected npm command.
 
+### 14F.6B AI Sense Deep Route Hosting Fix
+
+- Complete in `6.0.50`: changed SRP Nginx static hosting to serve generated modular route `index.html` files before directory redirects.
+- Complete in `6.0.50`: added acceptance probes for AI Sense sales, purchase, daily and profit analysis deep routes.
+
 ### 14F.7 MCP Server Layer
 
 - After in-app assistant is stable, expose the same read-only tool catalog through MCP.

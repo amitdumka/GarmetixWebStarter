@@ -31,6 +31,12 @@ const endpoints = [
 ]
 
 const appEndpoints = endpoints.filter((endpoint) => endpoint.id !== 'api-health')
+const deepRouteEndpoints = [
+  { id: 'ai-sales-analysis', label: 'AI Sense Sales Analysis', path: '/ai-sense/sales-analysis', expected: '200' },
+  { id: 'ai-purchase-analysis', label: 'AI Sense Purchase Analysis', path: '/ai-sense/purchase-analysis', expected: '200' },
+  { id: 'ai-daily-summary', label: 'AI Sense Daily Summary', path: '/ai-sense/daily-summary', expected: '200' },
+  { id: 'ai-profit-analysis', label: 'AI Sense Profit Analysis', path: '/ai-sense/profit-analysis', expected: '200' }
+]
 
 const expectedOk = (status, expected) => {
   if (expected.includes('-')) {
@@ -246,6 +252,11 @@ if (live) {
     addRow('Public Assets', endpoint.label, `${publicBaseUrl}${endpoint.path}`, 'js/css', await probeAppAssets(publicBaseUrl, endpoint))
     addRow('LAN Assets', endpoint.label, `${lanBaseUrl}${endpoint.path}`, 'js/css', await probeAppAssets(lanBaseUrl, endpoint))
   }
+
+  for (const endpoint of deepRouteEndpoints) {
+    addRow('Public Deep Route', endpoint.label, `${publicBaseUrl}${endpoint.path}`, endpoint.expected, await probeUrl(`${publicBaseUrl}${endpoint.path}`, endpoint.expected))
+    addRow('LAN Deep Route', endpoint.label, `${lanBaseUrl}${endpoint.path}`, endpoint.expected, await probeUrl(`${lanBaseUrl}${endpoint.path}`, endpoint.expected))
+  }
 } else {
   rows.push({ scope: 'DNS', label: publicHost, url: publicHost, expected: 'resolved', ok: true, status: 'dry', elapsedMs: 0, detail: '' })
   console.log(`DRY DNS ${publicHost} should resolve after Cloudflare route is active`)
@@ -262,6 +273,13 @@ if (live) {
     rows.push({ scope: 'LAN Assets', label: endpoint.label, url: `${lanBaseUrl}${endpoint.path}`, expected: 'js/css', ok: true, status: 'dry', elapsedMs: 0, detail: '' })
     console.log(`DRY Public Assets ${endpoint.label} should serve Nuxt JS/CSS from its app base path`)
     console.log(`DRY LAN Assets ${endpoint.label} should serve Nuxt JS/CSS from its app base path`)
+  }
+
+  for (const endpoint of deepRouteEndpoints) {
+    rows.push({ scope: 'Public Deep Route', label: endpoint.label, url: `${publicBaseUrl}${endpoint.path}`, expected: endpoint.expected, ok: true, status: 'dry', elapsedMs: 0, detail: '' })
+    rows.push({ scope: 'LAN Deep Route', label: endpoint.label, url: `${lanBaseUrl}${endpoint.path}`, expected: endpoint.expected, ok: true, status: 'dry', elapsedMs: 0, detail: '' })
+    console.log(`DRY Public Deep Route ${endpoint.label} ${publicBaseUrl}${endpoint.path} expected ${endpoint.expected}`)
+    console.log(`DRY LAN Deep Route ${endpoint.label} ${lanBaseUrl}${endpoint.path} expected ${endpoint.expected}`)
   }
 }
 

@@ -391,28 +391,30 @@ server {
         proxy_read_timeout 300s;
     }
 
+    rewrite ^/(pos|hr|ai-sense|books|crm|admin)/(.+)/$ /\$1/\$2 permanent;
+
     location /pos/ {
-        try_files \$uri \$uri/ /pos/index.html;
+        try_files \$uri \$uri/index.html \$uri/ /pos/index.html;
     }
 
     location /hr/ {
-        try_files \$uri \$uri/ /hr/index.html;
+        try_files \$uri \$uri/index.html \$uri/ /hr/index.html;
     }
 
     location /ai-sense/ {
-        try_files \$uri \$uri/ /ai-sense/index.html;
+        try_files \$uri \$uri/index.html \$uri/ /ai-sense/index.html;
     }
 
     location /books/ {
-        try_files \$uri \$uri/ /books/index.html;
+        try_files \$uri \$uri/index.html \$uri/ /books/index.html;
     }
 
     location /crm/ {
-        try_files \$uri \$uri/ /crm/index.html;
+        try_files \$uri \$uri/index.html \$uri/ /crm/index.html;
     }
 
     location /admin/ {
-        try_files \$uri \$uri/ /admin/index.html;
+        try_files \$uri \$uri/index.html \$uri/ /admin/index.html;
     }
 
     location / {
