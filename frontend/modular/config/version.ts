@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.41',
-  stage: 'Stage 14D.9 CRM Final Closure',
-  label: 'Version6 Stage 14D.9 CRM Final Closure',
-  summary: 'Promoted Digital Bill Acceptance to a final-readiness console, added CRM public token/PDF smoke launchers, and wired a non-mutating CRM final closure gate into validation.'
+  version: '6.0.42',
+  stage: 'Stage 14C.4 Books Bank Operations Parity',
+  label: 'Version6 Stage 14C.4 Books Bank Operations Parity',
+  summary: 'Added guarded vendor bank edits, secure bank detail review, masked account tables, settlement closure dashboard, evidence CSV handoff and bank statement import planning.'
 } as const

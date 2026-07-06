@@ -309,7 +309,8 @@ Goal: complete Books next, module-by-module, after HR code closure. Keep live po
 - 14A.11 complete: bump modular version identity to `6.0.27`, hotfix live invoice PDF `500` caused by missing server QR dependency, keep invoice PDFs printable with a scan-code fallback box, and switch POS document printing to a legacy-style API URL builder.
 - 14A.12 complete: bump modular version identity to `6.0.28`, remove the direct invoice PDF QR dependency from the PDF path after live testing showed the CLR failed before fallback catch handling, and keep a scan-code fallback box until QR packaging is repaired.
 - 14A.13 complete: bump modular version identity to `6.0.29`, promote POS `/history` toward legacy `/billing` invoice register parity with server-side paging, date/status filters, register totals, cancel action and hard-delete action.
-- 14C.4 next: vendor bank account edit parity, bank account detail secure edit review, bank statement import/review planning, and reconciliation closure dashboard handoff.
+- 14C.4 complete: bump modular version identity to `6.0.42`, add vendor bank account guarded edit, secure bank detail review/update, masked account review, settlement-closure dashboard, evidence CSV handoff and bank statement import planning.
+- 14C.5 next: complete Books GST/accounting report finalization, financial-year lock acceptance and final Books closure gate.
 - Reuse the Stage 13D Books readiness scripts, then upgrade them for Version6 live-safe evidence.
 - 14C.1 was deployed as checkpoint 3 after the prior `.127` deployment.
 - 14C.2 is checkpoint 1 after the Stage 14B.12 `.127` deployment. Deploy on checkpoint 3 unless live testing is explicitly requested earlier.
@@ -331,5 +332,5 @@ Goal: merge customer CRM and Digital Bill CRM into a dedicated `crm` modular app
 - 14D.8 complete: bump modular version identity to `6.0.40`, promote invoice ad banners to create/edit/delete CRM workbench, and add anonymous `/i/:token` digital bill customer page with PDF, review, WhatsApp support, feedback and banner-click tracking.
 - 14D.9 complete: bump modular version identity to `6.0.41`, promote Digital Bill Acceptance to a real final-readiness console, add public token/PDF smoke launchers, add CRM final closure gate, and wire CRM closure/build into validation.
 - CRM lane is code-ready. Production handover remains conditional on real public-token/manual browser evidence.
-- Next: resume Books `14C.4` vendor bank account edit parity, bank account detail secure edit review, bank statement import/review planning, and reconciliation closure dashboard handoff.
+- Next: continue Books `14C.5` GST/accounting report finalization, financial-year lock acceptance and final Books closure gate.
 

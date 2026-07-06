@@ -259,6 +259,189 @@
       </form>
     </section>
 
+    <section v-if="activeTab === 'vendorBanks' && showVendorBankForm" class="garmetix-section-card">
+      <div class="mb-3 flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h3 class="garmetix-panel-title">Edit Vendor Bank Account</h3>
+          <p class="garmetix-panel-subtitle">
+            Vendor bank accounts are accounting-controlled records. Type <strong>UPDATE VENDOR BANK</strong> before saving.
+          </p>
+        </div>
+        <UBadge color="warning" variant="subtle">Guarded edit</UBadge>
+      </div>
+      <form class="grid gap-3 xl:grid-cols-12" @submit.prevent="saveVendorBankAccount">
+        <label class="space-y-1 text-sm xl:col-span-3">
+          <span class="text-muted">Vendor</span>
+          <USelect v-model="vendorBankForm.vendorId" :items="vendorSelectItems" placeholder="Select vendor" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-3">
+          <span class="text-muted">Bank</span>
+          <USelect v-model="vendorBankForm.bankId" :items="bankSelectItems" placeholder="Select bank" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-3">
+          <span class="text-muted">Holder</span>
+          <UInput v-model="vendorBankForm.accountHolderName" placeholder="Account holder" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-3">
+          <span class="text-muted">Account Number</span>
+          <UInput v-model="vendorBankForm.accountNumber" placeholder="Account number" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-3">
+          <span class="text-muted">Account Type</span>
+          <USelect v-model="vendorBankForm.accountType" :items="accountTypeSelectItems" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-3">
+          <span class="text-muted">Branch</span>
+          <UInput v-model="vendorBankForm.branch" placeholder="Branch" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-3">
+          <span class="text-muted">IFSC</span>
+          <UInput v-model="vendorBankForm.ifsCode" placeholder="IFSC code" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-3">
+          <span class="text-muted">Linked Ledger</span>
+          <USelect v-model="vendorBankForm.ledgerId" :items="ledgerSelectItems" placeholder="Select ledger" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-3">
+          <span class="text-muted">Opening Balance</span>
+          <UInput v-model="vendorBankForm.openingBalance" type="number" step="0.01" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-3">
+          <span class="text-muted">Closing Balance</span>
+          <UInput v-model="vendorBankForm.closingBalance" type="number" step="0.01" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-3">
+          <span class="text-muted">Active</span>
+          <USwitch v-model="vendorBankForm.active" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-3">
+          <span class="text-muted">Confirmation</span>
+          <UInput v-model="vendorBankConfirmation" placeholder="UPDATE VENDOR BANK" />
+        </label>
+        <div class="flex flex-wrap justify-end gap-2 xl:col-span-12">
+          <UButton type="button" icon="i-lucide-x" color="neutral" variant="ghost" @click="cancelVendorBankForm">Cancel</UButton>
+          <UButton type="submit" icon="i-lucide-save" color="primary" :loading="savingVendorBank">Update Vendor Bank</UButton>
+        </div>
+      </form>
+    </section>
+
+    <section v-if="activeTab === 'accountDetails' && showBankDetailForm" class="garmetix-section-card">
+      <div class="mb-3 flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h3 class="garmetix-panel-title">Secure Bank Detail Review</h3>
+          <p class="garmetix-panel-subtitle">
+            Sensitive fields stay masked until a second confirmation is entered. Type <strong>UPDATE BANK DETAIL</strong> before saving.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <UBadge color="warning" variant="subtle">Sensitive data</UBadge>
+          <UButton size="xs" icon="i-lucide-eye" color="neutral" variant="soft" @click="confirmBankDetailReveal">Reveal fields</UButton>
+        </div>
+      </div>
+      <form class="grid gap-3 xl:grid-cols-12" @submit.prevent="saveBankAccountDetail">
+        <label class="space-y-1 text-sm xl:col-span-4">
+          <span class="text-muted">Bank Account</span>
+          <USelect v-model="bankDetailForm.bankAccountId" :items="bankAccountOptions" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-2">
+          <span class="text-muted">Customer ID</span>
+          <UInput v-model="bankDetailForm.customerId" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-2">
+          <span class="text-muted">User Name</span>
+          <UInput v-model="bankDetailForm.userName" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-2">
+          <span class="text-muted">ATM Card</span>
+          <UInput v-model="bankDetailForm.atmCard" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-2">
+          <span class="text-muted">Status</span>
+          <UInput v-model="bankDetailForm.status" />
+        </label>
+        <template v-if="bankDetailRevealed">
+          <label class="space-y-1 text-sm xl:col-span-3">
+            <span class="text-muted">Password</span>
+            <UInput v-model="bankDetailForm.password" type="password" />
+          </label>
+          <label class="space-y-1 text-sm xl:col-span-3">
+            <span class="text-muted">Transaction Password</span>
+            <UInput v-model="bankDetailForm.transcationPassword" type="password" />
+          </label>
+          <label class="space-y-1 text-sm xl:col-span-3">
+            <span class="text-muted">Extra Password</span>
+            <UInput v-model="bankDetailForm.extraPassword" type="password" />
+          </label>
+          <label class="space-y-1 text-sm xl:col-span-3">
+            <span class="text-muted">CVV</span>
+            <UInput v-model="bankDetailForm.cvv" type="password" />
+          </label>
+          <label class="space-y-1 text-sm xl:col-span-2">
+            <span class="text-muted">ATM Pin</span>
+            <UInput v-model="bankDetailForm.atmPin" type="number" />
+          </label>
+          <label class="space-y-1 text-sm xl:col-span-2">
+            <span class="text-muted">M Pin</span>
+            <UInput v-model="bankDetailForm.mPin" type="number" />
+          </label>
+          <label class="space-y-1 text-sm xl:col-span-2">
+            <span class="text-muted">T Pin</span>
+            <UInput v-model="bankDetailForm.tpin" type="number" />
+          </label>
+          <label class="space-y-1 text-sm xl:col-span-2">
+            <span class="text-muted">E Pin</span>
+            <UInput v-model="bankDetailForm.epin" type="number" />
+          </label>
+          <label class="space-y-1 text-sm xl:col-span-2">
+            <span class="text-muted">Expire Date</span>
+            <UInput v-model="bankDetailForm.expireDate" type="date" />
+          </label>
+        </template>
+        <div v-else class="garmetix-row-card xl:col-span-10">
+          <UIcon name="i-lucide-lock-keyhole" class="size-5 text-warning" />
+          <span>Passwords, PINs and CVV are preserved but masked. Use reveal only for authorised audit/edit work.</span>
+        </div>
+        <label class="space-y-1 text-sm xl:col-span-2">
+          <span class="text-muted">Confirmation</span>
+          <UInput v-model="bankDetailConfirmation" placeholder="UPDATE BANK DETAIL" />
+        </label>
+        <div class="flex flex-wrap justify-end gap-2 xl:col-span-12">
+          <UButton type="button" icon="i-lucide-x" color="neutral" variant="ghost" @click="cancelBankDetailForm">Cancel</UButton>
+          <UButton type="submit" icon="i-lucide-save" color="primary" :loading="savingBankDetail">Update Bank Detail</UButton>
+        </div>
+      </form>
+    </section>
+
+    <section class="grid gap-4 xl:grid-cols-3">
+      <div class="garmetix-section-card xl:col-span-2">
+        <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 class="garmetix-panel-title">Settlement Closure Dashboard</h3>
+            <p class="garmetix-panel-subtitle">Sales, purchase, salary and bank statement evidence from the accounting closure endpoint.</p>
+          </div>
+          <UButton icon="i-lucide-file-down" size="sm" color="neutral" variant="soft" @click="downloadBankClosureEvidence">
+            Evidence CSV
+          </UButton>
+        </div>
+        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div v-for="item in closureMetricCards" :key="item.label" class="garmetix-row-card block">
+            <p class="garmetix-metric-label">{{ item.label }}</p>
+            <p class="mt-1 text-lg font-semibold">{{ item.value }}</p>
+            <p class="text-xs text-muted">{{ item.detail }}</p>
+          </div>
+        </div>
+      </div>
+      <div class="garmetix-section-card">
+        <h3 class="garmetix-panel-title">Statement Import Plan</h3>
+        <div class="mt-3 space-y-2 text-sm text-muted">
+          <p>1. Import bank CSV/XLSX into reviewed statement lines.</p>
+          <p>2. Match by amount, date tolerance and reference/UTR/cheque number.</p>
+          <p>3. Keep final reconcile actions behind the existing confirmation gates.</p>
+        </div>
+        <UBadge class="mt-3" color="neutral" variant="subtle">Import endpoint pending</UBadge>
+      </div>
+    </section>
+
     <section class="garmetix-section-card">
       <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -319,6 +502,34 @@
         </div>
       </div>
 
+      <div v-else-if="['vendorBanks', 'accountDetails', 'bankAccounts'].includes(activeTab)" class="overflow-hidden rounded-lg border border-default">
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[980px] text-left text-sm">
+            <thead class="bg-muted/30 text-xs uppercase text-muted">
+              <tr>
+                <th v-for="column in currentColumns" :key="column.key" class="whitespace-nowrap px-3 py-2 font-medium">{{ column.label }}</th>
+                <th class="whitespace-nowrap px-3 py-2 font-medium">Action</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-default">
+              <tr v-if="filteredRows.length === 0">
+                <td :colspan="currentColumns.length + 1" class="px-3 py-8 text-center text-muted">No bank operation rows found.</td>
+              </tr>
+              <tr v-for="row in filteredRows" :key="readText(row, ['id'], String(row.account || row.holder))" class="bg-default/40">
+                <td v-for="column in currentColumns" :key="column.key" class="max-w-72 truncate px-3 py-2">{{ row[column.key] || '-' }}</td>
+                <td class="px-3 py-2">
+                  <div class="flex flex-wrap gap-1">
+                    <UButton v-if="activeTab === 'vendorBanks'" icon="i-lucide-pencil" size="xs" color="primary" variant="soft" @click="startVendorBankEdit(row.raw)">Edit</UButton>
+                    <UButton v-else-if="activeTab === 'accountDetails'" icon="i-lucide-lock-keyhole" size="xs" color="warning" variant="soft" @click="startBankDetailEdit(row.raw)">Secure Review</UButton>
+                    <UBadge v-else color="neutral" variant="subtle">Master ledger-owned</UBadge>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <BooksMasterTable v-else :columns="currentColumns" :rows="filteredRows" empty-text="No bank operation rows found." />
     </section>
   </section>
@@ -360,12 +571,47 @@ interface BankTransactionForm {
   personName: string
 }
 
-const { del, get, post, put } = useBooksApiClient()
+interface VendorBankForm {
+  id: string
+  vendorId: string
+  bankId: string
+  accountHolderName: string
+  accountNumber: string
+  accountType: number
+  branch: string
+  ifsCode: string
+  ledgerId: string
+  openingBalance: number
+  closingBalance: number
+  active: boolean
+}
+
+interface BankDetailForm {
+  id: string
+  bankAccountId: string
+  customerId: string
+  userName: string
+  password: string
+  transcationPassword: string
+  extraPassword: string
+  atmPin: number
+  mPin: number
+  tpin: number
+  epin: number
+  atmCard: string
+  expireDate: string
+  cvv: string
+  status: string
+}
+
+const { del, download, get, post, put } = useBooksApiClient()
 const loading = ref(true)
 const statementLoading = ref(false)
 const savingTransaction = ref(false)
 const savingStatementAction = ref(false)
 const savingChequeLifecycle = ref(false)
+const savingVendorBank = ref(false)
+const savingBankDetail = ref(false)
 const error = ref('')
 const message = ref('')
 const search = ref('')
@@ -385,12 +631,22 @@ const vendorBankAccounts = ref<ApiRecord[]>([])
 const bankAccountDetails = ref<ApiRecord[]>([])
 const bankStatement = ref<ApiRecord[]>([])
 const bankReconciliation = ref<ApiRecord | null>(null)
+const bankClosure = ref<ApiRecord | null>(null)
 const showTransactionForm = ref(false)
+const showVendorBankForm = ref(false)
+const showBankDetailForm = ref(false)
 const transactionFormMode = ref<TransactionFormMode>('create')
 const transactionConfirmation = ref('')
+const vendorBankConfirmation = ref('')
+const bankDetailConfirmation = ref('')
+const bankDetailRevealed = ref(false)
 const selectedChequeId = ref('')
+const selectedVendorBankRaw = ref<ApiRecord | null>(null)
+const selectedBankDetailRaw = ref<ApiRecord | null>(null)
 
 const transactionForm = reactive<BankTransactionForm>(emptyTransactionForm())
+const vendorBankForm = reactive<VendorBankForm>(emptyVendorBankForm())
+const bankDetailForm = reactive<BankDetailForm>(emptyBankDetailForm())
 const statementAction = reactive({
   lineId: '',
   mode: 'reconcile' as StatementActionMode,
@@ -416,6 +672,7 @@ const tabs = [
   { key: 'bankAccounts' as const, label: 'Bank Accounts', icon: 'i-lucide-landmark', description: 'Company bank account master list.' }
 ]
 const chequeStatusItems = ['Issued', 'Deposited', 'Cleared', 'Bounced', 'Cancelled'].map(value => ({ label: value, value }))
+const accountTypeSelectItems = accountTypeOptions.map(item => ({ label: item.label, value: item.value }))
 const transactionTypeSelectItems = transactionTypeOptions.map(item => ({ label: item.label, value: item.value }))
 const transactionModeSelectItems = transactionModeOptions.map(item => ({ label: item.label, value: item.value }))
 const currentTab = computed(() => tabs.find(item => item.key === activeTab.value) ?? tabs[0])
@@ -445,6 +702,18 @@ const bankAccountOptions = computed(() => {
   })).filter(item => item.value)
   return rows.length ? rows : [{ label: 'No bank accounts', value: '' }]
 })
+const bankSelectItems = computed(() => {
+  const rows = banks.value.map(item => ({ label: readText(item, ['name']), value: readText(item, ['id'], '') })).filter(item => item.value)
+  return rows.length ? rows : [{ label: 'No banks', value: '' }]
+})
+const ledgerSelectItems = computed(() => {
+  const rows = ledgers.value.map(item => ({ label: readText(item, ['name']), value: readText(item, ['id'], '') })).filter(item => item.value)
+  return rows.length ? rows : [{ label: 'No ledgers', value: '' }]
+})
+const vendorSelectItems = computed(() => [
+  { label: 'No vendor linked', value: '' },
+  ...vendors.value.map(item => ({ label: readText(item, ['name', 'vendorName']), value: readText(item, ['id'], '') })).filter(item => item.value)
+])
 const contraLedgerOptions = computed(() => {
   const bankLedgerId = readText(selectedBankAccount.value, ['ledgerId'], '')
   return ledgers.value
@@ -483,6 +752,23 @@ const reconciliationCards = computed(() => [
   { label: 'Open Credit', value: formatIndianMoney(readNumber(bankReconciliation.value, ['openCredit'])) },
   { label: 'Reconciled Lines', value: readNumber(bankReconciliation.value, ['reconciledLineCount']) }
 ])
+const closureMetricCards = computed(() => {
+  const metrics = readArray(bankClosure.value, ['metrics'])
+  if (metrics.length) {
+    return metrics.slice(0, 4).map(item => ({
+      label: readText(item, ['label']),
+      value: readText(item, ['amount'], '') || readText(item, ['count'], '0'),
+      detail: readText(item, ['description'])
+    }))
+  }
+
+  return [
+    { label: 'Issues', value: readArray(bankClosure.value, ['issues']).length, detail: 'Closure warnings and criticals' },
+    { label: 'Settlement Rows', value: readArray(bankClosure.value, ['settlements', 'settlementRows']).length, detail: 'Non-cash evidence rows' },
+    { label: 'Bank Accounts', value: readArray(bankClosure.value, ['bankAccounts']).length, detail: 'Accounts in closure scope' },
+    { label: 'Modes', value: readArray(bankClosure.value, ['paymentModeSummary']).length, detail: 'Payment modes audited' }
+  ]
+})
 const statementDisplayRows = computed(() => (statementLines.value.length ? statementLines.value : bankStatement.value).map(item => ({
   id: readText(item, ['id'], ''),
   date: formatDate(item.onDate),
@@ -523,29 +809,35 @@ const tableRows = computed<Record<BankTab, ApiRecord[]>>(() => ({
     raw: item
   })),
   vendorBanks: vendorBankAccounts.value.map(item => ({
+    id: readText(item, ['id'], ''),
     holder: readText(item, ['accountHolderName']),
-    account: readText(item, ['accountNumber']),
+    account: maskAccountNumber(readText(item, ['accountNumber'])),
     vendor: vendorName(item.vendorId),
     bank: bankName(item.bankId),
     ledger: ledgerName(item.ledgerId),
     ifsc: readText(item, ['ifsCode', 'ifscCode', 'ifSCode']),
-    status: item.active === false ? 'Inactive' : 'Active'
+    status: item.active === false ? 'Inactive' : 'Active',
+    raw: item
   })),
   accountDetails: bankAccountDetails.value.map(item => ({
+    id: readText(item, ['id'], ''),
     bank: bankAccountName(item.bankAccountId),
     customerId: readText(item, ['customerId']),
     userName: readText(item, ['userName']),
     atmCard: readText(item, ['atmCard']),
-    status: readText(item, ['status'])
+    status: readText(item, ['status']),
+    raw: item
   })),
   bankAccounts: bankAccounts.value.map(item => ({
+    id: readText(item, ['id'], ''),
     holder: readText(item, ['accountHolderName']),
-    account: readText(item, ['accountNumber']),
+    account: maskAccountNumber(readText(item, ['accountNumber'])),
     bank: bankName(item.bankId),
     type: optionLabel(accountTypeOptions, item.accountType),
     opening: formatIndianMoney(readNumber(item, ['openingBalance'])),
     closing: formatIndianMoney(readNumber(item, ['closingBalance'])),
-    status: item.active === false ? 'Inactive' : 'Active'
+    status: item.active === false ? 'Inactive' : 'Active',
+    raw: item
   }))
 }))
 const columns: Record<BankTab, Array<{ key: string, label: string }>> = {
@@ -630,6 +922,43 @@ function emptyTransactionForm(): BankTransactionForm {
   }
 }
 
+function emptyVendorBankForm(): VendorBankForm {
+  return {
+    id: '',
+    vendorId: '',
+    bankId: '',
+    accountHolderName: '',
+    accountNumber: '',
+    accountType: 1,
+    branch: '',
+    ifsCode: '',
+    ledgerId: '',
+    openingBalance: 0,
+    closingBalance: 0,
+    active: true
+  }
+}
+
+function emptyBankDetailForm(): BankDetailForm {
+  return {
+    id: '',
+    bankAccountId: '',
+    customerId: '',
+    userName: '',
+    password: '',
+    transcationPassword: '',
+    extraPassword: '',
+    atmPin: 0,
+    mPin: 0,
+    tpin: 0,
+    epin: 0,
+    atmCard: '',
+    expireDate: '',
+    cvv: '',
+    status: ''
+  }
+}
+
 function localDateValue(value: unknown = new Date()) {
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10)
   const date = value instanceof Date ? value : new Date(String(value || new Date()))
@@ -638,8 +967,19 @@ function localDateValue(value: unknown = new Date()) {
   return new Date(date.getTime() - offsetMs).toISOString().slice(0, 10)
 }
 
+function maskAccountNumber(value: string) {
+  const trimmed = String(value || '').trim()
+  if (!trimmed || trimmed === '-') return '-'
+  if (trimmed.length <= 4) return `****${trimmed}`
+  return `${'*'.repeat(Math.max(4, trimmed.length - 4))}${trimmed.slice(-4)}`
+}
+
 function accountingDateTimeForApi(value: string) {
   return `${localDateValue(value)}T00:00:00`
+}
+
+function nullableDateTime(value: string) {
+  return value ? accountingDateTimeForApi(value) : null
 }
 
 function setupIds() {
@@ -692,6 +1032,177 @@ function startTransactionEdit(transaction: ApiRecord | undefined) {
 function cancelTransactionForm() {
   showTransactionForm.value = false
   transactionConfirmation.value = ''
+}
+
+function startVendorBankEdit(row: ApiRecord | undefined) {
+  if (!row) return
+  activeTab.value = 'vendorBanks'
+  selectedVendorBankRaw.value = row
+  Object.assign(vendorBankForm, {
+    id: readText(row, ['id'], ''),
+    vendorId: readText(row, ['vendorId'], ''),
+    bankId: readText(row, ['bankId'], ''),
+    accountHolderName: readText(row, ['accountHolderName'], ''),
+    accountNumber: readText(row, ['accountNumber'], ''),
+    accountType: Number(row.accountType ?? 1),
+    branch: readText(row, ['branch'], ''),
+    ifsCode: readText(row, ['ifsCode', 'ifscCode', 'ifSCode'], ''),
+    ledgerId: readText(row, ['ledgerId'], ''),
+    openingBalance: readNumber(row, ['openingBalance']),
+    closingBalance: readNumber(row, ['closingBalance']),
+    active: row.active !== false
+  })
+  vendorBankConfirmation.value = ''
+  showVendorBankForm.value = true
+  showBankDetailForm.value = false
+  error.value = ''
+  message.value = ''
+}
+
+function cancelVendorBankForm() {
+  showVendorBankForm.value = false
+  vendorBankConfirmation.value = ''
+  selectedVendorBankRaw.value = null
+}
+
+async function saveVendorBankAccount() {
+  if (vendorBankConfirmation.value !== 'UPDATE VENDOR BANK') {
+    error.value = 'Type UPDATE VENDOR BANK before saving.'
+    return
+  }
+  if (!vendorBankForm.id) {
+    error.value = 'Select a vendor bank account before saving.'
+    return
+  }
+  if (!vendorBankForm.bankId || !vendorBankForm.accountNumber.trim() || !vendorBankForm.accountHolderName.trim()) {
+    error.value = 'Bank, holder and account number are required.'
+    return
+  }
+
+  savingVendorBank.value = true
+  error.value = ''
+  message.value = ''
+  try {
+    const payload = {
+      ...(selectedVendorBankRaw.value ?? {}),
+      id: vendorBankForm.id,
+      vendorId: vendorBankForm.vendorId || null,
+      bankId: vendorBankForm.bankId,
+      accountHolderName: vendorBankForm.accountHolderName.trim(),
+      accountNumber: vendorBankForm.accountNumber.trim(),
+      accountType: Number(vendorBankForm.accountType),
+      branch: vendorBankForm.branch.trim() || null,
+      ifsCode: vendorBankForm.ifsCode.trim() || null,
+      iFSCode: vendorBankForm.ifsCode.trim() || null,
+      ledgerId: vendorBankForm.ledgerId || readText(selectedVendorBankRaw.value, ['ledgerId'], ''),
+      openingBalance: Number(vendorBankForm.openingBalance || 0),
+      closingBalance: Number(vendorBankForm.closingBalance || 0),
+      active: Boolean(vendorBankForm.active)
+    }
+    await put<unknown>(`vendor-bank-accounts/${vendorBankForm.id}`, payload)
+    message.value = 'Vendor bank account updated.'
+    cancelVendorBankForm()
+    await loadBankOperations()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to update vendor bank account.'
+  } finally {
+    savingVendorBank.value = false
+  }
+}
+
+function startBankDetailEdit(row: ApiRecord | undefined) {
+  if (!row) return
+  activeTab.value = 'accountDetails'
+  selectedBankDetailRaw.value = row
+  Object.assign(bankDetailForm, {
+    id: readText(row, ['id'], ''),
+    bankAccountId: readText(row, ['bankAccountId'], ''),
+    customerId: readText(row, ['customerId'], ''),
+    userName: readText(row, ['userName'], ''),
+    password: readText(row, ['password'], ''),
+    transcationPassword: readText(row, ['transcationPassword', 'transactionPassword'], ''),
+    extraPassword: readText(row, ['extraPassword'], ''),
+    atmPin: readNumber(row, ['atmPin', 'aTMPin', 'aTMPIN', 'ATMPin']),
+    mPin: readNumber(row, ['mPin', 'mPIN', 'MPin']),
+    tpin: readNumber(row, ['tpin', 'tPIN', 'TPIN']),
+    epin: readNumber(row, ['epin', 'ePIN', 'EPIN']),
+    atmCard: readText(row, ['atmCard', 'aTMCard', 'ATMCard'], ''),
+    expireDate: readText(row, ['expireDate'], '') === '-' ? '' : localDateValue(row.expireDate),
+    cvv: readText(row, ['cvv', 'CVV'], ''),
+    status: readText(row, ['status'], '')
+  })
+  bankDetailConfirmation.value = ''
+  bankDetailRevealed.value = false
+  showBankDetailForm.value = true
+  showVendorBankForm.value = false
+  error.value = ''
+  message.value = ''
+}
+
+function cancelBankDetailForm() {
+  showBankDetailForm.value = false
+  bankDetailConfirmation.value = ''
+  bankDetailRevealed.value = false
+  selectedBankDetailRaw.value = null
+}
+
+function confirmBankDetailReveal() {
+  const confirmation = window.prompt('Type REVEAL BANK DETAIL to show sensitive bank access fields.')
+  bankDetailRevealed.value = confirmation === 'REVEAL BANK DETAIL'
+}
+
+async function saveBankAccountDetail() {
+  if (bankDetailConfirmation.value !== 'UPDATE BANK DETAIL') {
+    error.value = 'Type UPDATE BANK DETAIL before saving.'
+    return
+  }
+  if (!bankDetailForm.id || !bankDetailForm.bankAccountId) {
+    error.value = 'Select a bank detail row and bank account before saving.'
+    return
+  }
+
+  savingBankDetail.value = true
+  error.value = ''
+  message.value = ''
+  try {
+    const payload = {
+      ...(selectedBankDetailRaw.value ?? {}),
+      id: bankDetailForm.id,
+      bankAccountId: bankDetailForm.bankAccountId,
+      customerId: bankDetailForm.customerId.trim() || null,
+      userName: bankDetailForm.userName.trim() || null,
+      password: bankDetailForm.password || null,
+      transcationPassword: bankDetailForm.transcationPassword || null,
+      extraPassword: bankDetailForm.extraPassword || null,
+      atmPin: Number(bankDetailForm.atmPin || 0),
+      mPin: Number(bankDetailForm.mPin || 0),
+      tpin: Number(bankDetailForm.tpin || 0),
+      epin: Number(bankDetailForm.epin || 0),
+      atmCard: bankDetailForm.atmCard.trim() || null,
+      expireDate: nullableDateTime(bankDetailForm.expireDate),
+      cvv: bankDetailForm.cvv || null,
+      status: bankDetailForm.status.trim() || null
+    }
+    await put<unknown>(`bank-account-details/${bankDetailForm.id}`, payload)
+    message.value = 'Bank account detail updated.'
+    cancelBankDetailForm()
+    await loadBankOperations()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to update bank account detail.'
+  } finally {
+    savingBankDetail.value = false
+  }
+}
+
+async function downloadBankClosureEvidence() {
+  error.value = ''
+  message.value = ''
+  try {
+    await download('bank-reconciliation/settlement-closure/evidence.csv', {}, 'garmetix-bank-reconciliation-closure.csv')
+    message.value = 'Bank reconciliation evidence download started.'
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to download bank reconciliation evidence.'
+  }
 }
 
 function buildTransactionPayload() {
@@ -894,6 +1405,7 @@ async function refresh() {
     }
     await loadBankOperations()
     await loadBankStatement()
+    await loadBankClosure()
     if (!transactionForm.bankAccountId) transactionForm.bankAccountId = selectedBankAccountId.value
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Unable to load bank operations.'
@@ -916,6 +1428,15 @@ async function loadBankOperations() {
   const failed = [transactionData, chequeData, vendorBankData, detailData].filter(item => item.status === 'rejected').length
   if (failed) error.value = `${failed} bank operation request(s) could not be loaded.`
   if (!selectedChequeId.value && chequeLogs.value.length) selectCheque(chequeLogs.value[0])
+}
+
+async function loadBankClosure() {
+  try {
+    const closureData = await get<unknown>('bank-reconciliation/settlement-closure')
+    bankClosure.value = closureData && typeof closureData === 'object' ? closureData as ApiRecord : null
+  } catch {
+    bankClosure.value = null
+  }
 }
 
 async function loadBankStatement() {
