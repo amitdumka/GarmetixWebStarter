@@ -93,7 +93,7 @@
 
 <script setup lang="ts">
 import { stripServerUrl } from '@garmetix/shared-utils'
-import { readRecord, toRows, useCrmApiClient, type ApiRecord } from '../utils/crm-api'
+import { readId, readRecord, toRows, useCrmApiClient, type ApiRecord } from '../utils/crm-api'
 
 const props = defineProps<{ customerId?: string }>()
 
@@ -169,7 +169,14 @@ async function load() {
     companies.value = toRows(await get<unknown>('companies'))
     form.companyId = String(companies.value[0]?.id || '')
     if (props.customerId) {
-      normalizeCustomer(await get<unknown>(`customers/${props.customerId}`))
+      try {
+        normalizeCustomer(await get<unknown>(`customers/${props.customerId}`))
+      } catch {
+        const rows = toRows(await get<unknown>('customers'))
+        const fallback = rows.find(row => readId(row) === props.customerId)
+        if (!fallback) throw new Error('Customer record was not returned by the API.')
+        normalizeCustomer(fallback)
+      }
     }
   } catch (caught) {
     error.value = stripServerUrl(caught instanceof Error ? caught.message : 'Could not load customer form.')

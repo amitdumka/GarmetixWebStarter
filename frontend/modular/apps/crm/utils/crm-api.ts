@@ -91,6 +91,11 @@ export function readText(source: ApiRecord | null | undefined, keys: string[] | 
   return fallback
 }
 
+export function readId(source: ApiRecord | null | undefined, keys: string[] = ['id', 'Id', 'customerId', 'customerID', 'partyId']) {
+  const value = readText(source, keys, '')
+  return value === '-' ? '' : value
+}
+
 export function readArray(source: ApiRecord | null | undefined, keys: string[] | null | undefined) {
   for (const key of keys ?? []) {
     const value = source?.[key]

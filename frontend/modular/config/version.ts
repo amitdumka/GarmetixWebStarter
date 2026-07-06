@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.34',
-  stage: 'Stage 14D.4 CRM Runtime Stabilization And Digital Bill Port',
-  label: 'Version6 Stage 14D.4 CRM Runtime Stabilization And Digital Bill Port',
-  summary: 'Fixed CRM table runtime rendering and customer edit loading, then ported Digital Bill register actions, analytics and campaign audience segmentation into modular CRM.'
+  version: '6.0.35',
+  stage: 'Stage 14D.5 CRM Customer Register Filters And Loyalty Drawer',
+  label: 'Version6 Stage 14D.5 CRM Customer Register Filters And Loyalty Drawer',
+  summary: 'Added customer register filters and pagination, hardened customer edit ID loading, and moved customer loyalty ledger preview into a right-side slideover.'
 } as const

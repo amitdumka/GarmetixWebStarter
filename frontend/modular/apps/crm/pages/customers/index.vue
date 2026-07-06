@@ -26,13 +26,25 @@
       </div>
     </section>
 
-    <div class="garmetix-section-card grid gap-3 lg:grid-cols-[minmax(220px,1fr)_auto]">
-      <UFormField label="Search">
+    <div class="garmetix-section-card grid gap-3 xl:grid-cols-[minmax(260px,1fr)_180px_180px_180px_130px_auto]">
+      <UFormField label="Search" class="xl:min-w-0">
         <UInput v-model="search" icon="i-lucide-search" placeholder="Search customer, mobile, GSTIN, credit, loyalty" />
+      </UFormField>
+      <UFormField label="GST status">
+        <USelect v-model="gstFilter" :items="gstFilterItems" />
+      </UFormField>
+      <UFormField label="Credit">
+        <USelect v-model="creditFilter" :items="creditFilterItems" />
+      </UFormField>
+      <UFormField label="Loyalty">
+        <USelect v-model="loyaltyFilter" :items="loyaltyFilterItems" />
+      </UFormField>
+      <UFormField label="Rows">
+        <USelect v-model="pageSize" :items="pageSizeItems" />
       </UFormField>
       <div class="flex flex-wrap items-end gap-2">
         <UBadge color="neutral" variant="soft">{{ filteredCustomers.length }} of {{ customers.length }} customer(s)</UBadge>
-        <UButton color="neutral" variant="ghost" icon="i-lucide-x" :disabled="!search" @click="search = ''">Clear</UButton>
+        <UButton color="neutral" variant="ghost" icon="i-lucide-x" :disabled="!hasFilters" @click="clearFilters">Clear</UButton>
       </div>
     </div>
 
@@ -57,7 +69,7 @@
             <td colspan="7" class="p-8 text-center text-muted">{{ search ? 'No matching customers.' : 'No customers yet.' }}</td>
           </tr>
           <template v-else>
-            <tr v-for="customer in filteredCustomers" :key="String(customer.id)">
+            <tr v-for="customer in pagedCustomers" :key="customerKey(customer)">
               <td class="border-b border-default p-3">
                 <p class="font-semibold text-highlighted">{{ readText(customer, ['name'], 'Customer') }}</p>
                 <p class="text-xs text-muted">{{ readText(customer, ['email', 'city', 'state']) }}</p>
@@ -71,7 +83,7 @@
               </td>
               <td class="border-b border-default p-3">
                 <div class="flex flex-wrap justify-end gap-2">
-                  <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-pencil" @click="router.push(`/customers/${customer.id}`)">Edit</UButton>
+                  <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-pencil" @click="editCustomer(customer)">Edit</UButton>
                   <UButton size="xs" icon="i-lucide-gift" @click="openLoyalty(customer)">Loyalty</UButton>
                 </div>
               </td>
@@ -81,50 +93,64 @@
       </table>
     </div>
 
-    <div v-if="selectedCustomer" class="garmetix-section-card">
-      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <p class="garmetix-kicker"><UIcon name="i-lucide-gift" class="size-4" /> Loyalty ledger</p>
-          <h3 class="text-xl font-semibold text-highlighted">{{ readText(selectedCustomer, ['name'], 'Customer') }}</h3>
-          <p class="text-sm text-muted">
-            Balance {{ number(readNumber(selectedCustomer, ['loyaltyPoints'])) }} points | Credit {{ money(readNumber(selectedCustomer, ['creditBalance'])) }}
-          </p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <UButton icon="i-lucide-gift" @click="router.push(`/loyalty?customerId=${selectedCustomer.id}`)">Manage Loyalty</UButton>
-          <UButton color="neutral" variant="ghost" icon="i-lucide-x" @click="closeLoyalty">Close</UButton>
-        </div>
-      </div>
-
-      <UAlert v-if="ledgerError" class="mt-3" color="error" variant="subtle" icon="i-lucide-circle-alert" :description="ledgerError" />
-      <div class="mt-4 overflow-x-auto">
-        <table class="w-full min-w-[760px] border-collapse text-sm">
-          <thead class="bg-muted/30 text-left text-xs uppercase text-muted">
-            <tr><th class="border-b border-default p-3">Date</th><th class="border-b border-default p-3">Source</th><th class="border-b border-default p-3 text-right">In</th><th class="border-b border-default p-3 text-right">Out</th><th class="border-b border-default p-3 text-right">Balance</th><th class="border-b border-default p-3">Remarks</th></tr>
-          </thead>
-          <tbody>
-            <tr v-if="ledgerLoading"><td colspan="6" class="p-6 text-center text-muted">Loading loyalty ledger...</td></tr>
-            <tr v-else-if="!ledger.length"><td colspan="6" class="p-6 text-center text-muted">No loyalty activity.</td></tr>
-            <template v-else>
-              <tr v-for="row in ledger" :key="String(row.id || `${row.onDate}-${row.sourceNumber}`)">
-                <td class="border-b border-default p-3">{{ formatDate(readText(row, ['onDate'], '')) }}</td>
-                <td class="border-b border-default p-3">{{ readText(row, ['sourceType']) }} {{ readText(row, ['sourceNumber'], '') }}</td>
-                <td class="border-b border-default p-3 text-right">{{ number(readNumber(row, ['pointsIn'])) }}</td>
-                <td class="border-b border-default p-3 text-right">{{ number(readNumber(row, ['pointsOut'])) }}</td>
-                <td class="border-b border-default p-3 text-right font-semibold">{{ number(readNumber(row, ['balanceAfter'])) }}</td>
-                <td class="border-b border-default p-3">{{ readText(row, ['remarks']) }}</td>
-              </tr>
-            </template>
-          </tbody>
-        </table>
+    <div class="garmetix-section-card flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <p class="text-sm text-muted">
+        Page {{ number(page) }} of {{ number(totalPages) }} | Showing {{ number(pageStart) }}-{{ number(pageEnd) }} of {{ number(filteredCustomers.length) }}
+      </p>
+      <div class="flex flex-wrap gap-2">
+        <UButton color="neutral" variant="soft" icon="i-lucide-chevrons-left" :disabled="page <= 1" @click="page = 1">First</UButton>
+        <UButton color="neutral" variant="soft" icon="i-lucide-chevron-left" :disabled="page <= 1" @click="page -= 1">Previous</UButton>
+        <UButton color="neutral" variant="soft" icon="i-lucide-chevron-right" :disabled="page >= totalPages" @click="page += 1">Next</UButton>
+        <UButton color="neutral" variant="soft" icon="i-lucide-chevrons-right" :disabled="page >= totalPages" @click="page = totalPages">Last</UButton>
       </div>
     </div>
+
+    <USlideover v-model:open="loyaltyOpen" title="Customer Loyalty">
+      <template #body>
+        <div v-if="selectedCustomer" class="grid gap-4">
+          <div class="rounded-md border border-default p-4">
+            <p class="garmetix-kicker"><UIcon name="i-lucide-gift" class="size-4" /> Loyalty ledger</p>
+            <h3 class="text-xl font-semibold text-highlighted">{{ readText(selectedCustomer, ['name'], 'Customer') }}</h3>
+            <p class="text-sm text-muted">
+              Balance {{ number(readNumber(selectedCustomer, ['loyaltyPoints'])) }} points | Credit {{ money(readNumber(selectedCustomer, ['creditBalance'])) }}
+            </p>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <UButton icon="i-lucide-gift" @click="manageSelectedLoyalty">Manage Loyalty</UButton>
+              <UButton color="neutral" variant="ghost" icon="i-lucide-x" @click="closeLoyalty">Close</UButton>
+            </div>
+          </div>
+
+          <UAlert v-if="ledgerError" color="error" variant="subtle" icon="i-lucide-circle-alert" :description="ledgerError" />
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[760px] border-collapse text-sm">
+              <thead class="bg-muted/30 text-left text-xs uppercase text-muted">
+                <tr><th class="border-b border-default p-3">Date</th><th class="border-b border-default p-3">Source</th><th class="border-b border-default p-3 text-right">In</th><th class="border-b border-default p-3 text-right">Out</th><th class="border-b border-default p-3 text-right">Balance</th><th class="border-b border-default p-3">Remarks</th></tr>
+              </thead>
+              <tbody>
+                <tr v-if="ledgerLoading"><td colspan="6" class="p-6 text-center text-muted">Loading loyalty ledger...</td></tr>
+                <tr v-else-if="!ledger.length"><td colspan="6" class="p-6 text-center text-muted">No loyalty activity.</td></tr>
+                <template v-else>
+                  <tr v-for="row in ledger" :key="String(row.id || `${row.onDate}-${row.sourceNumber}`)">
+                    <td class="border-b border-default p-3">{{ formatDate(readText(row, ['onDate'], '')) }}</td>
+                    <td class="border-b border-default p-3">{{ readText(row, ['sourceType']) }} {{ readText(row, ['sourceNumber'], '') }}</td>
+                    <td class="border-b border-default p-3 text-right">{{ number(readNumber(row, ['pointsIn'])) }}</td>
+                    <td class="border-b border-default p-3 text-right">{{ number(readNumber(row, ['pointsOut'])) }}</td>
+                    <td class="border-b border-default p-3 text-right font-semibold">{{ number(readNumber(row, ['balanceAfter'])) }}</td>
+                    <td class="border-b border-default p-3">{{ readText(row, ['remarks']) }}</td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </template>
+    </USlideover>
   </section>
 </template>
 
 <script setup lang="ts">
 import { formatIndianMoney, stripServerUrl } from '@garmetix/shared-utils'
-import { formatDate, readNumber, readText, type ApiRecord, useCrmApiClient } from '../../utils/crm-api'
+import { formatDate, readId, readNumber, readText, toRows, type ApiRecord, useCrmApiClient } from '../../utils/crm-api'
 
 const router = useRouter()
 const toast = useToast()
@@ -132,18 +158,69 @@ const { get } = useCrmApiClient()
 
 const customers = ref<ApiRecord[]>([])
 const search = ref('')
+const gstFilter = ref('all')
+const creditFilter = ref('all')
+const loyaltyFilter = ref('all')
+const page = ref(1)
+const pageSize = ref(25)
 const loading = ref(false)
 const loadError = ref('')
 const selectedCustomer = ref<ApiRecord | null>(null)
 const ledger = ref<ApiRecord[]>([])
 const ledgerLoading = ref(false)
 const ledgerError = ref('')
+const loyaltyOpen = ref(false)
+
+const gstFilterItems = [
+  { label: 'All GST status', value: 'all' },
+  { label: 'Verified', value: 'verified' },
+  { label: 'Mismatch', value: 'mismatch' },
+  { label: 'Pending', value: 'pending' }
+]
+
+const creditFilterItems = [
+  { label: 'All credit', value: 'all' },
+  { label: 'Has credit', value: 'credit' },
+  { label: 'No credit', value: 'none' }
+]
+
+const loyaltyFilterItems = [
+  { label: 'All loyalty', value: 'all' },
+  { label: 'Has points', value: 'points' },
+  { label: 'No points', value: 'none' }
+]
+
+const pageSizeItems = [
+  { label: '25', value: 25 },
+  { label: '50', value: 50 },
+  { label: '100', value: 100 },
+  { label: '200', value: 200 }
+]
 
 const filteredCustomers = computed(() => {
   const term = search.value.trim().toLowerCase()
-  if (!term) return customers.value
-  return customers.value.filter(row => JSON.stringify(row).toLowerCase().includes(term))
+  return customers.value.filter((row) => {
+    if (term && !JSON.stringify(row).toLowerCase().includes(term)) return false
+    const status = gstStatus(row).key
+    if (gstFilter.value !== 'all' && status !== gstFilter.value) return false
+    const credit = readNumber(row, ['creditBalance'])
+    if (creditFilter.value === 'credit' && credit <= 0) return false
+    if (creditFilter.value === 'none' && credit > 0) return false
+    const loyalty = readNumber(row, ['loyaltyPoints'])
+    if (loyaltyFilter.value === 'points' && loyalty <= 0) return false
+    if (loyaltyFilter.value === 'none' && loyalty > 0) return false
+    return true
+  })
 })
+
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredCustomers.value.length / Number(pageSize.value || 25))))
+const pagedCustomers = computed(() => {
+  const start = (page.value - 1) * Number(pageSize.value || 25)
+  return filteredCustomers.value.slice(start, start + Number(pageSize.value || 25))
+})
+const pageStart = computed(() => filteredCustomers.value.length ? ((page.value - 1) * Number(pageSize.value || 25)) + 1 : 0)
+const pageEnd = computed(() => Math.min(filteredCustomers.value.length, page.value * Number(pageSize.value || 25)))
+const hasFilters = computed(() => Boolean(search.value.trim()) || gstFilter.value !== 'all' || creditFilter.value !== 'all' || loyaltyFilter.value !== 'all')
 
 const metrics = computed(() => [
   { label: 'Customers', value: number(customers.value.length), meta: 'Total customer master', icon: 'i-lucide-users-round' },
@@ -161,18 +238,31 @@ function number(value: number) {
 }
 
 function gstStatus(customer: ApiRecord) {
-  if (customer.gstMismatchAlert) return { label: 'Mismatch', color: 'warning' as const }
-  if (customer.gstVerified) return { label: 'Verified', color: 'success' as const }
-  return { label: 'Pending', color: 'neutral' as const }
+  if (customer.gstMismatchAlert) return { key: 'mismatch', label: 'Mismatch', color: 'warning' as const }
+  if (customer.gstVerified) return { key: 'verified', label: 'Verified', color: 'success' as const }
+  return { key: 'pending', label: 'Pending', color: 'neutral' as const }
+}
+
+function customerKey(customer: ApiRecord) {
+  return readId(customer) || `${readText(customer, ['mobileNumber'], '')}-${readText(customer, ['name'], '')}`
+}
+
+function clearFilters() {
+  search.value = ''
+  gstFilter.value = 'all'
+  creditFilter.value = 'all'
+  loyaltyFilter.value = 'all'
+  page.value = 1
 }
 
 async function refresh() {
   loading.value = true
   loadError.value = ''
   try {
-    customers.value = await get<ApiRecord[]>('customers')
-    if (selectedCustomer.value?.id) {
-      selectedCustomer.value = customers.value.find(item => item.id === selectedCustomer.value?.id) || selectedCustomer.value
+    customers.value = toRows(await get<unknown>('customers'))
+    if (readId(selectedCustomer.value)) {
+      const currentId = readId(selectedCustomer.value)
+      selectedCustomer.value = customers.value.find(item => readId(item) === currentId) || selectedCustomer.value
     }
   } catch (caught) {
     loadError.value = stripServerUrl(caught instanceof Error ? caught.message : 'Could not load customers.')
@@ -182,13 +272,28 @@ async function refresh() {
   }
 }
 
+function editCustomer(customer: ApiRecord) {
+  const id = readId(customer)
+  if (!id) {
+    toast.add({ title: 'Customer ID missing', description: 'Could not open edit form because this row has no customer ID.', color: 'error' })
+    return
+  }
+  router.push(`/customers/${encodeURIComponent(id)}`)
+}
+
 async function openLoyalty(customer: ApiRecord) {
+  const id = readId(customer)
+  if (!id) {
+    toast.add({ title: 'Customer ID missing', description: 'Could not load loyalty because this row has no customer ID.', color: 'error' })
+    return
+  }
   selectedCustomer.value = customer
+  loyaltyOpen.value = true
   ledgerLoading.value = true
   ledgerError.value = ''
   ledger.value = []
   try {
-    ledger.value = await get<ApiRecord[]>(`loyalty/customers/${customer.id}/ledger`)
+    ledger.value = toRows(await get<unknown>(`loyalty/customers/${id}/ledger`))
   } catch (caught) {
     ledgerError.value = stripServerUrl(caught instanceof Error ? caught.message : 'Could not load customer loyalty ledger.')
     toast.add({ title: 'Could not load loyalty ledger', description: ledgerError.value, color: 'error' })
@@ -197,11 +302,25 @@ async function openLoyalty(customer: ApiRecord) {
   }
 }
 
+function manageSelectedLoyalty() {
+  const id = readId(selectedCustomer.value)
+  if (id) router.push(`/loyalty?customerId=${encodeURIComponent(id)}`)
+}
+
 function closeLoyalty() {
+  loyaltyOpen.value = false
   selectedCustomer.value = null
   ledger.value = []
   ledgerError.value = ''
 }
+
+watch([search, gstFilter, creditFilter, loyaltyFilter, pageSize], () => {
+  page.value = 1
+})
+
+watch(totalPages, (value) => {
+  if (page.value > value) page.value = value
+})
 
 onMounted(refresh)
 useHead({ title: 'Customers - Garmetix CRM' })
