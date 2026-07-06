@@ -563,7 +563,7 @@ if [ -z "$DOTNET_COMMAND" ] && [ "$SKIP_API" = false ] && [ "$SRP_SKIP_API_PUBLI
   exit 1
 fi
 echo "Checking modular workspace links"
-(cd "$MODULAR_ROOT" && node scripts/workspace-link-readiness.mjs --repair)
+(cd "$MODULAR_ROOT" && "$NPM_COMMAND" run workspace-links -- --repair)
 rm -rf "$LOCAL_RELEASE"
 mkdir -p "$WEB_ROOT"
 

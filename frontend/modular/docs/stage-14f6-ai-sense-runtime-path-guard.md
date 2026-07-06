@@ -1,12 +1,13 @@
 # Stage 14F.6 - AI Sense Runtime Path Guard
 
-Version: 6.0.48
+Version: 6.0.49
 
 ## What Changed
 
 - Added AI Sense local API path normalization so page calls using `api/...` are stripped before they reach the shared API client.
 - Added a modular workspace-link readiness and repair script to prevent stale copied `node_modules/@garmetix/*` packages from being bundled into app builds.
 - Wired the workspace-link repair into SRP deployment before modular app builds.
+- Fixed SRP deployment to run the repair script through the detected npm command, which supports WSL environments where `npm.cmd` exists but Linux `node` does not.
 - Kept the previous shared API duplicate `/api` normalization as a second guard.
 
 ## Why

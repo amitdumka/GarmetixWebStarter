@@ -72,10 +72,10 @@ Status: intake complete, patch not applied directly.
 - Complete in `6.0.47`: fixed shared API URL normalization so modular pages can pass `api/...` paths when the configured base URL is already `/api`.
 - Complete in `6.0.47`: added regression readiness for the AI Sense dashboard and stock report paths that were failing as `/api/api/...`.
 
-### 14F.6 AI Sense Runtime Path Guard
+### 14F.6A AI Sense Runtime Path Guard
 
-- Complete in `6.0.48`: added local AI Sense path normalization so stale installed shared packages cannot create `/api/api/...` calls.
-- Complete in `6.0.48`: added workspace-link readiness/repair and wired it into SRP deploy builds.
+- Complete in `6.0.49`: added local AI Sense path normalization so stale installed shared packages cannot create `/api/api/...` calls.
+- Complete in `6.0.49`: added workspace-link readiness/repair and wired it into SRP deploy builds through the detected npm command.
 
 ### 14F.7 MCP Server Layer
 
