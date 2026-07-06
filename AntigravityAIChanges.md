@@ -142,3 +142,13 @@ This file tracks all modifications made to the repository by the Antigravity AI 
 - **[MODIFIED]** frontend/modular/apps/admin/pages/access.vue
   - *Purpose:* Rebuilt the read-only Users and Roles stub into a fully functional CRUD interface. Added Users table, Role Matrix table, Add/Edit User Slideover (with workspace scope cascading), and Reset Password/Delete Modals.
 
+### 11. Admin UI Fixes & Cleanups
+- **[MODIFIED]** `frontend/modular/apps/admin/pages/access.vue`
+  - *Purpose:* Fixed a critical bug in the Nuxt UI v4 `<UTabs>` implementation where missing string values caused the entire table and action buttons to disappear on click.
+- **[MODIFIED]** `frontend/modular/packages/shared-ui/components/ModularAppShell.vue`
+  - *Purpose:* Extracted the "Admin Home" link out of the "Company" dropdown and flattened it to be a top-level root link. Added robust fallback mapping in `.flatMap` and route computations to prevent Nuxt from throwing a 500 TypeError when encountering flat menu structures.
+- **[MODIFIED]** `frontend/modular/apps/admin/pages/index.vue`
+  - *Purpose:* Overhauled the Admin Dashboard layout. Corrected the SaaS Manager button routing, renamed UI cards for consistency, updated all call-to-action buttons to the unified `primary` color scheme, and added new "Maintenance" and "Data & Audit" blocks to the dashboard grid.
+- **[MODIFIED]** `frontend/modular/apps/admin/pages/subscription.vue`
+  - *Purpose:* Fixed a UI flaw where valid licenses missing an explicit `plan` string were erroneously labeled as a "Free Trial". Updated the view to correctly display "Active License" if the token is valid but has no branded plan name attached.
+

@@ -16,7 +16,34 @@ export function useAdminApiClient() {
     return await api.get<T>(path, { query })
   }
 
-  return { apiBaseUrl, get }
+  async function post<T>(path: string, body?: any) {
+    if (!apiBaseUrl.value) throw new Error('API base URL is not configured.')
+    const api = createGarmetixApiClient({
+      baseUrl: apiBaseUrl.value,
+      getToken: () => getStoredToken(window.localStorage)
+    })
+    return await api.post<T>(path, body)
+  }
+
+  async function put<T>(path: string, body?: any) {
+    if (!apiBaseUrl.value) throw new Error('API base URL is not configured.')
+    const api = createGarmetixApiClient({
+      baseUrl: apiBaseUrl.value,
+      getToken: () => getStoredToken(window.localStorage)
+    })
+    return await api.put<T>(path, body)
+  }
+
+  async function remove<T>(path: string) {
+    if (!apiBaseUrl.value) throw new Error('API base URL is not configured.')
+    const api = createGarmetixApiClient({
+      baseUrl: apiBaseUrl.value,
+      getToken: () => getStoredToken(window.localStorage)
+    })
+    return await api.delete<T>(path)
+  }
+
+  return { apiBaseUrl, get, post, put, remove }
 }
 
 export function readText(source: ApiRecord | null | undefined, keys: string[] | null | undefined, fallback = '-') {

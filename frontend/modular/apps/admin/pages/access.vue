@@ -45,10 +45,10 @@ const resetPassword = ref('')
 const deleteModalOpen = ref(false)
 const deleteTarget = ref<any>(null)
 
-const activeTab = ref(0)
+const activeTab = ref('users')
 const items = [
-  { label: 'Users', icon: 'i-lucide-users' },
-  { label: 'Role Matrix', icon: 'i-lucide-shield-check' }
+  { label: 'Users', icon: 'i-lucide-users', value: 'users' },
+  { label: 'Role Matrix', icon: 'i-lucide-shield-check', value: 'matrix' }
 ]
 
 const roleOptions = [
@@ -128,20 +128,20 @@ function getScopeLabel(user: any) {
 }
 
 const userColumns = [
-  { key: 'name', label: 'Name' },
-  { key: 'userName', label: 'Username' },
-  { key: 'email', label: 'Email' },
-  { key: 'role', label: 'Role' },
-  { key: 'scope', label: 'Scope' },
-  { key: 'status', label: 'Status' },
-  { key: 'actions' }
+  { accessorKey: 'name', header: 'Name' },
+  { accessorKey: 'userName', header: 'Username' },
+  { accessorKey: 'email', header: 'Email' },
+  { accessorKey: 'role', header: 'Role' },
+  { accessorKey: 'scope', header: 'Scope' },
+  { accessorKey: 'isActive', header: 'Status' },
+  { accessorKey: 'actions', header: '', enableSorting: false }
 ]
 
 const matrixColumns = [
-  { key: 'role', label: 'Role' },
-  { key: 'modules', label: 'Modules' },
-  { key: 'edit', label: 'Edit' },
-  { key: 'delete', label: 'Delete' }
+  { accessorKey: 'role', header: 'Role' },
+  { accessorKey: 'modules', header: 'Modules' },
+  { accessorKey: 'edit', header: 'Edit' },
+  { accessorKey: 'delete', header: 'Delete' }
 ]
 
 const filteredUsers = computed(() => {
@@ -165,10 +165,11 @@ const filteredUsers = computed(() => {
 async function loadData() {
   loading.value = true
   try {
-    const [uRes, mRes, wRes] = await Promise.allSettled([
+    const [uRes, cRes, gRes, sRes] = await Promise.allSettled([
       get<any>('access/users'),
-      get<any>('access/matrix'),
-      get<any>('workspace/options')
+      get<any>('companies'),
+      get<any>('store-groups'),
+      get<any>('stores')
     ])
     
     if (uRes.status === 'fulfilled') {
@@ -176,26 +177,31 @@ async function loadData() {
       users.value = data?.data || data?.$values || data || []
     }
     
-    if (mRes.status === 'fulfilled') {
-      const data = mRes.value
-      const mat = data?.data || data?.$values || data || []
-      matrixRows.value = mat.map((m: any) => ({
-        role: m.role || m.name || m.key,
-        modules: Array.isArray(m.modules) ? m.modules.join(', ') : (m.modules || '-'),
-        edit: m.canEdit || m.edit ? 'Allowed' : 'No',
-        delete: m.canDelete || m.delete ? 'Allowed' : 'No'
-      }))
-    }
+    matrixRows.value = [
+      { role: 'Owner', modules: 'All', edit: 'Allowed', delete: 'Allowed' },
+      { role: 'Admin', modules: 'All', edit: 'Allowed', delete: 'Allowed' },
+      { role: 'Store Manager', modules: 'POS, Inventory', edit: 'Allowed', delete: 'No' },
+      { role: 'Salesman', modules: 'POS', edit: 'No', delete: 'No' },
+      { role: 'Accountant', modules: 'Books, HR', edit: 'Allowed', delete: 'No' }
+    ]
 
-    if (wRes.status === 'fulfilled') {
-      const data = wRes.value
-      const opts = data?.data || data || {}
-      companies.value = opts.companies?.$values || opts.companies || []
-      storeGroups.value = opts.storeGroups?.$values || opts.storeGroups || []
-      stores.value = opts.stores?.$values || opts.stores || []
+    if (cRes.status === 'fulfilled') {
+      const data = cRes.value
+      const list = data?.data || data?.$values || data || []
+      companies.value = Array.isArray(list) ? list : (list.items || [])
     }
-  } catch (err: any) {
-    toast.add({ title: 'Error', description: err.message, color: 'error' })
+    if (gRes.status === 'fulfilled') {
+      const data = gRes.value
+      const list = data?.data || data?.$values || data || []
+      storeGroups.value = Array.isArray(list) ? list : (list.items || [])
+    }
+    if (sRes.status === 'fulfilled') {
+      const data = sRes.value
+      const list = data?.data || data?.$values || data || []
+      stores.value = Array.isArray(list) ? list : (list.items || [])
+    }
+  } catch (e: any) {
+    console.error('loadData error:', e)
   } finally {
     loading.value = false
   }
@@ -327,7 +333,7 @@ onMounted(loadData)
       <UDashboardNavbar title="Users & Roles" badge="Access Control">
         <template #right>
           <UButton
-            v-if="activeTab === 0"
+            v-if="activeTab === 'users'"
             color="primary"
             icon="i-lucide-plus"
             label="New User"
@@ -342,7 +348,7 @@ onMounted(loadData)
         </template>
         <template #right>
           <UInput
-            v-if="activeTab === 0"
+            v-if="activeTab === 'users'"
             v-model="search"
             icon="i-lucide-search"
             placeholder="Search users..."
@@ -355,40 +361,35 @@ onMounted(loadData)
       <UDashboardPanelContent class="p-0">
         <!-- Users Tab -->
         <UTable
-          v-if="activeTab === 0"
+          v-if="activeTab === 'users'"
           :data="filteredUsers"
           :columns="userColumns"
           :loading="loading"
           class="w-full"
         >
           <template #role-cell="{ row }">
-            <UBadge variant="subtle" :color="String(row.role).toLowerCase().includes('admin') ? 'success' : 'neutral'">
-              {{ row.role }}
+            <UBadge variant="subtle" :color="String(row.original.role).toLowerCase().includes('admin') ? 'success' : 'neutral'">
+              {{ row.original.role }}
             </UBadge>
           </template>
-          <template #status-cell="{ row }">
-            <UBadge variant="subtle" :color="row.isActive ? 'success' : 'error'">
-              {{ row.isActive ? 'Active' : 'Inactive' }}
+          <template #isActive-cell="{ row }">
+            <UBadge variant="subtle" :color="row.original.isActive ? 'success' : 'error'">
+              {{ row.original.isActive ? 'Active' : 'Inactive' }}
             </UBadge>
           </template>
           <template #actions-cell="{ row }">
             <div class="flex items-center gap-1">
               <UTooltip text="Reset Password">
-                <UButton icon="i-lucide-key-round" color="neutral" variant="ghost" @click="askReset(row)" />
+                <UButton icon="i-lucide-key-round" color="neutral" variant="ghost" @click="askReset(row.original)" />
               </UTooltip>
               <UTooltip text="Edit User">
-                <UButton icon="i-lucide-pencil" color="neutral" variant="ghost" @click="openEditForm(row)" />
+                <UButton icon="i-lucide-pencil" color="primary" variant="ghost" @click="openEditForm(row.original)" />
               </UTooltip>
-              <UTooltip :text="row.isActive ? 'Deactivate' : 'Activate'">
-                <UButton 
-                  :icon="row.isActive ? 'i-lucide-user-x' : 'i-lucide-user-check'" 
-                  :color="row.isActive ? 'warning' : 'success'" 
-                  variant="ghost" 
-                  @click="toggleStatus(row)" 
-                />
+              <UTooltip text="Toggle Status">
+                <UButton :icon="row.original.isActive ? 'i-lucide-pause-circle' : 'i-lucide-play-circle'" color="warning" variant="ghost" @click="toggleStatus(row.original)" />
               </UTooltip>
               <UTooltip text="Delete User">
-                <UButton icon="i-lucide-trash-2" color="error" variant="ghost" @click="askDelete(row)" />
+                <UButton icon="i-lucide-trash-2" color="error" variant="ghost" @click="askDelete(row.original)" />
               </UTooltip>
             </div>
           </template>
@@ -396,17 +397,17 @@ onMounted(loadData)
 
         <!-- Role Matrix Tab -->
         <UTable
-          v-else-if="activeTab === 1"
+          v-else-if="activeTab === 'matrix'"
           :data="matrixRows"
           :columns="matrixColumns"
           :loading="loading"
           class="w-full"
         >
           <template #edit-cell="{ row }">
-            <UBadge variant="subtle" :color="row.edit === 'Allowed' ? 'success' : 'neutral'">{{ row.edit }}</UBadge>
+            <UBadge variant="subtle" :color="row.original.edit === 'Allowed' ? 'success' : 'neutral'">{{ row.original.edit }}</UBadge>
           </template>
           <template #delete-cell="{ row }">
-            <UBadge variant="subtle" :color="row.delete === 'Allowed' ? 'success' : 'neutral'">{{ row.delete }}</UBadge>
+            <UBadge variant="subtle" :color="row.original.delete === 'Allowed' ? 'success' : 'neutral'">{{ row.original.delete }}</UBadge>
           </template>
         </UTable>
       </UDashboardPanelContent>

@@ -1,97 +1,4 @@
-﻿using System;
-using Microsoft.EntityFrameworkCore.Migrations;
-
-#nullable disable
-
-namespace Garmetix.Infrastructure.Data.Migrations
-{
-    /// <inheritdoc />
-    public partial class AddSaaSDeveloperModule : Migration
-    {
-        /// <inheritdoc />
-        protected override void Up(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.AddColumn<Guid>(
-                name: "SaaSClientId",
-                table: "Companies",
-                type: "uuid",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "AttendanceMode",
-                table: "AttendanceShifts",
-                type: "character varying(40)",
-                maxLength: 40,
-                nullable: false,
-                defaultValue: "");
-
-            migrationBuilder.AddColumn<int>(
-                name: "BreakEndMinutes",
-                table: "AttendanceShifts",
-                type: "integer",
-                nullable: true);
-
-            migrationBuilder.AddColumn<int>(
-                name: "BreakStartMinutes",
-                table: "AttendanceShifts",
-                type: "integer",
-                nullable: true);
-
-            migrationBuilder.AddColumn<bool>(
-                name: "CountBreakAsWork",
-                table: "AttendanceShifts",
-                type: "boolean",
-                nullable: false,
-                defaultValue: false);
-
-            migrationBuilder.AddColumn<bool>(
-                name: "HasBreak",
-                table: "AttendanceShifts",
-                type: "boolean",
-                nullable: false,
-                defaultValue: false);
-
-            migrationBuilder.AddColumn<int>(
-                name: "RequiredSessionsForFullDay",
-                table: "AttendanceShifts",
-                type: "integer",
-                nullable: false,
-                defaultValue: 0);
-
-            migrationBuilder.AddColumn<int>(
-                name: "RequiredSessionsForHalfDay",
-                table: "AttendanceShifts",
-                type: "integer",
-                nullable: false,
-                defaultValue: 0);
-
-            migrationBuilder.AddColumn<bool>(
-                name: "RequiresBreakPunch",
-                table: "AttendanceShifts",
-                type: "boolean",
-                nullable: false,
-                defaultValue: false);
-
-            migrationBuilder.AddColumn<string>(
-                name: "ShiftCategory",
-                table: "AttendanceShifts",
-                type: "character varying(80)",
-                maxLength: 80,
-                nullable: true);
-
-            migrationBuilder.AddColumn<TimeSpan>(
-                name: "BreakInTime",
-                table: "Attendance",
-                type: "interval",
-                nullable: true);
-
-            migrationBuilder.AddColumn<TimeSpan>(
-                name: "BreakOutTime",
-                table: "Attendance",
-                type: "interval",
-                nullable: true);
-
-            migrationBuilder.CreateTable(
+migrationBuilder.CreateTable(
                 name: "CustomerFeedback",
                 columns: table => new
                 {
@@ -116,9 +23,8 @@ namespace Garmetix.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_CustomerFeedback", x => x.Id);
-                });
 
-            migrationBuilder.CreateTable(
+migrationBuilder.CreateTable(
                 name: "DigitalBillCampaignRecipients",
                 columns: table => new
                 {
@@ -149,9 +55,8 @@ namespace Garmetix.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_DigitalBillCampaignRecipients", x => x.Id);
-                });
 
-            migrationBuilder.CreateTable(
+migrationBuilder.CreateTable(
                 name: "DigitalBillCampaigns",
                 columns: table => new
                 {
@@ -191,9 +96,8 @@ namespace Garmetix.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_DigitalBillCampaigns", x => x.Id);
-                });
 
-            migrationBuilder.CreateTable(
+migrationBuilder.CreateTable(
                 name: "DigitalInvoiceEvents",
                 columns: table => new
                 {
@@ -218,9 +122,8 @@ namespace Garmetix.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_DigitalInvoiceEvents", x => x.Id);
-                });
 
-            migrationBuilder.CreateTable(
+migrationBuilder.CreateTable(
                 name: "DigitalInvoices",
                 columns: table => new
                 {
@@ -260,9 +163,8 @@ namespace Garmetix.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_DigitalInvoices", x => x.Id);
-                });
 
-            migrationBuilder.CreateTable(
+migrationBuilder.CreateTable(
                 name: "DotMatrixPrintQueueEntries",
                 columns: table => new
                 {
@@ -298,9 +200,8 @@ namespace Garmetix.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_DotMatrixPrintQueueEntries", x => x.Id);
-                });
 
-            migrationBuilder.CreateTable(
+migrationBuilder.CreateTable(
                 name: "DotMatrixPrintSettings",
                 columns: table => new
                 {
@@ -331,9 +232,8 @@ namespace Garmetix.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_DotMatrixPrintSettings", x => x.Id);
-                });
 
-            migrationBuilder.CreateTable(
+migrationBuilder.CreateTable(
                 name: "EmployeeAttendanceShiftRules",
                 columns: table => new
                 {
@@ -359,20 +259,8 @@ namespace Garmetix.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_EmployeeAttendanceShiftRules", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_EmployeeAttendanceShiftRules_AttendanceShifts_AttendanceShi~",
-                        column: x => x.AttendanceShiftId,
-                        principalTable: "AttendanceShifts",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_EmployeeAttendanceShiftRules_Employees_EmployeeId",
-                        column: x => x.EmployeeId,
-                        principalTable: "Employees",
-                        principalColumn: "Id");
-                });
 
-            migrationBuilder.CreateTable(
+migrationBuilder.CreateTable(
                 name: "InvoiceAdBanners",
                 columns: table => new
                 {
@@ -398,9 +286,8 @@ namespace Garmetix.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_InvoiceAdBanners", x => x.Id);
-                });
 
-            migrationBuilder.CreateTable(
+migrationBuilder.CreateTable(
                 name: "PosHeldBills",
                 columns: table => new
                 {
@@ -430,9 +317,8 @@ namespace Garmetix.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_PosHeldBills", x => x.Id);
-                });
 
-            migrationBuilder.CreateTable(
+migrationBuilder.CreateTable(
                 name: "PurchaseInvoiceImportBatches",
                 columns: table => new
                 {
@@ -501,9 +387,8 @@ namespace Garmetix.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_PurchaseInvoiceImportBatches", x => x.Id);
-                });
 
-            migrationBuilder.CreateTable(
+migrationBuilder.CreateTable(
                 name: "PurchaseInvoiceImportVendorProfiles",
                 columns: table => new
                 {
@@ -529,9 +414,8 @@ namespace Garmetix.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_PurchaseInvoiceImportVendorProfiles", x => x.Id);
-                });
 
-            migrationBuilder.CreateTable(
+migrationBuilder.CreateTable(
                 name: "SaaSClients",
                 columns: table => new
                 {
@@ -555,9 +439,8 @@ namespace Garmetix.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_SaaSClients", x => x.Id);
-                });
 
-            migrationBuilder.CreateTable(
+migrationBuilder.CreateTable(
                 name: "SaaSPlans",
                 columns: table => new
                 {
@@ -577,9 +460,8 @@ namespace Garmetix.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_SaaSPlans", x => x.Id);
-                });
 
-            migrationBuilder.CreateTable(
+migrationBuilder.CreateTable(
                 name: "StoreReviewSettings",
                 columns: table => new
                 {
@@ -607,9 +489,8 @@ namespace Garmetix.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_StoreReviewSettings", x => x.Id);
-                });
 
-            migrationBuilder.CreateTable(
+migrationBuilder.CreateTable(
                 name: "TenantSubscriptions",
                 columns: table => new
                 {
@@ -630,15 +511,8 @@ namespace Garmetix.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_TenantSubscriptions", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_TenantSubscriptions_Companies_CompanyId",
-                        column: x => x.CompanyId,
-                        principalTable: "Companies",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
 
-            migrationBuilder.CreateTable(
+migrationBuilder.CreateTable(
                 name: "WhatsAppMessageLogs",
                 columns: table => new
                 {
@@ -667,9 +541,8 @@ namespace Garmetix.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_WhatsAppMessageLogs", x => x.Id);
-                });
 
-            migrationBuilder.CreateTable(
+migrationBuilder.CreateTable(
                 name: "WhatsAppProviderSettings",
                 columns: table => new
                 {
@@ -701,9 +574,8 @@ namespace Garmetix.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_WhatsAppProviderSettings", x => x.Id);
-                });
 
-            migrationBuilder.CreateTable(
+migrationBuilder.CreateTable(
                 name: "PurchaseInvoiceImportFiles",
                 columns: table => new
                 {
@@ -727,15 +599,8 @@ namespace Garmetix.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_PurchaseInvoiceImportFiles", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_PurchaseInvoiceImportFiles_PurchaseInvoiceImportBatches_Bat~",
-                        column: x => x.BatchId,
-                        principalTable: "PurchaseInvoiceImportBatches",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
 
-            migrationBuilder.CreateTable(
+migrationBuilder.CreateTable(
                 name: "PurchaseInvoiceImportLines",
                 columns: table => new
                 {
@@ -784,15 +649,8 @@ namespace Garmetix.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_PurchaseInvoiceImportLines", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_PurchaseInvoiceImportLines_PurchaseInvoiceImportBatches_Bat~",
-                        column: x => x.BatchId,
-                        principalTable: "PurchaseInvoiceImportBatches",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
 
-            migrationBuilder.CreateTable(
+migrationBuilder.CreateTable(
                 name: "SaaSTokens",
                 columns: table => new
                 {
@@ -811,424 +669,254 @@ namespace Garmetix.Infrastructure.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_SaaSTokens", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_SaaSTokens_SaaSClients_SaaSClientId",
-                        column: x => x.SaaSClientId,
-                        principalTable: "SaaSClients",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_SaaSTokens_SaaSPlans_SaaSPlanId",
-                        column: x => x.SaaSPlanId,
-                        principalTable: "SaaSPlans",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_Stocks_CompanyId_StoreId_Barcode",
                 table: "Stocks",
                 columns: new[] { "CompanyId", "StoreId", "Barcode" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_Stocks_CompanyId_StoreId_ProductId_IsOFB",
                 table: "Stocks",
                 columns: new[] { "CompanyId", "StoreId", "ProductId", "IsOFB" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_PurchaseInvoices_CompanyId_StoreId_InwardDate",
                 table: "PurchaseInvoices",
                 columns: new[] { "CompanyId", "StoreId", "InwardDate" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_PurchaseInvoices_CompanyId_StoreId_OnDate",
                 table: "PurchaseInvoices",
                 columns: new[] { "CompanyId", "StoreId", "OnDate" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_PurchaseInvoices_CompanyId_StoreId_VendorId_OnDate",
                 table: "PurchaseInvoices",
                 columns: new[] { "CompanyId", "StoreId", "VendorId", "OnDate" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_InvoiceItems_CompanyId_InvoiceId",
                 table: "InvoiceItems",
                 columns: new[] { "CompanyId", "InvoiceId" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_Companies_SaaSClientId",
                 table: "Companies",
                 column: "SaaSClientId");
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_CustomerFeedback_CompanyId_DigitalInvoiceId",
                 table: "CustomerFeedback",
                 columns: new[] { "CompanyId", "DigitalInvoiceId" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_CustomerFeedback_CompanyId_StoreId_SubmittedAt",
                 table: "CustomerFeedback",
                 columns: new[] { "CompanyId", "StoreId", "SubmittedAt" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_DigitalBillCampaignRecipients_CompanyId_CampaignId_Status",
                 table: "DigitalBillCampaignRecipients",
                 columns: new[] { "CompanyId", "CampaignId", "Status" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_DigitalBillCampaignRecipients_CompanyId_CustomerMobile_Crea~",
                 table: "DigitalBillCampaignRecipients",
                 columns: new[] { "CompanyId", "CustomerMobile", "CreatedAt" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_DigitalBillCampaigns_CompanyId_Segment_FromDate_ToDate",
                 table: "DigitalBillCampaigns",
                 columns: new[] { "CompanyId", "Segment", "FromDate", "ToDate" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_DigitalBillCampaigns_CompanyId_StoreId_Status_CreatedAt",
                 table: "DigitalBillCampaigns",
                 columns: new[] { "CompanyId", "StoreId", "Status", "CreatedAt" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_DigitalInvoiceEvents_CompanyId_DigitalInvoiceId_EventAt",
                 table: "DigitalInvoiceEvents",
                 columns: new[] { "CompanyId", "DigitalInvoiceId", "EventAt" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_DigitalInvoiceEvents_CompanyId_StoreId_EventType_EventAt",
                 table: "DigitalInvoiceEvents",
                 columns: new[] { "CompanyId", "StoreId", "EventType", "EventAt" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_DigitalInvoices_CompanyId_InvoiceId_InvoiceType",
                 table: "DigitalInvoices",
                 columns: new[] { "CompanyId", "InvoiceId", "InvoiceType" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_DigitalInvoices_CompanyId_StoreId_InvoiceDate",
                 table: "DigitalInvoices",
                 columns: new[] { "CompanyId", "StoreId", "InvoiceDate" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_DigitalInvoices_PublicToken",
                 table: "DigitalInvoices",
                 column: "PublicToken",
                 unique: true);
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_DotMatrixPrintQueueEntries_CompanyId_StoreId_BusinessDate_S~",
                 table: "DotMatrixPrintQueueEntries",
                 columns: new[] { "CompanyId", "StoreId", "BusinessDate", "SequenceNo" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_DotMatrixPrintQueueEntries_DeduplicationKey",
                 table: "DotMatrixPrintQueueEntries",
                 column: "DeduplicationKey");
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_DotMatrixPrintQueueEntries_SourceType_SourceId_ActionType",
                 table: "DotMatrixPrintQueueEntries",
                 columns: new[] { "SourceType", "SourceId", "ActionType" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_DotMatrixPrintQueueEntries_Status_CreatedAt",
                 table: "DotMatrixPrintQueueEntries",
                 columns: new[] { "Status", "CreatedAt" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_DotMatrixPrintSettings_CompanyId_StoreId",
                 table: "DotMatrixPrintSettings",
                 columns: new[] { "CompanyId", "StoreId" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_EmployeeAttendanceShiftRules_AttendanceShiftId",
                 table: "EmployeeAttendanceShiftRules",
                 column: "AttendanceShiftId");
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_EmployeeAttendanceShiftRules_CompanyId_StoreId_Active_Prior~",
                 table: "EmployeeAttendanceShiftRules",
                 columns: new[] { "CompanyId", "StoreId", "Active", "Priority" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_EmployeeAttendanceShiftRules_CompanyId_StoreId_EmployeeId_A~",
                 table: "EmployeeAttendanceShiftRules",
                 columns: new[] { "CompanyId", "StoreId", "EmployeeId", "Active" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_EmployeeAttendanceShiftRules_EmployeeId",
                 table: "EmployeeAttendanceShiftRules",
                 column: "EmployeeId");
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_InvoiceAdBanners_CompanyId_StoreId_Position_IsActive",
                 table: "InvoiceAdBanners",
                 columns: new[] { "CompanyId", "StoreId", "Position", "IsActive" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_PosHeldBills_CompanyId_ClientHeldBillId",
                 table: "PosHeldBills",
                 columns: new[] { "CompanyId", "ClientHeldBillId" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_PosHeldBills_CompanyId_StoreGroupId_StoreId_Status_HeldAt",
                 table: "PosHeldBills",
                 columns: new[] { "CompanyId", "StoreGroupId", "StoreId", "Status", "HeldAt" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_PurchaseInvoiceImportBatches_CompanyId_StoreId_Status_Creat~",
                 table: "PurchaseInvoiceImportBatches",
                 columns: new[] { "CompanyId", "StoreId", "Status", "CreatedAt" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_PurchaseInvoiceImportBatches_CompanyId_VendorGstinFinal_Sup~",
                 table: "PurchaseInvoiceImportBatches",
                 columns: new[] { "CompanyId", "VendorGstinFinal", "SupplierInvoiceNumber" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_PurchaseInvoiceImportBatches_PostedPurchaseInvoiceId",
                 table: "PurchaseInvoiceImportBatches",
                 column: "PostedPurchaseInvoiceId");
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_PurchaseInvoiceImportBatches_Sha256Hash",
                 table: "PurchaseInvoiceImportBatches",
                 column: "Sha256Hash");
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_PurchaseInvoiceImportFiles_BatchId",
                 table: "PurchaseInvoiceImportFiles",
                 column: "BatchId");
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_PurchaseInvoiceImportFiles_CompanyId_BatchId_FileKind",
                 table: "PurchaseInvoiceImportFiles",
                 columns: new[] { "CompanyId", "BatchId", "FileKind" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_PurchaseInvoiceImportFiles_Sha256Hash",
                 table: "PurchaseInvoiceImportFiles",
                 column: "Sha256Hash");
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_PurchaseInvoiceImportLines_BatchId",
                 table: "PurchaseInvoiceImportLines",
                 column: "BatchId");
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_PurchaseInvoiceImportLines_CompanyId_BatchId_LineNumber",
                 table: "PurchaseInvoiceImportLines",
                 columns: new[] { "CompanyId", "BatchId", "LineNumber" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_PurchaseInvoiceImportLines_CompanyId_ProductId",
                 table: "PurchaseInvoiceImportLines",
                 columns: new[] { "CompanyId", "ProductId" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_PurchaseInvoiceImportVendorProfiles_CompanyId_VendorGstin",
                 table: "PurchaseInvoiceImportVendorProfiles",
                 columns: new[] { "CompanyId", "VendorGstin" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_PurchaseInvoiceImportVendorProfiles_CompanyId_VendorId",
                 table: "PurchaseInvoiceImportVendorProfiles",
                 columns: new[] { "CompanyId", "VendorId" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_SaaSTokens_SaaSClientId",
                 table: "SaaSTokens",
                 column: "SaaSClientId");
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_SaaSTokens_SaaSPlanId",
                 table: "SaaSTokens",
                 column: "SaaSPlanId");
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_StoreReviewSettings_CompanyId_StoreId",
                 table: "StoreReviewSettings",
                 columns: new[] { "CompanyId", "StoreId" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_TenantSubscriptions_CompanyId",
                 table: "TenantSubscriptions",
                 column: "CompanyId");
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_WhatsAppMessageLogs_CompanyId_DigitalInvoiceId",
                 table: "WhatsAppMessageLogs",
                 columns: new[] { "CompanyId", "DigitalInvoiceId" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_WhatsAppMessageLogs_CompanyId_StoreId_Status_CreatedAt",
                 table: "WhatsAppMessageLogs",
                 columns: new[] { "CompanyId", "StoreId", "Status", "CreatedAt" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_WhatsAppProviderSettings_CompanyId_StoreId",
                 table: "WhatsAppProviderSettings",
                 columns: new[] { "CompanyId", "StoreId" });
 
-            migrationBuilder.CreateIndex(
+migrationBuilder.CreateIndex(
                 name: "IX_WhatsAppProviderSettings_CompanyId_StoreId_IsEnabled_AutoSe~",
                 table: "WhatsAppProviderSettings",
                 columns: new[] { "CompanyId", "StoreId", "IsEnabled", "AutoSendDigitalBills" });
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_Companies_SaaSClients_SaaSClientId",
-                table: "Companies",
-                column: "SaaSClientId",
-                principalTable: "SaaSClients",
-                principalColumn: "Id");
-        }
-
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.DropForeignKey(
-                name: "FK_Companies_SaaSClients_SaaSClientId",
-                table: "Companies");
-
-            migrationBuilder.DropTable(
-                name: "CustomerFeedback");
-
-            migrationBuilder.DropTable(
-                name: "DigitalBillCampaignRecipients");
-
-            migrationBuilder.DropTable(
-                name: "DigitalBillCampaigns");
-
-            migrationBuilder.DropTable(
-                name: "DigitalInvoiceEvents");
-
-            migrationBuilder.DropTable(
-                name: "DigitalInvoices");
-
-            migrationBuilder.DropTable(
-                name: "DotMatrixPrintQueueEntries");
-
-            migrationBuilder.DropTable(
-                name: "DotMatrixPrintSettings");
-
-            migrationBuilder.DropTable(
-                name: "EmployeeAttendanceShiftRules");
-
-            migrationBuilder.DropTable(
-                name: "InvoiceAdBanners");
-
-            migrationBuilder.DropTable(
-                name: "PosHeldBills");
-
-            migrationBuilder.DropTable(
-                name: "PurchaseInvoiceImportFiles");
-
-            migrationBuilder.DropTable(
-                name: "PurchaseInvoiceImportLines");
-
-            migrationBuilder.DropTable(
-                name: "PurchaseInvoiceImportVendorProfiles");
-
-            migrationBuilder.DropTable(
-                name: "SaaSTokens");
-
-            migrationBuilder.DropTable(
-                name: "StoreReviewSettings");
-
-            migrationBuilder.DropTable(
-                name: "TenantSubscriptions");
-
-            migrationBuilder.DropTable(
-                name: "WhatsAppMessageLogs");
-
-            migrationBuilder.DropTable(
-                name: "WhatsAppProviderSettings");
-
-            migrationBuilder.DropTable(
-                name: "PurchaseInvoiceImportBatches");
-
-            migrationBuilder.DropTable(
-                name: "SaaSClients");
-
-            migrationBuilder.DropTable(
-                name: "SaaSPlans");
-
-            migrationBuilder.DropIndex(
-                name: "IX_Stocks_CompanyId_StoreId_Barcode",
-                table: "Stocks");
-
-            migrationBuilder.DropIndex(
-                name: "IX_Stocks_CompanyId_StoreId_ProductId_IsOFB",
-                table: "Stocks");
-
-            migrationBuilder.DropIndex(
-                name: "IX_PurchaseInvoices_CompanyId_StoreId_InwardDate",
-                table: "PurchaseInvoices");
-
-            migrationBuilder.DropIndex(
-                name: "IX_PurchaseInvoices_CompanyId_StoreId_OnDate",
-                table: "PurchaseInvoices");
-
-            migrationBuilder.DropIndex(
-                name: "IX_PurchaseInvoices_CompanyId_StoreId_VendorId_OnDate",
-                table: "PurchaseInvoices");
-
-            migrationBuilder.DropIndex(
-                name: "IX_InvoiceItems_CompanyId_InvoiceId",
-                table: "InvoiceItems");
-
-            migrationBuilder.DropIndex(
-                name: "IX_Companies_SaaSClientId",
-                table: "Companies");
-
-            migrationBuilder.DropColumn(
-                name: "SaaSClientId",
-                table: "Companies");
-
-            migrationBuilder.DropColumn(
-                name: "AttendanceMode",
-                table: "AttendanceShifts");
-
-            migrationBuilder.DropColumn(
-                name: "BreakEndMinutes",
-                table: "AttendanceShifts");
-
-            migrationBuilder.DropColumn(
-                name: "BreakStartMinutes",
-                table: "AttendanceShifts");
-
-            migrationBuilder.DropColumn(
-                name: "CountBreakAsWork",
-                table: "AttendanceShifts");
-
-            migrationBuilder.DropColumn(
-                name: "HasBreak",
-                table: "AttendanceShifts");
-
-            migrationBuilder.DropColumn(
-                name: "RequiredSessionsForFullDay",
-                table: "AttendanceShifts");
-
-            migrationBuilder.DropColumn(
-                name: "RequiredSessionsForHalfDay",
-                table: "AttendanceShifts");
-
-            migrationBuilder.DropColumn(
-                name: "RequiresBreakPunch",
-                table: "AttendanceShifts");
-
-            migrationBuilder.DropColumn(
-                name: "ShiftCategory",
-                table: "AttendanceShifts");
-
-            migrationBuilder.DropColumn(
-                name: "BreakInTime",
-                table: "Attendance");
-
-            migrationBuilder.DropColumn(
-                name: "BreakOutTime",
-                table: "Attendance");
-        }
-    }
-}

@@ -357,12 +357,15 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
     ] }
   ],
   admin: [
+    { id: 'home', label: 'Admin Home', href: '/', icon: 'i-lucide-layout-dashboard' },
     { key: 'setup', label: 'Company', items: [
-      { id: 'home', label: 'Admin Home', href: '/', icon: 'i-lucide-layout-dashboard' },
       { id: 'setup', label: 'Company Setup', href: '/setup', icon: 'i-lucide-building-2' },
       { id: 'onboarding', label: 'Onboarding', href: '/client-onboarding', icon: 'i-lucide-route' },
       { id: 'access', label: 'Roles And Users', href: '/access', icon: 'i-lucide-shield-check' },
       { id: 'license', label: 'License', href: '/license-activation', icon: 'i-lucide-key-round' }
+    ] },
+    { key: 'saas', label: 'SaaS Management', items: [
+      { id: 'saas-manager', label: 'SaaS Manager', href: '/saas', icon: 'i-lucide-cloud-cog' }
     ] },
     { key: 'sales', label: 'Sales Management', items: [
       { id: 'sales', label: 'Sales History', href: '/sales', icon: 'i-lucide-receipt' }
@@ -397,21 +400,34 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
 
 const menuGroups = computed(() => localMenus[effectiveAppId.value] ?? localMenus.main)
 
-const navigationItems = computed<NavigationMenuItem[]>(() => menuGroups.value.map(group => ({
-  label: group.label,
-  icon: group.items[0]?.icon || 'i-lucide-folder',
-  type: 'trigger',
-  defaultOpen: group.items.some(item => isActive(item.href)),
-  children: group.items.map(item => ({
-    label: item.label,
-    icon: item.icon,
-    to: item.href,
-    active: isActive(item.href),
-    onSelect: () => {
-      sidebarOpen.value = false
+const navigationItems = computed<NavigationMenuItem[]>(() => menuGroups.value.map(group => {
+  if (!group.items) {
+    return {
+      label: group.label,
+      icon: group.icon,
+      to: group.href,
+      active: isActive(group.href),
+      onSelect: () => {
+        sidebarOpen.value = false
+      }
     }
-  }))
-})))
+  }
+  return {
+    label: group.label,
+    icon: group.items[0]?.icon || 'i-lucide-folder',
+    type: 'trigger',
+    defaultOpen: group.items.some(item => isActive(item.href)),
+    children: group.items.map(item => ({
+      label: item.label,
+      icon: item.icon,
+      to: item.href,
+      active: isActive(item.href),
+      onSelect: () => {
+        sidebarOpen.value = false
+      }
+    }))
+  }
+}))
 
 const statusMenuItems = computed<NavigationMenuItem[]>(() => [
   {
@@ -530,12 +546,15 @@ const userMenuItems = computed<DropdownMenuItem[][]>(() => [[{
 const searchGroups = computed(() => [{
   id: 'routes',
   label: `${appCopy.value.badge} routes`,
-  items: menuGroups.value.flatMap(group => group.items.map(item => ({
-    id: item.id,
-    label: item.label,
-    icon: item.icon,
-    to: item.href
-  })))
+  items: menuGroups.value.flatMap(group => {
+    const list = group.items || [group]
+    return list.map(item => ({
+      id: item.id,
+      label: item.label,
+      icon: item.icon,
+      to: item.href
+    }))
+  })
 }, {
   id: 'apps',
   label: 'Garmetix apps',
@@ -620,7 +639,7 @@ defineShortcuts({
   },
   'g-h': () => navigateTo('/'),
   'g-s': () => {
-    const firstStoreRoute = menuGroups.value[0]?.items[0]?.href || '/'
+    const firstStoreRoute = menuGroups.value[0]?.items?.[0]?.href || menuGroups.value[0]?.href || '/'
     navigateTo(firstStoreRoute)
   }
 })

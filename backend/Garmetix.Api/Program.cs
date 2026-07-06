@@ -165,6 +165,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization(options =>
 {
+    options.AddPolicy("SuperAdmin", policy => policy.RequireClaim("superAdmin", "True"));
     AddMatrixPolicy(options, GarmetixPolicies.Admin);
     AddMatrixPolicy(options, GarmetixPolicies.CompanySetup);
     AddMatrixPolicy(options, GarmetixPolicies.Edit);
@@ -435,7 +436,7 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
 
         if (entity is Company companyEntity)
         {
-            var limitMessage = await saasValidation.EnsureCanAddCompanyAsync(cancellationToken);
+            var limitMessage = await saasValidation.EnsureCanAddCompanyAsync(companyEntity.SaaSClientId, cancellationToken);
             if (limitMessage is not null)
             {
                 return Results.BadRequest(new { message = limitMessage });

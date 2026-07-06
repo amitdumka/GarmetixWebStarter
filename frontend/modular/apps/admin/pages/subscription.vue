@@ -19,7 +19,7 @@
             <UBadge :color="status.valid ? 'green' : 'red'" class="mb-2">
               {{ status.valid ? 'Active' : 'Expired/Inactive' }}
             </UBadge>
-            <p class="text-xl font-bold">{{ status.plan || 'Free Trial' }}</p>
+            <p class="text-xl font-bold">{{ status.plan || (status.valid ? 'Active License' : 'Free Trial') }}</p>
           </div>
           <div class="space-y-2 text-sm text-gray-600 dark:text-gray-300">
             <p><strong>Expires:</strong> {{ status.expiresAtUtc ? new Date(status.expiresAtUtc).toLocaleDateString() : 'N/A' }}</p>

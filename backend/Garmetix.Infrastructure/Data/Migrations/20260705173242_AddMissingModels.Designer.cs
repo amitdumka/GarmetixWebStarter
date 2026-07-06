@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Garmetix.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(GarmetixDbContext))]
-    [Migration("20260705140118_AddSaaSDeveloperModule")]
-    partial class AddSaaSDeveloperModule
+    [Migration("20260705173242_AddMissingModels")]
+    partial class AddMissingModels
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

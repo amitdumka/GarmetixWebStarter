@@ -1,0 +1,22 @@
+
+
+            
+
+            
+
+            
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SaaSTokens_SaaSClientId",
+                table: "SaaSTokens",
+                column: "SaaSClientId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SaaSTokens_SaaSPlanId",
+                table: "SaaSTokens",
+                column: "SaaSPlanId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TenantSubscriptions_CompanyId",
+                table: "TenantSubscriptions",
+                column: "CompanyId");
