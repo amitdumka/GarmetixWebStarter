@@ -1,7 +1,7 @@
 {
   "name": "garmetix-version6-workspace",
   "private": true,
-  "version": "6.0.43",
+  "version": "6.0.44",
   "scripts": {
     "legacy:api:test": "dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release",
     "legacy:api:build": "dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release",
@@ -73,6 +73,7 @@
     "modular:books:voucher-ledger-parity": "node frontend/modular/scripts/books-voucher-ledger-parity.mjs",
     "modular:books:bank-reconciliation-parity": "node frontend/modular/scripts/books-bank-reconciliation-parity.mjs",
     "modular:books:bank-operations-parity": "node frontend/modular/scripts/books-bank-operations-parity.mjs",
-    "modular:assistant:mcp-intake": "node frontend/modular/scripts/assistant-mcp-intake-readiness.mjs"
+    "modular:assistant:mcp-intake": "node frontend/modular/scripts/assistant-mcp-intake-readiness.mjs",
+    "modular:assistant:backend-foundation": "node frontend/modular/scripts/assistant-backend-foundation-readiness.mjs"
   }
 }

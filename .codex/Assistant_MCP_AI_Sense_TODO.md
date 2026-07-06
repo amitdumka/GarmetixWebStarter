@@ -36,13 +36,13 @@ Status: intake complete, patch not applied directly.
 
 ### 14F.2 Backend Assistant Foundation
 
-- Add `backend/Garmetix.Api/Assistant` files after adapting namespaces and service registration to current Version6.
-- Add options binding with source config placeholders only.
-- Add `/api/assistant/chat`, `/api/assistant/conversations`, and `/api/assistant/conversations/{id}/messages` behind authorization.
+- Complete in `6.0.44`: added `backend/Garmetix.Api/Assistant` files after adapting namespaces and service registration to current Version6.
+- Complete in `6.0.44`: added options binding with source config placeholders only.
+- Complete in `6.0.44`: added `/api/assistant/chat`, `/api/assistant/conversations`, and `/api/assistant/conversations/{id}/messages` behind authorization.
 - Decide persistence method:
-  - preferred: explicit reviewed migration or audited startup SQL with live DB backup,
-  - do not silently mutate live database without deployment note.
-- Log every tool call to Message Logs.
+  - current implementation uses audited startup SQL on first assistant use,
+  - do not enable live assistant without deployment note and backup decision.
+- Complete in `6.0.44`: tool calls are logged to Message Logs.
 
 ### 14F.3 AI Sense Tool Catalog
 

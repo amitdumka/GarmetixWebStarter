@@ -6,6 +6,7 @@ using Garmetix.Core.Models.Stores;
 using Garmetix.Core.Models.Base;
 using Garmetix.Api.Audit;
 using Garmetix.Api.AppInfo;
+using Garmetix.Api.Assistant;
 using Garmetix.Api.Auth;
 using Garmetix.Api.Attendance;
 using Garmetix.Api.Attendance.Services;
@@ -133,6 +134,11 @@ if (builder.Configuration.GetValue<bool>("DotMatrixPrinting:RunWorker"))
 }
 builder.Services.Configure<GstinLookupOptions>(builder.Configuration.GetSection("GstinLookup"));
 builder.Services.AddHttpClient<GstinLookupService>();
+builder.Services.Configure<AssistantOptions>(builder.Configuration.GetSection("Assistant"));
+builder.Services.AddScoped<AssistantConversationStore>();
+builder.Services.AddScoped<AssistantToolCatalog>();
+builder.Services.AddScoped<AssistantChatService>();
+builder.Services.AddHttpClient<AssistantAnthropicClient>();
 builder.Services.Configure<GoogleDriveBackupOptions>(builder.Configuration.GetSection("GoogleDriveBackup"));
 builder.Services.AddHttpClient("GoogleDriveAuth");
 builder.Services.AddHttpClient("GoogleDriveBackup");
@@ -361,6 +367,7 @@ app.MapPostImportLiveValidationEndpoints();
 app.MapDataConsistencyRepairEndpoints();
 app.MapDatabaseMigrationEndpoints();
 app.MapDashboardEndpoints();
+app.MapAssistantEndpoints();
 app.MapProductionReadinessEndpoints();
 app.MapPrintAcceptanceEndpoints();
 app.MapBarcodeAcceptanceEndpoints();

@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "6.0.43",
+  "version": "6.0.44",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -88,7 +88,8 @@
     "books:voucher-ledger-parity": "node scripts/books-voucher-ledger-parity.mjs",
     "books:bank-reconciliation-parity": "node scripts/books-bank-reconciliation-parity.mjs",
     "books:bank-operations-parity": "node scripts/books-bank-operations-parity.mjs",
-    "assistant:mcp-intake": "node scripts/assistant-mcp-intake-readiness.mjs"
+    "assistant:mcp-intake": "node scripts/assistant-mcp-intake-readiness.mjs",
+    "assistant:backend-foundation": "node scripts/assistant-backend-foundation-readiness.mjs"
   },
   "overrides": {
     "@babel/generator": "8.0.0-rc.6",
