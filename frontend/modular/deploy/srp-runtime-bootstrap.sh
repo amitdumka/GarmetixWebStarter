@@ -179,6 +179,7 @@ Cors__AllowedOriginsCsv=https://${SRP_DOMAIN}
 Jwt__Issuer=Garmetix
 Jwt__Audience=Garmetix
 Jwt__SigningKey=${JWT_KEY}
+ApiDocs__Enabled=true
 PasswordReset__FrontendBaseUrl=https://${SRP_DOMAIN}
 License__EnforcementEnabled=false
 ASPNETCORE_ENVIRONMENT=Production

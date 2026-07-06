@@ -438,6 +438,7 @@ Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=ASPNETCORE_URLS=http://127.0.0.1:$SRP_API_PORT
 Environment=ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
 EnvironmentFile=-$SRP_API_ENV_PATH
+Environment=ApiDocs__Enabled=true
 
 [Install]
 WantedBy=multi-user.target
@@ -453,6 +454,7 @@ Cors__AllowedOriginsCsv=https://$SRP_DOMAIN
 Jwt__Issuer=Garmetix
 Jwt__Audience=Garmetix
 Jwt__SigningKey=CHANGE_ME_MINIMUM_32_CHARS
+ApiDocs__Enabled=true
 PasswordReset__FrontendBaseUrl=https://$SRP_DOMAIN
 License__EnforcementEnabled=false
 ENV

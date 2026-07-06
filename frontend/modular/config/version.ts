@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.36',
-  stage: 'Stage 14D.6 CRM Feedback Review And WhatsApp Operations',
-  label: 'Version6 Stage 14D.6 CRM Feedback Review And WhatsApp Operations',
-  summary: 'Promoted Digital CRM feedback, review settings, WhatsApp provider settings, test-send and WhatsApp retry logs from read-only placeholders to usable modular CRM workflows.'
+  version: '6.0.38',
+  stage: 'Stage 14E.2 SRP API Docs Deployment Enablement',
+  label: 'Version6 Stage 14E.2 SRP API Docs Deployment Enablement',
+  summary: 'Enabled Swagger/OpenAPI in SRP deployment service configuration so live API docs are available under /api/docs and /api/openapi/v1/swagger.json.'
 } as const

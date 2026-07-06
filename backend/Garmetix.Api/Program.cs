@@ -60,6 +60,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using System.Data;
 using System.Text;
 
@@ -178,6 +179,31 @@ builder.Services.AddAuthorization(options =>
     AddMatrixPolicy(options, GarmetixPolicies.Marketing);
 });
 
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Garmetix API",
+        Version = "v1",
+        Description = "Unified ASP.NET Core API for Garmetix modules, including POS, CRM, HR, Books, Admin and Back Office."
+    });
+    options.CustomSchemaIds(type => (type.FullName ?? type.Name).Replace("+", "."));
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "Paste the JWT access token returned by /api/auth/login. Swagger UI sends it as a Bearer token.",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
+    });
+    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecuritySchemeReference("Bearer", document, null)] = new List<string>()
+    });
+});
+
 var app = builder.Build();
 
 const string FreshSchemaBaselineMigrationId = "20260623123000_InitialCreate";
@@ -212,6 +238,23 @@ app.Use(async (context, next) =>
 });
 
 app.UseCors("frontend");
+
+if (app.Configuration.GetValue("ApiDocs:Enabled", true))
+{
+    app.UseSwagger(options =>
+    {
+        options.RouteTemplate = "api/openapi/{documentName}/swagger.json";
+    });
+    app.UseSwaggerUI(options =>
+    {
+        options.DocumentTitle = "Garmetix API Docs";
+        options.RoutePrefix = "api/docs";
+        options.SwaggerEndpoint("/api/openapi/v1/swagger.json", "Garmetix API v1");
+        options.DisplayRequestDuration();
+        options.EnablePersistAuthorization();
+    });
+}
+
 app.UseAuthentication();
 app.UseMiddleware<AuditActorMiddleware>();
 app.UseMiddleware<ActiveUserMiddleware>();
