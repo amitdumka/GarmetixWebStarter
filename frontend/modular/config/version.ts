@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.42',
-  stage: 'Stage 14C.4 Books Bank Operations Parity',
-  label: 'Version6 Stage 14C.4 Books Bank Operations Parity',
-  summary: 'Added guarded vendor bank edits, secure bank detail review, masked account tables, settlement closure dashboard, evidence CSV handoff and bank statement import planning.'
+  version: '6.0.43',
+  stage: 'Stage 14F.1 AI Assistant MCP Intake',
+  label: 'Version6 Stage 14F.1 AI Assistant MCP Intake',
+  summary: 'Reviewed the Claude assistant patch, documented the Assistant/MCP lane, added secret-safety intake checks, and kept the assistant disabled until adapted and approved.'
 } as const

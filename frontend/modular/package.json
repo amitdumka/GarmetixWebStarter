@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "6.0.42",
+  "version": "6.0.43",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -87,7 +87,8 @@
     "pos:live-return-exchange-acceptance": "node scripts/pos-live-return-exchange-acceptance.mjs",
     "books:voucher-ledger-parity": "node scripts/books-voucher-ledger-parity.mjs",
     "books:bank-reconciliation-parity": "node scripts/books-bank-reconciliation-parity.mjs",
-    "books:bank-operations-parity": "node scripts/books-bank-operations-parity.mjs"
+    "books:bank-operations-parity": "node scripts/books-bank-operations-parity.mjs",
+    "assistant:mcp-intake": "node scripts/assistant-mcp-intake-readiness.mjs"
   },
   "overrides": {
     "@babel/generator": "8.0.0-rc.6",
