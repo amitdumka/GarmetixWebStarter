@@ -33,6 +33,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBaseUrl: process.env.NUXT_PUBLIC_GARMETIX_API_BASE_URL || 'http://localhost:5080/api',
+      assistantEnabled: process.env.NUXT_PUBLIC_GARMETIX_ASSISTANT_ENABLED === 'true',
       appId: 'books',
       appUrls: {
         NUXT_PUBLIC_GARMETIX_MAIN_URL: process.env.NUXT_PUBLIC_GARMETIX_MAIN_URL || process.env.NUXT_PUBLIC_MAIN_WEB_URL || '',

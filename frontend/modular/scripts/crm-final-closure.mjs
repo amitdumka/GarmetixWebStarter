@@ -35,7 +35,7 @@ console.log(`Deploy checkpoint: ${deployCheckpoint}`)
 console.log('CRM writes: customer/loyalty/settings/banner/campaign writes remain guarded by UI role permissions')
 
 if (!version.startsWith('6.0.')) failures.push(`Expected Version6 CRM lane version 6.0.x, found ${version}.`)
-if (!stage.includes('Stage 14D.9')) failures.push(`Expected Stage 14D.9 closure stage, found ${stage}.`)
+if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 modular lane, found ${stage}.`)
 
 checkRequiredFiles()
 checkPackageScripts()

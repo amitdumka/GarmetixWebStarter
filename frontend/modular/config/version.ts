@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.44',
-  stage: 'Stage 14F.2 Assistant Backend Foundation',
-  label: 'Version6 Stage 14F.2 Assistant Backend Foundation',
-  summary: 'Wired the backend Assistant endpoints, options, Anthropic client, conversation store and read-only tool catalog into the current Version6 API with Assistant disabled by default.'
+  version: '6.0.45',
+  stage: 'Stage 14F.3 Assistant Frontend Panel',
+  label: 'Version6 Stage 14F.3 Assistant Frontend Panel',
+  summary: 'Added the feature-flagged shared assistant panel and top-bar launcher across modular Nuxt UI apps while keeping the assistant disabled by default.'
 } as const

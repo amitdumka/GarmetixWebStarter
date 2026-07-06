@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/shared-auth",
   "private": true,
-  "version": "6.0.44",
+  "version": "6.0.45",
   "type": "module",
   "dependencies": {
     "@garmetix/shared-types": "6.0.0"

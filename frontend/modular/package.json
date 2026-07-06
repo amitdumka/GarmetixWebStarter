@@ -1,7 +1,7 @@
 {
   "name": "@garmetix/modular",
   "private": true,
-  "version": "6.0.44",
+  "version": "6.0.45",
   "type": "module",
   "workspaces": [
     "apps/*",
@@ -89,7 +89,8 @@
     "books:bank-reconciliation-parity": "node scripts/books-bank-reconciliation-parity.mjs",
     "books:bank-operations-parity": "node scripts/books-bank-operations-parity.mjs",
     "assistant:mcp-intake": "node scripts/assistant-mcp-intake-readiness.mjs",
-    "assistant:backend-foundation": "node scripts/assistant-backend-foundation-readiness.mjs"
+    "assistant:backend-foundation": "node scripts/assistant-backend-foundation-readiness.mjs",
+    "assistant:frontend-panel": "node scripts/assistant-frontend-panel-readiness.mjs"
   },
   "overrides": {
     "@babel/generator": "8.0.0-rc.6",

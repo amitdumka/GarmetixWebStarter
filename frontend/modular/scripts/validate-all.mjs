@@ -273,7 +273,7 @@ if (!skipBuilds) {
     steps.push({
       name: `Build modular ${app}`,
       cwd: repoRoot,
-      args: ['--prefix', 'modular', 'run', `build:${app}`]
+      args: ['--prefix', 'frontend/modular', 'run', `build:${app}`]
     })
   }
 }

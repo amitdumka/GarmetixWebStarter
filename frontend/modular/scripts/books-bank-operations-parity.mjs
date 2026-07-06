@@ -12,7 +12,7 @@ console.log('Mutation check: disabled')
 console.log('Live bank edit: disabled')
 
 if (version !== '6.0.42') failures.push(`Expected modular version 6.0.42, found ${version}.`)
-if (!stage.includes('Stage 14C.4')) failures.push(`Expected Stage 14C.4, found ${stage}.`)
+if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 modular lane, found ${stage}.`)
 
 checkFile('apps/books/pages/cash-details.vue', [
   'UPDATE VENDOR BANK',

@@ -140,6 +140,11 @@
                   </UChip>
                 </UButton>
               </UTooltip>
+              <UTooltip v-if="assistantEnabled && authSnapshot.hasToken" text="Garmetix Assistant" :shortcuts="['A']">
+                <UButton color="neutral" variant="ghost" square @click="assistantOpen = true">
+                  <UIcon name="i-lucide-sparkles" class="size-5 shrink-0" />
+                </UButton>
+              </UTooltip>
               <UColorModeButton color="neutral" variant="ghost" />
             </template>
           </UDashboardNavbar>
@@ -172,6 +177,18 @@
           </div>
         </template>
       </USlideover>
+
+      <USlideover
+        v-if="assistantEnabled"
+        v-model:open="assistantOpen"
+        title="Garmetix Assistant"
+        description="Ask about sales, stock and dues using your current access scope."
+        :ui="{ content: 'sm:max-w-md' }"
+      >
+        <template #body>
+          <GarmetixAssistantPanel :api-base-url="apiBaseUrl" :app-id="effectiveAppId" />
+        </template>
+      </USlideover>
     </UDashboardGroup>
   </UApp>
 </template>
@@ -184,6 +201,7 @@ import { clearStoredSession, getAuthSessionSnapshot, type AuthSessionSnapshot } 
 import { buildAppShellModel, normalizeFrontendAppId } from '../src'
 import { buildAppTargetLinks, garmetixRoutes } from '../../../config/routes'
 import { garmetixModularVersion } from '../../../config/version'
+import GarmetixAssistantPanel from './GarmetixAssistantPanel.vue'
 
 type MenuItem = {
   id: string
@@ -206,11 +224,13 @@ const route = useRoute()
 const runtimeConfig = useRuntimeConfig()
 const colorMode = useColorMode()
 const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
+const assistantEnabled = computed(() => String(runtimeConfig.public.assistantEnabled || '').toLowerCase() === 'true')
 const appUrls = computed(() => (runtimeConfig.public.appUrls ?? {}) as Record<string, string | undefined>)
 const effectiveAppId = computed<FrontendAppId>(() => normalizeFrontendAppId(props.appId || runtimeConfig.public.appId))
 const version = garmetixModularVersion
 const sidebarOpen = ref(false)
 const notificationsOpen = ref(false)
+const assistantOpen = ref(false)
 const now = ref<Date | null>(null)
 const apiHealth = ref<ApiHealthResult>({
   state: 'checking',
@@ -624,6 +644,9 @@ function logout() {
 defineShortcuts({
   n: () => {
     notificationsOpen.value = !notificationsOpen.value
+  },
+  a: () => {
+    if (assistantEnabled.value && authSnapshot.value.hasToken) assistantOpen.value = !assistantOpen.value
   },
   'g-h': () => navigateTo('/'),
   'g-s': () => {

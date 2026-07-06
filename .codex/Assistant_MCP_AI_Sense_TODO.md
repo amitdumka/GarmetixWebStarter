@@ -44,7 +44,16 @@ Status: intake complete, patch not applied directly.
   - do not enable live assistant without deployment note and backup decision.
 - Complete in `6.0.44`: tool calls are logged to Message Logs.
 
-### 14F.3 AI Sense Tool Catalog
+### 14F.3 Shared Frontend Assistant Panel
+
+- Complete in `6.0.45`: added `frontend/modular/packages/shared-ui/components/GarmetixAssistantPanel.vue`.
+- Complete in `6.0.45`: added a Nuxt UI top-bar launcher and right-side assistant slideover to the shared modular shell.
+- Complete in `6.0.45`: added `NUXT_PUBLIC_GARMETIX_ASSISTANT_ENABLED=false` to the modular env example and runtime config for each modular app.
+- Use the existing shared API/auth clients.
+- Keep UI compact, right-side slideover, bottom-right error toasts, and Nuxt UI 4.9 components.
+- Show tool-call badges so users know when data was queried.
+
+### 14F.4 AI Sense Tool Catalog
 
 - Start with read-only tools only:
   - sales summary,
@@ -55,14 +64,6 @@ Status: intake complete, patch not applied directly.
 - Reuse current `/api/ai-sense/*` read models where possible.
 - Every query must apply workspace scope and current user permissions.
 - Add a max row/token cap for every tool.
-
-### 14F.4 Shared Frontend Assistant Panel
-
-- Add assistant panel to `frontend/modular/packages/shared-ui`.
-- Add launcher to the current shell top bar behind feature flag.
-- Use the existing shared API/auth clients.
-- Keep UI compact, right-side slideover, bottom-right error toasts, and Nuxt UI 4.9 components.
-- Show tool-call badges so users know when data was queried.
 
 ### 14F.5 MCP Server Layer
 
