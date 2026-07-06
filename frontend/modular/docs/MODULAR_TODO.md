@@ -328,5 +328,6 @@ Goal: merge customer CRM and Digital Bill CRM into a dedicated `crm` modular app
 - 14E.1 complete: bump modular version identity to `6.0.37`, enable Swagger/OpenAPI documentation for the shared ASP.NET Core API, expose the docs UI at `/api/docs`, expose JSON at `/api/openapi/v1/swagger.json`, and add JWT Bearer authorization support for protected endpoint testing.
 - 14E.2 complete: bump modular version identity to `6.0.38`, force `ApiDocs__Enabled=true` in SRP API deployment/runtime bootstrap configuration, and keep API docs enabled on the `.127` live service after deployment restarts.
 - 14D.7 complete: bump modular version identity to `6.0.39`, replace the read-only CRM campaign table with a campaign workbench for preview/create, queue, WhatsApp send, mark-sent, cancel, recipient message copy and ROI review.
-- 14D.8 next: invoice ad banners and public `/i/:token` digital bill customer page.
+- 14D.8 complete: bump modular version identity to `6.0.40`, promote invoice ad banners to create/edit/delete CRM workbench, and add anonymous `/i/:token` digital bill customer page with PDF, review, WhatsApp support, feedback and banner-click tracking.
+- 14D.9 next: CRM final parity acceptance, public bill browser review on live QR links, and handoff remaining cross-module Digital Bill activity actions back into POS/Main where needed.
 

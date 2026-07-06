@@ -124,8 +124,9 @@ CRM implementation order:
 8. Customer register filtering, pagination, edit ID hardening and loyalty slideover. Completed in Version `6.0.35` so list actions no longer depend on only `customer.id` and loyalty preview does not expand below the table.
 9. Feedback, review settings, WhatsApp settings/logs and retry/test-send guarded actions. Completed in Version `6.0.36` with feedback filters, writable review/WhatsApp setup, provider test-send and WhatsApp retry logs.
 10. Campaign create/preview/queue/send/mark-sent/cancel workflows. Completed in Version `6.0.39` with modular CRM campaign workbench, lifecycle actions, recipient copy and ROI review.
-11. Invoice ad banners create/edit/delete.
-12. Public `/i/:token` digital bill customer page, privacy/terms/review links and public PDF handoff.
+11. Invoice ad banners create/edit/delete. Completed in Version `6.0.40` with filters, metrics, store scope, image preview, create/edit modal and guarded delete.
+12. Public `/i/:token` digital bill customer page, privacy/terms/review links and public PDF handoff. Completed in Version `6.0.40` with anonymous root route, shell bypass, invoice items, totals, PDF download, review, WhatsApp support, private feedback and banner-click tracking.
+13. CRM final parity acceptance, public QR/browser review and Digital Bill activity/action handoff where POS/Main still need entry points.
 
 ## Deployment Notes
 
