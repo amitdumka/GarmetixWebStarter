@@ -88,6 +88,7 @@ export const garmetixRoutes: GarmetixRouteDefinition[] = [
   route({ id: 'dashboard-map', path: '/dashboard/map', label: 'Store Map', icon: 'i-lucide-map', targetApp: 'main', moduleKey: 'dashboard', moduleLabel: 'Dashboards', roles: [...routeRoles.adminPower] }),
 
   route({ id: 'billing', path: '/billing', label: 'Sale Invoices', icon: 'i-lucide-receipt-text', targetApp: 'main', moduleKey: 'sales', moduleLabel: 'Sales', roles: [...routeRoles.storeOps] }),
+  route({ id: 'pos-home', path: '/', label: 'Home', icon: 'i-lucide-house', targetApp: 'pos', moduleKey: 'pos', moduleLabel: 'POS', roles: [...routeRoles.pos], status: 'modular-ready' }),
   route({ id: 'pos-day-open', path: '/day-open', label: 'Day Open', icon: 'i-lucide-sunrise', targetApp: 'pos', moduleKey: 'pos', moduleLabel: 'POS', roles: [...routeRoles.pos], legacyPath: '/store-day', status: 'modular-ready' }),
   route({ id: 'billing-new', path: '/sale', label: 'POS Sale Screen', icon: 'i-lucide-scan-barcode', targetApp: 'pos', moduleKey: 'pos', moduleLabel: 'POS', roles: [...routeRoles.pos], legacyPath: '/billing/new', status: 'modular-ready', notes: 'Version6 POS first parity lane.' }),
   route({ id: 'pos-history', path: '/history', label: 'Sales History', icon: 'i-lucide-history', targetApp: 'pos', moduleKey: 'pos', moduleLabel: 'POS', roles: [...routeRoles.pos], legacyPath: '/billing', status: 'modular-ready', notes: 'POS-facing sale listing with Digital Bill CRM visibility.' }),

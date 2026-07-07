@@ -18,7 +18,7 @@
 
     <PosToast :message="message" :color="messageTone" :icon="messageIcon" />
 
-    <section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+    <section>
       <div class="space-y-4">
         <div class="grid gap-3 md:grid-cols-4">
           <div v-for="item in summaryItems" :key="item.label" class="garmetix-metric-card">
@@ -162,18 +162,11 @@
           </div>
         </div>
       </div>
+    </section>
 
-      <aside class="garmetix-section-card h-fit p-0">
-        <div class="border-b border-default p-4">
-          <h3 class="garmetix-panel-title">Invoice Detail</h3>
-          <p class="garmetix-panel-subtitle">{{ selectedInvoice ? selectedInvoice.invoiceNumber : 'Select a sale from the list.' }}</p>
-        </div>
-
-        <div v-if="!selectedInvoice" class="p-6 text-center text-sm text-muted">
-          Select an invoice to review items, payments, print status and digital CRM actions.
-        </div>
-
-        <div v-else class="space-y-5 p-4">
+    <USlideover v-model:open="detailOpen" title="Invoice Detail" :description="selectedInvoice?.invoiceNumber || ''">
+      <template #body>
+        <div v-if="selectedInvoice" class="space-y-5">
           <div class="grid grid-cols-2 gap-3 text-sm">
             <div>
               <p class="text-xs text-muted">Customer</p>
@@ -249,8 +242,8 @@
             <UButton v-if="canHardDelete(selectedInvoice)" color="error" variant="soft" icon="i-lucide-shredder" :loading="hardDeletingId === selectedInvoice.id" @click="hardDeleteInvoice(selectedInvoice)">Delete</UButton>
           </div>
         </div>
-      </aside>
-    </section>
+      </template>
+    </USlideover>
   </section>
 </template>
 
@@ -365,6 +358,7 @@ const serverSummary = ref({
 })
 const invoices = ref<SaleInvoice[]>([])
 const selectedInvoice = ref<SaleInvoice | null>(null)
+const detailOpen = ref(false)
 const receiptItems = ref<any[]>([])
 const message = ref('')
 const messageTone = ref<'success' | 'error' | 'warning' | 'neutral'>('neutral')
@@ -532,6 +526,7 @@ async function goToPage(nextPage: number) {
 
 async function selectInvoice(invoice: SaleInvoice) {
   selectedInvoice.value = invoice
+  detailOpen.value = true
   await loadReceipt(invoice)
 }
 

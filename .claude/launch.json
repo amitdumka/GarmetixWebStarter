@@ -12,6 +12,18 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "frontend/modular", "--workspace", "@garmetix/admin-web", "run", "dev"],
       "port": 3105
+    },
+    {
+      "name": "pos-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend/modular", "--workspace", "@garmetix/pos-web", "run", "dev"],
+      "port": 3101
+    },
+    {
+      "name": "hr-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend/modular", "--workspace", "@garmetix/hr-web", "run", "dev"],
+      "port": 3102
     }
   ]
 }

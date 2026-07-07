@@ -18,9 +18,9 @@
 
     <PosToast :message="message" :color="messageTone" :icon="messageIcon" />
 
-    <section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+    <section>
       <div class="space-y-4">
-        <div class="garmetix-section-card grid gap-3 lg:grid-cols-[1fr_auto]">
+        <div class="garmetix-section-card grid gap-3 lg:grid-cols-[minmax(220px,1fr)_150px_140px_auto]">
           <UFormField label="Invoice number / QR code / customer" name="invoiceSearch">
             <UInput
               ref="invoiceSearchInput"
@@ -32,10 +32,24 @@
               @keyup.enter="selectBestMatch"
             />
           </UFormField>
+          <UFormField label="Status" name="returnStatusFilter">
+            <USelect v-model="statusFilter" :items="statusOptions" />
+          </UFormField>
+          <UFormField label="Date" name="returnDatePreset">
+            <USelect v-model="datePreset" :items="datePresetOptions" />
+          </UFormField>
           <div class="flex items-end gap-2">
             <UButton icon="i-lucide-search" :loading="loading" @click="selectBestMatch">Find</UButton>
             <UButton color="neutral" variant="soft" icon="i-lucide-scan-line" @click="focusInvoiceSearch">Scan</UButton>
           </div>
+          <template v-if="datePreset === 'custom'">
+            <UFormField label="From" name="returnFromDate">
+              <UInput v-model="customFromDate" type="date" />
+            </UFormField>
+            <UFormField label="To" name="returnToDate">
+              <UInput v-model="customToDate" type="date" />
+            </UFormField>
+          </template>
         </div>
 
         <div class="garmetix-table-panel overflow-x-auto">
@@ -79,13 +93,27 @@
           </table>
         </div>
 
+        <div class="garmetix-section-card flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p class="text-sm text-muted">Showing {{ pageStart }}-{{ pageEnd }} of {{ totalInvoices }} invoice(s)</p>
+          <div class="flex flex-wrap items-center gap-2">
+            <UButton size="sm" color="neutral" variant="soft" icon="i-lucide-chevrons-left" :disabled="page <= 1 || loading" @click="goToPage(1)">First</UButton>
+            <UButton size="sm" color="neutral" variant="soft" icon="i-lucide-chevron-left" :disabled="page <= 1 || loading" @click="goToPage(page - 1)">Prev</UButton>
+            <UBadge color="neutral" variant="outline">Page {{ page }} / {{ totalPages }}</UBadge>
+            <UButton size="sm" color="neutral" variant="soft" trailing-icon="i-lucide-chevron-right" :disabled="page >= totalPages || loading" @click="goToPage(page + 1)">Next</UButton>
+            <UButton size="sm" color="neutral" variant="soft" trailing-icon="i-lucide-chevrons-right" :disabled="page >= totalPages || loading" @click="goToPage(totalPages)">Last</UButton>
+          </div>
+        </div>
+
         <div class="garmetix-table-panel overflow-x-auto">
           <div class="flex items-center justify-between gap-3 border-b border-default bg-muted/10 p-4">
             <div>
               <h3 class="garmetix-panel-title">Return Items</h3>
               <p class="garmetix-panel-subtitle">{{ selectedInvoice ? `Invoice ${selectedInvoice.invoiceNumber}` : 'Select an invoice to load sold items.' }}</p>
             </div>
-            <UButton color="neutral" variant="soft" size="sm" icon="i-lucide-list-checks" :disabled="!returnLines.length" @click="returnAll">Return all</UButton>
+            <div class="flex flex-wrap gap-2">
+              <UButton color="neutral" variant="soft" size="sm" icon="i-lucide-list-checks" :disabled="!returnLines.length" @click="returnAll">Return all</UButton>
+              <UButton color="primary" size="sm" icon="i-lucide-receipt" :disabled="!selectedInvoice" @click="formOpen = true">Review & Refund</UButton>
+            </div>
           </div>
           <table class="w-full min-w-[760px] border-collapse text-sm">
             <thead class="bg-muted/30 text-left text-xs uppercase text-muted">
@@ -119,8 +147,10 @@
           </table>
         </div>
       </div>
+    </section>
 
-      <aside class="space-y-4">
+    <USlideover v-model:open="formOpen" title="Review & Refund" :description="selectedInvoice?.invoiceNumber || ''">
+      <template #body>
         <div class="garmetix-detail-panel">
           <h3 class="garmetix-panel-title">Return Summary</h3>
           <dl class="mt-4 space-y-2 text-sm">
@@ -133,7 +163,7 @@
           </dl>
         </div>
 
-        <div class="garmetix-section-card">
+        <div class="garmetix-section-card mt-4">
           <h3 class="garmetix-panel-title">Refund</h3>
           <div class="mt-4 space-y-3">
             <UFormField label="Refund amount now">
@@ -153,8 +183,8 @@
             </UButton>
           </div>
         </div>
-      </aside>
-    </section>
+      </template>
+    </USlideover>
   </section>
 </template>
 
@@ -216,6 +246,30 @@ interface SalesReturnResponse {
   originalInvoiceStatus: string
 }
 
+interface PagedSaleInvoicesResponse {
+  items?: RecentInvoice[]
+  total?: number
+  page?: number
+  pageSize?: number
+}
+
+const statusOptions = [
+  { value: 'all', label: 'All sales' },
+  { value: 'Paid', label: 'Paid' },
+  { value: 'PartiallyPaid', label: 'Partially paid' },
+  { value: 'Pending', label: 'Pending' },
+  { value: 'Overdue', label: 'Overdue' }
+]
+
+const datePresetOptions = [
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'month', label: 'This month' },
+  { value: 'last-month', label: 'Last month' },
+  { value: 'year', label: 'This year' },
+  { value: 'custom', label: 'Custom' }
+]
+
 const paymentModeValue = {
   cash: 0,
   card: 1,
@@ -254,6 +308,14 @@ const invoices = ref<RecentInvoice[]>([])
 const bankAccounts = ref<any[]>([])
 const selectedInvoice = ref<RecentInvoice | null>(null)
 const returnLines = ref<ReturnLine[]>([])
+const formOpen = ref(false)
+const statusFilter = ref('all')
+const datePreset = ref('today')
+const customFromDate = ref(toInputDate(new Date()))
+const customToDate = ref(toInputDate(new Date()))
+const page = ref(1)
+const pageSize = ref(50)
+const total = ref(0)
 const returnForm = reactive({
   refundAmount: 0,
   refundPaymentMode: paymentModeValue.cash,
@@ -292,15 +354,41 @@ const canSubmitReturn = computed(() => Boolean(
   && (!refundRequiresBank.value || returnForm.bankAccountId)
   && !returning.value
 ))
+const totalInvoices = computed(() => total.value || filteredInvoices.value.length)
+const totalPages = computed(() => Math.max(1, Math.ceil(totalInvoices.value / Number(pageSize.value || 50))))
+const pageStart = computed(() => totalInvoices.value === 0 ? 0 : ((page.value - 1) * Number(pageSize.value || 50)) + 1)
+const pageEnd = computed(() => Math.min(totalInvoices.value, page.value * Number(pageSize.value || 50)))
 
 function money(value: number | string | null | undefined) {
   return formatIndianMoney(value)
+}
+
+function toInputDate(value: Date) {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function formatDate(value: string | null | undefined) {
   if (!value) return '-'
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? String(value) : new Intl.DateTimeFormat('en-IN').format(date)
+}
+
+function buildInvoiceQuery() {
+  const query = new URLSearchParams()
+  query.set('page', String(page.value))
+  query.set('pageSize', String(pageSize.value))
+  query.set('datePreset', datePreset.value)
+  if (statusFilter.value !== 'all') query.set('status', statusFilter.value)
+  const term = normalizePosDocumentSearch(invoiceSearch.value).trim()
+  if (term) query.set('q', term)
+  if (datePreset.value === 'custom') {
+    if (customFromDate.value) query.set('from', customFromDate.value)
+    if (customToDate.value) query.set('to', customToDate.value)
+  }
+  return query
 }
 
 function showMessage(tone: typeof messageTone.value, text: string) {
@@ -329,11 +417,14 @@ async function refresh() {
 
   loading.value = true
   try {
-    const [invoiceRows, bankRows] = await Promise.all([
-      api.value.get<RecentInvoice[]>('billing/sales/recent?take=100'),
+    const [invoiceResponse, bankRows] = await Promise.all([
+      api.value.get<PagedSaleInvoicesResponse>(`billing/sales?${buildInvoiceQuery().toString()}`),
       api.value.get<any[]>('bank-accounts')
     ])
-    invoices.value = invoiceRows
+    invoices.value = Array.isArray(invoiceResponse?.items) ? invoiceResponse.items : []
+    total.value = Number(invoiceResponse?.total ?? invoices.value.length)
+    if (invoiceResponse?.page) page.value = Number(invoiceResponse.page)
+    if (invoiceResponse?.pageSize) pageSize.value = Number(invoiceResponse.pageSize)
     bankAccounts.value = bankRows
     message.value = ''
   } catch (error) {
@@ -341,6 +432,16 @@ async function refresh() {
   } finally {
     loading.value = false
   }
+}
+
+async function applyFilters() {
+  page.value = 1
+  await refresh()
+}
+
+async function goToPage(nextPage: number) {
+  page.value = Math.min(Math.max(1, nextPage), totalPages.value)
+  await refresh()
 }
 
 async function selectBestMatch() {
@@ -480,6 +581,7 @@ function resetSelection() {
   returnForm.refundPaymentMode = paymentModeValue.cash
   returnForm.bankAccountId = null
   returnForm.reason = 'Sales return'
+  formOpen.value = false
   focusInvoiceSearch()
 }
 
@@ -505,6 +607,14 @@ watch(() => [returnForm.refundAmount, returnForm.refundPaymentMode], () => {
   if (refundRequiresBank.value && !returnForm.bankAccountId) {
     returnForm.bankAccountId = bankAccountOptions.value[0]?.value || null
   }
+})
+
+watch([statusFilter, datePreset, pageSize], () => {
+  void applyFilters()
+})
+
+watch([customFromDate, customToDate], () => {
+  if (datePreset.value === 'custom') void applyFilters()
 })
 
 onMounted(() => {
