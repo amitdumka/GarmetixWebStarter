@@ -9,7 +9,10 @@
             Review missed punch and correction requests. Approve or reject records with an audit remark.
           </p>
         </div>
-        <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="load">Refresh</UButton>
+        <div class="flex gap-2">
+          <UButton icon="i-lucide-plus" color="primary" @click="requestFormOpen = true">New Request</UButton>
+          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="load">Refresh</UButton>
+        </div>
       </div>
     </div>
 
@@ -29,46 +32,15 @@
       </div>
     </div>
 
-    <div class="grid gap-4 xl:grid-cols-[.9fr_1.1fr]">
-      <form class="garmetix-section-card space-y-4" @submit.prevent="createRequest">
-        <div>
-          <h3 class="garmetix-panel-title">New Correction Request</h3>
-          <p class="garmetix-panel-subtitle">Queue a missed punch or correction request for manager approval.</p>
-        </div>
-        <div class="grid gap-3 md:grid-cols-2">
-          <UFormField label="Employee" name="employeeId" required>
-            <USelect v-model="requestForm.employeeId" :items="employeeOptions" placeholder="Select employee" />
-          </UFormField>
-          <UFormField label="Request Type" name="requestType" required>
-            <USelect v-model="requestForm.requestType" :items="requestTypeOptions" />
-          </UFormField>
-          <UFormField label="Punch Type" name="requestedPunchType" required>
-            <USelect v-model="requestForm.requestedPunchType" :items="punchTypeOptions" />
-          </UFormField>
-          <UFormField label="Local Punch Time" name="requestedLocalPunchTime" required>
-            <UInput v-model="requestForm.requestedLocalPunchTime" type="datetime-local" />
-          </UFormField>
-        </div>
-        <UFormField label="Reason" name="reason" required>
-          <UTextarea v-model="requestForm.reason" :rows="3" placeholder="Why this correction is needed" />
-        </UFormField>
-        <div class="flex flex-wrap justify-end gap-2">
-          <UButton type="button" color="neutral" variant="soft" icon="i-lucide-rotate-ccw" @click="resetRequestForm">Reset</UButton>
-          <UButton type="submit" icon="i-lucide-plus" :loading="creating" :disabled="!canCreate">Create Request</UButton>
-        </div>
-      </form>
-
-      <div class="garmetix-section-card">
-        <h3 class="garmetix-panel-title">Request Preview</h3>
-        <pre class="mt-3 max-h-[330px] overflow-auto rounded-lg border border-default bg-default/40 p-3 text-xs">{{ formattedCreatePayload }}</pre>
-      </div>
-    </div>
-
     <div class="garmetix-table-panel">
       <div class="garmetix-panel-header">
         <div>
           <h3 class="garmetix-panel-title">Correction Requests</h3>
-          <p class="garmetix-panel-subtitle">{{ rows.length }} request row(s)</p>
+          <p class="garmetix-panel-subtitle">{{ filteredRows.length }} of {{ rows.length }} request row(s)</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <USelect v-model="statusFilter" :items="statusFilterItems" class="w-40" />
+          <UInput v-model="search" icon="i-lucide-search" placeholder="Search employee or reason" class="w-56" />
         </div>
       </div>
       <div class="overflow-auto">
@@ -84,15 +56,15 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(row, index) in rows" :key="rowKey(row, index)" class="border-t border-default align-top">
+            <tr v-for="(row, index) in pagedRows" :key="rowKey(row, index)" class="border-t border-default align-top">
               <td class="px-3 py-2">
                 <p class="font-medium">{{ readText(row, ['employeeName', 'employee', 'employeeId']) }}</p>
                 <p class="text-xs text-muted">{{ readText(row, ['requestedBy', 'createdBy']) }}</p>
               </td>
-              <td class="px-3 py-2">{{ readText(row, ['requestType']) }}</td>
+              <td class="px-3 py-2">{{ requestTypeLabel(readText(row, ['requestType'])) }}</td>
               <td class="px-3 py-2">
-                <p>{{ readText(row, ['requestedPunchType']) }}</p>
-                <p class="text-xs text-muted">{{ readText(row, ['requestedLocalPunchTime', 'requestedPunchTimeUtc']) }}</p>
+                <p>{{ punchTypeLabel(readText(row, ['requestedPunchType'])) }}</p>
+                <p class="text-xs text-muted">{{ formatDateTime(readText(row, ['requestedLocalPunchTime', 'requestedPunchTimeUtc'])) }}</p>
               </td>
               <td class="px-3 py-2">{{ readText(row, ['reason']) }}</td>
               <td class="px-3 py-2">
@@ -108,13 +80,49 @@
                 </div>
               </td>
             </tr>
-            <tr v-if="!rows.length">
+            <tr v-if="!pagedRows.length">
               <td class="px-3 py-6 text-center text-muted" colspan="6">No regularization requests returned.</td>
             </tr>
           </tbody>
         </table>
       </div>
+      <div v-if="filteredRows.length" class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
+        <p>Page {{ page }} of {{ totalPages }}</p>
+        <div class="flex items-center gap-2">
+          <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-left" :disabled="page <= 1" @click="page--">Prev</UButton>
+          <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-right" :disabled="page >= totalPages" @click="page++">Next</UButton>
+        </div>
+      </div>
     </div>
+
+    <UModal v-model:open="requestFormOpen" title="New Correction Request">
+      <template #body>
+        <form class="space-y-4" @submit.prevent="createRequest">
+          <p class="garmetix-panel-subtitle">Queue a missed punch or correction request for manager approval.</p>
+          <div class="grid gap-3 md:grid-cols-2">
+            <UFormField label="Employee" name="employeeId" required>
+              <USelect v-model="requestForm.employeeId" :items="employeeOptions" placeholder="Select employee" />
+            </UFormField>
+            <UFormField label="Request Type" name="requestType" required>
+              <USelect v-model="requestForm.requestType" :items="requestTypeOptions" />
+            </UFormField>
+            <UFormField label="Punch Type" name="requestedPunchType" required>
+              <USelect v-model="requestForm.requestedPunchType" :items="punchTypeOptions" />
+            </UFormField>
+            <UFormField label="Local Punch Time" name="requestedLocalPunchTime" required>
+              <UInput v-model="requestForm.requestedLocalPunchTime" type="datetime-local" />
+            </UFormField>
+          </div>
+          <UFormField label="Reason" name="reason" required>
+            <UTextarea v-model="requestForm.reason" :rows="3" placeholder="Why this correction is needed" />
+          </UFormField>
+          <div class="flex flex-wrap justify-end gap-2">
+            <UButton type="button" color="neutral" variant="soft" icon="i-lucide-rotate-ccw" @click="resetRequestForm">Reset</UButton>
+            <UButton type="submit" icon="i-lucide-plus" :loading="creating" :disabled="!canCreate">Create Request</UButton>
+          </div>
+        </form>
+      </template>
+    </UModal>
   </section>
 </template>
 
@@ -133,6 +141,11 @@ const employees = ref<ApiRecord[]>([])
 const message = ref('')
 const messageTone = ref<'success' | 'error' | 'warning' | 'neutral'>('neutral')
 const remarks = reactive<Record<string, string>>({})
+const requestFormOpen = ref(false)
+const search = ref('')
+const statusFilter = ref('all')
+const page = ref(1)
+const pageSize = ref(20)
 const requestForm = reactive({
   employeeId: null as string | null,
   requestType: 'MissedPunch',
@@ -176,13 +189,33 @@ const createPayload = computed(() => {
     storeId: employee ? readText(employee, ['storeId'], '') : ''
   }
 })
-const formattedCreatePayload = computed(() => JSON.stringify(createPayload.value, null, 2))
 const cards = computed(() => [
   { label: 'Requests', value: rows.value.length },
   { label: 'Pending', value: rows.value.filter(isPending).length },
   { label: 'Approved', value: rows.value.filter(row => readText(row, ['status'], '').toLowerCase() === 'approved').length },
   { label: 'Rejected', value: rows.value.filter(row => readText(row, ['status'], '').toLowerCase() === 'rejected').length }
 ])
+const statusFilterItems = [
+  { value: 'all', label: 'All statuses' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' }
+]
+const filteredRows = computed(() => {
+  const term = search.value.trim().toLowerCase()
+  return rows.value.filter(row => {
+    const statusMatches = statusFilter.value === 'all' || readText(row, ['status'], '').toLowerCase() === statusFilter.value
+    const searchMatches = !term || JSON.stringify(row).toLowerCase().includes(term)
+    return statusMatches && searchMatches
+  })
+})
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredRows.value.length / pageSize.value)))
+const pagedRows = computed(() => {
+  const start = (page.value - 1) * pageSize.value
+  return filteredRows.value.slice(start, start + pageSize.value)
+})
+
+watch([search, statusFilter], () => { page.value = 1 })
 
 function rowKey(row: ApiRecord, index: number) {
   return readText(row, ['id'], String(index))
@@ -198,6 +231,20 @@ function statusTone(row: ApiRecord) {
   if (status === 'rejected') return 'error'
   if (status === 'pending') return 'warning'
   return 'neutral'
+}
+
+function requestTypeLabel(value: string) {
+  return requestTypeOptions.find(item => item.value === value)?.label || value || '-'
+}
+
+function punchTypeLabel(value: string) {
+  return punchTypeOptions.find(item => item.value === value)?.label || value || '-'
+}
+
+function formatDateTime(value: string) {
+  if (!value || value === '-') return '-'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
 }
 
 function defaultLocalPunchTime() {
@@ -260,6 +307,7 @@ async function createRequest() {
     messageTone.value = 'success'
     message.value = 'Regularization request created.'
     resetRequestForm()
+    requestFormOpen.value = false
     await load()
   } catch (caught) {
     messageTone.value = 'error'
