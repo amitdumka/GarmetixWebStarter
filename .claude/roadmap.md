@@ -4,10 +4,12 @@ Last updated: 2026-07-07. Source of truth for stage-by-stage history remains `fr
 
 ## Where Things Stand
 
-- Modular version: `6.0.53`, Stage 14G (Books full legacy GST menu parity), just completed and deployed live to the `.127` SRP test server.
+- Modular version: `6.0.53`, Stage 14G (Books full legacy GST menu parity), completed and deployed live to the `.127` SRP test server, genuinely verified this time (see below).
 - All six modular apps (`main`, `pos`, `hr`, `books`, `ai-sense`, `admin`) plus `crm` have reached at least one "final closure" gate. Legacy frontend and shared backend remain the single source of truth; modular apps consume the same API/DB.
 - Structure validation (`node frontend/modular/scripts/validate-structure.mjs`) passes as of this session.
 - SRP deploy tooling note: this machine now has a dedicated `~/.ssh/garmetix_srp` keypair trusted by `192.168.11.127` (added 2026-07-07), so future deploys don't need `sshpass`/a password - just run with `GARMETIX_PREFER_WSL=false` since the key lives in the Git Bash environment, not WSL's separate filesystem.
+- **Deploy pipeline hardening (2026-07-07)**: the first 14G deploy attempt silently shipped broken content site-wide (a flaky Nitro cold-build bug) while its own acceptance script showed all-green, because that check only validates HTTP status codes, not actual response content. Fixed the flaky build with a retry+content-verification safety net in `srp-whole-site-deploy.sh`. **Any future deploy verification must check real page content/size, not just status codes** - this is now the standard to hold future deploys to.
+- `dotnet publish` in the SRP deploy script is currently broken specifically when run via Git Bash (works fine assumed-via-WSL) - doubled drive-letter path bug, not yet fixed, use `--skip-api` when there are no backend changes to republish.
 
 ## Near-Term (next 1-3 sessions)
 

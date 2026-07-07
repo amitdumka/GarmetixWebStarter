@@ -4,6 +4,28 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-07-07 - Fixed a broken SRP deploy: Nitro flaky-build bug + npm workspace pin bug
+
+**Type**: deploy tooling + workspace config fix. Triggered by Amit reporting the just-deployed GST pages showed "redirecting" or downloaded as a text file instead of rendering.
+
+**What happened**: Investigated Amit's report and found it affected *every* page of *every* modular app on the live SRP site (not GST-specific) - each was a 16-byte `"Redirecting..."` stub served as `application/octet-stream`. Rolled back `/opt/garmetix-srp/current` to the last known-good release first (asked Amit before this manual server write, since it bypasses the normal deploy process), then root-caused the actual bug while the site stayed safe.
+
+**Root cause 1 (the content bug)**: Nitro's static-generation crawler 404s on every route during a cold build; Nitro's own `defaultHandler` (in `nitropack/dist/core/index.mjs`) converts a 404-with-baseURL-mismatch into a redirect response with body `"Redirecting..."`, which the static generator writes to disk as the entire page. This is **flaky, not deterministic**: a from-scratch build (no `.nuxt`, no cache) either crashes (`createRequire` on a malformed `file:///_entry.js`) or silently degrades to this stub; retrying immediately without re-clearing cache reliably produces correct output. Confirmed NOT caused by anything in the GST session's source changes - reproduced identically on `pos`/`hr`/`ai-sense`/`main`, apps never touched.
+
+**Fix 1**: `frontend/modular/deploy/srp-whole-site-deploy.sh`'s `build_app()` now retries each app's build up to 3 times, checking `.output/public/index.html` size (>200 bytes) after each attempt, and refuses to stage a release if every attempt still produces degenerate output. Does NOT re-clear the Nuxt cache between retries (clearing it reproduces the cold-start crash reliably; keeping leftover state from the failed attempt is what makes the retry succeed).
+
+**Root cause 2 (separate, found while restoring `node_modules` after a routine `npm ci` deleted it and then failed to reinstall)**: every app's `package.json` pins internal `@garmetix/shared-*` workspace packages at a stale exact version (`"6.0.0"`) that doesn't match the real current version (e.g. `shared-api` is `6.0.51`). npm 11.13 treats this mismatch as cause to fetch a registry manifest for the (private, unpublished) package name, which 404s and kills the whole install.
+
+**Fix 2**: relaxed all these pins to `"*"` across `apps/{admin,ai-sense,books,crm,hr,main,pos}/package.json` and `packages/{shared-api,shared-auth,shared-ui}/package.json` (7+3 files) - still resolves to the same local workspace links, confirmed via `git diff` this only touched the version-string pins.
+
+**Root cause 3 (orthogonal, worked around not fixed)**: the deploy script's `dotnet publish` step fails specifically when invoked via Git Bash (not WSL) with a doubled drive-letter path (`C:\c\AIArea\...`). Since this GST session made zero backend changes, redeployed with `--skip-api` rather than debugging this further. Flagged in `.claude/todo.md` as a follow-up (only reproduces via Git Bash; WSL path is unaffected but has its own SSH-key-trust gap, see roadmap note).
+
+**Validation**: after the retry-safe redeploy, verified via direct SSH file-content checks (`wc -c`/`file` on the actual deployed files, not just curl status codes) and `node frontend/modular/scripts/srp-public-acceptance.mjs --live --strict` - fully green, including the asset-reference checks that were silent "missing-assets" warnings in the original (broken) deploy's acceptance run.
+
+**Lesson recorded for future deploys**: an HTTP-200 status code is not sufficient evidence a deployed page actually works - this session's first acceptance run showed all-green on status codes while every page was actually broken. Future SRP deploy verification should check real response body content/size, not just status.
+
+**Why this session happened**: Amit reported the exact bug directly from his own browser after the prior GST deployment session ended.
+
 ## 2026-07-07 - Books Stage 14G: full legacy GST menu parity + SRP deploy
 
 **Type**: modular frontend feature (major) + deploy. No backend/DB changes.
