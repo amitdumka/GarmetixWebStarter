@@ -82,6 +82,7 @@ public static class AttendanceEndpoints
         group.MapGet("/policies", ListPoliciesAsync);
         group.MapPost("/policies", CreatePolicyAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPut("/policies/{id:guid}", UpdatePolicyAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapDelete("/policies/{id:guid}", DeletePolicyAsync).RequireAuthorization(GarmetixPolicies.Edit);
 
         group.MapGet("/devices", ListDevicesAsync);
         group.MapGet("/devices/{id:guid}", GetDeviceAsync);
@@ -1428,7 +1429,7 @@ public static class AttendanceEndpoints
     }
 
     private static async Task<IResult> ListPoliciesAsync(GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
-        => Results.Ok(await WorkspaceScope.ApplyTo(db.AttendancePolicies.AsNoTracking(), context).OrderBy(item => item.Name).ToListAsync(cancellationToken));
+        => Results.Ok(await WorkspaceScope.ApplyTo(db.AttendancePolicies.AsNoTracking(), context).Where(item => !item.Deleted).OrderBy(item => item.Name).ToListAsync(cancellationToken));
 
     private static async Task<IResult> CreatePolicyAsync(AttendancePolicy request, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
     {
@@ -1458,6 +1459,18 @@ public static class AttendanceEndpoints
         entity.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(entity);
+    }
+
+    private static async Task<IResult> DeletePolicyAsync(Guid id, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)
+    {
+        var entity = await WorkspaceScope.ApplyTo(db.AttendancePolicies, context).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (entity is null) return Results.NotFound();
+
+        entity.Deleted = true;
+        entity.Active = false;
+        entity.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> ListDevicesAsync(GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken)

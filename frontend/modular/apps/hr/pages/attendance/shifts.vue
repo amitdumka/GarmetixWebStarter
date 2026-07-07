@@ -12,7 +12,7 @@
         <div class="flex flex-wrap gap-2">
           <UButton to="/attendance/shift-rules" icon="i-lucide-route" color="neutral" variant="soft">Employee Shift Rules</UButton>
           <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="load">Refresh</UButton>
-          <UButton icon="i-lucide-plus" color="primary" @click="resetForm">New Shift</UButton>
+          <UButton icon="i-lucide-plus" color="primary" @click="startCreate">New Shift</UButton>
         </div>
       </div>
     </div>
@@ -27,86 +27,86 @@
       </div>
     </div>
 
-    <div class="grid gap-4 xl:grid-cols-[minmax(390px,0.9fr)_minmax(0,1.3fr)]">
-      <form class="garmetix-section-card space-y-3" @submit.prevent="save">
-        <div class="garmetix-panel-header">
-          <div>
-            <h3 class="garmetix-panel-title">{{ editingId ? 'Edit Shift' : 'Create Shift' }}</h3>
+    <UModal v-model:open="formOpen" :title="editingId ? 'Edit Shift' : 'Create Shift'">
+      <template #body>
+        <form class="space-y-3" @submit.prevent="save">
+          <div class="garmetix-panel-header">
             <p class="garmetix-panel-subtitle">Minutes reference: 09:00 = 540, 13:00 = 780, 14:30 = 870, 21:00 = 1260.</p>
+            <UBadge color="primary" variant="subtle">{{ form.attendanceMode }}</UBadge>
           </div>
-          <UBadge color="primary" variant="subtle">{{ form.attendanceMode }}</UBadge>
-        </div>
 
-        <div class="flex flex-wrap gap-2">
-          <UButton v-for="preset in presets" :key="preset.label" type="button" size="xs" color="neutral" variant="soft" @click="applyPreset(preset.patch)">
-            {{ preset.label }}
-          </UButton>
-        </div>
+          <div class="flex flex-wrap gap-2">
+            <UButton v-for="preset in presets" :key="preset.label" type="button" size="xs" color="neutral" variant="soft" @click="applyPreset(preset.patch)">
+              {{ preset.label }}
+            </UButton>
+          </div>
 
-        <UFormField label="Shift name" required>
-          <UInput v-model="form.name" placeholder="Shift name" />
-        </UFormField>
+          <UFormField label="Shift name" required>
+            <UInput v-model="form.name" placeholder="Shift name" />
+          </UFormField>
 
-        <div class="grid gap-3 md:grid-cols-2">
-          <UFormField label="Category">
-            <UInput v-model="form.shiftCategory" placeholder="StoreDefault / Female / Accounts" />
-          </UFormField>
-          <UFormField label="Attendance mode">
-            <USelect v-model="form.attendanceMode" :items="attendanceModeOptions" />
-          </UFormField>
-          <UFormField label="Start minutes">
-            <UInput v-model.number="form.startTimeMinutes" type="number" min="0" max="1439" />
-          </UFormField>
-          <UFormField label="End minutes">
-            <UInput v-model.number="form.endTimeMinutes" type="number" min="0" max="1439" />
-          </UFormField>
-          <UFormField label="Grace minutes">
-            <UInput v-model.number="form.graceMinutes" type="number" min="0" />
-          </UFormField>
-          <UFormField label="Late after minutes">
-            <UInput v-model.number="form.lateAfterMinutes" type="number" min="0" />
-          </UFormField>
-          <UFormField label="Half day after minutes">
-            <UInput v-model.number="form.halfDayAfterMinutes" type="number" min="0" max="1439" />
-          </UFormField>
-          <UFormField label="OT after minutes">
-            <UInput v-model.number="form.overtimeAfterMinutes" type="number" min="0" max="1439" />
-          </UFormField>
-          <UFormField label="Full-day sessions">
-            <UInput v-model.number="form.requiredSessionsForFullDay" type="number" min="1" />
-          </UFormField>
-          <UFormField label="Half-day sessions">
-            <UInput v-model.number="form.requiredSessionsForHalfDay" type="number" min="1" />
-          </UFormField>
-          <UFormField label="Break/session 1 end">
-            <UInput v-model.number="form.breakStartMinutes" type="number" min="0" max="1439" :disabled="!form.hasBreak" />
-          </UFormField>
-          <UFormField label="Break/session 2 start">
-            <UInput v-model.number="form.breakEndMinutes" type="number" min="0" max="1439" :disabled="!form.hasBreak" />
-          </UFormField>
-          <UFormField label="Weekly off days">
-            <UInput v-model="form.weeklyOffDays" placeholder="Sunday" />
-          </UFormField>
-          <UFormField label="Auto checkout minutes">
-            <UInput v-model.number="form.autoCheckoutTimeMinutes" type="number" min="0" max="1439" :disabled="!form.autoCheckoutEnabled" />
-          </UFormField>
-        </div>
+          <div class="grid gap-3 md:grid-cols-2">
+            <UFormField label="Category">
+              <UInput v-model="form.shiftCategory" placeholder="StoreDefault / Female / Accounts" />
+            </UFormField>
+            <UFormField label="Attendance mode">
+              <USelect v-model="form.attendanceMode" :items="attendanceModeOptions" />
+            </UFormField>
+            <UFormField label="Start minutes">
+              <UInput v-model.number="form.startTimeMinutes" type="number" min="0" max="1439" />
+            </UFormField>
+            <UFormField label="End minutes">
+              <UInput v-model.number="form.endTimeMinutes" type="number" min="0" max="1439" />
+            </UFormField>
+            <UFormField label="Grace minutes">
+              <UInput v-model.number="form.graceMinutes" type="number" min="0" />
+            </UFormField>
+            <UFormField label="Late after minutes">
+              <UInput v-model.number="form.lateAfterMinutes" type="number" min="0" />
+            </UFormField>
+            <UFormField label="Half day after minutes">
+              <UInput v-model.number="form.halfDayAfterMinutes" type="number" min="0" max="1439" />
+            </UFormField>
+            <UFormField label="OT after minutes">
+              <UInput v-model.number="form.overtimeAfterMinutes" type="number" min="0" max="1439" />
+            </UFormField>
+            <UFormField label="Full-day sessions">
+              <UInput v-model.number="form.requiredSessionsForFullDay" type="number" min="1" />
+            </UFormField>
+            <UFormField label="Half-day sessions">
+              <UInput v-model.number="form.requiredSessionsForHalfDay" type="number" min="1" />
+            </UFormField>
+            <UFormField label="Break/session 1 end">
+              <UInput v-model.number="form.breakStartMinutes" type="number" min="0" max="1439" :disabled="!form.hasBreak" />
+            </UFormField>
+            <UFormField label="Break/session 2 start">
+              <UInput v-model.number="form.breakEndMinutes" type="number" min="0" max="1439" :disabled="!form.hasBreak" />
+            </UFormField>
+            <UFormField label="Weekly off days">
+              <UInput v-model="form.weeklyOffDays" placeholder="Sunday" />
+            </UFormField>
+            <UFormField label="Auto checkout minutes">
+              <UInput v-model.number="form.autoCheckoutTimeMinutes" type="number" min="0" max="1439" :disabled="!form.autoCheckoutEnabled" />
+            </UFormField>
+          </div>
 
-        <div class="grid gap-2 md:grid-cols-2">
-          <UCheckbox v-model="form.hasBreak" label="Has lunch/two-session break" />
-          <UCheckbox v-model="form.requiresBreakPunch" label="Require break punches" :disabled="!form.hasBreak" />
-          <UCheckbox v-model="form.countBreakAsWork" label="Count break as work time" />
-          <UCheckbox v-model="form.autoCheckoutEnabled" label="Auto checkout enabled" />
-          <UCheckbox v-model="form.active" label="Active" />
-        </div>
+          <div class="grid gap-2 md:grid-cols-2">
+            <UCheckbox v-model="form.hasBreak" label="Has lunch/two-session break" />
+            <UCheckbox v-model="form.requiresBreakPunch" label="Require break punches" :disabled="!form.hasBreak" />
+            <UCheckbox v-model="form.countBreakAsWork" label="Count break as work time" />
+            <UCheckbox v-model="form.autoCheckoutEnabled" label="Auto checkout enabled" />
+            <UCheckbox v-model="form.active" label="Active" />
+          </div>
 
-        <div class="flex flex-wrap justify-end gap-2">
-          <UButton type="button" color="neutral" variant="soft" @click="resetForm">Clear</UButton>
-          <UButton type="submit" color="primary" icon="i-lucide-save" :loading="saving" :disabled="!canSave">Save Shift</UButton>
-        </div>
-      </form>
+          <div class="flex flex-wrap justify-end gap-2">
+            <UButton type="button" color="neutral" variant="soft" @click="resetForm">Clear</UButton>
+            <UButton type="submit" color="primary" icon="i-lucide-save" :loading="saving" :disabled="!canSave">Save Shift</UButton>
+          </div>
+        </form>
+      </template>
+    </UModal>
 
-      <div class="grid content-start gap-3 md:grid-cols-2">
+    <div class="grid content-start gap-3 md:grid-cols-2">
         <div v-for="shift in shifts" :key="readText(shift, ['id'])" class="garmetix-row-card">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
@@ -135,7 +135,6 @@
         </div>
         <p v-if="!shifts.length" class="text-sm text-muted">No attendance shifts found.</p>
       </div>
-    </div>
   </section>
 </template>
 
@@ -152,6 +151,7 @@ const editingId = ref('')
 const message = ref('')
 const messageTone = ref<'success' | 'error' | 'warning' | 'neutral'>('neutral')
 const shifts = ref<ApiRecord[]>([])
+const formOpen = ref(false)
 const form = reactive(emptyForm())
 const attendanceModeOptions = ['SessionBased', 'TimeBased']
 const messageIcon = computed(() => messageTone.value === 'success' ? 'i-lucide-circle-check' : messageTone.value === 'warning' ? 'i-lucide-triangle-alert' : messageTone.value === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-info')
@@ -214,9 +214,15 @@ function resetForm() {
   message.value = ''
 }
 
+function startCreate() {
+  resetForm()
+  formOpen.value = true
+}
+
 function edit(row: ApiRecord) {
   editingId.value = readText(row, ['id'], '')
   Object.assign(form, emptyForm(), row)
+  formOpen.value = true
 }
 
 function buildPayload() {
@@ -260,6 +266,7 @@ async function save() {
     }
     messageTone.value = 'success'
     resetForm()
+    formOpen.value = false
     await load()
   } catch (caught) {
     messageTone.value = 'error'

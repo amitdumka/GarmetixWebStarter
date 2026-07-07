@@ -11,7 +11,7 @@
         </div>
         <div class="flex flex-wrap gap-2">
           <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="load">Refresh</UButton>
-          <UButton icon="i-lucide-plus" color="primary" @click="resetForm">New Rule</UButton>
+          <UButton icon="i-lucide-plus" color="primary" @click="startCreate">New Rule</UButton>
         </div>
       </div>
     </div>
@@ -32,73 +32,74 @@
       </div>
     </div>
 
-    <div class="grid gap-4 xl:grid-cols-[minmax(360px,0.8fr)_minmax(0,1.4fr)]">
-      <form class="garmetix-section-card space-y-3" @submit.prevent="save">
-        <div class="garmetix-panel-header">
-          <div>
-            <h3 class="garmetix-panel-title">{{ editingId ? 'Edit Rule' : 'New Rule' }}</h3>
+    <UModal v-model:open="formOpen" :title="editingId ? 'Edit Rule' : 'New Rule'">
+      <template #body>
+        <form class="space-y-3" @submit.prevent="save">
+          <div class="garmetix-panel-header">
             <p class="garmetix-panel-subtitle">Rule priority is lower-first. Employee rule has the highest priority by default.</p>
+            <UBadge color="primary" variant="subtle">{{ form.ruleType }}</UBadge>
           </div>
-          <UBadge color="primary" variant="subtle">{{ form.ruleType }}</UBadge>
-        </div>
 
-        <div class="grid gap-3 md:grid-cols-2">
-          <UFormField label="Rule type" required>
-            <USelect v-model="form.ruleType" :items="ruleTypeOptions" @update:model-value="applyRuleDefaults" />
-          </UFormField>
-          <UFormField label="Shift" required>
-            <USelect v-model="form.attendanceShiftId" :items="shiftOptions" placeholder="Select shift" />
-          </UFormField>
-        </div>
-
-        <UFormField v-if="form.ruleType === 'Employee'" label="Employee" required>
-          <USelect v-model="form.employeeId" :items="employeeOptions" placeholder="Select employee" @update:model-value="syncScopeFromEmployee" />
-        </UFormField>
-
-        <div v-else-if="form.ruleType !== 'StoreDefault'" class="grid gap-3 md:grid-cols-2">
-          <UFormField :label="matchLabel" required>
-            <UInput v-model="form.matchValue" :placeholder="matchPlaceholder" />
-          </UFormField>
-          <UFormField label="Priority">
-            <UInput v-model.number="form.priority" type="number" min="1" max="999" />
-          </UFormField>
-        </div>
-
-        <div v-else class="grid gap-3 md:grid-cols-2">
-          <UFormField label="Priority">
-            <UInput v-model.number="form.priority" type="number" min="1" max="999" />
-          </UFormField>
-          <div class="rounded-lg border border-default bg-default/40 p-3 text-sm text-muted">
-            Store default applies when no employee/category/department/designation/gender rule matches.
+          <div class="grid gap-3 md:grid-cols-2">
+            <UFormField label="Rule type" required>
+              <USelect v-model="form.ruleType" :items="ruleTypeOptions" @update:model-value="applyRuleDefaults" />
+            </UFormField>
+            <UFormField label="Shift" required>
+              <USelect v-model="form.attendanceShiftId" :items="shiftOptions" placeholder="Select shift" />
+            </UFormField>
           </div>
-        </div>
 
-        <div class="grid gap-3 md:grid-cols-2">
-          <UFormField label="Effective from" required>
-            <UInput v-model="form.effectiveFrom" type="date" />
+          <UFormField v-if="form.ruleType === 'Employee'" label="Employee" required>
+            <USelect v-model="form.employeeId" :items="employeeOptions" placeholder="Select employee" @update:model-value="syncScopeFromEmployee" />
           </UFormField>
-          <UFormField label="Effective to">
-            <UInput v-model="form.effectiveTo" type="date" />
-          </UFormField>
-        </div>
 
-        <div class="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
-          <UFormField label="Notes">
-            <UInput v-model="form.notes" placeholder="Reason, approval or special condition" />
-          </UFormField>
-          <UCheckbox v-model="form.active" label="Active" />
-        </div>
+          <div v-else-if="form.ruleType !== 'StoreDefault'" class="grid gap-3 md:grid-cols-2">
+            <UFormField :label="matchLabel" required>
+              <UInput v-model="form.matchValue" :placeholder="matchPlaceholder" />
+            </UFormField>
+            <UFormField label="Priority">
+              <UInput v-model.number="form.priority" type="number" min="1" max="999" />
+            </UFormField>
+          </div>
 
-        <div class="rounded-lg border border-default bg-default/40 p-3 text-xs text-muted">
-          <p>Scope is inherited from the signed-in workspace. Employee rules also copy company, group and store from the selected employee when available.</p>
-        </div>
+          <div v-else class="grid gap-3 md:grid-cols-2">
+            <UFormField label="Priority">
+              <UInput v-model.number="form.priority" type="number" min="1" max="999" />
+            </UFormField>
+            <div class="rounded-lg border border-default bg-default/40 p-3 text-sm text-muted">
+              Store default applies when no employee/category/department/designation/gender rule matches.
+            </div>
+          </div>
 
-        <div class="flex flex-wrap justify-end gap-2">
-          <UButton type="button" color="neutral" variant="soft" @click="resetForm">Clear</UButton>
-          <UButton type="submit" color="primary" icon="i-lucide-save" :loading="saving" :disabled="!canSave">Save Rule</UButton>
-        </div>
-      </form>
+          <div class="grid gap-3 md:grid-cols-2">
+            <UFormField label="Effective from" required>
+              <UInput v-model="form.effectiveFrom" type="date" />
+            </UFormField>
+            <UFormField label="Effective to">
+              <UInput v-model="form.effectiveTo" type="date" />
+            </UFormField>
+          </div>
 
+          <div class="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+            <UFormField label="Notes">
+              <UInput v-model="form.notes" placeholder="Reason, approval or special condition" />
+            </UFormField>
+            <UCheckbox v-model="form.active" label="Active" />
+          </div>
+
+          <div class="rounded-lg border border-default bg-default/40 p-3 text-xs text-muted">
+            <p>Scope is inherited from the signed-in workspace. Employee rules also copy company, group and store from the selected employee when available.</p>
+          </div>
+
+          <div class="flex flex-wrap justify-end gap-2">
+            <UButton type="button" color="neutral" variant="soft" @click="resetForm">Clear</UButton>
+            <UButton type="submit" color="primary" icon="i-lucide-save" :loading="saving" :disabled="!canSave">Save Rule</UButton>
+          </div>
+        </form>
+      </template>
+    </UModal>
+
+    <div class="grid gap-4">
       <div class="garmetix-table-panel">
         <div class="garmetix-panel-header">
           <div>
@@ -125,7 +126,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(rule, index) in filteredRules" :key="readText(rule, ['id'], String(index))" class="border-t border-default align-top">
+              <tr v-for="(rule, index) in pagedRules" :key="readText(rule, ['id'], String(index))" class="border-t border-default align-top">
                 <td class="px-3 py-2 font-semibold">{{ readNumber(rule, ['priority']) }}</td>
                 <td class="px-3 py-2">{{ readText(rule, ['ruleType']) }}</td>
                 <td class="px-3 py-2">
@@ -149,11 +150,18 @@
                   </div>
                 </td>
               </tr>
-              <tr v-if="!filteredRules.length">
+              <tr v-if="!pagedRules.length">
                 <td class="px-3 py-6 text-center text-muted" colspan="7">No shift rules found.</td>
               </tr>
             </tbody>
           </table>
+        </div>
+        <div v-if="filteredRules.length" class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
+          <p>Page {{ page }} of {{ totalPages }}</p>
+          <div class="flex items-center gap-2">
+            <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-left" :disabled="page <= 1" @click="page--">Prev</UButton>
+            <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-right" :disabled="page >= totalPages" @click="page++">Next</UButton>
+          </div>
         </div>
       </div>
     </div>
@@ -177,6 +185,9 @@ const employees = ref<ApiRecord[]>([])
 const search = ref('')
 const filterType = ref('All')
 const editingId = ref('')
+const formOpen = ref(false)
+const page = ref(1)
+const pageSize = ref(20)
 const form = reactive({
   ruleType: 'Employee',
   matchValue: '',
@@ -215,6 +226,14 @@ const filteredRules = computed(() => {
       .includes(term)
   })
 })
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredRules.value.length / pageSize.value)))
+const pagedRules = computed(() => {
+  const start = (page.value - 1) * pageSize.value
+  return filteredRules.value.slice(start, start + pageSize.value)
+})
+
+watch([search, filterType], () => { page.value = 1 })
+
 const cards = computed(() => [
   { label: 'Rules', value: rules.value.length },
   { label: 'Active', value: rules.value.filter(rule => readBoolean(rule, ['active'], true)).length },
@@ -274,6 +293,11 @@ function ruleMatch(rule: ApiRecord) {
   return readText(rule, ['matchValue'], '-')
 }
 
+function startCreate() {
+  resetForm()
+  formOpen.value = true
+}
+
 function edit(rule: ApiRecord) {
   editingId.value = readText(rule, ['id'], '')
   Object.assign(form, {
@@ -290,6 +314,7 @@ function edit(rule: ApiRecord) {
     storeGroupId: readText(rule, ['storeGroupId'], ''),
     storeId: readText(rule, ['storeId'], '')
   })
+  formOpen.value = true
 }
 
 function dateInput(value: string) {
@@ -358,6 +383,7 @@ async function save() {
     messageTone.value = 'success'
     await load()
     resetForm()
+    formOpen.value = false
   } catch (caught) {
     messageTone.value = 'error'
     message.value = caught instanceof Error ? caught.message : 'Unable to save shift rule.'
