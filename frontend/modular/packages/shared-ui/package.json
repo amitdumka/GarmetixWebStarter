@@ -4,9 +4,9 @@
   "version": "6.0.51",
   "type": "module",
   "dependencies": {
-    "@garmetix/shared-api": "6.0.0",
-    "@garmetix/shared-auth": "6.0.0",
-    "@garmetix/shared-types": "6.0.0"
+    "@garmetix/shared-api": "*",
+    "@garmetix/shared-auth": "*",
+    "@garmetix/shared-types": "*"
   },
   "exports": {
     ".": "./src/index.ts"

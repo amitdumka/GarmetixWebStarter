@@ -4,7 +4,7 @@
   "version": "6.0.51",
   "type": "module",
   "dependencies": {
-    "@garmetix/shared-types": "6.0.0"
+    "@garmetix/shared-types": "*"
   },
   "exports": {
     ".": "./src/index.ts"

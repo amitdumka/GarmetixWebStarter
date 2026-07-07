@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# On Windows/Git Bash (MSYS), env var values that look like absolute paths
+# (e.g. GARMETIX_NUXT_BASE_URL="/crm/") get silently rewritten to Windows
+# paths (e.g. "/C:/Program Files/Git/crm/") before npm/node ever see them.
+# That breaks Nitro's baseURL-aware static prerendering: every route fails
+# its baseURL prefix check, gets served as a tiny redirect stub instead of
+# real HTML, and any route with nested children (e.g. /customers) then
+# collides with the directory Nitro needs for those children, crashing the
+# build with EISDIR. Disabling MSYS path conversion is a no-op on Linux/macOS.
+export MSYS_NO_PATHCONV=1
+
 usage() {
   cat <<'USAGE'
 Garmetix SRP whole-site deploy
@@ -340,21 +350,44 @@ build_app() {
   local dest="$3"
   echo "Building $app_name with base path $base_path"
   if [ "$SKIP_BUILD" = false ]; then
-    rm -rf "$MODULAR_ROOT/apps/$app_name/.output"
     rm -rf "$MODULAR_ROOT/node_modules/.cache/nuxt"
-    (
-      cd "$MODULAR_ROOT"
-      GARMETIX_NUXT_BASE_URL="$base_path" \
-      NUXT_PUBLIC_GARMETIX_API_BASE_URL="$SRP_PUBLIC_API_BASE_URL" \
-      NUXT_PUBLIC_GARMETIX_MAIN_URL="$SRP_MAIN_URL" \
-      NUXT_PUBLIC_GARMETIX_POS_URL="$SRP_POS_URL" \
-      NUXT_PUBLIC_GARMETIX_HR_URL="$SRP_HR_URL" \
-      NUXT_PUBLIC_GARMETIX_AI_SENSE_URL="$SRP_AI_SENSE_URL" \
-      NUXT_PUBLIC_GARMETIX_BOOKS_URL="$SRP_BOOKS_URL" \
-      NUXT_PUBLIC_GARMETIX_CRM_URL="$SRP_CRM_URL" \
-      NUXT_PUBLIC_GARMETIX_ADMIN_URL="$SRP_ADMIN_URL" \
-      "$NPM_COMMAND" run "build:$app_name"
-    )
+
+    local attempt=1
+    local max_attempts=3
+    local build_ok=false
+    local index_file="$MODULAR_ROOT/apps/$app_name/.output/public/index.html"
+    while [ "$attempt" -le "$max_attempts" ]; do
+      rm -rf "$MODULAR_ROOT/apps/$app_name/.output"
+      if (
+        cd "$MODULAR_ROOT"
+        GARMETIX_NUXT_BASE_URL="$base_path" \
+        NUXT_PUBLIC_GARMETIX_API_BASE_URL="$SRP_PUBLIC_API_BASE_URL" \
+        NUXT_PUBLIC_GARMETIX_MAIN_URL="$SRP_MAIN_URL" \
+        NUXT_PUBLIC_GARMETIX_POS_URL="$SRP_POS_URL" \
+        NUXT_PUBLIC_GARMETIX_HR_URL="$SRP_HR_URL" \
+        NUXT_PUBLIC_GARMETIX_AI_SENSE_URL="$SRP_AI_SENSE_URL" \
+        NUXT_PUBLIC_GARMETIX_BOOKS_URL="$SRP_BOOKS_URL" \
+        NUXT_PUBLIC_GARMETIX_CRM_URL="$SRP_CRM_URL" \
+        NUXT_PUBLIC_GARMETIX_ADMIN_URL="$SRP_ADMIN_URL" \
+        "$NPM_COMMAND" run "build:$app_name"
+      ); then
+        local index_size
+        index_size=$(wc -c < "$index_file" 2>/dev/null || echo 0)
+        if [ "${index_size:-0}" -gt 200 ]; then
+          build_ok=true
+          break
+        fi
+        echo "Build for $app_name produced degenerate output (${index_size:-0} bytes for index.html) on attempt $attempt/$max_attempts; retrying without clearing the Nuxt build cache."
+      else
+        echo "Build command for $app_name failed on attempt $attempt/$max_attempts; retrying."
+      fi
+      attempt=$((attempt + 1))
+    done
+
+    if [ "$build_ok" != true ]; then
+      echo "ERROR: $app_name build did not produce valid static output after $max_attempts attempts. Refusing to deploy a broken release." >&2
+      exit 1
+    fi
   fi
   copy_public_output "$app_name" "$dest"
   patch_static_runtime_config "$dest" "$base_path"
