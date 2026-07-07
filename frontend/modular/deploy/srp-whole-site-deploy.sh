@@ -264,7 +264,13 @@ resolve_command() {
 
 dotnet_path_arg() {
   local path_value="$1"
-  if [[ "$DOTNET_COMMAND" == *dotnet.exe ]] && command -v wslpath >/dev/null 2>&1; then
+  # Only translate through wslpath when actually running inside real WSL (WSL_DISTRO_NAME/WSL_INTEROP
+  # are set only by WSL, never by Git Bash/MSYS). Git Bash already auto-converts POSIX-style argv
+  # paths to Windows paths for native .exe targets, so calling wslpath there is not just redundant,
+  # it actively corrupts the path: a stray wslpath.exe on PATH interprets a Git-Bash path like
+  # /c/AIArea/... (missing the /mnt prefix real WSL uses) as a literal top-level "c" directory,
+  # producing a doubled drive letter such as C:\c\AIArea\... that breaks dotnet publish.
+  if [[ "$DOTNET_COMMAND" == *dotnet.exe ]] && [ -n "${WSL_DISTRO_NAME:-}${WSL_INTEROP:-}" ] && command -v wslpath >/dev/null 2>&1; then
     wslpath -w "$path_value"
   else
     printf '%s' "$path_value"
