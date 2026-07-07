@@ -4,16 +4,19 @@ Last updated: 2026-07-07. Source of truth for stage-by-stage history remains `fr
 
 ## Where Things Stand
 
-- Modular version: `6.0.52`, Stage 14C.5 (Books GST report finalization and financial-year lock acceptance), just completed - closes the Books modular parity lane.
+- Modular version: `6.0.53`, Stage 14G (Books full legacy GST menu parity), just completed and deployed live to the `.127` SRP test server.
 - All six modular apps (`main`, `pos`, `hr`, `books`, `ai-sense`, `admin`) plus `crm` have reached at least one "final closure" gate. Legacy frontend and shared backend remain the single source of truth; modular apps consume the same API/DB.
 - Structure validation (`node frontend/modular/scripts/validate-structure.mjs`) passes as of this session.
+- SRP deploy tooling note: this machine now has a dedicated `~/.ssh/garmetix_srp` keypair trusted by `192.168.11.127` (added 2026-07-07), so future deploys don't need `sshpass`/a password - just run with `GARMETIX_PREFER_WSL=false` since the key lives in the Git Bash environment, not WSL's separate filesystem.
 
 ## Near-Term (next 1-3 sessions)
 
-1. ~~**Books 14C.5**~~ - closed 2026-07-07: GST/accounting report finalization confirmed, financial-year lock create/unlock UI added, final Books closure gate script/doc shipped. Books modular parity lane is done pending live-token/manual evidence. See `.claude/changelog.md`.
-2. **Assistant 14F.7** - MCP wrapper around the existing read-only AI Sense tool catalog, additive only, local/private-tunnel auth until reviewed.
-3. **Live-evidence backlog** - a recurring pattern across POS, HR, Books, CRM and Admin closures: code and dry-run validation are done, but real production evidence (manual browser acceptance, live-token smoke tests, actual cashier/payroll runs) is still marked conditional. Worth a dedicated pass to clear this backlog rather than letting each module's "pending live evidence" note linger indefinitely. Books 14C.5's new guarded lock/unlock actions and GST closure gate now also carry this same "pending live evidence" flag.
-4. **Security follow-up** - restrict factory reset to SuperAdmin only (currently Admin-policy gated; see `learnings.md` and bug list below). Low effort, meaningful risk reduction.
+1. ~~**Books 14C.5**~~ - closed 2026-07-07: GST/accounting report finalization confirmed, financial-year lock create/unlock UI added, final Books closure gate script/doc shipped.
+2. ~~**Books 14G**~~ - closed 2026-07-07: full legacy GST menu parity (GSTR-1/3B manual builder, draft lifecycle, accounting-posting bridge, CA email/WhatsApp share, accounting-gst-validation, gst-final-acceptance), deployed and verified live on `.127`. Books modular GST lane is now fully done pending live-token/manual evidence. See `.claude/changelog.md`.
+3. **CRM bug** (found during 14G deploy verification) - `/crm/customers` is broken live due to a static-build route collision with its own sub-routes. Unrelated to GST work; spawned as background task `task_38949783`, not yet fixed.
+4. **Assistant 14F.7** - MCP wrapper around the existing read-only AI Sense tool catalog, additive only, local/private-tunnel auth until reviewed.
+5. **Live-evidence backlog** - a recurring pattern across POS, HR, Books, CRM and Admin closures: code and dry-run validation are done, but real production evidence (manual browser acceptance, live-token smoke tests, actual cashier/payroll runs) is still marked conditional. Worth a dedicated pass to clear this backlog rather than letting each module's "pending live evidence" note linger indefinitely.
+6. **Security follow-up** - restrict factory reset to SuperAdmin only (currently Admin-policy gated; see `learnings.md` and bug list below). Low effort, meaningful risk reduction.
 
 ## Medium-Term
 

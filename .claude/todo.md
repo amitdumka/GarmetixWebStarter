@@ -10,6 +10,7 @@ Last updated: 2026-07-07. Check items off as completed; move detail/history into
 - [ ] **Incomplete domain model**: `backend/Garmetix.Domain/Generated/Models/Inventory/Inventory.cs:108` - a "Basic Rate Calculator" static toolkit function referenced as needed but not yet created; check whether rate calculation logic is duplicated ad hoc elsewhere in the codebase as a result.
 - [ ] **Incomplete enum**: `backend/Garmetix.Domain/Generated/Enums/BharatEnums.cs:58` - card-type enum is explicitly marked incomplete.
 - [ ] **Repo hygiene**: no `* text=auto` (or equivalent) rule in `.gitattributes`; only `*.gitattributes` and `*.sh` are pinned to LF. Everything else's line endings are undefined, which is why a Windows checkout diffs as ~1,689 "modified" files against a Linux git client. Low priority but cheap to fix and removes a recurring false alarm.
+- [ ] **CRM bug (found 2026-07-07, live on SRP)**: `/crm/customers` build-collides with its own `customers/new`/`customers/dues-reconciliation` sub-routes during static prerendering (`EISDIR` on `.output/public/customers`), breaking the page live (redirect loop, no content). Unrelated to any GST work this session - flagged as a spawned background task (task_38949783), not fixed.
 
 ## Non-Bugs Confirmed Clean (checked, no action needed)
 
@@ -21,6 +22,7 @@ Last updated: 2026-07-07. Check items off as completed; move detail/history into
 ## Follow-Up Work (from roadmap, actionable slice)
 
 - [x] Books Stage 14C.5 (GST/accounting report finalization, financial-year lock acceptance, final Books closure) - closed 2026-07-07. See `.claude/changelog.md` for detail. Books modular parity lane is done pending live-token/manual evidence.
+- [x] Books Stage 14G (full legacy GST menu parity: GSTR-1/3B builder, CA share, accounting-gst-validation, gst-final-acceptance) - closed 2026-07-07, deployed to `.127` SRP and verified live. See `.claude/changelog.md` for detail.
 - [ ] Start Stage 14F.7 MCP wrapper for the AI Sense read-only tool catalog once Assistant is confirmed stable.
 - [ ] Ask Amit whether to prioritize clearing the "pending live evidence" backlog (POS/HR/Books/CRM/Admin) over new feature work.
 - [ ] Begin AntiGravity (`Version6.A`) port review starting with Priority 0 (file-list diff) from `AntiGarvity2CodeTODO.md` - do not read Antigravity workspace files beyond what's needed for a named comparison without asking first.
