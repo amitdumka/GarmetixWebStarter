@@ -48,7 +48,7 @@ public static class FactoryResetEndpoints
             return Results.BadRequest(new { message = "The current administrator account was not found. Please sign out and sign in again before retrying factory reset." });
         }
 
-        if (!currentUser.IsActive || (!currentUser.Admin && !currentUser.IsSuperAdmin))
+        if (!currentUser.IsActive || !currentUser.IsSuperAdmin)
         {
             return Results.Forbid();
         }
