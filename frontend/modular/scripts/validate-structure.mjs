@@ -284,7 +284,7 @@ const requiredPaths = [
   'apps/hr/package.json',
   'apps/hr/pages/index.vue',
   'apps/hr/pages/login.vue',
-  'apps/hr/pages/hr.vue',
+  'apps/hr/pages/employees.vue',
   'apps/hr/pages/attendance/today.vue',
   'apps/hr/pages/attendance/monthly.vue',
   'apps/hr/pages/attendance/manual-punch.vue',

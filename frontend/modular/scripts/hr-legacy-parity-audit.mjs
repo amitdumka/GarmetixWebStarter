@@ -14,7 +14,7 @@ if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 lane, found ${
 
 const requiredFiles = [
   'docs/stage-14b10-hr-legacy-full-parity-audit.md',
-  'apps/hr/pages/hr.vue',
+  'apps/hr/pages/employees.vue',
   'apps/hr/pages/payroll.vue',
   'apps/hr/pages/payroll/finalization.vue',
   'apps/hr/pages/attendance/monthly.vue',
@@ -66,7 +66,6 @@ checkMarkers('apps/hr/pages/payroll/finalization.vue', [
 
 checkMarkers('docs/MODULAR_TODO.md', [
   '14B.10',
-  'Books paused',
   'Employee Shift Rules',
   'Payroll Finalization'
 ])

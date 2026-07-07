@@ -323,7 +323,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
   hr: [
     { key: 'people', label: 'People', items: [
       { id: 'home', label: 'HR Home', href: '/', icon: 'i-lucide-layout-dashboard' },
-      { id: 'employees', label: 'Employees', href: '/hr', icon: 'i-lucide-users-round' },
+      { id: 'employees', label: 'Employees', href: '/employees', icon: 'i-lucide-users-round' },
       { id: 'benefits', label: 'Benefits', href: '/hr-benefits', icon: 'i-lucide-heart-handshake' }
     ] },
     { key: 'attendance', label: 'Attendance', items: [

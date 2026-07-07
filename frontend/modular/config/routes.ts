@@ -156,7 +156,7 @@ export const garmetixRoutes: GarmetixRouteDefinition[] = [
   route({ id: 'non-gst-goods', path: '/non-gst-goods', label: 'Non-GST Goods', icon: 'i-lucide-package-x', targetApp: 'pos', moduleKey: 'offBook', moduleLabel: 'Off Book', roles: [...routeRoles.pos] }),
   route({ id: 'cash-vouchers', path: '/cash-vouchers', label: 'Cash Vouchers', icon: 'i-lucide-wallet-cards', targetApp: 'pos', moduleKey: 'offBook', moduleLabel: 'Off Book', roles: [...routeRoles.pos] }),
 
-  route({ id: 'hr', path: '/hr', label: 'Employees', icon: 'i-lucide-users-round', targetApp: 'hr', moduleKey: 'hr', moduleLabel: 'HR And Payroll', roles: [...routeRoles.hr], status: 'shell-ready' }),
+  route({ id: 'hr', path: '/employees', label: 'Employees', icon: 'i-lucide-users-round', targetApp: 'hr', moduleKey: 'hr', moduleLabel: 'HR And Payroll', roles: [...routeRoles.hr], status: 'shell-ready' }),
   route({ id: 'hr-benefits', path: '/hr-benefits', label: 'HR Benefits', icon: 'i-lucide-heart-handshake', targetApp: 'hr', moduleKey: 'hr', moduleLabel: 'HR And Payroll', roles: [...routeRoles.hr] }),
   route({ id: 'payroll', path: '/payroll', label: 'Payroll', icon: 'i-lucide-receipt-indian-rupee', targetApp: 'hr', moduleKey: 'hr', moduleLabel: 'HR And Payroll', roles: [...routeRoles.hr] }),
   route({ id: 'payroll-finalization', path: '/payroll/finalization', label: 'Payroll Finalization', icon: 'i-lucide-clipboard-check', targetApp: 'hr', moduleKey: 'hr', moduleLabel: 'HR And Payroll', roles: [...routeRoles.hr], status: 'modular-ready' }),

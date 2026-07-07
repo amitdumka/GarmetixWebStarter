@@ -8,7 +8,7 @@ const failures = []
 
 const requiredFiles = [
   'apps/hr/pages/index.vue',
-  'apps/hr/pages/hr.vue',
+  'apps/hr/pages/employees.vue',
   'apps/hr/pages/payroll.vue',
   'apps/hr/pages/hr-benefits.vue',
   'apps/hr/pages/attendance/index.vue',
@@ -47,7 +47,7 @@ const requiredScripts = [
 ]
 
 const requiredRouteMarkers = [
-  "id: 'hr', path: '/hr'",
+  "id: 'hr', path: '/employees'",
   "id: 'hr-benefits', path: '/hr-benefits'",
   "id: 'payroll', path: '/payroll'",
   "id: 'attendance', path: '/attendance'",

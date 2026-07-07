@@ -43,7 +43,7 @@ export const smokeApps = [
   {
     id: 'hr',
     label: 'HR',
-    routes: ['/', '/login', '/hr', '/hr-benefits', '/payroll', '/payroll/finalization', '/attendance', '/attendance/today', '/attendance/monthly', '/attendance/manual-punch', '/attendance/regularization', '/attendance/payroll-review', '/attendance/salary-payment', '/attendance/shifts', '/attendance/shift-rules', '/attendance/policies', '/attendance/devices', '/attendance/kiosk', '/attendance/kiosk-monitor', '/attendance/mobile-kiosk', '/attendance/mobile-kiosk-rehearsal', '/attendance/device-bridge', '/attendance/biometric-enrollment', '/attendance/photo-review', '/attendance/face-liveness']
+    routes: ['/', '/login', '/employees', '/hr-benefits', '/payroll', '/payroll/finalization', '/attendance', '/attendance/today', '/attendance/monthly', '/attendance/manual-punch', '/attendance/regularization', '/attendance/payroll-review', '/attendance/salary-payment', '/attendance/shifts', '/attendance/shift-rules', '/attendance/policies', '/attendance/devices', '/attendance/kiosk', '/attendance/kiosk-monitor', '/attendance/mobile-kiosk', '/attendance/mobile-kiosk-rehearsal', '/attendance/device-bridge', '/attendance/biometric-enrollment', '/attendance/photo-review', '/attendance/face-liveness']
   },
   {
     id: 'ai-sense',

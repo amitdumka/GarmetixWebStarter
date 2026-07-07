@@ -14,7 +14,7 @@ if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 lane, found ${
 
 const routeChecks = [
   {
-    page: 'apps/hr/pages/hr.vue',
+    page: 'apps/hr/pages/employees.vue',
     legacy: '/hr',
     markers: ['api/employees', 'api/hr/attendance', 'api/hr/monthly-attendance/generate', 'Employee Register', 'Daily Attendance Register']
   },
