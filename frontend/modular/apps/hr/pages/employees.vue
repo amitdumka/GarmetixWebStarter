@@ -706,7 +706,27 @@ watch(activeTab, async tab => {
   if (tab === 'attendance' && attendanceRows.value.length === 0) await loadAttendance()
 })
 
-onMounted(load)
+async function autoGenerateIfMonthEnd() {
+  if (!import.meta.client) return
+
+  const today = new Date()
+  const tomorrow = new Date(today)
+  tomorrow.setDate(today.getDate() + 1)
+  if (tomorrow.getDate() !== 1) return
+
+  const key = `garmetix.monthlyAttendance.${today.getFullYear()}.${today.getMonth() + 1}`
+  if (localStorage.getItem(key)) return
+
+  monthlyForm.year = today.getFullYear()
+  monthlyForm.month = today.getMonth() + 1
+  await generateMonthlyAttendance()
+  localStorage.setItem(key, 'generated')
+}
+
+onMounted(async () => {
+  await load()
+  await autoGenerateIfMonthEnd()
+})
 </script>
 
 <style scoped>

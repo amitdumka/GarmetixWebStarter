@@ -145,7 +145,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(row, index) in days" :key="`${readText(row, ['employeeId', 'id'], String(index))}-${readText(row, ['onDate'])}`" class="border-t border-default">
+            <tr v-for="(row, index) in pagedDays" :key="`${readText(row, ['employeeId', 'id'], String(index))}-${readText(row, ['onDate'])}`" class="border-t border-default">
               <td class="px-3 py-2">
                 <input
                   class="size-4"
@@ -179,6 +179,13 @@
           </tbody>
         </table>
       </div>
+      <div v-if="days.length" class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
+        <p>Page {{ monthlyPage }} of {{ monthlyTotalPages }}</p>
+        <div class="flex items-center gap-2">
+          <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-left" :disabled="monthlyPage <= 1" @click="monthlyPage--">Prev</UButton>
+          <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-right" :disabled="monthlyPage >= monthlyTotalPages" @click="monthlyPage++">Next</UButton>
+        </div>
+      </div>
     </div>
   </section>
 </template>
@@ -205,7 +212,14 @@ const deleteReason = ref('')
 const deleteDailyAttendance = ref(true)
 const deletePunches = ref(false)
 const selectedRowKeys = ref(new Set<string>())
+const monthlyPage = ref(1)
+const monthlyPageSize = ref(50)
 const days = computed<ApiRecord[]>(() => readArray(data.value, ['days', 'Days']))
+const monthlyTotalPages = computed(() => Math.max(1, Math.ceil(days.value.length / monthlyPageSize.value)))
+const pagedDays = computed(() => {
+  const start = (monthlyPage.value - 1) * monthlyPageSize.value
+  return days.value.slice(start, start + monthlyPageSize.value)
+})
 const locked = computed(() => readBoolean(data.value, ['locked']))
 const monthLabel = computed(() => `${String(month.value).padStart(2, '0')}/${year.value}`)
 const confirmationPhrase = computed(() => `CONFIRM ${monthLabel.value}`)
@@ -319,6 +333,7 @@ async function load() {
   try {
     data.value = await get<ApiRecord>('api/attendance/monthly', { year: year.value, month: month.value })
     selectedRowKeys.value = new Set()
+    monthlyPage.value = 1
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Unable to load monthly attendance.'
   } finally {
