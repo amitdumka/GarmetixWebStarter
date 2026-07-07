@@ -34,174 +34,116 @@
       </UButton>
     </div>
 
-    <div v-if="activeTab === 'employees'" class="grid gap-4 xl:grid-cols-[minmax(390px,0.85fr)_minmax(0,1.4fr)]">
-      <form class="garmetix-section-card space-y-3" @submit.prevent="saveEmployee">
-        <div class="garmetix-panel-header">
-          <div>
-            <h3 class="garmetix-panel-title">{{ editingEmployeeId ? 'Edit Employee' : 'New Employee' }}</h3>
-            <p class="garmetix-panel-subtitle">Photo, bank and document fields are used by ID card, payroll and future biometric attendance.</p>
-          </div>
-          <UBadge color="primary" variant="subtle">{{ employeeForm.employeeStatus }}</UBadge>
+    <div v-if="activeTab === 'employees'" class="garmetix-table-panel">
+      <div class="garmetix-panel-header">
+        <div>
+          <h3 class="garmetix-panel-title">Employee Register</h3>
+          <p class="garmetix-panel-subtitle">{{ filteredEmployees.length }} employee(s).</p>
         </div>
-
-        <div class="grid gap-3 md:grid-cols-3">
-          <UFormField label="Title"><UInput v-model="employeeForm.title" /></UFormField>
-          <UFormField label="First name" required><UInput v-model="employeeForm.firstName" /></UFormField>
-          <UFormField label="Last name" required><UInput v-model="employeeForm.lastName" /></UFormField>
-          <UFormField label="Employee code"><UInput v-model="employeeForm.employeeCode" placeholder="Auto if blank" /></UFormField>
-          <UFormField label="Gender"><USelect v-model="employeeForm.gender" :items="genderOptions" /></UFormField>
-          <UFormField label="Category"><USelect v-model="employeeForm.category" :items="categoryOptions" /></UFormField>
-          <UFormField label="Department"><UInput v-model="employeeForm.department" /></UFormField>
-          <UFormField label="Designation"><UInput v-model="employeeForm.designation" /></UFormField>
-          <UFormField label="Status"><USelect v-model="employeeForm.employeeStatus" :items="employeeStatusOptions" /></UFormField>
-          <UFormField label="Joining date"><UInput v-model="employeeForm.joiningDate" type="date" /></UFormField>
-          <UFormField label="Leaving date"><UInput v-model="employeeForm.leavingDate" type="date" /></UFormField>
-          <UFormField label="Date of birth"><UInput v-model="employeeForm.dateOfBirth" type="date" /></UFormField>
-          <UFormField label="Salary type"><USelect v-model="employeeForm.salaryType" :items="salaryTypeOptions" /></UFormField>
-          <UFormField label="Monthly salary"><UInput v-model.number="employeeForm.monthlySalary" type="number" min="0" /></UFormField>
-          <UFormField label="Daily wage"><UInput v-model.number="employeeForm.dailyWage" type="number" min="0" /></UFormField>
-        </div>
-
-        <div class="grid gap-3 md:grid-cols-2">
-          <UFormField label="Father/Husband"><UInput v-model="employeeForm.fatherOrHusbandName" /></UFormField>
-          <UFormField label="Blood group"><UInput v-model="employeeForm.bloodGroup" /></UFormField>
-          <UFormField label="Mobile"><UInput v-model="employeeForm.mobile" /></UFormField>
-          <UFormField label="Email"><UInput v-model="employeeForm.email" type="email" /></UFormField>
-          <UFormField label="PAN"><UInput v-model="employeeForm.pan" /></UFormField>
-          <UFormField label="Aadhaar"><UInput v-model="employeeForm.aadhar" /></UFormField>
-          <UFormField label="Bank account name"><UInput v-model="employeeForm.bankAccountName" /></UFormField>
-          <UFormField label="Bank account number"><UInput v-model="employeeForm.bankAccountNumber" /></UFormField>
-          <UFormField label="IFSC"><UInput v-model="employeeForm.ifsc" /></UFormField>
-          <UFormField label="ESI number"><UInput v-model="employeeForm.esiNumber" /></UFormField>
-          <UFormField label="PF number"><UInput v-model="employeeForm.pfNumber" /></UFormField>
-          <UFormField label="Emergency contact"><UInput v-model="employeeForm.emergencyContact" /></UFormField>
-        </div>
-
-        <UFormField label="Photo Data URL"><UTextarea v-model="employeeForm.photoDataUrl" :rows="2" placeholder="Paste base64/data URL or keep blank" /></UFormField>
-        <UFormField label="Exit reason"><UInput v-model="employeeForm.exitReason" /></UFormField>
-
-        <div class="flex flex-wrap justify-end gap-2">
-          <UButton type="button" color="neutral" variant="soft" @click="resetEmployeeForm">Clear</UButton>
-          <UButton type="submit" color="primary" icon="i-lucide-save" :loading="savingEmployee" :disabled="!canSaveEmployee">Save Employee</UButton>
-        </div>
-      </form>
-
-      <div class="garmetix-table-panel">
-        <div class="garmetix-panel-header">
-          <div>
-            <h3 class="garmetix-panel-title">Employee Register</h3>
-            <p class="garmetix-panel-subtitle">{{ filteredEmployees.length }} employee(s).</p>
-          </div>
-          <UInput v-model="employeeSearch" icon="i-lucide-search" placeholder="Search employee" class="w-56" />
-        </div>
-        <div class="overflow-auto">
-          <table class="w-full min-w-[1120px] text-left text-sm">
-            <thead class="bg-muted/30 text-xs uppercase text-muted">
-              <tr>
-                <th class="px-3 py-2">Employee</th>
-                <th class="px-3 py-2">Department</th>
-                <th class="px-3 py-2">Mobile</th>
-                <th class="px-3 py-2">Salary</th>
-                <th class="px-3 py-2">Bank</th>
-                <th class="px-3 py-2">Status</th>
-                <th class="px-3 py-2 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="employee in filteredEmployees" :key="readText(employee, ['id'])" class="border-t border-default align-top">
-                <td class="px-3 py-2">
-                  <p class="font-medium">{{ employeeName(employee) }}</p>
-                  <p class="text-xs text-muted">{{ readText(employee, ['employeeCode'], `EMP-${String(readNumber(employee, ['empId'])).padStart(4, '0')}`) }} · {{ categoryLabel(readNumber(employee, ['category'])) }}</p>
-                </td>
-                <td class="px-3 py-2">{{ readText(employee, ['department']) }} / {{ readText(employee, ['designation']) }}</td>
-                <td class="px-3 py-2">{{ readText(employee, ['mobile']) }}</td>
-                <td class="px-3 py-2">{{ readText(employee, ['salaryType']) }} · {{ formatIndianMoney(readNumber(employee, ['monthlySalary']) || readNumber(employee, ['dailyWage'])) }}</td>
-                <td class="px-3 py-2">{{ readText(employee, ['bankAccountNumber'], 'Missing') }}</td>
-                <td class="px-3 py-2">
-                  <UBadge :color="isActiveEmployee(employee) ? 'success' : 'neutral'" variant="subtle">{{ readText(employee, ['employeeStatus'], isActiveEmployee(employee) ? 'Active' : 'Inactive') }}</UBadge>
-                </td>
-                <td class="px-3 py-2">
-                  <div class="flex justify-end gap-2">
-                    <UButton size="xs" icon="i-lucide-pencil" color="primary" variant="soft" @click="startEmployeeEdit(employee)">Edit</UButton>
-                    <UButton size="xs" icon="i-lucide-trash-2" color="error" variant="soft" :loading="deletingId === readText(employee, ['id'])" @click="removeEmployee(employee)">Delete</UButton>
-                  </div>
-                </td>
-              </tr>
-              <tr v-if="!filteredEmployees.length">
-                <td class="px-3 py-6 text-center text-muted" colspan="7">No employees found.</td>
-              </tr>
-            </tbody>
-          </table>
+        <UInput v-model="employeeSearch" icon="i-lucide-search" placeholder="Search employee" class="w-56" />
+      </div>
+      <div class="overflow-auto">
+        <table class="w-full min-w-[1080px] text-left text-sm">
+          <thead class="bg-muted/30 text-xs uppercase text-muted">
+            <tr>
+              <th class="px-3 py-2">Code</th>
+              <th class="px-3 py-2">Employee</th>
+              <th class="px-3 py-2">Mobile</th>
+              <th class="px-3 py-2">Department</th>
+              <th class="px-3 py-2">Designation</th>
+              <th class="px-3 py-2">Salary/Wage</th>
+              <th class="px-3 py-2">Joining</th>
+              <th class="px-3 py-2">Status</th>
+              <th class="px-3 py-2 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="employee in pagedEmployees" :key="readText(employee, ['id'])" class="border-t border-default align-top">
+              <td class="px-3 py-2">{{ readText(employee, ['employeeCode'], `EMP-${String(readNumber(employee, ['empId'])).padStart(4, '0')}`) }}</td>
+              <td class="px-3 py-2">
+                <p class="font-medium">{{ employeeName(employee) }}</p>
+                <p class="text-xs text-muted">{{ categoryLabel(readNumber(employee, ['category'])) }}</p>
+              </td>
+              <td class="px-3 py-2">{{ maskMobile(readText(employee, ['mobile'])) }}</td>
+              <td class="px-3 py-2">{{ readText(employee, ['department']) }}</td>
+              <td class="px-3 py-2">{{ readText(employee, ['designation']) }}</td>
+              <td class="px-3 py-2">{{ formatIndianMoney(readNumber(employee, ['monthlySalary']) || readNumber(employee, ['dailyWage'])) }}</td>
+              <td class="px-3 py-2">{{ formatDate(readText(employee, ['joiningDate'])) }}</td>
+              <td class="px-3 py-2">
+                <UBadge :color="isActiveEmployee(employee) ? 'success' : 'neutral'" variant="subtle">{{ readText(employee, ['employeeStatus'], isActiveEmployee(employee) ? 'Active' : 'Inactive') }}</UBadge>
+              </td>
+              <td class="px-3 py-2">
+                <div class="flex justify-end gap-1">
+                  <UButton size="xs" icon="i-lucide-pencil" color="neutral" variant="ghost" @click="startEmployeeEdit(employee)">Edit</UButton>
+                  <UButton size="xs" icon="i-lucide-badge" color="primary" variant="ghost" :loading="idCardLoading === readText(employee, ['id'])" @click="openIdCard(employee)">ID Card</UButton>
+                  <UButton size="xs" icon="i-lucide-trash-2" color="error" variant="ghost" :loading="deletingId === readText(employee, ['id'])" @click="removeEmployee(employee)">Delete</UButton>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="!pagedEmployees.length">
+              <td class="px-3 py-6 text-center text-muted" colspan="9">No employees found.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
+        <p>Page {{ employeePage }} of {{ employeeTotalPages }}</p>
+        <div class="flex items-center gap-2">
+          <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-left" :disabled="employeePage <= 1" @click="employeePage--">Prev</UButton>
+          <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-right" :disabled="employeePage >= employeeTotalPages" @click="employeePage++">Next</UButton>
         </div>
       </div>
     </div>
 
-    <div v-else-if="activeTab === 'attendance'" class="grid gap-4 xl:grid-cols-[minmax(360px,0.75fr)_minmax(0,1.45fr)]">
-      <form class="garmetix-section-card space-y-3" @submit.prevent="saveAttendance">
-        <div class="garmetix-panel-header">
-          <div>
-            <h3 class="garmetix-panel-title">{{ editingAttendanceId ? 'Edit Attendance' : 'New Attendance' }}</h3>
-            <p class="garmetix-panel-subtitle">Older attendance register entry used by legacy HR and monthly generation.</p>
-          </div>
+    <div v-else-if="activeTab === 'attendance'" class="garmetix-table-panel">
+      <div class="garmetix-panel-header">
+        <div>
+          <h3 class="garmetix-panel-title">Daily Attendance Register</h3>
+          <p class="garmetix-panel-subtitle">{{ attendanceTotal }} row(s) for selected month.</p>
         </div>
-        <UFormField label="Employee" required><USelect v-model="attendanceForm.employeeId" :items="employeeOptions" /></UFormField>
-        <div class="grid gap-3 md:grid-cols-2">
-          <UFormField label="Date"><UInput v-model="attendanceForm.onDate" type="date" /></UFormField>
-          <UFormField label="Status"><USelect v-model="attendanceForm.status" :items="attendanceStatusOptions" /></UFormField>
-          <UFormField label="Check in"><UInput v-model="attendanceForm.checkInTime" type="time" /></UFormField>
-          <UFormField label="Break out"><UInput v-model="attendanceForm.breakOutTime" type="time" /></UFormField>
-          <UFormField label="Break in"><UInput v-model="attendanceForm.breakInTime" type="time" /></UFormField>
-          <UFormField label="Check out"><UInput v-model="attendanceForm.checkOutTime" type="time" /></UFormField>
-        </div>
-        <UFormField label="Remarks"><UTextarea v-model="attendanceForm.remarks" :rows="3" /></UFormField>
-        <div class="flex flex-wrap justify-end gap-2">
-          <UButton type="button" color="neutral" variant="soft" @click="resetAttendanceForm">Clear</UButton>
-          <UButton type="submit" color="primary" icon="i-lucide-save" :loading="savingAttendance" :disabled="!attendanceForm.employeeId">Save Attendance</UButton>
-        </div>
-      </form>
-
-      <div class="garmetix-table-panel">
-        <div class="garmetix-panel-header">
-          <div>
-            <h3 class="garmetix-panel-title">Daily Attendance Register</h3>
-            <p class="garmetix-panel-subtitle">{{ attendanceRows.length }} row(s) for selected month.</p>
-          </div>
-          <form class="flex flex-wrap items-end gap-2" @submit.prevent="loadAttendance">
-            <UInput v-model.number="attendanceFilters.year" type="number" class="w-24" />
-            <UInput v-model.number="attendanceFilters.month" type="number" min="1" max="12" class="w-20" />
-            <UButton type="submit" size="sm" :loading="loadingAttendance">Load</UButton>
-          </form>
-        </div>
-        <div class="overflow-auto">
-          <table class="w-full min-w-[980px] text-left text-sm">
-            <thead class="bg-muted/30 text-xs uppercase text-muted">
-              <tr>
-                <th class="px-3 py-2">Date</th>
-                <th class="px-3 py-2">Employee</th>
-                <th class="px-3 py-2">Status</th>
-                <th class="px-3 py-2">In</th>
-                <th class="px-3 py-2">Break</th>
-                <th class="px-3 py-2">Out</th>
-                <th class="px-3 py-2">Remarks</th>
-                <th class="px-3 py-2 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in attendanceRows" :key="readText(row, ['id'])" class="border-t border-default">
-                <td class="px-3 py-2">{{ formatDate(readText(row, ['onDate'])) }}</td>
-                <td class="px-3 py-2">{{ readText(row, ['employeeName']) }}</td>
-                <td class="px-3 py-2">{{ attendanceStatusLabel(readNumber(row, ['status'])) }}</td>
-                <td class="px-3 py-2">{{ readText(row, ['checkInTime']) }}</td>
-                <td class="px-3 py-2">{{ readText(row, ['breakOutTime']) }} / {{ readText(row, ['breakInTime']) }}</td>
-                <td class="px-3 py-2">{{ readText(row, ['checkOutTime']) }}</td>
-                <td class="px-3 py-2">{{ readText(row, ['remarks']) }}</td>
-                <td class="px-3 py-2 text-right"><UButton size="xs" icon="i-lucide-pencil" color="primary" variant="soft" @click="startAttendanceEdit(row)">Edit</UButton></td>
-              </tr>
-              <tr v-if="!attendanceRows.length">
-                <td class="px-3 py-6 text-center text-muted" colspan="8">No daily attendance rows found.</td>
-              </tr>
-            </tbody>
-          </table>
+        <form class="flex flex-wrap items-end gap-2" @submit.prevent="loadAttendance">
+          <UInput v-model.number="attendanceFilters.year" type="number" class="w-24" />
+          <UInput v-model.number="attendanceFilters.month" type="number" min="1" max="12" class="w-20" />
+          <USelect v-model.number="attendanceStatusFilter" :items="attendanceStatusFilterItems" class="w-40" />
+          <UButton type="submit" size="sm" :loading="loadingAttendance">Load</UButton>
+        </form>
+      </div>
+      <div class="overflow-auto">
+        <table class="w-full min-w-[980px] text-left text-sm">
+          <thead class="bg-muted/30 text-xs uppercase text-muted">
+            <tr>
+              <th class="px-3 py-2">Date</th>
+              <th class="px-3 py-2">Employee</th>
+              <th class="px-3 py-2">Status</th>
+              <th class="px-3 py-2">In</th>
+              <th class="px-3 py-2">Break</th>
+              <th class="px-3 py-2">Out</th>
+              <th class="px-3 py-2">Remarks</th>
+              <th class="px-3 py-2 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in attendanceRows" :key="readText(row, ['id'])" class="border-t border-default">
+              <td class="px-3 py-2">{{ formatDate(readText(row, ['onDate'])) }}</td>
+              <td class="px-3 py-2">{{ readText(row, ['employeeName']) }}</td>
+              <td class="px-3 py-2">{{ attendanceStatusLabel(readNumber(row, ['status'])) }}</td>
+              <td class="px-3 py-2">{{ readText(row, ['checkInTime']) }}</td>
+              <td class="px-3 py-2">{{ readText(row, ['breakOutTime']) }} / {{ readText(row, ['breakInTime']) }}</td>
+              <td class="px-3 py-2">{{ readText(row, ['checkOutTime']) }}</td>
+              <td class="px-3 py-2">{{ readText(row, ['remarks']) }}</td>
+              <td class="px-3 py-2 text-right"><UButton size="xs" icon="i-lucide-pencil" color="primary" variant="soft" @click="startAttendanceEdit(row)">Edit</UButton></td>
+            </tr>
+            <tr v-if="!attendanceRows.length">
+              <td class="px-3 py-6 text-center text-muted" colspan="8">No daily attendance rows found.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
+        <p>Page {{ attendanceFilters.page }} of {{ attendanceTotalPages }}</p>
+        <div class="flex items-center gap-2">
+          <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-left" :disabled="attendanceFilters.page <= 1" :loading="loadingAttendance" @click="changeAttendancePage(-1)">Prev</UButton>
+          <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-right" :disabled="attendanceFilters.page >= attendanceTotalPages" :loading="loadingAttendance" @click="changeAttendancePage(1)">Next</UButton>
         </div>
       </div>
     </div>
@@ -222,6 +164,106 @@
         <pre class="mt-3 max-h-[360px] overflow-auto rounded-lg border border-default bg-default/40 p-3 text-xs">{{ monthlyResultText }}</pre>
       </div>
     </div>
+
+    <USlideover v-model:open="employeeFormOpen" :title="editingEmployeeId ? 'Edit Employee' : 'New Employee'">
+      <template #body>
+        <form class="space-y-3" @submit.prevent="saveEmployee">
+          <div class="garmetix-panel-header">
+            <p class="garmetix-panel-subtitle">Photo, bank and document fields are used by ID card, payroll and future biometric attendance.</p>
+            <UBadge color="primary" variant="subtle">{{ employeeForm.employeeStatus }}</UBadge>
+          </div>
+
+          <div class="grid gap-3 md:grid-cols-2">
+            <UFormField label="Title"><UInput v-model="employeeForm.title" /></UFormField>
+            <UFormField label="First name" required><UInput v-model="employeeForm.firstName" /></UFormField>
+            <UFormField label="Last name" required><UInput v-model="employeeForm.lastName" /></UFormField>
+            <UFormField label="Employee code"><UInput v-model="employeeForm.employeeCode" placeholder="Auto if blank" /></UFormField>
+            <UFormField label="Gender"><USelect v-model="employeeForm.gender" :items="genderOptions" /></UFormField>
+            <UFormField label="Category"><USelect v-model="employeeForm.category" :items="categoryOptions" /></UFormField>
+            <UFormField label="Department"><UInput v-model="employeeForm.department" /></UFormField>
+            <UFormField label="Designation"><UInput v-model="employeeForm.designation" /></UFormField>
+            <UFormField label="Status"><USelect v-model="employeeForm.employeeStatus" :items="employeeStatusOptions" /></UFormField>
+            <UFormField label="Joining date"><UInput v-model="employeeForm.joiningDate" type="date" /></UFormField>
+            <UFormField label="Leaving date"><UInput v-model="employeeForm.leavingDate" type="date" /></UFormField>
+            <UFormField label="Date of birth"><UInput v-model="employeeForm.dateOfBirth" type="date" /></UFormField>
+            <UFormField label="Salary type"><USelect v-model="employeeForm.salaryType" :items="salaryTypeOptions" /></UFormField>
+            <UFormField label="Monthly salary"><UInput v-model.number="employeeForm.monthlySalary" type="number" min="0" /></UFormField>
+            <UFormField label="Daily wage"><UInput v-model.number="employeeForm.dailyWage" type="number" min="0" /></UFormField>
+          </div>
+
+          <div class="grid gap-3 md:grid-cols-2">
+            <UFormField label="Father/Husband"><UInput v-model="employeeForm.fatherOrHusbandName" /></UFormField>
+            <UFormField label="Blood group"><UInput v-model="employeeForm.bloodGroup" /></UFormField>
+            <UFormField label="Mobile"><UInput v-model="employeeForm.mobile" /></UFormField>
+            <UFormField label="Email"><UInput v-model="employeeForm.email" type="email" /></UFormField>
+            <UFormField label="PAN"><UInput v-model="employeeForm.pan" /></UFormField>
+            <UFormField label="Aadhaar"><UInput v-model="employeeForm.aadhar" /></UFormField>
+            <UFormField label="Bank account name"><UInput v-model="employeeForm.bankAccountName" /></UFormField>
+            <UFormField label="Bank account number"><UInput v-model="employeeForm.bankAccountNumber" /></UFormField>
+            <UFormField label="IFSC"><UInput v-model="employeeForm.ifsc" /></UFormField>
+            <UFormField label="ESI number"><UInput v-model="employeeForm.esiNumber" /></UFormField>
+            <UFormField label="PF number"><UInput v-model="employeeForm.pfNumber" /></UFormField>
+            <UFormField label="Emergency contact"><UInput v-model="employeeForm.emergencyContact" /></UFormField>
+          </div>
+
+          <UFormField label="Photo Data URL"><UTextarea v-model="employeeForm.photoDataUrl" :rows="2" placeholder="Paste base64/data URL or keep blank" /></UFormField>
+          <UFormField label="Exit reason"><UInput v-model="employeeForm.exitReason" /></UFormField>
+
+          <div class="flex flex-wrap justify-end gap-2">
+            <UButton type="button" color="neutral" variant="soft" @click="resetEmployeeForm">Clear</UButton>
+            <UButton type="submit" color="primary" icon="i-lucide-save" :loading="savingEmployee" :disabled="!canSaveEmployee">Save Employee</UButton>
+          </div>
+        </form>
+      </template>
+    </USlideover>
+
+    <UModal v-model:open="attendanceFormOpen" :title="editingAttendanceId ? 'Edit Attendance' : 'New Attendance'">
+      <template #body>
+        <form class="space-y-3" @submit.prevent="saveAttendance">
+          <p class="garmetix-panel-subtitle">Older attendance register entry used by legacy HR and monthly generation.</p>
+          <UFormField label="Employee" required><USelect v-model="attendanceForm.employeeId" :items="employeeOptions" /></UFormField>
+          <div class="grid gap-3 md:grid-cols-2">
+            <UFormField label="Date"><UInput v-model="attendanceForm.onDate" type="date" /></UFormField>
+            <UFormField label="Status"><USelect v-model="attendanceForm.status" :items="attendanceStatusOptions" /></UFormField>
+            <UFormField label="Check in"><UInput v-model="attendanceForm.checkInTime" type="time" /></UFormField>
+            <UFormField label="Break out"><UInput v-model="attendanceForm.breakOutTime" type="time" /></UFormField>
+            <UFormField label="Break in"><UInput v-model="attendanceForm.breakInTime" type="time" /></UFormField>
+            <UFormField label="Check out"><UInput v-model="attendanceForm.checkOutTime" type="time" /></UFormField>
+          </div>
+          <UFormField label="Remarks"><UTextarea v-model="attendanceForm.remarks" :rows="3" /></UFormField>
+          <div class="flex flex-wrap justify-end gap-2">
+            <UButton type="button" color="neutral" variant="soft" @click="resetAttendanceForm">Clear</UButton>
+            <UButton type="submit" color="primary" icon="i-lucide-save" :loading="savingAttendance" :disabled="!attendanceForm.employeeId">Save Attendance</UButton>
+          </div>
+        </form>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="idCardOpen" title="Employee ID Card">
+      <template #body>
+        <div v-if="idCardData" class="employee-id-card-print">
+          <div class="employee-id-card">
+            <div class="employee-id-card-header">
+              <strong>{{ readText(idCardData, ['companyName']) }}</strong>
+              <span>{{ readText(idCardData, ['storeName']) }}</span>
+            </div>
+            <div class="employee-id-card-body">
+              <img v-if="readText(idCardData, ['photoDataUrl'])" :src="readText(idCardData, ['photoDataUrl'])" alt="Employee">
+              <div v-else class="employee-id-card-photo">PHOTO</div>
+              <div>
+                <h2>{{ readText(idCardData, ['fullName']) }}</h2>
+                <p>{{ readText(idCardData, ['employeeCode']) }}</p>
+                <p>{{ readText(idCardData, ['designation']) }} / {{ readText(idCardData, ['department']) }}</p>
+                <p>Mobile: {{ readText(idCardData, ['mobile']) }}</p>
+                <p>Emergency: {{ readText(idCardData, ['emergencyContact']) }}</p>
+                <p>Blood: {{ readText(idCardData, ['bloodGroup']) }}</p>
+              </div>
+            </div>
+          </div>
+          <UButton class="mt-3" icon="i-lucide-printer" color="primary" @click="printIdCard">Print ID Card</UButton>
+        </div>
+      </template>
+    </UModal>
   </section>
 </template>
 
@@ -247,6 +289,15 @@ const activeTab = ref<HrTab>('employees')
 const employeeSearch = ref('')
 const editingEmployeeId = ref('')
 const editingAttendanceId = ref('')
+const employeeFormOpen = ref(false)
+const attendanceFormOpen = ref(false)
+const idCardOpen = ref(false)
+const idCardData = ref<ApiRecord | null>(null)
+const idCardLoading = ref('')
+const employeePage = ref(1)
+const employeePageSize = ref(20)
+const attendanceTotal = ref(0)
+const attendanceStatusFilter = ref<number | null>(null)
 const employees = ref<ApiRecord[]>([])
 const stores = ref<ApiRecord[]>([])
 const setupStatus = ref<ApiRecord | null>(null)
@@ -255,7 +306,7 @@ const summary = ref<ApiRecord | null>(null)
 const monthlyResult = ref<ApiRecord | null>(null)
 const employeeForm = reactive(emptyEmployee())
 const attendanceForm = reactive(emptyAttendance())
-const attendanceFilters = reactive({ year: current.year, month: current.month, page: 1, pageSize: 100 })
+const attendanceFilters = reactive({ year: current.year, month: current.month, page: 1, pageSize: 50 })
 const monthlyForm = reactive({ year: current.year, month: current.month })
 
 const tabs = [
@@ -282,6 +333,7 @@ const attendanceStatusOptions = [
   { value: 11, label: 'Leave' },
   { value: 12, label: 'Work From Home' }
 ]
+const attendanceStatusFilterItems = [{ value: null, label: 'All statuses' }, ...attendanceStatusOptions]
 const messageIcon = computed(() => messageTone.value === 'success' ? 'i-lucide-circle-check' : messageTone.value === 'warning' ? 'i-lucide-triangle-alert' : messageTone.value === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-info')
 const summaryMessages = computed(() => readArray(summary.value, ['readinessMessages']).map(item => String(item)))
 const employeeOptions = computed(() => employees.value.filter(isActiveEmployee).map(employee => ({ label: `${readText(employee, ['employeeCode'], 'EMP')} - ${employeeName(employee)}`, value: readText(employee, ['id'], '') })))
@@ -289,6 +341,14 @@ const filteredEmployees = computed(() => {
   const term = employeeSearch.value.trim().toLowerCase()
   return term ? employees.value.filter(row => JSON.stringify(row).toLowerCase().includes(term)) : employees.value
 })
+const employeeTotalPages = computed(() => Math.max(1, Math.ceil(filteredEmployees.value.length / employeePageSize.value)))
+const pagedEmployees = computed(() => {
+  const start = (employeePage.value - 1) * employeePageSize.value
+  return filteredEmployees.value.slice(start, start + employeePageSize.value)
+})
+const attendanceTotalPages = computed(() => Math.max(1, Math.ceil(attendanceTotal.value / attendanceFilters.pageSize)))
+
+watch(employeeSearch, () => { employeePage.value = 1 })
 const cards = computed(() => [
   { label: 'Employees', value: readNumber(summary.value, ['totalEmployees']) || employees.value.length, detail: 'All employee master records' },
   { label: 'Active', value: readNumber(summary.value, ['activeEmployees']) || employees.value.filter(isActiveEmployee).length, detail: 'Working employees' },
@@ -394,6 +454,7 @@ function resetAttendanceForm() {
 function startEmployeeCreate() {
   activeTab.value = 'employees'
   resetEmployeeForm()
+  employeeFormOpen.value = true
 }
 
 function startEmployeeEdit(employee: ApiRecord) {
@@ -404,11 +465,13 @@ function startEmployeeEdit(employee: ApiRecord) {
     joiningDate: readText(employee, ['joiningDate'], toLocalDateInput()).slice(0, 10),
     leavingDate: readText(employee, ['leavingDate'], '').slice(0, 10)
   })
+  employeeFormOpen.value = true
 }
 
 function startAttendanceCreate() {
   activeTab.value = 'attendance'
   resetAttendanceForm()
+  attendanceFormOpen.value = true
 }
 
 function startAttendanceEdit(row: ApiRecord) {
@@ -424,6 +487,37 @@ function startAttendanceEdit(row: ApiRecord) {
     checkOutTime: readText(row, ['checkOutTime'], '').slice(0, 5),
     remarks: readText(row, ['remarks'], '')
   })
+  attendanceFormOpen.value = true
+}
+
+function maskMobile(value: string) {
+  const digits = String(value || '').replace(/\D/g, '')
+  return digits.length > 4 ? `${'•'.repeat(digits.length - 4)}${digits.slice(-4)}` : (digits || '-')
+}
+
+async function openIdCard(employee: ApiRecord) {
+  const id = readText(employee, ['id'], '')
+  if (!id) return
+  idCardLoading.value = id
+  message.value = ''
+  try {
+    idCardData.value = await get<ApiRecord>(`api/hr/employees/${id}/id-card`)
+    idCardOpen.value = true
+  } catch (caught) {
+    messageTone.value = 'error'
+    message.value = caught instanceof Error ? caught.message : 'Unable to open employee ID card.'
+  } finally {
+    idCardLoading.value = ''
+  }
+}
+
+function printIdCard() {
+  if (import.meta.client) window.print()
+}
+
+function changeAttendancePage(delta: number) {
+  attendanceFilters.page = Math.max(1, attendanceFilters.page + delta)
+  loadAttendance()
 }
 
 function employeePayload() {
@@ -509,8 +603,12 @@ async function load() {
 async function loadAttendance() {
   loadingAttendance.value = true
   try {
-    const response = await get<ApiRecord>('api/hr/attendance', attendanceFilters)
+    const response = await get<ApiRecord>('api/hr/attendance', {
+      ...attendanceFilters,
+      status: attendanceStatusFilter.value ?? undefined
+    })
     attendanceRows.value = readArray(response, ['items'])
+    attendanceTotal.value = readNumber(response, ['total'])
   } catch (caught) {
     messageTone.value = 'error'
     message.value = caught instanceof Error ? caught.message : 'Unable to load daily attendance.'
@@ -532,6 +630,7 @@ async function saveEmployee() {
     }
     messageTone.value = 'success'
     resetEmployeeForm()
+    employeeFormOpen.value = false
     await load()
   } catch (caught) {
     messageTone.value = 'error'
@@ -554,6 +653,7 @@ async function saveAttendance() {
     }
     messageTone.value = 'success'
     resetAttendanceForm()
+    attendanceFormOpen.value = false
     await loadAttendance()
   } catch (caught) {
     messageTone.value = 'error'
@@ -608,3 +708,45 @@ watch(activeTab, async tab => {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.employee-id-card {
+  width: 360px;
+  max-width: 100%;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 16px;
+  overflow: hidden;
+  background: white;
+  color: #0f172a;
+}
+.employee-id-card-header {
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  background: #f8fafc;
+  border-bottom: 1px solid rgb(226 232 240);
+}
+.employee-id-card-body {
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 14px;
+}
+.employee-id-card-body img,
+.employee-id-card-photo {
+  width: 96px;
+  height: 112px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid rgb(203 213 225);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  color: #64748b;
+}
+@media print {
+  body * { visibility: hidden; }
+  .employee-id-card-print, .employee-id-card-print * { visibility: visible; }
+  .employee-id-card-print { position: fixed; inset: 24px auto auto 24px; }
+}
+</style>
