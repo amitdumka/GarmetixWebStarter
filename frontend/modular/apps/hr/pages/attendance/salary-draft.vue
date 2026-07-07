@@ -70,8 +70,9 @@
       <div class="garmetix-panel-header">
         <div>
           <h3 class="garmetix-panel-title">Draft Rows</h3>
-          <p class="garmetix-panel-subtitle">{{ rows.length }} employee row(s)</p>
+          <p class="garmetix-panel-subtitle">{{ pagedRows.length }} of {{ rows.length }} employee row(s)</p>
         </div>
+        <UInput v-model="search" icon="i-lucide-search" placeholder="Search employee" class="w-56" />
       </div>
       <div class="overflow-auto">
         <table class="w-full min-w-[1120px] text-left text-sm">
@@ -89,7 +90,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(row, index) in rows" :key="rowKey(row, index)" class="border-t border-default align-top">
+            <tr v-for="(row, index) in pagedRows" :key="rowKey(row, index)" class="border-t border-default align-top">
               <td class="px-3 py-2">
                 <p class="font-medium">{{ readText(row, ['employeeName', 'employee']) }}</p>
                 <p class="text-xs text-muted">{{ readText(row, ['employeeCode', 'code']) }}</p>
@@ -101,7 +102,7 @@
               <td class="px-3 py-2">{{ formatIndianMoney(deductions(row)) }}</td>
               <td class="px-3 py-2 font-semibold">{{ formatIndianMoney(readNumber(row, ['netPayPreview'])) }}</td>
               <td class="px-3 py-2 space-y-1">
-                <UBadge :color="draftTone(row)" variant="subtle">{{ readText(row, ['draftStatus']) }}</UBadge>
+                <UBadge :color="draftTone(row)" variant="subtle">{{ draftStatusLabel(row) }}</UBadge>
                 <UBadge v-if="readText(row, ['payrollPostStatus'], '').toLowerCase().includes('generated')" color="success" variant="subtle">
                   Generated
                 </UBadge>
@@ -117,11 +118,18 @@
                 </div>
               </td>
             </tr>
-            <tr v-if="!rows.length">
-              <td class="px-3 py-6 text-center text-muted" colspan="9">No salary draft rows found. Mark payroll review rows Reviewed or ApprovedForPayroll, then rebuild drafts.</td>
+            <tr v-if="!pagedRows.length">
+              <td class="px-3 py-6 text-center text-muted" colspan="9">No salary draft rows found. Mark payroll review rows Reviewed or Approved for Payroll, then rebuild drafts.</td>
             </tr>
           </tbody>
         </table>
+      </div>
+      <div v-if="rows.length" class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
+        <p>Page {{ page }} of {{ totalPages }}</p>
+        <div class="flex items-center gap-2">
+          <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-left" :disabled="page <= 1" @click="page--">Prev</UButton>
+          <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-right" :disabled="page >= totalPages" @click="page++">Next</UButton>
+        </div>
       </div>
     </div>
   </section>
@@ -150,10 +158,25 @@ const payslipNotes = ref('')
 const payslipMessage = ref('')
 const payslipTone = ref<'success' | 'error' | 'warning' | 'neutral'>('neutral')
 const payslipResult = ref<ApiRecord | null>(null)
+const search = ref('')
+const page = ref(1)
+const pageSize = ref(20)
 
 const messageIcon = computed(() => messageTone.value === 'success' ? 'i-lucide-circle-check' : messageTone.value === 'warning' ? 'i-lucide-triangle-alert' : messageTone.value === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-info')
 const payslipIcon = computed(() => payslipTone.value === 'success' ? 'i-lucide-circle-check' : payslipTone.value === 'warning' ? 'i-lucide-triangle-alert' : payslipTone.value === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-info')
 const rows = computed(() => readArray(draft.value, ['rows', 'Rows']))
+const filteredRows = computed(() => {
+  const term = search.value.trim().toLowerCase()
+  if (!term) return rows.value
+  return rows.value.filter(row => JSON.stringify(row).toLowerCase().includes(term))
+})
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredRows.value.length / pageSize.value)))
+const pagedRows = computed(() => {
+  const start = (page.value - 1) * pageSize.value
+  return filteredRows.value.slice(start, start + pageSize.value)
+})
+
+watch(search, () => { page.value = 1 })
 const salaryMonth = computed(() => `${year.value}${String(month.value).padStart(2, '0')}`)
 const payslipPhrase = computed(() => `GENERATE PAYSLIPS ${salaryMonth.value}`)
 const readyRows = computed(() => rows.value.filter(row => readText(row, ['draftStatus'], '').toLowerCase() === 'readyforpayroll' && !isGenerated(row)))
@@ -197,6 +220,11 @@ function draftTone(row: ApiRecord) {
   if (status.includes('ready')) return 'success'
   if (status.includes('hold')) return 'warning'
   return 'neutral'
+}
+
+function draftStatusLabel(row: ApiRecord) {
+  const status = readText(row, ['draftStatus'], '')
+  return status.replace(/([a-z])([A-Z])/g, '$1 $2')
 }
 
 async function load() {
