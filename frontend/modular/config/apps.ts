@@ -1,4 +1,4 @@
-export type GarmetixFrontendId = 'main' | 'pos' | 'hr' | 'ai-sense' | 'books' | 'admin'
+export type GarmetixFrontendId = 'main' | 'ai-sense' | 'admin'
 
 export interface GarmetixFrontendDefinition {
   id: GarmetixFrontendId
@@ -22,26 +22,7 @@ export const garmetixFrontends: GarmetixFrontendDefinition[] = [
     primaryRoles: ['Owner', 'Admin', 'PowerUser', 'StoreManager', 'Accountant'],
     modules: ['dashboard', 'billing', 'purchase', 'inventory', 'reports', 'store-operations']
   },
-  {
-    id: 'pos',
-    name: 'Garmetix POS',
-    envUrlKey: 'NUXT_PUBLIC_GARMETIX_POS_URL',
-    envUrlAliases: ['NUXT_PUBLIC_POS_WEB_URL'],
-    localPort: 3101,
-    subdomain: 'pos.garmetix',
-    primaryRoles: ['Owner', 'Admin', 'StoreManager', 'Cashier', 'Salesman'],
-    modules: ['pos', 'sale-invoice', 'customer-lookup', 'day-open-close']
-  },
-  {
-    id: 'hr',
-    name: 'Garmetix HR',
-    envUrlKey: 'NUXT_PUBLIC_GARMETIX_HR_URL',
-    envUrlAliases: ['NUXT_PUBLIC_HR_WEB_URL'],
-    localPort: 3102,
-    subdomain: 'hr.garmetix',
-    primaryRoles: ['Owner', 'Admin', 'PowerUser', 'HrManager'],
-    modules: ['employees', 'attendance', 'monthly-attendance', 'payroll', 'salary-payment']
-  },
+
   {
     id: 'ai-sense',
     name: 'Garmetix AI Sense',
@@ -52,16 +33,7 @@ export const garmetixFrontends: GarmetixFrontendDefinition[] = [
     primaryRoles: ['Owner', 'Admin', 'PowerUser'],
     modules: ['analytics', 'ai-sense', 'trend-alerts', 'reports']
   },
-  {
-    id: 'books',
-    name: 'Garmetix Books',
-    envUrlKey: 'NUXT_PUBLIC_GARMETIX_BOOKS_URL',
-    envUrlAliases: ['NUXT_PUBLIC_ACCOUNTING_WEB_URL'],
-    localPort: 3104,
-    subdomain: 'books.garmetix',
-    primaryRoles: ['Owner', 'Admin', 'Accountant', 'CA'],
-    modules: ['ledgers', 'vouchers', 'banking', 'gst', 'audit', 'financial-year-lock']
-  },
+
   {
     id: 'admin',
     name: 'Garmetix Admin SaaS',

@@ -287,40 +287,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'profile', label: 'Profile', href: '/profile', icon: 'i-lucide-circle-user-round' }
     ] }
   ],
-  pos: [
-    { key: 'counter', label: 'Counter', items: [
-      { id: 'counter', label: 'Counter Home', href: '/', icon: 'i-lucide-layout-dashboard' },
-      { id: 'day-open', label: 'Day Open', href: '/day-open', icon: 'i-lucide-sunrise' },
-      { id: 'sale', label: 'Sale', href: '/sale', icon: 'i-lucide-scan-barcode' },
-      { id: 'history', label: 'Sales History', href: '/history', icon: 'i-lucide-history' },
-      { id: 'hold-bills', label: 'Hold Bills', href: '/hold-bills', icon: 'i-lucide-pause-circle' },
-      { id: 'returns', label: 'Returns', href: '/returns', icon: 'i-lucide-rotate-ccw' },
-      { id: 'exchange', label: 'Exchange', href: '/exchange', icon: 'i-lucide-repeat-2' },
-      { id: 'print', label: 'Print Queue', href: '/print', icon: 'i-lucide-printer' },
-      { id: 'day-close', label: 'Day Close', href: '/day-close', icon: 'i-lucide-sunset' }
-    ] }
-  ],
-  hr: [
-    { key: 'people', label: 'People', items: [
-      { id: 'home', label: 'HR Home', href: '/', icon: 'i-lucide-layout-dashboard' },
-      { id: 'employees', label: 'Employees', href: '/hr', icon: 'i-lucide-users-round' },
-      { id: 'benefits', label: 'Benefits', href: '/hr-benefits', icon: 'i-lucide-heart-handshake' }
-    ] },
-    { key: 'attendance', label: 'Attendance', items: [
-      { id: 'attendance', label: 'Attendance', href: '/attendance', icon: 'i-lucide-calendar-check' },
-      { id: 'today', label: 'Today', href: '/attendance/today', icon: 'i-lucide-calendar-check-2' },
-      { id: 'monthly', label: 'Monthly', href: '/attendance/monthly', icon: 'i-lucide-calendar-range' },
-      { id: 'regularization', label: 'Regularization', href: '/attendance/regularization', icon: 'i-lucide-calendar-clock' },
-      { id: 'devices', label: 'Devices', href: '/attendance/devices', icon: 'i-lucide-fingerprint' }
-    ] },
-    { key: 'payroll', label: 'Payroll', items: [
-      { id: 'summary', label: 'Payroll Summary', href: '/attendance/payroll-summary', icon: 'i-lucide-file-spreadsheet' },
-      { id: 'review', label: 'Payroll Review', href: '/attendance/payroll-review', icon: 'i-lucide-hand-coins' },
-      { id: 'draft', label: 'Salary Draft', href: '/attendance/salary-draft', icon: 'i-lucide-receipt-indian-rupee' },
-      { id: 'payment', label: 'Salary Payment', href: '/attendance/salary-payment', icon: 'i-lucide-wallet-cards' },
-      { id: 'payroll', label: 'Payroll', href: '/payroll', icon: 'i-lucide-badge-indian-rupee' }
-    ] }
-  ],
+
   'ai-sense': [
     { key: 'analytics', label: 'Analytics', items: [
       { id: 'home', label: 'AI Home', href: '/', icon: 'i-lucide-brain-circuit' },
@@ -333,29 +300,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'daily', label: 'Daily Summary', href: '/daily-summary', icon: 'i-lucide-calendar-days' }
     ] }
   ],
-  books: [
-    { key: 'accounting', label: 'Accounting', items: [
-      { id: 'home', label: 'Books Home', href: '/', icon: 'i-lucide-layout-dashboard' },
-      { id: 'accounting', label: 'Accounting', href: '/accounting', icon: 'i-lucide-landmark' },
-      { id: 'parties', label: 'Parties', href: '/parties', icon: 'i-lucide-users-round' },
-      { id: 'vouchers', label: 'Vouchers', href: '/vouchers', icon: 'i-lucide-banknote' },
-      { id: 'trial-balance', label: 'Trial Balance', href: '/trial-balance', icon: 'i-lucide-scale' },
-      { id: 'petty-cash', label: 'Petty Cash', href: '/petty-cash', icon: 'i-lucide-circle-dollar-sign' },
-      { id: 'cash-details', label: 'Cash Details', href: '/cash-details', icon: 'i-lucide-coins' }
-    ] },
-    { key: 'notes', label: 'Notes And GST', items: [
-      { id: 'debit-notes', label: 'Debit Notes', href: '/debit-notes', icon: 'i-lucide-file-minus-2' },
-      { id: 'credit-notes', label: 'Credit Notes', href: '/credit-notes', icon: 'i-lucide-file-plus-2' },
-      { id: 'commercial-notes', label: 'Commercial Summary', href: '/commercial-notes', icon: 'i-lucide-files' },
-      { id: 'gst-returns', label: 'GST Returns', href: '/gst-returns', icon: 'i-lucide-file-json-2' },
-      { id: 'gst-reports', label: 'GST Reports', href: '/gst-reports', icon: 'i-lucide-table-properties' }
-    ] },
-    { key: 'audit', label: 'Audit', items: [
-      { id: 'fy-locks', label: 'FY Locks', href: '/financial-year-locks', icon: 'i-lucide-lock-keyhole' },
-      { id: 'audit', label: 'Audit', href: '/audit', icon: 'i-lucide-search-check' },
-      { id: 'message-logs', label: 'Message Logs', href: '/message-logs', icon: 'i-lucide-message-square-warning' }
-    ] }
-  ],
+
   admin: [
     { id: 'home', label: 'Admin Home', href: '/', icon: 'i-lucide-layout-dashboard' },
     { key: 'setup', label: 'Company', items: [
@@ -569,10 +514,7 @@ const searchGroups = computed(() => [{
 function appDefaultBase(appId: FrontendAppId) {
   const bases: Record<FrontendAppId, string> = {
     main: '/',
-    pos: '/pos/',
-    hr: '/hr/',
     'ai-sense': '/ai-sense/',
-    books: '/books/',
     admin: '/admin/',
     inventory: '/inventory/'
   }

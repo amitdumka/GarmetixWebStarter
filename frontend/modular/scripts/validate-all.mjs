@@ -264,7 +264,7 @@ const steps = [
 ]
 
 if (!skipBuilds) {
-  for (const app of ['main', 'pos', 'hr', 'ai-sense', 'books', 'admin']) {
+  for (const app of ['main', 'ai-sense', 'admin']) {
     steps.push({
       name: `Build modular ${app}`,
       cwd: repoRoot,

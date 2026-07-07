@@ -88,67 +88,12 @@ This file tracks all modifications made to the repository by the Antigravity AI 
 - **[MODIFIED]** `frontend/modular/apps/admin/pages/saas-manager.vue`
   - *Purpose:* Completely overhauled the UI into a tabbed interface. Added tabs for "Clients", "License Plans", "License Tokens" (for generation), and "Tenant Subscriptions" to manage the complete developer/owner workflow.
 
-### 6. Office Migration Fixes
-- **[MODIFIED]** `backend/Garmetix.Api/appsettings.Development.json`
-  - *Purpose:* Set `AutoMigrate` to `false` temporarily to allow the API to start up without crashing on conflicting EF migrations.
-- **[MODIFIED]** `backend/Garmetix.Api/Program.cs` & `SaaSManagerEndpoints.cs`
-  - *Purpose:* Fixed compilation errors preventing the backend from building.
-
-### 7. SaaS Manager UI Redesign
-- **[MODIFIED]** `frontend/modular/apps/admin/pages/saas-manager.vue`
-  - *Purpose:* Completely redesigned the SaaS Manager interface to follow industry standards. Migrated from top horizontal tabs to a vertical sidebar layout. Replaced Modals with modern right-side `USlideover` components for high field-density forms (Add Client, Add Plan). Added empty states, helper text, and a copy-to-clipboard function for generated tokens.
-
-### 8. Backend Database Migration Sync & Authorization Fixes
-- **[MODIFIED]** ackend/Garmetix.Infrastructure/Data/Migrations/*_AddMissingModels.cs
-  - *Purpose:* Injected custom SQL DROP commands using Python helper scripts (safe_migrate_v2.py) to force-sync the EF Core schema state with the PostgreSQL database, resolving the persistent 42P07 (relation already exists) and 42703 (column does not exist) errors. Migration ran successfully and schema is now perfectly synced.
-- **[MODIFIED]** ackend/Garmetix.Api/Program.cs
-  - *Purpose:* Added options.AddPolicy("SuperAdmin", policy => policy.RequireClaim("superAdmin", "True")); to resolve the System.InvalidOperationException: The AuthorizationPolicy named: 'SuperAdmin' was not found exception when hitting the SaaS endpoints.
-
-
-### 9. SaaS UI Redesign (Component Separation)
-- **[MODIFIED]** rontend/modular/apps/admin/pages/saas-manager.vue
-  - *Purpose:* Stripped out monolithic tables and forms. The page now serves strictly as a shell layout with left sidebar navigation, delegating to isolated components.
-- **[ADDED]** rontend/modular/apps/admin/components/SaaS/Clients/ClientList.vue
-  - *Purpose:* Handles rendering of the Client list table.
-- **[ADDED]** rontend/modular/apps/admin/components/SaaS/Clients/ClientFormSlideover.vue
-  - *Purpose:* Handles the 'Add Client' form in a dedicated UCard inside a right-side USlideover.
-- **[ADDED]** rontend/modular/apps/admin/components/SaaS/Plans/PlanList.vue
-  - *Purpose:* Handles rendering of the Plan list table.
-- **[ADDED]** rontend/modular/apps/admin/components/SaaS/Plans/PlanFormSlideover.vue
-  - *Purpose:* Handles the 'Add Plan' form in a dedicated UCard inside a right-side USlideover.
-- **[ADDED]** rontend/modular/apps/admin/components/SaaS/Tokens/TokenList.vue
-  - *Purpose:* Handles rendering of the Token generation logs.
-- **[ADDED]** rontend/modular/apps/admin/components/SaaS/Tokens/TokenFormModal.vue
-  - *Purpose:* Handles the modal pop-window for generating new tokens.
-- **[ADDED]** rontend/modular/apps/admin/components/SaaS/Subscriptions/SubscriptionList.vue
-  - *Purpose:* Handles the listing of active Tenant subscriptions.
-
-
-### 10. SaaS Manager Pivot & Integration
-- **[DELETED]** rontend/modular/apps/admin/pages/saas-manager.vue & components/SaaS/
-  - *Purpose:* Scrapped the custom shell layout in favor of a native integration.
-- **[MODIFIED]** rontend/modular/packages/shared-ui/components/ModularAppShell.vue
-  - *Purpose:* Registered 'SaaS Manager' natively into the Admin global sidebar.
-- **[ADDED]** rontend/modular/apps/admin/pages/saas.vue
-  - *Purpose:* Bootstrapped the new SaaS Manager using standard UDashboardPage components. Currently implemented step 1 (Clients List).
-
-
-- **[MODIFIED]** frontend/modular/apps/admin/pages/saas.vue
-  - *Purpose:* Rebuilt all missing SaaS modules inside the native AppShell utilizing native SlideOvers for Add Client / Add Plan, and native Modals for Token Generation. Integrated API fetches for Tokens and Subscriptions.
-- **[MODIFIED]** frontend/modular/apps/admin/pages/setup.vue
-  - *Purpose:* Rebuilt the read-only Company setup page into a fully functional CRUD interface. Added full Add/Edit/Delete Modals for Companies, Store Groups, and Stores, fully wired up to the `MapCrud` API endpoints.
-- **[MODIFIED]** frontend/modular/apps/admin/pages/client-onboarding.vue
-  - *Purpose:* Rebuilt the read-only onboarding summary into a full 6-step wizard (Owner -> Company -> Address -> Config -> Key People -> Review), submitting directly to the `POST /api/client-onboarding/submit` endpoint.
-- **[MODIFIED]** frontend/modular/apps/admin/pages/access.vue
-  - *Purpose:* Rebuilt the read-only Users and Roles stub into a fully functional CRUD interface. Added Users table, Role Matrix table, Add/Edit User Slideover (with workspace scope cascading), and Reset Password/Delete Modals.
-
-### 11. Admin UI Fixes & Cleanups
-- **[MODIFIED]** `frontend/modular/apps/admin/pages/access.vue`
-  - *Purpose:* Fixed a critical bug in the Nuxt UI v4 `<UTabs>` implementation where missing string values caused the entire table and action buttons to disappear on click.
+### 12. Codebase Cleanup (POS, HR, Books Removal)
+- **[DELETED]** `frontend/modular/apps/pos`, `frontend/modular/apps/hr`, `frontend/modular/apps/books`
+  - *Purpose:* Removed these legacy modular apps entirely from the codebase per user request.
+- **[MODIFIED]** `frontend/modular/package.json`, `frontend/modular/config/routes.ts`, `frontend/modular/config/apps.ts`
+  - *Purpose:* Stripped all build scripts, deployment scripts, routing definitions, and app configurations relating to POS, HR, and Books to prevent application startup errors.
 - **[MODIFIED]** `frontend/modular/packages/shared-ui/components/ModularAppShell.vue`
-  - *Purpose:* Extracted the "Admin Home" link out of the "Company" dropdown and flattened it to be a top-level root link. Added robust fallback mapping in `.flatMap` and route computations to prevent Nuxt from throwing a 500 TypeError when encountering flat menu structures.
-- **[MODIFIED]** `frontend/modular/apps/admin/pages/index.vue`
-  - *Purpose:* Overhauled the Admin Dashboard layout. Corrected the SaaS Manager button routing, renamed UI cards for consistency, updated all call-to-action buttons to the unified `primary` color scheme, and added new "Maintenance" and "Data & Audit" blocks to the dashboard grid.
-- **[MODIFIED]** `frontend/modular/apps/admin/pages/subscription.vue`
-  - *Purpose:* Fixed a UI flaw where valid licenses missing an explicit `plan` string were erroneously labeled as a "Free Trial". Updated the view to correctly display "Active License" if the token is valid but has no branded plan name attached.
-
+  - *Purpose:* Removed their menu items from the sidebar and App Switcher.
+- **[MODIFIED]** Validation scripts (`validate-structure.mjs`, `validate-all.mjs`)
+  - *Purpose:* Excluded the removed apps from structural checks and automated dry runs.
