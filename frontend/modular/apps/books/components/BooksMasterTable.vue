@@ -7,17 +7,21 @@
             <th v-for="column in safeColumns" :key="column.key" class="whitespace-nowrap px-3 py-2 font-medium">
               {{ column.label }}
             </th>
+            <th v-if="$slots.actions" class="whitespace-nowrap px-3 py-2 font-medium">Actions</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-default">
           <tr v-if="safeRows.length === 0">
-            <td :colspan="safeColumns.length || 1" class="px-3 py-8 text-center text-muted">
+            <td :colspan="(safeColumns.length || 1) + ($slots.actions ? 1 : 0)" class="px-3 py-8 text-center text-muted">
               {{ emptyText }}
             </td>
           </tr>
           <tr v-for="(row, index) in safeRows" :key="rowKey(row, index)" class="bg-default/40">
             <td v-for="column in safeColumns" :key="column.key" class="max-w-72 truncate px-3 py-2">
               {{ cellValue(row, column.key) }}
+            </td>
+            <td v-if="$slots.actions" class="whitespace-nowrap px-3 py-2">
+              <slot name="actions" :row="row" :index="index" />
             </td>
           </tr>
         </tbody>
