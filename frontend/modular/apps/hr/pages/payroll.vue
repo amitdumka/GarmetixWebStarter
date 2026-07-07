@@ -110,15 +110,10 @@
       </div>
     </div>
 
-    <div v-if="activeTab === 'structures'" class="grid gap-4 xl:grid-cols-[minmax(360px,430px)_minmax(0,1fr)]">
-      <div class="garmetix-table-panel">
-        <div class="garmetix-panel-header">
-          <div>
-            <h3 class="garmetix-panel-title">{{ editingStructureId ? 'Edit Salary Structure' : 'New Salary Structure' }}</h3>
-            <p class="garmetix-panel-subtitle">Maintain earnings, deductions and current salary setup.</p>
-          </div>
-        </div>
+    <UModal v-model:open="structureFormOpen" :title="editingStructureId ? 'Edit Salary Structure' : 'New Salary Structure'">
+      <template #body>
         <div class="grid gap-3">
+          <p class="garmetix-panel-subtitle">Maintain earnings, deductions and current salary setup.</p>
           <UFormField label="Employee" required>
             <USelect v-model="structureForm.employeeId" :items="employeeOptions" placeholder="Select employee" />
           </UFormField>
@@ -151,13 +146,15 @@
             <div><p class="text-muted">Deductions</p><strong>{{ money(structureDeductions) }}</strong></div>
             <div><p class="text-muted">Net</p><strong>{{ money(structureNet) }}</strong></div>
           </div>
-          <div class="flex flex-wrap gap-2">
-            <UButton icon="i-lucide-save" :disabled="!canSaveStructure" :loading="saving" @click="saveStructure">Save Structure</UButton>
+          <div class="flex flex-wrap justify-end gap-2">
             <UButton color="neutral" variant="soft" @click="resetStructure">Clear</UButton>
+            <UButton icon="i-lucide-save" :disabled="!canSaveStructure" :loading="saving" @click="saveStructure">Save Structure</UButton>
           </div>
         </div>
-      </div>
+      </template>
+    </UModal>
 
+    <div v-if="activeTab === 'structures'" class="grid gap-4">
       <div class="garmetix-table-panel overflow-hidden">
         <div class="garmetix-panel-header">
           <div>
@@ -203,15 +200,10 @@
       </div>
     </div>
 
-    <div v-if="activeTab === 'payments'" class="grid gap-4 xl:grid-cols-[minmax(380px,460px)_minmax(0,1fr)]">
-      <div class="garmetix-table-panel">
-        <div class="garmetix-panel-header">
-          <div>
-            <h3 class="garmetix-panel-title">{{ editingPaymentId ? 'Edit Salary Payment' : 'New Salary Payment' }}</h3>
-            <p class="garmetix-panel-subtitle">Use preview to reduce salary advance, add previous due and round paid amount.</p>
-          </div>
-        </div>
+    <USlideover v-model:open="paymentFormOpen" :title="editingPaymentId ? 'Edit Salary Payment' : 'New Salary Payment'">
+      <template #body>
         <div class="grid gap-3">
+          <p class="garmetix-panel-subtitle">Use preview to reduce salary advance, add previous due and round paid amount.</p>
           <UFormField label="Employee" required>
             <USelect v-model="paymentForm.employeeId" :items="employeeOptions" placeholder="Select employee" @update:model-value="precalculatePayment(false)" />
           </UFormField>
@@ -250,13 +242,15 @@
             <div><p class="text-muted">Round off</p><strong>{{ money(Number(paymentForm.roundOff || 0)) }}</strong></div>
             <div><p class="text-muted">Balance</p><strong>{{ money(paymentBalance) }}</strong></div>
           </div>
-          <div class="flex flex-wrap gap-2">
-            <UButton icon="i-lucide-save" :disabled="!canSavePayment" :loading="saving" @click="savePayment">Save Payment</UButton>
+          <div class="flex flex-wrap justify-end gap-2">
             <UButton color="neutral" variant="soft" @click="resetPayment">Clear</UButton>
+            <UButton icon="i-lucide-save" :disabled="!canSavePayment" :loading="saving" @click="savePayment">Save Payment</UButton>
           </div>
         </div>
-      </div>
+      </template>
+    </USlideover>
 
+    <div v-if="activeTab === 'payments'" class="grid gap-4">
       <div class="garmetix-table-panel overflow-hidden">
         <div class="garmetix-panel-header">
           <div>
@@ -332,6 +326,8 @@ const structures = ref<ApiRecord[]>([])
 const payments = ref<ApiRecord[]>([])
 const editingStructureId = ref('')
 const editingPaymentId = ref('')
+const structureFormOpen = ref(false)
+const paymentFormOpen = ref(false)
 const { year, month } = currentYearMonth()
 const periodMonth = ref(`${year}-${String(month).padStart(2, '0')}`)
 
@@ -493,6 +489,7 @@ function resetPayment() {
 function startStructureCreate() {
   activeTab.value = 'structures'
   resetStructure()
+  structureFormOpen.value = true
 }
 
 function editStructure(item: ApiRecord) {
@@ -513,6 +510,7 @@ function editStructure(item: ApiRecord) {
     yearlyBonus: readNumber(item, ['yearlyBonus'])
   })
   editingStructureId.value = readText(item, ['id'], '')
+  structureFormOpen.value = true
 }
 
 function startPaymentCreate(structure?: ApiRecord) {
@@ -525,6 +523,7 @@ function startPaymentCreate(structure?: ApiRecord) {
     paymentForm.netSalary = netForStructure(structure)
     paymentForm.amount = Math.round(paymentForm.netSalary)
   }
+  paymentFormOpen.value = true
 }
 
 function startPaymentFromPayslip(payslip: ApiRecord) {
@@ -543,6 +542,7 @@ function startPaymentFromPayslip(payslip: ApiRecord) {
   paymentForm.amount = Math.round(readNumber(payslip, ['dueAmount', 'payableAmount', 'netSalary']))
   paymentForm.salaryPaySlipId = readText(payslip, ['id'], '')
   paymentForm.remarks = `Salary payment against payslip ${readText(payslip, ['monthYear'], '')}`.trim()
+  paymentFormOpen.value = true
 }
 
 function editPayment(payment: ApiRecord) {
@@ -562,6 +562,7 @@ function editPayment(payment: ApiRecord) {
     salaryPaySlipId: readText(payment, ['salaryPaySlipId'], '')
   })
   editingPaymentId.value = readText(payment, ['id'], '')
+  paymentFormOpen.value = true
 }
 
 function salaryMonthFromPayslip(payslip: ApiRecord) {
@@ -631,6 +632,7 @@ async function saveStructure() {
       showMessage('Salary structure saved.')
     }
     resetStructure()
+    structureFormOpen.value = false
     await load()
   } catch (caught) {
     showMessage(caught instanceof Error ? caught.message : 'Could not save salary structure.', 'error')
@@ -699,6 +701,7 @@ async function savePayment() {
       showMessage('Salary payment saved. PDF is ready for print/download.')
     }
     resetPayment()
+    paymentFormOpen.value = false
     await load()
     const id = readText(saved, ['id'], '')
     if (id) await downloadPayment(saved)
