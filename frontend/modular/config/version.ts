@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.56',
-  stage: 'Stage 14H.2 Books/HR UX Overhaul',
-  label: 'Version6 Stage 14H.2 Books/HR UX Overhaul',
-  summary: 'Books: Vouchers create/edit is now a modal; Ledgers and Parties gained create/edit forms (accounting.vue tabs and the standalone parties.vue page); GST return header/GSTR-3B sections and the financial-year-lock form now open as modals. HR: added an Attendance Dashboard page at /attendance-dash porting metric cards, manual punch, and today attendance into one view. Also fixed the factory-reset endpoint to require SuperAdmin (was Admin-gated) and added a blanket gitattributes line-ending rule.'
+  version: '6.0.57',
+  stage: 'Stage 14I HR Module UX Overhaul',
+  label: 'Version6 Stage 14I HR Module UX Overhaul',
+  summary: 'HR: Employees route renamed to /employees; Employee/Attendance forms moved to slideover/modal with legacy row shape (masked mobile), ID card generation+print, and pagination on Employees/Attendance/Monthly. Monthly Attendance generation ported legacy\'s month-end auto-trigger. Payroll Summary rebuilt as a readable per-employee report. Regularization, Shifts, Shift Rules, Policies, Benefits, Payroll (Salary Structure/Payment), Salary Payment, and Salary Draft all converted to modal/slideover forms with readable labels, filters and pagination. Added a DELETE endpoint for Attendance Policies and View/Edit/Delete for Salary Payments. Also split the Books Notes menu out of Accounting into its own group, fixed the factory-reset endpoint to require SuperAdmin, and added an --apps= selective-deploy flag to the SRP deploy script.'
 } as const
