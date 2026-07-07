@@ -140,11 +140,12 @@
         <div class="garmetix-panel-header">
           <div>
             <h3 class="garmetix-panel-title">Existing Payments</h3>
-            <p class="garmetix-panel-subtitle">{{ payments.length }} payment row(s)</p>
+            <p class="garmetix-panel-subtitle">{{ pagedPayments.length }} of {{ payments.length }} payment row(s)</p>
           </div>
+          <UInput v-model="paymentSearch" icon="i-lucide-search" placeholder="Search payments" class="w-48" />
         </div>
         <div class="overflow-auto">
-          <table class="w-full min-w-[760px] text-left text-sm">
+          <table class="w-full min-w-[860px] text-left text-sm">
             <thead class="bg-muted/30 text-xs uppercase text-muted">
               <tr>
                 <th class="px-3 py-2">Voucher</th>
@@ -152,24 +153,103 @@
                 <th class="px-3 py-2">Month</th>
                 <th class="px-3 py-2">Paid</th>
                 <th class="px-3 py-2">Status</th>
+                <th class="px-3 py-2 text-right">Action</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(payment, index) in payments" :key="readText(payment, ['id'], String(index))" class="border-t border-default">
+              <tr v-for="(payment, index) in pagedPayments" :key="readText(payment, ['id'], String(index))" class="border-t border-default">
                 <td class="px-3 py-2 font-medium">{{ readText(payment, ['voucherNumber', 'salaryPaymentNumber', 'number']) }}</td>
                 <td class="px-3 py-2">{{ readText(payment, ['employeeName', 'employee']) }}</td>
                 <td class="px-3 py-2">{{ readText(payment, ['monthYear', 'salaryMonth', 'month']) }}</td>
                 <td class="px-3 py-2 font-semibold">{{ formatIndianMoney(readNumber(payment, ['paidAmount', 'amount'])) }}</td>
                 <td class="px-3 py-2">{{ readText(payment, ['status']) }}</td>
+                <td class="px-3 py-2">
+                  <div class="flex justify-end gap-1">
+                    <UButton size="xs" icon="i-lucide-eye" color="neutral" variant="ghost" @click="viewPayment(payment)">View</UButton>
+                    <UButton size="xs" icon="i-lucide-pencil" color="neutral" variant="ghost" @click="editPayment(payment)">Edit</UButton>
+                    <UButton size="xs" icon="i-lucide-trash-2" color="error" variant="ghost" :loading="deletingId === readText(payment, ['id'], '')" @click="removePayment(payment)">Delete</UButton>
+                  </div>
+                </td>
               </tr>
-              <tr v-if="!payments.length">
-                <td class="px-3 py-6 text-center text-muted" colspan="5">No salary payments returned.</td>
+              <tr v-if="!pagedPayments.length">
+                <td class="px-3 py-6 text-center text-muted" colspan="6">No salary payments returned.</td>
               </tr>
             </tbody>
           </table>
         </div>
+        <div v-if="payments.length" class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
+          <p>Page {{ paymentPage }} of {{ paymentTotalPages }}</p>
+          <div class="flex items-center gap-2">
+            <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-left" :disabled="paymentPage <= 1" @click="paymentPage--">Prev</UButton>
+            <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-right" :disabled="paymentPage >= paymentTotalPages" @click="paymentPage++">Next</UButton>
+          </div>
+        </div>
       </div>
     </section>
+
+    <UModal v-model:open="detailOpen" :title="detailMode === 'edit' ? 'Edit Salary Payment' : 'Salary Payment Detail'">
+      <template #body>
+        <div v-if="selectedPayment" class="space-y-4">
+          <div class="grid gap-3 md:grid-cols-2">
+            <div class="garmetix-row-card">
+              <p class="text-xs text-muted">Employee</p>
+              <p class="mt-1 font-semibold">{{ readText(selectedPayment, ['employeeName', 'employee']) }}</p>
+            </div>
+            <div class="garmetix-row-card">
+              <p class="text-xs text-muted">Voucher</p>
+              <p class="mt-1 font-semibold">{{ readText(selectedPayment, ['voucherNumber']) }}</p>
+            </div>
+            <div class="garmetix-row-card">
+              <p class="text-xs text-muted">Gross Salary</p>
+              <p class="mt-1 font-semibold">{{ formatIndianMoney(readNumber(selectedPayment, ['grossSalary'])) }}</p>
+            </div>
+            <div class="garmetix-row-card">
+              <p class="text-xs text-muted">Total Deductions</p>
+              <p class="mt-1 font-semibold">{{ formatIndianMoney(readNumber(selectedPayment, ['totalDeductions'])) }}</p>
+            </div>
+            <div class="garmetix-row-card">
+              <p class="text-xs text-muted">Net Salary</p>
+              <p class="mt-1 font-semibold">{{ formatIndianMoney(readNumber(selectedPayment, ['netSalary'])) }}</p>
+            </div>
+            <div class="garmetix-row-card">
+              <p class="text-xs text-muted">Paid Amount</p>
+              <p class="mt-1 font-semibold">{{ formatIndianMoney(readNumber(selectedPayment, ['amount'])) }}</p>
+            </div>
+          </div>
+
+          <template v-if="detailMode === 'edit'">
+            <div class="grid gap-3 md:grid-cols-2">
+              <UFormField label="Payment Date">
+                <UInput v-model="editForm.onDate" type="date" />
+              </UFormField>
+              <UFormField label="Payment Mode">
+                <USelect v-model="editForm.paymentMode" :items="paymentModeOptions" />
+              </UFormField>
+            </div>
+            <UFormField label="Remarks">
+              <UTextarea v-model="editForm.remarks" :rows="2" />
+            </UFormField>
+            <div class="flex justify-end gap-2">
+              <UButton color="neutral" variant="soft" @click="detailOpen = false">Cancel</UButton>
+              <UButton color="primary" icon="i-lucide-save" :loading="savingPayment" @click="saveEditedPayment">Save Changes</UButton>
+            </div>
+          </template>
+          <template v-else>
+            <div class="grid gap-3 md:grid-cols-2">
+              <div class="garmetix-row-card">
+                <p class="text-xs text-muted">Payment Date</p>
+                <p class="mt-1 font-semibold">{{ formatDate(readText(selectedPayment, ['onDate'])) }}</p>
+              </div>
+              <div class="garmetix-row-card">
+                <p class="text-xs text-muted">Payment Mode</p>
+                <p class="mt-1 font-semibold">{{ readText(selectedPayment, ['paymentMode']) }}</p>
+              </div>
+            </div>
+            <p v-if="readText(selectedPayment, ['remarks'])" class="text-sm text-muted">{{ readText(selectedPayment, ['remarks']) }}</p>
+          </template>
+        </div>
+      </template>
+    </UModal>
   </section>
 </template>
 
@@ -179,7 +259,7 @@ import { currentYearMonth, readArray, readNumber, readText, toLocalDateInput, ty
 
 useHead({ title: 'Salary Payments - Garmetix HR' })
 
-const { get, post } = useHrApiClient()
+const { get, post, put, del } = useHrApiClient()
 const current = currentYearMonth()
 const year = ref(current.year)
 const month = ref(current.month)
@@ -201,8 +281,33 @@ const paymentForm = reactive({
   paymentDate: toLocalDateInput(new Date()),
   notes: ''
 })
+const paymentSearch = ref('')
+const paymentPage = ref(1)
+const paymentPageSize = ref(20)
+const deletingId = ref('')
+const savingPayment = ref(false)
+const detailOpen = ref(false)
+const detailMode = ref<'view' | 'edit'>('view')
+const selectedPayment = ref<ApiRecord | null>(null)
+const editForm = reactive({
+  onDate: toLocalDateInput(),
+  paymentMode: 'Cash',
+  remarks: ''
+})
 
 const candidates = computed(() => readArray(candidateSummary.value, ['rows', 'Rows']))
+const filteredPayments = computed(() => {
+  const term = paymentSearch.value.trim().toLowerCase()
+  if (!term) return payments.value
+  return payments.value.filter(row => JSON.stringify(row).toLowerCase().includes(term))
+})
+const paymentTotalPages = computed(() => Math.max(1, Math.ceil(filteredPayments.value.length / paymentPageSize.value)))
+const pagedPayments = computed(() => {
+  const start = (paymentPage.value - 1) * paymentPageSize.value
+  return filteredPayments.value.slice(start, start + paymentPageSize.value)
+})
+
+watch(paymentSearch, () => { paymentPage.value = 1 })
 const messageIcon = computed(() => messageTone.value === 'success' ? 'i-lucide-circle-check' : messageTone.value === 'warning' ? 'i-lucide-triangle-alert' : messageTone.value === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-info')
 const paymentIcon = computed(() => paymentTone.value === 'success' ? 'i-lucide-circle-check' : paymentTone.value === 'warning' ? 'i-lucide-triangle-alert' : paymentTone.value === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-info')
 const paymentModeOptions = ['Cash', 'UPI', 'Card', 'NEFT', 'IMPS', 'RTGS', 'Cheque', 'Others']
@@ -246,6 +351,83 @@ function candidateEmployeeId(candidate: ApiRecord) {
 
 function candidateSalaryPaySlipId(candidate: ApiRecord) {
   return readText(candidate, ['generatedSalaryPaySlipId', 'salaryPaySlipId', 'GeneratedSalaryPaySlipId', 'SalaryPaySlipId'], '')
+}
+
+function formatDate(value: string) {
+  if (!value || value === '-') return '-'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString()
+}
+
+function viewPayment(payment: ApiRecord) {
+  selectedPayment.value = payment
+  detailMode.value = 'view'
+  detailOpen.value = true
+}
+
+function editPayment(payment: ApiRecord) {
+  selectedPayment.value = payment
+  detailMode.value = 'edit'
+  Object.assign(editForm, {
+    onDate: readText(payment, ['onDate'], toLocalDateInput()).slice(0, 10),
+    paymentMode: readText(payment, ['paymentMode'], 'Cash'),
+    remarks: readText(payment, ['remarks'], '')
+  })
+  detailOpen.value = true
+}
+
+async function saveEditedPayment() {
+  const payment = selectedPayment.value
+  const id = readText(payment, ['id'], '')
+  if (!payment || !id) return
+
+  savingPayment.value = true
+  message.value = ''
+  try {
+    await put<ApiRecord>(`api/salary-payments/${id}`, {
+      employeeId: readText(payment, ['employeeId'], ''),
+      salaryMonth: readNumber(payment, ['salaryMonth']),
+      onDate: editForm.onDate,
+      salaryComponent: readText(payment, ['salaryComponent'], 'NetSalary'),
+      grossSalary: readNumber(payment, ['grossSalary']),
+      totalDeductions: readNumber(payment, ['totalDeductions']),
+      netSalary: readNumber(payment, ['netSalary']),
+      amount: readNumber(payment, ['amount']),
+      paymentMode: editForm.paymentMode,
+      remarks: editForm.remarks?.trim() || null,
+      salaryPaySlipId: readText(payment, ['salaryPaySlipId'], '') || null,
+      companyId: readText(payment, ['companyId'], ''),
+      storeGroupId: readText(payment, ['storeGroupId'], ''),
+      storeId: readText(payment, ['storeId'], '')
+    })
+    messageTone.value = 'success'
+    message.value = 'Salary payment updated.'
+    detailOpen.value = false
+    await load()
+  } catch (caught) {
+    messageTone.value = 'error'
+    message.value = caught instanceof Error ? caught.message : 'Unable to update salary payment.'
+  } finally {
+    savingPayment.value = false
+  }
+}
+
+async function removePayment(payment: ApiRecord) {
+  const id = readText(payment, ['id'], '')
+  if (!id || !window.confirm(`Delete salary payment for ${readText(payment, ['employeeName', 'employee'])}? This also reverses its accounting posting.`)) return
+  deletingId.value = id
+  message.value = ''
+  try {
+    await del<void>(`api/salary-payments/${id}`)
+    messageTone.value = 'success'
+    message.value = 'Salary payment deleted.'
+    await load()
+  } catch (caught) {
+    messageTone.value = 'error'
+    message.value = caught instanceof Error ? caught.message : 'Unable to delete salary payment.'
+  } finally {
+    deletingId.value = ''
+  }
 }
 
 async function load() {
