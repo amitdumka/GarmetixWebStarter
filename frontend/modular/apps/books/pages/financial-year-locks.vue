@@ -20,16 +20,8 @@
     <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
     <UAlert v-if="message" color="success" variant="subtle" icon="i-lucide-circle-check" :description="message" />
 
-    <section v-if="showLockForm" class="garmetix-section-card">
-      <div class="mb-3 flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h3 class="garmetix-panel-title">{{ lockFormMode === 'edit' ? 'Update Financial Year Lock' : 'New Financial Year Lock' }}</h3>
-          <p class="garmetix-panel-subtitle">
-            Locks block edits to the selected modules for the period. Type <strong>LOCK FINANCIAL YEAR</strong> to save.
-          </p>
-        </div>
-        <UBadge color="warning" variant="subtle">Guarded write</UBadge>
-      </div>
+    <UModal v-model:open="showLockForm" :title="lockFormMode === 'edit' ? 'Update Financial Year Lock' : 'New Financial Year Lock'" description="Locks block edits to the selected modules for the period. Type LOCK FINANCIAL YEAR to save.">
+      <template #body>
       <form class="grid gap-3 xl:grid-cols-12" @submit.prevent="saveFinancialYearLock">
         <label class="space-y-1 text-sm xl:col-span-3">
           <span class="text-muted">Financial Year</span>
@@ -87,7 +79,8 @@
           </UButton>
         </div>
       </form>
-    </section>
+      </template>
+    </UModal>
 
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">

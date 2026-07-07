@@ -41,36 +41,50 @@
         </div>
       </div>
 
-      <div class="grid gap-3 xl:grid-cols-12">
-        <label class="space-y-1 text-sm xl:col-span-3">
-          <span class="text-muted">GSTIN</span>
-          <UInput v-model="header.gstin" placeholder="22AAAAA0000A1Z5" />
-        </label>
-        <label class="space-y-1 text-sm xl:col-span-2">
-          <span class="text-muted">Return Period</span>
-          <UInput v-model="header.returnPeriod" placeholder="MMYYYY" />
-        </label>
-        <label class="space-y-1 text-sm xl:col-span-3">
-          <span class="text-muted">Legal Name</span>
-          <UInput v-model="header.legalName" />
-        </label>
-        <label class="space-y-1 text-sm xl:col-span-4">
-          <span class="text-muted">Trade Name</span>
-          <UInput v-model="header.tradeName" />
-        </label>
-        <label class="space-y-1 text-sm xl:col-span-3">
-          <span class="text-muted">Gross Turnover</span>
-          <UInput v-model="header.grossTurnover" type="number" step="0.01" />
-        </label>
-        <label class="space-y-1 text-sm xl:col-span-3">
-          <span class="text-muted">Current Turnover</span>
-          <UInput v-model="header.currentTurnover" type="number" step="0.01" />
-        </label>
-        <label class="space-y-1 text-sm xl:col-span-6">
-          <span class="text-muted">Draft Title</span>
-          <UInput v-model="draftTitle" placeholder="e.g. GSTR-1 April 2026 draft" />
-        </label>
+      <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-default p-3">
+        <p class="text-sm text-muted">
+          {{ header.gstin || 'GSTIN not set' }} - Period {{ header.returnPeriod || '-' }} - {{ header.legalName || 'Legal name not set' }}
+        </p>
+        <UButton size="xs" icon="i-lucide-pencil" color="neutral" variant="soft" @click="headerFormOpen = true">Edit</UButton>
       </div>
+
+      <UModal v-model:open="headerFormOpen" title="Return Header">
+        <template #body>
+          <div class="grid gap-3 xl:grid-cols-12">
+            <label class="space-y-1 text-sm xl:col-span-3">
+              <span class="text-muted">GSTIN</span>
+              <UInput v-model="header.gstin" placeholder="22AAAAA0000A1Z5" />
+            </label>
+            <label class="space-y-1 text-sm xl:col-span-2">
+              <span class="text-muted">Return Period</span>
+              <UInput v-model="header.returnPeriod" placeholder="MMYYYY" />
+            </label>
+            <label class="space-y-1 text-sm xl:col-span-3">
+              <span class="text-muted">Legal Name</span>
+              <UInput v-model="header.legalName" />
+            </label>
+            <label class="space-y-1 text-sm xl:col-span-4">
+              <span class="text-muted">Trade Name</span>
+              <UInput v-model="header.tradeName" />
+            </label>
+            <label class="space-y-1 text-sm xl:col-span-3">
+              <span class="text-muted">Gross Turnover</span>
+              <UInput v-model="header.grossTurnover" type="number" step="0.01" />
+            </label>
+            <label class="space-y-1 text-sm xl:col-span-3">
+              <span class="text-muted">Current Turnover</span>
+              <UInput v-model="header.currentTurnover" type="number" step="0.01" />
+            </label>
+            <label class="space-y-1 text-sm xl:col-span-6">
+              <span class="text-muted">Draft Title</span>
+              <UInput v-model="draftTitle" placeholder="e.g. GSTR-1 April 2026 draft" />
+            </label>
+          </div>
+          <div class="mt-4 flex justify-end">
+            <UButton size="sm" color="primary" @click="headerFormOpen = false">Done</UButton>
+          </div>
+        </template>
+      </UModal>
 
       <div class="mt-4 flex flex-wrap gap-2">
         <UButton icon="i-lucide-eye" color="primary" variant="soft" :loading="previewLoading" @click="previewReturn">Preview</UButton>
@@ -214,44 +228,102 @@
 
     <section v-else class="space-y-4">
       <div class="garmetix-section-card">
-        <h3 class="garmetix-panel-title mb-3">GSTR-3B 3.1 Supplies</h3>
-        <div class="grid gap-3 xl:grid-cols-4">
-          <label v-for="field in suppliesFields" :key="field.key" class="space-y-1 text-sm">
-            <span class="text-muted">{{ field.label }}</span>
-            <UInput v-model="supplies[field.key]" type="number" step="0.01" />
-          </label>
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h3 class="garmetix-panel-title">GSTR-3B 3.1 Supplies</h3>
+            <p class="garmetix-panel-subtitle">{{ fieldsSummary(suppliesFields, supplies) }}</p>
+          </div>
+          <UButton size="xs" icon="i-lucide-pencil" color="neutral" variant="soft" @click="suppliesFormOpen = true">Edit</UButton>
         </div>
       </div>
+      <UModal v-model:open="suppliesFormOpen" title="GSTR-3B 3.1 Supplies">
+        <template #body>
+          <div class="grid gap-3 xl:grid-cols-4">
+            <label v-for="field in suppliesFields" :key="field.key" class="space-y-1 text-sm">
+              <span class="text-muted">{{ field.label }}</span>
+              <UInput v-model="supplies[field.key]" type="number" step="0.01" />
+            </label>
+          </div>
+          <div class="mt-4 flex justify-end">
+            <UButton size="sm" color="primary" @click="suppliesFormOpen = false">Done</UButton>
+          </div>
+        </template>
+      </UModal>
 
       <div class="garmetix-section-card">
-        <h3 class="garmetix-panel-title mb-3">ITC Available</h3>
-        <div class="grid gap-3 xl:grid-cols-4">
-          <label v-for="field in itcFields" :key="field.key" class="space-y-1 text-sm">
-            <span class="text-muted">{{ field.label }}</span>
-            <UInput v-model="itc[field.key]" type="number" step="0.01" />
-          </label>
-        </div>
-
-        <h4 class="garmetix-panel-title mb-3 mt-4 text-sm">Interstate Supplies</h4>
-        <div class="grid gap-3 xl:grid-cols-4">
-          <label v-for="field in interStateFields" :key="field.key" class="space-y-1 text-sm">
-            <span class="text-muted">{{ field.label }}</span>
-            <UInput v-model="interStateSupplies[field.key]" type="number" step="0.01" />
-          </label>
-        </div>
-
-        <h4 class="garmetix-panel-title mb-3 mt-4 text-sm">Inward Supplies and Interest/Late Fee</h4>
-        <div class="grid gap-3 xl:grid-cols-4">
-          <label v-for="field in inwardFields" :key="field.key" class="space-y-1 text-sm">
-            <span class="text-muted">{{ field.label }}</span>
-            <UInput v-model="inwardSupplies[field.key]" type="number" step="0.01" />
-          </label>
-          <label v-for="field in interestLateFeeFields" :key="field.key" class="space-y-1 text-sm">
-            <span class="text-muted">{{ field.label }}</span>
-            <UInput v-model="interestLateFee[field.key]" type="number" step="0.01" />
-          </label>
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h3 class="garmetix-panel-title">ITC Available</h3>
+            <p class="garmetix-panel-subtitle">{{ fieldsSummary(itcFields, itc) }}</p>
+          </div>
+          <UButton size="xs" icon="i-lucide-pencil" color="neutral" variant="soft" @click="itcFormOpen = true">Edit</UButton>
         </div>
       </div>
+      <UModal v-model:open="itcFormOpen" title="ITC Available">
+        <template #body>
+          <div class="grid gap-3 xl:grid-cols-4">
+            <label v-for="field in itcFields" :key="field.key" class="space-y-1 text-sm">
+              <span class="text-muted">{{ field.label }}</span>
+              <UInput v-model="itc[field.key]" type="number" step="0.01" />
+            </label>
+          </div>
+          <div class="mt-4 flex justify-end">
+            <UButton size="sm" color="primary" @click="itcFormOpen = false">Done</UButton>
+          </div>
+        </template>
+      </UModal>
+
+      <div class="garmetix-section-card">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h3 class="garmetix-panel-title">Interstate Supplies</h3>
+            <p class="garmetix-panel-subtitle">{{ fieldsSummary(interStateFields, interStateSupplies) }}</p>
+          </div>
+          <UButton size="xs" icon="i-lucide-pencil" color="neutral" variant="soft" @click="interStateFormOpen = true">Edit</UButton>
+        </div>
+      </div>
+      <UModal v-model:open="interStateFormOpen" title="Interstate Supplies">
+        <template #body>
+          <div class="grid gap-3 xl:grid-cols-4">
+            <label v-for="field in interStateFields" :key="field.key" class="space-y-1 text-sm">
+              <span class="text-muted">{{ field.label }}</span>
+              <UInput v-model="interStateSupplies[field.key]" type="number" step="0.01" />
+            </label>
+          </div>
+          <div class="mt-4 flex justify-end">
+            <UButton size="sm" color="primary" @click="interStateFormOpen = false">Done</UButton>
+          </div>
+        </template>
+      </UModal>
+
+      <div class="garmetix-section-card">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h3 class="garmetix-panel-title">Inward Supplies and Interest/Late Fee</h3>
+            <p class="garmetix-panel-subtitle">
+              {{ fieldsSummary(inwardFields, inwardSupplies) }} - {{ fieldsSummary(interestLateFeeFields, interestLateFee) }}
+            </p>
+          </div>
+          <UButton size="xs" icon="i-lucide-pencil" color="neutral" variant="soft" @click="inwardFormOpen = true">Edit</UButton>
+        </div>
+      </div>
+      <UModal v-model:open="inwardFormOpen" title="Inward Supplies and Interest/Late Fee">
+        <template #body>
+          <div class="grid gap-3 xl:grid-cols-4">
+            <label v-for="field in inwardFields" :key="field.key" class="space-y-1 text-sm">
+              <span class="text-muted">{{ field.label }}</span>
+              <UInput v-model="inwardSupplies[field.key]" type="number" step="0.01" />
+            </label>
+            <label v-for="field in interestLateFeeFields" :key="field.key" class="space-y-1 text-sm">
+              <span class="text-muted">{{ field.label }}</span>
+              <UInput v-model="interestLateFee[field.key]" type="number" step="0.01" />
+            </label>
+          </div>
+          <div class="mt-4 flex justify-end">
+            <UButton size="sm" color="primary" @click="inwardFormOpen = false">Done</UButton>
+          </div>
+        </template>
+      </UModal>
     </section>
 
     <section v-if="preview" class="garmetix-section-card">
@@ -483,6 +555,16 @@ const setupStatus = ref<ApiRecord | null>(null)
 const stores = ref<ApiRecord[]>([])
 const shareOpen = ref(false)
 const lastShareResponse = ref<ApiRecord | null>(null)
+const headerFormOpen = ref(false)
+const suppliesFormOpen = ref(false)
+const itcFormOpen = ref(false)
+const interStateFormOpen = ref(false)
+const inwardFormOpen = ref(false)
+
+function fieldsSummary(fields: ReadonlyArray<{ key: string, label: string }>, model: Record<string, unknown>) {
+  const filled = fields.filter(field => Number(model[field.key] || 0) !== 0).length
+  return `${filled} of ${fields.length} field(s) entered`
+}
 
 const header = reactive({
   gstin: '',
