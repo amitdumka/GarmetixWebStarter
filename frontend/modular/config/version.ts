@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.55',
-  stage: 'Stage 14H.1 POS Counter UX Refresh',
-  label: 'Version6 Stage 14H.1 POS Counter UX Refresh',
-  summary: 'POS Home: registered a Home menu route, removed the redundant Sales History nav entry, and added live Today/Return/Cash/UPI/Card/Other sale widgets. Sale History invoice detail and the Return/Exchange entry forms moved into slide-over panels, and Return/Exchange gained date/status filters plus pagination matching Sales History.'
+  version: '6.0.56',
+  stage: 'Stage 14H.2 Books/HR UX Overhaul',
+  label: 'Version6 Stage 14H.2 Books/HR UX Overhaul',
+  summary: 'Books: Vouchers create/edit is now a modal; Ledgers and Parties gained create/edit forms (accounting.vue tabs and the standalone parties.vue page); GST return header/GSTR-3B sections and the financial-year-lock form now open as modals. HR: added an Attendance Dashboard page at /attendance-dash porting metric cards, manual punch, and today attendance into one view. Also fixed the factory-reset endpoint to require SuperAdmin (was Admin-gated) and added a blanket gitattributes line-ending rule.'
 } as const
