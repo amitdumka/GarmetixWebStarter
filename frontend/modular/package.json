@@ -57,6 +57,7 @@
     "books:posting-preflight": "node scripts/books-posting-preflight.mjs",
     "books:parity-baseline": "node scripts/books-parity-baseline.mjs",
     "books:stage13d-closure": "node scripts/books-stage13d-closure.mjs",
+    "books:stage14c5-closure": "node scripts/books-stage14c5-closure.mjs",
     "admin:saas-readiness": "node scripts/admin-saas-readiness.mjs",
     "admin:browser-acceptance": "node scripts/admin-browser-acceptance.mjs",
     "admin:writable-preflight": "node scripts/admin-writable-preflight.mjs",

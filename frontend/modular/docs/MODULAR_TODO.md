@@ -310,7 +310,7 @@ Goal: complete Books next, module-by-module, after HR code closure. Keep live po
 - 14A.12 complete: bump modular version identity to `6.0.28`, remove the direct invoice PDF QR dependency from the PDF path after live testing showed the CLR failed before fallback catch handling, and keep a scan-code fallback box until QR packaging is repaired.
 - 14A.13 complete: bump modular version identity to `6.0.29`, promote POS `/history` toward legacy `/billing` invoice register parity with server-side paging, date/status filters, register totals, cancel action and hard-delete action.
 - 14C.4 complete: bump modular version identity to `6.0.42`, add vendor bank account guarded edit, secure bank detail review/update, masked account review, settlement-closure dashboard, evidence CSV handoff and bank statement import planning.
-- 14C.5 next: complete Books GST/accounting report finalization, financial-year lock acceptance and final Books closure gate.
+- 14C.5 complete: bump modular version identity to `6.0.52`, confirm GST report/return export handoff (CSV/JSON/Excel/schema review) against the live `GstReturns`/`Gstin` backend, fix a GSTIN provider role-visibility gap on `gst-production`, add guarded financial-year lock create/unlock actions to `financial-year-locks`, and add the Books Stage 14C.5 final closure gate script. Books Version6 modular parity lane is closed.
 - Reuse the Stage 13D Books readiness scripts, then upgrade them for Version6 live-safe evidence.
 - 14C.1 was deployed as checkpoint 3 after the prior `.127` deployment.
 - 14C.2 is checkpoint 1 after the Stage 14B.12 `.127` deployment. Deploy on checkpoint 3 unless live testing is explicitly requested earlier.
@@ -332,7 +332,7 @@ Goal: merge customer CRM and Digital Bill CRM into a dedicated `crm` modular app
 - 14D.8 complete: bump modular version identity to `6.0.40`, promote invoice ad banners to create/edit/delete CRM workbench, and add anonymous `/i/:token` digital bill customer page with PDF, review, WhatsApp support, feedback and banner-click tracking.
 - 14D.9 complete: bump modular version identity to `6.0.41`, promote Digital Bill Acceptance to a real final-readiness console, add public token/PDF smoke launchers, add CRM final closure gate, and wire CRM closure/build into validation.
 - CRM lane is code-ready. Production handover remains conditional on real public-token/manual browser evidence.
-- Next: continue Books `14C.5` GST/accounting report finalization, financial-year lock acceptance and final Books closure gate.
+- Books `14C.5` is complete; the Books Version6 modular parity lane is closed pending live-token/manual evidence.
 
 ## Stage 14F: Version6 Assistant, MCP And AI Sense Assistant Lane
 
@@ -348,5 +348,5 @@ Goal: add an embedded Garmetix Assistant and later MCP tool layer without splitt
 - 14F.6C complete: bump modular version identity to `6.0.51`, declare AI Sense connected-analysis props at runtime so report endpoints survive production bundling, and guard against missing endpoint values causing API root `/api/` calls.
 - 14F.7 next: add MCP wrapper around the same read-only tool catalog after the in-app assistant is stable.
 - Assistant backend provider secrets must be provided only through server-side environment variables.
-- Regular module sequence still continues with Books `14C.5` unless Assistant/MCP is explicitly prioritized next.
+- Books modular lane is closed at `14C.5`; regular module sequence now depends on Amit's next priority (Assistant/MCP `14F.7`, the cross-module live-evidence backlog, or the AntiGravity port review).
 

@@ -6,17 +6,88 @@
           <p class="garmetix-kicker"><UIcon name="i-lucide-lock-keyhole" class="size-4" /> Accounting controls</p>
           <h2 class="garmetix-dashboard-title">Financial Year Locks</h2>
           <p class="garmetix-dashboard-subtitle">
-            Review active and historical period locks, module lock coverage, operator trace and journal balance checks. Lock and unlock actions remain in the audited legacy/admin flow for now.
+            Review active and historical period locks, module lock coverage, operator trace and journal balance checks. Lock and unlock actions require the confirmation phrase and Accounting Edit permission.
           </p>
         </div>
         <div class="flex flex-wrap gap-2">
+          <UButton icon="i-lucide-lock-keyhole" color="primary" @click="startLockCreate">New Lock</UButton>
           <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refresh">Refresh</UButton>
-          <UBadge color="primary" variant="subtle">Read only</UBadge>
+          <UBadge color="warning" variant="subtle">Guarded write</UBadge>
         </div>
       </div>
     </div>
 
     <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
+    <UAlert v-if="message" color="success" variant="subtle" icon="i-lucide-circle-check" :description="message" />
+
+    <section v-if="showLockForm" class="garmetix-section-card">
+      <div class="mb-3 flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h3 class="garmetix-panel-title">{{ lockFormMode === 'edit' ? 'Update Financial Year Lock' : 'New Financial Year Lock' }}</h3>
+          <p class="garmetix-panel-subtitle">
+            Locks block edits to the selected modules for the period. Type <strong>LOCK FINANCIAL YEAR</strong> to save.
+          </p>
+        </div>
+        <UBadge color="warning" variant="subtle">Guarded write</UBadge>
+      </div>
+      <form class="grid gap-3 xl:grid-cols-12" @submit.prevent="saveFinancialYearLock">
+        <label class="space-y-1 text-sm xl:col-span-3">
+          <span class="text-muted">Financial Year</span>
+          <UInput v-model="lockForm.financialYear" placeholder="2026-2027" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-2">
+          <span class="text-muted">Period Start</span>
+          <UInput v-model="lockForm.periodStart" type="date" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-2">
+          <span class="text-muted">Period End</span>
+          <UInput v-model="lockForm.periodEnd" type="date" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-3">
+          <span class="text-muted">Scope</span>
+          <USelect v-model="lockForm.scope" :items="lockScopeItems" />
+        </label>
+        <label class="space-y-1 text-sm xl:col-span-2">
+          <span class="text-muted">Confirmation</span>
+          <UInput v-model="lockConfirmation" placeholder="LOCK FINANCIAL YEAR" />
+        </label>
+
+        <div class="grid grid-cols-2 gap-2 text-sm xl:col-span-12 sm:grid-cols-5">
+          <label class="garmetix-row-card flex items-center justify-between gap-2">
+            <span>Accounting</span>
+            <USwitch v-model="lockForm.lockAccounting" />
+          </label>
+          <label class="garmetix-row-card flex items-center justify-between gap-2">
+            <span>Sales</span>
+            <USwitch v-model="lockForm.lockSales" />
+          </label>
+          <label class="garmetix-row-card flex items-center justify-between gap-2">
+            <span>Purchase</span>
+            <USwitch v-model="lockForm.lockPurchase" />
+          </label>
+          <label class="garmetix-row-card flex items-center justify-between gap-2">
+            <span>Inventory</span>
+            <USwitch v-model="lockForm.lockInventory" />
+          </label>
+          <label class="garmetix-row-card flex items-center justify-between gap-2">
+            <span>GST</span>
+            <USwitch v-model="lockForm.lockGst" />
+          </label>
+        </div>
+
+        <label class="space-y-1 text-sm xl:col-span-12">
+          <span class="text-muted">Reason</span>
+          <UTextarea v-model="lockForm.reason" :rows="2" placeholder="Lock reason for audit trail" />
+        </label>
+
+        <div class="flex flex-wrap justify-end gap-2 xl:col-span-12">
+          <UButton type="button" icon="i-lucide-x" color="neutral" variant="ghost" @click="cancelLockForm">Cancel</UButton>
+          <UButton type="submit" icon="i-lucide-save" color="primary" :loading="savingLock">
+            {{ lockFormMode === 'edit' ? 'Update Lock' : 'Save Lock' }}
+          </UButton>
+        </div>
+      </form>
+    </section>
 
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
@@ -61,6 +132,38 @@
             </div>
           </dl>
           <p v-else class="mt-6 text-sm text-muted">Select a lock row to review its period and operator trace.</p>
+
+          <div v-if="selectedLock" class="mt-4 flex flex-wrap gap-2">
+            <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="soft" @click="startLockEdit(selectedLock)">Edit</UButton>
+            <UButton
+              v-if="selectedLock.active !== false"
+              icon="i-lucide-unlock"
+              size="xs"
+              color="warning"
+              variant="soft"
+              @click="startUnlock(selectedLock)"
+            >
+              Unlock
+            </UButton>
+          </div>
+
+          <form v-if="unlockAction.id" class="mt-4 space-y-3 border-t border-default pt-4" @submit.prevent="submitUnlock">
+            <p class="garmetix-panel-subtitle">
+              Type <strong>UNLOCK FINANCIAL YEAR</strong> to unlock {{ selectedLockLabel }}.
+            </p>
+            <label class="block space-y-1 text-sm">
+              <span class="text-muted">Unlock Reason</span>
+              <UTextarea v-model="unlockAction.reason" :rows="2" placeholder="Unlock reason for audit trail" />
+            </label>
+            <label class="block space-y-1 text-sm">
+              <span class="text-muted">Confirmation</span>
+              <UInput v-model="unlockAction.confirmation" placeholder="UNLOCK FINANCIAL YEAR" />
+            </label>
+            <div class="flex flex-wrap justify-end gap-2">
+              <UButton type="button" icon="i-lucide-x" color="neutral" variant="ghost" @click="cancelUnlock">Cancel</UButton>
+              <UButton type="submit" icon="i-lucide-unlock" color="warning" :loading="savingUnlock">Unlock Period</UButton>
+            </div>
+          </form>
         </div>
 
         <div class="garmetix-section-card">
@@ -84,19 +187,47 @@ import { formatDate, readArray, readNumber, readText, toRows, type ApiRecord, us
 
 useHead({ title: 'Financial Year Locks - Garmetix Books' })
 
-const { get } = useBooksApiClient()
+interface LockForm {
+  id: string
+  financialYear: string
+  periodStart: string
+  periodEnd: string
+  scope: 'company' | 'store'
+  lockAccounting: boolean
+  lockSales: boolean
+  lockPurchase: boolean
+  lockInventory: boolean
+  lockGst: boolean
+  reason: string
+}
+
+const { get, post } = useBooksApiClient()
 const loading = ref(true)
 const error = ref('')
+const message = ref('')
 const search = ref('')
 const statusFilter = ref('active')
 const selectedLockId = ref('')
 const locks = ref<ApiRecord[]>([])
 const journalValidation = ref<ApiRecord | null>(null)
+const setupStatus = ref<ApiRecord | null>(null)
+const stores = ref<ApiRecord[]>([])
+const showLockForm = ref(false)
+const lockFormMode = ref<'create' | 'edit'>('create')
+const lockConfirmation = ref('')
+const savingLock = ref(false)
+const savingUnlock = ref(false)
+const lockForm = reactive<LockForm>(emptyLockForm())
+const unlockAction = reactive({ id: '', reason: '', confirmation: '' })
 
 const statusItems = [
   { label: 'Active', value: 'active' },
   { label: 'Unlocked', value: 'unlocked' },
   { label: 'All', value: 'all' }
+]
+const lockScopeItems = [
+  { label: 'Whole Company', value: 'company' },
+  { label: 'Current Store', value: 'store' }
 ]
 const lockColumns = [
   { key: 'financialYear', label: 'Financial Year' },
@@ -206,17 +337,177 @@ function formatDateTime(value: unknown) {
   return new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }
 
+function emptyLockForm(): LockForm {
+  return {
+    id: '',
+    financialYear: '',
+    periodStart: localDateValue(),
+    periodEnd: localDateValue(),
+    scope: 'company',
+    lockAccounting: true,
+    lockSales: true,
+    lockPurchase: true,
+    lockInventory: true,
+    lockGst: true,
+    reason: ''
+  }
+}
+
+function localDateValue(value: unknown = new Date()) {
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10)
+  const date = value instanceof Date ? value : new Date(String(value || new Date()))
+  if (Number.isNaN(date.getTime())) return localDateValue(new Date())
+  const offsetMs = date.getTimezoneOffset() * 60_000
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 10)
+}
+
+function dateOnlyForApi(value: string) {
+  return `${localDateValue(value)}T00:00:00`
+}
+
+function setupScope() {
+  const storeId = readText(setupStatus.value, ['storeId'], '') || readText(stores.value[0], ['id'], '')
+  const store = stores.value.find(item => readText(item, ['id'], '') === storeId) ?? stores.value[0]
+  const companyId = readText(setupStatus.value, ['companyId'], '') || readText(store, ['companyId'], '')
+  const storeGroupId = readText(setupStatus.value, ['storeGroupId'], '') || readText(store, ['storeGroupId'], '')
+  if (!companyId) throw new Error('Run quick setup before creating a financial year lock.')
+  return { companyId, storeGroupId, storeId }
+}
+
+function startLockCreate() {
+  lockFormMode.value = 'create'
+  Object.assign(lockForm, emptyLockForm())
+  lockConfirmation.value = ''
+  showLockForm.value = true
+  unlockAction.id = ''
+  error.value = ''
+  message.value = ''
+}
+
+function startLockEdit(lock: ApiRecord | null) {
+  if (!lock) return
+  lockFormMode.value = 'edit'
+  Object.assign(lockForm, {
+    id: readText(lock, ['id'], ''),
+    financialYear: readText(lock, ['financialYear'], ''),
+    periodStart: localDateValue(lock.periodStart),
+    periodEnd: localDateValue(lock.periodEnd),
+    scope: lock.storeId || lock.storeGroupId ? 'store' : 'company',
+    lockAccounting: lock.lockAccounting !== false,
+    lockSales: lock.lockSales !== false,
+    lockPurchase: lock.lockPurchase !== false,
+    lockInventory: lock.lockInventory !== false,
+    lockGst: lock.lockGst !== false,
+    reason: readText(lock, ['lockReason'], '')
+  })
+  lockConfirmation.value = ''
+  showLockForm.value = true
+  unlockAction.id = ''
+  error.value = ''
+  message.value = ''
+}
+
+function cancelLockForm() {
+  showLockForm.value = false
+  lockConfirmation.value = ''
+}
+
+async function saveFinancialYearLock() {
+  if (lockConfirmation.value !== 'LOCK FINANCIAL YEAR') {
+    error.value = 'Type LOCK FINANCIAL YEAR before saving.'
+    return
+  }
+  if (!lockForm.financialYear.trim()) {
+    error.value = 'Financial year name is required.'
+    return
+  }
+  if (!lockForm.lockAccounting && !lockForm.lockSales && !lockForm.lockPurchase && !lockForm.lockInventory && !lockForm.lockGst) {
+    error.value = 'Select at least one module to lock.'
+    return
+  }
+
+  savingLock.value = true
+  error.value = ''
+  message.value = ''
+  try {
+    const { companyId, storeGroupId, storeId } = setupScope()
+    const payload = {
+      id: lockFormMode.value === 'edit' && lockForm.id ? lockForm.id : null,
+      companyId,
+      storeGroupId: lockForm.scope === 'store' ? (storeGroupId || null) : null,
+      storeId: lockForm.scope === 'store' ? (storeId || null) : null,
+      financialYear: lockForm.financialYear.trim(),
+      periodStart: dateOnlyForApi(lockForm.periodStart),
+      periodEnd: dateOnlyForApi(lockForm.periodEnd),
+      lockAccounting: lockForm.lockAccounting,
+      lockSales: lockForm.lockSales,
+      lockPurchase: lockForm.lockPurchase,
+      lockInventory: lockForm.lockInventory,
+      lockGst: lockForm.lockGst,
+      reason: lockForm.reason.trim() || null
+    }
+    const saved = await post<ApiRecord>('accounting/financial-year-locks', payload)
+    message.value = lockFormMode.value === 'edit' ? 'Financial year lock updated.' : 'Financial year lock saved.'
+    showLockForm.value = false
+    lockConfirmation.value = ''
+    await refresh()
+    if (saved && typeof saved === 'object') selectedLockId.value = readText(saved as ApiRecord, ['id'], selectedLockId.value)
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to save financial year lock.'
+  } finally {
+    savingLock.value = false
+  }
+}
+
+function startUnlock(lock: ApiRecord | null) {
+  if (!lock) return
+  showLockForm.value = false
+  Object.assign(unlockAction, { id: readText(lock, ['id'], ''), reason: '', confirmation: '' })
+  error.value = ''
+  message.value = ''
+}
+
+function cancelUnlock() {
+  Object.assign(unlockAction, { id: '', reason: '', confirmation: '' })
+}
+
+async function submitUnlock() {
+  if (!unlockAction.id) return
+  if (unlockAction.confirmation !== 'UNLOCK FINANCIAL YEAR') {
+    error.value = 'Type UNLOCK FINANCIAL YEAR before saving.'
+    return
+  }
+
+  savingUnlock.value = true
+  error.value = ''
+  message.value = ''
+  try {
+    await post<unknown>(`accounting/financial-year-locks/${unlockAction.id}/unlock`, { reason: unlockAction.reason.trim() || null })
+    message.value = 'Financial year period unlocked.'
+    cancelUnlock()
+    await refresh()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to unlock financial year period.'
+  } finally {
+    savingUnlock.value = false
+  }
+}
+
 async function refresh() {
   loading.value = true
   error.value = ''
   try {
-    const [lockData, journalData] = await Promise.allSettled([
+    const [lockData, journalData, setupData, storeData] = await Promise.allSettled([
       get<unknown>('accounting/financial-year-locks', { activeOnly: false }),
-      get<unknown>('accounting/journal/validation')
+      get<unknown>('accounting/journal/validation'),
+      get<unknown>('setup/status'),
+      get<unknown>('stores')
     ])
 
     if (lockData.status === 'fulfilled') locks.value = toRows(lockData.value)
     if (journalData.status === 'fulfilled' && journalData.value && typeof journalData.value === 'object') journalValidation.value = journalData.value as ApiRecord
+    if (setupData.status === 'fulfilled' && setupData.value && typeof setupData.value === 'object') setupStatus.value = setupData.value as ApiRecord
+    if (storeData.status === 'fulfilled') stores.value = toRows(storeData.value)
     const failed = [lockData, journalData].filter(item => item.status === 'rejected').length
     if (failed) error.value = `${failed} financial control request(s) could not be loaded.`
     if (!selectedLockId.value && locks.value.length > 0) selectedLockId.value = readText(locks.value[0], ['id'], '')

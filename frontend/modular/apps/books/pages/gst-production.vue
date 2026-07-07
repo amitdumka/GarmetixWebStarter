@@ -75,6 +75,7 @@ const error = ref('')
 const readiness = ref<ApiRecord | null>(null)
 const eInvoice = ref<ApiRecord | null>(null)
 const gstinProvider = ref<ApiRecord | null>(null)
+const gstinProviderRestricted = ref(false)
 const schemaReview = ref<ApiRecord | null>(null)
 const schemaTab = ref<'gstr1' | 'gstr3b'>('gstr1')
 
@@ -85,7 +86,7 @@ const schemaItems = [
 const cards = computed(() => [
   { label: 'GST Export', value: yesNo(readiness.value?.gstExportReady), detail: 'Return export readiness' },
   { label: 'CA Review', value: yesNo(readiness.value?.caReviewWorkflowReady), detail: 'Review workflow' },
-  { label: 'GSTIN Provider', value: yesNo(gstinProvider.value?.ready), detail: readText(gstinProvider.value, ['sourceName']) },
+  { label: 'GSTIN Provider', value: gstinProviderRestricted.value ? 'Admin only' : yesNo(gstinProvider.value?.ready), detail: gstinProviderRestricted.value ? 'Requires Admin role' : readText(gstinProvider.value, ['sourceName']) },
   { label: 'E-Invoice Live', value: yesNo(eInvoice.value?.livePostingEnabled), detail: readText(eInvoice.value, ['provider']) }
 ])
 const readinessRows = computed(() => [
@@ -98,15 +99,21 @@ const readinessRows = computed(() => [
   { label: 'IRN Generation', value: readText(eInvoice.value, ['irnGeneration']) },
   { label: 'QR Handling', value: readText(eInvoice.value, ['qrHandling']) }
 ])
-const providerRows = computed(() => [
-  { label: 'GSTIN Lookup Enabled', value: yesNo(gstinProvider.value?.enabled) },
-  { label: 'GSTIN Lookup Ready', value: yesNo(gstinProvider.value?.ready) },
-  { label: 'Source', value: readText(gstinProvider.value, ['sourceName']) },
-  { label: 'Timeout', value: readText(gstinProvider.value, ['timeoutSeconds']) },
-  { label: 'API Key Header', value: readText(gstinProvider.value, ['apiKeyHeaderName']) },
-  { label: 'E-Invoice Provider', value: readText(eInvoice.value, ['provider']) },
-  { label: 'E-Invoice Cancel Flow', value: readText(eInvoice.value, ['cancelFlow']) }
-])
+const providerRows = computed(() => gstinProviderRestricted.value
+  ? [
+      { label: 'GSTIN Provider Status', value: 'Admin role required to view' },
+      { label: 'E-Invoice Provider', value: readText(eInvoice.value, ['provider']) },
+      { label: 'E-Invoice Cancel Flow', value: readText(eInvoice.value, ['cancelFlow']) }
+    ]
+  : [
+      { label: 'GSTIN Lookup Enabled', value: yesNo(gstinProvider.value?.enabled) },
+      { label: 'GSTIN Lookup Ready', value: yesNo(gstinProvider.value?.ready) },
+      { label: 'Source', value: readText(gstinProvider.value, ['sourceName']) },
+      { label: 'Timeout', value: readText(gstinProvider.value, ['timeoutSeconds']) },
+      { label: 'API Key Header', value: readText(gstinProvider.value, ['apiKeyHeaderName']) },
+      { label: 'E-Invoice Provider', value: readText(eInvoice.value, ['provider']) },
+      { label: 'E-Invoice Cancel Flow', value: readText(eInvoice.value, ['cancelFlow']) }
+    ])
 const schemaRows = computed(() => readArray(schemaReview.value, [schemaTab.value]).map(item => ({
   section: readText(item, ['section']),
   exportKey: readText(item, ['exportKey']),
@@ -148,9 +155,11 @@ async function refresh() {
     ])
     if (readinessData.status === 'fulfilled' && readinessData.value && typeof readinessData.value === 'object') readiness.value = readinessData.value as ApiRecord
     if (eInvoiceData.status === 'fulfilled' && eInvoiceData.value && typeof eInvoiceData.value === 'object') eInvoice.value = eInvoiceData.value as ApiRecord
+    gstinProviderRestricted.value = false
     if (gstinData.status === 'fulfilled' && gstinData.value && typeof gstinData.value === 'object') gstinProvider.value = gstinData.value as ApiRecord
+    else if (gstinData.status === 'rejected' && /\b403\b/.test(gstinData.reason instanceof Error ? gstinData.reason.message : String(gstinData.reason))) gstinProviderRestricted.value = true
     if (schemaData.status === 'fulfilled' && schemaData.value && typeof schemaData.value === 'object') schemaReview.value = schemaData.value as ApiRecord
-    const failed = [readinessData, eInvoiceData, gstinData, schemaData].filter(item => item.status === 'rejected').length
+    const failed = [readinessData, eInvoiceData, schemaData, ...(gstinProviderRestricted.value ? [] : [gstinData])].filter(item => item.status === 'rejected').length
     if (failed) error.value = `${failed} GST readiness request(s) could not be loaded.`
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Unable to load GST production readiness.'
