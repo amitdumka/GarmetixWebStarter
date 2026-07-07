@@ -21,6 +21,16 @@ Usage:
   bash frontend/modular/deploy/srp-whole-site-deploy.sh --build-only
   bash frontend/modular/deploy/srp-whole-site-deploy.sh
   bash frontend/modular/deploy/srp-whole-site-deploy.sh --install-remote
+  bash frontend/modular/deploy/srp-whole-site-deploy.sh --apps=hr,books --skip-api
+
+Flags:
+  --skip-build         Reuse each app's existing .output without rebuilding.
+  --skip-api           Do not publish/copy the backend API into the release.
+  --apps=a,b,c         Only rebuild these Nuxt apps (main,pos,hr,ai-sense,books,crm,admin);
+                        every other app reuses its existing local .output/public as-is.
+                        Fails loudly if an excluded app has no valid existing build.
+  --build-only         Build the release locally, skip upload.
+  --install-remote     Apply Nginx/API systemd templates on the remote after upload.
 
 Reads config from:
   $GARMETIX_SRP_DEPLOY_CONFIG, or ~/.config/garmetix/srp-deploy.env
@@ -89,6 +99,7 @@ BUILD_ONLY=false
 INSTALL_REMOTE=false
 SKIP_BUILD=false
 SKIP_API=false
+DEPLOY_APPS=""
 
 for arg in "$@"; do
   case "$arg" in
@@ -98,10 +109,20 @@ for arg in "$@"; do
     --install-remote) INSTALL_REMOTE=true ;;
     --skip-build) SKIP_BUILD=true ;;
     --skip-api) SKIP_API=true ;;
+    --apps=*) DEPLOY_APPS="${arg#--apps=}" ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $arg" >&2; usage; exit 1 ;;
   esac
 done
+
+app_selected() {
+  [ -z "$DEPLOY_APPS" ] && return 0
+  local app_name="$1"
+  case ",$DEPLOY_APPS," in
+    *",$app_name,"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
 if [ "$INIT_CONFIG" = true ]; then
   mkdir -p "$(dirname "$CONFIG_PATH")"
@@ -348,6 +369,21 @@ build_app() {
   local app_name="$1"
   local base_path="$2"
   local dest="$3"
+  local index_file="$MODULAR_ROOT/apps/$app_name/.output/public/index.html"
+
+  if ! app_selected "$app_name"; then
+    local existing_size
+    existing_size=$(wc -c < "$index_file" 2>/dev/null || echo 0)
+    if [ "${existing_size:-0}" -le 200 ]; then
+      echo "ERROR: --apps filter excludes $app_name but no valid existing build was found at $index_file. Build it at least once locally, or include it in --apps." >&2
+      exit 1
+    fi
+    echo "Skipping build for $app_name (excluded by --apps=$DEPLOY_APPS); reusing existing local build output"
+    copy_public_output "$app_name" "$dest"
+    patch_static_runtime_config "$dest" "$base_path"
+    return
+  fi
+
   echo "Building $app_name with base path $base_path"
   if [ "$SKIP_BUILD" = false ]; then
     rm -rf "$MODULAR_ROOT/node_modules/.cache/nuxt"
@@ -355,7 +391,6 @@ build_app() {
     local attempt=1
     local max_attempts=3
     local build_ok=false
-    local index_file="$MODULAR_ROOT/apps/$app_name/.output/public/index.html"
     while [ "$attempt" -le "$max_attempts" ]; do
       rm -rf "$MODULAR_ROOT/apps/$app_name/.output"
       if (
