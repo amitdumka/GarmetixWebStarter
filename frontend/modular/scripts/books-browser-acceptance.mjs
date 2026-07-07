@@ -19,7 +19,9 @@ const routes = [
   { path: '/audit', text: 'Accounting Audit' },
   { path: '/financial-year-locks', text: 'Financial Year Locks' },
   { path: '/gst-returns', text: 'GST Returns' },
-  { path: '/gst-reports', text: 'GST Reports' }
+  { path: '/gst-reports', text: 'GST Reports' },
+  { path: '/gst-production', text: 'GST Production Readiness' },
+  { path: '/accounting-gst-validation', text: 'Accounting/GST Validation' }
 ]
 
 console.log('Garmetix Books browser acceptance')

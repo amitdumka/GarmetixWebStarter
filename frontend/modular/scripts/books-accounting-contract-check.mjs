@@ -123,12 +123,21 @@ const requiredPageUsages = [
   {
     label: 'gst-returns.vue',
     path: join(modularRoot, 'apps/books/pages/gst-returns.vue'),
-    tokens: ['gst-returns/drafts', 'gst-returns/accounting-summary', 'returnPeriod', 'taxableValue', 'integratedTax', 'stateTax', 'netPayable']
+    tokens: [
+      'gst-returns/drafts', 'gst-returns/accounting-summary', 'returnPeriod', 'taxableValue', 'integratedTax', 'stateTax', 'netPayable',
+      'gst-returns/gstr1/preview', 'gst-returns/gstr3b/preview', 'gst-returns/from-books/gstr1', 'gst-returns/from-books/gstr3b',
+      '/filed', '/audit', '/accounting-posting', '/send-review', 'gst-returns/accounting-posting', 'POST GST ACCOUNTING'
+    ]
   },
   {
     label: 'gst-reports.vue',
     path: join(modularRoot, 'apps/books/pages/gst-reports.vue'),
-    tokens: ['gst-returns/reports/hsn-summary', 'gst-returns/reports/tax-summary', 'gst-returns/reports/invoice-register', 'totalTaxableValue', 'totalTaxAmount', 'rowCount']
+    tokens: ['gst-returns/reports/hsn-summary', 'gst-returns/reports/tax-summary', 'gst-returns/reports/invoice-register', 'totalTaxableValue', 'totalTaxAmount', 'rowCount', 'gst-returns/reports/send-review']
+  },
+  {
+    label: 'accounting-gst-validation.vue',
+    path: join(modularRoot, 'apps/books/pages/accounting-gst-validation.vue'),
+    tokens: ['post-import-validation/accounting-gst', 'closeoutChecklist', 'knownLimitations', 'nextModuleCandidates', 'gstRows', 'paymentRows']
   }
 ]
 

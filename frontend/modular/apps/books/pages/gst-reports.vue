@@ -16,6 +16,7 @@
           <UInput v-model="returnPeriod" placeholder="MMYYYY" class="sm:w-32" />
           <USelect v-model="direction" :items="directionItems" class="sm:w-40" />
           <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refresh">Refresh</UButton>
+          <UButton icon="i-lucide-send" color="primary" variant="soft" @click="openReportShare">Send to CA</UButton>
         </div>
       </div>
     </div>
@@ -57,6 +58,69 @@
       </div>
       <BooksMasterTable :columns="currentColumns" :rows="filteredRows" empty-text="No GST report rows found." />
     </section>
+
+    <section v-if="recentGstShareLogs.length" class="garmetix-section-card">
+      <h3 class="garmetix-panel-title mb-3">Recent CA Shares</h3>
+      <ul class="space-y-2 text-sm">
+        <li v-for="log in recentGstShareLogs" :key="log.id" class="border-b border-default pb-2">
+          <p class="font-medium">{{ log.kind }} - {{ log.returnPeriod }}</p>
+          <p class="text-muted">{{ log.toEmail }} - {{ formatDateTime(log.sentAt) }}</p>
+          <p class="text-xs text-muted">{{ log.attachmentNames.length }} attachment(s)</p>
+        </li>
+      </ul>
+    </section>
+
+    <UModal v-model:open="reportShareOpen">
+      <template #content>
+        <div class="grid gap-4 p-5">
+          <div>
+            <h3 class="text-base font-semibold">Send GST Book Reports to CA</h3>
+            <p class="mt-1 text-sm text-muted">HSN summary, tax summary and invoice register CSVs for the selected period.</p>
+          </div>
+          <UFormField label="Accountant/CA Email">
+            <UInput v-model="reportShare.toEmail" type="email" placeholder="ca@example.com" />
+          </UFormField>
+          <UFormField label="Accountant/CA Name">
+            <UInput v-model="reportShare.toName" />
+          </UFormField>
+          <UFormField label="WhatsApp Mobile">
+            <UInput v-model="reportShare.whatsAppNumber" />
+          </UFormField>
+          <UFormField label="Return Period">
+            <UInput v-model="returnPeriod" placeholder="MMYYYY" />
+          </UFormField>
+          <UFormField label="Message">
+            <UTextarea v-model="reportShare.note" :rows="2" />
+          </UFormField>
+          <div class="grid grid-cols-3 gap-2 text-sm">
+            <label class="flex items-center gap-2"><USwitch v-model="reportShare.includeHsnSummaryCsv" /> HSN CSV</label>
+            <label class="flex items-center gap-2"><USwitch v-model="reportShare.includeTaxSummaryCsv" /> Tax Summary CSV</label>
+            <label class="flex items-center gap-2"><USwitch v-model="reportShare.includeInvoiceRegisterCsv" /> Invoice Register CSV</label>
+          </div>
+          <div class="flex flex-wrap justify-between gap-2">
+            <div class="flex flex-wrap gap-2">
+              <UButton size="sm" color="neutral" variant="soft" @click="gstReviewContact.save(reportShare)">Save as default CA contact</UButton>
+              <UButton size="sm" color="neutral" variant="soft" @click="gstReviewContact.applyTo(reportShare)">Use saved contact</UButton>
+            </div>
+            <UButton
+              v-if="reportShareResponse?.whatsAppShareUrl"
+              size="sm"
+              color="success"
+              variant="soft"
+              icon="i-lucide-message-circle"
+              @click="openReportWhatsApp"
+            >
+              Open WhatsApp Share
+            </UButton>
+          </div>
+          <UAlert v-if="reportShareResponse" color="success" variant="subtle" icon="i-lucide-mail-check" :description="readText(reportShareResponse, ['message'])" />
+          <div class="flex justify-end gap-2">
+            <UButton color="neutral" variant="soft" @click="reportShareOpen = false">Close</UButton>
+            <UButton color="primary" icon="i-lucide-send" :disabled="!canSendReports" :loading="sendingReports" @click="sendGstReports">Confirm &amp; Send Email</UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
   </section>
 </template>
 
@@ -70,14 +134,17 @@ import {
   type ApiRecord,
   useBooksApiClient
 } from '../utils/books-api'
+import { useGstReviewContact } from '../composables/useGstReviewContact'
 
 useHead({ title: 'GST Reports - Garmetix Books' })
 
 type GstReportTab = 'hsn' | 'tax' | 'invoice'
 
-const { download, get } = useBooksApiClient()
+const { download, get, post } = useBooksApiClient()
+const gstReviewContact = useGstReviewContact()
 const loading = ref(true)
 const downloadLoading = ref(false)
+const sendingReports = ref(false)
 const error = ref('')
 const search = ref('')
 const returnPeriod = ref(currentReturnPeriod())
@@ -86,6 +153,17 @@ const activeTab = ref<GstReportTab>('tax')
 const hsnReport = ref<ApiRecord | null>(null)
 const taxReport = ref<ApiRecord | null>(null)
 const invoiceReport = ref<ApiRecord | null>(null)
+const reportShareOpen = ref(false)
+const reportShareResponse = ref<ApiRecord | null>(null)
+const reportShare = reactive({
+  toEmail: '',
+  toName: '',
+  whatsAppNumber: '',
+  note: 'Please review the attached GST book reports.',
+  includeHsnSummaryCsv: true,
+  includeTaxSummaryCsv: true,
+  includeInvoiceRegisterCsv: true
+})
 
 const directionItems = [
   { label: 'Both', value: 'both' },
@@ -177,6 +255,13 @@ const filteredRows = computed(() => {
   if (!term) return currentRows.value
   return currentRows.value.filter(row => JSON.stringify(row).toLowerCase().includes(term))
 })
+const reportAttachmentCount = computed(() => [
+  reportShare.includeHsnSummaryCsv,
+  reportShare.includeTaxSummaryCsv,
+  reportShare.includeInvoiceRegisterCsv
+].filter(Boolean).length)
+const canSendReports = computed(() => Boolean(reportShare.toEmail.trim() && reportAttachmentCount.value > 0))
+const recentGstShareLogs = computed(() => gstReviewContact.shareLogs.value.slice(0, 5))
 
 function currentReturnPeriod() {
   const date = new Date()
@@ -185,6 +270,13 @@ function currentReturnPeriod() {
 
 function money(value: unknown) {
   return formatIndianMoney(readNumber({ value }, ['value']))
+}
+
+function formatDateTime(value: unknown) {
+  if (!value) return '-'
+  const date = new Date(String(value))
+  if (Number.isNaN(date.getTime())) return String(value)
+  return new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }
 
 async function refresh() {
@@ -226,6 +318,59 @@ async function downloadCsv() {
   } finally {
     downloadLoading.value = false
   }
+}
+
+function openReportShare() {
+  gstReviewContact.applyTo(reportShare)
+  reportShareResponse.value = null
+  reportShareOpen.value = true
+}
+
+async function sendGstReports() {
+  if (!reportShare.toEmail.trim()) {
+    error.value = 'Accountant/CA email is required.'
+    return
+  }
+  if (reportAttachmentCount.value === 0) {
+    error.value = 'Select at least one report to send.'
+    return
+  }
+
+  sendingReports.value = true
+  error.value = ''
+  try {
+    await refresh()
+    if (!window.confirm(`Confirm sending GST book reports ${returnPeriod.value} to ${reportShare.toEmail}?`)) return
+
+    gstReviewContact.save(reportShare)
+    reportShareResponse.value = await post<ApiRecord>('gst-returns/reports/send-review', {
+      companyId: null,
+      returnPeriod: returnPeriod.value,
+      direction: direction.value,
+      ...reportShare
+    })
+    gstReviewContact.addLog({
+      kind: `GST book reports (${direction.value})`,
+      returnPeriod: returnPeriod.value,
+      toEmail: reportShare.toEmail.trim(),
+      toName: reportShare.toName,
+      attachmentNames: readArray(reportShareResponse.value, ['attachmentNames']).map(item => String(item)),
+      message: readText(reportShareResponse.value, ['message'])
+    })
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'GST report send failed.'
+  } finally {
+    sendingReports.value = false
+  }
+}
+
+function openReportWhatsApp() {
+  const url = readText(reportShareResponse.value, ['whatsAppShareUrl'], '')
+  if (!url) {
+    error.value = 'Send the email first, then share on WhatsApp.'
+    return
+  }
+  window.open(url, '_blank')
 }
 
 onMounted(refresh)

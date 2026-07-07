@@ -262,6 +262,11 @@ const steps = [
     args: ['run', 'modular:books:stage14c5-closure']
   },
   {
+    name: 'Books Stage 14G closure',
+    cwd: repoRoot,
+    args: ['run', 'modular:books:stage14g-closure']
+  },
+  {
     name: 'CRM final closure gate',
     cwd: repoRoot,
     args: ['run', 'modular:crm:final-closure']

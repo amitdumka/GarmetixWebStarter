@@ -126,6 +126,7 @@ export const garmetixRoutes: GarmetixRouteDefinition[] = [
   route({ id: 'gst-returns', path: '/gst-returns', label: 'GST Returns', icon: 'i-lucide-file-check-2', targetApp: 'books', moduleKey: 'gst', moduleLabel: 'GST', roles: [...routeRoles.books] }),
   route({ id: 'gst-reports', path: '/gst-reports', label: 'GST Reports', icon: 'i-lucide-chart-column', targetApp: 'books', moduleKey: 'gst', moduleLabel: 'GST', roles: [...routeRoles.books] }),
   route({ id: 'gst-production', path: '/gst-production', label: 'GST Production', icon: 'i-lucide-factory', targetApp: 'books', moduleKey: 'gst', moduleLabel: 'GST', roles: [...routeRoles.books] }),
+  route({ id: 'accounting-gst-validation', path: '/accounting-gst-validation', label: 'Accounting/GST Validation', icon: 'i-lucide-shield-check', targetApp: 'books', moduleKey: 'gst', moduleLabel: 'GST', roles: [...routeRoles.books] }),
   route({ id: 'gst-final-acceptance', path: '/gst-final-acceptance', label: 'GST Final Acceptance', icon: 'i-lucide-badge-check', targetApp: 'admin', moduleKey: 'admin', moduleLabel: 'Admin SaaS', roles: [...routeRoles.ownerAdmin] }),
 
   route({ id: 'crm-home', path: '/', label: 'CRM Home', icon: 'i-lucide-heart-handshake', targetApp: 'crm', moduleKey: 'crm', moduleLabel: 'CRM', roles: [...routeRoles.storeOps], legacyPath: '/customers', status: 'shell-ready', showInMenu: false }),

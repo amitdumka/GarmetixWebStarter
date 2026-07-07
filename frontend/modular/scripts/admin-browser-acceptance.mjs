@@ -32,7 +32,8 @@ const protectedRoutes = [
   { path: '/client-onboarding', text: 'Client Onboarding' },
   { path: '/production-readiness', text: 'Production Readiness' },
   { path: '/production-support', text: 'Production Support' },
-  { path: '/production-rehearsal', text: 'Production Rehearsal' }
+  { path: '/production-rehearsal', text: 'Production Rehearsal' },
+  { path: '/gst-final-acceptance', text: 'GST Final Acceptance' }
 ]
 
 const forbiddenRawUrlPatterns = [

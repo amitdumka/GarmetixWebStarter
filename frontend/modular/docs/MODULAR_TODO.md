@@ -348,5 +348,11 @@ Goal: add an embedded Garmetix Assistant and later MCP tool layer without splitt
 - 14F.6C complete: bump modular version identity to `6.0.51`, declare AI Sense connected-analysis props at runtime so report endpoints survive production bundling, and guard against missing endpoint values causing API root `/api/` calls.
 - 14F.7 next: add MCP wrapper around the same read-only tool catalog after the in-app assistant is stable.
 - Assistant backend provider secrets must be provided only through server-side environment variables.
-- Books modular lane is closed at `14C.5`; regular module sequence now depends on Amit's next priority (Assistant/MCP `14F.7`, the cross-module live-evidence backlog, or the AntiGravity port review).
+
+## Stage 14G: Version6 Books GST Full Legacy Parity
+
+Goal: port every page under legacy's "GST" nav group (`frontend/legacy/garmetix-web/components/AppShell.vue:203-212`) to modular with no feature left behind. Stage 14C.5 only closed GST report/return export handoff and financial-year-lock acceptance - this stage completes the rest: the manual GSTR-1/GSTR-3B builder, draft lifecycle, accounting-posting bridge, CA email/WhatsApp review sharing, the Accounting/GST post-import validation report, and the GST Final Acceptance checklist.
+
+- 14G complete: bump modular version identity to `6.0.53`, port `useGstReviewContact` composable, rewrite `gst-returns.vue` into the full builder (header form, GSTR-1 dynamic rows, GSTR-3B fixed sections, Preview, Load From Books, draft Save/Update/Delete/Mark-Filed, ad-hoc JSON/Excel export, audit trail, typed-confirmation accounting-posting bridge, CA review/share modal), add the CA share modal to `gst-reports.vue`, add `accounting-gst-validation.vue` (new Books route) and `gst-final-acceptance.vue` (fills the previously dangling Admin route), and add the Stage 14G closure gate script. All backend support already existed - zero backend/DB changes.
+- Books modular GST menu lane is closed at `14G`; regular module sequence now depends on Amit's next priority (Assistant/MCP `14F.7`, the cross-module live-evidence backlog, or the AntiGravity port review).
 

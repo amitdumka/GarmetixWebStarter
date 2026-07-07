@@ -56,6 +56,7 @@
     "modular:books:parity-baseline": "node frontend/modular/scripts/books-parity-baseline.mjs",
     "modular:books:stage13d-closure": "node frontend/modular/scripts/books-stage13d-closure.mjs",
     "modular:books:stage14c5-closure": "node frontend/modular/scripts/books-stage14c5-closure.mjs",
+    "modular:books:stage14g-closure": "node frontend/modular/scripts/books-stage14g-closure.mjs",
     "modular:crm:build": "npm --prefix frontend/modular --workspace @garmetix/crm-web run build",
     "modular:crm:final-closure": "node frontend/modular/scripts/crm-final-closure.mjs",
     "modular:admin:saas-readiness": "node frontend/modular/scripts/admin-saas-readiness.mjs",

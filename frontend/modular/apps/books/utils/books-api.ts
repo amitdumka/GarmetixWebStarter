@@ -50,12 +50,17 @@ export function useBooksApiClient() {
     return url.toString()
   }
 
-  async function download(path: string, query?: Record<string, string | number | boolean | null | undefined>, fallbackFileName = 'garmetix-document.pdf') {
+  async function download(path: string, query?: Record<string, string | number | boolean | null | undefined>, fallbackFileName = 'garmetix-document.pdf', body?: unknown) {
     const token = getStoredToken(window.localStorage)
     const headers = new Headers()
     if (token) headers.set('Authorization', `Bearer ${token}`)
+    if (body !== undefined) headers.set('Content-Type', 'application/json')
 
-    const response = await fetch(apiUrl(path, query), { headers })
+    const response = await fetch(apiUrl(path, query), {
+      method: body !== undefined ? 'POST' : 'GET',
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined
+    })
     if (!response.ok) {
       const message = await response.text()
       throw new Error(stripServerUrl(message || `Download failed with ${response.status}`))
