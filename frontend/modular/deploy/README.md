@@ -124,6 +124,91 @@ npm run modular:deploy:srp:acceptance -- --live --strict
 
 This lane does not change the existing `garmetix.aadwikafashion.in` production host.
 
+### Codex PowerShell Deploy Runbook (reference, use if the above gets complex)
+
+Amit shared this as Codex's own known-working command sequence for deploying to SRP from a Windows PowerShell session. Keep it as a fallback reference if the Git Bash/WSL path above fails or gets too complicated for a given session.
+
+Main command:
+
+```
+npm.cmd run modular:deploy:srp
+```
+
+This runs:
+
+```
+node frontend/modular/scripts/run-bash-script.mjs frontend/modular/deploy/srp-whole-site-deploy.sh
+```
+
+Target:
+
+- Server: `amitkumar@192.168.11.127`
+- Remote base: `/opt/garmetix-srp`
+- Public site: `https://srp.aadwikafashion.in`
+- LAN site: `http://192.168.11.127:8088`
+- API port: `5080`
+- Nginx port: `8088`
+
+Full sequence, from PowerShell:
+
+```powershell
+Set-Location C:\AIArea\Codex\GarmetixWebStarter
+
+git status --short --branch
+git fetch origin version6
+```
+
+Check Wi-Fi/server reachability:
+
+```powershell
+netsh wlan show interfaces
+netsh wlan connect name="FirstFloor" ssid="FirstFloor"
+
+Test-NetConnection 192.168.11.127 -Port 22
+Test-NetConnection 192.168.11.127 -Port 8088
+```
+
+Validate:
+
+```powershell
+npm.cmd run modular:validate -- --skip-builds --skip-api
+npm.cmd run modular:books:stage14g-closure
+```
+
+Commit/push if there are real changes:
+
+```powershell
+git add <changed-files>
+git commit -m "Your stage message"
+git push origin version6
+```
+
+Deploy:
+
+```powershell
+npm.cmd run modular:deploy:srp
+```
+
+If SSH key mode is needed instead of WSL/password mode:
+
+```powershell
+$env:GARMETIX_PREFER_WSL="false"
+npm.cmd run modular:deploy:srp
+```
+
+Verify live:
+
+```powershell
+npm.cmd run modular:deploy:srp:acceptance -- --live
+
+curl.exe -k -s -o NUL -w "public_home=%{http_code}`n" https://srp.aadwikafashion.in/ --max-time 30
+curl.exe -k -s -o NUL -w "public_api=%{http_code}`n" https://srp.aadwikafashion.in/api/health --max-time 30
+curl.exe -s -o NUL -w "lan_home=%{http_code}`n" http://192.168.11.127:8088/ --max-time 30
+curl.exe -s -o NUL -w "lan_api=%{http_code}`n" http://192.168.11.127:8088/api/health --max-time 30
+```
+
+Note: this checks HTTP status codes only. Per the 2026-07-07 incident (see `.claude/changelog.md`), a deploy can return all-200 while every page's actual content is broken (a flaky Nitro cold-build bug). Always additionally spot-check real response content/size (e.g. `curl.exe ... | Select-Object -First 5` or an SSH file-size check on the server), not just status codes, before considering a deploy verified.
+
 ## Main Back Office Static Deploy
 
 The Main Back Office frontend is generated as a static Nuxt app and can be served by Nginx, Caddy, Apache, or any static file server.
