@@ -27,122 +27,131 @@
       </div>
     </div>
 
-    <div class="grid gap-4 xl:grid-cols-[minmax(380px,0.85fr)_minmax(0,1.4fr)]">
-      <form class="garmetix-section-card space-y-3" @submit.prevent="save">
-        <div class="garmetix-panel-header">
-          <div>
-            <h3 class="garmetix-panel-title">{{ editingId ? 'Edit Adjustment' : 'New Adjustment' }}</h3>
-            <p class="garmetix-panel-subtitle">These rows are consumed by salary draft, payslip and finalization calculations.</p>
-          </div>
-          <UBadge color="primary" variant="subtle">{{ form.adjustmentType }}</UBadge>
+    <div class="garmetix-table-panel">
+      <div class="garmetix-panel-header">
+        <div>
+          <h3 class="garmetix-panel-title">HR Benefits Register</h3>
+          <p class="garmetix-panel-subtitle">{{ filteredRows.length }} adjustment record(s).</p>
         </div>
-
-        <UFormField label="Employee" required>
-          <USelect v-model="form.employeeId" :items="employeeOptions" placeholder="Select employee" />
-        </UFormField>
-
-        <div class="grid gap-3 md:grid-cols-2">
-          <UFormField label="Type">
-            <USelect v-model="form.adjustmentType" :items="adjustmentTypeOptions" />
-          </UFormField>
-          <UFormField label="Status">
-            <USelect v-model="form.status" :items="statusOptions" />
-          </UFormField>
-          <UFormField label="Date">
-            <UInput v-model="form.onDate" type="date" />
-          </UFormField>
-          <UFormField label="Salary month">
-            <UInput v-model.number="form.salaryMonth" type="number" placeholder="YYYYMM" />
-          </UFormField>
-          <UFormField label="Amount">
-            <UInput v-model.number="form.amount" type="number" min="0" step="0.01" />
-          </UFormField>
-          <UFormField label="Recovered amount">
-            <UInput v-model.number="form.recoveredAmount" type="number" min="0" step="0.01" />
-          </UFormField>
-          <UFormField label="Leave days">
-            <UInput v-model.number="form.leaveDays" type="number" min="0" step="0.5" />
-          </UFormField>
-          <UFormField label="Gratuity amount">
-            <UInput v-model.number="form.gratuityAmount" type="number" min="0" step="0.01" />
-          </UFormField>
-          <UFormField label="PF employee">
-            <UInput v-model.number="form.pfEmployee" type="number" min="0" step="0.01" />
-          </UFormField>
-          <UFormField label="PF employer">
-            <UInput v-model.number="form.pfEmployer" type="number" min="0" step="0.01" />
-          </UFormField>
-        </div>
-
-        <UCheckbox v-model="form.recoverFromSalary" label="Recover from salary" />
-        <UFormField label="Remarks">
-          <UTextarea v-model="form.remarks" :rows="3" />
-        </UFormField>
-
-        <div class="flex flex-wrap justify-end gap-2">
-          <UButton type="button" color="neutral" variant="soft" @click="resetForm">Clear</UButton>
-          <UButton type="submit" color="primary" icon="i-lucide-save" :loading="saving" :disabled="!canSave">Save Adjustment</UButton>
-        </div>
-      </form>
-
-      <div class="garmetix-table-panel">
-        <div class="garmetix-panel-header">
-          <div>
-            <h3 class="garmetix-panel-title">HR Benefits Register</h3>
-            <p class="garmetix-panel-subtitle">{{ filteredRows.length }} adjustment record(s).</p>
-          </div>
+        <div class="flex flex-wrap gap-2">
+          <USelect v-model="typeFilter" :items="typeFilterItems" class="w-44" />
           <UInput v-model="search" icon="i-lucide-search" placeholder="Search adjustment" class="w-56" />
         </div>
+      </div>
 
-        <div class="overflow-auto">
-          <table class="w-full min-w-[1120px] text-left text-sm">
-            <thead class="bg-muted/30 text-xs uppercase text-muted">
-              <tr>
-                <th class="px-3 py-2">Date</th>
-                <th class="px-3 py-2">Employee</th>
-                <th class="px-3 py-2">Type</th>
-                <th class="px-3 py-2">Month</th>
-                <th class="px-3 py-2">Amount</th>
-                <th class="px-3 py-2">Recovered</th>
-                <th class="px-3 py-2">Leave</th>
-                <th class="px-3 py-2">PF</th>
-                <th class="px-3 py-2">Gratuity</th>
-                <th class="px-3 py-2">Status</th>
-                <th class="px-3 py-2 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in filteredRows" :key="readText(row, ['id'])" class="border-t border-default align-top">
-                <td class="px-3 py-2">{{ formatDate(readText(row, ['onDate'])) }}</td>
-                <td class="px-3 py-2">
-                  <p class="font-medium">{{ readText(row, ['employeeName']) }}</p>
-                  <p class="text-xs text-muted">{{ readText(row, ['employeeCode']) }}</p>
-                </td>
-                <td class="px-3 py-2">{{ typeLabel(readText(row, ['adjustmentType'])) }}</td>
-                <td class="px-3 py-2">{{ readText(row, ['salaryMonth']) }}</td>
-                <td class="px-3 py-2">{{ formatIndianMoney(readNumber(row, ['amount'])) }}</td>
-                <td class="px-3 py-2">{{ formatIndianMoney(readNumber(row, ['recoveredAmount'])) }}</td>
-                <td class="px-3 py-2">{{ readNumber(row, ['leaveDays']).toFixed(1) }}</td>
-                <td class="px-3 py-2">{{ formatIndianMoney(readNumber(row, ['pfEmployee']) + readNumber(row, ['pfEmployer'])) }}</td>
-                <td class="px-3 py-2">{{ formatIndianMoney(readNumber(row, ['gratuityAmount'])) }}</td>
-                <td class="px-3 py-2">
-                  <UBadge :color="readText(row, ['status']) === 'Closed' ? 'success' : 'warning'" variant="subtle">{{ readText(row, ['status']) }}</UBadge>
-                </td>
-                <td class="px-3 py-2">
-                  <div class="flex justify-end gap-2">
-                    <UButton size="xs" icon="i-lucide-pencil" color="primary" variant="soft" @click="startEdit(row)">Edit</UButton>
-                    <UButton size="xs" icon="i-lucide-trash-2" color="error" variant="soft" :loading="deletingId === readText(row, ['id'])" @click="remove(row)">Delete</UButton>
-                  </div>
-                </td>
-              </tr>
-              <tr v-if="!filteredRows.length">
-                <td class="px-3 py-6 text-center text-muted" colspan="11">No HR benefits records found.</td>
-              </tr>
-            </tbody>
-          </table>
+      <div class="overflow-auto">
+        <table class="w-full min-w-[1120px] text-left text-sm">
+          <thead class="bg-muted/30 text-xs uppercase text-muted">
+            <tr>
+              <th class="px-3 py-2">Date</th>
+              <th class="px-3 py-2">Employee</th>
+              <th class="px-3 py-2">Type</th>
+              <th class="px-3 py-2">Month</th>
+              <th class="px-3 py-2">Amount</th>
+              <th class="px-3 py-2">Recovered</th>
+              <th class="px-3 py-2">Leave</th>
+              <th class="px-3 py-2">PF</th>
+              <th class="px-3 py-2">Gratuity</th>
+              <th class="px-3 py-2">Status</th>
+              <th class="px-3 py-2 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in pagedRows" :key="readText(row, ['id'])" class="border-t border-default align-top">
+              <td class="px-3 py-2">{{ formatDate(readText(row, ['onDate'])) }}</td>
+              <td class="px-3 py-2">
+                <p class="font-medium">{{ readText(row, ['employeeName']) }}</p>
+                <p class="text-xs text-muted">{{ readText(row, ['employeeCode']) }}</p>
+              </td>
+              <td class="px-3 py-2">{{ typeLabel(readText(row, ['adjustmentType'])) }}</td>
+              <td class="px-3 py-2">{{ readText(row, ['salaryMonth']) }}</td>
+              <td class="px-3 py-2">{{ formatIndianMoney(readNumber(row, ['amount'])) }}</td>
+              <td class="px-3 py-2">{{ formatIndianMoney(readNumber(row, ['recoveredAmount'])) }}</td>
+              <td class="px-3 py-2">{{ readNumber(row, ['leaveDays']).toFixed(1) }}</td>
+              <td class="px-3 py-2">{{ formatIndianMoney(readNumber(row, ['pfEmployee']) + readNumber(row, ['pfEmployer'])) }}</td>
+              <td class="px-3 py-2">{{ formatIndianMoney(readNumber(row, ['gratuityAmount'])) }}</td>
+              <td class="px-3 py-2">
+                <UBadge :color="readText(row, ['status']) === 'Closed' ? 'success' : 'warning'" variant="subtle">{{ readText(row, ['status']) }}</UBadge>
+              </td>
+              <td class="px-3 py-2">
+                <div class="flex justify-end gap-2">
+                  <UButton size="xs" icon="i-lucide-pencil" color="primary" variant="soft" @click="startEdit(row)">Edit</UButton>
+                  <UButton size="xs" icon="i-lucide-trash-2" color="error" variant="soft" :loading="deletingId === readText(row, ['id'])" @click="remove(row)">Delete</UButton>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="!pagedRows.length">
+              <td class="px-3 py-6 text-center text-muted" colspan="11">No HR benefits records found.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div v-if="filteredRows.length" class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
+        <p>Page {{ page }} of {{ totalPages }}</p>
+        <div class="flex items-center gap-2">
+          <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-left" :disabled="page <= 1" @click="page--">Prev</UButton>
+          <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-right" :disabled="page >= totalPages" @click="page++">Next</UButton>
         </div>
       </div>
     </div>
+
+    <UModal v-model:open="formOpen" :title="editingId ? 'Edit Adjustment' : 'New Adjustment'">
+      <template #body>
+        <form class="space-y-3" @submit.prevent="save">
+          <div class="garmetix-panel-header">
+            <p class="garmetix-panel-subtitle">These rows are consumed by salary draft, payslip and finalization calculations.</p>
+            <UBadge color="primary" variant="subtle">{{ form.adjustmentType }}</UBadge>
+          </div>
+
+          <UFormField label="Employee" required>
+            <USelect v-model="form.employeeId" :items="employeeOptions" placeholder="Select employee" />
+          </UFormField>
+
+          <div class="grid gap-3 md:grid-cols-2">
+            <UFormField label="Type">
+              <USelect v-model="form.adjustmentType" :items="adjustmentTypeOptions" />
+            </UFormField>
+            <UFormField label="Status">
+              <USelect v-model="form.status" :items="statusOptions" />
+            </UFormField>
+            <UFormField label="Date">
+              <UInput v-model="form.onDate" type="date" />
+            </UFormField>
+            <UFormField label="Salary month">
+              <UInput v-model.number="form.salaryMonth" type="number" placeholder="YYYYMM" />
+            </UFormField>
+            <UFormField label="Amount">
+              <UInput v-model.number="form.amount" type="number" min="0" step="0.01" />
+            </UFormField>
+            <UFormField label="Recovered amount">
+              <UInput v-model.number="form.recoveredAmount" type="number" min="0" step="0.01" />
+            </UFormField>
+            <UFormField label="Leave days">
+              <UInput v-model.number="form.leaveDays" type="number" min="0" step="0.5" />
+            </UFormField>
+            <UFormField label="Gratuity amount">
+              <UInput v-model.number="form.gratuityAmount" type="number" min="0" step="0.01" />
+            </UFormField>
+            <UFormField label="PF employee">
+              <UInput v-model.number="form.pfEmployee" type="number" min="0" step="0.01" />
+            </UFormField>
+            <UFormField label="PF employer">
+              <UInput v-model.number="form.pfEmployer" type="number" min="0" step="0.01" />
+            </UFormField>
+          </div>
+
+          <UCheckbox v-model="form.recoverFromSalary" label="Recover from salary" />
+          <UFormField label="Remarks">
+            <UTextarea v-model="form.remarks" :rows="3" />
+          </UFormField>
+
+          <div class="flex flex-wrap justify-end gap-2">
+            <UButton type="button" color="neutral" variant="soft" @click="resetForm">Clear</UButton>
+            <UButton type="submit" color="primary" icon="i-lucide-save" :loading="saving" :disabled="!canSave">Save Adjustment</UButton>
+          </div>
+        </form>
+      </template>
+    </UModal>
   </section>
 </template>
 
@@ -159,7 +168,11 @@ const deletingId = ref('')
 const message = ref('')
 const messageTone = ref<'success' | 'error' | 'warning' | 'neutral'>('neutral')
 const search = ref('')
+const typeFilter = ref('all')
+const page = ref(1)
+const pageSize = ref(20)
 const editingId = ref('')
+const formOpen = ref(false)
 const employees = ref<ApiRecord[]>([])
 const adjustments = ref<ApiRecord[]>([])
 const summary = ref<ApiRecord | null>(null)
@@ -194,12 +207,23 @@ const cards = computed(() => [
   { label: 'PF', value: formatIndianMoney(readNumber(summary.value, ['pfEmployee']) + readNumber(summary.value, ['pfEmployer'])), detail: 'Employee + employer' },
   { label: 'Gratuity', value: formatIndianMoney(readNumber(summary.value, ['gratuityAmount'])), detail: 'Provision / settlement' }
 ])
+const typeFilterItems = [{ value: 'all', label: 'All types' }, ...adjustmentTypeOptions]
 const filteredRows = computed(() => {
   const term = search.value.trim().toLowerCase()
-  if (!term) return adjustments.value
-  return adjustments.value.filter(row => JSON.stringify(row).toLowerCase().includes(term))
+  return adjustments.value.filter(row => {
+    const typeMatches = typeFilter.value === 'all' || readText(row, ['adjustmentType']) === typeFilter.value
+    const searchMatches = !term || JSON.stringify(row).toLowerCase().includes(term)
+    return typeMatches && searchMatches
+  })
+})
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredRows.value.length / pageSize.value)))
+const pagedRows = computed(() => {
+  const start = (page.value - 1) * pageSize.value
+  return filteredRows.value.slice(start, start + pageSize.value)
 })
 const canSave = computed(() => Boolean(form.employeeId && form.onDate && form.adjustmentType && form.status))
+
+watch([search, typeFilter], () => { page.value = 1 })
 
 function emptyForm() {
   return {
@@ -245,6 +269,7 @@ function resetForm() {
 function startCreate() {
   resetForm()
   message.value = ''
+  formOpen.value = true
 }
 
 function startEdit(row: ApiRecord) {
@@ -264,6 +289,7 @@ function startEdit(row: ApiRecord) {
     status: readText(row, ['status'], 'Open'),
     remarks: readText(row, ['remarks'], '')
   })
+  formOpen.value = true
 }
 
 function buildPayload() {
@@ -320,6 +346,7 @@ async function save() {
     }
     messageTone.value = 'success'
     resetForm()
+    formOpen.value = false
     await load()
   } catch (caught) {
     messageTone.value = 'error'
