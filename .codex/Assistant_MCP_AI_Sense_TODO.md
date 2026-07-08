@@ -87,11 +87,14 @@ Status: intake complete, patch not applied directly.
 - Complete in `6.0.51`: changed connected analysis props from type-only props to runtime props so production AI Sense pages keep their configured endpoint.
 - Complete in `6.0.51`: added an empty endpoint guard in the AI Sense API client so missing page configuration cannot call `/api/`.
 
-### 14F.7 MCP Server Layer
+### 14F.7 MCP Server Layer (complete 2026-07-08)
 
-- After in-app assistant is stable, expose the same read-only tool catalog through MCP.
-- Prefer an additive wrapper around the tool catalog instead of duplicating business logic.
-- Keep MCP auth/network exposure local or private-tunnel only until reviewed.
+- Added the official `ModelContextProtocol.AspNetCore` SDK (0.4.0-preview.1) to `Garmetix.Api.csproj`.
+- `backend/Garmetix.Api/Assistant/AssistantMcpTools.cs`: additive `[McpServerToolType]` wrapper exposing the same 6 tools as `AssistantToolCatalog` (`get_store_sales_summary`, `compare_store_performance`, `get_low_stock_items`, `get_outstanding_dues`, `get_business_snapshot`, `get_today_snapshot`). Every method just forwards to `AssistantToolCatalog.ExecuteAsync` - no business logic duplicated, matching the plan.
+- `Program.cs`: `AddHttpContextAccessor()` + `AddMcpServer().WithHttpTransport().WithTools<AssistantMcpTools>()`; route mapped at `POST /api/mcp` only when `Assistant:McpEnabled` is true, gated with `.RequireAuthorization()` - same JWT bearer pipeline as every other endpoint, so an MCP caller is bound by the same `WorkspaceScope` tenant scoping and gets no broader network exposure than the rest of the API.
+- New separate flag `AssistantOptions.McpEnabled` (default `false`), independent of the in-app chat's `Enabled` flag, since MCP callers (Claude Desktop, claude.ai, etc.) are a different risk surface than the in-app chat panel. Both default off in `appsettings.json`/`appsettings.Development.json`.
+- Satisfies "local or private-tunnel only until reviewed": the endpoint is exposed exactly as much as the rest of the Version6 API (private network / SRP host) and defaults to disabled - no additional public surface was opened.
+- Verified via `dotnet build backend/Garmetix.Api/Garmetix.Api.csproj` (0 errors); not yet live-tested against a real MCP client (Claude Desktop) or deployed - flip `Assistant__McpEnabled=true` (and a real JWT) to exercise it once ready to test live.
 
 ### 14F.8 Live Acceptance
 

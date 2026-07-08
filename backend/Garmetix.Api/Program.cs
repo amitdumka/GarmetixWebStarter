@@ -139,6 +139,11 @@ builder.Services.AddScoped<AssistantConversationStore>();
 builder.Services.AddScoped<AssistantToolCatalog>();
 builder.Services.AddScoped<AssistantChatService>();
 builder.Services.AddHttpClient<AssistantAnthropicClient>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<AssistantMcpTools>();
+builder.Services.AddMcpServer()
+    .WithHttpTransport()
+    .WithTools<AssistantMcpTools>();
 builder.Services.Configure<GoogleDriveBackupOptions>(builder.Configuration.GetSection("GoogleDriveBackup"));
 builder.Services.AddHttpClient("GoogleDriveAuth");
 builder.Services.AddHttpClient("GoogleDriveBackup");
@@ -368,6 +373,15 @@ app.MapDataConsistencyRepairEndpoints();
 app.MapDatabaseMigrationEndpoints();
 app.MapDashboardEndpoints();
 app.MapAssistantEndpoints();
+if (app.Configuration.GetValue<bool>("Assistant:McpEnabled"))
+{
+    // Same read-only tool catalog as /api/assistant/chat, reachable over MCP for
+    // external clients (Claude Desktop, claude.ai, etc). Reuses the standard JWT
+    // bearer pipeline - an MCP client authenticates with the same Garmetix token
+    // as any other API caller, so exposure is scoped identically to the rest of
+    // the API (no new/broader network surface). See AssistantOptions.McpEnabled.
+    app.MapMcp("/api/mcp").RequireAuthorization();
+}
 app.MapProductionReadinessEndpoints();
 app.MapPrintAcceptanceEndpoints();
 app.MapBarcodeAcceptanceEndpoints();

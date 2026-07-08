@@ -346,7 +346,7 @@ Goal: add an embedded Garmetix Assistant and later MCP tool layer without splitt
 - 14F.6A complete: bump modular version identity to `6.0.49`, add an AI Sense API path runtime guard, add stale workspace package detection/repair, and wire workspace-link repair before SRP deploy builds through the detected npm command.
 - 14F.6B complete: bump modular version identity to `6.0.50`, serve SRP modular deep routes through generated `$uri/index.html` files before directory redirects, normalize trailing-slash deep app routes, and add acceptance checks for AI Sense sales, purchase, daily and profit analysis pages.
 - 14F.6C complete: bump modular version identity to `6.0.51`, declare AI Sense connected-analysis props at runtime so report endpoints survive production bundling, and guard against missing endpoint values causing API root `/api/` calls.
-- 14F.7 next: add MCP wrapper around the same read-only tool catalog after the in-app assistant is stable.
+- 14F.7 complete: bump modular version identity to `6.0.58`, add the official `ModelContextProtocol.AspNetCore` SDK, expose the same 6 read-only tools over MCP at `POST /api/mcp` via an additive `AssistantMcpTools` wrapper (forwards to the existing `AssistantToolCatalog.ExecuteAsync`, no business logic duplicated), reuse the standard JWT bearer auth pipeline (same `WorkspaceScope` tenant scoping as the rest of the API), and gate it behind a new `Assistant:McpEnabled` flag independent of and defaulting off alongside `Assistant:Enabled`.
 - Assistant backend provider secrets must be provided only through server-side environment variables.
 
 ## Stage 14G: Version6 Books GST Full Legacy Parity

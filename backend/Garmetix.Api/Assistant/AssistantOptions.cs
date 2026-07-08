@@ -10,6 +10,15 @@ public sealed class AssistantOptions
 {
     public bool Enabled { get; set; } = false;
 
+    /// <summary>
+    /// Separate gate for exposing the same read-only tool catalog over MCP
+    /// (Model Context Protocol) instead of / in addition to the in-app chat.
+    /// Off by default - MCP callers are external tool clients (Claude Desktop,
+    /// claude.ai, etc.), a different risk surface than the in-app chat panel,
+    /// so this must be opted into explicitly even if Enabled is already true.
+    /// </summary>
+    public bool McpEnabled { get; set; } = false;
+
     public string AnthropicApiKey { get; set; } = string.Empty;
 
     public string AnthropicBaseUrl { get; set; } = "https://api.anthropic.com";
