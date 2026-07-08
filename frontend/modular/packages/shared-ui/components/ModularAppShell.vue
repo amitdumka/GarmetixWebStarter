@@ -362,12 +362,16 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'petty-cash', label: 'Petty Cash', href: '/petty-cash', icon: 'i-lucide-circle-dollar-sign' },
       { id: 'cash-details', label: 'Cash Details', href: '/cash-details', icon: 'i-lucide-coins' }
     ] },
-    { key: 'notes', label: 'Notes And GST', items: [
+    { key: 'notes', label: 'Notes', items: [
       { id: 'debit-notes', label: 'Debit Notes', href: '/debit-notes', icon: 'i-lucide-file-minus-2' },
       { id: 'credit-notes', label: 'Credit Notes', href: '/credit-notes', icon: 'i-lucide-file-plus-2' },
-      { id: 'commercial-notes', label: 'Commercial Summary', href: '/commercial-notes', icon: 'i-lucide-files' },
+      { id: 'commercial-notes', label: 'Commercial Summary', href: '/commercial-notes', icon: 'i-lucide-files' }
+    ] },
+    { key: 'gst', label: 'GST', items: [
       { id: 'gst-returns', label: 'GST Returns', href: '/gst-returns', icon: 'i-lucide-file-json-2' },
-      { id: 'gst-reports', label: 'GST Reports', href: '/gst-reports', icon: 'i-lucide-table-properties' }
+      { id: 'gst-reports', label: 'GST Reports', href: '/gst-reports', icon: 'i-lucide-table-properties' },
+      { id: 'gst-production', label: 'GST Production', href: '/gst-production', icon: 'i-lucide-factory' },
+      { id: 'accounting-gst-validation', label: 'Accounting/GST Validation', href: '/accounting-gst-validation', icon: 'i-lucide-shield-check' }
     ] },
     { key: 'audit', label: 'Audit', items: [
       { id: 'fy-locks', label: 'FY Locks', href: '/financial-year-locks', icon: 'i-lucide-lock-keyhole' },
