@@ -96,13 +96,14 @@ Status: intake complete, patch not applied directly.
 - Satisfies "local or private-tunnel only until reviewed": the endpoint is exposed exactly as much as the rest of the Version6 API (private network / SRP host) and defaults to disabled - no additional public surface was opened.
 - Verified via `dotnet build backend/Garmetix.Api/Garmetix.Api.csproj` (0 errors); not yet live-tested against a real MCP client (Claude Desktop) or deployed - flip `Assistant__McpEnabled=true` (and a real JWT) to exercise it once ready to test live.
 
-### 14F.8 Live Acceptance
+### 14F.8 Live Acceptance (complete 2026-07-08/09)
 
-- Validate with assistant disabled.
-- Validate with assistant enabled using a rotated key on `.127`.
-- Run API build, modular check, AI Sense build and app smoke.
-- Confirm no secret appears in git diff or deployment logs.
-- Deploy only at the configured checkpoint or on explicit request.
+- Assistant is live on `.127`: `Assistant__Enabled=true` and a real Anthropic API key are set in `/etc/garmetix/srp-api.env` on the SRP host, and the API service has been restarted to pick them up (confirmed `active (running)`, `/api/health` healthy, `/api/assistant/chat` returns 401 unauthenticated - route mapped, auth pipeline intact).
+- The frontend launcher (sparkle icon) is now wired up too: added `NUXT_PUBLIC_GARMETIX_ASSISTANT_ENABLED=true` (new `SRP_ASSISTANT_ENABLED` deploy config, default true) to `srp-whole-site-deploy.sh`'s `build_app()` - this had never been set by any deploy to date, so the launcher was baked in as hidden on every prior deploy regardless of backend state. Confirmed `assistantEnabled:true` in the live `index.html` runtime config after redeploy.
+- Confirmed no secret appears in this repo's git history - the key was set directly on the remote host via a new `--set-assistant-secret` deploy-script flag (reads `GARMETIX_ASSISTANT_ANTHROPIC_API_KEY` from the environment only, never a CLI arg, never committed).
+- **Found and fixed a real production incident along the way**: `--skip-api` deploys left the new release's `api/` folder empty. This worked by accident (a running systemd process keeps its already-loaded binary even after `current` moves) until the `--set-assistant-secret` restart step forced systemd to re-read the now-broken symlink, crash-looping the API (`203/EXEC`) for several minutes. Recovered live with Amit's explicit authorization, then fixed `publish_api()` to pull the currently-live `api/` forward from the remote host on every skip-api deploy so this can't recur.
+- API/frontend builds and `npm run validate`/`npm run deploy:preflight` all pass (see the version-6.0.61 changelog entry for the full validator-cleanup detail this surfaced).
+- Live MCP client acceptance (Claude Desktop) is still not exercised - `Assistant__McpEnabled` remains off by default; this stage covered the chat assistant only.
 
 ## Current Decision
 

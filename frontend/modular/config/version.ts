@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.60',
-  stage: 'Stage 14K.1 HR Attendance Menu Fix',
-  label: 'Version6 Stage 14K.1 HR Attendance Menu Fix',
-  summary: 'HR: the sidebar Attendance submenu (a hardcoded localMenus list in ModularAppShell.vue, separate from routes.ts) had drifted out of sync with real routes - Attendance Dashboard, Manual Punch, Shifts, Shift Rules and Policies all had working pages/routes but no sidebar entry, so they were only reachable by typing the URL directly. Added all five. Same root-cause class as the earlier Books Notes/GST menu-split bug: routes.ts having a route does not mean the sidebar shows it, since the sidebar reads from this separate hardcoded list.'
+  version: '6.0.61',
+  stage: 'Stage 14F.8 Assistant Live Activation',
+  label: 'Version6 Stage 14F.8 Assistant Live Activation',
+  summary: 'Assistant: enabled live on SRP - Assistant__Enabled and a real Anthropic API key set in the production API env file, and the frontend launcher (sparkle icon) wired up via a new NUXT_PUBLIC_GARMETIX_ASSISTANT_ENABLED build flag in srp-whole-site-deploy.sh, which had never been set on any deploy to date regardless of backend state. Found and fixed a real deploy-tooling bug along the way: --skip-api deploys left the new release\'s api/ folder empty, which worked by accident (a running systemd process keeps using its already-loaded binary even after `current` moves) right up until something actually restarted the service, at which point it 403/EXEC-crash-looped with no build step anywhere near the real cause. publish_api() now pulls the currently-live api/ forward from the remote host when skipping a fresh publish, so every release stays self-contained. Production API was down for several minutes tonight from this exact bug being surfaced by the assistant-secret restart; recovered live with Amit\'s explicit authorization before the permanent fix landed.'
 } as const
