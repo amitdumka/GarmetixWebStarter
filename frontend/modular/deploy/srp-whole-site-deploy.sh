@@ -264,14 +264,24 @@ resolve_command() {
 
 dotnet_path_arg() {
   local path_value="$1"
-  # Only translate through wslpath when actually running inside real WSL (WSL_DISTRO_NAME/WSL_INTEROP
-  # are set only by WSL, never by Git Bash/MSYS). Git Bash already auto-converts POSIX-style argv
-  # paths to Windows paths for native .exe targets, so calling wslpath there is not just redundant,
-  # it actively corrupts the path: a stray wslpath.exe on PATH interprets a Git-Bash path like
-  # /c/AIArea/... (missing the /mnt prefix real WSL uses) as a literal top-level "c" directory,
-  # producing a doubled drive letter such as C:\c\AIArea\... that breaks dotnet publish.
-  if [[ "$DOTNET_COMMAND" == *dotnet.exe ]] && [ -n "${WSL_DISTRO_NAME:-}${WSL_INTEROP:-}" ] && command -v wslpath >/dev/null 2>&1; then
+  # dotnet.exe is a native Windows binary; when invoked from a POSIX-style shell it needs a
+  # real Windows path, not the shell's own /c/... representation. Two different translators
+  # apply depending on which POSIX shell is running us:
+  #   - Real WSL: use wslpath -w (WSL_DISTRO_NAME/WSL_INTEROP are set only by WSL, never by
+  #     Git Bash/MSYS, so this branch never fires under Git Bash).
+  #   - Git Bash/MSYS: use cygpath -w, which Git for Windows always ships. Do NOT rely on
+  #     MSYS's own automatic argv path-conversion for native-exe arguments here - it does not
+  #     reliably substitute the /c/ prefix and can instead prepend C:\ while keeping the "c"
+  #     segment literal, producing a doubled drive letter like C:\c\AIArea\... that breaks
+  #     dotnet publish. This was confirmed by tracing $DOTNET_COMMAND/path values live inside
+  #     a real deploy run: the resolved dotnet command was plain "dotnet" (no .exe suffix, so
+  #     the old *dotnet.exe check here never even matched) and wslpath was never on PATH, yet
+  #     the doubled path still appeared - proof the corruption happens in MSYS's own argv
+  #     conversion, not in this function's previous wslpath branch.
+  if [ -n "${WSL_DISTRO_NAME:-}${WSL_INTEROP:-}" ] && command -v wslpath >/dev/null 2>&1; then
     wslpath -w "$path_value"
+  elif command -v cygpath >/dev/null 2>&1; then
+    cygpath -w "$path_value"
   else
     printf '%s' "$path_value"
   fi
