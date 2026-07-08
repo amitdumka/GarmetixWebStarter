@@ -1283,6 +1283,9 @@ public static class BillingEndpoints
         var auditEntries = deleteAudit
             ? await db.AuditLogEntries.Where(item => item.EntityId == invoice.Id || item.Reference == invoiceNumber || item.Reference == $"SI-{invoiceNumber}" || item.Reference == $"SIC-{invoiceNumber}").ToListAsync(cancellationToken)
             : new List<AuditLogEntry>();
+        var digitalInvoices = await db.DigitalInvoices
+            .Where(item => item.CompanyId == companyId && item.InvoiceId == invoice.Id && !item.Deleted)
+            .ToListAsync(cancellationToken);
 
         var response = new AdminHardDeleteSaleResponse(
             invoice.Id,
@@ -1316,6 +1319,17 @@ public static class BillingEndpoints
         if (auditEntries.Count > 0)
         {
             db.AuditLogEntries.RemoveRange(auditEntries);
+        }
+        foreach (var digitalInvoice in digitalInvoices)
+        {
+            // Soft-delete rather than remove: keeps WhatsApp log / feedback / campaign
+            // recipient history intact while stopping the CRM Digital Bills list from
+            // still showing a live-looking link for an invoice that no longer exists.
+            digitalInvoice.Deleted = true;
+            digitalInvoice.IsActive = false;
+            digitalInvoice.DisabledAt = DateTime.UtcNow;
+            digitalInvoice.DisableReason = "Source sale invoice was hard-deleted";
+            digitalInvoice.UpdatedAt = DateTime.UtcNow;
         }
 
         AddBillingAudit(
