@@ -212,6 +212,11 @@ if [ ! -f "$REPO_ROOT/$SRP_API_PROJECT" ] && [[ "$SRP_API_PROJECT" == legacy/bac
 fi
 SRP_SKIP_API_PUBLISH="${SRP_SKIP_API_PUBLISH:-false}"
 SRP_API_PUBLISH_SELF_CONTAINED="${SRP_API_PUBLISH_SELF_CONTAINED:-true}"
+# Controls the frontend Assistant launcher (sparkle icon) visibility, baked in at build
+# time - independent of the backend Assistant:Enabled/McpEnabled flags, which live in the
+# remote API env file and can be flipped without a redeploy. Default true: once someone
+# takes the trouble to wire up an Anthropic key, the launcher should actually be visible.
+SRP_ASSISTANT_ENABLED="${SRP_ASSISTANT_ENABLED:-true}"
 SRP_API_RUNTIME="${SRP_API_RUNTIME:-linux-x64}"
 SRP_API_ENV_PATH="${SRP_API_ENV_PATH:-/etc/garmetix/srp-api.env}"
 SRP_CLOUDFLARE_TUNNEL_NAME="${SRP_CLOUDFLARE_TUNNEL_NAME:-garmetix-srp}"
@@ -436,6 +441,7 @@ build_app() {
         NUXT_PUBLIC_GARMETIX_BOOKS_URL="$SRP_BOOKS_URL" \
         NUXT_PUBLIC_GARMETIX_CRM_URL="$SRP_CRM_URL" \
         NUXT_PUBLIC_GARMETIX_ADMIN_URL="$SRP_ADMIN_URL" \
+        NUXT_PUBLIC_GARMETIX_ASSISTANT_ENABLED="$SRP_ASSISTANT_ENABLED" \
         "$NPM_COMMAND" run "build:$app_name"
       ); then
         local index_size
@@ -620,8 +626,20 @@ INSTALL
 
 publish_api() {
   if [ "$SKIP_API" = true ] || [ "$SRP_SKIP_API_PUBLISH" = true ]; then
-    echo "Skipping API publish."
+    # A skipped API publish must NOT leave $LOCAL_RELEASE/api empty: this release still
+    # becomes the new `current` symlink target once uploaded, and systemd's ExecStart
+    # reads the binary through that symlink on every restart. An empty api/ folder here
+    # works by accident right up until something restarts the service (a later deploy,
+    # a host reboot, or an unrelated config change) - at that point it 203/EXECs with no
+    # build step anywhere near the failure to explain why. Pull the currently-live api/
+    # forward from the remote host instead, so every release this script ever makes
+    # `current` is self-contained and safe to restart into, not just the ones that
+    # happened to publish the API themselves.
+    echo "Skipping API publish - pulling the currently-live api/ forward from $SRP_DEPLOY_TARGET so this release stays self-contained."
     mkdir -p "$LOCAL_RELEASE/api"
+    if ! ssh_cmd "test -d '$SRP_REMOTE_BASE/current/api' && tar -czf - -C '$SRP_REMOTE_BASE/current' api" | tar -xzf - -C "$LOCAL_RELEASE"; then
+      echo "WARNING: could not pull the current api/ from the remote host (first deploy, or remote has no prior release with an API build yet). This release will have no API binary - do not restart garmetix-srp-api.service against it." >&2
+    fi
     return
   fi
   local project_path output_path
