@@ -343,9 +343,12 @@ upload_payload() {
   # permissions cannot reliably preserve +x, so the self-contained API apphost binary
   # can land on the remote as non-executable (systemd then fails with 203/EXEC). Force
   # the known apphost name executable explicitly rather than trusting the tar stream.
-  if [ "$SKIP_API" = false ] && [ "$SRP_SKIP_API_PUBLISH" != true ]; then
-    ssh_cmd "chmod +x '$REMOTE_RELEASE/api/Garmetix.Api' 2>/dev/null || true"
-  fi
+  # Always attempt this, not just when SKIP_API=false: the skip-api branch of
+  # publish_api() now pulls an existing api/ forward from the remote host rather than
+  # leaving it empty, and that pulled-forward binary goes through this exact same
+  # Windows/NTFS-backed tar round-trip, so it is just as likely to lose +x as a freshly
+  # published one. The `|| true` already makes this a no-op when there is no api/ at all.
+  ssh_cmd "chmod +x '$REMOTE_RELEASE/api/Garmetix.Api' 2>/dev/null || true"
 }
 
 remote_sudo_env_prefix() {
