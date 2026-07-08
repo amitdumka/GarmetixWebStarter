@@ -328,9 +328,14 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
     ] },
     { key: 'attendance', label: 'Attendance', items: [
       { id: 'attendance', label: 'Attendance', href: '/attendance', icon: 'i-lucide-calendar-check' },
+      { id: 'attendance-dash', label: 'Attendance Dashboard', href: '/attendance-dash', icon: 'i-lucide-calendar-check' },
       { id: 'today', label: 'Today', href: '/attendance/today', icon: 'i-lucide-calendar-check-2' },
       { id: 'monthly', label: 'Monthly', href: '/attendance/monthly', icon: 'i-lucide-calendar-range' },
+      { id: 'manual-punch', label: 'Manual Punch', href: '/attendance/manual-punch', icon: 'i-lucide-hand' },
       { id: 'regularization', label: 'Regularization', href: '/attendance/regularization', icon: 'i-lucide-calendar-clock' },
+      { id: 'shifts', label: 'Shifts', href: '/attendance/shifts', icon: 'i-lucide-clock-3' },
+      { id: 'shift-rules', label: 'Shift Rules', href: '/attendance/shift-rules', icon: 'i-lucide-route' },
+      { id: 'policies', label: 'Policies', href: '/attendance/policies', icon: 'i-lucide-sliders-horizontal' },
       { id: 'devices', label: 'Devices', href: '/attendance/devices', icon: 'i-lucide-fingerprint' }
     ] },
     { key: 'payroll', label: 'Payroll', items: [

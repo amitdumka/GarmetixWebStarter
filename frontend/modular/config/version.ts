@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.59',
-  stage: 'Stage 14K Books Accounting Legacy Parity',
-  label: 'Version6 Stage 14K Books Accounting Legacy Parity',
-  summary: 'Books: rebuilt parties.vue to match legacy\'s actual customer/vendor GSTIN register (fetches customers/vendors with GSTIN lookup+validation) instead of the internal Party ledger-master table it was wrongly querying, which explains the reported blank table - the Party table is only meaningfully populated via ledger-linking, not general use. Fixed vouchers.vue auto-opening the New Voucher modal on every page load (a stale form.ledgerId/employeeId default-seeding check also toggled formOpen) and widened its modal to match legacy sizing. Brought accounting.vue to real parity with legacy\'s 11-tab accounting workspace: added Bank Accounts create/edit (previously read-only), and five entirely missing tabs - Bank Transactions (CRUD), Bank Reconciliation (reconcile/reopen statement lines), Cheque Log (CRUD + Clear/Bounce lifecycle), Vendor Bank Accounts (CRUD), and Account Details (CRUD) - all reusing already-existing backend endpoints, zero backend/DB changes.'
+  version: '6.0.60',
+  stage: 'Stage 14K.1 HR Attendance Menu Fix',
+  label: 'Version6 Stage 14K.1 HR Attendance Menu Fix',
+  summary: 'HR: the sidebar Attendance submenu (a hardcoded localMenus list in ModularAppShell.vue, separate from routes.ts) had drifted out of sync with real routes - Attendance Dashboard, Manual Punch, Shifts, Shift Rules and Policies all had working pages/routes but no sidebar entry, so they were only reachable by typing the URL directly. Added all five. Same root-cause class as the earlier Books Notes/GST menu-split bug: routes.ts having a route does not mean the sidebar shows it, since the sidebar reads from this separate hardcoded list.'
 } as const

@@ -4,6 +4,20 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-07-08 - Stage 14K.1: HR Attendance sidebar menu fix (same bug class as Books Notes/GST)
+
+**Type**: bug fix. Amit reported `/attendance-dash` missing from the sidebar's Attendance submenu.
+
+Root cause was identical to the earlier Books Notes/GST menu-split bug found and fixed earlier this session: the sidebar does not read from `routes.ts` at all - it's driven by a separate hardcoded `localMenus` map inside `packages/shared-ui/components/ModularAppShell.vue`. A route can be fully built, registered in `routes.ts`, and working perfectly, while having zero sidebar presence, because that second list was never updated to match. Since this is now a confirmed *recurring* bug class in this codebase (two independent live reports so far), checked the rest of the HR `attendance` menu group against `routes.ts` rather than just fixing the one reported item, and found four more instances: Manual Punch, Shifts, Shift Rules, and Policies all had working, fully-built pages (Shifts/Shift Rules/Policies specifically got a full CRUD/UX pass under Stage 14I this session) but no sidebar link, reachable only by typing the URL directly.
+
+Added all five missing entries (`attendance-dash`, `manual-punch`, `shifts`, `shift-rules`, `policies`) to the Attendance submenu. Deliberately left kiosk/mobile-kiosk/kiosk-monitor/photo-review/biometric-enrollment/face-liveness/device-bridge out of the sidebar - those routes exist for a reason (QR/kiosk deep-links, or reachable via `attendance-dash`'s own header action buttons per the original build plan), not because they were missed the same way.
+
+**Verification**: `nuxt generate` clean build, `validate-structure.mjs`, grepped the compiled `hr-web` bundle to confirm the new labels ("Attendance Dashboard", "Manual Punch", "Shift Rules") actually landed in the output, checked the running preview server's console for errors (none). No live click-through possible (HR is login-gated, no test credentials in this sandbox).
+
+**Files touched**: `frontend/modular/packages/shared-ui/components/ModularAppShell.vue`, `frontend/modular/config/version.ts` (`6.0.60`), `frontend/modular/docs/MODULAR_TODO.md`.
+
+---
+
 ## 2026-07-08 - Stage 14K: Books Accounting legacy parity (Parties/Vouchers/Accounting fixes)
 
 **Type**: bug fix + feature parity port. Triggered by Amit reporting three issues directly from the live SRP site with a screenshot: Parties page showing a blank table despite the Books Home page's own "117 party rows" stat, the Vouchers page auto-opening a New Voucher popup on every visit with the popup far too small, and "Accounting is also not properly implemented" with an explicit instruction to check `frontend/legacy/garmetix-web` for the reference implementation.
