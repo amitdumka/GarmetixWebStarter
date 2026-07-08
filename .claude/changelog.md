@@ -4,6 +4,24 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-07-08 - Full SRP deploy (v6.0.58): shipped MCP + Stage 14J, found and fixed a live tar-upload permission bug
+
+**Type**: production deploy + incident found/fixed live during that deploy. Triggered by Amit's explicit "complete MCP and AI part and deploy it".
+
+**Deploy**: ran a full `srp-whole-site-deploy.sh` (all 7 apps + API, no `--apps`/`--skip-api` filter) to ship everything accumulated since `6.0.57`: Stage 14J (CRM Digital Bills fixes, Main Sale Invoices rebuild), the `cygpath` dotnet-publish fix, and Stage 14F.7 (MCP server layer). Build-only dry run first (staged release, verified no degenerate `"Redirecting..."` stubs), then the real upload.
+
+**Incident found live**: the upload used the tar-stream fallback (`rsync` not installed on this host) - `upload_release()` symlinks `current` to the new release but does not restart the API systemd service (that's normally done by `--install-remote`, since a running process doesn't reload a new binary from a re-pointed symlink on its own). Ran `--skip-build --install-remote` to apply that; the API then crash-looped with `status=203/EXEC`. Root cause: the tar stream, built from `$LOCAL_RELEASE` on Git Bash's NTFS-backed filesystem, does not reliably preserve the Unix executable bit (NTFS has no native equivalent) - the self-contained `Garmetix.Api` apphost landed on the remote as `-rw-r--r--`, and systemd's `ExecStart` can't exec a non-executable file, so `EXEC` errors are cosmetic-only tracebacks with no application log line - the container/service metadata (`203/EXEC`) was the only signal.
+
+**Immediate live fix**: `chmod +x` on the deployed binary; systemd's `auto-restart` policy picked it back up on its own retry (no `sudo systemctl restart` needed - non-interactive sudo failed with no TTY, but wasn't required once the exec bit was fixed, since the service was already mid-crash-loop and auto-retries).
+
+**Root-cause fix**: `frontend/modular/deploy/srp-whole-site-deploy.sh`'s `upload_payload()` now runs an explicit `chmod +x` on the known API apphost path (`$REMOTE_RELEASE/api/Garmetix.Api`) over SSH right after the tar-stream extraction, whenever the API is part of this deploy. Scoped to the tar-stream fallback path only (the `rsync` path already used `-a`, which does preserve permissions correctly - this bug is specific to the no-rsync fallback).
+
+**Verification**: confirmed the API service reached `active (running)` with a healthy `/api/health` (`databaseReady: true`), confirmed `/api/mcp` correctly returns 404 (route not mapped - `Assistant:McpEnabled` defaults off in production, working as designed), ran `srp-public-acceptance.mjs --live --strict` (all-green, public + LAN, including Cloudflare-routed URLs), and spot-checked real page-body byte content (not just HTTP status) for CRM Digital Bills and the Main billing page to rule out the prior Nitro flaky-stub bug recurring - both served full real shells (~2900 bytes), no stub. Also incidentally confirmed the previously-flagged `/crm/customers` build-collision bug (`.claude/todo.md`) no longer reproduces - now serves real content with a single clean trailing-slash redirect, not a loop.
+
+**Files touched**: `frontend/modular/deploy/srp-whole-site-deploy.sh` (`upload_payload()` chmod fix), `.claude/todo.md` (CRM customers bug marked resolved).
+
+---
+
 ## 2026-07-08 - Stage 14F.7 MCP server layer + real fix for the Git-Bash dotnet-publish bug + Stage 14J closure
 
 **Type**: new backend feature (MCP), deploy-tooling bug fix, prior-stage cleanup. Continuation of a session that had hit a usage limit mid-work; resumed via "resume last pending work" then "mcp and ai sense complete it along with pending with you".

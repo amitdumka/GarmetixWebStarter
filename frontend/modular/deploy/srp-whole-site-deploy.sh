@@ -325,6 +325,14 @@ upload_payload() {
     cd "$LOCAL_RELEASE"
     tar -czf - .
   ) | ssh_cmd "rm -rf '$REMOTE_RELEASE' && mkdir -p '$REMOTE_RELEASE' && tar -xzf - -C '$REMOTE_RELEASE'"
+  # $LOCAL_RELEASE lives on a Windows/NTFS filesystem when this runs under Git Bash,
+  # and NTFS has no real Unix executable bit - tar reading through Git Bash's emulated
+  # permissions cannot reliably preserve +x, so the self-contained API apphost binary
+  # can land on the remote as non-executable (systemd then fails with 203/EXEC). Force
+  # the known apphost name executable explicitly rather than trusting the tar stream.
+  if [ "$SKIP_API" = false ] && [ "$SRP_SKIP_API_PUBLISH" != true ]; then
+    ssh_cmd "chmod +x '$REMOTE_RELEASE/api/Garmetix.Api' 2>/dev/null || true"
+  fi
 }
 
 remote_sudo_env_prefix() {
