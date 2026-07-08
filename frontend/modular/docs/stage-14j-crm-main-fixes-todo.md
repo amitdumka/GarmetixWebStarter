@@ -1,6 +1,6 @@
-# Stage 14J: CRM Digital Bills fixes + Main Sale Invoices page (COMPLETE)
+# Stage 14J: CRM Digital Bills fixes + Main Sale Invoices page (COMPLETE, DEPLOYED)
 
-All four items below are done and committed (see commits `884ceed`, `b572d1f`, `7637cc8` on `version6`). **Not yet deployed** — holding per Amit's explicit instruction to wait until 3 iterations of work have accumulated since the last deploy (this whole CRM+Main batch was iteration 1). The scheduled 3 AM auto-resume task can be cancelled/left to no-op since there's nothing left to resume here.
+All four items below are done and committed (see commits `884ceed`, `b572d1f`, `7637cc8` on `version6`). **Deployed live to SRP (`.127` / `srp.aadwikafashion.in`) on 2026-07-08** as part of the `6.0.58` full-site deploy, alongside Stage 14F.7 (MCP). Verified via `srp-public-acceptance.mjs --live --strict` (all green) plus direct byte-content checks on the CRM Digital Bills and Main billing pages. The scheduled 3 AM auto-resume task can be cancelled/left to no-op since there's nothing left to resume here.
 
 
 Amit's request, verbatim scope (all counted as **one iteration** — do not deploy until 3 iterations of work have accumulated since the last deploy, and this is iteration 1 of that count):
