@@ -26,15 +26,12 @@
     </section>
 
     <div class="garmetix-section-card">
-      <div class="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_160px_160px_auto]">
+      <div class="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_160px_auto]">
         <UFormField label="Search">
           <UInput v-model="filters.q" icon="i-lucide-search" placeholder="Invoice, customer, mobile" @keyup.enter="refresh(true)" />
         </UFormField>
         <UFormField label="Page size">
-          <USelect v-model="filters.pageSize" :items="pageSizeOptions" />
-        </UFormField>
-        <UFormField label="Page">
-          <UInput v-model.number="filters.page" type="number" min="1" />
+          <USelect v-model="filters.pageSize" :items="pageSizeOptions" @update:model-value="refresh(true)" />
         </UFormField>
         <div class="flex flex-wrap items-end gap-2">
           <UButton icon="i-lucide-search-check" :loading="loading" @click="refresh(true)">Search</UButton>
@@ -104,6 +101,13 @@
           </template>
         </tbody>
       </table>
+    </div>
+    <div v-if="digitalBills.length" class="flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
+      <p>Page {{ filters.page }} of {{ totalPages }} - {{ total }} digital bill(s)</p>
+      <div class="flex items-center gap-2">
+        <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-left" :disabled="filters.page <= 1 || loading" @click="changePage(-1)">Prev</UButton>
+        <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-right" :disabled="filters.page >= totalPages || loading" @click="changePage(1)">Next</UButton>
+      </div>
     </div>
 
     <div v-if="selectedBill" class="garmetix-section-card">
@@ -202,6 +206,7 @@ const loadError = ref('')
 const activityError = ref('')
 
 const total = computed(() => readNumber(response.value, ['total']) || digitalBills.value.length)
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / filters.pageSize)))
 const timeline = computed(() => readArray(activity.value, ['timeline', 'events']))
 const feedbackRows = computed(() => readArray(activity.value, ['feedback']))
 const activityTotals = computed(() => readRecord(activity.value?.totals) ?? {})
@@ -265,6 +270,13 @@ function whatsAppColor(row: ApiRecord) {
 function clearSearch() {
   filters.q = ''
   filters.page = 1
+  refresh()
+}
+
+function changePage(delta: number) {
+  const next = filters.page + delta
+  if (next < 1 || next > totalPages.value) return
+  filters.page = next
   refresh()
 }
 

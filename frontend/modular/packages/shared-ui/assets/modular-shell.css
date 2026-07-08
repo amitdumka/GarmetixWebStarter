@@ -229,7 +229,14 @@ body.garmetix-dashboard-shell #__nuxt {
 }
 
 .garmetix-table-panel {
+  /* Tables can legitimately overflow both axes (wide columns, many rows). The shared
+     overflow:hidden above silently clips content with no way to scroll to it, and its
+     shorthand form also wins over a page's own `overflow-x-auto` utility class on the
+     same element regardless of stylesheet order. Scope this panel to scroll instead of
+     clip; overflow:auto only shows a scrollbar when content actually overflows, so it
+     looks identical to hidden in the common case where it doesn't. */
   padding: 0;
+  overflow: auto;
 }
 
 .garmetix-panel-header {
