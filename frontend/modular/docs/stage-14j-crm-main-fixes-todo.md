@@ -1,4 +1,7 @@
-# Stage 14J: CRM Digital Bills fixes + Main Sale Invoices page (in-progress todo)
+# Stage 14J: CRM Digital Bills fixes + Main Sale Invoices page (COMPLETE)
+
+All four items below are done and committed (see commits `884ceed`, `b572d1f`, `7637cc8` on `version6`). **Not yet deployed** — holding per Amit's explicit instruction to wait until 3 iterations of work have accumulated since the last deploy (this whole CRM+Main batch was iteration 1). The scheduled 3 AM auto-resume task can be cancelled/left to no-op since there's nothing left to resume here.
+
 
 Amit's request, verbatim scope (all counted as **one iteration** — do not deploy until 3 iterations of work have accumulated since the last deploy, and this is iteration 1 of that count):
 
