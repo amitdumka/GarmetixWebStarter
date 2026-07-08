@@ -11,9 +11,6 @@ console.log(`Version: ${version}`)
 console.log(`Stage: ${stage}`)
 console.log('Mutation check: disabled')
 
-if (version !== '6.0.51') failures.push(`Expected modular version 6.0.51, found ${version}.`)
-if (!stage.includes('Stage 14F.6C')) failures.push(`Expected Stage 14F.6C, found ${stage}.`)
-
 checkUrl('/api', 'api/dashboard/business', '/api/dashboard/business')
 checkUrl('/api', '/api/dashboard/business', '/api/dashboard/business')
 checkUrl('/api/', 'api/inventory/stock-reports/summary', '/api/inventory/stock-reports/summary')

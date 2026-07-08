@@ -126,7 +126,11 @@ function checkBooksPages() {
     },
     {
       file: 'apps/books/pages/parties.vue',
-      markers: ['parties', 'ledger']
+      // Stage 14K rebuilt this page from the internal ledger-linked Party master
+      // into legacy's actual design - a customer/vendor GSTIN register - so it
+      // legitimately no longer references "ledger" at all (that concept still
+      // lives in accounting.vue's Parties tab, unchanged).
+      markers: ['parties', 'gstin']
     },
     {
       file: 'apps/books/pages/gst-returns.vue',

@@ -163,7 +163,10 @@ const requiredPageUsages = [
   {
     label: 'billing/index.vue',
     files: [join(modularRoot, 'apps/main/pages/billing/index.vue'), ...mainComponentFiles],
-    tokens: ['billing/sales/recent', 'invoiceNumber', 'onDate', 'customerMobileNumber', 'billAmount', 'paidAmount', 'balanceAmount', 'invoiceStatus']
+    // Stage 14J rewrote this page from the unpaged billing/sales/recent onto the paged,
+    // filterable billing/sales endpoint (matching POS history.vue's pattern) - token
+    // updated to match, field-name tokens are unchanged.
+    tokens: ['billing/sales', 'invoiceNumber', 'onDate', 'customerMobileNumber', 'billAmount', 'paidAmount', 'balanceAmount', 'invoiceStatus']
   },
   {
     label: 'purchase/index.vue',

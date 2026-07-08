@@ -127,7 +127,9 @@ function checkHrWorkflowMarkers() {
     },
     {
       file: 'apps/hr/pages/attendance/payroll-summary.vue',
-      markers: ['Report Snapshot', 'Export CSV']
+      // Stage 14I rebuilt this page from a raw-JSON dump into a readable per-employee
+      // table - marker updated to the current page title, CSV export is unchanged.
+      markers: ['Payroll Summary', 'Export CSV']
     },
     {
       file: 'apps/hr/pages/payroll.vue',

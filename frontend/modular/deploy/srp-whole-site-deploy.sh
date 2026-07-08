@@ -22,6 +22,7 @@ Usage:
   bash frontend/modular/deploy/srp-whole-site-deploy.sh
   bash frontend/modular/deploy/srp-whole-site-deploy.sh --install-remote
   bash frontend/modular/deploy/srp-whole-site-deploy.sh --apps=hr,books --skip-api
+  GARMETIX_ASSISTANT_ANTHROPIC_API_KEY=sk-ant-... bash frontend/modular/deploy/srp-whole-site-deploy.sh --set-assistant-secret
 
 Flags:
   --skip-build         Reuse each app's existing .output without rebuilding.
@@ -31,6 +32,11 @@ Flags:
                         Fails loudly if an excluded app has no valid existing build.
   --build-only         Build the release locally, skip upload.
   --install-remote     Apply Nginx/API systemd templates on the remote after upload.
+  --set-assistant-secret
+                        Set Assistant__Enabled=true and Assistant__AnthropicApiKey on the
+                        remote $SRP_API_ENV_PATH and restart the API service. No build/upload.
+                        Reads the key from $GARMETIX_ASSISTANT_ANTHROPIC_API_KEY (required) -
+                        never pass the key as a bare CLI argument or hardcode it here.
 
 Reads config from:
   $GARMETIX_SRP_DEPLOY_CONFIG, or ~/.config/garmetix/srp-deploy.env
@@ -99,6 +105,7 @@ BUILD_ONLY=false
 INSTALL_REMOTE=false
 SKIP_BUILD=false
 SKIP_API=false
+SET_ASSISTANT_SECRET=false
 DEPLOY_APPS=""
 
 for arg in "$@"; do
@@ -109,6 +116,7 @@ for arg in "$@"; do
     --install-remote) INSTALL_REMOTE=true ;;
     --skip-build) SKIP_BUILD=true ;;
     --skip-api) SKIP_API=true ;;
+    --set-assistant-secret) SET_ASSISTANT_SECRET=true ;;
     --apps=*) DEPLOY_APPS="${arg#--apps=}" ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $arg" >&2; usage; exit 1 ;;
@@ -641,7 +649,52 @@ install_remote() {
   ssh_cmd "${sudo_prefix}bash '$SRP_REMOTE_BASE/current/ops/install-srp-on-host.sh'"
 }
 
+set_assistant_secret() {
+  local api_key="${GARMETIX_ASSISTANT_ANTHROPIC_API_KEY:-}"
+  if [ -z "$api_key" ]; then
+    echo "Set GARMETIX_ASSISTANT_ANTHROPIC_API_KEY before using --set-assistant-secret." >&2
+    exit 1
+  fi
+
+  # Two SSH round-trips on purpose, to keep quoting trivial and safe:
+  #   1) no sudo needed - upload the (static, no secrets embedded) edit script to /tmp
+  #      via a heredoc piped through stdin, the same pattern upload_payload() already
+  #      uses for the tar stream.
+  #   2) sudo needed - run that script with the env path and key as plain positional
+  #      args. sudo -S already needs stdin for the password prompt, so the script body
+  #      can't also travel over stdin in this step (bash -s would conflict with it) -
+  #      that's exactly why step 1 stages it as a file first.
+  local remote_script="/tmp/garmetix-set-assistant-secret.sh"
+  ssh_cmd "cat > '$remote_script'" <<'REMOTE_SCRIPT'
+#!/usr/bin/env bash
+set -euo pipefail
+ENV_PATH="$1"
+NEW_KEY="$2"
+[ -f "$ENV_PATH" ] || { echo "$ENV_PATH not found on remote host" >&2; exit 1; }
+cp "$ENV_PATH" "$ENV_PATH.bak.$(date +%s)"
+TMP_ENV="$(mktemp)"
+grep -v -E '^(Assistant__Enabled|Assistant__AnthropicApiKey)=' "$ENV_PATH" > "$TMP_ENV" || true
+{
+  echo "Assistant__Enabled=true"
+  printf 'Assistant__AnthropicApiKey=%s\n' "$NEW_KEY"
+} >> "$TMP_ENV"
+install -m 600 -o root -g root "$TMP_ENV" "$ENV_PATH"
+rm -f "$TMP_ENV"
+systemctl restart garmetix-srp-api.service
+REMOTE_SCRIPT
+
+  local sudo_prefix
+  sudo_prefix="$(remote_sudo_env_prefix)"
+  echo "Setting Assistant__Enabled and Assistant__AnthropicApiKey on $SRP_API_ENV_PATH ($SRP_DEPLOY_TARGET)"
+  ssh_cmd "${sudo_prefix}$(remote_sudo_function) sudo_cmd bash '$remote_script' $(shell_quote "$SRP_API_ENV_PATH") $(shell_quote "$api_key"); rm -f '$remote_script'"
+  echo "Assistant secret set and API service restarted."
+}
+
 print_plan
+if [ "$SET_ASSISTANT_SECRET" = true ]; then
+  set_assistant_secret
+  exit 0
+fi
 if [ "$DRY_RUN" = true ]; then
   exit 0
 fi

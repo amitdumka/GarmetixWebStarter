@@ -39,8 +39,11 @@ checkFile('frontend/modular/apps/hr/utils/hr-api.ts', [
 ])
 
 checkFile('frontend/modular/apps/hr/pages/attendance/payroll-summary.vue', [
-  'Report Snapshot',
-  'CSV export ready',
+  // Stage 14I rebuilt this page from a raw-JSON dump into a readable per-employee
+  // table - tokens updated to the current copy, still verifying the same CSV
+  // export capability plus the new readable-table structure.
+  'Payroll Summary',
+  'Employee Breakdown',
   'Export CSV',
   'garmetix-payroll-summary',
   'downloadCsvFile'

@@ -1161,8 +1161,7 @@ function buildPayload(): { endpoint: string, payload: Record<string, unknown> } 
         ledgerGroupId: ledgerForm.ledgerGroupId,
         ledgerType: Number(ledgerForm.ledgerType),
         openingDate: toApiDate(ledgerForm.openingDate),
-        openingBalance: Number(ledgerForm.openingBalance || 0),
-        isParty: false
+        openingBalance: Number(ledgerForm.openingBalance || 0)
       }
     }
   }
