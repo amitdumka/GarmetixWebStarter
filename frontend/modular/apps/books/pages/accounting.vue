@@ -6,13 +6,12 @@
           <p class="garmetix-kicker"><UIcon name="i-lucide-book-open-check" class="size-4" /> Books master data</p>
           <h2 class="garmetix-dashboard-title">Accounting</h2>
           <p class="garmetix-dashboard-subtitle">
-            Ledgers, parties, bank accounts, bank transactions, reconciliation, cheques, vendor banks, account details, ledger sync and trial balance.
+            Bank accounts, bank transactions, reconciliation, cheques, vendor banks, account details and trial balance. Ledgers moved to <NuxtLink to="/ledgers" class="underline">Ledgers</NuxtLink>, Parties moved to <NuxtLink to="/parties" class="underline">Parties</NuxtLink>.
           </p>
         </div>
         <div class="flex flex-wrap gap-2">
           <UButton v-if="canCreate" icon="i-lucide-plus" color="primary" variant="solid" @click="startCreate">{{ `New ${singularLabel(activeTab)}` }}</UButton>
           <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refresh">Refresh</UButton>
-          <UBadge :color="syncTone" variant="subtle">{{ syncLabel }}</UBadge>
         </div>
       </div>
     </div>
@@ -57,23 +56,6 @@
             class="sm:w-64"
           />
           <UInput v-model="search" icon="i-lucide-search" placeholder="Search master data" class="sm:w-72" />
-          <UButton
-            v-if="activeTab === 'ledgerSync'"
-            icon="i-lucide-wrench"
-            color="warning"
-            variant="soft"
-            :loading="repairing"
-            @click="repairLedgerSync"
-          >
-            Repair Sync
-          </UButton>
-        </div>
-      </div>
-
-      <div v-if="activeTab === 'ledgerSync'" class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-default bg-muted/30 p-3 text-sm">
-        <div>
-          <p class="font-medium">Ledger synchronization</p>
-          <p class="text-muted">{{ readNumber(ledgerSync, ['partyCount']) }} parties - {{ readNumber(ledgerSync, ['bankAccountCount']) }} bank accounts - {{ readNumber(ledgerSync, ['issueCount']) }} issue(s)</p>
         </div>
       </div>
 
@@ -130,61 +112,7 @@
     >
       <template #body>
         <form class="grid gap-3 sm:grid-cols-2" @submit.prevent="saveActiveForm">
-          <template v-if="activeTab === 'ledgers'">
-            <label class="space-y-1 text-sm sm:col-span-2">
-              <span class="text-muted">Name</span>
-              <UInput v-model="ledgerForm.name" placeholder="Ledger name" />
-            </label>
-            <label class="space-y-1 text-sm">
-              <span class="text-muted">Ledger Group</span>
-              <USelect v-model="ledgerForm.ledgerGroupId" :items="ledgerGroupSelectItems" placeholder="Select group" />
-            </label>
-            <label class="space-y-1 text-sm">
-              <span class="text-muted">Ledger Type</span>
-              <USelect v-model="ledgerForm.ledgerType" :items="ledgerTypeSelectItems" />
-            </label>
-            <label class="space-y-1 text-sm">
-              <span class="text-muted">Opening Date</span>
-              <UInput v-model="ledgerForm.openingDate" type="date" />
-            </label>
-            <label class="space-y-1 text-sm">
-              <span class="text-muted">Opening Balance</span>
-              <UInput v-model="ledgerForm.openingBalance" type="number" min="0" step="0.01" placeholder="0.00" />
-            </label>
-          </template>
-
-          <template v-else-if="activeTab === 'parties'">
-            <label class="space-y-1 text-sm sm:col-span-2">
-              <span class="text-muted">Name</span>
-              <UInput v-model="partyForm.name" placeholder="Party name" />
-            </label>
-            <label class="space-y-1 text-sm">
-              <span class="text-muted">Category</span>
-              <USelect v-model="partyForm.category" :items="partyTypeSelectItems" />
-            </label>
-            <label class="space-y-1 text-sm">
-              <span class="text-muted">Phone</span>
-              <UInput v-model="partyForm.phone" placeholder="Phone" />
-            </label>
-            <label class="space-y-1 text-sm">
-              <span class="text-muted">Email</span>
-              <UInput v-model="partyForm.emailId" placeholder="Email" />
-            </label>
-            <label class="space-y-1 text-sm">
-              <span class="text-muted">GSTIN</span>
-              <UInput v-model="partyForm.gstin" placeholder="GSTIN" />
-            </label>
-            <label class="space-y-1 text-sm">
-              <span class="text-muted">PAN</span>
-              <UInput v-model="partyForm.pan" placeholder="PAN" />
-            </label>
-            <label class="space-y-1 text-sm sm:col-span-2">
-              <span class="text-muted">Address</span>
-              <UTextarea v-model="partyForm.address" :rows="2" placeholder="Address" />
-            </label>
-          </template>
-
-          <template v-else-if="activeTab === 'bankAccounts'">
+          <template v-if="activeTab === 'bankAccounts'">
             <label class="space-y-1 text-sm">
               <span class="text-muted">Account Holder</span>
               <UInput v-model="bankAccountForm.accountHolderName" placeholder="Account holder name" />
@@ -387,21 +315,6 @@
         </form>
       </template>
     </UModal>
-
-    <section class="garmetix-section-card">
-      <div class="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h3 class="garmetix-panel-title">Ledger Statement</h3>
-          <p class="garmetix-panel-subtitle">Audit posted entries for a selected ledger without exposing internal party flags.</p>
-        </div>
-        <div class="flex flex-col gap-2 sm:flex-row">
-          <USelectMenu v-model="selectedLedgerId" value-key="value" :items="ledgerSelectItems" placeholder="Search ledger..." class="sm:w-72" />
-          <UButton icon="i-lucide-file-search" color="neutral" variant="soft" :loading="statementLoading" @click="loadLedgerStatement">View</UButton>
-        </div>
-      </div>
-
-      <BooksMasterTable :columns="ledgerStatementColumns" :rows="ledgerStatementRows" empty-text="Select a ledger to view posted entries." />
-    </section>
   </section>
 </template>
 
@@ -409,9 +322,7 @@
 import { formatIndianMoney } from '@garmetix/shared-utils'
 import {
   accountTypeOptions,
-  ledgerTypeOptions,
   optionLabel,
-  partyTypeOptions,
   readArray,
   readNumber,
   readText,
@@ -424,27 +335,7 @@ import {
 
 useHead({ title: 'Accounting - Garmetix Books' })
 
-type AccountingTab = 'ledgerGroups' | 'ledgers' | 'parties' | 'bankAccounts' | 'bankTransactions' | 'reconciliation' | 'cheques' | 'vendorBanks' | 'accountDetails' | 'trialBalance' | 'ledgerSync'
-
-interface LedgerForm {
-  id: string
-  name: string
-  ledgerGroupId: string
-  ledgerType: number
-  openingDate: string
-  openingBalance: number | string
-}
-
-interface PartyForm {
-  id: string
-  name: string
-  category: number
-  phone: string
-  emailId: string
-  gstin: string
-  pan: string
-  address: string
-}
+type AccountingTab = 'bankAccounts' | 'bankTransactions' | 'reconciliation' | 'cheques' | 'vendorBanks' | 'accountDetails' | 'trialBalance'
 
 interface BankAccountForm {
   id: string
@@ -519,14 +410,6 @@ function nullableApiDate(value: string) {
   return value ? toApiDate(value) : null
 }
 
-function emptyLedgerForm(): LedgerForm {
-  return { id: '', name: '', ledgerGroupId: '', ledgerType: 4, openingDate: localDateInput(), openingBalance: 0 }
-}
-
-function emptyPartyForm(): PartyForm {
-  return { id: '', name: '', category: 0, phone: '', emailId: '', gstin: '', pan: '', address: '' }
-}
-
 function emptyBankAccountForm(): BankAccountForm {
   return { id: '', accountNumber: '', accountHolderName: '', bankId: '', accountType: 1, branch: '', ifsCode: '', openingDate: localDateInput(), active: true, closingDate: '', openingBalance: 0, closingBalance: 0 }
 }
@@ -549,22 +432,18 @@ function emptyAccountDetailForm(): AccountDetailForm {
 
 const { get, post, put, del } = useBooksApiClient()
 const loading = ref(true)
-const repairing = ref(false)
 const statementLoading = ref(false)
 const saving = ref(false)
 const reconciling = ref(false)
 const error = ref('')
 const message = ref('')
 const search = ref('')
-const activeTab = ref<AccountingTab>('ledgers')
-const selectedLedgerId = ref('')
+const activeTab = ref<AccountingTab>('bankAccounts')
 const selectedBankAccountId = ref('')
 const editMode = ref<'create' | 'edit'>('create')
 const formOpen = ref(false)
 
-const ledgerGroups = ref<ApiRecord[]>([])
 const ledgers = ref<ApiRecord[]>([])
-const parties = ref<ApiRecord[]>([])
 const banks = ref<ApiRecord[]>([])
 const bankAccounts = ref<ApiRecord[]>([])
 const bankTransactions = ref<ApiRecord[]>([])
@@ -573,27 +452,18 @@ const vendorBankAccounts = ref<ApiRecord[]>([])
 const bankAccountDetails = ref<ApiRecord[]>([])
 const vendors = ref<ApiRecord[]>([])
 const trialBalance = ref<ApiRecord[]>([])
-const ledgerSync = ref<ApiRecord | null>(null)
-const ledgerStatement = ref<ApiRecord[]>([])
 const bankStatement = ref<ApiRecord[]>([])
 const bankReconciliation = ref<ApiRecord | null>(null)
 const setupStatus = ref<ApiRecord | null>(null)
 const companies = ref<ApiRecord[]>([])
 const stores = ref<ApiRecord[]>([])
 
-const ledgerForm = reactive<LedgerForm>(emptyLedgerForm())
-const partyForm = reactive<PartyForm>(emptyPartyForm())
 const bankAccountForm = reactive<BankAccountForm>(emptyBankAccountForm())
 const transactionForm = reactive<TransactionForm>(emptyTransactionForm())
 const chequeForm = reactive<ChequeForm>(emptyChequeForm())
 const vendorBankForm = reactive<VendorBankForm>(emptyVendorBankForm())
 const accountDetailForm = reactive<AccountDetailForm>(emptyAccountDetailForm())
 
-const ledgerGroupSelectItems = computed(() => ledgerGroups.value
-  .map(item => ({ label: readText(item, ['name']), value: readText(item, ['id'], '') }))
-  .filter(item => item.value))
-const ledgerTypeSelectItems = ledgerTypeOptions.map(item => ({ label: item.label, value: item.value }))
-const partyTypeSelectItems = partyTypeOptions.map(item => ({ label: item.label, value: item.value }))
 const accountTypeSelectItems = accountTypeOptions.map(item => ({ label: item.label, value: item.value }))
 const transactionTypeSelectItems = transactionTypeOptions.map(item => ({ label: item.label, value: item.value }))
 const transactionModeSelectItems = transactionModeOptions.map(item => ({ label: item.label, value: item.value }))
@@ -616,10 +486,10 @@ const transactionLedgerSelectItems = computed(() => {
   return ledgerSelectItems.value.filter(item => item.value !== bankLedgerId)
 })
 
-const canCreate = computed(() => !['trialBalance', 'ledgerSync', 'reconciliation'].includes(activeTab.value))
+const canCreate = computed(() => !['trialBalance', 'reconciliation'].includes(activeTab.value))
 const canEditRow = computed(() => !['reconciliation'].includes(activeTab.value))
 const canDeleteRow = computed(() => !['reconciliation'].includes(activeTab.value))
-const hasRowActions = computed(() => ['ledgers', 'parties', 'bankAccounts', 'bankTransactions', 'cheques', 'vendorBanks', 'accountDetails', 'reconciliation'].includes(activeTab.value))
+const hasRowActions = computed(() => ['bankAccounts', 'bankTransactions', 'cheques', 'vendorBanks', 'accountDetails', 'reconciliation'].includes(activeTab.value))
 const formTitle = computed(() => `${editMode.value === 'edit' ? 'Edit' : 'New'} ${singularLabel(activeTab.value)}`)
 const formContentClass = computed(() => {
   if (['bankTransactions', 'cheques', 'vendorBanks', 'accountDetails'].includes(activeTab.value)) {
@@ -630,21 +500,16 @@ const formContentClass = computed(() => {
 
 function singularLabel(tab: AccountingTab) {
   return {
-    ledgerGroups: 'Ledger Group',
-    ledgers: 'Ledger',
-    parties: 'Party',
     bankAccounts: 'Bank Account',
     bankTransactions: 'Bank Transaction',
     reconciliation: 'Reconciliation',
     cheques: 'Cheque Log',
     vendorBanks: 'Vendor Bank Account',
     accountDetails: 'Bank Account Detail',
-    trialBalance: 'Trial Balance',
-    ledgerSync: 'Ledger Sync'
+    trialBalance: 'Trial Balance'
   }[tab]
 }
 
-const groupName = (id: unknown) => readText(ledgerGroups.value.find(item => item.id === id), ['name'])
 const bankName = (id: unknown) => readText(banks.value.find(item => item.id === id), ['name'])
 const ledgerName = (id: unknown) => readText(ledgers.value.find(item => item.id === id), ['name'])
 const vendorName = (id: unknown) => {
@@ -661,76 +526,36 @@ const readBool = (item: ApiRecord | null, key: string) => Boolean(item?.[key])
 
 function findRowById(id: unknown): ApiRecord | null {
   const source: Record<AccountingTab, ApiRecord[]> = {
-    ledgerGroups: ledgerGroups.value,
-    ledgers: ledgers.value,
-    parties: parties.value,
     bankAccounts: bankAccounts.value,
     bankTransactions: bankTransactions.value,
     reconciliation: bankReconciliation.value?.lines as ApiRecord[] ?? bankStatement.value,
     cheques: chequeLogs.value,
     vendorBanks: vendorBankAccounts.value,
     accountDetails: bankAccountDetails.value,
-    trialBalance: [],
-    ledgerSync: []
+    trialBalance: []
   }
   return (source[activeTab.value] ?? []).find(item => readText(item, ['id'], '') === id) ?? null
 }
 
 const cards = computed(() => [
-  { label: 'Ledgers', value: ledgers.value.length, detail: 'Chart of accounts' },
-  { label: 'Parties', value: parties.value.length, detail: 'Customer, vendor, employee and other parties' },
+  { label: 'Bank Accounts', value: bankAccounts.value.length, detail: 'Linked to ledgers' },
   { label: 'Bank Balance', value: formatIndianMoney(bankAccounts.value.reduce((sum, item) => sum + readNumber(item, ['closingBalance', 'openingBalance']), 0)), detail: 'All bank accounts' },
-  { label: 'Cheques', value: chequeLogs.value.length, detail: 'Issued and deposited' }
+  { label: 'Cheques', value: chequeLogs.value.length, detail: 'Issued and deposited' },
+  { label: 'Vendor Banks', value: vendorBankAccounts.value.length, detail: 'Vendor payout accounts' }
 ])
 
 const tabs: Array<{ key: AccountingTab, label: string, icon: string, description: string }> = [
-  { key: 'ledgers', label: 'Ledgers', icon: 'i-lucide-book-open', description: 'Chart of accounts with protected internal party/bank flags hidden.' },
-  { key: 'ledgerGroups', label: 'Ledger Groups', icon: 'i-lucide-folder-tree', description: 'Indian accounting ledger groups and categories.' },
-  { key: 'parties', label: 'Parties', icon: 'i-lucide-contact-round', description: 'Party masters with ledger link status.' },
   { key: 'bankAccounts', label: 'Bank Accounts', icon: 'i-lucide-landmark', description: 'Bank accounts with ledger link status.' },
   { key: 'bankTransactions', label: 'Bank Transactions', icon: 'i-lucide-arrow-left-right', description: 'Deposits and withdrawals posted against a bank account.' },
   { key: 'reconciliation', label: 'Bank Reconciliation', icon: 'i-lucide-list-checks', description: 'Reconcile or reopen bank statement lines for the selected account.' },
   { key: 'cheques', label: 'Cheque Log', icon: 'i-lucide-scroll-text', description: 'Issued and deposited cheques with clear/bounce lifecycle.' },
   { key: 'vendorBanks', label: 'Vendor Banks', icon: 'i-lucide-wallet-cards', description: 'Vendor-owned bank accounts used for payouts.' },
   { key: 'accountDetails', label: 'Account Details', icon: 'i-lucide-key-round', description: 'Net-banking login references per bank account.' },
-  { key: 'trialBalance', label: 'Trial Balance', icon: 'i-lucide-scale', description: 'Read-only trial balance from posted journals.' },
-  { key: 'ledgerSync', label: 'Ledger Sync', icon: 'i-lucide-link', description: 'Party and bank ledger synchronization issues.' }
+  { key: 'trialBalance', label: 'Trial Balance', icon: 'i-lucide-scale', description: 'Read-only trial balance from posted journals.' }
 ]
 const currentTab = computed(() => tabs.find(item => item.key === activeTab.value) ?? tabs[0])
 
-const syncIssues = computed(() => readArray(ledgerSync.value, ['issues']))
-const syncLabel = computed(() => {
-  const count = readNumber(ledgerSync.value, ['issueCount'])
-  if (!ledgerSync.value) return 'Sync checking'
-  return count > 0 ? `${count} sync issue(s)` : 'Ledger sync clear'
-})
-const syncTone = computed<'success' | 'warning' | 'neutral'>(() => {
-  if (!ledgerSync.value) return 'neutral'
-  return readNumber(ledgerSync.value, ['issueCount']) > 0 ? 'warning' : 'success'
-})
-
 const tableRows = computed<Record<AccountingTab, ApiRecord[]>>(() => ({
-  ledgerGroups: ledgerGroups.value.map(item => ({
-    name: readText(item, ['name']),
-    category: readText(item, ['category']),
-    description: readText(item, ['description'])
-  })),
-  ledgers: ledgers.value.map(item => ({
-    id: readText(item, ['id'], ''),
-    name: readText(item, ['name']),
-    group: groupName(item.ledgerGroupId),
-    type: optionLabel(ledgerTypeOptions, item.ledgerType),
-    opening: formatIndianMoney(readNumber(item, ['openingBalance'])),
-    status: readText(item, ['active'], 'Active')
-  })),
-  parties: parties.value.map(item => ({
-    id: readText(item, ['id'], ''),
-    name: readText(item, ['name']),
-    category: optionLabel(partyTypeOptions, item.category),
-    phone: readText(item, ['phone']),
-    tax: readText(item, ['gstin', 'pan']),
-    ledger: ledgerExists(item.ledgerId) ? 'Linked' : 'Missing'
-  })),
   bankAccounts: bankAccounts.value.map(item => ({
     id: readText(item, ['id'], ''),
     holder: readText(item, ['accountHolderName']),
@@ -795,36 +620,10 @@ const tableRows = computed<Record<AccountingTab, ApiRecord[]>>(() => ({
     credit: formatIndianMoney(readNumber(item, ['credit'])),
     closingDebit: formatIndianMoney(readNumber(item, ['closingDebit'])),
     closingCredit: formatIndianMoney(readNumber(item, ['closingCredit']))
-  })),
-  ledgerSync: syncIssues.value.map(item => ({
-    area: readText(item, ['area']),
-    entity: readText(item, ['entityName']),
-    severity: readText(item, ['severity']),
-    issue: readText(item, ['message']),
-    action: readText(item, ['fixAction'])
   }))
 }))
 
 const columns: Record<AccountingTab, Array<{ key: string, label: string }>> = {
-  ledgerGroups: [
-    { key: 'name', label: 'Group' },
-    { key: 'category', label: 'Category' },
-    { key: 'description', label: 'Description' }
-  ],
-  ledgers: [
-    { key: 'name', label: 'Ledger' },
-    { key: 'group', label: 'Group' },
-    { key: 'type', label: 'Type' },
-    { key: 'opening', label: 'Opening' },
-    { key: 'status', label: 'Status' }
-  ],
-  parties: [
-    { key: 'name', label: 'Party' },
-    { key: 'category', label: 'Category' },
-    { key: 'phone', label: 'Phone' },
-    { key: 'tax', label: 'GST/PAN' },
-    { key: 'ledger', label: 'Ledger Link' }
-  ],
   bankAccounts: [
     { key: 'holder', label: 'Holder' },
     { key: 'account', label: 'Account' },
@@ -883,13 +682,6 @@ const columns: Record<AccountingTab, Array<{ key: string, label: string }>> = {
     { key: 'credit', label: 'Credit' },
     { key: 'closingDebit', label: 'Closing Debit' },
     { key: 'closingCredit', label: 'Closing Credit' }
-  ],
-  ledgerSync: [
-    { key: 'area', label: 'Area' },
-    { key: 'entity', label: 'Party / Bank' },
-    { key: 'severity', label: 'Severity' },
-    { key: 'issue', label: 'Issue' },
-    { key: 'action', label: 'Action' }
   ]
 }
 const currentColumns = computed(() => columns[activeTab.value])
@@ -899,25 +691,6 @@ const filteredRows = computed(() => {
   if (!term) return currentRows.value
   return currentRows.value.filter(row => JSON.stringify(row).toLowerCase().includes(term))
 })
-
-const ledgerStatementColumns = [
-  { key: 'date', label: 'Date' },
-  { key: 'entry', label: 'Entry' },
-  { key: 'source', label: 'Source' },
-  { key: 'particulars', label: 'Particulars' },
-  { key: 'debit', label: 'Debit' },
-  { key: 'credit', label: 'Credit' },
-  { key: 'balance', label: 'Balance' }
-]
-const ledgerStatementRows = computed(() => ledgerStatement.value.map(item => ({
-  date: readText(item, ['onDate']),
-  entry: readText(item, ['entryNumber', 'referenceNumber']),
-  source: readText(item, ['sourceType']),
-  particulars: readText(item, ['particulars']),
-  debit: formatIndianMoney(readNumber(item, ['debit'])),
-  credit: formatIndianMoney(readNumber(item, ['credit'])),
-  balance: `${formatIndianMoney(readNumber(item, ['balance']))} ${readText(item, ['balanceType'], '')}`.trim()
-})))
 
 function resolveCompanyId() {
   const companyId = readText(setupStatus.value, ['companyId'], '')
@@ -940,15 +713,13 @@ async function refresh() {
   error.value = ''
   try {
     const [
-      setupData, companyData, storeData, groupData, ledgerData, partyData, bankData, bankAccountData,
-      transactionData, chequeData, vendorBankData, accountDetailData, vendorData, trialData, syncData
+      setupData, companyData, storeData, ledgerData, bankData, bankAccountData,
+      transactionData, chequeData, vendorBankData, accountDetailData, vendorData, trialData
     ] = await Promise.allSettled([
       get<unknown>('setup/status'),
       get<unknown>('companies'),
       get<unknown>('stores'),
-      get<unknown>('ledger-groups'),
       get<unknown>('ledgers'),
-      get<unknown>('parties'),
       get<unknown>('banks'),
       get<unknown>('bank-accounts'),
       get<unknown>('accounting/bank-transactions'),
@@ -956,15 +727,12 @@ async function refresh() {
       get<unknown>('vendor-bank-accounts'),
       get<unknown>('bank-account-details'),
       get<unknown>('vendors'),
-      get<unknown>('accounting/trial-balance'),
-      get<unknown>('accounting/ledger-sync/status')
+      get<unknown>('accounting/trial-balance')
     ])
     if (setupData.status === 'fulfilled' && setupData.value && typeof setupData.value === 'object') setupStatus.value = setupData.value as ApiRecord
     if (companyData.status === 'fulfilled') companies.value = toRows(companyData.value)
     if (storeData.status === 'fulfilled') stores.value = toRows(storeData.value)
-    if (groupData.status === 'fulfilled') ledgerGroups.value = toRows(groupData.value)
     if (ledgerData.status === 'fulfilled') ledgers.value = toRows(ledgerData.value)
-    if (partyData.status === 'fulfilled') parties.value = toRows(partyData.value)
     if (bankData.status === 'fulfilled') banks.value = toRows(bankData.value)
     if (bankAccountData.status === 'fulfilled') bankAccounts.value = toRows(bankAccountData.value)
     if (transactionData.status === 'fulfilled') bankTransactions.value = toRows(transactionData.value)
@@ -973,51 +741,17 @@ async function refresh() {
     if (accountDetailData.status === 'fulfilled') bankAccountDetails.value = toRows(accountDetailData.value)
     if (vendorData.status === 'fulfilled') vendors.value = toRows(vendorData.value)
     if (trialData.status === 'fulfilled') trialBalance.value = toRows(trialData.value)
-    if (syncData.status === 'fulfilled' && syncData.value && typeof syncData.value === 'object') ledgerSync.value = syncData.value as ApiRecord
 
-    if (!selectedLedgerId.value && ledgers.value.length) selectedLedgerId.value = readText(ledgers.value[0], ['id'], '')
     if (!selectedBankAccountId.value && bankAccounts.value.length) selectedBankAccountId.value = readText(bankAccounts.value[0], ['id'], '')
 
-    const failed = [groupData, ledgerData, partyData, bankData, bankAccountData, transactionData, chequeData, vendorBankData, accountDetailData, trialData, syncData]
-      .filter(item => item.status === 'rejected').length
-    if (failed) error.value = `${failed} accounting master request(s) could not be loaded.`
+    const failedReasons = [ledgerData, bankData, bankAccountData, transactionData, chequeData, vendorBankData, accountDetailData, trialData]
+      .filter((item): item is PromiseRejectedResult => item.status === 'rejected')
+      .map(item => item.reason instanceof Error ? item.reason.message : String(item.reason))
+    if (failedReasons.length) error.value = failedReasons[0]
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Unable to load accounting masters.'
   } finally {
     loading.value = false
-  }
-}
-
-async function repairLedgerSync() {
-  const phrase = window.prompt('Type REPAIR LEDGER SYNC to create missing party and bank ledgers.')
-  if (phrase !== 'REPAIR LEDGER SYNC') return
-
-  repairing.value = true
-  error.value = ''
-  try {
-    await post<unknown>('accounting/ledger-sync/repair', {})
-    await refresh()
-  } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'Unable to repair ledger sync.'
-  } finally {
-    repairing.value = false
-  }
-}
-
-async function loadLedgerStatement() {
-  if (!selectedLedgerId.value) {
-    error.value = 'Select ledger before loading statement.'
-    return
-  }
-
-  statementLoading.value = true
-  error.value = ''
-  try {
-    ledgerStatement.value = toRows(await get<unknown>(`accounting/ledger-statement/${selectedLedgerId.value}`))
-  } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'Unable to load ledger statement.'
-  } finally {
-    statementLoading.value = false
   }
 }
 
@@ -1054,27 +788,7 @@ function startEdit(item: ApiRecord | null) {
 }
 
 function resetActiveForm(item: ApiRecord | null = null) {
-  if (activeTab.value === 'ledgers') {
-    Object.assign(ledgerForm, emptyLedgerForm(), {
-      id: readText(item, ['id'], ''),
-      name: readText(item, ['name'], ''),
-      ledgerGroupId: readText(item, ['ledgerGroupId'], '') || ledgerGroupSelectItems.value[0]?.value || '',
-      ledgerType: Number(item?.ledgerType ?? 4),
-      openingDate: localDateInput(item?.openingDate),
-      openingBalance: readNumber(item, ['openingBalance'])
-    })
-  } else if (activeTab.value === 'parties') {
-    Object.assign(partyForm, emptyPartyForm(), {
-      id: readText(item, ['id'], ''),
-      name: readText(item, ['name'], ''),
-      category: Number(item?.category ?? 0),
-      phone: readText(item, ['phone'], ''),
-      emailId: readText(item, ['emailId', 'email'], ''),
-      gstin: readText(item, ['gstin'], ''),
-      pan: readText(item, ['pan'], ''),
-      address: readText(item, ['address'], '')
-    })
-  } else if (activeTab.value === 'bankAccounts') {
+  if (activeTab.value === 'bankAccounts') {
     Object.assign(bankAccountForm, emptyBankAccountForm(), {
       id: readText(item, ['id'], ''),
       accountNumber: readText(item, ['accountNumber'], ''),
@@ -1149,39 +863,6 @@ function resetActiveForm(item: ApiRecord | null = null) {
 
 function buildPayload(): { endpoint: string, payload: Record<string, unknown> } {
   const companyId = resolveCompanyId()
-
-  if (activeTab.value === 'ledgers') {
-    if (!ledgerForm.name.trim()) throw new Error('Enter ledger name.')
-    if (!ledgerForm.ledgerGroupId) throw new Error('Select ledger group.')
-    return {
-      endpoint: 'ledgers',
-      payload: {
-        companyId,
-        name: ledgerForm.name.trim(),
-        ledgerGroupId: ledgerForm.ledgerGroupId,
-        ledgerType: Number(ledgerForm.ledgerType),
-        openingDate: toApiDate(ledgerForm.openingDate),
-        openingBalance: Number(ledgerForm.openingBalance || 0)
-      }
-    }
-  }
-
-  if (activeTab.value === 'parties') {
-    if (!partyForm.name.trim()) throw new Error('Enter party name.')
-    return {
-      endpoint: 'parties',
-      payload: {
-        companyId,
-        name: partyForm.name.trim(),
-        address: partyForm.address.trim() || null,
-        emailId: partyForm.emailId.trim() || null,
-        phone: partyForm.phone.trim() || null,
-        gstin: partyForm.gstin.trim().toUpperCase() || null,
-        pan: partyForm.pan.trim().toUpperCase() || null,
-        category: Number(partyForm.category)
-      }
-    }
-  }
 
   if (activeTab.value === 'bankAccounts') {
     if (!bankAccountForm.accountHolderName.trim()) throw new Error('Enter account holder name.')
@@ -1336,8 +1017,6 @@ async function confirmDelete(id: string) {
   message.value = ''
   try {
     const endpoint: Record<string, string> = {
-      ledgers: 'ledgers',
-      parties: 'parties',
       bankAccounts: 'bank-accounts',
       bankTransactions: 'accounting/bank-transactions',
       cheques: 'cheque-logs',

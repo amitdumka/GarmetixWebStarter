@@ -98,7 +98,12 @@ const requiredPageUsages = [
   {
     label: 'accounting.vue',
     path: join(modularRoot, 'apps/books/pages/accounting.vue'),
-    tokens: ['ledger-groups', 'ledgers', 'parties', 'bank-accounts', 'accounting/trial-balance', 'accounting/ledger-sync/status', 'ledgerName', 'ledgerGroup', 'closingDebit', 'closingCredit', 'issueCount', 'fixAction']
+    tokens: ['ledgers', 'bank-accounts', 'accounting/trial-balance', 'ledgerName', 'closingDebit', 'closingCredit']
+  },
+  {
+    label: 'ledgers.vue',
+    path: join(modularRoot, 'apps/books/pages/ledgers.vue'),
+    tokens: ['ledger-groups', 'ledgers', 'accounting/ledger-sync/status', 'accounting/ledger-sync/repair', 'accounting/ledger-statement', 'issueCount', 'fixAction']
   },
   {
     label: 'vouchers.vue',

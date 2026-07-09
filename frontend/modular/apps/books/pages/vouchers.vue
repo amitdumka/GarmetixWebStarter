@@ -42,74 +42,63 @@
         </UBadge>
       </div>
 
-      <form class="grid gap-3 xl:grid-cols-12" @submit.prevent="saveVoucher">
-        <div class="grid gap-3 sm:grid-cols-2 xl:col-span-3">
-          <label class="space-y-1 text-sm">
-            <span class="text-muted">Date</span>
-            <UInput v-model="form.onDate" type="date" />
-          </label>
-          <label class="space-y-1 text-sm">
-            <span class="text-muted">Type</span>
-            <USelect v-model="form.voucherType" :items="voucherTypeSelectItems" />
-          </label>
-        </div>
-
-        <div class="grid gap-3 sm:grid-cols-2 xl:col-span-5">
-          <label class="space-y-1 text-sm">
-            <span class="text-muted">Ledger</span>
-            <USelectMenu v-model="form.ledgerId" value-key="value" :items="ledgerSelectItems" placeholder="Search ledger..." />
-          </label>
-          <label class="space-y-1 text-sm">
-            <span class="text-muted">Party / Payee</span>
-            <UInput v-model="form.partyName" placeholder="Party name" />
-          </label>
-        </div>
-
-        <div class="grid gap-3 sm:grid-cols-2 xl:col-span-4">
-          <label class="space-y-1 text-sm">
-            <span class="text-muted">Issued By</span>
-            <USelectMenu v-model="form.employeeId" value-key="value" :items="employeeSelectItems" placeholder="Search employee..." />
-          </label>
-          <label class="space-y-1 text-sm">
-            <span class="text-muted">Amount</span>
-            <UInput v-model="form.amount" type="number" min="0" step="0.01" placeholder="0.00" />
-          </label>
-        </div>
-
-        <div class="grid gap-3 sm:grid-cols-2 xl:col-span-4">
-          <label class="space-y-1 text-sm">
-            <span class="text-muted">Payment Mode</span>
-            <USelect v-model="form.paymentMode" :items="paymentModeSelectItems" />
-          </label>
-          <label class="space-y-1 text-sm">
-            <span class="text-muted">{{ requiresBankAccount ? 'Bank Account' : 'Cash Slip Number' }}</span>
-            <USelect
-              v-if="requiresBankAccount"
-              v-model="form.accountNumber"
-              :items="bankAccountSelectItems"
-              placeholder="Select bank account"
-            />
-            <UInput v-else v-model="form.slipNumber" placeholder="Optional cash slip" />
-          </label>
-        </div>
-
-        <div class="grid gap-3 sm:grid-cols-2 xl:col-span-4">
-          <label class="space-y-1 text-sm">
-            <span class="text-muted">Particulars</span>
-            <UInput v-model="form.particulars" placeholder="Voucher particulars" />
-          </label>
-          <label class="space-y-1 text-sm">
-            <span class="text-muted">Payment Details</span>
-            <UInput v-model="form.paymentDetails" placeholder="Txn, cheque, UPI or reference" />
-          </label>
-        </div>
-
-        <label class="space-y-1 text-sm xl:col-span-4">
-          <span class="text-muted">Remarks</span>
-          <UTextarea v-model="form.remarks" :rows="3" placeholder="Internal remarks" />
+      <form class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4" @submit.prevent="saveVoucher">
+        <label class="space-y-1 text-sm">
+          <span class="text-muted">Date</span>
+          <UInput v-model="form.onDate" type="date" class="w-full" />
+        </label>
+        <label class="space-y-1 text-sm">
+          <span class="text-muted">Type</span>
+          <USelect v-model="form.voucherType" :items="voucherTypeSelectItems" class="w-full" />
+        </label>
+        <label class="space-y-1 text-sm">
+          <span class="text-muted">Ledger</span>
+          <USelectMenu v-model="form.ledgerId" value-key="value" :items="ledgerSelectItems" placeholder="Search ledger..." class="w-full" />
+        </label>
+        <label class="space-y-1 text-sm">
+          <span class="text-muted">Party / Payee</span>
+          <UInput v-model="form.partyName" placeholder="Party name" class="w-full" />
         </label>
 
-        <div class="flex flex-wrap items-end justify-end gap-2 xl:col-span-12">
+        <label class="space-y-1 text-sm">
+          <span class="text-muted">Issued By</span>
+          <USelectMenu v-model="form.employeeId" value-key="value" :items="employeeSelectItems" placeholder="Search employee..." class="w-full" />
+        </label>
+        <label class="space-y-1 text-sm">
+          <span class="text-muted">Amount</span>
+          <UInput v-model="form.amount" type="number" min="0" step="0.01" placeholder="0.00" class="w-full" />
+        </label>
+        <label class="space-y-1 text-sm">
+          <span class="text-muted">Payment Mode</span>
+          <USelect v-model="form.paymentMode" :items="paymentModeSelectItems" class="w-full" />
+        </label>
+        <label class="space-y-1 text-sm">
+          <span class="text-muted">{{ requiresBankAccount ? 'Bank Account' : 'Cash Slip Number' }}</span>
+          <USelect
+            v-if="requiresBankAccount"
+            v-model="form.accountNumber"
+            :items="bankAccountSelectItems"
+            placeholder="Select bank account"
+            class="w-full"
+          />
+          <UInput v-else v-model="form.slipNumber" placeholder="Optional cash slip" class="w-full" />
+        </label>
+
+        <label class="space-y-1 text-sm">
+          <span class="text-muted">Particulars</span>
+          <UInput v-model="form.particulars" placeholder="Voucher particulars" class="w-full" />
+        </label>
+        <label class="space-y-1 text-sm lg:col-span-3">
+          <span class="text-muted">Payment Details</span>
+          <UInput v-model="form.paymentDetails" placeholder="Txn, cheque, UPI or reference" class="w-full" />
+        </label>
+
+        <label class="space-y-1 text-sm lg:col-span-4">
+          <span class="text-muted">Remarks</span>
+          <UTextarea v-model="form.remarks" :rows="3" placeholder="Internal remarks" class="w-full" />
+        </label>
+
+        <div class="flex flex-wrap items-end justify-end gap-2 lg:col-span-4">
           <UButton type="button" icon="i-lucide-rotate-ccw" color="neutral" variant="ghost" @click="startCreate">Clear</UButton>
           <UButton
             v-if="formMode === 'edit'"
@@ -130,85 +119,85 @@
       </template>
     </UModal>
 
-    <section class="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(340px,0.8fr)]">
-      <div class="garmetix-table-panel">
-        <div class="mb-3 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <h3 class="garmetix-panel-title">Voucher List</h3>
-            <p class="garmetix-panel-subtitle">{{ filteredVouchers.length }} row(s) shown</p>
-          </div>
-          <div class="flex flex-col gap-2 sm:flex-row">
-            <USelect v-model="voucherTypeFilter" :items="voucherTypeFilterItems" class="sm:w-44" />
-            <UInput v-model="search" icon="i-lucide-search" placeholder="Search vouchers" class="sm:w-72" />
-          </div>
+    <section class="garmetix-table-panel">
+      <div class="mb-3 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+        <div>
+          <h3 class="garmetix-panel-title">Voucher List</h3>
+          <p class="garmetix-panel-subtitle">{{ filteredVouchers.length }} row(s) shown</p>
         </div>
-
-        <div class="overflow-hidden rounded-lg border border-default">
-          <div class="overflow-x-auto">
-            <table class="w-full min-w-[1040px] text-left text-sm">
-              <thead class="bg-muted/30 text-xs uppercase text-muted">
-                <tr>
-                  <th class="whitespace-nowrap px-3 py-2 font-medium">Date</th>
-                  <th class="whitespace-nowrap px-3 py-2 font-medium">Voucher</th>
-                  <th class="whitespace-nowrap px-3 py-2 font-medium">Type</th>
-                  <th class="whitespace-nowrap px-3 py-2 font-medium">Party</th>
-                  <th class="whitespace-nowrap px-3 py-2 font-medium">Ledger</th>
-                  <th class="whitespace-nowrap px-3 py-2 font-medium">Mode</th>
-                  <th class="whitespace-nowrap px-3 py-2 text-right font-medium">Amount</th>
-                  <th class="whitespace-nowrap px-3 py-2 font-medium">Action</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-default">
-                <tr v-if="filteredVouchers.length === 0">
-                  <td colspan="8" class="px-3 py-8 text-center text-muted">No vouchers found.</td>
-                </tr>
-                <tr
-                  v-for="voucher in filteredVouchers"
-                  :key="voucherKey(voucher)"
-                  class="bg-default/40"
-                  :class="selectedVoucherId === readText(voucher, ['id'], '') ? 'outline outline-1 outline-primary/60' : ''"
-                >
-                  <td class="whitespace-nowrap px-3 py-2">{{ formatDate(voucher.onDate) }}</td>
-                  <td class="px-3 py-2">
-                    <p class="font-medium">{{ readText(voucher, ['voucherNumber']) }}</p>
-                    <p class="text-xs text-muted">{{ readText(voucher, ['slipNumber'], 'No slip') }}</p>
-                  </td>
-                  <td class="whitespace-nowrap px-3 py-2">{{ voucherTypeLabel(voucher.voucherType) }}</td>
-                  <td class="max-w-48 truncate px-3 py-2">{{ voucherPartyName(voucher) }}</td>
-                  <td class="max-w-48 truncate px-3 py-2">{{ ledgerName(voucher.ledgerId) }}</td>
-                  <td class="whitespace-nowrap px-3 py-2">{{ paymentModeLabel(voucher.paymentMode) }}</td>
-                  <td class="whitespace-nowrap px-3 py-2 text-right font-medium">{{ formatIndianMoney(readNumber(voucher, ['amount'])) }}</td>
-                  <td class="px-3 py-2">
-                    <div class="flex flex-wrap gap-1">
-                      <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="soft" :loading="detailLoading && selectedVoucherId === readText(voucher, ['id'], '')" @click="selectVoucher(voucher)">
-                        View
-                      </UButton>
-                      <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" @click="startEdit(voucher)">
-                        Edit
-                      </UButton>
-                      <UButton icon="i-lucide-file-down" size="xs" color="primary" variant="ghost" :loading="downloadLoading === readText(voucher, ['id'], '')" @click="downloadVoucherFor(voucher, 'a5')">
-                        PDF
-                      </UButton>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        <div class="flex flex-col gap-2 sm:flex-row">
+          <USelect v-model="voucherTypeFilter" :items="voucherTypeFilterItems" class="sm:w-44" />
+          <UInput v-model="search" icon="i-lucide-search" placeholder="Search vouchers" class="sm:w-72" />
         </div>
       </div>
 
-      <aside class="garmetix-detail-panel">
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <h3 class="garmetix-panel-title">Voucher Details</h3>
-            <p class="garmetix-panel-subtitle">{{ selectedVoucherNumber }}</p>
-          </div>
-          <UBadge :color="selectedVoucher ? 'success' : 'neutral'" variant="subtle">{{ selectedVoucher ? voucherTypeLabel(selectedVoucher.voucherType) : 'None' }}</UBadge>
+      <div class="overflow-hidden rounded-lg border border-default">
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[1040px] text-left text-sm">
+            <thead class="bg-muted/30 text-xs uppercase text-muted">
+              <tr>
+                <th class="whitespace-nowrap px-3 py-2 font-medium">Date</th>
+                <th class="whitespace-nowrap px-3 py-2 font-medium">Voucher</th>
+                <th class="whitespace-nowrap px-3 py-2 font-medium">Type</th>
+                <th class="whitespace-nowrap px-3 py-2 font-medium">Party</th>
+                <th class="whitespace-nowrap px-3 py-2 font-medium">Ledger</th>
+                <th class="whitespace-nowrap px-3 py-2 font-medium">Mode</th>
+                <th class="whitespace-nowrap px-3 py-2 text-right font-medium">Amount</th>
+                <th class="whitespace-nowrap px-3 py-2 font-medium">Action</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-default">
+              <tr v-if="filteredVouchers.length === 0">
+                <td colspan="8" class="px-3 py-8 text-center text-muted">No vouchers found.</td>
+              </tr>
+              <tr
+                v-for="voucher in filteredVouchers"
+                :key="voucherKey(voucher)"
+                class="bg-default/40"
+                :class="selectedVoucherId === readText(voucher, ['id'], '') ? 'outline outline-1 outline-primary/60' : ''"
+              >
+                <td class="whitespace-nowrap px-3 py-2">{{ formatDate(voucher.onDate) }}</td>
+                <td class="px-3 py-2">
+                  <p class="font-medium">{{ readText(voucher, ['voucherNumber']) }}</p>
+                  <p class="text-xs text-muted">{{ readText(voucher, ['slipNumber'], 'No slip') }}</p>
+                </td>
+                <td class="whitespace-nowrap px-3 py-2">{{ voucherTypeLabel(voucher.voucherType) }}</td>
+                <td class="max-w-48 truncate px-3 py-2">{{ voucherPartyName(voucher) }}</td>
+                <td class="max-w-48 truncate px-3 py-2">{{ ledgerName(voucher.ledgerId) }}</td>
+                <td class="whitespace-nowrap px-3 py-2">{{ paymentModeLabel(voucher.paymentMode) }}</td>
+                <td class="whitespace-nowrap px-3 py-2 text-right font-medium">{{ formatIndianMoney(readNumber(voucher, ['amount'])) }}</td>
+                <td class="px-3 py-2">
+                  <div class="flex flex-wrap gap-1">
+                    <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="soft" :loading="detailLoading && selectedVoucherId === readText(voucher, ['id'], '')" @click="viewVoucher(voucher)">
+                      View
+                    </UButton>
+                    <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" @click="startEdit(voucher)">
+                      Edit
+                    </UButton>
+                    <UButton icon="i-lucide-file-down" size="xs" color="primary" variant="ghost" :loading="downloadLoading === readText(voucher, ['id'], '')" @click="downloadVoucherFor(voucher, 'a5')">
+                      PDF
+                    </UButton>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
+      </div>
+    </section>
 
-        <div v-if="selectedVoucher" class="mt-4 space-y-3">
-          <dl class="grid gap-3 text-sm">
+    <UModal
+      v-model:open="detailOpen"
+      title="Voucher Details"
+      :description="selectedVoucherNumber"
+      :ui="{ content: 'w-[calc(100vw-2rem)] sm:max-w-2xl' }"
+    >
+      <template #body>
+        <div v-if="selectedVoucher" class="space-y-3">
+          <div class="flex items-center justify-between">
+            <UBadge color="success" variant="subtle">{{ voucherTypeLabel(selectedVoucher.voucherType) }}</UBadge>
+          </div>
+          <dl class="grid gap-3 sm:grid-cols-2 text-sm">
             <div v-for="item in selectedDetails" :key="item.label" class="border-b border-default pb-2">
               <dt class="text-xs text-muted">{{ item.label }}</dt>
               <dd class="mt-1 break-words font-medium">{{ item.value }}</dd>
@@ -221,12 +210,8 @@
             <UButton icon="i-lucide-printer" size="sm" color="neutral" variant="ghost" :loading="downloadLoading === 'reprint'" @click="downloadVoucher('reprint')">Reprint</UButton>
           </div>
         </div>
-
-        <div v-else class="mt-8 text-center text-sm text-muted">
-          Select a voucher to view details and PDF options.
-        </div>
-      </aside>
-    </section>
+      </template>
+    </UModal>
   </section>
 </template>
 
@@ -277,6 +262,7 @@ const selectedVoucher = ref<ApiRecord | null>(null)
 const downloadLoading = ref('')
 const formMode = ref<'create' | 'edit'>('create')
 const formOpen = ref(false)
+const detailOpen = ref(false)
 const setupStatus = ref<ApiRecord | null>(null)
 const vouchers = ref<ApiRecord[]>([])
 const ledgers = ref<ApiRecord[]>([])
@@ -558,6 +544,11 @@ async function refresh() {
   } finally {
     loading.value = false
   }
+}
+
+async function viewVoucher(voucher: ApiRecord) {
+  await selectVoucher(voucher)
+  detailOpen.value = true
 }
 
 async function selectVoucher(voucher: ApiRecord) {

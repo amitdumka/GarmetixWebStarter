@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.63',
-  stage: 'Stage 14L Searchable Pickers And Active Employee Filtering',
-  label: 'Version6 Stage 14L Searchable Pickers And Active Employee Filtering',
-  summary: 'Books/HR: Ledger picker dropdowns (Vouchers, Accounting Vendor Bank/Bank Transaction/Ledger Statement, Cash Details) converted from plain USelect to searchable USelectMenu (first use of USelectMenu in this codebase - value-key="value" set explicitly since its default binds the whole item object, not just the id). Employee picker dropdowns used to attach an employee to a new record (Vouchers Issued By, HR Salary Structure/Payment, Manual Punch, Regularization, Shift Rules, Biometric Enrollment, Benefits, Attendance Dashboard quick-punch) now filter to active employees only and are also searchable; added a shared isActiveEmployee() helper to @garmetix/shared-utils, replacing three separately-duplicated (and one incorrectly OR-based instead of AND-based) copies of the same check across HR pages. The HR Employee master list itself stays unfiltered by default (its whole purpose is managing all employees) but gained an explicit All/Active-only/Inactive-only status filter alongside its existing search box.'
+  version: '6.0.64',
+  stage: 'Stage 14M Books Ledgers Page Split And Voucher UX',
+  label: 'Version6 Stage 14M Books Ledgers Page Split And Voucher UX',
+  summary: 'Books: split Ledger/Ledger Group/Ledger Sync out of Accounting into a new standalone /ledgers page (Accounting now covers Bank Accounts, Bank Transactions, Reconciliation, Cheques, Vendor Banks, Account Details, Trial Balance); moved the internal ledger-linked Party tab out of Accounting into /parties as a second "Internal Parties" tab alongside the existing Customer/Vendor GSTIN register. Voucher entry form rebuilt as a uniform 4-column grid (was uneven xl:col-span groupings that looked like floating misaligned fields); Voucher "View" now opens a modal instead of a permanently-visible side panel, decluttering the list page. Updated the Books sidebar menu and routes.ts for the new /ledgers route.'
 } as const
