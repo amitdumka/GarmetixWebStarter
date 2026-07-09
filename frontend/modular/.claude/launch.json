@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "main-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--workspace", "@garmetix/main-web", "run", "dev"],
+      "port": 3100
+    },
+    {
+      "name": "books-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--workspace", "@garmetix/books-web", "run", "dev"],
+      "port": 3104
+    }
+  ]
+}

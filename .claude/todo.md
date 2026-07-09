@@ -30,6 +30,26 @@ Last updated: 2026-07-07. Check items off as completed; move detail/history into
 - [ ] Ask Amit whether to prioritize clearing the "pending live evidence" backlog (POS/HR/Books/CRM/Admin) over new feature work.
 - [ ] Begin AntiGravity (`Version6.A`) port review starting with Priority 0 (file-list diff) from `AntiGarvity2CodeTODO.md` - do not read Antigravity workspace files beyond what's needed for a named comparison without asking first.
 
+## Purchase Module Port (started 2026-07-10, v6.1.0)
+
+Amit asked to port the legacy Purchase menu group (`frontend/legacy/garmetix-web`, live reference `https://garmetix.aadwikafashion.in/purchase`) into modular, since it was previously stub/read-only. Full legacy inventory (11 pages, all backend endpoints) is documented in the session record; summarized here for future pickup.
+
+**Shipped in this stage (Phase 1 - full CRUD, matches legacy feature set for the core workflow)**:
+- [x] `frontend/modular/apps/main/pages/vendors.vue` - new Vendors CRUD page (create/edit/delete popups, GSTIN lookup, filter + pagination). Was entirely missing before.
+- [x] `frontend/modular/apps/main/pages/purchase/index.vue` - Purchase Register rebuilt from read-only recent-list to full paginated/filtered register with View/Edit/Pay/Cancel/Delete popups.
+- [x] `frontend/modular/apps/main/pages/purchase/new.vue` - New Inward dedicated full page (was a placeholder stub), vendor + item entry + payment, posts to `POST /api/purchase/inward`.
+- [x] `frontend/modular/apps/main/pages/purchase-return.vue` - Purchase Return register + return-items workflow (was a placeholder stub).
+- [x] `frontend/modular/apps/books/pages/vendor-payments.vue` - upgraded from "Read only" to full CRUD (create against invoice or as vendor advance, edit, delete) with server pagination.
+- [x] `frontend/modular/apps/books/pages/vendor-settlements.vue` - added the "Debit Notes Available For Settlement" register + Settle popup (was "Read only", view-only).
+- [x] Fixed a dangling-route sidebar bug: `vendor-payments`/`vendor-settlements` had routes but no `ModularAppShell.vue` `localMenus` entry (same pattern as the earlier HR/Books menu bugs), plus added `vendors` to the Purchase menu group.
+
+**Deferred to a future session (Phase 2 - not started, too large for one pass)**:
+- [ ] **Import/Scan Supplier Invoice** (`/purchase/import` in legacy, `pages/purchase/import.vue`, 1372 lines) - full OCR upload -> parse -> line-item review/correction -> post workflow. Backend already exists and is fully built: `backend/Garmetix.Api/PurchaseImport/PurchaseInvoiceImportEndpoints.cs` (34 endpoints under `/api/purchase-import`), `PurchaseInvoiceImportService.cs` (4060 lines, pdftotext/Tesseract OCR pipeline, vendor-profile "learning", duplicate detection, discount distribution, barcode auto-generation). This is the single most complex remaining piece - has zero modular equivalent today.
+- [ ] **Import Acceptance QA dashboard** (`/purchase/import-acceptance`, `pages/purchase/import-acceptance.vue`) - posting-report/backup-restore/acceptance checklist dashboard for the import batches above. Depends on the import feature existing first.
+- [ ] **Import Learning profiles** (`/purchase/import-profiles`, `pages/purchase/import-profiles.vue`) - per-vendor OCR alias/ignored-pattern management. Depends on the import feature existing first.
+- [ ] **Vendor Payable Reconciliation** (`/purchase/vendor-payable-reconciliation`) - read-only QA/reconciliation report, backend already exists (`VendorPayableReconciliationEndpoints.cs`), same page pattern as existing `books` read-only pages - lower effort than the above three, could be picked up independently.
+- [ ] **Purchase Return Advanced Settlement QA** (`/purchase-return/advanced-settlement`) - same pattern, backend already exists (`PurchaseReturnAdvancedSettlementEndpoints.cs`), independent low-effort pickup.
+
 ## Process Reminders
 
 - [ ] Before any backend/API/DB change: confirm with Amit if it can affect `frontend/legacy/garmetix-web`.

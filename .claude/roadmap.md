@@ -11,6 +11,10 @@ Last updated: 2026-07-07. Source of truth for stage-by-stage history remains `fr
 - **Deploy pipeline hardening (2026-07-07)**: the first 14G deploy attempt silently shipped broken content site-wide (a flaky Nitro cold-build bug) while its own acceptance script showed all-green, because that check only validates HTTP status codes, not actual response content. Fixed the flaky build with a retry+content-verification safety net in `srp-whole-site-deploy.sh`. **Any future deploy verification must check real page content/size, not just status codes** - this is now the standard to hold future deploys to.
 - `dotnet publish` in the SRP deploy script is currently broken specifically when run via Git Bash (works fine assumed-via-WSL) - doubled drive-letter path bug, not yet fixed, use `--skip-api` when there are no backend changes to republish.
 
+## Purchase Module (started 2026-07-10)
+
+Modular Purchase was previously a stub (`main` app placeholders) plus two read-only Books review pages. Phase 1 (Vendors CRUD, Purchase Register/New Inward/Purchase Return full CRUD, Vendor Payments/Settlements upgraded from read-only) shipped in `v6.1.0` - see `.claude/todo.md` for the itemized list and `.claude/changelog.md` for detail. Phase 2 (Scan/Import Supplier Invoice + its two satellite QA/learning pages, plus two independent read-only QA dashboards) is deferred - it depends on a 4060-line backend OCR service (`PurchaseInvoiceImportService.cs`) that already exists but has zero modular frontend today. Recommend picking up the two independent QA dashboards (Vendor Payable Reconciliation, Purchase Return Advanced Settlement) first since they're low-effort read-only report pages with no dependency on the Import feature; the Import workflow itself is a multi-session effort on its own given the OCR review/correction UI surface.
+
 ## Near-Term (next 1-3 sessions)
 
 1. ~~**Books 14C.5**~~ - closed 2026-07-07: GST/accounting report finalization confirmed, financial-year lock create/unlock UI added, final Books closure gate script/doc shipped.

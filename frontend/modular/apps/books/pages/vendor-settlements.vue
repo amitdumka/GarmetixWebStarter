@@ -12,12 +12,52 @@
         <div class="flex flex-wrap gap-2">
           <USelect v-model="statusFilter" :items="statusFilterItems" class="w-44" />
           <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refresh">Refresh</UButton>
-          <UBadge color="primary" variant="subtle">Read only</UBadge>
         </div>
       </div>
     </div>
 
     <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
+    <UAlert v-if="message" color="success" variant="subtle" icon="i-lucide-circle-check" :description="message" />
+
+    <section class="garmetix-section-card">
+      <div class="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h3 class="garmetix-panel-title">Debit Notes Available For Settlement</h3>
+          <p class="garmetix-panel-subtitle">{{ availableReturns.length }} debit note(s) with settleable balance</p>
+        </div>
+      </div>
+      <div class="overflow-hidden rounded-lg border border-default">
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[820px] text-left text-sm">
+            <thead class="bg-muted/30 text-xs uppercase text-muted">
+              <tr>
+                <th class="px-3 py-2 font-medium">Debit Note</th>
+                <th class="px-3 py-2 font-medium">Vendor</th>
+                <th class="px-3 py-2 font-medium">Original Invoice</th>
+                <th class="px-3 py-2 text-right font-medium">Return Amount</th>
+                <th class="px-3 py-2 text-right font-medium">Available</th>
+                <th class="px-3 py-2 font-medium">Action</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-default">
+              <tr v-if="!availableReturns.length">
+                <td colspan="6" class="px-3 py-8 text-center text-muted">No debit notes are awaiting settlement.</td>
+              </tr>
+              <tr v-for="item in availableReturns" :key="readText(item, ['id'])">
+                <td class="max-w-40 truncate px-3 py-2">{{ readText(item, ['debitNoteNumber']) }}</td>
+                <td class="max-w-44 truncate px-3 py-2">{{ readText(item, ['vendorName']) }}</td>
+                <td class="max-w-40 truncate px-3 py-2">{{ readText(item, ['originalInvoiceNumber']) }}</td>
+                <td class="px-3 py-2 text-right">{{ money(readNumber(item, ['returnAmount'])) }}</td>
+                <td class="px-3 py-2 text-right font-medium">{{ money(readNumber(item, ['availableSettlementAmount'])) }}</td>
+                <td class="px-3 py-2">
+                  <UButton size="xs" color="primary" variant="soft" icon="i-lucide-scale" :loading="settleLoading === readText(item, ['id'])" @click="startSettle(item)">Settle</UButton>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
 
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
@@ -124,6 +164,79 @@
         </div>
       </aside>
     </section>
+
+    <UModal v-model:open="settleOpen" title="Settle Debit Note" :ui="{ content: 'w-[calc(100vw-2rem)] sm:max-w-3xl' }">
+      <template #body>
+        <div v-if="settleOptions" class="space-y-4">
+          <p class="text-sm text-muted">
+            {{ readText(settleOptions, ['debitNoteNumber']) }} - {{ readText(settleOptions, ['vendorName']) }} - Available {{ money(readNumber(settleOptions, ['availableAmount'])) }}
+          </p>
+
+          <div class="flex justify-end gap-2">
+            <UButton size="xs" color="neutral" variant="soft" type="button" @click="allocateAvailable">Allocate Available</UButton>
+            <UButton size="xs" color="neutral" variant="ghost" type="button" @click="clearAllocations">Clear</UButton>
+          </div>
+
+          <div class="overflow-hidden rounded-lg border border-default">
+            <div class="overflow-x-auto">
+              <table class="w-full min-w-[560px] text-left text-sm">
+                <thead class="bg-muted/30 text-xs uppercase text-muted">
+                  <tr>
+                    <th class="px-3 py-2 font-medium">Invoice</th>
+                    <th class="px-3 py-2 text-right font-medium">Outstanding</th>
+                    <th class="px-3 py-2 text-right font-medium">Allocate</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-default">
+                  <tr v-for="invoice in readArray(settleOptions, ['outstandingInvoices'])" :key="readText(invoice, ['purchaseInvoiceId'])">
+                    <td class="px-3 py-2">{{ readText(invoice, ['invoiceNumber']) }}</td>
+                    <td class="px-3 py-2 text-right">{{ money(readNumber(invoice, ['outstandingAmount'])) }}</td>
+                    <td class="px-3 py-2 text-right">
+                      <UInput
+                        v-model.number="allocations[readText(invoice, ['purchaseInvoiceId'])]"
+                        type="number"
+                        min="0"
+                        :max="readNumber(invoice, ['outstandingAmount'])"
+                        step="0.01"
+                        class="w-32 ml-auto"
+                      />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="grid gap-3 sm:grid-cols-2">
+            <label class="space-y-1 text-sm">
+              <span class="text-muted">Refund amount (unallocated goes to vendor)</span>
+              <UInput v-model.number="settleForm.refundAmount" type="number" min="0" step="0.01" />
+            </label>
+            <label class="space-y-1 text-sm">
+              <span class="text-muted">Refund mode</span>
+              <USelect v-model="settleForm.paymentMode" :items="paymentModeItems" />
+            </label>
+            <label v-if="settleForm.refundAmount > 0 && settleForm.paymentMode !== 0" class="space-y-1 text-sm">
+              <span class="text-muted">Bank account</span>
+              <USelect v-model="settleForm.bankAccountId" :items="bankAccountItems" />
+            </label>
+            <label class="space-y-1 text-sm">
+              <span class="text-muted">Reference</span>
+              <UInput v-model="settleForm.referenceNumber" />
+            </label>
+            <label class="space-y-1 text-sm sm:col-span-2">
+              <span class="text-muted">Remarks</span>
+              <UTextarea v-model="settleForm.remarks" :rows="2" />
+            </label>
+          </div>
+
+          <div class="flex justify-end gap-2">
+            <UButton color="neutral" variant="soft" @click="settleOpen = false">Cancel</UButton>
+            <UButton color="primary" variant="solid" icon="i-lucide-scale" :loading="settling" @click="submitSettle">Post Settlement</UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
   </section>
 </template>
 
@@ -143,16 +256,34 @@ useHead({ title: 'Vendor Settlements - Garmetix Books' })
 
 type BadgeColor = 'success' | 'warning' | 'neutral'
 
-const { download, get } = useBooksApiClient()
+const { download, get, post } = useBooksApiClient()
 const loading = ref(true)
 const detailLoading = ref(false)
 const downloadLoading = ref(false)
 const error = ref('')
+const message = ref('')
 const search = ref('')
 const statusFilter = ref('all')
 const settlements = ref<ApiRecord[]>([])
+const returns = ref<ApiRecord[]>([])
+const bankAccounts = ref<ApiRecord[]>([])
 const selectedSettlementId = ref('')
 const selectedSettlement = ref<ApiRecord | null>(null)
+
+const settleOpen = ref(false)
+const settleLoading = ref('')
+const settling = ref(false)
+const settleOptions = ref<ApiRecord | null>(null)
+const allocations = reactive<Record<string, number>>({})
+const settleForm = reactive({ refundAmount: 0, paymentMode: 0, bankAccountId: '', referenceNumber: '', remarks: '' })
+
+const paymentModeItems = [
+  { label: 'Cash', value: 0 }, { label: 'Card', value: 1 }, { label: 'UPI', value: 2 }, { label: 'Wallets', value: 3 },
+  { label: 'IMPS', value: 4 }, { label: 'RTGS', value: 5 }, { label: 'NEFT', value: 6 }, { label: 'Cheque', value: 7 },
+  { label: 'Demand Draft', value: 8 }, { label: 'Others', value: 14 }
+]
+const bankAccountItems = computed(() => bankAccounts.value.map(item => ({ label: readText(item, ['accountName', 'name'], 'Bank account'), value: readText(item, ['id'], '') })))
+const availableReturns = computed(() => returns.value.filter(item => readNumber(item, ['availableSettlementAmount']) > 0))
 
 const statusFilterItems = computed(() => {
   const statuses = Array.from(new Set(settlements.value.map(item => readText(item, ['status'])).filter(item => item !== '-')))
@@ -244,13 +375,85 @@ async function refresh() {
   loading.value = true
   error.value = ''
   try {
-    const data = await get<unknown>('purchase/vendor-settlements/recent', { take: 150 })
-    settlements.value = toRows(data)
+    const [settlementData, returnData, bankData] = await Promise.allSettled([
+      get<unknown>('purchase/vendor-settlements/recent', { take: 150 }),
+      get<unknown>('purchase/returns/recent', { take: 150 }),
+      get<unknown>('bank-accounts')
+    ])
+    if (settlementData.status === 'fulfilled') settlements.value = toRows(settlementData.value)
+    if (returnData.status === 'fulfilled') returns.value = toRows(returnData.value)
+    if (bankData.status === 'fulfilled') bankAccounts.value = toRows(bankData.value)
     if (!selectedSettlementId.value && settlements.value.length > 0) await selectSettlement(settlements.value[0])
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Unable to load vendor settlements.'
   } finally {
     loading.value = false
+  }
+}
+
+async function startSettle(item: ApiRecord) {
+  const id = readText(item, ['id'], '')
+  if (!id) return
+  settleLoading.value = id
+  error.value = ''
+  try {
+    settleOptions.value = await get<ApiRecord>(`purchase/returns/${id}/settlement-options`)
+    Object.keys(allocations).forEach(key => delete allocations[key])
+    Object.assign(settleForm, { refundAmount: 0, paymentMode: 0, bankAccountId: '', referenceNumber: '', remarks: '' })
+    settleOpen.value = true
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to load settlement options.'
+  } finally {
+    settleLoading.value = ''
+  }
+}
+
+function allocateAvailable() {
+  let remaining = readNumber(settleOptions.value, ['availableAmount'])
+  for (const invoice of readArray(settleOptions.value, ['outstandingInvoices'])) {
+    if (remaining <= 0) break
+    const id = readText(invoice, ['purchaseInvoiceId'], '')
+    const outstanding = readNumber(invoice, ['outstandingAmount'])
+    const amount = Math.min(outstanding, remaining)
+    if (id) allocations[id] = amount
+    remaining -= amount
+  }
+}
+
+function clearAllocations() {
+  Object.keys(allocations).forEach(key => { allocations[key] = 0 })
+}
+
+async function submitSettle() {
+  const id = readText(settleOptions.value, ['purchaseReturnId'], '')
+  if (!id) return
+  const allocationList = Object.entries(allocations)
+    .filter(([, amount]) => Number(amount) > 0)
+    .map(([purchaseInvoiceId, amount]) => ({ purchaseInvoiceId, amount: Number(amount) }))
+  const allocatedTotal = allocationList.reduce((sum, item) => sum + item.amount, 0)
+  const available = readNumber(settleOptions.value, ['availableAmount'])
+  if (allocatedTotal + settleForm.refundAmount > available + 0.01) {
+    error.value = 'Allocations plus refund exceed the available settlement amount.'
+    return
+  }
+  settling.value = true
+  error.value = ''
+  try {
+    await post<unknown>(`purchase/returns/${id}/settle`, {
+      refundAmount: settleForm.refundAmount || 0,
+      paymentMode: settleForm.refundAmount > 0 ? settleForm.paymentMode : null,
+      bankAccountId: settleForm.refundAmount > 0 ? (settleForm.bankAccountId || null) : null,
+      referenceNumber: settleForm.referenceNumber || null,
+      remarks: settleForm.remarks || null,
+      allocations: allocationList
+    })
+    message.value = 'Vendor settlement posted.'
+    settleOpen.value = false
+    await refresh()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to post vendor settlement.'
+  } finally {
+    settling.value = false
   }
 }
 

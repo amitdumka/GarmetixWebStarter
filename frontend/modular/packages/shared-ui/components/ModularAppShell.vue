@@ -291,6 +291,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
     { key: 'purchase', label: 'Purchase', items: [
       { id: 'purchase', label: 'Purchase', href: '/purchase', icon: 'i-lucide-package-plus' },
       { id: 'purchase-new', label: 'New Inward', href: '/purchase/new', icon: 'i-lucide-file-plus-2' },
+      { id: 'vendors', label: 'Vendors', href: '/vendors', icon: 'i-lucide-truck' },
       { id: 'purchase-return', label: 'Purchase Return', href: '/purchase-return', icon: 'i-lucide-undo-2' }
     ] },
     { key: 'inventory', label: 'Inventory', items: [
@@ -366,7 +367,9 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'parties', label: 'Parties', href: '/parties', icon: 'i-lucide-users-round' },
       { id: 'vouchers', label: 'Vouchers', href: '/vouchers', icon: 'i-lucide-banknote' },
       { id: 'petty-cash', label: 'Petty Cash', href: '/petty-cash', icon: 'i-lucide-circle-dollar-sign' },
-      { id: 'cash-details', label: 'Cash Details', href: '/cash-details', icon: 'i-lucide-coins' }
+      { id: 'cash-details', label: 'Cash Details', href: '/cash-details', icon: 'i-lucide-coins' },
+      { id: 'vendor-payments', label: 'Vendor Payments', href: '/vendor-payments', icon: 'i-lucide-hand-coins' },
+      { id: 'vendor-settlements', label: 'Vendor Settlements', href: '/vendor-settlements', icon: 'i-lucide-scale' }
     ] },
     { key: 'notes', label: 'Notes', items: [
       { id: 'debit-notes', label: 'Debit Notes', href: '/debit-notes', icon: 'i-lucide-file-minus-2' },

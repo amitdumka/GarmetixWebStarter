@@ -103,6 +103,7 @@ export const garmetixRoutes: GarmetixRouteDefinition[] = [
   route({ id: 'purchase', path: '/purchase', label: 'Purchase', icon: 'i-lucide-shopping-bag', targetApp: 'main', moduleKey: 'purchase', moduleLabel: 'Purchase', roles: [...routeRoles.storeOps] }),
   route({ id: 'purchase-new', path: '/purchase/new', label: 'New Purchase', icon: 'i-lucide-plus', targetApp: 'main', moduleKey: 'purchase', moduleLabel: 'Purchase', roles: [...routeRoles.storeOps] }),
   route({ id: 'purchase-return', path: '/purchase-return', label: 'Purchase Return', icon: 'i-lucide-rotate-ccw', targetApp: 'main', moduleKey: 'purchase', moduleLabel: 'Purchase', roles: [...routeRoles.storeOps] }),
+  route({ id: 'vendors', path: '/vendors', label: 'Vendors', icon: 'i-lucide-truck', targetApp: 'main', moduleKey: 'purchase', moduleLabel: 'Purchase', roles: [...routeRoles.storeOps] }),
   route({ id: 'vendor-payments', path: '/vendor-payments', label: 'Vendor Payments', icon: 'i-lucide-hand-coins', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books] }),
   route({ id: 'vendor-settlements', path: '/vendor-settlements', label: 'Vendor Settlements', icon: 'i-lucide-scale', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books] }),
 
