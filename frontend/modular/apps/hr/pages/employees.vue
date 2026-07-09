@@ -38,9 +38,12 @@
       <div class="garmetix-panel-header">
         <div>
           <h3 class="garmetix-panel-title">Employee Register</h3>
-          <p class="garmetix-panel-subtitle">{{ filteredEmployees.length }} employee(s).</p>
+          <p class="garmetix-panel-subtitle">{{ filteredEmployees.length }} of {{ employees.length }} employee(s).</p>
         </div>
-        <UInput v-model="employeeSearch" icon="i-lucide-search" placeholder="Search employee" class="w-56" />
+        <div class="flex flex-wrap items-center gap-2">
+          <USelect v-model="employeeStatusFilter" :items="employeeStatusFilterItems" class="w-44" />
+          <UInput v-model="employeeSearch" icon="i-lucide-search" placeholder="Search employee" class="w-56" />
+        </div>
       </div>
       <div class="overflow-auto">
         <table class="w-full min-w-[1080px] text-left text-sm">
@@ -221,7 +224,7 @@
       <template #body>
         <form class="space-y-3" @submit.prevent="saveAttendance">
           <p class="garmetix-panel-subtitle">Older attendance register entry used by legacy HR and monthly generation.</p>
-          <UFormField label="Employee" required><USelect v-model="attendanceForm.employeeId" :items="employeeOptions" /></UFormField>
+          <UFormField label="Employee" required><USelectMenu v-model="attendanceForm.employeeId" value-key="value" :items="employeeOptions" placeholder="Search employee..." /></UFormField>
           <div class="grid gap-3 md:grid-cols-2">
             <UFormField label="Date"><UInput v-model="attendanceForm.onDate" type="date" /></UFormField>
             <UFormField label="Status"><USelect v-model="attendanceForm.status" :items="attendanceStatusOptions" /></UFormField>
@@ -268,7 +271,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatIndianMoney } from '@garmetix/shared-utils'
+import { formatIndianMoney, isActiveEmployee } from '@garmetix/shared-utils'
 import { currentYearMonth, readArray, readNumber, readText, toLocalDateInput, type ApiRecord, useHrApiClient } from '../utils/hr-api'
 
 type HrTab = 'employees' | 'attendance' | 'monthly'
@@ -287,6 +290,7 @@ const message = ref('')
 const messageTone = ref<'success' | 'error' | 'warning' | 'neutral'>('neutral')
 const activeTab = ref<HrTab>('employees')
 const employeeSearch = ref('')
+const employeeStatusFilter = ref<'all' | 'active' | 'inactive'>('all')
 const editingEmployeeId = ref('')
 const editingAttendanceId = ref('')
 const employeeFormOpen = ref(false)
@@ -334,12 +338,23 @@ const attendanceStatusOptions = [
   { value: 12, label: 'Work From Home' }
 ]
 const attendanceStatusFilterItems = [{ value: null, label: 'All statuses' }, ...attendanceStatusOptions]
+const employeeStatusFilterItems = [
+  { value: 'all', label: 'All employees' },
+  { value: 'active', label: 'Active only' },
+  { value: 'inactive', label: 'Inactive only' }
+]
 const messageIcon = computed(() => messageTone.value === 'success' ? 'i-lucide-circle-check' : messageTone.value === 'warning' ? 'i-lucide-triangle-alert' : messageTone.value === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-info')
 const summaryMessages = computed(() => readArray(summary.value, ['readinessMessages']).map(item => String(item)))
 const employeeOptions = computed(() => employees.value.filter(isActiveEmployee).map(employee => ({ label: `${readText(employee, ['employeeCode'], 'EMP')} - ${employeeName(employee)}`, value: readText(employee, ['id'], '') })))
 const filteredEmployees = computed(() => {
   const term = employeeSearch.value.trim().toLowerCase()
-  return term ? employees.value.filter(row => JSON.stringify(row).toLowerCase().includes(term)) : employees.value
+  return employees.value.filter(row => {
+    const matchesStatus = employeeStatusFilter.value === 'all'
+      || (employeeStatusFilter.value === 'active' && isActiveEmployee(row))
+      || (employeeStatusFilter.value === 'inactive' && !isActiveEmployee(row))
+    const matchesSearch = !term || JSON.stringify(row).toLowerCase().includes(term)
+    return matchesStatus && matchesSearch
+  })
 })
 const employeeTotalPages = computed(() => Math.max(1, Math.ceil(filteredEmployees.value.length / employeePageSize.value)))
 const pagedEmployees = computed(() => {
@@ -349,6 +364,7 @@ const pagedEmployees = computed(() => {
 const attendanceTotalPages = computed(() => Math.max(1, Math.ceil(attendanceTotal.value / attendanceFilters.pageSize)))
 
 watch(employeeSearch, () => { employeePage.value = 1 })
+watch(employeeStatusFilter, () => { employeePage.value = 1 })
 const cards = computed(() => [
   { label: 'Employees', value: readNumber(summary.value, ['totalEmployees']) || employees.value.length, detail: 'All employee master records' },
   { label: 'Active', value: readNumber(summary.value, ['activeEmployees']) || employees.value.filter(isActiveEmployee).length, detail: 'Working employees' },
@@ -408,11 +424,6 @@ function emptyAttendance() {
     entryTime: '',
     remarks: ''
   }
-}
-
-function isActiveEmployee(employee: ApiRecord) {
-  const status = readText(employee, ['employeeStatus'], '').toLowerCase()
-  return readText(employee, ['working'], 'false') === 'true' && !['resigned', 'terminated', 'inactive'].includes(status)
 }
 
 function employeeName(employee: ApiRecord) {

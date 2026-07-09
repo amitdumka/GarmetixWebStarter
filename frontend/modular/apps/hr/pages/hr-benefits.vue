@@ -104,7 +104,7 @@
           </div>
 
           <UFormField label="Employee" required>
-            <USelect v-model="form.employeeId" :items="employeeOptions" placeholder="Select employee" />
+            <USelectMenu v-model="form.employeeId" value-key="value" :items="employeeOptions" placeholder="Search employee..." />
           </UFormField>
 
           <div class="grid gap-3 md:grid-cols-2">
@@ -156,7 +156,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatIndianMoney } from '@garmetix/shared-utils'
+import { formatIndianMoney, isActiveEmployee } from '@garmetix/shared-utils'
 import { readArray, readNumber, readText, toLocalDateInput, type ApiRecord, useHrApiClient } from '../utils/hr-api'
 
 useHead({ title: 'HR Benefits - Garmetix HR' })
@@ -190,10 +190,7 @@ const adjustmentTypeOptions = [
 ]
 const statusOptions = ['Open', 'Approved', 'Recovered', 'Closed']
 const messageIcon = computed(() => messageTone.value === 'success' ? 'i-lucide-circle-check' : messageTone.value === 'warning' ? 'i-lucide-triangle-alert' : messageTone.value === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-info')
-const activeEmployees = computed(() => employees.value.filter(employee => {
-  const status = readText(employee, ['employeeStatus'], '').toLowerCase()
-  return readText(employee, ['working'], 'false') === 'true' || (!['resigned', 'terminated', 'inactive'].includes(status) && status !== '')
-}))
+const activeEmployees = computed(() => employees.value.filter(isActiveEmployee))
 const employeeOptions = computed(() => activeEmployees.value.map(employee => ({
   label: `${readText(employee, ['employeeCode'], 'EMP')} - ${employeeName(employee)}`,
   value: readText(employee, ['id'], '')

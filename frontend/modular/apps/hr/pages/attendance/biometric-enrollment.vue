@@ -37,7 +37,7 @@
         </div>
         <div class="grid gap-3">
           <UFormField label="Employee" required>
-            <USelect v-model="form.employeeId" :items="employeeOptions" placeholder="Select employee" />
+            <USelectMenu v-model="form.employeeId" value-key="value" :items="employeeOptions" placeholder="Search employee..." />
           </UFormField>
           <div class="grid gap-3 sm:grid-cols-2">
             <UFormField label="Store">
@@ -122,6 +122,7 @@
 </template>
 
 <script setup lang="ts">
+import { isActiveEmployee } from '@garmetix/shared-utils'
 import { readArray, readBoolean, readText, type ApiRecord, useHrApiClient } from '../../utils/hr-api'
 
 useHead({ title: 'Biometric Enrollment - Garmetix HR' })
@@ -138,7 +139,7 @@ const confirmText = ref('')
 const form = reactive(emptyForm())
 
 const messageIcon = computed(() => messageTone.value === 'success' ? 'i-lucide-circle-check' : messageTone.value === 'warning' ? 'i-lucide-triangle-alert' : messageTone.value === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-info')
-const employeeOptions = computed(() => employees.value.map(employee => ({ value: readText(employee, ['id'], ''), label: employeeName(employee) })))
+const employeeOptions = computed(() => employees.value.filter(isActiveEmployee).map(employee => ({ value: readText(employee, ['id'], ''), label: employeeName(employee) })))
 const storeOptions = computed(() => stores.value.map(store => ({ value: readText(store, ['id'], ''), label: `${readText(store, ['storeName', 'name'])} | ${readText(store, ['storeCode', 'code'])}`.replace(/\s+\|\s+-$/, '') })))
 const selectedStore = computed(() => stores.value.find(store => readText(store, ['id'], '') === form.storeId) ?? stores.value[0] ?? null)
 const canSave = computed(() => Boolean(form.employeeId && form.storeId && form.consentGiven && confirmText.value.trim().toUpperCase() === 'ENROLL') && !saving.value)

@@ -115,7 +115,7 @@
         <div class="grid gap-3">
           <p class="garmetix-panel-subtitle">Maintain earnings, deductions and current salary setup.</p>
           <UFormField label="Employee" required>
-            <USelect v-model="structureForm.employeeId" :items="employeeOptions" placeholder="Select employee" />
+            <USelectMenu v-model="structureForm.employeeId" value-key="value" :items="employeeOptions" placeholder="Search employee..." />
           </UFormField>
           <div class="grid gap-3 sm:grid-cols-2">
             <UFormField label="From date" required><UInput v-model="structureForm.fromDate" type="date" /></UFormField>
@@ -205,7 +205,7 @@
         <div class="grid gap-3">
           <p class="garmetix-panel-subtitle">Use preview to reduce salary advance, add previous due and round paid amount.</p>
           <UFormField label="Employee" required>
-            <USelect v-model="paymentForm.employeeId" :items="employeeOptions" placeholder="Select employee" @update:model-value="precalculatePayment(false)" />
+            <USelectMenu v-model="paymentForm.employeeId" value-key="value" :items="employeeOptions" placeholder="Search employee..." @update:model-value="precalculatePayment(false)" />
           </UFormField>
           <div class="grid gap-3 sm:grid-cols-2">
             <UFormField label="Voucher number">
@@ -301,7 +301,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatIndianMoney } from '@garmetix/shared-utils'
+import { formatIndianMoney, isActiveEmployee } from '@garmetix/shared-utils'
 import { currentYearMonth, downloadCsvFile, readNumber, readText, toLocalDateInput, type ApiRecord, useHrApiClient } from '../utils/hr-api'
 
 useHead({ title: 'Payroll - Garmetix HR' })
@@ -343,7 +343,7 @@ const structureForm = reactive(emptyStructure())
 const paymentForm = reactive(emptyPayment())
 
 const messageIcon = computed(() => messageTone.value === 'success' ? 'i-lucide-circle-check' : messageTone.value === 'warning' ? 'i-lucide-triangle-alert' : messageTone.value === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-info')
-const employeeOptions = computed(() => employees.value.map(employee => ({
+const employeeOptions = computed(() => employees.value.filter(isActiveEmployee).map(employee => ({
   value: readText(employee, ['id'], ''),
   label: employeeName(readText(employee, ['id'], ''))
 })))

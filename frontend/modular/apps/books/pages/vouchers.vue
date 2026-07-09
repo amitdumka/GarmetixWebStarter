@@ -57,7 +57,7 @@
         <div class="grid gap-3 sm:grid-cols-2 xl:col-span-5">
           <label class="space-y-1 text-sm">
             <span class="text-muted">Ledger</span>
-            <USelect v-model="form.ledgerId" :items="ledgerSelectItems" placeholder="Select ledger" />
+            <USelectMenu v-model="form.ledgerId" value-key="value" :items="ledgerSelectItems" placeholder="Search ledger..." />
           </label>
           <label class="space-y-1 text-sm">
             <span class="text-muted">Party / Payee</span>
@@ -68,7 +68,7 @@
         <div class="grid gap-3 sm:grid-cols-2 xl:col-span-4">
           <label class="space-y-1 text-sm">
             <span class="text-muted">Issued By</span>
-            <USelect v-model="form.employeeId" :items="employeeSelectItems" placeholder="Select employee" />
+            <USelectMenu v-model="form.employeeId" value-key="value" :items="employeeSelectItems" placeholder="Search employee..." />
           </label>
           <label class="space-y-1 text-sm">
             <span class="text-muted">Amount</span>
@@ -231,7 +231,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatIndianMoney } from '@garmetix/shared-utils'
+import { formatIndianMoney, isActiveEmployee } from '@garmetix/shared-utils'
 import {
   formatDate,
   optionLabel,
@@ -303,6 +303,7 @@ const ledgerSelectItems = computed(() => ledgers.value
   }))
   .filter(item => item.value))
 const employeeSelectItems = computed(() => employees.value
+  .filter(isActiveEmployee)
   .map(item => ({
     label: readText(item, ['staffName', 'name', 'firstName']),
     value: readText(item, ['id'], '')

@@ -67,7 +67,7 @@
 
         <label class="space-y-1 text-sm xl:col-span-4">
           <span class="text-muted">Contra Ledger</span>
-          <USelect v-model="transactionForm.ledgerId" :items="contraLedgerOptions" placeholder="Select ledger" />
+          <USelectMenu v-model="transactionForm.ledgerId" value-key="value" :items="contraLedgerOptions" placeholder="Search ledger..." />
         </label>
         <label class="space-y-1 text-sm xl:col-span-4">
           <span class="text-muted">Party</span>
@@ -300,7 +300,7 @@
         </label>
         <label class="space-y-1 text-sm xl:col-span-3">
           <span class="text-muted">Linked Ledger</span>
-          <USelect v-model="vendorBankForm.ledgerId" :items="ledgerSelectItems" placeholder="Select ledger" />
+          <USelectMenu v-model="vendorBankForm.ledgerId" value-key="value" :items="ledgerSelectItems" placeholder="Search ledger..." />
         </label>
         <label class="space-y-1 text-sm xl:col-span-3">
           <span class="text-muted">Opening Balance</span>

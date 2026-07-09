@@ -33,7 +33,7 @@
       <p class="garmetix-panel-subtitle">Record a CheckIn, BreakOut, BreakIn, CheckOut or Auto punch for an active employee.</p>
       <form class="mt-3 grid gap-3 md:grid-cols-4" @submit.prevent="savePunch">
         <UFormField label="Employee" name="employeeId">
-          <USelect v-model="punchForm.employeeId" :items="employeeOptions" placeholder="Select employee" />
+          <USelectMenu v-model="punchForm.employeeId" value-key="value" :items="employeeOptions" placeholder="Search employee..." />
         </UFormField>
         <UFormField label="Punch Type" name="punchType">
           <USelect v-model="punchForm.punchType" :items="punchTypeOptions" />
@@ -105,6 +105,7 @@
 </template>
 
 <script setup lang="ts">
+import { isActiveEmployee } from '@garmetix/shared-utils'
 import { readArray, readBoolean, readNumber, readText, toLocalDateInput, type ApiRecord, useHrApiClient } from '../utils/hr-api'
 
 useHead({ title: 'Attendance Dashboard - Garmetix HR' })
@@ -152,11 +153,6 @@ const employeeOptions = computed(() => employees.value.map(employee => ({
   label: `${employeeName(employee)} | ${readText(employee, ['employeeCode', 'code'])}`.replace(/\s+\|\s+-$/, '')
 })))
 const canSavePunch = computed(() => Boolean(punchForm.employeeId && punchForm.punchType && !punchSaving.value))
-
-function isActiveEmployee(employee: ApiRecord) {
-  const status = readText(employee, ['employeeStatus', 'status'], '').toLowerCase()
-  return readBoolean(employee, ['working']) && !['resigned', 'terminated', 'inactive'].includes(status)
-}
 
 function employeeName(employee: ApiRecord) {
   const fullName = readText(employee, ['staffName', 'fullName'], '')

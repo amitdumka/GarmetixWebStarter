@@ -50,7 +50,7 @@
           </div>
 
           <UFormField v-if="form.ruleType === 'Employee'" label="Employee" required>
-            <USelect v-model="form.employeeId" :items="employeeOptions" placeholder="Select employee" @update:model-value="syncScopeFromEmployee" />
+            <USelectMenu v-model="form.employeeId" value-key="value" :items="employeeOptions" placeholder="Search employee..." @update:model-value="syncScopeFromEmployee" />
           </UFormField>
 
           <div v-else-if="form.ruleType !== 'StoreDefault'" class="grid gap-3 md:grid-cols-2">
@@ -169,6 +169,7 @@
 </template>
 
 <script setup lang="ts">
+import { isActiveEmployee } from '@garmetix/shared-utils'
 import { readBoolean, readNumber, readText, toLocalDateInput, type ApiRecord, useHrApiClient } from '../../utils/hr-api'
 
 useHead({ title: 'Employee Shift Rules - Garmetix HR' })
@@ -210,7 +211,7 @@ const shiftOptions = computed(() => shifts.value.map(shift => ({
   label: `${readText(shift, ['name'])} (${readText(shift, ['startTime'], '')}-${readText(shift, ['endTime'], '')})`,
   value: readText(shift, ['id'], '')
 })).filter(item => item.value))
-const employeeOptions = computed(() => employees.value.map(employee => ({
+const employeeOptions = computed(() => employees.value.filter(isActiveEmployee).map(employee => ({
   label: `${readText(employee, ['employeeCode'], 'EMP')} - ${readText(employee, ['fullName', 'staffName', 'firstName'], 'Employee')}`,
   value: readText(employee, ['id'], '')
 })).filter(item => item.value))

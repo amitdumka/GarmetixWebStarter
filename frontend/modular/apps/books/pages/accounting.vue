@@ -238,7 +238,7 @@
             </label>
             <label class="space-y-1 text-sm">
               <span class="text-muted">Against Ledger</span>
-              <USelect v-model="transactionForm.ledgerId" :items="transactionLedgerSelectItems" placeholder="Select ledger" />
+              <USelectMenu v-model="transactionForm.ledgerId" value-key="value" :items="transactionLedgerSelectItems" placeholder="Search ledger..." />
             </label>
             <label class="space-y-1 text-sm">
               <span class="text-muted">Date</span>
@@ -332,7 +332,7 @@
             </label>
             <label class="space-y-1 text-sm">
               <span class="text-muted">Ledger</span>
-              <USelect v-model="vendorBankForm.ledgerId" :items="ledgerSelectItems" placeholder="Select ledger" />
+              <USelectMenu v-model="vendorBankForm.ledgerId" value-key="value" :items="ledgerSelectItems" placeholder="Search ledger..." />
             </label>
             <label class="space-y-1 text-sm">
               <span class="text-muted">Account Type</span>
@@ -395,7 +395,7 @@
           <p class="garmetix-panel-subtitle">Audit posted entries for a selected ledger without exposing internal party flags.</p>
         </div>
         <div class="flex flex-col gap-2 sm:flex-row">
-          <USelect v-model="selectedLedgerId" :items="ledgerSelectItems" placeholder="Select ledger" class="sm:w-72" />
+          <USelectMenu v-model="selectedLedgerId" value-key="value" :items="ledgerSelectItems" placeholder="Search ledger..." class="sm:w-72" />
           <UButton icon="i-lucide-file-search" color="neutral" variant="soft" :loading="statementLoading" @click="loadLedgerStatement">View</UButton>
         </div>
       </div>

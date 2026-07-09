@@ -29,7 +29,7 @@
       <form class="garmetix-section-card space-y-4" @submit.prevent="savePunch">
         <div class="grid gap-3 md:grid-cols-2">
           <UFormField label="Employee" name="employeeId" required>
-            <USelect v-model="form.employeeId" :items="employeeOptions" placeholder="Select employee" />
+            <USelectMenu v-model="form.employeeId" value-key="value" :items="employeeOptions" placeholder="Search employee..." />
           </UFormField>
           <UFormField label="Punch Type" name="punchType" required>
             <USelect v-model="form.punchType" :items="punchTypeOptions" />
@@ -111,6 +111,7 @@
 </template>
 
 <script setup lang="ts">
+import { isActiveEmployee } from '@garmetix/shared-utils'
 import { readBoolean, readText, toLocalDateInput, type ApiRecord, useHrApiClient } from '../../utils/hr-api'
 
 useHead({ title: 'Manual Punch - Garmetix HR' })
@@ -146,7 +147,7 @@ const sourceOptions = [
 
 const messageIcon = computed(() => messageTone.value === 'success' ? 'i-lucide-circle-check' : messageTone.value === 'warning' ? 'i-lucide-triangle-alert' : messageTone.value === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-info')
 const selectedEmployee = computed(() => employees.value.find(employee => readText(employee, ['id'], '') === form.employeeId) ?? null)
-const employeeOptions = computed(() => employees.value.map(employee => ({
+const employeeOptions = computed(() => employees.value.filter(isActiveEmployee).map(employee => ({
   value: readText(employee, ['id'], ''),
   label: `${employeeName(employee)} | ${readText(employee, ['employeeCode', 'code'])}`.replace(/\s+\|\s+-$/, '')
 })))
