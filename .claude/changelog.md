@@ -4,6 +4,22 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-07-09 - Stage 14F.9: fixed raw HTML error dumps in the shared API client
+
+**Type**: bug fix, codebase-wide. Amit hit a `<html><head><title>405 Not Allowed</title>...nginx/1.28.0 (Ubuntu)...</html>` block dumped raw into the Assistant chat panel, and asked for a user-friendly message alongside it.
+
+**Root-caused first, not just patched**: reproduced this by direct SSH testing against the live host - a LAN `curl -X POST` straight to `/api/assistant/chat` correctly returned `401 Unauthorized` (nginx's `/api/` proxy_pass location is fine, confirmed against the live nginx config on the host). This means the 405 the user saw was very likely a transient artifact of the deploy/recovery window from the previous turn (API down, or an intermediate release state) rather than a standing bug in current infra - by the time I tested, everything was healthy again.
+
+**But the underlying UX bug is real and codebase-wide, independent of what caused any specific 405**: `@garmetix/shared-api`'s `request()` (used by every app's `useXApiClient()`) and `loginToGarmetix()` both did `throw new Error(await response.text())` on any non-ok response - whatever the server returned, verbatim, becomes the error message shown to the user. For a normal backend validation error this is fine (the backend already returns clean JSON like `{"error": "Enter party name."}`), but for anything that never reaches the ASP.NET app at all - nginx's own error pages, a Cloudflare edge error, an empty body from a connection drop - the raw response body is markup, and it was landing directly in `<UAlert :title="errorMessage">` (in the Assistant panel) and equivalent error-display spots across every other app.
+
+**Fix**: added `parseErrorMessage(status, rawBody, fallback?)` to `shared-api/src/index.ts` - tries `JSON.parse` first and extracts `error`/`message`/`detail`/`title` (covering both this codebase's `{ error }`/`{ message }` convention and ASP.NET's `ProblemDetails` shape), falls back to a status-code-keyed friendly message (405 -> "This action is not available right now. Please try again in a moment.", 401 -> "Your session has expired. Please sign in again.", etc.) only when the body isn't usable JSON or looks like HTML markup. Genuine backend error messages are completely unaffected - only bodies that were never going to be readable to a user get replaced. Verified directly in Node against the exact HTML string from Amit's report plus three other real shapes (backend JSON error, ProblemDetails, empty body) - all four produce the expected output.
+
+**Verification**: `npm run validate` (full `validate-all.mjs`, including every app's `nuxt generate` build plus the Release-mode API build) passes clean - this touches a shared package every app depends on, so ran the full suite rather than a single app's build.
+
+**Files touched**: `frontend/modular/packages/shared-api/src/index.ts`, `frontend/modular/config/version.ts` (`6.0.62`).
+
+---
+
 ## 2026-07-08/09 - Stage 14F.8: Assistant live activation + a real production incident
 
 **Type**: live feature activation + incident response. Amit said he'd added the Assistant feature himself and asked me to take it to a deployed, working state (lockfile fix, backend build, secret wiring, validate/preflight, deploy, verify). Investigated first: the Assistant feature was actually already built by me across this and earlier sessions (Stage 14F.1-14F.7, all already committed and partly deployed) - the described "lockfile drift" (`shared-api` pinned at `6.0.0`) was a stale premise, already fixed 2026-07-07. Flagged this to Amit before proceeding rather than silently redoing already-done work.

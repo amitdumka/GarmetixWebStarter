@@ -1,5 +1,50 @@
 import { stripServerUrl } from '@garmetix/shared-utils'
 
+const STATUS_FALLBACK_MESSAGES: Record<number, string> = {
+  400: 'The request was invalid. Please check the details and try again.',
+  401: 'Your session has expired. Please sign in again.',
+  403: "You don't have permission to do that.",
+  404: 'That was not found. It may have been moved or deleted.',
+  405: 'This action is not available right now. Please try again in a moment.',
+  408: 'The request timed out. Please try again.',
+  409: 'This conflicts with existing data. Please refresh and try again.',
+  429: 'Too many requests. Please wait a moment and try again.',
+  500: 'The server hit an unexpected error. Please try again in a moment.',
+  502: 'The server is temporarily unavailable. Please try again in a moment.',
+  503: 'The server is temporarily unavailable. Please try again in a moment.',
+  504: 'The server took too long to respond. Please try again in a moment.'
+}
+
+function statusFallbackMessage(status: number) {
+  return STATUS_FALLBACK_MESSAGES[status] || `Request failed with status ${status}. Please try again.`
+}
+
+/**
+ * Backend errors normally arrive as JSON ({ error }, { message }, or ASP.NET
+ * ProblemDetails' { title }/{ detail }) - those are already written for end users, so
+ * surface them as-is. Anything else (an infra layer like nginx/Cloudflare returning its
+ * own HTML error page, an empty body, or unparseable text) falls back to a clean,
+ * status-code-based message instead of dumping raw markup into the UI.
+ */
+function parseErrorMessage(status: number, rawBody: string, fallback?: string) {
+  const trimmed = rawBody.trim()
+  const defaultMessage = fallback || statusFallbackMessage(status)
+  if (!trimmed) return defaultMessage
+
+  try {
+    const parsed = JSON.parse(trimmed) as Record<string, unknown>
+    const candidate = parsed.error ?? parsed.message ?? parsed.detail ?? parsed.title
+    if (typeof candidate === 'string' && candidate.trim()) return stripServerUrl(candidate)
+  } catch {
+    // Not JSON - fall through to the HTML/plain-text handling below.
+  }
+
+  const looksLikeMarkup = /^<(!doctype|html)/i.test(trimmed) || /<\/?(html|body|head)\b/i.test(trimmed)
+  if (looksLikeMarkup) return defaultMessage
+
+  return stripServerUrl(trimmed)
+}
+
 export interface GarmetixApiClientOptions {
   baseUrl: string
   getToken?: () => string | null | undefined
@@ -132,8 +177,7 @@ export function createGarmetixApiClient(options: GarmetixApiClientOptions) {
 
     const response = await fetch(url, { ...requestOptions, headers })
     if (!response.ok) {
-      const message = await response.text()
-      throw new Error(stripServerUrl(message || `Garmetix API request failed with ${response.status}`))
+      throw new Error(parseErrorMessage(response.status, await response.text()))
     }
 
     if (response.status === 204) return undefined as T
@@ -156,8 +200,7 @@ export async function loginToGarmetix<TUser = unknown>(baseUrl: string, request:
   })
 
   if (!response.ok) {
-    const message = await response.text()
-    throw new Error(stripServerUrl(message || 'Login failed. Check the username and password.'))
+    throw new Error(parseErrorMessage(response.status, await response.text(), 'Login failed. Check the username and password.'))
   }
 
   return await response.json() as AuthLoginResponse<TUser>
