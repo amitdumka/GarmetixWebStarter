@@ -59,6 +59,7 @@ export const routeModules = {
   data: { label: 'Data And Audit', icon: 'i-lucide-database', app: 'admin' },
   maintenance: { label: 'Maintenance', icon: 'i-lucide-wrench', app: 'admin' },
   aiSense: { label: 'AI Sense', icon: 'i-lucide-brain-circuit', app: 'ai-sense' },
+  inventoryApp: { label: 'Inventory Management', icon: 'i-lucide-boxes', app: 'inventory' },
   account: { label: 'Account', icon: 'i-lucide-circle-user-round', app: 'main' },
   help: { label: 'Help', icon: 'i-lucide-circle-help', app: 'main' },
   public: { label: 'Public', icon: 'i-lucide-info', app: 'main' }
@@ -107,6 +108,13 @@ export const garmetixRoutes: GarmetixRouteDefinition[] = [
 
   route({ id: 'inventory', path: '/inventory', label: 'Inventory', icon: 'i-lucide-boxes', targetApp: 'main', moduleKey: 'inventory', moduleLabel: 'Inventory', roles: [...routeRoles.storeOps] }),
   route({ id: 'stock-operations', path: '/stock-operations', label: 'Stock Operations', icon: 'i-lucide-package-plus', targetApp: 'main', moduleKey: 'inventory', moduleLabel: 'Inventory', roles: [...routeRoles.storeOps] }),
+
+  route({ id: 'inventory-app-home', path: '/', label: 'Inventory Home', icon: 'i-lucide-layout-dashboard', targetApp: 'inventory', moduleKey: 'inventoryApp', moduleLabel: 'Inventory Management', roles: [...routeRoles.storeOps], showInMenu: false, status: 'shell-ready' }),
+  route({ id: 'inventory-app-products', path: '/products', label: 'Products', icon: 'i-lucide-boxes', targetApp: 'inventory', moduleKey: 'inventoryApp', moduleLabel: 'Inventory Management', roles: [...routeRoles.storeOps], status: 'shell-ready' }),
+  route({ id: 'inventory-app-categories', path: '/categories', label: 'Categories', icon: 'i-lucide-folder-tree', targetApp: 'inventory', moduleKey: 'inventoryApp', moduleLabel: 'Inventory Management', roles: [...routeRoles.storeOps], status: 'shell-ready' }),
+  route({ id: 'inventory-app-brands', path: '/brands', label: 'Brands', icon: 'i-lucide-tag', targetApp: 'inventory', moduleKey: 'inventoryApp', moduleLabel: 'Inventory Management', roles: [...routeRoles.storeOps], status: 'shell-ready' }),
+  route({ id: 'inventory-app-barcodes', path: '/barcodes', label: 'Barcodes And Labels', icon: 'i-lucide-scan-barcode', targetApp: 'inventory', moduleKey: 'inventoryApp', moduleLabel: 'Inventory Management', roles: [...routeRoles.storeOps], status: 'shell-ready' }),
+  route({ id: 'inventory-app-stock', path: '/stock', label: 'Stock Operations', icon: 'i-lucide-arrow-right-left', targetApp: 'inventory', moduleKey: 'inventoryApp', moduleLabel: 'Inventory Management', roles: [...routeRoles.storeOps], status: 'shell-ready' }),
   route({ id: 'stock-reports', path: '/stock-reports', label: 'Stock Reports', icon: 'i-lucide-clipboard-list', targetApp: 'ai-sense', moduleKey: 'aiSense', moduleLabel: 'AI Sense', roles: [...routeRoles.analytics] }),
 
   route({ id: 'accounting', path: '/accounting', label: 'Accounting', icon: 'i-lucide-book-open-check', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books], status: 'shell-ready' }),
@@ -266,7 +274,8 @@ export function buildAppTargetLinks(env: Record<string, string | undefined>, cur
     'ai-sense': 'AI Sense',
     books: 'Books',
     crm: 'CRM',
-    admin: 'Admin'
+    admin: 'Admin',
+    inventory: 'Inventory'
   }
 
   return (Object.keys(appLabels) as GarmetixFrontendId[]).map(id => {

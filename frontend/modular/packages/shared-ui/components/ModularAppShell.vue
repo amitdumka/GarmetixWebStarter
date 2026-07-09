@@ -429,6 +429,18 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'production', label: 'Production Readiness', href: '/production-readiness', icon: 'i-lucide-shield-check' },
       { id: 'support', label: 'Production Support', href: '/production-support', icon: 'i-lucide-life-buoy' }
     ] }
+  ],
+  inventory: [
+    { key: 'catalog', label: 'Catalog', items: [
+      { id: 'home', label: 'Inventory Home', href: '/', icon: 'i-lucide-layout-dashboard' },
+      { id: 'products', label: 'Products', href: '/products', icon: 'i-lucide-boxes' },
+      { id: 'categories', label: 'Categories', href: '/categories', icon: 'i-lucide-folder-tree' },
+      { id: 'brands', label: 'Brands', href: '/brands', icon: 'i-lucide-tag' }
+    ] },
+    { key: 'operations', label: 'Operations', items: [
+      { id: 'stock', label: 'Stock Operations', href: '/stock', icon: 'i-lucide-arrow-right-left' },
+      { id: 'barcodes', label: 'Barcodes And Labels', href: '/barcodes', icon: 'i-lucide-scan-barcode' }
+    ] }
   ]
 }
 
@@ -592,7 +604,8 @@ function appDefaultBase(appId: FrontendAppId) {
     'ai-sense': '/ai-sense/',
     books: '/books/',
     crm: '/crm/',
-    admin: '/admin/'
+    admin: '/admin/',
+    inventory: '/inventory/'
   }
   return bases[appId]
 }

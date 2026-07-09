@@ -1,4 +1,4 @@
-export type GarmetixFrontendId = 'main' | 'pos' | 'hr' | 'ai-sense' | 'books' | 'crm' | 'admin'
+export type GarmetixFrontendId = 'main' | 'pos' | 'hr' | 'ai-sense' | 'books' | 'crm' | 'admin' | 'inventory'
 
 export interface GarmetixFrontendDefinition {
   id: GarmetixFrontendId
@@ -81,6 +81,16 @@ export const garmetixFrontends: GarmetixFrontendDefinition[] = [
     subdomain: 'admin.garmetix',
     primaryRoles: ['SuperAdmin', 'Owner'],
     modules: ['license', 'company', 'roles', 'users', 'system-health', 'deployment']
+  },
+  {
+    id: 'inventory',
+    name: 'Garmetix Inventory',
+    envUrlKey: 'NUXT_PUBLIC_GARMETIX_INVENTORY_URL',
+    envUrlAliases: ['NUXT_PUBLIC_INVENTORY_WEB_URL'],
+    localPort: 3107,
+    subdomain: 'inventory.garmetix',
+    primaryRoles: ['Owner', 'Admin', 'PowerUser', 'StoreManager'],
+    modules: ['product-master', 'categories', 'brands', 'barcodes', 'stock-operations']
   }
 ]
 

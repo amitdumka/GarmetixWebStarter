@@ -117,6 +117,11 @@ const appCopy: Record<FrontendAppId, { title: string, subtitle: string, badge: s
     title: 'Garmetix Admin SaaS',
     subtitle: 'Owner/developer controls for setup, access, license, logs and deployment readiness.',
     badge: 'Admin/SaaS'
+  },
+  inventory: {
+    title: 'Garmetix Inventory',
+    subtitle: 'Product master, categories, brands, barcodes and stock operations.',
+    badge: 'Inventory'
   }
 }
 
