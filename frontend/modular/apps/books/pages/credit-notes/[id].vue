@@ -1,11 +1,8 @@
 <template>
-  <BooksPlaceholder
-    title="Credit Note Detail"
-    description="Credit note detail will show QR, print status, party ledger and audit trail after the detail endpoint contract is verified."
-    :items="['QR lookup', 'Print status', 'Audit trail']"
-  />
+  <CommercialNoteEntryForm :note-type="1" :note-id="String(route.params.id)" />
 </template>
 
 <script setup lang="ts">
-useHead({ title: 'Credit Note Detail - Garmetix Books' })
+const route = useRoute()
+useHead({ title: 'Edit Credit Note - Garmetix Books' })
 </script>

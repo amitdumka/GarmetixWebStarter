@@ -1,10 +1,5 @@
 <template>
-  <BooksPlaceholder
-    title="New Debit Note"
-    description="Debit note creation is reserved for a later Books write-action slice after validation, print and ledger posting contracts are checked."
-    badge="Write action planned"
-    :items="['Validation', 'Ledger posting', 'Print handoff']"
-  />
+  <CommercialNoteEntryForm :note-type="0" />
 </template>
 
 <script setup lang="ts">

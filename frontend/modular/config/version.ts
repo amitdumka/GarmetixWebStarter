@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.67',
-  stage: 'Stage 14N.2 Books Home Dashboard 404 Fix',
-  label: 'Version6 Stage 14N.2 Books Home Dashboard 404 Fix',
-  summary: 'Books: fixed the Books home dashboard (base_url/books) calling a nonexistent GET api/gst/reports endpoint on every load, which 404d silently (surfaced only as a generic "Books summaries could not be loaded yet" banner, or a raw 404 if checked directly). Replaced with the real gst-returns/drafts listing endpoint (already used successfully by gst-returns.vue) and renamed the dashboard metric card from "GST Rows" to "GST Drafts" to match. Also confirmed the Voucher entry form Ledger searchable-picker field was never removed from source - the "removed" report was the 6.0.65 BooksMasterTable init-crash (fixed in 6.0.66) blanking the whole page, not an actual missing field.'
+  version: '6.0.68',
+  stage: 'Stage 14O Debit/Credit/Commercial Notes Implementation',
+  label: 'Version6 Stage 14O Debit/Credit/Commercial Notes Implementation',
+  summary: 'Books: implemented Debit Notes, Credit Notes and Commercial Notes, which were routed and scaffolded but only ever rendered a BooksPlaceholder stub (never actually built). The backend commercial-notes API (list/get/create/update/pdf/mark-printed, unified by NoteType) already existed and was unused by the frontend. Added a shared CommercialNoteEntryForm.vue component (party type/party picker, amount/tax fields, reason/remarks, A4/A5 PDF download) reused by both /debit-notes/new + /debit-notes/{id} and /credit-notes/new + /credit-notes/{id}, ported from the legacy CommercialNoteEntryForm.vue reference with the same field set and NoteType/PartyType enum values. Rebuilt /debit-notes and /credit-notes as real registers (BooksMasterTable, search, PDF actions) and /commercial-notes as a combined debit+credit+customer-advances summary register, matching legacy feature parity.'
 } as const
