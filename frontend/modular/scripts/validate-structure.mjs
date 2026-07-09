@@ -252,7 +252,7 @@ const requiredPaths = [
   'apps/main/pages/tailoring.vue',
   'apps/main/pages/purchase/index.vue',
   'apps/main/pages/purchase/new.vue',
-  'apps/main/pages/purchase-return.vue',
+  'apps/main/pages/purchase-return/index.vue',
   'apps/main/pages/inventory.vue',
   'apps/main/pages/stock-operations.vue',
   'apps/main/pages/customers/index.vue',

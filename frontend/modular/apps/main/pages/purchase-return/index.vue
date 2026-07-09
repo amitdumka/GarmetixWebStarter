@@ -9,7 +9,10 @@
             Return supplier stock against a purchase invoice, and review posted return/debit-note history.
           </p>
         </div>
-        <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refresh">Refresh</UButton>
+        <div class="flex flex-wrap gap-2">
+          <UButton icon="i-lucide-shield-check" color="neutral" variant="soft" to="/purchase-return/advanced-settlement">Settlement QA</UButton>
+          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refresh">Refresh</UButton>
+        </div>
       </div>
     </div>
 
@@ -185,7 +188,7 @@
 
 <script setup lang="ts">
 import { formatIndianMoney } from '@garmetix/shared-utils'
-import { formatDate, readArray, readNumber, readText, toRows, type ApiRecord, useMainApiClient } from '../utils/main-api'
+import { formatDate, readArray, readNumber, readText, toRows, type ApiRecord, useMainApiClient } from '../../utils/main-api'
 
 useHead({ title: 'Purchase Return - Garmetix Back Office' })
 

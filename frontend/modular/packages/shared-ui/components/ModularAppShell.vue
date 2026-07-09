@@ -292,7 +292,9 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'purchase', label: 'Purchase', href: '/purchase', icon: 'i-lucide-package-plus' },
       { id: 'purchase-new', label: 'New Inward', href: '/purchase/new', icon: 'i-lucide-file-plus-2' },
       { id: 'vendors', label: 'Vendors', href: '/vendors', icon: 'i-lucide-truck' },
-      { id: 'purchase-return', label: 'Purchase Return', href: '/purchase-return', icon: 'i-lucide-undo-2' }
+      { id: 'purchase-return', label: 'Purchase Return', href: '/purchase-return', icon: 'i-lucide-undo-2' },
+      { id: 'purchase-vendor-payable-reconciliation', label: 'Vendor Payable Reco', href: '/purchase/vendor-payable-reconciliation', icon: 'i-lucide-shield-check' },
+      { id: 'purchase-return-advanced-settlement', label: 'Return Settlement QA', href: '/purchase-return/advanced-settlement', icon: 'i-lucide-shield-check' }
     ] },
     { key: 'inventory', label: 'Inventory', items: [
       { id: 'inventory', label: 'Product Master', href: '/inventory', icon: 'i-lucide-boxes' },
