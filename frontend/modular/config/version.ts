@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.0.66',
-  stage: 'Stage 14N.1 BooksMasterTable Props Hotfix',
-  label: 'Version6 Stage 14N.1 BooksMasterTable Props Hotfix',
-  summary: 'Books: hotfix for a regression introduced by the 6.0.65 BooksMasterTable fix - the reactive-destructure-with-defaults form (const { columns = [] } = defineProps<{...}>()) applied defaults in the script but not in the compiled inline-template render function in this build, so columns/rows read as undefined on first render and crashed the whole Books app during init ("Cannot read properties of undefined (reading length)"), blanking every page. Replaced with an explicit JS-object runtime defineProps({ columns: { type: Array, default: () => [] }, ... }) declaration plus defensive Array.isArray-guarded computeds in the template - verified the compiled bundle now has an explicit props:{...} options entry (absent in both prior attempts) and the render function goes through the guarded computeds everywhere, so it cannot crash regardless of what the parent passes.'
+  version: '6.0.67',
+  stage: 'Stage 14N.2 Books Home Dashboard 404 Fix',
+  label: 'Version6 Stage 14N.2 Books Home Dashboard 404 Fix',
+  summary: 'Books: fixed the Books home dashboard (base_url/books) calling a nonexistent GET api/gst/reports endpoint on every load, which 404d silently (surfaced only as a generic "Books summaries could not be loaded yet" banner, or a raw 404 if checked directly). Replaced with the real gst-returns/drafts listing endpoint (already used successfully by gst-returns.vue) and renamed the dashboard metric card from "GST Rows" to "GST Drafts" to match. Also confirmed the Voucher entry form Ledger searchable-picker field was never removed from source - the "removed" report was the 6.0.65 BooksMasterTable init-crash (fixed in 6.0.66) blanking the whole page, not an actual missing field.'
 } as const

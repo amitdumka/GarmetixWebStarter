@@ -77,7 +77,7 @@ const cards = computed(() => [
   { label: 'Vouchers', value: vouchers.value.length, detail: 'Voucher rows returned by the API' },
   { label: 'Parties', value: parties.value.length, detail: 'Party master rows returned by the API' },
   { label: 'Cash Sheets', value: pettyCash.value.length, detail: 'Petty cash sheets returned by the API' },
-  { label: 'GST Rows', value: gstRows.value.length, detail: 'GST report rows returned by the API' }
+  { label: 'GST Drafts', value: gstRows.value.length, detail: 'GST return drafts saved' }
 ])
 const recentRows = computed(() => [...vouchers.value, ...pettyCash.value, ...parties.value])
 const quickLinks = [
@@ -99,7 +99,7 @@ onMounted(async () => {
       get<unknown>('vouchers'),
       get<unknown>('parties'),
       get<unknown>('petty-cash-sheets'),
-      get<unknown>('gst/reports')
+      get<unknown>('gst-returns/drafts', { take: 100 })
     ])
     if (voucherData.status === 'fulfilled') vouchers.value = toRows(voucherData.value)
     if (partyData.status === 'fulfilled') parties.value = toRows(partyData.value)
