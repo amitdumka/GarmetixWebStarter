@@ -1,182 +1,297 @@
 <template>
-  <div class="p-6">
-    <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-      <div>
-        <h1 class="text-2xl font-bold text-highlighted">Stock Operations</h1>
-        <p class="text-muted text-sm mt-1">Manage stock adjustments, transfers, and view history.</p>
-      </div>
-      <div class="flex gap-2">
-        <UButton color="white" icon="i-lucide-arrow-right-left" @click="openTransfer">Transfer</UButton>
-        <UButton color="primary" icon="i-lucide-plus" @click="openAdjustment">New Adjustment</UButton>
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p class="garmetix-kicker"><UIcon name="i-lucide-arrow-right-left" class="size-4" /> Stock operations</p>
+          <h2 class="garmetix-dashboard-title">Stock Operations</h2>
+          <p class="garmetix-dashboard-subtitle">Adjustments, transfers and stock movement history.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <UButton icon="i-lucide-arrow-right-left" color="neutral" variant="soft" @click="startTransfer">Transfer</UButton>
+          <UButton icon="i-lucide-plus" color="primary" variant="solid" @click="startAdjustment">New Adjustment</UButton>
+          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refresh">Refresh</UButton>
+        </div>
       </div>
     </div>
 
-    <!-- Filters -->
-    <UCard class="mb-6">
-      <div class="flex flex-wrap gap-4">
-        <UInput v-model="search" icon="i-lucide-search" placeholder="Search document number..." class="w-full md:w-64" @keyup.enter="fetchDocuments" />
-        <UButton color="gray" variant="ghost" icon="i-lucide-refresh-cw" @click="fetchDocuments">Refresh</UButton>
+    <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
+    <UAlert v-if="message" color="success" variant="subtle" icon="i-lucide-circle-check" :description="message" />
+
+    <section class="garmetix-section-card">
+      <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 class="garmetix-panel-title">Stock Operation Documents</h3>
+          <p class="garmetix-panel-subtitle">{{ filteredRows.length }} of {{ documents.length }} documents</p>
+        </div>
+        <UInput v-model="search" icon="i-lucide-search" placeholder="Search document number" class="sm:w-72" />
       </div>
-    </UCard>
 
-    <!-- Data Table -->
-    <UCard :ui="{ body: { padding: '' } }">
-      <UTable
-        :rows="documents"
-        :columns="columns"
-        :loading="loading"
-        :empty-state="{ icon: 'i-lucide-history', label: 'No stock operations found' }"
-      >
-        <template #type-data="{ row }">
-          <UBadge color="gray" variant="subtle">{{ row.type }}</UBadge>
+      <AdminMasterTable :columns="columns" :rows="filteredRows" empty-text="No stock operations found.">
+        <template #actions="{ row }">
+          <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" :loading="detailLoading === row.id" @click="viewDocument(row.id)">View</UButton>
         </template>
-        <template #createdAt-data="{ row }">
-          {{ new Date(row.createdAt).toLocaleString() }}
-        </template>
-        <template #actions-data="{ row }">
-          <div class="flex items-center justify-end gap-2">
-            <UButton color="gray" variant="ghost" icon="i-lucide-eye" size="sm" @click="viewDocument(row)" />
+      </AdminMasterTable>
+    </section>
+
+    <UModal v-model:open="adjustmentOpen" title="New Stock Adjustment">
+      <template #body>
+        <form class="grid gap-3" @submit.prevent="saveAdjustment">
+          <label class="space-y-1 text-sm">
+            <span class="text-muted">Product / stock</span>
+            <USelectMenu v-model="adjustmentForm.stockId" value-key="value" :items="productSelectItems" placeholder="Search product..." class="w-full" />
+          </label>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="space-y-1 text-sm">
+              <span class="text-muted">Quantity</span>
+              <UInput v-model.number="adjustmentForm.quantity" type="number" min="0" step="1" class="w-full" />
+            </label>
+            <label class="space-y-1 text-sm">
+              <span class="text-muted">Direction</span>
+              <USelect v-model="adjustmentForm.direction" :items="directionItems" class="w-full" />
+            </label>
           </div>
-        </template>
-      </UTable>
-    </UCard>
+          <label class="space-y-1 text-sm">
+            <span class="text-muted">Reason</span>
+            <UInput v-model="adjustmentForm.reason" placeholder="e.g. Damaged goods, inventory count..." class="w-full" />
+          </label>
 
-    <!-- Adjustment Form Modal -->
-    <USlideover v-model="isAdjOpen" title="New Stock Adjustment">
-      <div class="p-4 flex-1 overflow-y-auto">
-        <form @submit.prevent="saveAdjustment" class="space-y-4">
-          <UFormGroup label="Product" required>
-            <USelect v-model="adjForm.productId" :options="productOptions" placeholder="Select Product" required />
-          </UFormGroup>
-          
-          <div class="grid grid-cols-2 gap-4">
-            <UFormGroup label="Quantity" required>
-              <UInput v-model.number="adjForm.quantity" type="number" required />
-            </UFormGroup>
-            <UFormGroup label="Type" required>
-              <USelect v-model="adjForm.operationType" :options="[{label: 'Add (+)', value: 'In'}, {label: 'Remove (-)', value: 'Out'}]" required />
-            </UFormGroup>
-          </div>
-
-          <UFormGroup label="Reason" required>
-            <UInput v-model="adjForm.reason" placeholder="e.g. Damaged goods, inventory count..." required />
-          </UFormGroup>
-
-          <div class="pt-4 flex justify-end gap-3 border-t border-gray-200 dark:border-gray-800 mt-6">
-            <UButton color="gray" variant="ghost" @click="isAdjOpen = false">Cancel</UButton>
-            <UButton type="submit" color="primary" :loading="saving">Save Adjustment</UButton>
+          <div class="flex justify-end gap-2">
+            <UButton type="submit" icon="i-lucide-save" color="primary" :loading="saving">Save Adjustment</UButton>
           </div>
         </form>
-      </div>
-    </USlideover>
-  </div>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="transferOpen" title="Stock Transfer">
+      <template #body>
+        <form class="grid gap-3" @submit.prevent="saveTransfer">
+          <label class="space-y-1 text-sm">
+            <span class="text-muted">Product / stock (from)</span>
+            <USelectMenu v-model="transferForm.fromStockId" value-key="value" :items="productSelectItems" placeholder="Search product..." class="w-full" />
+          </label>
+          <label class="space-y-1 text-sm">
+            <span class="text-muted">Destination store</span>
+            <USelect v-model="transferForm.toStoreId" :items="storeSelectItems" placeholder="Select store" class="w-full" />
+          </label>
+          <label class="space-y-1 text-sm">
+            <span class="text-muted">Quantity</span>
+            <UInput v-model.number="transferForm.quantity" type="number" min="0" step="1" class="w-full" />
+          </label>
+          <label class="space-y-1 text-sm">
+            <span class="text-muted">Reason</span>
+            <UInput v-model="transferForm.reason" placeholder="Optional reason" class="w-full" />
+          </label>
+
+          <div class="flex justify-end gap-2">
+            <UButton type="submit" icon="i-lucide-save" color="primary" :loading="saving">Save Transfer</UButton>
+          </div>
+        </form>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="detailOpen" title="Stock Operation Detail" :ui="{ content: 'w-[calc(100vw-2rem)] sm:max-w-2xl' }">
+      <template #body>
+        <div v-if="detail" class="space-y-3">
+          <dl class="grid gap-3 sm:grid-cols-2 text-sm">
+            <div><dt class="text-xs text-muted">Document</dt><dd class="font-medium">{{ detail.documentNumber }}</dd></div>
+            <div><dt class="text-xs text-muted">Date</dt><dd class="font-medium">{{ formatDate(detail.onDate) }}</dd></div>
+            <div><dt class="text-xs text-muted">Type</dt><dd class="font-medium">{{ detail.operationType }}</dd></div>
+            <div><dt class="text-xs text-muted">Status</dt><dd class="font-medium">{{ detail.status }}</dd></div>
+            <div><dt class="text-xs text-muted">From Store</dt><dd class="font-medium">{{ detail.fromStoreName || '-' }}</dd></div>
+            <div><dt class="text-xs text-muted">To Store</dt><dd class="font-medium">{{ detail.toStoreName || '-' }}</dd></div>
+            <div class="sm:col-span-2"><dt class="text-xs text-muted">Reason</dt><dd class="font-medium">{{ detail.reason || '-' }}</dd></div>
+          </dl>
+
+          <AdminMasterTable :columns="itemColumns" :rows="itemRows" empty-text="No items on this document." />
+        </div>
+      </template>
+    </UModal>
+  </section>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useToast } from '#imports'
+import { formatIndianMoney } from '@garmetix/shared-utils'
+import { formatDateTime, readNumber, readText, toRows, type ApiRecord, useAdminApiClient } from '../utils/admin-api'
 
-const toast = useToast()
-const config = useRuntimeConfig()
+useHead({ title: 'Stock Operations - Garmetix Inventory' })
 
-const search = ref('')
-const documents = ref<any[]>([])
-const productOptions = ref<any[]>([])
-const loading = ref(false)
-
-const isAdjOpen = ref(false)
-const saving = ref(false)
-const adjForm = ref<any>({
-  operationType: 'In'
-})
-
-const columns = [
-  { key: 'documentNumber', label: 'Doc #' },
-  { key: 'type', label: 'Operation Type' },
-  { key: 'reason', label: 'Reason' },
-  { key: 'createdAt', label: 'Date' },
-  { key: 'actions', label: '' }
-]
-
-function getHeaders() {
-  const token = localStorage.getItem('garmetix.token')
-  return { 'Authorization': `Bearer ${token}` }
+function formatDate(value: unknown) {
+  return formatDateTime(value)
 }
 
-async function fetchDocuments() {
+const { get, post } = useAdminApiClient()
+const loading = ref(true)
+const saving = ref(false)
+const detailLoading = ref('')
+const error = ref('')
+const message = ref('')
+const search = ref('')
+const documents = ref<ApiRecord[]>([])
+const products = ref<ApiRecord[]>([])
+const stores = ref<ApiRecord[]>([])
+const detail = ref<ApiRecord | null>(null)
+
+const adjustmentOpen = ref(false)
+const transferOpen = ref(false)
+const detailOpen = ref(false)
+
+const adjustmentForm = reactive({ stockId: '', quantity: 1, direction: 'increase', reason: '' })
+const transferForm = reactive({ fromStockId: '', toStoreId: '', quantity: 1, reason: '' })
+
+const directionItems = [
+  { label: 'Increase (+)', value: 'increase' },
+  { label: 'Decrease (-)', value: 'decrease' }
+]
+
+const productSelectItems = computed(() => products.value
+  .map(item => ({ label: readText(item, ['label'], `${readText(item, ['productName'])} - ${readText(item, ['barcode'])}`), value: readText(item, ['stockId'], '') }))
+  .filter(item => item.value))
+const storeSelectItems = computed(() => stores.value
+  .map(item => ({ label: readText(item, ['name']), value: readText(item, ['id'], '') }))
+  .filter(item => item.value))
+
+const tableRows = computed(() => documents.value.map(item => ({
+  id: readText(item, ['id'], ''),
+  documentNumber: readText(item, ['documentNumber']),
+  operationType: readText(item, ['operationType']),
+  reason: readText(item, ['reason']),
+  date: formatDateTime(item.onDate),
+  quantity: readNumber(item, ['totalQuantity'])
+})))
+const filteredRows = computed(() => {
+  const term = search.value.trim().toLowerCase()
+  if (!term) return tableRows.value
+  return tableRows.value.filter(row => JSON.stringify(row).toLowerCase().includes(term))
+})
+const columns = [
+  { key: 'documentNumber', label: 'Doc #' },
+  { key: 'operationType', label: 'Type' },
+  { key: 'reason', label: 'Reason' },
+  { key: 'quantity', label: 'Quantity' },
+  { key: 'date', label: 'Date' }
+]
+
+const itemRows = computed(() => readArrayFrom(detail.value, 'items').map(item => ({
+  product: readText(item, ['productName']),
+  barcode: readText(item, ['barcode']),
+  qtyIn: readNumber(item, ['quantityIn']),
+  qtyOut: readNumber(item, ['quantityOut']),
+  value: formatIndianMoney(readNumber(item, ['costValue']))
+})))
+const itemColumns = [
+  { key: 'product', label: 'Product' },
+  { key: 'barcode', label: 'Barcode' },
+  { key: 'qtyIn', label: 'Qty In' },
+  { key: 'qtyOut', label: 'Qty Out' },
+  { key: 'value', label: 'Cost Value' }
+]
+
+function readArrayFrom(source: ApiRecord | null, key: string): ApiRecord[] {
+  const value = source?.[key]
+  return Array.isArray(value) ? value as ApiRecord[] : []
+}
+
+async function refresh() {
   loading.value = true
+  error.value = ''
   try {
-    const res = await $fetch<any[]>(`${config.public.apiBaseUrl}/inventory/stock-operations/documents?search=${encodeURIComponent(search.value)}`, {
-      headers: getHeaders()
-    })
-    documents.value = res || []
-  } catch (err: any) {
-    toast.add({ title: 'Error', description: err.message || 'Failed to load documents', color: 'red' })
+    const [documentData, optionsData] = await Promise.allSettled([
+      get<unknown>('inventory/stock-operations/documents', { take: 150 }),
+      get<ApiRecord>('inventory/stock-operations/options')
+    ])
+    if (documentData.status === 'fulfilled') documents.value = toRows(documentData.value)
+    if (optionsData.status === 'fulfilled') {
+      products.value = toRows((optionsData.value as ApiRecord)?.products)
+      stores.value = toRows((optionsData.value as ApiRecord)?.stores)
+    }
+
+    if (documentData.status === 'rejected') {
+      error.value = documentData.reason instanceof Error ? documentData.reason.message : 'Unable to load stock operations.'
+    }
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to load stock operations.'
   } finally {
     loading.value = false
   }
 }
 
-async function fetchProducts() {
-  try {
-    const res = await $fetch<any>(`${config.public.apiBaseUrl}/inventory/product-master/paged?pageSize=100`, {
-      headers: getHeaders()
-    })
-    productOptions.value = (res.items || []).map((p: any) => ({ label: p.name, value: p.id }))
-  } catch (err) {
-    console.error('Failed to load products for adjustment', err)
-  }
+function startAdjustment() {
+  Object.assign(adjustmentForm, { stockId: productSelectItems.value[0]?.value || '', quantity: 1, direction: 'increase', reason: '' })
+  message.value = ''
+  error.value = ''
+  adjustmentOpen.value = true
 }
 
-function openAdjustment() {
-  adjForm.value = {
-    productId: '',
-    quantity: 1,
-    operationType: 'In',
-    reason: ''
-  }
-  isAdjOpen.value = true
-}
-
-function openTransfer() {
-  toast.add({ title: 'Notice', description: 'Store Transfer is not fully implemented in this preview.', color: 'blue' })
-}
-
-function viewDocument(row: any) {
-  toast.add({ title: 'Document', description: `Viewing document ${row.documentNumber} is coming soon.`, color: 'blue' })
+function startTransfer() {
+  Object.assign(transferForm, { fromStockId: productSelectItems.value[0]?.value || '', toStoreId: storeSelectItems.value[0]?.value || '', quantity: 1, reason: '' })
+  message.value = ''
+  error.value = ''
+  transferOpen.value = true
 }
 
 async function saveAdjustment() {
   saving.value = true
+  error.value = ''
+  message.value = ''
   try {
-    // Determine negative qty if 'Out'
-    const qty = adjForm.value.operationType === 'Out' ? -Math.abs(adjForm.value.quantity) : Math.abs(adjForm.value.quantity)
-    
-    const payload = {
-      reason: adjForm.value.reason,
-      items: [
-        { productId: adjForm.value.productId, quantity: qty }
-      ]
-    }
+    if (!adjustmentForm.stockId) throw new Error('Select a product.')
+    if (!adjustmentForm.quantity || adjustmentForm.quantity <= 0) throw new Error('Enter a quantity greater than zero.')
 
-    await $fetch(`${config.public.apiBaseUrl}/inventory/stock-operations/adjustment`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: payload
+    await post<unknown>('inventory/stock-operations/adjustment', {
+      stockId: adjustmentForm.stockId,
+      quantity: Math.abs(Number(adjustmentForm.quantity)),
+      direction: adjustmentForm.direction,
+      reason: adjustmentForm.reason.trim() || null
     })
-    
-    toast.add({ title: 'Success', description: 'Stock adjustment saved successfully', color: 'green' })
-    isAdjOpen.value = false
-    await fetchDocuments()
-  } catch (err: any) {
-    toast.add({ title: 'Error', description: err.data?.detail || err.message || 'Failed to save adjustment', color: 'red' })
+    message.value = 'Stock adjustment saved.'
+    adjustmentOpen.value = false
+    await refresh()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to save adjustment.'
   } finally {
     saving.value = false
   }
 }
 
-onMounted(() => {
-  fetchDocuments()
-  fetchProducts()
-})
+async function saveTransfer() {
+  saving.value = true
+  error.value = ''
+  message.value = ''
+  try {
+    if (!transferForm.fromStockId) throw new Error('Select a product.')
+    if (!transferForm.toStoreId) throw new Error('Select a destination store.')
+    if (!transferForm.quantity || transferForm.quantity <= 0) throw new Error('Enter a quantity greater than zero.')
+
+    await post<unknown>('inventory/stock-operations/transfer', {
+      fromStockId: transferForm.fromStockId,
+      toStoreId: transferForm.toStoreId,
+      quantity: Math.abs(Number(transferForm.quantity)),
+      reason: transferForm.reason.trim() || null
+    })
+    message.value = 'Stock transfer saved.'
+    transferOpen.value = false
+    await refresh()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to save transfer.'
+  } finally {
+    saving.value = false
+  }
+}
+
+async function viewDocument(id: string) {
+  if (!id) return
+  detailLoading.value = id
+  error.value = ''
+  try {
+    detail.value = await get<ApiRecord>(`inventory/stock-operations/documents/${id}`)
+    detailOpen.value = true
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to load document detail.'
+  } finally {
+    detailLoading.value = ''
+  }
+}
+
+onMounted(refresh)
 </script>

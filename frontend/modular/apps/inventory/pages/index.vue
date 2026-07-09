@@ -1,46 +1,34 @@
 <template>
-  <div class="p-6">
-    <div class="mb-6 flex items-center justify-between">
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
       <div>
-        <h1 class="text-2xl font-bold text-highlighted">Inventory Dashboard</h1>
-        <p class="text-muted text-sm mt-1">Manage products, categories, and stock operations</p>
+        <p class="garmetix-kicker"><UIcon name="i-lucide-boxes" class="size-4" /> Inventory</p>
+        <h2 class="garmetix-dashboard-title">Inventory Dashboard</h2>
+        <p class="garmetix-dashboard-subtitle">Manage products, categories, brands, barcodes and stock operations.</p>
       </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <UCard>
-        <template #header>
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-boxes" class="text-primary size-5" />
-            <h3 class="font-semibold">Products Master</h3>
-          </div>
-        </template>
-        <p class="text-sm text-muted mb-4">Manage products, categories, variants, and barcodes.</p>
-        <UButton to="/products" color="primary" block>Go to Products</UButton>
-      </UCard>
-
-      <UCard>
-        <template #header>
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-arrow-right-left" class="text-primary size-5" />
-            <h3 class="font-semibold">Stock Operations</h3>
-          </div>
-        </template>
-        <p class="text-sm text-muted mb-4">Inward stock, outward stock, and inter-store transfers.</p>
-        <UButton to="/stock" color="primary" block variant="soft">Go to Stock</UButton>
-      </UCard>
-    </div>
-  </div>
+    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div v-for="card in cards" :key="card.href" class="garmetix-section-card">
+        <div class="mb-2 flex items-center gap-2">
+          <UIcon :name="card.icon" class="size-5 text-primary" />
+          <h3 class="font-semibold">{{ card.title }}</h3>
+        </div>
+        <p class="mb-4 text-sm text-muted">{{ card.description }}</p>
+        <UButton :to="card.href" color="primary" variant="soft" block>{{ card.label }}</UButton>
+      </div>
+    </section>
+  </section>
 </template>
 
 <script setup lang="ts">
-import { getStoredUser } from '@garmetix/shared-auth'
-import { ref, onMounted } from 'vue'
+useHead({ title: 'Inventory - Garmetix Inventory' })
 
-const user = ref<any>(null)
-onMounted(() => {
-  if (typeof localStorage !== 'undefined') {
-    user.value = getStoredUser(localStorage)
-  }
-})
+const cards = [
+  { href: '/products', icon: 'i-lucide-boxes', title: 'Products Master', description: 'Manage products, variants, pricing and barcodes.', label: 'Go to Products' },
+  { href: '/categories', icon: 'i-lucide-folder-tree', title: 'Categories', description: 'Manage product categories and their product group.', label: 'Go to Categories' },
+  { href: '/brands', icon: 'i-lucide-tag', title: 'Brands', description: 'Manage the brand master used for product labels.', label: 'Go to Brands' },
+  { href: '/barcodes', icon: 'i-lucide-scan-barcode', title: 'Barcodes And Labels', description: 'Search stock and print price tag labels.', label: 'Go to Barcodes' },
+  { href: '/stock', icon: 'i-lucide-arrow-right-left', title: 'Stock Operations', description: 'Inward stock, outward stock, and inter-store transfers.', label: 'Go to Stock' }
+]
 </script>

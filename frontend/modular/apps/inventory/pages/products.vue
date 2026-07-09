@@ -1,180 +1,128 @@
 <template>
-  <div class="p-6">
-    <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-      <div>
-        <h1 class="text-2xl font-bold text-highlighted">Products Master</h1>
-        <p class="text-muted text-sm mt-1">Manage your catalog, stock, and barcodes.</p>
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p class="garmetix-kicker"><UIcon name="i-lucide-boxes" class="size-4" /> Product master</p>
+          <h2 class="garmetix-dashboard-title">Products</h2>
+          <p class="garmetix-dashboard-subtitle">Manage your catalog, stock, and barcodes.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <UButton icon="i-lucide-plus" color="primary" variant="solid" @click="openCreate">New Product</UButton>
+          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="fetchProducts">Refresh</UButton>
+        </div>
       </div>
-      <UButton color="primary" icon="i-lucide-plus" @click="openCreate">New Product</UButton>
     </div>
 
-    <!-- Filters -->
-    <UCard class="mb-6">
-      <div class="flex flex-wrap gap-4">
-        <UInput v-model="search" icon="i-lucide-search" placeholder="Search by name or barcode..." class="w-full md:w-64" @keyup.enter="fetchProducts" />
-        <USelect v-model="categoryFilter" :options="categoryOptions" placeholder="All Categories" class="w-full md:w-48" @change="fetchProducts" />
-        <USelect v-model="brandFilter" :options="brandOptions" placeholder="All Brands" class="w-full md:w-48" @change="fetchProducts" />
-        <UButton color="gray" variant="ghost" icon="i-lucide-refresh-cw" @click="fetchProducts">Refresh</UButton>
+    <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
+    <UAlert v-if="message" color="success" variant="subtle" icon="i-lucide-circle-check" :description="message" />
+
+    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div class="garmetix-metric-card">
+        <p class="garmetix-metric-label">Total</p>
+        <p class="garmetix-metric-value">{{ total }}</p>
+        <p class="garmetix-metric-caption">Products matching filters</p>
       </div>
-    </UCard>
-
-    <!-- Data Table -->
-    <UCard :ui="{ body: { padding: '' } }">
-      <UTable
-        :rows="products"
-        :columns="columns"
-        :loading="loading"
-        :empty-state="{ icon: 'i-lucide-box', label: 'No products found' }"
-      >
-        <template #mrp-data="{ row }">
-          ₹{{ row.mrp?.toFixed(2) }}
-        </template>
-        <template #actions-data="{ row }">
-          <div class="flex items-center justify-end gap-2">
-            <UButton color="gray" variant="ghost" icon="i-lucide-pencil" size="sm" @click="openEdit(row)" />
-          </div>
-        </template>
-      </UTable>
-      
-      <!-- Pagination -->
-      <div class="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-800" v-if="total > 0">
-        <span class="text-sm text-muted">Showing {{ ((page - 1) * pageSize) + 1 }} to {{ Math.min(page * pageSize, total) }} of {{ total }} entries</span>
-        <UPagination v-model="page" :page-count="pageSize" :total="total" @update:model-value="fetchProducts" />
+      <div class="garmetix-metric-card">
+        <p class="garmetix-metric-label">In Stock</p>
+        <p class="garmetix-metric-value">{{ inStockCount }}</p>
       </div>
-    </UCard>
+      <div class="garmetix-metric-card">
+        <p class="garmetix-metric-label">Out Of Stock</p>
+        <p class="garmetix-metric-value">{{ outOfStockCount }}</p>
+      </div>
+      <div class="garmetix-metric-card">
+        <p class="garmetix-metric-label">Stock Value</p>
+        <p class="garmetix-metric-value">{{ formatIndianMoney(totalMrpValue) }}</p>
+      </div>
+    </section>
 
-    <!-- Create/Edit Form Modal -->
-    <USlideover v-model="isModalOpen" :title="isEditing ? 'Edit Product' : 'New Product'">
-      <div class="p-4 flex-1 overflow-y-auto">
-        <form @submit.prevent="saveProduct" class="space-y-4">
-          <UFormGroup label="Product Name" required>
-            <UInput v-model="form.name" placeholder="e.g. Cotton Shirt" required />
-          </UFormGroup>
-          
-          <div class="grid grid-cols-2 gap-4">
-            <UFormGroup label="Barcode">
-              <UInput v-model="form.barcode" placeholder="Auto-generated if empty" />
-            </UFormGroup>
-            <UFormGroup label="HSN Code">
-              <UInput v-model="form.hsnCode" placeholder="e.g. 6205" />
-            </UFormGroup>
-          </div>
+    <section class="garmetix-section-card">
+      <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 class="garmetix-panel-title">Product Register</h3>
+          <p class="garmetix-panel-subtitle">{{ products.length }} row(s) shown</p>
+        </div>
+        <div class="flex flex-col gap-2 sm:flex-row">
+          <UInput v-model="search" icon="i-lucide-search" placeholder="Search by name or barcode..." class="sm:w-64" @keyup.enter="fetchProducts" />
+          <USelect v-model="categoryFilter" :items="categorySelectItems" placeholder="All categories" class="sm:w-48" @update:model-value="fetchProducts" />
+          <USelect v-model="brandFilter" :items="brandSelectItems" placeholder="All brands" class="sm:w-48" @update:model-value="fetchProducts" />
+        </div>
+      </div>
 
-          <div class="grid grid-cols-2 gap-4">
-            <UFormGroup label="MRP (₹)" required>
-              <UInput v-model.number="form.mrp" type="number" step="0.01" required />
-            </UFormGroup>
-            <UFormGroup label="Cost Price (₹)">
-              <UInput v-model.number="form.costPrice" type="number" step="0.01" />
-            </UFormGroup>
-          </div>
+      <AdminMasterTable :columns="columns" :rows="tableRows" empty-text="No products found.">
+        <template #actions="{ row }">
+          <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" @click="openEdit(findRowById(row.id))" />
+        </template>
+      </AdminMasterTable>
 
-          <div class="grid grid-cols-2 gap-4">
-            <UFormGroup label="Category">
-              <USelect v-model="form.productCategoryId" :options="categoryOptions" placeholder="Select Category" />
-            </UFormGroup>
-            <UFormGroup label="Brand">
-              <UInput v-model="form.brand" placeholder="e.g. Raymond" />
-            </UFormGroup>
-          </div>
+      <div v-if="total > 0" class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
+        <span>Showing {{ ((page - 1) * pageSize) + 1 }} to {{ Math.min(page * pageSize, total) }} of {{ total }} entries</span>
+        <div class="flex gap-2">
+          <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-left" :disabled="page <= 1" @click="goToPage(page - 1)">Prev</UButton>
+          <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-right" trailing :disabled="page * pageSize >= total" @click="goToPage(page + 1)">Next</UButton>
+        </div>
+      </div>
+    </section>
 
-          <UFormGroup label="Tax">
-            <USelect v-model="form.taxId" :options="taxOptions" placeholder="Select Tax Slab" />
-          </UFormGroup>
+    <UModal v-model:open="formOpen" :title="isEditing ? 'Edit Product' : 'New Product'" :ui="{ content: 'w-[calc(100vw-2rem)] sm:max-w-2xl' }">
+      <template #body>
+        <form class="grid gap-3 sm:grid-cols-2" @submit.prevent="saveProduct">
+          <label class="space-y-1 text-sm sm:col-span-2">
+            <span class="text-muted">Product name</span>
+            <UInput v-model="form.name" placeholder="e.g. Cotton Shirt" class="w-full" />
+          </label>
+          <label class="space-y-1 text-sm">
+            <span class="text-muted">Barcode</span>
+            <UInput v-model="form.barcode" placeholder="Auto-generated if empty" class="w-full" />
+          </label>
+          <label class="space-y-1 text-sm">
+            <span class="text-muted">HSN code</span>
+            <UInput v-model="form.hsnCode" placeholder="e.g. 6205" class="w-full" />
+          </label>
+          <label class="space-y-1 text-sm">
+            <span class="text-muted">MRP</span>
+            <UInput v-model.number="form.mrp" type="number" min="0" step="0.01" class="w-full" />
+          </label>
+          <label class="space-y-1 text-sm">
+            <span class="text-muted">Cost price</span>
+            <UInput v-model.number="form.costPrice" type="number" min="0" step="0.01" class="w-full" />
+          </label>
+          <label class="space-y-1 text-sm">
+            <span class="text-muted">Category</span>
+            <USelect v-model="form.productCategoryId" :items="categoryFormItems" placeholder="Select category" class="w-full" />
+          </label>
+          <label class="space-y-1 text-sm">
+            <span class="text-muted">Brand</span>
+            <UInput v-model="form.brand" placeholder="e.g. Raymond" class="w-full" />
+          </label>
+          <label class="space-y-1 text-sm">
+            <span class="text-muted">Tax</span>
+            <USelect v-model="form.taxId" :items="taxSelectItems" placeholder="Select tax slab" class="w-full" />
+          </label>
+          <label class="space-y-1 text-sm">
+            <span class="text-muted">Opening quantity</span>
+            <UInput v-model.number="form.openingQuantity" type="number" min="0" :disabled="isEditing" placeholder="0" class="w-full" />
+          </label>
 
-          <UFormGroup label="Opening Quantity">
-            <UInput v-model.number="form.openingQuantity" type="number" :disabled="isEditing" placeholder="0" />
-          </UFormGroup>
-
-          <div class="pt-4 flex justify-end gap-3 border-t border-gray-200 dark:border-gray-800 mt-6">
-            <UButton color="gray" variant="ghost" @click="isModalOpen = false">Cancel</UButton>
-            <UButton type="submit" color="primary" :loading="saving">Save Product</UButton>
+          <div class="flex justify-end gap-2 sm:col-span-2">
+            <UButton type="submit" icon="i-lucide-save" color="primary" :loading="saving">Save Product</UButton>
           </div>
         </form>
-      </div>
-    </USlideover>
-  </div>
+      </template>
+    </UModal>
+  </section>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useToast } from '#imports'
+import { formatIndianMoney } from '@garmetix/shared-utils'
+import { readNumber, readText, toRows, type ApiRecord, useAdminApiClient } from '../utils/admin-api'
 
-const toast = useToast()
-const config = useRuntimeConfig()
+useHead({ title: 'Products - Garmetix Inventory' })
 
-const search = ref('')
-const categoryFilter = ref('')
-const brandFilter = ref('')
-const page = ref(1)
-const pageSize = ref(15)
-const total = ref(0)
-const products = ref<any[]>([])
-const loading = ref(false)
-
-const isModalOpen = ref(false)
-const isEditing = ref(false)
-const saving = ref(false)
-const form = ref<any>({})
-
-const categoryOptions = ref<{label: string, value: string}[]>([])
-const taxOptions = ref<{label: string, value: string}[]>([])
-const brandOptions = ref<{label: string, value: string}[]>([])
-
-const columns = [
-  { key: 'name', label: 'Product Name' },
-  { key: 'barcode', label: 'Barcode' },
-  { key: 'categoryName', label: 'Category' },
-  { key: 'brand', label: 'Brand' },
-  { key: 'mrp', label: 'MRP (₹)' },
-  { key: 'actions', label: '' }
-]
-
-function getHeaders() {
-  const token = localStorage.getItem('garmetix.token')
-  return { 'Authorization': `Bearer ${token}` }
-}
-
-async function fetchOptions() {
-  try {
-    const res = await $fetch<any>(`${config.public.apiBaseUrl}/inventory/product-master/options`, {
-      headers: getHeaders()
-    })
-    
-    categoryOptions.value = (res.categories || []).map((c: any) => ({ label: c.name, value: c.id }))
-    taxOptions.value = (res.taxes || []).map((t: any) => ({ label: t.name, value: t.id }))
-    brandOptions.value = (res.brands || []).map((b: string) => ({ label: b, value: b }))
-  } catch (err: any) {
-    console.error('Failed to load options', err)
-  }
-}
-
-async function fetchProducts() {
-  loading.value = true
-  try {
-    const query = new URLSearchParams({
-      page: page.value.toString(),
-      pageSize: pageSize.value.toString()
-    })
-    if (search.value) query.append('search', search.value)
-    if (categoryFilter.value) query.append('categoryId', categoryFilter.value)
-    if (brandFilter.value) query.append('brand', brandFilter.value)
-
-    const res = await $fetch<any>(`${config.public.apiBaseUrl}/inventory/product-master/paged?${query.toString()}`, {
-      headers: getHeaders()
-    })
-    
-    products.value = res.items || []
-    total.value = res.total || 0
-  } catch (err: any) {
-    toast.add({ title: 'Error', description: err.message || 'Failed to load products', color: 'red' })
-  } finally {
-    loading.value = false
-  }
-}
-
-function openCreate() {
-  form.value = {
+function emptyForm() {
+  return {
+    id: '',
     name: '',
     barcode: '',
     hsnCode: '',
@@ -185,45 +133,189 @@ function openCreate() {
     brand: '',
     taxId: ''
   }
-  isEditing.value = false
-  isModalOpen.value = true
 }
 
-function openEdit(row: any) {
-  form.value = { ...row }
+const { get, post, put } = useAdminApiClient()
+const search = ref('')
+const categoryFilter = ref('')
+const brandFilter = ref('')
+const page = ref(1)
+const pageSize = ref(25)
+const total = ref(0)
+const inStockCount = ref(0)
+const outOfStockCount = ref(0)
+const totalMrpValue = ref(0)
+const products = ref<ApiRecord[]>([])
+const loading = ref(false)
+const error = ref('')
+const message = ref('')
+
+const isEditing = ref(false)
+const saving = ref(false)
+const formOpen = ref(false)
+const form = reactive(emptyForm())
+
+const categories = ref<ApiRecord[]>([])
+const taxes = ref<ApiRecord[]>([])
+const brands = ref<string[]>([])
+const companies = ref<ApiRecord[]>([])
+const stores = ref<ApiRecord[]>([])
+
+const categorySelectItems = computed(() => [
+  { label: 'All categories', value: '' },
+  ...categories.value.map(item => ({ label: readText(item, ['name']), value: readText(item, ['id'], '') }))
+])
+const categoryFormItems = computed(() => categories.value.map(item => ({ label: readText(item, ['name']), value: readText(item, ['id'], '') })))
+const brandSelectItems = computed(() => [
+  { label: 'All brands', value: '' },
+  ...brands.value.map(name => ({ label: name, value: name }))
+])
+const taxSelectItems = computed(() => taxes.value.map(item => ({ label: `${readText(item, ['name'])} (${readNumber(item, ['rate'])}%)`, value: readText(item, ['id'], '') })))
+
+const tableRows = computed(() => products.value.map(item => ({
+  id: readText(item, ['id'], ''),
+  name: readText(item, ['name']),
+  barcode: readText(item, ['barcode']),
+  category: readText(item, ['categoryName']),
+  brand: readText(item, ['brand']),
+  mrp: formatIndianMoney(readNumber(item, ['mrp'])),
+  stock: readNumber(item, ['currentStock'])
+})))
+const columns = [
+  { key: 'name', label: 'Product Name' },
+  { key: 'barcode', label: 'Barcode' },
+  { key: 'category', label: 'Category' },
+  { key: 'brand', label: 'Brand' },
+  { key: 'mrp', label: 'MRP' },
+  { key: 'stock', label: 'Stock' }
+]
+
+function findRowById(id: unknown) {
+  return products.value.find(item => readText(item, ['id'], '') === id) ?? null
+}
+
+async function fetchOptions() {
+  try {
+    const res = await get<ApiRecord>('inventory/product-master/options')
+    categories.value = toRows(res.categories)
+    taxes.value = toRows(res.taxes)
+    brands.value = Array.isArray(res.brands) ? res.brands as string[] : []
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to load product options.'
+  }
+}
+
+async function fetchProducts() {
+  loading.value = true
+  error.value = ''
+  try {
+    const res = await get<ApiRecord>('inventory/product-master/paged', {
+      page: page.value,
+      pageSize: pageSize.value,
+      q: search.value.trim() || undefined,
+      categoryId: categoryFilter.value || undefined,
+      brand: brandFilter.value || undefined
+    })
+    products.value = toRows(res.items)
+    total.value = readNumber(res, ['total'])
+    inStockCount.value = readNumber(res, ['inStockCount'])
+    outOfStockCount.value = readNumber(res, ['outOfStockCount'])
+    totalMrpValue.value = readNumber(res, ['totalMrpValue'])
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Failed to load products.'
+  } finally {
+    loading.value = false
+  }
+}
+
+function goToPage(next: number) {
+  page.value = Math.max(1, next)
+  fetchProducts()
+}
+
+function resolveScope() {
+  const companyId = readText(companies.value[0], ['id'], '')
+  const store = stores.value[0]
+  const storeId = readText(store, ['id'], '')
+  const storeGroupId = readText(store, ['storeGroupId'], '')
+  return { companyId, storeGroupId, storeId }
+}
+
+function openCreate() {
+  Object.assign(form, emptyForm())
+  isEditing.value = false
+  message.value = ''
+  error.value = ''
+  formOpen.value = true
+}
+
+function openEdit(row: ApiRecord | null) {
+  if (!row) return
+  Object.assign(form, {
+    id: readText(row, ['id'], ''),
+    name: readText(row, ['name'], ''),
+    barcode: readText(row, ['barcode'], ''),
+    hsnCode: readText(row, ['hSNCode', 'hsnCode'], ''),
+    mrp: readNumber(row, ['mrp']),
+    costPrice: readNumber(row, ['costPrice']),
+    openingQuantity: 0,
+    productCategoryId: readText(row, ['productCategoryId'], ''),
+    brand: readText(row, ['brand'], ''),
+    taxId: readText(row, ['taxId'], '')
+  })
   isEditing.value = true
-  isModalOpen.value = true
+  message.value = ''
+  error.value = ''
+  formOpen.value = true
 }
 
 async function saveProduct() {
   saving.value = true
+  error.value = ''
+  message.value = ''
   try {
-    if (isEditing.value) {
-      await $fetch(`${config.public.apiBaseUrl}/inventory/product-master/${form.value.id}`, {
-        method: 'PUT',
-        headers: getHeaders(),
-        body: form.value
-      })
-      toast.add({ title: 'Success', description: 'Product updated successfully', color: 'green' })
-    } else {
-      await $fetch(`${config.public.apiBaseUrl}/inventory/product-master`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: form.value
-      })
-      toast.add({ title: 'Success', description: 'Product created successfully', color: 'green' })
+    if (!form.name.trim()) throw new Error('Enter product name.')
+    if (!isEditing.value && !form.barcode.trim()) throw new Error('Enter a barcode.')
+
+    const scope = resolveScope()
+    const payload = {
+      name: form.name.trim(),
+      barcode: form.barcode.trim(),
+      hsnCode: form.hsnCode.trim() || null,
+      mrp: Number(form.mrp || 0),
+      costPrice: Number(form.costPrice || 0),
+      openingQuantity: Number(form.openingQuantity || 0),
+      productCategoryId: form.productCategoryId || null,
+      brand: form.brand.trim() || null,
+      taxId: form.taxId || null,
+      companyId: scope.companyId || null,
+      storeGroupId: scope.storeGroupId || null,
+      storeId: scope.storeId || null
     }
-    isModalOpen.value = false
+
+    if (isEditing.value && form.id) {
+      await put<unknown>(`inventory/product-master/${form.id}`, payload)
+      message.value = 'Product updated.'
+    } else {
+      await post<unknown>('inventory/product-master', payload)
+      message.value = 'Product created.'
+    }
+
+    formOpen.value = false
     await fetchProducts()
-  } catch (err: any) {
-    toast.add({ title: 'Error', description: err.data?.detail || err.message || 'Failed to save product', color: 'red' })
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Failed to save product.'
   } finally {
     saving.value = false
   }
 }
 
-onMounted(() => {
-  fetchOptions()
-  fetchProducts()
+onMounted(async () => {
+  await Promise.allSettled([
+    fetchOptions(),
+    fetchProducts(),
+    get<unknown>('companies').then(value => { companies.value = toRows(value) }).catch(() => {}),
+    get<unknown>('stores').then(value => { stores.value = toRows(value) }).catch(() => {})
+  ])
 })
 </script>

@@ -27,7 +27,7 @@ Usage:
 Flags:
   --skip-build         Reuse each app's existing .output without rebuilding.
   --skip-api           Do not publish/copy the backend API into the release.
-  --apps=a,b,c         Only rebuild these Nuxt apps (main,pos,hr,ai-sense,books,crm,admin);
+  --apps=a,b,c         Only rebuild these Nuxt apps (main,pos,hr,ai-sense,books,crm,admin,inventory);
                         every other app reuses its existing local .output/public as-is.
                         Fails loudly if an excluded app has no valid existing build.
   --build-only         Build the release locally, skip upload.
@@ -52,6 +52,7 @@ The default SRP shape is one public hostname:
   /books/    Accounting/Books
   /crm/      CRM/Digital CRM
   /admin/    Admin/SaaS
+  /inventory/ Inventory
   /api/      ASP.NET Core API reverse proxy
 USAGE
 }
@@ -183,6 +184,7 @@ SRP_AI_SENSE_BASE_PATH="${SRP_AI_SENSE_BASE_PATH:-/ai-sense/}"
 SRP_BOOKS_BASE_PATH="${SRP_BOOKS_BASE_PATH:-/books/}"
 SRP_CRM_BASE_PATH="${SRP_CRM_BASE_PATH:-/crm/}"
 SRP_ADMIN_BASE_PATH="${SRP_ADMIN_BASE_PATH:-/admin/}"
+SRP_INVENTORY_BASE_PATH="${SRP_INVENTORY_BASE_PATH:-/inventory/}"
 if [ "$SRP_PATH_BASED_URLS" = true ]; then
   SRP_PUBLIC_API_BASE_URL="/api"
   SRP_MAIN_URL="$SRP_MAIN_BASE_PATH"
@@ -192,6 +194,7 @@ if [ "$SRP_PATH_BASED_URLS" = true ]; then
   SRP_BOOKS_URL="$SRP_BOOKS_BASE_PATH"
   SRP_CRM_URL="$SRP_CRM_BASE_PATH"
   SRP_ADMIN_URL="$SRP_ADMIN_BASE_PATH"
+  SRP_INVENTORY_URL="$SRP_INVENTORY_BASE_PATH"
 else
   SRP_PUBLIC_API_BASE_URL="${SRP_PUBLIC_API_BASE_URL:-https://$SRP_DOMAIN/api}"
   SRP_MAIN_URL="${SRP_MAIN_URL:-https://$SRP_DOMAIN}"
@@ -201,6 +204,7 @@ else
   SRP_BOOKS_URL="${SRP_BOOKS_URL:-https://$SRP_DOMAIN/books}"
   SRP_CRM_URL="${SRP_CRM_URL:-https://$SRP_DOMAIN/crm}"
   SRP_ADMIN_URL="${SRP_ADMIN_URL:-https://$SRP_DOMAIN/admin}"
+  SRP_INVENTORY_URL="${SRP_INVENTORY_URL:-https://$SRP_DOMAIN/inventory}"
 fi
 SRP_API_PROJECT="${SRP_API_PROJECT:-backend/Garmetix.Api/Garmetix.Api.csproj}"
 if [ ! -f "$REPO_ROOT/$SRP_API_PROJECT" ] && [[ "$SRP_API_PROJECT" == legacy/backend/* ]]; then
@@ -250,6 +254,7 @@ Routes:
   $SRP_BOOKS_URL -> /books/
   $SRP_CRM_URL -> /crm/
   $SRP_ADMIN_URL -> /admin/
+  $SRP_INVENTORY_URL -> /inventory/
   $SRP_PUBLIC_API_BASE_URL -> /api/
 PLAN
 }
@@ -402,6 +407,7 @@ patch_static_runtime_config() {
     perl -0pi -e "s#NUXT_PUBLIC_GARMETIX_BOOKS_URL:\"[^\"]*\"#NUXT_PUBLIC_GARMETIX_BOOKS_URL:\"$SRP_BOOKS_URL\"#g" "$file"
     perl -0pi -e "s#NUXT_PUBLIC_GARMETIX_CRM_URL:\"[^\"]*\"#NUXT_PUBLIC_GARMETIX_CRM_URL:\"$SRP_CRM_URL\"#g" "$file"
     perl -0pi -e "s#NUXT_PUBLIC_GARMETIX_ADMIN_URL:\"[^\"]*\"#NUXT_PUBLIC_GARMETIX_ADMIN_URL:\"$SRP_ADMIN_URL\"#g" "$file"
+    perl -0pi -e "s#NUXT_PUBLIC_GARMETIX_INVENTORY_URL:\"[^\"]*\"#NUXT_PUBLIC_GARMETIX_INVENTORY_URL:\"$SRP_INVENTORY_URL\"#g" "$file"
   done
 }
 
@@ -444,6 +450,7 @@ build_app() {
         NUXT_PUBLIC_GARMETIX_BOOKS_URL="$SRP_BOOKS_URL" \
         NUXT_PUBLIC_GARMETIX_CRM_URL="$SRP_CRM_URL" \
         NUXT_PUBLIC_GARMETIX_ADMIN_URL="$SRP_ADMIN_URL" \
+        NUXT_PUBLIC_GARMETIX_INVENTORY_URL="$SRP_INVENTORY_URL" \
         NUXT_PUBLIC_GARMETIX_ASSISTANT_ENABLED="$SRP_ASSISTANT_ENABLED" \
         "$NPM_COMMAND" run "build:$app_name"
       ); then
@@ -500,7 +507,7 @@ server {
         proxy_read_timeout 300s;
     }
 
-    rewrite ^/(pos|hr|ai-sense|books|crm|admin)/(.+)/$ /\$1/\$2 permanent;
+    rewrite ^/(pos|hr|ai-sense|books|crm|admin|inventory)/(.+)/$ /\$1/\$2 permanent;
 
     location /pos/ {
         try_files \$uri \$uri/index.html \$uri/ /pos/index.html;
@@ -524,6 +531,10 @@ server {
 
     location /admin/ {
         try_files \$uri \$uri/index.html \$uri/ /admin/index.html;
+    }
+
+    location /inventory/ {
+        try_files \$uri \$uri/index.html \$uri/ /inventory/index.html;
     }
 
     location / {
@@ -742,6 +753,7 @@ build_app ai-sense "$SRP_AI_SENSE_BASE_PATH" "$WEB_ROOT/ai-sense"
 build_app books "$SRP_BOOKS_BASE_PATH" "$WEB_ROOT/books"
 build_app crm "$SRP_CRM_BASE_PATH" "$WEB_ROOT/crm"
 build_app admin "$SRP_ADMIN_BASE_PATH" "$WEB_ROOT/admin"
+build_app inventory "$SRP_INVENTORY_BASE_PATH" "$WEB_ROOT/inventory"
 publish_api
 write_templates
 

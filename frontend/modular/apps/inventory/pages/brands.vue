@@ -1,175 +1,181 @@
 <template>
-  <div class="p-6">
-    <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-      <div>
-        <h1 class="text-2xl font-bold text-highlighted">Brands Master</h1>
-        <p class="text-muted text-sm mt-1">Manage product brands and labels.</p>
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p class="garmetix-kicker"><UIcon name="i-lucide-tag" class="size-4" /> Product brands</p>
+          <h2 class="garmetix-dashboard-title">Brands</h2>
+          <p class="garmetix-dashboard-subtitle">Manage the brand master used for product labels.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <UButton icon="i-lucide-plus" color="primary" variant="solid" @click="startCreate">New Brand</UButton>
+          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refresh">Refresh</UButton>
+        </div>
       </div>
-      <UButton color="primary" icon="i-lucide-plus" @click="openCreate">New Brand</UButton>
     </div>
 
-    <!-- Filters -->
-    <UCard class="mb-6">
-      <div class="flex flex-wrap gap-4">
-        <UInput v-model="search" icon="i-lucide-search" placeholder="Search by name..." class="w-full md:w-64" @keyup.enter="fetchBrands" />
-        <UButton color="gray" variant="ghost" icon="i-lucide-refresh-cw" @click="fetchBrands">Refresh</UButton>
-      </div>
-    </UCard>
+    <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
+    <UAlert v-if="message" color="success" variant="subtle" icon="i-lucide-circle-check" :description="message" />
 
-    <!-- Data Table -->
-    <UCard :ui="{ body: { padding: '' } }">
-      <UTable
-        :rows="filteredBrands"
-        :columns="columns"
-        :loading="loading"
-        :empty-state="{ icon: 'i-lucide-tag', label: 'No brands found' }"
-      >
-        <template #isActive-data="{ row }">
-          <UBadge :color="row.isActive ? 'green' : 'gray'" variant="subtle">{{ row.isActive ? 'Active' : 'Inactive' }}</UBadge>
-        </template>
-        <template #actions-data="{ row }">
-          <div class="flex items-center justify-end gap-2">
-            <UButton color="gray" variant="ghost" icon="i-lucide-pencil" size="sm" @click="openEdit(row)" />
-            <UButton color="red" variant="ghost" icon="i-lucide-trash-2" size="sm" @click="deleteBrand(row)" />
+    <section class="garmetix-section-card">
+      <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 class="garmetix-panel-title">Brand Register</h3>
+          <p class="garmetix-panel-subtitle">{{ filteredRows.length }} of {{ brands.length }} brands</p>
+        </div>
+        <UInput v-model="search" icon="i-lucide-search" placeholder="Search brands" class="sm:w-72" />
+      </div>
+
+      <AdminMasterTable :columns="columns" :rows="filteredRows" empty-text="No brands found.">
+        <template #actions="{ row }">
+          <div class="flex flex-wrap gap-1">
+            <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" @click="startEdit(findRowById(row.id))" />
+            <UButton icon="i-lucide-trash-2" size="xs" color="error" variant="ghost" @click="askDelete(row)" />
           </div>
         </template>
-      </UTable>
-    </UCard>
+      </AdminMasterTable>
+    </section>
 
-    <!-- Create/Edit Form Modal -->
-    <USlideover v-model="isModalOpen" :title="isEditing ? 'Edit Brand' : 'New Brand'">
-      <div class="p-4 flex-1 overflow-y-auto">
-        <form @submit.prevent="saveBrand" class="space-y-4">
-          <UFormGroup label="Brand Name" required>
-            <UInput v-model="form.name" placeholder="e.g. Raymond" required />
-          </UFormGroup>
-          
-          <UFormGroup label="Description">
-            <UInput v-model="form.description" placeholder="Optional description..." />
-          </UFormGroup>
+    <UModal v-model:open="formOpen" :title="editMode === 'edit' ? 'Edit Brand' : 'New Brand'">
+      <template #body>
+        <form class="grid gap-3 sm:grid-cols-2" @submit.prevent="save">
+          <label class="space-y-1 text-sm">
+            <span class="text-muted">Brand name</span>
+            <UInput v-model="form.name" placeholder="e.g. Raymond" class="w-full" />
+          </label>
+          <label class="space-y-1 text-sm">
+            <span class="text-muted">Brand code</span>
+            <UInput v-model="form.brandCode" placeholder="e.g. RAY" class="w-full" />
+          </label>
 
-          <UFormGroup>
-            <UCheckbox v-model="form.isActive" label="Is Active" />
-          </UFormGroup>
-
-          <div class="pt-4 flex justify-end gap-3 border-t border-gray-200 dark:border-gray-800 mt-6">
-            <UButton color="gray" variant="ghost" @click="isModalOpen = false">Cancel</UButton>
-            <UButton type="submit" color="primary" :loading="saving">Save Brand</UButton>
+          <div class="flex justify-end gap-2 sm:col-span-2">
+            <UButton type="submit" icon="i-lucide-save" color="primary" :loading="saving">
+              {{ editMode === 'edit' ? 'Update' : 'Save' }}
+            </UButton>
           </div>
         </form>
-      </div>
-    </USlideover>
-  </div>
+      </template>
+    </UModal>
+  </section>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useToast } from '#imports'
+import { readText, toRows, type ApiRecord, useAdminApiClient } from '../utils/admin-api'
 
-const toast = useToast()
-const config = useRuntimeConfig()
+useHead({ title: 'Brands - Garmetix Inventory' })
 
-const search = ref('')
-const brands = ref<any[]>([])
-const loading = ref(false)
-
-const isModalOpen = ref(false)
-const isEditing = ref(false)
-const saving = ref(false)
-const form = ref<any>({})
-
-const columns = [
-  { key: 'name', label: 'Brand Name' },
-  { key: 'description', label: 'Description' },
-  { key: 'isActive', label: 'Status' },
-  { key: 'actions', label: '' }
-]
-
-const filteredBrands = computed(() => {
-  if (!search.value) return brands.value
-  const q = search.value.toLowerCase()
-  return brands.value.filter(b => b.name.toLowerCase().includes(q) || (b.description || '').toLowerCase().includes(q))
-})
-
-function getHeaders() {
-  const token = localStorage.getItem('garmetix.token')
-  return { 'Authorization': `Bearer ${token}` }
+function emptyForm() {
+  return { id: '', name: '', brandCode: '' }
 }
 
-async function fetchBrands() {
+const { get, post, put, del } = useAdminApiClient()
+const loading = ref(true)
+const saving = ref(false)
+const error = ref('')
+const message = ref('')
+const search = ref('')
+const editMode = ref<'create' | 'edit'>('create')
+const formOpen = ref(false)
+const brands = ref<ApiRecord[]>([])
+const form = reactive(emptyForm())
+
+const tableRows = computed(() => brands.value.map(item => ({
+  id: readText(item, ['id'], ''),
+  name: readText(item, ['name']),
+  brandCode: readText(item, ['brandCode'])
+})))
+const filteredRows = computed(() => {
+  const term = search.value.trim().toLowerCase()
+  if (!term) return tableRows.value
+  return tableRows.value.filter(row => JSON.stringify(row).toLowerCase().includes(term))
+})
+const columns = [
+  { key: 'name', label: 'Brand Name' },
+  { key: 'brandCode', label: 'Brand Code' }
+]
+
+function findRowById(id: unknown) {
+  return brands.value.find(item => readText(item, ['id'], '') === id) ?? null
+}
+
+async function refresh() {
   loading.value = true
+  error.value = ''
   try {
-    const res = await $fetch<any[]>(`${config.public.apiBaseUrl}/masters/brands`, {
-      headers: getHeaders()
-    })
-    brands.value = res || []
-  } catch (err: any) {
-    toast.add({ title: 'Error', description: err.message || 'Failed to load brands', color: 'red' })
+    brands.value = toRows(await get<unknown>('brands'))
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to load brands.'
   } finally {
     loading.value = false
   }
 }
 
-function openCreate() {
-  const companyId = JSON.parse(localStorage.getItem('garmetix.user') || '{}')?.workspace?.companyId
-  form.value = {
-    name: '',
-    description: '',
-    isActive: true,
-    companyId: companyId
-  }
-  isEditing.value = false
-  isModalOpen.value = true
+function startCreate() {
+  editMode.value = 'create'
+  Object.assign(form, emptyForm())
+  message.value = ''
+  error.value = ''
+  formOpen.value = true
 }
 
-function openEdit(row: any) {
-  form.value = { ...row }
-  isEditing.value = true
-  isModalOpen.value = true
+function startEdit(item: ApiRecord | null) {
+  if (!item) return
+  editMode.value = 'edit'
+  Object.assign(form, {
+    id: readText(item, ['id'], ''),
+    name: readText(item, ['name'], ''),
+    brandCode: readText(item, ['brandCode'], '')
+  })
+  message.value = ''
+  error.value = ''
+  formOpen.value = true
 }
 
-async function saveBrand() {
+async function save() {
   saving.value = true
+  error.value = ''
+  message.value = ''
   try {
-    if (isEditing.value) {
-      await $fetch(`${config.public.apiBaseUrl}/masters/brands/${form.value.id}`, {
-        method: 'PUT',
-        headers: getHeaders(),
-        body: form.value
-      })
-      toast.add({ title: 'Success', description: 'Brand updated successfully', color: 'green' })
-    } else {
-      await $fetch(`${config.public.apiBaseUrl}/masters/brands`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: form.value
-      })
-      toast.add({ title: 'Success', description: 'Brand created successfully', color: 'green' })
+    if (!form.name.trim()) throw new Error('Enter brand name.')
+    const payload = {
+      name: form.name.trim(),
+      brandCode: form.brandCode.trim()
     }
-    isModalOpen.value = false
-    await fetchBrands()
-  } catch (err: any) {
-    toast.add({ title: 'Error', description: err.data?.detail || err.message || 'Failed to save brand', color: 'red' })
+
+    if (editMode.value === 'edit' && form.id) {
+      await put<unknown>(`brands/${form.id}`, payload)
+      message.value = 'Brand updated.'
+    } else {
+      await post<unknown>('brands', payload)
+      message.value = 'Brand saved.'
+    }
+
+    formOpen.value = false
+    await refresh()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to save brand.'
   } finally {
     saving.value = false
   }
 }
 
-async function deleteBrand(row: any) {
-  if (!confirm(`Delete or inactivate brand ${row.name}?`)) return
+function askDelete(row: { id: string, name: string }) {
+  if (!row.id) return
+  if (!window.confirm(`Delete brand "${row.name}"?`)) return
+  confirmDelete(row.id)
+}
+
+async function confirmDelete(id: string) {
+  error.value = ''
+  message.value = ''
   try {
-    await $fetch(`${config.public.apiBaseUrl}/masters/brands/${row.id}`, {
-      method: 'DELETE',
-      headers: getHeaders()
-    })
-    toast.add({ title: 'Success', description: 'Brand deleted successfully', color: 'green' })
-    await fetchBrands()
-  } catch (err: any) {
-    toast.add({ title: 'Error', description: err.data?.detail || err.message || 'Failed to delete brand', color: 'red' })
+    await del<unknown>(`brands/${id}`)
+    message.value = 'Brand deleted.'
+    await refresh()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to delete brand.'
   }
 }
 
-onMounted(() => {
-  fetchBrands()
-})
+onMounted(refresh)
 </script>

@@ -1,84 +1,74 @@
 <template>
-  <div class="p-6">
-    <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-      <div>
-        <h1 class="text-2xl font-bold text-highlighted">Product Categories</h1>
-        <p class="text-muted text-sm mt-1">Manage categories and product groups.</p>
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p class="garmetix-kicker"><UIcon name="i-lucide-folder-tree" class="size-4" /> Product categories</p>
+          <h2 class="garmetix-dashboard-title">Categories</h2>
+          <p class="garmetix-dashboard-subtitle">Manage product categories and their product group.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <UButton icon="i-lucide-plus" color="primary" variant="solid" @click="startCreate">New Category</UButton>
+          <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refresh">Refresh</UButton>
+        </div>
       </div>
-      <UButton color="primary" icon="i-lucide-plus" @click="openCreate">New Category</UButton>
     </div>
 
-    <!-- Filters -->
-    <UCard class="mb-6">
-      <div class="flex flex-wrap gap-4">
-        <UInput v-model="search" icon="i-lucide-search" placeholder="Search by name..." class="w-full md:w-64" @keyup.enter="fetchCategories" />
-        <UButton color="gray" variant="ghost" icon="i-lucide-refresh-cw" @click="fetchCategories">Refresh</UButton>
-      </div>
-    </UCard>
+    <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
+    <UAlert v-if="message" color="success" variant="subtle" icon="i-lucide-circle-check" :description="message" />
 
-    <!-- Data Table -->
-    <UCard :ui="{ body: { padding: '' } }">
-      <UTable
-        :rows="filteredCategories"
-        :columns="columns"
-        :loading="loading"
-        :empty-state="{ icon: 'i-lucide-folder-tree', label: 'No categories found' }"
-      >
-        <template #isActive-data="{ row }">
-          <UBadge :color="row.isActive ? 'green' : 'gray'" variant="subtle">{{ row.isActive ? 'Active' : 'Inactive' }}</UBadge>
-        </template>
-        <template #actions-data="{ row }">
-          <div class="flex items-center justify-end gap-2">
-            <UButton color="gray" variant="ghost" icon="i-lucide-pencil" size="sm" @click="openEdit(row)" />
-            <UButton color="red" variant="ghost" icon="i-lucide-trash-2" size="sm" @click="deleteCategory(row)" />
+    <section class="garmetix-section-card">
+      <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 class="garmetix-panel-title">Category Register</h3>
+          <p class="garmetix-panel-subtitle">{{ filteredRows.length }} of {{ categories.length }} categories</p>
+        </div>
+        <UInput v-model="search" icon="i-lucide-search" placeholder="Search categories" class="sm:w-72" />
+      </div>
+
+      <AdminMasterTable :columns="columns" :rows="filteredRows" empty-text="No categories found.">
+        <template #actions="{ row }">
+          <div class="flex flex-wrap gap-1">
+            <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" @click="startEdit(findRowById(row.id))" />
+            <UButton icon="i-lucide-trash-2" size="xs" color="error" variant="ghost" @click="askDelete(row)" />
           </div>
         </template>
-      </UTable>
-    </UCard>
+      </AdminMasterTable>
+    </section>
 
-    <!-- Create/Edit Form Modal -->
-    <USlideover v-model="isModalOpen" :title="isEditing ? 'Edit Category' : 'New Category'">
-      <div class="p-4 flex-1 overflow-y-auto">
-        <form @submit.prevent="saveCategory" class="space-y-4">
-          <UFormGroup label="Category Name" required>
-            <UInput v-model="form.name" placeholder="e.g. Shirts" required />
-          </UFormGroup>
-          
-          <UFormGroup label="Product Group">
-            <USelect v-model.number="form.productGroup" :options="productGroups" />
-          </UFormGroup>
+    <UModal v-model:open="formOpen" :title="editMode === 'edit' ? 'Edit Category' : 'New Category'">
+      <template #body>
+        <form class="grid gap-3 sm:grid-cols-2" @submit.prevent="save">
+          <label class="space-y-1 text-sm sm:col-span-2">
+            <span class="text-muted">Category name</span>
+            <UInput v-model="form.name" placeholder="e.g. Shirts" class="w-full" />
+          </label>
+          <label class="space-y-1 text-sm">
+            <span class="text-muted">Product group</span>
+            <USelect v-model="form.productGroup" :items="productGroupItems" class="w-full" />
+          </label>
+          <label class="flex items-center gap-2 text-sm">
+            <UCheckbox v-model="form.isActive" />
+            <span class="text-muted">Active</span>
+          </label>
 
-          <UFormGroup>
-            <UCheckbox v-model="form.isActive" label="Is Active" />
-          </UFormGroup>
-
-          <div class="pt-4 flex justify-end gap-3 border-t border-gray-200 dark:border-gray-800 mt-6">
-            <UButton color="gray" variant="ghost" @click="isModalOpen = false">Cancel</UButton>
-            <UButton type="submit" color="primary" :loading="saving">Save Category</UButton>
+          <div class="flex justify-end gap-2 sm:col-span-2">
+            <UButton type="submit" icon="i-lucide-save" color="primary" :loading="saving">
+              {{ editMode === 'edit' ? 'Update' : 'Save' }}
+            </UButton>
           </div>
         </form>
-      </div>
-    </USlideover>
-  </div>
+      </template>
+    </UModal>
+  </section>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useToast } from '#imports'
+import { readText, toRows, type ApiRecord, useAdminApiClient } from '../utils/admin-api'
 
-const toast = useToast()
-const config = useRuntimeConfig()
+useHead({ title: 'Categories - Garmetix Inventory' })
 
-const search = ref('')
-const categories = ref<any[]>([])
-const loading = ref(false)
-
-const isModalOpen = ref(false)
-const isEditing = ref(false)
-const saving = ref(false)
-const form = ref<any>({})
-
-const productGroups = [
+const productGroupItems = [
   { value: 0, label: 'Shirting' },
   { value: 1, label: 'Suiting' },
   { value: 2, label: 'Readymade' },
@@ -100,100 +90,147 @@ const productGroups = [
   { value: 18, label: 'Nagra' },
   { value: 19, label: 'Accessories' },
   { value: 20, label: 'Others' }
-]
+] as const
 
+function productGroupLabel(value: unknown) {
+  const numeric = Number(value)
+  return productGroupItems.find(item => item.value === numeric)?.label ?? '-'
+}
+
+function emptyForm() {
+  return { id: '', name: '', productGroup: 2, isActive: true }
+}
+
+const { get, post, put, del } = useAdminApiClient()
+const loading = ref(true)
+const saving = ref(false)
+const error = ref('')
+const message = ref('')
+const search = ref('')
+const editMode = ref<'create' | 'edit'>('create')
+const formOpen = ref(false)
+const categories = ref<ApiRecord[]>([])
+const companies = ref<ApiRecord[]>([])
+const form = reactive(emptyForm())
+
+const tableRows = computed(() => categories.value.map(item => ({
+  id: readText(item, ['id'], ''),
+  name: readText(item, ['name']),
+  productGroupName: productGroupLabel(item.productGroup),
+  status: item.isActive === false ? 'Inactive' : 'Active'
+})))
+const filteredRows = computed(() => {
+  const term = search.value.trim().toLowerCase()
+  if (!term) return tableRows.value
+  return tableRows.value.filter(row => JSON.stringify(row).toLowerCase().includes(term))
+})
 const columns = [
   { key: 'name', label: 'Category Name' },
   { key: 'productGroupName', label: 'Product Group' },
-  { key: 'isActive', label: 'Status' },
-  { key: 'actions', label: '' }
+  { key: 'status', label: 'Status' }
 ]
 
-const filteredCategories = computed(() => {
-  if (!search.value) return categories.value
-  const q = search.value.toLowerCase()
-  return categories.value.filter(c => c.name.toLowerCase().includes(q) || (c.productGroupName || '').toLowerCase().includes(q))
-})
-
-function getHeaders() {
-  const token = localStorage.getItem('garmetix.token')
-  return { 'Authorization': `Bearer ${token}` }
+function findRowById(id: unknown) {
+  return categories.value.find(item => readText(item, ['id'], '') === id) ?? null
 }
 
-async function fetchCategories() {
+function resolveCompanyId() {
+  const companyId = readText(companies.value[0], ['id'], '')
+  if (!companyId) throw new Error('Run quick setup before saving categories.')
+  return companyId
+}
+
+async function refresh() {
   loading.value = true
+  error.value = ''
   try {
-    const res = await $fetch<any[]>(`${config.public.apiBaseUrl}/masters/product-categories`, {
-      headers: getHeaders()
-    })
-    categories.value = res || []
-  } catch (err: any) {
-    toast.add({ title: 'Error', description: err.message || 'Failed to load categories', color: 'red' })
+    const [categoryData, companyData] = await Promise.allSettled([
+      get<unknown>('product-categories'),
+      get<unknown>('companies')
+    ])
+    if (categoryData.status === 'fulfilled') categories.value = toRows(categoryData.value)
+    if (companyData.status === 'fulfilled') companies.value = toRows(companyData.value)
+
+    if (categoryData.status === 'rejected') {
+      error.value = categoryData.reason instanceof Error ? categoryData.reason.message : 'Unable to load categories.'
+    }
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to load categories.'
   } finally {
     loading.value = false
   }
 }
 
-function openCreate() {
-  const companyId = JSON.parse(localStorage.getItem('garmetix.user') || '{}')?.workspace?.companyId
-  form.value = {
-    name: '',
-    productGroup: 2,
-    isActive: true,
-    companyId: companyId
-  }
-  isEditing.value = false
-  isModalOpen.value = true
+function startCreate() {
+  editMode.value = 'create'
+  Object.assign(form, emptyForm())
+  message.value = ''
+  error.value = ''
+  formOpen.value = true
 }
 
-function openEdit(row: any) {
-  form.value = { ...row, productGroup: Number(row.productGroup ?? 2) }
-  isEditing.value = true
-  isModalOpen.value = true
+function startEdit(item: ApiRecord | null) {
+  if (!item) return
+  editMode.value = 'edit'
+  Object.assign(form, {
+    id: readText(item, ['id'], ''),
+    name: readText(item, ['name'], ''),
+    productGroup: Number(item.productGroup ?? 2),
+    isActive: item.isActive !== false
+  })
+  message.value = ''
+  error.value = ''
+  formOpen.value = true
 }
 
-async function saveCategory() {
+async function save() {
   saving.value = true
+  error.value = ''
+  message.value = ''
   try {
-    if (isEditing.value) {
-      await $fetch(`${config.public.apiBaseUrl}/masters/product-categories/${form.value.id}`, {
-        method: 'PUT',
-        headers: getHeaders(),
-        body: form.value
-      })
-      toast.add({ title: 'Success', description: 'Category updated successfully', color: 'green' })
-    } else {
-      await $fetch(`${config.public.apiBaseUrl}/masters/product-categories`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: form.value
-      })
-      toast.add({ title: 'Success', description: 'Category created successfully', color: 'green' })
+    if (!form.name.trim()) throw new Error('Enter category name.')
+    const companyId = resolveCompanyId()
+    const payload = {
+      name: form.name.trim(),
+      productGroup: Number(form.productGroup),
+      isActive: Boolean(form.isActive),
+      companyId
     }
-    isModalOpen.value = false
-    await fetchCategories()
-  } catch (err: any) {
-    toast.add({ title: 'Error', description: err.data?.detail || err.message || 'Failed to save category', color: 'red' })
+
+    if (editMode.value === 'edit' && form.id) {
+      await put<unknown>(`product-categories/${form.id}`, payload)
+      message.value = 'Category updated.'
+    } else {
+      await post<unknown>('product-categories', payload)
+      message.value = 'Category saved.'
+    }
+
+    formOpen.value = false
+    await refresh()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to save category.'
   } finally {
     saving.value = false
   }
 }
 
-async function deleteCategory(row: any) {
-  if (!confirm(`Delete or inactivate category ${row.name}?`)) return
+function askDelete(row: { id: string, name: string }) {
+  if (!row.id) return
+  if (!window.confirm(`Delete category "${row.name}"?`)) return
+  confirmDelete(row.id)
+}
+
+async function confirmDelete(id: string) {
+  error.value = ''
+  message.value = ''
   try {
-    await $fetch(`${config.public.apiBaseUrl}/masters/product-categories/${row.id}`, {
-      method: 'DELETE',
-      headers: getHeaders()
-    })
-    toast.add({ title: 'Success', description: 'Category deleted successfully', color: 'green' })
-    await fetchCategories()
-  } catch (err: any) {
-    toast.add({ title: 'Error', description: err.data?.detail || err.message || 'Failed to delete category', color: 'red' })
+    await del<unknown>(`product-categories/${id}`)
+    message.value = 'Category deleted.'
+    await refresh()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to delete category.'
   }
 }
 
-onMounted(() => {
-  fetchCategories()
-})
+onMounted(refresh)
 </script>
