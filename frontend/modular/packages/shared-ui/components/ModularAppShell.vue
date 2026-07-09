@@ -291,6 +291,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
     { key: 'purchase', label: 'Purchase', items: [
       { id: 'purchase', label: 'Purchase', href: '/purchase', icon: 'i-lucide-package-plus' },
       { id: 'purchase-new', label: 'New Inward', href: '/purchase/new', icon: 'i-lucide-file-plus-2' },
+      { id: 'purchase-import', label: 'Import Supplier Invoice', href: '/purchase/import', icon: 'i-lucide-file-scan' },
       { id: 'vendors', label: 'Vendors', href: '/vendors', icon: 'i-lucide-truck' },
       { id: 'purchase-return', label: 'Purchase Return', href: '/purchase-return', icon: 'i-lucide-undo-2' },
       { id: 'purchase-vendor-payable-reconciliation', label: 'Vendor Payable Reco', href: '/purchase/vendor-payable-reconciliation', icon: 'i-lucide-shield-check' },
