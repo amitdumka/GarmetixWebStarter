@@ -156,3 +156,13 @@ Amit asked to fix the long-flagged factory-reset authorization bug (open since t
 - Documented the underlying "shared matrix policies can't express stricter-than-Admin" structural finding in `.claude/learnings.md` as a reusable pattern for any future SuperAdmin-only endpoint. Checked off the bug in `.claude/todo.md` and closed the corresponding item in `.claude/roadmap.md`.
 - Validated: `dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release` (0 errors, only pre-existing unrelated warnings).
 
+## 2026-07-10 - Stage 14Q.6: Purchase Import frontend gaps closed (correction-safety, cleanup-history, multi-file)
+
+Amit pasted a "what's left" list; one item (factory reset) was already stale (fixed moments earlier in this session), so asked which slice to implement. Picked: the three remaining deferred Purchase Import frontend gaps, plus a `.gitattributes` check that turned out to already be resolved (added 2026-07-07 in commit `9259403`, alongside a factory-reset handler tightening that only touched the inner DB check, not the outer route policy fixed in 14Q.5). Version `6.2.5`. All three backend endpoints already existed fully implemented - purely frontend wiring, zero backend changes.
+
+- **Correction safety precheck**: `import-acceptance.vue`'s row-level correction action previously jumped straight to a `window.prompt` + `POST request-correction`. Now it first calls `GET correction-safety` and shows a Correction Safety Check panel (canDeleteDraft/canRejectDraft/directUndoAvailable/safe actions/warnings) with a "Proceed With Correction Request" button that triggers the existing `requestCorrection` flow.
+- **Cleanup history**: added a Cleanup History panel to `import-acceptance.vue` (older-than-days input, Failed/Rejected/NeedsReview/ReadyToPost checkboxes, delete-files toggle, confirm dialog before running) calling the pre-existing `POST cleanup-history` endpoint, which soft-deletes matching unposted batches (posted purchase proofs are always protected server-side).
+- **Multi-file listing/download**: `import.vue` gained a "Files" button next to "View Proof" that opens a modal listing every stored file for the batch (`GET batches/{id}/files`) with a per-file Download button (`GET batches/{id}/files/{fileId}/download` via the existing `openBlob` helper) - previously only the single original proof file was reachable from the UI.
+- Updated `.claude/todo.md` to correct the stale factory-reset/gitattributes entries and check off the now-closed Import features line.
+- Validated: clean `main-web` production build (both `/purchase/import` and `/purchase/import-acceptance` prerender with real content), `node frontend/modular/scripts/validate-structure.mjs`.
+

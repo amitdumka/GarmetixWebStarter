@@ -230,7 +230,7 @@
                     <UButton size="xs" color="warning" variant="ghost" icon="i-lucide-route" @click="openCorrectionPlan(readText(batch, ['id']))" />
                     <UButton size="xs" color="success" variant="ghost" icon="i-lucide-check-circle" @click="markAcceptance(readText(batch, ['id']), 'Pass')" />
                     <UButton size="xs" color="warning" variant="ghost" icon="i-lucide-rotate-ccw" @click="markAcceptance(readText(batch, ['id']), 'NeedsRetest')" />
-                    <UButton size="xs" color="error" variant="ghost" icon="i-lucide-triangle-alert" @click="requestCorrection(readText(batch, ['id']))" />
+                    <UButton size="xs" color="error" variant="ghost" icon="i-lucide-shield-alert" :loading="loadingSafety === readText(batch, ['id'])" @click="openCorrectionSafety(readText(batch, ['id']))" />
                     <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-table" :loading="downloading === readText(batch, ['id']) + '-csv'" @click="downloadBatchLines(readText(batch, ['id']))" />
                     <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-braces" :loading="downloading === readText(batch, ['id']) + '-audit'" @click="downloadBatchAudit(readText(batch, ['id']))" />
                     <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-pencil" :to="`/purchase/import?batchId=${readText(batch, ['id'])}`" />
@@ -241,6 +241,57 @@
           </table>
         </div>
       </div>
+    </section>
+
+    <section v-if="correctionSafety" class="garmetix-section-card">
+      <div class="mb-3 flex items-center justify-between gap-2">
+        <div>
+          <h3 class="garmetix-panel-title">Correction Safety Check</h3>
+          <p class="garmetix-panel-subtitle">Review before requesting a correction on batch {{ readText(correctionSafety, ['batchId']) }}.</p>
+        </div>
+        <UBadge :color="readBool(correctionSafety, 'isPosted') ? 'warning' : 'info'" variant="subtle">{{ readText(correctionSafety, ['correctionStatus']) }}</UBadge>
+      </div>
+      <div class="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="garmetix-metric-card"><p class="garmetix-metric-label">Can delete draft</p><p class="garmetix-metric-value text-base">{{ readBool(correctionSafety, 'canDeleteDraft') ? 'Yes' : 'No' }}</p></div>
+        <div class="garmetix-metric-card"><p class="garmetix-metric-label">Can reject draft</p><p class="garmetix-metric-value text-base">{{ readBool(correctionSafety, 'canRejectDraft') ? 'Yes' : 'No' }}</p></div>
+        <div class="garmetix-metric-card"><p class="garmetix-metric-label">Direct undo</p><p class="garmetix-metric-value text-base">{{ readBool(correctionSafety, 'directUndoAvailable') ? 'Available' : 'Not available' }}</p></div>
+        <div class="garmetix-metric-card"><p class="garmetix-metric-label">Posted invoice</p><p class="garmetix-metric-value text-base truncate">{{ readText(correctionSafety, ['postedPurchaseInvoiceId'], 'None') }}</p></div>
+      </div>
+      <div class="grid gap-4 lg:grid-cols-2">
+        <div>
+          <h4 class="mb-1 text-sm font-medium">Safe actions</h4>
+          <ul class="list-disc space-y-1 pl-5 text-sm text-muted">
+            <li v-for="action in readArray(correctionSafety, ['safeActions'])" :key="String(action)">{{ action }}</li>
+          </ul>
+        </div>
+        <div class="space-y-2">
+          <UAlert v-for="warning in readArray(correctionSafety, ['warnings'])" :key="String(warning)" color="warning" variant="subtle" :description="String(warning)" />
+          <UButton color="error" variant="soft" icon="i-lucide-triangle-alert" @click="requestCorrection(readText(correctionSafety, ['batchId']))">Proceed With Correction Request</UButton>
+        </div>
+      </div>
+    </section>
+
+    <section class="garmetix-section-card">
+      <div class="mb-3 flex items-center justify-between gap-2">
+        <div>
+          <h3 class="garmetix-panel-title">Cleanup History</h3>
+          <p class="garmetix-panel-subtitle">Bulk-delete old unposted failed/rejected import drafts. Posted purchase proofs are always protected.</p>
+        </div>
+      </div>
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+        <UFormField label="Older than (days)">
+          <UInput v-model.number="cleanupForm.olderThanDays" type="number" min="0" step="1" />
+        </UFormField>
+        <label class="mt-6 flex items-center gap-2 text-sm"><UCheckbox v-model="cleanupForm.deleteFailed" /> Failed</label>
+        <label class="mt-6 flex items-center gap-2 text-sm"><UCheckbox v-model="cleanupForm.deleteRejected" /> Rejected</label>
+        <label class="mt-6 flex items-center gap-2 text-sm"><UCheckbox v-model="cleanupForm.deleteNeedsReview" /> Needs review</label>
+        <label class="mt-6 flex items-center gap-2 text-sm"><UCheckbox v-model="cleanupForm.deleteReadyToPost" /> Ready to post</label>
+        <label class="mt-6 flex items-center gap-2 text-sm"><UCheckbox v-model="cleanupForm.deleteFiles" /> Delete stored files too</label>
+      </div>
+      <div class="mt-3 flex items-center justify-end">
+        <UButton color="error" variant="soft" icon="i-lucide-trash-2" :loading="cleanupRunning" @click="runCleanup">Run Cleanup</UButton>
+      </div>
+      <UAlert v-if="cleanupResult" color="neutral" variant="subtle" class="mt-3" :title="`Deleted ${readNumber(cleanupResult, ['deletedBatches'])} batch(es), ${readNumber(cleanupResult, ['deletedFiles'])} file(s), ${fileSize(readNumber(cleanupResult, ['deletedBytes']))}`" :description="readArray(cleanupResult, ['messages']).join(' | ')" />
     </section>
 
     <section v-if="correctionPlan" class="garmetix-section-card">
@@ -315,7 +366,9 @@ const { download, get, post } = useMainApiClient()
 
 const loading = ref(false)
 const loadingReport = ref('')
+const loadingSafety = ref('')
 const downloading = ref('')
+const cleanupRunning = ref(false)
 const error = ref('')
 const message = ref('')
 
@@ -324,7 +377,17 @@ const backupChecklist = ref<ApiRecord | null>(null)
 const parserQa = ref<ApiRecord | null>(null)
 const finalClosure = ref<ApiRecord | null>(null)
 const correctionPlan = ref<ApiRecord | null>(null)
+const correctionSafety = ref<ApiRecord | null>(null)
 const postingReport = ref<ApiRecord | null>(null)
+const cleanupResult = ref<ApiRecord | null>(null)
+const cleanupForm = reactive({
+  olderThanDays: 30,
+  deleteFailed: true,
+  deleteRejected: true,
+  deleteNeedsReview: false,
+  deleteReadyToPost: false,
+  deleteFiles: true
+})
 
 const recentBatches = computed(() => readArray(summary.value, ['recentBatches']))
 const reconciliation = computed(() => (postingReport.value as ApiRecord | null)?.reconciliation as ApiRecord ?? {})
@@ -409,6 +472,19 @@ async function markAcceptance(batchId: string, status: 'Pass' | 'Fail' | 'NeedsR
   }
 }
 
+async function openCorrectionSafety(batchId: string) {
+  if (!batchId) return
+  loadingSafety.value = batchId
+  error.value = ''
+  try {
+    correctionSafety.value = await get<ApiRecord>(`purchase-import/batches/${batchId}/correction-safety`)
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to load correction safety check.'
+  } finally {
+    loadingSafety.value = ''
+  }
+}
+
 async function requestCorrection(batchId: string) {
   if (!batchId) return
   const reason = window.prompt('Why does this posted/draft import need correction?')
@@ -417,9 +493,37 @@ async function requestCorrection(batchId: string) {
   try {
     const safety = await post<ApiRecord>(`purchase-import/batches/${batchId}/request-correction`, { reason, requestedAction: 'Review purchase inward before stock/accounting correction' })
     message.value = readBool(safety, 'isPosted') ? 'Posted import flagged for controlled correction.' : 'Draft flagged for correction.'
+    correctionSafety.value = null
     await refresh()
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Unable to request import correction.'
+  }
+}
+
+async function runCleanup() {
+  const filters = [
+    cleanupForm.deleteFailed && 'Failed', cleanupForm.deleteRejected && 'Rejected',
+    cleanupForm.deleteNeedsReview && 'NeedsReview', cleanupForm.deleteReadyToPost && 'ReadyToPost'
+  ].filter(Boolean)
+  if (!filters.length) { error.value = 'Select at least one status to clean up.'; return }
+  if (!window.confirm(`Delete unposted import drafts older than ${cleanupForm.olderThanDays} day(s) with status: ${filters.join(', ')}?${cleanupForm.deleteFiles ? ' Stored proof/audit files will also be removed.' : ''}`)) return
+  cleanupRunning.value = true
+  error.value = ''
+  try {
+    cleanupResult.value = await post<ApiRecord>('purchase-import/cleanup-history', {
+      olderThanDays: cleanupForm.olderThanDays,
+      deleteFailed: cleanupForm.deleteFailed,
+      deleteRejected: cleanupForm.deleteRejected,
+      deleteNeedsReview: cleanupForm.deleteNeedsReview,
+      deleteReadyToPost: cleanupForm.deleteReadyToPost,
+      deleteFiles: cleanupForm.deleteFiles
+    })
+    message.value = readArray(cleanupResult.value, ['messages']).join(' | ') || 'Cleanup complete.'
+    await refresh()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to run import history cleanup.'
+  } finally {
+    cleanupRunning.value = false
   }
 }
 

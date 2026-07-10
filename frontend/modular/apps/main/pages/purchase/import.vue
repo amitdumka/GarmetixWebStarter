@@ -174,6 +174,7 @@
               <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-barcode" :loading="actionLoading === 'barcodes'" @click="generateMissingBarcodes">Generate Missing Barcodes</UButton>
               <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-file-text" :loading="extractedTextLoading" @click="loadExtractedText">Load Extracted Text</UButton>
               <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-eye" :loading="proofLoading" @click="viewProof">View Proof</UButton>
+              <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-folder-open" :loading="filesModal.loading" @click="openFilesModal">Files</UButton>
             </div>
             <div class="grid gap-2 sm:grid-cols-[1fr_auto]">
               <UInput v-model.number="distributeAmount" type="number" min="0" step="0.01" placeholder="Header discount amount to spread across lines" />
@@ -306,6 +307,21 @@
         <pre class="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-md border border-default p-3 text-xs">{{ extractedText }}</pre>
       </template>
     </UModal>
+
+    <UModal v-model:open="filesModal.open" title="Stored Files" :ui="{ content: 'sm:max-w-lg' }">
+      <template #body>
+        <div class="space-y-2">
+          <div v-if="!filesModal.items.length" class="rounded-md border border-dashed border-default p-4 text-center text-sm text-muted">No files stored for this import.</div>
+          <div v-for="file in filesModal.items" :key="readText(file, ['id'])" class="flex items-center justify-between gap-2 rounded-md border border-default p-2 text-sm">
+            <div class="min-w-0">
+              <p class="truncate font-medium">{{ readText(file, ['originalFileName']) }}</p>
+              <p class="text-xs text-muted">{{ readText(file, ['fileKind']) }} - {{ fileSize(readNumber(file, ['fileSizeBytes'])) }}</p>
+            </div>
+            <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-download" :loading="filesModal.downloadingId === readText(file, ['id'])" @click="downloadStoredFile(file)">Download</UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
   </section>
 </template>
 
@@ -393,6 +409,7 @@ const extractedText = ref('')
 
 const matchSearch = reactive({ open: false, lineId: '', query: '', loading: false, results: [] as ApiRecord[] })
 const splitModal = reactive({ open: false, lineId: '', sizeLabelsText: '', quantityOnePerLine: true, appendSizeToProductName: true, clearProductMatchAndBarcode: true })
+const filesModal = reactive({ open: false, loading: false, downloadingId: '', items: [] as ApiRecord[] })
 
 const storeItems = computed(() => stores.value.map(item => ({ label: readText(item, ['name'], 'Store'), value: readText(item, ['id'], '') })))
 const vendorItems = computed(() => [
@@ -424,6 +441,12 @@ function confidenceColor(score: number) {
   if (score >= 75) return 'success' as const
   if (score >= 55) return 'warning' as const
   return 'error' as const
+}
+function fileSize(bytes: number) {
+  if (!bytes) return '0 B'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`
 }
 function toDateInput(value: unknown) {
   const text = String(value ?? '')
@@ -811,6 +834,36 @@ async function viewProof() {
     error.value = caught instanceof Error ? caught.message : 'Unable to open proof file.'
   } finally {
     proofLoading.value = false
+  }
+}
+
+async function openFilesModal() {
+  if (!selectedBatchId.value) return
+  filesModal.loading = true
+  error.value = ''
+  try {
+    const data = await get<unknown>(`purchase-import/batches/${selectedBatchId.value}/files`)
+    filesModal.items = toRows(data)
+    filesModal.open = true
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to load stored files.'
+  } finally {
+    filesModal.loading = false
+  }
+}
+
+async function downloadStoredFile(file: ApiRecord) {
+  if (!selectedBatchId.value) return
+  const fileId = readText(file, ['id'], '')
+  if (!fileId) return
+  filesModal.downloadingId = fileId
+  error.value = ''
+  try {
+    await openBlob(`purchase-import/batches/${selectedBatchId.value}/files/${fileId}/download`)
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to download file.'
+  } finally {
+    filesModal.downloadingId = ''
   }
 }
 
