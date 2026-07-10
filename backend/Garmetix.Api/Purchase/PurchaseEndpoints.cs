@@ -39,6 +39,7 @@ public static class PurchaseEndpoints
         group.MapGet("/returns/{id:guid}/reconciliation", GetPurchaseReturnReconciliationAsync);
         group.MapGet("/returns/{id:guid}/pdf", DownloadPurchaseReturnPdfAsync);
         group.MapPost("/returns/{id:guid}/mark-printed", MarkPurchaseReturnPrintedAsync);
+        group.MapPost("/returns/{id:guid}/reverse", ReversePurchaseReturnAsync).RequireAuthorization(GarmetixPolicies.Delete);
         group.MapGet("/invoices/{id:guid}/receipt", GetReceiptAsync);
         group.MapGet("/invoices/{id:guid}/returnable", GetReturnablePurchaseInvoiceAsync);
         group.MapGet("/invoices/{id:guid}/pdf", DownloadPurchasePdfAsync);
@@ -270,6 +271,7 @@ public static class PurchaseEndpoints
         CancellationToken cancellationToken = default)
     {
         return await WorkspaceScope.ApplyTo(db.PurchaseReturns.AsNoTracking(), context)
+            .Where(item => !item.Deleted)
             .OrderByDescending(item => item.OnDate)
             .ThenByDescending(item => item.CreatedAt)
             .Take(Math.Clamp(take, 1, 250))
@@ -402,7 +404,7 @@ public static class PurchaseEndpoints
         CancellationToken cancellationToken)
     {
         var item = await WorkspaceScope.ApplyTo(db.PurchaseReturns.AsNoTracking(), context)
-            .FirstOrDefaultAsync(row => row.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(row => row.Id == id && !row.Deleted, cancellationToken);
         if (item is null)
         {
             return null;
@@ -1156,6 +1158,189 @@ public static class PurchaseEndpoints
             purchaseReturn.FreightAmount,
             purchaseReturn.FreightBearer,
             purchaseReturn.FreightExpenseVoucherNumber));
+    }
+
+    private static async Task<IResult> ReversePurchaseReturnAsync(
+        Guid id,
+        PurchaseReturnReversalRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        AccountingPostingService accounting,
+        StockLedgerService stockLedger,
+        CancellationToken cancellationToken)
+    {
+        var purchaseReturn = await WorkspaceScope.ApplyTo(db.PurchaseReturns, context)
+            .FirstOrDefaultAsync(item => item.Id == id && !item.Deleted, cancellationToken);
+        if (purchaseReturn is null)
+        {
+            return Results.NotFound(new { message = "Purchase return was not found." });
+        }
+
+        if (!string.Equals(purchaseReturn.Status, "Posted", StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.Conflict(new { message = "This return has already been reversed or cancelled." });
+        }
+
+        if (purchaseReturn.SettledAmount > 0)
+        {
+            return Results.Conflict(new { message = "This return's debit note has already been used in a vendor settlement and cannot be reversed." });
+        }
+
+        var invoice = await db.PurchaseInvoices.FirstOrDefaultAsync(item => item.Id == purchaseReturn.PurchaseInvoiceId, cancellationToken);
+        if (invoice is null)
+        {
+            return Results.BadRequest(new { message = "Original purchase invoice was not found." });
+        }
+
+        var vendor = await db.Vendors.FirstOrDefaultAsync(item => item.Id == purchaseReturn.VendorId, cancellationToken);
+        if (vendor is null)
+        {
+            return Results.BadRequest(new { message = "Purchase vendor was not found." });
+        }
+
+        CommercialNote? debitNote = null;
+        if (purchaseReturn.DebitNoteId.HasValue)
+        {
+            debitNote = await db.CommercialNotes.FirstOrDefaultAsync(item => item.Id == purchaseReturn.DebitNoteId.Value, cancellationToken);
+            if (debitNote is not null && debitNote.IsAdjusted)
+            {
+                return Results.Conflict(new { message = "This return's debit note has already been used in a vendor settlement and cannot be reversed." });
+            }
+        }
+
+        Voucher? freightVoucher = null;
+        if (purchaseReturn.FreightExpenseVoucherId.HasValue)
+        {
+            freightVoucher = await db.Vouchers.FirstOrDefaultAsync(item => item.Id == purchaseReturn.FreightExpenseVoucherId.Value, cancellationToken);
+            if (freightVoucher is not null && await db.CashVoucherConversions.AnyAsync(item => item.VoucherId == freightVoucher.Id, cancellationToken))
+            {
+                return Results.Conflict(new { message = "The freight expense voucher for this return has been converted and cannot be reversed." });
+            }
+        }
+
+        var reason = string.IsNullOrWhiteSpace(request.Reason) ? "Purchase return reversed" : request.Reason.Trim();
+        var reverseDate = DateTime.Now;
+
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        var returnItems = await db.PurchaseReturnItems.Where(item => item.PurchaseReturnId == purchaseReturn.Id).ToListAsync(cancellationToken);
+        foreach (var item in returnItems)
+        {
+            var stock = await db.Stocks.FirstOrDefaultAsync(stock =>
+                stock.CompanyId == purchaseReturn.CompanyId &&
+                stock.StoreGroupId == purchaseReturn.StoreGroupId &&
+                stock.StoreId == purchaseReturn.StoreId &&
+                stock.ProductId == item.ProductId &&
+                stock.Barcode == item.Barcode &&
+                !stock.IsOFB,
+                cancellationToken);
+
+            if (stock is not null)
+            {
+                var snapshot = await stockLedger.GetSnapshotAsync(stock, cancellationToken);
+                await stockLedger.PostAsync(stock, new StockMovement
+                {
+                    Barcode = stock.Barcode,
+                    MovementType = "PurchaseReturnReversalIn",
+                    QuantityIn = item.ReturnedQuantity,
+                    CostPrice = snapshot.AverageCost,
+                    MRP = stock.MRP,
+                    TaxRate = item.TaxRate,
+                    HSNCode = item.HSNCode ?? stock.HSNCode,
+                    SourceType = "PurchaseReturnReversal",
+                    SourceId = purchaseReturn.Id,
+                    SourceNumber = purchaseReturn.ReturnNumber,
+                    Remarks = reason,
+                    OnDate = reverseDate,
+                    CompanyId = purchaseReturn.CompanyId,
+                    StoreGroupId = purchaseReturn.StoreGroupId,
+                    StoreId = purchaseReturn.StoreId
+                }, cancellationToken);
+            }
+        }
+        db.PurchaseReturnItems.RemoveRange(returnItems);
+
+        var itcReversals = await db.PurchaseReturnItcReversals.Where(item => item.PurchaseReturnId == purchaseReturn.Id).ToListAsync(cancellationToken);
+        db.PurchaseReturnItcReversals.RemoveRange(itcReversals);
+
+        var returnJournal = await db.JournalEntries.Include(entry => entry.Lines)
+            .FirstOrDefaultAsync(entry => entry.SourceType == "PurchaseReturn" && entry.SourceId == purchaseReturn.Id, cancellationToken);
+        if (returnJournal is not null)
+        {
+            db.JournalLines.RemoveRange(returnJournal.Lines ?? []);
+            db.JournalEntries.Remove(returnJournal);
+        }
+
+        if (debitNote is not null)
+        {
+            db.CommercialNotes.Remove(debitNote);
+        }
+
+        var vendorFreightAmount = purchaseReturn.FreightBearer == "Vendor" ? purchaseReturn.FreightAmount : 0;
+        vendor.BillAmount += Math.Round(purchaseReturn.ReturnAmount + vendorFreightAmount, 2);
+
+        if (freightVoucher is not null)
+        {
+            var voucherJournal = await db.JournalEntries.Include(entry => entry.Lines)
+                .FirstOrDefaultAsync(entry => entry.SourceType == "Voucher" && entry.SourceId == freightVoucher.Id, cancellationToken);
+            if (voucherJournal is not null)
+            {
+                db.JournalLines.RemoveRange(voucherJournal.Lines ?? []);
+                db.JournalEntries.Remove(voucherJournal);
+            }
+
+            var voucherBankTransactions = await db.BankTransactions.Where(item => item.Reference == freightVoucher.VoucherNumber).ToListAsync(cancellationToken);
+            if (voucherBankTransactions.Count > 0)
+            {
+                var bankTransactionIds = voucherBankTransactions.Select(item => item.Id).ToArray();
+                db.BankStatementLines.RemoveRange(db.BankStatementLines.Where(item => item.BankTransactionId.HasValue && bankTransactionIds.Contains(item.BankTransactionId.Value)));
+                db.BankTransactions.RemoveRange(voucherBankTransactions);
+            }
+            db.ChequeLogs.RemoveRange(db.ChequeLogs.Where(item => item.Narration == freightVoucher.VoucherNumber));
+
+            db.Vouchers.Remove(freightVoucher);
+        }
+
+        purchaseReturn.Status = "Cancelled";
+        purchaseReturn.Deleted = request.HardDelete;
+
+        if (invoice.InvoiceStatus is InvoiceStatus.Refunded or InvoiceStatus.PartiallyRefunded)
+        {
+            var stillReturned = await db.PurchaseReturnItems.AsNoTracking()
+                .Where(item => item.CompanyId == invoice.CompanyId && item.PurchaseInvoiceId == invoice.Id)
+                .AnyAsync(cancellationToken);
+
+            if (!stillReturned)
+            {
+                var paidAmount = await GetPaidAmountAsync(invoice.Id, db, cancellationToken);
+                invoice.InvoiceStatus = ResolvePurchaseInvoiceStatus(invoice.BillAmount, paidAmount);
+            }
+            else
+            {
+                var allItems = await db.PurchaseInvoiceItems.AsNoTracking()
+                    .Where(item => item.InvoiceId == invoice.Id)
+                    .Select(item => new { item.ProductId, item.Barcode, item.BilledQuantity })
+                    .ToListAsync(cancellationToken);
+                var returnedLookup = await GetReturnedQuantityLookupAsync(invoice.Id, invoice.CompanyId, db, cancellationToken);
+                var fullyReturned = allItems.All(item =>
+                {
+                    returnedLookup.TryGetValue(PurchaseReturnKey(item.ProductId, item.Barcode), out var quantity);
+                    return quantity >= item.BilledQuantity;
+                });
+                invoice.InvoiceStatus = fullyReturned ? InvoiceStatus.Refunded : InvoiceStatus.PartiallyRefunded;
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return Results.Ok(new PurchaseReturnReversalResponse(
+            purchaseReturn.Id,
+            purchaseReturn.ReturnNumber,
+            purchaseReturn.Status,
+            purchaseReturn.Deleted,
+            invoice.Id,
+            invoice.InvoiceStatus.ToString()));
     }
 
     private static async Task<PurchaseReceiptDto?> LoadReceiptAsync(Guid id, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)

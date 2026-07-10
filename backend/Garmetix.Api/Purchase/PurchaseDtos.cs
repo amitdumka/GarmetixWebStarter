@@ -197,6 +197,18 @@ public sealed record PartialPurchaseReturnItemRequest(
     Guid ItemId,
     decimal Quantity);
 
+public sealed record PurchaseReturnReversalRequest(
+    string? Reason,
+    bool HardDelete = false);
+
+public sealed record PurchaseReturnReversalResponse(
+    Guid PurchaseReturnId,
+    string ReturnNumber,
+    string Status,
+    bool Deleted,
+    Guid PurchaseInvoiceId,
+    string InvoiceStatus);
+
 public sealed record PartialPurchaseReturnResponse(
     Guid PurchaseReturnId,
     string ReturnNumber,

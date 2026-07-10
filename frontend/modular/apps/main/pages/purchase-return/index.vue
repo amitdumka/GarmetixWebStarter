@@ -160,12 +160,13 @@
                 <th class="whitespace-nowrap px-3 py-2 text-right font-medium">Amount</th>
                 <th class="whitespace-nowrap px-3 py-2 font-medium">Debit Note</th>
                 <th class="whitespace-nowrap px-3 py-2 font-medium">Settlement</th>
-                <th class="whitespace-nowrap px-3 py-2 font-medium">Action</th>
+                <th class="whitespace-nowrap px-3 py-2 font-medium">Status</th>
+                <th class="whitespace-nowrap px-3 py-2 text-right font-medium">Action</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-default">
               <tr v-if="pagedReturns.length === 0">
-                <td colspan="8" class="px-3 py-8 text-center text-muted">No purchase returns found.</td>
+                <td colspan="9" class="px-3 py-8 text-center text-muted">No purchase returns found.</td>
               </tr>
               <tr v-for="item in pagedReturns" :key="readText(item, ['id'])" class="bg-default/40">
                 <td class="whitespace-nowrap px-3 py-2">{{ formatDate(item.onDate) }}</td>
@@ -175,8 +176,29 @@
                 <td class="whitespace-nowrap px-3 py-2 text-right font-medium">{{ money(readNumber(item, ['returnAmount'])) }}</td>
                 <td class="max-w-36 truncate px-3 py-2">{{ readText(item, ['debitNoteNumber']) }}</td>
                 <td class="px-3 py-2"><UBadge :color="settlementColor(item.settlementStatus)" variant="subtle">{{ readText(item, ['settlementStatus']) }}</UBadge></td>
+                <td class="px-3 py-2"><UBadge :color="readText(item, ['status']) === 'Cancelled' ? 'neutral' : 'success'" variant="subtle">{{ readText(item, ['status'], 'Posted') }}</UBadge></td>
                 <td class="px-3 py-2">
-                  <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" @click="viewReturn(item)" />
+                  <div class="flex flex-wrap justify-end gap-1">
+                    <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" @click="viewReturn(item)" />
+                    <UButton
+                      v-if="canModifyReturn(item)"
+                      icon="i-lucide-pencil"
+                      size="xs"
+                      color="neutral"
+                      variant="ghost"
+                      :loading="editingReturnId === readText(item, ['id'])"
+                      @click="startEditReturn(item)"
+                    />
+                    <UButton
+                      v-if="canModifyReturn(item)"
+                      icon="i-lucide-trash-2"
+                      size="xs"
+                      color="error"
+                      variant="ghost"
+                      :loading="deletingReturnId === readText(item, ['id'])"
+                      @click="askDeleteReturn(item)"
+                    />
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -197,6 +219,7 @@
       <template #body>
         <div v-if="detailLoading" class="py-8 text-center text-sm text-muted">Loading return detail...</div>
         <div v-else-if="selectedReturn" class="space-y-4">
+          <UBadge v-if="readText(selectedReturn, ['status'], 'Posted') === 'Cancelled'" color="neutral" variant="subtle">Cancelled - reversed, no longer active</UBadge>
           <div class="grid grid-cols-2 gap-3 text-sm">
             <div><p class="text-xs text-muted">Vendor</p><p class="font-medium">{{ readText(selectedReturn, ['vendorName']) }}</p></div>
             <div><p class="text-xs text-muted">Original invoice</p><p class="font-medium">{{ readText(selectedReturn, ['originalInvoiceNumber']) }} ({{ formatDate(selectedReturn?.originalInvoiceDate) }}, {{ readNumber(selectedReturn, ['daysOld']) }}d old)</p></div>
@@ -256,6 +279,8 @@ const statusFilter = ref('all')
 const invoiceSearch = ref('')
 const page = ref(1)
 const pageSize = 25
+const editingReturnId = ref('')
+const deletingReturnId = ref('')
 
 const returns = ref<ApiRecord[]>([])
 const invoiceResults = ref<ApiRecord[]>([])
@@ -447,6 +472,67 @@ async function submitReturn() {
     error.value = caught instanceof Error ? caught.message : 'Unable to submit purchase return.'
   } finally {
     submitting.value = false
+  }
+}
+
+function canModifyReturn(item: ApiRecord) {
+  return readText(item, ['status'], 'Posted') !== 'Cancelled' && readNumber(item, ['settledAmount']) <= 0
+}
+
+async function startEditReturn(item: ApiRecord) {
+  const id = readText(item, ['id'], '')
+  if (!id) return
+  if (!window.confirm(`Editing will immediately reverse posted return ${readText(item, ['returnNumber'])} (undo its stock movement, void its debit note, reverse any GST ITC/freight postings) so you can re-enter it with corrected quantities. The original return cannot be restored once reversed. Continue?`)) return
+
+  editingReturnId.value = id
+  error.value = ''
+  try {
+    const oldDetail = await get<ApiRecord>(`purchase/returns/${id}`)
+    const invoiceId = readText(oldDetail, ['purchaseInvoiceId'], '')
+    if (!invoiceId) throw new Error('Original purchase invoice reference was not found on this return.')
+
+    await post<unknown>(`purchase/returns/${id}/reverse`, { reason: 'Reversed for edit', hardDelete: false })
+    message.value = `Return ${readText(oldDetail, ['returnNumber'])} reversed. Review and submit the corrected return below.`
+
+    await loadReturnable({ id: invoiceId })
+    for (const oldItem of readArray(oldDetail, ['items'])) {
+      const originalItemId = readText(oldItem, ['purchaseInvoiceItemId'], '')
+      if (originalItemId) returnQuantities[originalItemId] = readNumber(oldItem, ['returnedQuantity'])
+    }
+    returnReason.value = readText(oldDetail, ['reason'], '')
+    transportDetails.value = readText(oldDetail, ['transportDetails'], '')
+    freightAmount.value = readNumber(oldDetail, ['freightAmount'])
+    const oldBearer = readText(oldDetail, ['freightBearer'], '')
+    freightBearer.value = oldBearer === 'Vendor' || oldBearer === 'InHouse' ? oldBearer : ''
+    if (freightBearer.value === 'InHouse') await loadEmployees()
+
+    await refresh()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to start editing this return.'
+  } finally {
+    editingReturnId.value = ''
+  }
+}
+
+function askDeleteReturn(item: ApiRecord) {
+  const id = readText(item, ['id'], '')
+  if (!id) return
+  const phrase = window.prompt(`This permanently reverses purchase return ${readText(item, ['returnNumber'])} - undoing its stock movement, voiding its debit note ${readText(item, ['debitNoteNumber'])}, and reversing any GST ITC/freight postings - then removes it. This cannot be undone. Type DELETE RETURN to confirm.`)
+  if (phrase !== 'DELETE RETURN') return
+  void deleteReturn(id, readText(item, ['returnNumber'], ''))
+}
+
+async function deleteReturn(id: string, returnNumber: string) {
+  deletingReturnId.value = id
+  error.value = ''
+  try {
+    await post<unknown>(`purchase/returns/${id}/reverse`, { reason: 'Deleted by operator', hardDelete: true })
+    message.value = `Purchase return ${returnNumber} reversed and deleted.`
+    await refresh()
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to delete purchase return.'
+  } finally {
+    deletingReturnId.value = ''
   }
 }
 
