@@ -6649,6 +6649,9 @@ namespace Garmetix.Infrastructure.Data.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<int?>("VendorType")
+                        .HasColumnType("integer");
+
                     b.Property<string>("ZipCode")
                         .HasColumnType("text");
 

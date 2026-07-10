@@ -15,9 +15,12 @@ def forbid(rel, text):
     if text in data:
         raise SystemExit(f"Unexpected text in {rel}: {text}")
 
-require('backend/Garmetix.Api/Tailoring/TailoringEndpoints.cs', 'expose active vendors for tailoring/alteration assignment')
-require('backend/Garmetix.Api/Tailoring/TailoringEndpoints.cs', 'new TailoringVendorDto(item.Id, item.Name, item.MobileNumber, "Vendor"')
-forbid('backend/Garmetix.Api/Tailoring/TailoringEndpoints.cs', 'item.VendorType')
+# Stage 14Q.2 (2026-07-10) added a real Vendor.VendorType column and wired
+# TailoringEndpoints.cs to use it, superseding the workaround this script
+# originally guarded (see .claude/todo.md v6.2.4 for detail). The three
+# assertions that checked for the old hardcoded-label workaround were
+# removed accordingly; item.VendorType is now a legitimate reference.
+require('backend/Garmetix.Api/Tailoring/TailoringEndpoints.cs', 'item.VendorType == null || item.VendorType == VendorType.Tailoring')
 
 migration = read('backend/Garmetix.Infrastructure/Data/Migrations/20260617000000_InitialFreshSchema.cs')
 if '[Migration(' in migration or '[DbContext(' in migration:

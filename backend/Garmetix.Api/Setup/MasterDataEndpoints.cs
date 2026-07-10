@@ -38,7 +38,7 @@ public static class MasterDataEndpoints
         return app.MapGroup("/api");
     }
 
-    private static async Task<IReadOnlyList<VendorDto>> GetVendorsAsync(HttpContext context, GarmetixDbContext db, string? q = null, bool includeInactive = true, CancellationToken cancellationToken = default)
+    private static async Task<IReadOnlyList<VendorDto>> GetVendorsAsync(HttpContext context, GarmetixDbContext db, string? q = null, bool includeInactive = true, bool includeTailoringVendors = false, CancellationToken cancellationToken = default)
     {
         var term = q?.Trim().ToLowerInvariant();
         var query = WorkspaceScope.ApplyTo(db.Vendors.AsNoTracking(), context);
@@ -46,13 +46,20 @@ public static class MasterDataEndpoints
         {
             query = query.Where(item => item.Active);
         }
+        if (!includeTailoringVendors)
+        {
+            // Tailoring/alteration vendors are a separate vendor pool managed from the
+            // Tailoring module (see TailoringEndpoints.cs); keep them out of the general
+            // purchase vendor list unless explicitly requested.
+            query = query.Where(item => item.VendorType == null || item.VendorType != VendorType.Tailoring);
+        }
         if (!string.IsNullOrWhiteSpace(term))
         {
             query = query.Where(item => item.Name.ToLower().Contains(term) || item.MobileNumber.ToLower().Contains(term) || (item.GSTIN != null && item.GSTIN.ToLower().Contains(term)) || (item.City != null && item.City.ToLower().Contains(term)));
         }
         return await query.OrderBy(item => item.Name).Select(item => new VendorDto(
             item.Id, item.CompanyId, item.Name, item.Address, item.City, item.ZipCode, item.MobileNumber, item.Email, item.GSTIN,
-            item.Pan, item.Tan, item.Active, item.BillCount, item.BillAmount, item.Paid, item.BillAmount - item.Paid)).ToListAsync(cancellationToken);
+            item.Pan, item.Tan, item.Active, item.BillCount, item.BillAmount, item.Paid, item.BillAmount - item.Paid, (int?)item.VendorType)).ToListAsync(cancellationToken);
     }
 
     private static async Task<IResult> CreateVendorAsync(VendorWriteDto request, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
@@ -71,6 +78,7 @@ public static class MasterDataEndpoints
             Pan = NormalizeUpper(request.Pan),
             Tan = NormalizeUpper(request.Tan),
             Active = request.Active ?? true,
+            VendorType = request.VendorType.HasValue ? (VendorType)request.VendorType.Value : null,
             StartDate = DateTime.Today
         };
         if (!WorkspaceScope.CanWrite(vendor, context, out var message)) return Results.BadRequest(new { message = message ?? "Selected company is outside your access scope." });
@@ -93,6 +101,7 @@ public static class MasterDataEndpoints
         vendor.Pan = NormalizeUpper(request.Pan);
         vendor.Tan = NormalizeUpper(request.Tan);
         vendor.Active = request.Active ?? vendor.Active;
+        vendor.VendorType = request.VendorType.HasValue ? (VendorType)request.VendorType.Value : vendor.VendorType;
         vendor.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(new { vendor.Id });
@@ -258,8 +267,8 @@ public static class MasterDataEndpoints
     private static string MakeCode(string value) => new string((value ?? string.Empty).Where(char.IsLetterOrDigit).Take(8).ToArray()).ToUpperInvariant();
 }
 
-public sealed record VendorDto(Guid Id, Guid CompanyId, string Name, string Address, string City, string? ZipCode, string MobileNumber, string? Email, string? GSTIN, string? Pan, string? Tan, bool Active, int BillCount, decimal BillAmount, decimal PaidAmount, decimal BalanceAmount);
-public sealed record VendorWriteDto(Guid CompanyId, string Name, string? Address, string? City, string? ZipCode, string? MobileNumber, string? Email, string? GSTIN, string? Pan, string? Tan, bool? Active);
+public sealed record VendorDto(Guid Id, Guid CompanyId, string Name, string Address, string City, string? ZipCode, string MobileNumber, string? Email, string? GSTIN, string? Pan, string? Tan, bool Active, int BillCount, decimal BillAmount, decimal PaidAmount, decimal BalanceAmount, int? VendorType);
+public sealed record VendorWriteDto(Guid CompanyId, string Name, string? Address, string? City, string? ZipCode, string? MobileNumber, string? Email, string? GSTIN, string? Pan, string? Tan, bool? Active, int? VendorType = null);
 public sealed record BrandDto(Guid Id, string Name, string BrandCode, Guid? SupplierId);
 public sealed record BrandWriteDto(string Name, string? BrandCode, Guid? SupplierId);
 public sealed record CategoryDto(Guid Id, Guid CompanyId, string Name, ProductGroup? ProductGroup, string ProductGroupName, bool IsActive);

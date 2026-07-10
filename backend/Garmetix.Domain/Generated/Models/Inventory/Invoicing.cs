@@ -151,6 +151,7 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "TAN")] public string? Tan { get; set; }
         [Display(Name = "Active")] public bool Active { get; set; }
         [Display(Name = "Party", AutoGenerateField = false)] public Guid? PartyId { get; set; }
+        [Display(Name = "Vendor Type")] public VendorType? VendorType { get; set; }
 
         [Display(Name = "Party", AutoGenerateField = false)] public virtual Party? Party { get; set; }
         [Display(Name = "Bill Count")] public int BillCount { get; set; } = 0;

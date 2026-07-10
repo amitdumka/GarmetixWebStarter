@@ -78,7 +78,10 @@
                   {{ money(readNumber(vendor, ['balanceAmount'])) }}
                 </td>
                 <td class="px-3 py-2">
-                  <UBadge :color="vendor.active ? 'success' : 'neutral'" variant="subtle">{{ vendor.active ? 'Active' : 'Inactive' }}</UBadge>
+                  <div class="flex flex-wrap gap-1">
+                    <UBadge :color="vendor.active ? 'success' : 'neutral'" variant="subtle">{{ vendor.active ? 'Active' : 'Inactive' }}</UBadge>
+                    <UBadge v-if="vendor.vendorType !== null && vendor.vendorType !== undefined" color="info" variant="subtle">{{ vendorTypeLabel(vendor.vendorType) }}</UBadge>
+                  </div>
                 </td>
                 <td class="px-3 py-2">
                   <div class="flex flex-wrap items-center gap-1">
@@ -173,6 +176,11 @@
             <span class="text-muted">TAN</span>
             <UInput v-model="form.tan" placeholder="TAN" />
           </label>
+          <label class="space-y-1 text-sm sm:col-span-2">
+            <span class="text-muted">Vendor type</span>
+            <USelect v-model="form.vendorType" :items="vendorTypeItems" />
+            <p class="text-xs text-muted">Leave as default for a regular purchase/GSTIN supplier. Tailoring/alteration vendors are managed from the Tailoring &amp; Alteration page and won't normally appear here.</p>
+          </label>
           <label class="flex items-center gap-2 text-sm sm:col-span-2">
             <UCheckbox v-model="form.active" />
             <span>Active vendor</span>
@@ -217,6 +225,25 @@ interface VendorForm {
   pan: string
   tan: string
   active: boolean
+  vendorType: number | null
+}
+
+const vendorTypeItems = [
+  { label: 'Default (purchase / GSTIN vendor)', value: null },
+  { label: 'EBO', value: 0 },
+  { label: 'MBO', value: 1 },
+  { label: 'Tailoring / Alteration', value: 2 },
+  { label: 'Non-Salable', value: 3 },
+  { label: 'Other Saleable', value: 4 },
+  { label: 'Others', value: 5 },
+  { label: 'Temp Vendor', value: 6 },
+  { label: 'In-House', value: 7 },
+  { label: 'Distributor', value: 8 },
+  { label: 'Brands', value: 9 },
+  { label: 'Brand Auth', value: 10 }
+]
+function vendorTypeLabel(value: unknown) {
+  return vendorTypeItems.find(item => item.value === Number(value))?.label ?? 'Other'
 }
 
 interface GstinLookup {
@@ -237,7 +264,7 @@ interface GstinValidation {
 }
 
 function emptyForm(): VendorForm {
-  return { id: '', name: '', mobileNumber: '', email: '', gstin: '', address: '', city: '', zipCode: '', pan: '', tan: '', active: true }
+  return { id: '', name: '', mobileNumber: '', email: '', gstin: '', address: '', city: '', zipCode: '', pan: '', tan: '', active: true, vendorType: null }
 }
 
 useHead({ title: 'Vendors - Garmetix Back Office' })
@@ -334,7 +361,8 @@ function startEdit(vendor: ApiRecord) {
     zipCode: readText(vendor, ['zipCode'], ''),
     pan: readText(vendor, ['pan'], ''),
     tan: readText(vendor, ['tan'], ''),
-    active: Boolean(vendor.active)
+    active: Boolean(vendor.active),
+    vendorType: vendor.vendorType === null || vendor.vendorType === undefined ? null : Number(vendor.vendorType)
   })
   gstinValidation.value = null
   error.value = ''
@@ -407,7 +435,8 @@ async function saveVendor() {
       gstin: form.gstin.trim().toUpperCase() || null,
       pan: form.pan.trim().toUpperCase() || null,
       tan: form.tan.trim().toUpperCase() || null,
-      active: form.active
+      active: form.active,
+      vendorType: form.vendorType
     }
 
     if (editMode.value === 'edit' && form.id) {
