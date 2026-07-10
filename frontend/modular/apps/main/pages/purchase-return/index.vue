@@ -92,7 +92,6 @@
                 <td class="px-3 py-2 text-right">{{ readNumber(item, ['currentStockQuantity']) }}</td>
                 <td class="px-3 py-2 text-right">
                   <UInput
-                    :ref="el => setQtyInputRef(readText(item, ['itemId']), el)"
                     v-model.number="returnQuantities[readText(item, ['itemId'])]"
                     type="number"
                     min="0"
