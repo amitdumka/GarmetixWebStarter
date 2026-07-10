@@ -28,6 +28,8 @@ const apiBaseUrl = getApiBaseUrl(hosts.api)
 
 const sourceFiles = [
   join(modularRoot, 'apps/books/pages/accounting.vue'),
+  join(modularRoot, 'apps/books/pages/banking.vue'),
+  join(modularRoot, 'apps/books/pages/ledgers.vue'),
   join(modularRoot, 'apps/books/pages/vouchers.vue'),
   join(modularRoot, 'apps/books/pages/parties.vue'),
   join(modularRoot, 'apps/books/pages/cash-details.vue')

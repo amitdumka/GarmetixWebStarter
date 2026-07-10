@@ -370,6 +370,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'accounting', label: 'Accounting', href: '/accounting', icon: 'i-lucide-landmark' },
       { id: 'ledgers', label: 'Ledgers', href: '/ledgers', icon: 'i-lucide-book-open' },
       { id: 'parties', label: 'Parties', href: '/parties', icon: 'i-lucide-users-round' },
+      { id: 'banking', label: 'Banking', href: '/banking', icon: 'i-lucide-piggy-bank' },
       { id: 'vouchers', label: 'Vouchers', href: '/vouchers', icon: 'i-lucide-banknote' },
       { id: 'petty-cash', label: 'Petty Cash', href: '/petty-cash', icon: 'i-lucide-circle-dollar-sign' },
       { id: 'cash-details', label: 'Cash Details', href: '/cash-details', icon: 'i-lucide-coins' },

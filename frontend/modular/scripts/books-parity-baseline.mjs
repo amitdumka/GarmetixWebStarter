@@ -102,7 +102,18 @@ function checkBooksPages() {
   const checks = [
     {
       file: 'apps/books/pages/accounting.vue',
-      markers: ['ledger-groups', 'ledgers', 'accounting/trial-balance', 'accounting/ledger-sync/status']
+      markers: ['accounting/trial-balance']
+    },
+    {
+      file: 'apps/books/pages/ledgers.vue',
+      markers: ['ledger-groups', 'ledgers', 'accounting/ledger-sync/status']
+    },
+    {
+      // Stage 14Q.6 moved every banking tab (bank accounts, transactions,
+      // reconciliation, cheque log, vendor banks, account details) out of
+      // accounting.vue into its own page.
+      file: 'apps/books/pages/banking.vue',
+      markers: ['bank-accounts', 'accounting/bank-transactions', 'cheque-logs', 'vendor-bank-accounts']
     },
     {
       file: 'apps/books/pages/vouchers.vue',

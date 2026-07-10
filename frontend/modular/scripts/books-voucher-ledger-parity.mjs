@@ -35,7 +35,7 @@ checkFile('apps/books/pages/vouchers.vue', [
   'Select who issued this voucher'
 ])
 
-checkFile('apps/books/pages/accounting.vue', [
+checkFile('apps/books/pages/ledgers.vue', [
   'accounting/ledger-sync/repair',
   'REPAIR LEDGER SYNC',
   'Ledger Statement',

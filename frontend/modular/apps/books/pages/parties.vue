@@ -76,11 +76,21 @@
           </div>
         </div>
 
-        <BooksMasterTable :columns="columns" :rows="tableRows" empty-text="No parties found.">
+        <BooksMasterTable :columns="columns" :rows="pagedTableRows" empty-text="No parties found.">
           <template #actions="{ row }">
             <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" @click="showDetails(findRowById(row.id))">Details</UButton>
           </template>
         </BooksMasterTable>
+
+        <div v-if="filteredRows.length" class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
+          <p>Showing {{ pagedTableRows.length }} of {{ filteredRows.length }} row(s)</p>
+          <div class="flex items-center gap-2">
+            <USelect v-model="pageSize" :items="pageSizeOptions" class="w-28" />
+            <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-left" :disabled="page <= 1" @click="page--">Prev</UButton>
+            <span>{{ page }} / {{ totalPages }}</span>
+            <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-right" :disabled="page >= totalPages" @click="page++">Next</UButton>
+          </div>
+        </div>
       </section>
 
       <UModal
@@ -191,7 +201,7 @@
           <UInput v-model="internalSearch" icon="i-lucide-search" placeholder="Search internal parties" class="sm:w-72" />
         </div>
 
-        <BooksMasterTable :columns="internalColumns" :rows="internalTableRows" empty-text="No internal parties found.">
+        <BooksMasterTable :columns="internalColumns" :rows="pagedInternalTableRows" empty-text="No internal parties found.">
           <template #actions="{ row }">
             <div class="flex flex-wrap items-center gap-1">
               <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" @click="startEditInternal(findInternalRowById(row.id))" />
@@ -199,6 +209,16 @@
             </div>
           </template>
         </BooksMasterTable>
+
+        <div v-if="internalTableRows.length" class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
+          <p>Showing {{ pagedInternalTableRows.length }} of {{ internalTableRows.length }} row(s)</p>
+          <div class="flex items-center gap-2">
+            <USelect v-model="internalPageSize" :items="pageSizeOptions" class="w-28" />
+            <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-left" :disabled="internalPage <= 1" @click="internalPage--">Prev</UButton>
+            <span>{{ internalPage }} / {{ internalTotalPages }}</span>
+            <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-right" :disabled="internalPage >= internalTotalPages" @click="internalPage++">Next</UButton>
+          </div>
+        </div>
       </section>
 
       <UModal v-model:open="internalFormOpen" :title="internalEditMode === 'edit' ? 'Edit Party' : 'New Party'">
@@ -246,7 +266,7 @@
 </template>
 
 <script setup lang="ts">
-import { optionLabel, partyTypeOptions, readText, toRows, type ApiRecord, useBooksApiClient } from '../utils/books-api'
+import { optionLabel, pageSizeOptions, paginateRows, partyTypeOptions, readText, toRows, type ApiRecord, useBooksApiClient } from '../utils/books-api'
 
 type PartyType = 'customer' | 'vendor'
 type PageTab = 'register' | 'internal'
@@ -360,6 +380,13 @@ const columns = [
   { key: 'alert', label: 'Alert' }
 ]
 
+const page = ref(1)
+const pageSize = ref<number>(pageSizeOptions[0].value)
+const totalPages = computed(() => Math.max(1, Math.ceil(tableRows.value.length / Number(pageSize.value || 25))))
+const pagedTableRows = computed(() => paginateRows(tableRows.value, page.value, pageSize.value))
+watch([search, activeType, pageSize], () => { page.value = 1 })
+watch(totalPages, (value) => { if (page.value > value) page.value = value })
+
 const ledgerExists = (id: unknown) => Boolean(id && ledgers.value.some(item => item.id === id))
 const findInternalRowById = (id: unknown) => internalParties.value.find(item => readText(item, ['id'], '') === id) ?? null
 const internalTableRows = computed(() => {
@@ -382,6 +409,13 @@ const internalColumns = [
   { key: 'tax', label: 'GST/PAN' },
   { key: 'ledger', label: 'Ledger Link' }
 ]
+
+const internalPage = ref(1)
+const internalPageSize = ref<number>(pageSizeOptions[0].value)
+const internalTotalPages = computed(() => Math.max(1, Math.ceil(internalTableRows.value.length / Number(internalPageSize.value || 25))))
+const pagedInternalTableRows = computed(() => paginateRows(internalTableRows.value, internalPage.value, internalPageSize.value))
+watch([internalSearch, internalPageSize], () => { internalPage.value = 1 })
+watch(internalTotalPages, (value) => { if (internalPage.value > value) internalPage.value = value })
 
 function startCreate(type: PartyType = activeType.value) {
   activeType.value = type

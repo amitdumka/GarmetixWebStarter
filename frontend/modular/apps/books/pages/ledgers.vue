@@ -80,7 +80,7 @@
         </div>
       </div>
 
-      <BooksMasterTable :columns="currentColumns" :rows="filteredRows" empty-text="No ledger rows found.">
+      <BooksMasterTable :columns="currentColumns" :rows="pagedRows" empty-text="No ledger rows found.">
         <template v-if="activeTab === 'ledgers'" #actions="{ row }">
           <div class="flex flex-wrap items-center gap-1">
             <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" @click="startEdit(findRowById(row.id))" />
@@ -88,6 +88,16 @@
           </div>
         </template>
       </BooksMasterTable>
+
+      <div v-if="filteredRows.length" class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
+        <p>Showing {{ pagedRows.length }} of {{ filteredRows.length }} row(s)</p>
+        <div class="flex items-center gap-2">
+          <USelect v-model="pageSize" :items="pageSizeOptions" class="w-28" />
+          <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-left" :disabled="page <= 1" @click="page--">Prev</UButton>
+          <span>{{ page }} / {{ totalPages }}</span>
+          <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-chevron-right" :disabled="page >= totalPages" @click="page++">Next</UButton>
+        </div>
+      </div>
     </section>
 
     <UModal v-model:open="formOpen" :title="formMode === 'edit' ? 'Edit Ledger' : 'New Ledger'">
@@ -145,6 +155,8 @@ import { formatIndianMoney } from '@garmetix/shared-utils'
 import {
   ledgerTypeOptions,
   optionLabel,
+  pageSizeOptions,
+  paginateRows,
   readArray,
   readNumber,
   readText,
@@ -293,6 +305,13 @@ const filteredRows = computed(() => {
   if (!term) return currentRows.value
   return currentRows.value.filter(row => JSON.stringify(row).toLowerCase().includes(term))
 })
+
+const page = ref(1)
+const pageSize = ref<number>(pageSizeOptions[0].value)
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredRows.value.length / Number(pageSize.value || 25))))
+const pagedRows = computed(() => paginateRows(filteredRows.value, page.value, pageSize.value))
+watch([search, pageSize], () => { page.value = 1 })
+watch(totalPages, (value) => { if (page.value > value) page.value = value })
 
 const ledgerStatementColumns = [
   { key: 'date', label: 'Date' },

@@ -98,7 +98,12 @@ const requiredPageUsages = [
   {
     label: 'accounting.vue',
     path: join(modularRoot, 'apps/books/pages/accounting.vue'),
-    tokens: ['ledgers', 'bank-accounts', 'accounting/trial-balance', 'ledgerName', 'closingDebit', 'closingCredit']
+    tokens: ['accounting/trial-balance', 'ledgerName', 'closingDebit', 'closingCredit']
+  },
+  {
+    label: 'banking.vue',
+    path: join(modularRoot, 'apps/books/pages/banking.vue'),
+    tokens: ['bank-accounts', 'accounting/bank-transactions', 'cheque-logs', 'vendor-bank-accounts', 'bank-account-details', 'accountHolderName', 'chequeNumber']
   },
   {
     label: 'ledgers.vue',

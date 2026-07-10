@@ -317,6 +317,8 @@ const requiredPaths = [
   'apps/books/pages/index.vue',
   'apps/books/pages/login.vue',
   'apps/books/pages/accounting.vue',
+  'apps/books/pages/banking.vue',
+  'apps/books/pages/ledgers.vue',
   'apps/books/pages/financial-year-locks.vue',
   'apps/books/pages/petty-cash.vue',
   'apps/books/pages/cash-details.vue',
