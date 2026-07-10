@@ -1496,7 +1496,8 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
         decimal returnAmount,
         IReadOnlyList<PurchaseReturnTaxPosting> taxReversals,
         string? reason,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        decimal vendorFreightAmount = 0)
     {
         if (returnAmount <= 0)
         {
@@ -1530,6 +1531,13 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
                 0,
                 reversal.TaxAmount,
                 $"ITC reversal {reversal.ProductName}{hsn} | {purchaseReturn.ReturnNumber}"));
+        }
+
+        if (vendorFreightAmount > 0)
+        {
+            var freightLedger = await EnsureNamedLedgerAsync(invoice.CompanyId, "Transport & Freight Charges", "Direct Expenses", LedgerCategory.DirectExpenses, LedgerType.Expenses, cancellationToken);
+            lines.Add(new(vendorLedgerId, party.Id, vendorFreightAmount, 0, $"Freight recovery on return {purchaseReturn.ReturnNumber}"));
+            lines.Add(new(freightLedger.Id, null, 0, vendorFreightAmount, $"Freight recovered from vendor {invoice.InvoiceNumber}"));
         }
 
         var journal = await RepostSourceJournalAsync(

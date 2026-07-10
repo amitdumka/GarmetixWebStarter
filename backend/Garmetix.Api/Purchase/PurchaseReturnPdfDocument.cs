@@ -109,16 +109,32 @@ public static class PurchaseReturnPdfDocument
         canvas.Text("Vendor", left + 12, partyTop + 7, 6.5, true, 0.34, 0.39, 0.45);
         canvas.Text(Trim(document.VendorName, compact ? 30 : 46), left + 12, partyTop + 19, 8, true);
         canvas.Text($"GSTIN: {Empty(document.VendorGstin)}", left + 12, partyTop + 33, 7, false, 0.25, 0.30, 0.36);
+        var daysOld = Math.Max(0, (document.OnDate.Date - document.OriginalInvoiceDate.Date).Days);
         canvas.Text($"Original purchase: {document.OriginalInvoiceNumber}", left + bodyWidth * 0.51, partyTop + 19, 7.2, true);
-        canvas.Text($"Purchase date: {document.OriginalInvoiceDate:dd MMM yyyy}", left + bodyWidth * 0.51, partyTop + 33, 7, false, 0.25, 0.30, 0.36);
+        canvas.Text($"Purchase date: {document.OriginalInvoiceDate:dd MMM yyyy} ({daysOld}d old)", left + bodyWidth * 0.51, partyTop + 33, 7, false, 0.25, 0.30, 0.36);
         canvas.Text($"Store: {model.StoreName}", left + bodyWidth * 0.51, partyTop + 45, 6.5, false, 0.25, 0.30, 0.36);
 
-        var reasonTop = partyTop + (compact ? 56 : 63);
-        canvas.FillRect(left + 6, reasonTop, bodyWidth - 12, compact ? 30 : 34, 0.99, 0.96, 0.86);
-        canvas.StrokeRect(left + 6, reasonTop, bodyWidth - 12, compact ? 30 : 34, 0.35, 0.88, 0.69, 0.20);
-        canvas.WrappedText($"Reason: {Empty(document.Reason)}", left + 12, reasonTop + 7, bodyWidth - 24, 6.8, compact ? 2 : 3, true, 0.38, 0.25, 0.04);
+        var reasonExtras = new List<string>();
+        if (!string.IsNullOrWhiteSpace(document.TransportDetails))
+        {
+            reasonExtras.Add($"Transport: {document.TransportDetails.Trim()}");
+        }
+        if (document.FreightAmount > 0)
+        {
+            var freightNote = document.FreightBearer == "Vendor"
+                ? "billed to vendor, included in debit note"
+                : $"in-house expense{(string.IsNullOrWhiteSpace(document.FreightExpenseVoucherNumber) ? "" : $", voucher {document.FreightExpenseVoucherNumber}")}";
+            reasonExtras.Add($"Freight: INR {document.FreightAmount:N2} ({freightNote})");
+        }
+        var reasonText = $"Reason: {Empty(document.Reason)}" + (reasonExtras.Count > 0 ? "  |  " + string.Join("  |  ", reasonExtras) : "");
 
-        var tableTop = reasonTop + (compact ? 40 : 45);
+        var reasonHeight = compact ? 42 : 48;
+        var reasonTop = partyTop + (compact ? 56 : 63);
+        canvas.FillRect(left + 6, reasonTop, bodyWidth - 12, reasonHeight, 0.99, 0.96, 0.86);
+        canvas.StrokeRect(left + 6, reasonTop, bodyWidth - 12, reasonHeight, 0.35, 0.88, 0.69, 0.20);
+        canvas.WrappedText(reasonText, left + 12, reasonTop + 7, bodyWidth - 24, 6.8, compact ? 4 : 5, true, 0.38, 0.25, 0.04);
+
+        var tableTop = reasonTop + (compact ? 52 : 60);
         var columns = compact
             ? new[] { 0d, 0.42, 0.53, 0.66, 0.80, 1d }
             : new[] { 0d, 0.34, 0.45, 0.55, 0.66, 0.78, 0.89, 1d };
@@ -232,7 +248,8 @@ public static class PurchaseReturnPdfDocument
             string.IsNullOrWhiteSpace(item.Unit) ? null : item.Unit,
             string.IsNullOrWhiteSpace(item.Barcode) ? null : item.Barcode
         }.Where(value => !string.IsNullOrWhiteSpace(value)));
-        return string.IsNullOrWhiteSpace(suffix) ? item.ProductName : $"{item.ProductName} | {suffix}";
+        var prefix = item.RowNumber > 0 ? $"#{item.RowNumber} " : string.Empty;
+        return string.IsNullOrWhiteSpace(suffix) ? $"{prefix}{item.ProductName}" : $"{prefix}{item.ProductName} | {suffix}";
     }
 
     private static string NormalizeCopy(string? value) => value?.Trim().ToLowerInvariant() switch

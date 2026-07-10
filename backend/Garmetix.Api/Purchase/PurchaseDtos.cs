@@ -180,12 +180,18 @@ public sealed record ReturnablePurchaseItemDto(
     decimal TaxPercentage,
     decimal? CgstAmount,
     decimal? SgstAmount,
-    decimal? IgstAmount);
+    decimal? IgstAmount,
+    int RowNumber,
+    decimal CurrentStockQuantity);
 
 public sealed record PartialPurchaseReturnRequest(
     IReadOnlyList<PartialPurchaseReturnItemRequest> Items,
     string? Reason,
-    DateTime? ReturnDate = null);
+    DateTime? ReturnDate = null,
+    string? TransportDetails = null,
+    decimal? FreightAmount = null,
+    string? FreightBearer = null,
+    Guid? FreightEmployeeId = null);
 
 public sealed record PartialPurchaseReturnItemRequest(
     Guid ItemId,
@@ -202,7 +208,10 @@ public sealed record PartialPurchaseReturnResponse(
     decimal TaxableAmount,
     decimal TaxAmount,
     decimal ReturnAmount,
-    string InvoiceStatus);
+    string InvoiceStatus,
+    decimal FreightAmount,
+    string? FreightBearer,
+    string? FreightExpenseVoucherNumber);
 
 public sealed record PurchaseReturnRegisterDto(
     Guid Id,
@@ -267,7 +276,12 @@ public sealed record PurchaseReturnDetailDto(
     decimal ItcReversalAmount,
     string ItcReversalStatus,
     Guid? JournalEntryId,
-    IReadOnlyList<PurchaseReturnItemDto> Items);
+    IReadOnlyList<PurchaseReturnItemDto> Items,
+    string? TransportDetails,
+    decimal FreightAmount,
+    string? FreightBearer,
+    string? FreightExpenseVoucherNumber,
+    int DaysOld);
 
 public sealed record PurchaseReturnItcReversalDto(
     Guid Id,
@@ -342,7 +356,8 @@ public sealed record PurchaseReturnItemDto(
     decimal SgstAmount,
     decimal IgstAmount,
     decimal ReturnAmount,
-    string? Reason);
+    string? Reason,
+    int RowNumber);
 
 public sealed record PurchaseLookupOptionsDto(
     IReadOnlyList<PurchaseLookupOptionDto> Categories,

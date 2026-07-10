@@ -1786,6 +1786,16 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                   ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "ItcReversalAmount" numeric(18,2) NOT NULL DEFAULT 0;
                   ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "ItcReversalStatus" text NOT NULL DEFAULT 'Pending';
                   ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "JournalEntryId" uuid NULL;
+
+                  -- Stage 14T: purchase return transport/freight fields (billed to vendor via the
+                  -- debit note vs booked as an in-house Expense voucher). See migration
+                  -- 20260711090000_AddPurchaseReturnFreightFields.cs.
+                  ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "TransportDetails" text NULL;
+                  ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "FreightAmount" numeric(18,2) NOT NULL DEFAULT 0;
+                  ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "FreightBearer" text NULL;
+                  ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "FreightExpenseVoucherId" uuid NULL;
+                  ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "FreightExpenseVoucherNumber" text NULL;
+
                   ALTER TABLE "PurchasePayments" ADD COLUMN IF NOT EXISTS "AdjustmentSourceType" text NULL;
                   ALTER TABLE "PurchasePayments" ADD COLUMN IF NOT EXISTS "AdjustmentSourceId" uuid NULL;
 

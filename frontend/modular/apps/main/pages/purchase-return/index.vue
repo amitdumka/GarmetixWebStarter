@@ -52,26 +52,47 @@
         </div>
       </div>
 
+      <div class="mb-3 flex flex-col gap-2 sm:flex-row">
+        <UInput
+          v-model="barcodeScan"
+          icon="i-lucide-scan-barcode"
+          placeholder="Scan or type barcode to jump to a line"
+          class="flex-1"
+          @keyup.enter="scanBarcode"
+        />
+        <UButton icon="i-lucide-search" color="neutral" variant="soft" @click="scanBarcode">Find Line</UButton>
+      </div>
+
       <div class="overflow-hidden rounded-lg border border-default">
         <div class="overflow-x-auto">
-          <table class="w-full min-w-[820px] text-left text-sm">
+          <table class="w-full min-w-[960px] text-left text-sm">
             <thead class="bg-muted/30 text-xs uppercase text-muted">
               <tr>
+                <th class="px-3 py-2 text-right font-medium">#</th>
                 <th class="px-3 py-2 font-medium">Product</th>
                 <th class="px-3 py-2 text-right font-medium">Purchased</th>
                 <th class="px-3 py-2 text-right font-medium">Already Returned</th>
                 <th class="px-3 py-2 text-right font-medium">Returnable</th>
+                <th class="px-3 py-2 text-right font-medium">Current Stock</th>
                 <th class="px-3 py-2 text-right font-medium">Return Qty</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-default">
-              <tr v-for="item in returnableItems" :key="readText(item, ['itemId'])">
+              <tr
+                v-for="item in returnableItems"
+                :key="readText(item, ['itemId'])"
+                :ref="el => setLineRef(readText(item, ['itemId']), el)"
+                :class="highlightedItemId === readText(item, ['itemId']) ? 'bg-primary/10' : ''"
+              >
+                <td class="px-3 py-2 text-right text-muted">{{ readNumber(item, ['rowNumber']) }}</td>
                 <td class="px-3 py-2">{{ readText(item, ['productName']) }}</td>
                 <td class="px-3 py-2 text-right">{{ readNumber(item, ['purchasedQuantity']) }}</td>
                 <td class="px-3 py-2 text-right">{{ readNumber(item, ['alreadyReturnedQuantity']) }}</td>
                 <td class="px-3 py-2 text-right">{{ readNumber(item, ['returnableQuantity']) }}</td>
+                <td class="px-3 py-2 text-right">{{ readNumber(item, ['currentStockQuantity']) }}</td>
                 <td class="px-3 py-2 text-right">
                   <UInput
+                    :ref="el => setQtyInputRef(readText(item, ['itemId']), el)"
                     v-model.number="returnQuantities[readText(item, ['itemId'])]"
                     type="number"
                     min="0"
@@ -94,6 +115,22 @@
           <UInput v-model="returnReason" placeholder="Reason for return" />
         </UFormField>
       </div>
+
+      <div class="mt-3 grid gap-3 sm:grid-cols-2">
+        <UFormField label="Transport details" class="sm:col-span-2">
+          <UTextarea v-model="transportDetails" :rows="2" placeholder="Courier/transporter, LR number, vehicle, etc." />
+        </UFormField>
+        <UFormField label="Freight amount">
+          <UInput v-model.number="freightAmount" type="number" min="0" step="0.01" />
+        </UFormField>
+        <UFormField label="Freight borne by">
+          <USelect v-model="freightBearer" :items="freightBearerItems" @update:model-value="onFreightBearerChange" />
+        </UFormField>
+        <UFormField v-if="freightBearer === 'InHouse'" label="Freight issued by" class="sm:col-span-2">
+          <USelect v-model="freightEmployeeId" :items="employeeItems" placeholder="Select employee" />
+        </UFormField>
+      </div>
+
       <div class="mt-3 flex justify-end gap-2">
         <UButton color="neutral" variant="soft" @click="returnable = null">Cancel</UButton>
         <UButton color="primary" variant="solid" icon="i-lucide-rotate-ccw" :loading="submitting" @click="submitReturn">Submit Return</UButton>
@@ -163,16 +200,23 @@
         <div v-else-if="selectedReturn" class="space-y-4">
           <div class="grid grid-cols-2 gap-3 text-sm">
             <div><p class="text-xs text-muted">Vendor</p><p class="font-medium">{{ readText(selectedReturn, ['vendorName']) }}</p></div>
-            <div><p class="text-xs text-muted">Original invoice</p><p class="font-medium">{{ readText(selectedReturn, ['originalInvoiceNumber']) }}</p></div>
+            <div><p class="text-xs text-muted">Original invoice</p><p class="font-medium">{{ readText(selectedReturn, ['originalInvoiceNumber']) }} ({{ formatDate(selectedReturn?.originalInvoiceDate) }}, {{ readNumber(selectedReturn, ['daysOld']) }}d old)</p></div>
             <div><p class="text-xs text-muted">Return amount</p><p class="font-medium">{{ money(readNumber(selectedReturn, ['returnAmount'])) }}</p></div>
             <div><p class="text-xs text-muted">Debit note</p><p class="font-medium">{{ readText(selectedReturn, ['debitNoteNumber']) }}</p></div>
+          </div>
+          <div v-if="readText(selectedReturn, ['transportDetails'], '') || readNumber(selectedReturn, ['freightAmount'])" class="rounded-md border border-default p-3 text-sm">
+            <p v-if="readText(selectedReturn, ['transportDetails'], '')" class="text-muted">Transport: {{ readText(selectedReturn, ['transportDetails']) }}</p>
+            <p v-if="readNumber(selectedReturn, ['freightAmount'])">
+              Freight: {{ money(readNumber(selectedReturn, ['freightAmount'])) }} -
+              {{ readText(selectedReturn, ['freightBearer']) === 'Vendor' ? 'billed to vendor (in debit note)' : `in-house expense${readText(selectedReturn, ['freightExpenseVoucherNumber'], '') ? ' - voucher ' + readText(selectedReturn, ['freightExpenseVoucherNumber']) : ''}` }}
+            </p>
           </div>
           <div>
             <h4 class="mb-2 text-sm font-semibold">Items</h4>
             <div class="space-y-2">
               <div v-for="(item, index) in readArray(selectedReturn, ['items'])" :key="index" class="rounded-md border border-default p-3 text-sm">
                 <div class="flex justify-between gap-3">
-                  <p class="min-w-0 truncate font-medium">{{ readText(item, ['productName']) }}</p>
+                  <p class="min-w-0 truncate font-medium">#{{ readNumber(item, ['rowNumber']) }} {{ readText(item, ['productName']) }}</p>
                   <p class="font-semibold">{{ money(readNumber(item, ['returnAmount'])) }}</p>
                 </div>
                 <p class="text-xs text-muted">Qty {{ readNumber(item, ['returnedQuantity']) }} - {{ readText(item, ['reason'], 'No reason noted') }}</p>
@@ -187,7 +231,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatIndianMoney } from '@garmetix/shared-utils'
+import { formatIndianMoney, isActiveEmployee } from '@garmetix/shared-utils'
 import { formatDate, readArray, readNumber, readText, toRows, type ApiRecord, useMainApiClient } from '../../utils/main-api'
 
 useHead({ title: 'Purchase Return - Garmetix Back Office' })
@@ -222,6 +266,26 @@ const returnReason = ref('')
 const returnDate = ref(new Date().toISOString().slice(0, 10))
 const selectedReturn = ref<ApiRecord | null>(null)
 const detailOpen = ref(false)
+
+const barcodeScan = ref('')
+const highlightedItemId = ref('')
+const lineRefs: Record<string, HTMLElement> = {}
+
+const transportDetails = ref('')
+const freightAmount = ref(0)
+const freightBearer = ref<'' | 'Vendor' | 'InHouse'>('')
+const freightEmployeeId = ref('')
+const employees = ref<ApiRecord[]>([])
+const employeesLoaded = ref(false)
+
+const freightBearerItems = [
+  { label: 'No freight', value: '' },
+  { label: 'Vendor (billed to debit note)', value: 'Vendor' },
+  { label: 'In-house (our expense)', value: 'InHouse' }
+]
+const employeeItems = computed(() => employees.value
+  .filter(item => isActiveEmployee(item))
+  .map(item => ({ label: readText(item, ['name'], 'Employee'), value: readText(item, ['id'], '') })))
 
 const returnableItems = computed(() => readArray(returnable.value, ['items']))
 const filteredReturns = computed(() => {
@@ -288,9 +352,50 @@ async function loadReturnable(invoice: ApiRecord) {
     returnable.value = await get<ApiRecord>(`purchase/invoices/${id}/returnable`)
     Object.keys(returnQuantities).forEach(key => delete returnQuantities[key])
     returnReason.value = ''
+    barcodeScan.value = ''
+    highlightedItemId.value = ''
+    transportDetails.value = ''
+    freightAmount.value = 0
+    freightBearer.value = ''
+    freightEmployeeId.value = ''
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Unable to load returnable items.'
   }
+}
+
+function setLineRef(itemId: string, el: unknown) {
+  if (el instanceof HTMLElement) lineRefs[itemId] = el
+}
+
+async function loadEmployees() {
+  if (employeesLoaded.value) return
+  try {
+    const data = await get<unknown>('employees')
+    employees.value = toRows(data)
+    employeesLoaded.value = true
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to load employees.'
+  }
+}
+
+function onFreightBearerChange(value: string) {
+  if (value === 'InHouse') void loadEmployees()
+}
+
+async function scanBarcode() {
+  const code = barcodeScan.value.trim()
+  if (!code) return
+  error.value = ''
+  const match = returnableItems.value.find(item => readText(item, ['barcode'], '').toLowerCase() === code.toLowerCase())
+  if (!match) {
+    error.value = `No returnable line found for barcode ${code}.`
+    return
+  }
+  const itemId = readText(match, ['itemId'], '')
+  highlightedItemId.value = itemId
+  if (!returnQuantities[itemId]) returnQuantities[itemId] = 1
+  lineRefs[itemId]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  barcodeScan.value = ''
 }
 
 function returnAllAvailable() {
@@ -314,13 +419,25 @@ async function submitReturn() {
     error.value = 'Enter at least one return quantity.'
     return
   }
+  if (freightAmount.value > 0 && !freightBearer.value) {
+    error.value = 'Select who bears the freight cost before adding a freight amount.'
+    return
+  }
+  if (freightAmount.value > 0 && freightBearer.value === 'InHouse' && !freightEmployeeId.value) {
+    error.value = 'Select who is issuing the in-house freight expense.'
+    return
+  }
   submitting.value = true
   error.value = ''
   try {
     await post<unknown>(`purchase/invoices/${invoiceId}/partial-return`, {
       items,
       reason: returnReason.value || null,
-      returnDate: returnDate.value || null
+      returnDate: returnDate.value || null,
+      transportDetails: transportDetails.value.trim() || null,
+      freightAmount: freightAmount.value > 0 ? freightAmount.value : null,
+      freightBearer: freightAmount.value > 0 ? freightBearer.value : null,
+      freightEmployeeId: freightAmount.value > 0 && freightBearer.value === 'InHouse' ? freightEmployeeId.value : null
     })
     message.value = 'Purchase return posted.'
     returnable.value = null

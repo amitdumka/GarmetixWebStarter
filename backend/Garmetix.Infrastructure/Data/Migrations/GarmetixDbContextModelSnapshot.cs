@@ -5089,6 +5089,19 @@ namespace Garmetix.Infrastructure.Data.Migrations
                     b.Property<bool>("Deleted")
                         .HasColumnType("boolean");
 
+                    b.Property<decimal>("FreightAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("FreightBearer")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("FreightExpenseVoucherId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FreightExpenseVoucherNumber")
+                        .HasColumnType("text");
+
                     b.Property<decimal>("IGSTAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -5184,6 +5197,9 @@ namespace Garmetix.Infrastructure.Data.Migrations
                     b.Property<decimal>("TaxableAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("TransportDetails")
+                        .HasColumnType("text");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
