@@ -41,6 +41,12 @@
             </UButton>
           </div>
 
+          <div class="grid grid-cols-3 gap-2 rounded-lg border border-default bg-muted/20 p-3 text-sm">
+            <div><p class="text-muted">Working hours</p><p class="font-semibold">{{ durationLabel(formWorkingMinutes) }}</p></div>
+            <div><p class="text-muted">Break hours</p><p class="font-semibold">{{ durationLabel(formBreakMinutes) }}</p></div>
+            <div><p class="text-muted">Sessions for full day</p><p class="font-semibold">{{ form.requiredSessionsForFullDay }} session(s)</p></div>
+          </div>
+
           <UFormField label="Shift name" required>
             <UInput v-model="form.name" placeholder="Shift name" />
           </UFormField>
@@ -119,12 +125,16 @@
                 · Grace {{ readNumber(shift, ['graceMinutes']) }}m
                 · OT after {{ minutesLabel(readNumber(shift, ['overtimeAfterMinutes'])) }}
               </p>
+              <p class="mt-1 text-xs font-medium text-highlighted">
+                Working {{ durationLabel(shiftWorkingMinutes(shift)) }}
+                <span v-if="readBoolean(shift, ['hasBreak'])"> · Break {{ durationLabel(shiftBreakMinutes(shift)) }}</span>
+              </p>
               <p v-if="readBoolean(shift, ['hasBreak'])" class="mt-1 text-xs text-muted">
                 Break {{ minutesLabel(readNumber(shift, ['breakStartMinutes'])) }} - {{ minutesLabel(readNumber(shift, ['breakEndMinutes'])) }}
                 · Full day {{ readNumber(shift, ['requiredSessionsForFullDay']) }} session(s)
                 · Half day {{ readNumber(shift, ['requiredSessionsForHalfDay']) }}
               </p>
-              <p v-else class="mt-1 text-xs text-muted">No-break shift · {{ readText(shift, ['shiftCategory'], 'Uncategorised') }}</p>
+              <p v-else class="mt-1 text-xs text-muted">No-break shift · {{ readText(shift, ['shiftCategory'], 'Uncategorised') }} · {{ readNumber(shift, ['requiredSessionsForFullDay']) }} session(s) = full day</p>
             </div>
             <UBadge :color="readBoolean(shift, ['active'], true) ? 'success' : 'neutral'" variant="subtle">{{ readBoolean(shift, ['active'], true) ? 'Active' : 'Inactive' }}</UBadge>
           </div>
@@ -202,6 +212,40 @@ function minutesLabel(value?: number | null) {
   const hours = Math.floor(value / 60)
   const minutes = value % 60
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+}
+
+function durationLabel(minutes: number) {
+  const total = Math.max(0, Math.round(minutes))
+  const hours = Math.floor(total / 60)
+  const remaining = total % 60
+  if (!hours) return `${remaining}m`
+  return remaining ? `${hours}h ${remaining}m` : `${hours}h`
+}
+
+function breakDurationMinutes(hasBreak: boolean, breakStart: number | null | undefined, breakEnd: number | null | undefined) {
+  if (!hasBreak || breakStart === null || breakStart === undefined || breakEnd === null || breakEnd === undefined) return 0
+  return Math.max(0, breakEnd - breakStart)
+}
+
+function workingDurationMinutes(startMinutes: number, endMinutes: number, breakMinutes: number, countBreakAsWork: boolean) {
+  const span = Math.max(0, endMinutes - startMinutes)
+  return countBreakAsWork ? span : Math.max(0, span - breakMinutes)
+}
+
+const formBreakMinutes = computed(() => breakDurationMinutes(form.hasBreak, form.breakStartMinutes, form.breakEndMinutes))
+const formWorkingMinutes = computed(() => workingDurationMinutes(form.startTimeMinutes, form.endTimeMinutes, formBreakMinutes.value, form.countBreakAsWork))
+
+function shiftBreakMinutes(shift: ApiRecord) {
+  return breakDurationMinutes(readBoolean(shift, ['hasBreak']), readNumber(shift, ['breakStartMinutes']), readNumber(shift, ['breakEndMinutes']))
+}
+
+function shiftWorkingMinutes(shift: ApiRecord) {
+  return workingDurationMinutes(
+    readNumber(shift, ['startTimeMinutes']),
+    readNumber(shift, ['endTimeMinutes']),
+    shiftBreakMinutes(shift),
+    readBoolean(shift, ['countBreakAsWork'])
+  )
 }
 
 function applyPreset(patch: Record<string, unknown>) {

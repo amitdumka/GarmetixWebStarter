@@ -80,7 +80,24 @@ export function useBooksApiClient() {
     URL.revokeObjectURL(objectUrl)
   }
 
-  return { apiBaseUrl, apiUrl, del, download, get, post, put }
+  async function openBlob(path: string, query?: Record<string, string | number | boolean | null | undefined>) {
+    const token = getStoredToken(window.localStorage)
+    const headers = new Headers()
+    if (token) headers.set('Authorization', `Bearer ${token}`)
+
+    const response = await fetch(apiUrl(path, query), { method: 'GET', headers })
+    if (!response.ok) {
+      const message = await response.text()
+      throw new Error(stripServerUrl(message || `Request failed with ${response.status}`))
+    }
+
+    const blob = await response.blob()
+    const objectUrl = URL.createObjectURL(blob)
+    window.open(objectUrl, '_blank')
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
+  }
+
+  return { apiBaseUrl, apiUrl, del, download, get, openBlob, post, put }
 }
 
 export function readNumber(source: ApiRecord | null | undefined, keys: string[] | null | undefined) {
