@@ -1424,6 +1424,11 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                 ALTER TABLE "Vendors" ADD COLUMN IF NOT EXISTS "GSTLookupSource" text NULL;
                 ALTER TABLE "Vendors" ADD COLUMN IF NOT EXISTS "GSTMismatchAlert" text NULL;
 
+                -- Stage 14Q.4: v6.2.2 added Vendor.VendorType (nullable enum, backed by an
+                -- integer column) so tailoring/alteration vendors can be distinguished from
+                -- purchase vendors. See migration 20260710120000_AddVendorType.cs.
+                ALTER TABLE "Vendors" ADD COLUMN IF NOT EXISTS "VendorType" integer NULL;
+
                 CREATE INDEX IF NOT EXISTS "IX_Customers_CompanyId_GSTIN" ON "Customers" ("CompanyId", "GSTIN");
                 CREATE INDEX IF NOT EXISTS "IX_Vendors_CompanyId_GSTIN" ON "Vendors" ("CompanyId", "GSTIN");
 
