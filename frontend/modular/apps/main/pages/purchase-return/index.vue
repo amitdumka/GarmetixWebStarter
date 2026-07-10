@@ -10,6 +10,7 @@
           </p>
         </div>
         <div class="flex flex-wrap gap-2">
+          <UButton icon="i-lucide-plus" color="primary" variant="solid" @click="focusNewReturn">New Return</UButton>
           <UButton icon="i-lucide-shield-check" color="neutral" variant="soft" to="/purchase-return/advanced-settlement">Settlement QA</UButton>
           <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refresh">Refresh</UButton>
         </div>
@@ -19,10 +20,11 @@
     <UAlert v-if="error" color="error" variant="subtle" icon="i-lucide-circle-alert" :description="error" />
     <UAlert v-if="message" color="success" variant="subtle" icon="i-lucide-circle-check" :description="message" />
 
-    <section class="garmetix-section-card">
-      <h3 class="garmetix-panel-title mb-3">Find Purchase Invoice To Return</h3>
+    <section ref="newReturnSectionRef" class="garmetix-section-card">
+      <h3 class="garmetix-panel-title mb-3">New Return - Find Purchase Invoice</h3>
+      <p class="garmetix-panel-subtitle mb-3">Search for the original purchase invoice to return items against - this is how a new purchase return is added.</p>
       <div class="flex flex-col gap-2 sm:flex-row">
-        <UInput v-model="invoiceSearch" icon="i-lucide-search" placeholder="Invoice number, inward number or vendor" class="flex-1" @keyup.enter="searchInvoices" />
+        <UInput ref="invoiceSearchInputRef" v-model="invoiceSearch" icon="i-lucide-search" placeholder="Invoice number, inward number or vendor" class="flex-1" @keyup.enter="searchInvoices" />
         <UButton icon="i-lucide-search" color="neutral" variant="soft" :loading="searching" @click="searchInvoices">Search</UButton>
       </div>
       <div v-if="invoiceResults.length" class="mt-3 space-y-2">
@@ -294,6 +296,8 @@ const detailOpen = ref(false)
 const barcodeScan = ref('')
 const highlightedItemId = ref('')
 const lineRefs: Record<string, HTMLElement> = {}
+const newReturnSectionRef = ref<HTMLElement | null>(null)
+const invoiceSearchInputRef = ref<{ inputRef?: HTMLInputElement } | HTMLElement | null>(null)
 
 const transportDetails = ref('')
 const freightAmount = ref(0)
@@ -353,6 +357,13 @@ async function refresh() {
   } finally {
     loading.value = false
   }
+}
+
+function focusNewReturn() {
+  newReturnSectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const el = invoiceSearchInputRef.value
+  const input = el && 'inputRef' in el ? el.inputRef : (el as HTMLElement | null)
+  if (input instanceof HTMLInputElement) input.focus()
 }
 
 async function searchInvoices() {
