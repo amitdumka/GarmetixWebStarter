@@ -154,7 +154,7 @@ public static class AccessPermissionMatrix
             UserType.Owner.ToString(),
             StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsSuperAdmin(ClaimsPrincipal user)
+    public static bool IsSuperAdmin(ClaimsPrincipal user)
         => bool.TryParse(user.FindFirstValue("superAdmin"), out var superAdmin) && superAdmin;
 
     private static AccessPermissionProfile Profile(

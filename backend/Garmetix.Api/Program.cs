@@ -176,6 +176,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization(options =>
 {
+    options.AddPolicy(GarmetixPolicies.SuperAdmin, policy =>
+        policy.RequireAssertion(context => AccessPermissionMatrix.IsSuperAdmin(context.User)));
     AddMatrixPolicy(options, GarmetixPolicies.Admin);
     AddMatrixPolicy(options, GarmetixPolicies.CompanySetup);
     AddMatrixPolicy(options, GarmetixPolicies.Edit);

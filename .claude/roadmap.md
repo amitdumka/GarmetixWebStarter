@@ -26,7 +26,7 @@ Modular Purchase was previously a stub (`main` app placeholders) plus two read-o
 3. **CRM bug** (found during 14G deploy verification) - `/crm/customers` is broken live due to a static-build route collision with its own sub-routes. Unrelated to GST work; spawned as background task `task_38949783`, not yet fixed.
 4. **Assistant 14F.7** - MCP wrapper around the existing read-only AI Sense tool catalog, additive only, local/private-tunnel auth until reviewed.
 5. **Live-evidence backlog** - a recurring pattern across POS, HR, Books, CRM and Admin closures: code and dry-run validation are done, but real production evidence (manual browser acceptance, live-token smoke tests, actual cashier/payroll runs) is still marked conditional. Worth a dedicated pass to clear this backlog rather than letting each module's "pending live evidence" note linger indefinitely.
-6. **Security follow-up** - restrict factory reset to SuperAdmin only (currently Admin-policy gated; see `learnings.md` and bug list below). Low effort, meaningful risk reduction.
+6. ~~**Security follow-up**~~ - closed 2026-07-10 (v6.2.4): factory reset is now genuinely SuperAdmin-only at the route level (new standalone `GarmetixPolicies.SuperAdmin` policy, bypassing the shared Admin/Owner-permissive matrix mechanism). See `.claude/todo.md` for detail.
 
 ## Medium-Term
 
@@ -44,6 +44,5 @@ Modular Purchase was previously a stub (`main` app placeholders) plus two read-o
 
 ## Known Risks Carried Forward (see `.claude/todo.md` bug list for detail)
 
-- Factory reset authorization scope (Admin, not SuperAdmin).
 - Several `Garmetix.Domain.Generated` models have acknowledged incompleteness (UOM/Fabric, basic rate calculator, Invoicing derived-vs-stored properties).
 - Large backlog of unreviewed Antigravity (`Version6.A`) changes that may contain already-solved problems (e.g., Inventory app, GSTIN/wholesale pricing in POS) worth comparing before building from scratch.

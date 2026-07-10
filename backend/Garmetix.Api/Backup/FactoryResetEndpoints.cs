@@ -14,7 +14,7 @@ public static class FactoryResetEndpoints
     {
         var group = app.MapGroup("/api/factory-reset")
             .WithTags("Factory Reset")
-            .RequireAuthorization(GarmetixPolicies.Admin);
+            .RequireAuthorization(GarmetixPolicies.SuperAdmin);
 
         group.MapPost("/", ResetAsync);
         return group;

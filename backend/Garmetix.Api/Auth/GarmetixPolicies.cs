@@ -3,6 +3,7 @@ namespace Garmetix.Api.Auth;
 public static class GarmetixPolicies
 {
     public const string Admin = "Admin";
+    public const string SuperAdmin = "SuperAdmin";
     public const string CompanySetup = "CompanySetup";
     public const string Edit = "Edit";
     public const string Delete = "Delete";
