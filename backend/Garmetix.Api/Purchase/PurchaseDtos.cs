@@ -293,7 +293,57 @@ public sealed record PurchaseReturnDetailDto(
     decimal FreightAmount,
     string? FreightBearer,
     string? FreightExpenseVoucherNumber,
-    int DaysOld);
+    int DaysOld,
+    IReadOnlyList<string>? OriginalInvoiceNumbers = null,
+    decimal FreightTaxAmount = 0);
+
+public sealed record VendorReturnableItemDto(
+    Guid PurchaseInvoiceItemId,
+    Guid PurchaseInvoiceId,
+    string InvoiceNumber,
+    DateTime InvoiceDate,
+    int RowNumber,
+    Guid ProductId,
+    string ProductName,
+    string Barcode,
+    string? HsnCode,
+    string Unit,
+    decimal PurchasedQuantity,
+    decimal AlreadyReturnedQuantity,
+    decimal ReturnableQuantity,
+    decimal UnitAmount,
+    decimal UnitTaxableAmount,
+    decimal UnitTaxAmount,
+    decimal UnitDiscountAmount,
+    decimal Mrp,
+    decimal TaxPercentage,
+    decimal CurrentStockQuantity);
+
+public sealed record VendorGoodsReturnRequest(
+    IReadOnlyList<PartialPurchaseReturnItemRequest> Items,
+    string? Reason,
+    DateTime? ReturnDate = null,
+    string? TransportDetails = null,
+    decimal? FreightAmount = null,
+    string? FreightBearer = null,
+    Guid? FreightEmployeeId = null);
+
+public sealed record VendorGoodsReturnResponse(
+    Guid PurchaseReturnId,
+    string ReturnNumber,
+    Guid VendorId,
+    string VendorName,
+    IReadOnlyList<string> InvoiceNumbers,
+    Guid DebitNoteId,
+    string DebitNoteNumber,
+    decimal ReturnedQuantity,
+    decimal TaxableAmount,
+    decimal TaxAmount,
+    decimal ReturnAmount,
+    decimal FreightAmount,
+    decimal FreightTaxAmount,
+    string? FreightBearer,
+    string? FreightExpenseVoucherNumber);
 
 public sealed record PurchaseReturnItcReversalDto(
     Guid Id,

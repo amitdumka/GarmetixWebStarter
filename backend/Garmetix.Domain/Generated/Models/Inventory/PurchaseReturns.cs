@@ -39,6 +39,7 @@ public class PurchaseReturn : StoreBase
     [Display(Name = "Journal Entry", AutoGenerateField = false)] public Guid? JournalEntryId { get; set; }
     [Display(Name = "Transport Details")] public string? TransportDetails { get; set; }
     [Display(Name = "Freight Amount")] public decimal FreightAmount { get; set; }
+    [Display(Name = "Freight Tax Amount")] public decimal FreightTaxAmount { get; set; }
     [Display(Name = "Freight Bearer")] public string? FreightBearer { get; set; }
     [Display(Name = "Freight Expense Voucher", AutoGenerateField = false)] public Guid? FreightExpenseVoucherId { get; set; }
     [Display(Name = "Freight Expense Voucher Number")] public string? FreightExpenseVoucherNumber { get; set; }

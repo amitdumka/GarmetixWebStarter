@@ -296,6 +296,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'purchase-import-profiles', label: 'Import Learning', href: '/purchase/import-profiles', icon: 'i-lucide-brain-circuit' },
       { id: 'vendors', label: 'Vendors', href: '/vendors', icon: 'i-lucide-truck' },
       { id: 'purchase-return', label: 'Purchase Return', href: '/purchase-return', icon: 'i-lucide-undo-2' },
+      { id: 'purchase-goods-return-new', label: 'New Goods Return', href: '/purchase-return/goods-return', icon: 'i-lucide-package-minus' },
       { id: 'purchase-vendor-payable-reconciliation', label: 'Vendor Payable Reco', href: '/purchase/vendor-payable-reconciliation', icon: 'i-lucide-shield-check' },
       { id: 'purchase-return-advanced-settlement', label: 'Return Settlement QA', href: '/purchase-return/advanced-settlement', icon: 'i-lucide-shield-check' }
     ] },

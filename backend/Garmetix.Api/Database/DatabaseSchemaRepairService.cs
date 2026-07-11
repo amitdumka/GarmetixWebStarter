@@ -1796,6 +1796,11 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
                   ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "FreightExpenseVoucherId" uuid NULL;
                   ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "FreightExpenseVoucherNumber" text NULL;
 
+                  -- Vendor-first Goods Return page: GST on freight when the vendor bears the
+                  -- cost (freight amount + 5% GST added to the debit note). See migration
+                  -- 20260711140000_AddPurchaseReturnFreightTaxAmount.cs.
+                  ALTER TABLE "PurchaseReturns" ADD COLUMN IF NOT EXISTS "FreightTaxAmount" numeric(18,2) NOT NULL DEFAULT 0;
+
                   ALTER TABLE "PurchasePayments" ADD COLUMN IF NOT EXISTS "AdjustmentSourceType" text NULL;
                   ALTER TABLE "PurchasePayments" ADD COLUMN IF NOT EXISTS "AdjustmentSourceId" uuid NULL;
 

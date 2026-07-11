@@ -12,6 +12,7 @@
         <div class="flex flex-wrap items-center gap-2">
           <UBadge color="success" variant="subtle">{{ returns.length }} posted returns</UBadge>
           <UBadge color="neutral" variant="subtle">{{ filteredInvoices.length }} returnable purchases</UBadge>
+          <UButton icon="i-lucide-package-minus" color="primary" variant="solid" to="/purchase-return/goods-return">New Goods Return</UButton>
           <UButton icon="i-lucide-shield-check" color="neutral" variant="soft" to="/purchase-return/advanced-settlement">Settlement QA</UButton>
           <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refresh">Refresh</UButton>
         </div>

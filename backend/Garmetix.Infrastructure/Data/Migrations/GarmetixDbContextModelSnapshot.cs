@@ -5102,6 +5102,10 @@ namespace Garmetix.Infrastructure.Data.Migrations
                     b.Property<string>("FreightExpenseVoucherNumber")
                         .HasColumnType("text");
 
+                    b.Property<decimal>("FreightTaxAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
                     b.Property<decimal>("IGSTAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
