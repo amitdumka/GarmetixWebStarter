@@ -93,10 +93,10 @@
                     color="primary"
                     variant="soft"
                     icon="i-lucide-plus"
-                    :disabled="readNumber(row, ['returnableQuantity']) <= 0 || isInCart(row)"
+                    :disabled="readNumber(row, ['returnableQuantity']) <= 0 || readNumber(row, ['currentStockQuantity']) <= 0 || isInCart(row)"
                     @click="addToCart(row)"
                   >
-                    {{ isInCart(row) ? 'Added' : 'Add' }}
+                    {{ isInCart(row) ? 'Added' : readNumber(row, ['currentStockQuantity']) <= 0 ? 'No Stock' : 'Add' }}
                   </UButton>
                 </td>
               </tr>
@@ -385,7 +385,7 @@ const vendorItems = computed(() => vendors.value.map(item => ({
 })))
 const employeeItems = computed(() => [
   { label: 'Select employee', value: null },
-  ...employees.value.filter(isActiveEmployee).map(item => ({ label: readText(item, ['name'], 'Employee'), value: readText(item, ['id'], '') }))
+  ...employees.value.filter(isActiveEmployee).map(item => ({ label: readText(item, ['fullName', 'name', 'firstName'], 'Employee'), value: readText(item, ['id'], '') }))
 ])
 
 const cartTotal = computed(() => cart.value.reduce((sum, item) => sum + lineTotal(item), 0))
