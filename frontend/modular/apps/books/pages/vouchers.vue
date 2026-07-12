@@ -125,9 +125,39 @@
           <h3 class="garmetix-panel-title">Voucher List</h3>
           <p class="garmetix-panel-subtitle">{{ filteredVouchers.length }} row(s) shown</p>
         </div>
-        <div class="flex flex-col gap-2 sm:flex-row">
-          <USelect v-model="voucherTypeFilter" :items="voucherTypeFilterItems" class="sm:w-44" />
-          <UInput v-model="search" icon="i-lucide-search" placeholder="Search vouchers" class="sm:w-72" />
+        <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-7">
+          <label class="space-y-1 text-xs text-muted">
+            <span>Month</span>
+            <UInput v-model="monthFilter" type="month" class="w-full" />
+          </label>
+          <label class="space-y-1 text-xs text-muted">
+            <span>From Date</span>
+            <UInput v-model="dateFromFilter" type="date" class="w-full" />
+          </label>
+          <label class="space-y-1 text-xs text-muted">
+            <span>To Date</span>
+            <UInput v-model="dateToFilter" type="date" class="w-full" />
+          </label>
+          <label class="space-y-1 text-xs text-muted">
+            <span>Voucher Type</span>
+            <USelect v-model="voucherTypeFilter" :items="voucherTypeFilterItems" class="w-full" />
+          </label>
+          <label class="space-y-1 text-xs text-muted">
+            <span>Ledger Type</span>
+            <USelect v-model="ledgerTypeFilter" :items="ledgerTypeFilterItems" class="w-full" />
+          </label>
+          <label class="space-y-1 text-xs text-muted">
+            <span>Ledger</span>
+            <USelectMenu v-model="ledgerFilter" value-key="value" :items="ledgerFilterItems" placeholder="All ledgers" class="w-full" />
+          </label>
+          <label class="space-y-1 text-xs text-muted">
+            <span>Search</span>
+            <UInput v-model="search" icon="i-lucide-search" placeholder="Voucher, party, remarks" class="w-full" />
+          </label>
+        </div>
+        <div v-if="hasListFilters" class="flex flex-wrap items-center justify-end gap-2">
+          <UBadge color="primary" variant="subtle">Filtered list</UBadge>
+          <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-x" @click="clearListFilters">Clear filters</UButton>
         </div>
       </div>
 
@@ -257,6 +287,11 @@ const error = ref('')
 const message = ref('')
 const search = ref('')
 const voucherTypeFilter = ref('all')
+const ledgerTypeFilter = ref('all')
+const ledgerFilter = ref('all')
+const dateFromFilter = ref('')
+const dateToFilter = ref('')
+const monthFilter = ref('')
 const selectedVoucherId = ref('')
 const selectedVoucher = ref<ApiRecord | null>(null)
 const downloadLoading = ref('')
@@ -279,7 +314,7 @@ const voucherTypeSelectItems = voucherTypeOptions.map(item => ({ label: item.lab
 const paymentModeSelectItems = paymentModeOptions.map(item => ({ label: item.label, value: item.value }))
 const voucherTypeFilterItems = [
   { label: 'All Types', value: 'all' },
-  ...voucherTypeOptions.map(item => ({ label: item.label, value: item.label }))
+  ...voucherTypeOptions.map(item => ({ label: item.label, value: String(item.value) }))
 ]
 
 const ledgerSelectItems = computed(() => ledgers.value
@@ -288,6 +323,22 @@ const ledgerSelectItems = computed(() => ledgers.value
     value: readText(item, ['id'], '')
   }))
   .filter(item => item.value))
+const ledgerFilterItems = computed(() => [
+  { label: 'All Ledgers', value: 'all' },
+  ...ledgerSelectItems.value
+])
+const ledgerTypeFilterItems = computed(() => {
+  const labels = new Set<string>()
+  ledgers.value.forEach(item => labels.add(ledgerTypeLabel(item)))
+  if (vouchers.value.some(item => !ledgerRecord(item.ledgerId))) labels.add('Unlinked')
+  return [
+    { label: 'All Ledger Types', value: 'all' },
+    ...Array.from(labels)
+      .filter(Boolean)
+      .sort((left, right) => left.localeCompare(right))
+      .map(label => ({ label, value: label }))
+  ]
+})
 const employeeSelectItems = computed(() => employees.value
   .filter(isActiveEmployee)
   .map(item => ({
@@ -310,7 +361,8 @@ const selectedStoreLabel = computed(() => {
   return store ? readText(store, ['storeName', 'name'], 'Store') : 'Store not selected'
 })
 
-const ledgerName = (id: unknown) => readText(ledgers.value.find(item => readText(item, ['id'], '') === String(id ?? '')), ['name'])
+const ledgerRecord = (id: unknown) => ledgers.value.find(item => readText(item, ['id'], '') === String(id ?? '')) ?? null
+const ledgerName = (id: unknown) => readText(ledgerRecord(id), ['name'])
 const partyName = (id: unknown) => readText(parties.value.find(item => readText(item, ['id'], '') === String(id ?? '')), ['name'])
 const employeeName = (id: unknown) => readText(employees.value.find(item => readText(item, ['id'], '') === String(id ?? '')), ['staffName', 'name', 'firstName'])
 const bankName = (id: unknown) => readText(banks.value.find(item => readText(item, ['id'], '') === String(id ?? '')), ['name'])
@@ -323,6 +375,32 @@ const voucherTypeLabel = (value: unknown) => optionLabel(voucherTypeOptions, val
 const paymentModeLabel = (value: unknown) => optionLabel(paymentModeOptions, value)
 const voucherPartyName = (voucher: ApiRecord) => readText(voucher, ['partyName'], partyName(voucher.partyId))
 const voucherKey = (voucher: ApiRecord) => readText(voucher, ['id', 'voucherNumber'])
+const ledgerTypeLabel = (ledger: ApiRecord | null | undefined) => readText(ledger, [
+  'ledgerGroupName',
+  'groupName',
+  'ledgerGroup',
+  'accountGroupName',
+  'accountTypeName',
+  'ledgerTypeName',
+  'typeName',
+  'ledgerType',
+  'type',
+  'accountType'
+], 'Unclassified')
+const voucherDateValue = (voucher: ApiRecord) => {
+  const value = readText(voucher, ['onDate', 'voucherDate', 'date'], '')
+  return value ? localDateValue(value) : ''
+}
+const voucherMonthValue = (voucher: ApiRecord) => voucherDateValue(voucher).slice(0, 7)
+const hasListFilters = computed(() =>
+  Boolean(search.value.trim()) ||
+  voucherTypeFilter.value !== 'all' ||
+  ledgerTypeFilter.value !== 'all' ||
+  ledgerFilter.value !== 'all' ||
+  Boolean(dateFromFilter.value) ||
+  Boolean(dateToFilter.value) ||
+  Boolean(monthFilter.value)
+)
 
 const cards = computed(() => {
   const paymentTotal = vouchers.value
@@ -345,7 +423,16 @@ const cards = computed(() => {
 const filteredVouchers = computed(() => {
   const term = search.value.trim().toLowerCase()
   return vouchers.value.filter(item => {
-    const typeMatches = voucherTypeFilter.value === 'all' || voucherTypeLabel(item.voucherType) === voucherTypeFilter.value
+    const voucherDate = voucherDateValue(item)
+    const selectedLedger = ledgerRecord(item.ledgerId)
+    const typeMatches = voucherTypeFilter.value === 'all' ||
+      String(item.voucherType ?? '') === voucherTypeFilter.value ||
+      voucherTypeLabel(item.voucherType) === voucherTypeFilter.value
+    const monthMatches = !monthFilter.value || voucherMonthValue(item) === monthFilter.value
+    const fromMatches = !dateFromFilter.value || (voucherDate && voucherDate >= dateFromFilter.value)
+    const toMatches = !dateToFilter.value || (voucherDate && voucherDate <= dateToFilter.value)
+    const ledgerMatches = ledgerFilter.value === 'all' || readText(item, ['ledgerId'], '') === ledgerFilter.value
+    const ledgerTypeMatches = ledgerTypeFilter.value === 'all' || ledgerTypeLabel(selectedLedger) === ledgerTypeFilter.value
     const textMatches = !term || [
       readText(item, ['voucherNumber']),
       readText(item, ['slipNumber']),
@@ -353,9 +440,10 @@ const filteredVouchers = computed(() => {
       readText(item, ['particulars']),
       readText(item, ['remarks']),
       ledgerName(item.ledgerId),
+      ledgerTypeLabel(selectedLedger),
       paymentModeLabel(item.paymentMode)
     ].join(' ').toLowerCase().includes(term)
-    return typeMatches && textMatches
+    return typeMatches && monthMatches && fromMatches && toMatches && ledgerMatches && ledgerTypeMatches && textMatches
   })
 })
 const selectedVoucherNumber = computed(() => selectedVoucher.value ? readText(selectedVoucher.value, ['voucherNumber']) : 'Select a voucher')
@@ -405,6 +493,16 @@ function localDateValue(value: unknown = new Date()) {
 
 function accountingDateTimeForApi(value: string) {
   return `${localDateValue(value)}T00:00:00`
+}
+
+function clearListFilters() {
+  search.value = ''
+  voucherTypeFilter.value = 'all'
+  ledgerTypeFilter.value = 'all'
+  ledgerFilter.value = 'all'
+  dateFromFilter.value = ''
+  dateToFilter.value = ''
+  monthFilter.value = ''
 }
 
 function seedDefaultFormValues() {

@@ -1,5 +1,13 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-12 - Stage 14L.1: Books Voucher Register Filters
+
+Codex made a frontend-only Books voucher register polish while Claude was coordinating Books git/deploy flow. Version bumped to `6.8.1`. No pull, commit, push, deploy, backend/API or database change was performed.
+
+- `frontend/modular/apps/books/pages/vouchers.vue` now has month/year, From Date, To Date, Voucher Type, Ledger Type, exact Ledger and text-search filters plus Clear Filters.
+- Ledger type/group labels are derived from already-loaded ledger metadata with `Unclassified`/`Unlinked` fallbacks.
+- Stage notes live in `.claude/changelog.md` and `frontend/modular/docs/stage-14l1-books-voucher-register-filters.md`.
+
 ## 2026-07-07 - Initial analysis + `.claude/` setup
 
 Claude ran a full first-pass analysis of the repo (backend, `frontend/legacy`, `frontend/modular`), read the existing Codex/AntiGravity TODOs and `MODULAR_TODO.md` stage history, and created the `.claude/` working-memory folder. No application code was changed.

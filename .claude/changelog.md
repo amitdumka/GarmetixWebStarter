@@ -4,6 +4,21 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-07-12 - Stage 14L.1: Books Voucher Register Filters
+
+**Type**: modular Books frontend polish. No backend/API/database/deploy change.
+
+**What happened**: Amit reported that the modular Books voucher listing had limited filters and asked for date-wise, voucher type, ledger type and month/year filters. Claude was also working in Books, so this pass explicitly avoided pull/commit/push/deploy and stayed inside the same clean `version6` worktree.
+
+**Files updated**:
+- `frontend/modular/apps/books/pages/vouchers.vue` - added month/year, From Date, To Date, Voucher Type, Ledger Type, exact Ledger and text-search filters plus a clear-filters action.
+- `frontend/modular/config/version.ts` - bumped to `6.8.1`, Stage 14L.1.
+- `frontend/modular/docs/MODULAR_TODO.md`, `frontend/modular/docs/stage-14l1-books-voucher-register-filters.md`, `.claude/todo.md`, `.claude/learnings.md` - coordination notes updated for Claude/Codex handoff.
+
+**Implementation notes**: Ledger type/group filtering is client-side and derives labels from readable ledger metadata already loaded by the page, with `Unclassified` and `Unlinked` fallbacks. Voucher type filtering now uses stable enum values while keeping label compatibility.
+
+**Validation**: `npm --prefix frontend/modular --workspace @garmetix/books-web run build`.
+
 ## 2026-07-09 - Stage 14L: searchable Ledger/Employee pickers + active-employee filtering
 
 **Type**: UX improvement, Books + HR. Amit asked for two things: Ledger dropdowns (Vouchers and elsewhere) should be searchable/autocomplete instead of plain scrolling lists, and Employee picker dropdowns should show active employees only everywhere except the HR Employee master page itself and (explicitly named) Payroll/Attendance/Salary Payment, which should also filter to active - plus listing pages should offer an All/status-wise view rather than being silently filtered.
