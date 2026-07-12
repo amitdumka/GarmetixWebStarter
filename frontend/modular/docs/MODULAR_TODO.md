@@ -399,3 +399,11 @@ Goal: bring legacy Accounting menu Day Book into modular Books without touching 
 
 - 14L.2 complete: bump modular version identity to `6.8.3`, add `apps/books/pages/day-book.vue`, register `/day-book` in route ownership, sidebar and Books Home quick links. The page ports legacy Day Book essentials: date presets, single-day previous/next, custom range, month/year, transaction type filter, optional journal rows, search, pagination, summary cards, CSV export, print/PDF evidence, detail slideover and quick-create actions. Source links are mapped to modular ownership: sale rows to POS history, purchase rows to Main purchase, voucher/vendor-payment/accounting rows to Books and cash voucher rows to POS Off Book. No backend/API/database/GST-module/deploy change.
 
+## Stage 14L.3: Notes Modal Parity And Admin Dot Matrix
+
+Goal: confirm modular Debit Notes/Credit Notes presence, convert their register workflows to modal/slide-over UX, and port the legacy Dot Matrix Print page into modular Admin.
+
+- 14L.3 complete: bump modular version identity to `6.8.4`. Debit Notes and Credit Notes already existed as direct pages; this stage added `CommercialNoteRegister` so each note type now opens New/Edit in a `USlideover` and View details in a `USlideover`, while keeping existing `/debit-notes/new`, `/credit-notes/new`, and `/:id` direct routes working. Added modular Admin `/dot-matrix-print` with store selector, settings modal, test-print modal, queue stats, retry/skip/reprint/reset actions and printable text preview. Registered Dot Matrix in route ownership, Admin sidebar maintenance menu, footer tools and Admin home quick links. Existing commercial-note and dot-matrix API endpoints were reused; no backend/API/database/deploy change.
+
+- Next Books/Admin polish, if requested: add server-side paging/filter contracts for very large commercial-note registers and live-test the Dot Matrix bridge actions on `.127` with the Epson LX-310 service running.
+

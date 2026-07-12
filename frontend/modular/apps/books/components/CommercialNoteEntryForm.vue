@@ -1,6 +1,6 @@
 <template>
   <section class="garmetix-page-stack">
-    <div class="garmetix-dashboard-hero">
+    <div v-if="!embedded" class="garmetix-dashboard-hero">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p class="garmetix-kicker"><UIcon :name="isCredit ? 'i-lucide-file-plus-2' : 'i-lucide-file-minus-2'" class="size-4" /> {{ isCredit ? 'Credit note' : 'Debit note' }}</p>
@@ -69,6 +69,16 @@
 
         <div class="flex flex-wrap justify-end gap-2 sm:col-span-2">
           <UButton
+            v-if="embedded"
+            type="button"
+            icon="i-lucide-x"
+            color="neutral"
+            variant="ghost"
+            @click="emit('cancel')"
+          >
+            Cancel
+          </UButton>
+          <UButton
             v-if="noteId"
             type="button"
             icon="i-lucide-file-down"
@@ -104,8 +114,13 @@ import { readText, toRows, type ApiRecord, useBooksApiClient } from '../utils/bo
 
 const props = defineProps({
   noteType: { type: Number, required: true },
-  noteId: { type: String, default: '' }
+  noteId: { type: String, default: '' },
+  embedded: { type: Boolean, default: false }
 })
+const emit = defineEmits<{
+  saved: []
+  cancel: []
+}>()
 
 const { get, post, put, download } = useBooksApiClient()
 
@@ -278,7 +293,8 @@ async function save() {
       if (createdId) await download(`commercial-notes/${createdId}/pdf`, { a5Slip: false, signatures: true }, `${readText(created, ['noteNumber'], 'note')}.pdf`)
     }
 
-    await navigateTo(isCredit.value ? '/credit-notes' : '/debit-notes')
+    if (props.embedded) emit('saved')
+    else await navigateTo(isCredit.value ? '/credit-notes' : '/debit-notes')
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Unable to save note.'
   } finally {

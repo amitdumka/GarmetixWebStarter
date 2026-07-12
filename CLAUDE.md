@@ -28,6 +28,17 @@ Codex added the missing modular Books `/day-book` page from the legacy Accountin
 - Route/menu/home links were added under Books Accounting.
 - Source links are mapped to modular ownership so sales open POS, purchase opens Main, vouchers/vendor payments/accounting stay in Books and cash vouchers open POS Off Book.
 
+## 2026-07-13 - Stage 14L.3: Notes Modal Parity And Admin Dot Matrix
+
+Codex confirmed modular Debit Notes and Credit Notes were present, then upgraded their list workflow to the requested register-first UX: New/Edit forms and Detail views now open in `USlideover` panels through `CommercialNoteRegister`, while the existing direct `/new` and `/:id` routes remain available for deep links. Added modular Admin `/dot-matrix-print`, porting the legacy Dot Matrix settings/test-print/queue workflow against the existing backend endpoints. Version bumped to `6.8.4`. No pull, commit, push, deploy, backend/API/database or GST-module change was performed.
+
+- `frontend/modular/apps/books/components/CommercialNoteRegister.vue`
+- `frontend/modular/apps/books/components/CommercialNoteEntryForm.vue`
+- `frontend/modular/apps/books/pages/debit-notes/index.vue`
+- `frontend/modular/apps/books/pages/credit-notes/index.vue`
+- `frontend/modular/apps/admin/pages/dot-matrix-print.vue`
+- Route/menu/home/version/docs notes were updated for the new Admin and Books surfaces.
+
 ## 2026-07-07 - Initial analysis + `.claude/` setup
 
 Claude ran a full first-pass analysis of the repo (backend, `frontend/legacy`, `frontend/modular`), read the existing Codex/AntiGravity TODOs and `MODULAR_TODO.md` stage history, and created the `.claude/` working-memory folder. No application code was changed.

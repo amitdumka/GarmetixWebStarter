@@ -14,6 +14,7 @@
         </div>
         <div class="flex flex-wrap gap-2">
           <UButton to="/system-health" icon="i-lucide-heart-pulse">System Health</UButton>
+          <UButton to="/dot-matrix-print" color="neutral" variant="soft" icon="i-lucide-printer">Dot Matrix</UButton>
           <UButton to="/message-logs" color="neutral" variant="soft" icon="i-lucide-message-square-warning">Message Logs</UButton>
         </div>
       </div>
@@ -91,6 +92,7 @@ const quickLinks = [
   { label: 'Import Export', href: '/import-export', icon: 'i-lucide-arrow-up-down' },
   { label: 'Data Consistency', href: '/data-consistency', icon: 'i-lucide-database-zap' },
   { label: 'System Health', href: '/system-health', icon: 'i-lucide-heart-pulse' },
+  { label: 'Dot Matrix Print', href: '/dot-matrix-print', icon: 'i-lucide-printer' },
   { label: 'Runtime', href: '/runtime-diagnostics', icon: 'i-lucide-bug' }
 ]
 

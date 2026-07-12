@@ -228,6 +228,7 @@ export const garmetixRoutes: GarmetixRouteDefinition[] = [
   route({ id: 'ui-audit', path: '/ui-audit', label: 'UI Audit', icon: 'i-lucide-monitor-check', targetApp: 'admin', moduleKey: 'data', moduleLabel: 'Data And Audit', roles: [...routeRoles.ownerAdmin] }),
 
   route({ id: 'system-health', path: '/system-health', label: 'System Health', icon: 'i-lucide-heart-pulse', targetApp: 'admin', moduleKey: 'maintenance', moduleLabel: 'Maintenance', roles: [...routeRoles.ownerAdmin] }),
+  route({ id: 'dot-matrix-print', path: '/dot-matrix-print', label: 'Dot Matrix Print', icon: 'i-lucide-printer', targetApp: 'admin', moduleKey: 'maintenance', moduleLabel: 'Maintenance', roles: [...routeRoles.ownerAdmin] }),
   route({ id: 'runtime-diagnostics', path: '/runtime-diagnostics', label: 'Runtime Diagnostics', icon: 'i-lucide-bug', targetApp: 'admin', moduleKey: 'maintenance', moduleLabel: 'Maintenance', roles: [...routeRoles.ownerAdmin] }),
   route({ id: 'backup-maintenance', path: '/backup-maintenance', label: 'Backup Maintenance', icon: 'i-lucide-hard-drive-download', targetApp: 'admin', moduleKey: 'maintenance', moduleLabel: 'Maintenance', roles: [...routeRoles.ownerAdmin] }),
   route({ id: 'google-drive-backup', path: '/google-drive-backup', label: 'Google Drive Backup', icon: 'i-lucide-cloud-upload', targetApp: 'admin', moduleKey: 'maintenance', moduleLabel: 'Maintenance', roles: [...routeRoles.ownerAdmin] }),

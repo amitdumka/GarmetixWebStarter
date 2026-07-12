@@ -4,6 +4,24 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-07-13 - Stage 14L.3: Notes Modal Parity And Admin Dot Matrix
+
+**Type**: modular Books/Admin frontend feature. No backend/API/database/GST-module/deploy change.
+
+**What happened**: Amit asked whether Debit Notes and Credit Notes were present in modular and asked to bring them from legacy with all forms/details opening in popup or slide-over surfaces. Also asked to port the legacy `/dot-matrix-print` page into the modular Admin module. Confirmed commercial note and dot-matrix endpoints already existed, so this was a frontend-only parity pass.
+
+**Files updated**:
+- `frontend/modular/apps/books/components/CommercialNoteRegister.vue` - new register-first Debit/Credit note component with New/Edit form slide-over, detail slide-over, A4/A5 PDF actions and search.
+- `frontend/modular/apps/books/components/CommercialNoteEntryForm.vue` - added embedded mode and save/cancel emits so the existing form can be reused in a slide-over without breaking direct routes.
+- `frontend/modular/apps/books/pages/debit-notes/index.vue`, `frontend/modular/apps/books/pages/credit-notes/index.vue` - switched list pages to the shared register component.
+- `frontend/modular/apps/admin/pages/dot-matrix-print.vue` - new Admin page porting legacy Dot Matrix settings, test print, queue stats/actions and printable text preview.
+- `frontend/modular/config/routes.ts`, `frontend/modular/packages/shared-ui/components/ModularAppShell.vue`, `frontend/modular/apps/admin/pages/index.vue` - registered Dot Matrix in route ownership, Admin sidebar/footer and quick links.
+- `frontend/modular/config/version.ts`, `frontend/modular/docs/MODULAR_TODO.md`, `frontend/modular/docs/stage-14l3-notes-modal-dot-matrix-admin.md`, `.claude/todo.md`, `.claude/learnings.md` - stage identity and handoff notes.
+
+**Implementation notes**: Existing `/debit-notes/new`, `/credit-notes/new`, and `/:id` direct pages are intentionally preserved for deep links, but normal register operations now stay in context. Dot Matrix uses the existing Admin API client and only fetches printable text with raw `fetch` because that endpoint returns plain text, not JSON.
+
+**Validation**: Books and Admin modular builds should be run for this stage.
+
 ## 2026-07-12 - Stage 14L.2: Books Day Book Port
 
 **Type**: modular Books frontend feature. No backend/API/database/GST-module/deploy change.

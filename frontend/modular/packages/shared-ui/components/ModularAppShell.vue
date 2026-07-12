@@ -437,6 +437,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
     ] },
     { key: 'maintenance', label: 'Maintenance', items: [
       { id: 'system-health', label: 'System Health', href: '/system-health', icon: 'i-lucide-activity' },
+      { id: 'dot-matrix-print', label: 'Dot Matrix Print', href: '/dot-matrix-print', icon: 'i-lucide-printer' },
       { id: 'runtime', label: 'Runtime Diagnostics', href: '/runtime-diagnostics', icon: 'i-lucide-stethoscope' },
       { id: 'backup', label: 'Backup Maintenance', href: '/backup-maintenance', icon: 'i-lucide-hard-drive-download' },
       { id: 'drive', label: 'Google Drive Backup', href: '/google-drive-backup', icon: 'i-lucide-cloud-upload' },
@@ -516,6 +517,7 @@ const supportItems = computed<NavigationMenuItem[]>(() => [{
 
 const footerToolItems = computed<DropdownMenuItem[]>(() => [
   dropdownRouteItem('System Health', 'i-lucide-activity', 'admin', '/system-health'),
+  dropdownRouteItem('Dot Matrix Print', 'i-lucide-printer', 'admin', '/dot-matrix-print'),
   dropdownRouteItem('Runtime Diagnostics', 'i-lucide-stethoscope', 'admin', '/runtime-diagnostics'),
   dropdownRouteItem('Backup Maintenance', 'i-lucide-hard-drive-download', 'admin', '/backup-maintenance'),
   dropdownRouteItem('Google Drive Backup', 'i-lucide-cloud-upload', 'admin', '/google-drive-backup'),
