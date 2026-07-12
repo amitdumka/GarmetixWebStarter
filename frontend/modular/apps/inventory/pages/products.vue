@@ -76,9 +76,32 @@
             <span class="text-muted">Barcode</span>
             <UInput v-model="form.barcode" placeholder="Auto-generated if empty" class="w-full" />
           </label>
-          <label class="space-y-1 text-sm">
+          <label class="relative space-y-1 text-sm">
             <span class="text-muted">HSN code</span>
-            <UInput v-model="form.hsnCode" placeholder="e.g. 6205" class="w-full" />
+            <UInput
+              v-model="form.hsnCode"
+              placeholder="e.g. 6205"
+              class="w-full"
+              @input="onHsnInput"
+              @focus="onHsnInput"
+              @blur="hideHsnSuggestionsSoon"
+            />
+            <p v-if="!form.hsnCode" class="text-xs text-warning">Missing HSN - GST reporting for this product will be flagged.</p>
+            <ul
+              v-if="hsnSuggestions.length"
+              class="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto rounded-md border border-default bg-default shadow-lg"
+            >
+              <li
+                v-for="suggestion in hsnSuggestions"
+                :key="suggestion.hsnCode"
+                class="cursor-pointer px-3 py-2 text-xs hover:bg-elevated"
+                @mousedown.prevent="applyHsnSuggestion(suggestion)"
+              >
+                <span class="font-medium">{{ suggestion.hsnCode }}</span>
+                <span class="text-muted"> - {{ suggestion.description || suggestion.commonTradeDescription || 'No description' }}</span>
+                <span v-if="suggestion.defaultGstRate !== null" class="text-muted"> ({{ suggestion.defaultGstRate }}%)</span>
+              </li>
+            </ul>
           </label>
           <label class="space-y-1 text-sm">
             <span class="text-muted">MRP</span>
@@ -136,6 +159,42 @@ function emptyForm() {
 }
 
 const { get, post, put } = useAdminApiClient()
+
+interface HsnSuggestion {
+  hsnCode: string
+  description: string | null
+  commonTradeDescription: string | null
+  defaultGstRate: number | null
+}
+
+const hsnSuggestions = ref<HsnSuggestion[]>([])
+let hsnSearchTimer: ReturnType<typeof setTimeout> | null = null
+
+function onHsnInput() {
+  if (hsnSearchTimer) clearTimeout(hsnSearchTimer)
+  hsnSearchTimer = setTimeout(async () => {
+    const query = form.hsnCode.trim()
+    if (query.length < 1) {
+      hsnSuggestions.value = []
+      return
+    }
+    try {
+      hsnSuggestions.value = await post<HsnSuggestion[]>('gst/hsn/search', { query, goodsOnly: true })
+    } catch {
+      hsnSuggestions.value = []
+    }
+  }, 250)
+}
+
+function hideHsnSuggestionsSoon() {
+  setTimeout(() => { hsnSuggestions.value = [] }, 150)
+}
+
+function applyHsnSuggestion(suggestion: HsnSuggestion) {
+  form.hsnCode = suggestion.hsnCode
+  hsnSuggestions.value = []
+}
+
 const search = ref('')
 const categoryFilter = ref('')
 const brandFilter = ref('')

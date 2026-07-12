@@ -365,6 +365,7 @@ app.MapFactoryResetEndpoints();
 app.MapGstReturnEndpoints();
 app.MapGstinEndpoints();
 app.MapGstTaxEndpoints();
+app.MapGstHsnEndpoints();
 app.MapCommercialEndpoints();
 app.MapCustomerDuesReconciliationEndpoints();
 app.MapFinancialYearCloseoutEndpoints();

@@ -50,6 +50,19 @@ export function useBooksApiClient() {
     return url.toString()
   }
 
+  async function postForm<T>(path: string, form: FormData) {
+    const token = getStoredToken(window.localStorage)
+    const headers = new Headers()
+    if (token) headers.set('Authorization', `Bearer ${token}`)
+
+    const response = await fetch(apiUrl(path), { method: 'POST', headers, body: form })
+    const text = await response.text()
+    if (!response.ok) {
+      throw new Error(stripServerUrl(text || `Upload failed with ${response.status}`))
+    }
+    return (text ? JSON.parse(text) : null) as T
+  }
+
   async function download(path: string, query?: Record<string, string | number | boolean | null | undefined>, fallbackFileName = 'garmetix-document.pdf', body?: unknown) {
     const token = getStoredToken(window.localStorage)
     const headers = new Headers()
@@ -97,7 +110,7 @@ export function useBooksApiClient() {
     setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000)
   }
 
-  return { apiBaseUrl, apiUrl, del, download, get, openBlob, post, put }
+  return { apiBaseUrl, apiUrl, del, download, get, openBlob, post, postForm, put }
 }
 
 export function readNumber(source: ApiRecord | null | undefined, keys: string[] | null | undefined) {

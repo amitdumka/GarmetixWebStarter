@@ -127,6 +127,50 @@ public sealed record GstinCacheRowDto(
     string? VerificationSource,
     bool? IsActive);
 
+public sealed record GstHsnRowDto(
+    Guid Id,
+    string HsnCode,
+    string CodeType,
+    string? ChapterCode,
+    string? Description,
+    string? TechnicalDescription,
+    string? CommonTradeDescription,
+    string? DefaultUqc,
+    decimal? DefaultGstRate,
+    decimal? CgstRate,
+    decimal? SgstRate,
+    decimal? IgstRate,
+    decimal? CessRate,
+    DateTime? EffectiveFrom,
+    DateTime? EffectiveTo,
+    string? Source,
+    bool IsActive,
+    int ProductMappingCount);
+
+public sealed record GstHsnSaveRequest(
+    string HsnCode,
+    string CodeType,
+    string? ChapterCode,
+    string? Description,
+    string? TechnicalDescription,
+    string? CommonTradeDescription,
+    string? DefaultUqc,
+    decimal? DefaultGstRate,
+    decimal? CgstRate,
+    decimal? SgstRate,
+    decimal? IgstRate,
+    decimal? CessRate,
+    DateTime? EffectiveFrom,
+    DateTime? EffectiveTo,
+    string? Source,
+    bool IsActive);
+
+public sealed record GstHsnSearchRequest(string? Query, bool GoodsOnly, bool ServicesOnly);
+
+public sealed record GstHsnBulkStatusRequest(List<Guid> Ids, bool IsActive);
+
+public sealed record GstHsnImportResultDto(int RowsRead, int Created, int Updated, int Skipped, IReadOnlyList<string> Errors);
+
 public static class GstTaxCatalog
 {
     public static readonly IReadOnlyList<string> ProviderTypes =
