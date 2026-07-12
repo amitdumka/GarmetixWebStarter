@@ -38,6 +38,11 @@ public static class GstTaxEndpoints
         group.MapPost("/providers/{id:guid}/test-gstin", TestGstinAsync).RequireAuthorization(GarmetixPolicies.Admin);
         group.MapPost("/providers/{id:guid}/test-hsn", TestHsnAsync).RequireAuthorization(GarmetixPolicies.Admin);
 
+        group.MapPost("/gstin/verify", VerifyGstinAsync);
+        group.MapGet("/gstin/cache", GetGstinCacheAsync);
+        group.MapGet("/gstin/cache/{gstin}", GetGstinCacheEntryAsync);
+        group.MapPost("/gstin/cache/manual", SaveGstinManualAsync).RequireAuthorization(GarmetixPolicies.Edit);
+
         return group;
     }
 
@@ -596,4 +601,80 @@ public static class GstTaxEndpoints
         provider.UpdatedAt,
         provider.CreatedBy,
         provider.UpdatedBy);
+
+    private static async Task<IResult> VerifyGstinAsync(
+        GstinVerifyRequest request,
+        GstinResolutionService resolver,
+        GarmetixDbContext db,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        await EnsureStorageAsync(db, loggerFactory, cancellationToken);
+        var result = await resolver.VerifyAsync(request.Gstin, request.ForceRefresh, cancellationToken);
+        return Results.Ok(result);
+    }
+
+    private static async Task<IResult> GetGstinCacheAsync(
+        GarmetixDbContext db,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken,
+        string? search = null,
+        int limit = 50)
+    {
+        await EnsureStorageAsync(db, loggerFactory, cancellationToken);
+
+        var query = db.GstinVerificationCaches.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(c =>
+                c.Gstin.ToLower().Contains(term) ||
+                (c.LegalName != null && c.LegalName.ToLower().Contains(term)) ||
+                (c.TradeName != null && c.TradeName.ToLower().Contains(term)));
+        }
+
+        var rows = await query
+            .OrderByDescending(c => c.LastVerifiedAt)
+            .Take(Math.Clamp(limit, 1, 200))
+            .Select(c => new GstinCacheRowDto(c.Gstin, c.LegalName, c.TradeName, c.RegistrationStatus, c.StateCode, c.StateName, c.LastVerifiedAt, c.VerificationSource, c.IsActive))
+            .ToListAsync(cancellationToken);
+
+        return Results.Ok(rows);
+    }
+
+    private static async Task<IResult> GetGstinCacheEntryAsync(
+        string gstin,
+        GarmetixDbContext db,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        await EnsureStorageAsync(db, loggerFactory, cancellationToken);
+
+        var normalized = GstinResolutionService.NormalizeGstin(gstin);
+        var entry = await db.GstinVerificationCaches.AsNoTracking().FirstOrDefaultAsync(c => c.Gstin == normalized, cancellationToken);
+        if (entry is null)
+        {
+            return Results.NotFound(new { message = "GSTIN not found in the local cache." });
+        }
+
+        return Results.Ok(new GstinCacheRowDto(entry.Gstin, entry.LegalName, entry.TradeName, entry.RegistrationStatus, entry.StateCode, entry.StateName, entry.LastVerifiedAt, entry.VerificationSource, entry.IsActive));
+    }
+
+    private static async Task<IResult> SaveGstinManualAsync(
+        GstinManualCacheRequest request,
+        GstinResolutionService resolver,
+        GarmetixDbContext db,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        await EnsureStorageAsync(db, loggerFactory, cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(request.Gstin))
+        {
+            return Results.BadRequest(new { message = "GSTIN is required." });
+        }
+
+        var result = await resolver.SaveManualAsync(request, cancellationToken);
+        return Results.Ok(result);
+    }
 }

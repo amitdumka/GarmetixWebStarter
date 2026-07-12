@@ -90,6 +90,43 @@ public sealed record GstProviderTestResultDto(
     int DurationMs,
     DateTime CheckedAtUtc);
 
+public sealed record GstinVerifyRequest(string? Gstin, bool ForceRefresh);
+
+public sealed record GstinLookupResultDto(
+    bool Success,
+    string Gstin,
+    string? LegalName,
+    string? TradeName,
+    string? TaxpayerType,
+    string? RegistrationStatus,
+    string? StateCode,
+    string? StateName,
+    string? PrincipalAddress,
+    DateTime? LastVerifiedAt,
+    string? Source,
+    string? ErrorMessage);
+
+public sealed record GstinManualCacheRequest(
+    string Gstin,
+    string? LegalName,
+    string? TradeName,
+    string? TaxpayerType,
+    string? RegistrationStatus,
+    string? StateCode,
+    string? StateName,
+    string? PrincipalAddress);
+
+public sealed record GstinCacheRowDto(
+    string Gstin,
+    string? LegalName,
+    string? TradeName,
+    string? RegistrationStatus,
+    string? StateCode,
+    string? StateName,
+    DateTime? LastVerifiedAt,
+    string? VerificationSource,
+    bool? IsActive);
+
 public static class GstTaxCatalog
 {
     public static readonly IReadOnlyList<string> ProviderTypes =

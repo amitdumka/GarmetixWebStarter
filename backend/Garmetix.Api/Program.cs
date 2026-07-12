@@ -142,6 +142,8 @@ builder.Services.AddDataProtection()
     .SetApplicationName("GarmetixApi")
     .PersistKeysToFileSystem(new DirectoryInfo(gstTaxKeyPath));
 builder.Services.AddSingleton<GstCredentialProtector>();
+builder.Services.AddHttpClient("GstGenericRestProvider");
+builder.Services.AddScoped<GstinResolutionService>();
 builder.Services.Configure<AssistantOptions>(builder.Configuration.GetSection("Assistant"));
 builder.Services.AddScoped<AssistantConversationStore>();
 builder.Services.AddScoped<AssistantToolCatalog>();
