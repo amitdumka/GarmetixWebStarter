@@ -24,7 +24,9 @@ using Garmetix.Api.DotMatrix;
 using Garmetix.Api.Dashboard;
 using Garmetix.Api.Hr;
 using Garmetix.Api.GstReturns;
+using Garmetix.Api.GstTax;
 using Garmetix.Api.Gstin;
+using Microsoft.AspNetCore.DataProtection;
 using Garmetix.Api.GoodsReturn;
 using Garmetix.Api.ImportExport;
 using Garmetix.Api.Licensing;
@@ -134,6 +136,12 @@ if (builder.Configuration.GetValue<bool>("DotMatrixPrinting:RunWorker"))
 }
 builder.Services.Configure<GstinLookupOptions>(builder.Configuration.GetSection("GstinLookup"));
 builder.Services.AddHttpClient<GstinLookupService>();
+var gstTaxKeyPath = builder.Configuration["Gst:DataProtectionKeyPath"]
+    ?? Path.Combine(builder.Environment.ContentRootPath, "data", "gst-tax-keys");
+builder.Services.AddDataProtection()
+    .SetApplicationName("GarmetixApi")
+    .PersistKeysToFileSystem(new DirectoryInfo(gstTaxKeyPath));
+builder.Services.AddSingleton<GstCredentialProtector>();
 builder.Services.Configure<AssistantOptions>(builder.Configuration.GetSection("Assistant"));
 builder.Services.AddScoped<AssistantConversationStore>();
 builder.Services.AddScoped<AssistantToolCatalog>();
@@ -190,6 +198,7 @@ builder.Services.AddAuthorization(options =>
     AddMatrixPolicy(options, GarmetixPolicies.Payroll);
     AddMatrixPolicy(options, GarmetixPolicies.Attendance);
     AddMatrixPolicy(options, GarmetixPolicies.Marketing);
+    AddMatrixPolicy(options, GarmetixPolicies.Gst);
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -233,6 +242,7 @@ using (var scope = app.Services.CreateScope())
 
     await DatabaseSchemaRepairService.RepairKnownSchemaDriftAsync(db, logger);
     await scope.ServiceProvider.GetRequiredService<SystemDefaultsService>().EnsureStartupDefaultsAsync(CancellationToken.None);
+    await GstTaxSeedService.EnsureSeedDataAsync(db, CancellationToken.None);
 }
 
 app.Use(async (context, next) =>
@@ -352,6 +362,7 @@ app.MapBackupEndpoints();
 app.MapFactoryResetEndpoints();
 app.MapGstReturnEndpoints();
 app.MapGstinEndpoints();
+app.MapGstTaxEndpoints();
 app.MapCommercialEndpoints();
 app.MapCustomerDuesReconciliationEndpoints();
 app.MapFinancialYearCloseoutEndpoints();

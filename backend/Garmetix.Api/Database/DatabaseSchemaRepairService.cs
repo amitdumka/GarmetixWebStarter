@@ -149,6 +149,268 @@ public static class DatabaseSchemaRepairService
         logger.LogInformation("GST return draft storage repair check completed.");
     }
 
+    public static async Task RepairGstTaxStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
+    {
+        // The GST & Taxes module (providers/credentials/logs/HSN+rate master/audit engine) can be added
+        // to a Docker volume whose EF migration history was already baselined before these tables existed.
+        // Every GST & Taxes endpoint calls this before querying, mirroring RepairGstReturnStorageAsync above.
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "GstApiProviders" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "CompanyId" uuid NULL,
+                "StoreGroupId" uuid NULL,
+                "StoreId" uuid NULL,
+                "ProviderName" text NOT NULL DEFAULT '',
+                "ProviderType" text NOT NULL DEFAULT 'LocalMasterOnly',
+                "Environment" text NOT NULL DEFAULT 'Sandbox',
+                "BaseUrl" text NULL,
+                "AuthUrl" text NULL,
+                "IsEnabled" boolean NOT NULL DEFAULT true,
+                "Priority" integer NOT NULL DEFAULT 100,
+                "FallbackEnabled" boolean NOT NULL DEFAULT true,
+                "TimeoutSeconds" integer NOT NULL DEFAULT 30,
+                "MaxRetries" integer NOT NULL DEFAULT 1,
+                "Notes" text NULL,
+                "CreatedBy" text NULL,
+                "UpdatedBy" text NULL,
+                CONSTRAINT "PK_GstApiProviders" PRIMARY KEY ("Id")
+            );
+
+            CREATE TABLE IF NOT EXISTS "GstApiProviderFeatures" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "ProviderId" uuid NOT NULL,
+                "FeatureCode" text NOT NULL DEFAULT '',
+                "IsEnabled" boolean NOT NULL DEFAULT true,
+                "Priority" integer NOT NULL DEFAULT 100,
+                CONSTRAINT "PK_GstApiProviderFeatures" PRIMARY KEY ("Id")
+            );
+
+            CREATE TABLE IF NOT EXISTS "GstApiProviderCredentials" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "ProviderId" uuid NOT NULL,
+                "CredentialKey" text NOT NULL DEFAULT '',
+                "EncryptedValue" text NOT NULL DEFAULT '',
+                "MaskedDisplayValue" text NULL,
+                CONSTRAINT "PK_GstApiProviderCredentials" PRIMARY KEY ("Id")
+            );
+
+            CREATE TABLE IF NOT EXISTS "GstApiCallLogs" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "ProviderId" uuid NULL,
+                "FeatureCode" text NOT NULL DEFAULT '',
+                "RequestMethod" text NULL,
+                "RequestUrl" text NULL,
+                "RequestHash" text NULL,
+                "RequestPayloadJson" text NULL,
+                "ResponseStatusCode" integer NULL,
+                "ResponsePayloadJson" text NULL,
+                "IsSuccess" boolean NOT NULL DEFAULT false,
+                "ErrorCode" text NULL,
+                "ErrorMessage" text NULL,
+                "DurationMs" integer NULL,
+                "InvoiceId" uuid NULL,
+                "PurchaseInvoiceId" uuid NULL,
+                "CustomerId" uuid NULL,
+                "VendorId" uuid NULL,
+                "ProductId" uuid NULL,
+                "Gstin" text NULL,
+                "HsnCode" text NULL,
+                "CompanyId" uuid NULL,
+                "StoreId" uuid NULL,
+                "CreatedBy" text NULL,
+                CONSTRAINT "PK_GstApiCallLogs" PRIMARY KEY ("Id")
+            );
+
+            CREATE TABLE IF NOT EXISTS "GstinVerificationCaches" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "Gstin" text NOT NULL DEFAULT '',
+                "LegalName" text NULL,
+                "TradeName" text NULL,
+                "TaxpayerType" text NULL,
+                "RegistrationStatus" text NULL,
+                "RegistrationDate" timestamp without time zone NULL,
+                "CancellationDate" timestamp without time zone NULL,
+                "StateCode" text NULL,
+                "StateName" text NULL,
+                "PrincipalAddress" text NULL,
+                "AdditionalAddressJson" text NOT NULL DEFAULT '[]',
+                "NatureOfBusinessJson" text NOT NULL DEFAULT '[]',
+                "LastVerifiedAt" timestamp without time zone NULL,
+                "VerificationSource" text NULL,
+                "RawResponseJson" text NULL,
+                "IsActive" boolean NULL,
+                CONSTRAINT "PK_GstinVerificationCaches" PRIMARY KEY ("Id")
+            );
+
+            CREATE TABLE IF NOT EXISTS "GstHsnMasters" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "HsnCode" text NOT NULL DEFAULT '',
+                "CodeType" text NOT NULL DEFAULT 'Goods',
+                "ChapterCode" text NULL,
+                "Description" text NULL,
+                "TechnicalDescription" text NULL,
+                "CommonTradeDescription" text NULL,
+                "RelatedCodesJson" text NOT NULL DEFAULT '[]',
+                "DefaultUqc" text NULL,
+                "DefaultGstRate" numeric(8,3) NULL,
+                "CgstRate" numeric(8,3) NULL,
+                "SgstRate" numeric(8,3) NULL,
+                "IgstRate" numeric(8,3) NULL,
+                "CessRate" numeric(8,3) NULL,
+                "EffectiveFrom" timestamp without time zone NULL,
+                "EffectiveTo" timestamp without time zone NULL,
+                "Source" text NULL,
+                "IsActive" boolean NOT NULL DEFAULT true,
+                CONSTRAINT "PK_GstHsnMasters" PRIMARY KEY ("Id")
+            );
+
+            CREATE TABLE IF NOT EXISTS "GstTaxRateRules" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "RuleName" text NOT NULL DEFAULT '',
+                "HsnCode" text NULL,
+                "ProductCategory" text NULL,
+                "GoodsOrService" text NOT NULL DEFAULT 'Goods',
+                "TaxRate" numeric(8,3) NOT NULL DEFAULT 0,
+                "CgstRate" numeric(8,3) NULL,
+                "SgstRate" numeric(8,3) NULL,
+                "IgstRate" numeric(8,3) NULL,
+                "CessRate" numeric(8,3) NULL,
+                "PriceThresholdFrom" numeric(18,3) NULL,
+                "PriceThresholdTo" numeric(18,3) NULL,
+                "ThresholdBasis" text NULL,
+                "IntraStateFormula" text NULL,
+                "InterStateFormula" text NULL,
+                "EffectiveFrom" timestamp without time zone NOT NULL DEFAULT now(),
+                "EffectiveTo" timestamp without time zone NULL,
+                "Priority" integer NOT NULL DEFAULT 100,
+                "IsActive" boolean NOT NULL DEFAULT true,
+                "Notes" text NULL,
+                CONSTRAINT "PK_GstTaxRateRules" PRIMARY KEY ("Id")
+            );
+
+            CREATE TABLE IF NOT EXISTS "GstStateCodes" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "StateCode" text NOT NULL DEFAULT '',
+                "StateName" text NOT NULL DEFAULT '',
+                "IsUnionTerritory" boolean NOT NULL DEFAULT false,
+                "IsOtherTerritory" boolean NOT NULL DEFAULT false,
+                CONSTRAINT "PK_GstStateCodes" PRIMARY KEY ("Id")
+            );
+
+            CREATE TABLE IF NOT EXISTS "GstUqcCodes" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "UqcCode" text NOT NULL DEFAULT '',
+                "Description" text NOT NULL DEFAULT '',
+                "IsActive" boolean NOT NULL DEFAULT true,
+                CONSTRAINT "PK_GstUqcCodes" PRIMARY KEY ("Id")
+            );
+
+            CREATE TABLE IF NOT EXISTS "GstAuditRules" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "RuleCode" text NOT NULL DEFAULT '',
+                "RuleName" text NOT NULL DEFAULT '',
+                "ModuleArea" text NOT NULL DEFAULT '',
+                "Severity" text NOT NULL DEFAULT 'Warning',
+                "IsEnabled" boolean NOT NULL DEFAULT true,
+                "StrictMode" boolean NOT NULL DEFAULT false,
+                "ConfigJson" text NOT NULL DEFAULT '{{}}',
+                "MessageTemplate" text NULL,
+                CONSTRAINT "PK_GstAuditRules" PRIMARY KEY ("Id")
+            );
+
+            CREATE TABLE IF NOT EXISTS "GstAuditFindings" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "CompanyId" uuid NOT NULL,
+                "CreatedBy" text NULL,
+                "RuleCode" text NOT NULL DEFAULT '',
+                "Severity" text NOT NULL DEFAULT 'Warning',
+                "ModuleArea" text NOT NULL DEFAULT '',
+                "EntityType" text NOT NULL DEFAULT '',
+                "EntityId" uuid NULL,
+                "InvoiceId" uuid NULL,
+                "PurchaseInvoiceId" uuid NULL,
+                "ProductId" uuid NULL,
+                "CustomerId" uuid NULL,
+                "VendorId" uuid NULL,
+                "LineId" uuid NULL,
+                "Gstin" text NULL,
+                "HsnCode" text NULL,
+                "Message" text NOT NULL DEFAULT '',
+                "ExpectedValue" text NULL,
+                "ActualValue" text NULL,
+                "SuggestedFixJson" text NULL,
+                "Status" text NOT NULL DEFAULT 'Open',
+                "ReviewedBy" text NULL,
+                "ReviewedAt" timestamp without time zone NULL,
+                CONSTRAINT "PK_GstAuditFindings" PRIMARY KEY ("Id")
+            );
+            """, cancellationToken);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE INDEX IF NOT EXISTS "IX_GstApiProviders_CompanyId_StoreId_IsEnabled_Priority" ON "GstApiProviders" ("CompanyId", "StoreId", "IsEnabled", "Priority");
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_GstApiProviderFeatures_ProviderId_FeatureCode" ON "GstApiProviderFeatures" ("ProviderId", "FeatureCode");
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_GstApiProviderCredentials_ProviderId_CredentialKey" ON "GstApiProviderCredentials" ("ProviderId", "CredentialKey");
+            CREATE INDEX IF NOT EXISTS "IX_GstApiCallLogs_CompanyId_FeatureCode_CreatedAt" ON "GstApiCallLogs" ("CompanyId", "FeatureCode", "CreatedAt");
+            CREATE INDEX IF NOT EXISTS "IX_GstApiCallLogs_ProviderId_IsSuccess_CreatedAt" ON "GstApiCallLogs" ("ProviderId", "IsSuccess", "CreatedAt");
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_GstinVerificationCaches_Gstin" ON "GstinVerificationCaches" ("Gstin");
+            CREATE INDEX IF NOT EXISTS "IX_GstHsnMasters_HsnCode" ON "GstHsnMasters" ("HsnCode");
+            CREATE INDEX IF NOT EXISTS "IX_GstHsnMasters_CodeType_IsActive" ON "GstHsnMasters" ("CodeType", "IsActive");
+            CREATE INDEX IF NOT EXISTS "IX_GstTaxRateRules_HsnCode_EffectiveFrom" ON "GstTaxRateRules" ("HsnCode", "EffectiveFrom");
+            CREATE INDEX IF NOT EXISTS "IX_GstTaxRateRules_ProductCategory_EffectiveFrom" ON "GstTaxRateRules" ("ProductCategory", "EffectiveFrom");
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_GstStateCodes_StateCode" ON "GstStateCodes" ("StateCode");
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_GstUqcCodes_UqcCode" ON "GstUqcCodes" ("UqcCode");
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_GstAuditRules_RuleCode" ON "GstAuditRules" ("RuleCode");
+            CREATE INDEX IF NOT EXISTS "IX_GstAuditFindings_CompanyId_Status_Severity_CreatedAt" ON "GstAuditFindings" ("CompanyId", "Status", "Severity", "CreatedAt");
+            CREATE INDEX IF NOT EXISTS "IX_GstAuditFindings_CompanyId_ModuleArea_RuleCode" ON "GstAuditFindings" ("CompanyId", "ModuleArea", "RuleCode");
+            """, cancellationToken);
+
+        logger.LogInformation("GST & Taxes module storage repair check completed.");
+    }
+
 
 public static async Task RepairCashVoucherConversionStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
 {
@@ -1303,6 +1565,7 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
         try
         {
             await RepairGstReturnStorageAsync(db, logger, cancellationToken);
+            await RepairGstTaxStorageAsync(db, logger, cancellationToken);
             await RepairPosHeldBillStorageAsync(db, logger, cancellationToken);
             await RepairCashVoucherConversionStorageAsync(db, logger, cancellationToken);
             await RepairStoreDayStorageAsync(db, logger, cancellationToken);

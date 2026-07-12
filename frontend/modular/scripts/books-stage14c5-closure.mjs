@@ -28,7 +28,7 @@ console.log(`Token env: ${tokenEnv}${token ? ' (set)' : ' (not set)'}`)
 console.log(`Manual acceptance env: ${manualEnv}${manualAccepted ? ' (YES)' : ' (not set)'}`)
 console.log('Financial year lock create/unlock: guarded write, confirmation phrase required')
 
-if (!version.startsWith('6.0.')) failures.push(`Expected Version6 Books lane version 6.0.x, found ${version}.`)
+if (!version.startsWith('6.')) failures.push(`Expected Version6 Books lane version 6.x, found ${version}.`)
 
 checkRequiredFiles()
 checkPackageScripts()

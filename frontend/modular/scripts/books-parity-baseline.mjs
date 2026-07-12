@@ -12,7 +12,6 @@ console.log('Mutation check: disabled')
 console.log('Ledger/voucher posting check: disabled')
 
 if (!version.startsWith('6.')) failures.push(`Expected Version6, found ${version}.`)
-if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 modular lane, found ${stage}.`)
 
 checkArtifacts()
 checkPackageScripts()

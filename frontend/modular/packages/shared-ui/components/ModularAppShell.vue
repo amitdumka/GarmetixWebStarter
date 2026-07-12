@@ -383,7 +383,8 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'credit-notes', label: 'Credit Notes', href: '/credit-notes', icon: 'i-lucide-file-plus-2' },
       { id: 'commercial-notes', label: 'Commercial Summary', href: '/commercial-notes', icon: 'i-lucide-files' }
     ] },
-    { key: 'gst', label: 'GST', items: [
+    { key: 'gst', label: 'GST & Taxes', items: [
+      { id: 'gst-tax-dashboard', label: 'GST & Taxes Dashboard', href: '/gst-tax-dashboard', icon: 'i-lucide-layout-dashboard' },
       { id: 'gst-returns', label: 'GST Returns', href: '/gst-returns', icon: 'i-lucide-file-json-2' },
       { id: 'gst-reports', label: 'GST Reports', href: '/gst-reports', icon: 'i-lucide-table-properties' },
       { id: 'gst-production', label: 'GST Production', href: '/gst-production', icon: 'i-lucide-factory' },
