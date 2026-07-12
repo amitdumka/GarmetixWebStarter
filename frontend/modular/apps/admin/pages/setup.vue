@@ -14,6 +14,16 @@
       </div>
     </div>
 
+    <section class="garmetix-section-card">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 class="garmetix-panel-title">GST API Configuration</h3>
+          <p class="text-xs text-muted">Configure GSTIN/HSN/e-invoice/e-way bill API providers and encrypted credentials from the GST & Taxes module - no environment variables needed.</p>
+        </div>
+        <UButton icon="i-lucide-plug-zap" color="primary" variant="soft" :to="gstApiSetupUrl" target="_blank">Configure GST API</UButton>
+      </div>
+    </section>
+
     <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
 
     <section class="grid gap-3 md:grid-cols-3">
@@ -51,6 +61,12 @@ useHead({ title: 'Company - Garmetix Admin' })
 type SetupTab = 'companies' | 'groups' | 'stores'
 
 const { get } = useAdminApiClient()
+const runtimeConfig = useRuntimeConfig()
+const gstApiSetupUrl = computed(() => {
+  const appUrls = runtimeConfig.public.appUrls as Record<string, string | undefined>
+  const booksUrl = String(appUrls?.NUXT_PUBLIC_GARMETIX_BOOKS_URL || '').replace(/\/$/, '')
+  return booksUrl ? `${booksUrl}/gst-tax-setup` : '/gst-tax-setup'
+})
 const loading = ref(true)
 const error = ref('')
 const search = ref('')

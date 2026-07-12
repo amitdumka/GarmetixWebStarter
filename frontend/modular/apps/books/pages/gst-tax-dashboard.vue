@@ -50,6 +50,7 @@
     <section class="garmetix-section-card">
       <h3 class="garmetix-panel-title mb-3">Quick Actions</h3>
       <div class="flex flex-wrap gap-2">
+        <UButton icon="i-lucide-plug-zap" color="primary" variant="soft" to="/gst-tax-setup">Configure GST API</UButton>
         <UButton icon="i-lucide-file-json-2" color="neutral" variant="soft" to="/gst-returns">GST Returns</UButton>
         <UButton icon="i-lucide-table-properties" color="neutral" variant="soft" to="/gst-reports">GST Reports</UButton>
         <UButton icon="i-lucide-shield-check" color="neutral" variant="soft" to="/accounting-gst-validation">Accounting/GST Validation</UButton>

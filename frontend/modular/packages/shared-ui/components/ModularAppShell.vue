@@ -385,6 +385,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
     ] },
     { key: 'gst', label: 'GST & Taxes', items: [
       { id: 'gst-tax-dashboard', label: 'GST & Taxes Dashboard', href: '/gst-tax-dashboard', icon: 'i-lucide-layout-dashboard' },
+      { id: 'gst-tax-setup', label: 'GST API Setup', href: '/gst-tax-setup', icon: 'i-lucide-plug-zap' },
       { id: 'gst-returns', label: 'GST Returns', href: '/gst-returns', icon: 'i-lucide-file-json-2' },
       { id: 'gst-reports', label: 'GST Reports', href: '/gst-reports', icon: 'i-lucide-table-properties' },
       { id: 'gst-production', label: 'GST Production', href: '/gst-production', icon: 'i-lucide-factory' },

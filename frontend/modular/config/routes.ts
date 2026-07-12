@@ -142,6 +142,7 @@ export const garmetixRoutes: GarmetixRouteDefinition[] = [
   route({ id: 'commercial-notes', path: '/commercial-notes', label: 'Commercial Notes', icon: 'i-lucide-files', targetApp: 'books', moduleKey: 'notes', moduleLabel: 'Notes', roles: [...routeRoles.books] }),
 
   route({ id: 'gst-tax-dashboard', path: '/gst-tax-dashboard', label: 'GST & Taxes Dashboard', icon: 'i-lucide-layout-dashboard', targetApp: 'books', moduleKey: 'gst', moduleLabel: 'GST & Taxes', roles: [...routeRoles.books] }),
+  route({ id: 'gst-tax-setup', path: '/gst-tax-setup', label: 'GST API Setup', icon: 'i-lucide-plug-zap', targetApp: 'books', moduleKey: 'gst', moduleLabel: 'GST & Taxes', roles: [...routeRoles.ownerAdmin] }),
   route({ id: 'gst-returns', path: '/gst-returns', label: 'GST Returns', icon: 'i-lucide-file-check-2', targetApp: 'books', moduleKey: 'gst', moduleLabel: 'GST & Taxes', roles: [...routeRoles.books] }),
   route({ id: 'gst-reports', path: '/gst-reports', label: 'GST Reports', icon: 'i-lucide-chart-column', targetApp: 'books', moduleKey: 'gst', moduleLabel: 'GST & Taxes', roles: [...routeRoles.books] }),
   route({ id: 'gst-production', path: '/gst-production', label: 'GST Production', icon: 'i-lucide-factory', targetApp: 'books', moduleKey: 'gst', moduleLabel: 'GST & Taxes', roles: [...routeRoles.books] }),
