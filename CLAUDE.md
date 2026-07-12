@@ -20,6 +20,14 @@ Codex made a frontend-only Books voucher register polish while Claude was coordi
 - Ledger type/group labels are derived from already-loaded ledger metadata with `Unclassified`/`Unlinked` fallbacks.
 - Stage notes live in `.claude/changelog.md` and `frontend/modular/docs/stage-14l1-books-voucher-register-filters.md`.
 
+## 2026-07-12 - Stage 14L.2: Books Day Book Port
+
+Codex added the missing modular Books `/day-book` page from the legacy Accounting menu. Version bumped to `6.8.3` on top of Claude's `6.8.2` GST-3 base. No pull, commit, push, deploy, backend/API/database or GST-module change was performed.
+
+- `frontend/modular/apps/books/pages/day-book.vue` ports legacy filters, pagination, summary cards, CSV export, print/PDF evidence, detail slideover, quick-create and source-opening.
+- Route/menu/home links were added under Books Accounting.
+- Source links are mapped to modular ownership so sales open POS, purchase opens Main, vouchers/vendor payments/accounting stay in Books and cash vouchers open POS Off Book.
+
 ## 2026-07-07 - Initial analysis + `.claude/` setup
 
 Claude ran a full first-pass analysis of the repo (backend, `frontend/legacy`, `frontend/modular`), read the existing Codex/AntiGravity TODOs and `MODULAR_TODO.md` stage history, and created the `.claude/` working-memory folder. No application code was changed.

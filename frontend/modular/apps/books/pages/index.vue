@@ -10,6 +10,7 @@
           </p>
         </div>
         <div class="flex flex-wrap gap-2">
+          <UButton to="/day-book" icon="i-lucide-book-open-check">Day Book</UButton>
           <UButton to="/vouchers" icon="i-lucide-file-signature">Vouchers</UButton>
           <UButton to="/gst-reports" color="neutral" variant="soft" icon="i-lucide-chart-column">GST Reports</UButton>
         </div>
@@ -82,6 +83,7 @@ const cards = computed(() => [
 const recentRows = computed(() => [...vouchers.value, ...pettyCash.value, ...parties.value])
 const quickLinks = [
   { label: 'Accounting', href: '/accounting', icon: 'i-lucide-book-open-check' },
+  { label: 'Day Book', href: '/day-book', icon: 'i-lucide-book-open-check' },
   { label: 'Parties', href: '/parties', icon: 'i-lucide-contact-round' },
   { label: 'Petty Cash', href: '/petty-cash', icon: 'i-lucide-wallet' },
   { label: 'Vouchers', href: '/vouchers', icon: 'i-lucide-file-signature' },

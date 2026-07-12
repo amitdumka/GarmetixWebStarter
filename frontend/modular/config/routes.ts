@@ -125,6 +125,7 @@ export const garmetixRoutes: GarmetixRouteDefinition[] = [
   route({ id: 'stock-reports', path: '/stock-reports', label: 'Stock Reports', icon: 'i-lucide-clipboard-list', targetApp: 'ai-sense', moduleKey: 'aiSense', moduleLabel: 'AI Sense', roles: [...routeRoles.analytics] }),
 
   route({ id: 'accounting', path: '/accounting', label: 'Accounting', icon: 'i-lucide-book-open-check', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books], status: 'shell-ready' }),
+  route({ id: 'day-book', path: '/day-book', label: 'Day Book', icon: 'i-lucide-book-open-check', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books] }),
   route({ id: 'ledgers', path: '/ledgers', label: 'Ledgers', icon: 'i-lucide-book-open', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books] }),
   route({ id: 'banking', path: '/banking', label: 'Banking', icon: 'i-lucide-piggy-bank', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books] }),
   route({ id: 'financial-year-locks', path: '/financial-year-locks', label: 'Financial Year Locks', icon: 'i-lucide-lock-keyhole', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books] }),

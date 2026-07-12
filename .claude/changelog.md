@@ -4,6 +4,23 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-07-12 - Stage 14L.2: Books Day Book Port
+
+**Type**: modular Books frontend feature. No backend/API/database/GST-module/deploy change.
+
+**What happened**: Amit pointed out that Day Book from legacy Accounting menu was missing in the modular frontend and warned that Claude is working in the GST module. Checked the main worktree and Claude worktree status first, did not pull, and avoided GST implementation files. The existing backend already exposes `DayBookEndpoints`, so this was a frontend port layered after the current `6.8.2` Stage GST-3 base.
+
+**Files updated**:
+- `frontend/modular/apps/books/pages/day-book.vue` - new modular Day Book page with date presets, single-day previous/next, custom range, month/year, type/search/page filters, optional journal rows, summary cards, CSV export, print/PDF evidence, detail slideover, quick-create actions and source-opening.
+- `frontend/modular/config/routes.ts` and `frontend/modular/packages/shared-ui/components/ModularAppShell.vue` - registered `/day-book` in Books Accounting and sidebar.
+- `frontend/modular/apps/books/pages/index.vue` - added Books Home quick links.
+- `frontend/modular/config/version.ts` - bumped to `6.8.3`, Stage 14L.2.
+- `frontend/modular/docs/MODULAR_TODO.md`, `frontend/modular/docs/stage-14l2-books-day-book-port.md`, `.claude/todo.md`, `.claude/learnings.md` - coordination notes updated.
+
+**Implementation notes**: Legacy backend source paths are mapped to modular ownership so `/billing` opens POS Sales History, `/purchase` opens Main Purchase, voucher/vendor-payment/accounting rows stay in Books, and `/cash-vouchers` opens POS Off Book. This prevents broken `/books/billing` or `/books/purchase` routes.
+
+**Validation**: `npm --prefix frontend/modular --workspace @garmetix/books-web run build`.
+
 ## 2026-07-12 - Stage 14L.1: Books Voucher Register Filters
 
 **Type**: modular Books frontend polish. No backend/API/database/deploy change.

@@ -393,3 +393,9 @@ Goal: improve the modular Books Voucher listing filters without changing the sha
 - 14L.1 complete: bump modular version identity to `6.8.1`, add date range, month/year, voucher type, ledger type/group, exact ledger and text-search filters to `apps/books/pages/vouchers.vue`, plus a clear-filters action. Ledger type/group is resolved from readable ledger metadata already loaded by the page, with safe `Unclassified`/`Unlinked` fallbacks. No backend/API/database/deploy change.
 - Next Books listing polish, if requested: server-side voucher pagination for very large ledgers and a backend query contract for ledger-group filters once the current Books backend lane settles.
 
+## Stage 14L.2: Books Day Book Port
+
+Goal: bring legacy Accounting menu Day Book into modular Books without touching backend/API/database or Claude's GST module lane.
+
+- 14L.2 complete: bump modular version identity to `6.8.3`, add `apps/books/pages/day-book.vue`, register `/day-book` in route ownership, sidebar and Books Home quick links. The page ports legacy Day Book essentials: date presets, single-day previous/next, custom range, month/year, transaction type filter, optional journal rows, search, pagination, summary cards, CSV export, print/PDF evidence, detail slideover and quick-create actions. Source links are mapped to modular ownership: sale rows to POS history, purchase rows to Main purchase, voucher/vendor-payment/accounting rows to Books and cash voucher rows to POS Off Book. No backend/API/database/GST-module/deploy change.
+
