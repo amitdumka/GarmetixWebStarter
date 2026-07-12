@@ -228,6 +228,39 @@ public sealed record GstRateResolveResult(
     string? Source,
     IReadOnlyList<string> Warnings);
 
+public sealed record GstAuditRuleDto(
+    Guid Id,
+    string RuleCode,
+    string RuleName,
+    string ModuleArea,
+    string Severity,
+    bool IsEnabled,
+    bool StrictMode,
+    string? MessageTemplate);
+
+public sealed record GstAuditRuleUpdateRequest(bool IsEnabled, bool StrictMode, string? MessageTemplate);
+
+public sealed record GstAuditRunRequest(string? ModuleArea, DateTime? FromDate, DateTime? ToDate);
+
+public sealed record GstAuditRunResultDto(int FindingsCreated, int EntitiesScanned, IReadOnlyList<string> Notes);
+
+public sealed record GstAuditFindingDto(
+    Guid Id,
+    string RuleCode,
+    string Severity,
+    string ModuleArea,
+    string EntityType,
+    Guid? EntityId,
+    string? Gstin,
+    string? HsnCode,
+    string Message,
+    string? ExpectedValue,
+    string? ActualValue,
+    string Status,
+    DateTime CreatedAt,
+    string? ReviewedBy,
+    DateTime? ReviewedAt);
+
 public static class GstTaxCatalog
 {
     public static readonly IReadOnlyList<string> ProviderTypes =

@@ -147,6 +147,7 @@ export const garmetixRoutes: GarmetixRouteDefinition[] = [
   route({ id: 'gst-tax-gstin-verify', path: '/gst-tax-gstin-verify', label: 'GSTIN Verification', icon: 'i-lucide-badge-check', targetApp: 'books', moduleKey: 'gst', moduleLabel: 'GST & Taxes', roles: [...routeRoles.books] }),
   route({ id: 'gst-tax-hsn', path: '/gst-tax-hsn', label: 'HSN / SAC Master', icon: 'i-lucide-table-properties', targetApp: 'books', moduleKey: 'gst', moduleLabel: 'GST & Taxes', roles: [...routeRoles.books] }),
   route({ id: 'gst-tax-rates', path: '/gst-tax-rates', label: 'GST Rate Master', icon: 'i-lucide-percent', targetApp: 'books', moduleKey: 'gst', moduleLabel: 'GST & Taxes', roles: [...routeRoles.books] }),
+  route({ id: 'gst-tax-audit', path: '/gst-tax-audit', label: 'GST Audit', icon: 'i-lucide-search-check', targetApp: 'books', moduleKey: 'gst', moduleLabel: 'GST & Taxes', roles: [...routeRoles.books] }),
   route({ id: 'gst-returns', path: '/gst-returns', label: 'GST Returns', icon: 'i-lucide-file-check-2', targetApp: 'books', moduleKey: 'gst', moduleLabel: 'GST & Taxes', roles: [...routeRoles.books] }),
   route({ id: 'gst-reports', path: '/gst-reports', label: 'GST Reports', icon: 'i-lucide-chart-column', targetApp: 'books', moduleKey: 'gst', moduleLabel: 'GST & Taxes', roles: [...routeRoles.books] }),
   route({ id: 'gst-production', path: '/gst-production', label: 'GST Production', icon: 'i-lucide-factory', targetApp: 'books', moduleKey: 'gst', moduleLabel: 'GST & Taxes', roles: [...routeRoles.books] }),
