@@ -171,6 +171,63 @@ public sealed record GstHsnBulkStatusRequest(List<Guid> Ids, bool IsActive);
 
 public sealed record GstHsnImportResultDto(int RowsRead, int Created, int Updated, int Skipped, IReadOnlyList<string> Errors);
 
+public sealed record GstRateRuleRowDto(
+    Guid Id,
+    string RuleName,
+    string? HsnCode,
+    string? ProductCategory,
+    string GoodsOrService,
+    decimal TaxRate,
+    decimal? CgstRate,
+    decimal? SgstRate,
+    decimal? IgstRate,
+    decimal? CessRate,
+    decimal? PriceThresholdFrom,
+    decimal? PriceThresholdTo,
+    string? ThresholdBasis,
+    DateTime EffectiveFrom,
+    DateTime? EffectiveTo,
+    int Priority,
+    bool IsActive,
+    string? Notes);
+
+public sealed record GstRateRuleSaveRequest(
+    string RuleName,
+    string? HsnCode,
+    string? ProductCategory,
+    string GoodsOrService,
+    decimal TaxRate,
+    decimal? CgstRate,
+    decimal? SgstRate,
+    decimal? IgstRate,
+    decimal? CessRate,
+    decimal? PriceThresholdFrom,
+    decimal? PriceThresholdTo,
+    string? ThresholdBasis,
+    DateTime EffectiveFrom,
+    DateTime? EffectiveTo,
+    int Priority,
+    bool IsActive,
+    string? Notes);
+
+public sealed record GstRateResolveRequest(
+    string? HsnCode,
+    string? ProductCategory,
+    decimal BasicRateAfterDiscount,
+    DateTime InvoiceDate,
+    bool IsIntraState);
+
+public sealed record GstRateResolveResult(
+    bool Success,
+    decimal TaxRate,
+    decimal CgstRate,
+    decimal SgstRate,
+    decimal IgstRate,
+    decimal CessRate,
+    string? RuleName,
+    string? Source,
+    IReadOnlyList<string> Warnings);
+
 public static class GstTaxCatalog
 {
     public static readonly IReadOnlyList<string> ProviderTypes =

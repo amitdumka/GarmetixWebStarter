@@ -144,6 +144,7 @@ builder.Services.AddDataProtection()
 builder.Services.AddSingleton<GstCredentialProtector>();
 builder.Services.AddHttpClient("GstGenericRestProvider");
 builder.Services.AddScoped<GstinResolutionService>();
+builder.Services.AddScoped<GstRateResolutionService>();
 builder.Services.Configure<AssistantOptions>(builder.Configuration.GetSection("Assistant"));
 builder.Services.AddScoped<AssistantConversationStore>();
 builder.Services.AddScoped<AssistantToolCatalog>();
@@ -366,6 +367,7 @@ app.MapGstReturnEndpoints();
 app.MapGstinEndpoints();
 app.MapGstTaxEndpoints();
 app.MapGstHsnEndpoints();
+app.MapGstRateEndpoints();
 app.MapCommercialEndpoints();
 app.MapCustomerDuesReconciliationEndpoints();
 app.MapFinancialYearCloseoutEndpoints();

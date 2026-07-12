@@ -121,7 +121,14 @@
           </label>
           <label class="space-y-1 text-sm">
             <span class="text-muted">Tax</span>
-            <USelect v-model="form.taxId" :items="taxSelectItems" placeholder="Select tax slab" class="w-full" />
+            <div class="flex gap-2">
+              <USelect v-model="form.taxId" :items="taxSelectItems" placeholder="Select tax slab" class="w-full flex-1" />
+              <UButton size="sm" color="neutral" variant="soft" icon="i-lucide-calculator" :loading="resolvingRate" @click="resolveGstRate">Resolve</UButton>
+            </div>
+            <p v-if="resolvedRateMessage" class="text-xs" :class="resolvedRateMatchId ? 'text-success' : 'text-muted'">
+              {{ resolvedRateMessage }}
+              <button v-if="resolvedRateMatchId" type="button" class="underline" @click="form.taxId = resolvedRateMatchId!">Apply</button>
+            </p>
           </label>
           <label class="space-y-1 text-sm">
             <span class="text-muted">Opening quantity</span>
@@ -193,6 +200,49 @@ function hideHsnSuggestionsSoon() {
 function applyHsnSuggestion(suggestion: HsnSuggestion) {
   form.hsnCode = suggestion.hsnCode
   hsnSuggestions.value = []
+}
+
+interface RateResolveResult {
+  success: boolean
+  taxRate: number
+  ruleName: string | null
+  warnings: string[]
+}
+
+const resolvingRate = ref(false)
+const resolvedRateMessage = ref('')
+const resolvedRateMatchId = ref<string | null>(null)
+
+async function resolveGstRate() {
+  resolvingRate.value = true
+  resolvedRateMessage.value = ''
+  resolvedRateMatchId.value = null
+  try {
+    const categoryName = categories.value.find(c => String(c.id) === form.productCategoryId)?.name
+    const result = await post<RateResolveResult>('gst/rates/resolve', {
+      hsnCode: form.hsnCode || null,
+      productCategory: categoryName ? String(categoryName) : null,
+      // No invoice-line discount context exists in the product master, so MRP is used as the closest available proxy for "basic rate after discount".
+      basicRateAfterDiscount: form.mrp || 0,
+      invoiceDate: new Date().toISOString().slice(0, 10),
+      isIntraState: true
+    })
+
+    if (!result.success) {
+      resolvedRateMessage.value = result.warnings[0] || 'No matching GST rate rule found.'
+      return
+    }
+
+    const match = taxes.value.find(t => Math.abs(readNumber(t, ['rate']) - result.taxRate) < 0.01)
+    resolvedRateMatchId.value = match ? readText(match, ['id'], '') : null
+    resolvedRateMessage.value = match
+      ? `Resolved ${result.taxRate}% (${result.ruleName}) - matches "${readText(match, ['name'])}".`
+      : `Resolved ${result.taxRate}% (${result.ruleName}) - no matching tax slab exists yet.`
+  } catch (err) {
+    resolvedRateMessage.value = err instanceof Error ? err.message : 'Rate resolve failed.'
+  } finally {
+    resolvingRate.value = false
+  }
 }
 
 const search = ref('')
