@@ -388,6 +388,57 @@ public static class DatabaseSchemaRepairService
                 "ReviewedAt" timestamp without time zone NULL,
                 CONSTRAINT "PK_GstAuditFindings" PRIMARY KEY ("Id")
             );
+
+            CREATE TABLE IF NOT EXISTS "GstEinvoiceIrnRecords" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "CompanyId" uuid NOT NULL,
+                "CreatedBy" text NULL,
+                "InvoiceId" uuid NOT NULL,
+                "ProviderId" uuid NULL,
+                "Irn" text NULL,
+                "AckNumber" text NULL,
+                "AckDate" timestamp without time zone NULL,
+                "SignedInvoiceJson" text NULL,
+                "SignedQrCode" text NULL,
+                "Status" text NOT NULL DEFAULT 'NotConfigured',
+                "CancelReason" text NULL,
+                "CancelledAt" timestamp without time zone NULL,
+                "ErrorCode" text NULL,
+                "ErrorMessage" text NULL,
+                "LastAttemptAt" timestamp without time zone NULL,
+                CONSTRAINT "PK_GstEinvoiceIrnRecords" PRIMARY KEY ("Id")
+            );
+
+            CREATE TABLE IF NOT EXISTS "GstEwaybillRecords" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "CompanyId" uuid NOT NULL,
+                "CreatedBy" text NULL,
+                "InvoiceId" uuid NULL,
+                "PurchaseInvoiceId" uuid NULL,
+                "ProviderId" uuid NULL,
+                "EwbNumber" text NULL,
+                "EwbDate" timestamp without time zone NULL,
+                "ValidUpto" timestamp without time zone NULL,
+                "VehicleNumber" text NULL,
+                "TransporterId" text NULL,
+                "TransporterName" text NULL,
+                "DistanceKm" integer NULL,
+                "Status" text NOT NULL DEFAULT 'NotConfigured',
+                "CancelReason" text NULL,
+                "CancelledAt" timestamp without time zone NULL,
+                "ErrorCode" text NULL,
+                "ErrorMessage" text NULL,
+                "LastAttemptAt" timestamp without time zone NULL,
+                CONSTRAINT "PK_GstEwaybillRecords" PRIMARY KEY ("Id")
+            );
             """, cancellationToken);
 
         await db.Database.ExecuteSqlRawAsync("""
@@ -406,6 +457,11 @@ public static class DatabaseSchemaRepairService
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_GstAuditRules_RuleCode" ON "GstAuditRules" ("RuleCode");
             CREATE INDEX IF NOT EXISTS "IX_GstAuditFindings_CompanyId_Status_Severity_CreatedAt" ON "GstAuditFindings" ("CompanyId", "Status", "Severity", "CreatedAt");
             CREATE INDEX IF NOT EXISTS "IX_GstAuditFindings_CompanyId_ModuleArea_RuleCode" ON "GstAuditFindings" ("CompanyId", "ModuleArea", "RuleCode");
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_GstEinvoiceIrnRecords_CompanyId_InvoiceId" ON "GstEinvoiceIrnRecords" ("CompanyId", "InvoiceId");
+            CREATE INDEX IF NOT EXISTS "IX_GstEinvoiceIrnRecords_CompanyId_Status" ON "GstEinvoiceIrnRecords" ("CompanyId", "Status");
+            CREATE INDEX IF NOT EXISTS "IX_GstEwaybillRecords_CompanyId_InvoiceId" ON "GstEwaybillRecords" ("CompanyId", "InvoiceId");
+            CREATE INDEX IF NOT EXISTS "IX_GstEwaybillRecords_CompanyId_PurchaseInvoiceId" ON "GstEwaybillRecords" ("CompanyId", "PurchaseInvoiceId");
+            CREATE INDEX IF NOT EXISTS "IX_GstEwaybillRecords_CompanyId_Status" ON "GstEwaybillRecords" ("CompanyId", "Status");
             """, cancellationToken);
 
         logger.LogInformation("GST & Taxes module storage repair check completed.");

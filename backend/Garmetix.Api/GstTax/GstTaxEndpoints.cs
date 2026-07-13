@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using Garmetix.Api.Auth;
 using Garmetix.Api.Database;
 using Garmetix.Api.Workspace;
+using Garmetix.Core.Enums;
 using Garmetix.Core.Models.GstTax;
 using Garmetix.Core.Models.Inventory;
 using Garmetix.Infrastructure.Data;
@@ -88,6 +89,31 @@ public static class GstTaxEndpoints
         var enabledProviders = await providers.CountAsync(p => p.IsEnabled, cancellationToken);
         var localMaster = await providers.Where(p => p.ProviderType == "LocalMasterOnly").Select(p => p.ProviderName).FirstOrDefaultAsync(cancellationToken);
 
+        var today = DateTime.Today;
+        var monthStart = new DateTime(today.Year, today.Month, 1);
+        var monthEnd = monthStart.AddMonths(1);
+
+        var b2bInvoiceIds = await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking().Where(i => !i.Deleted), context)
+            .Where(i => i.OnDate >= monthStart && i.OnDate < monthEnd && i.InvoiceStatus != InvoiceStatus.Cancelled && i.SaleInvoiceType == SaleInvoiceType.B2B)
+            .Select(i => i.Id)
+            .ToListAsync(cancellationToken);
+        var generatedIrnIds = await db.GstEinvoiceIrnRecords.AsNoTracking()
+            .Where(r => !r.Deleted && r.Status == "Generated" && b2bInvoiceIds.Contains(r.InvoiceId))
+            .Select(r => r.InvoiceId)
+            .ToListAsync(cancellationToken);
+        var einvoicePending = b2bInvoiceIds.Count - generatedIrnIds.Count;
+
+        const decimal ewayBillDefaultThreshold = 50000m;
+        var eligibleEwayInvoiceIds = await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking().Where(i => !i.Deleted), context)
+            .Where(i => i.OnDate >= monthStart && i.OnDate < monthEnd && i.InvoiceStatus != InvoiceStatus.Cancelled && i.BillAmount > ewayBillDefaultThreshold)
+            .Select(i => i.Id)
+            .ToListAsync(cancellationToken);
+        var generatedEwayIds = await db.GstEwaybillRecords.AsNoTracking()
+            .Where(r => !r.Deleted && r.Status == "Generated" && r.InvoiceId != null && eligibleEwayInvoiceIds.Contains(r.InvoiceId.Value))
+            .Select(r => r.InvoiceId)
+            .ToListAsync(cancellationToken);
+        var ewayBillPending = eligibleEwayInvoiceIds.Count - generatedEwayIds.Count;
+
         var dashboard = new GstDashboardDto(
             GstinVerifiedCount: verifiedCustomers + verifiedVendors,
             InactiveGstinCount: inactiveCustomers + inactiveVendors,
@@ -100,12 +126,12 @@ public static class GstTaxEndpoints
             CurrentMonthOutputGst: 0m,
             CurrentMonthTaxablePurchases: 0m,
             CurrentMonthInputGst: 0m,
-            EInvoicePendingCount: 0,
-            EWayBillPendingCount: 0,
+            EInvoicePendingCount: einvoicePending,
+            EWayBillPendingCount: ewayBillPending,
             ProviderHealth: new GstProviderHealthSummaryDto(totalProviders, enabledProviders, localMaster),
             PendingStageNotes:
             [
-                "Sale/Purchase GST mismatch counts, monthly taxable/output/input GST totals, and E-Invoice/E-Way Bill pending counts are wired up in later GST & Taxes stages (Sale/Purchase Review, Returns, E-Invoice/E-Way Bill placeholders)."
+                "Sale/Purchase GST mismatch counts and monthly taxable/output/input GST totals are wired up in a later GST & Taxes stage (Sale/Purchase Review already resolves rate mismatches per-invoice - dashboard-level rollups are not yet aggregated here). E-Invoice/E-Way Bill counts are current-month pending counts (B2B invoices without a Generated IRN; invoices over the Rs 50,000 default e-way bill threshold without a Generated e-way bill) - no live NIC/e-way bill portal integration exists yet, see GST API Setup and the E-Invoice/E-Way Bill pages."
             ]);
 
         return Results.Ok(dashboard);

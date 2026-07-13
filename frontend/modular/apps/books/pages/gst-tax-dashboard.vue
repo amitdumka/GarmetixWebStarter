@@ -58,6 +58,7 @@
         <UButton icon="i-lucide-receipt-text" color="primary" variant="soft" to="/gst-tax-sale-review">Sale GST Review</UButton>
         <UButton icon="i-lucide-truck" color="primary" variant="soft" to="/gst-tax-purchase-review">Purchase GST Review</UButton>
         <UButton icon="i-lucide-scroll-text" color="primary" variant="soft" to="/gst-tax-itc-register">ITC Register</UButton>
+        <UButton icon="i-lucide-qr-code" color="primary" variant="soft" to="/gst-tax-einvoice-ewaybill">E-Invoice & E-Way Bill</UButton>
         <UButton icon="i-lucide-file-json-2" color="neutral" variant="soft" to="/gst-returns">GST Returns</UButton>
         <UButton icon="i-lucide-table-properties" color="neutral" variant="soft" to="/gst-reports">GST Reports</UButton>
         <UButton icon="i-lucide-shield-check" color="neutral" variant="soft" to="/accounting-gst-validation">Accounting/GST Validation</UButton>

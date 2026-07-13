@@ -267,3 +267,62 @@ public class GstAuditFinding : CompanyBase
     [Display(Name = "Reviewed By")] public string? ReviewedBy { get; set; }
     [Display(Name = "Reviewed At")] public DateTime? ReviewedAt { get; set; }
 }
+
+/// <summary>
+/// One row per Sale invoice's e-invoice (IRN) lifecycle state (spec Stage GST-10). Provider-ready structure:
+/// ProviderId is nullable and Status defaults to "NotConfigured" until an OfficialEInvoiceNIC/ClearTax/etc.
+/// provider with the EINVOICE_* features is actually set up (Stage GST-2's provider registry already supports
+/// this feature set - see GstTaxCatalog.FeatureCodes) - no live NIC integration exists yet, this only tracks state.
+/// </summary>
+public class GstEinvoiceIrnRecord : CompanyBase
+{
+    public GstEinvoiceIrnRecord()
+    {
+        Status = "NotConfigured";
+    }
+
+    [Display(Name = "Invoice Id")] public Guid InvoiceId { get; set; }
+    [Display(Name = "Provider Id")] public Guid? ProviderId { get; set; }
+    [Display(Name = "Irn")] public string? Irn { get; set; }
+    [Display(Name = "Ack Number")] public string? AckNumber { get; set; }
+    [Display(Name = "Ack Date")] public DateTime? AckDate { get; set; }
+    [Display(Name = "Signed Invoice Json")] public string? SignedInvoiceJson { get; set; }
+    [Display(Name = "Signed Qr Code")] public string? SignedQrCode { get; set; }
+    [Display(Name = "Status")] public string Status { get; set; }
+    [Display(Name = "Cancel Reason")] public string? CancelReason { get; set; }
+    [Display(Name = "Cancelled At")] public DateTime? CancelledAt { get; set; }
+    [Display(Name = "Error Code")] public string? ErrorCode { get; set; }
+    [Display(Name = "Error Message")] public string? ErrorMessage { get; set; }
+    [Display(Name = "Last Attempt At")] public DateTime? LastAttemptAt { get; set; }
+}
+
+/// <summary>
+/// One row per invoice's e-way bill lifecycle state (spec Stage GST-10), Sale or Purchase (InvoiceId/
+/// PurchaseInvoiceId are both nullable, mirroring GstAuditFinding's existing dual-link pattern). Provider-ready
+/// structure: ProviderId is nullable and Status defaults to "NotConfigured" until an OfficialEWayBill/etc.
+/// provider with the EWAYBILL_* features is actually set up - no live e-way bill portal integration exists yet.
+/// </summary>
+public class GstEwaybillRecord : CompanyBase
+{
+    public GstEwaybillRecord()
+    {
+        Status = "NotConfigured";
+    }
+
+    [Display(Name = "Invoice Id")] public Guid? InvoiceId { get; set; }
+    [Display(Name = "Purchase Invoice Id")] public Guid? PurchaseInvoiceId { get; set; }
+    [Display(Name = "Provider Id")] public Guid? ProviderId { get; set; }
+    [Display(Name = "Ewb Number")] public string? EwbNumber { get; set; }
+    [Display(Name = "Ewb Date")] public DateTime? EwbDate { get; set; }
+    [Display(Name = "Valid Upto")] public DateTime? ValidUpto { get; set; }
+    [Display(Name = "Vehicle Number")] public string? VehicleNumber { get; set; }
+    [Display(Name = "Transporter Id")] public string? TransporterId { get; set; }
+    [Display(Name = "Transporter Name")] public string? TransporterName { get; set; }
+    [Display(Name = "Distance Km")] public int? DistanceKm { get; set; }
+    [Display(Name = "Status")] public string Status { get; set; }
+    [Display(Name = "Cancel Reason")] public string? CancelReason { get; set; }
+    [Display(Name = "Cancelled At")] public DateTime? CancelledAt { get; set; }
+    [Display(Name = "Error Code")] public string? ErrorCode { get; set; }
+    [Display(Name = "Error Message")] public string? ErrorMessage { get; set; }
+    [Display(Name = "Last Attempt At")] public DateTime? LastAttemptAt { get; set; }
+}

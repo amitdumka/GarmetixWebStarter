@@ -373,6 +373,7 @@ app.MapGstAuditEndpoints();
 app.MapGstSaleReviewEndpoints();
 app.MapGstPurchaseReviewEndpoints();
 app.MapGstItcRegisterEndpoints();
+app.MapGstEinvoiceEwaybillEndpoints();
 app.MapCommercialEndpoints();
 app.MapCustomerDuesReconciliationEndpoints();
 app.MapFinancialYearCloseoutEndpoints();

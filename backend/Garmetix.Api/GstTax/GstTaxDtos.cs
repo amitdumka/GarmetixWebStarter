@@ -441,6 +441,77 @@ public sealed record GstItcRegisterRowDto(
     string ItcNote,
     decimal EligibleItcAmount);
 
+public sealed record GstEinvoiceRowDto(
+    Guid InvoiceId,
+    string InvoiceNumber,
+    DateTime OnDate,
+    string CustomerName,
+    string? CustomerGSTIN,
+    string SaleInvoiceType,
+    decimal BillAmount,
+    string Status,
+    string? Irn,
+    string? AckNumber,
+    DateTime? AckDate,
+    string? ErrorMessage,
+    DateTime? LastAttemptAt);
+
+public sealed record GstEinvoiceListResponseDto(
+    DateTime FromDate,
+    DateTime ToDate,
+    string? Search,
+    bool OnlyPending,
+    int Page,
+    int PageSize,
+    int TotalRows,
+    int PendingCount,
+    int GeneratedCount,
+    bool ProviderConfigured,
+    IReadOnlyList<GstEinvoiceRowDto> Rows);
+
+public sealed record GstEinvoiceGenerateResultDto(
+    Guid InvoiceId,
+    string Status,
+    string Message,
+    bool ProviderConfigured);
+
+public sealed record GstEwaybillRowDto(
+    string Direction,
+    Guid InvoiceId,
+    string InvoiceNumber,
+    DateTime OnDate,
+    string PartyName,
+    string? PartyGSTIN,
+    decimal BillAmount,
+    bool IsAboveThreshold,
+    string Status,
+    string? EwbNumber,
+    DateTime? EwbDate,
+    DateTime? ValidUpto,
+    string? ErrorMessage,
+    DateTime? LastAttemptAt);
+
+public sealed record GstEwaybillListResponseDto(
+    DateTime FromDate,
+    DateTime ToDate,
+    string? Direction,
+    string? Search,
+    bool OnlyPending,
+    int Page,
+    int PageSize,
+    int TotalRows,
+    int PendingCount,
+    int GeneratedCount,
+    bool ProviderConfigured,
+    IReadOnlyList<GstEwaybillRowDto> Rows);
+
+public sealed record GstEwaybillGenerateResultDto(
+    string Direction,
+    Guid InvoiceId,
+    string Status,
+    string Message,
+    bool ProviderConfigured);
+
 public static class GstTaxCatalog
 {
     public static readonly IReadOnlyList<string> ProviderTypes =

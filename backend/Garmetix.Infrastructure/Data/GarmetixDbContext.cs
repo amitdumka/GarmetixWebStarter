@@ -51,6 +51,8 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<GstUqcCode> GstUqcCodes => Set<GstUqcCode>();
     public DbSet<GstAuditRule> GstAuditRules => Set<GstAuditRule>();
     public DbSet<GstAuditFinding> GstAuditFindings => Set<GstAuditFinding>();
+    public DbSet<GstEinvoiceIrnRecord> GstEinvoiceIrnRecords => Set<GstEinvoiceIrnRecord>();
+    public DbSet<GstEwaybillRecord> GstEwaybillRecords => Set<GstEwaybillRecord>();
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
     public DbSet<DigitalInvoice> DigitalInvoices => Set<DigitalInvoice>();
     public DbSet<DigitalInvoiceEvent> DigitalInvoiceEvents => Set<DigitalInvoiceEvent>();
@@ -205,6 +207,13 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<GstAuditFinding>().ToTable("GstAuditFindings");
         modelBuilder.Entity<GstAuditFinding>().HasIndex(item => new { item.CompanyId, item.Status, item.Severity, item.CreatedAt });
         modelBuilder.Entity<GstAuditFinding>().HasIndex(item => new { item.CompanyId, item.ModuleArea, item.RuleCode });
+        modelBuilder.Entity<GstEinvoiceIrnRecord>().ToTable("GstEinvoiceIrnRecords");
+        modelBuilder.Entity<GstEinvoiceIrnRecord>().HasIndex(item => new { item.CompanyId, item.InvoiceId }).IsUnique();
+        modelBuilder.Entity<GstEinvoiceIrnRecord>().HasIndex(item => new { item.CompanyId, item.Status });
+        modelBuilder.Entity<GstEwaybillRecord>().ToTable("GstEwaybillRecords");
+        modelBuilder.Entity<GstEwaybillRecord>().HasIndex(item => new { item.CompanyId, item.InvoiceId });
+        modelBuilder.Entity<GstEwaybillRecord>().HasIndex(item => new { item.CompanyId, item.PurchaseInvoiceId });
+        modelBuilder.Entity<GstEwaybillRecord>().HasIndex(item => new { item.CompanyId, item.Status });
         modelBuilder.Entity<DigitalInvoice>().ToTable("DigitalInvoices");
         modelBuilder.Entity<DigitalInvoice>().HasIndex(item => item.PublicToken).IsUnique();
         modelBuilder.Entity<DigitalInvoice>().HasIndex(item => new { item.CompanyId, item.StoreId, item.InvoiceDate });
