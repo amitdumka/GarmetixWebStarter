@@ -401,6 +401,7 @@ const requiredPaths = [
   'apps/final-accounts/pages/setup.vue',
   'apps/final-accounts/pages/chart-of-accounts.vue',
   'apps/final-accounts/pages/fiscal-periods.vue',
+  'apps/final-accounts/pages/general-ledger.vue',
   'apps/final-accounts/pages/login.vue',
   'apps/final-accounts/pages/access-denied.vue',
   'apps/final-accounts/middleware/auth.global.ts',

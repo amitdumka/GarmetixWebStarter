@@ -9,6 +9,7 @@
         <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refreshStatus">Refresh</UButton>
         <UButton to="/chart-of-accounts" icon="i-lucide-list-tree" color="neutral" variant="soft">Chart</UButton>
         <UButton to="/fiscal-periods" icon="i-lucide-calendar-range" color="neutral" variant="soft">Periods</UButton>
+        <UButton to="/general-ledger" icon="i-lucide-book-open-check" color="neutral" variant="soft">Ledger</UButton>
         <UButton to="/setup" icon="i-lucide-sliders-horizontal">Setup</UButton>
       </div>
     </div>

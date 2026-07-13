@@ -40,6 +40,7 @@ export type FinalAccountsAccountType = 'Asset' | 'Liability' | 'Equity' | 'Incom
 export type FinalAccountsNaturalBalance = 'Debit' | 'Credit'
 export type FinalAccountsPeriodStatus = 'Draft' | 'Open' | 'Closed' | 'Locked'
 export type FinalAccountsMappingSourceType = 'Sales' | 'Purchase' | 'Inventory' | 'Gst' | 'Payroll' | 'CashBank' | 'Customer' | 'Vendor' | 'Adjustment'
+export type FinalAccountsJournalStatus = 'Draft' | 'Posted' | 'Reversed'
 
 export interface FinalAccountsAccountGroup {
   id: string
@@ -142,6 +143,105 @@ export interface FinalAccountsValidationSummary {
   mappingCount: number
   fiscalYearCount: number
   fiscalPeriodCount: number
+  issues: FinalAccountsValidationIssue[]
+}
+
+export interface FinalAccountsJournalLine {
+  id: string
+  accountId: string
+  accountCode?: string | null
+  accountName?: string | null
+  lineNumber: number
+  debit: number
+  credit: number
+  narration?: string | null
+}
+
+export interface FinalAccountsJournalEvent {
+  at: string
+  event: string
+  actor?: string | null
+  detail: string
+}
+
+export interface FinalAccountsJournal {
+  id: string
+  companyId?: string | null
+  storeGroupId?: string | null
+  storeId?: string | null
+  entryNumber: string
+  onDate: string
+  fiscalPeriodId?: string | null
+  status: FinalAccountsJournalStatus
+  sourceType: string
+  sourceId?: string | null
+  referenceNumber?: string | null
+  narration: string
+  idempotencyKey?: string | null
+  reversalOfJournalEntryId?: string | null
+  reversalJournalEntryId?: string | null
+  postedAt?: string | null
+  postedBy?: string | null
+  reversedAt?: string | null
+  reversedBy?: string | null
+  totalDebit: number
+  totalCredit: number
+  difference: number
+  revision: number
+  lines: FinalAccountsJournalLine[]
+  events: FinalAccountsJournalEvent[]
+}
+
+export interface FinalAccountsJournalListRow {
+  id: string
+  entryNumber: string
+  onDate: string
+  status: FinalAccountsJournalStatus
+  sourceType: string
+  sourceId?: string | null
+  referenceNumber?: string | null
+  narration: string
+  totalDebit: number
+  totalCredit: number
+  lineCount: number
+  createdAt: string
+  postedAt?: string | null
+  reversedAt?: string | null
+}
+
+export interface FinalAccountsJournalList {
+  page: number
+  pageSize: number
+  totalCount: number
+  rows: FinalAccountsJournalListRow[]
+}
+
+export interface FinalAccountsJournalLinePayload {
+  accountId: string
+  debit: number
+  credit: number
+  narration?: string | null
+}
+
+export interface FinalAccountsJournalPayload {
+  companyId?: string | null
+  storeGroupId?: string | null
+  storeId?: string | null
+  onDate: string
+  fiscalPeriodId?: string | null
+  referenceNumber?: string | null
+  narration?: string | null
+  sourceType?: string | null
+  sourceId?: string | null
+  idempotencyKey?: string | null
+  lines: FinalAccountsJournalLinePayload[]
+}
+
+export interface FinalAccountsJournalValidation {
+  canPost: boolean
+  totalDebit: number
+  totalCredit: number
+  difference: number
   issues: FinalAccountsValidationIssue[]
 }
 

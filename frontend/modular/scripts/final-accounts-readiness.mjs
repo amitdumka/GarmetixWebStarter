@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-02 readiness')
+console.log('Garmetix Final Accounts BS-03 readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -23,6 +23,10 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapGet("/accounts/search"',
   'MapGet("/fiscal-years"',
   'MapGet("/fiscal-periods"',
+  'MapGet("/journals"',
+  'MapPost("/journals/preview"',
+  'MapPost("/journals/{id:guid}/post"',
+  'MapPost("/journals/{id:guid}/reverse"',
   'MapGet("/coa/seed-preview"',
   'MapGet("/validation/summary"'
 ])
@@ -56,6 +60,30 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsCatalogContracts.cs',
   'FinalAccountsValidationSummaryResponse'
 ])
 
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsJournalService.cs', [
+  'FinalAccountsJournalService',
+  'CreateDraftAsync',
+  'PostJournalAsync',
+  'ReverseJournalAsync',
+  'DeleteDraftAsync',
+  'WorkspaceScope.CanWrite'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsJournalRules.cs', [
+  'ValidateJournal',
+  'BuildReversalLines',
+  'NormalizeIdempotencyKey',
+  'CanPostPeriodStatus',
+  'CanEditStatus'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsJournalContracts.cs', [
+  'FinalAccountsJournalSaveRequest',
+  'FinalAccountsJournalDto',
+  'FinalAccountsJournalListResponse',
+  'FinalAccountsJournalValidationResponse'
+])
+
 checkFile('backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsCatalog.cs', [
   'FinalAccountsAccountGroup',
   'FinalAccountsAccount',
@@ -64,12 +92,27 @@ checkFile('backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsC
   'FinalAccountsFiscalPeriod'
 ])
 
+checkFile('backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsGeneralLedger.cs', [
+  'FinalAccountsJournalEntry',
+  'FinalAccountsJournalLine',
+  'FinalAccountsSourcePostingLink',
+  'FinalAccountsJournalStatus'
+])
+
 checkFile('backend/Garmetix.Infrastructure/Data/Migrations/20260713162000_AddFinalAccountsCatalogAndFiscalPeriods.cs', [
   'fa_account_groups',
   'fa_accounts',
   'fa_account_mappings',
   'fa_fiscal_years',
   'fa_fiscal_periods'
+])
+
+checkFile('backend/Garmetix.Infrastructure/Data/Migrations/20260713170000_AddFinalAccountsGeneralLedger.cs', [
+  'fa_journal_entries',
+  'fa_journal_lines',
+  'fa_source_posting_links',
+  'CK_fa_journal_lines_single_side',
+  'IX_fa_journal_entries_scope_idempotency'
 ])
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEnabledFilter.cs', [
@@ -99,6 +142,7 @@ checkFile('frontend/modular/config/routes.ts', [
   "id: 'final-accounts-setup'",
   "id: 'final-accounts-chart-of-accounts'",
   "id: 'final-accounts-fiscal-periods'",
+  "id: 'final-accounts-general-ledger'",
   "showInMenu: false",
   "targetApp: 'final-accounts'"
 ])
@@ -107,6 +151,7 @@ checkFile('frontend/modular/packages/shared-ui/components/ModularAppShell.vue', 
   "'final-accounts'",
   "href: '/chart-of-accounts'",
   "href: '/fiscal-periods'",
+  "href: '/general-ledger'",
   "href: '/setup'",
   "'final-accounts': '/final-accounts/'"
 ])
@@ -138,9 +183,19 @@ checkFile('frontend/modular/apps/final-accounts/pages/fiscal-periods.vue', [
   'FinalAccountsPeriodStatus'
 ])
 
+checkFile('frontend/modular/apps/final-accounts/pages/general-ledger.vue', [
+  'General Ledger',
+  'journals/preview',
+  'Post',
+  'Reverse',
+  'Audit'
+])
+
 checkFile('frontend/modular/apps/final-accounts/utils/final-accounts-api.ts', [
   'FinalAccountsAccountGroup',
   'FinalAccountsFiscalYear',
+  'FinalAccountsJournal',
+  'FinalAccountsJournalPayload',
   'FinalAccountsValidationSummary',
   'async function post',
   'async function remove'
@@ -161,7 +216,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-02 readiness passed.')
+console.log('\nFinal Accounts BS-03 readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)

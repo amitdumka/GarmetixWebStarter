@@ -37,6 +37,14 @@ public static class FinalAccountsEndpoints
         enabled.MapGet("/fiscal-periods", ListFiscalPeriodsAsync);
         enabled.MapPost("/fiscal-periods", CreateFiscalPeriodAsync);
         enabled.MapPut("/fiscal-periods/{id:guid}", UpdateFiscalPeriodAsync);
+        enabled.MapGet("/journals", ListJournalsAsync);
+        enabled.MapGet("/journals/{id:guid}", GetJournalAsync);
+        enabled.MapPost("/journals/preview", PreviewJournalAsync);
+        enabled.MapPost("/journals", CreateJournalDraftAsync);
+        enabled.MapPut("/journals/{id:guid}", UpdateJournalDraftAsync);
+        enabled.MapPost("/journals/{id:guid}/post", PostJournalAsync);
+        enabled.MapPost("/journals/{id:guid}/reverse", ReverseJournalAsync);
+        enabled.MapDelete("/journals/{id:guid}", DeleteJournalDraftAsync);
         enabled.MapGet("/coa/seed-preview", GetSeedPreviewAsync);
         enabled.MapGet("/validation/summary", GetValidationSummaryAsync);
 
@@ -233,6 +241,85 @@ public static class FinalAccountsEndpoints
         HttpContext context,
         CancellationToken cancellationToken)
         => HandleAsync(() => catalog.UpdateFiscalPeriodAsync(id, request, context, cancellationToken));
+
+    private static Task<IResult> ListJournalsAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        DateTime? from,
+        DateTime? to,
+        string? status,
+        string? sourceType,
+        int? page,
+        int? pageSize,
+        FinalAccountsJournalService journals,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => journals.ListJournalsAsync(new FinalAccountsJournalQuery(companyId, storeGroupId, storeId, from, to, status, sourceType, page, pageSize), context, cancellationToken));
+
+    private static Task<IResult> GetJournalAsync(
+        Guid id,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsJournalService journals,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => journals.GetJournalAsync(id, new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), context, cancellationToken));
+
+    private static Task<IResult> PreviewJournalAsync(
+        FinalAccountsJournalSaveRequest request,
+        FinalAccountsJournalService journals,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => journals.PreviewJournalAsync(request, context, cancellationToken));
+
+    private static Task<IResult> CreateJournalDraftAsync(
+        FinalAccountsJournalSaveRequest request,
+        FinalAccountsJournalService journals,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => journals.CreateDraftAsync(request, context, cancellationToken));
+
+    private static Task<IResult> UpdateJournalDraftAsync(
+        Guid id,
+        FinalAccountsJournalSaveRequest request,
+        FinalAccountsJournalService journals,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => journals.UpdateDraftAsync(id, request, context, cancellationToken));
+
+    private static Task<IResult> PostJournalAsync(
+        Guid id,
+        FinalAccountsJournalPostRequest? request,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsJournalService journals,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => journals.PostJournalAsync(id, request ?? new FinalAccountsJournalPostRequest(null), new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), context, cancellationToken));
+
+    private static Task<IResult> ReverseJournalAsync(
+        Guid id,
+        FinalAccountsJournalReverseRequest request,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsJournalService journals,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => journals.ReverseJournalAsync(id, request, new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), context, cancellationToken));
+
+    private static Task<IResult> DeleteJournalDraftAsync(
+        Guid id,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsJournalService journals,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleNoContentAsync(() => journals.DeleteDraftAsync(id, new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), context, cancellationToken));
 
     private static Task<IResult> GetSeedPreviewAsync(
         Guid? companyId,

@@ -146,6 +146,9 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<FinalAccountsAccountMapping> FinalAccountsAccountMappings => Set<FinalAccountsAccountMapping>();
     public DbSet<FinalAccountsFiscalYear> FinalAccountsFiscalYears => Set<FinalAccountsFiscalYear>();
     public DbSet<FinalAccountsFiscalPeriod> FinalAccountsFiscalPeriods => Set<FinalAccountsFiscalPeriod>();
+    public DbSet<FinalAccountsJournalEntry> FinalAccountsJournalEntries => Set<FinalAccountsJournalEntry>();
+    public DbSet<FinalAccountsJournalLine> FinalAccountsJournalLines => Set<FinalAccountsJournalLine>();
+    public DbSet<FinalAccountsSourcePostingLink> FinalAccountsSourcePostingLinks => Set<FinalAccountsSourcePostingLink>();
 
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<EmployeeDetail> EmployeeDetails => Set<EmployeeDetail>();
@@ -277,6 +280,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<FinalAccountsModuleSettings>().Property(item => item.CreatedBy).HasMaxLength(120);
         modelBuilder.Entity<FinalAccountsModuleSettings>().Property(item => item.UpdatedBy).HasMaxLength(120);
         ConfigureFinalAccountsCatalog(modelBuilder);
+        ConfigureFinalAccountsGeneralLedger(modelBuilder);
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
@@ -539,6 +543,56 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<FinalAccountsFiscalPeriod>().Property(item => item.CreatedBy).HasMaxLength(120);
         modelBuilder.Entity<FinalAccountsFiscalPeriod>().Property(item => item.UpdatedBy).HasMaxLength(120);
         modelBuilder.Entity<FinalAccountsFiscalPeriod>().Property(item => item.Revision).IsConcurrencyToken();
+    }
+
+    private static void ConfigureFinalAccountsGeneralLedger(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<FinalAccountsJournalEntry>().ToTable("fa_journal_entries", "final_accounts");
+        modelBuilder.Entity<FinalAccountsJournalEntry>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.EntryNumber }).IsUnique();
+        modelBuilder.Entity<FinalAccountsJournalEntry>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.OnDate, item.Status });
+        modelBuilder.Entity<FinalAccountsJournalEntry>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.SourceType, item.SourceId });
+        modelBuilder.Entity<FinalAccountsJournalEntry>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.IdempotencyKey }).IsUnique();
+        modelBuilder.Entity<FinalAccountsJournalEntry>().HasIndex(item => item.FiscalPeriodId);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().HasIndex(item => item.ReversalOfJournalEntryId);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().HasIndex(item => item.ReversalJournalEntryId);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().Property(item => item.EntryNumber).HasMaxLength(48);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().Property(item => item.SourceType).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().Property(item => item.ReferenceNumber).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().Property(item => item.Narration).HasMaxLength(500);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().Property(item => item.IdempotencyKey).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().Property(item => item.PostedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().Property(item => item.ReversedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsJournalLine>().ToTable("fa_journal_lines", "final_accounts");
+        modelBuilder.Entity<FinalAccountsJournalLine>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.JournalEntryId, item.LineNumber }).IsUnique();
+        modelBuilder.Entity<FinalAccountsJournalLine>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.AccountId, item.JournalEntryId });
+        modelBuilder.Entity<FinalAccountsJournalLine>().ToTable(item =>
+        {
+            item.HasCheckConstraint("CK_fa_journal_lines_debit_credit_non_negative", @"""Debit"" >= 0 AND ""Credit"" >= 0");
+            item.HasCheckConstraint("CK_fa_journal_lines_single_side", @"((""Debit"" > 0 AND ""Credit"" = 0) OR (""Credit"" > 0 AND ""Debit"" = 0))");
+        });
+        modelBuilder.Entity<FinalAccountsJournalLine>().Property(item => item.Debit).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsJournalLine>().Property(item => item.Credit).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsJournalLine>().Property(item => item.Narration).HasMaxLength(500);
+        modelBuilder.Entity<FinalAccountsJournalLine>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsJournalLine>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsJournalLine>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().ToTable("fa_source_posting_links", "final_accounts");
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.SourceType, item.SourceId }).IsUnique();
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.IdempotencyKey }).IsUnique();
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().HasIndex(item => item.JournalEntryId);
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().Property(item => item.SourceType).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().Property(item => item.SourceReference).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().Property(item => item.SourceHash).HasMaxLength(128);
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().Property(item => item.MappingVersion).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().Property(item => item.IdempotencyKey).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().Property(item => item.Revision).IsConcurrencyToken();
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
