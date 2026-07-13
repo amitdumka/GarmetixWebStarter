@@ -22,6 +22,9 @@ public static class PayrollEndpoints
         group.MapPost("/payslips/generate-month", GeneratePayslipsAsync);
         group.MapPost("/finalization/finalize-month", FinalizeMonthAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapGet("/payslips/recent", GetRecentPayslipsAsync);
+        group.MapGet("/payslips/{id:guid}", GetPayslipAsync);
+        group.MapPut("/payslips/{id:guid}", UpdatePayslipAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapDelete("/payslips/{id:guid}", DeletePayslipAsync).RequireAuthorization(GarmetixPolicies.Delete);
         group.MapGet("/payslips/{id:guid}/print", GetPrintablePayslipAsync);
         group.MapGet("/payslips/{id:guid}/pdf", DownloadPayslipPdfAsync);
         group.MapGet("/real-month-validation", RealMonthValidationAsync);
@@ -97,6 +100,34 @@ public static class PayrollEndpoints
     {
         var payslip = await service.GetPrintablePayslipAsync(id, cancellationToken);
         return payslip is null ? Results.NotFound() : Results.Ok(payslip);
+    }
+
+    private static async Task<IResult> GetPayslipAsync(
+        Guid id,
+        PayrollService service,
+        CancellationToken cancellationToken)
+    {
+        var payslip = await service.GetPrintablePayslipAsync(id, cancellationToken);
+        return payslip is null ? Results.NotFound(new { message = "Payslip was not found." }) : Results.Ok(payslip);
+    }
+
+    private static async Task<IResult> UpdatePayslipAsync(
+        Guid id,
+        UpdatePayslipRequest request,
+        PayrollService service,
+        CancellationToken cancellationToken)
+    {
+        var updated = await service.UpdatePayslipAsync(id, request, cancellationToken);
+        return updated is null ? Results.NotFound(new { message = "Payslip was not found." }) : Results.Ok(updated);
+    }
+
+    private static async Task<IResult> DeletePayslipAsync(
+        Guid id,
+        PayrollService service,
+        CancellationToken cancellationToken)
+    {
+        var deleted = await service.DeletePayslipAsync(id, cancellationToken);
+        return deleted ? Results.NoContent() : Results.NotFound(new { message = "Payslip was not found." });
     }
 
     private static async Task<IResult> DownloadPayslipPdfAsync(

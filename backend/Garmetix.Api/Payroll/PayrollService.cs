@@ -68,7 +68,7 @@ public sealed class PayrollService(GarmetixDbContext db)
             .ToDictionaryAsync(attendance => attendance.EmployeeId, cancellationToken);
 
         var existingPayslips = await db.SalaryPaySlips
-            .Where(payslip => employeeIds.Contains(payslip.EmployeeId) && payslip.PayPeriodStart == monthStart)
+            .Where(payslip => employeeIds.Contains(payslip.EmployeeId) && payslip.PayPeriodStart == monthStart && !payslip.Deleted)
             .ToDictionaryAsync(payslip => payslip.EmployeeId, cancellationToken);
 
         var benefitAdjustments = await db.EmployeePayrollAdjustments.AsNoTracking()
@@ -144,7 +144,7 @@ public sealed class PayrollService(GarmetixDbContext db)
         await db.SaveChangesAsync(cancellationToken);
 
         foreach (var payslip in await db.SalaryPaySlips
-            .Where(item => employeeIds.Contains(item.EmployeeId) && item.PayPeriodStart == monthStart)
+            .Where(item => employeeIds.Contains(item.EmployeeId) && item.PayPeriodStart == monthStart && !item.Deleted)
             .ToListAsync(cancellationToken))
         {
             var amounts = await CalculateAmountsAsync(payslip, salaryMonth, monthStart, cancellationToken);
@@ -178,6 +178,7 @@ public sealed class PayrollService(GarmetixDbContext db)
     {
         var limit = Math.Clamp(take ?? 100, 1, 500);
         var payslips = await db.SalaryPaySlips.AsNoTracking()
+            .Where(payslip => !payslip.Deleted)
             .OrderByDescending(payslip => payslip.PayPeriodStart)
             .ThenByDescending(payslip => payslip.CreatedAt)
             .Take(limit)
@@ -191,7 +192,7 @@ public sealed class PayrollService(GarmetixDbContext db)
         CancellationToken cancellationToken)
     {
         var payslip = await db.SalaryPaySlips.AsNoTracking()
-            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(item => item.Id == id && !item.Deleted, cancellationToken);
 
         if (payslip is null)
         {
@@ -228,6 +229,60 @@ public sealed class PayrollService(GarmetixDbContext db)
             payslip.Deductions,
             payslip.OtherDeductions,
             payslip.Remarks);
+    }
+
+    public async Task<PayslipPrintDto?> UpdatePayslipAsync(
+        Guid id,
+        UpdatePayslipRequest request,
+        CancellationToken cancellationToken)
+    {
+        var payslip = await db.SalaryPaySlips.FirstOrDefaultAsync(item => item.Id == id && !item.Deleted, cancellationToken);
+        if (payslip is null)
+        {
+            return null;
+        }
+
+        if (request.PayPeriodEnd.HasValue)
+        {
+            payslip.PayPeriodEnd = request.PayPeriodEnd.Value;
+        }
+
+        payslip.BasicSalary = RoundMoney(Math.Max(0, request.BasicSalary));
+        payslip.HRA = RoundMoney(Math.Max(0, request.HRA));
+        payslip.SpecialAllowance = RoundMoney(Math.Max(0, request.SpecialAllowance));
+        payslip.ConveyanceAllowance = RoundMoney(Math.Max(0, request.ConveyanceAllowance));
+        payslip.Incentives = RoundMoney(Math.Max(0, request.Incentives));
+        payslip.OtherEarnings = RoundMoney(Math.Max(0, request.OtherEarnings));
+        payslip.ProvidentFund = RoundMoney(Math.Max(0, request.ProvidentFund));
+        payslip.Gratuity = RoundMoney(Math.Max(0, request.Gratuity));
+        payslip.ProfessionalTax = RoundMoney(Math.Max(0, request.ProfessionalTax));
+        payslip.IncomeTax = RoundMoney(Math.Max(0, request.IncomeTax));
+        payslip.Deductions = RoundMoney(Math.Max(0, request.Deductions));
+        payslip.OtherDeductions = RoundMoney(Math.Max(0, request.OtherDeductions));
+        if (!string.IsNullOrWhiteSpace(request.Remarks))
+        {
+            payslip.Remarks = request.Remarks.Trim();
+        }
+        payslip.UpdatedAt = DateTime.UtcNow;
+
+        await db.SaveChangesAsync(cancellationToken);
+        return await GetPrintablePayslipAsync(id, cancellationToken);
+    }
+
+    public async Task<bool> DeletePayslipAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var payslip = await db.SalaryPaySlips.FirstOrDefaultAsync(item => item.Id == id && !item.Deleted, cancellationToken);
+        if (payslip is null)
+        {
+            return false;
+        }
+
+        // Deliberately does not touch SalaryPayments - a payslip is a calculation snapshot,
+        // payments already made and posted to accounting against it must stay intact.
+        payslip.Deleted = true;
+        payslip.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     public async Task<SalaryPaymentPreviewDto> PreviewSalaryPaymentAsync(
@@ -457,7 +512,7 @@ public sealed class PayrollService(GarmetixDbContext db)
         CancellationToken cancellationToken)
     {
         var previousPayslips = await db.SalaryPaySlips.AsNoTracking()
-            .Where(payslip => payslip.EmployeeId == employeeId && payslip.PayPeriodStart < monthStart)
+            .Where(payslip => payslip.EmployeeId == employeeId && payslip.PayPeriodStart < monthStart && !payslip.Deleted)
             .ToListAsync(cancellationToken);
         var previousPayments = await db.SalaryPayments.AsNoTracking()
             .Where(payment =>

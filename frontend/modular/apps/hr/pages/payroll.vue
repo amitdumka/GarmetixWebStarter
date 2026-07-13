@@ -95,10 +95,13 @@
               <td class="px-3 py-2"><UBadge color="neutral" variant="subtle">{{ readText(slip, ['status']) }}</UBadge></td>
               <td class="px-3 py-2">
                 <div class="flex justify-end gap-1">
+                  <UButton size="xs" icon="i-lucide-eye" color="neutral" variant="soft" @click="viewPayslip(slip)" />
+                  <UButton size="xs" icon="i-lucide-pencil" color="neutral" variant="soft" @click="editPayslip(slip)" />
                   <UButton size="xs" icon="i-lucide-wallet-cards" variant="soft" @click="startPaymentFromPayslip(slip)">Pay</UButton>
                   <UButton size="xs" icon="i-lucide-download" color="neutral" variant="soft" @click="downloadPayslip(slip)">PDF</UButton>
                   <UButton size="xs" icon="i-lucide-mail" color="neutral" variant="soft" @click="sharePayslipEmail(slip)">Email</UButton>
                   <UButton size="xs" icon="i-lucide-message-circle" color="success" variant="soft" @click="sharePayslipWhatsApp(slip)">WhatsApp</UButton>
+                  <UButton size="xs" icon="i-lucide-trash-2" color="error" variant="soft" @click="deletePayslip(slip)" />
                 </div>
               </td>
             </tr>
@@ -109,6 +112,104 @@
         </table>
       </div>
     </div>
+
+    <UModal v-model:open="payslipViewOpen" title="Payslip Detail">
+      <template #body>
+        <div v-if="viewingPayslip" class="grid gap-3">
+          <div class="grid grid-cols-2 gap-2 rounded-lg border border-default bg-muted/20 p-3 text-sm sm:grid-cols-4">
+            <div><p class="text-muted">Employee</p><strong>{{ readText(viewingPayslipSummary, ['employeeName']) }}</strong></div>
+            <div><p class="text-muted">Month</p><strong>{{ readText(viewingPayslipSummary, ['monthYear']) }}</strong></div>
+            <div><p class="text-muted">Status</p><strong>{{ readText(viewingPayslipSummary, ['status']) }}</strong></div>
+            <div><p class="text-muted">Days</p><strong>{{ numberText(readNumber(viewingPayslipSummary, ['billableDays'])) }} / {{ numberText(readNumber(viewingPayslipSummary, ['workingDays'])) }}</strong></div>
+          </div>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <div class="rounded-lg border border-default p-3">
+              <h4 class="mb-2 text-sm font-semibold">Earnings</h4>
+              <dl class="space-y-1 text-sm">
+                <div class="flex justify-between"><dt class="text-muted">Basic salary</dt><dd>{{ money(readNumber(viewingPayslip, ['basicSalary'])) }}</dd></div>
+                <div class="flex justify-between"><dt class="text-muted">HRA</dt><dd>{{ money(readNumber(viewingPayslip, ['hra'])) }}</dd></div>
+                <div class="flex justify-between"><dt class="text-muted">Special allowance</dt><dd>{{ money(readNumber(viewingPayslip, ['specialAllowance'])) }}</dd></div>
+                <div class="flex justify-between"><dt class="text-muted">Conveyance</dt><dd>{{ money(readNumber(viewingPayslip, ['conveyanceAllowance'])) }}</dd></div>
+                <div class="flex justify-between"><dt class="text-muted">Incentives</dt><dd>{{ money(readNumber(viewingPayslip, ['incentives'])) }}</dd></div>
+                <div class="flex justify-between"><dt class="text-muted">Other earnings</dt><dd>{{ money(readNumber(viewingPayslip, ['otherEarnings'])) }}</dd></div>
+                <div class="flex justify-between border-t border-default pt-1 font-semibold"><dt>Total earnings</dt><dd>{{ money(readNumber(viewingPayslipSummary, ['totalEarnings'])) }}</dd></div>
+              </dl>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <h4 class="mb-2 text-sm font-semibold">Deductions</h4>
+              <dl class="space-y-1 text-sm">
+                <div class="flex justify-between"><dt class="text-muted">Provident fund</dt><dd>{{ money(readNumber(viewingPayslip, ['providentFund'])) }}</dd></div>
+                <div class="flex justify-between"><dt class="text-muted">Gratuity</dt><dd>{{ money(readNumber(viewingPayslip, ['gratuity'])) }}</dd></div>
+                <div class="flex justify-between"><dt class="text-muted">Professional tax</dt><dd>{{ money(readNumber(viewingPayslip, ['professionalTax'])) }}</dd></div>
+                <div class="flex justify-between"><dt class="text-muted">Income tax</dt><dd>{{ money(readNumber(viewingPayslip, ['incomeTax'])) }}</dd></div>
+                <div class="flex justify-between"><dt class="text-muted">Deductions</dt><dd>{{ money(readNumber(viewingPayslip, ['deductions'])) }}</dd></div>
+                <div class="flex justify-between"><dt class="text-muted">Other deductions</dt><dd>{{ money(readNumber(viewingPayslip, ['otherDeductions'])) }}</dd></div>
+                <div class="flex justify-between border-t border-default pt-1 font-semibold"><dt>Total deductions</dt><dd>{{ money(readNumber(viewingPayslipSummary, ['totalDeductions'])) }}</dd></div>
+              </dl>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2 rounded-lg border border-default bg-muted/20 p-3 text-sm sm:grid-cols-4">
+            <div><p class="text-muted">Net salary</p><strong>{{ money(readNumber(viewingPayslipSummary, ['netSalary'])) }}</strong></div>
+            <div><p class="text-muted">Paid</p><strong>{{ money(readNumber(viewingPayslipSummary, ['paidAmount'])) }}</strong></div>
+            <div><p class="text-muted">Due</p><strong>{{ money(readNumber(viewingPayslipSummary, ['dueAmount'])) }}</strong></div>
+            <div><p class="text-muted">Payable</p><strong>{{ money(readNumber(viewingPayslipSummary, ['payableAmount'])) }}</strong></div>
+          </div>
+          <p v-if="readText(viewingPayslip, ['remarks'], '')" class="text-sm text-muted">{{ readText(viewingPayslip, ['remarks']) }}</p>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end">
+          <UButton color="neutral" variant="outline" @click="payslipViewOpen = false">Close</UButton>
+        </div>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="payslipFormOpen" title="Edit Payslip">
+      <template #body>
+        <div class="grid gap-3">
+          <UAlert
+            color="info"
+            variant="subtle"
+            icon="i-lucide-info"
+            description="Correct a calculation error here. Editing does not touch any salary payment already recorded against this payslip - already-paid amounts and their accounting entries are untouched."
+          />
+          <div class="grid gap-3 sm:grid-cols-2">
+            <UFormField label="Basic salary"><UInput v-model="payslipForm.basicSalary" type="number" min="0" step="0.01" /></UFormField>
+            <UFormField label="HRA"><UInput v-model="payslipForm.hra" type="number" min="0" step="0.01" /></UFormField>
+          </div>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <UFormField label="Special allowance"><UInput v-model="payslipForm.specialAllowance" type="number" min="0" step="0.01" /></UFormField>
+            <UFormField label="Conveyance"><UInput v-model="payslipForm.conveyanceAllowance" type="number" min="0" step="0.01" /></UFormField>
+          </div>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <UFormField label="Incentives"><UInput v-model="payslipForm.incentives" type="number" min="0" step="0.01" /></UFormField>
+            <UFormField label="Other earnings"><UInput v-model="payslipForm.otherEarnings" type="number" min="0" step="0.01" /></UFormField>
+          </div>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <UFormField label="Provident fund"><UInput v-model="payslipForm.providentFund" type="number" min="0" step="0.01" /></UFormField>
+            <UFormField label="Gratuity"><UInput v-model="payslipForm.gratuity" type="number" min="0" step="0.01" /></UFormField>
+          </div>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <UFormField label="Professional tax"><UInput v-model="payslipForm.professionalTax" type="number" min="0" step="0.01" /></UFormField>
+            <UFormField label="Income tax"><UInput v-model="payslipForm.incomeTax" type="number" min="0" step="0.01" /></UFormField>
+          </div>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <UFormField label="Deductions"><UInput v-model="payslipForm.deductions" type="number" min="0" step="0.01" /></UFormField>
+            <UFormField label="Other deductions"><UInput v-model="payslipForm.otherDeductions" type="number" min="0" step="0.01" /></UFormField>
+          </div>
+          <UFormField label="Remarks"><UTextarea v-model="payslipForm.remarks" autoresize /></UFormField>
+          <div class="grid grid-cols-3 gap-2 rounded-lg border border-default bg-muted/20 p-3 text-sm">
+            <div><p class="text-muted">Gross</p><strong>{{ money(payslipGross) }}</strong></div>
+            <div><p class="text-muted">Deductions</p><strong>{{ money(payslipDeductions) }}</strong></div>
+            <div><p class="text-muted">Net</p><strong>{{ money(payslipGross - payslipDeductions) }}</strong></div>
+          </div>
+          <div class="flex flex-wrap justify-end gap-2">
+            <UButton color="neutral" variant="soft" @click="payslipFormOpen = false">Cancel</UButton>
+            <UButton icon="i-lucide-save" :loading="saving" @click="savePayslip">Save Payslip</UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
 
     <UModal v-model:open="structureFormOpen" :title="editingStructureId ? 'Edit Salary Structure' : 'New Salary Structure'">
       <template #body>
@@ -326,8 +427,13 @@ const structures = ref<ApiRecord[]>([])
 const payments = ref<ApiRecord[]>([])
 const editingStructureId = ref('')
 const editingPaymentId = ref('')
+const editingPayslipId = ref('')
 const structureFormOpen = ref(false)
 const paymentFormOpen = ref(false)
+const payslipFormOpen = ref(false)
+const payslipViewOpen = ref(false)
+const viewingPayslip = ref<ApiRecord | null>(null)
+const viewingPayslipSummary = computed(() => (viewingPayslip.value?.summary && typeof viewingPayslip.value.summary === 'object' ? viewingPayslip.value.summary as ApiRecord : null))
 const { year, month } = currentYearMonth()
 const periodMonth = ref(`${year}-${String(month).padStart(2, '0')}`)
 
@@ -341,6 +447,7 @@ const paymentModeOptions = ['Cash', 'Card', 'UPI', 'Wallets', 'IMPS', 'RTGS', 'N
 
 const structureForm = reactive(emptyStructure())
 const paymentForm = reactive(emptyPayment())
+const payslipForm = reactive(emptyPayslip())
 
 const messageIcon = computed(() => messageTone.value === 'success' ? 'i-lucide-circle-check' : messageTone.value === 'warning' ? 'i-lucide-triangle-alert' : messageTone.value === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-info')
 const employeeOptions = computed(() => employees.value.filter(isActiveEmployee).map(employee => ({
@@ -350,6 +457,8 @@ const employeeOptions = computed(() => employees.value.filter(isActiveEmployee).
 const structureGross = computed(() => grossForStructure(structureForm as ApiRecord))
 const structureDeductions = computed(() => deductionsForStructure(structureForm as ApiRecord))
 const structureNet = computed(() => structureGross.value - structureDeductions.value)
+const payslipGross = computed(() => Number(payslipForm.basicSalary || 0) + Number(payslipForm.hra || 0) + Number(payslipForm.specialAllowance || 0) + Number(payslipForm.conveyanceAllowance || 0) + Number(payslipForm.incentives || 0) + Number(payslipForm.otherEarnings || 0))
+const payslipDeductions = computed(() => Number(payslipForm.providentFund || 0) + Number(payslipForm.gratuity || 0) + Number(payslipForm.professionalTax || 0) + Number(payslipForm.incomeTax || 0) + Number(payslipForm.deductions || 0) + Number(payslipForm.otherDeductions || 0))
 const paymentBalance = computed(() => Math.max(0, Number(paymentForm.outstandingAmount || paymentForm.netSalary || 0) - Number(paymentForm.amount || 0)))
 const canSaveStructure = computed(() => Boolean(structureForm.employeeId && structureForm.fromDate) && !saving.value)
 const canSavePayment = computed(() => Boolean(paymentForm.employeeId && Number(paymentForm.salaryMonth || 0) > 200001 && paymentForm.onDate && Number(paymentForm.amount || 0) > 0) && !saving.value)
@@ -408,6 +517,24 @@ function emptyPayment() {
     paymentMode: 0,
     remarks: '',
     salaryPaySlipId: ''
+  }
+}
+
+function emptyPayslip() {
+  return {
+    basicSalary: 0,
+    hra: 0,
+    specialAllowance: 0,
+    conveyanceAllowance: 0,
+    incentives: 0,
+    otherEarnings: 0,
+    providentFund: 0,
+    gratuity: 0,
+    professionalTax: 0,
+    incomeTax: 0,
+    deductions: 0,
+    otherDeductions: 0,
+    remarks: ''
   }
 }
 
@@ -484,6 +611,11 @@ function resetStructure() {
 function resetPayment() {
   Object.assign(paymentForm, emptyPayment())
   editingPaymentId.value = ''
+}
+
+function resetPayslipForm() {
+  Object.assign(payslipForm, emptyPayslip())
+  editingPayslipId.value = ''
 }
 
 function startStructureCreate() {
@@ -758,6 +890,88 @@ async function deletePayment(item: ApiRecord) {
     await load()
   } catch (caught) {
     showMessage(caught instanceof Error ? caught.message : 'Could not delete salary payment.', 'error')
+  }
+}
+
+async function viewPayslip(slip: ApiRecord) {
+  const id = readText(slip, ['id'], '')
+  if (!id) return
+  try {
+    viewingPayslip.value = await get<ApiRecord>(`api/payroll/payslips/${id}`)
+    payslipViewOpen.value = true
+  } catch (caught) {
+    showMessage(caught instanceof Error ? caught.message : 'Could not load payslip.', 'error')
+  }
+}
+
+async function editPayslip(slip: ApiRecord) {
+  const id = readText(slip, ['id'], '')
+  if (!id) return
+  try {
+    const detail = await get<ApiRecord>(`api/payroll/payslips/${id}`)
+    Object.assign(payslipForm, {
+      basicSalary: readNumber(detail, ['basicSalary']),
+      hra: readNumber(detail, ['hra']),
+      specialAllowance: readNumber(detail, ['specialAllowance']),
+      conveyanceAllowance: readNumber(detail, ['conveyanceAllowance']),
+      incentives: readNumber(detail, ['incentives']),
+      otherEarnings: readNumber(detail, ['otherEarnings']),
+      providentFund: readNumber(detail, ['providentFund']),
+      gratuity: readNumber(detail, ['gratuity']),
+      professionalTax: readNumber(detail, ['professionalTax']),
+      incomeTax: readNumber(detail, ['incomeTax']),
+      deductions: readNumber(detail, ['deductions']),
+      otherDeductions: readNumber(detail, ['otherDeductions']),
+      remarks: readText(detail, ['remarks'], '')
+    })
+    editingPayslipId.value = id
+    payslipFormOpen.value = true
+  } catch (caught) {
+    showMessage(caught instanceof Error ? caught.message : 'Could not load payslip.', 'error')
+  }
+}
+
+async function savePayslip() {
+  if (!editingPayslipId.value) return
+  saving.value = true
+  try {
+    await put<ApiRecord>(`api/payroll/payslips/${editingPayslipId.value}`, {
+      payPeriodEnd: null,
+      basicSalary: Number(payslipForm.basicSalary || 0),
+      hra: Number(payslipForm.hra || 0),
+      specialAllowance: Number(payslipForm.specialAllowance || 0),
+      conveyanceAllowance: Number(payslipForm.conveyanceAllowance || 0),
+      incentives: Number(payslipForm.incentives || 0),
+      otherEarnings: Number(payslipForm.otherEarnings || 0),
+      providentFund: Number(payslipForm.providentFund || 0),
+      gratuity: Number(payslipForm.gratuity || 0),
+      professionalTax: Number(payslipForm.professionalTax || 0),
+      incomeTax: Number(payslipForm.incomeTax || 0),
+      deductions: Number(payslipForm.deductions || 0),
+      otherDeductions: Number(payslipForm.otherDeductions || 0),
+      remarks: String(payslipForm.remarks || '').trim() || null
+    })
+    showMessage('Payslip updated. Due amount recalculates from the corrected figures.')
+    resetPayslipForm()
+    payslipFormOpen.value = false
+    await load()
+  } catch (caught) {
+    showMessage(caught instanceof Error ? caught.message : 'Could not save payslip.', 'error')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function deletePayslip(slip: ApiRecord) {
+  const id = readText(slip, ['id'], '')
+  if (!id) return
+  if (!window.confirm(`Delete the payslip for ${readText(slip, ['employeeName'])} - ${readText(slip, ['monthYear'])}? Any salary payment already recorded against it stays untouched.`)) return
+  try {
+    await del<ApiRecord>(`api/payroll/payslips/${id}`)
+    showMessage('Payslip deleted.')
+    await load()
+  } catch (caught) {
+    showMessage(caught instanceof Error ? caught.message : 'Could not delete payslip.', 'error')
   }
 }
 

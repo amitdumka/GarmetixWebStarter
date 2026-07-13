@@ -66,6 +66,22 @@ public sealed record PayslipPrintDto(
     decimal OtherDeductions,
     string? Remarks);
 
+public sealed record UpdatePayslipRequest(
+    DateTime? PayPeriodEnd,
+    decimal BasicSalary,
+    decimal HRA,
+    decimal SpecialAllowance,
+    decimal ConveyanceAllowance,
+    decimal Incentives,
+    decimal OtherEarnings,
+    decimal ProvidentFund,
+    decimal Gratuity,
+    decimal ProfessionalTax,
+    decimal IncomeTax,
+    decimal Deductions,
+    decimal OtherDeductions,
+    string? Remarks);
+
 public sealed record SalaryPaymentPreviewRequest(
     Guid EmployeeId,
     int SalaryMonth,
