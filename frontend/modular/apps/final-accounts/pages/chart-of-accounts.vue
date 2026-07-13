@@ -298,7 +298,7 @@ const accountTypeFilter = ref('All')
 
 const accountTypes: FinalAccountsAccountType[] = ['Asset', 'Liability', 'Equity', 'Income', 'Expense', 'ContraAsset', 'ContraLiability']
 const naturalBalances: FinalAccountsNaturalBalance[] = ['Debit', 'Credit']
-const mappingSources: FinalAccountsMappingSourceType[] = ['Sales', 'Purchase', 'Inventory', 'Gst', 'Payroll', 'CashBank', 'Customer', 'Vendor', 'Adjustment']
+const mappingSources: FinalAccountsMappingSourceType[] = ['Sales', 'Purchase', 'Inventory', 'Gst', 'Payroll', 'CashBank', 'Customer', 'Vendor', 'Adjustment', 'Expense', 'InterStore']
 const accountTypeFilterItems = ['All', ...accountTypes]
 const tabs = [
   { label: 'Accounts', value: 'accounts', icon: 'i-lucide-book-open' },

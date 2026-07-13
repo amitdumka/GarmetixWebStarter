@@ -45,6 +45,9 @@ public static class FinalAccountsEndpoints
         enabled.MapPost("/journals/{id:guid}/post", PostJournalAsync);
         enabled.MapPost("/journals/{id:guid}/reverse", ReverseJournalAsync);
         enabled.MapDelete("/journals/{id:guid}", DeleteJournalDraftAsync);
+        enabled.MapGet("/posting-rules", ListPostingRulesAsync);
+        enabled.MapGet("/posting-rules/mapping-validation", GetMappingValidationAsync);
+        enabled.MapPost("/posting/preview", PreviewPostingAsync);
         enabled.MapGet("/coa/seed-preview", GetSeedPreviewAsync);
         enabled.MapGet("/validation/summary", GetValidationSummaryAsync);
 
@@ -320,6 +323,33 @@ public static class FinalAccountsEndpoints
         HttpContext context,
         CancellationToken cancellationToken)
         => HandleNoContentAsync(() => journals.DeleteDraftAsync(id, new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), context, cancellationToken));
+
+    private static Task<IResult> ListPostingRulesAsync(
+        string? sourceType,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsPostingRuleService postingRules,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => postingRules.ListPostingRulesAsync(sourceType, new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), context, cancellationToken));
+
+    private static Task<IResult> GetMappingValidationAsync(
+        string? sourceType,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsPostingRuleService postingRules,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => postingRules.GetMappingValidationAsync(sourceType, new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), context, cancellationToken));
+
+    private static Task<IResult> PreviewPostingAsync(
+        FinalAccountsPostingPreviewRequest request,
+        FinalAccountsPostingRuleService postingRules,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => postingRules.PreviewPostingAsync(request, context, cancellationToken));
 
     private static Task<IResult> GetSeedPreviewAsync(
         Guid? companyId,

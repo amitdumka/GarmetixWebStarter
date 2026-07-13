@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-03 readiness')
+console.log('Garmetix Final Accounts BS-04 readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -27,6 +27,9 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapPost("/journals/preview"',
   'MapPost("/journals/{id:guid}/post"',
   'MapPost("/journals/{id:guid}/reverse"',
+  'MapGet("/posting-rules"',
+  'MapGet("/posting-rules/mapping-validation"',
+  'MapPost("/posting/preview"',
   'MapGet("/coa/seed-preview"',
   'MapGet("/validation/summary"'
 ])
@@ -84,6 +87,34 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsJournalContracts.cs',
   'FinalAccountsJournalValidationResponse'
 ])
 
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPostingRuleService.cs', [
+  'FinalAccountsPostingRuleService',
+  'ListPostingRulesAsync',
+  'GetMappingValidationAsync',
+  'PreviewPostingAsync',
+  'BuildMappingVersion'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPostingRules.cs', [
+  'StandardRules',
+  'ValidateRequiredMappings',
+  'ValidateMappingAccount',
+  'BuildSourceHash',
+  'BuildMappingVersion'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPostingContracts.cs', [
+  'FinalAccountsPostingRuleDto',
+  'FinalAccountsMappingValidationResponse',
+  'FinalAccountsPostingPreviewRequest',
+  'FinalAccountsPostingPreviewResponse'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPostingAdapters.cs', [
+  'IFinalAccountsPostingAdapter',
+  'BuildPreviewAsync'
+])
+
 checkFile('backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsCatalog.cs', [
   'FinalAccountsAccountGroup',
   'FinalAccountsAccount',
@@ -97,6 +128,13 @@ checkFile('backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsG
   'FinalAccountsJournalLine',
   'FinalAccountsSourcePostingLink',
   'FinalAccountsJournalStatus'
+])
+
+checkFile('backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsPostingRules.cs', [
+  'FinalAccountsPostingRule',
+  'FinalAccountsPostingRuleLine',
+  'RuleCode',
+  'MappingCategory'
 ])
 
 checkFile('backend/Garmetix.Infrastructure/Data/Migrations/20260713162000_AddFinalAccountsCatalogAndFiscalPeriods.cs', [
@@ -113,6 +151,13 @@ checkFile('backend/Garmetix.Infrastructure/Data/Migrations/20260713170000_AddFin
   'fa_source_posting_links',
   'CK_fa_journal_lines_single_side',
   'IX_fa_journal_entries_scope_idempotency'
+])
+
+checkFile('backend/Garmetix.Infrastructure/Data/Migrations/20260713173000_AddFinalAccountsPostingRules.cs', [
+  'fa_posting_rules',
+  'fa_posting_rule_lines',
+  'IX_fa_posting_rules_scope_code_version',
+  'FK_fa_posting_rule_lines_rule'
 ])
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEnabledFilter.cs', [
@@ -143,6 +188,7 @@ checkFile('frontend/modular/config/routes.ts', [
   "id: 'final-accounts-chart-of-accounts'",
   "id: 'final-accounts-fiscal-periods'",
   "id: 'final-accounts-general-ledger'",
+  "id: 'final-accounts-posting-rules'",
   "showInMenu: false",
   "targetApp: 'final-accounts'"
 ])
@@ -152,6 +198,7 @@ checkFile('frontend/modular/packages/shared-ui/components/ModularAppShell.vue', 
   "href: '/chart-of-accounts'",
   "href: '/fiscal-periods'",
   "href: '/general-ledger'",
+  "href: '/posting-rules'",
   "href: '/setup'",
   "'final-accounts': '/final-accounts/'"
 ])
@@ -191,11 +238,22 @@ checkFile('frontend/modular/apps/final-accounts/pages/general-ledger.vue', [
   'Audit'
 ])
 
+checkFile('frontend/modular/apps/final-accounts/pages/posting-rules.vue', [
+  'Posting Rules',
+  'posting-rules/mapping-validation',
+  'posting/preview',
+  'mappingCategory',
+  'mappingVersion'
+])
+
 checkFile('frontend/modular/apps/final-accounts/utils/final-accounts-api.ts', [
   'FinalAccountsAccountGroup',
   'FinalAccountsFiscalYear',
   'FinalAccountsJournal',
   'FinalAccountsJournalPayload',
+  'FinalAccountsPostingRule',
+  'FinalAccountsMappingValidation',
+  'FinalAccountsPostingPreview',
   'FinalAccountsValidationSummary',
   'async function post',
   'async function remove'
@@ -216,7 +274,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-03 readiness passed.')
+console.log('\nFinal Accounts BS-04 readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)

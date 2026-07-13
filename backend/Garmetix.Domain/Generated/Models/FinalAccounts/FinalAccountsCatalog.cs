@@ -30,7 +30,9 @@ public enum FinalAccountsMappingSourceType
     CashBank = 6,
     Customer = 7,
     Vendor = 8,
-    Adjustment = 9
+    Adjustment = 9,
+    Expense = 10,
+    InterStore = 11
 }
 
 public enum FinalAccountsPeriodStatus

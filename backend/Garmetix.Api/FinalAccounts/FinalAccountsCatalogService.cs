@@ -648,7 +648,17 @@ public sealed class FinalAccountsCatalogService(GarmetixDbContext db)
     private async Task ValidateAccountMappingAsync(FinalAccountsAccountMapping entity, bool isCreate, CancellationToken cancellationToken)
     {
         _ = isCreate;
-        await FindAccountAsync(ScopeOf(entity), entity.AccountId, cancellationToken);
+        var account = await FindAccountAsync(ScopeOf(entity), entity.AccountId, cancellationToken);
+        var requirement = FinalAccountsPostingRules.FindRequirement(entity.SourceType.ToString(), entity.MappingKey);
+        if (requirement is not null)
+        {
+            var issue = FinalAccountsPostingRules.ValidateMappingAccount(requirement, account.AccountType, account.IsControlAccount, entity.Id);
+            if (issue is not null)
+            {
+                throw new ArgumentException(issue.Message);
+            }
+        }
+
         var duplicate = await AccountMappingsInScope(ScopeOf(entity))
             .AnyAsync(item => item.Id != entity.Id && item.SourceType == entity.SourceType && item.MappingKey == entity.MappingKey, cancellationToken);
         if (duplicate)

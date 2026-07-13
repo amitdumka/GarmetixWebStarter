@@ -39,7 +39,7 @@ export interface FinalAccountsSaveSettings {
 export type FinalAccountsAccountType = 'Asset' | 'Liability' | 'Equity' | 'Income' | 'Expense' | 'ContraAsset' | 'ContraLiability'
 export type FinalAccountsNaturalBalance = 'Debit' | 'Credit'
 export type FinalAccountsPeriodStatus = 'Draft' | 'Open' | 'Closed' | 'Locked'
-export type FinalAccountsMappingSourceType = 'Sales' | 'Purchase' | 'Inventory' | 'Gst' | 'Payroll' | 'CashBank' | 'Customer' | 'Vendor' | 'Adjustment'
+export type FinalAccountsMappingSourceType = 'Sales' | 'Purchase' | 'Inventory' | 'Gst' | 'Payroll' | 'CashBank' | 'Customer' | 'Vendor' | 'Adjustment' | 'Expense' | 'InterStore'
 export type FinalAccountsJournalStatus = 'Draft' | 'Posted' | 'Reversed'
 
 export interface FinalAccountsAccountGroup {
@@ -242,6 +242,104 @@ export interface FinalAccountsJournalValidation {
   totalDebit: number
   totalCredit: number
   difference: number
+  issues: FinalAccountsValidationIssue[]
+}
+
+export interface FinalAccountsPostingRuleLine {
+  mappingKey: string
+  displayName: string
+  mappingCategory: string
+  direction: string
+  expectedAccountType?: FinalAccountsAccountType | string | null
+  isRequired: boolean
+  allowControlAccount: boolean
+  sortOrder: number
+  notes?: string | null
+}
+
+export interface FinalAccountsPostingRule {
+  sourceType: FinalAccountsMappingSourceType | string
+  ruleCode: string
+  version: string
+  name: string
+  description?: string | null
+  lines: FinalAccountsPostingRuleLine[]
+}
+
+export interface FinalAccountsMappingRequirement {
+  sourceType: FinalAccountsMappingSourceType | string
+  ruleCode: string
+  ruleVersion: string
+  mappingKey: string
+  displayName: string
+  mappingCategory: string
+  direction: string
+  expectedAccountType?: string | null
+  isRequired: boolean
+  allowControlAccount: boolean
+  mappingId?: string | null
+  accountId?: string | null
+  accountCode?: string | null
+  accountName?: string | null
+  accountType?: string | null
+  accountIsControl?: boolean | null
+  mappingActive: boolean
+  status: 'Mapped' | 'Missing' | 'Invalid' | 'Inactive' | 'Optional' | string
+  issueCode?: string | null
+  issueMessage?: string | null
+}
+
+export interface FinalAccountsMappingValidation {
+  ruleCount: number
+  requirementCount: number
+  mappedCount: number
+  missingCount: number
+  issueCount: number
+  requirements: FinalAccountsMappingRequirement[]
+  issues: FinalAccountsValidationIssue[]
+}
+
+export interface FinalAccountsPostingPreviewLinePayload {
+  mappingKey: string
+  debit: number
+  credit: number
+  narration?: string | null
+}
+
+export interface FinalAccountsPostingPreviewPayload {
+  companyId?: string | null
+  storeGroupId?: string | null
+  storeId?: string | null
+  sourceType: string
+  ruleCode?: string | null
+  ruleVersion?: string | null
+  sourceId?: string | null
+  sourceReference?: string | null
+  sourceHash?: string | null
+  mappingKeys?: string[] | null
+  lines?: FinalAccountsPostingPreviewLinePayload[] | null
+}
+
+export interface FinalAccountsPostingPreviewLine {
+  mappingKey: string
+  displayName: string
+  direction: string
+  accountId?: string | null
+  accountCode?: string | null
+  accountName?: string | null
+  debit: number
+  credit: number
+  narration?: string | null
+}
+
+export interface FinalAccountsPostingPreview {
+  canPost: boolean
+  sourceType: string
+  ruleCode: string
+  ruleVersion: string
+  sourceHash: string
+  mappingVersion: string
+  lines: FinalAccountsPostingPreviewLine[]
   issues: FinalAccountsValidationIssue[]
 }
 

@@ -146,6 +146,8 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<FinalAccountsAccountMapping> FinalAccountsAccountMappings => Set<FinalAccountsAccountMapping>();
     public DbSet<FinalAccountsFiscalYear> FinalAccountsFiscalYears => Set<FinalAccountsFiscalYear>();
     public DbSet<FinalAccountsFiscalPeriod> FinalAccountsFiscalPeriods => Set<FinalAccountsFiscalPeriod>();
+    public DbSet<FinalAccountsPostingRule> FinalAccountsPostingRules => Set<FinalAccountsPostingRule>();
+    public DbSet<FinalAccountsPostingRuleLine> FinalAccountsPostingRuleLines => Set<FinalAccountsPostingRuleLine>();
     public DbSet<FinalAccountsJournalEntry> FinalAccountsJournalEntries => Set<FinalAccountsJournalEntry>();
     public DbSet<FinalAccountsJournalLine> FinalAccountsJournalLines => Set<FinalAccountsJournalLine>();
     public DbSet<FinalAccountsSourcePostingLink> FinalAccountsSourcePostingLinks => Set<FinalAccountsSourcePostingLink>();
@@ -280,6 +282,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<FinalAccountsModuleSettings>().Property(item => item.CreatedBy).HasMaxLength(120);
         modelBuilder.Entity<FinalAccountsModuleSettings>().Property(item => item.UpdatedBy).HasMaxLength(120);
         ConfigureFinalAccountsCatalog(modelBuilder);
+        ConfigureFinalAccountsPostingRules(modelBuilder);
         ConfigureFinalAccountsGeneralLedger(modelBuilder);
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
@@ -543,6 +546,34 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<FinalAccountsFiscalPeriod>().Property(item => item.CreatedBy).HasMaxLength(120);
         modelBuilder.Entity<FinalAccountsFiscalPeriod>().Property(item => item.UpdatedBy).HasMaxLength(120);
         modelBuilder.Entity<FinalAccountsFiscalPeriod>().Property(item => item.Revision).IsConcurrencyToken();
+    }
+
+    private static void ConfigureFinalAccountsPostingRules(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<FinalAccountsPostingRule>().ToTable("fa_posting_rules", "final_accounts");
+        modelBuilder.Entity<FinalAccountsPostingRule>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.SourceType, item.RuleCode, item.Version }).IsUnique();
+        modelBuilder.Entity<FinalAccountsPostingRule>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.SourceType, item.IsActive });
+        modelBuilder.Entity<FinalAccountsPostingRule>().Property(item => item.SourceType).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsPostingRule>().Property(item => item.RuleCode).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsPostingRule>().Property(item => item.Version).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsPostingRule>().Property(item => item.Name).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsPostingRule>().Property(item => item.Description).HasMaxLength(500);
+        modelBuilder.Entity<FinalAccountsPostingRule>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsPostingRule>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsPostingRule>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().ToTable("fa_posting_rule_lines", "final_accounts");
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().HasIndex(item => new { item.PostingRuleId, item.MappingKey }).IsUnique();
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.MappingCategory, item.IsRequired });
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().Property(item => item.MappingKey).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().Property(item => item.DisplayName).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().Property(item => item.MappingCategory).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().Property(item => item.Direction).HasMaxLength(16);
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().Property(item => item.ExpectedAccountType).HasMaxLength(40);
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().Property(item => item.Notes).HasMaxLength(500);
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().Property(item => item.Revision).IsConcurrencyToken();
     }
 
     private static void ConfigureFinalAccountsGeneralLedger(ModelBuilder modelBuilder)

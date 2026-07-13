@@ -125,6 +125,7 @@ builder.Services.Configure<FinalAccountsOptions>(builder.Configuration.GetSectio
 builder.Services.AddScoped<FinalAccountsSettingsService>();
 builder.Services.AddScoped<FinalAccountsCatalogService>();
 builder.Services.AddScoped<FinalAccountsJournalService>();
+builder.Services.AddScoped<FinalAccountsPostingRuleService>();
 builder.Services.AddScoped<FinalAccountsEnabledFilter>();
 builder.Services.AddHttpClient("DigitalBillWhatsApp", client => client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddSingleton<PersistentApplicationLogQueue>();
