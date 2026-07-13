@@ -56,7 +56,39 @@ public static class FinalAccountsPostingRules
                 Line("SALES.RETURN", "Sales Return", "Sales category mapping", "Debit", "Income", true, false, 20, "Sale return contra income."),
                 Line("SALES.DISCOUNT", "Sales Discount", "Discount/rounding mapping", "Debit", "Expense", true, false, 30, "Invoice-level discount."),
                 Line("SALES.ROUNDING", "Sales Rounding", "Discount/rounding mapping", "Debit", "Expense", true, false, 40, "Round-off gain/loss account."),
-                Line("CUSTOMER.RECEIVABLE", "Customer Receivables", "Sales category mapping", "Debit", "Asset", true, true, 50, "Credit sales control account.")
+                Line("CUSTOMER.RECEIVABLE", "Customer Receivables", "Sales category mapping", "Debit", "Asset", true, true, 50, "Credit sales control account."),
+                Line("GST.OUTPUT_CGST", "Output CGST", "GST component mapping", "Credit", "Liability", false, true, 60, "CGST payable from sale documents."),
+                Line("GST.OUTPUT_SGST", "Output SGST", "GST component mapping", "Credit", "Liability", false, true, 70, "SGST payable from sale documents."),
+                Line("GST.OUTPUT_IGST", "Output IGST", "GST component mapping", "Credit", "Liability", false, true, 80, "IGST payable from interstate sale documents."),
+                Line("SALES.OTHER_CHARGES", "Sales Other Charges", "Sales category mapping", "Credit", "Income", false, false, 90, "Delivery and other charges when source documents expose them.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.Sales, "SalesInvoice", "Sales Invoice Adapter", "Maps cash, credit, card, UPI and mixed sales to receivables, revenue, GST, discount and rounding.", [
+                Line("CUSTOMER.RECEIVABLE", "Customer Receivables", "Sales category mapping", "Debit", "Asset", true, true, 10, "Gross invoice bill amount before receipt settlement."),
+                Line("SALES.DISCOUNT", "Sales Discount", "Discount/rounding mapping", "Debit", "Expense", false, false, 20, "Item and bill discounts presented separately from gross revenue."),
+                Line("SALES.REVENUE", "Sales Revenue", "Sales category mapping", "Credit", "Income", true, false, 30, "Gross sale revenue before presented discounts."),
+                Line("GST.OUTPUT_CGST", "Output CGST", "GST component mapping", "Credit", "Liability", false, true, 40, "CGST payable."),
+                Line("GST.OUTPUT_SGST", "Output SGST", "GST component mapping", "Credit", "Liability", false, true, 50, "SGST payable."),
+                Line("GST.OUTPUT_IGST", "Output IGST", "GST component mapping", "Credit", "Liability", false, true, 60, "IGST payable."),
+                Line("SALES.ROUNDING", "Sales Rounding", "Discount/rounding mapping", "Both", "Expense", false, false, 70, "Invoice round-off gain/loss."),
+                Line("SALES.OTHER_CHARGES", "Sales Other Charges", "Sales category mapping", "Credit", "Income", false, false, 80, "Delivery and other charges when source documents expose them.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.Sales, "SalesReturn", "Sales Return And Credit Note Adapter", "Maps sale returns and credit notes to receivable reduction, return income, GST reversal, discount and rounding.", [
+                Line("SALES.RETURN", "Sales Return", "Sales category mapping", "Debit", "Income", true, false, 10, "Sale return contra income."),
+                Line("GST.OUTPUT_CGST", "Output CGST", "GST component mapping", "Debit", "Liability", false, true, 20, "CGST reversal."),
+                Line("GST.OUTPUT_SGST", "Output SGST", "GST component mapping", "Debit", "Liability", false, true, 30, "SGST reversal."),
+                Line("GST.OUTPUT_IGST", "Output IGST", "GST component mapping", "Debit", "Liability", false, true, 40, "IGST reversal."),
+                Line("CUSTOMER.RECEIVABLE", "Customer Receivables", "Sales category mapping", "Credit", "Asset", true, true, 50, "Receivable reduced by return or credit note."),
+                Line("SALES.DISCOUNT", "Sales Discount", "Discount/rounding mapping", "Credit", "Expense", false, false, 60, "Discount reversal for returned goods."),
+                Line("SALES.ROUNDING", "Sales Rounding", "Discount/rounding mapping", "Both", "Expense", false, false, 70, "Return round-off reversal.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.Sales, "SalesCancellation", "Sales Cancellation Adapter", "Reverses a cancelled sales invoice without reposting payment settlement.", [
+                Line("CUSTOMER.RECEIVABLE", "Customer Receivables", "Sales category mapping", "Credit", "Asset", true, true, 10, "Original receivable reversal."),
+                Line("SALES.DISCOUNT", "Sales Discount", "Discount/rounding mapping", "Credit", "Expense", false, false, 20, "Original discount reversal."),
+                Line("SALES.REVENUE", "Sales Revenue", "Sales category mapping", "Debit", "Income", true, false, 30, "Original revenue reversal."),
+                Line("GST.OUTPUT_CGST", "Output CGST", "GST component mapping", "Debit", "Liability", false, true, 40, "CGST payable reversal."),
+                Line("GST.OUTPUT_SGST", "Output SGST", "GST component mapping", "Debit", "Liability", false, true, 50, "SGST payable reversal."),
+                Line("GST.OUTPUT_IGST", "Output IGST", "GST component mapping", "Debit", "Liability", false, true, 60, "IGST payable reversal."),
+                Line("SALES.ROUNDING", "Sales Rounding", "Discount/rounding mapping", "Both", "Expense", false, false, 70, "Original round-off reversal.")
             ]),
             Rule(FinalAccountsMappingSourceType.Purchase, "Purchase Posting", "Maps inward purchases, vendor dues and purchase returns.", [
                 Line("PURCHASE.DIRECT", "Direct Purchases", "Expense category mapping", "Debit", "Expense", true, false, 10, "Purchase expense or trading purchase account."),

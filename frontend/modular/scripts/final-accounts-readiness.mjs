@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-04A readiness')
+console.log('Garmetix Final Accounts BS-04B readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -101,6 +101,13 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPostingRuleService.cs
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPostingRules.cs', [
   'StandardRules',
+  'SalesInvoice',
+  'SalesReturn',
+  'SalesCancellation',
+  'GST.OUTPUT_CGST',
+  'GST.OUTPUT_SGST',
+  'GST.OUTPUT_IGST',
+  'SALES.OTHER_CHARGES',
   'CustomerReceipt',
   'VendorPayment',
   'GeneralPayment',
@@ -140,8 +147,29 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsCashBankPostingAdapte
   'cannot be silently allocated'
 ])
 
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsSalesPostingAdapters.cs', [
+  'FinalAccountsSalesAdapterLines',
+  'SalesInvoiceAdapter',
+  'SalesReturnAdapter',
+  'SalesInvoiceCancellationAdapter',
+  'SalesCreditNoteAdapter',
+  'CUSTOMER.RECEIVABLE',
+  'SALES.REVENUE',
+  'SALES.RETURN',
+  'SALES.DISCOUNT',
+  'GST.OUTPUT_CGST',
+  'GST.OUTPUT_SGST',
+  'GST.OUTPUT_IGST',
+  'DimensionSummary',
+  'Sales posting preview is not balanced'
+])
+
 checkFile('backend/Garmetix.Api/Program.cs', [
   'FinalAccountsPostingAdapterService',
+  'SalesInvoiceAdapter',
+  'SalesReturnAdapter',
+  'SalesInvoiceCancellationAdapter',
+  'SalesCreditNoteAdapter',
   'InvoicePaymentReceiptAdapter',
   'BankCashTransferAdapter'
 ])
@@ -151,7 +179,13 @@ checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsPostingRulesTes
   'VendorPaymentAdapterLinesCreditPaymentRail',
   'ContraTransferDepositDebitsBankAndCreditsCash',
   'NegativeAdapterAmountReversesDebitAndCredit',
-  'MixedPaymentModeRequiresSourceBreakdown'
+  'MixedPaymentModeRequiresSourceBreakdown',
+  'SalesInvoiceAdapterLinesPresentReceivableRevenueDiscountGstAndRounding',
+  'SalesReturnAdapterLinesReverseReceivableTaxDiscountAndRounding',
+  'SalesCancellationAdapterLinesReverseOriginalSale',
+  'InterstateSalesUseIgstOutputMapping',
+  'LocalSalesFallbackTaxSplitsCgstAndSgst',
+  'SalesCreditNoteUsesReturnShape'
 ])
 
 checkFile('backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsCatalog.cs', [
@@ -314,7 +348,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-04A readiness passed.')
+console.log('\nFinal Accounts BS-04B readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)

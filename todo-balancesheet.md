@@ -687,22 +687,22 @@ Files added/changed:
 
 # BS-04B — Sales and sales-return adapters
 
-- [ ] Cash sale.
-- [ ] Credit sale.
-- [ ] UPI/card/bank sale.
-- [ ] Mixed payment sale.
-- [ ] Customer receivable.
-- [ ] Taxable value.
-- [ ] CGST/SGST.
-- [ ] IGST.
-- [ ] discount presentation.
-- [ ] delivery/other charges.
-- [ ] sale return/credit note.
-- [ ] revised/cancelled invoice.
-- [ ] item/category/store dimensions.
-- [ ] Source totals reconcile.
-- [ ] Fixture tests.
-- [ ] Commit BS-04B.
+- [x] Cash sale.
+- [x] Credit sale.
+- [x] UPI/card/bank sale.
+- [x] Mixed payment sale.
+- [x] Customer receivable.
+- [x] Taxable value.
+- [x] CGST/SGST.
+- [x] IGST.
+- [x] discount presentation.
+- [x] delivery/other charges.
+- [x] sale return/credit note.
+- [x] revised/cancelled invoice.
+- [x] item/category/store dimensions.
+- [x] Source totals reconcile.
+- [x] Fixture tests.
+- [x] Commit BS-04B.
 
 ---
 

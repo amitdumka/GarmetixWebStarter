@@ -124,4 +124,140 @@ public sealed class FinalAccountsPostingRulesTests
 
         Assert.Contains("cannot be silently allocated", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void SalesInvoiceAdapterLinesPresentReceivableRevenueDiscountGstAndRounding()
+    {
+        var lines = FinalAccountsSalesAdapterLines.SalesInvoiceLines(
+            billAmount: 106m,
+            taxableAmount: 90m,
+            discountAmount: 10m,
+            taxAmount: 15.75m,
+            cgstAmount: 7.87m,
+            sgstAmount: 7.88m,
+            igstAmount: 0m,
+            interState: false,
+            roundOff: 0.25m,
+            narration: "Sales invoice SI-1");
+
+        AssertBalanced(lines);
+        Assert.Contains(lines, item => item.MappingKey == "CUSTOMER.RECEIVABLE" && item.Debit == 106m);
+        Assert.Contains(lines, item => item.MappingKey == "SALES.DISCOUNT" && item.Debit == 10m);
+        Assert.Contains(lines, item => item.MappingKey == "SALES.REVENUE" && item.Credit == 100m);
+        Assert.Contains(lines, item => item.MappingKey == "GST.OUTPUT_CGST" && item.Credit == 7.87m);
+        Assert.Contains(lines, item => item.MappingKey == "GST.OUTPUT_SGST" && item.Credit == 7.88m);
+        Assert.Contains(lines, item => item.MappingKey == "SALES.ROUNDING" && item.Credit == 0.25m);
+    }
+
+    [Fact]
+    public void SalesReturnAdapterLinesReverseReceivableTaxDiscountAndRounding()
+    {
+        var lines = FinalAccountsSalesAdapterLines.SalesReturnLines(
+            billAmount: 106m,
+            taxableAmount: 90m,
+            discountAmount: 10m,
+            taxAmount: 15.75m,
+            cgstAmount: 7.87m,
+            sgstAmount: 7.88m,
+            igstAmount: 0m,
+            interState: false,
+            roundOff: 0.25m,
+            narration: "Sales return SR-1");
+
+        AssertBalanced(lines);
+        Assert.Contains(lines, item => item.MappingKey == "SALES.RETURN" && item.Debit == 100m);
+        Assert.Contains(lines, item => item.MappingKey == "GST.OUTPUT_CGST" && item.Debit == 7.87m);
+        Assert.Contains(lines, item => item.MappingKey == "GST.OUTPUT_SGST" && item.Debit == 7.88m);
+        Assert.Contains(lines, item => item.MappingKey == "CUSTOMER.RECEIVABLE" && item.Credit == 106m);
+        Assert.Contains(lines, item => item.MappingKey == "SALES.DISCOUNT" && item.Credit == 10m);
+        Assert.Contains(lines, item => item.MappingKey == "SALES.ROUNDING" && item.Debit == 0.25m);
+    }
+
+    [Fact]
+    public void SalesCancellationAdapterLinesReverseOriginalSale()
+    {
+        var lines = FinalAccountsSalesAdapterLines.SalesCancellationLines(
+            billAmount: 118m,
+            taxableAmount: 100m,
+            discountAmount: 0m,
+            taxAmount: 18m,
+            cgstAmount: 9m,
+            sgstAmount: 9m,
+            igstAmount: 0m,
+            interState: false,
+            roundOff: 0m,
+            narration: "Cancel sales invoice SI-2");
+
+        AssertBalanced(lines);
+        Assert.Contains(lines, item => item.MappingKey == "CUSTOMER.RECEIVABLE" && item.Credit == 118m);
+        Assert.Contains(lines, item => item.MappingKey == "SALES.REVENUE" && item.Debit == 100m);
+        Assert.Contains(lines, item => item.MappingKey == "GST.OUTPUT_CGST" && item.Debit == 9m);
+        Assert.Contains(lines, item => item.MappingKey == "GST.OUTPUT_SGST" && item.Debit == 9m);
+    }
+
+    [Fact]
+    public void InterstateSalesUseIgstOutputMapping()
+    {
+        var lines = FinalAccountsSalesAdapterLines.SalesInvoiceLines(
+            billAmount: 118m,
+            taxableAmount: 100m,
+            discountAmount: 0m,
+            taxAmount: 18m,
+            cgstAmount: null,
+            sgstAmount: null,
+            igstAmount: null,
+            interState: true,
+            roundOff: 0m,
+            narration: "Interstate sale SI-3");
+
+        AssertBalanced(lines);
+        Assert.Contains(lines, item => item.MappingKey == "GST.OUTPUT_IGST" && item.Credit == 18m);
+        Assert.DoesNotContain(lines, item => item.MappingKey == "GST.OUTPUT_CGST");
+        Assert.DoesNotContain(lines, item => item.MappingKey == "GST.OUTPUT_SGST");
+    }
+
+    [Fact]
+    public void LocalSalesFallbackTaxSplitsCgstAndSgst()
+    {
+        var lines = FinalAccountsSalesAdapterLines.SalesInvoiceLines(
+            billAmount: 105m,
+            taxableAmount: 100m,
+            discountAmount: 0m,
+            taxAmount: 5m,
+            cgstAmount: null,
+            sgstAmount: null,
+            igstAmount: null,
+            interState: false,
+            roundOff: 0m,
+            narration: "Local sale SI-4");
+
+        AssertBalanced(lines);
+        Assert.Contains(lines, item => item.MappingKey == "GST.OUTPUT_CGST" && item.Credit == 2.50m);
+        Assert.Contains(lines, item => item.MappingKey == "GST.OUTPUT_SGST" && item.Credit == 2.50m);
+    }
+
+    [Fact]
+    public void SalesCreditNoteUsesReturnShape()
+    {
+        var lines = FinalAccountsSalesAdapterLines.SalesReturnLines(
+            billAmount: 118m,
+            taxableAmount: 100m,
+            discountAmount: 0m,
+            taxAmount: 18m,
+            cgstAmount: null,
+            sgstAmount: null,
+            igstAmount: null,
+            interState: false,
+            roundOff: 0m,
+            narration: "Sales credit note CN-1");
+
+        AssertBalanced(lines);
+        Assert.Contains(lines, item => item.MappingKey == "SALES.RETURN" && item.Debit == 100m);
+        Assert.Contains(lines, item => item.MappingKey == "CUSTOMER.RECEIVABLE" && item.Credit == 118m);
+    }
+
+    private static void AssertBalanced(IReadOnlyList<FinalAccountsPostingPreviewLineRequest> lines)
+    {
+        Assert.Equal(lines.Sum(item => item.Debit), lines.Sum(item => item.Credit));
+    }
 }
