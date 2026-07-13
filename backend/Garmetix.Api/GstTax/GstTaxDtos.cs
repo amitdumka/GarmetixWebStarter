@@ -259,7 +259,74 @@ public sealed record GstAuditFindingDto(
     string Status,
     DateTime CreatedAt,
     string? ReviewedBy,
-    DateTime? ReviewedAt);
+    DateTime? ReviewedAt,
+    Guid? InvoiceId,
+    Guid? PurchaseInvoiceId);
+
+public sealed record GstSaleReviewResponseDto(
+    DateTime FromDate,
+    DateTime ToDate,
+    Guid? StoreId,
+    string? Search,
+    int Page,
+    int PageSize,
+    int TotalLines,
+    GstSaleReviewSummaryDto Summary,
+    IReadOnlyList<GstSaleReviewInvoiceDto> Invoices,
+    IReadOnlyList<GstSaleReviewLineDto> Lines);
+
+public sealed record GstSaleReviewSummaryDto(
+    int InvoiceCount,
+    int LineCount,
+    int MismatchCount,
+    int NotConfiguredCount,
+    int OpenAuditFindingCount,
+    decimal TaxableAmount,
+    decimal StoredTaxAmount,
+    decimal ResolvedTaxAmount,
+    decimal TaxDifferenceAmount);
+
+public sealed record GstSaleReviewInvoiceDto(
+    Guid InvoiceId,
+    string InvoiceNumber,
+    DateTime OnDate,
+    string StoreName,
+    string CustomerName,
+    string CustomerMobileNumber,
+    bool InterState,
+    int LineCount,
+    int IssueCount,
+    int OpenAuditFindingCount,
+    decimal StoredTaxAmount,
+    decimal ResolvedTaxAmount,
+    decimal TaxDifferenceAmount,
+    string Status);
+
+public sealed record GstSaleReviewLineDto(
+    Guid InvoiceId,
+    Guid InvoiceItemId,
+    string InvoiceNumber,
+    DateTime OnDate,
+    string StoreName,
+    string CustomerName,
+    Guid ProductId,
+    string ProductName,
+    string Barcode,
+    string? HsnCode,
+    string? ProductCategory,
+    decimal Quantity,
+    decimal Mrp,
+    decimal DiscountAmount,
+    decimal TaxableValue,
+    decimal StoredTaxPercentage,
+    decimal ResolvedTaxPercentage,
+    decimal StoredTaxAmount,
+    decimal ResolvedTaxAmount,
+    decimal TaxDifferenceAmount,
+    string? RateSource,
+    string? RuleName,
+    bool IsGarmentThreshold,
+    string Status);
 
 public static class GstTaxCatalog
 {

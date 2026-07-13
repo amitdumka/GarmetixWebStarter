@@ -84,6 +84,8 @@ public static class GstAuditEndpoints
         string? status = null,
         string? severity = null,
         string? moduleArea = null,
+        Guid? invoiceId = null,
+        Guid? purchaseInvoiceId = null,
         int limit = 200)
     {
         await EnsureStorageAsync(db, loggerFactory, cancellationToken);
@@ -101,11 +103,19 @@ public static class GstAuditEndpoints
         {
             query = query.Where(f => f.ModuleArea == moduleArea);
         }
+        if (invoiceId.HasValue)
+        {
+            query = query.Where(f => f.InvoiceId == invoiceId.Value);
+        }
+        if (purchaseInvoiceId.HasValue)
+        {
+            query = query.Where(f => f.PurchaseInvoiceId == purchaseInvoiceId.Value);
+        }
 
         var rows = await query
             .OrderByDescending(f => f.CreatedAt)
             .Take(Math.Clamp(limit, 1, 500))
-            .Select(f => new GstAuditFindingDto(f.Id, f.RuleCode, f.Severity, f.ModuleArea, f.EntityType, f.EntityId, f.Gstin, f.HsnCode, f.Message, f.ExpectedValue, f.ActualValue, f.Status, f.CreatedAt, f.ReviewedBy, f.ReviewedAt))
+            .Select(f => new GstAuditFindingDto(f.Id, f.RuleCode, f.Severity, f.ModuleArea, f.EntityType, f.EntityId, f.Gstin, f.HsnCode, f.Message, f.ExpectedValue, f.ActualValue, f.Status, f.CreatedAt, f.ReviewedBy, f.ReviewedAt, f.InvoiceId, f.PurchaseInvoiceId))
             .ToListAsync(cancellationToken);
 
         return Results.Ok(rows);

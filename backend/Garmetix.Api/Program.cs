@@ -370,6 +370,7 @@ app.MapGstTaxEndpoints();
 app.MapGstHsnEndpoints();
 app.MapGstRateEndpoints();
 app.MapGstAuditEndpoints();
+app.MapGstSaleReviewEndpoints();
 app.MapCommercialEndpoints();
 app.MapCustomerDuesReconciliationEndpoints();
 app.MapFinancialYearCloseoutEndpoints();
