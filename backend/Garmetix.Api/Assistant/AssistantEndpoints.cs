@@ -38,7 +38,7 @@ public static class AssistantEndpoints
             // Assistant disabled on this environment, or similar config issue.
             return Results.Problem(ex.Message, statusCode: StatusCodes.Status503ServiceUnavailable);
         }
-        catch (AssistantAnthropicException ex)
+        catch (AssistantModelException ex)
         {
             return Results.Problem("The assistant is temporarily unavailable. Please try again shortly.", statusCode: StatusCodes.Status502BadGateway, title: ex.Message);
         }

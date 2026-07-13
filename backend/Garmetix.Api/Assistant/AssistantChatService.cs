@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 namespace Garmetix.Api.Assistant;
 
 public sealed class AssistantChatService(
-    AssistantAnthropicClient anthropicClient,
+    IAssistantModelClientFactory modelClientFactory,
     AssistantToolCatalog toolCatalog,
     AssistantConversationStore conversationStore,
     ApplicationMessageLogService messageLog,
@@ -42,6 +42,8 @@ public sealed class AssistantChatService(
             throw new InvalidOperationException("The Garmetix Assistant is not enabled on this environment.");
         }
 
+        var modelClient = modelClientFactory.GetClient();
+
         var user = context.User;
         var userId = ReadGuidClaim(user, ClaimTypes.NameIdentifier);
         var userName = user.FindFirstValue(ClaimTypes.Name) ?? user.FindFirstValue("name");
@@ -54,12 +56,18 @@ public sealed class AssistantChatService(
 
         var history = await conversationStore.GetRecentMessagesAsync(conversationId, userId ?? Guid.Empty, settings.MaxHistoryMessages, cancellationToken);
 
-        var messages = new JsonArray();
+        var state = new AssistantConversationState();
         foreach (var turn in history)
         {
-            messages.Add(new JsonObject { ["role"] = turn.Role, ["content"] = turn.Content });
+            state.Turns.Add(new AssistantConversationTurn
+            {
+                Role = string.Equals(turn.Role, "assistant", StringComparison.OrdinalIgnoreCase)
+                    ? AssistantTurnRole.Assistant
+                    : AssistantTurnRole.User,
+                Text = turn.Content
+            });
         }
-        messages.Add(new JsonObject { ["role"] = "user", ["content"] = request.Message });
+        state.AddUserText(request.Message);
 
         await conversationStore.AppendMessageAsync(conversationId, "user", request.Message, null, cancellationToken);
 
@@ -71,12 +79,12 @@ public sealed class AssistantChatService(
 
         for (var iteration = 0; iteration < settings.MaxToolIterations; iteration++)
         {
-            JsonNode response;
+            AssistantModelTurn turn;
             try
             {
-                response = await anthropicClient.SendAsync(messages, toolCatalog.ToolSchemas, systemPrompt, cancellationToken);
+                turn = await modelClient.SendAsync(state, toolCatalog.ToolSchemas, systemPrompt, cancellationToken);
             }
-            catch (AssistantAnthropicException ex)
+            catch (AssistantModelException ex)
             {
                 await messageLog.ErrorAsync("Assistant", "ChatError", ex.Message,
                     companyId: companyId, storeGroupId: storeGroupId, storeId: storeId, userId: userId, userName: userName,
@@ -84,36 +92,22 @@ public sealed class AssistantChatService(
                 throw;
             }
 
-            var stopReason = response["stop_reason"]?.GetValue<string>();
-            var contentArray = response["content"]?.AsArray() ?? new JsonArray();
-
-            messages.Add(new JsonObject { ["role"] = "assistant", ["content"] = contentArray.DeepClone() });
-
-            if (!string.Equals(stopReason, "tool_use", StringComparison.Ordinal))
+            if (!turn.WantsToolCalls)
             {
-                finalReply = string.Concat(contentArray
-                    .Where(block => block is not null && block["type"]?.GetValue<string>() == "text")
-                    .Select(block => block!["text"]!.GetValue<string>()));
+                finalReply = turn.FinalText ?? string.Empty;
                 break;
             }
 
-            var toolResults = new JsonArray();
-            foreach (var block in contentArray)
+            state.AddAssistantTurn(turn.FinalText, turn.ToolCalls);
+
+            var toolResults = new List<AssistantToolResult>();
+            foreach (var call in turn.ToolCalls)
             {
-                if (block is null || block["type"]?.GetValue<string>() != "tool_use")
-                {
-                    continue;
-                }
-
-                var toolUseId = block["id"]!.GetValue<string>();
-                var toolName = block["name"]!.GetValue<string>();
-                var inputJson = block["input"]?.ToJsonString() ?? "{}";
-
                 string resultJson;
                 var success = true;
                 try
                 {
-                    resultJson = await toolCatalog.ExecuteAsync(toolName, inputJson, context, cancellationToken);
+                    resultJson = await toolCatalog.ExecuteAsync(call.Name, call.InputJson, context, cancellationToken);
                 }
                 catch (Exception ex)
                 {
@@ -121,22 +115,17 @@ public sealed class AssistantChatService(
                     resultJson = JsonSerializer.Serialize(new { error = ex.Message });
                 }
 
-                toolCalls.Add(new AssistantToolCallDto(toolName, inputJson, Truncate(resultJson, 300), success));
+                toolCalls.Add(new AssistantToolCallDto(call.Name, call.InputJson, Truncate(resultJson, 300), success));
 
-                await messageLog.SuccessAsync("Assistant", "ToolCall", $"Assistant executed {toolName}",
-                    details: new { input = SafeParse(inputJson), resultPreview = Truncate(resultJson, 500), success },
+                await messageLog.SuccessAsync("Assistant", "ToolCall", $"Assistant executed {call.Name}",
+                    details: new { input = SafeParse(call.InputJson), resultPreview = Truncate(resultJson, 500), success },
                     companyId: companyId, storeGroupId: storeGroupId, storeId: storeId, userId: userId, userName: userName,
                     cancellationToken: cancellationToken);
 
-                toolResults.Add(new JsonObject
-                {
-                    ["type"] = "tool_result",
-                    ["tool_use_id"] = toolUseId,
-                    ["content"] = resultJson
-                });
+                toolResults.Add(new AssistantToolResult(call.Id, call.Name, resultJson, !success));
             }
 
-            messages.Add(new JsonObject { ["role"] = "user", ["content"] = toolResults });
+            state.AddToolResults(toolResults);
         }
 
         var toolCallsJson = toolCalls.Count == 0 ? null : JsonSerializer.Serialize(toolCalls);

@@ -147,10 +147,13 @@ builder.Services.AddScoped<GstinResolutionService>();
 builder.Services.AddScoped<GstRateResolutionService>();
 builder.Services.AddScoped<GstAuditEngineService>();
 builder.Services.Configure<AssistantOptions>(builder.Configuration.GetSection("Assistant"));
+builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection("Gemini"));
 builder.Services.AddScoped<AssistantConversationStore>();
 builder.Services.AddScoped<AssistantToolCatalog>();
 builder.Services.AddScoped<AssistantChatService>();
 builder.Services.AddHttpClient<AssistantAnthropicClient>();
+builder.Services.AddHttpClient<AssistantGeminiClient>();
+builder.Services.AddScoped<IAssistantModelClientFactory, AssistantModelClientFactory>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<AssistantMcpTools>();
 builder.Services.AddMcpServer()

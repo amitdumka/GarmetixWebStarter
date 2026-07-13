@@ -19,6 +19,14 @@ public sealed class AssistantOptions
     /// </summary>
     public bool McpEnabled { get; set; } = false;
 
+    /// <summary>
+    /// Which model provider backs the assistant's tool-call loop: "anthropic"
+    /// (default, production quality) or "gemini" (Google's free Flash tier,
+    /// good for testing without spending Anthropic credits - see GeminiOptions).
+    /// Resolved by AssistantModelClientFactory.
+    /// </summary>
+    public string Provider { get; set; } = "anthropic";
+
     public string AnthropicApiKey { get; set; } = string.Empty;
 
     public string AnthropicBaseUrl { get; set; } = "https://api.anthropic.com";
