@@ -328,6 +328,79 @@ public sealed record GstSaleReviewLineDto(
     bool IsGarmentThreshold,
     string Status);
 
+public sealed record GstPurchaseReviewResponseDto(
+    DateTime FromDate,
+    DateTime ToDate,
+    Guid? StoreId,
+    Guid? VendorId,
+    string? Search,
+    int Page,
+    int PageSize,
+    int TotalLines,
+    GstPurchaseReviewSummaryDto Summary,
+    IReadOnlyList<GstPurchaseReviewInvoiceDto> Invoices,
+    IReadOnlyList<GstPurchaseReviewLineDto> Lines);
+
+public sealed record GstPurchaseReviewSummaryDto(
+    int InvoiceCount,
+    int LineCount,
+    int MismatchCount,
+    int NotConfiguredCount,
+    int OpenAuditFindingCount,
+    int ItcNotEligibleCount,
+    int ItcAtRiskCount,
+    int ItcUnverifiedCount,
+    decimal TaxableAmount,
+    decimal StoredTaxAmount,
+    decimal ResolvedTaxAmount,
+    decimal TaxDifferenceAmount);
+
+public sealed record GstPurchaseReviewInvoiceDto(
+    Guid PurchaseInvoiceId,
+    string InvoiceNumber,
+    string InwardNumber,
+    DateTime OnDate,
+    string StoreName,
+    Guid VendorId,
+    string VendorName,
+    string? VendorGSTIN,
+    bool InterState,
+    int LineCount,
+    int IssueCount,
+    int OpenAuditFindingCount,
+    decimal StoredTaxAmount,
+    decimal ResolvedTaxAmount,
+    decimal TaxDifferenceAmount,
+    string Status,
+    string ItcStatus,
+    string ItcNote);
+
+public sealed record GstPurchaseReviewLineDto(
+    Guid PurchaseInvoiceId,
+    Guid PurchaseInvoiceItemId,
+    string InvoiceNumber,
+    DateTime OnDate,
+    string StoreName,
+    string VendorName,
+    Guid ProductId,
+    string ProductName,
+    string Barcode,
+    string? HsnCode,
+    string? ProductCategory,
+    decimal Quantity,
+    decimal Mrp,
+    decimal DiscountAmount,
+    decimal TaxableValue,
+    decimal StoredTaxPercentage,
+    decimal ResolvedTaxPercentage,
+    decimal StoredTaxAmount,
+    decimal ResolvedTaxAmount,
+    decimal TaxDifferenceAmount,
+    string? RateSource,
+    string? RuleName,
+    bool IsGarmentThreshold,
+    string Status);
+
 public static class GstTaxCatalog
 {
     public static readonly IReadOnlyList<string> ProviderTypes =

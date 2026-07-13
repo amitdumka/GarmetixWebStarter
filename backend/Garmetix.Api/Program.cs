@@ -371,6 +371,7 @@ app.MapGstHsnEndpoints();
 app.MapGstRateEndpoints();
 app.MapGstAuditEndpoints();
 app.MapGstSaleReviewEndpoints();
+app.MapGstPurchaseReviewEndpoints();
 app.MapCommercialEndpoints();
 app.MapCustomerDuesReconciliationEndpoints();
 app.MapFinancialYearCloseoutEndpoints();

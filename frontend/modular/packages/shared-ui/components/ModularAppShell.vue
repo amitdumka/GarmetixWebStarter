@@ -392,6 +392,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'gst-tax-rates', label: 'GST Rate Master', href: '/gst-tax-rates', icon: 'i-lucide-percent' },
       { id: 'gst-tax-audit', label: 'GST Audit', href: '/gst-tax-audit', icon: 'i-lucide-search-check' },
       { id: 'gst-tax-sale-review', label: 'Sale GST Review', href: '/gst-tax-sale-review', icon: 'i-lucide-receipt-text' },
+      { id: 'gst-tax-purchase-review', label: 'Purchase GST Review', href: '/gst-tax-purchase-review', icon: 'i-lucide-truck' },
       { id: 'gst-returns', label: 'GST Returns', href: '/gst-returns', icon: 'i-lucide-file-json-2' },
       { id: 'gst-reports', label: 'GST Reports', href: '/gst-reports', icon: 'i-lucide-table-properties' },
       { id: 'gst-production', label: 'GST Production', href: '/gst-production', icon: 'i-lucide-factory' },
