@@ -116,7 +116,7 @@ public static class GstPurchaseReviewEndpoints
         var vendorIds = invoices.Select(i => i.VendorId).Distinct().ToArray();
         var vendors = await db.Vendors.AsNoTracking()
             .Where(v => vendorIds.Contains(v.Id))
-            .Select(v => new VendorGstSnapshot(v.Id, v.GSTVerified, v.GSTRegistrationStatus))
+            .Select(v => new GstItcEligibilityService.VendorGstSnapshot(v.Id, v.GSTVerified, v.GSTRegistrationStatus))
             .ToDictionaryAsync(v => v.VendorId, cancellationToken);
 
         var items = await db.PurchaseInvoiceItems.AsNoTracking()
@@ -218,7 +218,7 @@ public static class GstPurchaseReviewEndpoints
                 var first = g.First();
                 var issueCount = g.Count(l => l.Status != "OK");
                 var sourceInvoice = invoiceMap[first.PurchaseInvoiceId];
-                var (itcStatus, itcNote) = ResolveItcStatus(sourceInvoice.VendorGSTIN, sourceInvoice.VendorId, vendors);
+                var (itcStatus, itcNote) = GstItcEligibilityService.Resolve(sourceInvoice.VendorGSTIN, sourceInvoice.VendorId, vendors);
                 return new GstPurchaseReviewInvoiceDto(
                     first.PurchaseInvoiceId,
                     first.InvoiceNumber,
@@ -269,42 +269,5 @@ public static class GstPurchaseReviewEndpoints
         return new GstPurchaseReviewResponseDto(from, to, storeId, vendorId, term, page, pageSize, totalLines, summary, invoiceSummaries, pagedLines);
     }
 
-    /// <summary>
-    /// ITC eligibility is a heuristic, not a formal ledger calculation - this codebase has no ITC ledger table.
-    /// "Not Eligible" when the purchase invoice itself carries no vendor GSTIN (no valid tax invoice for ITC).
-    /// "At Risk" when the vendor master's own GST registration status is on record as something other than
-    /// Active (e.g. cancelled/suspended). "Unverified" when a GSTIN is present but has never been confirmed via
-    /// the GST & Taxes GSTIN Verification tool (Stage GST-3). "Eligible" otherwise.
-    /// </summary>
-    private static (string Status, string Note) ResolveItcStatus(
-        string? vendorGstin,
-        Guid vendorId,
-        Dictionary<Guid, VendorGstSnapshot> vendors)
-    {
-        if (string.IsNullOrWhiteSpace(vendorGstin))
-        {
-            return ("Not Eligible", "No vendor GSTIN captured on this purchase invoice - ITC cannot be claimed without one.");
-        }
-
-        if (!vendors.TryGetValue(vendorId, out var vendor))
-        {
-            return ("Unverified", "Vendor GSTIN present but vendor master record was not found for a verification check.");
-        }
-
-        if (!string.IsNullOrWhiteSpace(vendor.GSTRegistrationStatus) && !string.Equals(vendor.GSTRegistrationStatus, "Active", StringComparison.OrdinalIgnoreCase))
-        {
-            return ("At Risk", $"Vendor GST registration status is on record as \"{vendor.GSTRegistrationStatus}\", not Active.");
-        }
-
-        if (!vendor.GSTVerified)
-        {
-            return ("Unverified", "Vendor GSTIN has not been verified via GST & Taxes GSTIN Verification.");
-        }
-
-        return ("Eligible", "Vendor GSTIN present and verified.");
-    }
-
     private static GstPurchaseReviewSummaryDto EmptySummary() => new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-
-    private sealed record VendorGstSnapshot(Guid VendorId, bool GSTVerified, string? GSTRegistrationStatus);
 }

@@ -401,6 +401,46 @@ public sealed record GstPurchaseReviewLineDto(
     bool IsGarmentThreshold,
     string Status);
 
+public sealed record GstItcRegisterResponseDto(
+    DateTime FromDate,
+    DateTime ToDate,
+    Guid? StoreId,
+    Guid? VendorId,
+    string? Search,
+    int Page,
+    int PageSize,
+    int TotalRows,
+    GstItcRegisterSummaryDto Summary,
+    IReadOnlyList<GstItcRegisterRowDto> Rows);
+
+public sealed record GstItcRegisterSummaryDto(
+    int InvoiceCount,
+    int EligibleCount,
+    int AtRiskCount,
+    int UnverifiedCount,
+    int NotEligibleCount,
+    decimal TotalTaxableValue,
+    decimal TotalTaxAmount,
+    decimal TotalEligibleItcAmount,
+    decimal TotalIneligibleItcAmount);
+
+public sealed record GstItcRegisterRowDto(
+    Guid PurchaseInvoiceId,
+    string InvoiceNumber,
+    string InwardNumber,
+    DateTime OnDate,
+    string VendorName,
+    string? VendorGSTIN,
+    bool InterState,
+    decimal TaxableValue,
+    decimal CgstAmount,
+    decimal SgstAmount,
+    decimal IgstAmount,
+    decimal TaxAmount,
+    string ItcStatus,
+    string ItcNote,
+    decimal EligibleItcAmount);
+
 public static class GstTaxCatalog
 {
     public static readonly IReadOnlyList<string> ProviderTypes =
