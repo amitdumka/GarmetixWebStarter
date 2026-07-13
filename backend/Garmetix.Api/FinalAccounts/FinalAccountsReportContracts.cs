@@ -21,6 +21,16 @@ public sealed record FinalAccountsTrialBalanceReportQuery(
     bool? IncludeZeroBalances,
     string? Comparison);
 
+public sealed record FinalAccountsProfitLossReportQuery(
+    Guid? CompanyId,
+    Guid? StoreGroupId,
+    Guid? StoreId,
+    DateTime? From,
+    DateTime? To,
+    string? View,
+    string? RoundingUnit,
+    bool? HideZero);
+
 public sealed record FinalAccountsGeneralLedgerReportResponse(
     int Page,
     int PageSize,
@@ -113,3 +123,77 @@ public sealed record FinalAccountsReportExport(
     string FileName,
     string ContentType,
     byte[] Content);
+
+public sealed record FinalAccountsStatementTemplateDto(
+    string TemplateCode,
+    string Version,
+    string Name,
+    string StatementType,
+    string DefaultView,
+    string DefaultRoundingUnit,
+    bool HideZeroDefault,
+    IReadOnlyList<FinalAccountsStatementTemplateNodeDto> Nodes);
+
+public sealed record FinalAccountsStatementTemplateNodeDto(
+    string Key,
+    string Label,
+    string NodeType,
+    int SortOrder,
+    string? ParentKey,
+    string? Formula,
+    string SignRule,
+    bool Required,
+    bool DrillDown,
+    string Note,
+    string ScheduleReference,
+    string MappingRule);
+
+public sealed record FinalAccountsProfitLossReportResponse(
+    FinalAccountsStatementTemplateDto Template,
+    string View,
+    string RoundingUnit,
+    DateTime? From,
+    DateTime? To,
+    bool HideZero,
+    decimal Revenue,
+    decimal GrossProfit,
+    decimal Ebitda,
+    decimal ProfitBeforeTax,
+    decimal ProfitAfterTax,
+    IReadOnlyList<FinalAccountsProfitLossLineDto> Lines,
+    IReadOnlyList<FinalAccountsProfitLossHorizontalDto> Horizontal,
+    IReadOnlyList<FinalAccountsValidationIssueDto> MappingIssues);
+
+public sealed record FinalAccountsProfitLossLineDto(
+    string Key,
+    string Label,
+    string NodeType,
+    int SortOrder,
+    string? ParentKey,
+    string SignRule,
+    decimal Current,
+    decimal Previous,
+    decimal Variance,
+    decimal? VariancePercent,
+    decimal? PercentOfSales,
+    string Note,
+    string ScheduleReference,
+    string DrillDownPath,
+    IReadOnlyList<FinalAccountsStatementMappingDto> Mappings);
+
+public sealed record FinalAccountsProfitLossHorizontalDto(
+    string Metric,
+    decimal Current,
+    decimal Previous,
+    decimal Variance,
+    decimal? VariancePercent);
+
+public sealed record FinalAccountsStatementMappingDto(
+    Guid AccountId,
+    string AccountCode,
+    string AccountName,
+    Guid? GroupId,
+    string GroupName,
+    decimal Current,
+    decimal Previous,
+    string DrillDownPath);

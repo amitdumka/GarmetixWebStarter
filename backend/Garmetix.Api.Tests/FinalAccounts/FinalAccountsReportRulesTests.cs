@@ -44,4 +44,63 @@ public sealed class FinalAccountsReportRulesTests
         Assert.Equal(FinalAccountsReportRules.DefaultPageSize, FinalAccountsReportRules.NormalizePageSize(null));
         Assert.Equal(FinalAccountsReportRules.MaxPageSize, FinalAccountsReportRules.NormalizePageSize(9999));
     }
+
+    [Fact]
+    public void ProfitLossTemplateExposesVersionedFormulaNodes()
+    {
+        var template = FinalAccountsStatementRules.ProfitLossTemplate();
+
+        Assert.Equal("GarmentRetailProfitLoss", template.TemplateCode);
+        Assert.Equal("v1", template.Version);
+        Assert.Contains(template.Nodes, item => item.Key == "GrossProfit" && item.NodeType == "Formula");
+        Assert.Contains(template.Nodes, item => item.Key == "ProfitAfterTax" && item.Formula == "ProfitBeforeTax-TaxProvision");
+    }
+
+    [Fact]
+    public void FormulaEvaluationSupportsAddAndSubtract()
+    {
+        var values = new Dictionary<string, decimal>
+        {
+            ["Revenue"] = 1000m,
+            ["Returns"] = 100m,
+            ["Cogs"] = 400m
+        };
+
+        Assert.Equal(500m, FinalAccountsStatementRules.EvaluateFormula("Revenue-Returns-Cogs", values));
+    }
+
+    [Fact]
+    public void ProfitLossClassificationUsesAccountShape()
+    {
+        var revenue = Account("4001", "Sales Revenue", FinalAccountsAccountType.Income);
+        var returns = Account("4002", "Sales Return", FinalAccountsAccountType.Income);
+        var cogs = Account("5101", "Cost Of Goods Sold", FinalAccountsAccountType.Expense);
+        var finance = Account("5701", "Bank Interest", FinalAccountsAccountType.Expense);
+
+        Assert.Equal("Revenue", FinalAccountsStatementRules.ClassifyProfitLossCategory(revenue, "Income"));
+        Assert.Equal("SalesReturnsDiscount", FinalAccountsStatementRules.ClassifyProfitLossCategory(returns, "Income"));
+        Assert.Equal("Cogs", FinalAccountsStatementRules.ClassifyProfitLossCategory(cogs, "Expenses"));
+        Assert.Equal("FinanceCost", FinalAccountsStatementRules.ClassifyProfitLossCategory(finance, "Expenses"));
+    }
+
+    [Fact]
+    public void StatementPercentagesAndRoundingAreStable()
+    {
+        Assert.Equal("Lakhs", FinalAccountsStatementRules.NormalizeRoundingUnit("lakhs"));
+        Assert.Equal(1.25m, FinalAccountsStatementRules.RoundStatementValue(125000m, "Lakhs"));
+        Assert.Equal(25m, FinalAccountsStatementRules.PercentOfSales(250m, 1000m));
+        Assert.Equal(50m, FinalAccountsStatementRules.VariancePercent(150m, 100m));
+    }
+
+    private static FinalAccountsAccount Account(string code, string name, FinalAccountsAccountType type)
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            Code = code,
+            Name = name,
+            AccountType = type,
+            NaturalBalance = type == FinalAccountsAccountType.Income
+                ? FinalAccountsNaturalBalance.Credit
+                : FinalAccountsNaturalBalance.Debit
+        };
 }

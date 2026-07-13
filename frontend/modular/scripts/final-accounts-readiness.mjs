@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-06 readiness')
+console.log('Garmetix Final Accounts BS-07 readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -45,6 +45,8 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapGet("/reports/general-ledger/export"',
   'MapGet("/reports/trial-balance"',
   'MapGet("/reports/trial-balance/export"',
+  'MapGet("/reports/profit-loss"',
+  'MapGet("/reports/profit-loss/export"',
   'MapGet("/coa/seed-preview"',
   'MapGet("/validation/summary"'
 ])
@@ -211,9 +213,12 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsReportService.cs', [
   'FinalAccountsReportService',
   'GetGeneralLedgerAsync',
   'GetTrialBalanceAsync',
+  'GetProfitLossAsync',
   'ExportGeneralLedgerAsync',
   'ExportTrialBalanceAsync',
+  'ExportProfitLossAsync',
   'OpeningSignedBalance',
+  'LoadProfitLossCategoryValuesAsync',
   'BuildComparisonsAsync',
   'JournalDrillDownPath',
   'SourceDrillDownPath',
@@ -225,6 +230,10 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsReportContracts.cs', 
   'FinalAccountsGeneralLedgerReportResponse',
   'FinalAccountsTrialBalanceReportQuery',
   'FinalAccountsTrialBalanceReportResponse',
+  'FinalAccountsProfitLossReportQuery',
+  'FinalAccountsProfitLossReportResponse',
+  'FinalAccountsStatementTemplateDto',
+  'FinalAccountsStatementTemplateNodeDto',
   'FinalAccountsTrialBalanceComparisonDto',
   'FinalAccountsReportExport'
 ])
@@ -237,6 +246,20 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsReportRules.cs', [
   'NormalizeComparison',
   'PeriodKey',
   'BalanceStatus'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsStatementRules.cs', [
+  'ProfitLossTemplate',
+  'DefaultTemplateVersion',
+  'Formula',
+  'PercentOfSales',
+  'NormalizeRoundingUnit',
+  'ClassifyProfitLossCategory',
+  'ValidateProfitLossMappings',
+  'EvaluateFormula',
+  'Opening inventory',
+  'Closing inventory',
+  'ProfitAfterTax'
 ])
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPostingAdapters.cs', [
@@ -417,6 +440,13 @@ checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsSyncRulesTests.
   'RetryDelayBacksOffByAttempt'
 ])
 
+checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsReportRulesTests.cs', [
+  'ProfitLossTemplateExposesVersionedFormulaNodes',
+  'FormulaEvaluationSupportsAddAndSubtract',
+  'ProfitLossClassificationUsesAccountShape',
+  'StatementPercentagesAndRoundingAreStable'
+])
+
 checkFile('docs/final-accounts-bs-04d-inventory-cogs.md', [
   'perpetual weighted-average',
   'No closing-stock journal',
@@ -575,10 +605,14 @@ checkFile('frontend/modular/apps/final-accounts/pages/reports.vue', [
   'Reports',
   'reports/general-ledger',
   'reports/trial-balance',
+  'reports/profit-loss',
   'reports/general-ledger/export',
   'reports/trial-balance/export',
+  'reports/profit-loss/export',
   'Zero balances',
   'Reversed audit rows',
+  'Hide zero P&L lines',
+  'Profit & Loss',
   'Comparison'
 ])
 
@@ -602,6 +636,8 @@ checkFile('frontend/modular/apps/final-accounts/utils/final-accounts-api.ts', [
   'FinalAccountsValidationSummary',
   'FinalAccountsGeneralLedgerReport',
   'FinalAccountsTrialBalanceReport',
+  'FinalAccountsProfitLossReport',
+  'FinalAccountsStatementTemplate',
   'async function download',
   'async function post',
   'async function remove'
@@ -622,7 +658,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-06 readiness passed.')
+console.log('\nFinal Accounts BS-07 readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)

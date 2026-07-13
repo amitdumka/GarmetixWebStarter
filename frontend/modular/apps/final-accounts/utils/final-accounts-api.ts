@@ -338,6 +338,86 @@ export interface FinalAccountsTrialBalanceReport {
   diagnostics: FinalAccountsValidationIssue[]
 }
 
+export interface FinalAccountsStatementTemplateNode {
+  key: string
+  label: string
+  nodeType: string
+  sortOrder: number
+  parentKey?: string | null
+  formula?: string | null
+  signRule: string
+  required: boolean
+  drillDown: boolean
+  note: string
+  scheduleReference: string
+  mappingRule: string
+}
+
+export interface FinalAccountsStatementTemplate {
+  templateCode: string
+  version: string
+  name: string
+  statementType: string
+  defaultView: string
+  defaultRoundingUnit: string
+  hideZeroDefault: boolean
+  nodes: FinalAccountsStatementTemplateNode[]
+}
+
+export interface FinalAccountsStatementMapping {
+  accountId: string
+  accountCode: string
+  accountName: string
+  groupId?: string | null
+  groupName: string
+  current: number
+  previous: number
+  drillDownPath: string
+}
+
+export interface FinalAccountsProfitLossLine {
+  key: string
+  label: string
+  nodeType: string
+  sortOrder: number
+  parentKey?: string | null
+  signRule: string
+  current: number
+  previous: number
+  variance: number
+  variancePercent?: number | null
+  percentOfSales?: number | null
+  note: string
+  scheduleReference: string
+  drillDownPath: string
+  mappings: FinalAccountsStatementMapping[]
+}
+
+export interface FinalAccountsProfitLossHorizontal {
+  metric: string
+  current: number
+  previous: number
+  variance: number
+  variancePercent?: number | null
+}
+
+export interface FinalAccountsProfitLossReport {
+  template: FinalAccountsStatementTemplate
+  view: 'Vertical' | 'Horizontal' | string
+  roundingUnit: 'Ones' | 'Thousands' | 'Lakhs' | string
+  from?: string | null
+  to?: string | null
+  hideZero: boolean
+  revenue: number
+  grossProfit: number
+  ebitda: number
+  profitBeforeTax: number
+  profitAfterTax: number
+  lines: FinalAccountsProfitLossLine[]
+  horizontal: FinalAccountsProfitLossHorizontal[]
+  mappingIssues: FinalAccountsValidationIssue[]
+}
+
 export interface FinalAccountsPostingRuleLine {
   mappingKey: string
   displayName: string

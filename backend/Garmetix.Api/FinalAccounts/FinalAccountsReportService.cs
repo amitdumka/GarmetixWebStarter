@@ -249,6 +249,77 @@ public sealed class FinalAccountsReportService(GarmetixDbContext db)
             diagnostics);
     }
 
+    public async Task<FinalAccountsProfitLossReportResponse> GetProfitLossAsync(
+        FinalAccountsProfitLossReportQuery query,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var scope = ResolveScope(context, query.CompanyId, query.StoreGroupId, query.StoreId);
+        var from = query.From?.Date;
+        var to = query.To?.Date;
+        ValidateDateRange(from, to);
+        var view = FinalAccountsStatementRules.NormalizeStatementView(query.View);
+        var roundingUnit = FinalAccountsStatementRules.NormalizeRoundingUnit(query.RoundingUnit);
+        var hideZero = query.HideZero == true;
+        var template = FinalAccountsStatementRules.ProfitLossTemplate();
+        var accounts = await AccountsInScope(scope).AsNoTracking().OrderBy(item => item.Code).ToListAsync(cancellationToken);
+        var groups = await db.FinalAccountsAccountGroups
+            .AsNoTracking()
+            .Where(item => item.CompanyId == scope.CompanyId && item.StoreGroupId == scope.StoreGroupId && item.StoreId == scope.StoreId)
+            .ToDictionaryAsync(item => item.Id, cancellationToken);
+        var current = await LoadProfitLossCategoryValuesAsync(scope, accounts, groups, from, to, cancellationToken);
+        var previousRange = PreviousRange(from, to);
+        var previous = previousRange is null
+            ? new ProfitLossCategoryValues(new Dictionary<string, decimal>(), new Dictionary<string, List<FinalAccountsStatementMappingDto>>())
+            : await LoadProfitLossCategoryValuesAsync(scope, accounts, groups, previousRange.Value.From, previousRange.Value.To, cancellationToken);
+
+        var currentValues = current.Values.ToDictionary(item => item.Key, item => item.Value);
+        var previousValues = previous.Values.ToDictionary(item => item.Key, item => item.Value);
+        foreach (var node in template.Nodes.Where(item => string.Equals(item.NodeType, "Formula", StringComparison.OrdinalIgnoreCase)))
+        {
+            currentValues[node.Key] = FinalAccountsStatementRules.EvaluateFormula(node.Formula ?? string.Empty, currentValues);
+            previousValues[node.Key] = FinalAccountsStatementRules.EvaluateFormula(node.Formula ?? string.Empty, previousValues);
+        }
+
+        var revenue = currentValues.GetValueOrDefault("Revenue");
+        var lines = template.Nodes
+            .OrderBy(item => item.SortOrder)
+            .Select(node => BuildProfitLossLine(node, currentValues, previousValues, current.Mappings, previous.Mappings, revenue, roundingUnit))
+            .Where(item => !hideZero || item.Current != 0m || item.Previous != 0m || IsRequiredStatementLine(template, item.Key))
+            .ToList();
+        var horizontal = new[]
+        {
+            "Revenue",
+            "GrossProfit",
+            "Ebitda",
+            "ProfitBeforeTax",
+            "ProfitAfterTax"
+        }.Select(key => new FinalAccountsProfitLossHorizontalDto(
+            lines.FirstOrDefault(item => item.Key == key)?.Label ?? key,
+            FinalAccountsStatementRules.RoundStatementValue(currentValues.GetValueOrDefault(key), roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(previousValues.GetValueOrDefault(key), roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(FinalAccountsStatementRules.Variance(currentValues.GetValueOrDefault(key), previousValues.GetValueOrDefault(key)), roundingUnit),
+            FinalAccountsStatementRules.VariancePercent(currentValues.GetValueOrDefault(key), previousValues.GetValueOrDefault(key))))
+            .ToList();
+        var issues = FinalAccountsStatementRules.ValidateProfitLossMappings(current.Values);
+
+        return new FinalAccountsProfitLossReportResponse(
+            template,
+            view,
+            roundingUnit,
+            from,
+            to,
+            hideZero,
+            FinalAccountsStatementRules.RoundStatementValue(currentValues.GetValueOrDefault("Revenue"), roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(currentValues.GetValueOrDefault("GrossProfit"), roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(currentValues.GetValueOrDefault("Ebitda"), roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(currentValues.GetValueOrDefault("ProfitBeforeTax"), roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(currentValues.GetValueOrDefault("ProfitAfterTax"), roundingUnit),
+            lines,
+            horizontal,
+            issues);
+    }
+
     public async Task<FinalAccountsReportExport> ExportGeneralLedgerAsync(
         FinalAccountsGeneralLedgerReportQuery query,
         string? format,
@@ -305,6 +376,31 @@ public sealed class FinalAccountsReportService(GarmetixDbContext db)
         return BuildExport("final-accounts-trial-balance", format, lines);
     }
 
+    public async Task<FinalAccountsReportExport> ExportProfitLossAsync(
+        FinalAccountsProfitLossReportQuery query,
+        string? format,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var report = await GetProfitLossAsync(query, context, cancellationToken);
+        var lines = new List<string>
+        {
+            "Line,Node Type,Current,Previous,Variance,Variance %,Percent Of Sales,Schedule,Note,Drill Down"
+        };
+        lines.AddRange(report.Lines.Select(item => string.Join(",",
+            Csv(item.Label),
+            Csv(item.NodeType),
+            item.Current.ToString("0.00", CultureInfo.InvariantCulture),
+            item.Previous.ToString("0.00", CultureInfo.InvariantCulture),
+            item.Variance.ToString("0.00", CultureInfo.InvariantCulture),
+            item.VariancePercent?.ToString("0.00", CultureInfo.InvariantCulture) ?? string.Empty,
+            item.PercentOfSales?.ToString("0.00", CultureInfo.InvariantCulture) ?? string.Empty,
+            Csv(item.ScheduleReference),
+            Csv(item.Note),
+            Csv(item.DrillDownPath))));
+        return BuildExport("final-accounts-profit-loss", format, lines);
+    }
+
     private async Task<IReadOnlyList<FinalAccountsTrialBalanceComparisonDto>> BuildComparisonsAsync(
         FinalAccountsScopeDto scope,
         DateTime? from,
@@ -345,6 +441,156 @@ public sealed class FinalAccountsReportService(GarmetixDbContext db)
                     difference,
                     FinalAccountsReportRules.BalanceStatus(difference));
             }).ToList();
+    }
+
+    private async Task<ProfitLossCategoryValues> LoadProfitLossCategoryValuesAsync(
+        FinalAccountsScopeDto scope,
+        IReadOnlyList<FinalAccountsAccount> accounts,
+        IReadOnlyDictionary<Guid, FinalAccountsAccountGroup> groups,
+        DateTime? from,
+        DateTime? to,
+        CancellationToken cancellationToken)
+    {
+        var accountIds = accounts
+            .Where(item => item.AccountType is FinalAccountsAccountType.Income or FinalAccountsAccountType.Expense)
+            .Select(item => item.Id)
+            .ToHashSet();
+        if (accountIds.Count == 0)
+        {
+            return new ProfitLossCategoryValues(new Dictionary<string, decimal>(), new Dictionary<string, List<FinalAccountsStatementMappingDto>>());
+        }
+
+        var query = ReportLines(scope, includeReversed: false).Where(item => accountIds.Contains(item.Line.AccountId));
+        if (from.HasValue)
+        {
+            query = query.Where(item => item.Entry.OnDate >= from.Value);
+        }
+
+        if (to.HasValue)
+        {
+            query = query.Where(item => item.Entry.OnDate <= to.Value);
+        }
+
+        var movements = await query
+            .GroupBy(item => item.Line.AccountId)
+            .Select(group => new AccountMovement(group.Key, group.Sum(item => item.Line.Debit), group.Sum(item => item.Line.Credit)))
+            .ToDictionaryAsync(item => item.AccountId, cancellationToken);
+        var values = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        var mappings = new Dictionary<string, List<FinalAccountsStatementMappingDto>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var account in accounts.Where(item => accountIds.Contains(item.Id)))
+        {
+            groups.TryGetValue(account.AccountGroupId, out var group);
+            var category = FinalAccountsStatementRules.ClassifyProfitLossCategory(account, group?.Name);
+            if (string.IsNullOrWhiteSpace(category) || !movements.TryGetValue(account.Id, out var movement))
+            {
+                continue;
+            }
+
+            var amount = FinalAccountsStatementRules.SignedMovement(movement.Debit, movement.Credit, account.AccountType);
+            values[category] = FinalAccountsReportRules.RoundAmount(values.GetValueOrDefault(category) + amount);
+            if (!mappings.TryGetValue(category, out var categoryMappings))
+            {
+                categoryMappings = [];
+                mappings[category] = categoryMappings;
+            }
+
+            categoryMappings.Add(new FinalAccountsStatementMappingDto(
+                account.Id,
+                account.Code,
+                account.Name,
+                group?.Id,
+                group?.Name ?? "Ungrouped",
+                amount,
+                0m,
+                $"/final-accounts/reports?tab=ledger&accountId={account.Id}"));
+        }
+
+        return new ProfitLossCategoryValues(values, mappings);
+    }
+
+    private static FinalAccountsProfitLossLineDto BuildProfitLossLine(
+        FinalAccountsStatementTemplateNodeDto node,
+        IReadOnlyDictionary<string, decimal> currentValues,
+        IReadOnlyDictionary<string, decimal> previousValues,
+        IReadOnlyDictionary<string, List<FinalAccountsStatementMappingDto>> currentMappings,
+        IReadOnlyDictionary<string, List<FinalAccountsStatementMappingDto>> previousMappings,
+        decimal revenue,
+        string roundingUnit)
+    {
+        var current = currentValues.GetValueOrDefault(node.Key);
+        var previous = previousValues.GetValueOrDefault(node.Key);
+        var variance = FinalAccountsStatementRules.Variance(current, previous);
+        var mappings = MergeStatementMappings(node.Key, currentMappings, previousMappings, roundingUnit);
+        return new FinalAccountsProfitLossLineDto(
+            node.Key,
+            node.Label,
+            node.NodeType,
+            node.SortOrder,
+            node.ParentKey,
+            node.SignRule,
+            FinalAccountsStatementRules.RoundStatementValue(current, roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(previous, roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(variance, roundingUnit),
+            FinalAccountsStatementRules.VariancePercent(current, previous),
+            FinalAccountsStatementRules.PercentOfSales(current, revenue),
+            node.Note,
+            node.ScheduleReference,
+            node.DrillDown ? $"/final-accounts/reports?tab=profit-loss&line={node.Key}" : string.Empty,
+            mappings);
+    }
+
+    private static IReadOnlyList<FinalAccountsStatementMappingDto> MergeStatementMappings(
+        string key,
+        IReadOnlyDictionary<string, List<FinalAccountsStatementMappingDto>> currentMappings,
+        IReadOnlyDictionary<string, List<FinalAccountsStatementMappingDto>> previousMappings,
+        string roundingUnit)
+    {
+        currentMappings.TryGetValue(key, out var currentRows);
+        previousMappings.TryGetValue(key, out var previousRows);
+        var byAccount = new Dictionary<Guid, FinalAccountsStatementMappingDto>();
+        foreach (var row in currentRows ?? [])
+        {
+            byAccount[row.AccountId] = row with
+            {
+                Current = FinalAccountsStatementRules.RoundStatementValue(row.Current, roundingUnit),
+                Previous = 0m
+            };
+        }
+
+        foreach (var row in previousRows ?? [])
+        {
+            if (byAccount.TryGetValue(row.AccountId, out var existing))
+            {
+                byAccount[row.AccountId] = existing with { Previous = FinalAccountsStatementRules.RoundStatementValue(row.Current, roundingUnit) };
+            }
+            else
+            {
+                byAccount[row.AccountId] = row with
+                {
+                    Current = 0m,
+                    Previous = FinalAccountsStatementRules.RoundStatementValue(row.Current, roundingUnit)
+                };
+            }
+        }
+
+        return byAccount.Values.OrderBy(item => item.AccountCode).ToList();
+    }
+
+    private static bool IsRequiredStatementLine(FinalAccountsStatementTemplateDto template, string key)
+        => template.Nodes.FirstOrDefault(item => item.Key == key)?.Required == true;
+
+    private static (DateTime From, DateTime To)? PreviousRange(DateTime? from, DateTime? to)
+    {
+        if (!from.HasValue || !to.HasValue)
+        {
+            return null;
+        }
+
+        var days = (to.Value.Date - from.Value.Date).Days + 1;
+        var previousTo = from.Value.Date.AddDays(-1);
+        var previousFrom = previousTo.AddDays(1 - days);
+        return (previousFrom, previousTo);
     }
 
     private IQueryable<ReportLineQueryRow> ReportLines(FinalAccountsScopeDto scope, bool includeReversed)
@@ -605,4 +851,7 @@ public sealed class FinalAccountsReportService(GarmetixDbContext db)
         decimal ClosingDebit,
         decimal ClosingCredit,
         decimal Difference);
+    private sealed record ProfitLossCategoryValues(
+        IReadOnlyDictionary<string, decimal> Values,
+        IReadOnlyDictionary<string, List<FinalAccountsStatementMappingDto>> Mappings);
 }

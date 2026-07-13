@@ -61,6 +61,8 @@ public static class FinalAccountsEndpoints
         enabled.MapGet("/reports/general-ledger/export", ExportGeneralLedgerReportAsync);
         enabled.MapGet("/reports/trial-balance", GetTrialBalanceReportAsync);
         enabled.MapGet("/reports/trial-balance/export", ExportTrialBalanceReportAsync);
+        enabled.MapGet("/reports/profit-loss", GetProfitLossReportAsync);
+        enabled.MapGet("/reports/profit-loss/export", ExportProfitLossReportAsync);
         enabled.MapGet("/coa/seed-preview", GetSeedPreviewAsync);
         enabled.MapGet("/validation/summary", GetValidationSummaryAsync);
 
@@ -540,6 +542,52 @@ public static class FinalAccountsEndpoints
         {
             var export = await reports.ExportTrialBalanceAsync(
                 new FinalAccountsTrialBalanceReportQuery(companyId, storeGroupId, storeId, from, to, view, includeZeroBalances, comparison),
+                format,
+                context,
+                cancellationToken);
+            return Results.File(export.Content, export.ContentType, export.FileName);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or KeyNotFoundException)
+        {
+            return ToErrorResult(ex);
+        }
+    }
+
+    private static Task<IResult> GetProfitLossReportAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        DateTime? from,
+        DateTime? to,
+        string? view,
+        string? roundingUnit,
+        bool? hideZero,
+        FinalAccountsReportService reports,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => reports.GetProfitLossAsync(
+            new FinalAccountsProfitLossReportQuery(companyId, storeGroupId, storeId, from, to, view, roundingUnit, hideZero),
+            context,
+            cancellationToken));
+
+    private static async Task<IResult> ExportProfitLossReportAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        DateTime? from,
+        DateTime? to,
+        string? view,
+        string? roundingUnit,
+        bool? hideZero,
+        string? format,
+        FinalAccountsReportService reports,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var export = await reports.ExportProfitLossAsync(
+                new FinalAccountsProfitLossReportQuery(companyId, storeGroupId, storeId, from, to, view, roundingUnit, hideZero),
                 format,
                 context,
                 cancellationToken);

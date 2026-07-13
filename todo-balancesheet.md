@@ -896,43 +896,96 @@ Files added/changed:
 
 ## Template engine
 
-- [ ] Template.
-- [ ] Template version.
-- [ ] Hierarchical nodes.
-- [ ] Account/group mappings.
-- [ ] Formula/subtotal nodes.
-- [ ] Sign/display rules.
-- [ ] Current/previous/variance.
-- [ ] Percentage of sales.
-- [ ] Notes/schedule references.
-- [ ] Rounding unit.
-- [ ] Hide-zero.
-- [ ] Drill-down.
-- [ ] Mapping validation.
+- [x] Template.
+- [x] Template version.
+- [x] Hierarchical nodes.
+- [x] Account/group mappings.
+- [x] Formula/subtotal nodes.
+- [x] Sign/display rules.
+- [x] Current/previous/variance.
+- [x] Percentage of sales.
+- [x] Notes/schedule references.
+- [x] Rounding unit.
+- [x] Hide-zero.
+- [x] Drill-down.
+- [x] Mapping validation.
 
 ## P&L
 
-- [ ] Revenue.
-- [ ] Sales returns/discount.
-- [ ] Opening inventory policy.
-- [ ] Purchases/direct cost.
-- [ ] Closing inventory.
-- [ ] COGS.
-- [ ] Gross profit.
-- [ ] Other income.
-- [ ] Operating expenses.
-- [ ] EBITDA.
-- [ ] Depreciation.
-- [ ] Finance cost.
-- [ ] Profit before tax.
-- [ ] Tax/provision.
-- [ ] Profit after tax.
-- [ ] Horizontal view.
-- [ ] Vertical view.
-- [ ] Comparative periods.
-- [ ] Export.
-- [ ] Golden tests.
-- [ ] Commit BS-07.
+- [x] Revenue.
+- [x] Sales returns/discount.
+- [x] Opening inventory policy.
+- [x] Purchases/direct cost.
+- [x] Closing inventory.
+- [x] COGS.
+- [x] Gross profit.
+- [x] Other income.
+- [x] Operating expenses.
+- [x] EBITDA.
+- [x] Depreciation.
+- [x] Finance cost.
+- [x] Profit before tax.
+- [x] Tax/provision.
+- [x] Profit after tax.
+- [x] Horizontal view.
+- [x] Vertical view.
+- [x] Comparative periods.
+- [x] Export.
+- [x] Golden tests.
+- [x] Commit BS-07.
+
+Evidence:
+
+```text
+Date: 2026-07-13
+Agent: Codex GPT-5
+Branch: balancesheet
+Worktree: C:\AIarea\Codex\bsheet\GarmetixWebStarter
+Commit: created by this stage commit; exact hash is reported in session output because a commit cannot contain its own final hash.
+
+Implementation:
+- Added code-defined versioned statement template engine for GarmentRetailProfitLoss v1.
+- Template nodes include Revenue, SalesReturnsDiscount, NetRevenue, OpeningInventory, PurchasesDirectCost, ClosingInventory, Cogs, GrossProfit, OtherIncome, OperatingExpenses, Ebitda, Depreciation, FinanceCost, ProfitBeforeTax, TaxProvision and ProfitAfterTax.
+- Added formula evaluation, sign/display rules, current/previous/variance values, variance %, percentage-of-sales, schedule references, notes, rounding units, hide-zero handling, drill-down paths and mapping validation warnings.
+- P&L values are read from posted Final Accounts journals and active COA accounts only; operational source tables are not mutated or queried for posting changes.
+- Opening and closing inventory lines disclose the BS-04D perpetual weighted-average policy and avoid duplicate closing-stock effect.
+- Added endpoints:
+  GET /api/final-accounts/reports/profit-loss
+  GET /api/final-accounts/reports/profit-loss/export
+- Added CSV/PDF export support through the existing report export path.
+- Added Profit & Loss tab to /final-accounts/reports with Vertical/Horizontal view, rounding selector and hide-zero control.
+- No migration was added because BS-07 uses code-defined templates and existing Final Accounts journal/COA tables.
+- No production migration, deployment, Docker, Cloudflare or operational source-table change was made.
+
+Commands/tests run:
+- dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release -p:UseSharedCompilation=false: passed with existing nullable warnings.
+- dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release -p:UseSharedCompilation=false: passed. Result: 159 passed, 3 skipped, 162 total.
+- npm run final-accounts:readiness in frontend/modular: passed for BS-07 markers.
+- npm run check in frontend/modular: passed.
+- npm run workspace-links in frontend/modular: passed.
+- npm run build:final-accounts in frontend/modular: passed and prerendered /reports with existing Nuxt/Rollup warning pattern.
+- npm run validate in frontend/modular: failed on existing Main Back Office contract parity token; frontend/modular/apps/main/pages/purchase/index.vue is missing purchase/invoices/recent.
+- git diff --check: no whitespace errors; Git reported existing LF-to-CRLF normalization warnings for touched files.
+
+Known unresolved issues:
+- No live database-backed P&L was run because local PostgreSQL application data was not available.
+- BS-07 uses code-defined statement templates; persisted user-editable statement templates can be added in a later hardening/CA workflow stage if required.
+- P&L account classification depends on COA account/group naming and posting-rule mapping conventions until explicit statement-line mappings are persisted.
+- frontend/modular npm run validate still fails because frontend/modular/apps/main/pages/purchase/index.vue is missing token purchase/invoices/recent.
+- npm ci remains expected to fail until package-lock.json is refreshed for the existing workspace app additions; BS-07 did not update package-lock.json.
+- Nuxt builds still report existing sourcemap, Rollup pure-comment, large chunk and nitro cache-driver warnings.
+
+Files added/changed:
+- backend/Garmetix.Api/FinalAccounts/FinalAccountsStatementRules.cs
+- backend/Garmetix.Api/FinalAccounts/FinalAccountsReportContracts.cs
+- backend/Garmetix.Api/FinalAccounts/FinalAccountsReportService.cs
+- backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs
+- backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsReportRulesTests.cs
+- frontend/modular/apps/final-accounts/pages/reports.vue
+- frontend/modular/apps/final-accounts/utils/final-accounts-api.ts
+- frontend/modular/scripts/final-accounts-readiness.mjs
+- todo-balancesheet.md
+```
 
 ---
 

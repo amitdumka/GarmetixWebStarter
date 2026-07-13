@@ -15,7 +15,7 @@
     <UAlert v-if="message" :icon="messageIcon" :color="messageTone" variant="subtle" :title="messageTitle" :description="message" />
 
     <UCard :ui="{ body: 'p-4' }">
-      <div class="grid gap-3 lg:grid-cols-[1fr_1fr_14rem_12rem]">
+      <div class="grid gap-3 lg:grid-cols-[1fr_1fr_14rem_12rem_12rem_12rem]">
         <UFormField label="From">
           <UInput v-model="filters.from" type="date" icon="i-lucide-calendar" />
         </UFormField>
@@ -28,11 +28,18 @@
         <UFormField label="Comparison">
           <USelect v-model="filters.comparison" :items="comparisonItems" />
         </UFormField>
+        <UFormField label="P&L View">
+          <USelect v-model="filters.profitLossView" :items="profitLossViewItems" />
+        </UFormField>
+        <UFormField label="Rounding">
+          <USelect v-model="filters.roundingUnit" :items="roundingItems" />
+        </UFormField>
       </div>
       <div class="mt-3 flex flex-wrap items-center gap-3">
         <USelectMenu v-model="filters.accountId" :items="accountSelectItems" value-key="value" class="w-full sm:w-80" />
         <UCheckbox v-model="filters.includeZeroBalances" label="Zero balances" />
         <UCheckbox v-model="filters.includeReversed" label="Reversed audit rows" />
+        <UCheckbox v-model="filters.hideZeroStatementLines" label="Hide zero P&L lines" />
         <UButton icon="i-lucide-search" :loading="loading" @click="loadReports">Apply</UButton>
       </div>
     </UCard>
@@ -84,7 +91,7 @@
       </UCard>
     </div>
 
-    <div v-else class="space-y-4">
+    <div v-else-if="activeTab === 'trial-balance'" class="space-y-4">
       <div class="final-accounts-grid">
         <UCard v-for="card in trialCards" :key="card.label" :ui="{ body: 'p-4' }">
           <p class="text-xs font-medium uppercase text-muted">{{ card.label }}</p>
@@ -131,6 +138,54 @@
         </UTable>
       </UCard>
     </div>
+
+    <div v-else class="space-y-4">
+      <div class="final-accounts-grid">
+        <UCard v-for="card in profitCards" :key="card.label" :ui="{ body: 'p-4' }">
+          <p class="text-xs font-medium uppercase text-muted">{{ card.label }}</p>
+          <p class="text-xl font-semibold text-highlighted">{{ card.value }}</p>
+        </UCard>
+      </div>
+
+      <UCard v-if="profitLoss.mappingIssues.length" :ui="{ body: 'p-4' }">
+        <div class="grid gap-2">
+          <UAlert v-for="issue in profitLoss.mappingIssues" :key="`${issue.code}-${issue.message}`" color="warning" variant="subtle" :title="issue.code" :description="issue.message" />
+        </div>
+      </UCard>
+
+      <UCard class="overflow-hidden" :ui="{ body: 'p-0' }">
+        <div class="flex flex-wrap items-center gap-2 border-b border-default p-3">
+          <UBadge color="neutral" variant="subtle">{{ profitLoss.template.templateCode }} {{ profitLoss.template.version }}</UBadge>
+          <UBadge color="neutral" variant="subtle">{{ profitLoss.roundingUnit }}</UBadge>
+          <UButton icon="i-lucide-file-spreadsheet" color="neutral" variant="soft" :loading="exporting" @click="exportProfitLoss('csv')">Excel</UButton>
+          <UButton icon="i-lucide-file-text" color="neutral" variant="soft" :loading="exporting" @click="exportProfitLoss('pdf')">PDF</UButton>
+        </div>
+
+        <UTable v-if="profitLoss.view === 'Horizontal'" :data="profitLoss.horizontal" :columns="profitHorizontalColumns" :loading="loading">
+          <template #current-cell="{ row }">{{ money(row.original.current) }}</template>
+          <template #previous-cell="{ row }">{{ money(row.original.previous) }}</template>
+          <template #variance-cell="{ row }">{{ money(row.original.variance) }}</template>
+          <template #variancePercent-cell="{ row }">{{ percent(row.original.variancePercent) }}</template>
+        </UTable>
+
+        <UTable v-else :data="profitLoss.lines" :columns="profitColumns" :loading="loading">
+          <template #label-cell="{ row }">
+            <div>
+              <p :class="row.original.nodeType === 'Formula' ? 'font-semibold text-highlighted' : 'text-highlighted'">{{ row.original.label }}</p>
+              <p class="text-xs text-muted">{{ row.original.scheduleReference }} · {{ row.original.note }}</p>
+            </div>
+          </template>
+          <template #current-cell="{ row }">{{ money(row.original.current) }}</template>
+          <template #previous-cell="{ row }">{{ money(row.original.previous) }}</template>
+          <template #variance-cell="{ row }">{{ money(row.original.variance) }}</template>
+          <template #variancePercent-cell="{ row }">{{ percent(row.original.variancePercent) }}</template>
+          <template #percentOfSales-cell="{ row }">{{ percent(row.original.percentOfSales) }}</template>
+          <template #mappings-cell="{ row }">
+            <UBadge color="neutral" variant="subtle">{{ row.original.mappings.length }}</UBadge>
+          </template>
+        </UTable>
+      </UCard>
+    </div>
   </section>
 </template>
 
@@ -139,6 +194,7 @@ import {
   formatFinalAccountsDateOnly,
   type FinalAccountsAccount,
   type FinalAccountsGeneralLedgerReport,
+  type FinalAccountsProfitLossReport,
   type FinalAccountsTrialBalanceReport,
   useFinalAccountsApiClient
 } from '../utils/final-accounts-api'
@@ -163,18 +219,25 @@ const filters = reactive({
   accountId: '',
   trialView: 'Ledger',
   comparison: 'Monthly',
+  profitLossView: 'Vertical',
+  roundingUnit: 'Ones',
   includeZeroBalances: false,
-  includeReversed: false
+  includeReversed: false,
+  hideZeroStatementLines: false
 })
 const ledger = ref<FinalAccountsGeneralLedgerReport>(emptyLedger())
 const trial = ref<FinalAccountsTrialBalanceReport>(emptyTrial())
+const profitLoss = ref<FinalAccountsProfitLossReport>(emptyProfitLoss())
 
 const tabs = [
   { label: 'General Ledger', value: 'ledger', icon: 'i-lucide-book-open-check' },
-  { label: 'Trial Balance', value: 'trial-balance', icon: 'i-lucide-scale' }
+  { label: 'Trial Balance', value: 'trial-balance', icon: 'i-lucide-scale' },
+  { label: 'Profit & Loss', value: 'profit-loss', icon: 'i-lucide-chart-no-axes-combined' }
 ]
 const trialViewItems = ['Ledger', 'Group']
 const comparisonItems = ['Monthly', 'Quarterly']
+const profitLossViewItems = ['Vertical', 'Horizontal']
+const roundingItems = ['Ones', 'Thousands', 'Lakhs']
 const messageTitle = computed(() => messageTone.value === 'error' ? 'Report unavailable' : 'Reports')
 const messageIcon = computed(() => messageTone.value === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-info')
 const accountSelectItems = computed<SelectItem[]>(() => [
@@ -193,6 +256,12 @@ const trialCards = computed(() => [
   { label: 'Period Dr / Cr', value: pair(trial.value.totalPeriodDebit, trial.value.totalPeriodCredit) },
   { label: 'Closing Dr / Cr', value: pair(trial.value.totalClosingDebit, trial.value.totalClosingCredit) },
   { label: 'Difference', value: money(trial.value.difference) }
+])
+const profitCards = computed(() => [
+  { label: 'Revenue', value: money(profitLoss.value.revenue) },
+  { label: 'Gross Profit', value: money(profitLoss.value.grossProfit) },
+  { label: 'EBITDA', value: money(profitLoss.value.ebitda) },
+  { label: 'Profit After Tax', value: money(profitLoss.value.profitAfterTax) }
 ])
 
 const ledgerColumns = [
@@ -222,6 +291,22 @@ const comparisonColumns = [
   { accessorKey: 'difference', header: 'Difference' },
   { accessorKey: 'status', header: 'Status' }
 ]
+const profitColumns = [
+  { accessorKey: 'label', header: 'Line' },
+  { accessorKey: 'current', header: 'Current' },
+  { accessorKey: 'previous', header: 'Previous' },
+  { accessorKey: 'variance', header: 'Variance' },
+  { accessorKey: 'variancePercent', header: 'Variance %' },
+  { accessorKey: 'percentOfSales', header: '% Sales' },
+  { accessorKey: 'mappings', header: 'Maps' }
+]
+const profitHorizontalColumns = [
+  { accessorKey: 'metric', header: 'Metric' },
+  { accessorKey: 'current', header: 'Current' },
+  { accessorKey: 'previous', header: 'Previous' },
+  { accessorKey: 'variance', header: 'Variance' },
+  { accessorKey: 'variancePercent', header: 'Variance %' }
+]
 
 async function loadReports() {
   loading.value = true
@@ -230,12 +315,14 @@ async function loadReports() {
     if (accounts.value.length === 0) {
       accounts.value = await api.get<FinalAccountsAccount[]>('accounts')
     }
-    const [ledgerReport, trialReport] = await Promise.all([
+    const [ledgerReport, trialReport, profitLossReport] = await Promise.all([
       api.get<FinalAccountsGeneralLedgerReport>(`reports/general-ledger?${ledgerQuery()}`),
-      api.get<FinalAccountsTrialBalanceReport>(`reports/trial-balance?${trialQuery()}`)
+      api.get<FinalAccountsTrialBalanceReport>(`reports/trial-balance?${trialQuery()}`),
+      api.get<FinalAccountsProfitLossReport>(`reports/profit-loss?${profitLossQuery()}`)
     ])
     ledger.value = ledgerReport
     trial.value = trialReport
+    profitLoss.value = profitLossReport
   } catch (err) {
     showError(err)
   } finally {
@@ -249,6 +336,10 @@ async function exportLedger(format: 'csv' | 'pdf') {
 
 async function exportTrialBalance(format: 'csv' | 'pdf') {
   await download(`reports/trial-balance/export?${trialQuery()}&format=${format}`, `final-accounts-trial-balance.${format}`)
+}
+
+async function exportProfitLoss(format: 'csv' | 'pdf') {
+  await download(`reports/profit-loss/export?${profitLossQuery()}&format=${format}`, `final-accounts-profit-loss.${format}`)
 }
 
 async function download(path: string, fileName: string) {
@@ -286,6 +377,17 @@ function trialQuery() {
   return params.toString()
 }
 
+function profitLossQuery() {
+  const params = new URLSearchParams({
+    view: filters.profitLossView,
+    roundingUnit: filters.roundingUnit,
+    hideZero: String(filters.hideZeroStatementLines)
+  })
+  if (filters.from) params.set('from', filters.from)
+  if (filters.to) params.set('to', filters.to)
+  return params.toString()
+}
+
 function previousLedgerPage() {
   if (ledgerPage.value <= 1) return
   ledgerPage.value--
@@ -308,6 +410,11 @@ function pair(debit: number, credit: number) {
 
 function money(value: number) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(value) || 0)
+}
+
+function percent(value: number | null | undefined) {
+  if (value === null || value === undefined) return '-'
+  return `${Number(value).toFixed(2)}%`
 }
 
 function showError(err: unknown) {
@@ -347,6 +454,32 @@ function emptyTrial(): FinalAccountsTrialBalanceReport {
     rows: [],
     comparisons: [],
     diagnostics: []
+  }
+}
+
+function emptyProfitLoss(): FinalAccountsProfitLossReport {
+  return {
+    template: {
+      templateCode: 'GarmentRetailProfitLoss',
+      version: 'v1',
+      name: 'Garment Retail Profit And Loss',
+      statementType: 'ProfitLoss',
+      defaultView: 'Vertical',
+      defaultRoundingUnit: 'Ones',
+      hideZeroDefault: false,
+      nodes: []
+    },
+    view: 'Vertical',
+    roundingUnit: 'Ones',
+    hideZero: false,
+    revenue: 0,
+    grossProfit: 0,
+    ebitda: 0,
+    profitBeforeTax: 0,
+    profitAfterTax: 0,
+    lines: [],
+    horizontal: [],
+    mappingIssues: []
   }
 }
 
