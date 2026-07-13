@@ -92,6 +92,44 @@ public sealed class FinalAccountsReportRulesTests
         Assert.Equal(50m, FinalAccountsStatementRules.VariancePercent(150m, 100m));
     }
 
+    [Fact]
+    public void BalanceSheetTemplateSupportsEntityTypesAndBalanceFormula()
+    {
+        var proprietor = FinalAccountsStatementRules.BalanceSheetTemplate("Proprietorship");
+        var partnership = FinalAccountsStatementRules.BalanceSheetTemplate("LLP");
+        var company = FinalAccountsStatementRules.BalanceSheetTemplate("Company");
+
+        Assert.Contains(proprietor.Nodes, item => item.Key == "TotalAssets" && item.Formula == "CurrentAssets+NonCurrentAssets");
+        Assert.Contains(partnership.Nodes, item => item.Label.Contains("Partners", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(company.Nodes, item => item.Label.Contains("Share capital", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void BalanceSheetClassificationFindsCurrentNonCurrentAndEquity()
+    {
+        Assert.Equal("CurrentAssets", FinalAccountsStatementRules.ClassifyBalanceSheetCategory(Account("1101", "Cash In Hand", FinalAccountsAccountType.Asset), "Cash"));
+        Assert.Equal("NonCurrentAssets", FinalAccountsStatementRules.ClassifyBalanceSheetCategory(Account("1501", "Fixed Asset Furniture", FinalAccountsAccountType.Asset), "Assets"));
+        Assert.Equal("CurrentLiabilities", FinalAccountsStatementRules.ClassifyBalanceSheetCategory(Account("2101", "Vendor Payable", FinalAccountsAccountType.Liability), "Payables"));
+        Assert.Equal("NonCurrentLiabilities", FinalAccountsStatementRules.ClassifyBalanceSheetCategory(Account("2501", "Long Term Loan", FinalAccountsAccountType.Liability), "Loans"));
+        Assert.Equal("CapitalEquity", FinalAccountsStatementRules.ClassifyBalanceSheetCategory(Account("3001", "Owner Capital", FinalAccountsAccountType.Equity), "Capital"));
+    }
+
+    [Fact]
+    public void ScheduleAndCashFlowClassificationsUseAccountShape()
+    {
+        var debtor = Account("1201", "Customer Receivable", FinalAccountsAccountType.Asset);
+        var gst = Account("2201", "GST Payable", FinalAccountsAccountType.Liability);
+        var bank = Account("1102", "Bank Account", FinalAccountsAccountType.Asset);
+        var asset = Account("1501", "Fixed Asset Computer", FinalAccountsAccountType.Asset);
+        var loan = Account("2501", "Business Loan", FinalAccountsAccountType.Liability);
+
+        Assert.Equal("DebtorAgeing", FinalAccountsStatementRules.ClassifySchedule("CurrentAssets", debtor, "Receivables"));
+        Assert.Equal("GstTds", FinalAccountsStatementRules.ClassifySchedule("CurrentLiabilities", gst, "Tax"));
+        Assert.True(FinalAccountsStatementRules.IsCashEquivalent(bank, "Bank"));
+        Assert.Equal("Investing", FinalAccountsStatementRules.ClassifyCashFlowActivity(asset, "Fixed Assets"));
+        Assert.Equal("Financing", FinalAccountsStatementRules.ClassifyCashFlowActivity(loan, "Loans"));
+    }
+
     private static FinalAccountsAccount Account(string code, string name, FinalAccountsAccountType type)
         => new()
         {

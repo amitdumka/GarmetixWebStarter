@@ -63,6 +63,12 @@ public static class FinalAccountsEndpoints
         enabled.MapGet("/reports/trial-balance/export", ExportTrialBalanceReportAsync);
         enabled.MapGet("/reports/profit-loss", GetProfitLossReportAsync);
         enabled.MapGet("/reports/profit-loss/export", ExportProfitLossReportAsync);
+        enabled.MapGet("/reports/balance-sheet", GetBalanceSheetReportAsync);
+        enabled.MapGet("/reports/balance-sheet/export", ExportBalanceSheetReportAsync);
+        enabled.MapGet("/reports/cash-flow", GetCashFlowReportAsync);
+        enabled.MapGet("/reports/cash-flow/export", ExportCashFlowReportAsync);
+        enabled.MapGet("/reports/schedules", GetSchedulesReportAsync);
+        enabled.MapGet("/reports/schedules/export", ExportSchedulesReportAsync);
         enabled.MapGet("/coa/seed-preview", GetSeedPreviewAsync);
         enabled.MapGet("/validation/summary", GetValidationSummaryAsync);
 
@@ -588,6 +594,136 @@ public static class FinalAccountsEndpoints
         {
             var export = await reports.ExportProfitLossAsync(
                 new FinalAccountsProfitLossReportQuery(companyId, storeGroupId, storeId, from, to, view, roundingUnit, hideZero),
+                format,
+                context,
+                cancellationToken);
+            return Results.File(export.Content, export.ContentType, export.FileName);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or KeyNotFoundException)
+        {
+            return ToErrorResult(ex);
+        }
+    }
+
+    private static Task<IResult> GetBalanceSheetReportAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        DateTime? asOf,
+        DateTime? previousAsOf,
+        string? entityType,
+        string? roundingUnit,
+        bool? hideZero,
+        FinalAccountsReportService reports,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => reports.GetBalanceSheetAsync(
+            new FinalAccountsBalanceSheetReportQuery(companyId, storeGroupId, storeId, asOf, previousAsOf, entityType, roundingUnit, hideZero),
+            context,
+            cancellationToken));
+
+    private static async Task<IResult> ExportBalanceSheetReportAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        DateTime? asOf,
+        DateTime? previousAsOf,
+        string? entityType,
+        string? roundingUnit,
+        bool? hideZero,
+        string? format,
+        FinalAccountsReportService reports,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var export = await reports.ExportBalanceSheetAsync(
+                new FinalAccountsBalanceSheetReportQuery(companyId, storeGroupId, storeId, asOf, previousAsOf, entityType, roundingUnit, hideZero),
+                format,
+                context,
+                cancellationToken);
+            return Results.File(export.Content, export.ContentType, export.FileName);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or KeyNotFoundException)
+        {
+            return ToErrorResult(ex);
+        }
+    }
+
+    private static Task<IResult> GetCashFlowReportAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        DateTime? from,
+        DateTime? to,
+        string? roundingUnit,
+        FinalAccountsReportService reports,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => reports.GetCashFlowAsync(
+            new FinalAccountsCashFlowReportQuery(companyId, storeGroupId, storeId, from, to, roundingUnit),
+            context,
+            cancellationToken));
+
+    private static async Task<IResult> ExportCashFlowReportAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        DateTime? from,
+        DateTime? to,
+        string? roundingUnit,
+        string? format,
+        FinalAccountsReportService reports,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var export = await reports.ExportCashFlowAsync(
+                new FinalAccountsCashFlowReportQuery(companyId, storeGroupId, storeId, from, to, roundingUnit),
+                format,
+                context,
+                cancellationToken);
+            return Results.File(export.Content, export.ContentType, export.FileName);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or KeyNotFoundException)
+        {
+            return ToErrorResult(ex);
+        }
+    }
+
+    private static Task<IResult> GetSchedulesReportAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        DateTime? asOf,
+        string? schedule,
+        bool? includeZeroBalances,
+        FinalAccountsReportService reports,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => reports.GetSchedulesAsync(
+            new FinalAccountsSchedulesReportQuery(companyId, storeGroupId, storeId, asOf, schedule, includeZeroBalances),
+            context,
+            cancellationToken));
+
+    private static async Task<IResult> ExportSchedulesReportAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        DateTime? asOf,
+        string? schedule,
+        bool? includeZeroBalances,
+        string? format,
+        FinalAccountsReportService reports,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var export = await reports.ExportSchedulesAsync(
+                new FinalAccountsSchedulesReportQuery(companyId, storeGroupId, storeId, asOf, schedule, includeZeroBalances),
                 format,
                 context,
                 cancellationToken);

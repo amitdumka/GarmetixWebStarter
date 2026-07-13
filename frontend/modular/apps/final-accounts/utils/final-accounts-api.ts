@@ -418,6 +418,94 @@ export interface FinalAccountsProfitLossReport {
   mappingIssues: FinalAccountsValidationIssue[]
 }
 
+export interface FinalAccountsBalanceSheetLine {
+  key: string
+  label: string
+  section: string
+  classification: string
+  sortOrder: number
+  current: number
+  previous: number
+  variance: number
+  drillDown: boolean
+  note: string
+  drillDownPath: string
+  mappings: FinalAccountsStatementMapping[]
+}
+
+export interface FinalAccountsBalanceSheetReport {
+  template: FinalAccountsStatementTemplate
+  entityType: string
+  roundingUnit: string
+  asOf: string
+  previousAsOf?: string | null
+  hideZero: boolean
+  totalAssets: number
+  totalLiabilities: number
+  totalEquity: number
+  currentYearProfit: number
+  difference: number
+  status: string
+  lines: FinalAccountsBalanceSheetLine[]
+  diagnostics: FinalAccountsValidationIssue[]
+}
+
+export interface FinalAccountsCashFlowLine {
+  section: string
+  key: string
+  label: string
+  amount: number
+  note: string
+  drillDownPath: string
+}
+
+export interface FinalAccountsCashFlowReport {
+  method: string
+  roundingUnit: string
+  from?: string | null
+  to?: string | null
+  profitAfterTax: number
+  nonCashAdjustments: number
+  workingCapitalChanges: number
+  operatingActivities: number
+  investingActivities: number
+  financingActivities: number
+  netCashFlow: number
+  openingCash: number
+  closingCash: number
+  reconciliationDifference: number
+  status: string
+  lines: FinalAccountsCashFlowLine[]
+  diagnostics: FinalAccountsValidationIssue[]
+}
+
+export interface FinalAccountsScheduleRow {
+  accountId: string
+  accountCode: string
+  accountName: string
+  accountType: string
+  naturalBalance: string
+  ageBucket: string
+  balance: number
+  note: string
+  drillDownPath: string
+}
+
+export interface FinalAccountsScheduleSection {
+  key: string
+  label: string
+  total: number
+  rows: FinalAccountsScheduleRow[]
+}
+
+export interface FinalAccountsSchedulesReport {
+  asOf: string
+  schedule: string
+  total: number
+  sections: FinalAccountsScheduleSection[]
+  diagnostics: FinalAccountsValidationIssue[]
+}
+
 export interface FinalAccountsPostingRuleLine {
   mappingKey: string
   displayName: string

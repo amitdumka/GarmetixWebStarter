@@ -320,6 +320,199 @@ public sealed class FinalAccountsReportService(GarmetixDbContext db)
             issues);
     }
 
+    public async Task<FinalAccountsBalanceSheetReportResponse> GetBalanceSheetAsync(
+        FinalAccountsBalanceSheetReportQuery query,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var scope = ResolveScope(context, query.CompanyId, query.StoreGroupId, query.StoreId);
+        var asOf = (query.AsOf ?? DateTime.UtcNow).Date;
+        var previousAsOf = query.PreviousAsOf?.Date;
+        var roundingUnit = FinalAccountsStatementRules.NormalizeRoundingUnit(query.RoundingUnit);
+        var entityType = FinalAccountsStatementRules.NormalizeEntityType(query.EntityType);
+        var template = FinalAccountsStatementRules.BalanceSheetTemplate(entityType);
+        var hideZero = query.HideZero == true;
+        var accounts = await AccountsInScope(scope).AsNoTracking().OrderBy(item => item.Code).ToListAsync(cancellationToken);
+        var groups = await GroupsInScope(scope).ToDictionaryAsync(item => item.Id, cancellationToken);
+        var current = await LoadBalanceSheetCategoryValuesAsync(scope, accounts, groups, asOf, roundingUnit, cancellationToken);
+        var previous = previousAsOf.HasValue
+            ? await LoadBalanceSheetCategoryValuesAsync(scope, accounts, groups, previousAsOf.Value, roundingUnit, cancellationToken)
+            : new BalanceSheetCategoryValues(new Dictionary<string, decimal>(), new Dictionary<string, List<FinalAccountsStatementMappingDto>>());
+        var profit = await GetProfitLossAsync(
+            new FinalAccountsProfitLossReportQuery(scope.CompanyId, scope.StoreGroupId, scope.StoreId, null, asOf, "Vertical", "Ones", false),
+            context,
+            cancellationToken);
+        var currentValues = current.Values.ToDictionary(item => item.Key, item => item.Value, StringComparer.OrdinalIgnoreCase);
+        var previousValues = previous.Values.ToDictionary(item => item.Key, item => item.Value, StringComparer.OrdinalIgnoreCase);
+        currentValues["CurrentYearProfit"] = profit.ProfitAfterTax;
+        previousValues["CurrentYearProfit"] = 0m;
+        foreach (var node in template.Nodes.Where(item => string.Equals(item.NodeType, "Formula", StringComparison.OrdinalIgnoreCase)))
+        {
+            if (node.Key == "CurrentYearProfit")
+            {
+                continue;
+            }
+
+            currentValues[node.Key] = FinalAccountsStatementRules.EvaluateFormula(node.Formula ?? string.Empty, currentValues);
+            previousValues[node.Key] = FinalAccountsStatementRules.EvaluateFormula(node.Formula ?? string.Empty, previousValues);
+        }
+
+        var lines = template.Nodes
+            .OrderBy(item => item.SortOrder)
+            .Select(node => BuildBalanceSheetLine(node, currentValues, previousValues, current.Mappings, previous.Mappings, roundingUnit))
+            .Where(item => !hideZero || item.Current != 0m || item.Previous != 0m || item.Key is "TotalAssets" or "TotalEquityLiabilities")
+            .ToList();
+        var totalAssets = currentValues.GetValueOrDefault("TotalAssets");
+        var totalLiabilities = currentValues.GetValueOrDefault("CurrentLiabilities") + currentValues.GetValueOrDefault("NonCurrentLiabilities");
+        var totalEquity = currentValues.GetValueOrDefault("CapitalEquity") + currentValues.GetValueOrDefault("CurrentYearProfit");
+        var difference = FinalAccountsReportRules.RoundAmount(totalAssets - totalLiabilities - totalEquity);
+        var diagnostics = BuildBalanceSheetDiagnostics(difference, current.Mappings);
+
+        return new FinalAccountsBalanceSheetReportResponse(
+            template,
+            entityType,
+            roundingUnit,
+            asOf,
+            previousAsOf,
+            hideZero,
+            FinalAccountsStatementRules.RoundStatementValue(totalAssets, roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(totalLiabilities, roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(totalEquity, roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(profit.ProfitAfterTax, roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(difference, roundingUnit),
+            FinalAccountsReportRules.BalanceStatus(difference),
+            lines,
+            diagnostics);
+    }
+
+    public async Task<FinalAccountsCashFlowReportResponse> GetCashFlowAsync(
+        FinalAccountsCashFlowReportQuery query,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var scope = ResolveScope(context, query.CompanyId, query.StoreGroupId, query.StoreId);
+        var from = query.From?.Date;
+        var to = query.To?.Date;
+        ValidateDateRange(from, to);
+        var roundingUnit = FinalAccountsStatementRules.NormalizeRoundingUnit(query.RoundingUnit);
+        var accounts = await AccountsInScope(scope).AsNoTracking().OrderBy(item => item.Code).ToListAsync(cancellationToken);
+        var groups = await GroupsInScope(scope).ToDictionaryAsync(item => item.Id, cancellationToken);
+        var openingAsOf = from?.AddDays(-1);
+        var closingAsOf = to ?? DateTime.UtcNow.Date;
+        var openingBalances = openingAsOf.HasValue
+            ? await LoadClosingBalancesAsync(scope, accounts, openingAsOf.Value, cancellationToken)
+            : BuildOpeningBalances(accounts);
+        var closingBalances = await LoadClosingBalancesAsync(scope, accounts, closingAsOf, cancellationToken);
+        var profit = await GetProfitLossAsync(
+            new FinalAccountsProfitLossReportQuery(scope.CompanyId, scope.StoreGroupId, scope.StoreId, from, to, "Vertical", "Ones", false),
+            context,
+            cancellationToken);
+
+        var nonCash = CashFlowAdjustment(accounts, groups, closingBalances, openingBalances, "Depreciation");
+        var workingCapital = WorkingCapitalChange(accounts, groups, closingBalances, openingBalances);
+        var investing = ActivityChange(accounts, groups, closingBalances, openingBalances, "Investing");
+        var financing = ActivityChange(accounts, groups, closingBalances, openingBalances, "Financing");
+        var operating = FinalAccountsReportRules.RoundAmount(profit.ProfitAfterTax + nonCash + workingCapital);
+        var netCashFlow = FinalAccountsReportRules.RoundAmount(operating + investing + financing);
+        var openingCash = CashEquivalentTotal(accounts, groups, openingBalances);
+        var closingCash = CashEquivalentTotal(accounts, groups, closingBalances);
+        var reconciliationDifference = FinalAccountsReportRules.RoundAmount(openingCash + netCashFlow - closingCash);
+        var lines = new List<FinalAccountsCashFlowLineDto>
+        {
+            CashFlowLine("Operating", "ProfitAfterTax", "Profit after tax", profit.ProfitAfterTax, "Starting point under indirect method."),
+            CashFlowLine("Operating", "NonCashAdjustments", "Non-cash adjustments", nonCash, "Depreciation and amortisation add-back based on mapped expense accounts."),
+            CashFlowLine("Operating", "WorkingCapitalChanges", "Working-capital changes", workingCapital, "Current asset increases reduce cash; current liability increases increase cash."),
+            CashFlowLine("Operating", "OperatingActivities", "Net cash from operating activities", operating, "Subtotal."),
+            CashFlowLine("Investing", "InvestingActivities", "Net cash from investing activities", investing, "Fixed asset and long-term asset movement."),
+            CashFlowLine("Financing", "FinancingActivities", "Net cash from financing activities", financing, "Capital, drawings and borrowing movement."),
+            CashFlowLine("Reconciliation", "OpeningCash", "Opening cash and cash equivalents", openingCash, "Cash, bank, UPI and card clearing accounts."),
+            CashFlowLine("Reconciliation", "NetCashFlow", "Net cash flow", netCashFlow, "Operating plus investing plus financing."),
+            CashFlowLine("Reconciliation", "ClosingCash", "Closing cash and cash equivalents", closingCash, "Cash-equivalent closing balance.")
+        };
+
+        return new FinalAccountsCashFlowReportResponse(
+            "Indirect",
+            roundingUnit,
+            from,
+            to,
+            FinalAccountsStatementRules.RoundStatementValue(profit.ProfitAfterTax, roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(nonCash, roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(workingCapital, roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(operating, roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(investing, roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(financing, roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(netCashFlow, roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(openingCash, roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(closingCash, roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(reconciliationDifference, roundingUnit),
+            FinalAccountsReportRules.BalanceStatus(reconciliationDifference),
+            lines.Select(item => item with { Amount = FinalAccountsStatementRules.RoundStatementValue(item.Amount, roundingUnit) }).ToList(),
+            BuildCashFlowDiagnostics(reconciliationDifference));
+    }
+
+    public async Task<FinalAccountsSchedulesReportResponse> GetSchedulesAsync(
+        FinalAccountsSchedulesReportQuery query,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var scope = ResolveScope(context, query.CompanyId, query.StoreGroupId, query.StoreId);
+        var asOf = (query.AsOf ?? DateTime.UtcNow).Date;
+        var includeZero = query.IncludeZeroBalances == true;
+        var requested = (query.Schedule ?? "All").Trim();
+        var accounts = await AccountsInScope(scope).AsNoTracking().OrderBy(item => item.Code).ToListAsync(cancellationToken);
+        var groups = await GroupsInScope(scope).ToDictionaryAsync(item => item.Id, cancellationToken);
+        var balances = await LoadClosingBalancesAsync(scope, accounts, asOf, cancellationToken);
+        var sections = new Dictionary<string, List<FinalAccountsScheduleRowDto>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var account in accounts)
+        {
+            groups.TryGetValue(account.AccountGroupId, out var group);
+            var category = FinalAccountsStatementRules.ClassifyBalanceSheetCategory(account, group?.Name);
+            var schedule = FinalAccountsStatementRules.ClassifySchedule(category, account, group?.Name);
+            if (!string.Equals(requested, "All", StringComparison.OrdinalIgnoreCase) && !string.Equals(requested, schedule, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var balance = Math.Abs(balances.GetValueOrDefault(account.Id));
+            if (!includeZero && balance == 0m)
+            {
+                continue;
+            }
+
+            if (!sections.TryGetValue(schedule, out var rows))
+            {
+                rows = [];
+                sections[schedule] = rows;
+            }
+
+            rows.Add(new FinalAccountsScheduleRowDto(
+                account.Id,
+                account.Code,
+                account.Name,
+                account.AccountType.ToString(),
+                account.NaturalBalance.ToString(),
+                FinalAccountsStatementRules.AgeBucket(balance),
+                balance,
+                ScheduleNote(schedule),
+                $"/final-accounts/reports?tab=ledger&accountId={account.Id}"));
+        }
+
+        var sectionDtos = sections
+            .OrderBy(item => item.Key)
+            .Select(item => new FinalAccountsScheduleSectionDto(
+                item.Key,
+                ScheduleLabel(item.Key),
+                FinalAccountsReportRules.RoundAmount(item.Value.Sum(row => row.Balance)),
+                item.Value.OrderBy(row => row.AccountCode).ToList()))
+            .ToList();
+        return new FinalAccountsSchedulesReportResponse(
+            asOf,
+            requested,
+            FinalAccountsReportRules.RoundAmount(sectionDtos.Sum(item => item.Total)),
+            sectionDtos,
+            sectionDtos.Count == 0 ? [new FinalAccountsValidationIssueDto("Info", "NoScheduleRows", "No accounts matched this schedule and scope.", null)] : []);
+    }
+
     public async Task<FinalAccountsReportExport> ExportGeneralLedgerAsync(
         FinalAccountsGeneralLedgerReportQuery query,
         string? format,
@@ -399,6 +592,74 @@ public sealed class FinalAccountsReportService(GarmetixDbContext db)
             Csv(item.Note),
             Csv(item.DrillDownPath))));
         return BuildExport("final-accounts-profit-loss", format, lines);
+    }
+
+    public async Task<FinalAccountsReportExport> ExportBalanceSheetAsync(
+        FinalAccountsBalanceSheetReportQuery query,
+        string? format,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var report = await GetBalanceSheetAsync(query, context, cancellationToken);
+        var lines = new List<string>
+        {
+            "Section,Line,Classification,Current,Previous,Variance,Note,Drill Down"
+        };
+        lines.AddRange(report.Lines.Select(item => string.Join(",",
+            Csv(item.Section),
+            Csv(item.Label),
+            Csv(item.Classification),
+            item.Current.ToString("0.00", CultureInfo.InvariantCulture),
+            item.Previous.ToString("0.00", CultureInfo.InvariantCulture),
+            item.Variance.ToString("0.00", CultureInfo.InvariantCulture),
+            Csv(item.Note),
+            Csv(item.DrillDownPath))));
+        return BuildExport("final-accounts-balance-sheet", format, lines);
+    }
+
+    public async Task<FinalAccountsReportExport> ExportCashFlowAsync(
+        FinalAccountsCashFlowReportQuery query,
+        string? format,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var report = await GetCashFlowAsync(query, context, cancellationToken);
+        var lines = new List<string>
+        {
+            "Section,Key,Line,Amount,Note,Drill Down"
+        };
+        lines.AddRange(report.Lines.Select(item => string.Join(",",
+            Csv(item.Section),
+            Csv(item.Key),
+            Csv(item.Label),
+            item.Amount.ToString("0.00", CultureInfo.InvariantCulture),
+            Csv(item.Note),
+            Csv(item.DrillDownPath))));
+        return BuildExport("final-accounts-cash-flow", format, lines);
+    }
+
+    public async Task<FinalAccountsReportExport> ExportSchedulesAsync(
+        FinalAccountsSchedulesReportQuery query,
+        string? format,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var report = await GetSchedulesAsync(query, context, cancellationToken);
+        var lines = new List<string>
+        {
+            "Schedule,Account Code,Account Name,Account Type,Natural Balance,Age Bucket,Balance,Note,Drill Down"
+        };
+        lines.AddRange(report.Sections.SelectMany(section => section.Rows.Select(row => string.Join(",",
+            Csv(section.Label),
+            Csv(row.AccountCode),
+            Csv(row.AccountName),
+            Csv(row.AccountType),
+            Csv(row.NaturalBalance),
+            Csv(row.AgeBucket),
+            row.Balance.ToString("0.00", CultureInfo.InvariantCulture),
+            Csv(row.Note),
+            Csv(row.DrillDownPath)))));
+        return BuildExport("final-accounts-schedules", format, lines);
     }
 
     private async Task<IReadOnlyList<FinalAccountsTrialBalanceComparisonDto>> BuildComparisonsAsync(
@@ -592,6 +853,233 @@ public sealed class FinalAccountsReportService(GarmetixDbContext db)
         var previousFrom = previousTo.AddDays(1 - days);
         return (previousFrom, previousTo);
     }
+
+    private async Task<Dictionary<Guid, decimal>> LoadClosingBalancesAsync(
+        FinalAccountsScopeDto scope,
+        IReadOnlyList<FinalAccountsAccount> accounts,
+        DateTime asOf,
+        CancellationToken cancellationToken)
+    {
+        var balances = BuildOpeningBalances(accounts);
+        var accountIds = accounts.Select(item => item.Id).ToHashSet();
+        if (accountIds.Count == 0)
+        {
+            return balances;
+        }
+
+        var movements = await ReportLines(scope, includeReversed: false)
+            .Where(item => accountIds.Contains(item.Line.AccountId) && item.Entry.OnDate <= asOf)
+            .GroupBy(item => item.Line.AccountId)
+            .Select(group => new AccountMovement(group.Key, group.Sum(item => item.Line.Debit), group.Sum(item => item.Line.Credit)))
+            .ToListAsync(cancellationToken);
+        ApplyMovements(balances, movements);
+        return balances;
+    }
+
+    private async Task<BalanceSheetCategoryValues> LoadBalanceSheetCategoryValuesAsync(
+        FinalAccountsScopeDto scope,
+        IReadOnlyList<FinalAccountsAccount> accounts,
+        IReadOnlyDictionary<Guid, FinalAccountsAccountGroup> groups,
+        DateTime asOf,
+        string roundingUnit,
+        CancellationToken cancellationToken)
+    {
+        var balances = await LoadClosingBalancesAsync(scope, accounts, asOf, cancellationToken);
+        var values = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        var mappings = new Dictionary<string, List<FinalAccountsStatementMappingDto>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var account in accounts)
+        {
+            groups.TryGetValue(account.AccountGroupId, out var group);
+            var category = FinalAccountsStatementRules.ClassifyBalanceSheetCategory(account, group?.Name);
+            if (string.IsNullOrWhiteSpace(category))
+            {
+                continue;
+            }
+
+            var signed = SignedBalanceForPresentation(balances.GetValueOrDefault(account.Id), account.AccountType);
+            values[category] = FinalAccountsReportRules.RoundAmount(values.GetValueOrDefault(category) + signed);
+            if (!mappings.TryGetValue(category, out var categoryMappings))
+            {
+                categoryMappings = [];
+                mappings[category] = categoryMappings;
+            }
+
+            categoryMappings.Add(new FinalAccountsStatementMappingDto(
+                account.Id,
+                account.Code,
+                account.Name,
+                group?.Id,
+                group?.Name ?? "Ungrouped",
+                FinalAccountsStatementRules.RoundStatementValue(signed, roundingUnit),
+                0m,
+                $"/final-accounts/reports?tab=ledger&accountId={account.Id}"));
+        }
+
+        return new BalanceSheetCategoryValues(values, mappings);
+    }
+
+    private static FinalAccountsBalanceSheetLineDto BuildBalanceSheetLine(
+        FinalAccountsStatementTemplateNodeDto node,
+        IReadOnlyDictionary<string, decimal> currentValues,
+        IReadOnlyDictionary<string, decimal> previousValues,
+        IReadOnlyDictionary<string, List<FinalAccountsStatementMappingDto>> currentMappings,
+        IReadOnlyDictionary<string, List<FinalAccountsStatementMappingDto>> previousMappings,
+        string roundingUnit)
+    {
+        var current = currentValues.GetValueOrDefault(node.Key);
+        var previous = previousValues.GetValueOrDefault(node.Key);
+        var variance = FinalAccountsStatementRules.Variance(current, previous);
+        var mappings = MergeStatementMappings(node.Key, currentMappings, previousMappings, roundingUnit);
+        var section = node.Key.Contains("Asset", StringComparison.OrdinalIgnoreCase)
+            ? "Assets"
+            : node.Key.Contains("Liabil", StringComparison.OrdinalIgnoreCase)
+                ? "Liabilities"
+                : "Equity";
+        return new FinalAccountsBalanceSheetLineDto(
+            node.Key,
+            node.Label,
+            section,
+            node.Key.StartsWith("Current", StringComparison.OrdinalIgnoreCase) ? "Current" : node.Key.StartsWith("NonCurrent", StringComparison.OrdinalIgnoreCase) ? "Non-current" : "Total",
+            node.SortOrder,
+            FinalAccountsStatementRules.RoundStatementValue(current, roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(previous, roundingUnit),
+            FinalAccountsStatementRules.RoundStatementValue(variance, roundingUnit),
+            node.DrillDown,
+            node.Note,
+            node.DrillDown ? $"/final-accounts/reports?tab=balance-sheet&line={node.Key}" : string.Empty,
+            mappings);
+    }
+
+    private static IReadOnlyList<FinalAccountsValidationIssueDto> BuildBalanceSheetDiagnostics(
+        decimal difference,
+        IReadOnlyDictionary<string, List<FinalAccountsStatementMappingDto>> mappings)
+    {
+        var issues = new List<FinalAccountsValidationIssueDto>();
+        if (Math.Abs(FinalAccountsReportRules.RoundAmount(difference)) > 0.01m)
+        {
+            issues.Add(new("Error", "BalanceSheetDifference", $"Assets and equity plus liabilities differ by {Math.Abs(difference):0.00}.", null));
+        }
+
+        if (!mappings.ContainsKey("CapitalEquity"))
+        {
+            issues.Add(new("Warning", "CapitalMappingMissing", "No capital/equity accounts are mapped for the selected scope.", null));
+        }
+
+        return issues;
+    }
+
+    private static IReadOnlyList<FinalAccountsValidationIssueDto> BuildCashFlowDiagnostics(decimal reconciliationDifference)
+        => Math.Abs(FinalAccountsReportRules.RoundAmount(reconciliationDifference)) > 0.01m
+            ? [new FinalAccountsValidationIssueDto("Error", "CashFlowReconciliationDifference", $"Opening cash plus net cash flow does not reconcile to closing cash by {Math.Abs(reconciliationDifference):0.00}.", null)]
+            : [];
+
+    private static FinalAccountsCashFlowLineDto CashFlowLine(string section, string key, string label, decimal amount, string note)
+        => new(section, key, label, amount, note, $"/final-accounts/reports?tab=cash-flow&line={key}");
+
+    private static decimal CashEquivalentTotal(
+        IReadOnlyList<FinalAccountsAccount> accounts,
+        IReadOnlyDictionary<Guid, FinalAccountsAccountGroup> groups,
+        IReadOnlyDictionary<Guid, decimal> balances)
+        => FinalAccountsReportRules.RoundAmount(accounts
+            .Where(account =>
+            {
+                groups.TryGetValue(account.AccountGroupId, out var group);
+                return FinalAccountsStatementRules.IsCashEquivalent(account, group?.Name);
+            })
+            .Sum(account => SignedBalanceForPresentation(balances.GetValueOrDefault(account.Id), account.AccountType)));
+
+    private static decimal CashFlowAdjustment(
+        IReadOnlyList<FinalAccountsAccount> accounts,
+        IReadOnlyDictionary<Guid, FinalAccountsAccountGroup> groups,
+        IReadOnlyDictionary<Guid, decimal> closingBalances,
+        IReadOnlyDictionary<Guid, decimal> openingBalances,
+        string contains)
+        => FinalAccountsReportRules.RoundAmount(accounts
+            .Where(account =>
+            {
+                groups.TryGetValue(account.AccountGroupId, out var group);
+                var haystack = $"{account.Code} {account.Name} {group?.Name}".ToLowerInvariant();
+                return haystack.Contains(contains.ToLowerInvariant());
+            })
+            .Sum(account => SignedBalanceForPresentation(closingBalances.GetValueOrDefault(account.Id) - openingBalances.GetValueOrDefault(account.Id), account.AccountType)));
+
+    private static decimal WorkingCapitalChange(
+        IReadOnlyList<FinalAccountsAccount> accounts,
+        IReadOnlyDictionary<Guid, FinalAccountsAccountGroup> groups,
+        IReadOnlyDictionary<Guid, decimal> closingBalances,
+        IReadOnlyDictionary<Guid, decimal> openingBalances)
+        => FinalAccountsReportRules.RoundAmount(accounts
+            .Where(account =>
+            {
+                groups.TryGetValue(account.AccountGroupId, out var group);
+                var category = FinalAccountsStatementRules.ClassifyBalanceSheetCategory(account, group?.Name);
+                var activity = FinalAccountsStatementRules.ClassifyCashFlowActivity(account, group?.Name);
+                return activity == "Operating" && category is "CurrentAssets" or "CurrentLiabilities";
+            })
+            .Sum(account =>
+            {
+                var movement = SignedBalanceForPresentation(closingBalances.GetValueOrDefault(account.Id) - openingBalances.GetValueOrDefault(account.Id), account.AccountType);
+                return account.AccountType is FinalAccountsAccountType.Asset or FinalAccountsAccountType.ContraAsset ? -movement : movement;
+            }));
+
+    private static decimal ActivityChange(
+        IReadOnlyList<FinalAccountsAccount> accounts,
+        IReadOnlyDictionary<Guid, FinalAccountsAccountGroup> groups,
+        IReadOnlyDictionary<Guid, decimal> closingBalances,
+        IReadOnlyDictionary<Guid, decimal> openingBalances,
+        string activity)
+        => FinalAccountsReportRules.RoundAmount(accounts
+            .Where(account =>
+            {
+                groups.TryGetValue(account.AccountGroupId, out var group);
+                return FinalAccountsStatementRules.ClassifyCashFlowActivity(account, group?.Name) == activity;
+            })
+            .Sum(account =>
+            {
+                var movement = SignedBalanceForPresentation(closingBalances.GetValueOrDefault(account.Id) - openingBalances.GetValueOrDefault(account.Id), account.AccountType);
+                return account.AccountType is FinalAccountsAccountType.Asset or FinalAccountsAccountType.ContraAsset ? -movement : movement;
+            }));
+
+    private static decimal SignedBalanceForPresentation(decimal signedBalance, FinalAccountsAccountType accountType)
+    {
+        var rounded = FinalAccountsReportRules.RoundAmount(signedBalance);
+        return accountType is FinalAccountsAccountType.Liability or FinalAccountsAccountType.ContraLiability or FinalAccountsAccountType.Equity
+            ? -rounded
+            : rounded;
+    }
+
+    private IQueryable<FinalAccountsAccountGroup> GroupsInScope(FinalAccountsScopeDto scope)
+        => db.FinalAccountsAccountGroups.AsNoTracking().Where(item =>
+            item.CompanyId == scope.CompanyId
+            && item.StoreGroupId == scope.StoreGroupId
+            && item.StoreId == scope.StoreId);
+
+    private static string ScheduleLabel(string key)
+        => key switch
+        {
+            "DebtorAgeing" => "Debtor ageing",
+            "CreditorAgeing" => "Creditor ageing",
+            "Inventory" => "Inventory schedule",
+            "FixedAssets" => "Fixed asset and depreciation schedule",
+            "CashBank" => "Cash and bank",
+            "GstTds" => "GST/TDS",
+            "Loans" => "Loans",
+            "Capital" => "Capital",
+            _ => "Notes and attachments"
+        };
+
+    private static string ScheduleNote(string key)
+        => key switch
+        {
+            "DebtorAgeing" or "CreditorAgeing" => "Age buckets are unaged until source due-date ageing is added.",
+            "Inventory" => "Inventory values follow posted Final Accounts inventory journals.",
+            "FixedAssets" => "Depreciation detail is account-level until fixed-asset subledger is introduced.",
+            "CashBank" => "Cash-equivalent mapping includes cash, bank, UPI and card-clearing accounts.",
+            "GstTds" => "GST/TDS schedule is based on mapped tax control accounts.",
+            "Loans" => "Loan schedule is based on COA classification.",
+            "Capital" => "Capital schedule is based on owner/partner/company equity accounts.",
+            _ => "Attach supporting documents in the future CA workspace stage."
+        };
 
     private IQueryable<ReportLineQueryRow> ReportLines(FinalAccountsScopeDto scope, bool includeReversed)
         => from entry in db.FinalAccountsJournalEntries
@@ -852,6 +1340,9 @@ public sealed class FinalAccountsReportService(GarmetixDbContext db)
         decimal ClosingCredit,
         decimal Difference);
     private sealed record ProfitLossCategoryValues(
+        IReadOnlyDictionary<string, decimal> Values,
+        IReadOnlyDictionary<string, List<FinalAccountsStatementMappingDto>> Mappings);
+    private sealed record BalanceSheetCategoryValues(
         IReadOnlyDictionary<string, decimal> Values,
         IReadOnlyDictionary<string, List<FinalAccountsStatementMappingDto>> Mappings);
 }

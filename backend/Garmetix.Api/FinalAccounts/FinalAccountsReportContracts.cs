@@ -31,6 +31,32 @@ public sealed record FinalAccountsProfitLossReportQuery(
     string? RoundingUnit,
     bool? HideZero);
 
+public sealed record FinalAccountsBalanceSheetReportQuery(
+    Guid? CompanyId,
+    Guid? StoreGroupId,
+    Guid? StoreId,
+    DateTime? AsOf,
+    DateTime? PreviousAsOf,
+    string? EntityType,
+    string? RoundingUnit,
+    bool? HideZero);
+
+public sealed record FinalAccountsCashFlowReportQuery(
+    Guid? CompanyId,
+    Guid? StoreGroupId,
+    Guid? StoreId,
+    DateTime? From,
+    DateTime? To,
+    string? RoundingUnit);
+
+public sealed record FinalAccountsSchedulesReportQuery(
+    Guid? CompanyId,
+    Guid? StoreGroupId,
+    Guid? StoreId,
+    DateTime? AsOf,
+    string? Schedule,
+    bool? IncludeZeroBalances);
+
 public sealed record FinalAccountsGeneralLedgerReportResponse(
     int Page,
     int PageSize,
@@ -196,4 +222,85 @@ public sealed record FinalAccountsStatementMappingDto(
     string GroupName,
     decimal Current,
     decimal Previous,
+    string DrillDownPath);
+
+public sealed record FinalAccountsBalanceSheetReportResponse(
+    FinalAccountsStatementTemplateDto Template,
+    string EntityType,
+    string RoundingUnit,
+    DateTime AsOf,
+    DateTime? PreviousAsOf,
+    bool HideZero,
+    decimal TotalAssets,
+    decimal TotalLiabilities,
+    decimal TotalEquity,
+    decimal CurrentYearProfit,
+    decimal Difference,
+    string Status,
+    IReadOnlyList<FinalAccountsBalanceSheetLineDto> Lines,
+    IReadOnlyList<FinalAccountsValidationIssueDto> Diagnostics);
+
+public sealed record FinalAccountsBalanceSheetLineDto(
+    string Key,
+    string Label,
+    string Section,
+    string Classification,
+    int SortOrder,
+    decimal Current,
+    decimal Previous,
+    decimal Variance,
+    bool DrillDown,
+    string Note,
+    string DrillDownPath,
+    IReadOnlyList<FinalAccountsStatementMappingDto> Mappings);
+
+public sealed record FinalAccountsCashFlowReportResponse(
+    string Method,
+    string RoundingUnit,
+    DateTime? From,
+    DateTime? To,
+    decimal ProfitAfterTax,
+    decimal NonCashAdjustments,
+    decimal WorkingCapitalChanges,
+    decimal OperatingActivities,
+    decimal InvestingActivities,
+    decimal FinancingActivities,
+    decimal NetCashFlow,
+    decimal OpeningCash,
+    decimal ClosingCash,
+    decimal ReconciliationDifference,
+    string Status,
+    IReadOnlyList<FinalAccountsCashFlowLineDto> Lines,
+    IReadOnlyList<FinalAccountsValidationIssueDto> Diagnostics);
+
+public sealed record FinalAccountsCashFlowLineDto(
+    string Section,
+    string Key,
+    string Label,
+    decimal Amount,
+    string Note,
+    string DrillDownPath);
+
+public sealed record FinalAccountsSchedulesReportResponse(
+    DateTime AsOf,
+    string Schedule,
+    decimal Total,
+    IReadOnlyList<FinalAccountsScheduleSectionDto> Sections,
+    IReadOnlyList<FinalAccountsValidationIssueDto> Diagnostics);
+
+public sealed record FinalAccountsScheduleSectionDto(
+    string Key,
+    string Label,
+    decimal Total,
+    IReadOnlyList<FinalAccountsScheduleRowDto> Rows);
+
+public sealed record FinalAccountsScheduleRowDto(
+    Guid AccountId,
+    string AccountCode,
+    string AccountName,
+    string AccountType,
+    string NaturalBalance,
+    string AgeBucket,
+    decimal Balance,
+    string Note,
     string DrillDownPath);

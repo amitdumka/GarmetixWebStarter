@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-07 readiness')
+console.log('Garmetix Final Accounts BS-08 readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -47,6 +47,12 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapGet("/reports/trial-balance/export"',
   'MapGet("/reports/profit-loss"',
   'MapGet("/reports/profit-loss/export"',
+  'MapGet("/reports/balance-sheet"',
+  'MapGet("/reports/balance-sheet/export"',
+  'MapGet("/reports/cash-flow"',
+  'MapGet("/reports/cash-flow/export"',
+  'MapGet("/reports/schedules"',
+  'MapGet("/reports/schedules/export"',
   'MapGet("/coa/seed-preview"',
   'MapGet("/validation/summary"'
 ])
@@ -214,11 +220,20 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsReportService.cs', [
   'GetGeneralLedgerAsync',
   'GetTrialBalanceAsync',
   'GetProfitLossAsync',
+  'GetBalanceSheetAsync',
+  'GetCashFlowAsync',
+  'GetSchedulesAsync',
   'ExportGeneralLedgerAsync',
   'ExportTrialBalanceAsync',
   'ExportProfitLossAsync',
+  'ExportBalanceSheetAsync',
+  'ExportCashFlowAsync',
+  'ExportSchedulesAsync',
   'OpeningSignedBalance',
   'LoadProfitLossCategoryValuesAsync',
+  'LoadBalanceSheetCategoryValuesAsync',
+  'CashEquivalentTotal',
+  'WorkingCapitalChange',
   'BuildComparisonsAsync',
   'JournalDrillDownPath',
   'SourceDrillDownPath',
@@ -232,6 +247,12 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsReportContracts.cs', 
   'FinalAccountsTrialBalanceReportResponse',
   'FinalAccountsProfitLossReportQuery',
   'FinalAccountsProfitLossReportResponse',
+  'FinalAccountsBalanceSheetReportQuery',
+  'FinalAccountsBalanceSheetReportResponse',
+  'FinalAccountsCashFlowReportQuery',
+  'FinalAccountsCashFlowReportResponse',
+  'FinalAccountsSchedulesReportQuery',
+  'FinalAccountsSchedulesReportResponse',
   'FinalAccountsStatementTemplateDto',
   'FinalAccountsStatementTemplateNodeDto',
   'FinalAccountsTrialBalanceComparisonDto',
@@ -259,7 +280,13 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsStatementRules.cs', [
   'EvaluateFormula',
   'Opening inventory',
   'Closing inventory',
-  'ProfitAfterTax'
+  'ProfitAfterTax',
+  'BalanceSheetTemplate',
+  'NormalizeEntityType',
+  'ClassifyBalanceSheetCategory',
+  'ClassifySchedule',
+  'ClassifyCashFlowActivity',
+  'IsCashEquivalent'
 ])
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPostingAdapters.cs', [
@@ -444,7 +471,10 @@ checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsReportRulesTest
   'ProfitLossTemplateExposesVersionedFormulaNodes',
   'FormulaEvaluationSupportsAddAndSubtract',
   'ProfitLossClassificationUsesAccountShape',
-  'StatementPercentagesAndRoundingAreStable'
+  'StatementPercentagesAndRoundingAreStable',
+  'BalanceSheetTemplateSupportsEntityTypesAndBalanceFormula',
+  'BalanceSheetClassificationFindsCurrentNonCurrentAndEquity',
+  'ScheduleAndCashFlowClassificationsUseAccountShape'
 ])
 
 checkFile('docs/final-accounts-bs-04d-inventory-cogs.md', [
@@ -606,13 +636,22 @@ checkFile('frontend/modular/apps/final-accounts/pages/reports.vue', [
   'reports/general-ledger',
   'reports/trial-balance',
   'reports/profit-loss',
+  'reports/balance-sheet',
+  'reports/cash-flow',
+  'reports/schedules',
   'reports/general-ledger/export',
   'reports/trial-balance/export',
   'reports/profit-loss/export',
+  'reports/balance-sheet/export',
+  'reports/cash-flow/export',
+  'reports/schedules/export',
   'Zero balances',
   'Reversed audit rows',
   'Hide zero P&L lines',
   'Profit & Loss',
+  'Balance Sheet',
+  'Cash Flow',
+  'Schedules',
   'Comparison'
 ])
 
@@ -637,6 +676,9 @@ checkFile('frontend/modular/apps/final-accounts/utils/final-accounts-api.ts', [
   'FinalAccountsGeneralLedgerReport',
   'FinalAccountsTrialBalanceReport',
   'FinalAccountsProfitLossReport',
+  'FinalAccountsBalanceSheetReport',
+  'FinalAccountsCashFlowReport',
+  'FinalAccountsSchedulesReport',
   'FinalAccountsStatementTemplate',
   'async function download',
   'async function post',
@@ -658,7 +700,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-07 readiness passed.')
+console.log('\nFinal Accounts BS-08 readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)

@@ -15,7 +15,7 @@
     <UAlert v-if="message" :icon="messageIcon" :color="messageTone" variant="subtle" :title="messageTitle" :description="message" />
 
     <UCard :ui="{ body: 'p-4' }">
-      <div class="grid gap-3 lg:grid-cols-[1fr_1fr_14rem_12rem_12rem_12rem]">
+      <div class="grid gap-3 lg:grid-cols-[1fr_1fr_12rem_12rem_12rem_12rem_12rem_12rem]">
         <UFormField label="From">
           <UInput v-model="filters.from" type="date" icon="i-lucide-calendar" />
         </UFormField>
@@ -33,6 +33,12 @@
         </UFormField>
         <UFormField label="Rounding">
           <USelect v-model="filters.roundingUnit" :items="roundingItems" />
+        </UFormField>
+        <UFormField label="Entity">
+          <USelect v-model="filters.entityType" :items="entityItems" />
+        </UFormField>
+        <UFormField label="Schedule">
+          <USelect v-model="filters.schedule" :items="scheduleItems" />
         </UFormField>
       </div>
       <div class="mt-3 flex flex-wrap items-center gap-3">
@@ -139,7 +145,7 @@
       </UCard>
     </div>
 
-    <div v-else class="space-y-4">
+    <div v-else-if="activeTab === 'profit-loss'" class="space-y-4">
       <div class="final-accounts-grid">
         <UCard v-for="card in profitCards" :key="card.label" :ui="{ body: 'p-4' }">
           <p class="text-xs font-medium uppercase text-muted">{{ card.label }}</p>
@@ -186,6 +192,92 @@
         </UTable>
       </UCard>
     </div>
+
+    <div v-else-if="activeTab === 'balance-sheet'" class="space-y-4">
+      <div class="final-accounts-grid">
+        <UCard v-for="card in balanceCards" :key="card.label" :ui="{ body: 'p-4' }">
+          <p class="text-xs font-medium uppercase text-muted">{{ card.label }}</p>
+          <p class="text-xl font-semibold text-highlighted">{{ card.value }}</p>
+        </UCard>
+      </div>
+
+      <UCard v-if="balanceSheet.diagnostics.length" :ui="{ body: 'p-4' }">
+        <div class="grid gap-2">
+          <UAlert v-for="issue in balanceSheet.diagnostics" :key="`${issue.code}-${issue.message}`" :color="issue.severity === 'Error' ? 'error' : 'warning'" variant="subtle" :title="issue.code" :description="issue.message" />
+        </div>
+      </UCard>
+
+      <UCard class="overflow-hidden" :ui="{ body: 'p-0' }">
+        <div class="flex flex-wrap items-center gap-2 border-b border-default p-3">
+          <UBadge :color="balanceSheet.status === 'Balanced' ? 'success' : 'error'" variant="subtle">{{ balanceSheet.status }}</UBadge>
+          <UBadge color="neutral" variant="subtle">{{ balanceSheet.entityType }}</UBadge>
+          <UButton icon="i-lucide-file-spreadsheet" color="neutral" variant="soft" :loading="exporting" @click="exportBalanceSheet('csv')">Excel</UButton>
+          <UButton icon="i-lucide-file-text" color="neutral" variant="soft" :loading="exporting" @click="exportBalanceSheet('pdf')">PDF</UButton>
+        </div>
+        <UTable :data="balanceSheet.lines" :columns="balanceColumns" :loading="loading">
+          <template #label-cell="{ row }">
+            <div>
+              <p :class="row.original.key.startsWith('Total') ? 'font-semibold text-highlighted' : 'text-highlighted'">{{ row.original.label }}</p>
+              <p class="text-xs text-muted">{{ row.original.classification }} · {{ row.original.note }}</p>
+            </div>
+          </template>
+          <template #current-cell="{ row }">{{ money(row.original.current) }}</template>
+          <template #previous-cell="{ row }">{{ money(row.original.previous) }}</template>
+          <template #variance-cell="{ row }">{{ money(row.original.variance) }}</template>
+          <template #mappings-cell="{ row }"><UBadge color="neutral" variant="subtle">{{ row.original.mappings.length }}</UBadge></template>
+        </UTable>
+      </UCard>
+    </div>
+
+    <div v-else-if="activeTab === 'cash-flow'" class="space-y-4">
+      <div class="final-accounts-grid">
+        <UCard v-for="card in cashFlowCards" :key="card.label" :ui="{ body: 'p-4' }">
+          <p class="text-xs font-medium uppercase text-muted">{{ card.label }}</p>
+          <p class="text-xl font-semibold text-highlighted">{{ card.value }}</p>
+        </UCard>
+      </div>
+
+      <UCard class="overflow-hidden" :ui="{ body: 'p-0' }">
+        <div class="flex flex-wrap items-center gap-2 border-b border-default p-3">
+          <UBadge :color="cashFlow.status === 'Balanced' ? 'success' : 'error'" variant="subtle">{{ cashFlow.method }} · {{ cashFlow.status }}</UBadge>
+          <UButton icon="i-lucide-file-spreadsheet" color="neutral" variant="soft" :loading="exporting" @click="exportCashFlow('csv')">Excel</UButton>
+          <UButton icon="i-lucide-file-text" color="neutral" variant="soft" :loading="exporting" @click="exportCashFlow('pdf')">PDF</UButton>
+        </div>
+        <UTable :data="cashFlow.lines" :columns="cashFlowColumns" :loading="loading">
+          <template #amount-cell="{ row }">{{ money(row.original.amount) }}</template>
+        </UTable>
+      </UCard>
+    </div>
+
+    <div v-else class="space-y-4">
+      <div class="final-accounts-grid">
+        <UCard :ui="{ body: 'p-4' }">
+          <p class="text-xs font-medium uppercase text-muted">Schedule Total</p>
+          <p class="text-xl font-semibold text-highlighted">{{ money(schedules.total) }}</p>
+        </UCard>
+        <UCard :ui="{ body: 'p-4' }">
+          <p class="text-xs font-medium uppercase text-muted">Sections</p>
+          <p class="text-xl font-semibold text-highlighted">{{ schedules.sections.length }}</p>
+        </UCard>
+      </div>
+
+      <UCard class="overflow-hidden" :ui="{ body: 'p-0' }">
+        <div class="flex flex-wrap items-center gap-2 border-b border-default p-3">
+          <UBadge color="neutral" variant="subtle">{{ schedules.schedule }}</UBadge>
+          <UButton icon="i-lucide-file-spreadsheet" color="neutral" variant="soft" :loading="exporting" @click="exportSchedules('csv')">Excel</UButton>
+          <UButton icon="i-lucide-file-text" color="neutral" variant="soft" :loading="exporting" @click="exportSchedules('pdf')">PDF</UButton>
+        </div>
+        <div v-for="section in schedules.sections" :key="section.key" class="border-b border-default">
+          <div class="flex items-center justify-between gap-3 bg-muted/30 px-3 py-2">
+            <h2 class="text-sm font-semibold text-highlighted">{{ section.label }}</h2>
+            <span class="text-sm font-medium text-highlighted">{{ money(section.total) }}</span>
+          </div>
+          <UTable :data="section.rows" :columns="scheduleColumns" :loading="loading">
+            <template #balance-cell="{ row }">{{ money(row.original.balance) }}</template>
+          </UTable>
+        </div>
+      </UCard>
+    </div>
   </section>
 </template>
 
@@ -193,8 +285,11 @@
 import {
   formatFinalAccountsDateOnly,
   type FinalAccountsAccount,
+  type FinalAccountsBalanceSheetReport,
+  type FinalAccountsCashFlowReport,
   type FinalAccountsGeneralLedgerReport,
   type FinalAccountsProfitLossReport,
+  type FinalAccountsSchedulesReport,
   type FinalAccountsTrialBalanceReport,
   useFinalAccountsApiClient
 } from '../utils/final-accounts-api'
@@ -221,6 +316,8 @@ const filters = reactive({
   comparison: 'Monthly',
   profitLossView: 'Vertical',
   roundingUnit: 'Ones',
+  entityType: 'Proprietorship',
+  schedule: 'All',
   includeZeroBalances: false,
   includeReversed: false,
   hideZeroStatementLines: false
@@ -228,16 +325,24 @@ const filters = reactive({
 const ledger = ref<FinalAccountsGeneralLedgerReport>(emptyLedger())
 const trial = ref<FinalAccountsTrialBalanceReport>(emptyTrial())
 const profitLoss = ref<FinalAccountsProfitLossReport>(emptyProfitLoss())
+const balanceSheet = ref<FinalAccountsBalanceSheetReport>(emptyBalanceSheet())
+const cashFlow = ref<FinalAccountsCashFlowReport>(emptyCashFlow())
+const schedules = ref<FinalAccountsSchedulesReport>(emptySchedules())
 
 const tabs = [
   { label: 'General Ledger', value: 'ledger', icon: 'i-lucide-book-open-check' },
   { label: 'Trial Balance', value: 'trial-balance', icon: 'i-lucide-scale' },
-  { label: 'Profit & Loss', value: 'profit-loss', icon: 'i-lucide-chart-no-axes-combined' }
+  { label: 'Profit & Loss', value: 'profit-loss', icon: 'i-lucide-chart-no-axes-combined' },
+  { label: 'Balance Sheet', value: 'balance-sheet', icon: 'i-lucide-landmark' },
+  { label: 'Cash Flow', value: 'cash-flow', icon: 'i-lucide-arrow-left-right' },
+  { label: 'Schedules', value: 'schedules', icon: 'i-lucide-paperclip' }
 ]
 const trialViewItems = ['Ledger', 'Group']
 const comparisonItems = ['Monthly', 'Quarterly']
 const profitLossViewItems = ['Vertical', 'Horizontal']
 const roundingItems = ['Ones', 'Thousands', 'Lakhs']
+const entityItems = ['Proprietorship', 'Partnership', 'Company']
+const scheduleItems = ['All', 'DebtorAgeing', 'CreditorAgeing', 'Inventory', 'FixedAssets', 'CashBank', 'GstTds', 'Loans', 'Capital', 'NotesAttachments']
 const messageTitle = computed(() => messageTone.value === 'error' ? 'Report unavailable' : 'Reports')
 const messageIcon = computed(() => messageTone.value === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-info')
 const accountSelectItems = computed<SelectItem[]>(() => [
@@ -262,6 +367,18 @@ const profitCards = computed(() => [
   { label: 'Gross Profit', value: money(profitLoss.value.grossProfit) },
   { label: 'EBITDA', value: money(profitLoss.value.ebitda) },
   { label: 'Profit After Tax', value: money(profitLoss.value.profitAfterTax) }
+])
+const balanceCards = computed(() => [
+  { label: 'Assets', value: money(balanceSheet.value.totalAssets) },
+  { label: 'Liabilities', value: money(balanceSheet.value.totalLiabilities) },
+  { label: 'Equity', value: money(balanceSheet.value.totalEquity) },
+  { label: 'Difference', value: money(balanceSheet.value.difference) }
+])
+const cashFlowCards = computed(() => [
+  { label: 'Operating', value: money(cashFlow.value.operatingActivities) },
+  { label: 'Investing', value: money(cashFlow.value.investingActivities) },
+  { label: 'Financing', value: money(cashFlow.value.financingActivities) },
+  { label: 'Closing Cash', value: money(cashFlow.value.closingCash) }
 ])
 
 const ledgerColumns = [
@@ -307,6 +424,27 @@ const profitHorizontalColumns = [
   { accessorKey: 'variance', header: 'Variance' },
   { accessorKey: 'variancePercent', header: 'Variance %' }
 ]
+const balanceColumns = [
+  { accessorKey: 'section', header: 'Section' },
+  { accessorKey: 'label', header: 'Line' },
+  { accessorKey: 'current', header: 'Current' },
+  { accessorKey: 'previous', header: 'Previous' },
+  { accessorKey: 'variance', header: 'Variance' },
+  { accessorKey: 'mappings', header: 'Maps' }
+]
+const cashFlowColumns = [
+  { accessorKey: 'section', header: 'Section' },
+  { accessorKey: 'label', header: 'Line' },
+  { accessorKey: 'amount', header: 'Amount' },
+  { accessorKey: 'note', header: 'Note' }
+]
+const scheduleColumns = [
+  { accessorKey: 'accountCode', header: 'Code' },
+  { accessorKey: 'accountName', header: 'Account' },
+  { accessorKey: 'ageBucket', header: 'Age' },
+  { accessorKey: 'balance', header: 'Balance' },
+  { accessorKey: 'note', header: 'Note' }
+]
 
 async function loadReports() {
   loading.value = true
@@ -315,14 +453,20 @@ async function loadReports() {
     if (accounts.value.length === 0) {
       accounts.value = await api.get<FinalAccountsAccount[]>('accounts')
     }
-    const [ledgerReport, trialReport, profitLossReport] = await Promise.all([
+    const [ledgerReport, trialReport, profitLossReport, balanceSheetReport, cashFlowReport, schedulesReport] = await Promise.all([
       api.get<FinalAccountsGeneralLedgerReport>(`reports/general-ledger?${ledgerQuery()}`),
       api.get<FinalAccountsTrialBalanceReport>(`reports/trial-balance?${trialQuery()}`),
-      api.get<FinalAccountsProfitLossReport>(`reports/profit-loss?${profitLossQuery()}`)
+      api.get<FinalAccountsProfitLossReport>(`reports/profit-loss?${profitLossQuery()}`),
+      api.get<FinalAccountsBalanceSheetReport>(`reports/balance-sheet?${balanceSheetQuery()}`),
+      api.get<FinalAccountsCashFlowReport>(`reports/cash-flow?${cashFlowQuery()}`),
+      api.get<FinalAccountsSchedulesReport>(`reports/schedules?${schedulesQuery()}`)
     ])
     ledger.value = ledgerReport
     trial.value = trialReport
     profitLoss.value = profitLossReport
+    balanceSheet.value = balanceSheetReport
+    cashFlow.value = cashFlowReport
+    schedules.value = schedulesReport
   } catch (err) {
     showError(err)
   } finally {
@@ -340,6 +484,18 @@ async function exportTrialBalance(format: 'csv' | 'pdf') {
 
 async function exportProfitLoss(format: 'csv' | 'pdf') {
   await download(`reports/profit-loss/export?${profitLossQuery()}&format=${format}`, `final-accounts-profit-loss.${format}`)
+}
+
+async function exportBalanceSheet(format: 'csv' | 'pdf') {
+  await download(`reports/balance-sheet/export?${balanceSheetQuery()}&format=${format}`, `final-accounts-balance-sheet.${format}`)
+}
+
+async function exportCashFlow(format: 'csv' | 'pdf') {
+  await download(`reports/cash-flow/export?${cashFlowQuery()}&format=${format}`, `final-accounts-cash-flow.${format}`)
+}
+
+async function exportSchedules(format: 'csv' | 'pdf') {
+  await download(`reports/schedules/export?${schedulesQuery()}&format=${format}`, `final-accounts-schedules.${format}`)
 }
 
 async function download(path: string, fileName: string) {
@@ -385,6 +541,33 @@ function profitLossQuery() {
   })
   if (filters.from) params.set('from', filters.from)
   if (filters.to) params.set('to', filters.to)
+  return params.toString()
+}
+
+function balanceSheetQuery() {
+  const params = new URLSearchParams({
+    entityType: filters.entityType,
+    roundingUnit: filters.roundingUnit,
+    hideZero: String(filters.hideZeroStatementLines)
+  })
+  if (filters.to) params.set('asOf', filters.to)
+  if (filters.from) params.set('previousAsOf', filters.from)
+  return params.toString()
+}
+
+function cashFlowQuery() {
+  const params = new URLSearchParams({ roundingUnit: filters.roundingUnit })
+  if (filters.from) params.set('from', filters.from)
+  if (filters.to) params.set('to', filters.to)
+  return params.toString()
+}
+
+function schedulesQuery() {
+  const params = new URLSearchParams({
+    schedule: filters.schedule,
+    includeZeroBalances: String(filters.includeZeroBalances)
+  })
+  if (filters.to) params.set('asOf', filters.to)
   return params.toString()
 }
 
@@ -480,6 +663,63 @@ function emptyProfitLoss(): FinalAccountsProfitLossReport {
     lines: [],
     horizontal: [],
     mappingIssues: []
+  }
+}
+
+function emptyBalanceSheet(): FinalAccountsBalanceSheetReport {
+  return {
+    template: {
+      templateCode: 'GarmentRetailBalanceSheetProprietorship',
+      version: 'v1',
+      name: 'Non-Corporate Balance Sheet',
+      statementType: 'BalanceSheet',
+      defaultView: 'Vertical',
+      defaultRoundingUnit: 'Ones',
+      hideZeroDefault: false,
+      nodes: []
+    },
+    entityType: 'Proprietorship',
+    roundingUnit: 'Ones',
+    asOf: '',
+    hideZero: false,
+    totalAssets: 0,
+    totalLiabilities: 0,
+    totalEquity: 0,
+    currentYearProfit: 0,
+    difference: 0,
+    status: 'Balanced',
+    lines: [],
+    diagnostics: []
+  }
+}
+
+function emptyCashFlow(): FinalAccountsCashFlowReport {
+  return {
+    method: 'Indirect',
+    roundingUnit: 'Ones',
+    profitAfterTax: 0,
+    nonCashAdjustments: 0,
+    workingCapitalChanges: 0,
+    operatingActivities: 0,
+    investingActivities: 0,
+    financingActivities: 0,
+    netCashFlow: 0,
+    openingCash: 0,
+    closingCash: 0,
+    reconciliationDifference: 0,
+    status: 'Balanced',
+    lines: [],
+    diagnostics: []
+  }
+}
+
+function emptySchedules(): FinalAccountsSchedulesReport {
+  return {
+    asOf: '',
+    schedule: 'All',
+    total: 0,
+    sections: [],
+    diagnostics: []
   }
 }
 
