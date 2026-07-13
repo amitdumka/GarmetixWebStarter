@@ -13,6 +13,7 @@ const mappings = [
   ['@garmetix/ai-sense-web', 'apps/ai-sense'],
   ['@garmetix/books-web', 'apps/books'],
   ['@garmetix/crm-web', 'apps/crm'],
+  ['@garmetix/final-accounts-web', 'apps/final-accounts'],
   ['@garmetix/hr-web', 'apps/hr'],
   ['@garmetix/main-web', 'apps/main'],
   ['@garmetix/pos-web', 'apps/pos'],

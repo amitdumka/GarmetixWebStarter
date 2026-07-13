@@ -142,45 +142,104 @@ BS-00 commit: created by this stage commit; exact hash is reported in session ou
 
 ## Backend
 
-- [ ] Create dedicated Final Accounts namespace/folder.
-- [ ] Create module registration extension.
-- [ ] Create module status endpoint.
-- [ ] Add typed module settings.
-- [ ] Persist module settings using existing setup/settings system.
-- [ ] Default `FinalAccounts.Enabled` to false.
-- [ ] Add module-disabled guard for APIs.
-- [ ] Add permission constants.
-- [ ] Add permission seeds without auto-granting normal roles.
-- [ ] Add structured logging category.
-- [ ] Add health information without operational posting.
+- [x] Create dedicated Final Accounts namespace/folder.
+- [x] Create module registration extension.
+- [x] Create module status endpoint.
+- [x] Add typed module settings.
+- [x] Persist module settings using existing setup/settings system.
+- [x] Default `FinalAccounts.Enabled` to false.
+- [x] Add module-disabled guard for APIs.
+- [x] Add permission constants.
+- [x] Add permission seeds without auto-granting normal roles.
+- [x] Add structured logging category.
+- [x] Add health information without operational posting.
 
 ## Frontend
 
-- [ ] Create `/final-accounts/` dashboard shell.
-- [ ] Use normal application layout/header/sidebar.
-- [ ] Add module-disabled page/state.
-- [ ] Add permission guard.
-- [ ] Add sidebar group hidden while disabled.
-- [ ] Add setup route for authorised users.
-- [ ] Add empty/loading/error states.
-- [ ] Verify no existing route/menu regression.
+- [x] Create `/final-accounts/` dashboard shell.
+- [x] Use normal application layout/header/sidebar.
+- [x] Add module-disabled page/state.
+- [x] Add permission guard.
+- [x] Add sidebar group hidden while disabled.
+- [x] Add setup route for authorised users.
+- [x] Add empty/loading/error states.
+- [x] Verify no existing route/menu regression.
 
 ## Tests
 
-- [ ] API rejects disabled-module access.
-- [ ] Authorised setup user can view status.
-- [ ] Menu is absent when disabled.
-- [ ] Existing users have no new access by default.
-- [ ] Existing application tests/builds pass.
-- [ ] Commit BS-01.
+- [x] API rejects disabled-module access.
+- [x] Authorised setup user can view status.
+- [x] Menu is absent when disabled.
+- [x] Existing users have no new access by default.
+- [!] Existing application tests/builds pass.
+- [x] Commit BS-01.
 
 Evidence:
 
 ```text
-Commit:
-Tests:
-Screens/routes checked:
-Notes:
+Date: 2026-07-13
+Agent: Codex GPT-5
+Branch: balancesheet
+Worktree: C:\AIarea\Codex\bsheet\GarmetixWebStarter
+Commit: created by this stage commit; exact hash is reported in session output because a commit cannot contain its own final hash.
+
+Implementation:
+- Backend Final Accounts module added under backend/Garmetix.Api/FinalAccounts.
+- Domain settings model added under backend/Garmetix.Domain/Generated/Models/FinalAccounts.
+- Additive migration added for PostgreSQL schema final_accounts and table final_accounts.fa_module_settings.
+- Module settings are persisted in fa_module_settings and default to disabled.
+- API root: /api/final-accounts.
+- Frontend route/app root: /final-accounts.
+- Endpoints added: GET /api/final-accounts/status, GET /api/final-accounts/settings, PUT /api/final-accounts/settings, guarded GET /api/final-accounts/dashboard.
+- Disabled guard returns HTTP 403 for guarded module endpoints while settings are disabled.
+- Policy GarmetixPolicies.FinalAccounts added and registered, but not added to AccessPermissionMatrix module-role grants.
+- Admin/owner retain setup access through the existing IsAdminOrOwner policy path.
+- Existing non-admin roles do not receive Final Accounts access by default.
+- Structured service log added when Final Accounts settings are saved.
+- Dedicated Nuxt app added at frontend/modular/apps/final-accounts with status, setup, login and access-denied pages.
+- Shared app registry, route registry, app switcher labels, shell defaults, env sample and workspace-link checks updated.
+- Shared menu route records are showInMenu:false for BS-01.
+- No production deployment script was added or executed.
+- No production migration was run.
+
+Commands/tests run:
+- dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release: passed with existing nullable warnings.
+- dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release: passed. Result: 88 passed, 3 skipped, 91 total.
+- npm install --package-lock=false in frontend/modular: passed for local workspace-link refresh; no tracked package-lock change.
+- npm run check in frontend/modular: passed.
+- npm run workspace-links in frontend/modular: passed.
+- npm run final-accounts:readiness in frontend/modular: passed.
+- npm --workspace @garmetix/final-accounts-web run build: passed with existing Nuxt/Rollup warning pattern.
+- npm run build:books in frontend/modular: passed with existing Nuxt/Rollup warning pattern.
+- npm run build:main in frontend/modular: passed with existing Nuxt/Rollup warning pattern.
+- npm run build:admin in frontend/modular: passed with existing Nuxt/Rollup warning pattern.
+- npm run validate in frontend/modular: failed at existing Main Back Office contract parity baseline.
+
+Known unresolved issues:
+- frontend/modular npm run validate still fails because frontend/modular/apps/main/pages/purchase/index.vue is missing token purchase/invoices/recent.
+- npm ci remains expected to fail until package-lock.json is refreshed for the existing workspace app additions; BS-01 did not update package-lock.json.
+- API build still reports existing nullable warnings in BankReconciliationClosureEndpoints.cs, BillingEndpoints.cs, VyaparSaleImportService.cs, DigitalBillCrmEndpoints.cs and PurchaseEndpoints.cs.
+- Nuxt builds still report existing sourcemap, Rollup pure-comment, large chunk and nitro cache-driver warnings.
+
+Files added/changed:
+- backend/Garmetix.Api/FinalAccounts/*
+- backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsModuleSettings.cs
+- backend/Garmetix.Infrastructure/Data/Migrations/20260713153000_AddFinalAccountsModuleSettings.cs
+- backend/Garmetix.Infrastructure/Data/GarmetixDbContext.cs
+- backend/Garmetix.Api/Auth/GarmetixPolicies.cs
+- backend/Garmetix.Api/Program.cs
+- backend/Garmetix.Api.Tests/Auth/AccessPermissionMatrixTests.cs
+- frontend/modular/apps/final-accounts/*
+- frontend/modular/config/apps.ts
+- frontend/modular/config/routes.ts
+- frontend/modular/packages/shared-types/src/index.ts
+- frontend/modular/packages/shared-ui/src/index.ts
+- frontend/modular/packages/shared-ui/components/ModularAppShell.vue
+- frontend/modular/.env.example
+- frontend/modular/package.json
+- frontend/modular/scripts/validate-structure.mjs
+- frontend/modular/scripts/workspace-link-readiness.mjs
+- frontend/modular/scripts/final-accounts-readiness.mjs
 ```
 
 ---
@@ -821,13 +880,13 @@ Decision:
 
 These must stay checked after every stage:
 
-- [ ] Active branch is `balancesheet`.
-- [ ] Module feature flag defaults to disabled.
-- [ ] No production deployment.
-- [ ] No production migration.
-- [ ] No operational table drop/rename.
-- [ ] No posted journal edit/delete.
-- [ ] No duplicate source posting.
-- [ ] Tenant/company/store isolation is preserved.
-- [ ] Existing app builds with module disabled.
-- [ ] TODO evidence is current.
+- [x] Active branch is `balancesheet`.
+- [x] Module feature flag defaults to disabled.
+- [x] No production deployment.
+- [x] No production migration.
+- [x] No operational table drop/rename.
+- [x] No posted journal edit/delete.
+- [x] No duplicate source posting.
+- [x] Tenant/company/store isolation is preserved.
+- [x] Existing app builds with module disabled.
+- [x] TODO evidence is current.

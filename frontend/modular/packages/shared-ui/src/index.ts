@@ -122,6 +122,11 @@ const appCopy: Record<FrontendAppId, { title: string, subtitle: string, badge: s
     title: 'Garmetix Inventory',
     subtitle: 'Product master, categories, brands, barcodes and stock operations.',
     badge: 'Inventory'
+  },
+  'final-accounts': {
+    title: 'Garmetix Final Accounts',
+    subtitle: 'Balance sheet, P&L, cash flow, closing and CA review workspace.',
+    badge: 'Final Accounts'
   }
 }
 

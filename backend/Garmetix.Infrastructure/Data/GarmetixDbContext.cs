@@ -8,6 +8,7 @@ using Garmetix.Core.Models.Audit;
 using Garmetix.Core.Models.Authentication;
 using Garmetix.Core.Models.Attendance;
 using Garmetix.Core.Models.Base;
+using Garmetix.Core.Models.FinalAccounts;
 using Garmetix.Core.Models.HRM;
 using Garmetix.Core.Models.GstReturns;
 using Garmetix.Core.Models.GstTax;
@@ -139,6 +140,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<DayBegin> DayBegins => Set<DayBegin>();
     public DbSet<DayEnd> DayEnds => Set<DayEnd>();
     public DbSet<CashDetail> CashDetails => Set<CashDetail>();
+    public DbSet<FinalAccountsModuleSettings> FinalAccountsModuleSettings => Set<FinalAccountsModuleSettings>();
 
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<EmployeeDetail> EmployeeDetails => Set<EmployeeDetail>();
@@ -261,6 +263,14 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<Voucher>().ToTable("Vouchers");
         modelBuilder.Entity<CashVoucher>().ToTable("CashVouchers");
         modelBuilder.Entity<CashVoucherConversion>().ToTable("CashVoucherConversions");
+        modelBuilder.Entity<FinalAccountsModuleSettings>().ToTable("fa_module_settings", "final_accounts");
+        modelBuilder.Entity<FinalAccountsModuleSettings>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId }).IsUnique();
+        modelBuilder.Entity<FinalAccountsModuleSettings>().HasIndex(item => new { item.Enabled, item.UpdatedAt });
+        modelBuilder.Entity<FinalAccountsModuleSettings>().Property(item => item.PostingMode).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsModuleSettings>().Property(item => item.StatementTemplate).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsModuleSettings>().Property(item => item.InventoryValuationMethod).HasMaxLength(48);
+        modelBuilder.Entity<FinalAccountsModuleSettings>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsModuleSettings>().Property(item => item.UpdatedBy).HasMaxLength(120);
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {

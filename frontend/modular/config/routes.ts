@@ -39,6 +39,7 @@ export const routeRoles = {
   pos: ['SuperAdmin', 'Owner', 'Admin', 'StoreManager', 'Cashier', 'Salesman'],
   hr: ['SuperAdmin', 'Owner', 'Admin', 'PowerUser', 'HrManager'],
   books: ['SuperAdmin', 'Owner', 'Admin', 'Accountant', 'CA'],
+  finalAccounts: ['SuperAdmin', 'Owner', 'Admin', 'CA'],
   analytics: ['SuperAdmin', 'Owner', 'Admin', 'PowerUser', 'Accountant'],
   authenticated: ['Authenticated']
 } as const
@@ -60,6 +61,7 @@ export const routeModules = {
   maintenance: { label: 'Maintenance', icon: 'i-lucide-wrench', app: 'admin' },
   aiSense: { label: 'AI Sense', icon: 'i-lucide-brain-circuit', app: 'ai-sense' },
   inventoryApp: { label: 'Inventory Management', icon: 'i-lucide-boxes', app: 'inventory' },
+  finalAccounts: { label: 'Final Accounts', icon: 'i-lucide-landmark', app: 'final-accounts' },
   account: { label: 'Account', icon: 'i-lucide-circle-user-round', app: 'main' },
   help: { label: 'Help', icon: 'i-lucide-circle-help', app: 'main' },
   public: { label: 'Public', icon: 'i-lucide-info', app: 'main' }
@@ -125,6 +127,8 @@ export const garmetixRoutes: GarmetixRouteDefinition[] = [
   route({ id: 'stock-reports', path: '/stock-reports', label: 'Stock Reports', icon: 'i-lucide-clipboard-list', targetApp: 'ai-sense', moduleKey: 'aiSense', moduleLabel: 'AI Sense', roles: [...routeRoles.analytics] }),
 
   route({ id: 'accounting', path: '/accounting', label: 'Accounting', icon: 'i-lucide-book-open-check', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books], status: 'shell-ready' }),
+  route({ id: 'final-accounts-home', path: '/', label: 'Final Accounts Home', icon: 'i-lucide-layout-dashboard', targetApp: 'final-accounts', moduleKey: 'finalAccounts', moduleLabel: 'Final Accounts', roles: [...routeRoles.finalAccounts], showInMenu: false, status: 'shell-ready', notes: 'Hidden BS-01 shell; module is disabled until setup enables FINAL_ACCOUNTS.' }),
+  route({ id: 'final-accounts-setup', path: '/setup', label: 'Final Accounts Setup', icon: 'i-lucide-sliders-horizontal', targetApp: 'final-accounts', moduleKey: 'finalAccounts', moduleLabel: 'Final Accounts', roles: [...routeRoles.ownerAdmin], showInMenu: false, status: 'shell-ready' }),
   route({ id: 'day-book', path: '/day-book', label: 'Day Book', icon: 'i-lucide-book-open-check', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books] }),
   route({ id: 'ledgers', path: '/ledgers', label: 'Ledgers', icon: 'i-lucide-book-open', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books] }),
   route({ id: 'banking', path: '/banking', label: 'Banking', icon: 'i-lucide-piggy-bank', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books] }),
@@ -295,7 +299,8 @@ export function buildAppTargetLinks(env: Record<string, string | undefined>, cur
     books: 'Books',
     crm: 'CRM',
     admin: 'Admin',
-    inventory: 'Inventory'
+    inventory: 'Inventory',
+    'final-accounts': 'Final Accounts'
   }
 
   return (Object.keys(appLabels) as GarmetixFrontendId[]).map(id => {

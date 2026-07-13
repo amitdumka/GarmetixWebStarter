@@ -463,6 +463,12 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'stock', label: 'Stock Operations', href: '/stock', icon: 'i-lucide-arrow-right-left' },
       { id: 'barcodes', label: 'Barcodes And Labels', href: '/barcodes', icon: 'i-lucide-scan-barcode' }
     ] }
+  ],
+  'final-accounts': [
+    { key: 'statements', label: 'Statements', items: [
+      { id: 'home', label: 'Final Accounts Home', href: '/', icon: 'i-lucide-layout-dashboard' },
+      { id: 'setup', label: 'Setup', href: '/setup', icon: 'i-lucide-sliders-horizontal' }
+    ] }
   ]
 }
 
@@ -628,7 +634,8 @@ function appDefaultBase(appId: FrontendAppId) {
     books: '/books/',
     crm: '/crm/',
     admin: '/admin/',
-    inventory: '/inventory/'
+    inventory: '/inventory/',
+    'final-accounts': '/final-accounts/'
   }
   return bases[appId]
 }
