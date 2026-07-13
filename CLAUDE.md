@@ -1,5 +1,19 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-13 - GST & Taxes module deployed to SRP
+
+Amit said "deploy" right after Stage GST-10 landed (all 10 GST stages had run autonomously via the scheduled continuation task set up during Stage GST-6, with no further prompts from Amit until this one). The platform's own safety check blocked the first attempt, requiring a confirmation that explicitly named the production target given the scale of what was shipping (10 stages, new DB tables/migrations, credential-handling code, a module CLAUDE.md had repeatedly documented as deliberately held un-deployed) - asked Amit to confirm, he replied "yes deploy to SRP, 192.168.11.127."
+
+- Re-validated before touching production: `dotnet build` (0 errors) and the full backend test suite (72 passed, 0 regressions) one more time, even though every individual stage had already validated itself, since this was the first time all 10 stages' changes were being shipped together.
+- Ran the standard two-step SRP whole-site deploy (`npm run modular:deploy:srp` then `-- --install-remote`, `GARMETIX_PREFER_WSL=false`, matching this project's established Git-Bash-not-WSL convention): all 8 frontend apps + the .NET API built, uploaded via tar stream (no `rsync` on this host), then installed - nginx config tested clean, release switched live.
+- **Verified with real content checks, not just exit codes** - the exact discipline this project's own deploy history (Stage 14G's false-positive status-only acceptance pass) established as mandatory. Confirmed via direct HTTP against the LAN IP (`192.168.11.127:8088`, since the public HTTPS domain failed a local Windows curl/schannel certificate-revocation check unrelated to server health - flagged to Amit to spot-check `https://srp.aadwikafashion.in` himself since I couldn't independently confirm the public path from this environment):
+  - `/books/` and the new `/books/gst-tax-audit` route both serve genuine ~2973-byte app-shell HTML, not the historical 16-byte `"Redirecting..."` flaky-build stub.
+  - The compiled bundle contains the new GST sidebar menu strings (Stage GST-5/9 labels), confirming the live build is the current one, not a stale cache.
+  - `GET /api/gst/dashboard` returns `401` (reachable, correctly requires auth) rather than `404`/`502`/connection failure - proof the API process restarted onto the new binary with the GST routes registered.
+  - Every other app (pos/hr/admin/crm/inventory/ai-sense/main) still serves real content at the same byte-size range as before - no regression from the deploy.
+- Updated `.claude/todo.md`'s GST module status line to reflect deployed-and-verified rather than code-complete-pending-deploy.
+- No code changes in this entry - purely a build/validate/deploy/verify pass, `git status` stayed clean throughout.
+
 ## 2026-07-13 - Stage GST-10: E-Invoice/E-Way Bill placeholders (GST & Taxes module complete)
 
 Amit asked directly in chat to continue into Stage GST-10 right after Stage GST-9 landed. This is the last stage on the GST & Taxes checklist. Version `6.8.11`.
