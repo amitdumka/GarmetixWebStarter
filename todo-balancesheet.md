@@ -747,17 +747,17 @@ Files added/changed:
 
 # BS-04E — Payroll, GST/TDS and other adapters
 
-- [ ] Payroll finalisation.
-- [ ] Salary payable.
-- [ ] Salary payment.
-- [ ] Employer/statutory liabilities.
-- [ ] GST payment/adjustment.
-- [ ] TDS payable/payment.
-- [ ] Tailoring and alteration income.
-- [ ] Customer/vendor advances.
-- [ ] Other income.
-- [ ] Fixture tests.
-- [ ] Commit BS-04E.
+- [x] Payroll finalisation.
+- [x] Salary payable.
+- [x] Salary payment.
+- [x] Employer/statutory liabilities.
+- [x] GST payment/adjustment.
+- [x] TDS payable/payment.
+- [x] Tailoring and alteration income.
+- [x] Customer/vendor advances.
+- [x] Other income.
+- [x] Fixture tests.
+- [x] Commit BS-04E.
 
 ---
 

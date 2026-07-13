@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-04D readiness')
+console.log('Garmetix Final Accounts BS-04E readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -113,12 +113,29 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPostingRules.cs', [
   'PurchaseReturnInventory',
   'StockAdjustment',
   'StockTransfer',
+  'PayrollFinalization',
+  'SalaryPayment',
+  'PayrollStatutoryPayment',
+  'GstPayment',
+  'GstAdjustment',
+  'TdsPayment',
+  'TailoringIncome',
+  'TailoringVendorCost',
+  'CustomerAdvanceApplication',
+  'VendorAdvanceApplication',
+  'OtherIncome',
   'GST.OUTPUT_CGST',
   'GST.OUTPUT_SGST',
   'GST.OUTPUT_IGST',
+  'GST.PAYABLE',
   'GST.INPUT_CGST',
   'GST.INPUT_SGST',
   'GST.INPUT_IGST',
+  'PAYROLL.ADVANCE',
+  'PAYROLL.STATUTORY_PAYABLE',
+  'TAILORING.INCOME',
+  'TAILORING.VENDOR_COST',
+  'OTHER.INCOME',
   'SALES.OTHER_CHARGES',
   'VENDOR.ADVANCE',
   'VendorAdvancePayment',
@@ -198,6 +215,31 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsInventoryPostingAdapt
   'Inventory posting preview is not balanced'
 ])
 
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPayrollTaxPostingAdapters.cs', [
+  'FinalAccountsPayrollTaxAdapterLines',
+  'PayrollDraftFinalizationAdapter',
+  'SalaryPaySlipFinalizationAdapter',
+  'SalaryPaymentAdapter',
+  'PayrollStatutoryPaymentAdapter',
+  'GstPaymentAdapter',
+  'TdsPaymentAdapter',
+  'GstReturnSettlementAdapter',
+  'TailoringIncomeAdapter',
+  'TailoringVendorCostAdapter',
+  'TailoringCustomerReceiptAdapter',
+  'CustomerAdvanceApplicationAdapter',
+  'VendorAdvanceApplicationAdapter',
+  'OtherIncomeReceiptAdapter',
+  'PAYROLL.EXPENSE',
+  'PAYROLL.ADVANCE',
+  'GST.PAYABLE',
+  'TDS.PAYABLE',
+  'TAILORING.INCOME',
+  'TAILORING.VENDOR_COST',
+  'OTHER.INCOME',
+  'TailoringServiceGstRate'
+])
+
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsSalesPostingAdapters.cs', [
   'FinalAccountsSalesAdapterLines',
   'SalesInvoiceAdapter',
@@ -231,6 +273,19 @@ checkFile('backend/Garmetix.Api/Program.cs', [
   'PurchaseReturnInventoryAdapter',
   'StockAdjustmentAdapter',
   'StockTransferAdapter',
+  'PayrollDraftFinalizationAdapter',
+  'SalaryPaySlipFinalizationAdapter',
+  'SalaryPaymentAdapter',
+  'PayrollStatutoryPaymentAdapter',
+  'GstPaymentAdapter',
+  'TdsPaymentAdapter',
+  'GstReturnSettlementAdapter',
+  'TailoringIncomeAdapter',
+  'TailoringVendorCostAdapter',
+  'TailoringCustomerReceiptAdapter',
+  'CustomerAdvanceApplicationAdapter',
+  'VendorAdvanceApplicationAdapter',
+  'OtherIncomeReceiptAdapter',
   'InvoicePaymentReceiptAdapter',
   'BankCashTransferAdapter'
 ])
@@ -260,7 +315,14 @@ checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsPostingRulesTes
   'StockTransferLinesUseTransferClearing',
   'InventoryMovementEvidenceBlocksNegativeStock',
   'InventoryMovementEvidenceBlocksMissingCost',
-  'PostingAdapterRequestNormalizesDuplicateMappingKeys'
+  'PostingAdapterRequestNormalizesDuplicateMappingKeys',
+  'PayrollFinalizationLinesSplitNetPayAndStatutoryDeductions',
+  'SalaryPaymentLinesUsePayableOrAdvanceByComponent',
+  'StatutoryGstAndTdsPaymentsCreditPaymentRail',
+  'TailoringIncomeLinesSeparateServiceIncomeAndGst',
+  'TailoringVendorCostAndAdvanceApplicationsBalance',
+  'OtherIncomeReceiptLinesDebitPaymentAndCreditIncome',
+  'Bs04eRulesAreDiscoverable'
 ])
 
 checkFile('docs/final-accounts-bs-04d-inventory-cogs.md', [
@@ -431,7 +493,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-04D readiness passed.')
+console.log('\nFinal Accounts BS-04E readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)

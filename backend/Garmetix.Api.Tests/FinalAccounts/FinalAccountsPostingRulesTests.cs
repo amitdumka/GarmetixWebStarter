@@ -457,6 +457,104 @@ public sealed class FinalAccountsPostingRulesTests
         Assert.Equal(4m, line.Credit);
     }
 
+    [Fact]
+    public void PayrollFinalizationLinesSplitNetPayAndStatutoryDeductions()
+    {
+        var lines = FinalAccountsPayrollTaxAdapterLines.PayrollFinalizationLines(
+            grossEarnings: 1000m,
+            employeeDeductions: 125m,
+            netPay: 875m,
+            employerStatutoryLiability: 25m,
+            narration: "Payroll July");
+
+        AssertBalanced(lines);
+        Assert.Contains(lines, item => item.MappingKey == "PAYROLL.EXPENSE" && item.Debit == 1025m);
+        Assert.Contains(lines, item => item.MappingKey == "PAYROLL.PAYABLE" && item.Credit == 875m);
+        Assert.Contains(lines, item => item.MappingKey == "PAYROLL.STATUTORY.PAYABLE" && item.Credit == 150m);
+    }
+
+    [Fact]
+    public void SalaryPaymentLinesUsePayableOrAdvanceByComponent()
+    {
+        var salaryLines = FinalAccountsPayrollTaxAdapterLines.SalaryPaymentLines(500m, PaymentMode.NEFT, SalaryComponent.NetSalary, "Net salary");
+        var advanceLines = FinalAccountsPayrollTaxAdapterLines.SalaryPaymentLines(200m, PaymentMode.Cash, SalaryComponent.SalaryAdvance, "Advance salary");
+
+        AssertBalanced(salaryLines);
+        AssertBalanced(advanceLines);
+        Assert.Contains(salaryLines, item => item.MappingKey == "PAYROLL.PAYABLE" && item.Debit == 500m);
+        Assert.Contains(salaryLines, item => item.MappingKey == "PAYMENT.BANK" && item.Credit == 500m);
+        Assert.Contains(advanceLines, item => item.MappingKey == "PAYROLL.ADVANCE" && item.Debit == 200m);
+        Assert.Contains(advanceLines, item => item.MappingKey == "PAYMENT.CASH" && item.Credit == 200m);
+    }
+
+    [Fact]
+    public void StatutoryGstAndTdsPaymentsCreditPaymentRail()
+    {
+        var statutory = FinalAccountsPayrollTaxAdapterLines.StatutoryPaymentLines(90m, PaymentMode.UPI, "PF");
+        var gst = FinalAccountsPayrollTaxAdapterLines.GstPaymentLines(180m, PaymentMode.NEFT, "GST");
+        var tds = FinalAccountsPayrollTaxAdapterLines.TdsPaymentLines(70m, PaymentMode.Cash, "TDS");
+
+        AssertBalanced(statutory);
+        AssertBalanced(gst);
+        AssertBalanced(tds);
+        Assert.Contains(statutory, item => item.MappingKey == "PAYROLL.STATUTORY_PAYABLE" && item.Debit == 90m);
+        Assert.Contains(statutory, item => item.MappingKey == "PAYMENT.UPI_CLEARING" && item.Credit == 90m);
+        Assert.Contains(gst, item => item.MappingKey == "GST.PAYABLE" && item.Debit == 180m);
+        Assert.Contains(gst, item => item.MappingKey == "PAYMENT.BANK" && item.Credit == 180m);
+        Assert.Contains(tds, item => item.MappingKey == "TDS.PAYABLE" && item.Debit == 70m);
+        Assert.Contains(tds, item => item.MappingKey == "PAYMENT.CASH" && item.Credit == 70m);
+    }
+
+    [Fact]
+    public void TailoringIncomeLinesSeparateServiceIncomeAndGst()
+    {
+        var lines = FinalAccountsPayrollTaxAdapterLines.TailoringIncomeLines(105m, "Tailoring order");
+
+        AssertBalanced(lines);
+        Assert.Contains(lines, item => item.MappingKey == "CUSTOMER.RECEIVABLE" && item.Debit == 105m);
+        Assert.Contains(lines, item => item.MappingKey == "TAILORING.INCOME" && item.Credit == 100m);
+        Assert.Contains(lines, item => item.MappingKey == "GST.OUTPUT.CGST" && item.Credit == 2.50m);
+        Assert.Contains(lines, item => item.MappingKey == "GST.OUTPUT.SGST" && item.Credit == 2.50m);
+    }
+
+    [Fact]
+    public void TailoringVendorCostAndAdvanceApplicationsBalance()
+    {
+        var vendorCost = FinalAccountsPayrollTaxAdapterLines.TailoringVendorCostLines(300m, "Tailoring vendor");
+        var customerAdvance = FinalAccountsPayrollTaxAdapterLines.CustomerAdvanceApplicationLines(250m, "Customer advance");
+        var vendorAdvance = FinalAccountsPayrollTaxAdapterLines.VendorAdvanceApplicationLines(400m, "Vendor advance");
+
+        AssertBalanced(vendorCost);
+        AssertBalanced(customerAdvance);
+        AssertBalanced(vendorAdvance);
+        Assert.Contains(vendorCost, item => item.MappingKey == "TAILORING.VENDOR_COST" && item.Debit == 300m);
+        Assert.Contains(vendorCost, item => item.MappingKey == "VENDOR.PAYABLE" && item.Credit == 300m);
+        Assert.Contains(customerAdvance, item => item.MappingKey == "CUSTOMER.ADVANCE" && item.Debit == 250m);
+        Assert.Contains(customerAdvance, item => item.MappingKey == "CUSTOMER.RECEIVABLE" && item.Credit == 250m);
+        Assert.Contains(vendorAdvance, item => item.MappingKey == "VENDOR.PAYABLE" && item.Debit == 400m);
+        Assert.Contains(vendorAdvance, item => item.MappingKey == "VENDOR.ADVANCE" && item.Credit == 400m);
+    }
+
+    [Fact]
+    public void OtherIncomeReceiptLinesDebitPaymentAndCreditIncome()
+    {
+        var lines = FinalAccountsPayrollTaxAdapterLines.OtherIncomeReceiptLines(60m, PaymentMode.Card, "Other income");
+
+        AssertBalanced(lines);
+        Assert.Contains(lines, item => item.MappingKey == "PAYMENT.CARD_CLEARING" && item.Debit == 60m);
+        Assert.Contains(lines, item => item.MappingKey == "OTHER.INCOME" && item.Credit == 60m);
+    }
+
+    [Fact]
+    public void Bs04eRulesAreDiscoverable()
+    {
+        Assert.Equal("PayrollFinalization", FinalAccountsPostingRules.FindRule("Payroll", "PayrollFinalization").RuleCode);
+        Assert.Equal("GstPayment", FinalAccountsPostingRules.FindRule("Gst", "GstPayment").RuleCode);
+        Assert.Equal("TailoringIncome", FinalAccountsPostingRules.FindRule("Sales", "TailoringIncome").RuleCode);
+        Assert.Equal("TdsPayment", FinalAccountsPostingRules.FindRule("Expense", "TdsPayment").RuleCode);
+        Assert.NotNull(FinalAccountsPostingRules.FindRequirement("Sales", "OTHER.INCOME"));
+    }
+
     private static StockMovement StockMove(decimal quantityIn, decimal quantityOut, decimal costPrice, decimal costImpact, decimal quantityAfter)
         => new()
         {

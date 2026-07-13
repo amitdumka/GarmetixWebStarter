@@ -47,6 +47,14 @@ public static class FinalAccountsPostingRules
                 Line("PAYMENT.UPI_CLEARING", "UPI Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 40, "Required only when the source advance uses UPI or wallet settlement."),
                 Line("PAYMENT.CARD_CLEARING", "Card Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 50, "Required only when the source advance uses card settlement.")
             ]),
+            Rule(FinalAccountsMappingSourceType.CashBank, "CustomerAdvanceApplication", "Customer Advance Application Adapter", "Maps applied customer advances to receivable settlement.", [
+                Line("CUSTOMER.ADVANCE", "Customer Advance", "Sales category mapping", "Debit", "Liability", true, true, 10, "Customer advance liability reduced when adjusted against an invoice."),
+                Line("CUSTOMER.RECEIVABLE", "Customer Receivables", "Sales category mapping", "Credit", "Asset", true, true, 20, "Customer receivable reduced by applied advance.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.CashBank, "VendorAdvanceApplication", "Vendor Advance Application Adapter", "Maps applied vendor advances to payable settlement.", [
+                Line("VENDOR.PAYABLE", "Vendor Payables", "Expense category mapping", "Debit", "Liability", true, true, 10, "Vendor payable reduced by applied advance."),
+                Line("VENDOR.ADVANCE", "Vendor Advance", "Expense category mapping", "Credit", "Asset", true, true, 20, "Vendor advance asset consumed by purchase settlement.")
+            ]),
             Rule(FinalAccountsMappingSourceType.CashBank, "GeneralPayment", "General Payment Adapter", "Maps general payment vouchers to payable settlement.", [
                 Line("EXPENSE.PAYABLE", "Expense Payable", "Expense category mapping", "Debit", "Liability", true, true, 10, "Generic payable cleared by payment voucher."),
                 Line("PAYMENT.CASH", "Cash In Hand", "Payment mode mapping", "Credit", "Asset", false, true, 20, "Required only when the source payment uses cash."),
@@ -96,6 +104,19 @@ public static class FinalAccountsPostingRules
                 Line("GST.OUTPUT_SGST", "Output SGST", "GST component mapping", "Debit", "Liability", false, true, 50, "SGST payable reversal."),
                 Line("GST.OUTPUT_IGST", "Output IGST", "GST component mapping", "Debit", "Liability", false, true, 60, "IGST payable reversal."),
                 Line("SALES.ROUNDING", "Sales Rounding", "Discount/rounding mapping", "Both", "Expense", false, false, 70, "Original round-off reversal.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.Sales, "TailoringIncome", "Tailoring And Alteration Income Adapter", "Maps tailoring orders to receivable, income and GST.", [
+                Line("CUSTOMER.RECEIVABLE", "Customer Receivables", "Sales category mapping", "Debit", "Asset", true, true, 10, "Tailoring receivable before receipt settlement."),
+                Line("TAILORING.INCOME", "Tailoring Income", "Sales category mapping", "Credit", "Income", true, false, 20, "Stitching and alteration service income."),
+                Line("GST.OUTPUT_CGST", "Output CGST", "GST component mapping", "Credit", "Liability", false, true, 30, "CGST payable on tailoring service."),
+                Line("GST.OUTPUT_SGST", "Output SGST", "GST component mapping", "Credit", "Liability", false, true, 40, "SGST payable on tailoring service.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.Sales, "OtherIncome", "Other Income Receipt Adapter", "Maps other-income receipts to cash/bank and income.", [
+                Line("PAYMENT.CASH", "Cash In Hand", "Payment mode mapping", "Debit", "Asset", false, true, 10, "Required only when other income is received by cash."),
+                Line("PAYMENT.BANK", "Bank Account", "Bank/UPI/card clearing mapping", "Debit", "Asset", false, true, 20, "Required only when other income is received by bank transfer."),
+                Line("PAYMENT.UPI_CLEARING", "UPI Clearing", "Bank/UPI/card clearing mapping", "Debit", "Asset", false, true, 30, "Required only when other income is received by UPI or wallet settlement."),
+                Line("PAYMENT.CARD_CLEARING", "Card Clearing", "Bank/UPI/card clearing mapping", "Debit", "Asset", false, true, 40, "Required only when other income is received by card settlement."),
+                Line("OTHER.INCOME", "Other Income", "Sales category mapping", "Credit", "Income", true, false, 50, "Non-operating or miscellaneous income.")
             ]),
             Rule(FinalAccountsMappingSourceType.Purchase, "Purchase Posting", "Maps inward purchases, vendor dues and purchase returns.", [
                 Line("PURCHASE.DIRECT", "Direct Purchases", "Expense category mapping", "Debit", "Expense", true, false, 10, "Purchase expense or trading purchase account."),
@@ -175,12 +196,45 @@ public static class FinalAccountsPostingRules
                 Line("GST.OUTPUT_IGST", "Output IGST", "GST component mapping", "Credit", "Liability", true, true, 30, "IGST payable."),
                 Line("GST.INPUT_CGST", "Input CGST", "GST component mapping", "Debit", "Asset", true, true, 40, "Input CGST receivable."),
                 Line("GST.INPUT_SGST", "Input SGST", "GST component mapping", "Debit", "Asset", true, true, 50, "Input SGST receivable."),
-                Line("GST.INPUT_IGST", "Input IGST", "GST component mapping", "Debit", "Asset", true, true, 60, "Input IGST receivable.")
+                Line("GST.INPUT_IGST", "Input IGST", "GST component mapping", "Debit", "Asset", true, true, 60, "Input IGST receivable."),
+                Line("GST.PAYABLE", "GST Payable", "GST component mapping", "Credit", "Liability", false, true, 70, "Net GST payable after adjustment.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.Gst, "GstPayment", "GST Payment Adapter", "Maps GST payment vouchers to GST payable settlement.", [
+                Line("GST.PAYABLE", "GST Payable", "GST component mapping", "Debit", "Liability", true, true, 10, "Net GST payable cleared by payment."),
+                Line("PAYMENT.CASH", "Cash In Hand", "Payment mode mapping", "Credit", "Asset", false, true, 20, "Required only when GST is paid by cash."),
+                Line("PAYMENT.BANK", "Bank Account", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 30, "Required only when GST is paid by bank transfer."),
+                Line("PAYMENT.UPI_CLEARING", "UPI Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 40, "Required only when GST is paid by UPI or wallet settlement."),
+                Line("PAYMENT.CARD_CLEARING", "Card Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 50, "Required only when GST is paid by card settlement.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.Gst, "GstAdjustment", "GST Return Adjustment Adapter", "Maps GST return settlement to net GST payable.", [
+                Line("GST.OUTPUT_IGST", "Output GST Settlement", "GST component mapping", "Debit", "Liability", true, true, 10, "Output GST pool used for settlement preview."),
+                Line("GST.PAYABLE", "GST Payable", "GST component mapping", "Credit", "Liability", true, true, 20, "Net GST payable after return settlement.")
             ]),
             Rule(FinalAccountsMappingSourceType.Payroll, "Payroll Posting", "Maps payroll expense, salary payable and statutory dues.", [
                 Line("PAYROLL.EXPENSE", "Payroll Expense", "Payroll component mapping", "Debit", "Expense", true, false, 10, "Salary and wage expense."),
                 Line("PAYROLL.PAYABLE", "Salary Payable", "Payroll component mapping", "Credit", "Liability", true, true, 20, "Salary payable control."),
-                Line("PAYROLL.STATUTORY_PAYABLE", "Payroll Statutory Payable", "Payroll component mapping", "Credit", "Liability", false, true, 30, "PF/ESI/TDS payable when source supports it.")
+                Line("PAYROLL.ADVANCE", "Salary Advance", "Payroll component mapping", "Debit", "Asset", false, true, 30, "Employee salary advance asset."),
+                Line("PAYROLL.STATUTORY_PAYABLE", "Payroll Statutory Payable", "Payroll component mapping", "Credit", "Liability", false, true, 40, "PF/ESI/TDS payable when source supports it.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.Payroll, "PayrollFinalization", "Payroll Finalization Adapter", "Maps payroll drafts and payslips to expense, salary payable and statutory liabilities.", [
+                Line("PAYROLL.EXPENSE", "Payroll Expense", "Payroll component mapping", "Debit", "Expense", true, false, 10, "Gross payroll expense for the finalized month."),
+                Line("PAYROLL.PAYABLE", "Salary Payable", "Payroll component mapping", "Credit", "Liability", true, true, 20, "Net salary payable to employees."),
+                Line("PAYROLL.STATUTORY_PAYABLE", "Payroll Statutory Payable", "Payroll component mapping", "Credit", "Liability", false, true, 30, "Employee deductions and employer statutory liabilities.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.Payroll, "SalaryPayment", "Salary Payment Adapter", "Maps salary payments and salary advances to payroll liability or advance settlement.", [
+                Line("PAYROLL.PAYABLE", "Salary Payable", "Payroll component mapping", "Debit", "Liability", false, true, 10, "Salary payable cleared by payment."),
+                Line("PAYROLL.ADVANCE", "Salary Advance", "Payroll component mapping", "Debit", "Asset", false, true, 20, "Salary advance paid to employee."),
+                Line("PAYMENT.CASH", "Cash In Hand", "Payment mode mapping", "Credit", "Asset", false, true, 30, "Required only when salary is paid by cash."),
+                Line("PAYMENT.BANK", "Bank Account", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 40, "Required only when salary is paid by bank transfer."),
+                Line("PAYMENT.UPI_CLEARING", "UPI Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 50, "Required only when salary is paid by UPI or wallet settlement."),
+                Line("PAYMENT.CARD_CLEARING", "Card Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 60, "Required only when salary is paid by card settlement.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.Payroll, "PayrollStatutoryPayment", "Payroll Statutory Payment Adapter", "Maps PF/ESI/professional-tax payments to statutory liability settlement.", [
+                Line("PAYROLL.STATUTORY_PAYABLE", "Payroll Statutory Payable", "Payroll component mapping", "Debit", "Liability", true, true, 10, "Payroll statutory liability cleared by payment."),
+                Line("PAYMENT.CASH", "Cash In Hand", "Payment mode mapping", "Credit", "Asset", false, true, 20, "Required only when statutory dues are paid by cash."),
+                Line("PAYMENT.BANK", "Bank Account", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 30, "Required only when statutory dues are paid by bank transfer."),
+                Line("PAYMENT.UPI_CLEARING", "UPI Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 40, "Required only when statutory dues are paid by UPI or wallet settlement."),
+                Line("PAYMENT.CARD_CLEARING", "Card Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 50, "Required only when statutory dues are paid by card settlement.")
             ]),
             Rule(FinalAccountsMappingSourceType.Expense, "Expense Posting", "Maps direct and indirect expense categories.", [
                 Line("EXPENSE.DIRECT", "Direct Expense", "Expense category mapping", "Debit", "Expense", true, false, 10, "Direct operational expense."),
@@ -198,6 +252,17 @@ public static class FinalAccountsPostingRules
                 Line("PAYMENT.BANK", "Bank Account", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 80, "Required only when the source expense uses bank transfer."),
                 Line("PAYMENT.UPI_CLEARING", "UPI Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 90, "Required only when the source expense uses UPI or wallet settlement."),
                 Line("PAYMENT.CARD_CLEARING", "Card Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 100, "Required only when the source expense uses card settlement.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.Expense, "TailoringVendorCost", "Tailoring Vendor Cost Adapter", "Maps outsourced tailoring costs to vendor payable.", [
+                Line("TAILORING.VENDOR_COST", "Tailoring Vendor Cost", "Expense category mapping", "Debit", "Expense", true, false, 10, "Outsourced stitching and alteration vendor cost."),
+                Line("VENDOR.PAYABLE", "Vendor Payables", "Expense category mapping", "Credit", "Liability", true, true, 20, "Tailoring vendor payable.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.Expense, "TdsPayment", "TDS Payment Adapter", "Maps TDS payment vouchers to TDS payable settlement.", [
+                Line("TDS.PAYABLE", "TDS Payable", "GST component mapping", "Debit", "Liability", true, true, 10, "TDS payable cleared by payment."),
+                Line("PAYMENT.CASH", "Cash In Hand", "Payment mode mapping", "Credit", "Asset", false, true, 20, "Required only when TDS is paid by cash."),
+                Line("PAYMENT.BANK", "Bank Account", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 30, "Required only when TDS is paid by bank transfer."),
+                Line("PAYMENT.UPI_CLEARING", "UPI Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 40, "Required only when TDS is paid by UPI or wallet settlement."),
+                Line("PAYMENT.CARD_CLEARING", "Card Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 50, "Required only when TDS is paid by card settlement.")
             ]),
             Rule(FinalAccountsMappingSourceType.InterStore, "Inter-store Posting", "Maps inter-store receivable/payable clearing.", [
                 Line("INTERSTORE.CLEARING", "Inter-store Clearing", "Inter-store clearing mapping", "Both", "Asset", true, true, 10, "Receivable/payable clearing between stores.")
