@@ -48,6 +48,8 @@ public static class FinalAccountsEndpoints
         enabled.MapGet("/posting-rules", ListPostingRulesAsync);
         enabled.MapGet("/posting-rules/mapping-validation", GetMappingValidationAsync);
         enabled.MapPost("/posting/preview", PreviewPostingAsync);
+        enabled.MapGet("/posting/adapters", ListPostingAdaptersAsync);
+        enabled.MapGet("/posting/adapters/{adapterKey}/sources/{sourceId:guid}/preview", PreviewAdapterPostingAsync);
         enabled.MapGet("/coa/seed-preview", GetSeedPreviewAsync);
         enabled.MapGet("/validation/summary", GetValidationSummaryAsync);
 
@@ -350,6 +352,25 @@ public static class FinalAccountsEndpoints
         HttpContext context,
         CancellationToken cancellationToken)
         => HandleAsync(() => postingRules.PreviewPostingAsync(request, context, cancellationToken));
+
+    private static Task<IResult> ListPostingAdaptersAsync(
+        FinalAccountsPostingAdapterService adapters,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult<IResult>(Results.Ok(adapters.ListAdapters()));
+    }
+
+    private static Task<IResult> PreviewAdapterPostingAsync(
+        string adapterKey,
+        Guid sourceId,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsPostingAdapterService adapters,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => adapters.PreviewAsync(adapterKey, sourceId, new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), context, cancellationToken));
 
     private static Task<IResult> GetSeedPreviewAsync(
         Guid? companyId,

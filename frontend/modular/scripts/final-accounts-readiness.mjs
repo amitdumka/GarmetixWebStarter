@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-04 readiness')
+console.log('Garmetix Final Accounts BS-04A readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -30,6 +30,8 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapGet("/posting-rules"',
   'MapGet("/posting-rules/mapping-validation"',
   'MapPost("/posting/preview"',
+  'MapGet("/posting/adapters"',
+  'PreviewAdapterPostingAsync',
   'MapGet("/coa/seed-preview"',
   'MapGet("/validation/summary"'
 ])
@@ -92,11 +94,18 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPostingRuleService.cs
   'ListPostingRulesAsync',
   'GetMappingValidationAsync',
   'PreviewPostingAsync',
+  'MissingRequestedMapping',
+  'UnbalancedPreview',
   'BuildMappingVersion'
 ])
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPostingRules.cs', [
   'StandardRules',
+  'CustomerReceipt',
+  'VendorPayment',
+  'GeneralPayment',
+  'ContraTransfer',
+  'ExpensePayment',
   'ValidateRequiredMappings',
   'ValidateMappingAccount',
   'BuildSourceHash',
@@ -107,12 +116,42 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPostingContracts.cs',
   'FinalAccountsPostingRuleDto',
   'FinalAccountsMappingValidationResponse',
   'FinalAccountsPostingPreviewRequest',
+  'FinalAccountsPostingAdapterDto',
   'FinalAccountsPostingPreviewResponse'
 ])
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPostingAdapters.cs', [
   'IFinalAccountsPostingAdapter',
+  'AdapterKey',
   'BuildPreviewAsync'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsCashBankPostingAdapters.cs', [
+  'FinalAccountsPaymentAdapterLines',
+  'InvoicePaymentReceiptAdapter',
+  'CustomerAdvanceReceiptAdapter',
+  'PurchasePaymentAdapter',
+  'VendorPaymentAdapter',
+  'VoucherPaymentAdapter',
+  'VoucherExpenseAdapter',
+  'CashVoucherReceiptAdapter',
+  'CashVoucherExpenseAdapter',
+  'BankCashTransferAdapter',
+  'cannot be silently allocated'
+])
+
+checkFile('backend/Garmetix.Api/Program.cs', [
+  'FinalAccountsPostingAdapterService',
+  'InvoicePaymentReceiptAdapter',
+  'BankCashTransferAdapter'
+])
+
+checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsPostingRulesTests.cs', [
+  'CashReceiptAdapterLinesBalanceCustomerReceipt',
+  'VendorPaymentAdapterLinesCreditPaymentRail',
+  'ContraTransferDepositDebitsBankAndCreditsCash',
+  'NegativeAdapterAmountReversesDebitAndCredit',
+  'MixedPaymentModeRequiresSourceBreakdown'
 ])
 
 checkFile('backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsCatalog.cs', [
@@ -252,6 +291,7 @@ checkFile('frontend/modular/apps/final-accounts/utils/final-accounts-api.ts', [
   'FinalAccountsJournal',
   'FinalAccountsJournalPayload',
   'FinalAccountsPostingRule',
+  'FinalAccountsPostingAdapter',
   'FinalAccountsMappingValidation',
   'FinalAccountsPostingPreview',
   'FinalAccountsValidationSummary',
@@ -274,7 +314,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-04 readiness passed.')
+console.log('\nFinal Accounts BS-04A readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)

@@ -266,6 +266,16 @@ export interface FinalAccountsPostingRule {
   lines: FinalAccountsPostingRuleLine[]
 }
 
+export interface FinalAccountsPostingAdapter {
+  adapterKey: string
+  sourceType: FinalAccountsMappingSourceType | string
+  ruleCode: string
+  ruleVersion: string
+  displayName: string
+  sourceTable: string
+  description: string
+}
+
 export interface FinalAccountsMappingRequirement {
   sourceType: FinalAccountsMappingSourceType | string
   ruleCode: string

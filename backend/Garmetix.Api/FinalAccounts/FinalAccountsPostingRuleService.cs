@@ -104,9 +104,25 @@ public sealed class FinalAccountsPostingRuleService(GarmetixDbContext db)
             issues.Add(new FinalAccountsValidationIssueDto("Error", "UnsupportedMappingKey", $"{key} is not part of {rule.SourceType} {rule.RuleCode}.", null));
         }
 
+        foreach (var requirement in rule.Lines.Where(line => requestedKeys.Contains(line.MappingKey)))
+        {
+            var row = validationRows.First(item => string.Equals(item.MappingKey, requirement.MappingKey, StringComparison.OrdinalIgnoreCase));
+            if (!requirement.IsRequired && row.MappingId is null)
+            {
+                issues.Add(new FinalAccountsValidationIssueDto("Error", "MissingRequestedMapping", $"{rule.SourceType}:{requirement.MappingKey} is required by this source preview.", null));
+            }
+        }
+
         var amountByKey = (request.Lines ?? [])
             .GroupBy(line => FinalAccountsPostingRules.NormalizeMappingKey(line.MappingKey), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+        var totalDebit = FinalAccountsJournalRules.RoundAmount((request.Lines ?? []).Sum(line => line.Debit));
+        var totalCredit = FinalAccountsJournalRules.RoundAmount((request.Lines ?? []).Sum(line => line.Credit));
+        if ((request.Lines?.Count ?? 0) > 0 && totalDebit != totalCredit)
+        {
+            issues.Add(new FinalAccountsValidationIssueDto("Error", "UnbalancedPreview", $"Posting preview is not balanced. Debit {totalDebit:0.00}, credit {totalCredit:0.00}.", null));
+        }
+
         var previewLines = new List<FinalAccountsPostingPreviewLineDto>();
         foreach (var requirement in rule.Lines.Where(line => requestedKeys.Contains(line.MappingKey)).OrderBy(line => line.SortOrder))
         {

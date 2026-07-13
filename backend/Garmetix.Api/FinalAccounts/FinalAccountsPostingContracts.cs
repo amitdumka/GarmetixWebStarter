@@ -69,6 +69,15 @@ public sealed record FinalAccountsPostingPreviewRequest(
     IReadOnlyList<string>? MappingKeys,
     IReadOnlyList<FinalAccountsPostingPreviewLineRequest>? Lines);
 
+public sealed record FinalAccountsPostingAdapterDto(
+    string AdapterKey,
+    string SourceType,
+    string RuleCode,
+    string RuleVersion,
+    string DisplayName,
+    string SourceTable,
+    string Description);
+
 public sealed record FinalAccountsPostingPreviewLineDto(
     string MappingKey,
     string DisplayName,

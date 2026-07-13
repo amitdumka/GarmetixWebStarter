@@ -18,6 +18,39 @@ public static class FinalAccountsPostingRules
                 Line("PAYMENT.UPI_CLEARING", "UPI Clearing", "Bank/UPI/card clearing mapping", "Debit", "Asset", true, true, 30, "UPI settlement clearing."),
                 Line("PAYMENT.CARD_CLEARING", "Card Clearing", "Bank/UPI/card clearing mapping", "Debit", "Asset", true, true, 40, "Card settlement clearing.")
             ]),
+            Rule(FinalAccountsMappingSourceType.CashBank, "CashReceipt", "Cash Receipt Adapter", "Maps cash receipt vouchers to cash/bank and customer receivable.", [
+                Line("PAYMENT.CASH", "Cash In Hand", "Payment mode mapping", "Debit", "Asset", false, true, 10, "Required only when the source receipt uses cash."),
+                Line("PAYMENT.BANK", "Bank Account", "Bank/UPI/card clearing mapping", "Debit", "Asset", false, true, 20, "Required only when the source receipt uses bank transfer."),
+                Line("PAYMENT.UPI_CLEARING", "UPI Clearing", "Bank/UPI/card clearing mapping", "Debit", "Asset", false, true, 30, "Required only when the source receipt uses UPI or wallet settlement."),
+                Line("PAYMENT.CARD_CLEARING", "Card Clearing", "Bank/UPI/card clearing mapping", "Debit", "Asset", false, true, 40, "Required only when the source receipt uses card settlement."),
+                Line("CUSTOMER.RECEIVABLE", "Customer Receivables", "Sales category mapping", "Credit", "Asset", true, true, 50, "Customer receivable cleared by receipt.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.CashBank, "CustomerReceipt", "Customer Receipt Adapter", "Maps sale/due receipts and customer advances.", [
+                Line("PAYMENT.CASH", "Cash In Hand", "Payment mode mapping", "Debit", "Asset", false, true, 10, "Required only when the source receipt uses cash."),
+                Line("PAYMENT.BANK", "Bank Account", "Bank/UPI/card clearing mapping", "Debit", "Asset", false, true, 20, "Required only when the source receipt uses bank transfer."),
+                Line("PAYMENT.UPI_CLEARING", "UPI Clearing", "Bank/UPI/card clearing mapping", "Debit", "Asset", false, true, 30, "Required only when the source receipt uses UPI or wallet settlement."),
+                Line("PAYMENT.CARD_CLEARING", "Card Clearing", "Bank/UPI/card clearing mapping", "Debit", "Asset", false, true, 40, "Required only when the source receipt uses card settlement."),
+                Line("CUSTOMER.RECEIVABLE", "Customer Receivables", "Sales category mapping", "Credit", "Asset", false, true, 50, "Customer due cleared by invoice payment."),
+                Line("CUSTOMER.ADVANCE", "Customer Advance", "Sales category mapping", "Credit", "Liability", false, true, 60, "Customer advance liability created by advance receipt.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.CashBank, "VendorPayment", "Vendor Payment Adapter", "Maps vendor and purchase payments to payable settlement.", [
+                Line("VENDOR.PAYABLE", "Vendor Payables", "Expense category mapping", "Debit", "Liability", true, true, 10, "Vendor payable cleared by payment."),
+                Line("PAYMENT.CASH", "Cash In Hand", "Payment mode mapping", "Credit", "Asset", false, true, 20, "Required only when the source payment uses cash."),
+                Line("PAYMENT.BANK", "Bank Account", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 30, "Required only when the source payment uses bank transfer."),
+                Line("PAYMENT.UPI_CLEARING", "UPI Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 40, "Required only when the source payment uses UPI or wallet settlement."),
+                Line("PAYMENT.CARD_CLEARING", "Card Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 50, "Required only when the source payment uses card settlement.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.CashBank, "GeneralPayment", "General Payment Adapter", "Maps general payment vouchers to payable settlement.", [
+                Line("EXPENSE.PAYABLE", "Expense Payable", "Expense category mapping", "Debit", "Liability", true, true, 10, "Generic payable cleared by payment voucher."),
+                Line("PAYMENT.CASH", "Cash In Hand", "Payment mode mapping", "Credit", "Asset", false, true, 20, "Required only when the source payment uses cash."),
+                Line("PAYMENT.BANK", "Bank Account", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 30, "Required only when the source payment uses bank transfer."),
+                Line("PAYMENT.UPI_CLEARING", "UPI Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 40, "Required only when the source payment uses UPI or wallet settlement."),
+                Line("PAYMENT.CARD_CLEARING", "Card Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 50, "Required only when the source payment uses card settlement.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.CashBank, "ContraTransfer", "Contra Transfer Adapter", "Maps cash-to-bank and bank-to-cash transfers.", [
+                Line("PAYMENT.CASH", "Cash In Hand", "Payment mode mapping", "Both", "Asset", false, true, 10, "Cash side of the contra transfer."),
+                Line("PAYMENT.BANK", "Bank Account", "Bank/UPI/card clearing mapping", "Both", "Asset", false, true, 20, "Bank side of the contra transfer.")
+            ]),
             Rule(FinalAccountsMappingSourceType.Sales, "Sales Posting", "Maps sales invoices, discounts, taxes and customer dues.", [
                 Line("SALES.REVENUE", "Sales Revenue", "Sales category mapping", "Credit", "Income", true, false, 10, "Primary sale income."),
                 Line("SALES.RETURN", "Sales Return", "Sales category mapping", "Debit", "Income", true, false, 20, "Sale return contra income."),
@@ -55,6 +88,18 @@ public static class FinalAccountsPostingRules
                 Line("EXPENSE.DIRECT", "Direct Expense", "Expense category mapping", "Debit", "Expense", true, false, 10, "Direct operational expense."),
                 Line("EXPENSE.INDIRECT", "Indirect Expense", "Expense category mapping", "Debit", "Expense", true, false, 20, "Administrative and indirect expense."),
                 Line("EXPENSE.PAYABLE", "Expense Payable", "Expense category mapping", "Credit", "Liability", false, true, 30, "Accrued payable when source supports it.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.Expense, "ExpensePayment", "Expense Payment Adapter", "Maps paid expense vouchers with optional tax deductions where source data exists.", [
+                Line("EXPENSE.DIRECT", "Direct Expense", "Expense category mapping", "Debit", "Expense", false, false, 10, "Direct operational expense."),
+                Line("EXPENSE.INDIRECT", "Indirect Expense", "Expense category mapping", "Debit", "Expense", false, false, 20, "Administrative and indirect expense."),
+                Line("GST.INPUT_CGST", "Input CGST", "GST component mapping", "Debit", "Asset", false, true, 30, "Input CGST when the source stores tax components."),
+                Line("GST.INPUT_SGST", "Input SGST", "GST component mapping", "Debit", "Asset", false, true, 40, "Input SGST when the source stores tax components."),
+                Line("GST.INPUT_IGST", "Input IGST", "GST component mapping", "Debit", "Asset", false, true, 50, "Input IGST when the source stores tax components."),
+                Line("TDS.PAYABLE", "TDS Payable", "GST component mapping", "Credit", "Liability", false, true, 60, "TDS payable when the source stores tax deduction components."),
+                Line("PAYMENT.CASH", "Cash In Hand", "Payment mode mapping", "Credit", "Asset", false, true, 70, "Required only when the source expense uses cash."),
+                Line("PAYMENT.BANK", "Bank Account", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 80, "Required only when the source expense uses bank transfer."),
+                Line("PAYMENT.UPI_CLEARING", "UPI Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 90, "Required only when the source expense uses UPI or wallet settlement."),
+                Line("PAYMENT.CARD_CLEARING", "Card Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 100, "Required only when the source expense uses card settlement.")
             ]),
             Rule(FinalAccountsMappingSourceType.InterStore, "Inter-store Posting", "Maps inter-store receivable/payable clearing.", [
                 Line("INTERSTORE.CLEARING", "Inter-store Clearing", "Inter-store clearing mapping", "Both", "Asset", true, true, 10, "Receivable/payable clearing between stores.")
@@ -179,7 +224,15 @@ public static class FinalAccountsPostingRules
         string name,
         string? description,
         IReadOnlyList<FinalAccountsPostingRuleLineDefinition> lines)
-        => new(sourceType.ToString(), DefaultRuleCode, DefaultVersion, name, description, lines);
+        => Rule(sourceType, DefaultRuleCode, name, description, lines);
+
+    private static FinalAccountsPostingRuleDefinition Rule(
+        FinalAccountsMappingSourceType sourceType,
+        string ruleCode,
+        string name,
+        string? description,
+        IReadOnlyList<FinalAccountsPostingRuleLineDefinition> lines)
+        => new(sourceType.ToString(), ruleCode, DefaultVersion, name, description, lines);
 
     private static FinalAccountsPostingRuleLineDefinition Line(
         string mappingKey,

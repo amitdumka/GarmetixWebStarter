@@ -1,4 +1,5 @@
 using Garmetix.Api.FinalAccounts;
+using Garmetix.Core.Enums;
 using Garmetix.Core.Models.FinalAccounts;
 using Xunit;
 
@@ -58,5 +59,69 @@ public sealed class FinalAccountsPostingRulesTests
         Assert.Equal(historical, FinalAccountsPostingRules.BuildMappingVersion(rule, [
             new FinalAccountsPostingMappingSnapshot("INVENTORY.STOCK", accountId, 1)
         ]));
+    }
+
+    [Fact]
+    public void CashReceiptAdapterLinesBalanceCustomerReceipt()
+    {
+        var lines = FinalAccountsPaymentAdapterLines.SettlementLines(
+            FinalAccountsPaymentAdapterLines.CashMappingKey,
+            FinalAccountsPaymentAdapterLines.CustomerReceivableMappingKey,
+            125.45m,
+            "Cash receipt");
+
+        Assert.Equal(125.45m, lines.Sum(item => item.Debit));
+        Assert.Equal(125.45m, lines.Sum(item => item.Credit));
+        Assert.Contains(lines, item => item.MappingKey == "PAYMENT.CASH" && item.Debit == 125.45m);
+        Assert.Contains(lines, item => item.MappingKey == "CUSTOMER.RECEIVABLE" && item.Credit == 125.45m);
+    }
+
+    [Fact]
+    public void VendorPaymentAdapterLinesCreditPaymentRail()
+    {
+        var paymentKey = FinalAccountsPaymentAdapterLines.PaymentMappingKey(PaymentMode.NEFT);
+        var lines = FinalAccountsPaymentAdapterLines.SettlementLines(
+            FinalAccountsPaymentAdapterLines.VendorPayableMappingKey,
+            paymentKey,
+            250m,
+            "Vendor payment");
+
+        Assert.Equal("PAYMENT.BANK", paymentKey);
+        Assert.Contains(lines, item => item.MappingKey == "VENDOR.PAYABLE" && item.Debit == 250m);
+        Assert.Contains(lines, item => item.MappingKey == "PAYMENT.BANK" && item.Credit == 250m);
+    }
+
+    [Fact]
+    public void ContraTransferDepositDebitsBankAndCreditsCash()
+    {
+        var lines = FinalAccountsPaymentAdapterLines.SettlementLines(
+            FinalAccountsPaymentAdapterLines.BankMappingKey,
+            FinalAccountsPaymentAdapterLines.CashMappingKey,
+            1000m,
+            "Bank deposit");
+
+        Assert.Contains(lines, item => item.MappingKey == "PAYMENT.BANK" && item.Debit == 1000m);
+        Assert.Contains(lines, item => item.MappingKey == "PAYMENT.CASH" && item.Credit == 1000m);
+    }
+
+    [Fact]
+    public void NegativeAdapterAmountReversesDebitAndCredit()
+    {
+        var lines = FinalAccountsPaymentAdapterLines.SettlementLines(
+            FinalAccountsPaymentAdapterLines.IndirectExpenseMappingKey,
+            FinalAccountsPaymentAdapterLines.CashMappingKey,
+            -75m,
+            "Expense reversal");
+
+        Assert.Contains(lines, item => item.MappingKey == "EXPENSE.INDIRECT" && item.Credit == 75m);
+        Assert.Contains(lines, item => item.MappingKey == "PAYMENT.CASH" && item.Debit == 75m);
+    }
+
+    [Fact]
+    public void MixedPaymentModeRequiresSourceBreakdown()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => FinalAccountsPaymentAdapterLines.PaymentMappingKey(PaymentMode.MixPayments));
+
+        Assert.Contains("cannot be silently allocated", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 }
