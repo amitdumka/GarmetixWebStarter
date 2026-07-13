@@ -245,6 +245,99 @@ export interface FinalAccountsJournalValidation {
   issues: FinalAccountsValidationIssue[]
 }
 
+export interface FinalAccountsGeneralLedgerReportRow {
+  journalEntryId: string
+  journalLineId: string
+  entryNumber: string
+  onDate: string
+  accountId: string
+  accountCode: string
+  accountName: string
+  accountType: FinalAccountsAccountType | string
+  naturalBalance: FinalAccountsNaturalBalance | string
+  storeId?: string | null
+  status: FinalAccountsJournalStatus | string
+  sourceType: string
+  sourceId?: string | null
+  referenceNumber?: string | null
+  narration?: string | null
+  debit: number
+  credit: number
+  runningDebit: number
+  runningCredit: number
+  runningBalance: number
+  balanceType: string
+  isReversal: boolean
+  isReversed: boolean
+  journalDrillDownPath: string
+  sourceDrillDownPath: string
+}
+
+export interface FinalAccountsGeneralLedgerReport {
+  page: number
+  pageSize: number
+  totalCount: number
+  from?: string | null
+  to?: string | null
+  accountId?: string | null
+  openingDebit: number
+  openingCredit: number
+  periodDebit: number
+  periodCredit: number
+  closingDebit: number
+  closingCredit: number
+  rows: FinalAccountsGeneralLedgerReportRow[]
+  issues: FinalAccountsValidationIssue[]
+}
+
+export interface FinalAccountsTrialBalanceRow {
+  groupId?: string | null
+  groupCode: string
+  groupName: string
+  accountId?: string | null
+  accountCode: string
+  accountName: string
+  accountType: FinalAccountsAccountType | string
+  naturalBalance: FinalAccountsNaturalBalance | string
+  openingDebit: number
+  openingCredit: number
+  periodDebit: number
+  periodCredit: number
+  closingDebit: number
+  closingCredit: number
+  balanceType: string
+  drillDownPath: string
+}
+
+export interface FinalAccountsTrialBalanceComparison {
+  periodKey: string
+  from: string
+  to: string
+  debit: number
+  credit: number
+  difference: number
+  status: string
+}
+
+export interface FinalAccountsTrialBalanceReport {
+  view: 'Ledger' | 'Group' | string
+  comparison: 'Monthly' | 'Quarterly' | string
+  from?: string | null
+  to?: string | null
+  includeZeroBalances: boolean
+  totalOpeningDebit: number
+  totalOpeningCredit: number
+  totalPeriodDebit: number
+  totalPeriodCredit: number
+  totalClosingDebit: number
+  totalClosingCredit: number
+  difference: number
+  status: string
+  rows: FinalAccountsTrialBalanceRow[]
+  comparisons: FinalAccountsTrialBalanceComparison[]
+  diagnostics: FinalAccountsValidationIssue[]
+}
+
 export interface FinalAccountsPostingRuleLine {
   mappingKey: string
   displayName: string
@@ -454,7 +547,25 @@ export function useFinalAccountsApiClient() {
     return await client().delete<T>(normalizeFinalAccountsPath(path))
   }
 
-  return { apiBaseUrl, get, put, post, remove }
+  async function download(path: string, fileName: string) {
+    if (!apiBaseUrl.value) throw new Error('API base URL is not configured.')
+    const base = String(apiBaseUrl.value).replace(/\/+$/, '')
+    const response = await fetch(`${base}/${normalizeFinalAccountsPath(path)}`, {
+      headers: getStoredToken(window.localStorage) ? { Authorization: `Bearer ${getStoredToken(window.localStorage)}` } : {}
+    })
+    if (!response.ok) throw new Error(await response.text())
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+  }
+
+  return { apiBaseUrl, get, put, post, remove, download }
 }
 
 export function isFinalAccountsSetupSession(user: StoredAuthUser | null | undefined) {

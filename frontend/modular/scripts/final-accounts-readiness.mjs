@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-05 readiness')
+console.log('Garmetix Final Accounts BS-06 readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -41,6 +41,10 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapPost("/reconciliation/summary"',
   'MapPost("/reconciliation/export"',
   'ExportReconciliationAsync',
+  'MapGet("/reports/general-ledger"',
+  'MapGet("/reports/general-ledger/export"',
+  'MapGet("/reports/trial-balance"',
+  'MapGet("/reports/trial-balance/export"',
   'MapGet("/coa/seed-preview"',
   'MapGet("/validation/summary"'
 ])
@@ -203,6 +207,38 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsSyncService.cs', [
   'WritesSourceData: false'
 ])
 
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsReportService.cs', [
+  'FinalAccountsReportService',
+  'GetGeneralLedgerAsync',
+  'GetTrialBalanceAsync',
+  'ExportGeneralLedgerAsync',
+  'ExportTrialBalanceAsync',
+  'OpeningSignedBalance',
+  'BuildComparisonsAsync',
+  'JournalDrillDownPath',
+  'SourceDrillDownPath',
+  'SimplePdf'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsReportContracts.cs', [
+  'FinalAccountsGeneralLedgerReportQuery',
+  'FinalAccountsGeneralLedgerReportResponse',
+  'FinalAccountsTrialBalanceReportQuery',
+  'FinalAccountsTrialBalanceReportResponse',
+  'FinalAccountsTrialBalanceComparisonDto',
+  'FinalAccountsReportExport'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsReportRules.cs', [
+  'OpeningSignedBalance',
+  'SplitSignedBalance',
+  'BalanceType',
+  'NormalizeTrialBalanceView',
+  'NormalizeComparison',
+  'PeriodKey',
+  'BalanceStatus'
+])
+
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPostingAdapters.cs', [
   'IFinalAccountsPostingAdapter',
   'AdapterKey',
@@ -304,6 +340,7 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsSalesPostingAdapters.
 checkFile('backend/Garmetix.Api/Program.cs', [
   'FinalAccountsPostingAdapterService',
   'FinalAccountsSyncService',
+  'FinalAccountsReportService',
   'SalesInvoiceAdapter',
   'SalesReturnAdapter',
   'SalesInvoiceCancellationAdapter',
@@ -482,6 +519,7 @@ checkFile('frontend/modular/config/routes.ts', [
   "id: 'final-accounts-chart-of-accounts'",
   "id: 'final-accounts-fiscal-periods'",
   "id: 'final-accounts-general-ledger'",
+  "id: 'final-accounts-reports'",
   "id: 'final-accounts-posting-rules'",
   "showInMenu: false",
   "targetApp: 'final-accounts'"
@@ -492,6 +530,7 @@ checkFile('frontend/modular/packages/shared-ui/components/ModularAppShell.vue', 
   "href: '/chart-of-accounts'",
   "href: '/fiscal-periods'",
   "href: '/general-ledger'",
+  "href: '/reports'",
   "href: '/posting-rules'",
   "href: '/setup'",
   "'final-accounts': '/final-accounts/'"
@@ -532,6 +571,17 @@ checkFile('frontend/modular/apps/final-accounts/pages/general-ledger.vue', [
   'Audit'
 ])
 
+checkFile('frontend/modular/apps/final-accounts/pages/reports.vue', [
+  'Reports',
+  'reports/general-ledger',
+  'reports/trial-balance',
+  'reports/general-ledger/export',
+  'reports/trial-balance/export',
+  'Zero balances',
+  'Reversed audit rows',
+  'Comparison'
+])
+
 checkFile('frontend/modular/apps/final-accounts/pages/posting-rules.vue', [
   'Posting Rules',
   'posting-rules/mapping-validation',
@@ -550,6 +600,9 @@ checkFile('frontend/modular/apps/final-accounts/utils/final-accounts-api.ts', [
   'FinalAccountsMappingValidation',
   'FinalAccountsPostingPreview',
   'FinalAccountsValidationSummary',
+  'FinalAccountsGeneralLedgerReport',
+  'FinalAccountsTrialBalanceReport',
+  'async function download',
   'async function post',
   'async function remove'
 ])
@@ -569,7 +622,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-05 readiness passed.')
+console.log('\nFinal Accounts BS-06 readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)

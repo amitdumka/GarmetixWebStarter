@@ -128,6 +128,7 @@ builder.Services.AddScoped<FinalAccountsJournalService>();
 builder.Services.AddScoped<FinalAccountsPostingRuleService>();
 builder.Services.AddScoped<FinalAccountsPostingAdapterService>();
 builder.Services.AddScoped<FinalAccountsSyncService>();
+builder.Services.AddScoped<FinalAccountsReportService>();
 builder.Services.AddScoped<IFinalAccountsPostingAdapter, SalesInvoiceAdapter>();
 builder.Services.AddScoped<IFinalAccountsPostingAdapter, SalesReturnAdapter>();
 builder.Services.AddScoped<IFinalAccountsPostingAdapter, SalesInvoiceCancellationAdapter>();

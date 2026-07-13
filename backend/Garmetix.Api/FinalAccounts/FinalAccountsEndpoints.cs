@@ -57,6 +57,10 @@ public static class FinalAccountsEndpoints
         enabled.MapPost("/backfill/dry-run", DryRunBackfillAsync);
         enabled.MapPost("/reconciliation/summary", GetReconciliationAsync);
         enabled.MapPost("/reconciliation/export", ExportReconciliationAsync);
+        enabled.MapGet("/reports/general-ledger", GetGeneralLedgerReportAsync);
+        enabled.MapGet("/reports/general-ledger/export", ExportGeneralLedgerReportAsync);
+        enabled.MapGet("/reports/trial-balance", GetTrialBalanceReportAsync);
+        enabled.MapGet("/reports/trial-balance/export", ExportTrialBalanceReportAsync);
         enabled.MapGet("/coa/seed-preview", GetSeedPreviewAsync);
         enabled.MapGet("/validation/summary", GetValidationSummaryAsync);
 
@@ -448,6 +452,98 @@ public static class FinalAccountsEndpoints
                 item.ExceptionCount.ToString(),
                 EscapeCsv(item.Status))));
             return Results.Text(string.Join(Environment.NewLine, lines), "text/csv");
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or KeyNotFoundException)
+        {
+            return ToErrorResult(ex);
+        }
+    }
+
+    private static Task<IResult> GetGeneralLedgerReportAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        Guid? accountId,
+        DateTime? from,
+        DateTime? to,
+        bool? includeReversed,
+        int? page,
+        int? pageSize,
+        FinalAccountsReportService reports,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => reports.GetGeneralLedgerAsync(
+            new FinalAccountsGeneralLedgerReportQuery(companyId, storeGroupId, storeId, accountId, from, to, includeReversed, page, pageSize),
+            context,
+            cancellationToken));
+
+    private static async Task<IResult> ExportGeneralLedgerReportAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        Guid? accountId,
+        DateTime? from,
+        DateTime? to,
+        bool? includeReversed,
+        string? format,
+        FinalAccountsReportService reports,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var export = await reports.ExportGeneralLedgerAsync(
+                new FinalAccountsGeneralLedgerReportQuery(companyId, storeGroupId, storeId, accountId, from, to, includeReversed, 1, null),
+                format,
+                context,
+                cancellationToken);
+            return Results.File(export.Content, export.ContentType, export.FileName);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or KeyNotFoundException)
+        {
+            return ToErrorResult(ex);
+        }
+    }
+
+    private static Task<IResult> GetTrialBalanceReportAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        DateTime? from,
+        DateTime? to,
+        string? view,
+        bool? includeZeroBalances,
+        string? comparison,
+        FinalAccountsReportService reports,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => reports.GetTrialBalanceAsync(
+            new FinalAccountsTrialBalanceReportQuery(companyId, storeGroupId, storeId, from, to, view, includeZeroBalances, comparison),
+            context,
+            cancellationToken));
+
+    private static async Task<IResult> ExportTrialBalanceReportAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        DateTime? from,
+        DateTime? to,
+        string? view,
+        bool? includeZeroBalances,
+        string? comparison,
+        string? format,
+        FinalAccountsReportService reports,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var export = await reports.ExportTrialBalanceAsync(
+                new FinalAccountsTrialBalanceReportQuery(companyId, storeGroupId, storeId, from, to, view, includeZeroBalances, comparison),
+                format,
+                context,
+                cancellationToken);
+            return Results.File(export.Content, export.ContentType, export.FileName);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or KeyNotFoundException)
         {

@@ -808,31 +808,87 @@ Files added/changed:
 
 ## General Ledger
 
-- [ ] Opening balance.
-- [ ] Period movement.
-- [ ] Running balance.
-- [ ] Account/store/date filters.
-- [ ] Dimensions.
-- [ ] Source drill-down.
-- [ ] Journal drill-down.
-- [ ] Reversal indicators.
-- [ ] Server pagination.
-- [ ] Excel/PDF export.
+- [x] Opening balance.
+- [x] Period movement.
+- [x] Running balance.
+- [x] Account/store/date filters.
+- [x] Dimensions.
+- [x] Source drill-down.
+- [x] Journal drill-down.
+- [x] Reversal indicators.
+- [x] Server pagination.
+- [x] Excel/PDF export.
 
 ## Trial Balance
 
-- [ ] Group view.
-- [ ] Ledger view.
-- [ ] Opening debit/credit.
-- [ ] Period debit/credit.
-- [ ] Closing debit/credit.
-- [ ] Zero-balance toggle.
-- [ ] Monthly/quarterly comparison.
-- [ ] Store and company consolidated.
-- [ ] Difference diagnostic.
-- [ ] Golden fixture.
-- [ ] Total debit equals total credit.
-- [ ] Commit BS-06.
+- [x] Group view.
+- [x] Ledger view.
+- [x] Opening debit/credit.
+- [x] Period debit/credit.
+- [x] Closing debit/credit.
+- [x] Zero-balance toggle.
+- [x] Monthly/quarterly comparison.
+- [x] Store and company consolidated.
+- [x] Difference diagnostic.
+- [x] Golden fixture.
+- [x] Total debit equals total credit.
+- [x] Commit BS-06.
+
+Evidence:
+
+```text
+Date: 2026-07-13
+Agent: Codex GPT-5
+Branch: balancesheet
+Worktree: C:\AIarea\Codex\bsheet\GarmetixWebStarter
+Commit: created by this stage commit; exact hash is reported in session output because a commit cannot contain its own final hash.
+
+Implementation:
+- Added read-only Final Accounts report service, contracts and rules for General Ledger and Trial Balance.
+- Added endpoints:
+  GET /api/final-accounts/reports/general-ledger
+  GET /api/final-accounts/reports/general-ledger/export
+  GET /api/final-accounts/reports/trial-balance
+  GET /api/final-accounts/reports/trial-balance/export
+- General Ledger report computes opening balance from account opening balance plus prior posted movement, period movement, running balance, account/store/date filters, reversal flags, journal drill-down path and source drill-down path.
+- Trial Balance report supports Ledger and Group views, opening/period/closing debit-credit columns, zero-balance toggle, monthly/quarterly comparison and difference diagnostics.
+- CSV exports are Excel-friendly; PDF exports return a simple generated PDF file for accountant review.
+- Added /final-accounts/reports UI with filters, tabs, Trial Balance diagnostics, comparison table and export actions.
+- Registered the Reports route in the isolated Final Accounts app shell and route registry.
+- No migration was added because BS-06 reads existing Final Accounts tables only.
+- No production migration, deployment, Docker, Cloudflare or operational source-table change was made.
+
+Commands/tests run:
+- dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release -p:UseSharedCompilation=false: passed with existing nullable warnings.
+- dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release -p:UseSharedCompilation=false: passed. Result: 155 passed, 3 skipped, 158 total.
+- npm run final-accounts:readiness in frontend/modular: passed for BS-06 markers.
+- npm run check in frontend/modular: passed.
+- npm run workspace-links in frontend/modular: passed.
+- npm run build:final-accounts in frontend/modular: passed and prerendered /reports with existing Nuxt/Rollup warning pattern.
+- npm run validate in frontend/modular: failed on existing Main Back Office contract parity token; frontend/modular/apps/main/pages/purchase/index.vue is missing purchase/invoices/recent.
+- git diff --check: no whitespace errors; Git reported existing LF-to-CRLF normalization warnings for touched files.
+
+Known unresolved issues:
+- No live database-backed report was run because local PostgreSQL application data was not available.
+- General Ledger PDF export is a compact review PDF; large streaming exports remain for BS-14 hardening.
+- frontend/modular npm run validate still fails because frontend/modular/apps/main/pages/purchase/index.vue is missing token purchase/invoices/recent.
+- npm ci remains expected to fail until package-lock.json is refreshed for the existing workspace app additions; BS-06 did not update package-lock.json.
+- Nuxt builds still report existing sourcemap, Rollup pure-comment, large chunk and nitro cache-driver warnings.
+
+Files added/changed:
+- backend/Garmetix.Api/FinalAccounts/FinalAccountsReportContracts.cs
+- backend/Garmetix.Api/FinalAccounts/FinalAccountsReportRules.cs
+- backend/Garmetix.Api/FinalAccounts/FinalAccountsReportService.cs
+- backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs
+- backend/Garmetix.Api/Program.cs
+- backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsReportRulesTests.cs
+- frontend/modular/apps/final-accounts/pages/reports.vue
+- frontend/modular/apps/final-accounts/utils/final-accounts-api.ts
+- frontend/modular/config/routes.ts
+- frontend/modular/packages/shared-ui/components/ModularAppShell.vue
+- frontend/modular/scripts/final-accounts-readiness.mjs
+- todo-balancesheet.md
+```
 
 ---
 

@@ -467,12 +467,13 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
   'final-accounts': [
     { key: 'statements', label: 'Statements', items: [
       { id: 'home', label: 'Final Accounts Home', href: '/', icon: 'i-lucide-layout-dashboard' },
-      { id: 'chart-of-accounts', label: 'Chart Of Accounts', href: '/chart-of-accounts', icon: 'i-lucide-list-tree' },
-      { id: 'fiscal-periods', label: 'Fiscal Periods', href: '/fiscal-periods', icon: 'i-lucide-calendar-range' },
-      { id: 'general-ledger', label: 'General Ledger', href: '/general-ledger', icon: 'i-lucide-book-open-check' },
-      { id: 'posting-rules', label: 'Posting Rules', href: '/posting-rules', icon: 'i-lucide-route' },
-      { id: 'setup', label: 'Setup', href: '/setup', icon: 'i-lucide-sliders-horizontal' }
-    ] }
+        { id: 'chart-of-accounts', label: 'Chart Of Accounts', href: '/chart-of-accounts', icon: 'i-lucide-list-tree' },
+        { id: 'fiscal-periods', label: 'Fiscal Periods', href: '/fiscal-periods', icon: 'i-lucide-calendar-range' },
+        { id: 'general-ledger', label: 'General Ledger', href: '/general-ledger', icon: 'i-lucide-book-open-check' },
+        { id: 'reports', label: 'Reports', href: '/reports', icon: 'i-lucide-scale' },
+        { id: 'posting-rules', label: 'Posting Rules', href: '/posting-rules', icon: 'i-lucide-route' },
+        { id: 'setup', label: 'Setup', href: '/setup', icon: 'i-lucide-sliders-horizontal' }
+      ] }
   ]
 }
 
