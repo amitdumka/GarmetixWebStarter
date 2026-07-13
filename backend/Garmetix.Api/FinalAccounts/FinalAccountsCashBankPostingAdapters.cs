@@ -68,7 +68,9 @@ public static class FinalAccountsPaymentAdapterLines
         string sourceReference,
         string hashPayload,
         IReadOnlyList<FinalAccountsPostingPreviewLineRequest> lines)
-        => new(
+    {
+        var normalizedLines = NormalizeLines(lines);
+        return new(
             scope.CompanyId,
             scope.StoreGroupId,
             scope.StoreId,
@@ -77,9 +79,21 @@ public static class FinalAccountsPaymentAdapterLines
             FinalAccountsPostingRules.DefaultVersion,
             sourceId,
             sourceReference,
-            FinalAccountsPostingRules.BuildSourceHash(sourceType, sourceId, hashPayload, lines.Select(line => line.MappingKey)),
-            lines.Select(line => line.MappingKey).ToList(),
-            lines);
+            FinalAccountsPostingRules.BuildSourceHash(sourceType, sourceId, hashPayload, normalizedLines.Select(line => line.MappingKey)),
+            normalizedLines.Select(line => line.MappingKey).ToList(),
+            normalizedLines);
+    }
+
+    public static IReadOnlyList<FinalAccountsPostingPreviewLineRequest> NormalizeLines(IReadOnlyList<FinalAccountsPostingPreviewLineRequest> lines)
+        => lines
+            .GroupBy(line => FinalAccountsPostingRules.NormalizeMappingKey(line.MappingKey), StringComparer.OrdinalIgnoreCase)
+            .Select(group => new FinalAccountsPostingPreviewLineRequest(
+                group.Key,
+                FinalAccountsJournalRules.RoundAmount(group.Sum(line => line.Debit)),
+                FinalAccountsJournalRules.RoundAmount(group.Sum(line => line.Credit)),
+                string.Join("; ", group.Select(line => line.Narration?.Trim()).Where(item => !string.IsNullOrWhiteSpace(item)).Distinct(StringComparer.OrdinalIgnoreCase))))
+            .Where(line => line.Debit > 0m || line.Credit > 0m)
+            .ToList();
 }
 
 public sealed class FinalAccountsPostingAdapterService(

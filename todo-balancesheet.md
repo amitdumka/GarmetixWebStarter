@@ -727,21 +727,21 @@ Files added/changed:
 
 # BS-04D — Inventory and COGS
 
-- [ ] Confirm perpetual versus periodic method.
-- [ ] Document chosen method.
-- [ ] Sale COGS posting.
-- [ ] Sale-return stock restoration.
-- [ ] Purchase inventory posting.
-- [ ] Purchase-return inventory reversal.
-- [ ] Stock adjustment.
-- [ ] Transfer/inter-store clearing.
-- [ ] Negative stock exception.
-- [ ] Missing-cost exception.
-- [ ] Weighted Average support.
-- [ ] FIFO support if source data permits.
-- [ ] Prevent duplicate closing-stock effect.
-- [ ] Reconcile quantity/value.
-- [ ] Commit BS-04D.
+- [x] Confirm perpetual versus periodic method.
+- [x] Document chosen method.
+- [x] Sale COGS posting.
+- [x] Sale-return stock restoration.
+- [x] Purchase inventory posting.
+- [x] Purchase-return inventory reversal.
+- [x] Stock adjustment.
+- [x] Transfer/inter-store clearing.
+- [x] Negative stock exception.
+- [x] Missing-cost exception.
+- [x] Weighted Average support.
+- [x] FIFO support if source data permits.
+- [x] Prevent duplicate closing-stock effect.
+- [x] Reconcile quantity/value.
+- [x] Commit BS-04D.
 
 ---
 

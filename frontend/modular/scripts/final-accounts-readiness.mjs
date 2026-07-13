@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-04C readiness')
+console.log('Garmetix Final Accounts BS-04D readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -107,6 +107,12 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPostingRules.cs', [
   'PurchaseInvoice',
   'PurchaseReturn',
   'PurchaseCancellation',
+  'SaleCogs',
+  'SaleReturnStockRestoration',
+  'PurchaseInventory',
+  'PurchaseReturnInventory',
+  'StockAdjustment',
+  'StockTransfer',
   'GST.OUTPUT_CGST',
   'GST.OUTPUT_SGST',
   'GST.OUTPUT_IGST',
@@ -116,6 +122,7 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPostingRules.cs', [
   'SALES.OTHER_CHARGES',
   'VENDOR.ADVANCE',
   'VendorAdvancePayment',
+  'INVENTORY.TRANSFER_CLEARING',
   'CustomerReceipt',
   'VendorPayment',
   'GeneralPayment',
@@ -172,6 +179,25 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPurchasePostingAdapte
   'Purchase posting preview is not balanced'
 ])
 
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsInventoryPostingAdapters.cs', [
+  'FinalAccountsInventoryAdapterLines',
+  'SaleCogsAdapter',
+  'SaleReturnStockRestorationAdapter',
+  'PurchaseInventoryAdapter',
+  'PurchaseReturnInventoryAdapter',
+  'StockAdjustmentAdapter',
+  'StockTransferAdapter',
+  'WeightedAverage',
+  'INVENTORY.STOCK',
+  'INVENTORY.COGS',
+  'INVENTORY.SHORTAGE',
+  'INVENTORY.EXCESS',
+  'INVENTORY.TRANSFER_CLEARING',
+  'Negative stock movement evidence',
+  'Missing stock cost evidence',
+  'Inventory posting preview is not balanced'
+])
+
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsSalesPostingAdapters.cs', [
   'FinalAccountsSalesAdapterLines',
   'SalesInvoiceAdapter',
@@ -199,6 +225,12 @@ checkFile('backend/Garmetix.Api/Program.cs', [
   'PurchaseReturnAdapter',
   'VendorDebitNoteAdapter',
   'VendorAdvancePaymentAdapter',
+  'SaleCogsAdapter',
+  'SaleReturnStockRestorationAdapter',
+  'PurchaseInventoryAdapter',
+  'PurchaseReturnInventoryAdapter',
+  'StockAdjustmentAdapter',
+  'StockTransferAdapter',
   'InvoicePaymentReceiptAdapter',
   'BankCashTransferAdapter'
 ])
@@ -219,7 +251,24 @@ checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsPostingRulesTes
   'PurchaseReturnAdapterLinesReversePayablePurchaseItcAndFreight',
   'PurchaseCancellationAdapterLinesReverseOriginalPurchase',
   'InterstatePurchaseUsesInputIgstMapping',
-  'VendorAdvancePaymentAdapterLinesUseAdvanceAsset'
+  'VendorAdvancePaymentAdapterLinesUseAdvanceAsset',
+  'SaleCogsLinesDebitCogsAndCreditInventory',
+  'SaleReturnStockRestorationReversesCogs',
+  'PurchaseInventoryOffsetsTemporaryPurchaseExpense',
+  'PurchaseReturnInventoryReversesInventoryAndPurchaseReturn',
+  'StockAdjustmentLinesSupportExcessAndShortage',
+  'StockTransferLinesUseTransferClearing',
+  'InventoryMovementEvidenceBlocksNegativeStock',
+  'InventoryMovementEvidenceBlocksMissingCost',
+  'PostingAdapterRequestNormalizesDuplicateMappingKeys'
+])
+
+checkFile('docs/final-accounts-bs-04d-inventory-cogs.md', [
+  'perpetual weighted-average',
+  'No closing-stock journal',
+  'Negative stock movement evidence',
+  'Missing cost evidence',
+  'FIFO is not enabled'
 ])
 
 checkFile('backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsCatalog.cs', [
@@ -382,7 +431,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-04C readiness passed.')
+console.log('\nFinal Accounts BS-04D readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)

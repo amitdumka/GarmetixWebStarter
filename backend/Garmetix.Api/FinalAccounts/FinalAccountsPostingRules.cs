@@ -144,6 +144,31 @@ public static class FinalAccountsPostingRules
                 Line("INVENTORY.EXCESS", "Stock Excess", "Stock adjustment reason mapping", "Credit", "Income", true, false, 40, "Positive stock adjustment income."),
                 Line("INVENTORY.TRANSFER_CLEARING", "Inventory Transfer Clearing", "Inter-store clearing mapping", "Both", "Asset", true, true, 50, "Inter-store stock clearing.")
             ]),
+            Rule(FinalAccountsMappingSourceType.Inventory, "SaleCogs", "Sale COGS Adapter", "Maps sale stock-out movements to cost of goods sold under perpetual weighted-average inventory.", [
+                Line("INVENTORY.COGS", "Cost Of Goods Sold", "Product inventory/COGS mapping", "Debit", "Expense", true, false, 10, "COGS from linked sale stock-out movement cost impact."),
+                Line("INVENTORY.STOCK", "Inventory Stock", "Product inventory/COGS mapping", "Credit", "Asset", true, true, 20, "Inventory asset reduced by sale stock-out cost.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.Inventory, "SaleReturnStockRestoration", "Sale Return Stock Restoration Adapter", "Reverses sale COGS when returned stock is restored.", [
+                Line("INVENTORY.STOCK", "Inventory Stock", "Product inventory/COGS mapping", "Debit", "Asset", true, true, 10, "Inventory restored by sale return movement."),
+                Line("INVENTORY.COGS", "Cost Of Goods Sold", "Product inventory/COGS mapping", "Credit", "Expense", true, false, 20, "COGS reversal for returned goods.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.Inventory, "PurchaseInventory", "Purchase Inventory Adapter", "Capitalizes purchase stock-in movements and offsets the temporary direct purchase account.", [
+                Line("INVENTORY.STOCK", "Inventory Stock", "Product inventory/COGS mapping", "Debit", "Asset", true, true, 10, "Inventory asset increased by purchase stock-in cost."),
+                Line("PURCHASE.DIRECT", "Direct Purchases", "Expense category mapping", "Credit", "Expense", true, false, 20, "Offsets BS-04C purchase expense to prevent duplicate closing-stock effect.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.Inventory, "PurchaseReturnInventory", "Purchase Return Inventory Adapter", "Reverses inventory for purchase-return stock-out movements.", [
+                Line("PURCHASE.RETURN", "Purchase Return", "Expense category mapping", "Debit", "Expense", true, false, 10, "Offsets BS-04C purchase return credit when inventory leaves stock."),
+                Line("INVENTORY.STOCK", "Inventory Stock", "Product inventory/COGS mapping", "Credit", "Asset", true, true, 20, "Inventory asset reduced by purchase return stock-out cost.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.Inventory, "StockAdjustment", "Stock Adjustment Adapter", "Maps stock excess, shortage and write-off operation values.", [
+                Line("INVENTORY.STOCK", "Inventory Stock", "Product inventory/COGS mapping", "Both", "Asset", true, true, 10, "Inventory asset changed by stock operation."),
+                Line("INVENTORY.SHORTAGE", "Stock Shortage", "Stock adjustment reason mapping", "Debit", "Expense", false, false, 20, "Shortage or write-off expense."),
+                Line("INVENTORY.EXCESS", "Stock Excess", "Stock adjustment reason mapping", "Credit", "Income", false, false, 30, "Excess stock gain.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.Inventory, "StockTransfer", "Stock Transfer Adapter", "Maps inter-store transfer movements through transfer clearing.", [
+                Line("INVENTORY.STOCK", "Inventory Stock", "Product inventory/COGS mapping", "Both", "Asset", true, true, 10, "Source and destination inventory legs."),
+                Line("INVENTORY.TRANSFER_CLEARING", "Inventory Transfer Clearing", "Inter-store clearing mapping", "Both", "Asset", true, true, 20, "Clearing account for source/destination transfer evidence.")
+            ]),
             Rule(FinalAccountsMappingSourceType.Gst, "GST Posting", "Maps input and output GST components.", [
                 Line("GST.OUTPUT_CGST", "Output CGST", "GST component mapping", "Credit", "Liability", true, true, 10, "CGST payable."),
                 Line("GST.OUTPUT_SGST", "Output SGST", "GST component mapping", "Credit", "Liability", true, true, 20, "SGST payable."),

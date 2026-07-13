@@ -1,6 +1,7 @@
 using Garmetix.Api.FinalAccounts;
 using Garmetix.Core.Enums;
 using Garmetix.Core.Models.FinalAccounts;
+using Garmetix.Core.Models.Inventory;
 using Xunit;
 
 namespace Garmetix.Api.Tests.FinalAccounts;
@@ -360,6 +361,114 @@ public sealed class FinalAccountsPostingRulesTests
         Assert.Contains(lines, item => item.MappingKey == "VENDOR.ADVANCE" && item.Debit == 500m);
         Assert.Contains(lines, item => item.MappingKey == "PAYMENT.BANK" && item.Credit == 500m);
     }
+
+    [Fact]
+    public void SaleCogsLinesDebitCogsAndCreditInventory()
+    {
+        var lines = FinalAccountsInventoryAdapterLines.SaleCogsLines(240m, "Sale COGS SI-1");
+
+        AssertBalanced(lines);
+        Assert.Contains(lines, item => item.MappingKey == "INVENTORY.COGS" && item.Debit == 240m);
+        Assert.Contains(lines, item => item.MappingKey == "INVENTORY.STOCK" && item.Credit == 240m);
+    }
+
+    [Fact]
+    public void SaleReturnStockRestorationReversesCogs()
+    {
+        var lines = FinalAccountsInventoryAdapterLines.SaleReturnStockRestorationLines(80m, "Sale return SR-1");
+
+        AssertBalanced(lines);
+        Assert.Contains(lines, item => item.MappingKey == "INVENTORY.STOCK" && item.Debit == 80m);
+        Assert.Contains(lines, item => item.MappingKey == "INVENTORY.COGS" && item.Credit == 80m);
+    }
+
+    [Fact]
+    public void PurchaseInventoryOffsetsTemporaryPurchaseExpense()
+    {
+        var lines = FinalAccountsInventoryAdapterLines.PurchaseInventoryLines(500m, "Purchase inventory PI-1");
+
+        AssertBalanced(lines);
+        Assert.Contains(lines, item => item.MappingKey == "INVENTORY.STOCK" && item.Debit == 500m);
+        Assert.Contains(lines, item => item.MappingKey == "PURCHASE.DIRECT" && item.Credit == 500m);
+    }
+
+    [Fact]
+    public void PurchaseReturnInventoryReversesInventoryAndPurchaseReturn()
+    {
+        var lines = FinalAccountsInventoryAdapterLines.PurchaseReturnInventoryLines(120m, "Purchase return PR-1");
+
+        AssertBalanced(lines);
+        Assert.Contains(lines, item => item.MappingKey == "PURCHASE.RETURN" && item.Debit == 120m);
+        Assert.Contains(lines, item => item.MappingKey == "INVENTORY.STOCK" && item.Credit == 120m);
+    }
+
+    [Fact]
+    public void StockAdjustmentLinesSupportExcessAndShortage()
+    {
+        var lines = FinalAccountsInventoryAdapterLines.StockAdjustmentLines(75m, 25m, "Stock adjustment");
+
+        AssertBalanced(lines);
+        Assert.Contains(lines, item => item.MappingKey == "INVENTORY.STOCK" && item.Debit == 75m && item.Credit == 25m);
+        Assert.Contains(lines, item => item.MappingKey == "INVENTORY.EXCESS" && item.Credit == 75m);
+        Assert.Contains(lines, item => item.MappingKey == "INVENTORY.SHORTAGE" && item.Debit == 25m);
+    }
+
+    [Fact]
+    public void StockTransferLinesUseTransferClearing()
+    {
+        var lines = FinalAccountsInventoryAdapterLines.StockTransferLines(300m, 300m, "Stock transfer ST-1");
+
+        AssertBalanced(lines);
+        Assert.Contains(lines, item => item.MappingKey == "INVENTORY.STOCK" && item.Debit == 300m && item.Credit == 300m);
+        Assert.Contains(lines, item => item.MappingKey == "INVENTORY.TRANSFER.CLEARING" && item.Debit == 300m && item.Credit == 300m);
+    }
+
+    [Fact]
+    public void InventoryMovementEvidenceBlocksNegativeStock()
+    {
+        var movement = StockMove(quantityIn: 0m, quantityOut: 2m, costPrice: 100m, costImpact: -200m, quantityAfter: -1m);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => FinalAccountsInventoryAdapterLines.CostOutValue([movement], "negative stock"));
+
+        Assert.Contains("Negative stock", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void InventoryMovementEvidenceBlocksMissingCost()
+    {
+        var movement = StockMove(quantityIn: 0m, quantityOut: 2m, costPrice: 0m, costImpact: 0m, quantityAfter: 5m);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => FinalAccountsInventoryAdapterLines.CostOutValue([movement], "missing cost"));
+
+        Assert.Contains("Missing stock cost", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void PostingAdapterRequestNormalizesDuplicateMappingKeys()
+    {
+        var lines = FinalAccountsPaymentAdapterLines.NormalizeLines([
+            new FinalAccountsPostingPreviewLineRequest("INVENTORY.STOCK", 10m, 0m, "debit"),
+            new FinalAccountsPostingPreviewLineRequest("inventory.stock", 0m, 4m, "credit")
+        ]);
+
+        var line = Assert.Single(lines);
+        Assert.Equal("INVENTORY.STOCK", line.MappingKey);
+        Assert.Equal(10m, line.Debit);
+        Assert.Equal(4m, line.Credit);
+    }
+
+    private static StockMovement StockMove(decimal quantityIn, decimal quantityOut, decimal costPrice, decimal costImpact, decimal quantityAfter)
+        => new()
+        {
+            Barcode = "SKU-1",
+            MovementType = quantityIn > 0m ? "TestIn" : "TestOut",
+            QuantityIn = quantityIn,
+            QuantityOut = quantityOut,
+            CostPrice = costPrice,
+            CostImpact = costImpact,
+            QuantityAfter = quantityAfter,
+            ValuationMethod = FinalAccountsInventoryAdapterLines.ValuationMethod
+        };
 
     private static void AssertBalanced(IReadOnlyList<FinalAccountsPostingPreviewLineRequest> lines)
     {

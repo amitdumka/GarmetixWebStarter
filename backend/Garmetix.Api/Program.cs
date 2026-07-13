@@ -136,6 +136,12 @@ builder.Services.AddScoped<IFinalAccountsPostingAdapter, PurchaseInvoiceCancella
 builder.Services.AddScoped<IFinalAccountsPostingAdapter, PurchaseReturnAdapter>();
 builder.Services.AddScoped<IFinalAccountsPostingAdapter, VendorDebitNoteAdapter>();
 builder.Services.AddScoped<IFinalAccountsPostingAdapter, VendorAdvancePaymentAdapter>();
+builder.Services.AddScoped<IFinalAccountsPostingAdapter, SaleCogsAdapter>();
+builder.Services.AddScoped<IFinalAccountsPostingAdapter, SaleReturnStockRestorationAdapter>();
+builder.Services.AddScoped<IFinalAccountsPostingAdapter, PurchaseInventoryAdapter>();
+builder.Services.AddScoped<IFinalAccountsPostingAdapter, PurchaseReturnInventoryAdapter>();
+builder.Services.AddScoped<IFinalAccountsPostingAdapter, StockAdjustmentAdapter>();
+builder.Services.AddScoped<IFinalAccountsPostingAdapter, StockTransferAdapter>();
 builder.Services.AddScoped<IFinalAccountsPostingAdapter, InvoicePaymentReceiptAdapter>();
 builder.Services.AddScoped<IFinalAccountsPostingAdapter, CustomerAdvanceReceiptAdapter>();
 builder.Services.AddScoped<IFinalAccountsPostingAdapter, PurchasePaymentAdapter>();
