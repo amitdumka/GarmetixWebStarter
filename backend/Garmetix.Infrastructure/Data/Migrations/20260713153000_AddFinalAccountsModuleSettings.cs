@@ -1,4 +1,6 @@
 using System;
+using Garmetix.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -6,6 +8,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Garmetix.Infrastructure.Data.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(GarmetixDbContext))]
+    [Migration("20260713153000_AddFinalAccountsModuleSettings")]
     public partial class AddFinalAccountsModuleSettings : Migration
     {
         /// <inheritdoc />

@@ -248,54 +248,132 @@ Files added/changed:
 
 ## Database
 
-- [ ] Add PostgreSQL schema `final_accounts`.
-- [ ] Add Final Accounts migration history configuration if separate DbContext is used.
-- [ ] Add `fa_module_settings`.
-- [ ] Add `fa_account_groups`.
-- [ ] Add `fa_accounts`.
-- [ ] Add `fa_account_mappings`.
-- [ ] Add `fa_fiscal_years`.
-- [ ] Add `fa_fiscal_periods`.
-- [ ] Add audit columns/concurrency tokens.
-- [ ] Add unique account code constraints.
-- [ ] Add hierarchy validation.
-- [ ] Verify migration is additive.
-- [ ] Verify migration does not alter/drop operational tables.
-- [ ] Test clean migration.
-- [ ] Test migration against an existing test database.
+- [x] Add PostgreSQL schema `final_accounts`.
+- [~] Add Final Accounts migration history configuration if separate DbContext is used.
+- [x] Add `fa_module_settings`.
+- [x] Add `fa_account_groups`.
+- [x] Add `fa_accounts`.
+- [x] Add `fa_account_mappings`.
+- [x] Add `fa_fiscal_years`.
+- [x] Add `fa_fiscal_periods`.
+- [x] Add audit columns/concurrency tokens.
+- [x] Add unique account code constraints.
+- [x] Add hierarchy validation.
+- [x] Verify migration is additive.
+- [x] Verify migration does not alter/drop operational tables.
+- [~] Test clean migration.
+- [~] Test migration against an existing test database.
 
 ## Domain/API
 
-- [ ] Account type and natural-balance enums.
-- [ ] Account group CRUD.
-- [ ] Account CRUD.
-- [ ] Fiscal year CRUD.
-- [ ] Period state transitions.
-- [ ] Default garment-retail COA seed preview.
-- [ ] Explicit user approval before seeding.
-- [ ] Duplicate and circular hierarchy validation.
-- [ ] Protected system-account rules.
-- [ ] Search/autocomplete endpoint.
+- [x] Account type and natural-balance enums.
+- [x] Account group CRUD.
+- [x] Account CRUD.
+- [x] Fiscal year CRUD.
+- [x] Period state transitions.
+- [x] Default garment-retail COA seed preview.
+- [x] Explicit user approval before seeding.
+- [x] Duplicate and circular hierarchy validation.
+- [x] Protected system-account rules.
+- [x] Search/autocomplete endpoint.
 
 ## UI
 
-- [ ] Chart of Accounts tree/list.
-- [ ] Group create/edit.
-- [ ] Account create/edit.
-- [ ] Account filters and autocomplete.
-- [ ] Fiscal year/period page.
-- [ ] Seed preview and result.
-- [ ] Validation summary.
+- [x] Chart of Accounts tree/list.
+- [x] Group create/edit.
+- [x] Account create/edit.
+- [x] Account filters and autocomplete.
+- [x] Fiscal year/period page.
+- [x] Seed preview and result.
+- [x] Validation summary.
 
 ## Tests
 
-- [ ] Tenant isolation.
-- [ ] Duplicate code rejection.
-- [ ] Natural-balance validation.
-- [ ] Circular group rejection.
-- [ ] Period date overlap rejection.
-- [ ] Permission tests.
-- [ ] Commit BS-02.
+- [~] Tenant isolation.
+- [~] Duplicate code rejection.
+- [x] Natural-balance validation.
+- [x] Circular group rejection.
+- [x] Period date overlap rejection.
+- [~] Permission tests.
+- [x] Commit BS-02.
+
+Evidence:
+
+```text
+Date: 2026-07-13
+Agent: Codex GPT-5
+Branch: balancesheet
+Worktree: C:\AIarea\Codex\bsheet\GarmetixWebStarter
+Commit: created by this stage commit; exact hash is reported in session output because a commit cannot contain its own final hash.
+
+Implementation:
+- Added Final Accounts catalog and fiscal domain models under backend/Garmetix.Domain/Generated/Models/FinalAccounts.
+- Added additive migration 20260713162000_AddFinalAccountsCatalogAndFiscalPeriods for final_accounts.fa_account_groups, fa_accounts, fa_account_mappings, fa_fiscal_years and fa_fiscal_periods.
+- Added EF migration metadata attributes to the BS-01 and BS-02 manual migrations so dotnet ef list/script can discover them.
+- The migration creates only final_accounts schema objects and final_accounts-only foreign keys; no operational tables are altered, renamed or dropped.
+- Added DbSet and model mapping for catalog/fiscal entities in the shared GarmetixDbContext.
+- Added FinalAccountsCatalogService with scoped CRUD, WorkspaceScope write checks, duplicate-code checks, natural-balance checks, circular hierarchy checks, fiscal overlap checks, status transition rules, protected system-row rules, search and validation summary.
+- Added endpoints behind the existing FinalAccounts policy and enabled-module filter:
+  GET/POST/PUT/DELETE /api/final-accounts/account-groups,
+  GET/POST/PUT/DELETE /api/final-accounts/accounts,
+  GET /api/final-accounts/accounts/search,
+  GET/POST/PUT/DELETE /api/final-accounts/account-mappings,
+  GET/POST/PUT /api/final-accounts/fiscal-years,
+  GET/POST/PUT /api/final-accounts/fiscal-periods,
+  GET /api/final-accounts/coa/seed-preview,
+  GET /api/final-accounts/validation/summary.
+- Seed endpoint is preview-only in BS-02; no seeding mutation was added, so seeding still requires a future explicit approval/action.
+- Added Final Accounts pages:
+  /chart-of-accounts with group/account/mapping forms, tables, filters, seed preview and validation metrics.
+  /fiscal-periods with fiscal year and period forms, status badges and validation metrics.
+- Added shell menu links and hidden route registry entries for the new pages.
+- Updated Final Accounts API client types and post/delete helpers.
+- Updated modular structure and Final Accounts readiness checks for BS-02.
+- No production migration was run.
+- No production deployment script or Cloudflare/Docker/server configuration was changed.
+
+Commands/tests run:
+- dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release: passed with existing nullable warnings.
+- dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release: passed. Result: 97 passed, 3 skipped, 100 total.
+- dotnet ef migrations list --project backend/Garmetix.Infrastructure/Garmetix.Infrastructure.csproj --startup-project backend/Garmetix.Api/Garmetix.Api.csproj --context GarmetixDbContext --configuration Release --no-build: passed and listed 20260713153000_AddFinalAccountsModuleSettings and 20260713162000_AddFinalAccountsCatalogAndFiscalPeriods; local PostgreSQL connection was unavailable so applied/pending status could not be checked.
+- dotnet ef migrations script 20260713153000_AddFinalAccountsModuleSettings 20260713162000_AddFinalAccountsCatalogAndFiscalPeriods --project backend/Garmetix.Infrastructure/Garmetix.Infrastructure.csproj --startup-project backend/Garmetix.Api/Garmetix.Api.csproj --context GarmetixDbContext --configuration Release --no-build: passed; generated SQL only creates final_accounts catalog/fiscal objects and inserts the BS-02 migration history row.
+- npm run check in frontend/modular: passed.
+- npm run workspace-links in frontend/modular: passed.
+- npm run final-accounts:readiness in frontend/modular: passed.
+- npm --workspace @garmetix/final-accounts-web run build: passed with existing Nuxt/Rollup warning pattern.
+- npm run build:books in frontend/modular: passed with existing Nuxt/Rollup warning pattern.
+- npm run build:main in frontend/modular: passed with existing Nuxt/Rollup warning pattern.
+- npm run build:admin in frontend/modular: passed with existing Nuxt/Rollup warning pattern.
+- npm run validate in frontend/modular: failed at existing Main Back Office contract parity baseline.
+
+Known unresolved issues:
+- No live clean/existing PostgreSQL migration application was run because localhost:5432 was unavailable.
+- Tenant isolation, duplicate-code rejection and permission behavior are implemented in service/policy paths but do not yet have database-backed integration tests in BS-02.
+- frontend/modular npm run validate still fails because frontend/modular/apps/main/pages/purchase/index.vue is missing token purchase/invoices/recent.
+- npm ci remains expected to fail until package-lock.json is refreshed for the existing workspace app additions; BS-02 did not update package-lock.json.
+- API build still reports existing nullable warnings in BankReconciliationClosureEndpoints.cs, BillingEndpoints.cs, VyaparSaleImportService.cs, DigitalBillCrmEndpoints.cs and PurchaseEndpoints.cs.
+- Nuxt builds still report existing sourcemap, Rollup pure-comment, large chunk and nitro cache-driver warnings.
+
+Files added/changed:
+- backend/Garmetix.Api/FinalAccounts/FinalAccountsCatalogContracts.cs
+- backend/Garmetix.Api/FinalAccounts/FinalAccountsCatalogRules.cs
+- backend/Garmetix.Api/FinalAccounts/FinalAccountsCatalogService.cs
+- backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs
+- backend/Garmetix.Api/Program.cs
+- backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsCatalogRulesTests.cs
+- backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsCatalog.cs
+- backend/Garmetix.Infrastructure/Data/GarmetixDbContext.cs
+- backend/Garmetix.Infrastructure/Data/Migrations/20260713153000_AddFinalAccountsModuleSettings.cs
+- backend/Garmetix.Infrastructure/Data/Migrations/20260713162000_AddFinalAccountsCatalogAndFiscalPeriods.cs
+- frontend/modular/apps/final-accounts/pages/chart-of-accounts.vue
+- frontend/modular/apps/final-accounts/pages/fiscal-periods.vue
+- frontend/modular/apps/final-accounts/pages/index.vue
+- frontend/modular/apps/final-accounts/utils/final-accounts-api.ts
+- frontend/modular/config/routes.ts
+- frontend/modular/packages/shared-ui/components/ModularAppShell.vue
+- frontend/modular/scripts/final-accounts-readiness.mjs
+- frontend/modular/scripts/validate-structure.mjs
+```
 
 ---
 

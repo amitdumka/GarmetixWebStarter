@@ -123,6 +123,7 @@ builder.Services.AddScoped<PurchaseInvoiceImportService>();
 builder.Services.AddScoped<VyaparSaleImportService>();
 builder.Services.Configure<FinalAccountsOptions>(builder.Configuration.GetSection("FinalAccounts"));
 builder.Services.AddScoped<FinalAccountsSettingsService>();
+builder.Services.AddScoped<FinalAccountsCatalogService>();
 builder.Services.AddScoped<FinalAccountsEnabledFilter>();
 builder.Services.AddHttpClient("DigitalBillWhatsApp", client => client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddSingleton<PersistentApplicationLogQueue>();
