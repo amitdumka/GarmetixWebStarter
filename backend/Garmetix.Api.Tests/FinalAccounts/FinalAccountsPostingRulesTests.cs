@@ -256,6 +256,111 @@ public sealed class FinalAccountsPostingRulesTests
         Assert.Contains(lines, item => item.MappingKey == "CUSTOMER.RECEIVABLE" && item.Credit == 118m);
     }
 
+    [Fact]
+    public void PurchaseInvoiceAdapterLinesPostExpenseItcFreightRoundingAndPayable()
+    {
+        var lines = FinalAccountsPurchaseAdapterLines.PurchaseInvoiceLines(
+            billAmount: 123m,
+            taxableAmount: 100m,
+            freightAmount: 5m,
+            taxAmount: 17.75m,
+            cgstAmount: 8.87m,
+            sgstAmount: 8.88m,
+            igstAmount: 0m,
+            interState: false,
+            roundOff: 0.25m,
+            narration: "Purchase invoice PI-1");
+
+        AssertBalanced(lines);
+        Assert.Contains(lines, item => item.MappingKey == "PURCHASE.DIRECT" && item.Debit == 100m);
+        Assert.Contains(lines, item => item.MappingKey == "GST.INPUT_CGST" && item.Debit == 8.87m);
+        Assert.Contains(lines, item => item.MappingKey == "GST.INPUT_SGST" && item.Debit == 8.88m);
+        Assert.Contains(lines, item => item.MappingKey == "PURCHASE.FREIGHT" && item.Debit == 5m);
+        Assert.Contains(lines, item => item.MappingKey == "PURCHASE.ROUNDING" && item.Debit == 0.25m);
+        Assert.Contains(lines, item => item.MappingKey == "VENDOR.PAYABLE" && item.Credit == 123m);
+    }
+
+    [Fact]
+    public void PurchaseReturnAdapterLinesReversePayablePurchaseItcAndFreight()
+    {
+        var lines = FinalAccountsPurchaseAdapterLines.PurchaseReturnLines(
+            returnAmount: 118m,
+            taxableAmount: 100m,
+            taxAmount: 18m,
+            cgstAmount: 9m,
+            sgstAmount: 9m,
+            igstAmount: 0m,
+            interState: false,
+            freightAmount: 10m,
+            freightTaxAmount: 1.8m,
+            narration: "Purchase return PR-1");
+
+        AssertBalanced(lines);
+        Assert.Contains(lines, item => item.MappingKey == "VENDOR.PAYABLE" && item.Debit == 118m);
+        Assert.Contains(lines, item => item.MappingKey == "VENDOR.PAYABLE" && item.Debit == 11.8m);
+        Assert.Contains(lines, item => item.MappingKey == "PURCHASE.RETURN" && item.Credit == 100m);
+        Assert.Contains(lines, item => item.MappingKey == "PURCHASE.FREIGHT" && item.Credit == 10m);
+        Assert.Contains(lines, item => item.MappingKey == "GST.INPUT_CGST" && item.Credit == 9m);
+        Assert.Contains(lines, item => item.MappingKey == "GST.INPUT_SGST" && item.Credit == 9m);
+        Assert.Contains(lines, item => item.MappingKey == "GST.INPUT_CGST" && item.Credit == 0.90m);
+        Assert.Contains(lines, item => item.MappingKey == "GST.INPUT_SGST" && item.Credit == 0.90m);
+    }
+
+    [Fact]
+    public void PurchaseCancellationAdapterLinesReverseOriginalPurchase()
+    {
+        var lines = FinalAccountsPurchaseAdapterLines.PurchaseCancellationLines(
+            billAmount: 118m,
+            taxableAmount: 100m,
+            freightAmount: 0m,
+            taxAmount: 18m,
+            cgstAmount: 9m,
+            sgstAmount: 9m,
+            igstAmount: 0m,
+            interState: false,
+            roundOff: 0m,
+            narration: "Cancel purchase invoice PI-2");
+
+        AssertBalanced(lines);
+        Assert.Contains(lines, item => item.MappingKey == "VENDOR.PAYABLE" && item.Debit == 118m);
+        Assert.Contains(lines, item => item.MappingKey == "PURCHASE.DIRECT" && item.Credit == 100m);
+        Assert.Contains(lines, item => item.MappingKey == "GST.INPUT_CGST" && item.Credit == 9m);
+        Assert.Contains(lines, item => item.MappingKey == "GST.INPUT_SGST" && item.Credit == 9m);
+    }
+
+    [Fact]
+    public void InterstatePurchaseUsesInputIgstMapping()
+    {
+        var lines = FinalAccountsPurchaseAdapterLines.PurchaseInvoiceLines(
+            billAmount: 118m,
+            taxableAmount: 100m,
+            freightAmount: 0m,
+            taxAmount: 18m,
+            cgstAmount: null,
+            sgstAmount: null,
+            igstAmount: null,
+            interState: true,
+            roundOff: 0m,
+            narration: "Interstate purchase PI-3");
+
+        AssertBalanced(lines);
+        Assert.Contains(lines, item => item.MappingKey == "GST.INPUT_IGST" && item.Debit == 18m);
+    }
+
+    [Fact]
+    public void VendorAdvancePaymentAdapterLinesUseAdvanceAsset()
+    {
+        var lines = FinalAccountsPaymentAdapterLines.SettlementLines(
+            FinalAccountsPaymentAdapterLines.VendorAdvanceMappingKey,
+            FinalAccountsPaymentAdapterLines.BankMappingKey,
+            500m,
+            "Vendor advance");
+
+        AssertBalanced(lines);
+        Assert.Contains(lines, item => item.MappingKey == "VENDOR.ADVANCE" && item.Debit == 500m);
+        Assert.Contains(lines, item => item.MappingKey == "PAYMENT.BANK" && item.Credit == 500m);
+    }
+
     private static void AssertBalanced(IReadOnlyList<FinalAccountsPostingPreviewLineRequest> lines)
     {
         Assert.Equal(lines.Sum(item => item.Debit), lines.Sum(item => item.Credit));

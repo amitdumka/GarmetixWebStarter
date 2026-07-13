@@ -40,6 +40,13 @@ public static class FinalAccountsPostingRules
                 Line("PAYMENT.UPI_CLEARING", "UPI Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 40, "Required only when the source payment uses UPI or wallet settlement."),
                 Line("PAYMENT.CARD_CLEARING", "Card Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 50, "Required only when the source payment uses card settlement.")
             ]),
+            Rule(FinalAccountsMappingSourceType.CashBank, "VendorAdvancePayment", "Vendor Advance Payment Adapter", "Maps supplier advances to an advance asset and the paid payment rail.", [
+                Line("VENDOR.ADVANCE", "Vendor Advance", "Expense category mapping", "Debit", "Asset", true, true, 10, "Advance paid to supplier before invoice settlement."),
+                Line("PAYMENT.CASH", "Cash In Hand", "Payment mode mapping", "Credit", "Asset", false, true, 20, "Required only when the source advance uses cash."),
+                Line("PAYMENT.BANK", "Bank Account", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 30, "Required only when the source advance uses bank transfer."),
+                Line("PAYMENT.UPI_CLEARING", "UPI Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 40, "Required only when the source advance uses UPI or wallet settlement."),
+                Line("PAYMENT.CARD_CLEARING", "Card Clearing", "Bank/UPI/card clearing mapping", "Credit", "Asset", false, true, 50, "Required only when the source advance uses card settlement.")
+            ]),
             Rule(FinalAccountsMappingSourceType.CashBank, "GeneralPayment", "General Payment Adapter", "Maps general payment vouchers to payable settlement.", [
                 Line("EXPENSE.PAYABLE", "Expense Payable", "Expense category mapping", "Debit", "Liability", true, true, 10, "Generic payable cleared by payment voucher."),
                 Line("PAYMENT.CASH", "Cash In Hand", "Payment mode mapping", "Credit", "Asset", false, true, 20, "Required only when the source payment uses cash."),
@@ -94,7 +101,41 @@ public static class FinalAccountsPostingRules
                 Line("PURCHASE.DIRECT", "Direct Purchases", "Expense category mapping", "Debit", "Expense", true, false, 10, "Purchase expense or trading purchase account."),
                 Line("PURCHASE.RETURN", "Purchase Return", "Expense category mapping", "Credit", "Expense", true, false, 20, "Purchase return contra expense."),
                 Line("VENDOR.PAYABLE", "Vendor Payables", "Expense category mapping", "Credit", "Liability", true, true, 30, "Vendor payable control account."),
-                Line("PURCHASE.FREIGHT", "Purchase Freight", "Expense category mapping", "Debit", "Expense", false, false, 40, "Freight and landed-cost charges.")
+                Line("PURCHASE.FREIGHT", "Purchase Freight", "Expense category mapping", "Debit", "Expense", false, false, 40, "Freight and landed-cost charges."),
+                Line("GST.INPUT_CGST", "Input CGST", "GST component mapping", "Debit", "Asset", false, true, 50, "Input CGST receivable."),
+                Line("GST.INPUT_SGST", "Input SGST", "GST component mapping", "Debit", "Asset", false, true, 60, "Input SGST receivable."),
+                Line("GST.INPUT_IGST", "Input IGST", "GST component mapping", "Debit", "Asset", false, true, 70, "Input IGST receivable."),
+                Line("PURCHASE.ROUNDING", "Purchase Rounding", "Discount/rounding mapping", "Both", "Expense", false, false, 80, "Purchase round-off gain/loss account."),
+                Line("VENDOR.ADVANCE", "Vendor Advance", "Expense category mapping", "Debit", "Asset", false, true, 90, "Supplier advance asset."),
+                Line("TDS.PAYABLE", "TDS Payable", "GST component mapping", "Credit", "Liability", false, true, 100, "TDS payable when source data exposes deduction.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.Purchase, "PurchaseInvoice", "Purchase Invoice Adapter", "Maps credit and cash/bank purchases to purchase expense, input GST, freight, rounding and vendor payable.", [
+                Line("PURCHASE.DIRECT", "Direct Purchases", "Expense category mapping", "Debit", "Expense", true, false, 10, "Inventory/direct expense placeholder until BS-04D valuation policy is active."),
+                Line("GST.INPUT_CGST", "Input CGST", "GST component mapping", "Debit", "Asset", false, true, 20, "Input CGST receivable."),
+                Line("GST.INPUT_SGST", "Input SGST", "GST component mapping", "Debit", "Asset", false, true, 30, "Input SGST receivable."),
+                Line("GST.INPUT_IGST", "Input IGST", "GST component mapping", "Debit", "Asset", false, true, 40, "Input IGST receivable."),
+                Line("PURCHASE.FREIGHT", "Purchase Freight", "Expense category mapping", "Debit", "Expense", false, false, 50, "Freight and landed-cost charges."),
+                Line("PURCHASE.ROUNDING", "Purchase Rounding", "Discount/rounding mapping", "Both", "Expense", false, false, 60, "Purchase round-off gain/loss."),
+                Line("VENDOR.PAYABLE", "Vendor Payables", "Expense category mapping", "Credit", "Liability", true, true, 70, "Vendor payable for invoice total."),
+                Line("TDS.PAYABLE", "TDS Payable", "GST component mapping", "Credit", "Liability", false, true, 80, "TDS payable when source data exposes deduction.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.Purchase, "PurchaseReturn", "Purchase Return And Debit Note Adapter", "Maps supplier debit notes and purchase returns to payable reduction, purchase return, ITC reversal and freight recovery.", [
+                Line("VENDOR.PAYABLE", "Vendor Payables", "Expense category mapping", "Debit", "Liability", true, true, 10, "Vendor payable reduced by debit note or return."),
+                Line("PURCHASE.RETURN", "Purchase Return", "Expense category mapping", "Credit", "Expense", true, false, 20, "Purchase return contra expense."),
+                Line("GST.INPUT_CGST", "Input CGST", "GST component mapping", "Credit", "Asset", false, true, 30, "Input CGST reversal."),
+                Line("GST.INPUT_SGST", "Input SGST", "GST component mapping", "Credit", "Asset", false, true, 40, "Input SGST reversal."),
+                Line("GST.INPUT_IGST", "Input IGST", "GST component mapping", "Credit", "Asset", false, true, 50, "Input IGST reversal."),
+                Line("PURCHASE.FREIGHT", "Purchase Freight", "Expense category mapping", "Credit", "Expense", false, false, 60, "Freight recovery from supplier."),
+                Line("PURCHASE.ROUNDING", "Purchase Rounding", "Discount/rounding mapping", "Both", "Expense", false, false, 70, "Purchase return round-off reversal.")
+            ]),
+            Rule(FinalAccountsMappingSourceType.Purchase, "PurchaseCancellation", "Purchase Cancellation Adapter", "Reverses a cancelled purchase invoice without reposting payment settlement.", [
+                Line("VENDOR.PAYABLE", "Vendor Payables", "Expense category mapping", "Debit", "Liability", true, true, 10, "Original vendor payable reversal."),
+                Line("PURCHASE.DIRECT", "Direct Purchases", "Expense category mapping", "Credit", "Expense", true, false, 20, "Original purchase expense reversal."),
+                Line("GST.INPUT_CGST", "Input CGST", "GST component mapping", "Credit", "Asset", false, true, 30, "Input CGST reversal."),
+                Line("GST.INPUT_SGST", "Input SGST", "GST component mapping", "Credit", "Asset", false, true, 40, "Input SGST reversal."),
+                Line("GST.INPUT_IGST", "Input IGST", "GST component mapping", "Credit", "Asset", false, true, 50, "Input IGST reversal."),
+                Line("PURCHASE.FREIGHT", "Purchase Freight", "Expense category mapping", "Credit", "Expense", false, false, 60, "Original freight reversal."),
+                Line("PURCHASE.ROUNDING", "Purchase Rounding", "Discount/rounding mapping", "Both", "Expense", false, false, 70, "Original round-off reversal.")
             ]),
             Rule(FinalAccountsMappingSourceType.Inventory, "Inventory And COGS Posting", "Maps stock value, cost of goods sold and adjustments.", [
                 Line("INVENTORY.STOCK", "Inventory Stock", "Product inventory/COGS mapping", "Debit", "Asset", true, true, 10, "Inventory asset account."),

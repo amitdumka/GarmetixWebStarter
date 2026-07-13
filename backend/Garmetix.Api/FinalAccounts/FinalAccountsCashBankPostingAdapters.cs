@@ -16,6 +16,7 @@ public static class FinalAccountsPaymentAdapterLines
     public const string CustomerReceivableMappingKey = "CUSTOMER.RECEIVABLE";
     public const string CustomerAdvanceMappingKey = "CUSTOMER.ADVANCE";
     public const string VendorPayableMappingKey = "VENDOR.PAYABLE";
+    public const string VendorAdvanceMappingKey = "VENDOR.ADVANCE";
     public const string ExpensePayableMappingKey = "EXPENSE.PAYABLE";
     public const string DirectExpenseMappingKey = "EXPENSE.DIRECT";
     public const string IndirectExpenseMappingKey = "EXPENSE.INDIRECT";

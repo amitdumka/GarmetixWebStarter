@@ -708,20 +708,20 @@ Files added/changed:
 
 # BS-04C — Purchase and purchase-return adapters
 
-- [ ] Credit purchase.
-- [ ] Cash/bank purchase.
-- [ ] Inventory/direct expense.
-- [ ] Input CGST/SGST/IGST.
-- [ ] Freight and landed-cost policy.
-- [ ] Vendor payable.
-- [ ] TDS where applicable.
-- [ ] Purchase return.
-- [ ] Supplier debit/credit note.
-- [ ] Vendor advance settlement.
-- [ ] revised/cancelled inward/invoice.
-- [ ] Source totals reconcile.
-- [ ] Fixture tests.
-- [ ] Commit BS-04C.
+- [x] Credit purchase.
+- [x] Cash/bank purchase.
+- [x] Inventory/direct expense.
+- [x] Input CGST/SGST/IGST.
+- [x] Freight and landed-cost policy.
+- [x] Vendor payable.
+- [x] TDS where applicable.
+- [x] Purchase return.
+- [x] Supplier debit/credit note.
+- [x] Vendor advance settlement.
+- [x] revised/cancelled inward/invoice.
+- [x] Source totals reconcile.
+- [x] Fixture tests.
+- [x] Commit BS-04C.
 
 ---
 

@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-04B readiness')
+console.log('Garmetix Final Accounts BS-04C readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -104,10 +104,18 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPostingRules.cs', [
   'SalesInvoice',
   'SalesReturn',
   'SalesCancellation',
+  'PurchaseInvoice',
+  'PurchaseReturn',
+  'PurchaseCancellation',
   'GST.OUTPUT_CGST',
   'GST.OUTPUT_SGST',
   'GST.OUTPUT_IGST',
+  'GST.INPUT_CGST',
+  'GST.INPUT_SGST',
+  'GST.INPUT_IGST',
   'SALES.OTHER_CHARGES',
+  'VENDOR.ADVANCE',
+  'VendorAdvancePayment',
   'CustomerReceipt',
   'VendorPayment',
   'GeneralPayment',
@@ -147,6 +155,23 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsCashBankPostingAdapte
   'cannot be silently allocated'
 ])
 
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPurchasePostingAdapters.cs', [
+  'FinalAccountsPurchaseAdapterLines',
+  'PurchaseInvoiceAdapter',
+  'PurchaseInvoiceCancellationAdapter',
+  'PurchaseReturnAdapter',
+  'VendorDebitNoteAdapter',
+  'VendorAdvancePaymentAdapter',
+  'PURCHASE.DIRECT',
+  'PURCHASE.RETURN',
+  'PURCHASE.FREIGHT',
+  'GST.INPUT_CGST',
+  'GST.INPUT_SGST',
+  'GST.INPUT_IGST',
+  'VENDOR.PAYABLE',
+  'Purchase posting preview is not balanced'
+])
+
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsSalesPostingAdapters.cs', [
   'FinalAccountsSalesAdapterLines',
   'SalesInvoiceAdapter',
@@ -170,6 +195,10 @@ checkFile('backend/Garmetix.Api/Program.cs', [
   'SalesReturnAdapter',
   'SalesInvoiceCancellationAdapter',
   'SalesCreditNoteAdapter',
+  'PurchaseInvoiceAdapter',
+  'PurchaseReturnAdapter',
+  'VendorDebitNoteAdapter',
+  'VendorAdvancePaymentAdapter',
   'InvoicePaymentReceiptAdapter',
   'BankCashTransferAdapter'
 ])
@@ -185,7 +214,12 @@ checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsPostingRulesTes
   'SalesCancellationAdapterLinesReverseOriginalSale',
   'InterstateSalesUseIgstOutputMapping',
   'LocalSalesFallbackTaxSplitsCgstAndSgst',
-  'SalesCreditNoteUsesReturnShape'
+  'SalesCreditNoteUsesReturnShape',
+  'PurchaseInvoiceAdapterLinesPostExpenseItcFreightRoundingAndPayable',
+  'PurchaseReturnAdapterLinesReversePayablePurchaseItcAndFreight',
+  'PurchaseCancellationAdapterLinesReverseOriginalPurchase',
+  'InterstatePurchaseUsesInputIgstMapping',
+  'VendorAdvancePaymentAdapterLinesUseAdvanceAsset'
 ])
 
 checkFile('backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsCatalog.cs', [
@@ -348,7 +382,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-04B readiness passed.')
+console.log('\nFinal Accounts BS-04C readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)
