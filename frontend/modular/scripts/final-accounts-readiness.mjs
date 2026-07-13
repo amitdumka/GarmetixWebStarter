@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-04E readiness')
+console.log('Garmetix Final Accounts BS-05 readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -32,6 +32,15 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapPost("/posting/preview"',
   'MapGet("/posting/adapters"',
   'PreviewAdapterPostingAsync',
+  'MapGet("/sync/options"',
+  'MapGet("/sync/jobs"',
+  'MapPost("/sync/manual"',
+  'MapDelete("/sync/jobs/{id:guid}/dry-run"',
+  'CleanupDryRunSyncJobAsync',
+  'MapPost("/backfill/dry-run"',
+  'MapPost("/reconciliation/summary"',
+  'MapPost("/reconciliation/export"',
+  'ExportReconciliationAsync',
   'MapGet("/coa/seed-preview"',
   'MapGet("/validation/summary"'
 ])
@@ -159,6 +168,41 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPostingContracts.cs',
   'FinalAccountsPostingPreviewResponse'
 ])
 
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsSyncContracts.cs', [
+  'FinalAccountsBackfillRequest',
+  'FinalAccountsSyncOptionsResponse',
+  'FinalAccountsBackfillPreviewResponse',
+  'FinalAccountsSyncJobDto',
+  'FinalAccountsReconciliationResponse',
+  'WritesSourceData'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsSyncRules.cs', [
+  'DefaultModules',
+  'NormalizeModules',
+  'NormalizeIdempotencyKey',
+  'BuildResumeCheckpoint',
+  'BuildJobNumber',
+  'StatusForSource',
+  'ShouldContinueAfterFailure',
+  'NextRetryAt'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsSyncService.cs', [
+  'FinalAccountsSyncService',
+  'ExistingOutboxDetected: false',
+  'ScheduledModeEnabled',
+  'DryRunBackfillAsync',
+  'CreateManualSyncJobAsync',
+  'GetReconciliationAsync',
+  'CleanupDryRunJobAsync',
+  'LoadCandidatesAsync',
+  'LoadLinksAsync',
+  'UpsertCheckpointAsync',
+  'SourceHashDrift',
+  'WritesSourceData: false'
+])
+
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPostingAdapters.cs', [
   'IFinalAccountsPostingAdapter',
   'AdapterKey',
@@ -259,6 +303,7 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsSalesPostingAdapters.
 
 checkFile('backend/Garmetix.Api/Program.cs', [
   'FinalAccountsPostingAdapterService',
+  'FinalAccountsSyncService',
   'SalesInvoiceAdapter',
   'SalesReturnAdapter',
   'SalesInvoiceCancellationAdapter',
@@ -325,6 +370,16 @@ checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsPostingRulesTes
   'Bs04eRulesAreDiscoverable'
 ])
 
+checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsSyncRulesTests.cs', [
+  'NormalizeModulesDefaultsToSupportedSet',
+  'NormalizeModulesDeduplicatesAliases',
+  'IdempotencyKeyIsStableAndBounded',
+  'JobNumberUsesIdempotencyKeyForRerun',
+  'StatusForSourceMarksExistingAndDrift',
+  'PartialFailurePolicySupportsStopOrContinue',
+  'RetryDelayBacksOffByAttempt'
+])
+
 checkFile('docs/final-accounts-bs-04d-inventory-cogs.md', [
   'perpetual weighted-average',
   'No closing-stock journal',
@@ -346,6 +401,16 @@ checkFile('backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsG
   'FinalAccountsJournalLine',
   'FinalAccountsSourcePostingLink',
   'FinalAccountsJournalStatus'
+])
+
+checkFile('backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsSync.cs', [
+  'FinalAccountsSyncJob',
+  'FinalAccountsSyncJobItem',
+  'FinalAccountsSyncCheckpoint',
+  'FinalAccountsSyncException',
+  'FinalAccountsSyncJobStatus',
+  'FinalAccountsSyncItemStatus',
+  'IdempotencyKey'
 ])
 
 checkFile('backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsPostingRules.cs', [
@@ -376,6 +441,17 @@ checkFile('backend/Garmetix.Infrastructure/Data/Migrations/20260713173000_AddFin
   'fa_posting_rule_lines',
   'IX_fa_posting_rules_scope_code_version',
   'FK_fa_posting_rule_lines_rule'
+])
+
+checkFile('backend/Garmetix.Infrastructure/Data/Migrations/20260713190000_AddFinalAccountsSyncJobs.cs', [
+  'fa_sync_jobs',
+  'fa_sync_job_items',
+  'fa_sync_checkpoints',
+  'fa_sync_exceptions',
+  'IX_fa_sync_jobs_scope_idempotency',
+  'IX_fa_sync_job_items_job_source',
+  'IX_fa_sync_checkpoints_scope_module_key',
+  'IX_fa_sync_exceptions_source_resolved'
 ])
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEnabledFilter.cs', [
@@ -493,7 +569,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-04E readiness passed.')
+console.log('\nFinal Accounts BS-05 readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)

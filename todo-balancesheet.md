@@ -765,42 +765,42 @@ Files added/changed:
 
 ## Sync
 
-- [ ] Detect/use existing outbox, or implement Final Accounts sync cursor.
-- [ ] Add `fa_sync_jobs`.
-- [ ] Add job items/checkpoints.
-- [ ] Add retry policy.
-- [ ] Add failure/exception queue.
-- [ ] Ensure operational transactions are never blocked.
-- [ ] Ensure job is disabled by default.
-- [ ] Add manual sync action.
-- [ ] Add safe scheduled mode configuration.
+- [x] Detect/use existing outbox, or implement Final Accounts sync cursor.
+- [x] Add `fa_sync_jobs`.
+- [x] Add job items/checkpoints.
+- [x] Add retry policy.
+- [x] Add failure/exception queue.
+- [x] Ensure operational transactions are never blocked.
+- [x] Ensure job is disabled by default.
+- [x] Add manual sync action.
+- [x] Add safe scheduled mode configuration.
 
 ## Backfill
 
-- [ ] Dry-run endpoint.
-- [ ] Date/store/company/module filters.
-- [ ] Preview counts and totals.
-- [ ] Idempotency.
-- [ ] Resume checkpoint.
-- [ ] Stop/continue error policy.
-- [ ] Source content hash.
-- [ ] Drift detection.
-- [ ] No source writes.
-- [ ] No production run.
-- [ ] Purpose-built dev cleanup for unapproved migration batch only.
+- [x] Dry-run endpoint.
+- [x] Date/store/company/module filters.
+- [x] Preview counts and totals.
+- [x] Idempotency.
+- [x] Resume checkpoint.
+- [x] Stop/continue error policy.
+- [x] Source content hash.
+- [x] Drift detection.
+- [x] No source writes.
+- [x] No production run.
+- [x] Purpose-built dev cleanup for unapproved migration batch only.
 
 ## Reconciliation
 
-- [ ] Sales control totals.
-- [ ] Purchase control totals.
-- [ ] Receipt/payment totals.
-- [ ] Tax totals.
-- [ ] Inventory/COGS totals.
-- [ ] Payroll totals.
-- [ ] Exception categories.
-- [ ] Dashboard and export.
-- [ ] Tests for rerun and partial failure.
-- [ ] Commit BS-05.
+- [x] Sales control totals.
+- [x] Purchase control totals.
+- [x] Receipt/payment totals.
+- [x] Tax totals.
+- [x] Inventory/COGS totals.
+- [x] Payroll totals.
+- [x] Exception categories.
+- [x] Dashboard and export.
+- [x] Tests for rerun and partial failure.
+- [x] Commit BS-05.
 
 ---
 

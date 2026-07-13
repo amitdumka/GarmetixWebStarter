@@ -50,6 +50,13 @@ public static class FinalAccountsEndpoints
         enabled.MapPost("/posting/preview", PreviewPostingAsync);
         enabled.MapGet("/posting/adapters", ListPostingAdaptersAsync);
         enabled.MapGet("/posting/adapters/{adapterKey}/sources/{sourceId:guid}/preview", PreviewAdapterPostingAsync);
+        enabled.MapGet("/sync/options", GetSyncOptionsAsync);
+        enabled.MapGet("/sync/jobs", ListSyncJobsAsync);
+        enabled.MapPost("/sync/manual", CreateManualSyncJobAsync);
+        enabled.MapDelete("/sync/jobs/{id:guid}/dry-run", CleanupDryRunSyncJobAsync).RequireAuthorization(GarmetixPolicies.Admin);
+        enabled.MapPost("/backfill/dry-run", DryRunBackfillAsync);
+        enabled.MapPost("/reconciliation/summary", GetReconciliationAsync);
+        enabled.MapPost("/reconciliation/export", ExportReconciliationAsync);
         enabled.MapGet("/coa/seed-preview", GetSeedPreviewAsync);
         enabled.MapGet("/validation/summary", GetValidationSummaryAsync);
 
@@ -372,6 +379,82 @@ public static class FinalAccountsEndpoints
         CancellationToken cancellationToken)
         => HandleAsync(() => adapters.PreviewAsync(adapterKey, sourceId, new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), context, cancellationToken));
 
+    private static Task<IResult> GetSyncOptionsAsync(
+        FinalAccountsSyncService sync,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult<IResult>(Results.Ok(sync.GetOptions()));
+    }
+
+    private static Task<IResult> ListSyncJobsAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsSyncService sync,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => sync.ListJobsAsync(new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), context, cancellationToken));
+
+    private static Task<IResult> CreateManualSyncJobAsync(
+        FinalAccountsBackfillRequest request,
+        FinalAccountsSyncService sync,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => sync.CreateManualSyncJobAsync(request, context, cancellationToken));
+
+    private static Task<IResult> CleanupDryRunSyncJobAsync(
+        Guid id,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsSyncService sync,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleNoContentAsync(() => sync.CleanupDryRunJobAsync(id, new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), context, cancellationToken));
+
+    private static Task<IResult> DryRunBackfillAsync(
+        FinalAccountsBackfillRequest request,
+        FinalAccountsSyncService sync,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => sync.DryRunBackfillAsync(request, context, cancellationToken));
+
+    private static Task<IResult> GetReconciliationAsync(
+        FinalAccountsBackfillRequest request,
+        FinalAccountsSyncService sync,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => sync.GetReconciliationAsync(request, context, cancellationToken));
+
+    private static async Task<IResult> ExportReconciliationAsync(
+        FinalAccountsBackfillRequest request,
+        FinalAccountsSyncService sync,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var model = await sync.GetReconciliationAsync(request, context, cancellationToken);
+            var lines = new List<string> { "Module,SourceTotal,JournalDebit,JournalCredit,Difference,SourceCount,PostedLinkCount,ExceptionCount,Status" };
+            lines.AddRange(model.Modules.Select(item => string.Join(",",
+                EscapeCsv(item.Module),
+                item.SourceTotal.ToString("0.00"),
+                item.JournalDebit.ToString("0.00"),
+                item.JournalCredit.ToString("0.00"),
+                item.Difference.ToString("0.00"),
+                item.SourceCount.ToString(),
+                item.PostedLinkCount.ToString(),
+                item.ExceptionCount.ToString(),
+                EscapeCsv(item.Status))));
+            return Results.Text(string.Join(Environment.NewLine, lines), "text/csv");
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or KeyNotFoundException)
+        {
+            return ToErrorResult(ex);
+        }
+    }
+
     private static Task<IResult> GetSeedPreviewAsync(
         Guid? companyId,
         Guid? storeGroupId,
@@ -423,4 +506,9 @@ public static class FinalAccountsEndpoints
             KeyNotFoundException => Results.NotFound(new { error = ex.Message }),
             _ => Results.Problem(ex.Message)
         };
+
+    private static string EscapeCsv(string value)
+        => value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r')
+            ? $"\"{value.Replace("\"", "\"\"")}\""
+            : value;
 }

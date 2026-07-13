@@ -151,6 +151,10 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<FinalAccountsJournalEntry> FinalAccountsJournalEntries => Set<FinalAccountsJournalEntry>();
     public DbSet<FinalAccountsJournalLine> FinalAccountsJournalLines => Set<FinalAccountsJournalLine>();
     public DbSet<FinalAccountsSourcePostingLink> FinalAccountsSourcePostingLinks => Set<FinalAccountsSourcePostingLink>();
+    public DbSet<FinalAccountsSyncJob> FinalAccountsSyncJobs => Set<FinalAccountsSyncJob>();
+    public DbSet<FinalAccountsSyncJobItem> FinalAccountsSyncJobItems => Set<FinalAccountsSyncJobItem>();
+    public DbSet<FinalAccountsSyncCheckpoint> FinalAccountsSyncCheckpoints => Set<FinalAccountsSyncCheckpoint>();
+    public DbSet<FinalAccountsSyncException> FinalAccountsSyncExceptions => Set<FinalAccountsSyncException>();
 
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<EmployeeDetail> EmployeeDetails => Set<EmployeeDetail>();
@@ -284,6 +288,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         ConfigureFinalAccountsCatalog(modelBuilder);
         ConfigureFinalAccountsPostingRules(modelBuilder);
         ConfigureFinalAccountsGeneralLedger(modelBuilder);
+        ConfigureFinalAccountsSync(modelBuilder);
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
@@ -624,6 +629,58 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<FinalAccountsSourcePostingLink>().Property(item => item.CreatedBy).HasMaxLength(120);
         modelBuilder.Entity<FinalAccountsSourcePostingLink>().Property(item => item.UpdatedBy).HasMaxLength(120);
         modelBuilder.Entity<FinalAccountsSourcePostingLink>().Property(item => item.Revision).IsConcurrencyToken();
+    }
+
+    private static void ConfigureFinalAccountsSync(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<FinalAccountsSyncJob>().ToTable("fa_sync_jobs", "final_accounts");
+        modelBuilder.Entity<FinalAccountsSyncJob>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.JobNumber }).IsUnique();
+        modelBuilder.Entity<FinalAccountsSyncJob>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.IdempotencyKey }).IsUnique();
+        modelBuilder.Entity<FinalAccountsSyncJob>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.Status, item.CreatedAt });
+        modelBuilder.Entity<FinalAccountsSyncJob>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.DryRun, item.Scheduled });
+        modelBuilder.Entity<FinalAccountsSyncJob>().Property(item => item.JobNumber).HasMaxLength(64);
+        modelBuilder.Entity<FinalAccountsSyncJob>().Property(item => item.Mode).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsSyncJob>().Property(item => item.ModulesCsv).HasMaxLength(300);
+        modelBuilder.Entity<FinalAccountsSyncJob>().Property(item => item.IdempotencyKey).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsSyncJob>().Property(item => item.LastCheckpoint).HasMaxLength(240);
+        modelBuilder.Entity<FinalAccountsSyncJob>().Property(item => item.ErrorPolicy).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsSyncJob>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsSyncJob>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsSyncJob>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().ToTable("fa_sync_job_items", "final_accounts");
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().HasIndex(item => new { item.JobId, item.SourceType, item.SourceId }).IsUnique();
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.SourceType, item.SourceId });
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().HasIndex(item => new { item.JobId, item.Status, item.NextAttemptAt });
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().Property(item => item.SourceType).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().Property(item => item.SourceReference).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().Property(item => item.SourceAmount).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().Property(item => item.SourceHash).HasMaxLength(128);
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().Property(item => item.ErrorCode).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().Property(item => item.ErrorMessage).HasMaxLength(1000);
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsSyncCheckpoint>().ToTable("fa_sync_checkpoints", "final_accounts");
+        modelBuilder.Entity<FinalAccountsSyncCheckpoint>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.Module, item.CheckpointKey }).IsUnique();
+        modelBuilder.Entity<FinalAccountsSyncCheckpoint>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.Module, item.UpdatedAt });
+        modelBuilder.Entity<FinalAccountsSyncCheckpoint>().Property(item => item.Module).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsSyncCheckpoint>().Property(item => item.CheckpointKey).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsSyncCheckpoint>().Property(item => item.LastSourceHash).HasMaxLength(128);
+        modelBuilder.Entity<FinalAccountsSyncCheckpoint>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsSyncCheckpoint>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsSyncException>().ToTable("fa_sync_exceptions", "final_accounts");
+        modelBuilder.Entity<FinalAccountsSyncException>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.Resolved, item.CreatedAt });
+        modelBuilder.Entity<FinalAccountsSyncException>().HasIndex(item => new { item.JobId, item.JobItemId });
+        modelBuilder.Entity<FinalAccountsSyncException>().HasIndex(item => new { item.SourceType, item.SourceId, item.Resolved });
+        modelBuilder.Entity<FinalAccountsSyncException>().Property(item => item.SourceType).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsSyncException>().Property(item => item.Severity).HasMaxLength(24);
+        modelBuilder.Entity<FinalAccountsSyncException>().Property(item => item.Category).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsSyncException>().Property(item => item.Code).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsSyncException>().Property(item => item.Message).HasMaxLength(1000);
+        modelBuilder.Entity<FinalAccountsSyncException>().Property(item => item.ResolvedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsSyncException>().Property(item => item.ResolutionNotes).HasMaxLength(500);
+        modelBuilder.Entity<FinalAccountsSyncException>().Property(item => item.Revision).IsConcurrencyToken();
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
