@@ -23,7 +23,8 @@ public sealed record PettyCashPreparation(
     decimal NonCashSale,
     decimal CashInHand,
     string OpeningBalanceSource,
-    IReadOnlyList<string> CalculationNotes);
+    IReadOnlyList<string> CalculationNotes,
+    decimal SalaryPayments = 0);
 
 public static class PettyCashEndpoints
 {
@@ -383,8 +384,13 @@ private static async Task<IReadOnlyList<PettyCashTransactionLine>> BuildTransact
         var bankWithdrawal = bankCash.Where(item => item.TransactionType == TransactionType.Withdraw).Sum(item => item.Amount);
         var bankDeposit = bankCash.Where(item => item.TransactionType == TransactionType.Deposit).Sum(item => item.Amount);
 
+        var salaryPayments = await db.SalaryPayments.AsNoTracking()
+            .Where(item => item.StoreId == storeId && !item.Deleted && item.PaymentMode == PaymentMode.Cash
+                && item.OnDate >= dayStart && item.OnDate < dayEnd)
+            .SumAsync(item => item.Amount, cancellationToken);
+
         var sales = invoices.Sum(item => item.BillAmount);
-        var cashInHand = opening + sales + receipts + dueReceipts + bankWithdrawal - expenses - payments - customerDue - bankDeposit - nonCashSales;
+        var cashInHand = opening + sales + receipts + dueReceipts + bankWithdrawal - expenses - payments - customerDue - bankDeposit - nonCashSales - salaryPayments;
         var notes = new List<string>
         {
             "Sales use the day's invoice total; credit and non-cash portions are deducted separately.",
@@ -394,6 +400,10 @@ private static async Task<IReadOnlyList<PettyCashTransactionLine>> BuildTransact
         if (previousSheet is null)
         {
             notes.Insert(0, $"No petty cash sheet was found for {previousDate:dd MMM yyyy}; opening balance is zero.");
+        }
+        if (salaryPayments > 0)
+        {
+            notes.Add($"Includes {Round(salaryPayments):0.00} in cash salary payments made today (from Salary Payment records), already subtracted from cash in hand.");
         }
 
         return new PettyCashPreparation(
@@ -411,7 +421,8 @@ private static async Task<IReadOnlyList<PettyCashTransactionLine>> BuildTransact
             Round(nonCashSales),
             Round(cashInHand),
             previousSheet is null ? "No previous-day sheet" : $"Closing balance for {previousDate:dd MMM yyyy}",
-            notes);
+            notes,
+            Round(salaryPayments));
     }
 
     private static List<object> FindDifferences(PettyCashSheet actual, PettyCashPreparation expected)

@@ -98,7 +98,8 @@ public sealed record PettyCashBookSummaryDto(
     DateTime? PreviousPettyCashDate,
     decimal OpeningBalanceDifference,
     bool OpeningBalanceMismatch,
-    string OpeningBalanceMismatchMessage);
+    string OpeningBalanceMismatchMessage,
+    decimal SalaryPayments = 0);
 
 internal sealed record PreviousPettyCashClosingInfo(
     bool Found,
@@ -551,7 +552,7 @@ private static async Task<IResult> VoidDayCloseAsync(
         var customerDue = Math.Round(draft.CustomerDue, 2);
         var bankDeposit = Math.Round(draft.BankDeposit, 2);
         var nonCashSale = Math.Round(draft.NonCashSale, 2);
-        var cashInHand = Math.Round(opening + sales + receipts + dueReceipts + bankWithdrawal - expenses - payments - customerDue - bankDeposit - nonCashSale, 2);
+        var cashInHand = Math.Round(opening + sales + receipts + dueReceipts + bankWithdrawal - expenses - payments - customerDue - bankDeposit - nonCashSale - current.SalaryPayments, 2);
         var difference = current.PreviousPettyCashClosingBalance.HasValue
             ? Math.Round(opening - current.PreviousPettyCashClosingBalance.Value, 2)
             : 0m;
@@ -681,8 +682,13 @@ private static async Task<IResult> VoidDayCloseAsync(
         var bankWithdrawal = bankCash.Where(item => item.TransactionType == TransactionType.Withdraw).Sum(item => item.Amount);
         var bankDeposit = bankCash.Where(item => item.TransactionType == TransactionType.Deposit).Sum(item => item.Amount);
 
+        var salaryPayments = await db.SalaryPayments.AsNoTracking()
+            .Where(item => item.StoreId == storeId && !item.Deleted && item.PaymentMode == PaymentMode.Cash
+                && item.OnDate >= dayStart && item.OnDate < dayEnd)
+            .SumAsync(item => item.Amount, cancellationToken);
+
         var sales = invoices.Sum(item => item.BillAmount);
-        var cashInHand = opening + sales + receipts + dueReceipts + bankWithdrawal - expenses - payments - customerDue - bankDeposit - nonCashSales;
+        var cashInHand = opening + sales + receipts + dueReceipts + bankWithdrawal - expenses - payments - customerDue - bankDeposit - nonCashSales - salaryPayments;
         var notes = new List<string>
         {
             dayBegin is not null
@@ -697,6 +703,10 @@ private static async Task<IResult> VoidDayCloseAsync(
         if (!previousPettyCash.Found)
         {
             notes.Add("No previous petty cash sheet was found; today's Day Open amount is authoritative.");
+        }
+        if (salaryPayments > 0)
+        {
+            notes.Add($"Includes {Math.Round(salaryPayments, 2):0.00} in cash salary payments made today (from Salary Payment records), already subtracted from cash in hand.");
         }
 
         return new PettyCashBookSummaryDto(
@@ -718,7 +728,8 @@ private static async Task<IResult> VoidDayCloseAsync(
             previousPettyCash.OnDate,
             openingDifference,
             openingMismatch,
-            openingMismatchMessage);
+            openingMismatchMessage,
+            Math.Round(salaryPayments, 2));
     }
 
     private static bool CanUseStore(HttpContext context, Guid storeId)

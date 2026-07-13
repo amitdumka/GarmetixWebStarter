@@ -45,7 +45,7 @@
         </div>
 
         <div class="garmetix-section-card">
-          <div class="grid gap-3 md:grid-cols-3">
+          <div class="grid gap-3 md:grid-cols-4">
             <UFormField label="Book closing cash">
               <UInput :model-value="money(status?.bookSummary?.cashInHand || 0)" readonly />
             </UFormField>
@@ -54,6 +54,9 @@
             </UFormField>
             <UFormField label="Difference">
               <UInput :model-value="money((closingCashAmount || pettyCashBookCash) - pettyCashBookCash)" readonly />
+            </UFormField>
+            <UFormField label="Salary paid in cash today">
+              <UInput :model-value="money(status?.bookSummary?.salaryPayments || 0)" readonly />
             </UFormField>
           </div>
           <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">

@@ -295,6 +295,56 @@ public static class DayBookEndpoints
                 "Open Vendor Payment");
         }));
 
+        var salaryPayments = await WorkspaceScope.ApplyTo(db.SalaryPayments.AsNoTracking(), context)
+            .Where(item => !item.Deleted && item.OnDate >= start && item.OnDate < endExclusive)
+            .Select(item => new
+            {
+                item.Id,
+                item.EmployeeId,
+                item.VoucherNumber,
+                item.OnDate,
+                item.SalaryComponent,
+                item.Amount,
+                item.PaymentMode,
+                item.Remarks,
+                item.CompanyId,
+                item.StoreGroupId,
+                item.StoreId
+            })
+            .ToListAsync(cancellationToken);
+        var salaryPaymentEmployeeIds = salaryPayments.Select(item => item.EmployeeId).Distinct().ToArray();
+        var salaryPaymentEmployeeNames = salaryPaymentEmployeeIds.Length == 0
+            ? new Dictionary<Guid, string>()
+            : await db.Employees.AsNoTracking()
+                .Where(item => salaryPaymentEmployeeIds.Contains(item.Id))
+                .Select(item => new { item.Id, item.FirstName, item.LastName })
+                .ToDictionaryAsync(item => item.Id, item => $"{item.FirstName} {item.LastName}".Trim(), cancellationToken);
+
+        rows.AddRange(salaryPayments.Select(item =>
+        {
+            salaryPaymentEmployeeNames.TryGetValue(item.EmployeeId, out var employeeName);
+            employeeName = Clean(employeeName) ?? "Employee";
+            return new DayBookRowDto(
+                item.Id,
+                "SalaryPayment",
+                "Salary Payment",
+                item.VoucherNumber,
+                item.OnDate,
+                employeeName,
+                Clean(item.Remarks) ?? $"{item.SalaryComponent} payment to {employeeName}",
+                item.Amount,
+                0m,
+                -item.Amount,
+                item.PaymentMode.ToString(),
+                "Posted",
+                item.CompanyId,
+                item.StoreGroupId,
+                item.StoreId,
+                $"/attendance/salary-payment?paymentId={item.Id}",
+                $"day-book/SalaryPayment/{item.Id}",
+                "Open Salary Payment");
+        }));
+
         var showJournalEntries = includeJournal || string.Equals(type, "journal", StringComparison.OrdinalIgnoreCase);
         if (showJournalEntries)
         {
@@ -360,7 +410,7 @@ public static class DayBookEndpoints
             rows.Count(item => item.DocumentType == "SaleInvoice"),
             rows.Count(item => item.DocumentType == "PurchaseInward"),
             rows.Count(item => item.DocumentType is "Voucher" or "CashVoucher"),
-            rows.Count(item => item.DocumentType is "CustomerReceipt" or "VendorPayment"),
+            rows.Count(item => item.DocumentType is "CustomerReceipt" or "VendorPayment" or "SalaryPayment"),
             rows.Count(item => item.DocumentType == "JournalEntry"));
 
         page = Math.Max(page, 1);
@@ -500,6 +550,7 @@ public static class DayBookEndpoints
             "cashvoucher" => await CashVoucherDetailAsync(context, db, id, cancellationToken),
             "customerreceipt" => await CustomerReceiptDetailAsync(context, db, id, cancellationToken),
             "vendorpayment" => await VendorPaymentDetailAsync(context, db, id, cancellationToken),
+            "salarypayment" => await SalaryPaymentDetailAsync(context, db, id, cancellationToken),
             "journalentry" => await JournalDetailAsync(context, db, id, cancellationToken),
             _ => Results.BadRequest(new { message = "Unsupported Day Book document type." })
         };
@@ -623,6 +674,17 @@ public static class DayBookEndpoints
         return Results.Ok(new DayBookDetailDto(row, detail, related, row.SourcePath, row.OpenActionLabel));
     }
 
+    private static async Task<IResult> SalaryPaymentDetailAsync(HttpContext context, GarmetixDbContext db, Guid id, CancellationToken cancellationToken)
+    {
+        var payment = await WorkspaceScope.ApplyTo(db.SalaryPayments.AsNoTracking(), context).FirstOrDefaultAsync(item => item.Id == id && !item.Deleted, cancellationToken);
+        if (payment is null) return Results.NotFound(new { message = "Salary payment not found." });
+        var employee = await db.Employees.AsNoTracking().FirstOrDefaultAsync(item => item.Id == payment.EmployeeId, cancellationToken);
+        var employeeName = Clean($"{employee?.FirstName} {employee?.LastName}".Trim()) ?? "Employee";
+        var detail = new { payment.Id, payment.EmployeeId, EmployeeName = employeeName, payment.VoucherNumber, payment.OnDate, payment.SalaryMonth, payment.SalaryComponent, payment.GrossSalary, payment.TotalDeductions, payment.NetSalary, payment.Amount, payment.PaymentMode, payment.Remarks };
+        var row = new DayBookRowDto(id, "SalaryPayment", "Salary Payment", payment.VoucherNumber, payment.OnDate, employeeName, Clean(payment.Remarks) ?? $"{payment.SalaryComponent} payment to {employeeName}", payment.Amount, 0m, -payment.Amount, payment.PaymentMode.ToString(), "Posted", payment.CompanyId, payment.StoreGroupId, payment.StoreId, $"/attendance/salary-payment?paymentId={id}", $"day-book/SalaryPayment/{id}", "Open Salary Payment");
+        return Results.Ok(new DayBookDetailDto(row, detail, Array.Empty<object>(), row.SourcePath, row.OpenActionLabel));
+    }
+
     private static async Task<IResult> JournalDetailAsync(HttpContext context, GarmetixDbContext db, Guid id, CancellationToken cancellationToken)
     {
         var journal = await WorkspaceScope.ApplyTo(db.JournalEntries.AsNoTracking(), context).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
@@ -641,7 +703,8 @@ public static class DayBookEndpoints
             "sales" => rows.Where(item => item.DocumentType == "SaleInvoice" || item.DocumentType == "CustomerReceipt"),
             "purchase" => rows.Where(item => item.DocumentType == "PurchaseInward" || item.DocumentType == "VendorPayment"),
             "vouchers" => rows.Where(item => item.DocumentType is "Voucher" or "CashVoucher"),
-            "payments" => rows.Where(item => item.DocumentType is "CustomerReceipt" or "VendorPayment"),
+            "payments" => rows.Where(item => item.DocumentType is "CustomerReceipt" or "VendorPayment" or "SalaryPayment"),
+            "salary" => rows.Where(item => item.DocumentType == "SalaryPayment"),
             "journal" => rows.Where(item => item.DocumentType == "JournalEntry"),
             _ => rows.Where(item => item.DocumentType.Equals(type, StringComparison.OrdinalIgnoreCase) || item.DocumentSubType.Equals(type, StringComparison.OrdinalIgnoreCase))
         };

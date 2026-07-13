@@ -280,6 +280,7 @@ const typeOptions = [
   { value: 'purchase', label: 'Purchase + vendor payments' },
   { value: 'vouchers', label: 'Vouchers' },
   { value: 'payments', label: 'Payments only' },
+  { value: 'salary', label: 'Salary payments' },
   { value: 'journal', label: 'Journal entries' }
 ]
 const pageSizeOptions = [25, 50, 100, 200].map(value => ({ value, label: `${value} rows` }))
@@ -322,7 +323,8 @@ const quickAddItems = computed(() => [[
   { label: 'Add Vendor Payment', icon: 'i-lucide-hand-coins', onSelect: () => openMappedSource('/vendor-payments?new=invoice', 'books') },
   { label: 'Add Vendor Advance', icon: 'i-lucide-wallet-cards', onSelect: () => openMappedSource('/vendor-payments?new=advance', 'books') },
   { label: 'New Book Voucher', icon: 'i-lucide-banknote', onSelect: () => openMappedSource('/vouchers?new=1', 'books') },
-  { label: 'New Cash Voucher', icon: 'i-lucide-wallet', onSelect: () => openMappedSource('/cash-vouchers?new=1', 'pos') }
+  { label: 'New Cash Voucher', icon: 'i-lucide-wallet', onSelect: () => openMappedSource('/cash-vouchers?new=1', 'pos') },
+  { label: 'New Salary Payment', icon: 'i-lucide-badge-indian-rupee', onSelect: () => openMappedSource('/attendance/salary-payment', 'hr') }
 ]])
 
 function buildDayBookQuery(exportMode = false) {
@@ -412,7 +414,7 @@ function openSource(row?: ApiRecord | null) {
   openMappedSource(mapped.path, mapped.app)
 }
 
-function openMappedSource(path: string, app: 'main' | 'pos' | 'books') {
+function openMappedSource(path: string, app: 'main' | 'pos' | 'books' | 'hr') {
   if (!import.meta.client) return
   persistDayBookState()
   const target = withDayBookReturnHint(path)
@@ -423,11 +425,11 @@ function openMappedSource(path: string, app: 'main' | 'pos' | 'books') {
   window.location.assign(joinAppPath(app, target))
 }
 
-function mapLegacySourcePath(sourcePath: string, row?: ApiRecord): { app: 'main' | 'pos' | 'books', path: string } {
+function mapLegacySourcePath(sourcePath: string, row?: ApiRecord): { app: 'main' | 'pos' | 'books' | 'hr', path: string } {
   const [pathAndQuery, hash = ''] = String(sourcePath || '').split('#')
   const [rawPath, rawQuery = ''] = pathAndQuery.split('?')
   const query = new URLSearchParams(rawQuery)
-  let app: 'main' | 'pos' | 'books' = 'books'
+  let app: 'main' | 'pos' | 'books' | 'hr' = 'books'
   let path = rawPath || '/'
 
   if (path.startsWith('/billing')) {
@@ -438,6 +440,8 @@ function mapLegacySourcePath(sourcePath: string, row?: ApiRecord): { app: 'main'
     path = path.replace(/^\/purchase(?=\/|$)/, '/purchase') || '/purchase'
   } else if (path.startsWith('/cash-vouchers')) {
     app = 'pos'
+  } else if (path.startsWith('/attendance/salary-payment')) {
+    app = 'hr'
   } else if (path.startsWith('/vendor-payments') || path.startsWith('/vouchers') || path.startsWith('/accounting')) {
     app = 'books'
   }
@@ -448,6 +452,7 @@ function mapLegacySourcePath(sourcePath: string, row?: ApiRecord): { app: 'main'
     if (type === 'SaleInvoice' && id && !query.has('invoiceId')) query.set('invoiceId', id)
     if (type === 'Voucher' && id && !query.has('voucherId')) query.set('voucherId', id)
     if (type === 'VendorPayment' && id && !query.has('paymentId')) query.set('paymentId', id)
+    if (type === 'SalaryPayment' && id && !query.has('paymentId')) query.set('paymentId', id)
   }
 
   const queryText = query.toString()
@@ -465,18 +470,19 @@ function withDayBookReturnHint(path: string) {
   return `${rawPath || '/'}${queryText ? `?${queryText}` : ''}${hash ? `#${hash}` : ''}`
 }
 
-function joinAppPath(app: 'main' | 'pos' | 'books', path: string) {
+function joinAppPath(app: 'main' | 'pos' | 'books' | 'hr', path: string) {
   const configured = appUrl(app)
   const base = configured || fallbackAppBase(app)
   const cleanPath = path.startsWith('/') ? path : `/${path}`
   return `${base.replace(/\/+$/, '')}${cleanPath}`
 }
 
-function appUrl(app: 'main' | 'pos' | 'books') {
+function appUrl(app: 'main' | 'pos' | 'books' | 'hr') {
   const keyMap = {
     main: ['NUXT_PUBLIC_GARMETIX_MAIN_URL', 'NUXT_PUBLIC_MAIN_WEB_URL'],
     pos: ['NUXT_PUBLIC_GARMETIX_POS_URL', 'NUXT_PUBLIC_POS_WEB_URL'],
-    books: ['NUXT_PUBLIC_GARMETIX_BOOKS_URL', 'NUXT_PUBLIC_ACCOUNTING_WEB_URL']
+    books: ['NUXT_PUBLIC_GARMETIX_BOOKS_URL', 'NUXT_PUBLIC_ACCOUNTING_WEB_URL'],
+    hr: ['NUXT_PUBLIC_GARMETIX_HR_URL', 'NUXT_PUBLIC_HR_WEB_URL']
   }[app]
   for (const key of keyMap) {
     const value = String(appUrls.value[key] || '').trim()
@@ -485,9 +491,10 @@ function appUrl(app: 'main' | 'pos' | 'books') {
   return ''
 }
 
-function fallbackAppBase(app: 'main' | 'pos' | 'books') {
+function fallbackAppBase(app: 'main' | 'pos' | 'books' | 'hr') {
   if (app === 'main') return ''
   if (app === 'pos') return '/pos'
+  if (app === 'hr') return '/hr'
   return ''
 }
 
