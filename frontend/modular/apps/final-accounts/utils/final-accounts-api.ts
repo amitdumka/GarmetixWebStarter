@@ -41,6 +41,8 @@ export type FinalAccountsNaturalBalance = 'Debit' | 'Credit'
 export type FinalAccountsPeriodStatus = 'Draft' | 'Open' | 'Closed' | 'Locked'
 export type FinalAccountsMappingSourceType = 'Sales' | 'Purchase' | 'Inventory' | 'Gst' | 'Payroll' | 'CashBank' | 'Customer' | 'Vendor' | 'Adjustment' | 'Expense' | 'InterStore'
 export type FinalAccountsJournalStatus = 'Draft' | 'Posted' | 'Reversed'
+export type FinalAccountsAdjustmentStatus = 'Draft' | 'Submitted' | 'Review' | 'Approved' | 'Rejected' | 'Posted' | 'Reversed'
+export type FinalAccountsReportVersionKind = 'Provisional' | 'Adjusted' | 'Final'
 
 export interface FinalAccountsAccountGroup {
   id: string
@@ -243,6 +245,169 @@ export interface FinalAccountsJournalValidation {
   totalCredit: number
   difference: number
   issues: FinalAccountsValidationIssue[]
+}
+
+export interface FinalAccountsAdjustmentLinePayload {
+  accountId: string
+  debit: number
+  credit: number
+  narration?: string | null
+  statementLineKey?: string | null
+}
+
+export interface FinalAccountsAdjustmentPayload {
+  companyId?: string | null
+  storeGroupId?: string | null
+  storeId?: string | null
+  title: string
+  description?: string | null
+  adjustmentDate: string
+  fiscalPeriodId?: string | null
+  referenceNumber?: string | null
+  autoReverse: boolean
+  autoReverseDate?: string | null
+  lines: FinalAccountsAdjustmentLinePayload[]
+}
+
+export interface FinalAccountsAdjustmentLine {
+  id: string
+  accountId: string
+  accountCode?: string | null
+  accountName?: string | null
+  lineNumber: number
+  debit: number
+  credit: number
+  narration?: string | null
+  statementLineKey?: string | null
+}
+
+export interface FinalAccountsAdjustmentComment {
+  id: string
+  body: string
+  visibility: string
+  createdBy?: string | null
+  createdAt: string
+}
+
+export interface FinalAccountsAdjustmentAttachment {
+  id: string
+  fileName: string
+  contentType?: string | null
+  storageReference: string
+  notes?: string | null
+  uploadedBy?: string | null
+  createdAt: string
+}
+
+export interface FinalAccountsAdjustmentEvent {
+  at: string
+  event: string
+  actor?: string | null
+  detail: string
+}
+
+export interface FinalAccountsAdjustment {
+  id: string
+  companyId?: string | null
+  storeGroupId?: string | null
+  storeId?: string | null
+  batchNumber: string
+  title: string
+  description?: string | null
+  adjustmentDate: string
+  fiscalPeriodId?: string | null
+  status: FinalAccountsAdjustmentStatus
+  reportVersion: FinalAccountsReportVersionKind | string
+  auditStatus: string
+  autoReverse: boolean
+  autoReverseDate?: string | null
+  referenceNumber?: string | null
+  journalEntryId?: string | null
+  reversalJournalEntryId?: string | null
+  decisionNotes?: string | null
+  totalDebit: number
+  totalCredit: number
+  difference: number
+  revision: number
+  lines: FinalAccountsAdjustmentLine[]
+  comments: FinalAccountsAdjustmentComment[]
+  attachments: FinalAccountsAdjustmentAttachment[]
+  events: FinalAccountsAdjustmentEvent[]
+}
+
+export interface FinalAccountsAdjustmentListRow {
+  id: string
+  batchNumber: string
+  title: string
+  adjustmentDate: string
+  status: FinalAccountsAdjustmentStatus
+  reportVersion: FinalAccountsReportVersionKind | string
+  totalDebit: number
+  totalCredit: number
+  difference: number
+  autoReverse: boolean
+  autoReverseDate?: string | null
+  journalEntryId?: string | null
+  reversalJournalEntryId?: string | null
+  createdAt: string
+  updatedAt?: string | null
+}
+
+export interface FinalAccountsAdjustmentList {
+  page: number
+  pageSize: number
+  totalCount: number
+  rows: FinalAccountsAdjustmentListRow[]
+}
+
+export interface FinalAccountsAdjustmentPreviewLine {
+  accountId: string
+  accountCode: string
+  accountName: string
+  accountType: string
+  debit: number
+  credit: number
+  netImpact: number
+  statementImpact: string
+  statementLineKey?: string | null
+}
+
+export interface FinalAccountsAdjustmentPreview {
+  canPost: boolean
+  totalDebit: number
+  totalCredit: number
+  difference: number
+  reportVersionBefore: string
+  reportVersionAfter: string
+  profitLossImpact: number
+  balanceSheetImpact: number
+  lines: FinalAccountsAdjustmentPreviewLine[]
+  issues: FinalAccountsValidationIssue[]
+}
+
+export interface FinalAccountsStatementLineComment {
+  id: string
+  statementType: string
+  statementLineKey: string
+  reportVersion: string
+  periodFrom?: string | null
+  periodTo?: string | null
+  body: string
+  createdBy?: string | null
+  createdAt: string
+}
+
+export interface FinalAccountsReportVersion {
+  id: string
+  reportType: string
+  versionKind: string
+  periodFrom?: string | null
+  periodTo?: string | null
+  status: string
+  auditStatus: string
+  generatedAt: string
+  generatedBy?: string | null
+  notes?: string | null
 }
 
 export interface FinalAccountsGeneralLedgerReportRow {

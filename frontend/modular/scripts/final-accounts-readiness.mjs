@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-08 readiness')
+console.log('Garmetix Final Accounts BS-09 readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -53,8 +53,55 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapGet("/reports/cash-flow/export"',
   'MapGet("/reports/schedules"',
   'MapGet("/reports/schedules/export"',
+  'MapGet("/ca/adjustments"',
+  'MapPost("/ca/adjustments/preview"',
+  'MapPost("/ca/adjustments/{id:guid}/submit"',
+  'MapPost("/ca/adjustments/{id:guid}/approve"',
+  'MapPost("/ca/adjustments/{id:guid}/post"',
+  'MapPost("/ca/adjustments/{id:guid}/reverse"',
+  'MapPost("/ca/adjustments/{id:guid}/comments"',
+  'MapPost("/ca/adjustments/{id:guid}/attachments"',
+  'MapGet("/ca/statement-line-comments"',
+  'MapGet("/ca/report-versions"',
   'MapGet("/coa/seed-preview"',
   'MapGet("/validation/summary"'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsCaWorkspaceService.cs', [
+  'FinalAccountsCaWorkspaceService',
+  'ListAdjustmentsAsync',
+  'CreateAdjustmentAsync',
+  'UpdateAdjustmentAsync',
+  'MoveAdjustmentAsync',
+  'PostAdjustmentAsync',
+  'ReverseAdjustmentAsync',
+  'AddCommentAsync',
+  'AddAttachmentAsync',
+  'AddStatementLineCommentAsync',
+  'CreateReportVersionAsync',
+  'FinalAccountsCaWorkspaceRules.AuditStatusUnaudited',
+  'FinalAccountsCaWorkspaceRules.CaAdjustmentSourceType',
+  'AuditLogEntry',
+  'BuildPreviewAsync'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsCaWorkspaceRules.cs', [
+  'FinalAccountsCaWorkspaceRules',
+  'CanTransition',
+  'ReportVersionFor',
+  'AuditStatusUnaudited',
+  'CaAdjustmentSourceType',
+  'CaAdjustmentReversalSourceType'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsCaWorkspaceContracts.cs', [
+  'FinalAccountsAdjustmentSaveRequest',
+  'FinalAccountsAdjustmentWorkflowRequest',
+  'FinalAccountsAdjustmentPostRequest',
+  'FinalAccountsAdjustmentReverseRequest',
+  'FinalAccountsAdjustmentPreviewResponse',
+  'FinalAccountsStatementLineCommentRequest',
+  'FinalAccountsReportVersionRequest'
 ])
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsCatalogService.cs', [
@@ -391,6 +438,7 @@ checkFile('backend/Garmetix.Api/Program.cs', [
   'FinalAccountsPostingAdapterService',
   'FinalAccountsSyncService',
   'FinalAccountsReportService',
+  'FinalAccountsCaWorkspaceService',
   'SalesInvoiceAdapter',
   'SalesReturnAdapter',
   'SalesInvoiceCancellationAdapter',
@@ -477,6 +525,13 @@ checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsReportRulesTest
   'ScheduleAndCashFlowClassificationsUseAccountShape'
 ])
 
+checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsCaWorkspaceRulesTests.cs', [
+  'WorkflowAllowsExpectedCaTransitions',
+  'WorkflowBlocksSkippedOrBackwardTransitions',
+  'WorkflowMapsReportVersionsWithoutAuditedStatus',
+  'PostedAndReversedAdjustmentsAreImmutable'
+])
+
 checkFile('docs/final-accounts-bs-04d-inventory-cogs.md', [
   'perpetual weighted-average',
   'No closing-stock journal',
@@ -517,6 +572,17 @@ checkFile('backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsP
   'MappingCategory'
 ])
 
+checkFile('backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsCaWorkspace.cs', [
+  'FinalAccountsAdjustmentBatch',
+  'FinalAccountsAdjustmentLine',
+  'FinalAccountsAdjustmentAttachment',
+  'FinalAccountsAdjustmentComment',
+  'FinalAccountsStatementLineComment',
+  'FinalAccountsReportVersion',
+  'FinalAccountsAdjustmentStatus',
+  'FinalAccountsReportVersionKind'
+])
+
 checkFile('backend/Garmetix.Infrastructure/Data/Migrations/20260713162000_AddFinalAccountsCatalogAndFiscalPeriods.cs', [
   'fa_account_groups',
   'fa_accounts',
@@ -551,6 +617,16 @@ checkFile('backend/Garmetix.Infrastructure/Data/Migrations/20260713190000_AddFin
   'IX_fa_sync_exceptions_source_resolved'
 ])
 
+checkFile('backend/Garmetix.Infrastructure/Data/Migrations/20260714120000_AddFinalAccountsCaWorkspace.cs', [
+  'fa_ca_adjustment_batches',
+  'fa_ca_adjustment_lines',
+  'fa_ca_adjustment_comments',
+  'fa_ca_adjustment_attachments',
+  'fa_statement_line_comments',
+  'fa_report_versions',
+  'CK_fa_ca_adjustment_lines_single_side'
+])
+
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEnabledFilter.cs', [
   'StatusCodes.Status403Forbidden',
   'Final Accounts module is disabled',
@@ -580,6 +656,7 @@ checkFile('frontend/modular/config/routes.ts', [
   "id: 'final-accounts-fiscal-periods'",
   "id: 'final-accounts-general-ledger'",
   "id: 'final-accounts-reports'",
+  "id: 'final-accounts-ca-workspace'",
   "id: 'final-accounts-posting-rules'",
   "showInMenu: false",
   "targetApp: 'final-accounts'"
@@ -591,6 +668,7 @@ checkFile('frontend/modular/packages/shared-ui/components/ModularAppShell.vue', 
   "href: '/fiscal-periods'",
   "href: '/general-ledger'",
   "href: '/reports'",
+  "href: '/ca-workspace'",
   "href: '/posting-rules'",
   "href: '/setup'",
   "'final-accounts': '/final-accounts/'"
@@ -599,6 +677,7 @@ checkFile('frontend/modular/packages/shared-ui/components/ModularAppShell.vue', 
 checkFile('frontend/modular/apps/final-accounts/pages/index.vue', [
   'Status unavailable',
   ':loading="loading"',
+  'to="/ca-workspace"',
   'statusCards'
 ])
 
@@ -655,6 +734,21 @@ checkFile('frontend/modular/apps/final-accounts/pages/reports.vue', [
   'Comparison'
 ])
 
+checkFile('frontend/modular/apps/final-accounts/pages/ca-workspace.vue', [
+  'CA Workspace',
+  'ca/adjustments',
+  'ca/adjustments/preview',
+  "'submit'",
+  "'review'",
+  "'approve'",
+  '/post',
+  '/reverse',
+  '/comments',
+  '/attachments',
+  'Impact Preview',
+  'Audit Status'
+])
+
 checkFile('frontend/modular/apps/final-accounts/pages/posting-rules.vue', [
   'Posting Rules',
   'posting-rules/mapping-validation',
@@ -679,6 +773,11 @@ checkFile('frontend/modular/apps/final-accounts/utils/final-accounts-api.ts', [
   'FinalAccountsBalanceSheetReport',
   'FinalAccountsCashFlowReport',
   'FinalAccountsSchedulesReport',
+  'FinalAccountsAdjustment',
+  'FinalAccountsAdjustmentPayload',
+  'FinalAccountsAdjustmentPreview',
+  'FinalAccountsStatementLineComment',
+  'FinalAccountsReportVersion',
   'FinalAccountsStatementTemplate',
   'async function download',
   'async function post',
@@ -700,7 +799,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-08 readiness passed.')
+console.log('\nFinal Accounts BS-09 readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)

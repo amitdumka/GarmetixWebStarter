@@ -471,6 +471,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
         { id: 'fiscal-periods', label: 'Fiscal Periods', href: '/fiscal-periods', icon: 'i-lucide-calendar-range' },
         { id: 'general-ledger', label: 'General Ledger', href: '/general-ledger', icon: 'i-lucide-book-open-check' },
         { id: 'reports', label: 'Reports', href: '/reports', icon: 'i-lucide-scale' },
+        { id: 'ca-workspace', label: 'CA Workspace', href: '/ca-workspace', icon: 'i-lucide-clipboard-check' },
         { id: 'posting-rules', label: 'Posting Rules', href: '/posting-rules', icon: 'i-lucide-route' },
         { id: 'setup', label: 'Setup', href: '/setup', icon: 'i-lucide-sliders-horizontal' }
       ] }

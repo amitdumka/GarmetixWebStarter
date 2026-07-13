@@ -1,4 +1,5 @@
 using Garmetix.Api.Auth;
+using Garmetix.Core.Models.FinalAccounts;
 
 namespace Garmetix.Api.FinalAccounts;
 
@@ -69,6 +70,24 @@ public static class FinalAccountsEndpoints
         enabled.MapGet("/reports/cash-flow/export", ExportCashFlowReportAsync);
         enabled.MapGet("/reports/schedules", GetSchedulesReportAsync);
         enabled.MapGet("/reports/schedules/export", ExportSchedulesReportAsync);
+        enabled.MapGet("/ca/adjustments", ListCaAdjustmentsAsync);
+        enabled.MapGet("/ca/adjustments/{id:guid}", GetCaAdjustmentAsync);
+        enabled.MapPost("/ca/adjustments/preview", PreviewCaAdjustmentAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        enabled.MapPost("/ca/adjustments", CreateCaAdjustmentAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        enabled.MapPut("/ca/adjustments/{id:guid}", UpdateCaAdjustmentAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        enabled.MapPost("/ca/adjustments/{id:guid}/preview", PreviewSavedCaAdjustmentAsync);
+        enabled.MapPost("/ca/adjustments/{id:guid}/submit", SubmitCaAdjustmentAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        enabled.MapPost("/ca/adjustments/{id:guid}/review", ReviewCaAdjustmentAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        enabled.MapPost("/ca/adjustments/{id:guid}/approve", ApproveCaAdjustmentAsync).RequireAuthorization(GarmetixPolicies.Admin);
+        enabled.MapPost("/ca/adjustments/{id:guid}/reject", RejectCaAdjustmentAsync).RequireAuthorization(GarmetixPolicies.Admin);
+        enabled.MapPost("/ca/adjustments/{id:guid}/post", PostCaAdjustmentAsync).RequireAuthorization(GarmetixPolicies.Admin);
+        enabled.MapPost("/ca/adjustments/{id:guid}/reverse", ReverseCaAdjustmentAsync).RequireAuthorization(GarmetixPolicies.Admin);
+        enabled.MapPost("/ca/adjustments/{id:guid}/comments", AddCaAdjustmentCommentAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        enabled.MapPost("/ca/adjustments/{id:guid}/attachments", AddCaAdjustmentAttachmentAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        enabled.MapGet("/ca/statement-line-comments", ListStatementLineCommentsAsync);
+        enabled.MapPost("/ca/statement-line-comments", AddStatementLineCommentAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        enabled.MapGet("/ca/report-versions", ListReportVersionsAsync);
+        enabled.MapPost("/ca/report-versions", CreateReportVersionAsync).RequireAuthorization(GarmetixPolicies.Admin);
         enabled.MapGet("/coa/seed-preview", GetSeedPreviewAsync);
         enabled.MapGet("/validation/summary", GetValidationSummaryAsync);
 
@@ -734,6 +753,200 @@ public static class FinalAccountsEndpoints
             return ToErrorResult(ex);
         }
     }
+
+    private static Task<IResult> ListCaAdjustmentsAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        string? status,
+        DateTime? from,
+        DateTime? to,
+        int? page,
+        int? pageSize,
+        FinalAccountsCaWorkspaceService ca,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => ca.ListAdjustmentsAsync(
+            new FinalAccountsAdjustmentQuery(companyId, storeGroupId, storeId, status, from, to, page, pageSize),
+            context,
+            cancellationToken));
+
+    private static Task<IResult> GetCaAdjustmentAsync(
+        Guid id,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsCaWorkspaceService ca,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => ca.GetAdjustmentAsync(id, new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), context, cancellationToken));
+
+    private static Task<IResult> PreviewCaAdjustmentAsync(
+        FinalAccountsAdjustmentSaveRequest request,
+        FinalAccountsCaWorkspaceService ca,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => ca.PreviewAdjustmentAsync(request, context, cancellationToken));
+
+    private static Task<IResult> PreviewSavedCaAdjustmentAsync(
+        Guid id,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsCaWorkspaceService ca,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => ca.PreviewAdjustmentAsync(id, new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), context, cancellationToken));
+
+    private static Task<IResult> CreateCaAdjustmentAsync(
+        FinalAccountsAdjustmentSaveRequest request,
+        FinalAccountsCaWorkspaceService ca,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => ca.CreateAdjustmentAsync(request, context, cancellationToken));
+
+    private static Task<IResult> UpdateCaAdjustmentAsync(
+        Guid id,
+        FinalAccountsAdjustmentSaveRequest request,
+        FinalAccountsCaWorkspaceService ca,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => ca.UpdateAdjustmentAsync(id, request, context, cancellationToken));
+
+    private static Task<IResult> SubmitCaAdjustmentAsync(
+        Guid id,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsAdjustmentWorkflowRequest request,
+        FinalAccountsCaWorkspaceService ca,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => MoveCaAdjustmentAsync(id, companyId, storeGroupId, storeId, FinalAccountsAdjustmentStatus.Submitted, request, ca, context, cancellationToken);
+
+    private static Task<IResult> ReviewCaAdjustmentAsync(
+        Guid id,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsAdjustmentWorkflowRequest request,
+        FinalAccountsCaWorkspaceService ca,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => MoveCaAdjustmentAsync(id, companyId, storeGroupId, storeId, FinalAccountsAdjustmentStatus.Review, request, ca, context, cancellationToken);
+
+    private static Task<IResult> ApproveCaAdjustmentAsync(
+        Guid id,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsAdjustmentWorkflowRequest request,
+        FinalAccountsCaWorkspaceService ca,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => MoveCaAdjustmentAsync(id, companyId, storeGroupId, storeId, FinalAccountsAdjustmentStatus.Approved, request, ca, context, cancellationToken);
+
+    private static Task<IResult> RejectCaAdjustmentAsync(
+        Guid id,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsAdjustmentWorkflowRequest request,
+        FinalAccountsCaWorkspaceService ca,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => MoveCaAdjustmentAsync(id, companyId, storeGroupId, storeId, FinalAccountsAdjustmentStatus.Rejected, request, ca, context, cancellationToken);
+
+    private static Task<IResult> MoveCaAdjustmentAsync(
+        Guid id,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsAdjustmentStatus status,
+        FinalAccountsAdjustmentWorkflowRequest request,
+        FinalAccountsCaWorkspaceService ca,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => ca.MoveAdjustmentAsync(id, status, request, new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), context, cancellationToken));
+
+    private static Task<IResult> PostCaAdjustmentAsync(
+        Guid id,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsAdjustmentPostRequest request,
+        FinalAccountsCaWorkspaceService ca,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => ca.PostAdjustmentAsync(id, request, new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), context, cancellationToken));
+
+    private static Task<IResult> ReverseCaAdjustmentAsync(
+        Guid id,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsAdjustmentReverseRequest request,
+        FinalAccountsCaWorkspaceService ca,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => ca.ReverseAdjustmentAsync(id, request, new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), context, cancellationToken));
+
+    private static Task<IResult> AddCaAdjustmentCommentAsync(
+        Guid id,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsAdjustmentCommentRequest request,
+        FinalAccountsCaWorkspaceService ca,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => ca.AddCommentAsync(id, request, new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), context, cancellationToken));
+
+    private static Task<IResult> AddCaAdjustmentAttachmentAsync(
+        Guid id,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsAdjustmentAttachmentRequest request,
+        FinalAccountsCaWorkspaceService ca,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => ca.AddAttachmentAsync(id, request, new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), context, cancellationToken));
+
+    private static Task<IResult> ListStatementLineCommentsAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        string? statementType,
+        string? statementLineKey,
+        FinalAccountsCaWorkspaceService ca,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => ca.ListStatementLineCommentsAsync(companyId, storeGroupId, storeId, statementType, statementLineKey, context, cancellationToken));
+
+    private static Task<IResult> AddStatementLineCommentAsync(
+        FinalAccountsStatementLineCommentRequest request,
+        FinalAccountsCaWorkspaceService ca,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => ca.AddStatementLineCommentAsync(request, context, cancellationToken));
+
+    private static Task<IResult> ListReportVersionsAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        string? reportType,
+        FinalAccountsCaWorkspaceService ca,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => ca.ListReportVersionsAsync(companyId, storeGroupId, storeId, reportType, context, cancellationToken));
+
+    private static Task<IResult> CreateReportVersionAsync(
+        FinalAccountsReportVersionRequest request,
+        FinalAccountsCaWorkspaceService ca,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => ca.CreateReportVersionAsync(request, context, cancellationToken));
 
     private static Task<IResult> GetSeedPreviewAsync(
         Guid? companyId,

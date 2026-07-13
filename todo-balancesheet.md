@@ -1094,20 +1094,78 @@ Files added/changed:
 
 # BS-09 — CA workspace
 
-- [ ] Adjustment batch CRUD.
-- [ ] Draft/submitted/review/approve/reject states.
-- [ ] Adjustment journal preview.
-- [ ] Post approved adjustment.
-- [ ] Reverse adjustment.
-- [ ] Auto-reversing entry support.
-- [ ] Attachments.
-- [ ] Comments.
-- [ ] Statement-line comments.
-- [ ] P&L/Balance Sheet impact preview.
-- [ ] Provisional, adjusted and final report versions.
-- [ ] Prevent automatic “Audited” status.
-- [ ] Permission and audit tests.
-- [ ] Commit BS-09.
+- [x] Adjustment batch CRUD.
+- [x] Draft/submitted/review/approve/reject states.
+- [x] Adjustment journal preview.
+- [x] Post approved adjustment.
+- [x] Reverse adjustment.
+- [x] Auto-reversing entry support.
+- [x] Attachments.
+- [x] Comments.
+- [x] Statement-line comments.
+- [x] P&L/Balance Sheet impact preview.
+- [x] Provisional, adjusted and final report versions.
+- [x] Prevent automatic “Audited” status.
+- [x] Permission and audit tests.
+- [x] Commit BS-09.
+
+Evidence:
+
+```text
+Date: 2026-07-14
+Agent: Codex GPT-5
+Branch: balancesheet
+Worktree: C:\AIarea\Codex\bsheet\GarmetixWebStarter
+Commit: created by this stage commit; exact hash is reported in session output because a commit cannot contain its own final hash.
+
+Implementation:
+- Added a persisted CA workspace inside the isolated Final Accounts module for adjustment batches, lines, comments, attachments, statement-line comments and report versions.
+- Added workflow states Draft, Submitted, Review, Approved, Rejected, Posted and Reversed, with rule-based transition checks and immutable posted/reversed batches.
+- Added CA endpoints under /api/final-accounts/ca including adjustment CRUD, preview, submit, review, approve, reject, post, reverse, comments, attachments, statement-line comments and report-version APIs.
+- Added approved-adjustment posting into existing Final Accounts journals using source type CAAdjustment and CA-owned reversal using source type CAAdjustmentReversal.
+- Added P&L and Balance Sheet impact preview based on adjustment account types and statement-line keys.
+- Added auto-reversing metadata with reverse-date support; the actual reversal remains explicit through the CA reverse endpoint.
+- Added report-version records and response audit status that remains Unaudited; no automatic Audited status is created.
+- Added audit-log entries for CA workspace workflow actions.
+- Added CA Workspace frontend page at /final-accounts/ca-workspace and app-shell navigation.
+- Added EF model mapping and a source migration for final_accounts schema tables only.
+- No production migration, deployment, Docker, Cloudflare or operational source-table change was made.
+
+Commands/tests run:
+- dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release -p:UseSharedCompilation=false: passed with existing nullable warnings.
+- dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release -p:UseSharedCompilation=false: passed. Result: 180 passed, 3 skipped, 183 total.
+- npm run final-accounts:readiness in frontend/modular: passed for BS-09 markers.
+- npm run check in frontend/modular: passed.
+- npm run workspace-links in frontend/modular: passed.
+- npm run build:final-accounts in frontend/modular: passed and prerendered /ca-workspace with existing Nuxt/Rollup warning pattern.
+- npm run validate in frontend/modular: failed on existing Main Back Office contract parity token; frontend/modular/apps/main/pages/purchase/index.vue is missing purchase/invoices/recent.
+- git diff --check: no whitespace errors; Git reported existing LF-to-CRLF normalization warnings for touched files.
+
+Known unresolved issues:
+- No live database-backed CA workflow was run because local PostgreSQL application data was not available.
+- Auto-reversing is represented by batch metadata and explicit reverse workflow; no scheduler/background worker is enabled in BS-09.
+- P&L/Balance Sheet impact preview is account-type based until persisted statement-line mapping hardening is added.
+- frontend/modular npm run validate is still expected to fail on the existing Main Back Office contract parity token unless that unrelated baseline is fixed.
+- npm ci remains expected to fail until package-lock.json is refreshed for the existing workspace app additions; BS-09 did not update package-lock.json.
+
+Files added/changed:
+- backend/Garmetix.Api/FinalAccounts/FinalAccountsCaWorkspaceContracts.cs
+- backend/Garmetix.Api/FinalAccounts/FinalAccountsCaWorkspaceRules.cs
+- backend/Garmetix.Api/FinalAccounts/FinalAccountsCaWorkspaceService.cs
+- backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs
+- backend/Garmetix.Api/Program.cs
+- backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsCaWorkspaceRulesTests.cs
+- backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsCaWorkspace.cs
+- backend/Garmetix.Infrastructure/Data/GarmetixDbContext.cs
+- backend/Garmetix.Infrastructure/Data/Migrations/20260714120000_AddFinalAccountsCaWorkspace.cs
+- frontend/modular/apps/final-accounts/pages/ca-workspace.vue
+- frontend/modular/apps/final-accounts/pages/index.vue
+- frontend/modular/apps/final-accounts/utils/final-accounts-api.ts
+- frontend/modular/config/routes.ts
+- frontend/modular/packages/shared-ui/components/ModularAppShell.vue
+- frontend/modular/scripts/final-accounts-readiness.mjs
+- todo-balancesheet.md
+```
 
 ---
 
