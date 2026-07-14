@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-15 readiness')
+console.log('Garmetix Final Accounts BS-16 readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -16,6 +16,7 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapGet("/status"',
   'MapGet("/settings"',
   'MapPut("/settings"',
+  'MapGet("/audit/accounting-master"',
   'AddEndpointFilter<FinalAccountsEnabledFilter>',
   'MapGet("/dashboard"',
   'MapGet("/account-groups"',
@@ -560,6 +561,7 @@ checkFile('backend/Garmetix.Api/Program.cs', [
   'FinalAccountsPeriodCloseService',
   'FinalAccountsProjectionService',
   'FinalAccountsExchangeService',
+  'FinalAccountsAccountingMasterAuditService',
   'SalesInvoiceAdapter',
   'SalesReturnAdapter',
   'SalesInvoiceCancellationAdapter',
@@ -712,6 +714,45 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsQaRules.cs', [
   'IsProductionHostChange'
 ])
 
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsAccountingMasterAuditService.cs', [
+  'FinalAccountsAccountingMasterAuditService',
+  'RunAsync',
+  'WritesData: false',
+  'LedgerMissingGroup',
+  'PartyMissingLedger',
+  'CustomerMissingParty',
+  'VendorMissingParty',
+  'BuildSourceCoverageAsync',
+  'DuplicateLedgersAsync',
+  'DuplicateCustomersAsync'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsAccountingMasterAuditRules.cs', [
+  'FinalAccountsAccountingMasterAuditRules',
+  'BS16AccountingMasterAudit',
+  'AuditEndpointPath',
+  'BackupRequirement',
+  'PendingCount',
+  'SeverityForMissingLinks',
+  'Recommendations'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsAccountingMasterAuditContracts.cs', [
+  'FinalAccountsAccountingMasterAuditResponse',
+  'FinalAccountsAccountingMasterCountDto',
+  'FinalAccountsAccountingSourceCoverageDto',
+  'FinalAccountsAccountingMasterIssueDto',
+  'FinalAccountsAccountingDuplicateDto'
+])
+
+checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsAccountingMasterAuditRulesTests.cs', [
+  'AuditEndpointIsReadOnlyAndStageNamed',
+  'DuplicateKeysNormalizeForComparison',
+  'PendingCountNeverGoesNegative',
+  'MissingLinkSeveritySeparatesPartialAndTotalGaps',
+  'RecommendationsCoverUnificationStages'
+])
+
 checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsQaRulesTests.cs', [
   'LargeLedgerPaginationIsBoundedForQaRuns',
   'BackfillBatchResumeCheckpointIsStableAcrossModuleOrder',
@@ -801,6 +842,15 @@ checkFile('docs/final-accounts-bs-15-merge-readiness.md', [
   'No auto-merge',
   'No auto-deploy',
   'Do not merge into `version6` until human review approves'
+])
+
+checkFile('docs/final-accounts-bs-16-accounting-master-audit.md', [
+  'Final Accounts BS-16 Accounting Master Audit',
+  'BS16AccountingMasterAudit',
+  'GET /api/final-accounts/audit/accounting-master',
+  'WritesData = false',
+  'No source table mutation',
+  'BS-17: Indian/Tally-compatible Chart of Accounts normalization'
 ])
 
 checkFile('docs/final-accounts-bs-04d-inventory-cogs.md', [
@@ -1180,7 +1230,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-15 readiness passed.')
+console.log('\nFinal Accounts BS-16 readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)

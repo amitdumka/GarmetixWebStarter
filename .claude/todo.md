@@ -25,7 +25,7 @@ Last updated: 2026-07-07. Check items off as completed; move detail/history into
 ## Follow-Up Work (from roadmap, actionable slice)
 
 - [x] **Stage-aware database backup protocol** (done 2026-07-14): `srp-backup-database.sh` now requires `--stage=<StageName>`, stores dumps/checksums/history under `/opt/garmetix/backup/database/`, and `srp-whole-site-deploy.sh` runs the backup before real upload/install deploys.
-- [ ] **BS-16 Accounting Master Audit**: before any code or data mutation, run `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS16AccountingMasterAudit`; audit existing ledger groups, ledgers, customers, vendors, employees, other parties, vouchers, sales, purchases, salary payments and posting paths; produce no-mutation design report.
+- [~] **BS-16 Accounting Master Audit**: local read-only audit tooling is implemented on `version6`. Before SRP deploy or live audit, run `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS16AccountingMasterAudit` on the deployed host, then deploy/pull and capture `GET /api/final-accounts/audit/accounting-master`. Do not start BS-17/18/19 mutation until that backup/history row and audit evidence exist.
 - [ ] **BS-17 Indian/Tally-compatible COA normalization**: align current ledger groups to Indian operational accounting practice and TallyPrime/BUSY/Marg-style Chart of Accounts.
 - [ ] **BS-18 Party/ledger unification**: design one party identity with Customer/Vendor/Employee/Other Party roles and canonical ledgers.
 - [ ] **BS-19 Transaction backfill and reconciliation**: dry-run source transactions into canonical ledgers and produce Trial Balance/Balance Sheet/source-control evidence.

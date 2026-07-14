@@ -14,6 +14,7 @@ public static class FinalAccountsEndpoints
         group.MapGet("/status", GetStatusAsync);
         group.MapGet("/settings", GetSettingsAsync);
         group.MapPut("/settings", SaveSettingsAsync).RequireAuthorization(GarmetixPolicies.Admin);
+        group.MapGet("/audit/accounting-master", GetAccountingMasterAuditAsync);
 
         var enabled = group.MapGroup("")
             .AddEndpointFilter<FinalAccountsEnabledFilter>();
@@ -147,6 +148,15 @@ public static class FinalAccountsEndpoints
             message = "Final Accounts dashboard endpoint is reserved for BS-02 and later stages."
         }));
     }
+
+    private static Task<IResult> GetAccountingMasterAuditAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsAccountingMasterAuditService audit,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => audit.RunAsync(new FinalAccountsAccountingMasterAuditQuery(companyId, storeGroupId, storeId), context, cancellationToken));
 
     private static Task<IResult> ListAccountGroupsAsync(
         Guid? companyId,

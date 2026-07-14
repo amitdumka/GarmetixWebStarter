@@ -1679,34 +1679,34 @@ Files added/changed:
 
 # BS-16 — Accounting Master Audit
 
-- [ ] Create database backup with stage name `BS16AccountingMasterAudit`.
-- [ ] Record backup filename from `/opt/garmetix/backup/database/Backupfilehistory.md`.
-- [ ] Audit existing ledger groups.
-- [ ] Audit existing ledgers.
-- [ ] Audit customers, vendors, employees and other parties.
-- [ ] Audit party-to-ledger links and duplicates.
-- [ ] Audit Sale posting paths.
-- [ ] Audit Purchase posting paths.
-- [ ] Audit Voucher/CashVoucher posting paths.
-- [ ] Audit Salary Payment and Payroll posting paths.
-- [ ] Audit GST and tax posting paths.
-- [ ] Audit Inventory/COGS posting paths.
-- [ ] Audit existing Final Accounts mappings.
-- [ ] Produce no-mutation design report.
-- [ ] Do not mutate production data in BS-16.
+- [~] Create database backup with stage name `BS16AccountingMasterAudit`.
+- [~] Record backup filename from `/opt/garmetix/backup/database/Backupfilehistory.md`.
+- [x] Audit existing ledger groups.
+- [x] Audit existing ledgers.
+- [x] Audit customers, vendors, employees and other parties.
+- [x] Audit party-to-ledger links and duplicates.
+- [x] Audit Sale posting paths.
+- [x] Audit Purchase posting paths.
+- [x] Audit Voucher/CashVoucher posting paths.
+- [x] Audit Salary Payment and Payroll posting paths.
+- [x] Audit GST and tax posting paths.
+- [x] Audit Inventory/COGS posting paths.
+- [x] Audit existing Final Accounts mappings.
+- [x] Produce no-mutation design report.
+- [x] Do not mutate production data in BS-16.
 
 Evidence:
 
 ```text
-Date:
-Agent:
-Branch:
-Backup file:
-Backup history row:
-Audit report:
-Mutation status: none
-Known risks:
-Decision:
+Date: 2026-07-14
+Agent: Codex GPT-5
+Branch: version6
+Backup file: pending on deployed SRP host; this workstation could not reach 192.168.11.127:22, and Amit confirmed code should be implemented locally for remote pull/run.
+Backup history row: pending remote command: npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS16AccountingMasterAudit
+Audit report: implemented as GET /api/final-accounts/audit/accounting-master; docs/final-accounts-bs-16-accounting-master-audit.md explains the response and next stages.
+Mutation status: none; no migration, schema repair, data update, backfill, deploy or service restart in BS-16 local implementation.
+Known risks: live production counts are not captured until the deployed host runs the backup and audit endpoint after pulling this commit.
+Decision: proceed with read-only audit tooling first; BS-17/18/19 remain blocked from mutation until remote backup, audit evidence and human/CA review are complete.
 ```
 
 ---

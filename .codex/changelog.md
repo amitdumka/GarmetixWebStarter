@@ -1,5 +1,40 @@
 # Codex Changelog
 
+## 2026-07-14 - BS-16 Accounting Master Audit Tooling
+
+Amit confirmed this workstation cannot deploy to the remote SRP network directly and asked to implement code locally so the deployed system can pull and run the backup/deploy script there. Added BS-16 as a read-only Final Accounts accounting-master audit stage.
+
+Files changed:
+
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsAccountingMasterAuditContracts.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsAccountingMasterAuditRules.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsAccountingMasterAuditService.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs`
+- `backend/Garmetix.Api/Program.cs`
+- `backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsAccountingMasterAuditRulesTests.cs`
+- `docs/final-accounts-bs-16-accounting-master-audit.md`
+- `frontend/modular/scripts/final-accounts-readiness.mjs`
+- `todo-balancesheet.md`, `.codex/todo.md`, `.claude/todo.md`
+
+What changed:
+
+- Added `GET /api/final-accounts/audit/accounting-master`.
+- Registered `FinalAccountsAccountingMasterAuditService`.
+- Audits existing Books accounting masters, parties, duplicates, source posting coverage and pending Final Accounts source-link coverage without writing data.
+- Keeps BS-16 explicitly no-mutation: no migration, no schema repair, no backfill, no deploy and no service restart from this workstation.
+- Documents the required deployed-host backup command before remote deploy/live audit:
+  `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS16AccountingMasterAudit`.
+
+Validation:
+
+- `dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release -p:UseSharedCompilation=false`: passed with the same 7 pre-existing nullable warnings outside Final Accounts.
+- `dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release -p:UseSharedCompilation=false`: 231 passed, 3 pre-existing Postgres-only skipped, 0 failed.
+- `npm --prefix frontend/modular run final-accounts:readiness`: passed.
+- `npm --prefix frontend/modular run check`: passed.
+- `git diff --check`: passed.
+
+Remote status: backup file/history row and live audit output are pending on the deployed SRP host because local SSH/ping to `192.168.11.127` timed out.
+
 ## 2026-07-14 - Stage-Aware Database Backup Protocol
 
 Amit instructed that every implementation stage/deploy capable of affecting database state must take a restore-ready backup first. Implemented the protocol in repo docs and SRP deploy tooling.

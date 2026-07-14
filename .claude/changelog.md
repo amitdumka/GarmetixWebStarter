@@ -4,6 +4,29 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-07-14 - BS-16 Accounting Master Audit Tooling
+
+**Type**: Final Accounts accounting-unification audit, read-only/no DB mutation.
+
+**What happened**: Amit confirmed the remote SRP system is on another network, so this workstation should implement code locally and the remote system/Codex should pull and run the backup/deploy script there. Added a read-only BS-16 audit endpoint and docs for auditing existing Books accounting masters before Indian/Tally-style normalization, party-ledger unification or transaction backfill.
+
+**Files updated**:
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsAccountingMasterAuditContracts.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsAccountingMasterAuditRules.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsAccountingMasterAuditService.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs`
+- `backend/Garmetix.Api/Program.cs`
+- `backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsAccountingMasterAuditRulesTests.cs`
+- `docs/final-accounts-bs-16-accounting-master-audit.md`
+- `frontend/modular/scripts/final-accounts-readiness.mjs`
+- `todo-balancesheet.md`, `.codex/todo.md`, `.claude/todo.md`
+
+**Implementation notes**: New endpoint is `GET /api/final-accounts/audit/accounting-master`. It returns counts, source coverage, duplicate candidates, missing-link issues and recommendations with `WritesData: false`. No migration, schema repair, deploy, backfill or data mutation was performed locally.
+
+**Remote handoff**: before SRP deploy or live audit, run `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS16AccountingMasterAudit` on the deployed host, then deploy/pull and capture the endpoint output. Local backup attempt could not reach `192.168.11.127:22`.
+
+**Validation**: `dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release -p:UseSharedCompilation=false`, `dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release -p:UseSharedCompilation=false` (231 passed, 3 skipped), `npm --prefix frontend/modular run final-accounts:readiness`, `npm --prefix frontend/modular run check`, and `git diff --check`.
+
 ## 2026-07-14 - Stage-Aware Database Backup Protocol
 
 **Type**: deployment safety, agent instruction and roadmap update.

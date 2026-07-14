@@ -11,12 +11,13 @@
 
 ## Accounting Unification Future Work
 
-- [ ] **BS-16 - Accounting Master Audit**
-  - [ ] Create database backup with stage `BS16AccountingMasterAudit`.
-  - [ ] Audit existing ledger groups and ledgers.
-  - [ ] Audit customers, vendors, employees and other parties.
-  - [ ] Audit posting sources: Sale, Purchase, Voucher, Salary Payment, GST, Inventory, Cash/Bank and Party settlements.
-  - [ ] Produce a no-mutation design report.
+- [~] **BS-16 - Accounting Master Audit**
+  - [~] Create database backup with stage `BS16AccountingMasterAudit` on the deployed SRP host.
+  - [x] Add read-only audit endpoint for existing ledger groups and ledgers.
+  - [x] Add read-only audit endpoint coverage for customers, vendors, employees and other parties.
+  - [x] Add read-only audit endpoint coverage for posting sources: Sale, Purchase, Voucher, Salary Payment, GST, Inventory, Cash/Bank and Party settlements.
+  - [x] Produce a no-mutation design report.
+  - [ ] After this commit is pulled on SRP, run `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS16AccountingMasterAudit`, deploy, then capture the live audit result.
 
 - [ ] **BS-17 - Indian/Tally-Compatible COA Normalization**
   - [ ] Map current ledger groups to Indian/Tally-style primary groups.

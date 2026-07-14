@@ -32,6 +32,8 @@ npm --prefix frontend/modular run deploy:srp:backup -- --stage=<StageName>
 
 The SRP whole-site deploy script now runs this automatically before upload when called with `--stage=<StageName>`.
 
+This Windows workstation could not reach the deployed SRP host during BS-16 on 2026-07-14 (`192.168.11.127:22` and ping timed out). For that network case, implement and push code locally, then run the backup/deploy/audit from the remote system after pull.
+
 ## Accounting Unification Direction
 
 Final Accounts should not stay as a separate accounting universe. Existing Books ledgers, ledger groups, parties and operational source modules must become the canonical accounting master. Mapping should become an exception tool, not the normal setup path.
