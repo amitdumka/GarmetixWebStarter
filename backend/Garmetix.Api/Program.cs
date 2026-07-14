@@ -132,6 +132,7 @@ builder.Services.AddScoped<FinalAccountsReportService>();
 builder.Services.AddScoped<FinalAccountsCaWorkspaceService>();
 builder.Services.AddScoped<FinalAccountsPeriodCloseService>();
 builder.Services.AddScoped<FinalAccountsProjectionService>();
+builder.Services.AddScoped<FinalAccountsExchangeService>();
 builder.Services.AddScoped<IFinalAccountsPostingAdapter, SalesInvoiceAdapter>();
 builder.Services.AddScoped<IFinalAccountsPostingAdapter, SalesReturnAdapter>();
 builder.Services.AddScoped<IFinalAccountsPostingAdapter, SalesInvoiceCancellationAdapter>();

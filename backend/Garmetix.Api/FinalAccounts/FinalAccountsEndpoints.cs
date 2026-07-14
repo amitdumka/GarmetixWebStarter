@@ -104,6 +104,14 @@ public static class FinalAccountsEndpoints
         enabled.MapPost("/projections/baseline/actuals", ImportProjectionActualBaselineAsync);
         enabled.MapPost("/projections/compare", CompareProjectionScenariosAsync);
         enabled.MapGet("/projections/scenarios/{id:guid}/export", ExportProjectionScenarioAsync);
+        enabled.MapGet("/tally/profiles", ListTallyProfilesAsync);
+        enabled.MapPost("/tally/profiles", CreateTallyProfileAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        enabled.MapPut("/tally/profiles/{id:guid}", UpdateTallyProfileAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        enabled.MapPost("/tally/preview", PreviewTallyExchangeAsync);
+        enabled.MapPost("/tally/export", ExportTallyExchangeAsync).RequireAuthorization(GarmetixPolicies.Admin);
+        enabled.MapGet("/exchange/runs", ListExchangeRunsAsync);
+        enabled.MapPost("/ca-package/preview", PreviewCaPackageAsync);
+        enabled.MapPost("/ca-package/export", ExportCaPackageAsync).RequireAuthorization(GarmetixPolicies.Admin);
         enabled.MapGet("/coa/seed-preview", GetSeedPreviewAsync);
         enabled.MapGet("/validation/summary", GetValidationSummaryAsync);
 
@@ -1110,6 +1118,91 @@ public static class FinalAccountsEndpoints
         try
         {
             var export = await projections.ExportScenarioAsync(id, new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), format, context, cancellationToken);
+            return Results.File(export.Content, export.ContentType, export.FileName);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or KeyNotFoundException)
+        {
+            return ToErrorResult(ex);
+        }
+    }
+
+    private static Task<IResult> ListTallyProfilesAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        bool? activeOnly,
+        FinalAccountsExchangeService exchange,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => exchange.ListProfilesAsync(new FinalAccountsTallyProfileQuery(companyId, storeGroupId, storeId, activeOnly), context, cancellationToken));
+
+    private static Task<IResult> CreateTallyProfileAsync(
+        FinalAccountsTallyProfileRequest request,
+        FinalAccountsExchangeService exchange,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => exchange.CreateProfileAsync(request, context, cancellationToken));
+
+    private static Task<IResult> UpdateTallyProfileAsync(
+        Guid id,
+        FinalAccountsTallyProfileRequest request,
+        FinalAccountsExchangeService exchange,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => exchange.UpdateProfileAsync(id, request, context, cancellationToken));
+
+    private static Task<IResult> PreviewTallyExchangeAsync(
+        FinalAccountsExchangeRequest request,
+        FinalAccountsExchangeService exchange,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => exchange.PreviewTallyAsync(request, context, cancellationToken));
+
+    private static async Task<IResult> ExportTallyExchangeAsync(
+        FinalAccountsExchangeRequest request,
+        FinalAccountsExchangeService exchange,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var export = await exchange.ExportTallyAsync(request, context, cancellationToken);
+            return Results.File(export.Content, export.ContentType, export.FileName);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or KeyNotFoundException)
+        {
+            return ToErrorResult(ex);
+        }
+    }
+
+    private static Task<IResult> ListExchangeRunsAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        string? runKind,
+        int? page,
+        int? pageSize,
+        FinalAccountsExchangeService exchange,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => exchange.ListRunsAsync(new FinalAccountsExchangeRunQuery(companyId, storeGroupId, storeId, runKind, page, pageSize), context, cancellationToken));
+
+    private static Task<IResult> PreviewCaPackageAsync(
+        FinalAccountsCaPackageRequest request,
+        FinalAccountsExchangeService exchange,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => exchange.PreviewCaPackageAsync(request, context, cancellationToken));
+
+    private static async Task<IResult> ExportCaPackageAsync(
+        FinalAccountsCaPackageRequest request,
+        FinalAccountsExchangeService exchange,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var export = await exchange.ExportCaPackageAsync(request, context, cancellationToken);
             return Results.File(export.Content, export.ContentType, export.FileName);
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or KeyNotFoundException)

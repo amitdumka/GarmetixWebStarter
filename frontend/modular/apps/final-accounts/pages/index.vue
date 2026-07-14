@@ -13,6 +13,7 @@
         <UButton to="/ca-workspace" icon="i-lucide-clipboard-check" color="neutral" variant="soft">CA</UButton>
         <UButton to="/closeout" icon="i-lucide-lock-keyhole" color="neutral" variant="soft">Close</UButton>
         <UButton to="/projections" icon="i-lucide-trending-up" color="neutral" variant="soft">Project</UButton>
+        <UButton to="/exchange" icon="i-lucide-package-check" color="neutral" variant="soft">Exchange</UButton>
         <UButton to="/posting-rules" icon="i-lucide-route" color="neutral" variant="soft">Rules</UButton>
         <UButton to="/setup" icon="i-lucide-sliders-horizontal">Setup</UButton>
       </div>

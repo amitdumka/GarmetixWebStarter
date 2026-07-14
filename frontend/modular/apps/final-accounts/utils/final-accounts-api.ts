@@ -48,6 +48,9 @@ export type FinalAccountsCloseType = 'Period' | 'Year'
 export type FinalAccountsProjectionScenarioType = 'Conservative' | 'Base' | 'Optimistic' | 'Custom'
 export type FinalAccountsProjectionScenarioStatus = 'Draft' | 'Submitted' | 'Approved' | 'Archived'
 export type FinalAccountsProjectionBaselineSource = 'Manual' | 'Actuals'
+export type FinalAccountsExchangeRunKind = 'TallyExchange' | 'CaPackage'
+export type FinalAccountsExchangeRunStatus = 'Draft' | 'Previewed' | 'Generated' | 'Downloaded' | 'Failed'
+export type FinalAccountsTallyDuplicatePolicy = 'SkipExisting' | 'ReplaceInTestCompany' | 'RejectDuplicate'
 
 export interface FinalAccountsAccountGroup {
   id: string
@@ -746,6 +749,155 @@ export interface FinalAccountsProjectionComparison {
   }>
 }
 
+export interface FinalAccountsTallyProfile {
+  id: string
+  companyId?: string | null
+  storeGroupId?: string | null
+  storeId?: string | null
+  profileCode: string
+  name: string
+  tallyRelease: string
+  testCompanyName: string
+  baseCurrency: string
+  country: string
+  gstRegistrationType?: string | null
+  duplicatePolicy: FinalAccountsTallyDuplicatePolicy | string
+  directPostingAllowed: boolean
+  groupMapping: Record<string, string>
+  ledgerMapping: Record<string, string>
+  voucherTypeMapping: Record<string, string>
+  taxMapping: Record<string, string>
+  stockCostCentreMapping: Record<string, string>
+  isActive: boolean
+  notes?: string | null
+  revision: number
+}
+
+export interface FinalAccountsTallyProfilePayload {
+  companyId?: string | null
+  storeGroupId?: string | null
+  storeId?: string | null
+  profileCode: string
+  name: string
+  tallyRelease: string
+  testCompanyName: string
+  baseCurrency: string
+  country: string
+  gstRegistrationType?: string | null
+  duplicatePolicy: FinalAccountsTallyDuplicatePolicy | string
+  directPostingAllowed: boolean
+  groupMapping?: Record<string, string>
+  ledgerMapping?: Record<string, string>
+  voucherTypeMapping?: Record<string, string>
+  taxMapping?: Record<string, string>
+  stockCostCentreMapping?: Record<string, string>
+  isActive: boolean
+  notes?: string | null
+}
+
+export interface FinalAccountsExchangeRequest {
+  companyId?: string | null
+  storeGroupId?: string | null
+  storeId?: string | null
+  tallyProfileId?: string | null
+  from: string
+  to: string
+  asOf?: string | null
+  format?: string | null
+  includeXmlFixture: boolean
+  includeJsonFixture: boolean
+  includeCaPackage: boolean
+  notes?: string | null
+}
+
+export interface FinalAccountsCaPackageRequest {
+  companyId?: string | null
+  storeGroupId?: string | null
+  storeId?: string | null
+  from: string
+  to: string
+  asOf: string
+  entityType?: string | null
+  includeSupportingDocuments: boolean
+  includeTallyFixtures: boolean
+  notes?: string | null
+}
+
+export interface FinalAccountsExchangeMappingRow {
+  mappingType: string
+  sourceKey: string
+  sourceName: string
+  tallyName: string
+  status: string
+}
+
+export interface FinalAccountsExchangeException {
+  severity: string
+  code: string
+  message: string
+  sourceType?: string | null
+  sourceId?: string | null
+}
+
+export interface FinalAccountsCaPackageItem {
+  path: string
+  category: string
+  description: string
+  contentType: string
+  sizeBytes: number
+  sha256: string
+}
+
+export interface FinalAccountsExchangePreview {
+  runKind: FinalAccountsExchangeRunKind | string
+  from?: string | null
+  to?: string | null
+  asOf?: string | null
+  format: string
+  directPostingAllowed: boolean
+  duplicatePolicy: string
+  masterCount: number
+  voucherCount: number
+  controlDebit: number
+  controlCredit: number
+  controlDifference: number
+  mappings: FinalAccountsExchangeMappingRow[]
+  exceptions: FinalAccountsExchangeException[]
+  xmlFixture: string
+  jsonFixture: string
+  packageItems: FinalAccountsCaPackageItem[]
+}
+
+export interface FinalAccountsExchangeRun {
+  id: string
+  runNumber: string
+  runKind: FinalAccountsExchangeRunKind | string
+  status: FinalAccountsExchangeRunStatus | string
+  tallyProfileId?: string | null
+  periodFrom?: string | null
+  periodTo?: string | null
+  asOf?: string | null
+  format: string
+  masterCount: number
+  voucherCount: number
+  exceptionCount: number
+  controlDebit: number
+  controlCredit: number
+  payloadHash: string
+  zipChecksum?: string | null
+  fileName?: string | null
+  createdAt: string
+  generatedAt?: string | null
+  generatedBy?: string | null
+}
+
+export interface FinalAccountsExchangeRunList {
+  page: number
+  pageSize: number
+  totalCount: number
+  rows: FinalAccountsExchangeRun[]
+}
+
 export interface FinalAccountsGeneralLedgerReportRow {
   journalEntryId: string
   journalLineId: string
@@ -1234,7 +1386,31 @@ export function useFinalAccountsApiClient() {
     window.URL.revokeObjectURL(url)
   }
 
-  return { apiBaseUrl, get, put, post, remove, download }
+  async function downloadPost(path: string, fileName: string, body?: unknown) {
+    if (!apiBaseUrl.value) throw new Error('API base URL is not configured.')
+    const base = String(apiBaseUrl.value).replace(/\/+$/, '')
+    const token = getStoredToken(window.localStorage)
+    const response = await fetch(`${base}/${normalizeFinalAccountsPath(path)}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify(body ?? {})
+    })
+    if (!response.ok) throw new Error(await response.text())
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
+  }
+
+  return { apiBaseUrl, get, put, post, remove, download, downloadPost }
 }
 
 export function isFinalAccountsSetupSession(user: StoredAuthUser | null | undefined) {

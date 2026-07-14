@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-11 readiness')
+console.log('Garmetix Final Accounts BS-12 readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -73,8 +73,48 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapPost("/projections/scenarios/{id:guid}/approve"',
   'MapPost("/projections/baseline/actuals"',
   'MapPost("/projections/compare"',
+  'MapGet("/tally/profiles"',
+  'MapPost("/tally/preview"',
+  'MapPost("/tally/export"',
+  'MapGet("/exchange/runs"',
+  'MapPost("/ca-package/preview"',
+  'MapPost("/ca-package/export"',
   'MapGet("/coa/seed-preview"',
   'MapGet("/validation/summary"'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsExchangeService.cs', [
+  'FinalAccountsExchangeService',
+  'ListProfilesAsync',
+  'CreateProfileAsync',
+  'UpdateProfileAsync',
+  'PreviewTallyAsync',
+  'ExportTallyAsync',
+  'PreviewCaPackageAsync',
+  'ExportCaPackageAsync',
+  'ListRunsAsync',
+  'ZipArchive',
+  'ZipChecksum',
+  'NoDirectTallyPosting',
+  'AuditLogEntry'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsExchangeRules.cs', [
+  'FinalAccountsExchangeRules',
+  'NoDirectProductionTallyPosting',
+  'ParseDuplicatePolicy',
+  'BuildTallyXmlFixture',
+  'BuildJsonFixture',
+  'Sha256Hex'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsExchangeContracts.cs', [
+  'FinalAccountsTallyProfileRequest',
+  'FinalAccountsExchangeRequest',
+  'FinalAccountsCaPackageRequest',
+  'FinalAccountsExchangePreviewResponse',
+  'FinalAccountsCaPackageItemDto',
+  'FinalAccountsExchangeRunDto'
 ])
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsProjectionService.cs', [
@@ -519,6 +559,7 @@ checkFile('backend/Garmetix.Api/Program.cs', [
   'FinalAccountsCaWorkspaceService',
   'FinalAccountsPeriodCloseService',
   'FinalAccountsProjectionService',
+  'FinalAccountsExchangeService',
   'SalesInvoiceAdapter',
   'SalesReturnAdapter',
   'SalesInvoiceCancellationAdapter',
@@ -627,6 +668,14 @@ checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsProjectionRules
   'WorkflowGatesScenarioApproval'
 ])
 
+checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsExchangeRulesTests.cs', [
+  'DuplicatePolicyParsesSupportedValues',
+  'RunNumberPrefixSeparatesTallyAndCaPackage',
+  'MappingJsonRoundTrips',
+  'TallyXmlFixtureContainsNoDirectPostingEnvelope',
+  'ChecksumChangesWhenPayloadChanges'
+])
+
 checkFile('docs/final-accounts-bs-04d-inventory-cogs.md', [
   'perpetual weighted-average',
   'No closing-stock journal',
@@ -696,6 +745,15 @@ checkFile('backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsP
   'FinalAccountsProjectionBaselineSource'
 ])
 
+checkFile('backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsExchange.cs', [
+  'FinalAccountsTallyProfile',
+  'FinalAccountsExchangeRun',
+  'FinalAccountsExchangeException',
+  'FinalAccountsExchangeRunKind',
+  'FinalAccountsExchangeRunStatus',
+  'FinalAccountsTallyDuplicatePolicy'
+])
+
 checkFile('backend/Garmetix.Infrastructure/Data/Migrations/20260713162000_AddFinalAccountsCatalogAndFiscalPeriods.cs', [
   'fa_account_groups',
   'fa_accounts',
@@ -757,6 +815,15 @@ checkFile('backend/Garmetix.Infrastructure/Data/Migrations/20260714140000_AddFin
   'IX_fa_projection_months_scenario_month'
 ])
 
+checkFile('backend/Garmetix.Infrastructure/Data/Migrations/20260714150000_AddFinalAccountsExchangePackage.cs', [
+  'fa_tally_profiles',
+  'fa_exchange_runs',
+  'fa_exchange_exceptions',
+  'IX_fa_tally_profiles_scope_code',
+  'IX_fa_exchange_runs_scope_number',
+  'IX_fa_exchange_exceptions_run_code'
+])
+
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEnabledFilter.cs', [
   'StatusCodes.Status403Forbidden',
   'Final Accounts module is disabled',
@@ -789,6 +856,7 @@ checkFile('frontend/modular/config/routes.ts', [
   "id: 'final-accounts-ca-workspace'",
   "id: 'final-accounts-closeout'",
   "id: 'final-accounts-projections'",
+  "id: 'final-accounts-exchange'",
   "id: 'final-accounts-posting-rules'",
   "showInMenu: false",
   "targetApp: 'final-accounts'"
@@ -803,6 +871,7 @@ checkFile('frontend/modular/packages/shared-ui/components/ModularAppShell.vue', 
   "href: '/ca-workspace'",
   "href: '/closeout'",
   "href: '/projections'",
+  "href: '/exchange'",
   "href: '/posting-rules'",
   "href: '/setup'",
   "'final-accounts': '/final-accounts/'"
@@ -814,6 +883,7 @@ checkFile('frontend/modular/apps/final-accounts/pages/index.vue', [
   'to="/ca-workspace"',
   'to="/closeout"',
   'to="/projections"',
+  'to="/exchange"',
   'statusCards'
 ])
 
@@ -909,6 +979,18 @@ checkFile('frontend/modular/apps/final-accounts/pages/projections.vue', [
   'seasonalityFactors'
 ])
 
+checkFile('frontend/modular/apps/final-accounts/pages/exchange.vue', [
+  'Tally Exchange & CA Package',
+  'tally/profiles',
+  'tally/preview',
+  'tally/export',
+  'ca-package/preview',
+  'ca-package/export',
+  'Exchange Runs',
+  'zipChecksum',
+  'Direct Tally posting disabled'
+])
+
 checkFile('frontend/modular/apps/final-accounts/pages/posting-rules.vue', [
   'Posting Rules',
   'posting-rules/mapping-validation',
@@ -945,6 +1027,11 @@ checkFile('frontend/modular/apps/final-accounts/utils/final-accounts-api.ts', [
   'FinalAccountsProjectionScenarioPayload',
   'FinalAccountsProjectionBaseline',
   'FinalAccountsProjectionComparison',
+  'FinalAccountsTallyProfile',
+  'FinalAccountsExchangePreview',
+  'FinalAccountsCaPackageRequest',
+  'FinalAccountsExchangeRun',
+  'downloadPost',
   'FinalAccountsStatementTemplate',
   'async function download',
   'async function post',
@@ -966,7 +1053,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-11 readiness passed.')
+console.log('\nFinal Accounts BS-12 readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)

@@ -474,6 +474,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
           { id: 'ca-workspace', label: 'CA Workspace', href: '/ca-workspace', icon: 'i-lucide-clipboard-check' },
           { id: 'closeout', label: 'Period Closeout', href: '/closeout', icon: 'i-lucide-lock-keyhole' },
           { id: 'projections', label: 'Projection Engine', href: '/projections', icon: 'i-lucide-trending-up' },
+          { id: 'exchange', label: 'Tally Exchange', href: '/exchange', icon: 'i-lucide-package-check' },
           { id: 'posting-rules', label: 'Posting Rules', href: '/posting-rules', icon: 'i-lucide-route' },
         { id: 'setup', label: 'Setup', href: '/setup', icon: 'i-lucide-sliders-horizontal' }
       ] }
