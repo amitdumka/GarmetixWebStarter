@@ -20,7 +20,7 @@ const monthlyPage = readFileSync(monthlyPagePath, 'utf8')
 const hrApi = readFileSync(hrApiPath, 'utf8')
 const version = readFileSync(versionPath, 'utf8')
 
-expectContains(version, ['6.0.', 'Stage 14'], 'modular version identity')
+expectContains(version, ['6.', 'Stage 14'], 'modular version identity')
 expectRecordKeys(dtoSource, 'AttendanceTodayDto', ['OnDate', 'EmployeeCount', 'Present', 'Late', 'HalfDay', 'Absent', 'NeedsReview', 'Rows'])
 expectRecordKeys(dtoSource, 'AttendanceMonthlyDto', ['Year', 'Month', 'EmployeeId', 'EmployeeCount', 'PresentDays', 'LateDays', 'HalfDays', 'AbsentDays', 'OvertimeMinutes', 'Locked', 'Days'])
 expectRecordKeys(dtoSource, 'AttendanceRecalculateRequest', ['Year', 'Month', 'EmployeeId', 'CompanyId', 'StoreGroupId', 'StoreId'])

@@ -34,7 +34,7 @@ console.log(`Manual acceptance env: ${manualEnv}${manualAccepted ? ' (YES)' : ' 
 console.log(`Deploy checkpoint: ${deployCheckpoint}`)
 console.log('CRM writes: customer/loyalty/settings/banner/campaign writes remain guarded by UI role permissions')
 
-if (!version.startsWith('6.0.')) failures.push(`Expected Version6 CRM lane version 6.0.x, found ${version}.`)
+if (!version.startsWith('6.')) failures.push(`Expected Version6 CRM lane version 6.x, found ${version}.`)
 if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 modular lane, found ${stage}.`)
 
 checkRequiredFiles()

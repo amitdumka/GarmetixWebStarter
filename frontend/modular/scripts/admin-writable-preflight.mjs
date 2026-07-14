@@ -54,7 +54,7 @@ const endpointChecks = [
   { label: 'backup endpoints are Admin protected', source: backupSource, pattern: '.RequireAuthorization(GarmetixPolicies.Admin)' },
   { label: 'local restore requires RESTORE confirmation', source: backupSource, pattern: '"RESTORE"' },
   { label: 'factory reset is POST-only', source: factoryResetSource, pattern: 'group.MapPost("/", ResetAsync)' },
-  { label: 'factory reset is Admin protected', source: factoryResetSource, pattern: '.RequireAuthorization(GarmetixPolicies.Admin)' },
+  { label: 'factory reset is SuperAdmin protected', source: factoryResetSource, pattern: '.RequireAuthorization(GarmetixPolicies.SuperAdmin)' },
   { label: 'factory reset requires exact FACTORY RESET confirmation', source: factoryResetSource, pattern: '"FACTORY RESET"' },
   { label: 'factory reset takes safety backup', source: factoryResetSource, pattern: 'CreateBackupAsync("pre-factory-reset"' },
   { label: 'license generate is POST-only', source: licenseEndpointSource, pattern: 'group.MapPost("/generate", Generate)' },
@@ -323,7 +323,7 @@ function pascalToCamel(value) {
 
 function finish() {
   if (!factoryResetSource.includes('GarmetixPolicies.SuperAdmin') && !factoryResetSource.includes('IsSuperAdmin')) {
-    warnings.push('Factory reset endpoint remains Admin-policy protected, not SuperAdmin-only. Keep modular reset UI hidden until backend policy is tightened.')
+    warnings.push('Factory reset endpoint is not SuperAdmin-only. Keep modular reset UI hidden until backend policy is tightened.')
   }
 
   for (const warning of warnings) console.log(`WARN ${warning}`)

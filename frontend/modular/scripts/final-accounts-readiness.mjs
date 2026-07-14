@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-13 readiness')
+console.log('Garmetix Final Accounts BS-14 readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -702,6 +702,27 @@ checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsSecurityRulesTe
   'AttachmentValidationAllowsEvidenceFilesAndBlocksExecutablePayloads'
 ])
 
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsQaRules.cs', [
+  'FinalAccountsQaRules',
+  'RequiredBrowserRoutes',
+  'RequiredKeyboardRoutes',
+  'ForbiddenMigrationTokens',
+  'LargeExportWarningBytes',
+  'FeatureDisabledStatus',
+  'IsProductionHostChange'
+])
+
+checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsQaRulesTests.cs', [
+  'LargeLedgerPaginationIsBoundedForQaRuns',
+  'BackfillBatchResumeCheckpointIsStableAcrossModuleOrder',
+  'LargeExportStreamingQaFlagsOversizedInMemoryPackages',
+  'ConcurrentPostingQaUsesStableIdempotencyKey',
+  'FeatureDisabledRegressionExpectsForbiddenSetupRedirect',
+  'BrowserRouteAndKeyboardQaCoverFinalAccountsWorkspaces',
+  'MigrationReviewRejectsDestructiveOperations',
+  'ProductionHostChangesAreOutOfScopeForBalanceSheetQa'
+])
+
 checkFile('docs/final-accounts-security-audit.md', [
   'Permission Matrix',
   'Tenant Isolation',
@@ -757,6 +778,15 @@ checkFile('docs/final-accounts-rollback-runbook.md', [
   'Final Accounts Rollback Runbook',
   'Disable `FINAL_ACCOUNTS`',
   'Do not drop tables'
+])
+
+checkFile('docs/final-accounts-bs-14-qa-hardening.md', [
+  'Final Accounts BS-14 QA And Hardening',
+  'Automated Evidence',
+  'Migration Review',
+  'Stress And Regression Checks',
+  'Browser And Accessibility QA',
+  'Known Limitations'
 ])
 
 checkFile('docs/final-accounts-bs-04d-inventory-cogs.md', [
@@ -1136,7 +1166,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-13 readiness passed.')
+console.log('\nFinal Accounts BS-14 readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)
