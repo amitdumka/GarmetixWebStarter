@@ -21,6 +21,7 @@ Modular Purchase was previously a stub (`main` app placeholders) plus two read-o
 
 ## Near-Term (next 1-3 sessions)
 
+0. **BS-16 Accounting Master Audit / Unification Prep** - before any code or data mutation, create a stage backup with `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS16AccountingMasterAudit`. Audit existing ledgers, ledger groups, customers, vendors, employees, other parties, vouchers, sales, purchases and salary payments. Produce a no-mutation design report for unifying Final Accounts with the existing Books accounting masters.
 1. ~~**Books 14C.5**~~ - closed 2026-07-07: GST/accounting report finalization confirmed, financial-year lock create/unlock UI added, final Books closure gate script/doc shipped.
 2. ~~**Books 14G**~~ - closed 2026-07-07: full legacy GST menu parity (GSTR-1/3B manual builder, draft lifecycle, accounting-posting bridge, CA email/WhatsApp share, accounting-gst-validation, gst-final-acceptance), deployed and verified live on `.127`. Books modular GST lane is now fully done pending live-token/manual evidence. See `.claude/changelog.md`.
 3. **CRM bug** (found during 14G deploy verification) - `/crm/customers` is broken live due to a static-build route collision with its own sub-routes. Unrelated to GST work; spawned as background task `task_38949783`, not yet fixed.
@@ -30,17 +31,23 @@ Modular Purchase was previously a stub (`main` app placeholders) plus two read-o
 
 ## Medium-Term
 
-5. **AntiGravity port review** (`AntiGarvity2CodeTODO.md`, Priority 0-7) - none of these items are checked off yet. Highest-value candidates to review first:
+1. **BS-17 Indian/Tally-compatible Chart of Accounts normalization** - align existing ledger groups to Indian operational accounting practice and TallyPrime/BUSY/Marg-style groups. Keep Schedule III-ready reporting templates versioned. Do not force Ind AS unless Amit/CA confirms the company must report under Ind AS.
+2. **BS-18 Party and ledger unification** - one party identity may be Customer, Vendor, Employee and/or Other Party. Resolve each party role to one canonical ledger and prevent duplicate party ledgers.
+3. **BS-19 Transaction backfill and reconciliation** - dry-run existing Sale, Purchase, Voucher, Salary Payment, GST, Inventory and settlement transactions into canonical ledgers. Require Trial Balance, Balance Sheet and source-control evidence before live mutation.
+4. **BS-20 Final Accounts direct ledger integration** - make Final Accounts read canonical Books ledger/accounting data directly. Keep mapping only for exception handling.
+5. **BS-21 Restore drill and production safety** - restore a stage backup into non-production, validate `Backupfilehistory.md`, and document rollback before production accounting migration.
+6. **AntiGravity port review** (`AntiGarvity2CodeTODO.md`, Priority 0-7) - none of these items are checked off yet. Highest-value candidates to review first:
    - Priority 1: SaaS tenant/subscription backend model (`Tenant`, `Subscription`, `GarmetixDbContext` global query filter) - security/architecture-sensitive, needs careful review before any tenant isolation logic touches shared live data.
    - Priority 3: Inventory as its own modular app (currently inventory lives inside `main`) - would let `main` shrink further toward "lean back office," matching the Stage 12G goal.
    - Priority 4/5/6: Books/HR/POS page-level diffs from Version6.A - smaller, page-by-page ports.
    - Priority 7: shared package composable overlap (`shared-ui` vs `shared-api`/`shared-auth`) - cleanup, not urgent.
-6. **`.gitattributes` line-ending policy** - add a blanket `* text=auto` (or explicit per-extension) rule so CRLF/LF churn doesn't produce misleading diffs across tools/OSes. Currently only `*.gitattributes` and `*.sh` are pinned to LF.
+7. **`.gitattributes` line-ending policy** - add a blanket `* text=auto` (or explicit per-extension) rule so CRLF/LF churn doesn't produce misleading diffs across tools/OSes. Currently only `*.gitattributes` and `*.sh` are pinned to LF.
 
 ## Longer-Term / Deferred By Design
 
 - Keeping one shared ASP.NET Core API and one PostgreSQL database is an explicit, repeated decision across every stage doc. Do not propose splitting these without an explicit user ask.
 - Per-app Cloudflare subdomains (`pos.`, `hr.`, `books.`, `ai-sense.`, `admin.`) are documented but full public-domain cutover evidence is still pending per the SRP deployment stage notes.
+- Every deploy or DB-affecting implementation stage must use `docs/database-stage-backup-protocol.md`; backups live at `/opt/garmetix/backup/database/` with `Backupfilehistory.md` beside them.
 
 ## Known Risks Carried Forward (see `.claude/todo.md` bug list for detail)
 

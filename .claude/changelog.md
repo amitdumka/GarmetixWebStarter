@@ -4,6 +4,22 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-07-14 - Stage-Aware Database Backup Protocol
+
+**Type**: deployment safety, agent instruction and roadmap update.
+
+**What happened**: Amit instructed that every database-affecting implementation stage/deploy must create a restore-ready backup first. Added a repo-wide backup protocol and deploy automation so future Codex/Claude sessions do not have to recreate the same steps manually.
+
+**Files updated**:
+- `frontend/modular/deploy/srp-backup-database.sh` - requires `--stage=<StageName>`, writes backups to `/opt/garmetix/backup/database/`, creates `.sha256` files and appends `Backupfilehistory.md`.
+- `frontend/modular/deploy/srp-whole-site-deploy.sh` - adds `--stage=<StageName>` and automatic pre-deploy database backup before upload/install; `--skip-db-backup` is explicit override only.
+- `frontend/modular/deploy/srp-deploy.config.example.env` - documents `SRP_BACKUP_DIR` and `SRP_DEPLOY_STAGE`.
+- `frontend/modular/package.json` - adds `deploy:srp:backup:list`.
+- `docs/database-stage-backup-protocol.md` - new instruction and restore protocol for humans, Codex and Claude Code.
+- `AGENTS.md`, `CLAUDE.md`, `.codex/*`, `.claude/instructions.md`, `.claude/roadmap.md`, `.claude/todo.md`, `.claude/learnings.md` - updated standing instructions, future roadmap and todo context.
+
+**Validation**: `npm --prefix frontend/modular run deploy:srp:backup -- --dry-run --stage=BS16AccountingMasterAudit`, `npm --prefix frontend/modular run check`, and `git diff --check`.
+
 ## 2026-07-13 - Stage 14L.3: Notes Modal Parity And Admin Dot Matrix
 
 **Type**: modular Books/Admin frontend feature. No backend/API/database/GST-module/deploy change.

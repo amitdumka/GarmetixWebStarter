@@ -1,5 +1,31 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-14 - Mandatory stage database backup protocol
+
+Amit instructed that every implementation stage, deploy, migration, schema repair, bulk backfill, accounting unification, ledger migration, production service restart or data correction that can affect PostgreSQL must create a restore-ready database backup first.
+
+- Backup location on deployed host: `/opt/garmetix/backup/database/`
+- History file: `/opt/garmetix/backup/database/Backupfilehistory.md`
+- Filename must include date, time and stage name, e.g. `garmetix-srp-db-20260714-104512-IST-BS16AccountingMasterAudit-v6.0.51.dump`
+- Standard command: `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS16AccountingMasterAudit`
+- Real SRP deploys must pass `--stage=<StageName>`; `frontend/modular/deploy/srp-whole-site-deploy.sh` now runs the backup automatically before upload/install.
+- `--skip-db-backup` is only for an explicitly approved emergency/manual exception and must be recorded in the stage evidence.
+
+Full protocol: `docs/database-stage-backup-protocol.md`. Claude standing copy: `.claude/instructions.md`, `.claude/roadmap.md`, `.claude/todo.md`, `.claude/learnings.md`, `.claude/changelog.md`.
+
+## 2026-07-14 - Accounting unification future roadmap
+
+After Balance Sheet / Final Accounts merged into `version6`, future accounting development should unify around the existing Books accounting masters instead of maintaining a separate Final Accounts mapping universe.
+
+- BS-16: Accounting Master Audit
+- BS-17: Indian/Tally-compatible Chart of Accounts normalization
+- BS-18: Party/customer/vendor/employee ledger unification
+- BS-19: Existing transaction backfill into unified ledgers
+- BS-20: Final Accounts direct ledger integration, mapping only for exceptions
+- BS-21: Restore drill, reconciliation and production safety
+
+Use Indian operational accounting practice and TallyPrime/BUSY/Marg-style COA grouping by default. Ind AS reporting should be optional/legal-requirement-driven, not forced unless Amit/CA confirms it applies.
+
 ## 2026-07-13 - Garmetix Assistant: pluggable model provider (Anthropic + Gemini)
 
 Amit asked for the Garmetix Assistant to support two model providers - Anthropic (current, production quality) and Google Gemini (free Flash tier, for testing) - selectable via config. Version `6.8.14`. Backend-only, no schema change.

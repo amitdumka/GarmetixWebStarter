@@ -20,6 +20,7 @@ These come from the root `CLAUDE.md`/project instructions, `README.md`, `docs/co
 6. Do not bypass SSL/TLS verification anywhere (checked 2026-07-07: none found in current code - keep it that way).
 7. Deploy to `.127` only after local validation passes, following the cadence in `frontend/modular/docs/deployment-validation-cadence.md` (not after every small checkpoint).
 8. Keep destructive/live-write actions (factory reset, backup restore, salary payment generation, voucher posting, etc.) behind explicit confirmation phrases and opt-in flags - this is the established pattern; do not weaken it.
+9. Before any implementation stage, deploy, migration, schema repair, bulk backfill, accounting unification, ledger migration, production service restart or data correction that can affect PostgreSQL, create a named stage backup using `npm --prefix frontend/modular run deploy:srp:backup -- --stage=<StageName>`. Backups and history must live on the deployed host at `/opt/garmetix/backup/database/` and `/opt/garmetix/backup/database/Backupfilehistory.md`. Full protocol: `docs/database-stage-backup-protocol.md`.
 
 ## Logging Rule
 

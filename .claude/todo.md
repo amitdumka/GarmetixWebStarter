@@ -24,6 +24,13 @@ Last updated: 2026-07-07. Check items off as completed; move detail/history into
 
 ## Follow-Up Work (from roadmap, actionable slice)
 
+- [x] **Stage-aware database backup protocol** (done 2026-07-14): `srp-backup-database.sh` now requires `--stage=<StageName>`, stores dumps/checksums/history under `/opt/garmetix/backup/database/`, and `srp-whole-site-deploy.sh` runs the backup before real upload/install deploys.
+- [ ] **BS-16 Accounting Master Audit**: before any code or data mutation, run `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS16AccountingMasterAudit`; audit existing ledger groups, ledgers, customers, vendors, employees, other parties, vouchers, sales, purchases, salary payments and posting paths; produce no-mutation design report.
+- [ ] **BS-17 Indian/Tally-compatible COA normalization**: align current ledger groups to Indian operational accounting practice and TallyPrime/BUSY/Marg-style Chart of Accounts.
+- [ ] **BS-18 Party/ledger unification**: design one party identity with Customer/Vendor/Employee/Other Party roles and canonical ledgers.
+- [ ] **BS-19 Transaction backfill and reconciliation**: dry-run source transactions into canonical ledgers and produce Trial Balance/Balance Sheet/source-control evidence.
+- [ ] **BS-20 Final Accounts direct ledger integration**: read canonical Books ledger data directly; mapping becomes exception-only.
+- [ ] **BS-21 Restore drill and production safety**: restore latest stage backup to non-production and validate the backup history before production accounting migration.
 - [x] Books Voucher Register filters (done 2026-07-12, v6.8.1): added date range, month/year, voucher type, ledger type/group, exact ledger and text-search filters to modular Books `vouchers.vue`. Frontend-only; no API/DB/deploy/commit performed so Claude can keep handling Books module coordination.
 - [x] Books Day Book port (done 2026-07-12, v6.8.3): added modular `/day-book` from legacy Accounting menu with filters, pagination, CSV export, print/PDF evidence, detail slideover, quick-create actions and modular source-link mapping. Frontend-only; no API/DB/GST-module/deploy/commit performed.
 - [x] Books Debit/Credit Notes modal parity + Admin Dot Matrix Print (done 2026-07-13, v6.8.4): modular Debit Notes and Credit Notes existed, but their registers still linked to separate New/Detail pages. Added a shared `CommercialNoteRegister` so New/Edit forms and details open in slide-over panels while direct routes remain usable. Ported legacy `/dot-matrix-print` into modular Admin with settings, test print, queue stats/actions and printable text preview. Frontend-only; no API/DB/GST-module/deploy/commit performed.

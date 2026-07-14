@@ -19,14 +19,18 @@ Usage:
   bash frontend/modular/deploy/srp-whole-site-deploy.sh --init-config
   bash frontend/modular/deploy/srp-whole-site-deploy.sh --dry-run
   bash frontend/modular/deploy/srp-whole-site-deploy.sh --build-only
-  bash frontend/modular/deploy/srp-whole-site-deploy.sh
-  bash frontend/modular/deploy/srp-whole-site-deploy.sh --install-remote
+  bash frontend/modular/deploy/srp-whole-site-deploy.sh --stage=BS16AccountingMasterAudit
+  bash frontend/modular/deploy/srp-whole-site-deploy.sh --stage=BS16AccountingMasterAudit --install-remote
   bash frontend/modular/deploy/srp-whole-site-deploy.sh --apps=hr,books --skip-api
   GARMETIX_ASSISTANT_ANTHROPIC_API_KEY=sk-ant-... bash frontend/modular/deploy/srp-whole-site-deploy.sh --set-assistant-secret
 
 Flags:
+  --stage=Name        Required for real upload/install deploys. Used in the pre-deploy
+                      database backup filename/history entry, e.g. BS16AccountingMasterAudit.
   --skip-build         Reuse each app's existing .output without rebuilding.
   --skip-api           Do not publish/copy the backend API into the release.
+  --skip-db-backup     Emergency/manual override only. Skips the automatic SRP database
+                      backup that normally runs before upload/install.
   --apps=a,b,c         Only rebuild these Nuxt apps (main,pos,hr,ai-sense,books,crm,admin,inventory,final-accounts);
                         every other app reuses its existing local .output/public as-is.
                         Fails loudly if an excluded app has no valid existing build.
@@ -107,8 +111,10 @@ BUILD_ONLY=false
 INSTALL_REMOTE=false
 SKIP_BUILD=false
 SKIP_API=false
+SKIP_DB_BACKUP=false
 SET_ASSISTANT_SECRET=false
 DEPLOY_APPS=""
+SRP_DEPLOY_STAGE="${SRP_DEPLOY_STAGE:-${GARMETIX_BACKUP_STAGE:-}}"
 
 for arg in "$@"; do
   case "$arg" in
@@ -118,6 +124,8 @@ for arg in "$@"; do
     --install-remote) INSTALL_REMOTE=true ;;
     --skip-build) SKIP_BUILD=true ;;
     --skip-api) SKIP_API=true ;;
+    --skip-db-backup) SKIP_DB_BACKUP=true ;;
+    --stage=*) SRP_DEPLOY_STAGE="${arg#--stage=}" ;;
     --set-assistant-secret) SET_ASSISTANT_SECRET=true ;;
     --apps=*) DEPLOY_APPS="${arg#--apps=}" ;;
     -h|--help) usage; exit 0 ;;
@@ -227,6 +235,7 @@ SRP_API_PUBLISH_SELF_CONTAINED="${SRP_API_PUBLISH_SELF_CONTAINED:-true}"
 SRP_ASSISTANT_ENABLED="${SRP_ASSISTANT_ENABLED:-true}"
 SRP_API_RUNTIME="${SRP_API_RUNTIME:-linux-x64}"
 SRP_API_ENV_PATH="${SRP_API_ENV_PATH:-/etc/garmetix/srp-api.env}"
+SRP_BACKUP_DIR="${SRP_BACKUP_DIR:-/opt/garmetix/backup/database}"
 SRP_CLOUDFLARE_TUNNEL_NAME="${SRP_CLOUDFLARE_TUNNEL_NAME:-garmetix-srp}"
 SRP_CLOUDFLARE_CREDENTIALS_FILE="${SRP_CLOUDFLARE_CREDENTIALS_FILE:-/etc/cloudflared/garmetix-srp.json}"
 SRP_CLOUDFLARE_CONFIG_PATH="${SRP_CLOUDFLARE_CONFIG_PATH:-/etc/cloudflared/garmetix-srp.yml}"
@@ -247,6 +256,9 @@ SRP deployment plan
   API port:      $SRP_API_PORT
   Config file:   $CONFIG_PATH
   Secrets file:  $SRP_SECRETS_PATH
+  Backup dir:    $SRP_BACKUP_DIR
+  Stage:         ${SRP_DEPLOY_STAGE:-not set}
+  DB backup:     $(if [ "$SKIP_DB_BACKUP" = true ]; then echo "skipped by flag"; elif [ "$BUILD_ONLY" = true ] || [ "$DRY_RUN" = true ] || [ "$SET_ASSISTANT_SECRET" = true ]; then echo "not needed for this mode"; else echo "required before upload"; fi)
   Auth mode:     $(if [ -n "${SRP_SSH_PASSWORD:-}" ]; then echo "password via sshpass"; else echo "SSH key or interactive"; fi)
   Local release: $LOCAL_RELEASE
 
@@ -692,6 +704,25 @@ install_remote() {
   ssh_cmd "${sudo_prefix}bash '$SRP_REMOTE_BASE/current/ops/install-srp-on-host.sh'"
 }
 
+run_pre_deploy_backup() {
+  if [ "$SKIP_DB_BACKUP" = true ]; then
+    echo "WARNING: skipping pre-deploy database backup because --skip-db-backup was supplied."
+    return
+  fi
+
+  if [ -z "$SRP_DEPLOY_STAGE" ]; then
+    echo "A deployment stage name is required for the pre-deploy database backup." >&2
+    echo "Example: --stage=BS16AccountingMasterAudit" >&2
+    echo "Use --skip-db-backup only for an explicitly approved emergency/manual exception." >&2
+    exit 1
+  fi
+
+  echo "Creating pre-deploy database backup for stage $SRP_DEPLOY_STAGE"
+  GARMETIX_BACKUP_STAGE="$SRP_DEPLOY_STAGE" \
+  SRP_BACKUP_DIR="$SRP_BACKUP_DIR" \
+  "$MODULAR_ROOT/deploy/srp-backup-database.sh" --stage="$SRP_DEPLOY_STAGE"
+}
+
 set_assistant_secret() {
   local api_key="${GARMETIX_ASSISTANT_ANTHROPIC_API_KEY:-}"
   if [ -z "$api_key" ]; then
@@ -776,6 +807,7 @@ if [ "$BUILD_ONLY" = true ]; then
   exit 0
 fi
 
+run_pre_deploy_backup
 upload_release
 echo "Uploaded SRP release to $SRP_DEPLOY_TARGET:$REMOTE_RELEASE"
 

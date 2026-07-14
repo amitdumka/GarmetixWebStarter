@@ -2411,3 +2411,48 @@ Implement in stages. At the beginning of every stage:
 10. commit the completed stage.
 
 Never mark a task complete without code, tests and recorded evidence. Never merge or deploy.
+
+---
+
+## 32. Future Accounting Unification Roadmap
+
+After the Balance Sheet / Final Accounts module is merged into `version6`, the next work must unify accounting masters rather than maintain a separate Final Accounts chart/mapping universe.
+
+### BS-16 - Accounting Master Audit
+
+- Create mandatory database backup first with stage name `BS16AccountingMasterAudit`.
+- Audit existing ledger groups, ledgers, customers, vendors, employees, other parties, sales, purchases, vouchers, salary payments, GST, inventory and settlements.
+- Identify duplicate, missing and ambiguous accounting masters.
+- Produce a no-mutation design report before changing data.
+
+### BS-17 - Indian/Tally-Compatible COA Normalization
+
+- Align existing ledger groups to Indian operational accounting practice.
+- Use TallyPrime/BUSY/Marg-style group names and control accounts where possible.
+- Keep report templates versioned and Schedule III-ready.
+- Do not force Ind AS unless Amit/CA confirms it legally applies.
+
+### BS-18 - Party And Ledger Unification
+
+- Treat Customer, Vendor, Employee and Other Party as roles of a canonical party identity.
+- Link each role to one canonical ledger.
+- Auto-create missing ledgers only when required and visible in audit evidence.
+- Prevent duplicate party ledgers.
+
+### BS-19 - Transaction Backfill And Reconciliation
+
+- Dry-run all existing Sale, Purchase, Voucher, Salary Payment, GST, Inventory and settlement data into canonical ledgers.
+- Produce source totals, Trial Balance, Balance Sheet equality and exception evidence before live mutation.
+
+### BS-20 - Final Accounts Direct Ledger Integration
+
+- Final Accounts should read canonical Books/accounting ledger data directly.
+- Mapping should remain only for exceptions and external imports.
+
+### BS-21 - Restore Drill And Production Safety
+
+- Restore a named stage backup to a non-production database.
+- Verify `Backupfilehistory.md` can identify a safe rollback point.
+- Document rollback and production rollout before any live accounting migration.
+
+All stages must follow `docs/database-stage-backup-protocol.md`. Backups live on the deployed host under `/opt/garmetix/backup/database/`.

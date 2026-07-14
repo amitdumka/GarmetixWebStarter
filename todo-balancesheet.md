@@ -1677,6 +1677,101 @@ Files added/changed:
 
 ---
 
+# BS-16 — Accounting Master Audit
+
+- [ ] Create database backup with stage name `BS16AccountingMasterAudit`.
+- [ ] Record backup filename from `/opt/garmetix/backup/database/Backupfilehistory.md`.
+- [ ] Audit existing ledger groups.
+- [ ] Audit existing ledgers.
+- [ ] Audit customers, vendors, employees and other parties.
+- [ ] Audit party-to-ledger links and duplicates.
+- [ ] Audit Sale posting paths.
+- [ ] Audit Purchase posting paths.
+- [ ] Audit Voucher/CashVoucher posting paths.
+- [ ] Audit Salary Payment and Payroll posting paths.
+- [ ] Audit GST and tax posting paths.
+- [ ] Audit Inventory/COGS posting paths.
+- [ ] Audit existing Final Accounts mappings.
+- [ ] Produce no-mutation design report.
+- [ ] Do not mutate production data in BS-16.
+
+Evidence:
+
+```text
+Date:
+Agent:
+Branch:
+Backup file:
+Backup history row:
+Audit report:
+Mutation status: none
+Known risks:
+Decision:
+```
+
+---
+
+# BS-17 — Indian/Tally-compatible Chart of Accounts normalization
+
+- [ ] Create database backup with stage name `BS17IndianCOANormalization`.
+- [ ] Map current ledger groups to Indian/Tally-style primary groups.
+- [ ] Identify duplicate groups.
+- [ ] Identify orphan/unclassified ledgers.
+- [ ] Define control accounts for debtors, creditors, cash, bank, GST, inventory, payroll and capital.
+- [ ] Draft normalization migration.
+- [ ] Draft rollback plan.
+- [ ] Review with Amit/CA before mutation.
+
+---
+
+# BS-18 — Party and ledger unification
+
+- [ ] Create database backup with stage name `BS18PartyLedgerUnification`.
+- [ ] Design canonical party identity.
+- [ ] Support Customer/Vendor/Employee/Other Party roles.
+- [ ] Link each role to one canonical ledger.
+- [ ] Detect duplicate party ledgers.
+- [ ] Define safe merge/relink workflow.
+- [ ] Review with Amit/CA before mutation.
+
+---
+
+# BS-19 — Transaction backfill and reconciliation
+
+- [ ] Create database backup with stage name `BS19TransactionBackfillReconciliation`.
+- [ ] Dry-run source transaction backfill.
+- [ ] Compare source totals to ledger totals.
+- [ ] Produce Trial Balance evidence.
+- [ ] Produce Balance Sheet equality evidence.
+- [ ] Produce Profit & Loss tie-out evidence.
+- [ ] Produce exception report.
+- [ ] Do not run live mutation without approval.
+
+---
+
+# BS-20 — Final Accounts direct ledger integration
+
+- [ ] Create database backup with stage name `BS20FinalAccountsLedgerIntegration`.
+- [ ] Read canonical Books ledger data directly.
+- [ ] Keep mapping only for exceptions/import gaps.
+- [ ] Remove duplicate daily setup requirement from Final Accounts.
+- [ ] Validate statements against canonical ledger balances.
+- [ ] Confirm existing modules still post correctly.
+
+---
+
+# BS-21 — Restore drill and production safety
+
+- [ ] Create database backup with stage name `BS21RestoreDrillProductionSafety`.
+- [ ] Restore latest stage backup into non-production database.
+- [ ] Run application smoke against restored database.
+- [ ] Verify backup checksum.
+- [ ] Verify `Backupfilehistory.md` contains restore metadata.
+- [ ] Document rollback decision tree.
+- [ ] Get human approval before production migration.
+
+---
+
 # Permanent invariants checklist
 
 These must stay checked after every stage:
@@ -1691,3 +1786,5 @@ These must stay checked after every stage:
 - [x] Tenant/company/store isolation is preserved.
 - [x] Existing app builds with module disabled.
 - [x] TODO evidence is current.
+- [x] DB-affecting stage/deploy requires named backup under `/opt/garmetix/backup/database/`.
+- [x] Backup history is recorded in `/opt/garmetix/backup/database/Backupfilehistory.md`.

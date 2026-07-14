@@ -7,11 +7,20 @@ Garmetix SRP database backup
 
 Usage:
   bash frontend/modular/deploy/srp-backup-database.sh --dry-run
-  bash frontend/modular/deploy/srp-backup-database.sh
+  bash frontend/modular/deploy/srp-backup-database.sh --stage=BS16AccountingMasterAudit
   bash frontend/modular/deploy/srp-backup-database.sh --list
 
 Creates a PostgreSQL custom-format backup on the SRP Ubuntu host before
-controlled live POS acceptance or deployment.
+controlled live acceptance, deployment or database-changing implementation.
+
+Backup files and history are written on the deployed host under:
+  /opt/garmetix/backup/database/
+
+Backup filename format:
+  garmetix-srp-db-YYYYMMDD-HHMMSS-IST-<StageName>-v<Version>.dump
+
+History file:
+  /opt/garmetix/backup/database/Backupfilehistory.md
 
 Reads config from:
   $GARMETIX_SRP_DEPLOY_CONFIG, or ~/.config/garmetix/srp-deploy.env
@@ -52,11 +61,13 @@ fi
 
 DRY_RUN=false
 LIST_ONLY=false
+STAGE_NAME="${GARMETIX_BACKUP_STAGE:-${SRP_DEPLOY_STAGE:-}}"
 
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=true ;;
     --list) LIST_ONLY=true ;;
+    --stage=*) STAGE_NAME="${arg#--stage=}" ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $arg" >&2; usage; exit 1 ;;
   esac
@@ -90,12 +101,20 @@ SRP_DEPLOY_TARGET="${SRP_DEPLOY_TARGET:-amitkumar@192.168.11.127}"
 SRP_SSH_PORT="${SRP_SSH_PORT:-22}"
 SRP_REMOTE_BASE="${SRP_REMOTE_BASE:-/opt/garmetix-srp}"
 SRP_API_ENV_PATH="${SRP_API_ENV_PATH:-/etc/garmetix/srp-api.env}"
-SRP_BACKUP_DIR="${SRP_BACKUP_DIR:-$SRP_REMOTE_BASE/backups}"
+SRP_BACKUP_DIR="${SRP_BACKUP_DIR:-/opt/garmetix/backup/database}"
 SRP_GARMETIX_VERSION="${GARMETIX_VERSION:-}"
 if [ -z "$SRP_GARMETIX_VERSION" ] && [ -f "$MODULAR_ROOT/config/version.ts" ]; then
   SRP_GARMETIX_VERSION="$(sed -n "s/.*version: '\([^']*\)'.*/\1/p" "$MODULAR_ROOT/config/version.ts" | head -1)"
 fi
 SRP_GARMETIX_VERSION="${SRP_GARMETIX_VERSION:-6.0.0}"
+SRP_GIT_COMMIT="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+
+if [ "$LIST_ONLY" != true ] && [ -z "$STAGE_NAME" ]; then
+  echo "A stage name is required for database backups." >&2
+  echo "Example: --stage=BS16AccountingMasterAudit" >&2
+  echo "Or set GARMETIX_BACKUP_STAGE / SRP_DEPLOY_STAGE." >&2
+  exit 1
+fi
 
 need_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -129,14 +148,17 @@ SRP database backup plan
   Target:       $SRP_DEPLOY_TARGET
   API env:      $SRP_API_ENV_PATH
   Backup dir:   $SRP_BACKUP_DIR
+  History file:  $SRP_BACKUP_DIR/Backupfilehistory.md
+  Stage:        ${STAGE_NAME:-list-only}
   Version:      $SRP_GARMETIX_VERSION
+  Git commit:   $SRP_GIT_COMMIT
   Config file:  $CONFIG_PATH
   Secrets file: $SRP_SECRETS_PATH
   Mode:         $(if [ "$DRY_RUN" = true ]; then echo "dry-run"; elif [ "$LIST_ONLY" = true ]; then echo "list"; else echo "backup"; fi)
 PLAN
 
 if [ "$DRY_RUN" = true ]; then
-  echo "DRY SSH $SRP_DEPLOY_TARGET test API env, parse connection string and create pg_dump backup."
+  echo "DRY SSH $SRP_DEPLOY_TARGET test API env, parse connection string and create pg_dump backup/history entry."
   exit 0
 fi
 
@@ -165,7 +187,11 @@ fi
 
 if [ "$LIST_ONLY" = true ]; then
   sudo_cmd mkdir -p "$SRP_BACKUP_DIR"
+  echo "Latest backup files:"
   sudo_cmd find "$SRP_BACKUP_DIR" -maxdepth 1 -type f \( -name '*.dump' -o -name '*.sha256' \) -printf '%TY-%Tm-%Td %TH:%TM %s %p\n' 2>/dev/null | sort | tail -20
+  echo
+  echo "History tail:"
+  sudo_cmd test -f "$SRP_BACKUP_DIR/Backupfilehistory.md" && sudo_cmd tail -80 "$SRP_BACKUP_DIR/Backupfilehistory.md" || true
   exit 0
 fi
 
@@ -198,18 +224,62 @@ sudo_cmd mkdir -p "$SRP_BACKUP_DIR"
 sudo_cmd chown "$(id -u):$(id -g)" "$SRP_BACKUP_DIR"
 
 STAMP="$(TZ=Asia/Kolkata date +%Y%m%d-%H%M%S)"
-BACKUP_FILE="$SRP_BACKUP_DIR/garmetix-srp-v${GARMETIX_VERSION}-${STAMP}-manual.dump"
+HUMAN_STAMP="$(TZ=Asia/Kolkata date '+%Y-%m-%d %H:%M:%S %Z')"
+SAFE_STAGE="$(printf '%s' "$STAGE_NAME" | tr -cd '[:alnum:]_.-' | cut -c1-80)"
+if [ -z "$SAFE_STAGE" ]; then
+  echo "Stage name became empty after sanitizing. Use letters/numbers, dot, dash or underscore." >&2
+  exit 6
+fi
+BACKUP_FILE="$SRP_BACKUP_DIR/garmetix-srp-db-${STAMP}-IST-${SAFE_STAGE}-v${GARMETIX_VERSION}.dump"
+HISTORY_FILE="$SRP_BACKUP_DIR/Backupfilehistory.md"
 
 export PGPASSWORD="$DB_PASSWORD"
 pg_dump -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Fc -f "$BACKUP_FILE"
 unset PGPASSWORD
 
-sha256sum "$BACKUP_FILE" > "$BACKUP_FILE.sha256"
+SHA256_VALUE="$(sha256sum "$BACKUP_FILE" | awk '{print $1}')"
+printf '%s  %s\n' "$SHA256_VALUE" "$(basename "$BACKUP_FILE")" > "$BACKUP_FILE.sha256"
 chmod 600 "$BACKUP_FILE" "$BACKUP_FILE.sha256"
 
+if [ ! -f "$HISTORY_FILE" ]; then
+  cat > "$HISTORY_FILE" <<HISTORY
+# Garmetix Database Backup File History
+
+Location: \`$SRP_BACKUP_DIR\`
+
+Each backup is a PostgreSQL custom-format dump created by \`pg_dump -Fc\`.
+
+Restore template:
+
+\`\`\`bash
+createdb -h <host> -p <port> -U <user> <restore_db>
+pg_restore -h <host> -p <port> -U <user> -d <restore_db> --clean --if-exists --no-owner --no-privileges <backup-file.dump>
+\`\`\`
+
+| Date/Time IST | Stage | Database | Version | Git Commit | Backup File | Size | SHA256 |
+| --- | --- | --- | --- | --- | --- | ---: | --- |
+HISTORY
+fi
+
+BACKUP_SIZE="$(du -h "$BACKUP_FILE" | awk '{print $1}')"
+printf '| %s | %s | %s | %s | %s | %s | %s | `%s` |\n' \
+  "$HUMAN_STAMP" \
+  "$SAFE_STAGE" \
+  "$DB_NAME" \
+  "$GARMETIX_VERSION" \
+  "$GIT_COMMIT" \
+  "$(basename "$BACKUP_FILE")" \
+  "$BACKUP_SIZE" \
+  "$SHA256_VALUE" >> "$HISTORY_FILE"
+
+chmod 600 "$HISTORY_FILE"
+
 echo "Backup completed:"
-ls -lh "$BACKUP_FILE" "$BACKUP_FILE.sha256"
+ls -lh "$BACKUP_FILE" "$BACKUP_FILE.sha256" "$HISTORY_FILE"
+echo "Restore check:"
+echo "  sha256sum -c $BACKUP_FILE.sha256"
+echo "  pg_restore -l $BACKUP_FILE >/tmp/${SAFE_STAGE}-restore-list.txt"
 REMOTE
 )"
 
-ssh_cmd "${sudo_prefix} export SRP_API_ENV_PATH=$(shell_quote "$SRP_API_ENV_PATH"); export SRP_BACKUP_DIR=$(shell_quote "$SRP_BACKUP_DIR"); export GARMETIX_VERSION=$(shell_quote "$SRP_GARMETIX_VERSION"); export LIST_ONLY=$(shell_quote "$LIST_ONLY"); bash -s" <<<"$remote_script"
+ssh_cmd "${sudo_prefix} export SRP_API_ENV_PATH=$(shell_quote "$SRP_API_ENV_PATH"); export SRP_BACKUP_DIR=$(shell_quote "$SRP_BACKUP_DIR"); export GARMETIX_VERSION=$(shell_quote "$SRP_GARMETIX_VERSION"); export GIT_COMMIT=$(shell_quote "$SRP_GIT_COMMIT"); export STAGE_NAME=$(shell_quote "$STAGE_NAME"); export LIST_ONLY=$(shell_quote "$LIST_ONLY"); bash -s" <<<"$remote_script"
