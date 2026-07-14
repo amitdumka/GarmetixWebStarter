@@ -37,26 +37,18 @@ public sealed class FinalAccountsReportService(GarmetixDbContext db)
         var openingByAccount = BuildOpeningBalances(accounts);
         if (from.HasValue && accountIds.Count > 0)
         {
-            var priorMovements = await ReportLines(scope, includeReversed: query.IncludeReversed == true, accountIds)
-                .Where(item => item.Entry.OnDate < from.Value)
+            var priorRows = await ReportLines(scope, includeReversed: query.IncludeReversed == true, accountIds, onOrBefore: from.Value.AddDays(-1))
+                .ToListAsync(cancellationToken);
+            var priorMovements = priorRows
                 .GroupBy(item => item.Line.AccountId)
                 .Select(group => new AccountMovement(group.Key, group.Sum(item => item.Line.Debit), group.Sum(item => item.Line.Credit)))
-                .ToListAsync(cancellationToken);
+                .ToList();
             ApplyMovements(openingByAccount, priorMovements);
         }
 
-        var periodQuery = ReportLines(scope, includeReversed: query.IncludeReversed == true, accountIds);
-        if (from.HasValue)
-        {
-            periodQuery = periodQuery.Where(item => item.Entry.OnDate >= from.Value);
-        }
-
-        if (to.HasValue)
-        {
-            periodQuery = periodQuery.Where(item => item.Entry.OnDate <= to.Value);
-        }
-
-        var periodLines = await periodQuery
+        var periodRows = await ReportLines(scope, includeReversed: query.IncludeReversed == true, accountIds, onOrAfter: from, onOrBefore: to)
+            .ToListAsync(cancellationToken);
+        var periodLines = periodRows
             .OrderBy(item => item.Entry.OnDate)
             .ThenBy(item => item.Entry.EntryNumber)
             .ThenBy(item => item.Line.LineNumber)
@@ -77,7 +69,7 @@ public sealed class FinalAccountsReportService(GarmetixDbContext db)
                 item.Line.Debit,
                 item.Line.Credit,
                 item.Line.Narration))
-            .ToListAsync(cancellationToken);
+            .ToList();
 
         var runningByAccount = openingByAccount.ToDictionary(item => item.Key, item => item.Value);
         var rows = new List<FinalAccountsGeneralLedgerRowDto>(periodLines.Count);
@@ -165,29 +157,21 @@ public sealed class FinalAccountsReportService(GarmetixDbContext db)
         var openingByAccount = BuildOpeningBalances(accounts);
         if (from.HasValue && accountIds.Count > 0)
         {
-            var priorMovements = await ReportLines(scope, includeReversed: false, accountIds)
-                .Where(item => item.Entry.OnDate < from.Value)
+            var priorRows = await ReportLines(scope, includeReversed: false, accountIds, onOrBefore: from.Value.AddDays(-1))
+                .ToListAsync(cancellationToken);
+            var priorMovements = priorRows
                 .GroupBy(item => item.Line.AccountId)
                 .Select(group => new AccountMovement(group.Key, group.Sum(item => item.Line.Debit), group.Sum(item => item.Line.Credit)))
-                .ToListAsync(cancellationToken);
+                .ToList();
             ApplyMovements(openingByAccount, priorMovements);
         }
 
-        var periodQuery = ReportLines(scope, includeReversed: false, accountIds);
-        if (from.HasValue)
-        {
-            periodQuery = periodQuery.Where(item => item.Entry.OnDate >= from.Value);
-        }
-
-        if (to.HasValue)
-        {
-            periodQuery = periodQuery.Where(item => item.Entry.OnDate <= to.Value);
-        }
-
-        var periodMovements = await periodQuery
+        var periodRows = await ReportLines(scope, includeReversed: false, accountIds, onOrAfter: from, onOrBefore: to)
+            .ToListAsync(cancellationToken);
+        var periodMovements = periodRows
             .GroupBy(item => item.Line.AccountId)
             .Select(group => new AccountMovement(group.Key, group.Sum(item => item.Line.Debit), group.Sum(item => item.Line.Credit)))
-            .ToDictionaryAsync(item => item.AccountId, cancellationToken);
+            .ToDictionary(item => item.AccountId);
 
         var ledgerRows = accounts.Select(account =>
         {
@@ -668,20 +652,12 @@ public sealed class FinalAccountsReportService(GarmetixDbContext db)
         string comparison,
         CancellationToken cancellationToken)
     {
-        var query = ReportLines(scope, includeReversed: false);
-        if (from.HasValue)
-        {
-            query = query.Where(item => item.Entry.OnDate >= from.Value);
-        }
-
-        if (to.HasValue)
-        {
-            query = query.Where(item => item.Entry.OnDate <= to.Value);
-        }
-
-        var rows = await query
-            .Select(item => new { item.Entry.OnDate, item.Line.Debit, item.Line.Credit })
+        var lines = await ReportLines(scope, includeReversed: false, onOrAfter: from, onOrBefore: to)
             .ToListAsync(cancellationToken);
+
+        var rows = lines
+            .Select(item => new { item.Entry.OnDate, item.Line.Debit, item.Line.Credit })
+            .ToList();
 
         return rows
             .GroupBy(item => FinalAccountsReportRules.PeriodKey(item.OnDate, comparison))
@@ -720,21 +696,12 @@ public sealed class FinalAccountsReportService(GarmetixDbContext db)
             return new ProfitLossCategoryValues(new Dictionary<string, decimal>(), new Dictionary<string, List<FinalAccountsStatementMappingDto>>());
         }
 
-        var query = ReportLines(scope, includeReversed: false, accountIds);
-        if (from.HasValue)
-        {
-            query = query.Where(item => item.Entry.OnDate >= from.Value);
-        }
-
-        if (to.HasValue)
-        {
-            query = query.Where(item => item.Entry.OnDate <= to.Value);
-        }
-
-        var movements = await query
+        var plLines = await ReportLines(scope, includeReversed: false, accountIds, onOrAfter: from, onOrBefore: to)
+            .ToListAsync(cancellationToken);
+        var movements = plLines
             .GroupBy(item => item.Line.AccountId)
             .Select(group => new AccountMovement(group.Key, group.Sum(item => item.Line.Debit), group.Sum(item => item.Line.Credit)))
-            .ToDictionaryAsync(item => item.AccountId, cancellationToken);
+            .ToDictionary(item => item.AccountId);
         var values = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
         var mappings = new Dictionary<string, List<FinalAccountsStatementMappingDto>>(StringComparer.OrdinalIgnoreCase);
 
@@ -866,11 +833,12 @@ public sealed class FinalAccountsReportService(GarmetixDbContext db)
             return balances;
         }
 
-        var movements = await ReportLines(scope, includeReversed: false, accountIds)
-            .Where(item => item.Entry.OnDate <= asOf)
+        var closingRows = await ReportLines(scope, includeReversed: false, accountIds, onOrBefore: asOf)
+            .ToListAsync(cancellationToken);
+        var movements = closingRows
             .GroupBy(item => item.Line.AccountId)
             .Select(group => new AccountMovement(group.Key, group.Sum(item => item.Line.Debit), group.Sum(item => item.Line.Credit)))
-            .ToListAsync(cancellationToken);
+            .ToList();
         ApplyMovements(balances, movements);
         return balances;
     }
@@ -1080,7 +1048,12 @@ public sealed class FinalAccountsReportService(GarmetixDbContext db)
             _ => "Attach supporting documents in the future CA workspace stage."
         };
 
-    private IQueryable<(FinalAccountsJournalEntry Entry, FinalAccountsJournalLine Line)> ReportLines(FinalAccountsScopeDto scope, bool includeReversed, IReadOnlyCollection<Guid>? accountIds = null)
+    private IQueryable<(FinalAccountsJournalEntry Entry, FinalAccountsJournalLine Line)> ReportLines(
+        FinalAccountsScopeDto scope,
+        bool includeReversed,
+        IReadOnlyCollection<Guid>? accountIds = null,
+        DateTime? onOrAfter = null,
+        DateTime? onOrBefore = null)
         => from entry in db.FinalAccountsJournalEntries
            join line in db.FinalAccountsJournalLines on entry.Id equals line.JournalEntryId
            where entry.CompanyId == scope.CompanyId
@@ -1091,6 +1064,8 @@ public sealed class FinalAccountsReportService(GarmetixDbContext db)
                  && line.StoreId == scope.StoreId
                  && (entry.Status == FinalAccountsJournalStatus.Posted || (includeReversed && entry.Status == FinalAccountsJournalStatus.Reversed))
                  && (accountIds == null || accountIds.Contains(line.AccountId))
+                 && (onOrAfter == null || entry.OnDate >= onOrAfter.Value)
+                 && (onOrBefore == null || entry.OnDate <= onOrBefore.Value)
            select new ValueTuple<FinalAccountsJournalEntry, FinalAccountsJournalLine>(entry, line);
 
     private IQueryable<FinalAccountsAccount> AccountsInScope(FinalAccountsScopeDto scope)
