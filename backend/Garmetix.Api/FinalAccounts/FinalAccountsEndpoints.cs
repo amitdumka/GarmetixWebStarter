@@ -17,6 +17,7 @@ public static class FinalAccountsEndpoints
         group.MapGet("/audit/accounting-master", GetAccountingMasterAuditAsync);
         group.MapGet("/audit/coa-normalization", GetCoaNormalizationPreviewAsync);
         group.MapGet("/audit/party-ledger-unification", GetPartyLedgerUnificationPreviewAsync);
+        group.MapGet("/audit/transaction-backfill-reconciliation", GetTransactionBackfillReconciliationPreviewAsync);
 
         var enabled = group.MapGroup("")
             .AddEndpointFilter<FinalAccountsEnabledFilter>();
@@ -177,6 +178,18 @@ public static class FinalAccountsEndpoints
         HttpContext context,
         CancellationToken cancellationToken)
         => HandleAsync(() => unification.PreviewAsync(new FinalAccountsPartyLedgerUnificationPreviewQuery(companyId, storeGroupId, storeId), context, cancellationToken));
+
+    private static Task<IResult> GetTransactionBackfillReconciliationPreviewAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        DateTime? from,
+        DateTime? to,
+        string? modules,
+        FinalAccountsTransactionBackfillReconciliationService reconciliation,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => reconciliation.PreviewAsync(new FinalAccountsTransactionBackfillReconciliationQuery(companyId, storeGroupId, storeId, from, to, modules), context, cancellationToken));
 
     private static Task<IResult> ListAccountGroupsAsync(
         Guid? companyId,

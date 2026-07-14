@@ -1,5 +1,41 @@
 # Codex Changelog
 
+## 2026-07-15 - BS-19 Transaction Backfill Reconciliation Evidence
+
+Amit asked to go ahead with the next part. Added BS-19 as a read-only evidence endpoint that combines existing dry-run backfill, source reconciliation and statement report controls before any live posting/backfill.
+
+Files changed:
+
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsTransactionBackfillReconciliationContracts.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsTransactionBackfillReconciliationRules.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsTransactionBackfillReconciliationService.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs`
+- `backend/Garmetix.Api/Program.cs`
+- `backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsTransactionBackfillReconciliationRulesTests.cs`
+- `docs/final-accounts-bs-19-transaction-backfill-reconciliation.md`
+- `frontend/modular/scripts/final-accounts-readiness.mjs`
+- `todo-balancesheet.md`, `.codex/todo.md`, `.claude/todo.md`
+
+What changed:
+
+- Added `GET /api/final-accounts/audit/transaction-backfill-reconciliation`.
+- Registered `FinalAccountsTransactionBackfillReconciliationService`.
+- Composes `DryRunBackfillAsync`, `GetReconciliationAsync`, Trial Balance, Balance Sheet and Profit & Loss report calls into one evidence response.
+- Reports pending source rows, source hash drift, reconciliation differences, open sync exceptions, Trial Balance difference, Balance Sheet difference and P&L mapping issues.
+- Returns module-level evidence, approval gates and rollback plan.
+- Keeps BS-19 explicitly no-mutation: no sync job creation, source posting link creation, journal posting, schema repair, ledger relink, deploy, backfill or service restart from this workstation.
+- Documents the required deployed-host backup command:
+  `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS19TransactionBackfillReconciliation`.
+
+Remote status: backup file/history row and live evidence output are pending on the deployed SRP host.
+
+Validation:
+
+- `dotnet build backend\Garmetix.Api\Garmetix.Api.csproj -c Release -p:UseSharedCompilation=false` passed with the same 7 pre-existing unrelated warnings.
+- `dotnet test backend\Garmetix.Api.Tests\Garmetix.Api.Tests.csproj -c Release -p:UseSharedCompilation=false` passed: 265 passed, 3 pre-existing Postgres-only skipped, 0 failed.
+- `npm --prefix frontend\modular run check` passed.
+- `npm --prefix frontend\modular run final-accounts:readiness` passed for BS-19.
+
 ## 2026-07-15 - BS-18 Party Ledger Unification Preview
 
 Amit asked to go ahead with the next part. Added BS-18 as a read-only party-ledger unification preview so Customer, Vendor, Employee and Other Party records can be reviewed against canonical Party and Ledger masters before any relink or merge.

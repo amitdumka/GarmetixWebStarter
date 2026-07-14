@@ -35,10 +35,13 @@
   - [x] Draft safe merge/relink and rollback plan in preview output/docs.
   - [ ] After this commit is pulled on SRP, run `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS18PartyLedgerUnification`, deploy, then capture `GET /api/final-accounts/audit/party-ledger-unification`.
 
-- [ ] **BS-19 - Transaction Backfill And Ledger Reconciliation**
-  - [ ] Dry-run existing transaction backfill.
-  - [ ] Produce Trial Balance, Balance Sheet and source-control reconciliation.
-  - [ ] Do not mutate production without approved evidence.
+- [~] **BS-19 - Transaction Backfill And Ledger Reconciliation**
+  - [~] Create database backup with stage `BS19TransactionBackfillReconciliation` on the deployed SRP host.
+  - [x] Add read-only evidence endpoint for existing transaction backfill dry-run.
+  - [x] Compare source totals to linked Final Accounts journal totals.
+  - [x] Produce Trial Balance, Balance Sheet, Profit & Loss and source-control evidence in one response.
+  - [x] Keep live mutation blocked without approved evidence.
+  - [ ] After this commit is pulled on SRP, run `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS19TransactionBackfillReconciliation`, deploy, then capture `GET /api/final-accounts/audit/transaction-backfill-reconciliation`.
 
 - [ ] **BS-20 - Final Accounts Direct Ledger Integration**
   - [ ] Read canonical ledger data directly.

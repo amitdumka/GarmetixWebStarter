@@ -4,6 +4,29 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-07-15 - BS-19 Transaction Backfill Reconciliation Evidence
+
+**Type**: Final Accounts accounting-unification evidence endpoint, read-only/no DB mutation.
+
+**What happened**: Amit asked to go ahead with the next part. Added a BS-19 evidence endpoint that combines read-only dry-run source coverage, source-to-journal reconciliation, Trial Balance, Balance Sheet and Profit & Loss controls before any live backfill.
+
+**Files updated**:
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsTransactionBackfillReconciliationContracts.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsTransactionBackfillReconciliationRules.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsTransactionBackfillReconciliationService.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs`
+- `backend/Garmetix.Api/Program.cs`
+- `backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsTransactionBackfillReconciliationRulesTests.cs`
+- `docs/final-accounts-bs-19-transaction-backfill-reconciliation.md`
+- `frontend/modular/scripts/final-accounts-readiness.mjs`
+- `todo-balancesheet.md`, `.codex/todo.md`, `.claude/todo.md`
+
+**Implementation notes**: New endpoint is `GET /api/final-accounts/audit/transaction-backfill-reconciliation`. It returns dry-run backfill, reconciliation, module evidence, Trial Balance difference, Balance Sheet difference, P&L revenue/profit, mapping issues, approval gates and rollback plan with `WritesData: false`. It deliberately avoids the older dry-run sync job creation path because that writes job rows.
+
+**Validation**: `dotnet build backend\Garmetix.Api\Garmetix.Api.csproj -c Release -p:UseSharedCompilation=false` passed with the same 7 pre-existing unrelated warnings. `dotnet test backend\Garmetix.Api.Tests\Garmetix.Api.Tests.csproj -c Release -p:UseSharedCompilation=false` passed: 265 passed, 3 pre-existing Postgres-only skipped, 0 failed. `npm --prefix frontend\modular run check` and `npm --prefix frontend\modular run final-accounts:readiness` passed.
+
+**Remote handoff**: before SRP deploy or live evidence capture, run `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS19TransactionBackfillReconciliation` on the deployed host, then deploy/pull and capture the endpoint output. Do not start live backfill until Amit/CA approval exists.
+
 ## 2026-07-15 - BS-18 Party Ledger Unification Preview
 
 **Type**: Final Accounts accounting-unification audit/preview, read-only/no DB mutation.

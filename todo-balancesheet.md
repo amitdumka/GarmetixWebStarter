@@ -1766,14 +1766,28 @@ Decision: BS-18 produces a read-only party-ledger unification preview and review
 
 # BS-19 — Transaction backfill and reconciliation
 
-- [ ] Create database backup with stage name `BS19TransactionBackfillReconciliation`.
-- [ ] Dry-run source transaction backfill.
-- [ ] Compare source totals to ledger totals.
-- [ ] Produce Trial Balance evidence.
-- [ ] Produce Balance Sheet equality evidence.
-- [ ] Produce Profit & Loss tie-out evidence.
-- [ ] Produce exception report.
-- [ ] Do not run live mutation without approval.
+- [~] Create database backup with stage name `BS19TransactionBackfillReconciliation`.
+- [x] Dry-run source transaction backfill.
+- [x] Compare source totals to ledger totals.
+- [x] Produce Trial Balance evidence.
+- [x] Produce Balance Sheet equality evidence.
+- [x] Produce Profit & Loss tie-out evidence.
+- [x] Produce exception report.
+- [x] Do not run live mutation without approval.
+
+Evidence:
+
+```text
+Date: 2026-07-15
+Agent: Codex GPT-5
+Branch: version6
+Backup file: pending on deployed SRP host; run npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS19TransactionBackfillReconciliation before remote deploy/live review.
+Backup history row: pending remote deployed-host command.
+Evidence endpoint: GET /api/final-accounts/audit/transaction-backfill-reconciliation
+Mutation status: none; no sync job creation, source posting link creation, journal posting, schema repair, ledger relink, backfill, deploy or service restart in local implementation.
+Known risks: live source totals, Trial Balance, Balance Sheet and P&L evidence are not captured until the remote host pulls, backs up and runs the evidence endpoint for the approved range/modules.
+Decision: BS-19 produces a read-only dry-run/reconciliation evidence pack only. Any live backfill remains blocked until backup, evidence review and Amit/CA approval.
+```
 
 ---
 

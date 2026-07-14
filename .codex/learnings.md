@@ -43,3 +43,5 @@ Use Indian operational accounting practice and TallyPrime/BUSY/Marg-style COA gr
 BS-17 implements only a read-only COA normalization preview at `/api/final-accounts/audit/coa-normalization`. Do not treat its classifications as approved migration instructions until the deployed-host backup, live preview evidence and Amit/CA review are complete.
 
 BS-18 implements only a read-only party-ledger unification preview at `/api/final-accounts/audit/party-ledger-unification`. Do not relink `Customer.PartyId`, `Vendor.PartyId`, create employee parties, merge parties or merge ledgers until backup, live preview evidence and Amit/CA approval are complete.
+
+BS-19 implements only a read-only transaction backfill/reconciliation evidence endpoint at `/api/final-accounts/audit/transaction-backfill-reconciliation`. It uses `DryRunBackfillAsync`/`GetReconciliationAsync` plus reports, and deliberately avoids manual dry-run sync job creation because that path persists job rows.

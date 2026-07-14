@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-18 readiness')
+console.log('Garmetix Final Accounts BS-19 readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -19,6 +19,7 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapGet("/audit/accounting-master"',
   'MapGet("/audit/coa-normalization"',
   'MapGet("/audit/party-ledger-unification"',
+  'MapGet("/audit/transaction-backfill-reconciliation"',
   'AddEndpointFilter<FinalAccountsEnabledFilter>',
   'MapGet("/dashboard"',
   'MapGet("/account-groups"',
@@ -566,6 +567,7 @@ checkFile('backend/Garmetix.Api/Program.cs', [
   'FinalAccountsAccountingMasterAuditService',
   'FinalAccountsCoaNormalizationService',
   'FinalAccountsPartyLedgerUnificationService',
+  'FinalAccountsTransactionBackfillReconciliationService',
   'SalesInvoiceAdapter',
   'SalesReturnAdapter',
   'SalesInvoiceCancellationAdapter',
@@ -834,6 +836,47 @@ checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsPartyLedgerUnif
   'PlansRequireReviewAndRollback'
 ])
 
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsTransactionBackfillReconciliationService.cs', [
+  'FinalAccountsTransactionBackfillReconciliationService',
+  'PreviewAsync',
+  'WritesData: false',
+  'DryRunBackfillAsync',
+  'GetReconciliationAsync',
+  'GetTrialBalanceAsync',
+  'GetBalanceSheetAsync',
+  'GetProfitLossAsync',
+  'BuildModuleEvidence',
+  'TrialBalanceDifference',
+  'BalanceSheetDifference'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsTransactionBackfillReconciliationRules.cs', [
+  'FinalAccountsTransactionBackfillReconciliationRules',
+  'BS19TransactionBackfillReconciliation',
+  'EvidenceEndpointPath',
+  'ParseModules',
+  'StatusForDifference',
+  'ApprovalGates',
+  'RollbackPlan'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsTransactionBackfillReconciliationContracts.cs', [
+  'FinalAccountsTransactionBackfillReconciliationResponse',
+  'FinalAccountsTransactionBackfillStatementEvidenceDto',
+  'FinalAccountsTransactionBackfillModuleEvidenceDto',
+  'FinalAccountsTransactionBackfillIssueDto',
+  'FinalAccountsTransactionBackfillStepDto'
+])
+
+checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsTransactionBackfillReconciliationRulesTests.cs', [
+  'EvidenceEndpointIsReadOnlyAndStageNamed',
+  'ParseModulesAllowsCommaSeparatedDistinctValues',
+  'ParseModulesReturnsNullForDefaultModuleSet',
+  'StatusForDifferenceSeparatesBalancedReviewAndDifference',
+  'SuggestedActionMatchesModuleStatus',
+  'ApprovalAndRollbackPlansRequireBackupAndTrialBalance'
+])
+
 checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsQaRulesTests.cs', [
   'LargeLedgerPaginationIsBoundedForQaRuns',
   'BackfillBatchResumeCheckpointIsStableAcrossModuleOrder',
@@ -949,6 +992,15 @@ checkFile('docs/final-accounts-bs-18-party-ledger-unification.md', [
   'GET /api/final-accounts/audit/party-ledger-unification',
   'WritesData = false',
   'Identity Key Priority',
+  'No live mutation'
+])
+
+checkFile('docs/final-accounts-bs-19-transaction-backfill-reconciliation.md', [
+  'Final Accounts BS-19 Transaction Backfill Reconciliation Evidence',
+  'BS19TransactionBackfillReconciliation',
+  'GET /api/final-accounts/audit/transaction-backfill-reconciliation',
+  'WritesData = false',
+  'Trial Balance difference must be zero',
   'No live mutation'
 ])
 
@@ -1329,7 +1381,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-18 readiness passed.')
+console.log('\nFinal Accounts BS-19 readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)
