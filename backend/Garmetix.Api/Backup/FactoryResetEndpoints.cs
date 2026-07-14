@@ -1,6 +1,6 @@
+using System.Security.Claims;
 using Garmetix.Api.Auth;
-using Garmetix.Core.Enums;
-using Garmetix.Core.Models.Authentication;
+using Garmetix.Api.Setup;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,7 +14,7 @@ public static class FactoryResetEndpoints
     {
         var group = app.MapGroup("/api/factory-reset")
             .WithTags("Factory Reset")
-            .RequireAuthorization(GarmetixPolicies.Admin);
+            .RequireAuthorization(GarmetixPolicies.SuperAdmin);
 
         group.MapPost("/", ResetAsync);
         return group;
@@ -25,6 +25,7 @@ public static class FactoryResetEndpoints
         HttpContext context,
         GarmetixDbContext db,
         DatabaseBackupService backupService,
+        SystemDefaultsService systemDefaults,
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
@@ -33,32 +34,26 @@ public static class FactoryResetEndpoints
             return Results.BadRequest(new { message = "Type FACTORY RESET to confirm removal of all business data." });
         }
 
-        if (!Guid.TryParse(context.User.FindFirst("sub")?.Value, out var userId))
+        var userId = ResolveCurrentUserId(context);
+        if (userId is null)
         {
-            return Results.BadRequest(new { message = "The current administrator identity could not be verified." });
+            return Results.BadRequest(new { message = "The current administrator identity could not be verified. Please sign out, sign in again, and retry factory reset." });
         }
 
-        var currentUser = await db.Users.AsNoTracking().FirstOrDefaultAsync(user => user.Id == userId, cancellationToken);
+        var currentUser = await db.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(user => user.Id == userId.Value, cancellationToken);
         if (currentUser is null)
         {
-            return Results.BadRequest(new { message = "The current administrator account was not found." });
+            return Results.BadRequest(new { message = "The current administrator account was not found. Please sign out and sign in again before retrying factory reset." });
+        }
+
+        if (!currentUser.IsActive || !currentUser.IsSuperAdmin)
+        {
+            return Results.Forbid();
         }
 
         var safetyBackup = await backupService.CreateBackupAsync("pre-factory-reset", cancellationToken);
-        var preservedAdmin = new AppUser
-        {
-            Id = currentUser.Id,
-            Name = currentUser.Name,
-            UserName = currentUser.UserName,
-            Email = currentUser.Email,
-            Password = currentUser.Password,
-            PinHash = currentUser.PinHash,
-            Role = LoginRole.Admin,
-            UserType = currentUser.UserType == UserType.Owner ? UserType.Owner : UserType.Admin,
-            Admin = true,
-            AppOperation = AppOperation.All
-        };
-
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         try
         {
@@ -80,8 +75,7 @@ public static class FactoryResetEndpoints
                 cancellationToken);
 
             db.ChangeTracker.Clear();
-            db.Users.Add(preservedAdmin);
-            await db.SaveChangesAsync(cancellationToken);
+            var superAdmin = await systemDefaults.EnsureSuperAdminAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
             loggerFactory.CreateLogger("Garmetix.FactoryReset")
@@ -89,9 +83,9 @@ public static class FactoryResetEndpoints
 
             return Results.Ok(new
             {
-                message = "Factory reset completed. Business data was removed and the current administrator was preserved.",
+                message = "Factory reset completed. Business data was removed and the Garmetix super admin was recreated.",
                 safetyBackup,
-                preservedAdmin = new { preservedAdmin.Id, preservedAdmin.UserName, preservedAdmin.Email }
+                superAdmin = new { superAdmin.Id, superAdmin.UserName, superAdmin.Email }
             });
         }
         catch
@@ -100,4 +94,29 @@ public static class FactoryResetEndpoints
             throw;
         }
     }
+    private static Guid? ResolveCurrentUserId(HttpContext context)
+    {
+        // JwtBearer can map the JWT `sub` claim to ClaimTypes.NameIdentifier depending on
+        // token validation settings. Factory reset previously checked only `sub`, which made
+        // valid admin sessions fail with "identity could not be verified" even though the
+        // Admin policy had already authorized the request.
+        var claimValues = new[]
+        {
+            context.User.FindFirstValue(ClaimTypes.NameIdentifier),
+            context.User.FindFirstValue("sub"),
+            context.User.FindFirstValue("nameid"),
+            context.User.FindFirstValue("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")
+        };
+
+        foreach (var value in claimValues)
+        {
+            if (Guid.TryParse(value, out var userId))
+            {
+                return userId;
+            }
+        }
+
+        return null;
+    }
+
 }

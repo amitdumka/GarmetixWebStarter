@@ -151,6 +151,7 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "TAN")] public string? Tan { get; set; }
         [Display(Name = "Active")] public bool Active { get; set; }
         [Display(Name = "Party", AutoGenerateField = false)] public Guid? PartyId { get; set; }
+        [Display(Name = "Vendor Type")] public VendorType? VendorType { get; set; }
 
         [Display(Name = "Party", AutoGenerateField = false)] public virtual Party? Party { get; set; }
         [Display(Name = "Bill Count")] public int BillCount { get; set; } = 0;
@@ -192,6 +193,7 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Sale Invoice Type")] public SaleInvoiceType SaleInvoiceType { get; set; } = SaleInvoiceType.B2C;
 
         [Display(Name = "Bill Discount", AutoGenerateField = false)] public decimal BillDiscountAmount { get; set; } = 0m;
+        [Display(Name = "Remarks")] public string? Remarks { get; set; }
 
         [Display(Name = "Salesman", AutoGenerateField = false)] public virtual Salesman? Saleman { get; set; }
         [Display(Name = "Customer", AutoGenerateField = false)] public virtual Customer? Customer { get; set; }

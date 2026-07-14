@@ -1,0 +1,9 @@
+[Unit]
+Description=Garmetix Epson Dot Matrix Spool Printer
+After=cups.service docker.service
+Wants=cups.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/garmetix-dotmatrix.env
+ExecStart=/opt/garmetix/current/deploy/print-dotmatrix-spool.sh

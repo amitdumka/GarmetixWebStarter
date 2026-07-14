@@ -1,0 +1,81 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-garmetix}
+      POSTGRES_USER: ${POSTGRES_USER:-garmetix}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER:-garmetix}\" -d \"$${POSTGRES_DB:-garmetix}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  api:
+    build:
+      context: ../..
+      dockerfile: backend/Garmetix.Api/Dockerfile
+    image: garmetix-api
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ASPNETCORE_URLS: http://+:5080
+      PurchaseImport__StorageRoot: /app/data/purchase-imports
+      PurchaseImport__TesseractPath: tesseract
+      PurchaseImport__PdfToTextPath: pdftotext
+      PurchaseImport__PdfToPpmPath: pdftoppm
+      PurchaseImport__OcrLanguage: eng
+      DigitalBills__RetentionDays: ${DigitalBills__RetentionDays:-180}
+      DigitalBills__PublicBaseUrl: ${DigitalBills__PublicBaseUrl:-https://garmetix.aadwikafashion.in}
+      WhatsApp__MetaWebhookVerifyToken: ${WhatsApp__MetaWebhookVerifyToken:-}
+      WhatsApp__MetaCloudApiBaseUrl: ${WhatsApp__MetaCloudApiBaseUrl:-https://graph.facebook.com/v20.0}
+      DotMatrixPrinting__Enabled: "${DOTMATRIX_PRINTING_ENABLED:-false}"
+      DotMatrixPrinting__RunWorker: "${DOTMATRIX_PRINTING_RUN_WORKER:-false}"
+      DotMatrixPrinting__PrinterName: "${DOTMATRIX_PRINTER_NAME:-EPSON_LX310}"
+      DotMatrixPrinting__OutputMode: "${DOTMATRIX_OUTPUT_MODE:-BridgeService}"
+      DotMatrixPrinting__SpoolDirectory: "${DOTMATRIX_SPOOL_DIRECTORY:-/app/data/dotmatrix-spool}"
+      DotMatrixPrinting__TimeZoneId: "${DOTMATRIX_TIMEZONE_ID:-Asia/Kolkata}"
+      DotMatrixPrinting__LineWidth: "${DOTMATRIX_LINE_WIDTH:-136}"
+      DotMatrixPrinting__PollSeconds: "${DOTMATRIX_POLL_SECONDS:-5}"
+      DotMatrixPrinting__RetryLimit: "${DOTMATRIX_RETRY_LIMIT:-10}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${API_PORT:-5080}:5080"
+    volumes:
+      - garmetix_app_data:/app/data
+      - ./data/dotmatrix-spool:/app/data/dotmatrix-spool
+      - ./backups:/app/backups
+
+  web:
+    build:
+      context: ../..
+      dockerfile: frontend/legacy/garmetix-web/Dockerfile
+    image: garmetix-web
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      NITRO_HOST: 0.0.0.0
+      NITRO_PORT: 3000
+      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-/api}
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+
+volumes:
+  postgres_data:
+  garmetix_app_data:

@@ -30,6 +30,32 @@ public sealed record EmployeeMasterSummaryDto(
     decimal OpenAdvanceAmount,
     IReadOnlyList<string> ReadinessMessages);
 
+
+public sealed record PagedResultDto<T>(
+    IReadOnlyList<T> Items,
+    int Total,
+    int Page,
+    int PageSize,
+    int Year,
+    int Month);
+
+public sealed record AttendanceListItemDto(
+    Guid Id,
+    Guid EmployeeId,
+    string EmployeeName,
+    string EmployeeCode,
+    DateTime OnDate,
+    int Status,
+    TimeSpan? CheckInTime,
+    TimeSpan? BreakOutTime,
+    TimeSpan? BreakInTime,
+    TimeSpan? CheckOutTime,
+    string? EntryTime,
+    string? Remarks,
+    Guid CompanyId,
+    Guid StoreGroupId,
+    Guid StoreId);
+
 public sealed record EmployeeLifecycleRequest(
     string Status,
     DateTime? ExitDate,

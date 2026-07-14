@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text;
-using Garmetix.Api.ProductLookup;
 
 namespace Garmetix.Api.Billing;
 
@@ -25,7 +24,9 @@ public sealed record InvoicePdfModel(
     decimal BalanceAmount,
     IReadOnlyList<ReceiptItemDto> Items,
     IReadOnlyList<ReceiptPaymentDto> Payments,
-    string DocumentCode);
+    string DocumentCode,
+    string? Remarks = null,
+    string? PolicyUrl = null);
 
 public static class InvoicePdfDocument
 {
@@ -58,119 +59,179 @@ public static class InvoicePdfDocument
         bool signatures,
         bool compact)
     {
-        var canvas = new PdfCanvas(height);
-        var left = compact ? 18.0 : 28.0;
-        var top = compact ? 16.0 : 24.0;
+        var left = compact ? 18.0 : 26.0;
+        var top = compact ? 14.0 : 22.0;
         var bodyWidth = width - left * 2;
-        var rowHeight = compact ? 18.0 : 21.0;
-        const double navyR = 0.02;
-        const double navyG = 0.09;
-        const double navyB = 0.16;
-        const double tealR = 0.02;
-        const double tealG = 0.70;
-        const double tealB = 0.64;
-
-        canvas.StrokeRect(left, top, bodyWidth, height - top * 2, 0.8, 0.32, 0.38, 0.44);
-        canvas.FillRect(left, top, bodyWidth, 54, navyR, navyG, navyB);
-        canvas.FillRect(left, top + 54, bodyWidth, 3, tealR, tealG, tealB);
-        canvas.Text(model.CompanyName, left + 14, top + 10, compact ? 14 : 17, true, 1, 1, 1);
-        canvas.WrappedText(model.CompanyAddress, left + 14, top + 30, bodyWidth * 0.58, compact ? 6.5 : 7.5, 2, false, 0.82, 0.88, 0.94);
-        canvas.Text("TAX INVOICE", left + bodyWidth - 190, top + 11, compact ? 12 : 14, true, 1, 1, 1);
-        canvas.Text(copy, left + bodyWidth - 190, top + 30, 8.5, false, 0.82, 0.88, 0.94);
-        canvas.Qr(model.DocumentCode, left + bodyWidth - 48, top + 5, 42);
-        if (reprint)
+        var rowHeight = compact ? 16.0 : 18.0;
+        var firstPageRows = compact ? 10 : 18;
+        // Keep continuation pages short enough so the final amount block stays inside the page summary box.
+        var continuationRows = compact ? 16 : 26;
+        var itemPages = new List<IReadOnlyList<ReceiptItemDto>>();
+        var remaining = model.Items.ToList();
+        if (remaining.Count == 0)
         {
-            canvas.Text("REPRINT", left + bodyWidth - 190, top + 43, 8.5, true, 0.98, 0.45, 0.45);
+            itemPages.Add(Array.Empty<ReceiptItemDto>());
+        }
+        else
+        {
+            itemPages.Add(remaining.Take(firstPageRows).ToList());
+            remaining = remaining.Skip(firstPageRows).ToList();
+            while (remaining.Count > 0)
+            {
+                itemPages.Add(remaining.Take(continuationRows).ToList());
+                remaining = remaining.Skip(continuationRows).ToList();
+            }
         }
 
-        var infoTop = top + 68;
+        var pageContents = new List<string>();
+        for (var pageIndex = 0; pageIndex < itemPages.Count; pageIndex++)
+        {
+            var isFirstPage = pageIndex == 0;
+            var isLastPage = pageIndex == itemPages.Count - 1;
+            var canvas = new PdfCanvas(height);
+            canvas.StrokeRect(left, top, bodyWidth, height - top * 2, 0.8, 0.32, 0.38, 0.44);
+            DrawTallyHeader(canvas, model, left, top, bodyWidth, copy, reprint, compact, pageIndex + 1, itemPages.Count, isFirstPage);
+
+            var currentTop = isFirstPage ? top + (compact ? 145 : 158) : top + (compact ? 84 : 96);
+            var columns = compact
+                ? new[] { 0.00, 0.40, 0.52, 0.65, 0.79, 1.00 }
+                : new[] { 0.00, 0.30, 0.40, 0.50, 0.61, 0.72, 0.84, 1.00 };
+            var headers = compact
+                ? new[] { "Item", "Qty", "MRP", "Disc", "Amt" }
+                : new[] { "Item / HSN", "Qty", "MRP", "Rate", "Disc", "GST", "Amount" };
+
+            DrawHeader(canvas, left + 6, currentTop, bodyWidth - 12, rowHeight, headers, columns);
+            currentTop += rowHeight;
+            foreach (var item in itemPages[pageIndex])
+            {
+                canvas.StrokeRect(left + 6, currentTop, bodyWidth - 12, rowHeight, 0.18, 0.82, 0.85, 0.88);
+                canvas.WrappedText(ItemPrintName(item), left + 8, currentTop + 4, bodyWidth * (compact ? 0.38 : 0.33), 6.4, compact ? 1 : 2);
+                canvas.RightText(item.Quantity.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[2] - 4, currentTop + 4, 6.5, false, 0.08, 0.12, 0.18);
+                canvas.RightText(item.Mrp.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[3] - 4, currentTop + 4, 6.5, false, 0.08, 0.12, 0.18);
+                if (compact)
+                {
+                    canvas.RightText(item.DiscountAmount.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[4] - 4, currentTop + 4, 6.5, false, 0.08, 0.12, 0.18);
+                    canvas.RightText(item.Amount.ToString("N2", CultureInfo.InvariantCulture), left + bodyWidth - 10, currentTop + 4, 6.5, true, 0.08, 0.12, 0.18);
+                }
+                else
+                {
+                    var unitRate = item.Quantity == 0 ? item.Mrp : Math.Round(item.Amount / item.Quantity, 2, MidpointRounding.AwayFromZero);
+                    canvas.RightText(unitRate.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[4] - 4, currentTop + 4, 6.5, false, 0.08, 0.12, 0.18);
+                    canvas.RightText(item.DiscountAmount.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[5] - 4, currentTop + 4, 6.5, false, 0.08, 0.12, 0.18);
+                    canvas.RightText(item.TaxAmount.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[6] - 4, currentTop + 4, 6.5, false, 0.08, 0.12, 0.18);
+                    canvas.RightText(item.Amount.ToString("N2", CultureInfo.InvariantCulture), left + bodyWidth - 10, currentTop + 4, 6.5, true, 0.08, 0.12, 0.18);
+                }
+                currentTop += rowHeight;
+            }
+
+            DrawSalesPageSummary(canvas, model, itemPages[pageIndex], left, height, bodyWidth, compact, isLastPage);
+            if (signatures && isLastPage)
+            {
+                DrawSignatureStrip(canvas, left, bodyWidth, height, compact, new[] { "Prepared by", "Checked by", "Customer", "Authorized" });
+            }
+            DrawFooter(canvas, model, left, bodyWidth, height, compact, pageIndex + 1, itemPages.Count);
+            pageContents.Add(canvas.Content);
+        }
+
+        return BuildPdf(width, height, pageContents);
+    }
+
+    private static void DrawTallyHeader(PdfCanvas canvas, InvoicePdfModel model, double left, double top, double bodyWidth, string copy, bool reprint, bool compact, int pageNumber, int pageCount, bool firstPage)
+    {
+        canvas.FillRect(left, top, bodyWidth, 44, 0.02, 0.09, 0.16);
+        canvas.FillRect(left, top + 44, bodyWidth, 2.5, 0.02, 0.70, 0.64);
+        canvas.Text(model.CompanyName, left + 12, top + 8, compact ? 12.5 : 15, true, 1, 1, 1);
+        canvas.WrappedText(model.CompanyAddress, left + 12, top + 26, bodyWidth * 0.58, compact ? 6 : 7, 2, false, 0.82, 0.88, 0.94);
+        canvas.Text("TAX INVOICE", left + bodyWidth - (compact ? 130 : 170), top + 8, compact ? 10 : 12.5, true, 1, 1, 1);
+        canvas.Text($"{copy} | Page {pageNumber}/{pageCount}", left + bodyWidth - (compact ? 130 : 170), top + 25, 7, false, 0.82, 0.88, 0.94);
+        if (firstPage)
+        {
+            canvas.Qr(model.DocumentCode, left + bodyWidth - 45, top + 4, 38);
+        }
+        if (reprint)
+        {
+            canvas.Text("REPRINT", left + bodyWidth - (compact ? 130 : 170), top + 36, 7, true, 0.98, 0.45, 0.45);
+        }
+
+        var infoTop = top + 55;
         var infoWidth = (bodyWidth - 12) / 4;
         DrawInfoBox(canvas, left + 6, infoTop, infoWidth, "Invoice No.", model.InvoiceNumber);
         DrawInfoBox(canvas, left + 6 + infoWidth, infoTop, infoWidth, "Date", model.OnDate.ToString("dd MMM yyyy", CultureInfo.InvariantCulture));
         DrawInfoBox(canvas, left + 6 + infoWidth * 2, infoTop, infoWidth, "Status", model.InvoiceStatus);
         DrawInfoBox(canvas, left + 6 + infoWidth * 3, infoTop, infoWidth, "Amount", $"INR {model.BillAmount:N2}");
 
+        if (!firstPage)
+        {
+            canvas.Text($"Continued from previous page - {model.InvoiceNumber}", left + 10, infoTop + 42, 7.5, true, 0.08, 0.12, 0.18);
+            return;
+        }
+
         var customerTop = infoTop + 42;
-        canvas.FillRect(left + 6, customerTop, bodyWidth - 12, compact ? 35 : 43, 0.95, 0.97, 0.98);
-        canvas.StrokeRect(left + 6, customerTop, bodyWidth - 12, compact ? 35 : 43, 0.35, 0.74, 0.78, 0.82);
-        canvas.Text("Bill To", left + 12, customerTop + 7, 7, true, 0.25, 0.30, 0.36);
-        canvas.Text(EmptyAsDash(model.CustomerName), left + 12, customerTop + 19, 8.5, true, 0.08, 0.12, 0.18);
-        canvas.Text($"Mobile: {EmptyAsDash(model.CustomerMobileNumber)}", left + bodyWidth * 0.54, customerTop + 19, 7.5, false, 0.25, 0.30, 0.36);
-        canvas.Text($"Store: {model.StoreName}", left + bodyWidth * 0.54, customerTop + 31, 7.5, false, 0.25, 0.30, 0.36);
+        canvas.FillRect(left + 6, customerTop, bodyWidth - 12, compact ? 32 : 38, 0.95, 0.97, 0.98);
+        canvas.StrokeRect(left + 6, customerTop, bodyWidth - 12, compact ? 32 : 38, 0.35, 0.74, 0.78, 0.82);
+        canvas.Text("Bill To", left + 12, customerTop + 6, 6.8, true, 0.25, 0.30, 0.36);
+        canvas.Text(EmptyAsDash(model.CustomerName), left + 12, customerTop + 17, 8, true, 0.08, 0.12, 0.18);
+        canvas.Text($"Mobile: {EmptyAsDash(model.CustomerMobileNumber)}", left + bodyWidth * 0.56, customerTop + 17, 7, false, 0.25, 0.30, 0.36);
+        canvas.Text($"Store: {model.StoreName}", left + bodyWidth * 0.56, customerTop + 29, 7, false, 0.25, 0.30, 0.36);
+    }
 
-        var tableTop = customerTop + (compact ? 48 : 58);
-        var columns = compact
-            ? new[] { 0.00, 0.45, 0.58, 0.72, 0.86, 1.00 }
-            : new[] { 0.00, 0.42, 0.52, 0.64, 0.76, 0.88, 1.00 };
-        var headers = compact
-            ? new[] { "Item", "Qty", "MRP", "Disc", "Amt" }
-            : new[] { "Item", "Qty", "MRP", "Discount", "Tax", "Amount" };
-        DrawHeader(canvas, left + 6, tableTop, bodyWidth - 12, rowHeight, headers, columns);
-        tableTop += rowHeight;
-
-        var maxRows = compact ? 12 : 22;
-        foreach (var item in model.Items.Take(maxRows))
+    private static void DrawSalesPageSummary(PdfCanvas canvas, InvoicePdfModel model, IReadOnlyList<ReceiptItemDto> items, double left, double height, double bodyWidth, bool compact, bool isLastPage)
+    {
+        var lastPanelTopOffset = compact ? 170 : 220;
+        var lastPanelHeight = compact ? 118 : 158;
+        var summaryTop = height - (isLastPage ? lastPanelTopOffset : (compact ? 92 : 112));
+        var pageQty = items.Sum(item => item.Quantity);
+        var pageTax = items.Sum(item => item.TaxAmount);
+        var pageAmount = items.Sum(item => item.Amount);
+        var summaryHeight = isLastPage ? lastPanelHeight : 52;
+        canvas.FillRect(left + 6, summaryTop, bodyWidth - 12, summaryHeight, 0.98, 0.99, 1.00);
+        canvas.StrokeRect(left + 6, summaryTop, bodyWidth - 12, summaryHeight, 0.35, 0.72, 0.75, 0.79);
+        canvas.Text($"Page summary: Qty {pageQty:N2} | GST {pageTax:N2} | Amount {pageAmount:N2}", left + 12, summaryTop + 8, 7, true, 0.08, 0.12, 0.18);
+        if (!isLastPage)
         {
-            canvas.StrokeRect(left + 6, tableTop, bodyWidth - 12, rowHeight, 0.25, 0.82, 0.85, 0.88);
-            var x = left + 8;
-            canvas.WrappedText(ItemPrintName(item), x, tableTop + 5, bodyWidth * (compact ? 0.39 : 0.36), 6.8, compact ? 1 : 2);
-            canvas.RightText(item.Quantity.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[2] - 4, tableTop + 5, 7, false, 0.08, 0.12, 0.18);
-            canvas.RightText(item.Mrp.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[3] - 4, tableTop + 5, 7, false, 0.08, 0.12, 0.18);
-            canvas.RightText(item.DiscountAmount.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[4] - 4, tableTop + 5, 7, false, 0.08, 0.12, 0.18);
-            if (!compact)
-            {
-                canvas.RightText(item.TaxAmount.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[5] - 4, tableTop + 5, 7, false, 0.08, 0.12, 0.18);
-                canvas.RightText(item.Amount.ToString("N2", CultureInfo.InvariantCulture), left + bodyWidth - 10, tableTop + 5, 7, true, 0.08, 0.12, 0.18);
-            }
-            else
-            {
-                canvas.RightText(item.Amount.ToString("N2", CultureInfo.InvariantCulture), left + bodyWidth - 10, tableTop + 5, 7, true, 0.08, 0.12, 0.18);
-            }
-            tableTop += rowHeight;
+            canvas.RightText("Continued on next page...", left + bodyWidth - 12, summaryTop + 26, 7, true, 0.42, 0.46, 0.53);
+            return;
         }
 
-        if (model.Items.Count > maxRows)
+        var totalLeft = left + bodyWidth - (compact ? 172 : 210);
+        DrawTotals(canvas, totalLeft, summaryTop + (compact ? 16 : 22), compact ? 166 : 202, model, compact);
+        canvas.WrappedText($"Amount in words: {AmountInWords(model.BillAmount)} only", left + 12, summaryTop + 30, Math.Max(100, totalLeft - left - 24), 7, compact ? 3 : 4, true);
+        if (!string.IsNullOrWhiteSpace(model.Remarks))
         {
-            canvas.Text($"+ {model.Items.Count - maxRows} more items", left + 10, tableTop + 6, 7, false, 0.42, 0.46, 0.53);
-            tableTop += rowHeight;
+            canvas.WrappedText($"Remarks: {model.Remarks}", left + 12, summaryTop + (compact ? 42 : 46), Math.Max(100, totalLeft - left - 24), 7, compact ? 3 : 4, false);
         }
-
-        var totalsTop = Math.Max(tableTop + 12, height - (compact ? 178 : 212));
-        var totalLeft = left + bodyWidth - (compact ? 176 : 210);
-        DrawTotals(canvas, totalLeft, totalsTop, compact ? 170 : 202, model);
-
-        canvas.WrappedText($"Amount in words: {AmountInWords(model.BillAmount)} only", left + 12, totalsTop + 7, Math.Max(100, totalLeft - left - 24), 7.2, compact ? 3 : 4, true);
-
-        var paymentTop = totalsTop + (compact ? 112 : 126);
         var paymentSummary = model.Payments.Count == 0
             ? "Payment: -"
             : $"Payment: {string.Join(", ", model.Payments.Take(3).Select(item => $"{item.PaymentMode} INR {item.Amount:N2}"))}";
-        canvas.WrappedText(paymentSummary, left + 12, paymentTop, bodyWidth - 24, 7.2, 2);
+        canvas.WrappedText(paymentSummary, left + 12, summaryTop + (compact ? 88 : 104), Math.Max(100, totalLeft - left - 24), 6.8, 2);
+    }
 
-        if (signatures)
+    private static void DrawSignatureStrip(PdfCanvas canvas, double left, double bodyWidth, double height, bool compact, string[] labels)
+    {
+        var signatureTop = height - (compact ? 42 : 52);
+        var signatureWidth = (bodyWidth - 24) / labels.Length;
+        for (var index = 0; index < labels.Length; index++)
         {
-            var signatureTop = height - (compact ? 58 : 68);
-            var labels = new[] { "Prepared by", "Checked by", "Customer", "Authorized" };
-            var signatureWidth = (bodyWidth - 24) / labels.Length;
-            for (var index = 0; index < labels.Length; index++)
-            {
-                var x = left + 12 + index * signatureWidth;
-                canvas.Line(x + 4, signatureTop, x + signatureWidth - 4, signatureTop, 0.5, 0.45, 0.49, 0.54);
-                canvas.CenteredText(labels[index], x, signatureTop + 7, signatureWidth, 7, false, 0.36, 0.40, 0.45);
-            }
+            var x = left + 12 + index * signatureWidth;
+            canvas.Line(x + 4, signatureTop, x + signatureWidth - 4, signatureTop, 0.5, 0.45, 0.49, 0.54);
+            canvas.CenteredText(labels[index], x, signatureTop + 7, signatureWidth, 6.5, false, 0.36, 0.40, 0.45);
         }
+    }
 
-        canvas.CenteredText($"Scan code: {model.InvoiceNumber}", left + 8, height - (compact ? 34 : 42), bodyWidth - 16, 7, true, 0.08, 0.12, 0.18);
-
+    private static void DrawFooter(PdfCanvas canvas, InvoicePdfModel model, double left, double bodyWidth, double height, bool compact, int pageNumber, int pageCount)
+    {
+        if (!string.IsNullOrWhiteSpace(model.PolicyUrl))
+        {
+            canvas.CenteredText("Exchange only within 7 days with invoice and original unused goods. No cash refund. Policy: " + model.PolicyUrl, left + 8, height - (compact ? 33 : 40), bodyWidth - 16, compact ? 5.4 : 6.0, false, 0.36, 0.40, 0.45);
+        }
+        canvas.CenteredText($"Scan code: {model.InvoiceNumber} | Page {pageNumber}/{pageCount}", left + 8, height - (compact ? 24 : 30), bodyWidth - 16, 6.5, true, 0.08, 0.12, 0.18);
         var footer = string.Join(" | ", new[]
         {
             string.IsNullOrWhiteSpace(model.CompanyPhone) ? null : $"Phone: {model.CompanyPhone}",
             string.IsNullOrWhiteSpace(model.Gstin) ? null : $"GSTIN: {model.Gstin}",
             "Generated by Garmetix"
         }.Where(value => !string.IsNullOrWhiteSpace(value)));
-        canvas.CenteredText(footer, left + 8, height - 20, bodyWidth - 16, 6.8, false, 0.36, 0.40, 0.45);
-
-        return BuildPdf(width, height, canvas.Content);
+        canvas.CenteredText(footer, left + 8, height - 15, bodyWidth - 16, 6.2, false, 0.36, 0.40, 0.45);
     }
 
     private static byte[] BuildThermal(InvoicePdfModel model, double width, string copy, bool reprint)
@@ -214,8 +275,8 @@ public static class InvoicePdfDocument
 
         foreach (var item in model.Items)
         {
-            canvas.WrappedText(item.ProductName, left, top, bodyWidth, font, 2);
-            top += lineHeight * 1.4;
+            canvas.WrappedText(ItemPrintName(item), left, top, bodyWidth, font, 3);
+            top += lineHeight * 2.0;
             canvas.Text($"{item.Quantity:N2} x {item.Mrp:N2}", left, top, font, false, 0.08, 0.12, 0.18);
             canvas.RightText(item.Amount.ToString("N2", CultureInfo.InvariantCulture), left + bodyWidth, top, font, true, 0.08, 0.12, 0.18);
             top += lineHeight;
@@ -237,6 +298,15 @@ public static class InvoicePdfDocument
         var paymentText = model.Payments.Count == 0 ? "Payment: -" : string.Join(", ", model.Payments.Select(item => $"{item.PaymentMode} {item.Amount:N2}"));
         canvas.WrappedText(paymentText, left, top, bodyWidth, font, 3);
         top += lineHeight * 3;
+        canvas.Line(left, top, left + bodyWidth, top, 0.4, 0.45, 0.49, 0.54);
+        top += 5;
+        canvas.CenteredWrappedText("Exchange only within 7 days with invoice and original unused goods. No cash refund.", left, top, bodyWidth, Math.Max(5.2, font - 0.8), 3);
+        top += lineHeight * 2.5;
+        if (!string.IsNullOrWhiteSpace(model.PolicyUrl))
+        {
+            canvas.CenteredWrappedText("Policy: " + model.PolicyUrl, left, top, bodyWidth, Math.Max(5.0, font - 1.0), 3);
+            top += lineHeight * 2.5;
+        }
         canvas.CenteredText("Thank you for shopping with us", left, top, bodyWidth, font, false, 0.08, 0.12, 0.18);
         top += lineHeight;
         canvas.CenteredText($"Scan: {model.InvoiceNumber}", left, top, bodyWidth, font, true, 0.08, 0.12, 0.18);
@@ -263,7 +333,7 @@ public static class InvoicePdfDocument
         }
     }
 
-    private static void DrawTotals(PdfCanvas canvas, double x, double top, double width, InvoicePdfModel model)
+    private static void DrawTotals(PdfCanvas canvas, double x, double top, double width, InvoicePdfModel model, bool compact)
     {
         var rows = new[]
         {
@@ -280,13 +350,16 @@ public static class InvoicePdfDocument
             ("Balance", model.BalanceAmount, true)
         };
 
-        var rowHeight = 14.0;
-        canvas.StrokeRect(x, top, width, rows.Length * rowHeight + 8, 0.35, 0.74, 0.78, 0.82);
-        var y = top + 6;
+        var rowHeight = compact ? 8.4 : 11.1;
+        var fontSize = compact ? 5.8 : 6.7;
+        var padding = compact ? 6.0 : 10.0;
+        var boxHeight = rows.Length * rowHeight + padding;
+        canvas.StrokeRect(x, top, width, boxHeight, 0.35, 0.74, 0.78, 0.82);
+        var y = top + (compact ? 4.0 : 7.0);
         foreach (var (label, amount, bold) in rows)
         {
-            canvas.Text(label, x + 7, y, 7.2, bold, 0.08, 0.12, 0.18);
-            canvas.RightText($"INR {amount:N2}", x + width - 7, y, 7.2, bold, 0.08, 0.12, 0.18);
+            canvas.Text(label, x + 7, y, fontSize, bold, 0.08, 0.12, 0.18);
+            canvas.RightText($"INR {amount:N2}", x + width - 7, y, fontSize, bold, 0.08, 0.12, 0.18);
             y += rowHeight;
         }
     }
@@ -299,8 +372,10 @@ public static class InvoicePdfDocument
 
     private static string ItemPrintName(ReceiptItemDto item)
     {
+        var barcode = string.IsNullOrWhiteSpace(item.Barcode) ? "Barcode missing" : $"Barcode: {item.Barcode.Trim()}";
         var details = string.Join(" | ", new[]
         {
+            barcode,
             string.IsNullOrWhiteSpace(item.HsnCode) ? null : $"HSN {item.HsnCode}",
             string.IsNullOrWhiteSpace(item.Unit) ? null : item.Unit
         }.Where(value => !string.IsNullOrWhiteSpace(value)));
@@ -402,35 +477,51 @@ public static class InvoicePdfDocument
     }
 
     private static byte[] BuildPdf(double width, double height, string content)
+        => BuildPdf(width, height, new[] { content });
+
+    private static byte[] BuildPdf(double width, double height, IReadOnlyList<string> pageContents)
     {
-        var streamBytes = Encoding.ASCII.GetBytes(content);
-        var objects = new[]
+        var safePages = pageContents.Count == 0 ? new List<string> { string.Empty } : pageContents.ToList();
+        var pageCount = safePages.Count;
+        var font1Object = 3 + pageCount * 2;
+        var font2Object = font1Object + 1;
+        var kids = string.Join(" ", Enumerable.Range(0, pageCount).Select(index => $"{3 + index * 2} 0 R"));
+        var objects = new List<string>
         {
             "<< /Type /Catalog /Pages 2 0 R >>",
-            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-            $"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {F(width)} {F(height)}] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>",
-            $"<< /Length {streamBytes.Length} >>\nstream\n{content}endstream",
-            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
-            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>"
+            $"<< /Type /Pages /Kids [{kids}] /Count {pageCount} >>"
         };
+
+        for (var index = 0; index < pageCount; index++)
+        {
+            var pageObject = 3 + index * 2;
+            var contentObject = pageObject + 1;
+            var content = safePages[index];
+            var streamBytes = Encoding.ASCII.GetBytes(content);
+            objects.Add($"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {F(width)} {F(height)}] /Resources << /Font << /F1 {font1Object} 0 R /F2 {font2Object} 0 R >> >> /Contents {contentObject} 0 R >>");
+            objects.Add($"<< /Length {streamBytes.Length} >>\nstream\n{content}endstream");
+        }
+
+        objects.Add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+        objects.Add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
 
         using var output = new MemoryStream();
         Write(output, "%PDF-1.4\n%Garmetix\n");
         var offsets = new List<long> { 0 };
-        for (var index = 0; index < objects.Length; index++)
+        for (var index = 0; index < objects.Count; index++)
         {
             offsets.Add(output.Position);
             Write(output, $"{index + 1} 0 obj\n{objects[index]}\nendobj\n");
         }
 
         var xrefOffset = output.Position;
-        Write(output, $"xref\n0 {objects.Length + 1}\n0000000000 65535 f \n");
+        Write(output, $"xref\n0 {objects.Count + 1}\n0000000000 65535 f \n");
         for (var index = 1; index < offsets.Count; index++)
         {
             Write(output, $"{offsets[index]:D10} 00000 n \n");
         }
 
-        Write(output, $"trailer\n<< /Size {objects.Length + 1} /Root 1 0 R >>\nstartxref\n{xrefOffset}\n%%EOF");
+        Write(output, $"trailer\n<< /Size {objects.Count + 1} /Root 1 0 R >>\nstartxref\n{xrefOffset}\n%%EOF");
         return output.ToArray();
     }
 
@@ -504,7 +595,12 @@ public static class InvoicePdfDocument
         }
 
         public void Qr(string payload, double left, double top, double size)
-            => DocumentCodeService.AppendPdfCommands(builder, pageHeight, left, top, size, payload);
+        {
+            FillRect(left, top, size, size, 1, 1, 1);
+            StrokeRect(left, top, size, size, 0.6, 0.08, 0.12, 0.18);
+            CenteredText("SCAN", left, top + size * 0.32, size, Math.Max(5, size * 0.13), true, 0.08, 0.12, 0.18);
+            CenteredText("CODE", left, top + size * 0.52, size, Math.Max(5, size * 0.13), true, 0.08, 0.12, 0.18);
+        }
 
         private static List<string> Wrap(string value, int maxLength, int maxLines)
         {

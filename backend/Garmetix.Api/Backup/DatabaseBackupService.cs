@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Garmetix.Api.AppInfo;
@@ -14,7 +15,10 @@ public sealed record BackupFileDto(
     string Source,
     string? Sha256 = null,
     bool HasChecksum = false,
-    bool HasManifest = false);
+    bool HasManifest = false,
+    string? CompanyName = null,
+    string? AppVersion = null,
+    string? RelativePath = null);
 
 public sealed record BackupVerificationDto(
     string FileName,
@@ -100,7 +104,14 @@ public sealed record BackupManifestDto(
     string Sha256,
     string Format,
     string Application,
-    string Stage);
+    string Stage,
+    string? CompanyName = null,
+    string? AppVersion = null,
+    string? BackupDateLocal = null,
+    int? Sequence = null,
+    string? ProofArchiveFileName = null,
+    string? ProofArchiveSha256 = null,
+    long? ProofArchiveSizeBytes = null);
 
 public sealed class DatabaseBackupService(
     IConfiguration configuration,
@@ -126,7 +137,10 @@ public sealed class DatabaseBackupService(
         "Vouchers",
         "PettyCashSheets",
         "CashDetails",
-        "Employees"
+        "Employees",
+        "PurchaseInvoiceImportBatches",
+        "PurchaseInvoiceImportLines",
+        "PurchaseInvoiceImportFiles"
     ];
 
     public bool IsRestoreInProgress => restoreInProgress;
@@ -134,19 +148,25 @@ public sealed class DatabaseBackupService(
     public IReadOnlyList<BackupFileDto> ListBackups()
     {
         EnsureDirectory();
-        return Directory.EnumerateFiles(options.Directory, "garmetix-*.dump", SearchOption.TopDirectoryOnly)
+        return Directory.EnumerateFiles(options.Directory, "*.dump", SearchOption.AllDirectories)
+            .Where(path => !IsTemporaryRestoreFile(path))
             .Select(path =>
             {
                 var file = new FileInfo(path);
                 var checksum = TryReadChecksum(path);
+                var manifest = TryReadManifest(path);
+                var relativePath = Path.GetRelativePath(options.Directory, path);
                 return new BackupFileDto(
                     file.Name,
                     file.Length,
                     file.CreationTimeUtc,
-                    SourceFromFileName(file.Name),
+                    manifest?.Source ?? SourceFromFileName(file.Name),
                     checksum,
                     !string.IsNullOrWhiteSpace(checksum),
-                    File.Exists(ManifestPath(path)));
+                    File.Exists(ManifestPath(path)),
+                    manifest?.CompanyName ?? CompanyNameFromFileName(file.Name),
+                    manifest?.AppVersion ?? AppVersionFromFileName(file.Name),
+                    relativePath);
             })
             .OrderByDescending(item => item.CreatedAtUtc)
             .ToList();
@@ -154,18 +174,33 @@ public sealed class DatabaseBackupService(
 
     public string? ResolveBackupPath(string fileName)
     {
-        if (string.IsNullOrWhiteSpace(fileName) || Path.GetFileName(fileName) != fileName)
+        if (string.IsNullOrWhiteSpace(fileName) || fileName.Contains("..", StringComparison.Ordinal) || Path.IsPathRooted(fileName))
         {
             return null;
         }
 
-        var fullPath = Path.GetFullPath(Path.Combine(options.Directory, fileName));
+        EnsureDirectory();
+        var normalized = fileName.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
+        var candidate = Path.GetFullPath(Path.Combine(options.Directory, normalized));
         var backupRoot = Path.GetFullPath(options.Directory) + Path.DirectorySeparatorChar;
-        return fullPath.StartsWith(backupRoot, StringComparison.Ordinal)
-            && File.Exists(fullPath)
-            && string.Equals(Path.GetExtension(fullPath), ".dump", StringComparison.OrdinalIgnoreCase)
-                ? fullPath
-                : null;
+        if (candidate.StartsWith(backupRoot, StringComparison.Ordinal)
+            && File.Exists(candidate)
+            && string.Equals(Path.GetExtension(candidate), ".dump", StringComparison.OrdinalIgnoreCase))
+        {
+            return candidate;
+        }
+
+        var safeName = Path.GetFileName(fileName);
+        if (string.IsNullOrWhiteSpace(safeName))
+        {
+            return null;
+        }
+
+        return Directory.EnumerateFiles(options.Directory, "*.dump", SearchOption.AllDirectories)
+            .Where(path => string.Equals(Path.GetFileName(path), safeName, StringComparison.OrdinalIgnoreCase))
+            .Where(path => !IsTemporaryRestoreFile(path))
+            .OrderByDescending(path => File.GetCreationTimeUtc(path))
+            .FirstOrDefault();
     }
 
     public async Task<BackupFileDto> CreateBackupAsync(
@@ -190,6 +225,7 @@ public sealed class DatabaseBackupService(
         {
             var path = ResolveBackupPath(fileName)
                 ?? throw new FileNotFoundException("Backup file was not found.");
+            DeleteProofArchiveSidecars(path);
             DeleteFileIfExists(ChecksumPath(path));
             DeleteFileIfExists(ManifestPath(path));
             File.Delete(path);
@@ -383,7 +419,7 @@ public sealed class DatabaseBackupService(
         }
 
         var folderSize = directoryExists
-            ? Directory.EnumerateFiles(options.Directory, "*", SearchOption.TopDirectoryOnly)
+            ? Directory.EnumerateFiles(options.Directory, "*", SearchOption.AllDirectories)
                 .Select(path => new FileInfo(path))
                 .Where(file => file.Exists)
                 .Sum(file => file.Length)
@@ -487,7 +523,7 @@ public sealed class DatabaseBackupService(
             return 0;
         }
 
-        return Directory.EnumerateFiles(options.Directory, "*", SearchOption.TopDirectoryOnly)
+        return Directory.EnumerateFiles(options.Directory, "*", SearchOption.AllDirectories)
             .Count(path => IsSidecar(path) && !File.Exists(RemoveSidecarExtension(path)));
     }
 
@@ -503,7 +539,7 @@ public sealed class DatabaseBackupService(
 
     private void DeleteOrphanSidecars(List<BackupCleanupItemDto> deleted)
     {
-        foreach (var path in Directory.EnumerateFiles(options.Directory, "*", SearchOption.TopDirectoryOnly)
+        foreach (var path in Directory.EnumerateFiles(options.Directory, "*", SearchOption.AllDirectories)
             .Where(path => IsSidecar(path) && !File.Exists(RemoveSidecarExtension(path))))
         {
             DeleteMaintenanceFile(path, "orphan sidecar", deleted);
@@ -632,12 +668,12 @@ public sealed class DatabaseBackupService(
         CancellationToken cancellationToken)
     {
         EnsureDirectory();
-        var safeSource = new string(source
-            .ToLowerInvariant()
-            .Select(character => char.IsLetterOrDigit(character) ? character : '-')
-            .ToArray())
-            .Trim('-');
-        var fileName = $"garmetix-{safeSource}-{DateTime.UtcNow:yyyyMMdd-HHmmss}.dump";
+        var safeSource = Slug(source, "manual");
+        var companyName = await GetPrimaryCompanyNameAsync(cancellationToken);
+        var safeCompany = Slug(companyName, "Garmetix");
+        var indiaNow = ToIndiaTime(DateTimeOffset.UtcNow);
+        var sequence = NextBackupSequence(safeCompany, AppInfoEndpoints.Version, indiaNow, safeSource);
+        var fileName = $"{safeCompany}-Garmetix-v{AppInfoEndpoints.Version}-{indiaNow:yyyyMMdd-HHmmss}-B{sequence:000}-{safeSource}.dump";
         var filePath = Path.Combine(options.Directory, fileName);
         var connection = GetConnectionInfo();
 
@@ -669,7 +705,8 @@ public sealed class DatabaseBackupService(
 
         ValidateDump(filePath, fileName);
         var sha256 = await WriteChecksumSidecarAsync(filePath, cancellationToken);
-        await WriteManifestSidecarAsync(filePath, source, connection, sha256, cancellationToken);
+        var proofArchive = await TryCreatePurchaseImportProofArchiveAsync(filePath, cancellationToken);
+        await WriteManifestSidecarAsync(filePath, source, connection, sha256, companyName, indiaNow, sequence, proofArchive, cancellationToken);
         ApplyRetention();
         var file = new FileInfo(filePath);
         logger.LogInformation(
@@ -683,6 +720,10 @@ public sealed class DatabaseBackupService(
             try
             {
                 await googleDriveBackupService.UploadBackupAsync(filePath, cancellationToken);
+                if (proofArchive is not null)
+                {
+                    await googleDriveBackupService.UploadBackupAsync(proofArchive.Path, cancellationToken);
+                }
             }
             catch (Exception ex)
             {
@@ -693,7 +734,7 @@ public sealed class DatabaseBackupService(
             }
         }
 
-        return new BackupFileDto(file.Name, file.Length, file.CreationTimeUtc, source, sha256, true, true);
+        return new BackupFileDto(file.Name, file.Length, file.CreationTimeUtc, source, sha256, true, true, companyName, AppInfoEndpoints.Version, Path.GetRelativePath(options.Directory, filePath));
     }
 
     private void ApplyRetention()
@@ -702,7 +743,8 @@ public sealed class DatabaseBackupService(
         var keepMinimum = Math.Max(options.KeepMinimum, 1);
         var retentionDays = Math.Max(options.RetentionDays, 0);
         var cutoff = retentionDays > 0 ? DateTime.UtcNow.AddDays(-retentionDays) : DateTime.MinValue;
-        var automaticFiles = Directory.EnumerateFiles(options.Directory, "garmetix-scheduled-*.dump")
+        var automaticFiles = Directory.EnumerateFiles(options.Directory, "*.dump", SearchOption.AllDirectories)
+            .Where(path => SourceFromFileName(Path.GetFileName(path)).Equals("scheduled", StringComparison.OrdinalIgnoreCase))
             .Select(path => new FileInfo(path))
             .OrderByDescending(file => file.CreationTimeUtc)
             .ToList();
@@ -717,6 +759,7 @@ public sealed class DatabaseBackupService(
                 continue;
             }
 
+            DeleteProofArchiveSidecars(file.FullName);
             DeleteFileIfExists(ChecksumPath(file.FullName));
             DeleteFileIfExists(ManifestPath(file.FullName));
             file.Delete();
@@ -853,11 +896,46 @@ public sealed class DatabaseBackupService(
         Directory.CreateDirectory(options.Directory);
     }
 
+    private async Task<ProofArchiveInfo?> TryCreatePurchaseImportProofArchiveAsync(string dumpPath, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var root = configuration["PurchaseImport:StorageRoot"];
+            if (string.IsNullOrWhiteSpace(root))
+            {
+                root = Path.Combine(Directory.GetCurrentDirectory(), "data", "purchase-imports");
+            }
+
+            if (!Directory.Exists(root) || !Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Any())
+            {
+                return null;
+            }
+
+            var archivePath = ProofArchivePath(dumpPath);
+            DeleteFileIfExists(archivePath);
+            DeleteFileIfExists(ChecksumPath(archivePath));
+            ZipFile.CreateFromDirectory(root, archivePath, CompressionLevel.Fastest, includeBaseDirectory: false);
+            var sha = await WriteChecksumSidecarAsync(archivePath, cancellationToken);
+            var file = new FileInfo(archivePath);
+            logger.LogInformation("Purchase invoice proof archive {FileName} created with {SizeBytes} bytes.", file.Name, file.Length);
+            return new ProofArchiveInfo(archivePath, file.Name, file.Length, sha);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Database backup was created, but purchase invoice proof archive could not be created.");
+            return null;
+        }
+    }
+
     private async Task WriteManifestSidecarAsync(
         string path,
         string source,
         ConnectionInfo connection,
         string sha256,
+        string companyName,
+        DateTimeOffset backupDateLocal,
+        int sequence,
+        ProofArchiveInfo? proofArchive,
         CancellationToken cancellationToken)
     {
         var file = new FileInfo(path);
@@ -872,7 +950,14 @@ public sealed class DatabaseBackupService(
             sha256,
             "PostgreSQL custom pg_dump",
             AppInfoEndpoints.ProductName,
-            $"{AppInfoEndpoints.Stage} / v{AppInfoEndpoints.Version} / {AppInfoEndpoints.BuildCode}");
+            $"{AppInfoEndpoints.Stage} / v{AppInfoEndpoints.Version} / {AppInfoEndpoints.BuildCode}",
+            companyName,
+            AppInfoEndpoints.Version,
+            backupDateLocal.ToString("yyyy-MM-dd HH:mm:ss zzz"),
+            sequence,
+            proofArchive?.FileName,
+            proofArchive?.Sha256,
+            proofArchive?.SizeBytes);
         var json = JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true });
         await File.WriteAllTextAsync(ManifestPath(path), json, cancellationToken);
     }
@@ -939,6 +1024,14 @@ public sealed class DatabaseBackupService(
 
     private static string ChecksumPath(string dumpPath) => $"{dumpPath}.sha256";
     private static string ManifestPath(string dumpPath) => $"{dumpPath}.manifest.json";
+    private static string ProofArchivePath(string dumpPath) => $"{dumpPath}.purchase-import-proofs.zip";
+
+    private static void DeleteProofArchiveSidecars(string dumpPath)
+    {
+        var proofArchive = ProofArchivePath(dumpPath);
+        DeleteFileIfExists(ChecksumPath(proofArchive));
+        DeleteFileIfExists(proofArchive);
+    }
 
     private static void DeleteFileIfExists(string path)
     {
@@ -983,6 +1076,88 @@ public sealed class DatabaseBackupService(
             await errorTask);
     }
 
+
+    private async Task<string> GetPrimaryCompanyNameAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var connectionString = configuration.GetConnectionString("Default");
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                return "Garmetix";
+            }
+
+            await using var connection = new NpgsqlConnection(connectionString);
+            await connection.OpenAsync(cancellationToken);
+            await using var command = connection.CreateCommand();
+            command.CommandText = "select coalesce(nullif(\"Name\", ''), 'Garmetix') from \"Companies\" order by \"CreatedAt\" nulls last limit 1";
+            var value = await command.ExecuteScalarAsync(cancellationToken);
+            return value?.ToString() is { Length: > 0 } name ? name : "Garmetix";
+        }
+        catch
+        {
+            return "Garmetix";
+        }
+    }
+
+    private int NextBackupSequence(string safeCompany, string version, DateTimeOffset indiaNow, string safeSource)
+    {
+        var prefix = $"{safeCompany}-Garmetix-v{version}-{indiaNow:yyyyMMdd}";
+        return Directory.EnumerateFiles(options.Directory, "*.dump", SearchOption.AllDirectories)
+            .Select(Path.GetFileName)
+            .Count(name => name is not null
+                && name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                && name.Contains($"-{safeSource}.dump", StringComparison.OrdinalIgnoreCase)) + 1;
+    }
+
+    private static DateTimeOffset ToIndiaTime(DateTimeOffset value)
+    {
+        try
+        {
+            var zone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Kolkata");
+            return TimeZoneInfo.ConvertTime(value, zone);
+        }
+        catch
+        {
+            return value.ToOffset(TimeSpan.FromHours(5.5));
+        }
+    }
+
+    private static string Slug(string? value, string fallback)
+    {
+        var chars = (string.IsNullOrWhiteSpace(value) ? fallback : value)
+            .Normalize()
+            .Where(character => char.IsLetterOrDigit(character))
+            .ToArray();
+        var result = new string(chars);
+        return string.IsNullOrWhiteSpace(result) ? fallback : result;
+    }
+
+    private static bool IsTemporaryRestoreFile(string path)
+    {
+        var name = Path.GetFileName(path);
+        return name.StartsWith("restore-preview-", StringComparison.OrdinalIgnoreCase)
+            || name.StartsWith("restore-upload-", StringComparison.OrdinalIgnoreCase)
+            || name.StartsWith("garmetix-drive-restore-", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? CompanyNameFromFileName(string fileName)
+    {
+        var marker = "-Garmetix-v";
+        var index = fileName.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        return index > 0 ? fileName[..index] : null;
+    }
+
+    private static string? AppVersionFromFileName(string fileName)
+    {
+        var marker = "-Garmetix-v";
+        var index = fileName.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (index < 0) return null;
+        var after = fileName[(index + marker.Length)..];
+        var end = after.IndexOf('-', StringComparison.Ordinal);
+        return end > 0 ? after[..end] : null;
+    }
+
     public static string SourceFromFileName(string fileName)
     {
         if (fileName.Contains("-pre-restore-", StringComparison.OrdinalIgnoreCase))
@@ -990,12 +1165,22 @@ public sealed class DatabaseBackupService(
             return "pre-restore";
         }
 
-        if (fileName.Contains("-scheduled-", StringComparison.OrdinalIgnoreCase))
+        if (fileName.Contains("-scheduled", StringComparison.OrdinalIgnoreCase))
         {
             return "scheduled";
         }
 
-        return "manual";
+        if (fileName.Contains("-admin-data", StringComparison.OrdinalIgnoreCase) || fileName.Contains("-admin-json", StringComparison.OrdinalIgnoreCase))
+        {
+            return "admin-data";
+        }
+
+        if (fileName.Contains("-backup-now", StringComparison.OrdinalIgnoreCase) || fileName.Contains("-manual", StringComparison.OrdinalIgnoreCase))
+        {
+            return "manual";
+        }
+
+        return "copied";
     }
 
     private static string LastUsefulLine(string value)
@@ -1004,6 +1189,8 @@ public sealed class DatabaseBackupService(
             .Select(line => line.Trim())
             .LastOrDefault() ?? "Check the server log for details.";
     }
+
+    private sealed record ProofArchiveInfo(string Path, string FileName, long SizeBytes, string Sha256);
 
     private sealed record ConnectionInfo(
         string Host,

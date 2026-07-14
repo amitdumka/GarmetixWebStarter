@@ -8,8 +8,6 @@ using Garmetix.Core.Models.Inventory;
 using Garmetix.Core.Models.Stores;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using InventoryProductCategory = Garmetix.Core.Models.Inventory.ProductCategory;
-using InventoryProductSubCategory = Garmetix.Core.Models.Inventory.ProductSubCategory;
 
 namespace Garmetix.Api.Seeds;
 
@@ -84,11 +82,12 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
             "Default GST/IGST tax rates: GST 5/12/18, IGST 5/12/18, plus CGST/SGST display rows.",
             "Default transactions: Petty Cash Expenses, Home Expenses, Store Expenses, Dan & Donations, Snacks & Breakfast Expenses, Cash In, Cash Out.",
             "Default ledger groups and ledgers for expenses, cash, sales, purchase, stock, vendors, customers, employees, debtors/creditors, banks, and capital/loan groups.",
-            "Owner, store manager, accountant employee records, default Manager salesman, and Admin/Owner/StoreManager users."
+            "Smart Menswear-only employee records, Smart Menswear Manager salesman, and Admin/Owner/StoreManager users.",
+            "Inventory, product master, stock, opening stock movement, brand, and default supplier seeding are intentionally disabled."
         ],
         SeederCsOnly:
         [
-            "SeedProducts created one old sample product/stock row.",
+            "Old sample product/stock seeding has been removed from the web AF/SS seeder.",
             "Synchronous SaveChanges/count/saved status tracking.",
             "Old MAUI notification calls during seeding."
         ],
@@ -101,10 +100,7 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
         ],
         ModelAdjustmentsApplied:
         [
-            "ProductCategory is treated as the inventory model, not the obsolete enum.",
-            "Products now seed ProductGroup, HSNCode, ProductType.Readymade/Shoes/Fabric, category/subcategory IDs, and ProductDetail rows.",
-            "Stock rows include required Barcode, HSNCode, Unit, TaxId, TaxType, StockType.Opening, StoreGroupId, and StoreId.",
-            "Opening stock also creates StockMovement rows so the Stage 4 stock ledger remains auditable.",
+            "AF/SS seeder now creates only company/store, accounting masters, users, and Smart Menswear employee defaults; it does not create inventory/stock rows.",
             "Users are seeded with PBKDF2 password hashes instead of old plain text passwords."
         ]);
 
@@ -114,8 +110,10 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
             ?? Profiles[0];
         var notes = new List<string>
         {
-            "AF/SS seed is idempotent: existing rows are reused by company/name/code/barcode instead of duplicated.",
+            "AF/SS seed is idempotent: existing rows are reused by company/name/code instead of duplicated.",
             "This web seeder merges Aadwika Fashion Amit Kumar and Smart Menswear into one company/store-group structure, while Aadwika Fashion - Shalini remains separate.",
+            "Inventory/product/stock/opening-stock seeding has been removed from the AF/SS web seeder.",
+            "Employee and Manager salesman defaults are created only for the Smart Menswear profile/store.",
             "The old MAUI multi-database creation and notification calls are intentionally not ported to the web app."
         };
         var counters = new AfssSeedCounters();
@@ -137,9 +135,13 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
         var ledgerContext = await EnsureLedgerGroupsAndLedgersAsync(company, counters, cancellationToken);
         await EnsureSbiCurrentAccountAsync(company, ledgerContext.BankGroup, counters, cancellationToken);
 
-        if (request.IncludeEmployees)
+        if (request.IncludeEmployees && IsSmartMenswearProfile(profile))
         {
             await EnsureEmployeesAndSalesmanAsync(company, storeGroup, store, profile, counters, cancellationToken);
+        }
+        else if (request.IncludeEmployees)
+        {
+            notes.Add("Employee/salesman seeding skipped because the selected profile is not Smart Menswear.");
         }
 
         if (request.IncludeUsers)
@@ -149,7 +151,7 @@ public sealed class AfssDefaultSeederService(GarmetixDbContext db)
 
         if (request.IncludeProducts)
         {
-            await EnsureProductMastersAsync(company, storeGroup, store, profile, counters, cancellationToken);
+            notes.Add("Product, inventory, stock and stock movement seeding is disabled for AF/SS defaults.");
         }
 
         await db.SaveChangesAsync(cancellationToken);
@@ -234,6 +236,10 @@ private async Task<Company> ResolveSeedCompanyAsync(
 private static bool IsAadwikaAmitOrSmartProfile(AfssSeedProfileDto profile)
     => profile.Code.Equals("AF", StringComparison.OrdinalIgnoreCase)
        || profile.Code.Equals("SM", StringComparison.OrdinalIgnoreCase);
+
+private static bool IsSmartMenswearProfile(AfssSeedProfileDto profile)
+    => profile.Code.Equals("SM", StringComparison.OrdinalIgnoreCase)
+       || profile.StoreName.Contains("Smart Menswear", StringComparison.OrdinalIgnoreCase);
 
 public async Task<AfssSeedCreatedCountsDto> SeedAccountingDefaultsForCompanyAsync(Guid companyId, CancellationToken cancellationToken)
 {
@@ -595,236 +601,6 @@ public async Task<AfssSeedCreatedCountsDto> SeedAccountingDefaultsForCompanyAsyn
             StoreId = storeId
         });
         counters.Users++;
-    }
-
-    private async Task EnsureProductMastersAsync(Company company, StoreGroup storeGroup, Store store, AfssSeedProfileDto profile, AfssSeedCounters counters, CancellationToken cancellationToken)
-    {
-        var vendor = await EnsureVendorAsync(company, profile, counters, cancellationToken);
-        var brand = await EnsureBrandAsync(profile.Code, profile.StoreName, vendor.Id, counters, cancellationToken);
-        var tax5 = await EnsureTaxAsync("GST 5%", 5, TaxType.GST, counters, cancellationToken);
-        var tax12 = await EnsureTaxAsync("GST 12%", 12, TaxType.GST, counters, cancellationToken);
-
-        var shirting = await EnsureCategoryAsync(company, "Shirting", ProductGroup.Shirting, counters, cancellationToken);
-        var suiting = await EnsureCategoryAsync(company, "Suiting", ProductGroup.Suiting, counters, cancellationToken);
-        var readymade = await EnsureCategoryAsync(company, "Readymade", ProductGroup.Readymade, counters, cancellationToken);
-        var shoes = await EnsureCategoryAsync(company, "Shoes", ProductGroup.Shoes, counters, cancellationToken);
-
-        var shirts = await EnsureSubCategoryAsync(company, shirting, "Cotton Shirting", counters, cancellationToken);
-        var suitings = await EnsureSubCategoryAsync(company, suiting, "Suiting Fabric", counters, cancellationToken);
-        var ethnic = await EnsureSubCategoryAsync(company, readymade, "Ethnic Readymade", counters, cancellationToken);
-        var footwear = await EnsureSubCategoryAsync(company, shoes, "Ethnic Footwear", counters, cancellationToken);
-
-        var prefix = string.IsNullOrWhiteSpace(company.Code) ? profile.Code : company.Code;
-        await EnsureProductAsync(company, storeGroup, store, vendor, brand.Name, shirting, shirts, tax5, $"{prefix}-SHIRTING-001", "Cotton Shirting Fabric", "5208", Unit.Meters, ProductType.Fabric, ProductGroup.Shirting, 499m, 100m, 260m, "SH-001", "White", counters, cancellationToken);
-        await EnsureProductAsync(company, storeGroup, store, vendor, brand.Name, suiting, suitings, tax5, $"{prefix}-SUITING-001", "Premium Suiting Fabric", "5515", Unit.Meters, ProductType.Fabric, ProductGroup.Suiting, 899m, 80m, 520m, "SU-001", "Navy", counters, cancellationToken);
-        await EnsureProductAsync(company, storeGroup, store, vendor, brand.Name, readymade, ethnic, tax12, $"{prefix}-KURTA-001", "Readymade Kurta Pajama", "6205", Unit.Pcs, ProductType.Readymade, ProductGroup.KurtaPajama, 1499m, 25m, 850m, "KP-001", "Cream", counters, cancellationToken);
-        await EnsureProductAsync(company, storeGroup, store, vendor, brand.Name, shoes, footwear, tax12, $"{prefix}-NAGRA-001", "Ethnic Nagra Shoes", "6403", Unit.Pcs, ProductType.Shoes, ProductGroup.Nagra, 1299m, 15m, 700m, "NG-001", "Brown", counters, cancellationToken);
-    }
-
-    private async Task<Vendor> EnsureVendorAsync(Company company, AfssSeedProfileDto profile, AfssSeedCounters counters, CancellationToken cancellationToken)
-    {
-        var vendor = await db.Vendors.FirstOrDefaultAsync(item => item.CompanyId == company.Id && item.MobileNumber == profile.ContactNumber && item.Name == "Default Supplier", cancellationToken);
-        if (vendor is not null)
-        {
-            return vendor;
-        }
-
-        vendor = new Vendor
-        {
-            Name = "Default Supplier",
-            Address = "Supplier Market, Dumka",
-            City = profile.City,
-            ZipCode = profile.ZipCode,
-            MobileNumber = profile.ContactNumber,
-            Email = profile.Email,
-            GSTIN = profile.Gstin,
-            Pan = profile.Pan,
-            Active = true,
-            CompanyId = company.Id
-        };
-        db.Vendors.Add(vendor);
-        counters.Vendors++;
-        return vendor;
-    }
-
-    private async Task<Brand> EnsureBrandAsync(string code, string storeName, Guid supplierId, AfssSeedCounters counters, CancellationToken cancellationToken)
-    {
-        var brandCode = $"{code}-DEFAULT";
-        var brand = await db.Brands.FirstOrDefaultAsync(item => item.BrandCode == brandCode, cancellationToken);
-        if (brand is not null)
-        {
-            return brand;
-        }
-
-        brand = new Brand
-        {
-            Name = storeName,
-            BrandCode = brandCode,
-            SupplierId = supplierId
-        };
-        db.Brands.Add(brand);
-        counters.Brands++;
-        return brand;
-    }
-
-    private async Task<InventoryProductCategory> EnsureCategoryAsync(Company company, string name, ProductGroup group, AfssSeedCounters counters, CancellationToken cancellationToken)
-    {
-        var category = await db.ProductCategories.FirstOrDefaultAsync(item => item.CompanyId == company.Id && item.Name == name, cancellationToken);
-        if (category is not null)
-        {
-            return category;
-        }
-
-        category = new InventoryProductCategory
-        {
-            CompanyId = company.Id,
-            Name = name,
-            ProductGroup = group,
-            IsActive = true,
-            CreatedBy = AccountingDefaultProtection.CreatedByMarker
-        };
-        db.ProductCategories.Add(category);
-        counters.ProductCategories++;
-        return category;
-    }
-
-    private async Task<InventoryProductSubCategory> EnsureSubCategoryAsync(Company company, InventoryProductCategory category, string name, AfssSeedCounters counters, CancellationToken cancellationToken)
-    {
-        var subCategory = await db.ProductSubCategories.FirstOrDefaultAsync(item => item.CompanyId == company.Id && item.CategoryId == category.Id && item.Name == name, cancellationToken);
-        if (subCategory is not null)
-        {
-            return subCategory;
-        }
-
-        subCategory = new InventoryProductSubCategory
-        {
-            CompanyId = company.Id,
-            CategoryId = category.Id,
-            Name = name,
-            CreatedBy = AccountingDefaultProtection.CreatedByMarker
-        };
-        db.ProductSubCategories.Add(subCategory);
-        counters.ProductSubCategories++;
-        return subCategory;
-    }
-
-    private async Task EnsureProductAsync(
-        Company company,
-        StoreGroup storeGroup,
-        Store store,
-        Vendor vendor,
-        string brandName,
-        InventoryProductCategory category,
-        InventoryProductSubCategory subCategory,
-        Tax tax,
-        string barcode,
-        string name,
-        string hsn,
-        Unit unit,
-        ProductType productType,
-        ProductGroup productGroup,
-        decimal mrp,
-        decimal openingQty,
-        decimal costPrice,
-        string styleCode,
-        string baseColor,
-        AfssSeedCounters counters,
-        CancellationToken cancellationToken)
-    {
-        var product = await db.Products.FirstOrDefaultAsync(item => item.CompanyId == company.Id && item.Barcode == barcode, cancellationToken);
-        if (product is null)
-        {
-            product = new Product
-            {
-                Name = name,
-                Barcode = barcode,
-                Descriptions = "Seeded from AF/SS default seeder.",
-                HSNCode = hsn,
-                MRP = mrp,
-                TaxRate = tax.CompositeRate,
-                Unit = unit,
-                TaxType = tax.TaxType,
-                ProductType = productType,
-                ProductGroup = productGroup,
-                ProductCategoryId = category.Id,
-                ProductSubCategoryId = subCategory.Id,
-                CompanyId = company.Id,
-                StoreGroupId = storeGroup.Id,
-                CreatedBy = AccountingDefaultProtection.CreatedByMarker
-            };
-            db.Products.Add(product);
-            counters.Products++;
-        }
-
-        var stock = await db.Stocks.FirstOrDefaultAsync(item => item.CompanyId == company.Id && item.StoreId == store.Id && item.Barcode == barcode, cancellationToken);
-        if (stock is null)
-        {
-            stock = new Stock
-            {
-                ProductId = product.Id,
-                Barcode = barcode,
-                HSNCode = hsn,
-                Unit = unit,
-                PurchaseQty = openingQty,
-                CostPrice = costPrice,
-                SoldQty = 0,
-                MRP = mrp,
-                TaxRate = tax.CompositeRate,
-                TaxType = tax.TaxType,
-                TaxId = tax.Id,
-                BrandedProduct = true,
-                StockType = StockType.Opening,
-                CompanyId = company.Id,
-                StoreGroupId = storeGroup.Id,
-                StoreId = store.Id,
-                CreatedBy = AccountingDefaultProtection.CreatedByMarker
-            };
-            db.Stocks.Add(stock);
-            counters.Stocks++;
-        }
-
-        if (!await db.StockMovements.AnyAsync(item => item.CompanyId == company.Id && item.StoreId == store.Id && item.SourceType == "AFSSSeed" && item.SourceNumber == barcode, cancellationToken))
-        {
-            db.StockMovements.Add(new StockMovement
-            {
-                StockId = stock.Id,
-                ProductId = product.Id,
-                Barcode = barcode,
-                MovementType = "Opening",
-                QuantityIn = openingQty,
-                QuantityOut = 0,
-                CostPrice = costPrice,
-                MRP = mrp,
-                TaxRate = tax.CompositeRate,
-                HSNCode = hsn,
-                SourceType = "AFSSSeed",
-                SourceId = product.Id,
-                SourceNumber = barcode,
-                Remarks = "Opening stock created by AF/SS default seeder.",
-                OnDate = DateTime.Now,
-                CompanyId = company.Id,
-                StoreGroupId = storeGroup.Id,
-                StoreId = store.Id,
-                CreatedBy = AccountingDefaultProtection.CreatedByMarker
-            });
-            counters.StockMovements++;
-        }
-
-        if (!await db.ProductDetails.AnyAsync(item => item.CompanyId == company.Id && item.ProductId == product.Id && item.Barcode == barcode, cancellationToken))
-        {
-            db.ProductDetails.Add(new ProductDetail
-            {
-                ProductId = product.Id,
-                Barcode = barcode,
-                StyleCode = styleCode,
-                BaseColor = baseColor,
-                Brand = brandName,
-                VendorId = vendor.Id,
-                CompanyId = company.Id,
-                CreatedBy = AccountingDefaultProtection.CreatedByMarker
-            });
-            counters.ProductDetails++;
-        }
     }
 
     private async Task<AfssSeedExistingCountsDto> BuildExistingCountsAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)

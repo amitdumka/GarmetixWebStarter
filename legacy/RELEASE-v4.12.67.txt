@@ -1,0 +1,11 @@
+GarmetixWebStarter v4.12.67
+Stage 11D-152 Stock Valuation DTO Build Fix
+Build code: GARMETIX-11D152-20260703-4267
+
+Fixes the .NET publish error where Inventory.StockValuationClosureEndpoints declared StockValuationSummaryDto and StockValuationRowDto names already used by StockOperationDtos in the same namespace.
+
+Changed the closure endpoint DTOs to:
+- StockValuationClosureSummaryDto
+- StockValuationClosureRowDto
+
+JSON shape remains the same for the frontend because property names are unchanged.

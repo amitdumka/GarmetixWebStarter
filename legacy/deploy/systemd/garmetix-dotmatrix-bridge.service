@@ -1,0 +1,18 @@
+[Unit]
+Description=Garmetix DotMatrix Bridge - Epson LX-310 Daily Audit Journal
+After=docker.service cups.service network-online.target
+Wants=docker.service cups.service network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/garmetix-dotmatrix.env
+WorkingDirectory=/opt/garmetix/current
+ExecStart=/opt/garmetix/current/deploy/garmetix-dotmatrix-bridge.sh
+Restart=always
+RestartSec=5
+User=root
+KillSignal=SIGINT
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

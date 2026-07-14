@@ -3,6 +3,7 @@ namespace Garmetix.Api.Auth;
 public static class GarmetixPolicies
 {
     public const string Admin = "Admin";
+    public const string SuperAdmin = "SuperAdmin";
     public const string CompanySetup = "CompanySetup";
     public const string Edit = "Edit";
     public const string Delete = "Delete";
@@ -12,4 +13,7 @@ public static class GarmetixPolicies
     public const string Accounting = "Accounting";
     public const string Hr = "Hr";
     public const string Payroll = "Payroll";
+    public const string Attendance = "Attendance";
+    public const string Marketing = "Marketing";
+    public const string Gst = "Gst";
 }

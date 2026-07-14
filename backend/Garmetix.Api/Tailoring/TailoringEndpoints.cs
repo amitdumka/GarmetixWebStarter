@@ -189,14 +189,18 @@ public static class TailoringEndpoints
 
     private static async Task<IReadOnlyList<TailoringVendorDto>> TailoringVendorsAsync(HttpContext context, GarmetixDbContext db, Guid? companyId = null, CancellationToken cancellationToken = default)
     {
-        // The current Vendor master does not yet have a VendorType column.
-        // Until a dedicated tailoring-vendor flag is added to the master data screen,
-        // expose active vendors for tailoring/alteration assignment and label them safely.
+        // Vendor.VendorType distinguishes tailoring/alteration vendors from purchase
+        // vendors going forward (see Vendor.VendorType). Vendor rows created before that
+        // column existed have VendorType == null; keep those visible here too so no
+        // pre-existing tailoring vendor silently disappears from this picker - only newly
+        // created purchase vendors (tagged with a non-Tailoring type, if ever added) would
+        // be excluded.
         var query = WorkspaceScope.ApplyTo(db.Vendors.AsNoTracking(), context)
-            .Where(item => item.Active && !item.Deleted);
+            .Where(item => item.Active && !item.Deleted)
+            .Where(item => item.VendorType == null || item.VendorType == VendorType.Tailoring);
         if (companyId.HasValue) query = query.Where(item => item.CompanyId == companyId.Value);
         return await query.OrderBy(item => item.Name)
-            .Select(item => new TailoringVendorDto(item.Id, item.Name, item.MobileNumber, "Vendor", item.Active, item.PartyId))
+            .Select(item => new TailoringVendorDto(item.Id, item.Name, item.MobileNumber, "Tailoring / Alteration", item.Active, item.PartyId))
             .ToListAsync(cancellationToken);
     }
 
@@ -215,7 +219,8 @@ public static class TailoringEndpoints
             City = string.IsNullOrWhiteSpace(request.City) ? "Local" : request.City.Trim(),
             Email = request.Email?.Trim(),
             GSTIN = request.GSTIN?.Trim(),
-            Active = request.Active
+            Active = request.Active,
+            VendorType = VendorType.Tailoring
         };
         if (!WorkspaceScope.CanWrite(vendor, context, out var message)) return Results.BadRequest(new { message });
         db.Vendors.Add(vendor);

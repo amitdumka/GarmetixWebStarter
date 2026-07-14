@@ -1,0 +1,4 @@
+GarmetixWebStarter v4.12.54
+Stage 11D-139: Goods Return Policy Invoice Link
+
+Adds public goods return/exchange policy page, links it from digital invoice, and prints policy summary/URL in invoice PDFs.

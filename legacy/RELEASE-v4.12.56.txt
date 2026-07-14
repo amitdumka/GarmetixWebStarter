@@ -1,0 +1,18 @@
+GarmetixWebStarter v4.12.56
+Stage 11D-141: Vendor Payable Reconciliation
+Build code: GARMETIX-11D141-20260702-4256
+
+Added:
+- Vendor Payable / Purchase Settlement Reconciliation page.
+- Backend JSON reconciliation endpoint.
+- CSV evidence export endpoint.
+- Purchase sidebar link and Vendor Payments shortcut.
+- Vendor master bill/paid checks.
+- Purchase invoice status/payment-row checks.
+- Debit-note settlement and open debit-note checks.
+- Vendor payment voucher/journal evidence checks.
+- Non-cash bank/POS/UPI mapping validation.
+
+Validation:
+- Static validation script added.
+- Full .NET/Nuxt build should be run on deployment machine with docker compose up --build.

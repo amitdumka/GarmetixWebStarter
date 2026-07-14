@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Garmetix.FingerprintBridge</RootNamespace>
+    <AssemblyName>Garmetix.FingerprintBridge</AssemblyName>
+    <Version>4.11.19</Version>
+    <AssemblyVersion>4.11.19.0</AssemblyVersion>
+    <FileVersion>4.11.19.0</FileVersion>
+    <InformationalVersion>4.11.19-stage11d4-factory-reset-admin-identity-fix</InformationalVersion>
+  </PropertyGroup>
+</Project>

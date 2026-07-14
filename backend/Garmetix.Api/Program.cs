@@ -6,30 +6,46 @@ using Garmetix.Core.Models.Stores;
 using Garmetix.Core.Models.Base;
 using Garmetix.Api.Audit;
 using Garmetix.Api.AppInfo;
+using Garmetix.Api.Assistant;
 using Garmetix.Api.Auth;
+using Garmetix.Api.Attendance;
+using Garmetix.Api.Attendance.Services;
 using Garmetix.Api.Accounting;
 using Garmetix.Api.Automation;
 using Garmetix.Api.Backup;
+using Garmetix.Api.BankReconciliation;
 using Garmetix.Api.Commercial;
+using Garmetix.Api.Closeout;
+using Garmetix.Api.Customers;
 using Garmetix.Api.Billing;
 using Garmetix.Api.Database;
+using Garmetix.Api.DayBook;
+using Garmetix.Api.DotMatrix;
 using Garmetix.Api.Dashboard;
 using Garmetix.Api.Hr;
 using Garmetix.Api.GstReturns;
+using Garmetix.Api.GstTax;
 using Garmetix.Api.Gstin;
+using Microsoft.AspNetCore.DataProtection;
+using Garmetix.Api.GoodsReturn;
 using Garmetix.Api.ImportExport;
 using Garmetix.Api.Licensing;
 using Garmetix.Api.Messages;
+using Garmetix.Api.Marketing;
 using Garmetix.Api.Inventory;
+using Garmetix.Api.InvoiceReplacement;
 using Garmetix.Api.OffBook;
 using Garmetix.Api.Onboarding;
 using Garmetix.Api.Numbering;
 using Garmetix.Api.NonGstGoods;
 using Garmetix.Api.Payroll;
 using Garmetix.Api.Purchase;
+using Garmetix.Api.PurchaseImport;
 using Garmetix.Api.ProductLookup;
+using Garmetix.Api.PriceTags;
 using Garmetix.Api.Production;
 using Garmetix.Api.Release;
+using Garmetix.Api.Reports;
 using Garmetix.Api.Setup;
 using Garmetix.Api.Tailoring;
 using Garmetix.Api.Testing;
@@ -37,6 +53,7 @@ using Garmetix.Api.Seeds;
 using Garmetix.Api.StoreDay;
 using Garmetix.Api.Validation;
 using Garmetix.Api.SecondarySync;
+using Garmetix.Api.SaleImport;
 using Garmetix.Api.Workspace;
 using Garmetix.Core.Enums;
 using Garmetix.Infrastructure;
@@ -46,6 +63,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
+using System.Data;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -85,18 +104,61 @@ builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<PasswordResetEmailService>();
 builder.Services.AddScoped<MonthlyAttendanceService>();
 builder.Services.AddScoped<PayrollService>();
+builder.Services.AddScoped<PayrollFinalizationService>();
+builder.Services.Configure<AttendanceFingerprintOptions>(builder.Configuration.GetSection("AttendanceFingerprint"));
+builder.Services.AddScoped<IAttendanceRuleEngine, AttendanceRuleEngine>();
+builder.Services.AddScoped<IAttendanceService, AttendanceService>();
+builder.Services.AddScoped<IAttendanceSyncService, AttendanceSyncService>();
+builder.Services.AddScoped<IBiometricEnrollmentService, BiometricEnrollmentService>();
+builder.Services.AddScoped<IAttendancePhotoProofService, AttendancePhotoProofService>();
 builder.Services.AddScoped<AccountingPostingService>();
+builder.Services.AddScoped<SystemDefaultsService>();
 builder.Services.AddScoped<DocumentNumberService>();
 builder.Services.AddScoped<StockLedgerService>();
 builder.Services.AddScoped<ApplicationMessageLogService>();
+builder.Services.AddScoped<DigitalBillCrmService>();
+builder.Services.AddScoped<DigitalBillWhatsAppService>();
+builder.Services.AddScoped<PurchaseInvoiceImportService>();
+builder.Services.AddScoped<VyaparSaleImportService>();
+builder.Services.AddHttpClient("DigitalBillWhatsApp", client => client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddSingleton<PersistentApplicationLogQueue>();
 builder.Services.AddSingleton<ILoggerProvider, PersistentApplicationLoggerProvider>();
 builder.Services.AddHostedService<PersistentApplicationLogHostedService>();
 builder.Services.Configure<PayrollAutomationOptions>(builder.Configuration.GetSection("PayrollAutomation"));
 builder.Services.AddHostedService<PayrollAutomationHostedService>();
 builder.Services.Configure<BackupOptions>(builder.Configuration.GetSection("Backup"));
+builder.Services.Configure<DotMatrixPrintingOptions>(builder.Configuration.GetSection("DotMatrixPrinting"));
+builder.Services.AddScoped<DotMatrixJournalService>();
+if (builder.Configuration.GetValue<bool>("DotMatrixPrinting:RunWorker"))
+{
+    // Legacy/local-only mode. Production should keep this false and use the Ubuntu host-side DotMatrix Bridge.
+    builder.Services.AddHostedService<DotMatrixPrintWorker>();
+}
 builder.Services.Configure<GstinLookupOptions>(builder.Configuration.GetSection("GstinLookup"));
 builder.Services.AddHttpClient<GstinLookupService>();
+var gstTaxKeyPath = builder.Configuration["Gst:DataProtectionKeyPath"]
+    ?? Path.Combine(builder.Environment.ContentRootPath, "data", "gst-tax-keys");
+builder.Services.AddDataProtection()
+    .SetApplicationName("GarmetixApi")
+    .PersistKeysToFileSystem(new DirectoryInfo(gstTaxKeyPath));
+builder.Services.AddSingleton<GstCredentialProtector>();
+builder.Services.AddHttpClient("GstGenericRestProvider");
+builder.Services.AddScoped<GstinResolutionService>();
+builder.Services.AddScoped<GstRateResolutionService>();
+builder.Services.AddScoped<GstAuditEngineService>();
+builder.Services.Configure<AssistantOptions>(builder.Configuration.GetSection("Assistant"));
+builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection("Gemini"));
+builder.Services.AddScoped<AssistantConversationStore>();
+builder.Services.AddScoped<AssistantToolCatalog>();
+builder.Services.AddScoped<AssistantChatService>();
+builder.Services.AddHttpClient<AssistantAnthropicClient>();
+builder.Services.AddHttpClient<AssistantGeminiClient>();
+builder.Services.AddScoped<IAssistantModelClientFactory, AssistantModelClientFactory>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<AssistantMcpTools>();
+builder.Services.AddMcpServer()
+    .WithHttpTransport()
+    .WithTools<AssistantMcpTools>();
 builder.Services.Configure<GoogleDriveBackupOptions>(builder.Configuration.GetSection("GoogleDriveBackup"));
 builder.Services.AddHttpClient("GoogleDriveAuth");
 builder.Services.AddHttpClient("GoogleDriveBackup");
@@ -129,6 +191,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization(options =>
 {
+    options.AddPolicy(GarmetixPolicies.SuperAdmin, policy =>
+        policy.RequireAssertion(context => AccessPermissionMatrix.IsSuperAdmin(context.User)));
     AddMatrixPolicy(options, GarmetixPolicies.Admin);
     AddMatrixPolicy(options, GarmetixPolicies.CompanySetup);
     AddMatrixPolicy(options, GarmetixPolicies.Edit);
@@ -139,11 +203,39 @@ builder.Services.AddAuthorization(options =>
     AddMatrixPolicy(options, GarmetixPolicies.Accounting);
     AddMatrixPolicy(options, GarmetixPolicies.Hr);
     AddMatrixPolicy(options, GarmetixPolicies.Payroll);
+    AddMatrixPolicy(options, GarmetixPolicies.Attendance);
+    AddMatrixPolicy(options, GarmetixPolicies.Marketing);
+    AddMatrixPolicy(options, GarmetixPolicies.Gst);
+});
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Garmetix API",
+        Version = "v1",
+        Description = "Unified ASP.NET Core API for Garmetix modules, including POS, CRM, HR, Books, Admin and Back Office."
+    });
+    options.CustomSchemaIds(type => (type.FullName ?? type.Name).Replace("+", "."));
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "Paste the JWT access token returned by /api/auth/login. Swagger UI sends it as a Bearer token.",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
+    });
+    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecuritySchemeReference("Bearer", document, null)] = new List<string>()
+    });
 });
 
 var app = builder.Build();
 
-const string FreshSchemaBaselineMigrationId = "20260617000000_InitialFreshSchema";
+const string FreshSchemaBaselineMigrationId = "20260623123000_InitialCreate";
 const string FreshSchemaBaselineProductVersion = "10.0.8";
 
 using (var scope = app.Services.CreateScope())
@@ -152,33 +244,12 @@ using (var scope = app.Services.CreateScope())
     var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DatabaseStartup");
     if (app.Configuration.GetValue<bool>("Database:AutoMigrate"))
     {
-        var schemaBootstrapMode = app.Configuration["Database:SchemaBootstrapMode"] ?? "Migrate";
-        if (string.Equals(schemaBootstrapMode, "FreshBaseline", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(schemaBootstrapMode, "EnsureCreated", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(schemaBootstrapMode, "EnsureCreatedWithBaseline", StringComparison.OrdinalIgnoreCase))
-        {
-            logger.LogInformation("Creating database schema from current DbContext model using fresh baseline mode.");
-            await db.Database.EnsureCreatedAsync();
-            await db.Database.ExecuteSqlRawAsync("""
-                CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
-                    "MigrationId" character varying(150) NOT NULL,
-                    "ProductVersion" character varying(32) NOT NULL,
-                    CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId")
-                );
-                """);
-            await db.Database.ExecuteSqlRawAsync($"""
-                INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
-                VALUES ('{FreshSchemaBaselineMigrationId}', '{FreshSchemaBaselineProductVersion}')
-                ON CONFLICT ("MigrationId") DO NOTHING;
-                """);
-        }
-        else
-        {
-            db.Database.Migrate();
-        }
+        await ApplyDatabaseStartupMigrationsAsync(db, app.Configuration, logger, CancellationToken.None);
     }
 
     await DatabaseSchemaRepairService.RepairKnownSchemaDriftAsync(db, logger);
+    await scope.ServiceProvider.GetRequiredService<SystemDefaultsService>().EnsureStartupDefaultsAsync(CancellationToken.None);
+    await GstTaxSeedService.EnsureSeedDataAsync(db, CancellationToken.None);
 }
 
 app.Use(async (context, next) =>
@@ -197,6 +268,23 @@ app.Use(async (context, next) =>
 });
 
 app.UseCors("frontend");
+
+if (app.Configuration.GetValue("ApiDocs:Enabled", true))
+{
+    app.UseSwagger(options =>
+    {
+        options.RouteTemplate = "api/openapi/{documentName}/swagger.json";
+    });
+    app.UseSwaggerUI(options =>
+    {
+        options.DocumentTitle = "Garmetix API Docs";
+        options.RoutePrefix = "api/docs";
+        options.SwaggerEndpoint("/api/openapi/v1/swagger.json", "Garmetix API v1");
+        options.DisplayRequestDuration();
+        options.EnablePersistAuthorization();
+    });
+}
+
 app.UseAuthentication();
 app.UseMiddleware<AuditActorMiddleware>();
 app.UseMiddleware<ActiveUserMiddleware>();
@@ -246,41 +334,94 @@ auth.MapGet("/me", GetCurrentUserAsync).RequireAuthorization();
 auth.MapPut("/me", UpdateCurrentUserProfileAsync).RequireAuthorization();
 
 app.MapSetupEndpoints();
+app.MapMasterDataEndpoints();
 app.MapWorkspaceEndpoints();
 app.MapStoreDayEndpoints();
 app.MapCashDetailsEndpoints();
+app.MapDotMatrixPrintEndpoints();
 app.MapBillingEndpoints();
+app.MapPosHeldBillEndpoints();
+app.MapBillingFinalQaEndpoints();
+app.MapGoodsReturnAcceptanceEndpoints();
+app.MapSaleReviewEndpoints();
+app.MapVyaparSaleImportEndpoints();
+app.MapInvoiceReplacementEndpoints();
 app.MapTailoringEndpoints();
 app.MapPurchaseEndpoints();
+app.MapPurchaseInvoiceImportEndpoints();
 app.MapVendorSettlementEndpoints();
+app.MapVendorPayableReconciliationEndpoints();
+app.MapPurchaseReturnAdvancedSettlementEndpoints();
 app.MapUserManagementEndpoints();
 app.MapAccessMatrixEndpoints();
 app.MapHrEndpoints();
+app.MapAttendanceEndpoints();
 app.MapPayrollEndpoints();
 app.MapSalaryPaymentEndpoints();
 app.MapImportExportEndpoints();
+app.MapAdminJsonDataEndpoints();
 app.MapAuditEndpoints();
 app.MapAccountingEndpoints();
+app.MapDayBookEndpoints();
 app.MapPettyCashEndpoints();
 app.MapCashVoucherEndpoints();
 app.MapBackupEndpoints();
 app.MapFactoryResetEndpoints();
 app.MapGstReturnEndpoints();
 app.MapGstinEndpoints();
+app.MapGstTaxEndpoints();
+app.MapGstHsnEndpoints();
+app.MapGstRateEndpoints();
+app.MapGstAuditEndpoints();
+app.MapGstSaleReviewEndpoints();
+app.MapGstPurchaseReviewEndpoints();
+app.MapGstItcRegisterEndpoints();
+app.MapGstEinvoiceEwaybillEndpoints();
 app.MapCommercialEndpoints();
+app.MapCustomerDuesReconciliationEndpoints();
+app.MapFinancialYearCloseoutEndpoints();
+app.MapBankReconciliationClosureEndpoints();
+app.MapProfitLossReportEndpoints();
+app.MapStockValuationClosureEndpoints();
+app.MapOwnerCloseoutCommandCenterEndpoints();
+app.MapProductionGoLiveMasterAcceptanceEndpoints();
+app.MapFinalOwnerSignoffEndpoints();
+app.MapProductionHostBuildQaEndpoints();
 app.MapProductLookupEndpoints();
 app.MapInventoryProductMasterEndpoints();
 app.MapInventoryStockOperationEndpoints();
 app.MapInventoryStockReportEndpoints();
+app.MapPriceTagEndpoints();
 app.MapNonGstGoodsEndpoints();
 app.MapOracleSecondarySyncEndpoints();
 app.MapDataConsistencyEndpoints();
+app.MapPostImportLiveValidationEndpoints();
 app.MapDataConsistencyRepairEndpoints();
 app.MapDatabaseMigrationEndpoints();
 app.MapDashboardEndpoints();
+app.MapAssistantEndpoints();
+if (app.Configuration.GetValue<bool>("Assistant:McpEnabled"))
+{
+    // Same read-only tool catalog as /api/assistant/chat, reachable over MCP for
+    // external clients (Claude Desktop, claude.ai, etc). Reuses the standard JWT
+    // bearer pipeline - an MCP client authenticates with the same Garmetix token
+    // as any other API caller, so exposure is scoped identically to the rest of
+    // the API (no new/broader network surface). See AssistantOptions.McpEnabled.
+    app.MapMcp("/api/mcp").RequireAuthorization();
+}
 app.MapProductionReadinessEndpoints();
 app.MapPrintAcceptanceEndpoints();
+app.MapBarcodeAcceptanceEndpoints();
+app.MapGstProductionAcceptanceEndpoints();
+app.MapGoogleDriveBackupAcceptanceEndpoints();
+app.MapAuditTrailFinalAcceptanceEndpoints();
+app.MapStage10CompleteEndpoints();
+app.MapRuntimeDiagnosticsEndpoints();
 app.MapPermissionAcceptanceEndpoints();
+app.MapStage10AFinalAcceptanceEndpoints();
+app.MapStage10KOperatorAcceptanceEndpoints();
+app.MapStage10LProductionSupportEndpoints();
+app.MapStage10MProductionRehearsalEndpoints();
 app.MapEmailDeliveryDiagnosticsEndpoints();
 app.MapLicenseEndpoints();
 app.MapReleaseStabilizationEndpoints();
@@ -290,6 +431,7 @@ app.MapCompanyMergeEndpoints();
 app.MapSeederVerificationEndpoints();
 app.MapClientOnboardingEndpoints();
 app.MapApplicationMessageLogEndpoints();
+app.MapDigitalBillCrmEndpoints();
 app.MapAppInfoEndpoints();
 app.MapTestAutomationEndpoints();
 
@@ -304,7 +446,8 @@ MapCrud<ProductDetail>(app, "/api/product-details", GarmetixPolicies.Inventory);
 MapCrud<Brand>(app, "/api/brands", GarmetixPolicies.Inventory);
 MapCrud<Tax>(app, "/api/taxes", GarmetixPolicies.Inventory);
 MapCrud<Customer>(app, "/api/customers", GarmetixPolicies.Billing);
-MapCrud<Vendor>(app, "/api/vendors", GarmetixPolicies.Purchase);
+// Vendor master has a custom endpoint in Setup/MasterDataEndpoints.
+// Do not also map generic CRUD here, otherwise /api/vendors can be ambiguous and return 500.
 MapCrud<Invoice>(app, "/api/sales-invoices", GarmetixPolicies.Billing);
 MapCrud<PurchaseInvoice>(app, "/api/purchase-invoices", GarmetixPolicies.Purchase);
 MapCrud<LedgerGroup>(app, "/api/ledger-groups", GarmetixPolicies.Accounting);
@@ -354,7 +497,7 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         get.RequireAuthorization(readPolicyName);
     }
 
-    group.MapPost("/", async (T entity, GarmetixDbContext db, HttpContext context, GstinLookupService gstinLookup, CancellationToken cancellationToken) =>
+    group.MapPost("/", async (T entity, GarmetixDbContext db, HttpContext context, GstinLookupService gstinLookup, SystemDefaultsService systemDefaults, CancellationToken cancellationToken) =>
     {
         if (!WorkspaceScope.CanWrite(entity, context, out var message))
         {
@@ -380,18 +523,23 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         }
 
         db.Set<T>().Add(entity);
+        await SyncEmployeeSalesmanAsync(entity, db, cancellationToken);
+        await SyncAttendancePunchesFromDailyRecordAsync(entity, db, context, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
 
         if (entity is Company company)
         {
-            var defaultSeeder = new AfssDefaultSeederService(db);
-            await defaultSeeder.SeedAccountingDefaultsForCompanyAsync(company.Id, cancellationToken);
+            await systemDefaults.EnsureForCompanyAsync(company.Id, cancellationToken);
+        }
+        else if (entity is Store store)
+        {
+            await systemDefaults.EnsureManagerSalesmanForStoreAsync(store.Id, cancellationToken);
         }
 
         return Results.Created($"{route}/{entity.Id}", entity);
     }).RequireAuthorization(policyName);
 
-    group.MapPut("/{id:guid}", async (Guid id, T entity, GarmetixDbContext db, HttpContext context, GstinLookupService gstinLookup, CancellationToken cancellationToken) =>
+    group.MapPut("/{id:guid}", async (Guid id, T entity, GarmetixDbContext db, HttpContext context, GstinLookupService gstinLookup, SystemDefaultsService systemDefaults, CancellationToken cancellationToken) =>
     {
         entity.Id = id;
         if (!await WorkspaceScope.ApplyTo(db.Set<T>().AsNoTracking(), context).AnyAsync(item => item.Id == id, cancellationToken))
@@ -418,7 +566,18 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         }
 
         db.Entry(entity).State = EntityState.Modified;
+        await SyncEmployeeSalesmanAsync(entity, db, cancellationToken);
+        await SyncAttendancePunchesFromDailyRecordAsync(entity, db, context, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
+        if (entity is Company company)
+        {
+            await systemDefaults.EnsureForCompanyAsync(company.Id, cancellationToken);
+        }
+        else if (entity is Store store)
+        {
+            await systemDefaults.EnsureManagerSalesmanForStoreAsync(store.Id, cancellationToken);
+        }
+
         return Results.Ok(entity);
     }).RequireAuthorization(policyName).RequireAuthorization(GarmetixPolicies.Edit);
 
@@ -459,6 +618,119 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         .RequireAuthorization(GarmetixPolicies.Delete);
 
     return group;
+}
+
+static async Task SyncAttendancePunchesFromDailyRecordAsync<T>(T entity, GarmetixDbContext db, HttpContext context, CancellationToken cancellationToken) where T : class
+{
+    if (entity is not Attendance attendance)
+    {
+        return;
+    }
+
+    attendance.OnDate = attendance.OnDate.Date;
+    var employee = await db.Employees.AsNoTracking()
+        .FirstOrDefaultAsync(item => item.Id == attendance.EmployeeId && !item.Deleted, cancellationToken);
+    if (employee is null)
+    {
+        return;
+    }
+
+    attendance.CompanyId = employee.CompanyId;
+    attendance.StoreGroupId = employee.StoreGroupId;
+    attendance.StoreId = employee.StoreId;
+    attendance.UpdatedAt = DateTime.UtcNow;
+
+    await SyncAttendancePunchFromDailyFieldAsync(attendance, employee, "CheckIn", attendance.CheckInTime, db, context, cancellationToken);
+    await SyncAttendancePunchFromDailyFieldAsync(attendance, employee, "BreakOut", attendance.BreakOutTime, db, context, cancellationToken);
+    await SyncAttendancePunchFromDailyFieldAsync(attendance, employee, "BreakIn", attendance.BreakInTime, db, context, cancellationToken);
+    await SyncAttendancePunchFromDailyFieldAsync(attendance, employee, "CheckOut", attendance.CheckOutTime, db, context, cancellationToken);
+}
+
+static async Task SyncAttendancePunchFromDailyFieldAsync(
+    Attendance attendance,
+    Employee employee,
+    string punchType,
+    TimeSpan? localTime,
+    GarmetixDbContext db,
+    HttpContext context,
+    CancellationToken cancellationToken)
+{
+    if (localTime.HasValue)
+    {
+        await UpsertAttendancePunchFromDailyRecordAsync(attendance, employee, punchType, localTime.Value, db, context, cancellationToken);
+        return;
+    }
+
+    var dayStart = attendance.OnDate.Date;
+    var dayEnd = dayStart.AddDays(1);
+    var existing = await db.AttendancePunches
+        .Where(item => item.EmployeeId == employee.Id
+            && item.PunchType == punchType
+            && item.LocalPunchTime >= dayStart
+            && item.LocalPunchTime < dayEnd
+            && !item.Deleted
+            && (item.Source == "HR Attendance" || item.VerificationStatus == "DailyAttendanceSynced"))
+        .ToListAsync(cancellationToken);
+    foreach (var punch in existing)
+    {
+        punch.Deleted = true;
+        punch.UpdatedAt = DateTime.UtcNow;
+        punch.Remarks = MergeText(punch.Remarks, $"Attendance table {punchType} cleared for {attendance.OnDate:yyyy-MM-dd}.");
+    }
+}
+
+static async Task UpsertAttendancePunchFromDailyRecordAsync(
+    Attendance attendance,
+    Employee employee,
+    string punchType,
+    TimeSpan localTime,
+    GarmetixDbContext db,
+    HttpContext context,
+    CancellationToken cancellationToken)
+{
+    var localPunch = attendance.OnDate.Date.Add(localTime);
+    var punchUtc = DateTime.SpecifyKind(localPunch, DateTimeKind.Local).ToUniversalTime();
+    var dayStart = attendance.OnDate.Date;
+    var dayEnd = dayStart.AddDays(1);
+
+    var punch = await db.AttendancePunches
+        .FirstOrDefaultAsync(item => item.EmployeeId == employee.Id
+            && item.PunchType == punchType
+            && item.LocalPunchTime >= dayStart
+            && item.LocalPunchTime < dayEnd
+            && !item.Deleted, cancellationToken);
+
+    if (punch is null)
+    {
+        punch = new Garmetix.Core.Models.Attendance.AttendancePunch
+        {
+            Id = Guid.NewGuid(),
+            EmployeeId = employee.Id,
+            PunchType = punchType,
+            Source = "HR Attendance",
+            VerificationStatus = "DailyAttendanceSynced",
+            IsManual = true,
+            IsSynced = true,
+            CreatedBy = context.User.Identity?.Name ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? context.User.FindFirst("userName")?.Value
+        };
+        db.AttendancePunches.Add(punch);
+    }
+
+    punch.CompanyId = employee.CompanyId;
+    punch.StoreGroupId = employee.StoreGroupId;
+    punch.StoreId = employee.StoreId;
+    punch.LocalPunchTime = localPunch;
+    punch.PunchTimeUtc = punchUtc;
+    punch.Reason = "Synced from daily attendance record.";
+    punch.Remarks = MergeText(punch.Remarks, $"Attendance table {punchType} sync for {attendance.OnDate:yyyy-MM-dd}.");
+    punch.UpdatedAt = DateTime.UtcNow;
+}
+
+static string? MergeText(string? existing, string next)
+{
+    if (string.IsNullOrWhiteSpace(existing)) return next;
+    if (existing.Contains(next, StringComparison.OrdinalIgnoreCase)) return existing;
+    return existing.Length + next.Length + 3 > 300 ? existing : $"{existing} | {next}";
 }
 
 static async Task<string?> PrepareEmployeeMasterAsync<T>(T entity, GarmetixDbContext db, CancellationToken cancellationToken) where T : class
@@ -547,6 +819,52 @@ static async Task<string?> PrepareEmployeeMasterAsync<T>(T entity, GarmetixDbCon
     }
 
     return null;
+}
+
+static async Task SyncEmployeeSalesmanAsync<T>(T entity, GarmetixDbContext db, CancellationToken cancellationToken) where T : class
+{
+    if (entity is not Employee employee)
+    {
+        return;
+    }
+
+    var salesman = await db.Salesmen
+        .IgnoreQueryFilters()
+        .FirstOrDefaultAsync(item => item.EmployeeId == employee.Id, cancellationToken);
+
+    if (employee.Category != EmployeeCategory.Salesman || !employee.Working || employee.Deleted)
+    {
+        if (salesman is not null)
+        {
+            salesman.Active = false;
+            salesman.UpdatedAt = DateTime.UtcNow;
+        }
+
+        return;
+    }
+
+    if (salesman is null)
+    {
+        salesman = new Salesman
+        {
+            Id = Guid.NewGuid(),
+            EmployeeId = employee.Id
+        };
+        db.Salesmen.Add(salesman);
+    }
+
+    var salesmanName = string.IsNullOrWhiteSpace(employee.StaffName)
+        ? $"{employee.FirstName} {employee.LastName}".Trim()
+        : employee.StaffName.Trim();
+
+    salesman.CompanyId = employee.CompanyId;
+    salesman.StoreGroupId = employee.StoreGroupId;
+    salesman.StoreId = employee.StoreId;
+    salesman.Name = string.IsNullOrWhiteSpace(salesmanName) ? "Salesman" : salesmanName;
+    salesman.EmployeeId = employee.Id;
+    salesman.Active = true;
+    salesman.Deleted = false;
+    salesman.UpdatedAt = DateTime.UtcNow;
 }
 
 static string DigitsOnly(string? value)
@@ -670,6 +988,7 @@ static async Task<IResult> BootstrapAdminAsync(BootstrapAdminRequest request, Ga
         Role = LoginRole.Admin,
         UserType = UserType.Admin,
         Admin = true,
+        IsSuperAdmin = false,
         AppOperation = AppOperation.All
     };
 
@@ -995,6 +1314,159 @@ static async Task<IResult> ChangePasswordAsync(
 
 
 static DateTime UtcNowForStorage() => DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
+
+static async Task ApplyDatabaseStartupMigrationsAsync(
+    GarmetixDbContext db,
+    IConfiguration configuration,
+    ILogger logger,
+    CancellationToken cancellationToken)
+{
+    logger.LogInformation("Database provider: {Provider}.", db.Database.ProviderName ?? "unknown");
+
+    if (IsDatabaseResetRequested(configuration))
+    {
+        logger.LogWarning("Database reset on startup was explicitly requested. Existing schema and data will be deleted before migrations run.");
+        await db.Database.EnsureDeletedAsync(cancellationToken);
+        await db.Database.MigrateAsync(cancellationToken);
+        logger.LogInformation("Database reset and migration completed.");
+        return;
+    }
+
+    var schemaBootstrapMode = configuration["Database:SchemaBootstrapMode"] ?? "Migrate";
+    if (string.Equals(schemaBootstrapMode, "FreshBaseline", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(schemaBootstrapMode, "EnsureCreated", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(schemaBootstrapMode, "EnsureCreatedWithBaseline", StringComparison.OrdinalIgnoreCase))
+    {
+        logger.LogInformation("Creating database schema from current DbContext model using fresh baseline mode.");
+        await db.Database.EnsureCreatedAsync(cancellationToken);
+        await EnsureMigrationHistoryTableAsync(db, cancellationToken);
+        await InsertBaselineMigrationHistoryAsync(db, cancellationToken);
+        logger.LogInformation("Fresh baseline schema is ready with migration marker {MigrationId}.", FreshSchemaBaselineMigrationId);
+        return;
+    }
+
+    await MarkFreshBaselineForExistingSchemaAsync(db, logger, cancellationToken);
+
+    var appliedMigrations = (await db.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
+    var pendingMigrations = (await db.Database.GetPendingMigrationsAsync(cancellationToken)).ToArray();
+    logger.LogInformation(
+        "Database migration status before migrate: {AppliedCount} applied, {PendingCount} pending. Pending: {PendingMigrations}",
+        appliedMigrations.Length,
+        pendingMigrations.Length,
+        pendingMigrations.Length == 0 ? "none" : string.Join(", ", pendingMigrations));
+
+    await db.Database.MigrateAsync(cancellationToken);
+
+    var appliedAfter = (await db.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
+    logger.LogInformation("Database migration completed. Applied migrations: {AppliedCount}.", appliedAfter.Length);
+}
+
+static bool IsDatabaseResetRequested(IConfiguration configuration)
+    => IsTruthy(configuration["GARMETIX_RESET_DATABASE"])
+        || IsTruthy(configuration["Database:ResetOnStartup"]);
+
+static bool IsTruthy(string? value)
+    => !string.IsNullOrWhiteSpace(value)
+        && (string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "1", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase));
+
+static async Task MarkFreshBaselineForExistingSchemaAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken)
+{
+    if (!db.Database.IsNpgsql())
+    {
+        return;
+    }
+
+    var existingTableCount = await CountExistingUserTablesAsync(db, cancellationToken);
+    if (existingTableCount == 0)
+    {
+        return;
+    }
+
+    await EnsureMigrationHistoryTableAsync(db, cancellationToken);
+
+    var appliedMigrations = (await db.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
+    var pendingMigrations = (await db.Database.GetPendingMigrationsAsync(cancellationToken)).ToArray();
+    if (appliedMigrations.Length > 0 || !pendingMigrations.Contains(FreshSchemaBaselineMigrationId, StringComparer.Ordinal))
+    {
+        return;
+    }
+
+    var requiredBaselineTables = await CountExistingNamedTablesAsync(
+        db,
+        ["Users", "Companies", "Stores", "AttendanceApprovals", "Ledgers", "LedgerGroups", "Employees", "Products", "SalesInvoices", "Vouchers"],
+        cancellationToken);
+
+    if (existingTableCount < 40 || requiredBaselineTables < 10)
+    {
+        logger.LogWarning(
+            "Existing database schema has {ExistingTableCount} user tables but does not look like a complete Garmetix baseline ({RequiredBaselineTables}/10 required tables found). Run with GARMETIX_RESET_DATABASE=true only if this data can be replaced.",
+            existingTableCount,
+            requiredBaselineTables);
+        return;
+    }
+
+    await InsertBaselineMigrationHistoryAsync(db, cancellationToken);
+    logger.LogWarning(
+        "Existing Garmetix schema detected with empty EF migration history. Marked baseline migration {MigrationId} as applied so startup migrations do not recreate existing tables.",
+        FreshSchemaBaselineMigrationId);
+}
+
+static async Task EnsureMigrationHistoryTableAsync(GarmetixDbContext db, CancellationToken cancellationToken)
+{
+    await db.Database.ExecuteSqlRawAsync("""
+        CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
+            "MigrationId" character varying(150) NOT NULL,
+            "ProductVersion" character varying(32) NOT NULL,
+            CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId")
+        );
+        """, cancellationToken);
+}
+
+static async Task InsertBaselineMigrationHistoryAsync(GarmetixDbContext db, CancellationToken cancellationToken)
+{
+    await db.Database.ExecuteSqlRawAsync($"""
+        INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+        VALUES ('{FreshSchemaBaselineMigrationId}', '{FreshSchemaBaselineProductVersion}')
+        ON CONFLICT ("MigrationId") DO NOTHING;
+        """, cancellationToken);
+}
+
+static Task<int> CountExistingUserTablesAsync(GarmetixDbContext db, CancellationToken cancellationToken)
+    => ExecuteScalarIntAsync(db, """
+        SELECT COUNT(*)::int
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_type = 'BASE TABLE'
+          AND table_name <> '__EFMigrationsHistory';
+        """, cancellationToken);
+
+static Task<int> CountExistingNamedTablesAsync(GarmetixDbContext db, IReadOnlyCollection<string> tableNames, CancellationToken cancellationToken)
+{
+    var quotedNames = string.Join(", ", tableNames.Select(name => $"'{name.Replace("'", "''")}'"));
+    return ExecuteScalarIntAsync(db, $"""
+        SELECT COUNT(*)::int
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_type = 'BASE TABLE'
+          AND table_name IN ({quotedNames});
+        """, cancellationToken);
+}
+
+static async Task<int> ExecuteScalarIntAsync(GarmetixDbContext db, string sql, CancellationToken cancellationToken)
+{
+    await using var command = db.Database.GetDbConnection().CreateCommand();
+    command.CommandText = sql;
+
+    if (command.Connection is not null && command.Connection.State != ConnectionState.Open)
+    {
+        await db.Database.OpenConnectionAsync(cancellationToken);
+    }
+
+    var result = await command.ExecuteScalarAsync(cancellationToken);
+    return Convert.ToInt32(result);
+}
 
 static async Task RevokeActivePasswordResetTokensAsync(
     GarmetixDbContext db,

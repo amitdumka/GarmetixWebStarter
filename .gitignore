@@ -1,32 +1,27 @@
-# Garmetix local/private files
+# Root workspace ignores for Version6 backend/frontend layout.
+node_modules/
+.nuxt/
+.output/
+dist/
+outputs/
 .env
 .env.*
 !.env.example
 !.env.production.example
 
-# Deployment secrets
-deploy/macmini.env
-~/.garmetix/macmini.env
-secrets/
-*.pem
-*.key
-*.p12
-*.pfx
-*.crt
-*.csr
+# Modular app outputs.
+frontend/modular/**/.nuxt/
+frontend/modular/**/.output/
+frontend/modular/**/node_modules/
+frontend/modular/**/dist/
+frontend/modular/docs/generated/
 
-# Build and package outputs
-**/bin/
-**/obj/
-**/node_modules/
-**/.nuxt/
-**/.output/
-backups/
-*.tar.gz
-*.zip
-
-# IDE/OS
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
+# App build outputs.
+frontend/legacy/**/node_modules/
+frontend/legacy/**/.nuxt/
+frontend/legacy/**/.output/
+frontend/legacy/**/dist/
+backend/**/bin/
+backend/**/obj/
+legacy/**/bin/
+legacy/**/obj/

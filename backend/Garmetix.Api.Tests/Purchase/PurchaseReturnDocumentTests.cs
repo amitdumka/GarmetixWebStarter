@@ -47,7 +47,8 @@ public sealed class PurchaseReturnDocumentTests
                 30,
                 0,
                 560,
-                "Damaged"))
+                "Damaged",
+                index))
             .ToList();
         var detail = new PurchaseReturnDetailDto(
             id,
@@ -82,7 +83,12 @@ public sealed class PurchaseReturnDocumentTests
             1_200,
             "Reconciled",
             Guid.NewGuid(),
-            items);
+            items,
+            "Blue Dart, LR #4521",
+            250,
+            "Vendor",
+            null,
+            14);
 
         var pdf = PurchaseReturnPdfDocument.Build(
             new PurchaseReturnPdfModel(
@@ -102,7 +108,11 @@ public sealed class PurchaseReturnDocumentTests
         Assert.StartsWith("%PDF-1.4", text);
         Assert.Contains("PURCHASE RETURN", text);
         Assert.Contains("DEBIT NOTE", text);
-        Assert.Contains("Returned item 20", text);
+        Assert.Contains("#20 Returned item 20", text);
+        Assert.Contains("14d old", text);
+        Assert.Contains("Blue Dart, LR", text);
+        Assert.Contains("INR 250.00", text);
+        Assert.Contains("billed to", text);
         Assert.True(pdf.Length > 5_000);
     }
 }

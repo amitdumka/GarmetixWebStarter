@@ -1,0 +1,15 @@
+GarmetixWebStarter v4.12.48
+Stage 11D-133 DotMatrix Live Transaction Polish
+
+Focus:
+- DotMatrix queue hardening
+- Store-code live paper lines
+- Stable deduplication key
+- Better sale/purchase/voucher/payment particulars
+- Edit/delete correction audit print polish
+- Wider bank/UPI summary coverage
+- Attendance total hours and missing checkout details
+- Admin retry-failed/reset-stuck/text preview queue actions
+
+Build note:
+- dotnet build was not run in this ChatGPT environment because the .NET SDK is not installed here.

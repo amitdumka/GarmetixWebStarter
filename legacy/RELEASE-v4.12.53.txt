@@ -1,0 +1,14 @@
+GarmetixWebStarter v4.12.53
+Stage 11D-138: Shell Layout and Kiosk Monitor Fix
+
+Included fixes:
+- Keeps Dot Matrix Print page inside the main AppShell with sidebar/header/navigation.
+- Keeps GST Production, Barcode Final Acceptance, Audit Trail Final, Runtime Diagnostics, Backup Maintenance, Google Drive Backup and Stage 10 acceptance pages inside AppShell.
+- Checks all Maintenance submenu pages and wraps missing shell pages.
+- Carries Epson LX-310 linefeed hotfix so raw dot-matrix lines start from left margin using CRLF.
+- Updates Dot Matrix UI default printer/test copy from LX-810 to EPSON_LX310.
+- Hardens Attendance Kiosk Monitor API endpoints so older live databases with missing kiosk monitor tables/columns return empty lists instead of breaking the page.
+- Hardens Attendance Kiosk Monitor page refresh so photo proof and sync batch calls fail independently.
+
+Deployment note:
+This is a frontend + API change. Use normal Docker rebuild/redeploy. The previous printer-only linefeed patch remains safe, but this ZIP includes it in the full package.

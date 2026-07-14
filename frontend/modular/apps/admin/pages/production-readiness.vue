@@ -1,0 +1,78 @@
+<template>
+  <section class="garmetix-page-stack">
+    <div class="garmetix-dashboard-hero">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p class="garmetix-dashboard-kicker">
+            <UIcon name="i-lucide-rocket" class="size-4" />
+            Deployment
+          </p>
+          <h2 class="garmetix-dashboard-title">Production Readiness</h2>
+          <p class="garmetix-dashboard-subtitle">Read-only production gate covering environment, secrets, CORS, email, backup and reverse proxy readiness.</p>
+        </div>
+        <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refresh">Refresh</UButton>
+      </div>
+    </div>
+
+    <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
+
+    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div v-for="card in cards" :key="card.label" class="garmetix-metric-card">
+        <p class="garmetix-metric-label">{{ card.label }}</p>
+        <p class="garmetix-metric-value">{{ card.value }}</p>
+        <p class="garmetix-metric-caption">{{ card.detail }}</p>
+      </div>
+    </section>
+
+    <div class="garmetix-section-card">
+      <AdminMasterTable :columns="columns" :rows="rows" empty-text="No production readiness checks returned." />
+    </div>
+  </section>
+</template>
+
+<script setup lang="ts">
+import { readArray, readNumber, readText, type ApiRecord, useAdminApiClient } from '../utils/admin-api'
+
+useHead({ title: 'Production Readiness - Garmetix Admin' })
+
+const { get } = useAdminApiClient()
+const loading = ref(true)
+const error = ref('')
+const summary = ref<ApiRecord | null>(null)
+const columns = [
+  { key: 'code', label: 'Code' },
+  { key: 'title', label: 'Check' },
+  { key: 'status', label: 'Status' },
+  { key: 'severity', label: 'Severity' },
+  { key: 'message', label: 'Message' }
+]
+const checks = computed(() => readArray(summary.value, ['checks']))
+const cards = computed(() => [
+  { label: 'Status', value: readText(summary.value, ['status'], 'Pending'), detail: readText(summary.value, ['environment']) },
+  { label: 'Passed', value: readNumber(summary.value, ['passed']), detail: 'Production checks' },
+  { label: 'Warnings', value: readNumber(summary.value, ['warnings']), detail: 'Review before go-live' },
+  { label: 'Critical', value: readNumber(summary.value, ['critical']), detail: 'Must fix' }
+])
+const rows = computed(() => checks.value.map(item => ({
+  code: readText(item, ['code']),
+  title: readText(item, ['title']),
+  status: readText(item, ['status']),
+  severity: readText(item, ['severity']),
+  message: readText(item, ['message'])
+})))
+
+async function refresh() {
+  loading.value = true
+  error.value = ''
+  try {
+    const data = await get<unknown>('production-readiness/summary')
+    if (data && typeof data === 'object') summary.value = data as ApiRecord
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to load production readiness.'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(refresh)
+</script>

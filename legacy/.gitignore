@@ -1,0 +1,32 @@
+# Garmetix local/private files
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# Deployment secrets
+deploy/macmini.env
+~/.garmetix/macmini.env
+secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.csr
+
+# Build and package outputs
+**/bin/
+**/obj/
+**/node_modules/
+**/.nuxt/
+**/.output/
+backups/
+*.tar.gz
+*.zip
+
+# IDE/OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

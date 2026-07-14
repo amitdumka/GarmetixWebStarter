@@ -13,7 +13,10 @@ namespace Garmetix.Api.Numbering;
 public sealed class DocumentNumberService(GarmetixDbContext db)
 {
     public Task<string> NextSaleInvoiceAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
-        => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "SalesInvoice", "S", DateTime.Today, cancellationToken);
+        => NextSaleInvoiceNumberAsync(companyId, storeGroupId, storeId, DateTime.Today, cancellationToken);
+
+    public Task<string> NextSaleInvoiceAsync(Guid companyId, Guid storeGroupId, Guid storeId, DateTime onDate, CancellationToken cancellationToken)
+        => NextSaleInvoiceNumberAsync(companyId, storeGroupId, storeId, onDate, cancellationToken);
 
     public Task<string> NextSalesReturnAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
         => DocumentNumberGenerator.NextAsync(db, companyId, storeGroupId, storeId, "SalesReturn", "SR", DateTime.Today, cancellationToken);
@@ -29,6 +32,9 @@ public sealed class DocumentNumberService(GarmetixDbContext db)
 
     public Task<string> NextPurchaseInwardAsync(Guid companyId, Guid storeGroupId, Guid storeId, CancellationToken cancellationToken)
         => NextStoreMonthlyAsync(companyId, storeGroupId, storeId, "PurchaseInward", "INW", DateTime.Today, cancellationToken);
+
+    public Task<string> NextPurchaseInwardAsync(Guid companyId, Guid storeGroupId, Guid storeId, DateTime inwardDate, CancellationToken cancellationToken)
+        => NextStoreMonthlyAsync(companyId, storeGroupId, storeId, "PurchaseInward", "INW", inwardDate, cancellationToken);
 
     public Task<string> NextPurchaseReturnAsync(Guid companyId, Guid storeGroupId, Guid storeId, DateTime onDate, CancellationToken cancellationToken)
         => NextStoreMonthlyAsync(companyId, storeGroupId, storeId, "PurchaseReturn", "PR", onDate, cancellationToken);
@@ -139,6 +145,32 @@ public sealed class DocumentNumberService(GarmetixDbContext db)
             .Where(character => char.IsLetterOrDigit(character) || character is '-' or '_')
             .ToArray());
         return $"{(safeStoreCode.Length > 0 ? safeStoreCode : "STORE")}/{onDate:yyyyMM}/{prefix}/{numericPart}";
+    }
+
+    private async Task<string> NextSaleInvoiceNumberAsync(
+        Guid companyId,
+        Guid storeGroupId,
+        Guid storeId,
+        DateTime onDate,
+        CancellationToken cancellationToken)
+    {
+        var storeCode = await db.Stores.AsNoTracking()
+            .Where(store => store.Id == storeId && store.CompanyId == companyId && store.StoreGroupId == storeGroupId)
+            .Select(store => store.StoreCode)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(storeCode))
+        {
+            throw new InvalidOperationException("The selected store has no store code. Set the store code in Company setup.");
+        }
+
+        var sequenceMonth = new DateTime(onDate.Year, onDate.Month, 1);
+        var sequence = await DocumentNumberGenerator.NextAsync(
+            db, companyId, storeGroupId, storeId, "SalesInvoice", "INV", sequenceMonth, cancellationToken);
+        var numericPart = sequence.Split('-').Last();
+        var safeStoreCode = new string(storeCode.Trim().ToUpperInvariant()
+            .Where(character => char.IsLetterOrDigit(character) || character is '-' or '_')
+            .ToArray());
+        return $"{(safeStoreCode.Length > 0 ? safeStoreCode : "STORE")}-{onDate:yyyyMM}-INV-{numericPart}";
     }
 }
 

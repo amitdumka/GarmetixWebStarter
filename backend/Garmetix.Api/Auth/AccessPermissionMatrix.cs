@@ -22,8 +22,10 @@ public static class AccessPermissionMatrix
         GarmetixPolicies.Accounting,
         GarmetixPolicies.Hr,
         GarmetixPolicies.Payroll,
-        "Reports",
-        "GST"
+        GarmetixPolicies.Attendance,
+        GarmetixPolicies.Marketing,
+        GarmetixPolicies.Gst,
+        "Reports"
     ];
 
     private static readonly IReadOnlyDictionary<string, string[]> ModuleRoles =
@@ -69,27 +71,49 @@ public static class AccessPermissionMatrix
                 Role(LoginRole.PowerUser),
                 Role(LoginRole.Accountant),
                 Role(LoginRole.RemoteAccountant),
-                Role(LoginRole.StoreManager),
                 Role(LoginRole.Payroll)
+            ],
+            [GarmetixPolicies.Attendance] =
+            [
+                Role(LoginRole.Admin),
+                Role(LoginRole.PowerUser),
+                Role(LoginRole.StoreManager),
+                Role(LoginRole.HR),
+                Role(LoginRole.Payroll)
+            ],
+            [GarmetixPolicies.Marketing] =
+            [
+                Role(LoginRole.Admin),
+                Role(LoginRole.PowerUser),
+                Role(LoginRole.StoreManager)
+            ],
+            [GarmetixPolicies.Gst] =
+            [
+                Role(LoginRole.Admin),
+                Role(LoginRole.PowerUser),
+                Role(LoginRole.Accountant),
+                Role(LoginRole.RemoteAccountant),
+                Role(LoginRole.StoreManager)
             ]
         };
 
     public static IReadOnlyList<AccessPermissionProfile> Profiles { get; } =
     [
+        Profile("Super Admin", true, true, true, AllModules, "App-level administration across every company and store."),
         Profile("Owner", true, true, true, AllModules, "Full business and administration control."),
         Profile(Role(LoginRole.Admin), true, true, true, AllModules, "Full administration control."),
         Profile(Role(LoginRole.PowerUser), false, true, false, AllModules, "All operational modules without Admin or delete rights."),
-        Profile(Role(LoginRole.Accountant), false, true, false, [GarmetixPolicies.Accounting, GarmetixPolicies.Payroll, "Reports", "GST"], "Accounting, payroll, reports, and GST operations."),
-        Profile(Role(LoginRole.RemoteAccountant), false, false, false, [GarmetixPolicies.Accounting, GarmetixPolicies.Payroll, "Reports", "GST"], "Accounting review, salary payment review, reports, and GST without global edit/delete rights."),
-        Profile(Role(LoginRole.StoreManager), false, false, false, [GarmetixPolicies.Billing, GarmetixPolicies.Inventory, GarmetixPolicies.Purchase, GarmetixPolicies.Accounting, GarmetixPolicies.Hr, GarmetixPolicies.Payroll, "Reports"], "Store views, HR attendance, payslip/salary payment visibility, and new entries; no Admin, edit, or delete rights."),
-        Profile(Role(LoginRole.Salesman), false, false, false, [GarmetixPolicies.Billing], "Billing and customer-facing entries."),
-        Profile(Role(LoginRole.HR), false, false, false, [GarmetixPolicies.Hr], "HR and attendance entries."),
-        Profile(Role(LoginRole.Payroll), false, false, false, [GarmetixPolicies.Payroll], "Payroll and salary processing entries."),
+        Profile(Role(LoginRole.Accountant), false, true, false, [GarmetixPolicies.Accounting, GarmetixPolicies.Payroll, "Reports", GarmetixPolicies.Gst], "Accounting, payroll, reports, and GST operations."),
+        Profile(Role(LoginRole.RemoteAccountant), false, false, false, [GarmetixPolicies.Accounting, GarmetixPolicies.Payroll, "Reports", GarmetixPolicies.Gst], "Accounting review, salary payment review, reports, and GST without global edit/delete rights."),
+        Profile(Role(LoginRole.StoreManager), false, false, false, [GarmetixPolicies.Billing, GarmetixPolicies.Inventory, GarmetixPolicies.Purchase, GarmetixPolicies.Accounting, GarmetixPolicies.Hr, GarmetixPolicies.Attendance, GarmetixPolicies.Marketing, GarmetixPolicies.Gst, "Reports"], "Store views, HR attendance, and new entries; no Admin, payroll, edit, or delete rights."),
+        Profile(Role(LoginRole.Salesman), false, false, false, [GarmetixPolicies.Billing], "Billing and customer-facing digital bill entries from sale invoice screens only."),
+        Profile(Role(LoginRole.HR), false, false, false, [GarmetixPolicies.Hr, GarmetixPolicies.Attendance], "HR and attendance entries."),
+        Profile(Role(LoginRole.Payroll), false, false, false, [GarmetixPolicies.Payroll, GarmetixPolicies.Attendance], "Payroll and salary processing entries."),
         Profile(Role(LoginRole.Member), false, false, false, [], "Authenticated account with no operational module assignment.")
     ];
 
     public static bool IsAdminOrOwner(ClaimsPrincipal user)
-        => user.IsInRole(Role(LoginRole.Admin)) || IsOwner(user);
+        => IsSuperAdmin(user) || user.IsInRole(Role(LoginRole.Admin)) || IsOwner(user);
 
     public static bool CanEdit(ClaimsPrincipal user)
         => IsAdminOrOwner(user)
@@ -123,6 +147,11 @@ public static class AccessPermissionMatrix
             return Profiles.First(profile => profile.Role == "Owner");
         }
 
+        if (IsSuperAdmin(user))
+        {
+            return Profiles.First(profile => profile.Role == "Super Admin");
+        }
+
         var role = user.FindFirstValue(ClaimTypes.Role);
         return Profiles.FirstOrDefault(profile => string.Equals(profile.Role, role, StringComparison.OrdinalIgnoreCase));
     }
@@ -132,6 +161,9 @@ public static class AccessPermissionMatrix
             user.FindFirstValue("userType"),
             UserType.Owner.ToString(),
             StringComparison.OrdinalIgnoreCase);
+
+    public static bool IsSuperAdmin(ClaimsPrincipal user)
+        => bool.TryParse(user.FindFirstValue("superAdmin"), out var superAdmin) && superAdmin;
 
     private static AccessPermissionProfile Profile(
         string role,

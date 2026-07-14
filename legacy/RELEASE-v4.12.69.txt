@@ -1,0 +1,14 @@
+GarmetixWebStarter v4.12.69
+Stage 11D-154 Stock Operation Product Autocomplete
+Build code: GARMETIX-11D154-20260703-4269
+
+Changes:
+- Replaced stock item dropdowns with searchable autocomplete pickers across Stock Operations tabs.
+- Added searchable metadata for product name, barcode, HSN, store and unit.
+- Added selected stock hint below each product picker with barcode, store, available quantity and MRP.
+- Kept posting and stock movement/accounting logic unchanged.
+
+Test:
+- docker compose up --build
+- Open /stock-operations
+- Test Adjustment, Transfer, Physical Count and Write-off product search by product name and barcode.

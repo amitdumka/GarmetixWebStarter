@@ -37,10 +37,10 @@ public static class TestAutomationEndpoints
         Add(checks,
             "APP_VERSION",
             "Application version endpoint contract",
-            AppInfoEndpoints.Version.StartsWith("4.", StringComparison.Ordinal) && AppInfoEndpoints.BuildCode.StartsWith("GARMETIX-8", StringComparison.Ordinal) ? "Pass" : "Critical",
+            AppInfoEndpoints.Version.StartsWith("4.", StringComparison.Ordinal) && AppInfoEndpoints.BuildCode.StartsWith("GARMETIX-", StringComparison.Ordinal) ? "Pass" : "Critical",
             "High",
             $"API reports {AppInfoEndpoints.Version} / {AppInfoEndpoints.BuildCode} in {environment.EnvironmentName}.",
-            "Rebuild and redeploy the latest Stage 8I release archive if version/build code is stale.");
+            "Rebuild and redeploy the latest approved release archive if version/build code is stale.");
 
         try
         {
@@ -104,6 +104,9 @@ public static class TestAutomationEndpoints
             "PRINT_PDF_ACCEPTANCE",
             "SMTP_DELIVERY_ACCEPTANCE",
             "LICENSE_SAAS_ACTIVATION",
+            "TODAYS_DASHBOARD_ACCEPTANCE",
+            "ATTENDANCE_STAGE9_FINAL_ACCEPTANCE",
+            "STAGE10A_FINAL_ACCEPTANCE",
             "AUTHENTICATED_API_SMOKE"
         };
         var catalogOk = requiredCodes.All(code => definitions.Any(item => item.Code == code));
@@ -113,7 +116,7 @@ public static class TestAutomationEndpoints
             catalogOk ? "Pass" : "Warning",
             catalogOk ? "Info" : "Medium",
             catalogOk ? $"Manifest exposes {definitions.Count} test definitions." : "Manifest is missing one or more required smoke-test definitions.",
-            "Restore the current Stage 8I TestAutomationCatalog definitions.");
+            "Restore the current Stage 10A TestAutomationCatalog definitions.");
 
         var critical = checks.Count(item => item.Status.Equals("Critical", StringComparison.OrdinalIgnoreCase));
         var warnings = checks.Count(item => item.Status.Equals("Warning", StringComparison.OrdinalIgnoreCase));

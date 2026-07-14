@@ -16,8 +16,22 @@ public static class DashboardEndpoints
             .RequireAuthorization();
 
         group.MapGet("/home", HomeAsync).WithName("GetDashboardHome");
+        group.MapGet("/todays", TodaysAsync).WithName("GetTodaysDashboard");
         group.MapGet("/store-manager", StoreManagerAsync).WithName("GetStoreManagerDashboard");
         group.MapGet("/business", BusinessAsync).WithName("GetBusinessDashboard");
+
+        var aiGroup = app.MapGroup("/api/ai-sense")
+            .WithTags("AI Sense")
+            .RequireAuthorization();
+
+        aiGroup.MapGet("/sales-analysis", SalesAnalysisAsync).WithName("GetAiSenseSalesAnalysis");
+        aiGroup.MapGet("/purchase-analysis", PurchaseAnalysisAsync).WithName("GetAiSensePurchaseAnalysis");
+        aiGroup.MapGet("/profit-analysis", ProfitAnalysisAsync).WithName("GetAiSenseProfitAnalysis");
+        aiGroup.MapGet("/stock-risk", StockRiskAsync).WithName("GetAiSenseStockRisk");
+        aiGroup.MapGet("/vendor-analysis", VendorAnalysisAsync).WithName("GetAiSenseVendorAnalysis");
+        aiGroup.MapGet("/customer-analysis", CustomerAnalysisAsync).WithName("GetAiSenseCustomerAnalysis");
+        aiGroup.MapGet("/daily-summary", DailySummaryAsync).WithName("GetAiSenseDailySummary");
+        aiGroup.MapGet("/monthly-summary", MonthlySummaryAsync).WithName("GetAiSenseMonthlySummary");
 
         return group;
     }
@@ -83,6 +97,310 @@ public static class DashboardEndpoints
             "Scoped users without a specialized home start with the store manager dashboard.",
             false,
             true);
+    }
+
+
+    internal static async Task<TodayDashboardDto> TodaysAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        [FromQuery] Guid? companyId,
+        [FromQuery] Guid? storeGroupId,
+        [FromQuery] Guid? storeId,
+        [FromQuery] DateTime? date,
+        CancellationToken cancellationToken)
+    {
+        var businessDate = (date?.Date ?? DateTime.Today);
+        var tomorrow = businessDate.AddDays(1);
+        var trendStart = businessDate.AddDays(-13);
+        var storeIds = await ResolveStoreIdsAsync(context, db, companyId, storeGroupId, storeId, cancellationToken);
+        var hasStoreScope = storeIds.Count > 0;
+
+        var sales = WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context)
+            .Where(item => !item.Deleted && !item.ReturnInvoice);
+        var purchases = WorkspaceScope.ApplyTo(db.PurchaseInvoices.AsNoTracking(), context)
+            .Where(item => !item.Deleted && !item.ReturnInvoice);
+        var invoicePayments = WorkspaceScope.ApplyTo(db.InvoicePayments.AsNoTracking(), context)
+            .Where(item => !item.Deleted);
+        var purchasePayments = WorkspaceScope.ApplyTo(db.PurchasePayments.AsNoTracking(), context)
+            .Where(item => !item.Deleted);
+        var vouchers = WorkspaceScope.ApplyTo(db.Vouchers.AsNoTracking(), context)
+            .Where(item => !item.Deleted);
+        var cashVouchers = WorkspaceScope.ApplyTo(db.CashVouchers.AsNoTracking(), context)
+            .Where(item => !item.Deleted);
+        var nonGstDocuments = WorkspaceScope.ApplyTo(db.NonGstGoodsDocuments.AsNoTracking(), context)
+            .Where(item => !item.Deleted);
+
+        if (companyId.HasValue)
+        {
+            sales = sales.Where(item => item.CompanyId == companyId.Value);
+            purchases = purchases.Where(item => item.CompanyId == companyId.Value);
+            invoicePayments = invoicePayments.Where(item => item.CompanyId == companyId.Value);
+            purchasePayments = purchasePayments.Where(item => item.CompanyId == companyId.Value);
+            vouchers = vouchers.Where(item => item.CompanyId == companyId.Value);
+            cashVouchers = cashVouchers.Where(item => item.CompanyId == companyId.Value);
+            nonGstDocuments = nonGstDocuments.Where(item => item.CompanyId == companyId.Value);
+        }
+
+        if (storeGroupId.HasValue)
+        {
+            purchases = purchases.Where(item => item.StoreGroupId == storeGroupId.Value);
+            purchasePayments = purchasePayments.Where(item => item.StoreGroupId == storeGroupId.Value);
+            vouchers = vouchers.Where(item => item.StoreGroupId == storeGroupId.Value);
+            cashVouchers = cashVouchers.Where(item => item.StoreGroupId == storeGroupId.Value);
+            nonGstDocuments = nonGstDocuments.Where(item => item.StoreGroupId == storeGroupId.Value);
+        }
+
+        if (hasStoreScope)
+        {
+            sales = sales.Where(item => storeIds.Contains(item.StoreId));
+            purchases = purchases.Where(item => item.StoreId.HasValue && storeIds.Contains(item.StoreId.Value));
+            invoicePayments = invoicePayments.Where(item => storeIds.Contains(item.StoreId));
+            purchasePayments = purchasePayments.Where(item => storeIds.Contains(item.StoreId));
+            vouchers = vouchers.Where(item => storeIds.Contains(item.StoreId));
+            cashVouchers = cashVouchers.Where(item => storeIds.Contains(item.StoreId));
+            nonGstDocuments = nonGstDocuments.Where(item => storeIds.Contains(item.StoreId));
+        }
+        else
+        {
+            sales = sales.Where(_ => false);
+            purchases = purchases.Where(_ => false);
+            invoicePayments = invoicePayments.Where(_ => false);
+            purchasePayments = purchasePayments.Where(_ => false);
+            vouchers = vouchers.Where(_ => false);
+            cashVouchers = cashVouchers.Where(_ => false);
+            nonGstDocuments = nonGstDocuments.Where(_ => false);
+        }
+
+        var todaySalesQuery = sales.Where(item => item.OnDate >= businessDate && item.OnDate < tomorrow);
+        var todayPurchaseQuery = purchases.Where(item => item.OnDate >= businessDate && item.OnDate < tomorrow);
+        var todayInvoicePayments = invoicePayments.Where(item => item.OnDate >= businessDate && item.OnDate < tomorrow);
+        var todayPurchasePayments = purchasePayments.Where(item => item.OnDate >= businessDate && item.OnDate < tomorrow);
+        var todayVouchers = vouchers.Where(item => item.OnDate >= businessDate && item.OnDate < tomorrow);
+        var todayCashVouchers = cashVouchers.Where(item => item.OnDate >= businessDate && item.OnDate < tomorrow);
+
+        var salesAmount = await SumAsync(todaySalesQuery.Select(item => item.BillAmount), cancellationToken);
+        var purchaseAmount = await SumAsync(todayPurchaseQuery.Select(item => item.BillAmount), cancellationToken);
+        var salesCollectionAmount = await SumAsync(todayInvoicePayments.Select(item => item.Amount), cancellationToken);
+        var purchasePaymentAmount = await SumAsync(todayPurchasePayments.Select(item => item.Amount), cancellationToken);
+        var voucherReceiptAmount = await SumAsync(todayVouchers.Where(item => item.VoucherType == VoucherType.Receipt).Select(item => item.Amount), cancellationToken);
+        var voucherPaymentAmount = await SumAsync(todayVouchers.Where(item => item.VoucherType == VoucherType.Payment).Select(item => item.Amount), cancellationToken);
+        var voucherExpenseAmount = await SumAsync(todayVouchers.Where(item => item.VoucherType == VoucherType.Expense).Select(item => item.Amount), cancellationToken);
+        var cashVoucherReceiptAmount = await SumAsync(todayCashVouchers.Where(item => item.VoucherType == VoucherType.Receipt).Select(item => item.Amount), cancellationToken);
+        var cashVoucherPaymentAmount = await SumAsync(todayCashVouchers.Where(item => item.VoucherType == VoucherType.Payment).Select(item => item.Amount), cancellationToken);
+        var cashVoucherExpenseAmount = await SumAsync(todayCashVouchers.Where(item => item.VoucherType == VoucherType.Expense).Select(item => item.Amount), cancellationToken);
+        var invoiceCount = await todaySalesQuery.CountAsync(cancellationToken);
+        var purchaseCount = await todayPurchaseQuery.CountAsync(cancellationToken);
+        var cashVoucherCount = await todayCashVouchers.CountAsync(cancellationToken);
+
+        var totalReceipts = salesCollectionAmount + voucherReceiptAmount + cashVoucherReceiptAmount;
+        var totalPayments = purchasePaymentAmount + voucherPaymentAmount + cashVoucherPaymentAmount;
+        var totalExpenses = voucherExpenseAmount + cashVoucherExpenseAmount;
+        var netCashFlow = totalReceipts - totalPayments - totalExpenses;
+
+        var employeeQuery = WorkspaceScope.ApplyTo(db.Employees.AsNoTracking(), context)
+            .Where(item => !item.Deleted && item.Working && (item.EmployeeStatus == null || item.EmployeeStatus == string.Empty || item.EmployeeStatus == "Active"));
+        if (companyId.HasValue)
+        {
+            employeeQuery = employeeQuery.Where(item => item.CompanyId == companyId.Value);
+        }
+        if (storeGroupId.HasValue)
+        {
+            employeeQuery = employeeQuery.Where(item => item.StoreGroupId == storeGroupId.Value);
+        }
+        if (hasStoreScope)
+        {
+            employeeQuery = employeeQuery.Where(item => storeIds.Contains(item.StoreId));
+        }
+        else
+        {
+            employeeQuery = employeeQuery.Where(_ => false);
+        }
+
+        var employees = await employeeQuery
+            .OrderBy(item => item.FirstName)
+            .ThenBy(item => item.LastName)
+            .Select(item => new
+            {
+                item.Id,
+                item.EmpId,
+                item.EmployeeCode,
+                item.FirstName,
+                item.LastName,
+                item.Department,
+                item.Designation
+            })
+            .ToListAsync(cancellationToken);
+
+        var employeeIds = employees.Select(item => item.Id).ToList();
+        var punches = await WorkspaceScope.ApplyTo(db.AttendancePunches.AsNoTracking(), context)
+            .Where(item => !item.Deleted && employeeIds.Contains(item.EmployeeId) && item.LocalPunchTime >= businessDate && item.LocalPunchTime < tomorrow)
+            .OrderBy(item => item.LocalPunchTime)
+            .Select(item => new
+            {
+                item.EmployeeId,
+                item.PunchType,
+                item.LocalPunchTime,
+                item.Source,
+                item.VerificationStatus
+            })
+            .ToListAsync(cancellationToken);
+
+        var punchGroups = punches.GroupBy(item => item.EmployeeId).ToDictionary(item => item.Key, item => item.ToList());
+        var present = new List<TodayEmployeeAttendanceDto>();
+        var absent = new List<TodayEmployeeAttendanceDto>();
+        var pendingReview = 0;
+        foreach (var employee in employees)
+        {
+            var fullName = $"{employee.FirstName} {employee.LastName}".Trim();
+            var code = !string.IsNullOrWhiteSpace(employee.EmployeeCode) ? employee.EmployeeCode : employee.EmpId.ToString();
+            if (punchGroups.TryGetValue(employee.Id, out var rows) && rows.Count > 0)
+            {
+                var first = rows.First();
+                var last = rows.Last();
+                var verification = last.VerificationStatus ?? string.Empty;
+                var isPending = !string.Equals(verification, "Success", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(verification, "ManualApproved", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(verification, "Approved", StringComparison.OrdinalIgnoreCase);
+                if (isPending)
+                {
+                    pendingReview++;
+                }
+
+                present.Add(new TodayEmployeeAttendanceDto(
+                    employee.Id,
+                    code,
+                    fullName,
+                    employee.Department ?? string.Empty,
+                    employee.Designation ?? string.Empty,
+                    isPending ? "Needs Review" : "Present",
+                    first.LocalPunchTime,
+                    last.LocalPunchTime,
+                    last.PunchType,
+                    last.Source ?? string.Empty));
+            }
+            else
+            {
+                absent.Add(new TodayEmployeeAttendanceDto(
+                    employee.Id,
+                    code,
+                    fullName,
+                    employee.Department ?? string.Empty,
+                    employee.Designation ?? string.Empty,
+                    "Absent",
+                    null,
+                    null,
+                    string.Empty,
+                    string.Empty));
+            }
+        }
+
+        var salesRows = await todaySalesQuery
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .Take(6)
+            .Select(item => new { item.Id, item.InvoiceNumber, item.CustomerName, item.CustomerMobileNumber, item.BillAmount, item.OnDate, item.InvoiceStatus })
+            .ToListAsync(cancellationToken);
+        var purchaseRows = await todayPurchaseQuery
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .Take(6)
+            .Select(item => new { item.Id, item.InvoiceNumber, item.VendorName, item.BillAmount, item.OnDate, item.InvoiceStatus })
+            .ToListAsync(cancellationToken);
+        var voucherRows = await todayVouchers
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .Take(6)
+            .Select(item => new { item.Id, item.VoucherNumber, item.PartyName, item.Particulars, item.Amount, item.OnDate, item.VoucherType })
+            .ToListAsync(cancellationToken);
+        var cashVoucherRows = await todayCashVouchers
+            .OrderByDescending(item => item.OnDate)
+            .ThenByDescending(item => item.CreatedAt)
+            .Take(6)
+            .Select(item => new { item.Id, item.VoucherNumber, item.PartyName, item.Particulars, item.Amount, item.OnDate, item.VoucherType })
+            .ToListAsync(cancellationToken);
+
+        var recentActivities = salesRows.Select(item => new DashboardActivityDto(
+                item.InvoiceNumber,
+                item.CustomerName ?? item.CustomerMobileNumber ?? "Walk-in customer",
+                FormatMoney(item.BillAmount),
+                item.OnDate,
+                item.InvoiceStatus.ToString(),
+                "billing",
+                item.Id))
+            .Concat(purchaseRows.Select(item => new DashboardActivityDto(
+                item.InvoiceNumber,
+                item.VendorName ?? "Purchase inward",
+                FormatMoney(item.BillAmount),
+                item.OnDate,
+                item.InvoiceStatus.ToString(),
+                "purchase",
+                item.Id)))
+            .Concat(voucherRows.Select(item => new DashboardActivityDto(
+                item.VoucherNumber,
+                item.PartyName ?? item.Particulars ?? "Voucher",
+                FormatMoney(item.Amount),
+                item.OnDate,
+                item.VoucherType.ToString(),
+                "vouchers",
+                item.Id)))
+            .Concat(cashVoucherRows.Select(item => new DashboardActivityDto(
+                item.VoucherNumber,
+                item.PartyName ?? item.Particulars ?? "Cash voucher",
+                FormatMoney(item.Amount),
+                item.OnDate,
+                item.VoucherType.ToString(),
+                "cash-vouchers",
+                item.Id)))
+            .OrderByDescending(item => item.OnDate)
+            .Take(12)
+            .ToList();
+
+        var trend = await TrendAsync(sales, purchases, nonGstDocuments, trendStart, tomorrow, cancellationToken);
+        var scope = await ResolveScopeAsync(context, db, companyId, storeGroupId, storeId, "Today", cancellationToken);
+
+        var metrics = new List<DashboardMetricDto>
+        {
+            Metric("Today's Sales", salesAmount, $"{invoiceCount} invoice(s)", "i-lucide-receipt-indian-rupee", "success"),
+            Metric("Today's Purchase", purchaseAmount, $"{purchaseCount} inward bill(s)", "i-lucide-package-plus", "warning"),
+            Metric("Receipts", totalReceipts, "Sales collections, voucher receipts and cash voucher receipts.", "i-lucide-arrow-down-left", "success"),
+            Metric("Payments", totalPayments, "Purchase payments, voucher payments and cash voucher payments.", "i-lucide-arrow-up-right", "warning"),
+            Metric("Expenses", totalExpenses, "Expense vouchers and cash expense vouchers.", "i-lucide-wallet-cards", "error"),
+            Metric("Cash Vouchers", cashVoucherReceiptAmount + cashVoucherPaymentAmount + cashVoucherExpenseAmount, $"{cashVoucherCount} cash voucher row(s)", "i-lucide-banknote", "primary"),
+            Metric("Present Employees", present.Count, "Active employees with at least one punch today.", "i-lucide-user-check", "success"),
+            Metric("Absent Employees", absent.Count, "Active employees without a punch today.", "i-lucide-user-x", absent.Count > 0 ? "warning" : "success")
+        };
+
+        var quickActions = new List<DashboardQuickActionDto>
+        {
+            new("New Sale", "Open billing", "/billing", "i-lucide-receipt-indian-rupee", "primary", false),
+            new("Store Operations", "Open/close store day", "/store-day", "i-lucide-sun-medium", "warning", false),
+            new("Cash Voucher", "Record off-book cash movement", "/cash-vouchers", "i-lucide-wallet-cards", "neutral", false),
+            new("Attendance Kiosk", "Mark employee attendance", "/attendance/kiosk", "i-lucide-camera", "success", absent.Count > 0),
+            new("Purchase", "Open purchase inward", "/purchase", "i-lucide-package-plus", "neutral", false),
+            new("Reports", "Open reports center", "/reports", "i-lucide-file-text", "neutral", false)
+        };
+
+        return new TodayDashboardDto(
+            scope,
+            businessDate,
+            metrics,
+            trend,
+            new TodayCashFlowDto(
+                salesCollectionAmount,
+                purchasePaymentAmount,
+                voucherReceiptAmount,
+                voucherPaymentAmount,
+                voucherExpenseAmount,
+                cashVoucherReceiptAmount,
+                cashVoucherPaymentAmount,
+                cashVoucherExpenseAmount,
+                totalReceipts,
+                totalPayments,
+                totalExpenses,
+                netCashFlow),
+            new TodayAttendanceSummaryDto(employees.Count, present.Count, absent.Count, pendingReview, present, absent),
+            recentActivities,
+            quickActions);
     }
 
     private static async Task<StoreManagerDashboardDto> StoreManagerAsync(
@@ -214,7 +532,7 @@ public static class DashboardEndpoints
             period.Dto);
     }
 
-    private static async Task<BusinessDashboardDto> BusinessAsync(
+    internal static async Task<BusinessDashboardDto> BusinessAsync(
         HttpContext context,
         GarmetixDbContext db,
         [FromQuery] Guid? companyId,
@@ -358,6 +676,275 @@ public static class DashboardEndpoints
             cashPaymentSummary,
             storeGroupComparison);
     }
+
+    private static async Task<IResult> SalesAnalysisAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        [FromQuery] Guid? companyId,
+        [FromQuery] Guid? storeGroupId,
+        [FromQuery] Guid? storeId,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        CancellationToken cancellationToken)
+    {
+        var dashboard = await BusinessAsync(context, db, companyId, storeGroupId, storeId, from, to, cancellationToken);
+        return Results.Ok(new
+        {
+            title = "Sales Analysis",
+            dashboard.Scope,
+            dashboard.Period,
+            metrics = PickMetrics(dashboard, "Period Sales", "Invoices", "Customer Due", "Net Cash"),
+            trend = dashboard.Trend,
+            rows = dashboard.Stores
+                .OrderByDescending(item => item.SalesMonth)
+                .Select(item => new
+                {
+                    item.StoreId,
+                    item.StoreName,
+                    amount = item.SalesMonth,
+                    invoices = item.InvoiceCount,
+                    stockValue = item.StockValue,
+                    sharePercent = Percent(item.SalesMonth, dashboard.Stores.Sum(row => row.SalesMonth))
+                })
+                .ToList(),
+            recent = dashboard.RecentSales,
+            signals = dashboard.HealthSignals.Where(item => item.Label.Contains("Due", StringComparison.OrdinalIgnoreCase)).ToList()
+        });
+    }
+
+    private static async Task<IResult> PurchaseAnalysisAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        [FromQuery] Guid? companyId,
+        [FromQuery] Guid? storeGroupId,
+        [FromQuery] Guid? storeId,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        CancellationToken cancellationToken)
+    {
+        var dashboard = await BusinessAsync(context, db, companyId, storeGroupId, storeId, from, to, cancellationToken);
+        return Results.Ok(new
+        {
+            title = "Purchase Analysis",
+            dashboard.Scope,
+            dashboard.Period,
+            metrics = PickMetrics(dashboard, "Period Purchase", "Vendor Due", "Stock Value"),
+            trend = dashboard.Trend,
+            rows = dashboard.StoreGroups
+                .OrderByDescending(item => item.PurchaseMonth)
+                .Select(item => new
+                {
+                    item.StoreGroupId,
+                    item.StoreGroupName,
+                    amount = item.PurchaseMonth,
+                    stockValue = item.StockValue,
+                    sharePercent = Percent(item.PurchaseMonth, dashboard.StoreGroups.Sum(row => row.PurchaseMonth))
+                })
+                .ToList(),
+            recent = dashboard.RecentPurchases,
+            signals = dashboard.HealthSignals
+        });
+    }
+
+    private static async Task<IResult> ProfitAnalysisAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        [FromQuery] Guid? companyId,
+        [FromQuery] Guid? storeGroupId,
+        [FromQuery] Guid? storeId,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        CancellationToken cancellationToken)
+    {
+        var dashboard = await BusinessAsync(context, db, companyId, storeGroupId, storeId, from, to, cancellationToken);
+        var grossMargin = MetricByLabel(dashboard, "Gross Margin")?.Value ?? dashboard.Trend.Sum(item => item.Profit);
+        var sales = MetricByLabel(dashboard, "Period Sales")?.Value ?? dashboard.Trend.Sum(item => item.Sales);
+        return Results.Ok(new
+        {
+            title = "Profit Analysis",
+            dashboard.Scope,
+            dashboard.Period,
+            metrics = PickMetrics(dashboard, "Gross Margin", "Period Sales", "Period Purchase", "Net Cash"),
+            marginPercent = Percent(grossMargin, sales),
+            trend = dashboard.Trend,
+            breakdown = dashboard.ProfitBreakdown,
+            rows = dashboard.Stores
+                .Select(item => new
+                {
+                    item.StoreId,
+                    item.StoreName,
+                    sales = item.SalesMonth,
+                    purchase = item.PurchaseMonth,
+                    grossMargin = item.SalesMonth - item.PurchaseMonth,
+                    marginPercent = Percent(item.SalesMonth - item.PurchaseMonth, item.SalesMonth)
+                })
+                .OrderByDescending(item => item.grossMargin)
+                .ToList(),
+            signals = dashboard.HealthSignals
+        });
+    }
+
+    private static async Task<IResult> StockRiskAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        [FromQuery] Guid? companyId,
+        [FromQuery] Guid? storeGroupId,
+        [FromQuery] Guid? storeId,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        CancellationToken cancellationToken)
+    {
+        var dashboard = await BusinessAsync(context, db, companyId, storeGroupId, storeId, from, to, cancellationToken);
+        return Results.Ok(new
+        {
+            title = "Stock Risk",
+            dashboard.Scope,
+            dashboard.Period,
+            metrics = PickMetrics(dashboard, "Stock Value"),
+            breakdown = dashboard.StockBreakdown,
+            rows = dashboard.Stores
+                .OrderByDescending(item => item.StockValue)
+                .Select(item => new
+                {
+                    item.StoreId,
+                    item.StoreName,
+                    item.StockValue,
+                    item.CurrentStockQty,
+                    item.SalesMonth,
+                    sellThroughSignal = item.StockValue <= 0 ? "No stock value" : item.SalesMonth <= 0 ? "Slow movement" : "Active"
+                })
+                .ToList(),
+            signals = dashboard.HealthSignals.Where(item => item.Label.Contains("stock", StringComparison.OrdinalIgnoreCase)).ToList()
+        });
+    }
+
+    private static async Task<IResult> VendorAnalysisAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        [FromQuery] Guid? companyId,
+        [FromQuery] Guid? storeGroupId,
+        [FromQuery] Guid? storeId,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        CancellationToken cancellationToken)
+    {
+        var dashboard = await BusinessAsync(context, db, companyId, storeGroupId, storeId, from, to, cancellationToken);
+        return Results.Ok(new
+        {
+            title = "Vendor Analysis",
+            dashboard.Scope,
+            dashboard.Period,
+            metrics = PickMetrics(dashboard, "Vendor Due", "Period Purchase"),
+            rows = dashboard.VendorDues,
+            recent = dashboard.RecentPurchases,
+            totalDue = dashboard.VendorDues.Sum(item => item.DueAmount),
+            signals = dashboard.VendorDues
+                .GroupBy(item => item.AgeBucket)
+                .Select(group => new { ageBucket = group.Key, count = group.Count(), dueAmount = group.Sum(item => item.DueAmount) })
+                .OrderByDescending(item => item.dueAmount)
+                .ToList()
+        });
+    }
+
+    private static async Task<IResult> CustomerAnalysisAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        [FromQuery] Guid? companyId,
+        [FromQuery] Guid? storeGroupId,
+        [FromQuery] Guid? storeId,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        CancellationToken cancellationToken)
+    {
+        var dashboard = await BusinessAsync(context, db, companyId, storeGroupId, storeId, from, to, cancellationToken);
+        return Results.Ok(new
+        {
+            title = "Customer Analysis",
+            dashboard.Scope,
+            dashboard.Period,
+            metrics = PickMetrics(dashboard, "Customer Due", "Period Sales", "Invoices"),
+            rows = dashboard.CustomerDues,
+            recent = dashboard.RecentSales,
+            totalDue = dashboard.CustomerDues.Sum(item => item.DueAmount),
+            signals = dashboard.CustomerDues
+                .GroupBy(item => item.AgeBucket)
+                .Select(group => new { ageBucket = group.Key, count = group.Count(), dueAmount = group.Sum(item => item.DueAmount) })
+                .OrderByDescending(item => item.dueAmount)
+                .ToList()
+        });
+    }
+
+    private static async Task<IResult> DailySummaryAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        [FromQuery] Guid? companyId,
+        [FromQuery] Guid? storeGroupId,
+        [FromQuery] Guid? storeId,
+        [FromQuery] DateTime? date,
+        CancellationToken cancellationToken)
+    {
+        var today = await TodaysAsync(context, db, companyId, storeGroupId, storeId, date, cancellationToken);
+        return Results.Ok(new
+        {
+            title = "Daily Summary",
+            today.Scope,
+            today.BusinessDate,
+            metrics = today.Metrics,
+            trend = today.SalesTrend,
+            today.CashFlow,
+            today.Attendance,
+            recent = today.RecentActivities,
+            actions = today.QuickActions
+        });
+    }
+
+    private static async Task<IResult> MonthlySummaryAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        [FromQuery] Guid? companyId,
+        [FromQuery] Guid? storeGroupId,
+        [FromQuery] Guid? storeId,
+        [FromQuery] int? year,
+        [FromQuery] int? month,
+        CancellationToken cancellationToken)
+    {
+        var now = DateTime.Today;
+        var y = year.GetValueOrDefault(now.Year);
+        var m = Math.Clamp(month.GetValueOrDefault(now.Month), 1, 12);
+        var from = new DateTime(y, m, 1);
+        var to = from.AddMonths(1).AddDays(-1);
+        var dashboard = await BusinessAsync(context, db, companyId, storeGroupId, storeId, from, to, cancellationToken);
+        return Results.Ok(new
+        {
+            title = "Monthly Summary",
+            dashboard.Scope,
+            dashboard.Period,
+            metrics = dashboard.Metrics,
+            trend = dashboard.Trend,
+            revenue = dashboard.RevenueBreakdown,
+            profit = dashboard.ProfitBreakdown,
+            cash = dashboard.CashPaymentSummary,
+            storeGroups = dashboard.StoreGroupComparison,
+            signals = dashboard.HealthSignals
+        });
+    }
+
+    private static IReadOnlyList<DashboardMetricDto> PickMetrics(BusinessDashboardDto dashboard, params string[] labels)
+    {
+        var selected = labels
+            .Select(label => MetricByLabel(dashboard, label))
+            .Where(metric => metric is not null)
+            .Cast<DashboardMetricDto>()
+            .ToList();
+
+        return selected.Count > 0 ? selected : dashboard.Metrics;
+    }
+
+    private static DashboardMetricDto? MetricByLabel(BusinessDashboardDto dashboard, string label)
+        => dashboard.Metrics.FirstOrDefault(metric => string.Equals(metric.Label, label, StringComparison.OrdinalIgnoreCase));
+
+    private static decimal Percent(decimal value, decimal total)
+        => total == 0 ? 0 : Math.Round((value / total) * 100m, 2);
 
 
     private static async Task<IReadOnlyList<PartyDueDashboardRowDto>> CustomerDueDashboardAsync(

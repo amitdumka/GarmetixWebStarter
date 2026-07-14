@@ -25,10 +25,15 @@ public static class UserManagementEndpoints
         return group;
     }
 
-    private static async Task<IReadOnlyList<UserListItemDto>> ListUsersAsync(GarmetixDbContext db, CancellationToken cancellationToken)
+    private static async Task<IReadOnlyList<UserListItemDto>> ListUsersAsync(HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)
     {
-        return await db.Users
-            .AsNoTracking()
+        var query = db.Users.AsNoTracking();
+        if (!IsCurrentUserSuperAdmin(context))
+        {
+            query = query.Where(user => !user.IsSuperAdmin);
+        }
+
+        return await query
             .OrderByDescending(user => user.IsActive)
             .ThenBy(user => user.Name)
             .Select(user => ToDto(user))
@@ -118,6 +123,11 @@ public static class UserManagementEndpoints
             return Results.NotFound();
         }
 
+        if (user.IsSuperAdmin && !IsCurrentUserSuperAdmin(context))
+        {
+            return Results.Forbid();
+        }
+
         var normalizedUserName = request.UserName.Trim();
         var normalizedEmail = request.Email.Trim();
         var exists = await db.Users.AnyAsync(
@@ -185,6 +195,11 @@ public static class UserManagementEndpoints
             return Results.NotFound();
         }
 
+        if (user.IsSuperAdmin && !IsCurrentUserSuperAdmin(context))
+        {
+            return Results.Forbid();
+        }
+
         if (user.IsActive == request.IsActive)
         {
             return Results.Ok(ToDto(user));
@@ -239,6 +254,11 @@ public static class UserManagementEndpoints
             return Results.NotFound();
         }
 
+        if (user.IsSuperAdmin && !IsCurrentUserSuperAdmin(context))
+        {
+            return Results.Forbid();
+        }
+
         user.Password = PasswordHasher.Hash(request.NewPassword);
         await RevokeResetTokensAsync(user.Id, db, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
@@ -273,6 +293,11 @@ public static class UserManagementEndpoints
         if (user is null)
         {
             return Results.NotFound();
+        }
+
+        if (user.IsSuperAdmin && !IsCurrentUserSuperAdmin(context))
+        {
+            return Results.Forbid();
         }
 
         if (IsActiveAdmin(user) && await IsLastActiveAdminAsync(user.Id, db, cancellationToken))
@@ -358,11 +383,12 @@ public static class UserManagementEndpoints
         Role = user.Role.ToString(),
         UserType = user.UserType.ToString(),
         user.CompanyId,
-        user.StoreGroupId,
-        user.StoreId,
-        user.Admin,
-        user.IsActive,
-        AppOperation = user.AppOperation.ToString()
+            user.StoreGroupId,
+            user.StoreId,
+            user.Admin,
+            user.IsSuperAdmin,
+            user.IsActive,
+            AppOperation = user.AppOperation.ToString()
     };
 
     private static async Task WriteSecurityEventAsync(
@@ -413,7 +439,11 @@ public static class UserManagementEndpoints
             user.StoreGroupId,
             user.StoreId,
             user.Admin,
+            user.IsSuperAdmin,
             user.IsActive,
             user.AppOperation.ToString());
     }
+
+    private static bool IsCurrentUserSuperAdmin(HttpContext context)
+        => bool.TryParse(context.User.FindFirstValue("superAdmin"), out var superAdmin) && superAdmin;
 }

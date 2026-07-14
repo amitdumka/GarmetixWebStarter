@@ -25,6 +25,7 @@ public static class HrEndpoints
             .RequireAuthorization(GarmetixPolicies.Hr);
 
         group.MapPost("/monthly-attendance/generate", GenerateMonthlyAttendanceAsync);
+        group.MapGet("/attendance", ListAttendanceAsync);
         group.MapGet("/employee-master/summary", EmployeeMasterSummaryAsync);
         group.MapGet("/employees/{id:guid}/id-card", EmployeeIdCardAsync);
         group.MapPost("/employees/{id:guid}/lifecycle", UpdateLifecycleAsync).RequireAuthorization(GarmetixPolicies.Edit);
@@ -40,6 +41,100 @@ public static class HrEndpoints
         hrPayroll.MapDelete("/adjustments/{id:guid}", DeletePayrollAdjustmentAsync).RequireAuthorization(GarmetixPolicies.Delete);
 
         return group;
+    }
+
+    private static async Task<IResult> ListAttendanceAsync(
+        int? year,
+        int? month,
+        int? page,
+        int? pageSize,
+        Guid? employeeId,
+        int? status,
+        GarmetixDbContext db,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var today = DateTime.Today;
+        var selectedYear = year.GetValueOrDefault(today.Year);
+        var selectedMonth = month.GetValueOrDefault(today.Month);
+        if (selectedYear < 2000 || selectedYear > 2100 || selectedMonth < 1 || selectedMonth > 12)
+        {
+            return Results.BadRequest(new { message = "Select a valid month and year." });
+        }
+
+        var currentPage = Math.Max(1, page.GetValueOrDefault(1));
+        var currentPageSize = Math.Clamp(pageSize.GetValueOrDefault(50), 10, 200);
+        var monthStart = new DateTime(selectedYear, selectedMonth, 1);
+        var monthEnd = monthStart.AddMonths(1);
+
+        var attendanceQuery = WorkspaceScope.ApplyTo(db.Attendance.AsNoTracking(), context)
+            .Where(item => !item.Deleted && item.OnDate >= monthStart && item.OnDate < monthEnd);
+
+        if (employeeId is Guid selectedEmployeeId && selectedEmployeeId != Guid.Empty)
+        {
+            attendanceQuery = attendanceQuery.Where(item => item.EmployeeId == selectedEmployeeId);
+        }
+
+        if (status is int selectedStatus)
+        {
+            attendanceQuery = attendanceQuery.Where(item => (int)item.Status == selectedStatus);
+        }
+
+        var employeeQuery = WorkspaceScope.ApplyTo(db.Employees.AsNoTracking(), context)
+            .Where(item => !item.Deleted);
+
+        var total = await attendanceQuery.CountAsync(cancellationToken);
+        var pageRows = await (
+                from attendance in attendanceQuery
+                join employee in employeeQuery on attendance.EmployeeId equals employee.Id into employeeJoin
+                from employee in employeeJoin.DefaultIfEmpty()
+                select new
+                {
+                    Attendance = attendance,
+                    EmployeeFirstName = employee == null ? string.Empty : employee.FirstName,
+                    EmployeeLastName = employee == null ? string.Empty : employee.LastName,
+                    EmployeeCode = employee == null ? string.Empty : employee.EmployeeCode,
+                    EmployeeEmpId = employee == null ? (int?)null : employee.EmpId
+                })
+            .OrderByDescending(item => item.Attendance.OnDate)
+            .ThenBy(item => item.EmployeeFirstName)
+            .ThenBy(item => item.EmployeeLastName)
+            .ThenBy(item => item.Attendance.Id)
+            .Skip((currentPage - 1) * currentPageSize)
+            .Take(currentPageSize)
+            .ToListAsync(cancellationToken);
+
+        var rows = pageRows.Select(item =>
+        {
+            var employeeName = $"{item.EmployeeFirstName ?? string.Empty} {item.EmployeeLastName ?? string.Empty}".Trim();
+            var employeeCode = !string.IsNullOrWhiteSpace(item.EmployeeCode)
+                ? item.EmployeeCode
+                : item.EmployeeEmpId.HasValue ? $"EMP-{item.EmployeeEmpId.Value:0000}" : string.Empty;
+            return new AttendanceListItemDto(
+                item.Attendance.Id,
+                item.Attendance.EmployeeId,
+                string.IsNullOrWhiteSpace(employeeName) ? "Employee" : employeeName,
+                employeeCode,
+                item.Attendance.OnDate,
+                (int)item.Attendance.Status,
+                item.Attendance.CheckInTime,
+                item.Attendance.BreakOutTime,
+                item.Attendance.BreakInTime,
+                item.Attendance.CheckOutTime,
+                item.Attendance.EntryTime,
+                item.Attendance.Remarks,
+                item.Attendance.CompanyId,
+                item.Attendance.StoreGroupId,
+                item.Attendance.StoreId);
+        }).ToList();
+
+        return Results.Ok(new PagedResultDto<AttendanceListItemDto>(
+            rows,
+            total,
+            currentPage,
+            currentPageSize,
+            selectedYear,
+            selectedMonth));
     }
 
     private static async Task<IResult> GenerateMonthlyAttendanceAsync(

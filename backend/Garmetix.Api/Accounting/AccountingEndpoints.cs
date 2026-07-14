@@ -1,4 +1,5 @@
 using Garmetix.Api.Auth;
+using Garmetix.Api.Messages;
 using Garmetix.Core.Models.Accounting;
 using Garmetix.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -23,6 +24,9 @@ public static class AccountingEndpoints
         group.MapGet("/financial-year-locks", ListFinancialYearLocksAsync);
         group.MapPost("/financial-year-locks", SaveFinancialYearLockAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/financial-year-locks/{id:guid}/unlock", UnlockFinancialYearAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapGet("/audit/recent", ListAccountingAuditAsync);
+        group.MapGet("/audit/events/{auditLogId:guid}", GetAccountingAuditEventAsync);
+        group.MapGet("/message-logs", ListAccountingMessageLogsAsync);
         group.MapGet("/trial-balance", GetTrialBalanceAsync);
         group.MapGet("/ledger-statement/{ledgerId:guid}", GetLedgerStatementAsync);
         group.MapGet("/bank-statement/{bankAccountId:guid}", GetBankStatementAsync);
@@ -723,6 +727,185 @@ public static class AccountingEndpoints
         return Results.Ok(locks.Select(ToFinancialYearLockRow).ToList());
     }
 
+    private static async Task<IResult> ListAccountingAuditAsync(
+        int? take,
+        string? module,
+        string? action,
+        string? entity,
+        DateTime? from,
+        DateTime? to,
+        string? search,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var limit = Math.Clamp(take ?? 150, 1, 500);
+        var query = db.AuditLogEntries.AsNoTracking()
+            .Where(item => !item.Deleted)
+            .Where(item => AccountingAuditModules.Contains(item.Module) || AccountingAuditEntities.Contains(item.EntityName));
+
+        if (ClaimGuid(context, "companyId") is { } scopedCompanyId)
+        {
+            query = query.Where(item => item.CompanyId == null || item.CompanyId == scopedCompanyId);
+        }
+
+        if (ClaimGuid(context, "storeGroupId") is { } scopedStoreGroupId)
+        {
+            query = query.Where(item => item.StoreGroupId == null || item.StoreGroupId == scopedStoreGroupId);
+        }
+
+        if (ClaimGuid(context, "storeId") is { } scopedStoreId)
+        {
+            query = query.Where(item => item.StoreId == null || item.StoreId == scopedStoreId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(module) && !module.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            var filter = module.Trim();
+            query = query.Where(item => item.Module == filter);
+        }
+
+        if (!string.IsNullOrWhiteSpace(action) && !action.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            var filter = action.Trim();
+            query = query.Where(item => item.Action == filter);
+        }
+
+        if (!string.IsNullOrWhiteSpace(entity))
+        {
+            var filter = entity.Trim().ToLower();
+            query = query.Where(item => item.EntityDisplayName.ToLower().Contains(filter) || item.EntityName.ToLower().Contains(filter));
+        }
+
+        if (from.HasValue)
+        {
+            query = query.Where(item => item.OccurredAt >= from.Value.Date);
+        }
+
+        if (to.HasValue)
+        {
+            var endExclusive = to.Value.Date.AddDays(1);
+            query = query.Where(item => item.OccurredAt < endExclusive);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var filter = search.Trim().ToLower();
+            query = query.Where(item =>
+                item.Module.ToLower().Contains(filter)
+                || item.Action.ToLower().Contains(filter)
+                || item.EntityName.ToLower().Contains(filter)
+                || item.EntityDisplayName.ToLower().Contains(filter)
+                || item.Reference.ToLower().Contains(filter)
+                || (item.UserName != null && item.UserName.ToLower().Contains(filter))
+                || (item.RequestPath != null && item.RequestPath.ToLower().Contains(filter))
+                || (item.Reason != null && item.Reason.ToLower().Contains(filter)));
+        }
+
+        var rows = await query
+            .OrderByDescending(item => item.OccurredAt)
+            .ThenBy(item => item.Module)
+            .Take(limit)
+            .Select(item => new AccountingAuditRow(
+                item.Id,
+                item.OccurredAt,
+                item.Module,
+                item.Action,
+                item.EntityName,
+                item.EntityDisplayName,
+                item.EntityId,
+                item.Reference,
+                item.UserName,
+                item.RequestPath,
+                item.Reason,
+                item.ChangedFieldCount,
+                item.TraceIdentifier))
+            .ToListAsync(cancellationToken);
+
+        return Results.Ok(rows);
+    }
+
+    private static async Task<IResult> GetAccountingAuditEventAsync(
+        Guid auditLogId,
+        HttpContext context,
+        GarmetixDbContext db,
+        CancellationToken cancellationToken)
+    {
+        var query = db.AuditLogEntries.AsNoTracking()
+            .Where(item => item.Id == auditLogId)
+            .Where(item => AccountingAuditModules.Contains(item.Module) || AccountingAuditEntities.Contains(item.EntityName));
+
+        if (ClaimGuid(context, "companyId") is { } scopedCompanyId)
+        {
+            query = query.Where(item => item.CompanyId == null || item.CompanyId == scopedCompanyId);
+        }
+
+        if (ClaimGuid(context, "storeGroupId") is { } scopedStoreGroupId)
+        {
+            query = query.Where(item => item.StoreGroupId == null || item.StoreGroupId == scopedStoreGroupId);
+        }
+
+        if (ClaimGuid(context, "storeId") is { } scopedStoreId)
+        {
+            query = query.Where(item => item.StoreId == null || item.StoreId == scopedStoreId);
+        }
+
+        var item = await query.FirstOrDefaultAsync(cancellationToken);
+        if (item is null)
+        {
+            return Results.NotFound();
+        }
+
+        return Results.Ok(new AccountingAuditDetail(
+            item.Id,
+            item.OccurredAt,
+            item.Module,
+            item.Action,
+            item.EntityName,
+            item.EntityDisplayName,
+            item.EntityId,
+            item.Reference,
+            item.UserName,
+            item.RequestPath,
+            item.IpAddress,
+            item.Reason,
+            item.BeforeJson,
+            item.AfterJson,
+            item.ChangesJson,
+            item.ChangedFieldCount,
+            item.TraceIdentifier));
+    }
+
+    private static async Task<IResult> ListAccountingMessageLogsAsync(
+        string? level,
+        string? source,
+        string? search,
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        Guid? companyId,
+        Guid? storeId,
+        bool? success,
+        int? take,
+        HttpContext context,
+        ApplicationMessageLogService logs,
+        CancellationToken cancellationToken)
+    {
+        var scopedCompanyId = ClaimGuid(context, "companyId") ?? companyId;
+        var scopedStoreId = ClaimGuid(context, "storeId") ?? storeId;
+        var rows = await logs.SearchAsync(new ApplicationMessageLogQuery(
+            level,
+            source,
+            search,
+            fromUtc,
+            toUtc,
+            scopedCompanyId,
+            scopedStoreId,
+            success,
+            Math.Clamp(take ?? 150, 1, 500)), cancellationToken);
+
+        return Results.Ok(rows.Where(IsAccountingMessageLog).Take(Math.Clamp(take ?? 150, 1, 500)).ToList());
+    }
+
     private static async Task<IResult> SaveFinancialYearLockAsync(
         FinancialYearLockSaveRequest request,
         HttpContext context,
@@ -992,4 +1175,105 @@ public static class AccountingEndpoints
         }
     }
 
+    private static bool IsAccountingMessageLog(ApplicationMessageLogDto item)
+        => AccountingMessageSources.Any(source => item.Source.Contains(source, StringComparison.OrdinalIgnoreCase))
+            || AccountingMessageSources.Any(source => item.EventName.Contains(source, StringComparison.OrdinalIgnoreCase))
+            || AccountingResourcePrefixes.Any(prefix => !string.IsNullOrWhiteSpace(item.Resource) && item.Resource.Contains(prefix, StringComparison.OrdinalIgnoreCase))
+            || AccountingResourcePrefixes.Any(prefix => item.Message.Contains(prefix, StringComparison.OrdinalIgnoreCase));
+
+    private static readonly string[] AccountingAuditModules =
+    [
+        "Accounting",
+        "Vouchers",
+        "Purchase",
+        "GST Returns",
+        "GST",
+        "OffBook"
+    ];
+
+    private static readonly string[] AccountingAuditEntities =
+    [
+        "JournalEntry",
+        "JournalLine",
+        "Ledger",
+        "LedgerGroup",
+        "Party",
+        "Bank",
+        "BankAccount",
+        "BankAccountDetail",
+        "VendorBankAccount",
+        "BankTransaction",
+        "BankStatementLine",
+        "ChequeLog",
+        "CommercialNote",
+        "FinancialYearLock",
+        "Voucher",
+        "PettyCashSheet",
+        "GstReturnDraft",
+        "GstReturnAuditEntry",
+        "VendorPayment",
+        "VendorSettlement"
+    ];
+
+    private static readonly string[] AccountingMessageSources =
+    [
+        "Accounting",
+        "Voucher",
+        "PettyCash",
+        "GST",
+        "Purchase",
+        "Vendor",
+        "Bank",
+        "Cash"
+    ];
+
+    private static readonly string[] AccountingResourcePrefixes =
+    [
+        "/accounting",
+        "/vouchers",
+        "/petty-cash",
+        "/cash-details",
+        "/vendor-payments",
+        "/vendor-settlements",
+        "/gst",
+        "accounting/",
+        "vouchers/",
+        "petty-cash/",
+        "gst-"
+    ];
+
 }
+
+public sealed record AccountingAuditRow(
+    Guid Id,
+    DateTime OccurredAt,
+    string Module,
+    string Action,
+    string EntityName,
+    string EntityDisplayName,
+    Guid EntityId,
+    string Reference,
+    string? UserName,
+    string? RequestPath,
+    string? Reason,
+    int ChangedFieldCount,
+    string? TraceIdentifier);
+
+public sealed record AccountingAuditDetail(
+    Guid Id,
+    DateTime OccurredAt,
+    string Module,
+    string Action,
+    string EntityName,
+    string EntityDisplayName,
+    Guid EntityId,
+    string Reference,
+    string? UserName,
+    string? RequestPath,
+    string? IpAddress,
+    string? Reason,
+    string? BeforeJson,
+    string? AfterJson,
+    string? ChangesJson,
+    int ChangedFieldCount,
+    string? TraceIdentifier);

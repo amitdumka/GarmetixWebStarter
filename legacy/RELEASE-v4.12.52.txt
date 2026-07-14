@@ -1,0 +1,9 @@
+GarmetixWebStarter v4.12.52
+Stage 11D-137 DotMatrix Queue Stats EF Fix
+
+Fixes:
+- Fixed 500 error on GET /api/dot-matrix-print/queue/stats by replacing the failing EF GroupBy record-constructor projection with simple status-wise CountAsync filters.
+- Keeps the Accounting → Dot Matrix Print page openable when queue stats are loaded for a selected store.
+
+Carry-forward:
+- DotMatrix bridge service, Epson LX-810 default, full-width daily summary, live transaction queue, edit/delete audit print, day opening/closing print, and admin queue controls remain included.

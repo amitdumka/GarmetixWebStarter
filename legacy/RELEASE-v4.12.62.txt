@@ -1,0 +1,4 @@
+GarmetixWebStarter v4.12.62
+Stage 11D-147 Owner Closeout Command Center
+
+Adds one owner/accountant closeout dashboard for profit, stock, customer dues, vendor payables, note control, bank settlement and accounting journal evidence.

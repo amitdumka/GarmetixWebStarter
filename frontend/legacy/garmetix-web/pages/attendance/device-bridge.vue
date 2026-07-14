@@ -1,0 +1,491 @@
+<script setup lang="ts">
+const reports = useAttendanceReports()
+const feedback = useUiFeedback()
+const loading = ref(false)
+const runningSimulator = ref('')
+const runningExternal = ref('')
+const status = ref<any | null>(null)
+const simulatorHealth = ref<any | null>(null)
+const simulatorResult = ref<any | null>(null)
+const externalBridgeUrl = ref('http://127.0.0.1:8787/garmetix-fingerprint/')
+const externalResult = ref<any | null>(null)
+
+const summaryCards = computed(() => [
+  { label: 'Status', value: status.value?.status || 'Loading', detail: status.value?.buildCode || '-', icon: 'i-lucide-fingerprint' },
+  { label: 'Bridge Enabled', value: status.value?.fingerprintBridgeEnabled ? 'Yes' : 'No', detail: 'requires hardware approval', icon: 'i-lucide-power' },
+  { label: 'Raw Storage', value: status.value?.rawFingerprintStorageAllowed ? 'Allowed' : 'Blocked', detail: 'privacy guard', icon: 'i-lucide-shield-alert' },
+  { label: 'Adapters', value: String(status.value?.adapterCandidates?.length || 0), detail: 'candidate devices', icon: 'i-lucide-usb' }
+])
+
+async function refresh() {
+  loading.value = true
+  try {
+    const [statusResult, healthResult] = await Promise.allSettled([
+      reports.deviceBridgeStatus(),
+      reports.deviceBridgeSimulatorHealth()
+    ])
+    if (statusResult.status === 'fulfilled') status.value = statusResult.value
+    else throw statusResult.reason
+    if (healthResult.status === 'fulfilled') simulatorHealth.value = healthResult.value
+  } catch (error: any) {
+    feedback.fromError('Fingerprint bridge status failed', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function runSimulator(action: 'capture' | 'identify' | 'enroll', scenario = 'Success') {
+  runningSimulator.value = `${action}-${scenario}`
+  try {
+    const body = {
+      scenario,
+      employeeCode: 'SIM-EMP-001',
+      employeeName: 'Simulator Employee'
+    }
+    const runners: Record<string, (payload: any) => Promise<any>> = {
+      capture: reports.deviceBridgeSimulatorCapture,
+      identify: reports.deviceBridgeSimulatorIdentify,
+      enroll: reports.deviceBridgeSimulatorEnroll
+    }
+    simulatorResult.value = await runners[action](body)
+    if (simulatorResult.value?.success) {
+      feedback.success('Simulator handshake completed', simulatorResult.value.message)
+    } else {
+      feedback.notify('Simulator returned controlled failure', simulatorResult.value?.message || 'Check Message Logs for sanitized details.', 'warning')
+    }
+  } catch (error: any) {
+    feedback.fromError('Fingerprint simulator failed', error)
+  } finally {
+    runningSimulator.value = ''
+  }
+}
+
+async function runExternal(action: 'health' | 'capture' | 'identify' | 'enroll') {
+  runningExternal.value = action
+  try {
+    const body = {
+      bridgeBaseUrl: externalBridgeUrl.value,
+      employeeCode: 'SIM-EMP-001',
+      employeeName: 'Simulator Employee'
+    }
+    const runners: Record<string, (payload: any) => Promise<any>> = {
+      health: reports.deviceBridgeExternalHealth,
+      capture: reports.deviceBridgeExternalCapture,
+      identify: reports.deviceBridgeExternalIdentify,
+      enroll: reports.deviceBridgeExternalEnroll
+    }
+    externalResult.value = await runners[action](body)
+    if (externalResult.value?.success) {
+      feedback.success('External bridge handshake completed', externalResult.value.message)
+    } else {
+      feedback.notify('External bridge returned blocked or failed result', externalResult.value?.message || 'Check Message Logs for sanitized details.', 'warning')
+    }
+  } catch (error: any) {
+    feedback.fromError('External fingerprint bridge failed', error)
+  } finally {
+    runningExternal.value = ''
+  }
+}
+
+onMounted(refresh)
+</script>
+
+<template>
+  <AppShell title="Fingerprint Bridge" @refresh="refresh">
+    <section class="space-y-5">
+      <UiModulePageHeader
+        title="Fingerprint Bridge"
+        description="Stage 11B defines the vendor-neutral fingerprint bridge contract before any scanner SDK is connected."
+        icon="i-lucide-fingerprint"
+        :loading="loading"
+      >
+        <template #actions>
+          <UButton to="/attendance/biometric-enrollment" icon="i-lucide-user-check" label="Enrollment" color="neutral" variant="subtle" />
+          <UButton to="/attendance/mobile-kiosk" icon="i-lucide-smartphone" label="Mobile Kiosk" color="neutral" variant="subtle" />
+          <UButton icon="i-lucide-refresh-cw" :loading="loading" label="Refresh" @click="refresh" />
+        </template>
+      </UiModulePageHeader>
+
+      <UAlert
+        color="warning"
+        variant="soft"
+        icon="i-lucide-shield-alert"
+        :title="status?.title || 'Vendor-neutral fingerprint bridge contract'"
+        :description="status?.matchingLocation || 'Garmetix stores consent and template references only. Raw fingerprint payloads remain blocked.'"
+      />
+
+      <div class="grid gap-3 md:grid-cols-4">
+        <UCard v-for="card in summaryCards" :key="card.label">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-xs uppercase text-muted">{{ card.label }}</p>
+              <p class="mt-1 truncate text-lg font-semibold">{{ card.value }}</p>
+              <p class="truncate text-xs text-muted">{{ card.detail }}</p>
+            </div>
+            <UIcon :name="card.icon" class="size-5 shrink-0 text-muted" />
+          </div>
+        </UCard>
+      </div>
+
+      <div class="grid gap-4 xl:grid-cols-2">
+        <UCard>
+          <template #header>
+            <h2 class="text-lg font-semibold">Bridge foundation</h2>
+          </template>
+          <div class="space-y-2">
+            <div v-for="item in status?.supportedBridgeInputs || []" :key="item" class="flex gap-2 rounded-lg border border-default p-3 text-sm">
+              <UIcon name="i-lucide-check" class="mt-0.5 size-4 shrink-0 text-success" />
+              <span>{{ item }}</span>
+            </div>
+          </div>
+        </UCard>
+
+        <UCard>
+          <template #header>
+            <h2 class="text-lg font-semibold">Local bridge contract</h2>
+          </template>
+          <div class="space-y-3">
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Base URL</p>
+              <code class="mt-1 block break-all text-xs">{{ status?.bridgeContract?.localBridgeBaseUrl }}</code>
+            </div>
+            <div class="grid gap-2 sm:grid-cols-2">
+              <div v-for="key in ['health', 'capture', 'identify', 'enroll']" :key="key" class="rounded-lg border border-default p-3">
+                <p class="text-xs uppercase text-muted">{{ key }}</p>
+                <code class="mt-1 block text-xs">{{ status?.bridgeContract?.[key] }}</code>
+              </div>
+            </div>
+          </div>
+        </UCard>
+      </div>
+
+      <UCard>
+        <template #header>
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-semibold">Local bridge template</h2>
+              <p class="text-sm text-muted">Runnable adapter host for the selected vendor SDK stage.</p>
+            </div>
+            <UBadge color="success" variant="soft">Available</UBadge>
+          </div>
+        </template>
+        <div class="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+          <div class="space-y-3">
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Project</p>
+              <code class="mt-1 block break-all text-xs">{{ status?.localBridgeTemplate?.projectPath }}</code>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Run command</p>
+              <code class="mt-1 block break-all text-xs">{{ status?.localBridgeTemplate?.runCommand }}</code>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Default base URL</p>
+              <code class="mt-1 block break-all text-xs">{{ status?.localBridgeTemplate?.defaultBaseUrl }}</code>
+            </div>
+          </div>
+          <div class="space-y-3">
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Adapter class</p>
+              <p class="mt-1 text-sm font-medium">{{ status?.localBridgeTemplate?.adapterClass || '-' }}</p>
+              <p class="mt-2 text-sm text-muted">{{ status?.localBridgeTemplate?.replacementRule }}</p>
+            </div>
+            <div class="grid gap-2 sm:grid-cols-2">
+              <div v-for="item in status?.localBridgeTemplate?.routes || []" :key="item" class="rounded-lg border border-default p-3">
+                <code class="text-xs">{{ item }}</code>
+              </div>
+            </div>
+          </div>
+        </div>
+      </UCard>
+
+      <UCard>
+        <template #header>
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-semibold">Mantra mock service</h2>
+              <p class="text-sm text-muted">Local service harness for testing the Mantra adapter before real SDK setup.</p>
+            </div>
+            <UBadge color="primary" variant="soft">Harness</UBadge>
+          </div>
+        </template>
+        <div class="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+          <div class="space-y-3">
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Project</p>
+              <code class="mt-1 block break-all text-xs">{{ status?.mantraMockService?.projectPath || 'apps/Garmetix.MantraMockService/Garmetix.MantraMockService.csproj' }}</code>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Run command</p>
+              <code class="mt-1 block break-all text-xs">{{ status?.mantraMockService?.runCommand || 'dotnet run --project apps/Garmetix.MantraMockService/Garmetix.MantraMockService.csproj' }}</code>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Mock service URL</p>
+              <code class="mt-1 block break-all text-xs">{{ status?.mantraMockService?.defaultBaseUrl || 'http://127.0.0.1:8788/' }}</code>
+            </div>
+          </div>
+          <div class="space-y-3">
+            <div class="grid gap-2 sm:grid-cols-2">
+              <div v-for="item in status?.mantraMockService?.safeRoutes || []" :key="item" class="rounded-lg border border-default p-3">
+                <code class="text-xs">{{ item }}</code>
+              </div>
+            </div>
+            <div class="rounded-lg border border-warning/40 p-3">
+              <p class="text-xs uppercase text-warning">Raw blocking route</p>
+              <code class="mt-1 block break-all text-xs">{{ status?.mantraMockService?.rawBlockingRoute || 'POST /unsafe/enroll-with-raw' }}</code>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Bridge settings</p>
+              <code v-for="item in status?.mantraMockService?.bridgeSettings || []" :key="item" class="mt-1 block break-all text-xs">{{ item }}</code>
+            </div>
+          </div>
+        </div>
+      </UCard>
+
+      <UCard>
+        <template #header>
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-semibold">Contract rehearsal drill</h2>
+              <p class="text-sm text-muted">One host-level check for safe Mantra enroll and raw-response blocking.</p>
+            </div>
+            <UBadge color="info" variant="soft">Stage 11B-10</UBadge>
+          </div>
+        </template>
+        <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          <div class="space-y-3">
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Windows</p>
+              <code class="mt-1 block break-all text-xs">{{ status?.mantraContractRehearsal?.windowsScript || 'scripts/windows/stage11b-mantra-contract-rehearsal.ps1' }}</code>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Linux / Mac</p>
+              <code class="mt-1 block break-all text-xs">{{ status?.mantraContractRehearsal?.linuxScript || 'scripts/linux/stage11b-mantra-contract-rehearsal.sh' }}</code>
+            </div>
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Cleanup</p>
+              <p class="mt-1 text-sm text-muted">{{ status?.mantraContractRehearsal?.cleanupRule || 'Processes are stopped after the drill.' }}</p>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <p class="text-xs uppercase text-muted">Safe enroll expected</p>
+            <div v-for="item in status?.mantraContractRehearsal?.safeEnrollExpected || []" :key="item" class="flex gap-2 rounded-lg border border-success/40 p-3 text-sm">
+              <UIcon name="i-lucide-check-circle" class="mt-0.5 size-4 shrink-0 text-success" />
+              <span>{{ item }}</span>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <p class="text-xs uppercase text-muted">Raw block expected</p>
+            <div v-for="item in status?.mantraContractRehearsal?.rawBlockExpected || []" :key="item" class="flex gap-2 rounded-lg border border-warning/40 p-3 text-sm">
+              <UIcon name="i-lucide-shield-alert" class="mt-0.5 size-4 shrink-0 text-warning" />
+              <span>{{ item }}</span>
+            </div>
+          </div>
+        </div>
+      </UCard>
+
+      <UCard>
+        <template #header>
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-semibold">Simulator handshake</h2>
+              <p class="text-sm text-muted">Run safe bridge responses before a real fingerprint reader is selected.</p>
+            </div>
+            <UBadge color="success" variant="soft">{{ simulatorHealth?.bridgeMode || 'Simulator' }}</UBadge>
+          </div>
+        </template>
+        <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+          <div class="space-y-3">
+            <div class="rounded-lg border border-default p-3">
+              <p class="text-xs uppercase text-muted">Health</p>
+              <p class="mt-1 text-sm font-medium">{{ simulatorHealth?.message || 'Health not loaded yet.' }}</p>
+              <p class="mt-1 text-xs text-muted">{{ simulatorHealth?.deviceSerial || 'SIM-FP-0001' }}</p>
+            </div>
+            <div class="grid gap-2 sm:grid-cols-2">
+              <UButton icon="i-lucide-scan-line" label="Capture" :loading="runningSimulator === 'capture-Success'" @click="runSimulator('capture')" />
+              <UButton icon="i-lucide-search-check" label="Identify" :loading="runningSimulator === 'identify-Success'" @click="runSimulator('identify')" />
+              <UButton icon="i-lucide-user-plus" label="Enroll" :loading="runningSimulator === 'enroll-Success'" @click="runSimulator('enroll')" />
+              <UButton icon="i-lucide-triangle-alert" label="Test Failure" color="warning" variant="subtle" :loading="runningSimulator === 'identify-Fail'" @click="runSimulator('identify', 'Fail')" />
+            </div>
+          </div>
+          <div class="rounded-lg border border-default p-3">
+            <p class="text-xs uppercase text-muted">Last simulator result</p>
+            <div v-if="simulatorResult" class="mt-3 grid gap-2 sm:grid-cols-2">
+              <div class="rounded-lg border border-default p-3">
+                <p class="text-xs text-muted">Status</p>
+                <p class="font-medium">{{ simulatorResult.success ? 'Success' : 'Controlled Failure' }}</p>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <p class="text-xs text-muted">Match</p>
+                <p class="font-medium">{{ simulatorResult.matchStatus }}</p>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <p class="text-xs text-muted">Quality</p>
+                <p class="font-medium">{{ simulatorResult.qualityScore }}</p>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <p class="text-xs text-muted">Raw Payload Stored</p>
+                <p class="font-medium">{{ simulatorResult.rawPayloadStored ? 'Yes' : 'No' }}</p>
+              </div>
+              <div class="rounded-lg border border-default p-3 sm:col-span-2">
+                <p class="text-xs text-muted">Audit Ref</p>
+                <code class="mt-1 block break-all text-xs">{{ simulatorResult.auditRef }}</code>
+              </div>
+              <div class="rounded-lg border border-default p-3 sm:col-span-2">
+                <p class="text-xs text-muted">Message</p>
+                <p class="mt-1 text-sm">{{ simulatorResult.message }}</p>
+              </div>
+            </div>
+            <p v-else class="mt-3 text-sm text-muted">Run a simulator action to view the bridge response and Message Logs audit reference.</p>
+          </div>
+        </div>
+      </UCard>
+
+      <UCard>
+        <template #header>
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-semibold">External bridge connector</h2>
+              <p class="text-sm text-muted">Test an installed vendor bridge using the same contract, before wiring attendance punch rules.</p>
+            </div>
+            <UBadge color="info" variant="soft">Local/private only</UBadge>
+          </div>
+        </template>
+        <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+          <div class="space-y-3">
+            <UFormField label="Bridge base URL">
+              <UInput v-model="externalBridgeUrl" placeholder="http://127.0.0.1:8787/garmetix-fingerprint/" />
+            </UFormField>
+            <div class="grid gap-2 sm:grid-cols-2">
+              <UButton icon="i-lucide-heart-pulse" label="Health" color="neutral" variant="subtle" :loading="runningExternal === 'health'" @click="runExternal('health')" />
+              <UButton icon="i-lucide-scan-line" label="Capture" color="neutral" variant="subtle" :loading="runningExternal === 'capture'" @click="runExternal('capture')" />
+              <UButton icon="i-lucide-search-check" label="Identify" color="neutral" variant="subtle" :loading="runningExternal === 'identify'" @click="runExternal('identify')" />
+              <UButton icon="i-lucide-user-plus" label="Enroll" color="neutral" variant="subtle" :loading="runningExternal === 'enroll'" @click="runExternal('enroll')" />
+            </div>
+            <div class="rounded-lg border border-default p-3 text-sm text-muted">
+              Allowed hosts are localhost, loopback, host.docker.internal, and private LAN addresses. Raw biometric-looking fields are blocked.
+            </div>
+          </div>
+          <div class="rounded-lg border border-default p-3">
+            <p class="text-xs uppercase text-muted">Last external result</p>
+            <div v-if="externalResult" class="mt-3 grid gap-2 sm:grid-cols-2">
+              <div class="rounded-lg border border-default p-3">
+                <p class="text-xs text-muted">Status</p>
+                <p class="font-medium">{{ externalResult.success ? 'Success' : 'Blocked / Failed' }}</p>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <p class="text-xs text-muted">Vendor</p>
+                <p class="font-medium">{{ externalResult.vendor || '-' }}</p>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <p class="text-xs text-muted">Match</p>
+                <p class="font-medium">{{ externalResult.matchStatus }}</p>
+              </div>
+              <div class="rounded-lg border border-default p-3">
+                <p class="text-xs text-muted">Raw Payload Stored</p>
+                <p class="font-medium">{{ externalResult.rawPayloadStored ? 'Yes' : 'No' }}</p>
+              </div>
+              <div class="rounded-lg border border-default p-3 sm:col-span-2">
+                <p class="text-xs text-muted">Audit Ref</p>
+                <code class="mt-1 block break-all text-xs">{{ externalResult.auditRef }}</code>
+              </div>
+              <div class="rounded-lg border border-default p-3 sm:col-span-2">
+                <p class="text-xs text-muted">Message</p>
+                <p class="mt-1 text-sm">{{ externalResult.message }}</p>
+              </div>
+              <div v-if="externalResult.warnings?.length" class="rounded-lg border border-warning/40 p-3 sm:col-span-2">
+                <p class="text-xs text-muted">Warnings</p>
+                <div class="mt-2 space-y-1 text-sm">
+                  <p v-for="item in externalResult.warnings" :key="item">{{ item }}</p>
+                </div>
+              </div>
+            </div>
+            <p v-else class="mt-3 text-sm text-muted">Run a connector action after starting a compatible local vendor bridge.</p>
+          </div>
+        </div>
+      </UCard>
+
+      <UCard>
+        <template #header>
+          <h2 class="text-lg font-semibold">Adapter candidates</h2>
+        </template>
+        <div class="grid gap-3 xl:grid-cols-4">
+          <div v-for="item in status?.adapterCandidates || []" :key="item.name" class="rounded-lg border border-default p-3">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="font-medium">{{ item.name }}</p>
+                <p class="mt-1 text-xs text-muted">{{ item.platform }}</p>
+              </div>
+              <UBadge color="primary" variant="soft">{{ item.decisionStatus }}</UBadge>
+            </div>
+            <p class="mt-3 text-sm text-muted">{{ item.fit }}</p>
+          </div>
+        </div>
+      </UCard>
+
+      <div class="grid gap-4 xl:grid-cols-2">
+        <UCard>
+          <template #header>
+            <h2 class="text-lg font-semibold">Privacy rules</h2>
+          </template>
+          <div class="space-y-2">
+            <div v-for="item in status?.privacyRules || []" :key="item" class="flex gap-2 rounded-lg border border-warning/40 p-3 text-sm">
+              <UIcon name="i-lucide-shield-check" class="mt-0.5 size-4 shrink-0 text-warning" />
+              <span>{{ item }}</span>
+            </div>
+          </div>
+        </UCard>
+
+        <UCard>
+          <template #header>
+            <h2 class="text-lg font-semibold">Implementation checklist</h2>
+          </template>
+          <div class="space-y-2">
+            <div v-for="item in status?.implementationChecklist || []" :key="item" class="flex gap-2 rounded-lg border border-default p-3 text-sm">
+              <UIcon name="i-lucide-list-checks" class="mt-0.5 size-4 shrink-0 text-primary" />
+              <span>{{ item }}</span>
+            </div>
+          </div>
+        </UCard>
+      </div>
+
+      <div class="grid gap-4 xl:grid-cols-3">
+        <UCard>
+          <template #header>
+            <h2 class="text-lg font-semibold">Rehearsal steps</h2>
+          </template>
+          <div class="space-y-2">
+            <div v-for="item in status?.rehearsalSteps || []" :key="item" class="flex gap-2 rounded-lg border border-default p-3 text-sm">
+              <UIcon name="i-lucide-play-circle" class="mt-0.5 size-4 shrink-0 text-info" />
+              <span>{{ item }}</span>
+            </div>
+          </div>
+        </UCard>
+
+        <UCard>
+          <template #header>
+            <h2 class="text-lg font-semibold">Blockers</h2>
+          </template>
+          <div class="space-y-2">
+            <div v-for="item in status?.blockers || []" :key="item" class="flex gap-2 rounded-lg border border-error/40 p-3 text-sm">
+              <UIcon name="i-lucide-triangle-alert" class="mt-0.5 size-4 shrink-0 text-error" />
+              <span>{{ item }}</span>
+            </div>
+          </div>
+        </UCard>
+
+        <UCard>
+          <template #header>
+            <h2 class="text-lg font-semibold">Next after this part</h2>
+          </template>
+          <div class="space-y-2">
+            <div v-for="item in status?.nextAfterThisPart || []" :key="item" class="flex gap-2 rounded-lg border border-default p-3 text-sm">
+              <UIcon name="i-lucide-arrow-right" class="mt-0.5 size-4 shrink-0 text-primary" />
+              <span>{{ item }}</span>
+            </div>
+          </div>
+        </UCard>
+      </div>
+    </section>
+  </AppShell>
+</template>

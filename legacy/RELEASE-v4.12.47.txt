@@ -1,0 +1,6 @@
+GarmetixWebStarter v4.12.47
+Stage 11D-132 DotMatrix Bridge Service
+
+This release refactors dot-matrix printing into a production-safe Ubuntu host-side bridge.
+Default Epson LX-810 CUPS queue name: EPSON_LX810.
+Read README-dotmatrix.md before enabling store-wise printing.

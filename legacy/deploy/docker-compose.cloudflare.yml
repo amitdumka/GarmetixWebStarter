@@ -1,0 +1,16 @@
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    depends_on:
+      - web
+    command:
+      - tunnel
+      - --no-autoupdate
+      - --protocol
+      - ${CLOUDFLARE_PROTOCOL:-http2}
+      - run
+      - --token
+      - ${CLOUDFLARE_TUNNEL_TOKEN}

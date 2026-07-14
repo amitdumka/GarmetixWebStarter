@@ -1,0 +1,5 @@
+shift_code,shift_name,start_min,end_min,has_break,break_start_min,break_end_min,required_full_sessions,required_half_sessions,notes
+STORE_09_21_SPLIT,Default Store Split Shift 09:00-21:00,540,1260,true,780,870,2,1,Male/default store timing: 09:00-21:00 with 1.5 hour lunch break.
+FEMALE_10_20,Female Staff Shift 10:00-20:00,600,1200,false,,,1,1,"Female staff timing: 10:00-20:00, no break punch required."
+ACCOUNTS_10_19,Accounts Shift 10:00-19:00,600,1140,false,,,1,1,Accounts timing can be adjusted on Shifts page if required.
+HK_DOUBLE,Housekeeping Double Shift,420,1320,true,900,1080,2,1,"Housekeeping: one completed shift/session = half day, two sessions = full day."

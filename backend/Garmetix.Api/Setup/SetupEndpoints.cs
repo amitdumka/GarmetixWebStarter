@@ -46,7 +46,7 @@ public static class SetupEndpoints
             store?.Id);
     }
 
-    private static async Task<IResult> QuickStartAsync(QuickSetupRequest request, GarmetixDbContext db, CancellationToken cancellationToken)
+    private static async Task<IResult> QuickStartAsync(QuickSetupRequest request, GarmetixDbContext db, SystemDefaultsService systemDefaults, CancellationToken cancellationToken)
     {
         var company = await db.Companies.FirstOrDefaultAsync(cancellationToken);
         if (company is null)
@@ -151,7 +151,7 @@ public static class SetupEndpoints
         }
 
         await db.SaveChangesAsync(cancellationToken);
-        await EnsureAccountingDefaultsAsync(db, company, cancellationToken);
+        await systemDefaults.EnsureForCompanyAsync(company.Id, cancellationToken);
 
         return Results.Ok(new QuickSetupResponse(company.Id, storeGroup.Id, store.Id, category.Id, subCategory.Id, tax.Id));
     }
@@ -238,6 +238,7 @@ public static class SetupEndpoints
     private static async Task<IResult> SeedAccountingDefaultsAsync(
         Guid? companyId,
         GarmetixDbContext db,
+        SystemDefaultsService systemDefaults,
         CancellationToken cancellationToken)
     {
         var company = companyId.HasValue
@@ -248,7 +249,7 @@ public static class SetupEndpoints
             return Results.BadRequest(new { message = "Select a valid company before creating accounting defaults." });
         }
 
-        var result = await EnsureAccountingDefaultsAsync(db, company, cancellationToken);
+        var result = await systemDefaults.EnsureForCompanyAsync(company.Id, cancellationToken);
         return Results.Ok(result);
     }
 

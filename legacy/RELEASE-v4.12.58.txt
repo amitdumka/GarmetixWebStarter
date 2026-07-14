@@ -1,0 +1,11 @@
+GarmetixWebStarter v4.12.58
+Stage 11D-143: Financial Year Closeout Dashboard
+Build code: GARMETIX-11D143-20260703-4258
+
+Added:
+- Financial Year Closeout Dashboard route /financial-year-closeout.
+- API GET /api/financial-year-closeout.
+- CSV evidence GET /api/financial-year-closeout/evidence.csv.
+- Consolidated sales, purchase, GST/accounting, customer dues, vendor payable, goods return credit, inventory, payroll and FY lock checks.
+- Complete / Not Complete closeout status and section matrix.
+- Final checklist, operator rules, known limitations and next module handoff.

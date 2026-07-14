@@ -1,0 +1,14 @@
+GarmetixWebStarter v4.12.50
+Stage 11D-135 DotMatrix CSV Build Fix
+
+This release fixes the C# build blocker in backend/Garmetix.Api/Production/PrintAcceptanceEndpoints.cs caused by a malformed CSV escaping string literal.
+
+DotMatrix feature status remains complete from v4.12.49:
+- Separate Ubuntu DotMatrix bridge service
+- Epson LX-810 default printer queue
+- DB print queue
+- Day opening/closing cash print
+- Live transaction print
+- Edit/delete audit print
+- Full-width day summary
+- Reprint, pause/resume, retry/reset controls

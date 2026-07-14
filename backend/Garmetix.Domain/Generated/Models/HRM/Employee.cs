@@ -264,6 +264,8 @@ namespace Garmetix.Core.Models.HRM
         [Display(Name = "Status")] public AttendanceStatus Status { get; set; }
 
         [Display(Name = "Check In Time")] public TimeSpan? CheckInTime { get; set; } = DateTime.Now.TimeOfDay;
+        [Display(Name = "Break Out Time")] public TimeSpan? BreakOutTime { get; set; } = null;
+        [Display(Name = "Break In Time")] public TimeSpan? BreakInTime { get; set; } = null;
         [Display(Name = "Check Out Time")] public TimeSpan? CheckOutTime { get; set; } = null;
         [Display(Name = "Entry Time")] public string? EntryTime { get; set; } = DateTime.Now.TimeOfDay.ToString();
 

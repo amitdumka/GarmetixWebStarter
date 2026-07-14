@@ -1,0 +1,11 @@
+{
+  "stage": "11D-24",
+  "version": "4.11.39",
+  "company": "Aadwika Fashion",
+  "store": "Smart Menswear",
+  "employees": 10,
+  "attendance_rows": 2616,
+  "shift_rules": "employee-specific rules created from employees_shift_final.csv",
+  "punch_generation": "Present creates full shift punches; HalfDay creates first-session/no-break half shift punches; Absent creates no punches.",
+  "timezone": "Asia/Kolkata local punch times with UTC audit time = local - 05:30"
+}

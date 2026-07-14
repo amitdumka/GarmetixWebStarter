@@ -1,0 +1,16 @@
+GarmetixWebStarter v4.12.68
+Stage 11D-153 Financial Closeout Build Fix
+Build code: GARMETIX-11D153-20260703-4268
+
+Purpose
+- Fix API publish errors reported after v4.12.67 build reached FinancialYearCloseout and Production Go-Live acceptance endpoints.
+
+Fixes
+1. FinancialYearCloseoutMetricDto now has a safe default Description value so existing three-argument metric rows compile.
+2. FinancialYearCloseout ApplyInvoiceScope no longer accesses Invoice.StoreGroupId, which does not exist on sale invoices; store-group filtering is applied through resolved store IDs.
+3. ProductionGoLiveMasterAcceptance no longer reads PurchaseInvoice.Paid, which does not exist; paid evidence is computed from PurchasePayment rows grouped by purchase invoice.
+
+Validation
+- ZIP integrity test passed.
+- Static validation checks pass.
+- Full dotnet publish must still be run on the target Docker host.
