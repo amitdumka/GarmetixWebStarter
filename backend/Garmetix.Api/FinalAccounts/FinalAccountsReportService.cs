@@ -1080,7 +1080,7 @@ public sealed class FinalAccountsReportService(GarmetixDbContext db)
             _ => "Attach supporting documents in the future CA workspace stage."
         };
 
-    private IQueryable<ReportLineQueryRow> ReportLines(FinalAccountsScopeDto scope, bool includeReversed, IReadOnlyCollection<Guid>? accountIds = null)
+    private IQueryable<(FinalAccountsJournalEntry Entry, FinalAccountsJournalLine Line)> ReportLines(FinalAccountsScopeDto scope, bool includeReversed, IReadOnlyCollection<Guid>? accountIds = null)
         => from entry in db.FinalAccountsJournalEntries
            join line in db.FinalAccountsJournalLines on entry.Id equals line.JournalEntryId
            where entry.CompanyId == scope.CompanyId
@@ -1091,7 +1091,7 @@ public sealed class FinalAccountsReportService(GarmetixDbContext db)
                  && line.StoreId == scope.StoreId
                  && (entry.Status == FinalAccountsJournalStatus.Posted || (includeReversed && entry.Status == FinalAccountsJournalStatus.Reversed))
                  && (accountIds == null || accountIds.Contains(line.AccountId))
-           select new ReportLineQueryRow(entry, line);
+           select new ValueTuple<FinalAccountsJournalEntry, FinalAccountsJournalLine>(entry, line);
 
     private IQueryable<FinalAccountsAccount> AccountsInScope(FinalAccountsScopeDto scope)
         => db.FinalAccountsAccounts.Where(item =>
@@ -1312,7 +1312,6 @@ public sealed class FinalAccountsReportService(GarmetixDbContext db)
             WorkspaceScope.ClaimGuid(context, "storeId"));
     }
 
-    private sealed record ReportLineQueryRow(FinalAccountsJournalEntry Entry, FinalAccountsJournalLine Line);
     private sealed record AccountMovement(Guid AccountId, decimal Debit, decimal Credit);
     private sealed record LedgerSourceRow(
         Guid JournalEntryId,
