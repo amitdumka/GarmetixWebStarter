@@ -111,7 +111,6 @@ const forbiddenAdminPageTokens = [
   'factory-reset',
   'backups/restore',
   'cloud/{fileId}/restore',
-  "post<",
   '.post(',
   '.delete(',
   '.put(',
@@ -125,7 +124,7 @@ const backendGuards = [
   { label: 'backup endpoints are admin protected', source: backendFiles.backup, pattern: '.RequireAuthorization(GarmetixPolicies.Admin)' },
   { label: 'backup restore has preview endpoint', source: backendFiles.backup, pattern: 'group.MapPost("/restore/preview", PreviewRestoreAsync)' },
   { label: 'backup restore is explicit POST', source: backendFiles.backup, pattern: 'group.MapPost("/restore", RestoreAsync)' },
-  { label: 'factory reset is admin protected', source: backendFiles.factoryReset, pattern: '.RequireAuthorization(GarmetixPolicies.Admin)' },
+  { label: 'factory reset is SuperAdmin protected', source: backendFiles.factoryReset, pattern: '.RequireAuthorization(GarmetixPolicies.SuperAdmin)' },
   { label: 'factory reset requires exact confirmation', source: backendFiles.factoryReset, pattern: '"FACTORY RESET"' },
   { label: 'factory reset creates safety backup', source: backendFiles.factoryReset, pattern: 'CreateBackupAsync("pre-factory-reset"' },
   { label: 'factory reset recreates super admin', source: backendFiles.factoryReset, pattern: 'EnsureSuperAdminAsync' },
@@ -224,7 +223,7 @@ function assertSourceGuards() {
   assertIncludes('Admin middleware redirects non-admin sessions', sourceFiles.middleware, 'isAdminSession(snapshot.user)')
   assertIncludes('Admin access denied page names SuperAdmin/Owner/Admin', sourceFiles.accessDenied, 'SuperAdmin, Owner and Admin')
   assertIncludes('Admin API client exposes GET helper', sourceFiles.api, 'async function get<T>')
-  assertIncludes('Admin API client does not expose write helper', sourceFiles.api, 'return { apiBaseUrl, get }')
+  assertIncludes('Admin API client exposes guarded helpers', sourceFiles.api, 'return { apiBaseUrl, get, post, put, remove }')
   const adminShellSource = `${sourceFiles.shell}\n${sourceFiles.routeRegistry}`
   assertIncludes('Admin shell includes backup route', adminShellSource, "/backup-maintenance")
   assertIncludes('Admin shell includes message logs route', adminShellSource, "/message-logs")

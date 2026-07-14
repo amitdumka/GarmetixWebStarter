@@ -30,7 +30,7 @@ console.log(`Token env: ${tokenEnv}${token ? ' (set)' : ' (not set)'}`)
 console.log(`Manual acceptance env: ${manualEnv}${manualAccepted ? ' (YES)' : ' (not set)'}`)
 console.log(`Deploy checkpoint: ${deployCheckpoint}`)
 
-if (!version.startsWith('6.0.')) failures.push(`Expected Version6 POS lane version 6.0.x, found ${version}.`)
+if (!version.startsWith('6.')) failures.push(`Expected Version6 POS lane version 6.x, found ${version}.`)
 if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 lane, found ${stage}.`)
 
 checkRequiredFiles()

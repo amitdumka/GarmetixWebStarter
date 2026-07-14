@@ -171,7 +171,9 @@ const requiredPageUsages = [
   {
     label: 'purchase/index.vue',
     files: [join(modularRoot, 'apps/main/pages/purchase/index.vue'), ...mainComponentFiles],
-    tokens: ['purchase/invoices/recent', 'inwardNumber', 'invoiceNumber', 'vendorName', 'vendorGstin', 'paymentMode', 'billAmount', 'paidAmount', 'balanceAmount']
+    // BS-14 keeps the purchase register on the paged, filterable purchase/invoices
+    // endpoint so it can support date/status/search filters and server totals.
+    tokens: ['purchase/invoices', 'inwardNumber', 'invoiceNumber', 'vendorName', 'vendorGstin', 'paymentMode', 'billAmount', 'paidAmount', 'balanceAmount']
   },
   {
     label: 'inventory.vue',

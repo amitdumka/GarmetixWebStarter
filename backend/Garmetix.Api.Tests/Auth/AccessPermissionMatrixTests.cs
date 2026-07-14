@@ -17,6 +17,7 @@ public sealed class AccessPermissionMatrixTests
         Assert.True(AccessPermissionMatrix.CanDelete(owner));
         Assert.True(AccessPermissionMatrix.CanAccessPolicy(owner, GarmetixPolicies.Inventory));
         Assert.True(AccessPermissionMatrix.CanAccessPolicy(owner, GarmetixPolicies.Payroll));
+        Assert.True(AccessPermissionMatrix.CanAccessPolicy(owner, GarmetixPolicies.FinalAccounts));
     }
 
     [Fact]
@@ -25,6 +26,7 @@ public sealed class AccessPermissionMatrixTests
         var admin = Principal(LoginRole.Admin);
 
         Assert.True(AccessPermissionMatrix.CanAccessPolicy(admin, GarmetixPolicies.Admin));
+        Assert.True(AccessPermissionMatrix.CanAccessPolicy(admin, GarmetixPolicies.FinalAccounts));
         Assert.True(AccessPermissionMatrix.CanEdit(admin));
         Assert.True(AccessPermissionMatrix.CanDelete(admin));
     }
@@ -71,6 +73,21 @@ public sealed class AccessPermissionMatrixTests
         Assert.False(AccessPermissionMatrix.CanAccessPolicy(hr, GarmetixPolicies.Payroll));
         Assert.True(AccessPermissionMatrix.CanAccessPolicy(payroll, GarmetixPolicies.Payroll));
         Assert.False(AccessPermissionMatrix.CanAccessPolicy(payroll, GarmetixPolicies.Hr));
+    }
+
+    [Theory]
+    [InlineData(LoginRole.PowerUser)]
+    [InlineData(LoginRole.Accountant)]
+    [InlineData(LoginRole.RemoteAccountant)]
+    [InlineData(LoginRole.StoreManager)]
+    [InlineData(LoginRole.Salesman)]
+    [InlineData(LoginRole.HR)]
+    [InlineData(LoginRole.Payroll)]
+    public void FinalAccountsIsNotGrantedToExistingNonAdminRoles(LoginRole role)
+    {
+        var user = Principal(role);
+
+        Assert.False(AccessPermissionMatrix.CanAccessPolicy(user, GarmetixPolicies.FinalAccounts));
     }
 
     private static ClaimsPrincipal Principal(LoginRole role, UserType userType = UserType.Employees)

@@ -393,7 +393,20 @@ const requiredPaths = [
   'apps/admin/components/AdminPlaceholder.vue',
   'apps/admin/components/SupportDrillPage.vue',
   'apps/admin/middleware/auth.global.ts',
-  'apps/admin/utils/admin-api.ts'
+  'apps/admin/utils/admin-api.ts',
+  'apps/final-accounts/package.json',
+  'apps/final-accounts/app.vue',
+  'apps/final-accounts/nuxt.config.ts',
+  'apps/final-accounts/pages/index.vue',
+  'apps/final-accounts/pages/setup.vue',
+  'apps/final-accounts/pages/chart-of-accounts.vue',
+  'apps/final-accounts/pages/fiscal-periods.vue',
+  'apps/final-accounts/pages/general-ledger.vue',
+  'apps/final-accounts/pages/posting-rules.vue',
+  'apps/final-accounts/pages/login.vue',
+  'apps/final-accounts/pages/access-denied.vue',
+  'apps/final-accounts/middleware/auth.global.ts',
+  'apps/final-accounts/utils/final-accounts-api.ts'
 ]
 
 const failures = []
@@ -416,13 +429,15 @@ for (const key of [
   'NUXT_PUBLIC_GARMETIX_BOOKS_URL',
   'NUXT_PUBLIC_GARMETIX_CRM_URL',
   'NUXT_PUBLIC_GARMETIX_ADMIN_URL',
+  'NUXT_PUBLIC_GARMETIX_FINAL_ACCOUNTS_URL',
   'NUXT_PUBLIC_GARMETIX_MAIN_BASE_PATH',
   'NUXT_PUBLIC_GARMETIX_POS_BASE_PATH',
   'NUXT_PUBLIC_GARMETIX_HR_BASE_PATH',
   'NUXT_PUBLIC_GARMETIX_AI_SENSE_BASE_PATH',
   'NUXT_PUBLIC_GARMETIX_BOOKS_BASE_PATH',
   'NUXT_PUBLIC_GARMETIX_CRM_BASE_PATH',
-  'NUXT_PUBLIC_GARMETIX_ADMIN_BASE_PATH'
+  'NUXT_PUBLIC_GARMETIX_ADMIN_BASE_PATH',
+  'NUXT_PUBLIC_GARMETIX_FINAL_ACCOUNTS_BASE_PATH'
 ]) {
   if (!env.includes(key)) failures.push(`Missing env key ${key}`)
 }

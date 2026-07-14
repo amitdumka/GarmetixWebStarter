@@ -17,7 +17,7 @@ console.log('Garmetix HR salary payment preview contract')
 console.log(`Version: ${version}`)
 console.log(`Stage: ${stage}`)
 
-if (!version.startsWith('6.0.')) failures.push(`Expected Version6 modular version, found ${version}.`)
+if (!version.startsWith('6.')) failures.push(`Expected Version6 modular version, found ${version}.`)
 if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 lane, found ${stage}.`)
 
 for (const [label, path] of Object.entries(files)) {

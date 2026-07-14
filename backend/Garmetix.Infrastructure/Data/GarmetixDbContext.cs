@@ -8,6 +8,7 @@ using Garmetix.Core.Models.Audit;
 using Garmetix.Core.Models.Authentication;
 using Garmetix.Core.Models.Attendance;
 using Garmetix.Core.Models.Base;
+using Garmetix.Core.Models.FinalAccounts;
 using Garmetix.Core.Models.HRM;
 using Garmetix.Core.Models.GstReturns;
 using Garmetix.Core.Models.GstTax;
@@ -139,6 +140,37 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<DayBegin> DayBegins => Set<DayBegin>();
     public DbSet<DayEnd> DayEnds => Set<DayEnd>();
     public DbSet<CashDetail> CashDetails => Set<CashDetail>();
+    public DbSet<FinalAccountsModuleSettings> FinalAccountsModuleSettings => Set<FinalAccountsModuleSettings>();
+    public DbSet<FinalAccountsAccountGroup> FinalAccountsAccountGroups => Set<FinalAccountsAccountGroup>();
+    public DbSet<FinalAccountsAccount> FinalAccountsAccounts => Set<FinalAccountsAccount>();
+    public DbSet<FinalAccountsAccountMapping> FinalAccountsAccountMappings => Set<FinalAccountsAccountMapping>();
+    public DbSet<FinalAccountsFiscalYear> FinalAccountsFiscalYears => Set<FinalAccountsFiscalYear>();
+    public DbSet<FinalAccountsFiscalPeriod> FinalAccountsFiscalPeriods => Set<FinalAccountsFiscalPeriod>();
+    public DbSet<FinalAccountsPostingRule> FinalAccountsPostingRules => Set<FinalAccountsPostingRule>();
+    public DbSet<FinalAccountsPostingRuleLine> FinalAccountsPostingRuleLines => Set<FinalAccountsPostingRuleLine>();
+    public DbSet<FinalAccountsJournalEntry> FinalAccountsJournalEntries => Set<FinalAccountsJournalEntry>();
+    public DbSet<FinalAccountsJournalLine> FinalAccountsJournalLines => Set<FinalAccountsJournalLine>();
+    public DbSet<FinalAccountsSourcePostingLink> FinalAccountsSourcePostingLinks => Set<FinalAccountsSourcePostingLink>();
+    public DbSet<FinalAccountsSyncJob> FinalAccountsSyncJobs => Set<FinalAccountsSyncJob>();
+    public DbSet<FinalAccountsSyncJobItem> FinalAccountsSyncJobItems => Set<FinalAccountsSyncJobItem>();
+    public DbSet<FinalAccountsSyncCheckpoint> FinalAccountsSyncCheckpoints => Set<FinalAccountsSyncCheckpoint>();
+    public DbSet<FinalAccountsSyncException> FinalAccountsSyncExceptions => Set<FinalAccountsSyncException>();
+    public DbSet<FinalAccountsAdjustmentBatch> FinalAccountsAdjustmentBatches => Set<FinalAccountsAdjustmentBatch>();
+    public DbSet<FinalAccountsAdjustmentLine> FinalAccountsAdjustmentLines => Set<FinalAccountsAdjustmentLine>();
+    public DbSet<FinalAccountsAdjustmentAttachment> FinalAccountsAdjustmentAttachments => Set<FinalAccountsAdjustmentAttachment>();
+    public DbSet<FinalAccountsAdjustmentComment> FinalAccountsAdjustmentComments => Set<FinalAccountsAdjustmentComment>();
+    public DbSet<FinalAccountsStatementLineComment> FinalAccountsStatementLineComments => Set<FinalAccountsStatementLineComment>();
+    public DbSet<FinalAccountsReportVersion> FinalAccountsReportVersions => Set<FinalAccountsReportVersion>();
+    public DbSet<FinalAccountsCloseRun> FinalAccountsCloseRuns => Set<FinalAccountsCloseRun>();
+    public DbSet<FinalAccountsCloseChecklistItem> FinalAccountsCloseChecklistItems => Set<FinalAccountsCloseChecklistItem>();
+    public DbSet<FinalAccountsCloseReportSnapshot> FinalAccountsCloseReportSnapshots => Set<FinalAccountsCloseReportSnapshot>();
+    public DbSet<FinalAccountsCloseBalanceSnapshot> FinalAccountsCloseBalanceSnapshots => Set<FinalAccountsCloseBalanceSnapshot>();
+    public DbSet<FinalAccountsProjectionScenario> FinalAccountsProjectionScenarios => Set<FinalAccountsProjectionScenario>();
+    public DbSet<FinalAccountsProjectionAssumptionVersion> FinalAccountsProjectionAssumptionVersions => Set<FinalAccountsProjectionAssumptionVersion>();
+    public DbSet<FinalAccountsProjectionMonth> FinalAccountsProjectionMonths => Set<FinalAccountsProjectionMonth>();
+    public DbSet<FinalAccountsTallyProfile> FinalAccountsTallyProfiles => Set<FinalAccountsTallyProfile>();
+    public DbSet<FinalAccountsExchangeRun> FinalAccountsExchangeRuns => Set<FinalAccountsExchangeRun>();
+    public DbSet<FinalAccountsExchangeException> FinalAccountsExchangeExceptions => Set<FinalAccountsExchangeException>();
 
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<EmployeeDetail> EmployeeDetails => Set<EmployeeDetail>();
@@ -261,6 +293,22 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<Voucher>().ToTable("Vouchers");
         modelBuilder.Entity<CashVoucher>().ToTable("CashVouchers");
         modelBuilder.Entity<CashVoucherConversion>().ToTable("CashVoucherConversions");
+        modelBuilder.Entity<FinalAccountsModuleSettings>().ToTable("fa_module_settings", "final_accounts");
+        modelBuilder.Entity<FinalAccountsModuleSettings>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId }).IsUnique();
+        modelBuilder.Entity<FinalAccountsModuleSettings>().HasIndex(item => new { item.Enabled, item.UpdatedAt });
+        modelBuilder.Entity<FinalAccountsModuleSettings>().Property(item => item.PostingMode).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsModuleSettings>().Property(item => item.StatementTemplate).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsModuleSettings>().Property(item => item.InventoryValuationMethod).HasMaxLength(48);
+        modelBuilder.Entity<FinalAccountsModuleSettings>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsModuleSettings>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        ConfigureFinalAccountsCatalog(modelBuilder);
+        ConfigureFinalAccountsPostingRules(modelBuilder);
+        ConfigureFinalAccountsGeneralLedger(modelBuilder);
+        ConfigureFinalAccountsSync(modelBuilder);
+        ConfigureFinalAccountsCaWorkspace(modelBuilder);
+        ConfigureFinalAccountsPeriodClose(modelBuilder);
+        ConfigureFinalAccountsProjection(modelBuilder);
+        ConfigureFinalAccountsExchange(modelBuilder);
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
@@ -471,6 +519,447 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<AttendancePhotoProof>().HasIndex(item => new { item.CompanyId, item.StoreId, item.ReviewStatus, item.CapturedAtUtc });
         modelBuilder.Entity<AttendancePhotoProof>().HasIndex(item => new { item.CompanyId, item.ClientPunchId });
         modelBuilder.Entity<AttendanceKioskSyncBatch>().HasIndex(item => new { item.CompanyId, item.StoreId, item.DeviceId, item.ReceivedAtUtc });
+    }
+
+    private static void ConfigureFinalAccountsCatalog(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<FinalAccountsAccountGroup>().ToTable("fa_account_groups", "final_accounts");
+        modelBuilder.Entity<FinalAccountsAccountGroup>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.Code }).IsUnique();
+        modelBuilder.Entity<FinalAccountsAccountGroup>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.AccountType, item.IsActive });
+        modelBuilder.Entity<FinalAccountsAccountGroup>().HasIndex(item => item.ParentGroupId);
+        modelBuilder.Entity<FinalAccountsAccountGroup>().Property(item => item.Code).HasMaxLength(40);
+        modelBuilder.Entity<FinalAccountsAccountGroup>().Property(item => item.Name).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsAccountGroup>().Property(item => item.Description).HasMaxLength(500);
+        modelBuilder.Entity<FinalAccountsAccountGroup>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAccountGroup>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAccountGroup>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsAccount>().ToTable("fa_accounts", "final_accounts");
+        modelBuilder.Entity<FinalAccountsAccount>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.Code }).IsUnique();
+        modelBuilder.Entity<FinalAccountsAccount>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.AccountGroupId, item.IsActive });
+        modelBuilder.Entity<FinalAccountsAccount>().HasIndex(item => item.ParentAccountId);
+        modelBuilder.Entity<FinalAccountsAccount>().Property(item => item.Code).HasMaxLength(40);
+        modelBuilder.Entity<FinalAccountsAccount>().Property(item => item.Name).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsAccount>().Property(item => item.Description).HasMaxLength(500);
+        modelBuilder.Entity<FinalAccountsAccount>().Property(item => item.OpeningBalance).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsAccount>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAccount>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAccount>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsAccountMapping>().ToTable("fa_account_mappings", "final_accounts");
+        modelBuilder.Entity<FinalAccountsAccountMapping>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.SourceType, item.MappingKey }).IsUnique();
+        modelBuilder.Entity<FinalAccountsAccountMapping>().HasIndex(item => new { item.AccountId, item.IsActive });
+        modelBuilder.Entity<FinalAccountsAccountMapping>().Property(item => item.MappingKey).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAccountMapping>().Property(item => item.DisplayName).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsAccountMapping>().Property(item => item.Notes).HasMaxLength(500);
+        modelBuilder.Entity<FinalAccountsAccountMapping>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAccountMapping>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAccountMapping>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsFiscalYear>().ToTable("fa_fiscal_years", "final_accounts");
+        modelBuilder.Entity<FinalAccountsFiscalYear>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.Name }).IsUnique();
+        modelBuilder.Entity<FinalAccountsFiscalYear>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.StartDate, item.EndDate });
+        modelBuilder.Entity<FinalAccountsFiscalYear>().Property(item => item.Name).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsFiscalYear>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsFiscalYear>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsFiscalYear>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsFiscalPeriod>().ToTable("fa_fiscal_periods", "final_accounts");
+        modelBuilder.Entity<FinalAccountsFiscalPeriod>().HasIndex(item => new { item.FiscalYearId, item.PeriodNumber }).IsUnique();
+        modelBuilder.Entity<FinalAccountsFiscalPeriod>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.StartDate, item.EndDate });
+        modelBuilder.Entity<FinalAccountsFiscalPeriod>().Property(item => item.Name).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsFiscalPeriod>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsFiscalPeriod>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsFiscalPeriod>().Property(item => item.Revision).IsConcurrencyToken();
+    }
+
+    private static void ConfigureFinalAccountsPostingRules(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<FinalAccountsPostingRule>().ToTable("fa_posting_rules", "final_accounts");
+        modelBuilder.Entity<FinalAccountsPostingRule>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.SourceType, item.RuleCode, item.Version }).IsUnique();
+        modelBuilder.Entity<FinalAccountsPostingRule>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.SourceType, item.IsActive });
+        modelBuilder.Entity<FinalAccountsPostingRule>().Property(item => item.SourceType).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsPostingRule>().Property(item => item.RuleCode).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsPostingRule>().Property(item => item.Version).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsPostingRule>().Property(item => item.Name).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsPostingRule>().Property(item => item.Description).HasMaxLength(500);
+        modelBuilder.Entity<FinalAccountsPostingRule>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsPostingRule>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsPostingRule>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().ToTable("fa_posting_rule_lines", "final_accounts");
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().HasIndex(item => new { item.PostingRuleId, item.MappingKey }).IsUnique();
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.MappingCategory, item.IsRequired });
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().Property(item => item.MappingKey).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().Property(item => item.DisplayName).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().Property(item => item.MappingCategory).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().Property(item => item.Direction).HasMaxLength(16);
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().Property(item => item.ExpectedAccountType).HasMaxLength(40);
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().Property(item => item.Notes).HasMaxLength(500);
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsPostingRuleLine>().Property(item => item.Revision).IsConcurrencyToken();
+    }
+
+    private static void ConfigureFinalAccountsGeneralLedger(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<FinalAccountsJournalEntry>().ToTable("fa_journal_entries", "final_accounts");
+        modelBuilder.Entity<FinalAccountsJournalEntry>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.EntryNumber }).IsUnique();
+        modelBuilder.Entity<FinalAccountsJournalEntry>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.OnDate, item.Status });
+        modelBuilder.Entity<FinalAccountsJournalEntry>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.SourceType, item.SourceId });
+        modelBuilder.Entity<FinalAccountsJournalEntry>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.IdempotencyKey }).IsUnique();
+        modelBuilder.Entity<FinalAccountsJournalEntry>().HasIndex(item => item.FiscalPeriodId);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().HasIndex(item => item.ReversalOfJournalEntryId);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().HasIndex(item => item.ReversalJournalEntryId);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().Property(item => item.EntryNumber).HasMaxLength(48);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().Property(item => item.SourceType).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().Property(item => item.ReferenceNumber).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().Property(item => item.Narration).HasMaxLength(500);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().Property(item => item.IdempotencyKey).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().Property(item => item.PostedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().Property(item => item.ReversedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsJournalEntry>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsJournalLine>().ToTable("fa_journal_lines", "final_accounts");
+        modelBuilder.Entity<FinalAccountsJournalLine>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.JournalEntryId, item.LineNumber }).IsUnique();
+        modelBuilder.Entity<FinalAccountsJournalLine>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.AccountId, item.JournalEntryId });
+        modelBuilder.Entity<FinalAccountsJournalLine>().ToTable(item =>
+        {
+            item.HasCheckConstraint("CK_fa_journal_lines_debit_credit_non_negative", @"""Debit"" >= 0 AND ""Credit"" >= 0");
+            item.HasCheckConstraint("CK_fa_journal_lines_single_side", @"((""Debit"" > 0 AND ""Credit"" = 0) OR (""Credit"" > 0 AND ""Debit"" = 0))");
+        });
+        modelBuilder.Entity<FinalAccountsJournalLine>().Property(item => item.Debit).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsJournalLine>().Property(item => item.Credit).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsJournalLine>().Property(item => item.Narration).HasMaxLength(500);
+        modelBuilder.Entity<FinalAccountsJournalLine>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsJournalLine>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsJournalLine>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().ToTable("fa_source_posting_links", "final_accounts");
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.SourceType, item.SourceId }).IsUnique();
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.IdempotencyKey }).IsUnique();
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().HasIndex(item => item.JournalEntryId);
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().Property(item => item.SourceType).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().Property(item => item.SourceReference).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().Property(item => item.SourceHash).HasMaxLength(128);
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().Property(item => item.MappingVersion).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().Property(item => item.IdempotencyKey).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsSourcePostingLink>().Property(item => item.Revision).IsConcurrencyToken();
+    }
+
+    private static void ConfigureFinalAccountsSync(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<FinalAccountsSyncJob>().ToTable("fa_sync_jobs", "final_accounts");
+        modelBuilder.Entity<FinalAccountsSyncJob>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.JobNumber }).IsUnique();
+        modelBuilder.Entity<FinalAccountsSyncJob>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.IdempotencyKey }).IsUnique();
+        modelBuilder.Entity<FinalAccountsSyncJob>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.Status, item.CreatedAt });
+        modelBuilder.Entity<FinalAccountsSyncJob>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.DryRun, item.Scheduled });
+        modelBuilder.Entity<FinalAccountsSyncJob>().Property(item => item.JobNumber).HasMaxLength(64);
+        modelBuilder.Entity<FinalAccountsSyncJob>().Property(item => item.Mode).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsSyncJob>().Property(item => item.ModulesCsv).HasMaxLength(300);
+        modelBuilder.Entity<FinalAccountsSyncJob>().Property(item => item.IdempotencyKey).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsSyncJob>().Property(item => item.LastCheckpoint).HasMaxLength(240);
+        modelBuilder.Entity<FinalAccountsSyncJob>().Property(item => item.ErrorPolicy).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsSyncJob>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsSyncJob>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsSyncJob>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().ToTable("fa_sync_job_items", "final_accounts");
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().HasIndex(item => new { item.JobId, item.SourceType, item.SourceId }).IsUnique();
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.SourceType, item.SourceId });
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().HasIndex(item => new { item.JobId, item.Status, item.NextAttemptAt });
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().Property(item => item.SourceType).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().Property(item => item.SourceReference).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().Property(item => item.SourceAmount).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().Property(item => item.SourceHash).HasMaxLength(128);
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().Property(item => item.ErrorCode).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().Property(item => item.ErrorMessage).HasMaxLength(1000);
+        modelBuilder.Entity<FinalAccountsSyncJobItem>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsSyncCheckpoint>().ToTable("fa_sync_checkpoints", "final_accounts");
+        modelBuilder.Entity<FinalAccountsSyncCheckpoint>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.Module, item.CheckpointKey }).IsUnique();
+        modelBuilder.Entity<FinalAccountsSyncCheckpoint>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.Module, item.UpdatedAt });
+        modelBuilder.Entity<FinalAccountsSyncCheckpoint>().Property(item => item.Module).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsSyncCheckpoint>().Property(item => item.CheckpointKey).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsSyncCheckpoint>().Property(item => item.LastSourceHash).HasMaxLength(128);
+        modelBuilder.Entity<FinalAccountsSyncCheckpoint>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsSyncCheckpoint>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsSyncException>().ToTable("fa_sync_exceptions", "final_accounts");
+        modelBuilder.Entity<FinalAccountsSyncException>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.Resolved, item.CreatedAt });
+        modelBuilder.Entity<FinalAccountsSyncException>().HasIndex(item => new { item.JobId, item.JobItemId });
+        modelBuilder.Entity<FinalAccountsSyncException>().HasIndex(item => new { item.SourceType, item.SourceId, item.Resolved });
+        modelBuilder.Entity<FinalAccountsSyncException>().Property(item => item.SourceType).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsSyncException>().Property(item => item.Severity).HasMaxLength(24);
+        modelBuilder.Entity<FinalAccountsSyncException>().Property(item => item.Category).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsSyncException>().Property(item => item.Code).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsSyncException>().Property(item => item.Message).HasMaxLength(1000);
+        modelBuilder.Entity<FinalAccountsSyncException>().Property(item => item.ResolvedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsSyncException>().Property(item => item.ResolutionNotes).HasMaxLength(500);
+        modelBuilder.Entity<FinalAccountsSyncException>().Property(item => item.Revision).IsConcurrencyToken();
+    }
+
+    private static void ConfigureFinalAccountsCaWorkspace(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<FinalAccountsAdjustmentBatch>().ToTable("fa_ca_adjustment_batches", "final_accounts");
+        modelBuilder.Entity<FinalAccountsAdjustmentBatch>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.BatchNumber }).IsUnique();
+        modelBuilder.Entity<FinalAccountsAdjustmentBatch>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.Status, item.AdjustmentDate });
+        modelBuilder.Entity<FinalAccountsAdjustmentBatch>().HasIndex(item => item.JournalEntryId);
+        modelBuilder.Entity<FinalAccountsAdjustmentBatch>().HasIndex(item => item.ReversalJournalEntryId);
+        modelBuilder.Entity<FinalAccountsAdjustmentBatch>().Property(item => item.BatchNumber).HasMaxLength(64);
+        modelBuilder.Entity<FinalAccountsAdjustmentBatch>().Property(item => item.Title).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsAdjustmentBatch>().Property(item => item.Description).HasMaxLength(1000);
+        modelBuilder.Entity<FinalAccountsAdjustmentBatch>().Property(item => item.ReferenceNumber).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAdjustmentBatch>().Property(item => item.DecisionNotes).HasMaxLength(1000);
+        modelBuilder.Entity<FinalAccountsAdjustmentBatch>().Property(item => item.SubmittedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAdjustmentBatch>().Property(item => item.ReviewedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAdjustmentBatch>().Property(item => item.ApprovedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAdjustmentBatch>().Property(item => item.RejectedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAdjustmentBatch>().Property(item => item.PostedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAdjustmentBatch>().Property(item => item.ReversedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAdjustmentBatch>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAdjustmentBatch>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAdjustmentBatch>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsAdjustmentLine>().ToTable("fa_ca_adjustment_lines", "final_accounts");
+        modelBuilder.Entity<FinalAccountsAdjustmentLine>().HasIndex(item => new { item.AdjustmentBatchId, item.LineNumber }).IsUnique();
+        modelBuilder.Entity<FinalAccountsAdjustmentLine>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.AccountId });
+        modelBuilder.Entity<FinalAccountsAdjustmentLine>().Property(item => item.Debit).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsAdjustmentLine>().Property(item => item.Credit).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsAdjustmentLine>().Property(item => item.Narration).HasMaxLength(500);
+        modelBuilder.Entity<FinalAccountsAdjustmentLine>().Property(item => item.StatementLineKey).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAdjustmentLine>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAdjustmentLine>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAdjustmentLine>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsAdjustmentAttachment>().ToTable("fa_ca_adjustment_attachments", "final_accounts");
+        modelBuilder.Entity<FinalAccountsAdjustmentAttachment>().HasIndex(item => new { item.AdjustmentBatchId, item.CreatedAt });
+        modelBuilder.Entity<FinalAccountsAdjustmentAttachment>().Property(item => item.FileName).HasMaxLength(260);
+        modelBuilder.Entity<FinalAccountsAdjustmentAttachment>().Property(item => item.ContentType).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAdjustmentAttachment>().Property(item => item.StorageReference).HasMaxLength(500);
+        modelBuilder.Entity<FinalAccountsAdjustmentAttachment>().Property(item => item.Notes).HasMaxLength(500);
+        modelBuilder.Entity<FinalAccountsAdjustmentAttachment>().Property(item => item.UploadedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAdjustmentAttachment>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsAdjustmentComment>().ToTable("fa_ca_adjustment_comments", "final_accounts");
+        modelBuilder.Entity<FinalAccountsAdjustmentComment>().HasIndex(item => new { item.AdjustmentBatchId, item.CreatedAt });
+        modelBuilder.Entity<FinalAccountsAdjustmentComment>().Property(item => item.Body).HasMaxLength(2000);
+        modelBuilder.Entity<FinalAccountsAdjustmentComment>().Property(item => item.Visibility).HasMaxLength(40);
+        modelBuilder.Entity<FinalAccountsAdjustmentComment>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsAdjustmentComment>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsStatementLineComment>().ToTable("fa_statement_line_comments", "final_accounts");
+        modelBuilder.Entity<FinalAccountsStatementLineComment>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.StatementType, item.StatementLineKey, item.ReportVersion });
+        modelBuilder.Entity<FinalAccountsStatementLineComment>().Property(item => item.StatementType).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsStatementLineComment>().Property(item => item.StatementLineKey).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsStatementLineComment>().Property(item => item.Body).HasMaxLength(2000);
+        modelBuilder.Entity<FinalAccountsStatementLineComment>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsStatementLineComment>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsStatementLineComment>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsReportVersion>().ToTable("fa_report_versions", "final_accounts");
+        modelBuilder.Entity<FinalAccountsReportVersion>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.ReportType, item.VersionKind, item.GeneratedAt });
+        modelBuilder.Entity<FinalAccountsReportVersion>().Property(item => item.ReportType).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsReportVersion>().Property(item => item.GeneratedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsReportVersion>().Property(item => item.Notes).HasMaxLength(500);
+        modelBuilder.Entity<FinalAccountsReportVersion>().Property(item => item.Revision).IsConcurrencyToken();
+    }
+
+    private static void ConfigureFinalAccountsPeriodClose(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<FinalAccountsCloseRun>().ToTable("fa_close_runs", "final_accounts");
+        modelBuilder.Entity<FinalAccountsCloseRun>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.RunNumber }).IsUnique();
+        modelBuilder.Entity<FinalAccountsCloseRun>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.FiscalYearId, item.FiscalPeriodId, item.CloseType, item.Status });
+        modelBuilder.Entity<FinalAccountsCloseRun>().HasIndex(item => item.FinancialYearLockId);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.RunNumber).HasMaxLength(64);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.ChecklistStatus).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.ReconciliationStatus).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.TrialBalanceStatus).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.BalanceSheetStatus).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.InventorySnapshotTotal).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.ProfitAfterTax).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.CurrentYearResultTransferStatus).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.OpeningJournalStatus).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.ReportSnapshotStatus).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.ReopenReason).HasMaxLength(1000);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.ApprovalNotes).HasMaxLength(1000);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.ClosedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.ReopenRequestedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.ReopenedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsCloseChecklistItem>().ToTable("fa_close_checklist_items", "final_accounts");
+        modelBuilder.Entity<FinalAccountsCloseChecklistItem>().HasIndex(item => new { item.CloseRunId, item.Key }).IsUnique();
+        modelBuilder.Entity<FinalAccountsCloseChecklistItem>().Property(item => item.Key).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsCloseChecklistItem>().Property(item => item.Label).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsCloseChecklistItem>().Property(item => item.Status).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsCloseChecklistItem>().Property(item => item.Detail).HasMaxLength(1000);
+        modelBuilder.Entity<FinalAccountsCloseChecklistItem>().Property(item => item.Amount).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsCloseChecklistItem>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsCloseReportSnapshot>().ToTable("fa_close_report_snapshots", "final_accounts");
+        modelBuilder.Entity<FinalAccountsCloseReportSnapshot>().HasIndex(item => new { item.CloseRunId, item.ReportType }).IsUnique();
+        modelBuilder.Entity<FinalAccountsCloseReportSnapshot>().Property(item => item.ReportType).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsCloseReportSnapshot>().Property(item => item.Status).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsCloseReportSnapshot>().Property(item => item.PayloadHash).HasMaxLength(128);
+        modelBuilder.Entity<FinalAccountsCloseReportSnapshot>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsCloseBalanceSnapshot>().ToTable("fa_close_balance_snapshots", "final_accounts");
+        modelBuilder.Entity<FinalAccountsCloseBalanceSnapshot>().HasIndex(item => new { item.CloseRunId, item.AccountId }).IsUnique();
+        modelBuilder.Entity<FinalAccountsCloseBalanceSnapshot>().Property(item => item.AccountCode).HasMaxLength(40);
+        modelBuilder.Entity<FinalAccountsCloseBalanceSnapshot>().Property(item => item.AccountName).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsCloseBalanceSnapshot>().Property(item => item.AccountType).HasMaxLength(40);
+        modelBuilder.Entity<FinalAccountsCloseBalanceSnapshot>().Property(item => item.ClosingBalance).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsCloseBalanceSnapshot>().Property(item => item.OpeningBalance).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsCloseBalanceSnapshot>().Property(item => item.Revision).IsConcurrencyToken();
+    }
+
+    private static void ConfigureFinalAccountsProjection(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().ToTable("fa_projection_scenarios", "final_accounts");
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.ScenarioNumber }).IsUnique();
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.Status, item.ScenarioType });
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.ScenarioNumber).HasMaxLength(64);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.Name).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.Description).HasMaxLength(1000);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.BaselineMonthlyRevenue).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.BaselineMonthlyGrossProfit).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.BaselineMonthlyProfitAfterTax).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.BaselineCash).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.BaselineInventory).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.BaselineDebtors).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.BaselineCreditors).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.BaselineFixedAssets).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.BaselineDebt).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.BaselineCapital).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.SubmittedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.ApprovedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.ArchivedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.DecisionNotes).HasMaxLength(1000);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().ToTable("fa_projection_assumption_versions", "final_accounts");
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().HasIndex(item => new { item.ScenarioId, item.Version }).IsUnique();
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.IsActive });
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.RevenueGrowthPercent).HasPrecision(9, 4);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.SeasonalityFactorsCsv).HasMaxLength(500);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.NewStoreMonthlyRevenue).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.AverageBillValue).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.CustomerCountGrowthPercent).HasPrecision(9, 4);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.ReturnsDiscountPercent).HasPrecision(9, 4);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.GrossMarginPercent).HasPrecision(9, 4);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.PurchaseInflationPercent).HasPrecision(9, 4);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.InventoryDays).HasPrecision(9, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.DebtorDays).HasPrecision(9, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.CreditorDays).HasPrecision(9, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.EmployeeCostMonthly).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.SalaryGrowthPercent).HasPrecision(9, 4);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.RentExpenseMonthly).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.ExpenseEscalationPercent).HasPrecision(9, 4);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.CapexMonthly).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.DepreciationRatePercent).HasPrecision(9, 4);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.DebtOpening).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.InterestRatePercent).HasPrecision(9, 4);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.DebtRepaymentMonthly).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.CapitalInjectionMonthly).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.DrawingsMonthly).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.TaxRatePercent).HasPrecision(9, 4);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.MinimumCash).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.Notes).HasMaxLength(1000);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().ToTable("fa_projection_months", "final_accounts");
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().HasIndex(item => new { item.ScenarioId, item.MonthNumber }).IsUnique();
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().HasIndex(item => new { item.ScenarioId, item.MonthStart });
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.Revenue).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.ReturnsAndDiscounts).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.NetRevenue).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.CostOfGoodsSold).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.GrossProfit).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.PayrollExpense).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.RentExpense).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.OtherExpense).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.Depreciation).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.Interest).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.Tax).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.ProfitAfterTax).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.InventoryBalance).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.DebtorBalance).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.CreditorBalance).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.FixedAssets).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.DebtBalance).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.CapitalBalance).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.CashBalance).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.TotalAssets).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.TotalLiabilitiesEquity).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.BalanceDifference).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.OperatingCashFlow).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.InvestingCashFlow).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.FinancingCashFlow).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.ClosingCashFlow).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.WorkingCapitalRequirement).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.BreakEvenRevenue).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.CurrentRatio).HasPrecision(18, 4);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.DebtEquityRatio).HasPrecision(18, 4);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.Revision).IsConcurrencyToken();
+    }
+
+    private static void ConfigureFinalAccountsExchange(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<FinalAccountsTallyProfile>().ToTable("fa_tally_profiles", "final_accounts");
+        modelBuilder.Entity<FinalAccountsTallyProfile>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.ProfileCode }).IsUnique();
+        modelBuilder.Entity<FinalAccountsTallyProfile>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.IsActive });
+        modelBuilder.Entity<FinalAccountsTallyProfile>().Property(item => item.ProfileCode).HasMaxLength(64);
+        modelBuilder.Entity<FinalAccountsTallyProfile>().Property(item => item.Name).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsTallyProfile>().Property(item => item.TallyRelease).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsTallyProfile>().Property(item => item.TestCompanyName).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsTallyProfile>().Property(item => item.BaseCurrency).HasMaxLength(16);
+        modelBuilder.Entity<FinalAccountsTallyProfile>().Property(item => item.Country).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsTallyProfile>().Property(item => item.GstRegistrationType).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsTallyProfile>().Property(item => item.GroupMappingJson).HasColumnType("text");
+        modelBuilder.Entity<FinalAccountsTallyProfile>().Property(item => item.LedgerMappingJson).HasColumnType("text");
+        modelBuilder.Entity<FinalAccountsTallyProfile>().Property(item => item.VoucherTypeMappingJson).HasColumnType("text");
+        modelBuilder.Entity<FinalAccountsTallyProfile>().Property(item => item.TaxMappingJson).HasColumnType("text");
+        modelBuilder.Entity<FinalAccountsTallyProfile>().Property(item => item.StockCostCentreMappingJson).HasColumnType("text");
+        modelBuilder.Entity<FinalAccountsTallyProfile>().Property(item => item.Notes).HasMaxLength(1000);
+        modelBuilder.Entity<FinalAccountsTallyProfile>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsTallyProfile>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsTallyProfile>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsExchangeRun>().ToTable("fa_exchange_runs", "final_accounts");
+        modelBuilder.Entity<FinalAccountsExchangeRun>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.RunNumber }).IsUnique();
+        modelBuilder.Entity<FinalAccountsExchangeRun>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.RunKind, item.CreatedAt });
+        modelBuilder.Entity<FinalAccountsExchangeRun>().HasIndex(item => item.TallyProfileId);
+        modelBuilder.Entity<FinalAccountsExchangeRun>().Property(item => item.RunNumber).HasMaxLength(64);
+        modelBuilder.Entity<FinalAccountsExchangeRun>().Property(item => item.Format).HasMaxLength(24);
+        modelBuilder.Entity<FinalAccountsExchangeRun>().Property(item => item.ControlDebit).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsExchangeRun>().Property(item => item.ControlCredit).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsExchangeRun>().Property(item => item.PayloadHash).HasMaxLength(128);
+        modelBuilder.Entity<FinalAccountsExchangeRun>().Property(item => item.ZipChecksum).HasMaxLength(128);
+        modelBuilder.Entity<FinalAccountsExchangeRun>().Property(item => item.FileName).HasMaxLength(260);
+        modelBuilder.Entity<FinalAccountsExchangeRun>().Property(item => item.GeneratedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsExchangeRun>().Property(item => item.Notes).HasMaxLength(1000);
+        modelBuilder.Entity<FinalAccountsExchangeRun>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsExchangeRun>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsExchangeRun>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsExchangeException>().ToTable("fa_exchange_exceptions", "final_accounts");
+        modelBuilder.Entity<FinalAccountsExchangeException>().HasIndex(item => new { item.ExchangeRunId, item.Code });
+        modelBuilder.Entity<FinalAccountsExchangeException>().HasIndex(item => new { item.SourceType, item.SourceId, item.Resolved });
+        modelBuilder.Entity<FinalAccountsExchangeException>().Property(item => item.Severity).HasMaxLength(24);
+        modelBuilder.Entity<FinalAccountsExchangeException>().Property(item => item.Code).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsExchangeException>().Property(item => item.Message).HasMaxLength(1000);
+        modelBuilder.Entity<FinalAccountsExchangeException>().Property(item => item.SourceType).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsExchangeException>().Property(item => item.Revision).IsConcurrencyToken();
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

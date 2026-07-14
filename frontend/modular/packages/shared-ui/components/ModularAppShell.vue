@@ -463,6 +463,21 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'stock', label: 'Stock Operations', href: '/stock', icon: 'i-lucide-arrow-right-left' },
       { id: 'barcodes', label: 'Barcodes And Labels', href: '/barcodes', icon: 'i-lucide-scan-barcode' }
     ] }
+  ],
+  'final-accounts': [
+    { key: 'statements', label: 'Statements', items: [
+      { id: 'home', label: 'Final Accounts Home', href: '/', icon: 'i-lucide-layout-dashboard' },
+        { id: 'chart-of-accounts', label: 'Chart Of Accounts', href: '/chart-of-accounts', icon: 'i-lucide-list-tree' },
+        { id: 'fiscal-periods', label: 'Fiscal Periods', href: '/fiscal-periods', icon: 'i-lucide-calendar-range' },
+        { id: 'general-ledger', label: 'General Ledger', href: '/general-ledger', icon: 'i-lucide-book-open-check' },
+          { id: 'reports', label: 'Reports', href: '/reports', icon: 'i-lucide-scale' },
+          { id: 'ca-workspace', label: 'CA Workspace', href: '/ca-workspace', icon: 'i-lucide-clipboard-check' },
+          { id: 'closeout', label: 'Period Closeout', href: '/closeout', icon: 'i-lucide-lock-keyhole' },
+          { id: 'projections', label: 'Projection Engine', href: '/projections', icon: 'i-lucide-trending-up' },
+          { id: 'exchange', label: 'Tally Exchange', href: '/exchange', icon: 'i-lucide-package-check' },
+          { id: 'posting-rules', label: 'Posting Rules', href: '/posting-rules', icon: 'i-lucide-route' },
+        { id: 'setup', label: 'Setup', href: '/setup', icon: 'i-lucide-sliders-horizontal' }
+      ] }
   ]
 }
 
@@ -628,7 +643,8 @@ function appDefaultBase(appId: FrontendAppId) {
     books: '/books/',
     crm: '/crm/',
     admin: '/admin/',
-    inventory: '/inventory/'
+    inventory: '/inventory/',
+    'final-accounts': '/final-accounts/'
   }
   return bases[appId]
 }
