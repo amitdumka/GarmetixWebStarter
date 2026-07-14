@@ -19,10 +19,13 @@
   - [x] Produce a no-mutation design report.
   - [ ] After this commit is pulled on SRP, run `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS16AccountingMasterAudit`, deploy, then capture the live audit result.
 
-- [ ] **BS-17 - Indian/Tally-Compatible COA Normalization**
-  - [ ] Map current ledger groups to Indian/Tally-style primary groups.
-  - [ ] Identify duplicate or ambiguous groups.
-  - [ ] Draft normalization rules and rollback plan.
+- [~] **BS-17 - Indian/Tally-Compatible COA Normalization**
+  - [~] Create database backup with stage `BS17IndianCOANormalization` on the deployed SRP host.
+  - [x] Add read-only preview endpoint mapping current ledger groups to Indian/Tally-style primary groups.
+  - [x] Identify duplicate, ambiguous and unmapped groups in preview output.
+  - [x] Define required control-account candidates for debtors, creditors, cash, bank, GST, inventory, payroll and capital.
+  - [x] Draft normalization and rollback plans in preview output/docs.
+  - [ ] After this commit is pulled on SRP, run `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS17IndianCOANormalization`, deploy, then capture `GET /api/final-accounts/audit/coa-normalization`.
 
 - [ ] **BS-18 - Party And Ledger Unification**
   - [ ] Design unified Party role model.

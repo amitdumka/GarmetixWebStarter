@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-16 readiness')
+console.log('Garmetix Final Accounts BS-17 readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -17,6 +17,7 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapGet("/settings"',
   'MapPut("/settings"',
   'MapGet("/audit/accounting-master"',
+  'MapGet("/audit/coa-normalization"',
   'AddEndpointFilter<FinalAccountsEnabledFilter>',
   'MapGet("/dashboard"',
   'MapGet("/account-groups"',
@@ -562,6 +563,7 @@ checkFile('backend/Garmetix.Api/Program.cs', [
   'FinalAccountsProjectionService',
   'FinalAccountsExchangeService',
   'FinalAccountsAccountingMasterAuditService',
+  'FinalAccountsCoaNormalizationService',
   'SalesInvoiceAdapter',
   'SalesReturnAdapter',
   'SalesInvoiceCancellationAdapter',
@@ -753,6 +755,45 @@ checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsAccountingMaste
   'RecommendationsCoverUnificationStages'
 ])
 
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsCoaNormalizationService.cs', [
+  'FinalAccountsCoaNormalizationService',
+  'PreviewAsync',
+  'WritesData: false',
+  'BuildControlAccounts',
+  'MissingControlAccounts',
+  'DuplicateLedgerGroups',
+  'UnmappedLedgerGroups',
+  'FinalAccountsCoaNormalizationRules.MigrationPlan'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsCoaNormalizationRules.cs', [
+  'FinalAccountsCoaNormalizationRules',
+  'BS17IndianCOANormalization',
+  'PreviewEndpointPath',
+  'IndianPrimaryGroups',
+  'Duties & Taxes',
+  'Sundry Debtors',
+  'ControlAccounts',
+  'RollbackPlan'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsCoaNormalizationContracts.cs', [
+  'FinalAccountsCoaNormalizationPreviewResponse',
+  'FinalAccountsCoaGroupMappingDto',
+  'FinalAccountsCoaDuplicateGroupDto',
+  'FinalAccountsCoaControlAccountDto',
+  'FinalAccountsCoaNormalizationStepDto'
+])
+
+checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsCoaNormalizationRulesTests.cs', [
+  'PreviewEndpointIsReadOnlyAndStageNamed',
+  'LedgerCategoryMapsToTallyPrimaryGroup',
+  'KeywordOverridesGenericCategory',
+  'UnknownGroupRequiresManualClassification',
+  'ControlAccountsIncludeCriticalOperationalMappings',
+  'MigrationAndRollbackPlansAreReviewFirst'
+])
+
 checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsQaRulesTests.cs', [
   'LargeLedgerPaginationIsBoundedForQaRuns',
   'BackfillBatchResumeCheckpointIsStableAcrossModuleOrder',
@@ -851,6 +892,15 @@ checkFile('docs/final-accounts-bs-16-accounting-master-audit.md', [
   'WritesData = false',
   'No source table mutation',
   'BS-17: Indian/Tally-compatible Chart of Accounts normalization'
+])
+
+checkFile('docs/final-accounts-bs-17-coa-normalization.md', [
+  'Final Accounts BS-17 COA Normalization Preview',
+  'BS17IndianCOANormalization',
+  'GET /api/final-accounts/audit/coa-normalization',
+  'WritesData = false',
+  'Indian/Tally-style primary groups',
+  'No live mutation'
 ])
 
 checkFile('docs/final-accounts-bs-04d-inventory-cogs.md', [
@@ -1230,7 +1280,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-16 readiness passed.')
+console.log('\nFinal Accounts BS-17 readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)

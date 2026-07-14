@@ -4,6 +4,29 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-07-15 - BS-17 Indian/Tally COA Normalization Preview
+
+**Type**: Final Accounts accounting-unification audit/preview, read-only/no DB mutation.
+
+**What happened**: Amit asked to continue with the next part. Added a BS-17 preview endpoint that classifies current Books ledger groups into Indian operational accounting / TallyPrime-style primary groups before any live normalization.
+
+**Files updated**:
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsCoaNormalizationContracts.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsCoaNormalizationRules.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsCoaNormalizationService.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs`
+- `backend/Garmetix.Api/Program.cs`
+- `backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsCoaNormalizationRulesTests.cs`
+- `docs/final-accounts-bs-17-coa-normalization.md`
+- `frontend/modular/scripts/final-accounts-readiness.mjs`
+- `todo-balancesheet.md`, `.codex/todo.md`, `.claude/todo.md`
+
+**Implementation notes**: New endpoint is `GET /api/final-accounts/audit/coa-normalization`. It returns ledger-group to primary-group mapping, confidence/rule code, duplicate groups, missing/mismatched control-account candidates, and migration/rollback plan steps with `WritesData: false`. No migration, schema repair, ledger-group rewrite, ledger relink, deploy, backfill or data mutation was performed locally.
+
+**Remote handoff**: before SRP deploy or live preview, run `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS17IndianCOANormalization` on the deployed host, then deploy/pull and capture the endpoint output. Do not start real COA mutation until Amit/CA approval exists.
+
+**Validation**: `dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release -p:UseSharedCompilation=false`, `dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release -p:UseSharedCompilation=false` (240 passed, 3 skipped), `npm --prefix frontend/modular run final-accounts:readiness`, `npm --prefix frontend/modular run check`, and `git diff --check`.
+
 ## 2026-07-14 - BS-16 Accounting Master Audit Tooling
 
 **Type**: Final Accounts accounting-unification audit, read-only/no DB mutation.

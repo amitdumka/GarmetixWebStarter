@@ -39,3 +39,5 @@ This Windows workstation could not reach the deployed SRP host during BS-16 on 2
 Final Accounts should not stay as a separate accounting universe. Existing Books ledgers, ledger groups, parties and operational source modules must become the canonical accounting master. Mapping should become an exception tool, not the normal setup path.
 
 Use Indian operational accounting practice and TallyPrime/BUSY/Marg-style COA grouping first. Ind AS reporting should be optional/legal-requirement-driven, not forced by default.
+
+BS-17 implements only a read-only COA normalization preview at `/api/final-accounts/audit/coa-normalization`. Do not treat its classifications as approved migration instructions until the deployed-host backup, live preview evidence and Amit/CA review are complete.

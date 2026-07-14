@@ -1,5 +1,42 @@
 # Codex Changelog
 
+## 2026-07-15 - BS-17 Indian/Tally COA Normalization Preview
+
+Amit asked to continue with the next part. Added BS-17 as a read-only COA normalization preview so existing Books ledger groups can be reviewed against Indian operational accounting practice and TallyPrime/BUSY/Marg-style primary groups before any migration.
+
+Files changed:
+
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsCoaNormalizationContracts.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsCoaNormalizationRules.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsCoaNormalizationService.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs`
+- `backend/Garmetix.Api/Program.cs`
+- `backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsCoaNormalizationRulesTests.cs`
+- `docs/final-accounts-bs-17-coa-normalization.md`
+- `frontend/modular/scripts/final-accounts-readiness.mjs`
+- `todo-balancesheet.md`, `.codex/todo.md`, `.claude/todo.md`
+
+What changed:
+
+- Added `GET /api/final-accounts/audit/coa-normalization`.
+- Registered `FinalAccountsCoaNormalizationService`.
+- Maps current Books ledger groups to Indian/Tally-style primary groups with confidence/rule codes.
+- Reports duplicate/unmapped/low-confidence groups and required control-account candidates.
+- Returns migration and rollback plan steps in the response for Amit/CA review.
+- Keeps BS-17 explicitly no-mutation: no migration, schema repair, ledger rewrite, ledger relink, backfill, deploy or service restart from this workstation.
+- Documents the required deployed-host backup command:
+  `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS17IndianCOANormalization`.
+
+Validation:
+
+- `dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release -p:UseSharedCompilation=false`: passed with the same 7 pre-existing nullable warnings outside Final Accounts.
+- `dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release -p:UseSharedCompilation=false`: 240 passed, 3 pre-existing Postgres-only skipped, 0 failed.
+- `npm --prefix frontend/modular run final-accounts:readiness`: passed.
+- `npm --prefix frontend/modular run check`: passed.
+- `git diff --check`: passed.
+
+Remote status: backup file/history row and live preview output are pending on the deployed SRP host.
+
 ## 2026-07-14 - BS-16 Accounting Master Audit Tooling
 
 Amit confirmed this workstation cannot deploy to the remote SRP network directly and asked to implement code locally so the deployed system can pull and run the backup/deploy script there. Added BS-16 as a read-only Final Accounts accounting-master audit stage.

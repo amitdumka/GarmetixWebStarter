@@ -1713,14 +1713,28 @@ Decision: proceed with read-only audit tooling first; BS-17/18/19 remain blocked
 
 # BS-17 — Indian/Tally-compatible Chart of Accounts normalization
 
-- [ ] Create database backup with stage name `BS17IndianCOANormalization`.
-- [ ] Map current ledger groups to Indian/Tally-style primary groups.
-- [ ] Identify duplicate groups.
-- [ ] Identify orphan/unclassified ledgers.
-- [ ] Define control accounts for debtors, creditors, cash, bank, GST, inventory, payroll and capital.
-- [ ] Draft normalization migration.
-- [ ] Draft rollback plan.
-- [ ] Review with Amit/CA before mutation.
+- [~] Create database backup with stage name `BS17IndianCOANormalization`.
+- [x] Map current ledger groups to Indian/Tally-style primary groups.
+- [x] Identify duplicate groups.
+- [x] Identify orphan/unclassified ledgers.
+- [x] Define control accounts for debtors, creditors, cash, bank, GST, inventory, payroll and capital.
+- [x] Draft normalization migration.
+- [x] Draft rollback plan.
+- [~] Review with Amit/CA before mutation.
+
+Evidence:
+
+```text
+Date: 2026-07-15
+Agent: Codex GPT-5
+Branch: version6
+Backup file: pending on deployed SRP host; run npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS17IndianCOANormalization before remote deploy/live review.
+Backup history row: pending remote deployed-host command.
+Preview endpoint: GET /api/final-accounts/audit/coa-normalization
+Mutation status: none; no migration, schema repair, ledger-group rewrite, ledger relink, backfill, deploy or service restart in local implementation.
+Known risks: live ledger-group counts/control-account candidates are not captured until the remote host pulls, backs up and runs the preview endpoint.
+Decision: BS-17 produces a read-only Indian/Tally-style COA normalization preview and review/rollback plan only. Any live normalization remains blocked until backup, preview evidence and Amit/CA approval.
+```
 
 ---
 
