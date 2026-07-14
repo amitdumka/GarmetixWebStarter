@@ -88,6 +88,11 @@ public static class FinalAccountsEndpoints
         enabled.MapPost("/ca/statement-line-comments", AddStatementLineCommentAsync).RequireAuthorization(GarmetixPolicies.Edit);
         enabled.MapGet("/ca/report-versions", ListReportVersionsAsync);
         enabled.MapPost("/ca/report-versions", CreateReportVersionAsync).RequireAuthorization(GarmetixPolicies.Admin);
+        enabled.MapGet("/period-close/runs", ListCloseRunsAsync);
+        enabled.MapGet("/period-close/runs/{id:guid}", GetCloseRunAsync);
+        enabled.MapPost("/period-close/preview", PreviewCloseAsync);
+        enabled.MapPost("/period-close/close", CommitCloseAsync).RequireAuthorization(GarmetixPolicies.Admin);
+        enabled.MapPost("/period-close/runs/{id:guid}/reopen", ReopenCloseRunAsync).RequireAuthorization(GarmetixPolicies.Admin);
         enabled.MapGet("/coa/seed-preview", GetSeedPreviewAsync);
         enabled.MapGet("/validation/summary", GetValidationSummaryAsync);
 
@@ -947,6 +952,55 @@ public static class FinalAccountsEndpoints
         HttpContext context,
         CancellationToken cancellationToken)
         => HandleAsync(() => ca.CreateReportVersionAsync(request, context, cancellationToken));
+
+    private static Task<IResult> ListCloseRunsAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        Guid? fiscalYearId,
+        Guid? fiscalPeriodId,
+        string? status,
+        int? page,
+        int? pageSize,
+        FinalAccountsPeriodCloseService periodClose,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => periodClose.ListRunsAsync(
+            new FinalAccountsCloseRunQuery(companyId, storeGroupId, storeId, fiscalYearId, fiscalPeriodId, status, page, pageSize),
+            context,
+            cancellationToken));
+
+    private static Task<IResult> GetCloseRunAsync(
+        Guid id,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsPeriodCloseService periodClose,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => periodClose.GetRunAsync(id, new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), context, cancellationToken));
+
+    private static Task<IResult> PreviewCloseAsync(
+        FinalAccountsClosePreviewRequest request,
+        FinalAccountsPeriodCloseService periodClose,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => periodClose.PreviewCloseAsync(request, context, cancellationToken));
+
+    private static Task<IResult> CommitCloseAsync(
+        FinalAccountsCloseCommitRequest request,
+        FinalAccountsPeriodCloseService periodClose,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => periodClose.CommitCloseAsync(request, context, cancellationToken));
+
+    private static Task<IResult> ReopenCloseRunAsync(
+        Guid id,
+        FinalAccountsCloseReopenRequest request,
+        FinalAccountsPeriodCloseService periodClose,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => periodClose.ReopenAsync(id, request, context, cancellationToken));
 
     private static Task<IResult> GetSeedPreviewAsync(
         Guid? companyId,

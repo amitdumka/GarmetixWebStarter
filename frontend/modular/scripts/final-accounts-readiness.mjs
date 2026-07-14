@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-09 readiness')
+console.log('Garmetix Final Accounts BS-10 readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -63,6 +63,10 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapPost("/ca/adjustments/{id:guid}/attachments"',
   'MapGet("/ca/statement-line-comments"',
   'MapGet("/ca/report-versions"',
+  'MapGet("/period-close/runs"',
+  'MapPost("/period-close/preview"',
+  'MapPost("/period-close/close"',
+  'MapPost("/period-close/runs/{id:guid}/reopen"',
   'MapGet("/coa/seed-preview"',
   'MapGet("/validation/summary"'
 ])
@@ -102,6 +106,38 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsCaWorkspaceContracts.
   'FinalAccountsAdjustmentPreviewResponse',
   'FinalAccountsStatementLineCommentRequest',
   'FinalAccountsReportVersionRequest'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPeriodCloseService.cs', [
+  'FinalAccountsPeriodCloseService',
+  'ListRunsAsync',
+  'PreviewCloseAsync',
+  'CommitCloseAsync',
+  'ReopenAsync',
+  'PendingPostingCountAsync',
+  'AddSnapshotsAsync',
+  'ClosingBalancesAsync',
+  'FinancialYearLock',
+  'duplicate',
+  'FinalAccountsPeriodCloseRules.Prepared',
+  'FinalAccountsCloseRunStatus.Reopened'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPeriodCloseRules.cs', [
+  'FinalAccountsPeriodCloseRules',
+  'CanClose',
+  'CanReopen',
+  'OverallStatus',
+  'BuildRunNumberPrefix'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPeriodCloseContracts.cs', [
+  'FinalAccountsClosePreviewRequest',
+  'FinalAccountsCloseCommitRequest',
+  'FinalAccountsCloseReopenRequest',
+  'FinalAccountsClosePreviewResponse',
+  'FinalAccountsCloseRunDto',
+  'FinalAccountsCloseChecklistItemDto'
 ])
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsCatalogService.cs', [
@@ -439,6 +475,7 @@ checkFile('backend/Garmetix.Api/Program.cs', [
   'FinalAccountsSyncService',
   'FinalAccountsReportService',
   'FinalAccountsCaWorkspaceService',
+  'FinalAccountsPeriodCloseService',
   'SalesInvoiceAdapter',
   'SalesReturnAdapter',
   'SalesInvoiceCancellationAdapter',
@@ -532,6 +569,13 @@ checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsCaWorkspaceRule
   'PostedAndReversedAdjustmentsAreImmutable'
 ])
 
+checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsPeriodCloseRulesTests.cs', [
+  'RequiredBlockedChecklistPreventsClose',
+  'OptionalWarningsDoNotBlockClose',
+  'OnlyClosedRunsCanReopen',
+  'RunNumberPrefixSeparatesPeriodAndYearClose'
+])
+
 checkFile('docs/final-accounts-bs-04d-inventory-cogs.md', [
   'perpetual weighted-average',
   'No closing-stock journal',
@@ -583,6 +627,15 @@ checkFile('backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsC
   'FinalAccountsReportVersionKind'
 ])
 
+checkFile('backend/Garmetix.Domain/Generated/Models/FinalAccounts/FinalAccountsPeriodClose.cs', [
+  'FinalAccountsCloseRun',
+  'FinalAccountsCloseChecklistItem',
+  'FinalAccountsCloseReportSnapshot',
+  'FinalAccountsCloseBalanceSnapshot',
+  'FinalAccountsCloseRunStatus',
+  'FinalAccountsCloseType'
+])
+
 checkFile('backend/Garmetix.Infrastructure/Data/Migrations/20260713162000_AddFinalAccountsCatalogAndFiscalPeriods.cs', [
   'fa_account_groups',
   'fa_accounts',
@@ -627,6 +680,14 @@ checkFile('backend/Garmetix.Infrastructure/Data/Migrations/20260714120000_AddFin
   'CK_fa_ca_adjustment_lines_single_side'
 ])
 
+checkFile('backend/Garmetix.Infrastructure/Data/Migrations/20260714130000_AddFinalAccountsPeriodClose.cs', [
+  'fa_close_runs',
+  'fa_close_checklist_items',
+  'fa_close_report_snapshots',
+  'fa_close_balance_snapshots',
+  'IX_fa_close_runs_scope_period_status'
+])
+
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEnabledFilter.cs', [
   'StatusCodes.Status403Forbidden',
   'Final Accounts module is disabled',
@@ -657,6 +718,7 @@ checkFile('frontend/modular/config/routes.ts', [
   "id: 'final-accounts-general-ledger'",
   "id: 'final-accounts-reports'",
   "id: 'final-accounts-ca-workspace'",
+  "id: 'final-accounts-closeout'",
   "id: 'final-accounts-posting-rules'",
   "showInMenu: false",
   "targetApp: 'final-accounts'"
@@ -669,6 +731,7 @@ checkFile('frontend/modular/packages/shared-ui/components/ModularAppShell.vue', 
   "href: '/general-ledger'",
   "href: '/reports'",
   "href: '/ca-workspace'",
+  "href: '/closeout'",
   "href: '/posting-rules'",
   "href: '/setup'",
   "'final-accounts': '/final-accounts/'"
@@ -678,6 +741,7 @@ checkFile('frontend/modular/apps/final-accounts/pages/index.vue', [
   'Status unavailable',
   ':loading="loading"',
   'to="/ca-workspace"',
+  'to="/closeout"',
   'statusCards'
 ])
 
@@ -749,6 +813,18 @@ checkFile('frontend/modular/apps/final-accounts/pages/ca-workspace.vue', [
   'Audit Status'
 ])
 
+checkFile('frontend/modular/apps/final-accounts/pages/closeout.vue', [
+  'Period Closeout',
+  'period-close/runs',
+  'period-close/preview',
+  'period-close/close',
+  '/reopen',
+  'Preview Checklist',
+  'Close Metrics',
+  'Audit Trail',
+  'confirmAllGates'
+])
+
 checkFile('frontend/modular/apps/final-accounts/pages/posting-rules.vue', [
   'Posting Rules',
   'posting-rules/mapping-validation',
@@ -778,6 +854,9 @@ checkFile('frontend/modular/apps/final-accounts/utils/final-accounts-api.ts', [
   'FinalAccountsAdjustmentPreview',
   'FinalAccountsStatementLineComment',
   'FinalAccountsReportVersion',
+  'FinalAccountsCloseRun',
+  'FinalAccountsClosePreview',
+  'FinalAccountsCloseCommitRequest',
   'FinalAccountsStatementTemplate',
   'async function download',
   'async function post',
@@ -799,7 +878,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-09 readiness passed.')
+console.log('\nFinal Accounts BS-10 readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)

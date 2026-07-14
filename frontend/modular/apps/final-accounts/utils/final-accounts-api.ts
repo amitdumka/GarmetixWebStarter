@@ -43,6 +43,8 @@ export type FinalAccountsMappingSourceType = 'Sales' | 'Purchase' | 'Inventory' 
 export type FinalAccountsJournalStatus = 'Draft' | 'Posted' | 'Reversed'
 export type FinalAccountsAdjustmentStatus = 'Draft' | 'Submitted' | 'Review' | 'Approved' | 'Rejected' | 'Posted' | 'Reversed'
 export type FinalAccountsReportVersionKind = 'Provisional' | 'Adjusted' | 'Final'
+export type FinalAccountsCloseRunStatus = 'Draft' | 'Ready' | 'Closed' | 'ReopenRequested' | 'Reopened'
+export type FinalAccountsCloseType = 'Period' | 'Year'
 
 export interface FinalAccountsAccountGroup {
   id: string
@@ -408,6 +410,145 @@ export interface FinalAccountsReportVersion {
   generatedAt: string
   generatedBy?: string | null
   notes?: string | null
+}
+
+export interface FinalAccountsCloseRequest {
+  companyId?: string | null
+  storeGroupId?: string | null
+  storeId?: string | null
+  fiscalYearId: string
+  fiscalPeriodId?: string | null
+  closeType: FinalAccountsCloseType | string
+  closeDate?: string | null
+  lockPeriod: boolean
+  transferCurrentYearResult: boolean
+  generateOpeningJournal: boolean
+}
+
+export interface FinalAccountsCloseCommitRequest extends FinalAccountsCloseRequest {
+  confirmAllGates: boolean
+  approvalNotes?: string | null
+}
+
+export interface FinalAccountsCloseChecklistItem {
+  key: string
+  label: string
+  required: boolean
+  status: string
+  detail: string
+  amount?: number | null
+  sortOrder: number
+}
+
+export interface FinalAccountsClosePreview {
+  canClose: boolean
+  status: string
+  closeType: FinalAccountsCloseType | string
+  fiscalYearId: string
+  fiscalPeriodId?: string | null
+  periodStart: string
+  periodEnd: string
+  closeDate: string
+  trialBalanceDifference: number
+  balanceSheetDifference: number
+  inventorySnapshotTotal: number
+  profitAfterTax: number
+  pendingPostingCount: number
+  currentYearResultTransferStatus: string
+  openingJournalStatus: string
+  checklist: FinalAccountsCloseChecklistItem[]
+  issues: FinalAccountsValidationIssue[]
+}
+
+export interface FinalAccountsCloseRunListRow {
+  id: string
+  runNumber: string
+  closeType: FinalAccountsCloseType | string
+  status: FinalAccountsCloseRunStatus | string
+  fiscalYearId: string
+  fiscalPeriodId?: string | null
+  periodStart: string
+  periodEnd: string
+  closeDate: string
+  checklistStatus: string
+  trialBalanceStatus: string
+  balanceSheetStatus: string
+  pendingPostingCount: number
+  financialYearLockId?: string | null
+  createdAt: string
+  closedAt?: string | null
+  reopenedAt?: string | null
+}
+
+export interface FinalAccountsCloseRunList {
+  page: number
+  pageSize: number
+  totalCount: number
+  rows: FinalAccountsCloseRunListRow[]
+}
+
+export interface FinalAccountsCloseReportSnapshot {
+  id: string
+  reportType: string
+  reportVersion: string
+  periodFrom?: string | null
+  periodTo?: string | null
+  status: string
+  payloadHash: string
+  createdAt: string
+}
+
+export interface FinalAccountsCloseBalanceSnapshot {
+  accountId: string
+  accountCode: string
+  accountName: string
+  accountType: string
+  closingBalance: number
+  openingBalance: number
+}
+
+export interface FinalAccountsCloseEvent {
+  at: string
+  event: string
+  actor?: string | null
+  detail: string
+}
+
+export interface FinalAccountsCloseRun {
+  id: string
+  companyId?: string | null
+  storeGroupId?: string | null
+  storeId?: string | null
+  runNumber: string
+  closeType: FinalAccountsCloseType | string
+  status: FinalAccountsCloseRunStatus | string
+  fiscalYearId: string
+  fiscalPeriodId?: string | null
+  periodStart: string
+  periodEnd: string
+  closeDate: string
+  checklistStatus: string
+  reconciliationStatus: string
+  pendingPostingCount: number
+  trialBalanceStatus: string
+  balanceSheetStatus: string
+  inventorySnapshotTotal: number
+  profitAfterTax: number
+  currentYearResultTransferStatus: string
+  openingJournalStatus: string
+  reportSnapshotStatus: string
+  financialYearLockId?: string | null
+  approvalNotes?: string | null
+  reopenReason?: string | null
+  closedAt?: string | null
+  closedBy?: string | null
+  reopenedAt?: string | null
+  reopenedBy?: string | null
+  revision: number
+  checklist: FinalAccountsCloseChecklistItem[]
+  reports: FinalAccountsCloseReportSnapshot[]
+  balances: FinalAccountsCloseBalanceSnapshot[]
+  events: FinalAccountsCloseEvent[]
 }
 
 export interface FinalAccountsGeneralLedgerReportRow {

@@ -161,6 +161,10 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<FinalAccountsAdjustmentComment> FinalAccountsAdjustmentComments => Set<FinalAccountsAdjustmentComment>();
     public DbSet<FinalAccountsStatementLineComment> FinalAccountsStatementLineComments => Set<FinalAccountsStatementLineComment>();
     public DbSet<FinalAccountsReportVersion> FinalAccountsReportVersions => Set<FinalAccountsReportVersion>();
+    public DbSet<FinalAccountsCloseRun> FinalAccountsCloseRuns => Set<FinalAccountsCloseRun>();
+    public DbSet<FinalAccountsCloseChecklistItem> FinalAccountsCloseChecklistItems => Set<FinalAccountsCloseChecklistItem>();
+    public DbSet<FinalAccountsCloseReportSnapshot> FinalAccountsCloseReportSnapshots => Set<FinalAccountsCloseReportSnapshot>();
+    public DbSet<FinalAccountsCloseBalanceSnapshot> FinalAccountsCloseBalanceSnapshots => Set<FinalAccountsCloseBalanceSnapshot>();
 
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<EmployeeDetail> EmployeeDetails => Set<EmployeeDetail>();
@@ -296,6 +300,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         ConfigureFinalAccountsGeneralLedger(modelBuilder);
         ConfigureFinalAccountsSync(modelBuilder);
         ConfigureFinalAccountsCaWorkspace(modelBuilder);
+        ConfigureFinalAccountsPeriodClose(modelBuilder);
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
@@ -754,6 +759,57 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<FinalAccountsReportVersion>().Property(item => item.GeneratedBy).HasMaxLength(120);
         modelBuilder.Entity<FinalAccountsReportVersion>().Property(item => item.Notes).HasMaxLength(500);
         modelBuilder.Entity<FinalAccountsReportVersion>().Property(item => item.Revision).IsConcurrencyToken();
+    }
+
+    private static void ConfigureFinalAccountsPeriodClose(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<FinalAccountsCloseRun>().ToTable("fa_close_runs", "final_accounts");
+        modelBuilder.Entity<FinalAccountsCloseRun>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.RunNumber }).IsUnique();
+        modelBuilder.Entity<FinalAccountsCloseRun>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.FiscalYearId, item.FiscalPeriodId, item.CloseType, item.Status });
+        modelBuilder.Entity<FinalAccountsCloseRun>().HasIndex(item => item.FinancialYearLockId);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.RunNumber).HasMaxLength(64);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.ChecklistStatus).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.ReconciliationStatus).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.TrialBalanceStatus).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.BalanceSheetStatus).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.InventorySnapshotTotal).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.ProfitAfterTax).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.CurrentYearResultTransferStatus).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.OpeningJournalStatus).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.ReportSnapshotStatus).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.ReopenReason).HasMaxLength(1000);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.ApprovalNotes).HasMaxLength(1000);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.ClosedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.ReopenRequestedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.ReopenedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsCloseRun>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsCloseChecklistItem>().ToTable("fa_close_checklist_items", "final_accounts");
+        modelBuilder.Entity<FinalAccountsCloseChecklistItem>().HasIndex(item => new { item.CloseRunId, item.Key }).IsUnique();
+        modelBuilder.Entity<FinalAccountsCloseChecklistItem>().Property(item => item.Key).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsCloseChecklistItem>().Property(item => item.Label).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsCloseChecklistItem>().Property(item => item.Status).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsCloseChecklistItem>().Property(item => item.Detail).HasMaxLength(1000);
+        modelBuilder.Entity<FinalAccountsCloseChecklistItem>().Property(item => item.Amount).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsCloseChecklistItem>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsCloseReportSnapshot>().ToTable("fa_close_report_snapshots", "final_accounts");
+        modelBuilder.Entity<FinalAccountsCloseReportSnapshot>().HasIndex(item => new { item.CloseRunId, item.ReportType }).IsUnique();
+        modelBuilder.Entity<FinalAccountsCloseReportSnapshot>().Property(item => item.ReportType).HasMaxLength(80);
+        modelBuilder.Entity<FinalAccountsCloseReportSnapshot>().Property(item => item.Status).HasMaxLength(32);
+        modelBuilder.Entity<FinalAccountsCloseReportSnapshot>().Property(item => item.PayloadHash).HasMaxLength(128);
+        modelBuilder.Entity<FinalAccountsCloseReportSnapshot>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsCloseBalanceSnapshot>().ToTable("fa_close_balance_snapshots", "final_accounts");
+        modelBuilder.Entity<FinalAccountsCloseBalanceSnapshot>().HasIndex(item => new { item.CloseRunId, item.AccountId }).IsUnique();
+        modelBuilder.Entity<FinalAccountsCloseBalanceSnapshot>().Property(item => item.AccountCode).HasMaxLength(40);
+        modelBuilder.Entity<FinalAccountsCloseBalanceSnapshot>().Property(item => item.AccountName).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsCloseBalanceSnapshot>().Property(item => item.AccountType).HasMaxLength(40);
+        modelBuilder.Entity<FinalAccountsCloseBalanceSnapshot>().Property(item => item.ClosingBalance).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsCloseBalanceSnapshot>().Property(item => item.OpeningBalance).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsCloseBalanceSnapshot>().Property(item => item.Revision).IsConcurrencyToken();
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
