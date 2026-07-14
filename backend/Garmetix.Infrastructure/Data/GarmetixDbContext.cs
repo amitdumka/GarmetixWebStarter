@@ -165,6 +165,9 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<FinalAccountsCloseChecklistItem> FinalAccountsCloseChecklistItems => Set<FinalAccountsCloseChecklistItem>();
     public DbSet<FinalAccountsCloseReportSnapshot> FinalAccountsCloseReportSnapshots => Set<FinalAccountsCloseReportSnapshot>();
     public DbSet<FinalAccountsCloseBalanceSnapshot> FinalAccountsCloseBalanceSnapshots => Set<FinalAccountsCloseBalanceSnapshot>();
+    public DbSet<FinalAccountsProjectionScenario> FinalAccountsProjectionScenarios => Set<FinalAccountsProjectionScenario>();
+    public DbSet<FinalAccountsProjectionAssumptionVersion> FinalAccountsProjectionAssumptionVersions => Set<FinalAccountsProjectionAssumptionVersion>();
+    public DbSet<FinalAccountsProjectionMonth> FinalAccountsProjectionMonths => Set<FinalAccountsProjectionMonth>();
 
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<EmployeeDetail> EmployeeDetails => Set<EmployeeDetail>();
@@ -301,6 +304,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         ConfigureFinalAccountsSync(modelBuilder);
         ConfigureFinalAccountsCaWorkspace(modelBuilder);
         ConfigureFinalAccountsPeriodClose(modelBuilder);
+        ConfigureFinalAccountsProjection(modelBuilder);
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
@@ -810,6 +814,99 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<FinalAccountsCloseBalanceSnapshot>().Property(item => item.ClosingBalance).HasPrecision(18, 2);
         modelBuilder.Entity<FinalAccountsCloseBalanceSnapshot>().Property(item => item.OpeningBalance).HasPrecision(18, 2);
         modelBuilder.Entity<FinalAccountsCloseBalanceSnapshot>().Property(item => item.Revision).IsConcurrencyToken();
+    }
+
+    private static void ConfigureFinalAccountsProjection(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().ToTable("fa_projection_scenarios", "final_accounts");
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.ScenarioNumber }).IsUnique();
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.Status, item.ScenarioType });
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.ScenarioNumber).HasMaxLength(64);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.Name).HasMaxLength(160);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.Description).HasMaxLength(1000);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.BaselineMonthlyRevenue).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.BaselineMonthlyGrossProfit).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.BaselineMonthlyProfitAfterTax).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.BaselineCash).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.BaselineInventory).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.BaselineDebtors).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.BaselineCreditors).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.BaselineFixedAssets).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.BaselineDebt).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.BaselineCapital).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.SubmittedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.ApprovedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.ArchivedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.DecisionNotes).HasMaxLength(1000);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.UpdatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsProjectionScenario>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().ToTable("fa_projection_assumption_versions", "final_accounts");
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().HasIndex(item => new { item.ScenarioId, item.Version }).IsUnique();
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.IsActive });
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.RevenueGrowthPercent).HasPrecision(9, 4);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.SeasonalityFactorsCsv).HasMaxLength(500);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.NewStoreMonthlyRevenue).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.AverageBillValue).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.CustomerCountGrowthPercent).HasPrecision(9, 4);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.ReturnsDiscountPercent).HasPrecision(9, 4);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.GrossMarginPercent).HasPrecision(9, 4);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.PurchaseInflationPercent).HasPrecision(9, 4);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.InventoryDays).HasPrecision(9, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.DebtorDays).HasPrecision(9, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.CreditorDays).HasPrecision(9, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.EmployeeCostMonthly).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.SalaryGrowthPercent).HasPrecision(9, 4);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.RentExpenseMonthly).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.ExpenseEscalationPercent).HasPrecision(9, 4);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.CapexMonthly).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.DepreciationRatePercent).HasPrecision(9, 4);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.DebtOpening).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.InterestRatePercent).HasPrecision(9, 4);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.DebtRepaymentMonthly).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.CapitalInjectionMonthly).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.DrawingsMonthly).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.TaxRatePercent).HasPrecision(9, 4);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.MinimumCash).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.Notes).HasMaxLength(1000);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.CreatedBy).HasMaxLength(120);
+        modelBuilder.Entity<FinalAccountsProjectionAssumptionVersion>().Property(item => item.Revision).IsConcurrencyToken();
+
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().ToTable("fa_projection_months", "final_accounts");
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().HasIndex(item => new { item.ScenarioId, item.MonthNumber }).IsUnique();
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().HasIndex(item => new { item.ScenarioId, item.MonthStart });
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.Revenue).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.ReturnsAndDiscounts).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.NetRevenue).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.CostOfGoodsSold).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.GrossProfit).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.PayrollExpense).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.RentExpense).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.OtherExpense).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.Depreciation).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.Interest).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.Tax).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.ProfitAfterTax).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.InventoryBalance).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.DebtorBalance).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.CreditorBalance).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.FixedAssets).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.DebtBalance).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.CapitalBalance).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.CashBalance).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.TotalAssets).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.TotalLiabilitiesEquity).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.BalanceDifference).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.OperatingCashFlow).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.InvestingCashFlow).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.FinancingCashFlow).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.ClosingCashFlow).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.WorkingCapitalRequirement).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.BreakEvenRevenue).HasPrecision(18, 2);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.CurrentRatio).HasPrecision(18, 4);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.DebtEquityRatio).HasPrecision(18, 4);
+        modelBuilder.Entity<FinalAccountsProjectionMonth>().Property(item => item.Revision).IsConcurrencyToken();
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

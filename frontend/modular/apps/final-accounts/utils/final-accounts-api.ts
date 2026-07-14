@@ -45,6 +45,9 @@ export type FinalAccountsAdjustmentStatus = 'Draft' | 'Submitted' | 'Review' | '
 export type FinalAccountsReportVersionKind = 'Provisional' | 'Adjusted' | 'Final'
 export type FinalAccountsCloseRunStatus = 'Draft' | 'Ready' | 'Closed' | 'ReopenRequested' | 'Reopened'
 export type FinalAccountsCloseType = 'Period' | 'Year'
+export type FinalAccountsProjectionScenarioType = 'Conservative' | 'Base' | 'Optimistic' | 'Custom'
+export type FinalAccountsProjectionScenarioStatus = 'Draft' | 'Submitted' | 'Approved' | 'Archived'
+export type FinalAccountsProjectionBaselineSource = 'Manual' | 'Actuals'
 
 export interface FinalAccountsAccountGroup {
   id: string
@@ -549,6 +552,198 @@ export interface FinalAccountsCloseRun {
   reports: FinalAccountsCloseReportSnapshot[]
   balances: FinalAccountsCloseBalanceSnapshot[]
   events: FinalAccountsCloseEvent[]
+}
+
+export interface FinalAccountsProjectionBaseline {
+  monthlyRevenue: number
+  monthlyGrossProfit: number
+  monthlyProfitAfterTax: number
+  cash: number
+  inventory: number
+  debtors: number
+  creditors: number
+  fixedAssets: number
+  debt: number
+  capital: number
+}
+
+export interface FinalAccountsProjectionAssumption {
+  revenueGrowthPercent: number
+  seasonalityFactors: number[]
+  newStoreMonthlyRevenue: number
+  averageBillValue: number
+  customerCountGrowthPercent: number
+  returnsDiscountPercent: number
+  grossMarginPercent: number
+  purchaseInflationPercent: number
+  inventoryDays: number
+  debtorDays: number
+  creditorDays: number
+  employeeCostMonthly: number
+  salaryGrowthPercent: number
+  rentExpenseMonthly: number
+  expenseEscalationPercent: number
+  capexMonthly: number
+  depreciationRatePercent: number
+  debtOpening: number
+  interestRatePercent: number
+  debtRepaymentMonthly: number
+  capitalInjectionMonthly: number
+  drawingsMonthly: number
+  taxRatePercent: number
+  minimumCash: number
+  notes?: string | null
+}
+
+export interface FinalAccountsProjectionScenarioPayload {
+  companyId?: string | null
+  storeGroupId?: string | null
+  storeId?: string | null
+  name: string
+  description?: string | null
+  scenarioType: FinalAccountsProjectionScenarioType | string
+  baselineSource: FinalAccountsProjectionBaselineSource | string
+  baselineFrom?: string | null
+  baselineTo?: string | null
+  projectionStart: string
+  horizonMonths: number
+  baseline: FinalAccountsProjectionBaseline
+  assumptions: FinalAccountsProjectionAssumption
+}
+
+export interface FinalAccountsProjectionScenarioListRow {
+  id: string
+  scenarioNumber: string
+  name: string
+  scenarioType: FinalAccountsProjectionScenarioType | string
+  status: FinalAccountsProjectionScenarioStatus | string
+  baselineSource: FinalAccountsProjectionBaselineSource | string
+  projectionStart: string
+  horizonMonths: number
+  activeAssumptionVersion: number
+  totalRevenue: number
+  profitAfterTax: number
+  closingCash: number
+  balanceDifference: number
+  createdAt: string
+  approvedAt?: string | null
+  archivedAt?: string | null
+}
+
+export interface FinalAccountsProjectionScenarioList {
+  page: number
+  pageSize: number
+  totalCount: number
+  rows: FinalAccountsProjectionScenarioListRow[]
+}
+
+export interface FinalAccountsProjectionMonth {
+  monthNumber: number
+  monthStart: string
+  monthEnd: string
+  revenue: number
+  returnsAndDiscounts: number
+  netRevenue: number
+  costOfGoodsSold: number
+  grossProfit: number
+  payrollExpense: number
+  rentExpense: number
+  otherExpense: number
+  depreciation: number
+  interest: number
+  tax: number
+  profitAfterTax: number
+  inventoryBalance: number
+  debtorBalance: number
+  creditorBalance: number
+  fixedAssets: number
+  debtBalance: number
+  capitalBalance: number
+  cashBalance: number
+  totalAssets: number
+  totalLiabilitiesEquity: number
+  balanceDifference: number
+  operatingCashFlow: number
+  investingCashFlow: number
+  financingCashFlow: number
+  closingCashFlow: number
+  workingCapitalRequirement: number
+  breakEvenRevenue: number
+  currentRatio: number
+  debtEquityRatio: number
+}
+
+export interface FinalAccountsProjectionSummary {
+  totalRevenue: number
+  totalGrossProfit: number
+  totalProfitAfterTax: number
+  closingCash: number
+  closingDebt: number
+  closingWorkingCapitalRequirement: number
+  maxBalanceDifference: number
+  averageCurrentRatio: number
+  endingDebtEquityRatio: number
+  balanceStatus: string
+}
+
+export interface FinalAccountsProjectionEvent {
+  at: string
+  event: string
+  actor?: string | null
+  detail: string
+}
+
+export interface FinalAccountsProjectionScenario {
+  id: string
+  companyId?: string | null
+  storeGroupId?: string | null
+  storeId?: string | null
+  scenarioNumber: string
+  name: string
+  description?: string | null
+  scenarioType: FinalAccountsProjectionScenarioType | string
+  status: FinalAccountsProjectionScenarioStatus | string
+  baselineSource: FinalAccountsProjectionBaselineSource | string
+  baselineFrom?: string | null
+  baselineTo?: string | null
+  projectionStart: string
+  horizonMonths: number
+  activeAssumptionVersion: number
+  baseline: FinalAccountsProjectionBaseline
+  assumptions: FinalAccountsProjectionAssumption
+  summary: FinalAccountsProjectionSummary
+  months: FinalAccountsProjectionMonth[]
+  events: FinalAccountsProjectionEvent[]
+  decisionNotes?: string | null
+  revision: number
+}
+
+export interface FinalAccountsProjectionComparisonRow {
+  scenarioId: string
+  scenarioNumber: string
+  name: string
+  scenarioType: string
+  status: string
+  totalRevenue: number
+  profitAfterTax: number
+  closingCash: number
+  closingDebt: number
+  workingCapitalRequirement: number
+  maxBalanceDifference: number
+}
+
+export interface FinalAccountsProjectionComparison {
+  rows: FinalAccountsProjectionComparisonRow[]
+  months: Array<{
+    scenarioId: string
+    scenarioNumber: string
+    monthNumber: number
+    monthStart: string
+    revenue: number
+    profitAfterTax: number
+    cashBalance: number
+    balanceDifference: number
+  }>
 }
 
 export interface FinalAccountsGeneralLedgerReportRow {

@@ -93,6 +93,17 @@ public static class FinalAccountsEndpoints
         enabled.MapPost("/period-close/preview", PreviewCloseAsync);
         enabled.MapPost("/period-close/close", CommitCloseAsync).RequireAuthorization(GarmetixPolicies.Admin);
         enabled.MapPost("/period-close/runs/{id:guid}/reopen", ReopenCloseRunAsync).RequireAuthorization(GarmetixPolicies.Admin);
+        enabled.MapGet("/projections/scenarios", ListProjectionScenariosAsync);
+        enabled.MapGet("/projections/scenarios/{id:guid}", GetProjectionScenarioAsync);
+        enabled.MapPost("/projections/scenarios", CreateProjectionScenarioAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        enabled.MapPut("/projections/scenarios/{id:guid}", UpdateProjectionScenarioAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        enabled.MapPost("/projections/scenarios/{id:guid}/clone", CloneProjectionScenarioAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        enabled.MapPost("/projections/scenarios/{id:guid}/submit", SubmitProjectionScenarioAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        enabled.MapPost("/projections/scenarios/{id:guid}/approve", ApproveProjectionScenarioAsync).RequireAuthorization(GarmetixPolicies.Admin);
+        enabled.MapPost("/projections/scenarios/{id:guid}/archive", ArchiveProjectionScenarioAsync).RequireAuthorization(GarmetixPolicies.Admin);
+        enabled.MapPost("/projections/baseline/actuals", ImportProjectionActualBaselineAsync);
+        enabled.MapPost("/projections/compare", CompareProjectionScenariosAsync);
+        enabled.MapGet("/projections/scenarios/{id:guid}/export", ExportProjectionScenarioAsync);
         enabled.MapGet("/coa/seed-preview", GetSeedPreviewAsync);
         enabled.MapGet("/validation/summary", GetValidationSummaryAsync);
 
@@ -1001,6 +1012,111 @@ public static class FinalAccountsEndpoints
         HttpContext context,
         CancellationToken cancellationToken)
         => HandleAsync(() => periodClose.ReopenAsync(id, request, context, cancellationToken));
+
+    private static Task<IResult> ListProjectionScenariosAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        string? status,
+        string? scenarioType,
+        int? page,
+        int? pageSize,
+        FinalAccountsProjectionService projections,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => projections.ListScenariosAsync(new FinalAccountsProjectionScenarioQuery(companyId, storeGroupId, storeId, status, scenarioType, page, pageSize), context, cancellationToken));
+
+    private static Task<IResult> GetProjectionScenarioAsync(
+        Guid id,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsProjectionService projections,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => projections.GetScenarioAsync(id, new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), context, cancellationToken));
+
+    private static Task<IResult> CreateProjectionScenarioAsync(
+        FinalAccountsProjectionScenarioSaveRequest request,
+        FinalAccountsProjectionService projections,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => projections.CreateScenarioAsync(request, context, cancellationToken));
+
+    private static Task<IResult> UpdateProjectionScenarioAsync(
+        Guid id,
+        FinalAccountsProjectionScenarioSaveRequest request,
+        FinalAccountsProjectionService projections,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => projections.UpdateScenarioAsync(id, request, context, cancellationToken));
+
+    private static Task<IResult> CloneProjectionScenarioAsync(
+        Guid id,
+        FinalAccountsProjectionCloneRequest request,
+        FinalAccountsProjectionService projections,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => projections.CloneScenarioAsync(id, request, context, cancellationToken));
+
+    private static Task<IResult> SubmitProjectionScenarioAsync(
+        Guid id,
+        FinalAccountsProjectionWorkflowRequest request,
+        FinalAccountsProjectionService projections,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => projections.SubmitScenarioAsync(id, request, context, cancellationToken));
+
+    private static Task<IResult> ApproveProjectionScenarioAsync(
+        Guid id,
+        FinalAccountsProjectionWorkflowRequest request,
+        FinalAccountsProjectionService projections,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => projections.ApproveScenarioAsync(id, request, context, cancellationToken));
+
+    private static Task<IResult> ArchiveProjectionScenarioAsync(
+        Guid id,
+        FinalAccountsProjectionWorkflowRequest request,
+        FinalAccountsProjectionService projections,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => projections.ArchiveScenarioAsync(id, request, context, cancellationToken));
+
+    private static Task<IResult> ImportProjectionActualBaselineAsync(
+        FinalAccountsProjectionActualBaselineRequest request,
+        FinalAccountsProjectionService projections,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => projections.ImportActualBaselineAsync(request, context, cancellationToken));
+
+    private static Task<IResult> CompareProjectionScenariosAsync(
+        FinalAccountsProjectionCompareRequest request,
+        FinalAccountsProjectionService projections,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => projections.CompareAsync(request, context, cancellationToken));
+
+    private static async Task<IResult> ExportProjectionScenarioAsync(
+        Guid id,
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        string? format,
+        FinalAccountsProjectionService projections,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var export = await projections.ExportScenarioAsync(id, new FinalAccountsCatalogQuery(companyId, storeGroupId, storeId), format, context, cancellationToken);
+            return Results.File(export.Content, export.ContentType, export.FileName);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or KeyNotFoundException)
+        {
+            return ToErrorResult(ex);
+        }
+    }
 
     private static Task<IResult> GetSeedPreviewAsync(
         Guid? companyId,
