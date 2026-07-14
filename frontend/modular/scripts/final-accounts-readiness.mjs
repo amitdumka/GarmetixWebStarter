@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-14 readiness')
+console.log('Garmetix Final Accounts BS-15 readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -789,6 +789,20 @@ checkFile('docs/final-accounts-bs-14-qa-hardening.md', [
   'Known Limitations'
 ])
 
+checkFile('docs/final-accounts-bs-15-merge-readiness.md', [
+  'Final Accounts BS-15 Merge Readiness Package',
+  'Commit List',
+  'Migration Summary',
+  'Feature Flag Activation Steps',
+  'Staging-Only Backfill Plan',
+  'Reconciliation Evidence Required',
+  'Production Rollout Proposal',
+  'Rollback Proposal',
+  'No auto-merge',
+  'No auto-deploy',
+  'Do not merge into `version6` until human review approves'
+])
+
 checkFile('docs/final-accounts-bs-04d-inventory-cogs.md', [
   'perpetual weighted-average',
   'No closing-stock journal',
@@ -1166,7 +1180,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-14 readiness passed.')
+console.log('\nFinal Accounts BS-15 readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)

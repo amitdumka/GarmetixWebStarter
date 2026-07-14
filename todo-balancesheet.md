@@ -1579,41 +1579,100 @@ Known limitations: staging DB migration rehearsal not run in this workspace.
 
 # BS-15 — Merge-readiness package
 
-- [ ] Rebase/update branch from latest `version6` using approved policy.
-- [ ] Resolve conflicts.
-- [ ] Rerun full validation.
-- [ ] Prepare commit list.
-- [ ] Prepare file/change summary.
-- [ ] Prepare migration summary.
-- [ ] Prepare feature-flag activation steps.
-- [ ] Prepare staging-only backfill plan.
-- [ ] Prepare reconciliation evidence.
-- [ ] Prepare test evidence.
-- [ ] Prepare production rollout proposal.
-- [ ] Prepare rollback proposal.
-- [ ] Confirm no auto-merge.
-- [ ] Confirm no auto-deploy.
-- [ ] Request human review.
-- [ ] Do not merge.
+- [x] Rebase/update branch from latest `version6` using approved policy.
+- [x] Resolve conflicts.
+- [x] Rerun full validation.
+- [x] Prepare commit list.
+- [x] Prepare file/change summary.
+- [x] Prepare migration summary.
+- [x] Prepare feature-flag activation steps.
+- [x] Prepare staging-only backfill plan.
+- [x] Prepare reconciliation evidence.
+- [x] Prepare test evidence.
+- [x] Prepare production rollout proposal.
+- [x] Prepare rollback proposal.
+- [x] Confirm no auto-merge.
+- [x] Confirm no auto-deploy.
+- [x] Request human review.
+- [x] Do not merge.
 
 Final evidence:
 
 ```text
-Branch head:
-Base version6 commit:
+Date: 2026-07-14
+Agent: Codex GPT-5
+Branch: balancesheet
+Worktree: C:\AIarea\Codex\bsheet\GarmetixWebStarter
+Branch head: created by this stage commit; exact hash is reported in session output because a commit cannot contain its own final hash.
+Base version6 commit: 4d3c2b5c13b99fed0237203087d3702b13fd2608
+BS-15 start commit: 058e23e01d38fc92916fd83617d0a3cb1a52fa0e
+
+Update/conflict status:
+- Fetched origin/version6 and origin/balancesheet.
+- merge-base(HEAD, origin/version6) = 4d3c2b5c13b99fed0237203087d3702b13fd2608.
+- origin/version6 = 4d3c2b5c13b99fed0237203087d3702b13fd2608.
+- No rebase or merge commit was needed.
+- No conflicts were present.
+
 Commits:
+- 20 Final Accounts commits existed on balancesheet before the BS-15 package.
+- The full commit list is recorded in docs/final-accounts-bs-15-merge-readiness.md.
+
 Backend build:
+- dotnet build backend\Garmetix.Api\Garmetix.Api.csproj -c Release -p:UseSharedCompilation=false: passed with 7 existing nullable warnings outside Final Accounts, 0 errors.
+- npm --prefix frontend\modular run validate also rebuilt the shared API successfully with 0 warnings, 0 errors.
+
 Backend tests:
+- dotnet test backend\Garmetix.Api.Tests\Garmetix.Api.Tests.csproj -c Release -p:UseSharedCompilation=false: passed. Result: 219 passed, 3 skipped, 222 total.
+
 Frontend typecheck:
+- npm --prefix frontend\modular run check: passed.
+- npm --prefix frontend\modular run final-accounts:readiness: passed for BS-15 markers.
+- npm --prefix frontend\modular run workspace-links: passed.
+
 Frontend build:
+- npm --prefix frontend\modular run build:final-accounts: passed.
+- npm --prefix frontend\modular run validate: passed.
+- Full validator warnings were existing manual/live-token acceptance warnings for POS, HR, Books and CRM plus existing Nuxt/Rollup/unifont/cache-driver warnings.
+
 Migration review:
+- Nine additive migrations under final_accounts schema.
+- No operational table drop, rename or rewrite.
+- Production migration was not run.
+
 Reconciliation dataset:
+- No live staging PostgreSQL dataset was supplied in this workspace.
+- Staging-only dataset and backfill plan are documented in docs/final-accounts-bs-15-merge-readiness.md.
+
 Trial Balance result:
+- Rule/report model covered by automated tests and build/readiness gates.
+- Live Trial Balance evidence must be attached from staging after backfill.
+
 Balance Sheet result:
+- Rule/report model covered by automated tests and build/readiness gates.
+- Live Balance Sheet equality evidence must be attached from staging after backfill.
+
 Projection model result:
+- Projection rules passed in BS-14 test suite and are included in full backend tests.
+- Live approved scenario output remains a staging reviewer task.
+
 Known limitations:
-Reviewer:
-Decision:
+- No live staging DB migration/backfill rehearsal in this workspace.
+- No production deploy, no production migration and no auto-merge.
+- Interactive browser route QA and TallyPrime test-company import remain staging/manual review tasks.
+- Full validator may print existing Nuxt/Rollup/unifont provider warnings that do not fail validation.
+
+Hygiene:
+- git diff --check: passed.
+- Secret scan: passed with key-shaped token patterns.
+
+Reviewer: pending human engineering and accounting/CA review.
+Decision: do not merge; do not deploy; request human review.
+
+Files added/changed:
+- docs/final-accounts-bs-15-merge-readiness.md
+- frontend/modular/scripts/final-accounts-readiness.mjs
+- todo-balancesheet.md
 ```
 
 ---
