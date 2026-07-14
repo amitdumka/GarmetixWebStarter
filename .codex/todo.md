@@ -27,10 +27,13 @@
   - [x] Draft normalization and rollback plans in preview output/docs.
   - [ ] After this commit is pulled on SRP, run `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS17IndianCOANormalization`, deploy, then capture `GET /api/final-accounts/audit/coa-normalization`.
 
-- [ ] **BS-18 - Party And Ledger Unification**
-  - [ ] Design unified Party role model.
-  - [ ] Link Customer/Vendor/Employee/Other Party to canonical ledger.
-  - [ ] Prevent duplicate party ledgers.
+- [~] **BS-18 - Party And Ledger Unification**
+  - [~] Create database backup with stage `BS18PartyLedgerUnification` on the deployed SRP host.
+  - [x] Add read-only preview endpoint for unified Party role identity.
+  - [x] Preview Customer/Vendor/Employee/Other Party to canonical Party/Ledger links.
+  - [x] Detect duplicate party rows and party-ledger candidates.
+  - [x] Draft safe merge/relink and rollback plan in preview output/docs.
+  - [ ] After this commit is pulled on SRP, run `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS18PartyLedgerUnification`, deploy, then capture `GET /api/final-accounts/audit/party-ledger-unification`.
 
 - [ ] **BS-19 - Transaction Backfill And Ledger Reconciliation**
   - [ ] Dry-run existing transaction backfill.

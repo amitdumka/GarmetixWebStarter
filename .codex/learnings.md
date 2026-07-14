@@ -41,3 +41,5 @@ Final Accounts should not stay as a separate accounting universe. Existing Books
 Use Indian operational accounting practice and TallyPrime/BUSY/Marg-style COA grouping first. Ind AS reporting should be optional/legal-requirement-driven, not forced by default.
 
 BS-17 implements only a read-only COA normalization preview at `/api/final-accounts/audit/coa-normalization`. Do not treat its classifications as approved migration instructions until the deployed-host backup, live preview evidence and Amit/CA review are complete.
+
+BS-18 implements only a read-only party-ledger unification preview at `/api/final-accounts/audit/party-ledger-unification`. Do not relink `Customer.PartyId`, `Vendor.PartyId`, create employee parties, merge parties or merge ledgers until backup, live preview evidence and Amit/CA approval are complete.

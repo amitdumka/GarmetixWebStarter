@@ -4,6 +4,29 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-07-15 - BS-18 Party Ledger Unification Preview
+
+**Type**: Final Accounts accounting-unification audit/preview, read-only/no DB mutation.
+
+**What happened**: Amit asked to go ahead with the next part. Added a BS-18 preview endpoint that reviews Customer, Vendor, Employee and Other Party roles against existing accounting Party and Ledger masters before any relink or merge.
+
+**Files updated**:
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsPartyLedgerUnificationContracts.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsPartyLedgerUnificationRules.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsPartyLedgerUnificationService.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs`
+- `backend/Garmetix.Api/Program.cs`
+- `backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsPartyLedgerUnificationRulesTests.cs`
+- `docs/final-accounts-bs-18-party-ledger-unification.md`
+- `frontend/modular/scripts/final-accounts-readiness.mjs`
+- `todo-balancesheet.md`, `.codex/todo.md`, `.claude/todo.md`
+
+**Implementation notes**: New endpoint is `GET /api/final-accounts/audit/party-ledger-unification`. It returns role-link status, identity groups, candidate Party/Ledger links, duplicate Party rows, missing Party/Ledger issues and unification/rollback plan steps with `WritesData: false`. No migration, schema repair, PartyId update, Employee party creation, Party merge, Ledger merge, deploy, backfill or data mutation was performed locally.
+
+**Remote handoff**: before SRP deploy or live preview, run `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS18PartyLedgerUnification` on the deployed host, then deploy/pull and capture the endpoint output. Do not start real party/ledger mutation until Amit/CA approval exists.
+
+**Validation**: `dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release -p:UseSharedCompilation=false`, `dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release -p:UseSharedCompilation=false` (253 passed, 3 skipped), `npm --prefix frontend/modular run final-accounts:readiness`, `npm --prefix frontend/modular run check`, and `git diff --check`.
+
 ## 2026-07-15 - BS-17 Indian/Tally COA Normalization Preview
 
 **Type**: Final Accounts accounting-unification audit/preview, read-only/no DB mutation.

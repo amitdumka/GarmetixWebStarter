@@ -1740,13 +1740,27 @@ Decision: BS-17 produces a read-only Indian/Tally-style COA normalization previe
 
 # BS-18 — Party and ledger unification
 
-- [ ] Create database backup with stage name `BS18PartyLedgerUnification`.
-- [ ] Design canonical party identity.
-- [ ] Support Customer/Vendor/Employee/Other Party roles.
-- [ ] Link each role to one canonical ledger.
-- [ ] Detect duplicate party ledgers.
-- [ ] Define safe merge/relink workflow.
-- [ ] Review with Amit/CA before mutation.
+- [~] Create database backup with stage name `BS18PartyLedgerUnification`.
+- [x] Design canonical party identity.
+- [x] Support Customer/Vendor/Employee/Other Party roles.
+- [x] Link each role to one canonical ledger.
+- [x] Detect duplicate party ledgers.
+- [x] Define safe merge/relink workflow.
+- [~] Review with Amit/CA before mutation.
+
+Evidence:
+
+```text
+Date: 2026-07-15
+Agent: Codex GPT-5
+Branch: version6
+Backup file: pending on deployed SRP host; run npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS18PartyLedgerUnification before remote deploy/live review.
+Backup history row: pending remote deployed-host command.
+Preview endpoint: GET /api/final-accounts/audit/party-ledger-unification
+Mutation status: none; no migration, schema repair, Customer.PartyId update, Vendor.PartyId update, Employee party creation, Party merge, Ledger merge, backfill, deploy or service restart in local implementation.
+Known risks: live duplicate identities and missing party/ledger links are not captured until the remote host pulls, backs up and runs the preview endpoint.
+Decision: BS-18 produces a read-only party-ledger unification preview and review/rollback plan only. Any live relink/merge remains blocked until backup, preview evidence and Amit/CA approval.
+```
 
 ---
 

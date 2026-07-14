@@ -1,5 +1,43 @@
 # Codex Changelog
 
+## 2026-07-15 - BS-18 Party Ledger Unification Preview
+
+Amit asked to go ahead with the next part. Added BS-18 as a read-only party-ledger unification preview so Customer, Vendor, Employee and Other Party records can be reviewed against canonical Party and Ledger masters before any relink or merge.
+
+Files changed:
+
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsPartyLedgerUnificationContracts.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsPartyLedgerUnificationRules.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsPartyLedgerUnificationService.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs`
+- `backend/Garmetix.Api/Program.cs`
+- `backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsPartyLedgerUnificationRulesTests.cs`
+- `docs/final-accounts-bs-18-party-ledger-unification.md`
+- `frontend/modular/scripts/final-accounts-readiness.mjs`
+- `todo-balancesheet.md`, `.codex/todo.md`, `.claude/todo.md`
+
+What changed:
+
+- Added `GET /api/final-accounts/audit/party-ledger-unification`.
+- Registered `FinalAccountsPartyLedgerUnificationService`.
+- Builds identity keys from GSTIN, PAN, mobile or normalized name.
+- Reviews Customer/Vendor/Employee/OtherParty role links to existing Party and Ledger rows.
+- Reports missing parties, parties missing ledgers, candidate party links, duplicate party rows, multi-role identities and party-ledger flag mismatches.
+- Returns unification and rollback plan steps for Amit/CA review.
+- Keeps BS-18 explicitly no-mutation: no migration, schema repair, PartyId update, party creation, party merge, ledger merge, backfill, deploy or service restart from this workstation.
+- Documents the required deployed-host backup command:
+  `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS18PartyLedgerUnification`.
+
+Validation:
+
+- `dotnet build backend/Garmetix.Api/Garmetix.Api.csproj -c Release -p:UseSharedCompilation=false`: passed with the same 7 pre-existing nullable warnings outside Final Accounts.
+- `dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj -c Release -p:UseSharedCompilation=false`: 253 passed, 3 pre-existing Postgres-only skipped, 0 failed.
+- `npm --prefix frontend/modular run final-accounts:readiness`: passed.
+- `npm --prefix frontend/modular run check`: passed.
+- `git diff --check`: passed.
+
+Remote status: backup file/history row and live preview output are pending on the deployed SRP host.
+
 ## 2026-07-15 - BS-17 Indian/Tally COA Normalization Preview
 
 Amit asked to continue with the next part. Added BS-17 as a read-only COA normalization preview so existing Books ledger groups can be reviewed against Indian operational accounting practice and TallyPrime/BUSY/Marg-style primary groups before any migration.

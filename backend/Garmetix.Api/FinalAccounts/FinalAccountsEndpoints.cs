@@ -16,6 +16,7 @@ public static class FinalAccountsEndpoints
         group.MapPut("/settings", SaveSettingsAsync).RequireAuthorization(GarmetixPolicies.Admin);
         group.MapGet("/audit/accounting-master", GetAccountingMasterAuditAsync);
         group.MapGet("/audit/coa-normalization", GetCoaNormalizationPreviewAsync);
+        group.MapGet("/audit/party-ledger-unification", GetPartyLedgerUnificationPreviewAsync);
 
         var enabled = group.MapGroup("")
             .AddEndpointFilter<FinalAccountsEnabledFilter>();
@@ -167,6 +168,15 @@ public static class FinalAccountsEndpoints
         HttpContext context,
         CancellationToken cancellationToken)
         => HandleAsync(() => normalization.PreviewAsync(new FinalAccountsCoaNormalizationPreviewQuery(companyId, storeGroupId, storeId), context, cancellationToken));
+
+    private static Task<IResult> GetPartyLedgerUnificationPreviewAsync(
+        Guid? companyId,
+        Guid? storeGroupId,
+        Guid? storeId,
+        FinalAccountsPartyLedgerUnificationService unification,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => unification.PreviewAsync(new FinalAccountsPartyLedgerUnificationPreviewQuery(companyId, storeGroupId, storeId), context, cancellationToken));
 
     private static Task<IResult> ListAccountGroupsAsync(
         Guid? companyId,

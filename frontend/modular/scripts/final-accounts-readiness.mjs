@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-17 readiness')
+console.log('Garmetix Final Accounts BS-18 readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -18,6 +18,7 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapPut("/settings"',
   'MapGet("/audit/accounting-master"',
   'MapGet("/audit/coa-normalization"',
+  'MapGet("/audit/party-ledger-unification"',
   'AddEndpointFilter<FinalAccountsEnabledFilter>',
   'MapGet("/dashboard"',
   'MapGet("/account-groups"',
@@ -564,6 +565,7 @@ checkFile('backend/Garmetix.Api/Program.cs', [
   'FinalAccountsExchangeService',
   'FinalAccountsAccountingMasterAuditService',
   'FinalAccountsCoaNormalizationService',
+  'FinalAccountsPartyLedgerUnificationService',
   'SalesInvoiceAdapter',
   'SalesReturnAdapter',
   'SalesInvoiceCancellationAdapter',
@@ -794,6 +796,44 @@ checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsCoaNormalizatio
   'MigrationAndRollbackPlansAreReviewFirst'
 ])
 
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPartyLedgerUnificationService.cs', [
+  'FinalAccountsPartyLedgerUnificationService',
+  'PreviewAsync',
+  'WritesData: false',
+  'BuildRoleLink',
+  'BuildIdentities',
+  'BuildDuplicateParties',
+  'MissingPartyLinks',
+  'PartyFlagMismatch'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPartyLedgerUnificationRules.cs', [
+  'FinalAccountsPartyLedgerUnificationRules',
+  'BS18PartyLedgerUnification',
+  'PreviewEndpointPath',
+  'NormalizeIdentityKey',
+  'StatusForRoleLink',
+  'UnificationPlan',
+  'RollbackPlan'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsPartyLedgerUnificationContracts.cs', [
+  'FinalAccountsPartyLedgerUnificationPreviewResponse',
+  'FinalAccountsPartyRoleLinkDto',
+  'FinalAccountsPartyIdentityDto',
+  'FinalAccountsPartyLedgerDuplicateDto',
+  'FinalAccountsPartyLedgerStepDto'
+])
+
+checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsPartyLedgerUnificationRulesTests.cs', [
+  'PreviewEndpointIsReadOnlyAndStageNamed',
+  'IdentityKeyUsesStrongestAvailableIdentifier',
+  'NormalizeNameCreatesStableKeys',
+  'DuplicateKeyIncludesPartyCategory',
+  'RoleLinkStatusSeparatesMissingPartyAndMissingLedger',
+  'PlansRequireReviewAndRollback'
+])
+
 checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsQaRulesTests.cs', [
   'LargeLedgerPaginationIsBoundedForQaRuns',
   'BackfillBatchResumeCheckpointIsStableAcrossModuleOrder',
@@ -900,6 +940,15 @@ checkFile('docs/final-accounts-bs-17-coa-normalization.md', [
   'GET /api/final-accounts/audit/coa-normalization',
   'WritesData = false',
   'Indian/Tally-style primary groups',
+  'No live mutation'
+])
+
+checkFile('docs/final-accounts-bs-18-party-ledger-unification.md', [
+  'Final Accounts BS-18 Party Ledger Unification Preview',
+  'BS18PartyLedgerUnification',
+  'GET /api/final-accounts/audit/party-ledger-unification',
+  'WritesData = false',
+  'Identity Key Priority',
   'No live mutation'
 ])
 
@@ -1280,7 +1329,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-17 readiness passed.')
+console.log('\nFinal Accounts BS-18 readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)
