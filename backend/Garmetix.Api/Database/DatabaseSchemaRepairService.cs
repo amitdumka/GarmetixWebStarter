@@ -1616,6 +1616,1072 @@ public static async Task RepairDotMatrixPrintStorageAsync(GarmetixDbContext db, 
     logger.LogInformation("Dot-matrix print storage repair check completed.");
 }
 
+public static async Task RepairFinalAccountsStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
+{
+    // Final Accounts module (balance sheet / P&L / GL / CA workspace / period close /
+    // projections / Tally exchange), merged from the balancesheet branch. Its 9 EF
+    // migrations create a dedicated "final_accounts" Postgres schema, but on this host
+    // dated migrations do not apply automatically (see the other Repair*Async methods
+    // in this file) - so this idempotent DDL, generated from
+    // "dotnet ef migrations script 20260623123000_InitialCreate 20260714150000_AddFinalAccountsExchangePackage --idempotent"
+    // and mechanically stripped of its __EFMigrationsHistory guards, is what actually
+    // creates the schema here. The module itself stays off by default per workspace
+    // (FinalAccountsOptions.DefaultEnabled) regardless of this repair running.
+    await db.Database.ExecuteSqlRawAsync("""
+CREATE SCHEMA IF NOT EXISTS final_accounts;
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_module_settings (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "Enabled" boolean NOT NULL,
+    "PostingMode" character varying(32) NOT NULL,
+    "StatementTemplate" character varying(80) NOT NULL,
+    "InventoryValuationMethod" character varying(48) NOT NULL,
+    "RoundingScale" integer NOT NULL,
+    "AllowHistoricalBackfill" boolean NOT NULL,
+    "AllowTallyExport" boolean NOT NULL,
+    "AllowProjections" boolean NOT NULL,
+    "AllowPeriodReopen" boolean NOT NULL,
+    "CreatedBy" character varying(120),
+    "UpdatedBy" character varying(120),
+    CONSTRAINT "PK_fa_module_settings" PRIMARY KEY ("Id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_module_settings_scope"
+ON final_accounts.fa_module_settings (
+    COALESCE("CompanyId", '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE("StoreGroupId", '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE("StoreId", '00000000-0000-0000-0000-000000000000'::uuid)
+);
+
+CREATE INDEX IF NOT EXISTS "IX_fa_module_settings_Enabled_UpdatedAt" ON final_accounts.fa_module_settings ("Enabled", "UpdatedAt");
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_account_groups (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "ParentGroupId" uuid,
+    "Code" character varying(40) NOT NULL,
+    "Name" character varying(160) NOT NULL,
+    "AccountType" integer NOT NULL,
+    "NaturalBalance" integer NOT NULL,
+    "SortOrder" integer NOT NULL,
+    "IsSystem" boolean NOT NULL,
+    "IsActive" boolean NOT NULL,
+    "Description" character varying(500),
+    "Revision" integer NOT NULL,
+    "CreatedBy" character varying(120),
+    "UpdatedBy" character varying(120),
+    CONSTRAINT "PK_fa_account_groups" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_fa_account_groups_parent" FOREIGN KEY ("ParentGroupId") REFERENCES final_accounts.fa_account_groups ("Id") ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_fiscal_years (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "Name" character varying(80) NOT NULL,
+    "StartDate" timestamp without time zone NOT NULL,
+    "EndDate" timestamp without time zone NOT NULL,
+    "Status" integer NOT NULL,
+    "ClosedAt" timestamp without time zone,
+    "Revision" integer NOT NULL,
+    "CreatedBy" character varying(120),
+    "UpdatedBy" character varying(120),
+    CONSTRAINT "PK_fa_fiscal_years" PRIMARY KEY ("Id"),
+    CONSTRAINT "CK_fa_fiscal_years_dates" CHECK ("EndDate" >= "StartDate")
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_accounts (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "AccountGroupId" uuid NOT NULL,
+    "ParentAccountId" uuid,
+    "Code" character varying(40) NOT NULL,
+    "Name" character varying(160) NOT NULL,
+    "AccountType" integer NOT NULL,
+    "NaturalBalance" integer NOT NULL,
+    "OpeningBalance" numeric(18,2) NOT NULL,
+    "IsControlAccount" boolean NOT NULL,
+    "IsSystem" boolean NOT NULL,
+    "IsActive" boolean NOT NULL,
+    "Description" character varying(500),
+    "SortOrder" integer NOT NULL,
+    "Revision" integer NOT NULL,
+    "CreatedBy" character varying(120),
+    "UpdatedBy" character varying(120),
+    CONSTRAINT "PK_fa_accounts" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_fa_accounts_group" FOREIGN KEY ("AccountGroupId") REFERENCES final_accounts.fa_account_groups ("Id") ON DELETE RESTRICT,
+    CONSTRAINT "FK_fa_accounts_parent" FOREIGN KEY ("ParentAccountId") REFERENCES final_accounts.fa_accounts ("Id") ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_fiscal_periods (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "FiscalYearId" uuid NOT NULL,
+    "PeriodNumber" integer NOT NULL,
+    "Name" character varying(80) NOT NULL,
+    "StartDate" timestamp without time zone NOT NULL,
+    "EndDate" timestamp without time zone NOT NULL,
+    "Status" integer NOT NULL,
+    "ClosedAt" timestamp without time zone,
+    "Revision" integer NOT NULL,
+    "CreatedBy" character varying(120),
+    "UpdatedBy" character varying(120),
+    CONSTRAINT "PK_fa_fiscal_periods" PRIMARY KEY ("Id"),
+    CONSTRAINT "CK_fa_fiscal_periods_dates" CHECK ("EndDate" >= "StartDate"),
+    CONSTRAINT "FK_fa_fiscal_periods_year" FOREIGN KEY ("FiscalYearId") REFERENCES final_accounts.fa_fiscal_years ("Id") ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_account_mappings (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "SourceType" integer NOT NULL,
+    "MappingKey" character varying(120) NOT NULL,
+    "DisplayName" character varying(160) NOT NULL,
+    "AccountId" uuid NOT NULL,
+    "IsRequired" boolean NOT NULL,
+    "IsSystem" boolean NOT NULL,
+    "IsActive" boolean NOT NULL,
+    "Notes" character varying(500),
+    "Revision" integer NOT NULL,
+    "CreatedBy" character varying(120),
+    "UpdatedBy" character varying(120),
+    CONSTRAINT "PK_fa_account_mappings" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_fa_account_mappings_account" FOREIGN KEY ("AccountId") REFERENCES final_accounts.fa_accounts ("Id") ON DELETE RESTRICT
+);
+
+CREATE INDEX IF NOT EXISTS "IX_fa_account_groups_parent" ON final_accounts.fa_account_groups ("ParentGroupId");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_account_groups_scope_type_active" ON final_accounts.fa_account_groups ("CompanyId", "StoreGroupId", "StoreId", "AccountType", "IsActive");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_accounts_group_active" ON final_accounts.fa_accounts ("CompanyId", "StoreGroupId", "StoreId", "AccountGroupId", "IsActive");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_accounts_parent" ON final_accounts.fa_accounts ("ParentAccountId");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_account_mappings_account_active" ON final_accounts.fa_account_mappings ("AccountId", "IsActive");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_fiscal_years_scope_dates" ON final_accounts.fa_fiscal_years ("CompanyId", "StoreGroupId", "StoreId", "StartDate", "EndDate");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_fiscal_periods_year_number" ON final_accounts.fa_fiscal_periods ("FiscalYearId", "PeriodNumber");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_fiscal_periods_scope_dates" ON final_accounts.fa_fiscal_periods ("CompanyId", "StoreGroupId", "StoreId", "StartDate", "EndDate");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_account_groups_scope_code"
+ON final_accounts.fa_account_groups (
+    COALESCE("CompanyId", '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE("StoreGroupId", '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE("StoreId", '00000000-0000-0000-0000-000000000000'::uuid),
+    "Code"
+)
+WHERE "Deleted" = false;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_accounts_scope_code"
+ON final_accounts.fa_accounts (
+    COALESCE("CompanyId", '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE("StoreGroupId", '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE("StoreId", '00000000-0000-0000-0000-000000000000'::uuid),
+    "Code"
+)
+WHERE "Deleted" = false;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_fiscal_years_scope_name"
+ON final_accounts.fa_fiscal_years (
+    COALESCE("CompanyId", '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE("StoreGroupId", '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE("StoreId", '00000000-0000-0000-0000-000000000000'::uuid),
+    "Name"
+)
+WHERE "Deleted" = false;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_account_mappings_scope_key"
+ON final_accounts.fa_account_mappings (
+    COALESCE("CompanyId", '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE("StoreGroupId", '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE("StoreId", '00000000-0000-0000-0000-000000000000'::uuid),
+    "SourceType", "MappingKey"
+)
+WHERE "Deleted" = false;
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_journal_entries (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "EntryNumber" character varying(48) NOT NULL,
+    "OnDate" timestamp without time zone NOT NULL,
+    "FiscalPeriodId" uuid,
+    "Status" integer NOT NULL,
+    "SourceType" character varying(80) NOT NULL,
+    "SourceId" uuid,
+    "ReferenceNumber" character varying(120),
+    "Narration" character varying(500) NOT NULL,
+    "IdempotencyKey" character varying(160),
+    "ReversalOfJournalEntryId" uuid,
+    "ReversalJournalEntryId" uuid,
+    "PostedAt" timestamp without time zone,
+    "PostedBy" character varying(120),
+    "ReversedAt" timestamp without time zone,
+    "ReversedBy" character varying(120),
+    "Revision" integer NOT NULL,
+    "CreatedBy" character varying(120),
+    "UpdatedBy" character varying(120),
+    CONSTRAINT "PK_fa_journal_entries" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_fa_journal_entries_fiscal_period" FOREIGN KEY ("FiscalPeriodId") REFERENCES final_accounts.fa_fiscal_periods ("Id") ON DELETE RESTRICT,
+    CONSTRAINT "FK_fa_journal_entries_reversal_of" FOREIGN KEY ("ReversalOfJournalEntryId") REFERENCES final_accounts.fa_journal_entries ("Id") ON DELETE RESTRICT,
+    CONSTRAINT "FK_fa_journal_entries_reversal_journal" FOREIGN KEY ("ReversalJournalEntryId") REFERENCES final_accounts.fa_journal_entries ("Id") ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_journal_lines (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "JournalEntryId" uuid NOT NULL,
+    "AccountId" uuid NOT NULL,
+    "LineNumber" integer NOT NULL,
+    "Debit" numeric(18,2) NOT NULL,
+    "Credit" numeric(18,2) NOT NULL,
+    "Narration" character varying(500),
+    "Revision" integer NOT NULL,
+    "CreatedBy" character varying(120),
+    "UpdatedBy" character varying(120),
+    CONSTRAINT "PK_fa_journal_lines" PRIMARY KEY ("Id"),
+    CONSTRAINT "CK_fa_journal_lines_debit_credit_non_negative" CHECK ("Debit" >= 0 AND "Credit" >= 0),
+    CONSTRAINT "CK_fa_journal_lines_single_side" CHECK ((("Debit" > 0 AND "Credit" = 0) OR ("Credit" > 0 AND "Debit" = 0))),
+    CONSTRAINT "FK_fa_journal_lines_account" FOREIGN KEY ("AccountId") REFERENCES final_accounts.fa_accounts ("Id") ON DELETE RESTRICT,
+    CONSTRAINT "FK_fa_journal_lines_entry" FOREIGN KEY ("JournalEntryId") REFERENCES final_accounts.fa_journal_entries ("Id") ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_source_posting_links (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "JournalEntryId" uuid NOT NULL,
+    "SourceType" character varying(80) NOT NULL,
+    "SourceId" uuid NOT NULL,
+    "SourceReference" character varying(120),
+    "SourceHash" character varying(128),
+    "MappingVersion" character varying(80),
+    "IdempotencyKey" character varying(160),
+    "PostedAt" timestamp without time zone NOT NULL,
+    "Revision" integer NOT NULL,
+    "CreatedBy" character varying(120),
+    "UpdatedBy" character varying(120),
+    CONSTRAINT "PK_fa_source_posting_links" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_fa_source_posting_links_entry" FOREIGN KEY ("JournalEntryId") REFERENCES final_accounts.fa_journal_entries ("Id") ON DELETE RESTRICT
+);
+
+CREATE INDEX IF NOT EXISTS "IX_fa_journal_entries_scope_date_status" ON final_accounts.fa_journal_entries ("CompanyId", "StoreGroupId", "StoreId", "OnDate", "Status");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_journal_entries_source" ON final_accounts.fa_journal_entries ("CompanyId", "StoreGroupId", "StoreId", "SourceType", "SourceId");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_journal_entries_fiscal_period" ON final_accounts.fa_journal_entries ("FiscalPeriodId");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_journal_entries_reversal_of" ON final_accounts.fa_journal_entries ("ReversalOfJournalEntryId");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_journal_entries_reversal_journal" ON final_accounts.fa_journal_entries ("ReversalJournalEntryId");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_journal_lines_journal_line_number" ON final_accounts.fa_journal_lines ("JournalEntryId", "LineNumber");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_journal_lines_account_journal" ON final_accounts.fa_journal_lines ("CompanyId", "StoreGroupId", "StoreId", "AccountId", "JournalEntryId");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_source_posting_links_journal" ON final_accounts.fa_source_posting_links ("JournalEntryId");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_journal_entries_scope_number"
+ON final_accounts.fa_journal_entries (
+    COALESCE("CompanyId", '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE("StoreGroupId", '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE("StoreId", '00000000-0000-0000-0000-000000000000'::uuid),
+    "EntryNumber"
+)
+WHERE "Deleted" = false;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_journal_entries_scope_idempotency"
+ON final_accounts.fa_journal_entries (
+    COALESCE("CompanyId", '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE("StoreGroupId", '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE("StoreId", '00000000-0000-0000-0000-000000000000'::uuid),
+    "IdempotencyKey"
+)
+WHERE "Deleted" = false AND "IdempotencyKey" IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_source_posting_links_scope_source"
+ON final_accounts.fa_source_posting_links (
+    COALESCE("CompanyId", '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE("StoreGroupId", '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE("StoreId", '00000000-0000-0000-0000-000000000000'::uuid),
+    "SourceType", "SourceId"
+)
+WHERE "Deleted" = false;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_source_posting_links_scope_idempotency"
+ON final_accounts.fa_source_posting_links (
+    COALESCE("CompanyId", '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE("StoreGroupId", '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE("StoreId", '00000000-0000-0000-0000-000000000000'::uuid),
+    "IdempotencyKey"
+)
+WHERE "Deleted" = false AND "IdempotencyKey" IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_posting_rules (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "SourceType" character varying(80) NOT NULL,
+    "RuleCode" character varying(80) NOT NULL,
+    "Version" character varying(80) NOT NULL,
+    "Name" character varying(160) NOT NULL,
+    "Description" character varying(500),
+    "EffectiveFrom" timestamp without time zone NOT NULL,
+    "IsSystem" boolean NOT NULL,
+    "IsActive" boolean NOT NULL,
+    "Revision" integer NOT NULL,
+    "CreatedBy" character varying(120),
+    "UpdatedBy" character varying(120),
+    CONSTRAINT "PK_fa_posting_rules" PRIMARY KEY ("Id")
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_posting_rule_lines (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "PostingRuleId" uuid NOT NULL,
+    "MappingKey" character varying(120) NOT NULL,
+    "DisplayName" character varying(160) NOT NULL,
+    "MappingCategory" character varying(80) NOT NULL,
+    "Direction" character varying(16) NOT NULL,
+    "ExpectedAccountType" character varying(40),
+    "IsRequired" boolean NOT NULL,
+    "AllowControlAccount" boolean NOT NULL,
+    "SortOrder" integer NOT NULL,
+    "Notes" character varying(500),
+    "Revision" integer NOT NULL,
+    "CreatedBy" character varying(120),
+    "UpdatedBy" character varying(120),
+    CONSTRAINT "PK_fa_posting_rule_lines" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_fa_posting_rule_lines_rule" FOREIGN KEY ("PostingRuleId") REFERENCES final_accounts.fa_posting_rules ("Id") ON DELETE RESTRICT
+);
+
+CREATE INDEX IF NOT EXISTS "IX_fa_posting_rules_scope_source_active" ON final_accounts.fa_posting_rules ("CompanyId", "StoreGroupId", "StoreId", "SourceType", "IsActive");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_posting_rule_lines_rule_key" ON final_accounts.fa_posting_rule_lines ("PostingRuleId", "MappingKey");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_posting_rule_lines_category_required" ON final_accounts.fa_posting_rule_lines ("CompanyId", "StoreGroupId", "StoreId", "MappingCategory", "IsRequired");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_posting_rules_scope_code_version"
+ON final_accounts.fa_posting_rules (
+    COALESCE("CompanyId", '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE("StoreGroupId", '00000000-0000-0000-0000-000000000000'::uuid),
+    COALESCE("StoreId", '00000000-0000-0000-0000-000000000000'::uuid),
+    "SourceType", "RuleCode", "Version"
+)
+WHERE "Deleted" = false;
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_sync_jobs (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "JobNumber" character varying(64) NOT NULL,
+    "Status" integer NOT NULL,
+    "Mode" character varying(32) NOT NULL,
+    "DryRun" boolean NOT NULL,
+    "Scheduled" boolean NOT NULL,
+    "From" timestamp without time zone,
+    "To" timestamp without time zone,
+    "ModulesCsv" character varying(300) NOT NULL,
+    "IdempotencyKey" character varying(160),
+    "StopOnError" boolean NOT NULL,
+    "MaxAttempts" integer NOT NULL,
+    "RetryDelaySeconds" integer NOT NULL,
+    "SourceCount" integer NOT NULL,
+    "QueuedCount" integer NOT NULL,
+    "SkippedCount" integer NOT NULL,
+    "FailedCount" integer NOT NULL,
+    "DriftCount" integer NOT NULL,
+    "StartedAt" timestamp without time zone,
+    "CompletedAt" timestamp without time zone,
+    "LastCheckpoint" character varying(240),
+    "ErrorPolicy" character varying(32) NOT NULL,
+    "CreatedBy" character varying(120),
+    "UpdatedBy" character varying(120),
+    "Revision" integer NOT NULL,
+    CONSTRAINT "PK_fa_sync_jobs" PRIMARY KEY ("Id")
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_sync_checkpoints (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "Module" character varying(80) NOT NULL,
+    "CheckpointKey" character varying(160) NOT NULL,
+    "LastSourceDate" timestamp without time zone,
+    "LastSourceId" uuid,
+    "LastSourceHash" character varying(128),
+    "LastJobId" uuid,
+    "ProcessedCount" integer NOT NULL,
+    "FailedCount" integer NOT NULL,
+    "UpdatedBy" character varying(120),
+    "Revision" integer NOT NULL,
+    CONSTRAINT "PK_fa_sync_checkpoints" PRIMARY KEY ("Id")
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_sync_job_items (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "JobId" uuid NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "SourceType" character varying(80) NOT NULL,
+    "SourceId" uuid NOT NULL,
+    "SourceReference" character varying(120),
+    "SourceDate" timestamp without time zone,
+    "SourceAmount" numeric(18,2) NOT NULL,
+    "SourceHash" character varying(128) NOT NULL,
+    "Status" integer NOT NULL,
+    "AttemptCount" integer NOT NULL,
+    "NextAttemptAt" timestamp without time zone,
+    "JournalEntryId" uuid,
+    "ErrorCode" character varying(80),
+    "ErrorMessage" character varying(1000),
+    "Revision" integer NOT NULL,
+    CONSTRAINT "PK_fa_sync_job_items" PRIMARY KEY ("Id")
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_sync_exceptions (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "JobId" uuid,
+    "JobItemId" uuid,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "SourceType" character varying(80) NOT NULL,
+    "SourceId" uuid,
+    "Severity" character varying(24) NOT NULL,
+    "Category" character varying(80) NOT NULL,
+    "Code" character varying(80) NOT NULL,
+    "Message" character varying(1000) NOT NULL,
+    "DetailsJson" text,
+    "Resolved" boolean NOT NULL,
+    "ResolvedAt" timestamp without time zone,
+    "ResolvedBy" character varying(120),
+    "ResolutionNotes" character varying(500),
+    "Revision" integer NOT NULL,
+    CONSTRAINT "PK_fa_sync_exceptions" PRIMARY KEY ("Id")
+);
+
+CREATE INDEX IF NOT EXISTS "IX_fa_sync_jobs_scope_status_created" ON final_accounts.fa_sync_jobs ("CompanyId", "StoreGroupId", "StoreId", "Status", "CreatedAt");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_sync_jobs_scope_dryrun_scheduled" ON final_accounts.fa_sync_jobs ("CompanyId", "StoreGroupId", "StoreId", "DryRun", "Scheduled");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_sync_jobs_scope_job_number" ON final_accounts.fa_sync_jobs ("CompanyId", "StoreGroupId", "StoreId", "JobNumber");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_sync_jobs_scope_idempotency" ON final_accounts.fa_sync_jobs ("CompanyId", "StoreGroupId", "StoreId", "IdempotencyKey");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_sync_job_items_job_source" ON final_accounts.fa_sync_job_items ("JobId", "SourceType", "SourceId");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_sync_job_items_scope_source" ON final_accounts.fa_sync_job_items ("CompanyId", "StoreGroupId", "StoreId", "SourceType", "SourceId");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_sync_job_items_job_status_next" ON final_accounts.fa_sync_job_items ("JobId", "Status", "NextAttemptAt");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_sync_checkpoints_scope_module_key" ON final_accounts.fa_sync_checkpoints ("CompanyId", "StoreGroupId", "StoreId", "Module", "CheckpointKey");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_sync_checkpoints_scope_module_updated" ON final_accounts.fa_sync_checkpoints ("CompanyId", "StoreGroupId", "StoreId", "Module", "UpdatedAt");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_sync_exceptions_scope_resolved_created" ON final_accounts.fa_sync_exceptions ("CompanyId", "StoreGroupId", "StoreId", "Resolved", "CreatedAt");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_sync_exceptions_job_item" ON final_accounts.fa_sync_exceptions ("JobId", "JobItemId");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_sync_exceptions_source_resolved" ON final_accounts.fa_sync_exceptions ("SourceType", "SourceId", "Resolved");
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_ca_adjustment_batches (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "BatchNumber" character varying(64) NOT NULL,
+    "Title" character varying(160) NOT NULL,
+    "Description" character varying(1000),
+    "AdjustmentDate" timestamp without time zone NOT NULL,
+    "FiscalPeriodId" uuid,
+    "Status" integer NOT NULL,
+    "AutoReverse" boolean NOT NULL,
+    "AutoReverseDate" timestamp without time zone,
+    "ReferenceNumber" character varying(120),
+    "JournalEntryId" uuid,
+    "ReversalJournalEntryId" uuid,
+    "SubmittedAt" timestamp without time zone,
+    "SubmittedBy" character varying(120),
+    "ReviewedAt" timestamp without time zone,
+    "ReviewedBy" character varying(120),
+    "ApprovedAt" timestamp without time zone,
+    "ApprovedBy" character varying(120),
+    "RejectedAt" timestamp without time zone,
+    "RejectedBy" character varying(120),
+    "PostedAt" timestamp without time zone,
+    "PostedBy" character varying(120),
+    "ReversedAt" timestamp without time zone,
+    "ReversedBy" character varying(120),
+    "DecisionNotes" character varying(1000),
+    "Revision" integer NOT NULL,
+    "CreatedBy" character varying(120),
+    "UpdatedBy" character varying(120),
+    CONSTRAINT "PK_fa_ca_adjustment_batches" PRIMARY KEY ("Id")
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_report_versions (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "ReportType" character varying(80) NOT NULL,
+    "VersionKind" integer NOT NULL,
+    "PeriodFrom" timestamp without time zone,
+    "PeriodTo" timestamp without time zone,
+    "GeneratedAt" timestamp without time zone NOT NULL,
+    "GeneratedBy" character varying(120),
+    "Notes" character varying(500),
+    "Revision" integer NOT NULL,
+    CONSTRAINT "PK_fa_report_versions" PRIMARY KEY ("Id")
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_statement_line_comments (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "StatementType" character varying(80) NOT NULL,
+    "StatementLineKey" character varying(120) NOT NULL,
+    "ReportVersion" integer NOT NULL,
+    "PeriodFrom" timestamp without time zone,
+    "PeriodTo" timestamp without time zone,
+    "Body" character varying(2000) NOT NULL,
+    "CreatedBy" character varying(120),
+    "UpdatedBy" character varying(120),
+    "Revision" integer NOT NULL,
+    CONSTRAINT "PK_fa_statement_line_comments" PRIMARY KEY ("Id")
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_ca_adjustment_attachments (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "AdjustmentBatchId" uuid NOT NULL,
+    "FileName" character varying(260) NOT NULL,
+    "ContentType" character varying(120),
+    "StorageReference" character varying(500) NOT NULL,
+    "Notes" character varying(500),
+    "UploadedBy" character varying(120),
+    "Revision" integer NOT NULL,
+    CONSTRAINT "PK_fa_ca_adjustment_attachments" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_fa_ca_adjustment_attachments_batch" FOREIGN KEY ("AdjustmentBatchId") REFERENCES final_accounts.fa_ca_adjustment_batches ("Id") ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_ca_adjustment_comments (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "AdjustmentBatchId" uuid NOT NULL,
+    "Body" character varying(2000) NOT NULL,
+    "Visibility" character varying(40) NOT NULL,
+    "CreatedBy" character varying(120),
+    "Revision" integer NOT NULL,
+    CONSTRAINT "PK_fa_ca_adjustment_comments" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_fa_ca_adjustment_comments_batch" FOREIGN KEY ("AdjustmentBatchId") REFERENCES final_accounts.fa_ca_adjustment_batches ("Id") ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_ca_adjustment_lines (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "AdjustmentBatchId" uuid NOT NULL,
+    "AccountId" uuid NOT NULL,
+    "LineNumber" integer NOT NULL,
+    "Debit" numeric(18,2) NOT NULL,
+    "Credit" numeric(18,2) NOT NULL,
+    "Narration" character varying(500),
+    "StatementLineKey" character varying(120),
+    "Revision" integer NOT NULL,
+    "CreatedBy" character varying(120),
+    "UpdatedBy" character varying(120),
+    CONSTRAINT "PK_fa_ca_adjustment_lines" PRIMARY KEY ("Id"),
+    CONSTRAINT "CK_fa_ca_adjustment_lines_non_negative" CHECK ("Debit" >= 0 AND "Credit" >= 0),
+    CONSTRAINT "CK_fa_ca_adjustment_lines_single_side" CHECK ((("Debit" > 0 AND "Credit" = 0) OR ("Credit" > 0 AND "Debit" = 0))),
+    CONSTRAINT "FK_fa_ca_adjustment_lines_account" FOREIGN KEY ("AccountId") REFERENCES final_accounts.fa_accounts ("Id") ON DELETE RESTRICT,
+    CONSTRAINT "FK_fa_ca_adjustment_lines_batch" FOREIGN KEY ("AdjustmentBatchId") REFERENCES final_accounts.fa_ca_adjustment_batches ("Id") ON DELETE RESTRICT
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_ca_adjustment_batches_scope_number" ON final_accounts.fa_ca_adjustment_batches ("CompanyId", "StoreGroupId", "StoreId", "BatchNumber");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_ca_adjustment_batches_scope_status_date" ON final_accounts.fa_ca_adjustment_batches ("CompanyId", "StoreGroupId", "StoreId", "Status", "AdjustmentDate");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_ca_adjustment_batches_journal" ON final_accounts.fa_ca_adjustment_batches ("JournalEntryId");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_ca_adjustment_batches_reversal_journal" ON final_accounts.fa_ca_adjustment_batches ("ReversalJournalEntryId");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_ca_adjustment_lines_batch_line" ON final_accounts.fa_ca_adjustment_lines ("AdjustmentBatchId", "LineNumber");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_ca_adjustment_lines_scope_account" ON final_accounts.fa_ca_adjustment_lines ("CompanyId", "StoreGroupId", "StoreId", "AccountId");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_ca_adjustment_comments_batch_created" ON final_accounts.fa_ca_adjustment_comments ("AdjustmentBatchId", "CreatedAt");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_ca_adjustment_attachments_batch_created" ON final_accounts.fa_ca_adjustment_attachments ("AdjustmentBatchId", "CreatedAt");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_statement_line_comments_scope_line" ON final_accounts.fa_statement_line_comments ("CompanyId", "StoreGroupId", "StoreId", "StatementType", "StatementLineKey", "ReportVersion");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_report_versions_scope_type" ON final_accounts.fa_report_versions ("CompanyId", "StoreGroupId", "StoreId", "ReportType", "VersionKind", "GeneratedAt");
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_close_runs (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "RunNumber" character varying(64) NOT NULL,
+    "CloseType" integer NOT NULL,
+    "Status" integer NOT NULL,
+    "FiscalYearId" uuid NOT NULL,
+    "FiscalPeriodId" uuid,
+    "PeriodStart" timestamp without time zone NOT NULL,
+    "PeriodEnd" timestamp without time zone NOT NULL,
+    "CloseDate" timestamp without time zone NOT NULL,
+    "ChecklistStatus" character varying(32) NOT NULL,
+    "ReconciliationStatus" character varying(32) NOT NULL,
+    "PendingPostingCount" integer NOT NULL,
+    "TrialBalanceStatus" character varying(32) NOT NULL,
+    "BalanceSheetStatus" character varying(32) NOT NULL,
+    "InventorySnapshotTotal" numeric(18,2) NOT NULL,
+    "ProfitAfterTax" numeric(18,2) NOT NULL,
+    "CurrentYearResultTransferStatus" character varying(32) NOT NULL,
+    "OpeningJournalStatus" character varying(32) NOT NULL,
+    "ReportSnapshotStatus" character varying(32) NOT NULL,
+    "FinancialYearLockId" uuid,
+    "ClosedAt" timestamp without time zone,
+    "ClosedBy" character varying(120),
+    "ReopenRequestedAt" timestamp without time zone,
+    "ReopenRequestedBy" character varying(120),
+    "ReopenedAt" timestamp without time zone,
+    "ReopenedBy" character varying(120),
+    "ReopenReason" character varying(1000),
+    "ApprovalNotes" character varying(1000),
+    "Revision" integer NOT NULL,
+    "CreatedBy" character varying(120),
+    "UpdatedBy" character varying(120),
+    CONSTRAINT "PK_fa_close_runs" PRIMARY KEY ("Id")
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_close_balance_snapshots (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CloseRunId" uuid NOT NULL,
+    "AccountId" uuid NOT NULL,
+    "AccountCode" character varying(40) NOT NULL,
+    "AccountName" character varying(160) NOT NULL,
+    "AccountType" character varying(40) NOT NULL,
+    "ClosingBalance" numeric(18,2) NOT NULL,
+    "OpeningBalance" numeric(18,2) NOT NULL,
+    "Revision" integer NOT NULL,
+    CONSTRAINT "PK_fa_close_balance_snapshots" PRIMARY KEY ("Id")
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_close_checklist_items (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CloseRunId" uuid NOT NULL,
+    "Key" character varying(80) NOT NULL,
+    "Label" character varying(160) NOT NULL,
+    "Required" boolean NOT NULL,
+    "Status" character varying(32) NOT NULL,
+    "Detail" character varying(1000) NOT NULL,
+    "Amount" numeric(18,2),
+    "SortOrder" integer NOT NULL,
+    "Revision" integer NOT NULL,
+    CONSTRAINT "PK_fa_close_checklist_items" PRIMARY KEY ("Id")
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_close_report_snapshots (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CloseRunId" uuid NOT NULL,
+    "ReportType" character varying(80) NOT NULL,
+    "ReportVersion" integer NOT NULL,
+    "PeriodFrom" timestamp without time zone,
+    "PeriodTo" timestamp without time zone,
+    "Status" character varying(32) NOT NULL,
+    "PayloadJson" text NOT NULL,
+    "PayloadHash" character varying(128) NOT NULL,
+    "Revision" integer NOT NULL,
+    CONSTRAINT "PK_fa_close_report_snapshots" PRIMARY KEY ("Id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_close_runs_scope_number" ON final_accounts.fa_close_runs ("CompanyId", "StoreGroupId", "StoreId", "RunNumber");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_close_runs_scope_period_status" ON final_accounts.fa_close_runs ("CompanyId", "StoreGroupId", "StoreId", "FiscalYearId", "FiscalPeriodId", "CloseType", "Status");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_close_runs_financial_year_lock" ON final_accounts.fa_close_runs ("FinancialYearLockId");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_close_checklist_items_run_key" ON final_accounts.fa_close_checklist_items ("CloseRunId", "Key");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_close_report_snapshots_run_type" ON final_accounts.fa_close_report_snapshots ("CloseRunId", "ReportType");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_close_balance_snapshots_run_account" ON final_accounts.fa_close_balance_snapshots ("CloseRunId", "AccountId");
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_projection_scenarios (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "ScenarioNumber" character varying(64) NOT NULL,
+    "Name" character varying(160) NOT NULL,
+    "Description" character varying(1000),
+    "ScenarioType" integer NOT NULL,
+    "Status" integer NOT NULL,
+    "BaselineSource" integer NOT NULL,
+    "BaselineFrom" timestamp without time zone,
+    "BaselineTo" timestamp without time zone,
+    "ProjectionStart" timestamp without time zone NOT NULL,
+    "HorizonMonths" integer NOT NULL,
+    "ActiveAssumptionVersion" integer NOT NULL,
+    "BaselineMonthlyRevenue" numeric(18,2) NOT NULL,
+    "BaselineMonthlyGrossProfit" numeric(18,2) NOT NULL,
+    "BaselineMonthlyProfitAfterTax" numeric(18,2) NOT NULL,
+    "BaselineCash" numeric(18,2) NOT NULL,
+    "BaselineInventory" numeric(18,2) NOT NULL,
+    "BaselineDebtors" numeric(18,2) NOT NULL,
+    "BaselineCreditors" numeric(18,2) NOT NULL,
+    "BaselineFixedAssets" numeric(18,2) NOT NULL,
+    "BaselineDebt" numeric(18,2) NOT NULL,
+    "BaselineCapital" numeric(18,2) NOT NULL,
+    "SubmittedAt" timestamp without time zone,
+    "SubmittedBy" character varying(120),
+    "ApprovedAt" timestamp without time zone,
+    "ApprovedBy" character varying(120),
+    "ArchivedAt" timestamp without time zone,
+    "ArchivedBy" character varying(120),
+    "DecisionNotes" character varying(1000),
+    "Revision" integer NOT NULL,
+    "CreatedBy" character varying(120),
+    "UpdatedBy" character varying(120),
+    CONSTRAINT "PK_fa_projection_scenarios" PRIMARY KEY ("Id")
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_projection_assumption_versions (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "ScenarioId" uuid NOT NULL,
+    "Version" integer NOT NULL,
+    "IsActive" boolean NOT NULL,
+    "RevenueGrowthPercent" numeric(9,4) NOT NULL,
+    "SeasonalityFactorsCsv" character varying(500) NOT NULL,
+    "NewStoreMonthlyRevenue" numeric(18,2) NOT NULL,
+    "AverageBillValue" numeric(18,2) NOT NULL,
+    "CustomerCountGrowthPercent" numeric(9,4) NOT NULL,
+    "ReturnsDiscountPercent" numeric(9,4) NOT NULL,
+    "GrossMarginPercent" numeric(9,4) NOT NULL,
+    "PurchaseInflationPercent" numeric(9,4) NOT NULL,
+    "InventoryDays" numeric(9,2) NOT NULL,
+    "DebtorDays" numeric(9,2) NOT NULL,
+    "CreditorDays" numeric(9,2) NOT NULL,
+    "EmployeeCostMonthly" numeric(18,2) NOT NULL,
+    "SalaryGrowthPercent" numeric(9,4) NOT NULL,
+    "RentExpenseMonthly" numeric(18,2) NOT NULL,
+    "ExpenseEscalationPercent" numeric(9,4) NOT NULL,
+    "CapexMonthly" numeric(18,2) NOT NULL,
+    "DepreciationRatePercent" numeric(9,4) NOT NULL,
+    "DebtOpening" numeric(18,2) NOT NULL,
+    "InterestRatePercent" numeric(9,4) NOT NULL,
+    "DebtRepaymentMonthly" numeric(18,2) NOT NULL,
+    "CapitalInjectionMonthly" numeric(18,2) NOT NULL,
+    "DrawingsMonthly" numeric(18,2) NOT NULL,
+    "TaxRatePercent" numeric(9,4) NOT NULL,
+    "MinimumCash" numeric(18,2) NOT NULL,
+    "Notes" character varying(1000),
+    "CreatedBy" character varying(120),
+    "Revision" integer NOT NULL,
+    CONSTRAINT "PK_fa_projection_assumption_versions" PRIMARY KEY ("Id")
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_projection_months (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "ScenarioId" uuid NOT NULL,
+    "AssumptionVersion" integer NOT NULL,
+    "MonthNumber" integer NOT NULL,
+    "MonthStart" timestamp without time zone NOT NULL,
+    "MonthEnd" timestamp without time zone NOT NULL,
+    "Revenue" numeric(18,2) NOT NULL,
+    "ReturnsAndDiscounts" numeric(18,2) NOT NULL,
+    "NetRevenue" numeric(18,2) NOT NULL,
+    "CostOfGoodsSold" numeric(18,2) NOT NULL,
+    "GrossProfit" numeric(18,2) NOT NULL,
+    "PayrollExpense" numeric(18,2) NOT NULL,
+    "RentExpense" numeric(18,2) NOT NULL,
+    "OtherExpense" numeric(18,2) NOT NULL,
+    "Depreciation" numeric(18,2) NOT NULL,
+    "Interest" numeric(18,2) NOT NULL,
+    "Tax" numeric(18,2) NOT NULL,
+    "ProfitAfterTax" numeric(18,2) NOT NULL,
+    "InventoryBalance" numeric(18,2) NOT NULL,
+    "DebtorBalance" numeric(18,2) NOT NULL,
+    "CreditorBalance" numeric(18,2) NOT NULL,
+    "FixedAssets" numeric(18,2) NOT NULL,
+    "DebtBalance" numeric(18,2) NOT NULL,
+    "CapitalBalance" numeric(18,2) NOT NULL,
+    "CashBalance" numeric(18,2) NOT NULL,
+    "TotalAssets" numeric(18,2) NOT NULL,
+    "TotalLiabilitiesEquity" numeric(18,2) NOT NULL,
+    "BalanceDifference" numeric(18,2) NOT NULL,
+    "OperatingCashFlow" numeric(18,2) NOT NULL,
+    "InvestingCashFlow" numeric(18,2) NOT NULL,
+    "FinancingCashFlow" numeric(18,2) NOT NULL,
+    "ClosingCashFlow" numeric(18,2) NOT NULL,
+    "WorkingCapitalRequirement" numeric(18,2) NOT NULL,
+    "BreakEvenRevenue" numeric(18,2) NOT NULL,
+    "CurrentRatio" numeric(18,4) NOT NULL,
+    "DebtEquityRatio" numeric(18,4) NOT NULL,
+    "Revision" integer NOT NULL,
+    CONSTRAINT "PK_fa_projection_months" PRIMARY KEY ("Id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_projection_scenarios_scope_number" ON final_accounts.fa_projection_scenarios ("CompanyId", "StoreGroupId", "StoreId", "ScenarioNumber");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_projection_scenarios_scope_status_type" ON final_accounts.fa_projection_scenarios ("CompanyId", "StoreGroupId", "StoreId", "Status", "ScenarioType");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_projection_assumptions_scenario_version" ON final_accounts.fa_projection_assumption_versions ("ScenarioId", "Version");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_projection_assumptions_scope_active" ON final_accounts.fa_projection_assumption_versions ("CompanyId", "StoreGroupId", "StoreId", "IsActive");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_projection_months_scenario_month" ON final_accounts.fa_projection_months ("ScenarioId", "MonthNumber");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_projection_months_scenario_start" ON final_accounts.fa_projection_months ("ScenarioId", "MonthStart");
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_tally_profiles (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "ProfileCode" character varying(64) NOT NULL,
+    "Name" character varying(160) NOT NULL,
+    "TallyRelease" character varying(80) NOT NULL,
+    "TestCompanyName" character varying(160) NOT NULL,
+    "BaseCurrency" character varying(16) NOT NULL,
+    "Country" character varying(80) NOT NULL,
+    "GstRegistrationType" character varying(80),
+    "DuplicatePolicy" integer NOT NULL,
+    "DirectPostingAllowed" boolean NOT NULL,
+    "GroupMappingJson" text NOT NULL,
+    "LedgerMappingJson" text NOT NULL,
+    "VoucherTypeMappingJson" text NOT NULL,
+    "TaxMappingJson" text NOT NULL,
+    "StockCostCentreMappingJson" text NOT NULL,
+    "IsActive" boolean NOT NULL,
+    "Notes" character varying(1000),
+    "Revision" integer NOT NULL,
+    "CreatedBy" character varying(120),
+    "UpdatedBy" character varying(120),
+    CONSTRAINT "PK_fa_tally_profiles" PRIMARY KEY ("Id")
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_exchange_runs (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "CompanyId" uuid,
+    "StoreGroupId" uuid,
+    "StoreId" uuid,
+    "RunNumber" character varying(64) NOT NULL,
+    "RunKind" integer NOT NULL,
+    "Status" integer NOT NULL,
+    "TallyProfileId" uuid,
+    "PeriodFrom" timestamp without time zone,
+    "PeriodTo" timestamp without time zone,
+    "AsOf" timestamp without time zone,
+    "Format" character varying(24) NOT NULL,
+    "MasterCount" integer NOT NULL,
+    "VoucherCount" integer NOT NULL,
+    "ExceptionCount" integer NOT NULL,
+    "ControlDebit" numeric(18,2) NOT NULL,
+    "ControlCredit" numeric(18,2) NOT NULL,
+    "PayloadHash" character varying(128) NOT NULL,
+    "ZipChecksum" character varying(128),
+    "FileName" character varying(260),
+    "GeneratedAt" timestamp without time zone,
+    "GeneratedBy" character varying(120),
+    "Notes" character varying(1000),
+    "Revision" integer NOT NULL,
+    "CreatedBy" character varying(120),
+    "UpdatedBy" character varying(120),
+    CONSTRAINT "PK_fa_exchange_runs" PRIMARY KEY ("Id")
+);
+
+CREATE TABLE IF NOT EXISTS final_accounts.fa_exchange_exceptions (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL,
+    "UpdatedAt" timestamp without time zone,
+    "Synced" boolean NOT NULL,
+    "Deleted" boolean NOT NULL,
+    "ExchangeRunId" uuid NOT NULL,
+    "Severity" character varying(24) NOT NULL,
+    "Code" character varying(80) NOT NULL,
+    "Message" character varying(1000) NOT NULL,
+    "SourceType" character varying(80),
+    "SourceId" uuid,
+    "Resolved" boolean NOT NULL,
+    "Revision" integer NOT NULL,
+    CONSTRAINT "PK_fa_exchange_exceptions" PRIMARY KEY ("Id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_tally_profiles_scope_code" ON final_accounts.fa_tally_profiles ("CompanyId", "StoreGroupId", "StoreId", "ProfileCode");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_tally_profiles_scope_active" ON final_accounts.fa_tally_profiles ("CompanyId", "StoreGroupId", "StoreId", "IsActive");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_fa_exchange_runs_scope_number" ON final_accounts.fa_exchange_runs ("CompanyId", "StoreGroupId", "StoreId", "RunNumber");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_exchange_runs_scope_kind_created" ON final_accounts.fa_exchange_runs ("CompanyId", "StoreGroupId", "StoreId", "RunKind", "CreatedAt");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_exchange_runs_tally_profile" ON final_accounts.fa_exchange_runs ("TallyProfileId");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_exchange_exceptions_run_code" ON final_accounts.fa_exchange_exceptions ("ExchangeRunId", "Code");
+
+CREATE INDEX IF NOT EXISTS "IX_fa_exchange_exceptions_source_resolved" ON final_accounts.fa_exchange_exceptions ("SourceType", "SourceId", "Resolved");
+""", cancellationToken);
+
+    logger.LogInformation("Final Accounts storage repair check completed.");
+}
+
 public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
     {
         try
@@ -1629,6 +2695,7 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
             await RepairHrEmployeeMasterAndBenefitsAsync(db, logger, cancellationToken);
             await RepairAttendanceCoreStorageAsync(db, logger, cancellationToken);
             await RepairDigitalBillCrmStorageAsync(db, logger, cancellationToken);
+            await RepairFinalAccountsStorageAsync(db, logger, cancellationToken);
 
             await db.Database.ExecuteSqlRawAsync("""
                 CREATE TABLE IF NOT EXISTS "FinancialYearLocks" (
