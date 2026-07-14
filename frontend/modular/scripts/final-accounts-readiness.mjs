@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-12 readiness')
+console.log('Garmetix Final Accounts BS-13 readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -676,6 +676,89 @@ checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsExchangeRulesTe
   'ChecksumChangesWhenPayloadChanges'
 ])
 
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsSecurityRules.cs', [
+  'FinalAccountsSecurityRules',
+  'PermissionMatrix',
+  'DeniedDefaultRoleNames',
+  'Biller',
+  'POS',
+  'IsScopeAllowed',
+  'ScopedNotFoundMessage',
+  'AuditRequirements',
+  'Account mapping',
+  'Journal',
+  'Close/reopen',
+  'Export/package',
+  'ValidateAttachment',
+  'MaxAttachmentBytes'
+])
+
+checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsSecurityRulesTests.cs', [
+  'DefaultAccessRejectsBillerPosAndStoreRoles',
+  'PermissionMatrixKeepsFinalAccountsOwnerAdminOnlyByDefault',
+  'TenantScopeBlocksCrossCompanyStoreGroupAndStoreAccess',
+  'IdEnumerationMessagesDoNotLeakRequestedIdentifier',
+  'AuditCoverageIncludesMappingJournalCloseAndExport',
+  'AttachmentValidationAllowsEvidenceFilesAndBlocksExecutablePayloads'
+])
+
+checkFile('docs/final-accounts-security-audit.md', [
+  'Permission Matrix',
+  'Tenant Isolation',
+  'ID Enumeration',
+  'Audit Coverage',
+  'Attachment Validation',
+  'Biller/Cashier/POS/Sales'
+])
+
+checkFile('docs/final-accounts-accountant-guide.md', [
+  'Final Accounts Accountant Guide',
+  'Posted journals are immutable',
+  'Evidence To Keep'
+])
+
+checkFile('docs/final-accounts-ca-review-guide.md', [
+  'Final Accounts CA Review Guide',
+  'Review Flow',
+  'Report Versions'
+])
+
+checkFile('docs/final-accounts-developer-architecture.md', [
+  'Final Accounts Developer Architecture',
+  'FinalAccountsSecurityRules',
+  'feature-flagged'
+])
+
+checkFile('docs/final-accounts-posting-rule-guide.md', [
+  'Final Accounts Posting Rule Guide',
+  'idempotency key',
+  'Mapping Changes'
+])
+
+checkFile('docs/final-accounts-backfill-runbook.md', [
+  'Final Accounts Backfill Runbook',
+  'dry-run backfill',
+  'reversal-based'
+])
+
+checkFile('docs/final-accounts-reconciliation-runbook.md', [
+  'Final Accounts Reconciliation Runbook',
+  'Trial Balance',
+  'Cross-company rows'
+])
+
+checkFile('docs/final-accounts-closing-runbook.md', [
+  'Final Accounts Closing Runbook',
+  'period close preview',
+  'Reopen'
+])
+
+checkFile('docs/final-accounts-rollback-runbook.md', [
+  'Final Accounts Rollback Runbook',
+  'Disable `FINAL_ACCOUNTS`',
+  'Do not drop tables'
+])
+
 checkFile('docs/final-accounts-bs-04d-inventory-cogs.md', [
   'perpetual weighted-average',
   'No closing-stock journal',
@@ -1053,7 +1136,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-12 readiness passed.')
+console.log('\nFinal Accounts BS-13 readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)

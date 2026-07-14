@@ -1472,26 +1472,53 @@ Files added/changed:
 
 # BS-13 — Security, audit and documentation
 
-- [ ] Complete permission matrix.
-- [ ] No default access for biller/POS roles.
-- [ ] Tenant-isolation tests.
-- [ ] Cross-company access tests.
-- [ ] ID enumeration tests.
-- [ ] Audit event coverage.
-- [ ] Account mapping change audit.
-- [ ] Journal/reversal audit.
-- [ ] Close/reopen audit.
-- [ ] Export/package audit.
-- [ ] Attachment validation.
-- [ ] Accountant user guide.
-- [ ] CA review guide.
-- [ ] Developer architecture guide.
-- [ ] Posting-rule guide.
-- [ ] Backfill runbook.
-- [ ] Reconciliation runbook.
-- [ ] Closing runbook.
-- [ ] Rollback runbook.
-- [ ] Commit BS-13.
+- [x] Complete permission matrix.
+- [x] No default access for biller/POS roles.
+- [x] Tenant-isolation tests.
+- [x] Cross-company access tests.
+- [x] ID enumeration tests.
+- [x] Audit event coverage.
+- [x] Account mapping change audit.
+- [x] Journal/reversal audit.
+- [x] Close/reopen audit.
+- [x] Export/package audit.
+- [x] Attachment validation.
+- [x] Accountant user guide.
+- [x] CA review guide.
+- [x] Developer architecture guide.
+- [x] Posting-rule guide.
+- [x] Backfill runbook.
+- [x] Reconciliation runbook.
+- [x] Closing runbook.
+- [x] Rollback runbook.
+- [x] Commit BS-13.
+
+Evidence:
+
+```text
+Branch: balancesheet
+Security rules: backend/Garmetix.Api/FinalAccounts/FinalAccountsSecurityRules.cs
+Security tests: backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsSecurityRulesTests.cs
+Permission matrix: Owner/Admin default only; biller/POS/cashier/store roles denied by default.
+Tenant isolation: same-scope allowed, cross-company/store-group/store blocked.
+ID enumeration: scoped not-found wording does not echo requested identifiers.
+Audit coverage: account mapping, journal/reversal, CA adjustment, close/reopen, export/package.
+Attachment validation: PDF, PNG, JPEG, CSV, XLSX, DOCX only; 25 MB limit.
+Guides: accountant, CA review, developer architecture, posting-rule guide.
+Runbooks: backfill, reconciliation, closing, rollback.
+Readiness: frontend/modular/scripts/final-accounts-readiness.mjs updated to BS-13.
+Backend build: passed, 0 warnings, 0 errors.
+Backend tests: passed, 211 passed, 3 skipped, 214 total.
+Final Accounts readiness: passed.
+Frontend structure check: passed.
+Workspace links: passed.
+Final Accounts production build: passed.
+Full validate: existing Main Back Office contract parity failure in purchase/index.vue missing purchase/invoices/recent.
+Diff check: passed.
+Secret scan: no BS-13 secret markers found.
+Production deployment: not triggered.
+Production migration: not run.
+```
 
 ---
 
