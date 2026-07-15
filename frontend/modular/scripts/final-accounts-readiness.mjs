@@ -1083,6 +1083,15 @@ checkFile('docs/final-accounts-bs-21-restore-drill-production-safety.md', [
   'Rollback Decision Tree'
 ])
 
+checkFile('docs/final-accounts-office-codex-handoff.md', [
+  'Final Accounts Office Codex Handoff',
+  'd424b5f',
+  'deploy:srp:restore-drill',
+  'Capture Read-Only Evidence Endpoints',
+  'Hard Stop Rules',
+  'Copy/Paste Prompt For Office Codex'
+])
+
 checkFile('docs/database-stage-backup-protocol.md', [
   'deploy:srp:restore-drill',
   'BS21RestoreDrillProductionSafety',

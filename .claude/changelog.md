@@ -4,6 +4,16 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-07-15 - Office Codex Handoff Prepared
+
+**Type**: Handoff documentation for continuing on the SRP-capable office computer.
+
+**What happened**: Amit asked how to resume in another system Codex. Added `docs/final-accounts-office-codex-handoff.md` with pull/setup commands, SRP backup/deploy/evidence order, restore-drill command, hard-stop mutation rules and a copy/paste prompt for the office Codex task.
+
+**Validation**: `npm --prefix frontend\modular run final-accounts:readiness` passed.
+
+---
+
 ## 2026-07-15 - BS-21 Restore Drill And Production Safety
 
 **Type**: SRP backup restore-drill tooling, production-safety gate.

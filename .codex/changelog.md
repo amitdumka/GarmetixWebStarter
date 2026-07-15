@@ -1,5 +1,11 @@
 # Codex Changelog
 
+## 2026-07-15 - Office Codex Handoff Prepared
+
+Amit asked how to resume on another office computer. Added `docs/final-accounts-office-codex-handoff.md` with exact branch/pull commands, SRP deploy/backup/evidence sequence, BS-21 restore-drill command, hard-stop rules and a copy/paste prompt for the office Codex task.
+
+Validation: `npm --prefix frontend\modular run final-accounts:readiness` passed.
+
 ## 2026-07-15 - BS-21 Restore Drill And Production Safety
 
 Amit asked to go ahead with the next part. Added BS-21 restore-drill tooling so deployed SRP backups can be proven restore-ready in a non-production database before any production accounting migration.
