@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-19 readiness')
+console.log('Garmetix Final Accounts BS-20 readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -20,6 +20,7 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapGet("/audit/coa-normalization"',
   'MapGet("/audit/party-ledger-unification"',
   'MapGet("/audit/transaction-backfill-reconciliation"',
+  'MapGet("/audit/direct-ledger-integration"',
   'AddEndpointFilter<FinalAccountsEnabledFilter>',
   'MapGet("/dashboard"',
   'MapGet("/account-groups"',
@@ -568,6 +569,7 @@ checkFile('backend/Garmetix.Api/Program.cs', [
   'FinalAccountsCoaNormalizationService',
   'FinalAccountsPartyLedgerUnificationService',
   'FinalAccountsTransactionBackfillReconciliationService',
+  'FinalAccountsDirectLedgerIntegrationService',
   'SalesInvoiceAdapter',
   'SalesReturnAdapter',
   'SalesInvoiceCancellationAdapter',
@@ -877,6 +879,48 @@ checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsTransactionBack
   'ApprovalAndRollbackPlansRequireBackupAndTrialBalance'
 ])
 
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsDirectLedgerIntegrationService.cs', [
+  'FinalAccountsDirectLedgerIntegrationService',
+  'PreviewAsync',
+  'WritesData: false',
+  'JournalEntries',
+  'JournalLines',
+  'FinalAccountsCoaNormalizationRules.ClassifyLedgerGroup',
+  'GetTrialBalanceAsync',
+  'GetProfitLossAsync',
+  'GetBalanceSheetAsync',
+  'ExceptionMappingsRemain',
+  'SourceTypes'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsDirectLedgerIntegrationRules.cs', [
+  'FinalAccountsDirectLedgerIntegrationRules',
+  'BS20FinalAccountsLedgerIntegration',
+  'EvidenceEndpointPath',
+  'StatusForDifference',
+  'ClassificationStatus',
+  'StatementAmount',
+  'Smoke source postings'
+])
+
+checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsDirectLedgerIntegrationContracts.cs', [
+  'FinalAccountsDirectLedgerIntegrationResponse',
+  'FinalAccountsDirectLedgerTrialBalanceDto',
+  'FinalAccountsDirectLedgerStatementComparisonDto',
+  'FinalAccountsDirectLedgerGroupClassificationDto',
+  'FinalAccountsDirectLedgerSourceTypeDto',
+  'FinalAccountsDirectLedgerIssueDto'
+])
+
+checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsDirectLedgerIntegrationRulesTests.cs', [
+  'EvidenceEndpointIsReadOnlyAndStageNamed',
+  'StatusForDifferenceUsesAccountingTolerance',
+  'ClassificationStatusSeparatesAutoReviewAndManual',
+  'SuggestedActionMatchesClassificationRisk',
+  'StatementAmountRespectsNaturalStatementSide',
+  'PlansRequireBackupAndSourcePostingSmoke'
+])
+
 checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsQaRulesTests.cs', [
   'LargeLedgerPaginationIsBoundedForQaRuns',
   'BackfillBatchResumeCheckpointIsStableAcrossModuleOrder',
@@ -1002,6 +1046,15 @@ checkFile('docs/final-accounts-bs-19-transaction-backfill-reconciliation.md', [
   'WritesData = false',
   'Trial Balance difference must be zero',
   'No live mutation'
+])
+
+checkFile('docs/final-accounts-bs-20-direct-ledger-integration.md', [
+  'BS-20 - Final Accounts Direct Ledger Integration',
+  'BS20FinalAccountsLedgerIntegration',
+  'GET /api/final-accounts/audit/direct-ledger-integration',
+  'WritesData = false',
+  'canonical Books ledger',
+  'Do not switch Final Accounts report source'
 ])
 
 checkFile('docs/final-accounts-bs-04d-inventory-cogs.md', [
@@ -1381,7 +1434,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-19 readiness passed.')
+console.log('\nFinal Accounts BS-20 readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)

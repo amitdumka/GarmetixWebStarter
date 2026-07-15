@@ -137,6 +137,7 @@ builder.Services.AddScoped<FinalAccountsAccountingMasterAuditService>();
 builder.Services.AddScoped<FinalAccountsCoaNormalizationService>();
 builder.Services.AddScoped<FinalAccountsPartyLedgerUnificationService>();
 builder.Services.AddScoped<FinalAccountsTransactionBackfillReconciliationService>();
+builder.Services.AddScoped<FinalAccountsDirectLedgerIntegrationService>();
 builder.Services.AddScoped<IFinalAccountsPostingAdapter, SalesInvoiceAdapter>();
 builder.Services.AddScoped<IFinalAccountsPostingAdapter, SalesReturnAdapter>();
 builder.Services.AddScoped<IFinalAccountsPostingAdapter, SalesInvoiceCancellationAdapter>();

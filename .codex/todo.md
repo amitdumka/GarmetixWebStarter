@@ -43,9 +43,13 @@
   - [x] Keep live mutation blocked without approved evidence.
   - [ ] After this commit is pulled on SRP, run `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS19TransactionBackfillReconciliation`, deploy, then capture `GET /api/final-accounts/audit/transaction-backfill-reconciliation`.
 
-- [ ] **BS-20 - Final Accounts Direct Ledger Integration**
-  - [ ] Read canonical ledger data directly.
-  - [ ] Keep mapping only for exceptions.
+- [~] **BS-20 - Final Accounts Direct Ledger Integration**
+  - [~] Create database backup with stage `BS20FinalAccountsLedgerIntegration` on the deployed SRP host.
+  - [x] Add read-only direct-ledger evidence endpoint over canonical Books ledgers and journal lines.
+  - [x] Compare canonical Books ledger Trial Balance, Profit & Loss and Balance Sheet values against Final Accounts reports.
+  - [x] Report active Final Accounts mappings as exception-only review evidence.
+  - [x] Report source posting balance by `JournalEntry.SourceType`.
+  - [ ] After this commit is pulled on SRP, run `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS20FinalAccountsLedgerIntegration`, deploy, then capture `GET /api/final-accounts/audit/direct-ledger-integration`.
 
 - [ ] **BS-21 - Restore Drill And Production Safety**
   - [ ] Restore latest stage backup to a non-production database.

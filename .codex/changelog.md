@@ -1,5 +1,43 @@
 # Codex Changelog
 
+## 2026-07-15 - BS-20 Direct Ledger Integration Evidence
+
+Amit asked to go ahead with the next part. Added BS-20 as a read-only evidence endpoint for direct canonical Books ledger integration before any Final Accounts report-source switch.
+
+Files changed:
+
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsDirectLedgerIntegrationContracts.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsDirectLedgerIntegrationRules.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsDirectLedgerIntegrationService.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs`
+- `backend/Garmetix.Api/Program.cs`
+- `backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsDirectLedgerIntegrationRulesTests.cs`
+- `docs/final-accounts-bs-20-direct-ledger-integration.md`
+- `frontend/modular/scripts/final-accounts-readiness.mjs`
+- `todo-balancesheet.md`, `.codex/todo.md`, `.claude/todo.md`
+
+What changed:
+
+- Added `GET /api/final-accounts/audit/direct-ledger-integration`.
+- Registered `FinalAccountsDirectLedgerIntegrationService`.
+- Reads canonical Books `LedgerGroups`, `Ledgers`, `JournalEntries` and `JournalLines`.
+- Classifies Books ledger groups through the BS-17 Indian/Tally-style COA rules.
+- Produces direct Books Trial Balance rows, P&L metrics, Balance Sheet metrics and statement comparisons against existing Final Accounts reports.
+- Reports Books posting evidence by `JournalEntry.SourceType` so source modules can be checked for balanced journal output.
+- Reports active Final Accounts mapping rows as exception-only review evidence.
+- Keeps BS-20 explicitly no-mutation: no account/mapping writes, sync jobs, posting links, journal posting, schema repair, ledger relink, backfill, deploy or service restart from this workstation.
+- Documents the required deployed-host backup command:
+  `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS20FinalAccountsLedgerIntegration`.
+
+Remote status: backup file/history row and live evidence output are pending on the deployed SRP host.
+
+Validation:
+
+- `dotnet build backend\Garmetix.Api\Garmetix.Api.csproj -c Release -p:UseSharedCompilation=false` passed.
+- `dotnet test backend\Garmetix.Api.Tests\Garmetix.Api.Tests.csproj -c Release -p:UseSharedCompilation=false` passed: 281 passed, 3 pre-existing Postgres-only skipped, 0 failed.
+- `npm --prefix frontend\modular run check` passed.
+- `npm --prefix frontend\modular run final-accounts:readiness` passed for BS-20.
+
 ## 2026-07-15 - BS-19 Transaction Backfill Reconciliation Evidence
 
 Amit asked to go ahead with the next part. Added BS-19 as a read-only evidence endpoint that combines existing dry-run backfill, source reconciliation and statement report controls before any live posting/backfill.

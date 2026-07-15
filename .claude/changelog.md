@@ -4,6 +4,31 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-07-15 - BS-20 Direct Ledger Integration Evidence
+
+**Type**: Final Accounts accounting-unification evidence endpoint, read-only/no DB mutation.
+
+**What happened**: Amit asked to go ahead with the next part. Added a BS-20 evidence endpoint that reads canonical Books ledger data directly and compares it with existing Final Accounts statements before any report-source switch.
+
+**Files updated**:
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsDirectLedgerIntegrationContracts.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsDirectLedgerIntegrationRules.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsDirectLedgerIntegrationService.cs`
+- `backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs`
+- `backend/Garmetix.Api/Program.cs`
+- `backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsDirectLedgerIntegrationRulesTests.cs`
+- `docs/final-accounts-bs-20-direct-ledger-integration.md`
+- `frontend/modular/scripts/final-accounts-readiness.mjs`
+- `todo-balancesheet.md`, `.codex/todo.md`, `.claude/todo.md`
+
+**Implementation notes**: New endpoint is `GET /api/final-accounts/audit/direct-ledger-integration`. It reads Books `LedgerGroups`, `Ledgers`, `JournalEntries` and `JournalLines`, classifies groups with the BS-17 COA rules, compares direct Books ledger Trial Balance/P&L/Balance Sheet values against existing Final Accounts reports, reports source posting balance by `JournalEntry.SourceType`, and treats active Final Accounts mappings as exception-only review evidence. It does not switch report sources.
+
+**Validation**: `dotnet build backend\Garmetix.Api\Garmetix.Api.csproj -c Release -p:UseSharedCompilation=false` passed. `dotnet test backend\Garmetix.Api.Tests\Garmetix.Api.Tests.csproj -c Release -p:UseSharedCompilation=false` passed: 281 passed, 3 pre-existing Postgres-only skipped, 0 failed. `npm --prefix frontend\modular run check` and `npm --prefix frontend\modular run final-accounts:readiness` passed.
+
+**Remote handoff**: before SRP deploy or live evidence capture, run `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS20FinalAccountsLedgerIntegration` on the deployed host, then deploy/pull and capture the endpoint output. Do not switch Final Accounts report source until Amit/CA approval exists.
+
+---
+
 ## 2026-07-15 - BS-19 Transaction Backfill Reconciliation Evidence
 
 **Type**: Final Accounts accounting-unification evidence endpoint, read-only/no DB mutation.

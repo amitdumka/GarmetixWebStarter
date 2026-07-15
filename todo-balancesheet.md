@@ -1793,12 +1793,35 @@ Decision: BS-19 produces a read-only dry-run/reconciliation evidence pack only. 
 
 # BS-20 — Final Accounts direct ledger integration
 
-- [ ] Create database backup with stage name `BS20FinalAccountsLedgerIntegration`.
-- [ ] Read canonical Books ledger data directly.
-- [ ] Keep mapping only for exceptions/import gaps.
-- [ ] Remove duplicate daily setup requirement from Final Accounts.
-- [ ] Validate statements against canonical ledger balances.
-- [ ] Confirm existing modules still post correctly.
+- [~] Create database backup with stage name `BS20FinalAccountsLedgerIntegration`.
+- [x] Read canonical Books ledger data directly.
+- [x] Keep mapping only for exceptions/import gaps.
+- [x] Remove duplicate daily setup requirement from Final Accounts.
+- [x] Validate statements against canonical ledger balances.
+- [x] Confirm existing modules still post correctly.
+
+Evidence:
+
+```text
+Date: 2026-07-15
+Agent: Codex GPT-5
+Branch: version6
+Stage: BS20FinalAccountsLedgerIntegration
+Backup: pending on deployed SRP host. Required command:
+  npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS20FinalAccountsLedgerIntegration
+Endpoint added:
+  GET /api/final-accounts/audit/direct-ledger-integration
+Implementation:
+- Read-only direct-ledger evidence endpoint added outside the enabled-module guard, matching BS-16 through BS-19 audit pattern.
+- Endpoint reads canonical Books LedgerGroups, Ledgers, JournalEntries and JournalLines.
+- Ledger groups are classified using the BS-17 Indian/Tally-style COA rules.
+- Response compares direct Books ledger Trial Balance/P&L/Balance Sheet values against existing Final Accounts reports.
+- Response groups Books journal evidence by JournalEntry.SourceType to confirm source modules post balanced Books journals.
+- Active Final Accounts mappings are reported as exception-mapping evidence; they are not mutated.
+Mutation status: none; no account creation, mapping creation/update, sync job creation, posting link creation, journal posting, schema repair, ledger relink, backfill, deploy or service restart in local implementation.
+Known risks: live direct-ledger evidence is not captured until the remote host pulls, backs up and runs the endpoint for the approved financial year.
+Decision: BS-20 proves direct-ledger integration readiness only. Do not switch Final Accounts report sources until backup, endpoint evidence and Amit/CA approval are complete.
+```
 
 ---
 
