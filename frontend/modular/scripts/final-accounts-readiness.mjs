@@ -7,7 +7,7 @@ const repoRoot = resolve(modularRoot, '../..')
 const checks = []
 const failures = []
 
-console.log('Garmetix Final Accounts BS-20 readiness')
+console.log('Garmetix Final Accounts BS-21 readiness')
 
 checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsEndpoints.cs', [
   'MapFinalAccountsEndpoints',
@@ -912,6 +912,23 @@ checkFile('backend/Garmetix.Api/FinalAccounts/FinalAccountsDirectLedgerIntegrati
   'FinalAccountsDirectLedgerIssueDto'
 ])
 
+checkFile('frontend/modular/deploy/srp-restore-drill.sh', [
+  'Garmetix SRP database restore drill',
+  '--confirm-non-production-restore',
+  'garmetix_restore_drill_',
+  'Backupfilehistory.md',
+  'RestoreDrillHistory.md',
+  'sha256sum -c',
+  'pg_restore -l',
+  '/api/health',
+  'Refusing to restore into the live database name'
+])
+
+checkFile('frontend/modular/package.json', [
+  'deploy:srp:restore-drill',
+  'deploy/srp-restore-drill.sh'
+])
+
 checkFile('backend/Garmetix.Api.Tests/FinalAccounts/FinalAccountsDirectLedgerIntegrationRulesTests.cs', [
   'EvidenceEndpointIsReadOnlyAndStageNamed',
   'StatusForDifferenceUsesAccountingTolerance',
@@ -1055,6 +1072,21 @@ checkFile('docs/final-accounts-bs-20-direct-ledger-integration.md', [
   'WritesData = false',
   'canonical Books ledger',
   'Do not switch Final Accounts report source'
+])
+
+checkFile('docs/final-accounts-bs-21-restore-drill-production-safety.md', [
+  'BS-21 - Restore Drill And Production Safety',
+  'BS21RestoreDrillProductionSafety',
+  'deploy:srp:restore-drill',
+  '--confirm-non-production-restore',
+  'RestoreDrillHistory.md',
+  'Rollback Decision Tree'
+])
+
+checkFile('docs/database-stage-backup-protocol.md', [
+  'deploy:srp:restore-drill',
+  'BS21RestoreDrillProductionSafety',
+  'RestoreDrillHistory.md'
 ])
 
 checkFile('docs/final-accounts-bs-04d-inventory-cogs.md', [
@@ -1434,7 +1466,7 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('\nFinal Accounts BS-20 readiness passed.')
+console.log('\nFinal Accounts BS-21 readiness passed.')
 
 function checkFile(relativePath, markers) {
   const absolutePath = resolve(repoRoot, relativePath)

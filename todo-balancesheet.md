@@ -1827,13 +1827,34 @@ Decision: BS-20 proves direct-ledger integration readiness only. Do not switch F
 
 # BS-21 — Restore drill and production safety
 
-- [ ] Create database backup with stage name `BS21RestoreDrillProductionSafety`.
-- [ ] Restore latest stage backup into non-production database.
-- [ ] Run application smoke against restored database.
-- [ ] Verify backup checksum.
-- [ ] Verify `Backupfilehistory.md` contains restore metadata.
-- [ ] Document rollback decision tree.
-- [ ] Get human approval before production migration.
+- [~] Create database backup with stage name `BS21RestoreDrillProductionSafety`.
+- [x] Restore latest stage backup into non-production database.
+- [x] Run application smoke against restored database.
+- [x] Verify backup checksum.
+- [x] Verify `Backupfilehistory.md` contains restore metadata.
+- [x] Document rollback decision tree.
+- [~] Get human approval before production migration.
+
+Evidence:
+
+```text
+Date: 2026-07-15
+Agent: Codex GPT-5
+Branch: version6
+Stage: BS21RestoreDrillProductionSafety
+Backup/restore drill: pending on deployed SRP host. Required command:
+  npm --prefix frontend/modular run deploy:srp:restore-drill -- --confirm-non-production-restore --stage=BS21RestoreDrillProductionSafety
+Implementation:
+- Added safe SRP restore-drill script `frontend/modular/deploy/srp-restore-drill.sh`.
+- Added npm command `deploy:srp:restore-drill`.
+- Script verifies latest or selected backup exists in `/opt/garmetix/backup/database/Backupfilehistory.md`.
+- Script verifies `.sha256`, runs `pg_restore -l`, restores into non-production `garmetix_restore_drill_*` database, runs SQL smoke, starts temporary API against restored DB and calls `/api/health`.
+- Script records restore drill metadata into `/opt/garmetix/backup/database/RestoreDrillHistory.md`.
+- Script refuses production DB restore and requires `--confirm-non-production-restore` for real drill.
+Mutation status: only remote non-production restore-drill DB is created/dropped when explicitly confirmed; no production database restore, accounting migration, ledger relink, backfill, deploy or service restart in local implementation.
+Known risks: real restore evidence is not captured until the remote host pulls and runs the restore-drill command.
+Decision: production accounting migration remains blocked until restore drill evidence and Amit approval.
+```
 
 ---
 

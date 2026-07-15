@@ -1,5 +1,40 @@
 # Codex Changelog
 
+## 2026-07-15 - BS-21 Restore Drill And Production Safety
+
+Amit asked to go ahead with the next part. Added BS-21 restore-drill tooling so deployed SRP backups can be proven restore-ready in a non-production database before any production accounting migration.
+
+Files changed:
+
+- `frontend/modular/deploy/srp-restore-drill.sh`
+- `frontend/modular/package.json`
+- `docs/final-accounts-bs-21-restore-drill-production-safety.md`
+- `docs/database-stage-backup-protocol.md`
+- `frontend/modular/scripts/final-accounts-readiness.mjs`
+- `todo-balancesheet.md`, `.codex/todo.md`, `.claude/todo.md`
+
+What changed:
+
+- Added `npm --prefix frontend/modular run deploy:srp:restore-drill`.
+- Restore drill requires `--confirm-non-production-restore` for any real restore.
+- Script uses the same SRP deploy config/secrets pattern as backup/deploy scripts.
+- Script selects the latest backup or a supplied `--backup-file`, verifies `Backupfilehistory.md`, verifies `.sha256`, and runs `pg_restore -l`.
+- Script restores only into a non-production `garmetix_restore_drill_*` database unless an explicit custom-name override is supplied.
+- Script refuses the production database name.
+- Script runs SQL smoke and a temporary API `/api/health` smoke against the restored database.
+- Script records `/opt/garmetix/backup/database/RestoreDrillHistory.md`.
+- Production restore, accounting migration, ledger relink, live backfill and report-source switch remain blocked until Amit approves restore evidence.
+
+Remote status: real restore-drill history row is pending on the deployed SRP host.
+
+Validation:
+
+- `npm --prefix frontend\modular run deploy:srp:restore-drill -- --dry-run` passed.
+- `bash -n frontend/modular/deploy/srp-restore-drill.sh` passed.
+- `dotnet test backend\Garmetix.Api.Tests\Garmetix.Api.Tests.csproj -c Release -p:UseSharedCompilation=false` passed: 281 passed, 3 pre-existing Postgres-only skipped, 0 failed.
+- `npm --prefix frontend\modular run check` passed.
+- `npm --prefix frontend\modular run final-accounts:readiness` passed for BS-21.
+
 ## 2026-07-15 - BS-20 Direct Ledger Integration Evidence
 
 Amit asked to go ahead with the next part. Added BS-20 as a read-only evidence endpoint for direct canonical Books ledger integration before any Final Accounts report-source switch.

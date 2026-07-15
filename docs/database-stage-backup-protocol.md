@@ -58,6 +58,12 @@ List latest backups and history:
 npm --prefix frontend/modular run deploy:srp:backup:list
 ```
 
+Run a non-production restore drill:
+
+```bash
+npm --prefix frontend/modular run deploy:srp:restore-drill -- --confirm-non-production-restore --stage=BS21RestoreDrillProductionSafety
+```
+
 Deploy with automatic pre-deploy backup:
 
 ```bash
@@ -81,6 +87,8 @@ The deploy script refuses a real upload/install if no stage name is supplied. `-
 ## Restore Guidance
 
 Always restore into a separate database first unless Amit explicitly approves replacing the live database.
+
+For normal restore proof, use the scripted non-production drill first. It verifies the checksum, reads the dump catalog, restores into a `garmetix_restore_drill_*` database, runs SQL smoke, starts the API temporarily against the restored database and records `/opt/garmetix/backup/database/RestoreDrillHistory.md`.
 
 Template:
 

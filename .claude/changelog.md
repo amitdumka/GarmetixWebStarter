@@ -4,6 +4,28 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-07-15 - BS-21 Restore Drill And Production Safety
+
+**Type**: SRP backup restore-drill tooling, production-safety gate.
+
+**What happened**: Amit asked to go ahead with the next part. Added a safe restore-drill command so SRP backups can be restored into a non-production database and smoked before any production accounting migration.
+
+**Files updated**:
+- `frontend/modular/deploy/srp-restore-drill.sh`
+- `frontend/modular/package.json`
+- `docs/final-accounts-bs-21-restore-drill-production-safety.md`
+- `docs/database-stage-backup-protocol.md`
+- `frontend/modular/scripts/final-accounts-readiness.mjs`
+- `todo-balancesheet.md`, `.codex/todo.md`, `.claude/todo.md`
+
+**Implementation notes**: New command is `npm --prefix frontend/modular run deploy:srp:restore-drill`. It requires `--confirm-non-production-restore`, verifies backup history/checksum/`pg_restore -l`, restores into `garmetix_restore_drill_*`, runs SQL smoke and temporary API `/api/health`, writes `RestoreDrillHistory.md`, and refuses the production database name.
+
+**Validation**: `npm --prefix frontend\modular run deploy:srp:restore-drill -- --dry-run` passed. `bash -n frontend/modular/deploy/srp-restore-drill.sh` passed. `dotnet test backend\Garmetix.Api.Tests\Garmetix.Api.Tests.csproj -c Release -p:UseSharedCompilation=false` passed: 281 passed, 3 pre-existing Postgres-only skipped, 0 failed. `npm --prefix frontend\modular run check` and `npm --prefix frontend\modular run final-accounts:readiness` passed.
+
+**Remote handoff**: after SRP pulls this commit, run `npm --prefix frontend/modular run deploy:srp:restore-drill -- --confirm-non-production-restore --stage=BS21RestoreDrillProductionSafety` and capture `/opt/garmetix/backup/database/RestoreDrillHistory.md`. Do not run production restore/migration/backfill until Amit approves the evidence.
+
+---
+
 ## 2026-07-15 - BS-20 Direct Ledger Integration Evidence
 
 **Type**: Final Accounts accounting-unification evidence endpoint, read-only/no DB mutation.

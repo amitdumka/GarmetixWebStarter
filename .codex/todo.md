@@ -51,6 +51,11 @@
   - [x] Report source posting balance by `JournalEntry.SourceType`.
   - [ ] After this commit is pulled on SRP, run `npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS20FinalAccountsLedgerIntegration`, deploy, then capture `GET /api/final-accounts/audit/direct-ledger-integration`.
 
-- [ ] **BS-21 - Restore Drill And Production Safety**
-  - [ ] Restore latest stage backup to a non-production database.
-  - [ ] Confirm backup history can identify a safe rollback point.
+- [~] **BS-21 - Restore Drill And Production Safety**
+  - [~] Create/verify backup stage `BS21RestoreDrillProductionSafety` on the deployed SRP host.
+  - [x] Add safe non-production restore-drill script and npm command.
+  - [x] Verify backup checksum and `Backupfilehistory.md` reference before restore.
+  - [x] Restore into a `garmetix_restore_drill_*` database only after explicit confirmation.
+  - [x] Run SQL smoke and temporary API `/api/health` smoke against the restored database.
+  - [x] Record restore metadata into `RestoreDrillHistory.md`.
+  - [ ] After this commit is pulled on SRP, run `npm --prefix frontend/modular run deploy:srp:restore-drill -- --confirm-non-production-restore --stage=BS21RestoreDrillProductionSafety` and capture the history row.

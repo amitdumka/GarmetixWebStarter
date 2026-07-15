@@ -88,6 +88,7 @@
     "deploy:srp:acceptance": "node scripts/srp-public-acceptance.mjs",
     "deploy:srp:backup": "node scripts/run-bash-script.mjs deploy/srp-backup-database.sh",
     "deploy:srp:backup:list": "node scripts/run-bash-script.mjs deploy/srp-backup-database.sh --list",
+    "deploy:srp:restore-drill": "node scripts/run-bash-script.mjs deploy/srp-restore-drill.sh",
     "pos:parity-baseline": "node scripts/pos-parity-baseline.mjs",
     "pos:live-sale-acceptance": "node scripts/pos-live-sale-acceptance.mjs",
     "pos:live-return-exchange-acceptance": "node scripts/pos-live-return-exchange-acceptance.mjs",
