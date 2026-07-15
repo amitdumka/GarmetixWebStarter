@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "4.12.69";
-    public const string Stage = "Stage 11D-154 Stock Operation Product Autocomplete";
-    public const string ReleaseName = "Stage 11D-154: Stock Operation Product Autocomplete";
-    public const string BuildDate = "2026-07-03";
-    public const string BuildCode = "GARMETIX-11D154-20260703-4269";
+    public const string Version = "6.9.4";
+    public const string Stage = "Final Accounts report fix, part 3 - materialize then LINQ-to-objects";
+    public const string ReleaseName = "Version6: Final Accounts reports fixed for real (client-side aggregation)";
+    public const string BuildDate = "2026-07-15";
+    public const string BuildCode = "GARMETIX-V6-20260715-694";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,8 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Version6 6.9.4 aligns backend app-info with the modular frontend release identity and the Final Accounts report fix deployed on version6.",
+        "Final Accounts report queries now materialize after database-safe filters and run downstream grouping, ordering and DTO projection in LINQ-to-Objects to avoid EF Core compound-projection translation failures.",
         "Stage 11D-154 replaces Stock Operations product dropdowns with searchable autocomplete pickers across Adjustment, Transfer, Physical Count and Write-off tabs, including barcode/store/stock/MRP selection hints.",
         "Stage 11D-153 fixes the Financial Year Closeout metric DTO constructor mismatch, removes invalid StoreGroupId access from sale invoice closeout scope, and computes production go-live purchase paid evidence from PurchasePayment rows instead of a missing PurchaseInvoice.Paid field.",
         "Stage 11D-150 adds Production Host Build QA plus Purchase Return Advanced Settlement acceptance with formal supplier return, exact ITC reversal, debit-note settlement, refund bank proof and accounting audit evidence.",

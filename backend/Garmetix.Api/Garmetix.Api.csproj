@@ -4,10 +4,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);AD0001</NoWarn>
-    <Version>4.12.69</Version>
-    <AssemblyVersion>4.12.69.0</AssemblyVersion>
-    <FileVersion>4.12.69.0</FileVersion>
-    <InformationalVersion>4.12.69-stage11d154-stock-operation-product-autocomplete</InformationalVersion>
+    <Version>6.9.4</Version>
+    <AssemblyVersion>6.9.4.0</AssemblyVersion>
+    <FileVersion>6.9.4.0</FileVersion>
+    <InformationalVersion>6.9.4-version6-final-accounts-report-fix-part-3</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
