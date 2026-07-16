@@ -17,4 +17,12 @@ public static class GarmetixPolicies
     public const string Attendance = "Attendance";
     public const string Marketing = "Marketing";
     public const string Gst = "Gst";
+
+    /// <summary>
+    /// Owner userType only - strictly, with no SuperAdmin/Admin fallback. Registered as a
+    /// standalone RequireAssertion policy in Program.cs (bypassing AddMatrixPolicy/CanAccessPolicy,
+    /// which treats SuperAdmin/Admin/Owner as equivalent), same pattern as GarmetixPolicies.SuperAdmin.
+    /// Gates the fully isolated Swalekha personal-finance module.
+    /// </summary>
+    public const string SwalekhaOwner = "SwalekhaOwner";
 }

@@ -72,6 +72,7 @@
     "build:admin": "npm --workspace @garmetix/admin-web run build",
     "build:inventory": "npm --workspace @garmetix/inventory-web run build",
     "build:final-accounts": "npm --workspace @garmetix/final-accounts-web run build",
+    "build:swalekha": "npm --workspace @garmetix/swalekha-web run build",
     "crm:final-closure": "node scripts/crm-final-closure.mjs",
     "deploy:main": "bash deploy/main-static-deploy.sh",
     "deploy:pos": "bash deploy/pos-static-deploy.sh",

@@ -1,5 +1,15 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-17 - Swalekha PersonalFin_01 (Foundation) shipped on branch `swalekha`
+
+Amit approved the Swalekha design (see the entry below) and then said to create a branch named after the app and keep pushing to it stage by stage. Branch `swalekha` (from `version6`) now has the first real build stage. Version `6.9.5`. No deploy executed.
+
+- Backend: a genuinely separate `swalekha_db` database + `SwalekhaDbContext` (own connection string, registered directly in `Program.cs`, zero domain tables yet), a new `GarmetixPolicies.SwalekhaOwner` policy (standalone `RequireAssertion` bypassing the shared Admin/Owner-permissive matrix, same pattern as the Stage 14Q.5 SuperAdmin-only fix, asserting `AccessPermissionMatrix.IsOwner` alone - widened from `private` to `public`), and `GET /api/swalekha/health`.
+- Frontend: a new isolated `frontend/modular/apps/swalekha` Nuxt app (port 3109, `/swalekha` path) with its own minimal top bar - deliberately not the shared `ModularAppShell.vue` switcher - and its own Owner-only login/access-denied/dashboard pages. Not registered in `apps.ts`/`routes.ts`/any other app's `appUrls`, so it cannot appear in the app switcher. The one deliberate exception: a single Owner-role-conditional link added to the existing profile dropdown (`ModularAppShell.vue`), wired via a new one-off `swalekhaUrl` config key on the 9 business apps - separate from the `appUrls` object the switcher itself reads.
+- Deploy wiring (build_app, Nginx location, `--apps=` list, runtime-config patching) added to `srp-whole-site-deploy.sh` but not run. `docs/database-stage-backup-protocol.md` flags that `swalekha_db` isn't covered by the existing backup command yet - required before any stage writes real data.
+- Validated: `dotnet build` (0 errors), full backend test suite (281 passed, 0 regressions), clean `swalekha-web` and `books-web` production builds, `validate-structure.mjs`. Committed and pushed to `origin/swalekha`; `version6` untouched.
+- Next: `PersonalFin_02` (Accounts Hub Core), continuing stage-by-stage on this branch per Amit's instruction.
+
 ## 2026-07-17 - Swalekha (Personal & Personal Finance) module: design approved, no code yet
 
 Amit asked for a brand-new, completely isolated "Personal & Personal Finance" module - usable only by the Owner login, not part of the existing app-switcher/sidebar, with a separate PostgreSQL database run by the same shared API process on the same domain/login. Pulled latest `origin/version6` first (fast-forward, no local changes lost). This was explicitly a design-first pass (Amit: "start designing then will you write code after approval") - ran it through plan mode, confirmed three decisions via `AskUserQuestion`, then wrote the design and got explicit approval via `ExitPlanMode` before touching anything else. **No application code, migrations, DbContext, backend policy, or frontend app scaffolding exists yet** - only documentation from this pass.

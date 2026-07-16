@@ -36,6 +36,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "frontend/modular", "--workspace", "@garmetix/main-web", "run", "dev"],
       "port": 3100
+    },
+    {
+      "name": "swalekha-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend/modular", "--workspace", "@garmetix/swalekha-web", "run", "dev"],
+      "port": 3109
     }
   ]
 }

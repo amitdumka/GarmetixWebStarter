@@ -84,6 +84,12 @@ The deploy script refuses a real upload/install if no stage name is supplied. `-
 - Creates or appends `Backupfilehistory.md`.
 - Prints a restore-check hint.
 
+## Swalekha (`swalekha_db`) - a second database, not yet covered by the standard command
+
+The Swalekha (Personal & Personal Finance) module (`docs/personal-finance-module-design.md`) deliberately runs on its own separate PostgreSQL database, `swalekha_db`, alongside the main `garmetix` database on the same host. As of `PersonalFin_01` (Foundation), `swalekha_db` holds no domain data yet (its `SwalekhaDbContext` has zero tables) - `frontend/modular/deploy/srp-backup-database.sh` and the `deploy:srp:backup` command above **still only back up the main `garmetix` database**, not `swalekha_db`.
+
+**Before any `PersonalFin_NN` stage (from `PersonalFin_02` onward) that adds real Swalekha tables or writes real data, the backup tooling must be extended to also dump `swalekha_db`** (its own `pg_dump -Fc`, its own checksum, its own `Backupfilehistory.md` row - reusing the same file/naming convention above, just naming the database explicitly, e.g. `swalekha-srp-db-<timestamp>-<Stage>-v<version>.dump`) before that stage's mutation runs. Do not assume the existing single-database backup command covers Swalekha - it does not, until this extension is built.
+
 ## Restore Guidance
 
 Always restore into a separate database first unless Amit explicitly approves replacing the live database.

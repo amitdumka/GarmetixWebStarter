@@ -156,7 +156,7 @@ public static class AccessPermissionMatrix
         return Profiles.FirstOrDefault(profile => string.Equals(profile.Role, role, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static bool IsOwner(ClaimsPrincipal user)
+    public static bool IsOwner(ClaimsPrincipal user)
         => string.Equals(
             user.FindFirstValue("userType"),
             UserType.Owner.ToString(),

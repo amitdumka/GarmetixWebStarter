@@ -31,7 +31,7 @@ Flags:
   --skip-api           Do not publish/copy the backend API into the release.
   --skip-db-backup     Emergency/manual override only. Skips the automatic SRP database
                       backup that normally runs before upload/install.
-  --apps=a,b,c         Only rebuild these Nuxt apps (main,pos,hr,ai-sense,books,crm,admin,inventory,final-accounts);
+  --apps=a,b,c         Only rebuild these Nuxt apps (main,pos,hr,ai-sense,books,crm,admin,inventory,final-accounts,swalekha);
                         every other app reuses its existing local .output/public as-is.
                         Fails loudly if an excluded app has no valid existing build.
   --build-only         Build the release locally, skip upload.
@@ -195,6 +195,11 @@ SRP_CRM_BASE_PATH="${SRP_CRM_BASE_PATH:-/crm/}"
 SRP_ADMIN_BASE_PATH="${SRP_ADMIN_BASE_PATH:-/admin/}"
 SRP_INVENTORY_BASE_PATH="${SRP_INVENTORY_BASE_PATH:-/inventory/}"
 SRP_FINAL_ACCOUNTS_BASE_PATH="${SRP_FINAL_ACCOUNTS_BASE_PATH:-/final-accounts/}"
+# Swalekha (Personal & Personal Finance) is a fully isolated, Owner-only module. It still shares
+# this same domain/deploy pipeline (per Amit's explicit ask), but is deliberately never added to
+# any other app's appUrls/switcher registry above - see patch_static_runtime_config below for the
+# one small exception (a single flat swalekhaUrl value for the one profile-menu link).
+SRP_SWALEKHA_BASE_PATH="${SRP_SWALEKHA_BASE_PATH:-/swalekha/}"
 if [ "$SRP_PATH_BASED_URLS" = true ]; then
   SRP_PUBLIC_API_BASE_URL="/api"
   SRP_MAIN_URL="$SRP_MAIN_BASE_PATH"
@@ -206,6 +211,7 @@ if [ "$SRP_PATH_BASED_URLS" = true ]; then
   SRP_ADMIN_URL="$SRP_ADMIN_BASE_PATH"
   SRP_INVENTORY_URL="$SRP_INVENTORY_BASE_PATH"
   SRP_FINAL_ACCOUNTS_URL="$SRP_FINAL_ACCOUNTS_BASE_PATH"
+  SRP_SWALEKHA_URL="$SRP_SWALEKHA_BASE_PATH"
 else
   SRP_PUBLIC_API_BASE_URL="${SRP_PUBLIC_API_BASE_URL:-https://$SRP_DOMAIN/api}"
   SRP_MAIN_URL="${SRP_MAIN_URL:-https://$SRP_DOMAIN}"
@@ -217,6 +223,7 @@ else
   SRP_ADMIN_URL="${SRP_ADMIN_URL:-https://$SRP_DOMAIN/admin}"
   SRP_INVENTORY_URL="${SRP_INVENTORY_URL:-https://$SRP_DOMAIN/inventory}"
   SRP_FINAL_ACCOUNTS_URL="${SRP_FINAL_ACCOUNTS_URL:-https://$SRP_DOMAIN/final-accounts}"
+  SRP_SWALEKHA_URL="${SRP_SWALEKHA_URL:-https://$SRP_DOMAIN/swalekha}"
 fi
 SRP_API_PROJECT="${SRP_API_PROJECT:-backend/Garmetix.Api/Garmetix.Api.csproj}"
 if [ ! -f "$REPO_ROOT/$SRP_API_PROJECT" ] && [[ "$SRP_API_PROJECT" == legacy/backend/* ]]; then
@@ -426,6 +433,10 @@ patch_static_runtime_config() {
     perl -0pi -e "s#NUXT_PUBLIC_GARMETIX_ADMIN_URL:\"[^\"]*\"#NUXT_PUBLIC_GARMETIX_ADMIN_URL:\"$SRP_ADMIN_URL\"#g" "$file"
     perl -0pi -e "s#NUXT_PUBLIC_GARMETIX_INVENTORY_URL:\"[^\"]*\"#NUXT_PUBLIC_GARMETIX_INVENTORY_URL:\"$SRP_INVENTORY_URL\"#g" "$file"
     perl -0pi -e "s#NUXT_PUBLIC_GARMETIX_FINAL_ACCOUNTS_URL:\"[^\"]*\"#NUXT_PUBLIC_GARMETIX_FINAL_ACCOUNTS_URL:\"$SRP_FINAL_ACCOUNTS_URL\"#g" "$file"
+    # Swalekha is deliberately NOT part of the appUrls object patched above (that object drives
+    # the app switcher). This is the one small, separate exception: a flat top-level runtime
+    # config value used only for the single Owner-only profile-menu link.
+    perl -0pi -e "s#swalekhaUrl:\"[^\"]*\"#swalekhaUrl:\"$SRP_SWALEKHA_URL\"#g" "$file"
   done
 }
 
@@ -470,6 +481,7 @@ build_app() {
         NUXT_PUBLIC_GARMETIX_ADMIN_URL="$SRP_ADMIN_URL" \
         NUXT_PUBLIC_GARMETIX_INVENTORY_URL="$SRP_INVENTORY_URL" \
         NUXT_PUBLIC_GARMETIX_FINAL_ACCOUNTS_URL="$SRP_FINAL_ACCOUNTS_URL" \
+        NUXT_PUBLIC_SWALEKHA_URL="$SRP_SWALEKHA_URL" \
         NUXT_PUBLIC_GARMETIX_ASSISTANT_ENABLED="$SRP_ASSISTANT_ENABLED" \
         "$NPM_COMMAND" run "build:$app_name"
       ); then
@@ -526,7 +538,7 @@ server {
         proxy_read_timeout 300s;
     }
 
-    rewrite ^/(pos|hr|ai-sense|books|crm|admin|inventory|final-accounts)/(.+)/$ /\$1/\$2 permanent;
+    rewrite ^/(pos|hr|ai-sense|books|crm|admin|inventory|final-accounts|swalekha)/(.+)/$ /\$1/\$2 permanent;
 
     location /pos/ {
         try_files \$uri \$uri/index.html \$uri/ /pos/index.html;
@@ -558,6 +570,10 @@ server {
 
     location /final-accounts/ {
         try_files \$uri \$uri/index.html \$uri/ /final-accounts/index.html;
+    }
+
+    location /swalekha/ {
+        try_files \$uri \$uri/index.html \$uri/ /swalekha/index.html;
     }
 
     location / {
@@ -797,6 +813,7 @@ build_app crm "$SRP_CRM_BASE_PATH" "$WEB_ROOT/crm"
 build_app admin "$SRP_ADMIN_BASE_PATH" "$WEB_ROOT/admin"
 build_app inventory "$SRP_INVENTORY_BASE_PATH" "$WEB_ROOT/inventory"
 build_app final-accounts "$SRP_FINAL_ACCOUNTS_BASE_PATH" "$WEB_ROOT/final-accounts"
+build_app swalekha "$SRP_SWALEKHA_BASE_PATH" "$WEB_ROOT/swalekha"
 publish_api
 write_templates
 

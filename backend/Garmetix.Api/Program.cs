@@ -37,6 +37,7 @@ using Garmetix.Api.Inventory;
 using Garmetix.Api.InvoiceReplacement;
 using Garmetix.Api.OffBook;
 using Garmetix.Api.Onboarding;
+using Garmetix.Api.Swalekha;
 using Garmetix.Api.Numbering;
 using Garmetix.Api.NonGstGoods;
 using Garmetix.Api.Payroll;
@@ -95,6 +96,14 @@ var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? throw new InvalidOperationException("Connection string 'Default' is missing.");
 
 builder.Services.AddGarmetixInfrastructure(connectionString);
+
+// Swalekha (Personal & Personal Finance) is a fully isolated module with its own database -
+// a deliberate, explicitly-approved exception to this project's "one shared database" rule,
+// scoped to this module only. Same shared API process, separate Postgres database.
+var swalekhaConnectionString = builder.Configuration.GetConnectionString("Swalekha")
+    ?? throw new InvalidOperationException("Connection string 'Swalekha' is missing.");
+builder.Services.AddDbContext<SwalekhaDbContext>(options => options.UseNpgsql(swalekhaConnectionString));
+
 builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddSingleton<PasswordResetTokenService>();
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
@@ -251,6 +260,8 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(GarmetixPolicies.SuperAdmin, policy =>
         policy.RequireAssertion(context => AccessPermissionMatrix.IsSuperAdmin(context.User)));
+    options.AddPolicy(GarmetixPolicies.SwalekhaOwner, policy =>
+        policy.RequireAssertion(context => AccessPermissionMatrix.IsOwner(context.User)));
     AddMatrixPolicy(options, GarmetixPolicies.Admin);
     AddMatrixPolicy(options, GarmetixPolicies.CompanySetup);
     AddMatrixPolicy(options, GarmetixPolicies.Edit);
@@ -309,6 +320,24 @@ using (var scope = app.Services.CreateScope())
     await DatabaseSchemaRepairService.RepairKnownSchemaDriftAsync(db, logger);
     await scope.ServiceProvider.GetRequiredService<SystemDefaultsService>().EnsureStartupDefaultsAsync(CancellationToken.None);
     await GstTaxSeedService.EnsureSeedDataAsync(db, CancellationToken.None);
+}
+
+using (var swalekhaScope = app.Services.CreateScope())
+{
+    var swalekhaDb = swalekhaScope.ServiceProvider.GetRequiredService<SwalekhaDbContext>();
+    var swalekhaLogger = swalekhaScope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("SwalekhaDatabaseStartup");
+    try
+    {
+        // Swalekha's database is deliberately separate from GarmetixDbContext's. A failure here
+        // must never block startup of the shared business platform - log and continue, the
+        // Swalekha module's own /api/swalekha/health endpoint will report it as unreachable.
+        await swalekhaDb.Database.EnsureCreatedAsync();
+        swalekhaLogger.LogInformation("Swalekha database schema is ready.");
+    }
+    catch (Exception ex)
+    {
+        swalekhaLogger.LogWarning(ex, "Swalekha database was not reachable at startup; the Swalekha module will report unhealthy until this is resolved.");
+    }
 }
 
 app.Use(async (context, next) =>
@@ -437,6 +466,7 @@ app.MapGstSaleReviewEndpoints();
 app.MapGstPurchaseReviewEndpoints();
 app.MapGstItcRegisterEndpoints();
 app.MapGstEinvoiceEwaybillEndpoints();
+app.MapSwalekhaEndpoints();
 app.MapCommercialEndpoints();
 app.MapCustomerDuesReconciliationEndpoints();
 app.MapFinancialYearCloseoutEndpoints();

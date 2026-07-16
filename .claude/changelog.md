@@ -4,6 +4,32 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-07-17 - Swalekha PersonalFin_01 (Foundation) - isolated Owner-only module, branch `swalekha`
+
+**Type**: New module, backend + frontend + deploy wiring. No deploy executed, no application data.
+
+**What happened**: Amit asked for a brand-new "Personal & Personal Finance" module, Owner-login-only, fully isolated from the business platform's app switcher, with a separate database if practical. Design was done first (plan mode, three rounds of `AskUserQuestion`, approved via `ExitPlanMode`) and landed as `docs/personal-finance-module-design.md` in the prior session. Amit then said "create a new branch from existing with name of app you suggest, commit and push" - created branch `swalekha` from `version6`. This entry is the first real build stage on that branch, picked up on Amit's "keep going and keep pushing to each stage."
+
+**Backend**:
+- `backend/Garmetix.Infrastructure/Data/SwalekhaDbContext.cs` + `SwalekhaDbContextFactory.cs` - a second, genuinely separate `DbContext`/database (`swalekha_db`), zero `DbSet`s yet (real domain models arrive `PersonalFin_02`+). Registered directly in `Program.cs` (not via the shared `AddGarmetixInfrastructure` helper, which is hard-wired to `GarmetixDbContext` only) against a new `ConnectionStrings:Swalekha` key in both `appsettings.json` and `appsettings.Development.json`.
+- Startup bootstrap: a second DI scope calls `swalekhaDb.Database.EnsureCreatedAsync()`, wrapped in try/catch - a Swalekha DB outage must never block the shared API (which also serves the business platform) from starting; the module just reports unhealthy via its own health endpoint instead.
+- `GarmetixPolicies.SwalekhaOwner` - registered as a standalone `RequireAssertion` policy directly in `Program.cs`'s `AddAuthorization`, bypassing `AddMatrixPolicy`/`AccessPermissionMatrix.CanAccessPolicy` (which treats SuperAdmin/Admin/Owner as equivalent for every matrix policy - exactly the gap the Stage 14Q.5 SuperAdmin-only fix closed for factory-reset). Asserts `AccessPermissionMatrix.IsOwner(user)` alone, no SuperAdmin/Admin fallback. Required widening `IsOwner` from `private` to `public` (it already existed, just never needed external visibility before).
+- `backend/Garmetix.Api/Swalekha/SwalekhaEndpoints.cs` - `GET /api/swalekha/health` (Owner-gated), the only endpoint this stage needs.
+
+**Frontend**:
+- New `frontend/modular/apps/swalekha` Nuxt workspace (port 3109, modeled on `final-accounts` as the leanest existing app, per Explore-agent research): `nuxt.config.ts`, `package.json` (`@garmetix/swalekha-web`), `app.config.ts` (violet primary color, visually distinct from the business apps), `app.vue` with its **own minimal top bar** - deliberately not `packages/shared-ui/components/ModularAppShell.vue` (the shared cross-app switcher shell every business app uses) - `middleware/auth.global.ts` (Owner-only client-side guard, checks `user.userType === 'owner'`), `pages/login.vue`, `pages/access-denied.vue`, `pages/index.vue` (empty dashboard shell calling the health endpoint, with a preview list of the 12 upcoming `PersonalFin_NN` feature pillars), `utils/swalekha-api.ts`.
+- Deliberately **not** added to `frontend/modular/config/apps.ts` (`GarmetixFrontendId`/`appLabels`) or to `routes.ts` - confirmed via Explore-agent research that omission from both is sufficient to keep an app fully out of the app switcher/sidebar search, no exclude-list needed.
+- The one shared-code touchpoint: added a new one-off `swalekhaUrl` runtime-config key to the 9 existing apps' `nuxt.config.ts` (a flat string, separate from the `appUrls` object that actually drives the switcher), and one Owner-role-conditional menu item in `ModularAppShell.vue`'s profile dropdown (`isOwner` computed from `authSnapshot.value.user?.userType`, item spliced into the dropdown's array only when both `isOwner` and `swalekhaUrl` are truthy).
+- `.claude/launch.json` and root `frontend/modular/package.json` (`build:swalekha` script) updated for consistency with every other app.
+
+**Deploy wiring (not executed)**: `frontend/modular/deploy/srp-whole-site-deploy.sh` - `SRP_SWALEKHA_BASE_PATH`/`SRP_SWALEKHA_URL` vars, a `build_app swalekha ...` call, an Nginx `location /swalekha/` block, the trailing-slash `rewrite` regex extended to include `swalekha`, a new `patch_static_runtime_config` substitution for the `swalekhaUrl` key (separate from the existing `appUrls`-object substitutions), and the `--apps=` help text updated. `docs/database-stage-backup-protocol.md` got a new section flagging that `swalekha_db` is **not** covered by the existing single-database backup command yet - extending it is required before any stage that writes real Swalekha data (`PersonalFin_02`+).
+
+**Validated**: `dotnet build` (0 errors, same 7 pre-existing unrelated warnings), full backend test suite (281 passed, 3 pre-existing Postgres-only skipped, zero regressions - up from 72 baseline mentioned in older entries because the suite has grown considerably since then), clean `swalekha-web` production build, clean `books-web` production build (confirms the shared `ModularAppShell.vue` edit doesn't break an existing app), compiled-bundle greps confirming both the new app's own content and the `"Swalekha (Personal)"` menu string landed in `books-web`'s bundle, `node scripts/validate-structure.mjs` passing. Version bumped to `6.9.5`. Committed and pushed to `origin/swalekha` per the standing auto-push instruction; `version6` untouched by any of this stage's code (only the earlier design-doc commit is shared history between the two branches).
+
+**Next**: `PersonalFin_02` (Accounts Hub Core - Bank Accounts, Cash, Credit Cards, per-account ledger) is next on the `swalekha` branch, per Amit's "keep going and keep pushing to each stage."
+
+---
+
 ## 2026-07-15 - Office Codex Handoff Prepared
 
 **Type**: Handoff documentation for continuing on the SRP-capable office computer.
