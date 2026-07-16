@@ -133,6 +133,109 @@ export interface SwalekhaPersonLedgerEntryPayload {
   entryType: SwalekhaPersonLedgerEntryType
 }
 
+export interface SwalekhaExpenseSheet {
+  id: string
+  name: string
+  sheetType: string
+  budget?: number | null
+  isActive: boolean
+  notes?: string | null
+  spentTotal: number
+  createdAt: string
+}
+
+export interface SwalekhaExpenseSheetPayload {
+  name: string
+  sheetType: string
+  budget?: number | null
+  isActive: boolean
+  notes?: string | null
+}
+
+export interface SwalekhaExpenseEntry {
+  id: string
+  sheetId: string
+  category: string
+  amount: number
+  entryDate: string
+  narration: string
+  isHidden: boolean
+  createdAt: string
+}
+
+export interface SwalekhaExpenseEntryPayload {
+  category: string
+  amount: number
+  entryDate: string
+  narration: string
+  isHidden: boolean
+}
+
+export interface SwalekhaExpenseEntryList {
+  page: number
+  pageSize: number
+  totalCount: number
+  rows: SwalekhaExpenseEntry[]
+}
+
+export interface SwalekhaExpenseSummaryRow {
+  key: string
+  total: number
+  count: number
+}
+
+export interface SwalekhaExpenseSummary {
+  totalVisible: number
+  totalHidden: number
+  bySheetType: SwalekhaExpenseSummaryRow[]
+  byCategory: SwalekhaExpenseSummaryRow[]
+}
+
+export interface SwalekhaIncomeEntry {
+  id: string
+  source: string
+  amount: number
+  entryDate: string
+  narration: string
+  createdAt: string
+}
+
+export interface SwalekhaIncomeEntryPayload {
+  source: string
+  amount: number
+  entryDate: string
+  narration: string
+}
+
+export interface SwalekhaIncomeList {
+  page: number
+  pageSize: number
+  totalCount: number
+  totalAmount: number
+  rows: SwalekhaIncomeEntry[]
+}
+
+export interface SwalekhaRecurringBill {
+  id: string
+  name: string
+  amount: number
+  dueDayOfMonth: number
+  category?: string | null
+  isActive: boolean
+  notes?: string | null
+  lastPaidDate?: string | null
+  dueThisMonth: boolean
+}
+
+export interface SwalekhaRecurringBillPayload {
+  name: string
+  amount: number
+  dueDayOfMonth: number
+  category?: string | null
+  isActive: boolean
+  notes?: string | null
+}
+
 export function useSwalekhaApiClient() {
   const runtimeConfig = useRuntimeConfig()
   const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))

@@ -4,6 +4,35 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-07-17 - Swalekha PersonalFin_04 (Expense & Income) - branch `swalekha`
+
+**Type**: Third feature stage on the Swalekha module - domain models, backend endpoints, frontend pages. No deploy executed.
+
+**What happened**: Amit said "keep moving ahead" again, so this stage builds the Expense & Income pillar from the module design.
+
+**Backend**:
+- `backend/Garmetix.Domain/Generated/Models/Swalekha/SwalekhaExpenses.cs` - `SwalekhaExpenseSheet` (a named grouping by free-text `SheetType`), `SwalekhaExpenseEntry` (each line individually flaggable `IsHidden`), `SwalekhaIncomeEntry`, `SwalekhaRecurringBill` (a lightweight due-day reminder with a manual mark-paid stamp).
+- **Deliberate scope decision, disclosed rather than silently narrowed**: all four entities are standalone from Accounts Hub (`PersonalFin_02`) in this pass - an expense/income entry does not touch a `SwalekhaAccount`'s `CurrentBalance`. Considered wiring them together (an optional `PaymentAccountId` that would create a real account `Withdrawal`/`Deposit` transaction), since that's closer to how real personal-finance apps avoid double-counting the same money movement twice. Deferred it: building that integration properly (create the linked account transaction on entry-create, reverse it on entry-delete, mirroring the transfer-pair logic from `PersonalFin_02`) would have roughly doubled this stage's scope, and this project's own history repeatedly shows the same pattern - defer a cross-feature integration to its own dedicated stage rather than always fully wiring everything the first time a related feature ships. Noted as a natural follow-up if double-entry reconciliation against Accounts Hub is wanted.
+- `SwalekhaDbContext` - four new `DbSet`s plus `(SheetId, EntryDate)` and `EntryDate` indexes; no `OnModelCreating` changes needed beyond that, same reasoning as `PersonalFin_03`.
+- `backend/Garmetix.Api/Swalekha/SwalekhaExpenseEndpoints.cs`: sheet CRUD (each sheet DTO carries a live `SpentTotal` computed via a grouped sum, not stored/denormalized), a hidden/visible-aware paginated entry list per sheet, entry CRUD, and `GET /api/swalekha/expenses/summary` (date-range-filterable, visible-vs-hidden totals, breakdown by sheet type and by category).
+- `backend/Garmetix.Api/Swalekha/SwalekhaIncomeEndpoints.cs`: income CRUD with a running total on the list response.
+- `backend/Garmetix.Api/Swalekha/SwalekhaRecurringBillEndpoints.cs`: bill CRUD plus `POST .../mark-paid`; the DTO computes a `DueThisMonth` flag by comparing `LastPaidDate`'s year/month to today's, rather than storing a separate stale boolean.
+- `SwalekhaSchemaRepairService.cs` extended with `SwalekhaExpenseSheets`/`SwalekhaExpenseEntries`/`SwalekhaIncomeEntries`/`SwalekhaRecurringBills`, same idempotent pattern as every prior Swalekha table.
+
+**Frontend**:
+- `pages/expenses/index.vue` - visible/hidden spend totals plus a per-sheet-type summary card row (from the new summary endpoint), a sheet `UTable` (budget-vs-spent, colored red when over budget), and a create/edit `USlideover`. The sheet-type field uses a plain `UInput` with an HTML `<datalist>` of common types (Personal/House/Medical/Gifts/Hidden) rather than a Nuxt UI creatable-select component - deliberately chosen since a creatable-select's exact prop API wasn't confirmed anywhere else in this codebase, and a native datalist gives the same free-text-with-suggestions behavior with zero API-guessing risk.
+- `pages/expenses/[id].vue` - sheet header (spent vs. budget), an inline add-entry form with an `IsHidden` toggle, a "Show hidden" switch controlling the list query, and a paginated entry table (a small eye-off icon marks hidden rows when shown).
+- `pages/income/index.vue` - a running-total card, an inline add form (source field also datalist-backed with common sources), and a paginated list.
+- `pages/recurring-bills/index.vue` - a bill table with a "Due" badge (from `dueThisMonth`) or a "Paid <date>" label, one-click Mark Paid, and a create/edit `USlideover`.
+- `pages/index.vue` - added Expenses/Income/Bills nav buttons, removed the `PersonalFin_04` placeholder card.
+- Extended `utils/swalekha-api.ts` with the full set of new TypeScript interfaces (no new client methods needed).
+
+**Validated**: `dotnet build` (0 errors, same 7 pre-existing unrelated warnings), full backend test suite (281 passed, 3 pre-existing Postgres-only skipped, zero regressions), clean `swalekha-web` production build (`/expenses`, `/income`, `/recurring-bills` all prerender alongside the existing routes; compiled-bundle grep confirmed "Recurring Bills" content), `node scripts/validate-structure.mjs` passing, and a dev-server pass confirming zero console errors and that all three new routes correctly redirect an unauthenticated session to `/login`. **No live click-through was possible** - no test credentials in this environment, the same documented limitation every prior Swalekha stage has noted. Version bumped to `6.9.8`.
+
+**Next**: `PersonalFin_05` (Travel Expense Sheets) is next on the `swalekha` branch - trip-scoped sheets that roll up into the main Expense ledger under the Travel category on close, building directly on this stage's `SwalekhaExpenseSheet`/`SwalekhaExpenseEntry` tables.
+
+---
+
 ## 2026-07-17 - Swalekha PersonalFin_03 (Contacts + Person Ledger) - branch `swalekha`
 
 **Type**: Second feature stage on the Swalekha module - domain models, backend endpoints, frontend pages. No deploy executed.

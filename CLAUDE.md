@@ -1,5 +1,14 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-17 - Swalekha PersonalFin_04 (Expense & Income) shipped on branch `swalekha`
+
+Amit said "keep moving ahead" again. Version `6.9.8`. No deploy executed.
+
+- Backend: `SwalekhaExpenseSheet`/`SwalekhaExpenseEntry`/`SwalekhaIncomeEntry`/`SwalekhaRecurringBill` domain models, full CRUD APIs plus a cross-sheet expense summary (by sheet type and category) and a recurring-bill mark-paid action. **Deliberately standalone from Accounts Hub in v1** (no `PaymentAccountId` linking yet) - disclosed scope decision to avoid double-entry risk and keep the stage tractable; a future stage can add that integration if wanted.
+- Frontend: `/expenses` (summary cards, sheet table), `/expenses/[id]` (add-entry form with hidden toggle, show-hidden switch), `/income` (inline add + list), `/recurring-bills` (due-this-month badges, mark-paid) in the `swalekha` app; dashboard nav updated.
+- Validated: `dotnet build` (0 errors), full backend test suite (281 passed, 0 regressions), clean `swalekha-web` production build, `validate-structure.mjs`, dev-server pass (zero console errors across all three new routes). No live click-through - no test credentials in this environment.
+- Next: `PersonalFin_05` (Travel Expense Sheets), building directly on this stage's sheet/entry tables.
+
 ## 2026-07-17 - Swalekha PersonalFin_03 (Contacts + Person Ledger) shipped on branch `swalekha`
 
 Amit said "keep moving ahead" right after `PersonalFin_02`. Version `6.9.7`. No deploy executed.

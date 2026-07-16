@@ -128,6 +128,96 @@ public static class SwalekhaSchemaRepairService
 
             CREATE INDEX IF NOT EXISTS "IX_SwalekhaPersonLedgerEntries_ContactId_EntryDate"
                 ON "SwalekhaPersonLedgerEntries" ("ContactId", "EntryDate");
+
+            CREATE TABLE IF NOT EXISTS "SwalekhaExpenseSheets" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "Name" text NOT NULL DEFAULT '',
+                "SheetType" text NOT NULL DEFAULT '',
+                "Budget" numeric(18,2) NULL,
+                "IsActive" boolean NOT NULL DEFAULT true,
+                "Notes" text NULL,
+                CONSTRAINT "PK_SwalekhaExpenseSheets" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaExpenseSheets" ADD COLUMN IF NOT EXISTS "Name" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaExpenseSheets" ADD COLUMN IF NOT EXISTS "SheetType" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaExpenseSheets" ADD COLUMN IF NOT EXISTS "Budget" numeric(18,2) NULL;
+            ALTER TABLE "SwalekhaExpenseSheets" ADD COLUMN IF NOT EXISTS "IsActive" boolean NOT NULL DEFAULT true;
+            ALTER TABLE "SwalekhaExpenseSheets" ADD COLUMN IF NOT EXISTS "Notes" text NULL;
+
+            CREATE TABLE IF NOT EXISTS "SwalekhaExpenseEntries" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "SheetId" uuid NOT NULL,
+                "Category" text NOT NULL DEFAULT '',
+                "Amount" numeric(18,2) NOT NULL DEFAULT 0,
+                "EntryDate" timestamp without time zone NOT NULL DEFAULT now(),
+                "Narration" text NOT NULL DEFAULT '',
+                "IsHidden" boolean NOT NULL DEFAULT false,
+                CONSTRAINT "PK_SwalekhaExpenseEntries" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaExpenseEntries" ADD COLUMN IF NOT EXISTS "SheetId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaExpenseEntries" ADD COLUMN IF NOT EXISTS "Category" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaExpenseEntries" ADD COLUMN IF NOT EXISTS "Amount" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaExpenseEntries" ADD COLUMN IF NOT EXISTS "EntryDate" timestamp without time zone NOT NULL DEFAULT now();
+            ALTER TABLE "SwalekhaExpenseEntries" ADD COLUMN IF NOT EXISTS "Narration" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaExpenseEntries" ADD COLUMN IF NOT EXISTS "IsHidden" boolean NOT NULL DEFAULT false;
+
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaExpenseEntries_SheetId_EntryDate"
+                ON "SwalekhaExpenseEntries" ("SheetId", "EntryDate");
+
+            CREATE TABLE IF NOT EXISTS "SwalekhaIncomeEntries" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "Source" text NOT NULL DEFAULT '',
+                "Amount" numeric(18,2) NOT NULL DEFAULT 0,
+                "EntryDate" timestamp without time zone NOT NULL DEFAULT now(),
+                "Narration" text NOT NULL DEFAULT '',
+                CONSTRAINT "PK_SwalekhaIncomeEntries" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaIncomeEntries" ADD COLUMN IF NOT EXISTS "Source" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaIncomeEntries" ADD COLUMN IF NOT EXISTS "Amount" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaIncomeEntries" ADD COLUMN IF NOT EXISTS "EntryDate" timestamp without time zone NOT NULL DEFAULT now();
+            ALTER TABLE "SwalekhaIncomeEntries" ADD COLUMN IF NOT EXISTS "Narration" text NOT NULL DEFAULT '';
+
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaIncomeEntries_EntryDate"
+                ON "SwalekhaIncomeEntries" ("EntryDate");
+
+            CREATE TABLE IF NOT EXISTS "SwalekhaRecurringBills" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "Name" text NOT NULL DEFAULT '',
+                "Amount" numeric(18,2) NOT NULL DEFAULT 0,
+                "DueDayOfMonth" integer NOT NULL DEFAULT 1,
+                "Category" text NULL,
+                "IsActive" boolean NOT NULL DEFAULT true,
+                "Notes" text NULL,
+                "LastPaidDate" timestamp without time zone NULL,
+                CONSTRAINT "PK_SwalekhaRecurringBills" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaRecurringBills" ADD COLUMN IF NOT EXISTS "Name" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaRecurringBills" ADD COLUMN IF NOT EXISTS "Amount" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaRecurringBills" ADD COLUMN IF NOT EXISTS "DueDayOfMonth" integer NOT NULL DEFAULT 1;
+            ALTER TABLE "SwalekhaRecurringBills" ADD COLUMN IF NOT EXISTS "Category" text NULL;
+            ALTER TABLE "SwalekhaRecurringBills" ADD COLUMN IF NOT EXISTS "IsActive" boolean NOT NULL DEFAULT true;
+            ALTER TABLE "SwalekhaRecurringBills" ADD COLUMN IF NOT EXISTS "Notes" text NULL;
+            ALTER TABLE "SwalekhaRecurringBills" ADD COLUMN IF NOT EXISTS "LastPaidDate" timestamp without time zone NULL;
             """, cancellationToken);
 
         logger.LogInformation("Swalekha account storage repair check completed.");
