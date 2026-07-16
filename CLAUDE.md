@@ -1,5 +1,14 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-17 - Swalekha PersonalFin_02 (Accounts Hub Core) shipped on branch `swalekha`
+
+Amit confirmed "yes" to keep going past `PersonalFin_01`. Version `6.9.6`. No deploy executed.
+
+- Backend: `SwalekhaAccount`/`SwalekhaAccountTransaction` domain models, `SwalekhaDbContext` extended with the same soft-delete filter/decimal-precision/DateTime-kind normalization `GarmetixDbContext` already applies, a new idempotent `SwalekhaSchemaRepairService` (needed since startup `EnsureCreatedAsync` only creates tables the first time - it won't add new ones on later deploys), and a full accounts API (CRUD, paginated ledger, deposit/withdrawal, transfers posted as a linked leg pair that reverse together on delete). `CurrentBalance` is always updated transactionally alongside the ledger entry.
+- Frontend: `/accounts` (Accounts Hub - net worth, account table, create/edit + transfer slideovers) and `/accounts/[id]` (ledger detail) in the `swalekha` app; the dashboard's "coming soon" card for this stage was replaced with a live link.
+- Validated: `dotnet build` (0 errors), full backend test suite (281 passed, 0 regressions), clean `swalekha-web` production build, `validate-structure.mjs`, dev-server pass (zero console errors, Owner-only redirect confirmed). No live click-through of the account flow - no test credentials in this environment, same limitation as every prior stage.
+- Next: `PersonalFin_03` (Contacts + Person Ledger).
+
 ## 2026-07-17 - Swalekha PersonalFin_01 (Foundation) shipped on branch `swalekha`
 
 Amit approved the Swalekha design (see the entry below) and then said to create a branch named after the app and keep pushing to it stage by stage. Branch `swalekha` (from `version6`) now has the first real build stage. Version `6.9.5`. No deploy executed.

@@ -5,7 +5,10 @@
         <p class="garmetix-kicker"><UIcon name="i-lucide-book-heart" class="size-4" /> Swalekha</p>
         <h1 class="garmetix-dashboard-title">Personal &amp; Personal Finance</h1>
       </div>
-      <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refreshHealth">Refresh</UButton>
+      <div class="flex flex-wrap items-center gap-2">
+        <UButton icon="i-lucide-landmark" @click="navigateTo('/accounts')">Accounts Hub</UButton>
+        <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refreshHealth">Refresh</UButton>
+      </div>
     </div>
 
     <UAlert
@@ -31,8 +34,7 @@
     </div>
 
     <p class="text-xs text-muted">
-      Foundation stage (PersonalFin_01) only proves the isolated login, database and shell work end-to-end.
-      Every feature below arrives in its own later stage.
+      PersonalFin_02 (Accounts Hub) is live - see the button above. Every feature below arrives in its own later stage.
     </p>
   </section>
 </template>
@@ -48,7 +50,6 @@ const error = ref('')
 const health = ref<SwalekhaHealth | null>(null)
 
 const pillarCards = [
-  { label: 'PersonalFin_02', value: 'Accounts Hub (bank, cash, credit cards)', icon: 'i-lucide-landmark' },
   { label: 'PersonalFin_03', value: 'Contacts + Person Ledger', icon: 'i-lucide-users' },
   { label: 'PersonalFin_04', value: 'Expense & Income', icon: 'i-lucide-receipt' },
   { label: 'PersonalFin_05', value: 'Travel Expense Sheets', icon: 'i-lucide-plane' },

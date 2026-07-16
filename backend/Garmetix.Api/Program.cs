@@ -332,6 +332,10 @@ using (var swalekhaScope = app.Services.CreateScope())
         // must never block startup of the shared business platform - log and continue, the
         // Swalekha module's own /api/swalekha/health endpoint will report it as unreachable.
         await swalekhaDb.Database.EnsureCreatedAsync();
+        // EnsureCreatedAsync only creates tables the first time the database has none - it will
+        // not add new tables/columns to an already-existing schema on later deploys, so every
+        // startup also runs the same idempotent repair GarmetixDbContext relies on.
+        await SwalekhaSchemaRepairService.RepairSwalekhaStorageAsync(swalekhaDb, swalekhaLogger);
         swalekhaLogger.LogInformation("Swalekha database schema is ready.");
     }
     catch (Exception ex)
@@ -467,6 +471,7 @@ app.MapGstPurchaseReviewEndpoints();
 app.MapGstItcRegisterEndpoints();
 app.MapGstEinvoiceEwaybillEndpoints();
 app.MapSwalekhaEndpoints();
+app.MapSwalekhaAccountsEndpoints();
 app.MapCommercialEndpoints();
 app.MapCustomerDuesReconciliationEndpoints();
 app.MapFinancialYearCloseoutEndpoints();

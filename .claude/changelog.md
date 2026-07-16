@@ -4,6 +4,30 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-07-17 - Swalekha PersonalFin_02 (Accounts Hub Core) - branch `swalekha`
+
+**Type**: First real feature stage on the Swalekha module - domain models, backend endpoints, frontend pages. No deploy executed.
+
+**What happened**: Amit confirmed "yes" to continue past `PersonalFin_01`, so this stage builds the first real personal-finance feature: bank/cash/credit-card accounts with a transaction ledger and transfers, on top of the isolated foundation from the entry below.
+
+**Backend**:
+- `backend/Garmetix.Domain/Generated/Models/Swalekha/SwalekhaAccounts.cs` - `SwalekhaAccount` (Bank/Cash/CreditCard, opening + live current balance, bank/credit-card-specific fields all nullable) and `SwalekhaAccountTransaction` (Deposit/Withdrawal/TransferIn/TransferOut, `RunningBalance` as an informational point-in-time snapshot, `TransferGroupId` linking a transfer's two legs). Plain `BaseEntity`, no Company/Store scoping, per the module's design.
+- `SwalekhaDbContext.OnModelCreating` extended to apply the same three global conventions `GarmetixDbContext` already relies on - a soft-delete query filter auto-applied to every `BaseEntity`-derived type, `decimal(18,2)` precision, and a `DateTimeKind.Unspecified` value-converter on every `DateTime`/`DateTime?` property (required - Npgsql throws on `Kind=Utc` against a `timestamp without time zone` column, and `BaseEntity.CreatedAt` defaults to `DateTime.UtcNow`). Reused the identical technique rather than re-deriving it.
+- New `SwalekhaSchemaRepairService.RepairSwalekhaStorageAsync` (idempotent `CREATE TABLE IF NOT EXISTS`/`ADD COLUMN IF NOT EXISTS`, same pattern as `DatabaseSchemaRepairService`) - added because `PersonalFin_01`'s startup `EnsureCreatedAsync` only creates tables the first time the database has none; it's a no-op once tables exist, so any *future* schema change needs this idempotent path. Wired into the same startup try/catch block right after `EnsureCreatedAsync`.
+- `backend/Garmetix.Api/Swalekha/SwalekhaAccountsEndpoints.cs` (`GarmetixPolicies.SwalekhaOwner`): account CRUD (soft delete; editing `OpeningBalance` after transactions exist shifts `CurrentBalance` by the delta rather than overwriting history), `GET .../transactions` (paginated, resolves counter-account names for transfer legs), `POST .../transactions` (Deposit/Withdrawal only - rejects `TransferIn`/`TransferOut` here, those only come from the transfer endpoint), `DELETE .../transactions/{id}` (reverses the balance effect and soft-deletes; if the entry has a `TransferGroupId`, finds and reverses the paired leg on the other account too, so a transfer can never be half-deleted), and `POST /api/swalekha/transfers` (moves money between two accounts as one DB transaction, posting the linked leg pair). `CurrentBalance` is always updated inside `Database.BeginTransactionAsync`/`CommitAsync` alongside the transaction row insert/delete - never recomputed from history on read.
+
+**Frontend**:
+- `pages/accounts/index.vue` - net worth card + one summary card per account type in use, an account `UTable` (name/type/detail/balance/status/actions), a create/edit `USlideover` form (type-conditional fields: bank name/IFSC/masked account number for Bank, credit limit/statement day/due day for CreditCard), and a transfer `USlideover` (from/to account `USelectMenu`, amount, date, narration).
+- `pages/accounts/[id].vue` - account header card, an inline add-transaction form (Deposit/Withdrawal, amount, date, narration), and a paginated ledger `UTable` (date/type/narration/counter account/amount/running balance) with a per-row delete action.
+- `pages/index.vue` - the `PersonalFin_02` "coming soon" pillar card was removed from the preview list and replaced with a real "Accounts Hub" button in the page header, since the feature is now live.
+- Extended `utils/swalekha-api.ts` with `put`/`del` methods and the full set of TypeScript interfaces matching the new backend DTOs.
+
+**Validated**: `dotnet build` (0 errors, same 7 pre-existing unrelated warnings), full backend test suite (281 passed, 3 pre-existing Postgres-only skipped, zero regressions), clean `swalekha-web` production build (compiled-bundle grep confirmed "Accounts Hub" content), `node scripts/validate-structure.mjs` passing, and a dev-server pass (`preview_start` on `swalekha-web`) confirming zero console errors and that navigating directly to `/accounts` with no auth token correctly redirects to `/login` (`get_page_text` confirmed the login page rendered, not a broken/blank route). **No live click-through of the account CRUD/ledger/transfer flow was possible** - no test credentials exist in this environment (the same documented limitation every prior Books/HR/Purchase stage in this project has noted) - flagged for extra scrutiny on first real use, same as those stages. Version bumped to `6.9.6`.
+
+**Next**: `PersonalFin_03` (Contacts + Person Ledger) is next on the `swalekha` branch.
+
+---
+
 ## 2026-07-17 - Swalekha PersonalFin_01 (Foundation) - isolated Owner-only module, branch `swalekha`
 
 **Type**: New module, backend + frontend + deploy wiring. No deploy executed, no application data.

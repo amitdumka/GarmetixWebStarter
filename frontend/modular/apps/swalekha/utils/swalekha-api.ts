@@ -8,6 +8,83 @@ export interface SwalekhaHealth {
   generatedAtUtc: string
 }
 
+export type SwalekhaAccountType = 'Bank' | 'Cash' | 'CreditCard'
+export type SwalekhaTransactionType = 'Deposit' | 'Withdrawal' | 'TransferIn' | 'TransferOut'
+
+export interface SwalekhaAccount {
+  id: string
+  name: string
+  accountType: SwalekhaAccountType
+  bankName?: string | null
+  accountNumberMasked?: string | null
+  ifsc?: string | null
+  creditLimit?: number | null
+  statementDayOfMonth?: number | null
+  dueDayOfMonth?: number | null
+  openingBalance: number
+  currentBalance: number
+  currency: string
+  isActive: boolean
+  notes?: string | null
+  createdAt: string
+}
+
+export interface SwalekhaAccountPayload {
+  name: string
+  accountType: SwalekhaAccountType
+  bankName?: string | null
+  accountNumberMasked?: string | null
+  ifsc?: string | null
+  creditLimit?: number | null
+  statementDayOfMonth?: number | null
+  dueDayOfMonth?: number | null
+  openingBalance: number
+  currency?: string | null
+  isActive: boolean
+  notes?: string | null
+}
+
+export interface SwalekhaTransaction {
+  id: string
+  accountId: string
+  transactionType: SwalekhaTransactionType
+  amount: number
+  transactionDate: string
+  narration: string
+  counterAccountId?: string | null
+  counterAccountName?: string | null
+  runningBalance: number
+  transferGroupId?: string | null
+  createdAt: string
+}
+
+export interface SwalekhaTransactionList {
+  page: number
+  pageSize: number
+  totalCount: number
+  rows: SwalekhaTransaction[]
+}
+
+export interface SwalekhaTransactionPayload {
+  amount: number
+  transactionDate: string
+  narration: string
+  transactionType: 'Deposit' | 'Withdrawal'
+}
+
+export interface SwalekhaTransferPayload {
+  fromAccountId: string
+  toAccountId: string
+  amount: number
+  transactionDate: string
+  narration?: string | null
+}
+
+export interface SwalekhaTransferResult {
+  fromAccount: SwalekhaAccount
+  toAccount: SwalekhaAccount
+}
+
 export function useSwalekhaApiClient() {
   const runtimeConfig = useRuntimeConfig()
   const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
@@ -28,7 +105,15 @@ export function useSwalekhaApiClient() {
     return await client().post<T>(normalizeSwalekhaPath(path), body)
   }
 
-  return { apiBaseUrl, get, post }
+  async function put<T>(path: string, body?: unknown) {
+    return await client().put<T>(normalizeSwalekhaPath(path), body)
+  }
+
+  async function del<T = void>(path: string) {
+    return await client().delete<T>(normalizeSwalekhaPath(path))
+  }
+
+  return { apiBaseUrl, get, post, put, del }
 }
 
 function normalizeSwalekhaPath(path: string) {
