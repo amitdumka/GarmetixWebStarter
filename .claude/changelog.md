@@ -4,6 +4,30 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-07-17 - Swalekha PersonalFin_03 (Contacts + Person Ledger) - branch `swalekha`
+
+**Type**: Second feature stage on the Swalekha module - domain models, backend endpoints, frontend pages. No deploy executed.
+
+**What happened**: Amit said "keep moving ahead" right after `PersonalFin_02` landed, so this stage builds the Contacts + Person-to-Person Ledger pillar from the module design.
+
+**Backend**:
+- `backend/Garmetix.Domain/Generated/Models/Swalekha/SwalekhaContacts.cs` - `SwalekhaContact` (name/phone/email/relationship, a live `Balance`) and `SwalekhaPersonLedgerEntry` (`LoanGiven`/`LoanTaken`/`RepaymentReceived`/`RepaymentPaid`, `RunningBalance` as an informational snapshot). `Balance` is signed from the Owner's point of view - positive means the contact owes the Owner, negative means the Owner owes the contact - exactly mirroring the sign convention a Books-style party ledger would use, just scoped to personal lending rather than business trade.
+- `SwalekhaDbContext` - added the two new `DbSet`s and a `(ContactId, EntryDate)` index; no changes needed to `OnModelCreating` itself since the global soft-delete/decimal/DateTime conventions from `PersonalFin_02` already apply to every `BaseEntity`-derived type automatically.
+- `backend/Garmetix.Api/Swalekha/SwalekhaContactsEndpoints.cs`: contact CRUD (soft delete), a paginated per-contact ledger, `POST .../ledger` (rejects unrecognized entry types), `DELETE .../ledger/{id}` (reverses the balance effect and soft-deletes), and `POST .../settle` - a genuinely useful shortcut that reads the contact's current balance, works out which repayment direction and amount would zero it, and posts that entry automatically rather than making the Owner do the arithmetic. All four entry types' balance effects are centralized in one `BalanceEffect` switch expression, used identically by both the add and delete-reversal paths so they can never drift apart.
+- `SwalekhaSchemaRepairService.cs` extended with `SwalekhaContacts`/`SwalekhaPersonLedgerEntries` `CREATE TABLE IF NOT EXISTS`/`ADD COLUMN IF NOT EXISTS` blocks, same idempotent pattern as the account tables.
+
+**Frontend**:
+- `pages/contacts/index.vue` - three summary cards (owed to you / you owe / net), a contact `UTable`, and a create/edit `USlideover`.
+- `pages/contacts/[id].vue` - contact header, an inline add-ledger-entry form (type/amount/date/narration, with an explanatory note on what each entry type does to the balance), a Settle button (only shown when the balance is non-zero, posts via the new settle endpoint after a confirm), and a paginated ledger table with per-row delete.
+- `pages/index.vue` - added a "Contacts" nav button next to "Accounts Hub" and removed the `PersonalFin_03` placeholder card from the preview list.
+- Extended `utils/swalekha-api.ts` with the contact/ledger TypeScript interfaces (no new client methods needed - `get`/`post`/`put`/`del` from `PersonalFin_02` were already generic).
+
+**Validated**: `dotnet build` (0 errors, same 7 pre-existing unrelated warnings), full backend test suite (281 passed, 3 pre-existing Postgres-only skipped, zero regressions), clean `swalekha-web` production build (`/contacts` prerenders alongside `/accounts`, compiled-bundle grep confirmed "Person Ledger" content), `node scripts/validate-structure.mjs` passing, and a dev-server pass confirming zero console errors and that an unauthenticated `/contacts` request correctly redirects to `/login`. **No live click-through of the contact/ledger/settle flow was possible** - no test credentials in this environment, the same documented limitation every prior stage (including `PersonalFin_02`) has noted. Version bumped to `6.9.7`.
+
+**Next**: `PersonalFin_04` (Expense & Income) is next on the `swalekha` branch.
+
+---
+
 ## 2026-07-17 - Swalekha PersonalFin_02 (Accounts Hub Core) - branch `swalekha`
 
 **Type**: First real feature stage on the Swalekha module - domain models, backend endpoints, frontend pages. No deploy executed.

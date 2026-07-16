@@ -1,5 +1,14 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-17 - Swalekha PersonalFin_03 (Contacts + Person Ledger) shipped on branch `swalekha`
+
+Amit said "keep moving ahead" right after `PersonalFin_02`. Version `6.9.7`. No deploy executed.
+
+- Backend: `SwalekhaContact`/`SwalekhaPersonLedgerEntry` domain models (Balance signed from the Owner's point of view - positive = contact owes Owner), a full contacts API (CRUD, paginated ledger, loan-given/loan-taken/repayment entries, delete-with-reversal, and a `settle` action that auto-computes and posts whichever repayment zeroes the balance), and `SwalekhaSchemaRepairService` extended with the two new tables.
+- Frontend: `/contacts` (summary cards, contact table, create/edit) and `/contacts/[id]` (ledger entry form, Settle button, paginated ledger) in the `swalekha` app; dashboard nav updated.
+- Validated: `dotnet build` (0 errors), full backend test suite (281 passed, 0 regressions), clean `swalekha-web` production build, `validate-structure.mjs`, dev-server pass (zero console errors, Owner-only redirect confirmed). No live click-through - no test credentials in this environment.
+- Next: `PersonalFin_04` (Expense & Income).
+
 ## 2026-07-17 - Swalekha PersonalFin_02 (Accounts Hub Core) shipped on branch `swalekha`
 
 Amit confirmed "yes" to keep going past `PersonalFin_01`. Version `6.9.6`. No deploy executed.

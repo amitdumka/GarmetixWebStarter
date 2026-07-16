@@ -85,6 +85,54 @@ export interface SwalekhaTransferResult {
   toAccount: SwalekhaAccount
 }
 
+export type SwalekhaPersonLedgerEntryType = 'LoanGiven' | 'LoanTaken' | 'RepaymentReceived' | 'RepaymentPaid'
+
+export interface SwalekhaContact {
+  id: string
+  name: string
+  phone?: string | null
+  email?: string | null
+  relationship?: string | null
+  balance: number
+  isActive: boolean
+  notes?: string | null
+  createdAt: string
+}
+
+export interface SwalekhaContactPayload {
+  name: string
+  phone?: string | null
+  email?: string | null
+  relationship?: string | null
+  isActive: boolean
+  notes?: string | null
+}
+
+export interface SwalekhaPersonLedgerEntry {
+  id: string
+  contactId: string
+  entryType: SwalekhaPersonLedgerEntryType
+  amount: number
+  entryDate: string
+  narration: string
+  runningBalance: number
+  createdAt: string
+}
+
+export interface SwalekhaPersonLedgerList {
+  page: number
+  pageSize: number
+  totalCount: number
+  rows: SwalekhaPersonLedgerEntry[]
+}
+
+export interface SwalekhaPersonLedgerEntryPayload {
+  amount: number
+  entryDate: string
+  narration: string
+  entryType: SwalekhaPersonLedgerEntryType
+}
+
 export function useSwalekhaApiClient() {
   const runtimeConfig = useRuntimeConfig()
   const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))

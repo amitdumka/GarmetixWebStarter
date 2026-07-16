@@ -79,6 +79,55 @@ public static class SwalekhaSchemaRepairService
 
             CREATE INDEX IF NOT EXISTS "IX_SwalekhaAccountTransactions_AccountId_TransactionDate"
                 ON "SwalekhaAccountTransactions" ("AccountId", "TransactionDate");
+
+            CREATE TABLE IF NOT EXISTS "SwalekhaContacts" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "Name" text NOT NULL DEFAULT '',
+                "Phone" text NULL,
+                "Email" text NULL,
+                "Relationship" text NULL,
+                "Balance" numeric(18,2) NOT NULL DEFAULT 0,
+                "IsActive" boolean NOT NULL DEFAULT true,
+                "Notes" text NULL,
+                CONSTRAINT "PK_SwalekhaContacts" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaContacts" ADD COLUMN IF NOT EXISTS "Name" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaContacts" ADD COLUMN IF NOT EXISTS "Phone" text NULL;
+            ALTER TABLE "SwalekhaContacts" ADD COLUMN IF NOT EXISTS "Email" text NULL;
+            ALTER TABLE "SwalekhaContacts" ADD COLUMN IF NOT EXISTS "Relationship" text NULL;
+            ALTER TABLE "SwalekhaContacts" ADD COLUMN IF NOT EXISTS "Balance" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaContacts" ADD COLUMN IF NOT EXISTS "IsActive" boolean NOT NULL DEFAULT true;
+            ALTER TABLE "SwalekhaContacts" ADD COLUMN IF NOT EXISTS "Notes" text NULL;
+
+            CREATE TABLE IF NOT EXISTS "SwalekhaPersonLedgerEntries" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "ContactId" uuid NOT NULL,
+                "EntryType" integer NOT NULL DEFAULT 0,
+                "Amount" numeric(18,2) NOT NULL DEFAULT 0,
+                "EntryDate" timestamp without time zone NOT NULL DEFAULT now(),
+                "Narration" text NOT NULL DEFAULT '',
+                "RunningBalance" numeric(18,2) NOT NULL DEFAULT 0,
+                CONSTRAINT "PK_SwalekhaPersonLedgerEntries" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaPersonLedgerEntries" ADD COLUMN IF NOT EXISTS "ContactId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaPersonLedgerEntries" ADD COLUMN IF NOT EXISTS "EntryType" integer NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaPersonLedgerEntries" ADD COLUMN IF NOT EXISTS "Amount" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaPersonLedgerEntries" ADD COLUMN IF NOT EXISTS "EntryDate" timestamp without time zone NOT NULL DEFAULT now();
+            ALTER TABLE "SwalekhaPersonLedgerEntries" ADD COLUMN IF NOT EXISTS "Narration" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaPersonLedgerEntries" ADD COLUMN IF NOT EXISTS "RunningBalance" numeric(18,2) NOT NULL DEFAULT 0;
+
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaPersonLedgerEntries_ContactId_EntryDate"
+                ON "SwalekhaPersonLedgerEntries" ("ContactId", "EntryDate");
             """, cancellationToken);
 
         logger.LogInformation("Swalekha account storage repair check completed.");

@@ -472,6 +472,7 @@ app.MapGstItcRegisterEndpoints();
 app.MapGstEinvoiceEwaybillEndpoints();
 app.MapSwalekhaEndpoints();
 app.MapSwalekhaAccountsEndpoints();
+app.MapSwalekhaContactsEndpoints();
 app.MapCommercialEndpoints();
 app.MapCustomerDuesReconciliationEndpoints();
 app.MapFinancialYearCloseoutEndpoints();
