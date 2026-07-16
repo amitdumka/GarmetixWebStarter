@@ -11,6 +11,7 @@
         <UButton icon="i-lucide-receipt" @click="navigateTo('/expenses')">Expenses</UButton>
         <UButton icon="i-lucide-wallet" @click="navigateTo('/income')">Income</UButton>
         <UButton icon="i-lucide-calendar-clock" @click="navigateTo('/recurring-bills')">Bills</UButton>
+        <UButton icon="i-lucide-plane" @click="navigateTo('/trips')">Trips</UButton>
         <UButton icon="i-lucide-refresh-cw" color="neutral" variant="soft" :loading="loading" @click="refreshHealth">Refresh</UButton>
       </div>
     </div>
@@ -38,7 +39,7 @@
     </div>
 
     <p class="text-xs text-muted">
-      PersonalFin_02-04 (Accounts Hub, Contacts + Person Ledger, Expense &amp; Income) are live - see the buttons above. Every feature below arrives in its own later stage.
+      PersonalFin_02-05 (Accounts Hub, Contacts + Person Ledger, Expense &amp; Income, Travel Expense Sheets) are live - see the buttons above. Every feature below arrives in its own later stage.
     </p>
   </section>
 </template>
@@ -54,7 +55,6 @@ const error = ref('')
 const health = ref<SwalekhaHealth | null>(null)
 
 const pillarCards = [
-  { label: 'PersonalFin_05', value: 'Travel Expense Sheets', icon: 'i-lucide-plane' },
   { label: 'PersonalFin_06-08', value: 'Investments (FD/RD, Mutual Funds, Shares)', icon: 'i-lucide-trending-up' },
   { label: 'PersonalFin_09', value: 'Loans', icon: 'i-lucide-hand-coins' },
   { label: 'PersonalFin_10', value: 'Insurance', icon: 'i-lucide-shield-check' },

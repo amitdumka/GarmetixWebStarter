@@ -236,6 +236,30 @@ export interface SwalekhaRecurringBillPayload {
   notes?: string | null
 }
 
+export interface SwalekhaTrip {
+  id: string
+  sheetId: string
+  name: string
+  destination?: string | null
+  startDate?: string | null
+  endDate?: string | null
+  budget?: number | null
+  spentTotal: number
+  isClosed: boolean
+  closedAt?: string | null
+  notes?: string | null
+  createdAt: string
+}
+
+export interface SwalekhaTripPayload {
+  name: string
+  destination?: string | null
+  startDate?: string | null
+  endDate?: string | null
+  budget?: number | null
+  notes?: string | null
+}
+
 export function useSwalekhaApiClient() {
   const runtimeConfig = useRuntimeConfig()
   const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))

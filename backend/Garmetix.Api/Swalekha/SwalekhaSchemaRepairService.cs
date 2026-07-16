@@ -218,6 +218,32 @@ public static class SwalekhaSchemaRepairService
             ALTER TABLE "SwalekhaRecurringBills" ADD COLUMN IF NOT EXISTS "IsActive" boolean NOT NULL DEFAULT true;
             ALTER TABLE "SwalekhaRecurringBills" ADD COLUMN IF NOT EXISTS "Notes" text NULL;
             ALTER TABLE "SwalekhaRecurringBills" ADD COLUMN IF NOT EXISTS "LastPaidDate" timestamp without time zone NULL;
+
+            CREATE TABLE IF NOT EXISTS "SwalekhaTrips" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "SheetId" uuid NOT NULL,
+                "Name" text NOT NULL DEFAULT '',
+                "Destination" text NULL,
+                "StartDate" timestamp without time zone NULL,
+                "EndDate" timestamp without time zone NULL,
+                "IsClosed" boolean NOT NULL DEFAULT false,
+                "ClosedAt" timestamp without time zone NULL,
+                "Notes" text NULL,
+                CONSTRAINT "PK_SwalekhaTrips" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaTrips" ADD COLUMN IF NOT EXISTS "SheetId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaTrips" ADD COLUMN IF NOT EXISTS "Name" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaTrips" ADD COLUMN IF NOT EXISTS "Destination" text NULL;
+            ALTER TABLE "SwalekhaTrips" ADD COLUMN IF NOT EXISTS "StartDate" timestamp without time zone NULL;
+            ALTER TABLE "SwalekhaTrips" ADD COLUMN IF NOT EXISTS "EndDate" timestamp without time zone NULL;
+            ALTER TABLE "SwalekhaTrips" ADD COLUMN IF NOT EXISTS "IsClosed" boolean NOT NULL DEFAULT false;
+            ALTER TABLE "SwalekhaTrips" ADD COLUMN IF NOT EXISTS "ClosedAt" timestamp without time zone NULL;
+            ALTER TABLE "SwalekhaTrips" ADD COLUMN IF NOT EXISTS "Notes" text NULL;
             """, cancellationToken);
 
         logger.LogInformation("Swalekha account storage repair check completed.");

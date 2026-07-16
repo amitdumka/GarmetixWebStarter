@@ -4,6 +4,33 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-07-17 - Swalekha PersonalFin_05 (Travel Expense Sheets) - branch `swalekha`
+
+**Type**: Fourth feature stage on the Swalekha module - a domain model plus endpoints/pages that deliberately reuse most of `PersonalFin_04`'s machinery rather than duplicating it. No deploy executed.
+
+**What happened**: Amit said "keep moving ahead" once more. This stage builds Travel Expense Sheets exactly as `PersonalFin_04`'s own doc comment anticipated - "a trip is just a sheet with SheetType Travel plus trip metadata."
+
+**Design decision worth calling out**: the module design says Close-Trip should "roll every line item up into the main Expense ledger under the Travel category, while retaining the original trip tag." The naive reading of that is a data-migration step - copy or re-tag every entry into some other generic bucket on close. That's not what got built, deliberately: since a Trip's dedicated `SwalekhaExpenseSheet` already carries `SheetType = "Travel"` from the moment it's created, every entry already counts toward the aggregate "Travel" total via `PersonalFin_04`'s `GET /api/swalekha/expenses/summary` `bySheetType` grouping, and the trip's own `SheetId` already gives exact per-trip drill-down. There is nothing to roll up - the rollup already exists at query time. So "Close Trip" (`backend/Garmetix.Api/Swalekha/SwalekhaTripEndpoints.cs`, `POST /api/swalekha/trips/{id}/close`) does the only thing that's actually left to do: mark the trip finished (`IsClosed = true`, `ClosedAt = now`) and deactivate its sheet (`IsActive = false`, so it stops appearing as an open trip you could add more expenses against) - no entries move, nothing is copied, nothing can drift out of sync with the totals. A matching `reopen` action undoes both flags if closed by mistake.
+
+**Backend**:
+- `backend/Garmetix.Domain/Generated/Models/Swalekha/SwalekhaTrips.cs` - `SwalekhaTrip` (`SheetId` FK, `Name`, `Destination`, `StartDate`/`EndDate`, `IsClosed`/`ClosedAt`, `Notes`). Deliberately does not duplicate `Budget` - that already lives on the linked `SwalekhaExpenseSheet`, kept as the single source of truth and joined into the DTO.
+- `SwalekhaDbContext` - one new `DbSet<SwalekhaTrip>`, no new indexes needed beyond what `PersonalFin_04` already added for `SwalekhaExpenseEntries`.
+- `backend/Garmetix.Api/Swalekha/SwalekhaTripEndpoints.cs`: `POST /api/swalekha/trips` creates the trip **and** its linked Travel-typed sheet together inside one DB transaction; `PUT` keeps the trip's name/budget synced onto the sheet; `DELETE` soft-deletes both the trip and its sheet (entries untouched, same "keep history" convention as every prior Swalekha delete); `close`/`reopen` flip the two status flags described above. Every list/get response is built via a shared `ToDtosAsync` helper that joins in each trip's linked sheet (for `Budget`) and a grouped sum of its entries (for `SpentTotal`) in two batched queries rather than N+1 per trip.
+- `SwalekhaSchemaRepairService.cs` extended with `SwalekhaTrips`, same idempotent pattern as every prior table.
+- **Zero new endpoints for expense entries** - trips reuse `PersonalFin_04`'s `GET/POST/DELETE /api/swalekha/expense-sheets/{sheetId}/entries` verbatim, passing the trip's own `SheetId`. This is the literal "building directly on PersonalFin_04's sheet/entry tables" promised in that stage's changelog entry.
+
+**Frontend**:
+- `pages/trips/index.vue` - a trip table (budget-vs-spent, colored red when over budget, an Open/Closed badge, a "Show closed" toggle), close/reopen/edit/delete row actions, and a create/edit `USlideover`.
+- `pages/trips/[id].vue` - trip header (destination, spent vs. budget), an add-expense form that's hidden once the trip is closed (with an explanatory banner instead), and the same paginated entry table pattern used everywhere else in Swalekha - calling the `PersonalFin_04` expense-sheet-entries endpoints directly against `trip.sheetId`.
+- `pages/index.vue` - added a Trips nav button, removed the `PersonalFin_05` placeholder card.
+- Extended `utils/swalekha-api.ts` with `SwalekhaTrip`/`SwalekhaTripPayload` (no new client methods needed - the trip pages reuse the same expense-entry types and `get`/`post`/`put`/`del` methods `PersonalFin_04` already added).
+
+**Validated**: `dotnet build` (0 errors, same 7 pre-existing unrelated warnings), full backend test suite (281 passed, 3 pre-existing Postgres-only skipped, zero regressions), clean `swalekha-web` production build (`/trips` prerenders alongside every existing route; compiled-bundle grep confirmed "Travel Expense Sheets" content), `node scripts/validate-structure.mjs` passing, and a dev-server pass confirming zero console errors and that an unauthenticated `/trips` request correctly redirects to `/login`. **No live click-through was possible** - no test credentials in this environment, the same documented limitation every prior Swalekha stage has noted. Version bumped to `6.9.9`.
+
+**Next**: `PersonalFin_06` (Investments I - Fixed Deposits + Recurring Deposits) is next on the `swalekha` branch, the first of the three Investments stages.
+
+---
+
 ## 2026-07-17 - Swalekha PersonalFin_04 (Expense & Income) - branch `swalekha`
 
 **Type**: Third feature stage on the Swalekha module - domain models, backend endpoints, frontend pages. No deploy executed.

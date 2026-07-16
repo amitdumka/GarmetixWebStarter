@@ -1,5 +1,14 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-17 - Swalekha PersonalFin_05 (Travel Expense Sheets) shipped on branch `swalekha`
+
+Amit said "keep moving ahead" again. Version `6.9.9`. No deploy executed.
+
+- Backend: `SwalekhaTrip` model - a thin metadata wrapper around a dedicated `SwalekhaExpenseSheet` (`SheetType` "Travel") created automatically on trip creation. Expense entries reuse `PersonalFin_04`'s existing entry endpoints against the trip's `SheetId`, not duplicated. **Close Trip needed no data-copy step**: since the sheet is already Travel-typed from creation, the existing expense summary's `bySheetType` grouping already aggregates every trip under Travel automatically - closing just finalizes the trip (`IsClosed`/`ClosedAt`, sheet `IsActive=false`), with a matching reopen.
+- Frontend: `/trips` (trip table with budget-vs-spent, open/closed badge, close/reopen/edit/delete) and `/trips/[id]` (trip header, add-expense form hidden once closed, reused paginated entry table) in the `swalekha` app; dashboard nav updated.
+- Validated: `dotnet build` (0 errors), full backend test suite (281 passed, 0 regressions), clean `swalekha-web` production build, `validate-structure.mjs`, dev-server pass (zero console errors). No live click-through - no test credentials in this environment.
+- Next: `PersonalFin_06` (Investments I - Fixed Deposits + Recurring Deposits).
+
 ## 2026-07-17 - Swalekha PersonalFin_04 (Expense & Income) shipped on branch `swalekha`
 
 Amit said "keep moving ahead" again. Version `6.9.8`. No deploy executed.
