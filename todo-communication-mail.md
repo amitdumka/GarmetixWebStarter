@@ -28,12 +28,12 @@
 
 ## Queue
 
-- [ ] Implement transactional/idempotent enqueue.
-- [ ] Implement legal queue state transitions.
-- [ ] Implement atomic multi-worker claim and processing lease.
-- [ ] Implement bounded batches, rate limits and graceful shutdown.
-- [ ] Implement transient classification, backoff/jitter and dead-letter.
-- [ ] Add attempts, sanitized errors, health and metrics.
+- [x] Implement transactional/idempotent enqueue.
+- [x] Implement legal queue state transitions.
+- [x] Implement atomic multi-worker claim and processing lease.
+- [x] Implement bounded batches, rate limits and graceful shutdown.
+- [x] Implement transient classification, backoff/jitter and dead-letter.
+- [ ] Add attempts, sanitized errors, health and metrics. (attempts/sanitized errors done; health/usage dashboard is CM-05)
 
 ## Templates and integrations
 
