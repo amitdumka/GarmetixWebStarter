@@ -520,6 +520,109 @@ public static class SwalekhaSchemaRepairService
                 ON "SwalekhaMutualFundTransactions" ("FundId", "TransactionDate");
             """, cancellationToken);
 
+        // PersonalFin_10 - Investments III (Shares/Stocks + simple PPF/EPF/NPS/Gold snapshots).
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "SwalekhaShareHoldings" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+                "Symbol" text NOT NULL DEFAULT '',
+                "CompanyName" text NULL,
+                "Exchange" text NULL,
+                "DematAccount" text NULL,
+                "Broker" text NULL,
+                "AccountId" uuid NULL,
+                "CurrentPrice" numeric(18,2) NULL,
+                "CurrentPriceUpdatedAt" timestamp without time zone NULL,
+                "CurrentQuantity" numeric(18,2) NOT NULL DEFAULT 0,
+                "TotalInvested" numeric(18,2) NOT NULL DEFAULT 0,
+                "RealizedPnL" numeric(18,2) NOT NULL DEFAULT 0,
+                "IsActive" boolean NOT NULL DEFAULT true,
+                "Notes" text NULL,
+                CONSTRAINT "PK_SwalekhaShareHoldings" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaShareHoldings" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaShareHoldings" ADD COLUMN IF NOT EXISTS "Symbol" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaShareHoldings" ADD COLUMN IF NOT EXISTS "CompanyName" text NULL;
+            ALTER TABLE "SwalekhaShareHoldings" ADD COLUMN IF NOT EXISTS "Exchange" text NULL;
+            ALTER TABLE "SwalekhaShareHoldings" ADD COLUMN IF NOT EXISTS "DematAccount" text NULL;
+            ALTER TABLE "SwalekhaShareHoldings" ADD COLUMN IF NOT EXISTS "Broker" text NULL;
+            ALTER TABLE "SwalekhaShareHoldings" ADD COLUMN IF NOT EXISTS "AccountId" uuid NULL;
+            ALTER TABLE "SwalekhaShareHoldings" ADD COLUMN IF NOT EXISTS "CurrentPrice" numeric(18,2) NULL;
+            ALTER TABLE "SwalekhaShareHoldings" ADD COLUMN IF NOT EXISTS "CurrentPriceUpdatedAt" timestamp without time zone NULL;
+            ALTER TABLE "SwalekhaShareHoldings" ADD COLUMN IF NOT EXISTS "CurrentQuantity" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaShareHoldings" ADD COLUMN IF NOT EXISTS "TotalInvested" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaShareHoldings" ADD COLUMN IF NOT EXISTS "RealizedPnL" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaShareHoldings" ADD COLUMN IF NOT EXISTS "IsActive" boolean NOT NULL DEFAULT true;
+            ALTER TABLE "SwalekhaShareHoldings" ADD COLUMN IF NOT EXISTS "Notes" text NULL;
+
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaShareHoldings_OwnerId" ON "SwalekhaShareHoldings" ("OwnerId");
+
+            CREATE TABLE IF NOT EXISTS "SwalekhaShareTransactions" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+                "HoldingId" uuid NOT NULL,
+                "TransactionType" integer NOT NULL DEFAULT 0,
+                "TransactionDate" timestamp without time zone NOT NULL DEFAULT now(),
+                "Quantity" numeric(18,2) NOT NULL DEFAULT 0,
+                "PricePerShare" numeric(18,2) NOT NULL DEFAULT 0,
+                "Amount" numeric(18,2) NOT NULL DEFAULT 0,
+                "Narration" text NOT NULL DEFAULT '',
+                "InvestedAmountRemoved" numeric(18,2) NULL,
+                "RealizedPnLOnSale" numeric(18,2) NULL,
+                CONSTRAINT "PK_SwalekhaShareTransactions" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaShareTransactions" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaShareTransactions" ADD COLUMN IF NOT EXISTS "HoldingId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaShareTransactions" ADD COLUMN IF NOT EXISTS "TransactionType" integer NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaShareTransactions" ADD COLUMN IF NOT EXISTS "TransactionDate" timestamp without time zone NOT NULL DEFAULT now();
+            ALTER TABLE "SwalekhaShareTransactions" ADD COLUMN IF NOT EXISTS "Quantity" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaShareTransactions" ADD COLUMN IF NOT EXISTS "PricePerShare" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaShareTransactions" ADD COLUMN IF NOT EXISTS "Amount" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaShareTransactions" ADD COLUMN IF NOT EXISTS "Narration" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaShareTransactions" ADD COLUMN IF NOT EXISTS "InvestedAmountRemoved" numeric(18,2) NULL;
+            ALTER TABLE "SwalekhaShareTransactions" ADD COLUMN IF NOT EXISTS "RealizedPnLOnSale" numeric(18,2) NULL;
+
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaShareTransactions_OwnerId" ON "SwalekhaShareTransactions" ("OwnerId");
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaShareTransactions_HoldingId_TransactionDate"
+                ON "SwalekhaShareTransactions" ("HoldingId", "TransactionDate");
+
+            CREATE TABLE IF NOT EXISTS "SwalekhaOtherAssets" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+                "AssetType" integer NOT NULL DEFAULT 0,
+                "Name" text NOT NULL DEFAULT '',
+                "CurrentValue" numeric(18,2) NOT NULL DEFAULT 0,
+                "AsOfDate" timestamp without time zone NOT NULL DEFAULT now(),
+                "IsActive" boolean NOT NULL DEFAULT true,
+                "Notes" text NULL,
+                CONSTRAINT "PK_SwalekhaOtherAssets" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaOtherAssets" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaOtherAssets" ADD COLUMN IF NOT EXISTS "AssetType" integer NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaOtherAssets" ADD COLUMN IF NOT EXISTS "Name" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaOtherAssets" ADD COLUMN IF NOT EXISTS "CurrentValue" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaOtherAssets" ADD COLUMN IF NOT EXISTS "AsOfDate" timestamp without time zone NOT NULL DEFAULT now();
+            ALTER TABLE "SwalekhaOtherAssets" ADD COLUMN IF NOT EXISTS "IsActive" boolean NOT NULL DEFAULT true;
+            ALTER TABLE "SwalekhaOtherAssets" ADD COLUMN IF NOT EXISTS "Notes" text NULL;
+
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaOtherAssets_OwnerId" ON "SwalekhaOtherAssets" ("OwnerId");
+            """, cancellationToken);
+
         logger.LogInformation("Swalekha account storage repair check completed.");
     }
 }

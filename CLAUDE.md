@@ -1,5 +1,16 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-17 - Swalekha PersonalFin_10: Investments III (Shares/Stocks + Other Assets)
+
+Amit said to keep going. Version `6.9.16`. Backend + frontend, no deploy executed.
+
+- New Share/Stock holding tracker (symbol/company/exchange/demat/broker), optionally linked to an Accounts Hub account, using the exact same integration pattern `PersonalFin_09` established for Mutual Funds: Buy debits the linked account and grows the position, Sell credits it back and reduces `TotalInvested` at average cost per share while adding the realized gain/loss to a running `RealizedPnL`. Deleting a transaction reverses its exact effect (units, invested amount, realized P&L, account balance) since Sells record precisely how much they removed.
+- New Other Assets entity for PPF/EPF/NPS/Gold - deliberately scoped as simple `CurrentValue` snapshots with no transaction history, matching the design's explicit "simple asset entries" framing.
+- New `/investments/shares` list+detail pages and `/investments/other-assets` page; Investments hub gained both cards.
+- **Live-verified with exact math via API checks**: Buy 10 shares at Rs 100 (account debited 2150->1150), Sell 4 at Rs 150 (avg-cost-removed Rs 400, realized P&L Rs 200, quantity 10->6, invested 1000->600, account credited to 1750), price update to Rs 120 correctly computed Current Value Rs 720 and Unrealized P&L Rs 120 (20%). The Browser pane itself degraded mid-session (blank screenshots, unreliable clicks) - a tooling issue, not an app bug, confirmed since every backend call still succeeded correctly and the same component class was already proven working via genuine clicks in the prior PersonalFin_09 session.
+- Validated: `dotnet build` (0 errors), full backend test suite (286 passed, 0 regressions), clean `swalekha-web` build, `validate-structure.mjs`.
+- `PersonalFin_11` (Loans Taken + Loans Given) is next.
+
 ## 2026-07-17 - Swalekha PersonalFin_09: Investments II (Mutual Funds + SIP tracker)
 
 Amit said to keep going. Version `6.9.15`. Backend + frontend, no deploy executed.

@@ -501,6 +501,93 @@ export interface SwalekhaMutualFundReturns {
   xirrNote?: string | null
 }
 
+export type SwalekhaShareTransactionType = 'Buy' | 'Sell'
+export type SwalekhaOtherAssetType = 'PPF' | 'EPF' | 'NPS' | 'Gold' | 'Other'
+
+export interface SwalekhaShareHolding {
+  id: string
+  symbol: string
+  companyName?: string | null
+  exchange?: string | null
+  dematAccount?: string | null
+  broker?: string | null
+  accountId?: string | null
+  currentPrice?: number | null
+  currentPriceUpdatedAt?: string | null
+  currentQuantity: number
+  totalInvested: number
+  realizedPnL: number
+  currentValue?: number | null
+  unrealizedPnL?: number | null
+  unrealizedPnLPercent?: number | null
+  isActive: boolean
+  notes?: string | null
+  createdAt: string
+}
+
+export interface SwalekhaShareHoldingPayload {
+  symbol: string
+  companyName?: string | null
+  exchange?: string | null
+  dematAccount?: string | null
+  broker?: string | null
+  accountId?: string | null
+  isActive: boolean
+  notes?: string | null
+}
+
+export interface SwalekhaUpdateSharePricePayload {
+  currentPrice: number
+}
+
+export interface SwalekhaShareTransaction {
+  id: string
+  holdingId: string
+  transactionType: SwalekhaShareTransactionType
+  transactionDate: string
+  quantity: number
+  pricePerShare: number
+  amount: number
+  narration: string
+  realizedPnLOnSale?: number | null
+  createdAt: string
+}
+
+export interface SwalekhaShareTransactionPayload {
+  transactionType: SwalekhaShareTransactionType
+  transactionDate: string
+  quantity: number
+  pricePerShare: number
+  narration?: string | null
+}
+
+export interface SwalekhaShareTransactionList {
+  page: number
+  pageSize: number
+  totalCount: number
+  rows: SwalekhaShareTransaction[]
+}
+
+export interface SwalekhaOtherAsset {
+  id: string
+  assetType: SwalekhaOtherAssetType
+  name: string
+  currentValue: number
+  asOfDate: string
+  isActive: boolean
+  notes?: string | null
+  createdAt: string
+}
+
+export interface SwalekhaOtherAssetPayload {
+  assetType: SwalekhaOtherAssetType
+  name: string
+  currentValue: number
+  asOfDate: string
+  isActive: boolean
+  notes?: string | null
+}
+
 export function useSwalekhaApiClient() {
   const runtimeConfig = useRuntimeConfig()
   const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))

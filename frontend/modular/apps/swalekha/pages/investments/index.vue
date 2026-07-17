@@ -77,6 +77,24 @@
         </template>
         <p class="text-sm text-muted">{{ mutualFunds.filter(f => f.isActive).length }} active fund(s){{ mutualFundsSipDue ? `, ${mutualFundsSipDue} SIP(s) due this month` : '' }}.</p>
       </UCard>
+      <UCard>
+        <template #header>
+          <div class="flex items-center justify-between">
+            <p class="font-semibold text-highlighted">Shares &amp; Stocks</p>
+            <UButton to="/investments/shares" icon="i-lucide-arrow-right" color="primary" variant="ghost" size="sm">Manage</UButton>
+          </div>
+        </template>
+        <p class="text-sm text-muted">{{ shareHoldings.filter(h => h.isActive).length }} active holding(s), {{ formatCurrency(shareRealizedPnL) }} realized P&amp;L.</p>
+      </UCard>
+      <UCard>
+        <template #header>
+          <div class="flex items-center justify-between">
+            <p class="font-semibold text-highlighted">Other Assets</p>
+            <UButton to="/investments/other-assets" icon="i-lucide-arrow-right" color="primary" variant="ghost" size="sm">Manage</UButton>
+          </div>
+        </template>
+        <p class="text-sm text-muted">PPF/EPF/NPS/Gold - {{ otherAssets.filter(a => a.isActive).length }} entry(s), {{ formatCurrency(otherAssetsTotal) }} total.</p>
+      </UCard>
     </div>
 
     <UCard v-if="upcomingMaturities.length" :ui="{ body: 'p-0' }">
@@ -99,12 +117,12 @@
       </template>
       <div class="grid gap-2 sm:grid-cols-2">
         <div class="rounded-md border border-default p-3 text-sm">
-          <p class="font-medium text-highlighted">PersonalFin_10</p>
-          <p class="text-muted">Shares/Stocks, PPF/EPF/NPS/Gold</p>
-        </div>
-        <div class="rounded-md border border-default p-3 text-sm">
           <p class="font-medium text-highlighted">PersonalFin_11</p>
           <p class="text-muted">Loans Taken &amp; Given</p>
+        </div>
+        <div class="rounded-md border border-default p-3 text-sm">
+          <p class="font-medium text-highlighted">PersonalFin_12</p>
+          <p class="text-muted">Insurance</p>
         </div>
       </div>
     </UCard>
@@ -112,7 +130,14 @@
 </template>
 
 <script setup lang="ts">
-import { useSwalekhaApiClient, type SwalekhaFixedDeposit, type SwalekhaMutualFund, type SwalekhaRecurringDeposit } from '../../utils/swalekha-api'
+import {
+  useSwalekhaApiClient,
+  type SwalekhaFixedDeposit,
+  type SwalekhaMutualFund,
+  type SwalekhaOtherAsset,
+  type SwalekhaRecurringDeposit,
+  type SwalekhaShareHolding
+} from '../../utils/swalekha-api'
 
 useHead({ title: 'Investments - Swalekha' })
 
@@ -122,6 +147,8 @@ const error = ref('')
 const fixedDeposits = ref<SwalekhaFixedDeposit[]>([])
 const recurringDeposits = ref<SwalekhaRecurringDeposit[]>([])
 const mutualFunds = ref<SwalekhaMutualFund[]>([])
+const shareHoldings = ref<SwalekhaShareHolding[]>([])
+const otherAssets = ref<SwalekhaOtherAsset[]>([])
 
 const maturityColumns = [
   { accessorKey: 'type', header: 'Type' },
@@ -134,6 +161,8 @@ const activeFdPrincipal = computed(() => fixedDeposits.value.filter(d => !d.isCl
 const activeRdMonthly = computed(() => recurringDeposits.value.filter(d => !d.isClosed).reduce((sum, d) => sum + d.monthlyInstallment, 0))
 const mutualFundCurrentValue = computed(() => mutualFunds.value.reduce((sum, f) => sum + (f.currentValue ?? f.totalInvested), 0))
 const mutualFundsSipDue = computed(() => mutualFunds.value.filter(f => f.sipDueThisMonth).length)
+const shareRealizedPnL = computed(() => shareHoldings.value.reduce((sum, h) => sum + h.realizedPnL, 0))
+const otherAssetsTotal = computed(() => otherAssets.value.filter(a => a.isActive).reduce((sum, a) => sum + a.currentValue, 0))
 
 const upcomingMaturities = computed(() => {
   const cutoff = new Date()
@@ -159,14 +188,18 @@ async function refresh() {
   loading.value = true
   error.value = ''
   try {
-    const [fdResult, rdResult, mfResult] = await Promise.all([
+    const [fdResult, rdResult, mfResult, shareResult, otherResult] = await Promise.all([
       api.get<SwalekhaFixedDeposit[]>('fixed-deposits?includeClosed=true'),
       api.get<SwalekhaRecurringDeposit[]>('recurring-deposits?includeClosed=true'),
-      api.get<SwalekhaMutualFund[]>('mutual-funds?includeInactive=true')
+      api.get<SwalekhaMutualFund[]>('mutual-funds?includeInactive=true'),
+      api.get<SwalekhaShareHolding[]>('shares?includeInactive=true'),
+      api.get<SwalekhaOtherAsset[]>('other-assets?includeInactive=true')
     ])
     fixedDeposits.value = fdResult
     recurringDeposits.value = rdResult
     mutualFunds.value = mfResult
+    shareHoldings.value = shareResult
+    otherAssets.value = otherResult
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Could not load investments.'
   } finally {
