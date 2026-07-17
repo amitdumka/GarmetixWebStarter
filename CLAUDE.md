@@ -1,5 +1,16 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-17 - Swalekha PersonalFin_07: Owner Profile, Family Connections, mutual-consent transfer sync
+
+Amit asked for profile-based data per Owner login (already covered by PersonalFin_06), an Owner Profile (PAN/Aadhar/Passport/spouse/children/contact/linked bank account), a family-member connection list so cross-owner transactions "need just one entry" (father pays son, son's own account updates automatically), and auto-provisioning the Owner's profile from the Garmetix Employee table. Version `6.9.13`. Backend + frontend, no deploy executed.
+
+- New `SwalekhaOwnerProfile` (PAN/Aadhar/Passport/address/spouse name+contact/`LinkedAccountId`) and `SwalekhaFamilyMember` (name/relationship/mobile/DOB/`LinkedOwnerId`) entities, `GET/PUT /api/swalekha/owner-profile` and `GET/POST/PUT/DELETE /api/swalekha/family` + `/family/linkable-owners` + `/family/{id}/transfer`.
+- **Auto-provisioning**: `EnsureProfileAsync` reads the current Owner's `AppUser.EmployeeId` straight from the shared `GarmetixDbContext` (the one place Swalekha deliberately crosses into the main database) and, when it resolves to an `EmployeeCategory.Owner` row, prefills PAN/Aadhar/Mobile/Email/spouse name - still fully editable afterward, never locked.
+- **Transfer sync is deliberately mutual-consent**, not a one-directional push: a family transfer only succeeds once *both* Owners have independently linked each other back, re-checked live at transfer time (not just at link-creation) so either side can revoke it. A confirmed transfer debits the sender and credits the recipient's own linked account in one atomic DB transaction - the recipient does nothing and their balance just updates, matching Amit's "one entry" ask exactly.
+- **Live-verified with three real logins** (not just builds): a genuine Employee-linked Owner (`AFOwner`, `EmployeeCategory.Owner`) auto-provisioned correctly with real PAN/Aadhar/mobile/spouse data; two Owners linked each other and `linkConfirmed` correctly flipped true only once mutual; a real ₹1,500 transfer driven through the actual UI moved money and updated both sides' balances (5000→3500 sender, 0→1500 recipient); the negative path (link not yet reciprocal) correctly rejected with a clear message before any money moved.
+- Validated: `dotnet build` (0 errors), full backend test suite (281 passed, 0 regressions), clean `swalekha-web` build, `validate-structure.mjs`.
+- `PersonalFin_08` (Investments I - FD/RD) is next.
+
 ## 2026-07-17 - Swalekha PersonalFin_06: multi-owner data isolation (foundational fix)
 
 Amit flagged a real gap: Swalekha had no per-Owner data scoping - two Owner logins would have silently shared all accounts/contacts/expenses. Version `6.9.12`. No deploy executed, backend-only.

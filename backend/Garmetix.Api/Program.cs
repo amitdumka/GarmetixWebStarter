@@ -479,6 +479,8 @@ app.MapSwalekhaExpenseEndpoints();
 app.MapSwalekhaIncomeEndpoints();
 app.MapSwalekhaRecurringBillEndpoints();
 app.MapSwalekhaTripEndpoints();
+app.MapSwalekhaProfileEndpoints();
+app.MapSwalekhaFamilyEndpoints();
 app.MapCommercialEndpoints();
 app.MapCustomerDuesReconciliationEndpoints();
 app.MapFinancialYearCloseoutEndpoints();

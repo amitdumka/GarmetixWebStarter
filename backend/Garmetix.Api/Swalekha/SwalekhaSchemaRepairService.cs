@@ -273,6 +273,89 @@ public static class SwalekhaSchemaRepairService
             CREATE INDEX IF NOT EXISTS "IX_SwalekhaTrips_OwnerId" ON "SwalekhaTrips" ("OwnerId");
             """, cancellationToken);
 
+        // PersonalFin_07 - Owner Profile + Family Connections. Two new tables, OwnerId included
+        // from day one (unlike the PersonalFin_06 retrofit above, these never existed without it).
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "SwalekhaOwnerProfiles" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+                "FullName" text NULL,
+                "Pan" text NULL,
+                "Aadhar" text NULL,
+                "PassportNo" text NULL,
+                "Mobile" text NULL,
+                "Email" text NULL,
+                "AddressLine" text NULL,
+                "City" text NULL,
+                "State" text NULL,
+                "Country" text NULL,
+                "ZipCode" text NULL,
+                "SpouseName" text NULL,
+                "SpouseContact" text NULL,
+                "LinkedAccountId" uuid NULL,
+                "SourceEmployeeId" uuid NULL,
+                "IsAutoProvisioned" boolean NOT NULL DEFAULT false,
+                "Notes" text NULL,
+                CONSTRAINT "PK_SwalekhaOwnerProfiles" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaOwnerProfiles" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaOwnerProfiles" ADD COLUMN IF NOT EXISTS "FullName" text NULL;
+            ALTER TABLE "SwalekhaOwnerProfiles" ADD COLUMN IF NOT EXISTS "Pan" text NULL;
+            ALTER TABLE "SwalekhaOwnerProfiles" ADD COLUMN IF NOT EXISTS "Aadhar" text NULL;
+            ALTER TABLE "SwalekhaOwnerProfiles" ADD COLUMN IF NOT EXISTS "PassportNo" text NULL;
+            ALTER TABLE "SwalekhaOwnerProfiles" ADD COLUMN IF NOT EXISTS "Mobile" text NULL;
+            ALTER TABLE "SwalekhaOwnerProfiles" ADD COLUMN IF NOT EXISTS "Email" text NULL;
+            ALTER TABLE "SwalekhaOwnerProfiles" ADD COLUMN IF NOT EXISTS "AddressLine" text NULL;
+            ALTER TABLE "SwalekhaOwnerProfiles" ADD COLUMN IF NOT EXISTS "City" text NULL;
+            ALTER TABLE "SwalekhaOwnerProfiles" ADD COLUMN IF NOT EXISTS "State" text NULL;
+            ALTER TABLE "SwalekhaOwnerProfiles" ADD COLUMN IF NOT EXISTS "Country" text NULL;
+            ALTER TABLE "SwalekhaOwnerProfiles" ADD COLUMN IF NOT EXISTS "ZipCode" text NULL;
+            ALTER TABLE "SwalekhaOwnerProfiles" ADD COLUMN IF NOT EXISTS "SpouseName" text NULL;
+            ALTER TABLE "SwalekhaOwnerProfiles" ADD COLUMN IF NOT EXISTS "SpouseContact" text NULL;
+            ALTER TABLE "SwalekhaOwnerProfiles" ADD COLUMN IF NOT EXISTS "LinkedAccountId" uuid NULL;
+            ALTER TABLE "SwalekhaOwnerProfiles" ADD COLUMN IF NOT EXISTS "SourceEmployeeId" uuid NULL;
+            ALTER TABLE "SwalekhaOwnerProfiles" ADD COLUMN IF NOT EXISTS "IsAutoProvisioned" boolean NOT NULL DEFAULT false;
+            ALTER TABLE "SwalekhaOwnerProfiles" ADD COLUMN IF NOT EXISTS "Notes" text NULL;
+
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaOwnerProfiles_OwnerId" ON "SwalekhaOwnerProfiles" ("OwnerId");
+
+            CREATE TABLE IF NOT EXISTS "SwalekhaFamilyMembers" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+                "Name" text NOT NULL DEFAULT '',
+                "Relationship" text NULL,
+                "Mobile" text NULL,
+                "Email" text NULL,
+                "DateOfBirth" timestamp without time zone NULL,
+                "LinkedOwnerId" uuid NULL,
+                "IsActive" boolean NOT NULL DEFAULT true,
+                "Notes" text NULL,
+                CONSTRAINT "PK_SwalekhaFamilyMembers" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaFamilyMembers" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaFamilyMembers" ADD COLUMN IF NOT EXISTS "Name" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaFamilyMembers" ADD COLUMN IF NOT EXISTS "Relationship" text NULL;
+            ALTER TABLE "SwalekhaFamilyMembers" ADD COLUMN IF NOT EXISTS "Mobile" text NULL;
+            ALTER TABLE "SwalekhaFamilyMembers" ADD COLUMN IF NOT EXISTS "Email" text NULL;
+            ALTER TABLE "SwalekhaFamilyMembers" ADD COLUMN IF NOT EXISTS "DateOfBirth" timestamp without time zone NULL;
+            ALTER TABLE "SwalekhaFamilyMembers" ADD COLUMN IF NOT EXISTS "LinkedOwnerId" uuid NULL;
+            ALTER TABLE "SwalekhaFamilyMembers" ADD COLUMN IF NOT EXISTS "IsActive" boolean NOT NULL DEFAULT true;
+            ALTER TABLE "SwalekhaFamilyMembers" ADD COLUMN IF NOT EXISTS "Notes" text NULL;
+
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaFamilyMembers_OwnerId" ON "SwalekhaFamilyMembers" ("OwnerId");
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaFamilyMembers_LinkedOwnerId" ON "SwalekhaFamilyMembers" ("LinkedOwnerId");
+            """, cancellationToken);
+
         logger.LogInformation("Swalekha account storage repair check completed.");
     }
 }

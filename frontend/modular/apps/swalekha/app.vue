@@ -144,6 +144,8 @@ const health = ref<SwalekhaHealth | null>(null)
 
 const navItems = [
   { label: 'Dashboard', icon: 'i-lucide-layout-dashboard', to: '/' },
+  { label: 'My Profile', icon: 'i-lucide-id-card', to: '/profile' },
+  { label: 'Family Members', icon: 'i-lucide-heart-handshake', to: '/family' },
   { label: 'Accounts Hub', icon: 'i-lucide-landmark', to: '/accounts' },
   { label: 'Contacts', icon: 'i-lucide-users', to: '/contacts' },
   { label: 'Expenses', icon: 'i-lucide-receipt', to: '/expenses' },

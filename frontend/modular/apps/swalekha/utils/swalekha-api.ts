@@ -260,6 +260,89 @@ export interface SwalekhaTripPayload {
   notes?: string | null
 }
 
+export interface SwalekhaOwnerProfile {
+  id: string
+  fullName?: string | null
+  pan?: string | null
+  aadhar?: string | null
+  passportNo?: string | null
+  mobile?: string | null
+  email?: string | null
+  addressLine?: string | null
+  city?: string | null
+  state?: string | null
+  country?: string | null
+  zipCode?: string | null
+  spouseName?: string | null
+  spouseContact?: string | null
+  linkedAccountId?: string | null
+  sourceEmployeeId?: string | null
+  isAutoProvisioned: boolean
+  notes?: string | null
+  createdAt: string
+}
+
+export interface SwalekhaOwnerProfilePayload {
+  fullName?: string | null
+  pan?: string | null
+  aadhar?: string | null
+  passportNo?: string | null
+  mobile?: string | null
+  email?: string | null
+  addressLine?: string | null
+  city?: string | null
+  state?: string | null
+  country?: string | null
+  zipCode?: string | null
+  spouseName?: string | null
+  spouseContact?: string | null
+  linkedAccountId?: string | null
+  notes?: string | null
+}
+
+export interface SwalekhaFamilyMember {
+  id: string
+  name: string
+  relationship?: string | null
+  mobile?: string | null
+  email?: string | null
+  dateOfBirth?: string | null
+  linkedOwnerId?: string | null
+  linkedOwnerName?: string | null
+  linkConfirmed: boolean
+  isActive: boolean
+  notes?: string | null
+  createdAt: string
+}
+
+export interface SwalekhaFamilyMemberPayload {
+  name: string
+  relationship?: string | null
+  mobile?: string | null
+  email?: string | null
+  dateOfBirth?: string | null
+  linkedOwnerId?: string | null
+  isActive: boolean
+  notes?: string | null
+}
+
+export interface SwalekhaLinkableOwner {
+  id: string
+  name: string
+}
+
+export interface SwalekhaFamilyTransferPayload {
+  fromAccountId: string
+  amount: number
+  transactionDate: string
+  narration?: string | null
+}
+
+export interface SwalekhaFamilyTransferResult {
+  message: string
+  fromAccountBalance: number
+}
+
 export function useSwalekhaApiClient() {
   const runtimeConfig = useRuntimeConfig()
   const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
