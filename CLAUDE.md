@@ -1,5 +1,18 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-17 - Swalekha PersonalFin_14: Dashboard & Reports
+
+Amit said to keep going and complete the roadmap. Version `6.9.20`. Backend + frontend, no deploy executed. Closes out the last "feature" stage before the final Document Vault & Hardening stage.
+
+- `GET /api/swalekha/dashboard` computes a real Net Worth by live-aggregating every entity built across `PersonalFin_02`-`13`: Accounts, open FD/RD, active Mutual Funds/Shares (current market value when priced, else invested amount), Other Assets, and Contacts receivables as assets; open Loans and Contacts payables as liabilities.
+- **Disclosed scope decision**: FD/RD have no stored "current accrued value" field, so FDs count at principal and RDs at installments-paid-so-far, both explicitly labelled as such rather than fabricating an interest-accrued number.
+- A rolling 30-day Upcoming Dues feed generalizes `PersonalFin_13`'s single-calendar-month due-date computation to correctly span a month boundary.
+- `GET /api/swalekha/dashboard/export` - a plain CSV Net Worth + investment-holdings export, deliberately not attempting to extend the codebase's one existing write-only `.xlsx` builder for a new module.
+- Dashboard page rebuilt with real Net Worth/Assets/Liabilities, Upcoming Dues, Today's Appointments, existing Expense Breakdown.
+- **Live-verified against real accumulated test data from every prior stage this session, matching to the rupee**: Net Worth came back as exactly Rs 5,64,270.00, every single breakdown line item (Accounts, RD, MF, Shares, Other Assets, Loans) matching the real data exactly; the CSV export's totals matched the dashboard exactly.
+- Validated: `dotnet build` (0 errors), full backend test suite (291 passed, 0 regressions), clean `swalekha-web` build, `validate-structure.mjs`.
+- `PersonalFin_15` (Document Vault & Hardening) is the last stage on the original roadmap.
+
 ## 2026-07-17 - Swalekha PersonalFin_13: Personal Organizer (Diary/Notes/Calendar)
 
 Amit said to keep going and complete the roadmap. Version `6.9.19`. Backend + frontend, no deploy executed. Starts Pillar B (the module's second major half, after Pillar A - Personal Finance - closed out with `PersonalFin_12`).

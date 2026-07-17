@@ -784,6 +784,22 @@ export interface SwalekhaCalendarEvent {
   sourceId?: string | null
 }
 
+export interface SwalekhaBreakdownRow {
+  category: string
+  value: number
+  note?: string | null
+}
+
+export interface SwalekhaDashboard {
+  netWorth: number
+  totalAssets: number
+  totalLiabilities: number
+  assetsBreakdown: SwalekhaBreakdownRow[]
+  liabilitiesBreakdown: SwalekhaBreakdownRow[]
+  upcomingDues: SwalekhaCalendarEvent[]
+  todayAppointments: SwalekhaAppointment[]
+}
+
 export function useSwalekhaApiClient() {
   const runtimeConfig = useRuntimeConfig()
   const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))

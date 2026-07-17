@@ -490,6 +490,7 @@ app.MapSwalekhaInsuranceEndpoints();
 app.MapSwalekhaJournalEndpoints();
 app.MapSwalekhaNoteEndpoints();
 app.MapSwalekhaCalendarEndpoints();
+app.MapSwalekhaDashboardEndpoints();
 app.MapCommercialEndpoints();
 app.MapCustomerDuesReconciliationEndpoints();
 app.MapFinancialYearCloseoutEndpoints();
