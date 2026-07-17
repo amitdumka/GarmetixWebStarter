@@ -231,6 +231,21 @@ New tests: `backend/Garmetix.Api.Tests/Communication/` — template variable esc
 idempotency-key generation, backoff/jitter calculation, queue state-transition
 legality (pure logic, no DB) as `[Fact]`s; atomic multi-worker claim as `[PostgresFact]`.
 
+## CM-02 note: model snapshot deliberately not hand-updated
+
+Unlike some prior stages, `GarmetixDbContextModelSnapshot.cs` (9173 lines) was **not**
+hand-edited for the 16 new Communication/Email entities. This is a deliberate,
+disclosed trade-off, not an oversight: `PendingModelChangesWarning` is explicitly
+suppressed in `DependencyInjection.cs` specifically so hand-written/idempotent
+migrations don't need the snapshot to stay in lockstep, and the actual runtime
+schema-provisioning mechanism on the SRP host is `DatabaseSchemaRepairService`'s
+idempotent `CREATE TABLE IF NOT EXISTS` blocks (`RepairCommunicationStorageAsync`,
+wired into `RepairKnownSchemaDriftAsync`), not the snapshot. A hand-written migration
+file (`20260718100000_AddCommunicationMailModule.cs`) was added for the local/dev
+`MigrateAsync` path and as documentation of the intended schema. If a future stage
+needs `dotnet ef migrations add` to work cleanly against this branch, the snapshot
+will need catching up at that point — flagged here rather than silently skipped.
+
 ## Summary of concrete new surfaces
 
 - Backend: `backend/Garmetix.Api/Communication/*` (endpoints, services, worker,

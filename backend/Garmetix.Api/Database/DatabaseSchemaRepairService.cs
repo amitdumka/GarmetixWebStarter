@@ -2682,6 +2682,356 @@ CREATE INDEX IF NOT EXISTS "IX_fa_exchange_exceptions_source_resolved" ON final_
     logger.LogInformation("Final Accounts storage repair check completed.");
 }
 
+public static async Task RepairCommunicationStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
+{
+    // The Communication & Mail module (internal messages, provider registry, template
+    // versions, durable email outbox/queue, delivery events, suppression) can be added to
+    // a Docker volume whose EF migration history was already baselined before these tables
+    // existed. Every Communication endpoint calls this before querying, mirroring
+    // RepairGstTaxStorageAsync above.
+    await db.Database.ExecuteSqlRawAsync("""
+        CREATE TABLE IF NOT EXISTS "CommunicationConversations" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "CompanyId" uuid NULL,
+            "StoreGroupId" uuid NULL,
+            "StoreId" uuid NULL,
+            "Subject" text NOT NULL DEFAULT '',
+            "ConversationType" text NOT NULL DEFAULT 'Direct',
+            "SourceModule" text NULL,
+            "SourceType" text NULL,
+            "SourceId" uuid NULL,
+            "CreatedByUserId" uuid NOT NULL,
+            "LastMessageAtUtc" timestamp without time zone NOT NULL DEFAULT now(),
+            "Revision" integer NOT NULL DEFAULT 0,
+            CONSTRAINT "PK_CommunicationConversations" PRIMARY KEY ("Id")
+        );
+        CREATE INDEX IF NOT EXISTS "IX_CommunicationConversations_CompanyId_LastMessageAtUtc"
+            ON "CommunicationConversations" ("CompanyId", "LastMessageAtUtc");
+
+        CREATE TABLE IF NOT EXISTS "CommunicationMessages" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "ConversationId" uuid NOT NULL,
+            "CompanyId" uuid NULL,
+            "StoreGroupId" uuid NULL,
+            "StoreId" uuid NULL,
+            "SenderUserId" uuid NOT NULL,
+            "SenderNameSnapshot" text NULL,
+            "Body" text NOT NULL DEFAULT '',
+            "BodyFormat" text NOT NULL DEFAULT 'PlainText',
+            "Priority" text NOT NULL DEFAULT 'Normal',
+            "IsDraft" boolean NOT NULL DEFAULT false,
+            "ReplyToMessageId" uuid NULL,
+            "SentAtUtc" timestamp without time zone NULL,
+            "Revision" integer NOT NULL DEFAULT 0,
+            CONSTRAINT "PK_CommunicationMessages" PRIMARY KEY ("Id")
+        );
+        CREATE INDEX IF NOT EXISTS "IX_CommunicationMessages_ConversationId_CreatedAt"
+            ON "CommunicationMessages" ("ConversationId", "CreatedAt");
+
+        CREATE TABLE IF NOT EXISTS "CommunicationRecipients" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "MessageId" uuid NOT NULL,
+            "ConversationId" uuid NOT NULL,
+            "RecipientUserId" uuid NOT NULL,
+            "IsRead" boolean NOT NULL DEFAULT false,
+            "ReadAtUtc" timestamp without time zone NULL,
+            "FolderState" text NOT NULL DEFAULT 'Inbox',
+            "TrashedAtUtc" timestamp without time zone NULL,
+            CONSTRAINT "PK_CommunicationRecipients" PRIMARY KEY ("Id")
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS "IX_CommunicationRecipients_MessageId_RecipientUserId"
+            ON "CommunicationRecipients" ("MessageId", "RecipientUserId");
+        CREATE INDEX IF NOT EXISTS "IX_CommunicationRecipients_RecipientUserId_FolderState_IsRead"
+            ON "CommunicationRecipients" ("RecipientUserId", "FolderState", "IsRead");
+        CREATE INDEX IF NOT EXISTS "IX_CommunicationRecipients_RecipientUserId_ConversationId"
+            ON "CommunicationRecipients" ("RecipientUserId", "ConversationId");
+
+        CREATE TABLE IF NOT EXISTS "CommunicationAttachments" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "MessageId" uuid NOT NULL,
+            "CompanyId" uuid NULL,
+            "OriginalFileName" text NOT NULL DEFAULT '',
+            "StoredFileName" text NOT NULL DEFAULT '',
+            "StoredRelativePath" text NOT NULL DEFAULT '',
+            "ContentType" text NOT NULL DEFAULT 'application/octet-stream',
+            "SizeBytes" bigint NOT NULL DEFAULT 0,
+            "Sha256Checksum" text NOT NULL DEFAULT '',
+            "UploadedByUserId" uuid NOT NULL,
+            CONSTRAINT "PK_CommunicationAttachments" PRIMARY KEY ("Id")
+        );
+        CREATE INDEX IF NOT EXISTS "IX_CommunicationAttachments_MessageId" ON "CommunicationAttachments" ("MessageId");
+
+        CREATE TABLE IF NOT EXISTS "CommunicationPreferences" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "UserId" uuid NOT NULL,
+            "CompanyId" uuid NULL,
+            "EmailNotificationsEnabled" boolean NOT NULL DEFAULT true,
+            "NotifyOnDirectMessage" boolean NOT NULL DEFAULT true,
+            "NotifyOnBroadcast" boolean NOT NULL DEFAULT true,
+            "DigestFrequency" text NOT NULL DEFAULT 'Immediate',
+            CONSTRAINT "PK_CommunicationPreferences" PRIMARY KEY ("Id")
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS "IX_CommunicationPreferences_UserId" ON "CommunicationPreferences" ("UserId");
+
+        CREATE TABLE IF NOT EXISTS "EmailProviderConfigurations" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "CompanyId" uuid NULL,
+            "StoreGroupId" uuid NULL,
+            "StoreId" uuid NULL,
+            "ProviderName" text NOT NULL DEFAULT '',
+            "ProviderType" text NOT NULL DEFAULT 'LocalMasterOnly',
+            "SmtpPresetKey" text NULL,
+            "Host" text NULL,
+            "Port" integer NULL,
+            "EnableSsl" boolean NOT NULL DEFAULT true,
+            "UseStartTls" boolean NOT NULL DEFAULT true,
+            "FromEmail" text NOT NULL DEFAULT '',
+            "FromName" text NOT NULL DEFAULT 'Garmetix',
+            "ReplyToEmail" text NULL,
+            "IsEnabled" boolean NOT NULL DEFAULT true,
+            "IsDefault" boolean NOT NULL DEFAULT false,
+            "Priority" integer NOT NULL DEFAULT 100,
+            "TimeoutSeconds" integer NOT NULL DEFAULT 30,
+            "MaxRetries" integer NOT NULL DEFAULT 3,
+            "DailyRateLimit" integer NULL,
+            "PerMinuteRateLimit" integer NULL,
+            "Notes" text NULL,
+            "CreatedBy" text NULL,
+            "UpdatedBy" text NULL,
+            "Revision" integer NOT NULL DEFAULT 0,
+            CONSTRAINT "PK_EmailProviderConfigurations" PRIMARY KEY ("Id")
+        );
+        CREATE INDEX IF NOT EXISTS "IX_EmailProviderConfigurations_Scope_Enabled_Priority"
+            ON "EmailProviderConfigurations" ("CompanyId", "StoreGroupId", "StoreId", "IsEnabled", "Priority");
+
+        CREATE TABLE IF NOT EXISTS "EmailProviderCredentials" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "ProviderId" uuid NOT NULL,
+            "CredentialKey" text NOT NULL DEFAULT '',
+            "EncryptedValue" text NOT NULL DEFAULT '',
+            "MaskedDisplayValue" text NULL,
+            CONSTRAINT "PK_EmailProviderCredentials" PRIMARY KEY ("Id")
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS "IX_EmailProviderCredentials_ProviderId_CredentialKey"
+            ON "EmailProviderCredentials" ("ProviderId", "CredentialKey");
+
+        CREATE TABLE IF NOT EXISTS "EmailTemplates" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "CompanyId" uuid NULL,
+            "TemplateKey" text NOT NULL DEFAULT '',
+            "DisplayName" text NOT NULL DEFAULT '',
+            "Category" text NULL,
+            "IsSystemTemplate" boolean NOT NULL DEFAULT false,
+            "IsActive" boolean NOT NULL DEFAULT true,
+            "CurrentVersionId" uuid NULL,
+            "Revision" integer NOT NULL DEFAULT 0,
+            CONSTRAINT "PK_EmailTemplates" PRIMARY KEY ("Id")
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS "IX_EmailTemplates_CompanyId_TemplateKey" ON "EmailTemplates" ("CompanyId", "TemplateKey");
+
+        CREATE TABLE IF NOT EXISTS "EmailTemplateVersions" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "TemplateId" uuid NOT NULL,
+            "VersionNumber" integer NOT NULL DEFAULT 1,
+            "Subject" text NOT NULL DEFAULT '',
+            "HtmlBody" text NOT NULL DEFAULT '',
+            "TextBody" text NULL,
+            "SampleDataJson" text NULL,
+            "Status" text NOT NULL DEFAULT 'Draft',
+            "ApprovedByUserId" uuid NULL,
+            "ApprovedAtUtc" timestamp without time zone NULL,
+            "CreatedByUserId" uuid NULL,
+            CONSTRAINT "PK_EmailTemplateVersions" PRIMARY KEY ("Id")
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS "IX_EmailTemplateVersions_TemplateId_VersionNumber"
+            ON "EmailTemplateVersions" ("TemplateId", "VersionNumber");
+
+        CREATE TABLE IF NOT EXISTS "EmailQueueItems" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "CompanyId" uuid NULL,
+            "StoreGroupId" uuid NULL,
+            "StoreId" uuid NULL,
+            "SourceModule" text NULL,
+            "SourceType" text NULL,
+            "SourceId" uuid NULL,
+            "TemplateId" uuid NULL,
+            "TemplateVersionId" uuid NULL,
+            "CorrelationId" text NOT NULL DEFAULT '',
+            "IdempotencyKey" text NOT NULL DEFAULT '',
+            "ProviderIdUsed" uuid NULL,
+            "Status" text NOT NULL DEFAULT 'Draft',
+            "Subject" text NOT NULL DEFAULT '',
+            "HtmlBody" text NOT NULL DEFAULT '',
+            "TextBody" text NULL,
+            "ScheduledForUtc" timestamp without time zone NULL,
+            "ProcessingLeaseUntilUtc" timestamp without time zone NULL,
+            "ProcessingLeaseOwner" text NULL,
+            "AttemptCount" integer NOT NULL DEFAULT 0,
+            "MaxAttempts" integer NOT NULL DEFAULT 8,
+            "NextAttemptAtUtc" timestamp without time zone NULL,
+            "LastErrorCode" text NULL,
+            "LastErrorMessage" text NULL,
+            "ProviderMessageId" text NULL,
+            "ResentFromQueueItemId" uuid NULL,
+            "CreatedByUserId" uuid NULL,
+            "Revision" integer NOT NULL DEFAULT 0,
+            CONSTRAINT "PK_EmailQueueItems" PRIMARY KEY ("Id")
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS "IX_EmailQueueItems_IdempotencyKey" ON "EmailQueueItems" ("IdempotencyKey");
+        CREATE INDEX IF NOT EXISTS "IX_EmailQueueItems_Status_NextAttemptAtUtc" ON "EmailQueueItems" ("Status", "NextAttemptAtUtc");
+        CREATE INDEX IF NOT EXISTS "IX_EmailQueueItems_CorrelationId" ON "EmailQueueItems" ("CorrelationId");
+        CREATE INDEX IF NOT EXISTS "IX_EmailQueueItems_Source" ON "EmailQueueItems" ("SourceModule", "SourceType", "SourceId");
+        CREATE INDEX IF NOT EXISTS "IX_EmailQueueItems_ProviderMessageId" ON "EmailQueueItems" ("ProviderMessageId");
+
+        CREATE TABLE IF NOT EXISTS "EmailRecipients" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "QueueItemId" uuid NOT NULL,
+            "Kind" text NOT NULL DEFAULT 'To',
+            "EmailAddress" text NOT NULL DEFAULT '',
+            "DisplayName" text NULL,
+            CONSTRAINT "PK_EmailRecipients" PRIMARY KEY ("Id")
+        );
+        CREATE INDEX IF NOT EXISTS "IX_EmailRecipients_QueueItemId" ON "EmailRecipients" ("QueueItemId");
+
+        CREATE TABLE IF NOT EXISTS "EmailAttachments" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "QueueItemId" uuid NOT NULL,
+            "OriginalFileName" text NOT NULL DEFAULT '',
+            "StoredFileName" text NOT NULL DEFAULT '',
+            "StoredRelativePath" text NOT NULL DEFAULT '',
+            "ContentType" text NOT NULL DEFAULT 'application/octet-stream',
+            "SizeBytes" bigint NOT NULL DEFAULT 0,
+            "Sha256Checksum" text NOT NULL DEFAULT '',
+            CONSTRAINT "PK_EmailAttachments" PRIMARY KEY ("Id")
+        );
+        CREATE INDEX IF NOT EXISTS "IX_EmailAttachments_QueueItemId" ON "EmailAttachments" ("QueueItemId");
+
+        CREATE TABLE IF NOT EXISTS "EmailDeliveryAttempts" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "QueueItemId" uuid NOT NULL,
+            "AttemptNumber" integer NOT NULL DEFAULT 1,
+            "ProviderId" uuid NULL,
+            "StartedAtUtc" timestamp without time zone NOT NULL DEFAULT now(),
+            "CompletedAtUtc" timestamp without time zone NULL,
+            "WasSuccess" boolean NOT NULL DEFAULT false,
+            "ResponseStatusCode" integer NULL,
+            "ErrorCode" text NULL,
+            "ErrorMessage" text NULL,
+            "DurationMs" integer NULL,
+            CONSTRAINT "PK_EmailDeliveryAttempts" PRIMARY KEY ("Id")
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS "IX_EmailDeliveryAttempts_QueueItemId_AttemptNumber"
+            ON "EmailDeliveryAttempts" ("QueueItemId", "AttemptNumber");
+
+        CREATE TABLE IF NOT EXISTS "EmailDeliveryEvents" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "QueueItemId" uuid NULL,
+            "ProviderMessageId" text NULL,
+            "EventType" text NOT NULL DEFAULT 'Sent',
+            "ProviderEventId" text NULL,
+            "OccurredAtUtc" timestamp without time zone NOT NULL DEFAULT now(),
+            "RawPayloadSanitizedJson" text NULL,
+            CONSTRAINT "PK_EmailDeliveryEvents" PRIMARY KEY ("Id")
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS "IX_EmailDeliveryEvents_ProviderEventId" ON "EmailDeliveryEvents" ("ProviderEventId");
+        CREATE INDEX IF NOT EXISTS "IX_EmailDeliveryEvents_QueueItemId" ON "EmailDeliveryEvents" ("QueueItemId");
+        CREATE INDEX IF NOT EXISTS "IX_EmailDeliveryEvents_ProviderMessageId" ON "EmailDeliveryEvents" ("ProviderMessageId");
+
+        CREATE TABLE IF NOT EXISTS "EmailSuppressionEntries" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "CompanyId" uuid NULL,
+            "EmailAddress" text NOT NULL DEFAULT '',
+            "Reason" text NOT NULL DEFAULT 'Manual',
+            "SourceEventId" uuid NULL,
+            "IsActive" boolean NOT NULL DEFAULT true,
+            "RemovedByUserId" uuid NULL,
+            "RemovedAtUtc" timestamp without time zone NULL,
+            "RemovalReason" text NULL,
+            CONSTRAINT "PK_EmailSuppressionEntries" PRIMARY KEY ("Id")
+        );
+        CREATE INDEX IF NOT EXISTS "IX_EmailSuppressionEntries_CompanyId_EmailAddress"
+            ON "EmailSuppressionEntries" ("CompanyId", "EmailAddress");
+
+        CREATE TABLE IF NOT EXISTS "EmailUsageCounters" (
+            "Id" uuid NOT NULL,
+            "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+            "UpdatedAt" timestamp without time zone NULL,
+            "Synced" boolean NOT NULL DEFAULT false,
+            "Deleted" boolean NOT NULL DEFAULT false,
+            "ProviderId" uuid NULL,
+            "CompanyId" uuid NULL,
+            "PeriodKey" text NOT NULL DEFAULT '',
+            "SentCount" integer NOT NULL DEFAULT 0,
+            "FailedCount" integer NOT NULL DEFAULT 0,
+            CONSTRAINT "PK_EmailUsageCounters" PRIMARY KEY ("Id")
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS "IX_EmailUsageCounters_ProviderId_CompanyId_PeriodKey"
+            ON "EmailUsageCounters" ("ProviderId", "CompanyId", "PeriodKey");
+        """, cancellationToken);
+
+    logger.LogInformation("Communication & Mail storage repair check completed.");
+}
+
 public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
     {
         try
@@ -2696,6 +3046,7 @@ public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogg
             await RepairAttendanceCoreStorageAsync(db, logger, cancellationToken);
             await RepairDigitalBillCrmStorageAsync(db, logger, cancellationToken);
             await RepairFinalAccountsStorageAsync(db, logger, cancellationToken);
+            await RepairCommunicationStorageAsync(db, logger, cancellationToken);
 
             await db.Database.ExecuteSqlRawAsync("""
                 CREATE TABLE IF NOT EXISTS "FinancialYearLocks" (

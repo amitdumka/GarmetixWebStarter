@@ -2,19 +2,19 @@
 
 ## Safety
 
-- [ ] Read repository agent instructions and inspect working tree.
-- [ ] Create/use exact branch `Mail-Com` without losing existing work.
-- [ ] Identify existing email/notification code and compatibility requirements.
-- [ ] Confirm no merge, push, deployment or production migration is performed.
+- [x] Read repository agent instructions and inspect working tree.
+- [x] Create/use exact branch `Mail-Com` without losing existing work.
+- [x] Identify existing email/notification code and compatibility requirements.
+- [x] Confirm no merge, push, deployment or production migration is performed.
 
 ## Design and database
 
-- [ ] Document repository-specific architecture and affected projects.
-- [ ] Define conversation/message/recipient/attachment/preference entities.
-- [ ] Define provider/template/queue/attempt/event/suppression/usage entities.
-- [ ] Add tenant/company/store ownership and UTC audit fields.
-- [ ] Add constraints, concurrency tokens, idempotency and indexes.
-- [ ] Create and review migrations.
+- [x] Document repository-specific architecture and affected projects.
+- [x] Define conversation/message/recipient/attachment/preference entities.
+- [x] Define provider/template/queue/attempt/event/suppression/usage entities.
+- [x] Add tenant/company/store ownership and UTC audit fields.
+- [x] Add constraints, concurrency tokens, idempotency and indexes.
+- [x] Create and review migrations.
 
 ## Providers and secrets
 
