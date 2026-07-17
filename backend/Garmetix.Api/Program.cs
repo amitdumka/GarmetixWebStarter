@@ -25,6 +25,7 @@ using Garmetix.Api.Dashboard;
 using Garmetix.Api.FinalAccounts;
 using Garmetix.Api.Hr;
 using Garmetix.Api.GstReturns;
+using Garmetix.Api.Communication;
 using Garmetix.Api.GstTax;
 using Garmetix.Api.Gstin;
 using Microsoft.AspNetCore.DataProtection;
@@ -210,6 +211,13 @@ builder.Services.AddDataProtection()
     .SetApplicationName("GarmetixApi")
     .PersistKeysToFileSystem(new DirectoryInfo(gstTaxKeyPath));
 builder.Services.AddSingleton<GstCredentialProtector>();
+builder.Services.AddSingleton<EmailCredentialProtector>();
+builder.Services.AddHttpClient<BrevoApiEmailProviderClient>();
+builder.Services.AddScoped<SmtpEmailProviderClient>();
+builder.Services.AddScoped<LocalMasterOnlyEmailProviderClient>();
+builder.Services.AddScoped<IEmailProviderClientFactory, EmailProviderClientFactory>();
+builder.Services.AddScoped<EmailProviderResolutionService>();
+builder.Services.AddScoped<EmailProviderTestService>();
 builder.Services.AddHttpClient("GstGenericRestProvider");
 builder.Services.AddScoped<GstinResolutionService>();
 builder.Services.AddScoped<GstRateResolutionService>();

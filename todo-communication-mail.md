@@ -18,13 +18,13 @@
 
 ## Providers and secrets
 
-- [ ] Implement provider abstraction.
-- [ ] Implement Brevo transactional API provider.
-- [ ] Implement reusable secure SMTP provider.
-- [ ] Add Brevo, GoDaddy, Microsoft 365, Gmail, custom and local-relay presets.
-- [ ] Encrypt credentials and persist protection keys safely.
-- [ ] Mask secrets in APIs/UI/logs and implement rotation.
-- [ ] Add provider selection, connection test and test email.
+- [x] Implement provider abstraction.
+- [x] Implement Brevo transactional API provider.
+- [x] Implement reusable secure SMTP provider.
+- [x] Add Brevo, GoDaddy, Microsoft 365, Gmail, custom and local-relay presets.
+- [x] Encrypt credentials and persist protection keys safely.
+- [ ] Mask secrets in APIs/UI/logs and implement rotation. (Mask() helper exists; API/UI wiring is CM-05)
+- [x] Add provider selection, connection test and test email.
 
 ## Queue
 
