@@ -20,11 +20,11 @@ public enum SwalekhaTransactionType
 
 /// <summary>
 /// A single financial account in the Swalekha Accounts Hub (PersonalFin_02) - bank, cash, or
-/// credit card. Belongs to the one Owner user; plain BaseEntity, no Company/Store scoping.
-/// CurrentBalance is the live source of truth, updated transactionally alongside every
+/// credit card. SwalekhaOwnedEntity.OwnerId (PersonalFin_06) scopes it to exactly one Owner
+/// login; no Company/Store scoping. CurrentBalance is the live source of truth, updated transactionally alongside every
 /// SwalekhaAccountTransaction insert/delete - not recomputed from history on every read.
 /// </summary>
-public class SwalekhaAccount : BaseEntity
+public class SwalekhaAccount : SwalekhaOwnedEntity
 {
     public SwalekhaAccount()
     {
@@ -54,7 +54,7 @@ public class SwalekhaAccount : BaseEntity
 /// point-in-time snapshot captured at insert time, not a guaranteed-accurate recomputed ledger -
 /// CurrentBalance on SwalekhaAccount is always the authoritative live balance.
 /// </summary>
-public class SwalekhaAccountTransaction : BaseEntity
+public class SwalekhaAccountTransaction : SwalekhaOwnedEntity
 {
     public SwalekhaAccountTransaction()
     {

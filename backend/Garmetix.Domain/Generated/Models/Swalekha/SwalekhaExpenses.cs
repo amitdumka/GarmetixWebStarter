@@ -9,7 +9,7 @@ namespace Garmetix.Core.Models.Swalekha;
 /// a specialization of this same table (a trip is just a sheet with SheetType "Travel" plus trip
 /// metadata), so this shape is deliberately kept generic rather than expense-only.
 /// </summary>
-public class SwalekhaExpenseSheet : BaseEntity
+public class SwalekhaExpenseSheet : SwalekhaOwnedEntity
 {
     public SwalekhaExpenseSheet()
     {
@@ -32,7 +32,7 @@ public class SwalekhaExpenseSheet : BaseEntity
 /// payment-account link (creating a real account Withdrawal transaction) if double-entry
 /// reconciliation against Accounts Hub balances is wanted.
 /// </summary>
-public class SwalekhaExpenseEntry : BaseEntity
+public class SwalekhaExpenseEntry : SwalekhaOwnedEntity
 {
     public SwalekhaExpenseEntry()
     {
@@ -52,7 +52,7 @@ public class SwalekhaExpenseEntry : BaseEntity
 /// An income entry (salary/rental/interest/dividend/other) - needed so cash-flow reporting
 /// isn't expense-only. Standalone in v1, same reasoning as SwalekhaExpenseEntry.
 /// </summary>
-public class SwalekhaIncomeEntry : BaseEntity
+public class SwalekhaIncomeEntry : SwalekhaOwnedEntity
 {
     public SwalekhaIncomeEntry()
     {
@@ -71,7 +71,7 @@ public class SwalekhaIncomeEntry : BaseEntity
 /// day-of-month plus a manual "mark paid" action), not a full automated recurring-transaction
 /// engine. The Owner still logs the actual payment as a normal SwalekhaExpenseEntry when paid.
 /// </summary>
-public class SwalekhaRecurringBill : BaseEntity
+public class SwalekhaRecurringBill : SwalekhaOwnedEntity
 {
     public SwalekhaRecurringBill()
     {

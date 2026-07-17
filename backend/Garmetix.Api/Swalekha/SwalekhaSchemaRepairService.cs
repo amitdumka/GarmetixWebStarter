@@ -246,6 +246,33 @@ public static class SwalekhaSchemaRepairService
             ALTER TABLE "SwalekhaTrips" ADD COLUMN IF NOT EXISTS "Notes" text NULL;
             """, cancellationToken);
 
+        // PersonalFin_06 - OwnerId retrofit across every existing Swalekha table (multi-owner
+        // data isolation). A single trailing block rather than interleaving into each table
+        // above, since ALTER TABLE ADD COLUMN IF NOT EXISTS is order-independent - it applies
+        // cleanly whether the table was just freshly created above (no OwnerId column yet) or
+        // already existed from a database created before PersonalFin_06.
+        await db.Database.ExecuteSqlRawAsync("""
+            ALTER TABLE "SwalekhaAccounts" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaAccountTransactions" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaContacts" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaPersonLedgerEntries" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaExpenseSheets" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaExpenseEntries" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaIncomeEntries" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaRecurringBills" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaTrips" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaAccounts_OwnerId" ON "SwalekhaAccounts" ("OwnerId");
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaAccountTransactions_OwnerId" ON "SwalekhaAccountTransactions" ("OwnerId");
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaContacts_OwnerId" ON "SwalekhaContacts" ("OwnerId");
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaPersonLedgerEntries_OwnerId" ON "SwalekhaPersonLedgerEntries" ("OwnerId");
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaExpenseSheets_OwnerId" ON "SwalekhaExpenseSheets" ("OwnerId");
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaExpenseEntries_OwnerId" ON "SwalekhaExpenseEntries" ("OwnerId");
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaIncomeEntries_OwnerId" ON "SwalekhaIncomeEntries" ("OwnerId");
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaRecurringBills_OwnerId" ON "SwalekhaRecurringBills" ("OwnerId");
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaTrips_OwnerId" ON "SwalekhaTrips" ("OwnerId");
+            """, cancellationToken);
+
         logger.LogInformation("Swalekha account storage repair check completed.");
     }
 }

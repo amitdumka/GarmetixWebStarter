@@ -103,6 +103,7 @@ builder.Services.AddGarmetixInfrastructure(connectionString);
 var swalekhaConnectionString = builder.Configuration.GetConnectionString("Swalekha")
     ?? throw new InvalidOperationException("Connection string 'Swalekha' is missing.");
 builder.Services.AddDbContext<SwalekhaDbContext>(options => options.UseNpgsql(swalekhaConnectionString));
+builder.Services.AddScoped<SwalekhaOwnerContext>();
 
 builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddSingleton<PasswordResetTokenService>();
@@ -379,6 +380,7 @@ if (app.Configuration.GetValue("ApiDocs:Enabled", true))
 
 app.UseAuthentication();
 app.UseMiddleware<AuditActorMiddleware>();
+app.UseMiddleware<SwalekhaOwnerMiddleware>();
 app.UseMiddleware<ActiveUserMiddleware>();
 app.UseMiddleware<ApplicationMessageLogMiddleware>();
 app.UseAuthorization();

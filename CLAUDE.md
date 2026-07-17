@@ -1,5 +1,15 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-17 - Swalekha PersonalFin_06: multi-owner data isolation (foundational fix)
+
+Amit flagged a real gap: Swalekha had no per-Owner data scoping - two Owner logins would have silently shared all accounts/contacts/expenses. Version `6.9.12`. No deploy executed, backend-only.
+
+- New `SwalekhaOwnedEntity` base (`Guid OwnerId`) - all 9 existing Swalekha entities retrofitted to extend it. New scoped `SwalekhaOwnerContext` + `SwalekhaOwnerMiddleware` (mirrors the existing `AuditActorContext`/`AuditActorMiddleware` pattern) populate the current owner from the JWT per request. `SwalekhaDbContext` now applies a global `!Deleted && OwnerId == CurrentOwnerId` query filter to every owned entity and auto-stamps `OwnerId` on insert (only when unset - a deliberate carve-out for `PersonalFin_07`'s cross-owner family-transfer sync).
+- Chose a global query filter over per-endpoint filtering deliberately - financial-data privacy is too easy to get wrong by forgetting a `.Where()` on the 35th handler; a single choke point can't be bypassed that way.
+- **Verified live with two real Owner logins**: Owner 2's data is completely invisible to Owner 1 and vice versa, confirmed via direct authenticated API calls. Pre-existing single-owner test data is now correctly orphaned (expected, was disposable test data).
+- Validated: `dotnet build` (0 errors), full backend test suite (281 passed, 0 regressions).
+- Roadmap renumbered: former `PersonalFin_06`-`13` are now `PersonalFin_08`-`15`; `PersonalFin_07` (Owner Profile + Family Connections + Transaction Sync) is next.
+
 ## 2026-07-17 - Swalekha adopts the real Dashboard Layout (top bar + sidebar)
 
 Amit flagged a design issue right after the live click-through: Swalekha needed the same Dashboard Layout (top bar, sidebar menu, navigation system, Dashboard as the default page) as the main Garmetix apps, not the flat top bar it had. Version `6.9.11`. No backend changes, no deploy executed.

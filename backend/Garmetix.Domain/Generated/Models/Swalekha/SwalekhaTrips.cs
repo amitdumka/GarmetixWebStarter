@@ -16,7 +16,7 @@ namespace Garmetix.Core.Models.Swalekha;
 /// open trip to add more expenses against, while every entry and the sheet itself stay fully
 /// intact and queryable for reporting.
 /// </summary>
-public class SwalekhaTrip : BaseEntity
+public class SwalekhaTrip : SwalekhaOwnedEntity
 {
     public SwalekhaTrip()
     {

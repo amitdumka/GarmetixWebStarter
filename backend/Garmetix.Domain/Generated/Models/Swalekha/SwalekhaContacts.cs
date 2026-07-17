@@ -15,9 +15,10 @@ public enum SwalekhaPersonLedgerEntryType
 /// A personal contact (PersonalFin_03) - separate from the CRM app's business customer
 /// directory. The source for Person-to-Person Ledger entries. Balance is signed from the
 /// Owner's point of view: positive means the contact owes the Owner money, negative means
-/// the Owner owes the contact. Plain BaseEntity, no Company/Store scoping.
+/// the Owner owes the contact. SwalekhaOwnedEntity.OwnerId (PersonalFin_06) scopes each
+/// contact to exactly one Owner login; no Company/Store scoping.
 /// </summary>
-public class SwalekhaContact : BaseEntity
+public class SwalekhaContact : SwalekhaOwnedEntity
 {
     public SwalekhaContact()
     {
@@ -38,7 +39,7 @@ public class SwalekhaContact : BaseEntity
 /// direction. RunningBalance is an informational point-in-time snapshot; SwalekhaContact.Balance
 /// is always the authoritative live balance, updated transactionally alongside every insert/delete.
 /// </summary>
-public class SwalekhaPersonLedgerEntry : BaseEntity
+public class SwalekhaPersonLedgerEntry : SwalekhaOwnedEntity
 {
     public SwalekhaPersonLedgerEntry()
     {
