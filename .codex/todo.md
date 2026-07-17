@@ -58,4 +58,4 @@
   - [x] Restore into a `garmetix_restore_drill_*` database only after explicit confirmation.
   - [x] Run SQL smoke and temporary API `/api/health` smoke against the restored database.
   - [x] Record restore metadata into `RestoreDrillHistory.md`.
-  - [ ] After this commit is pulled on SRP, run `npm --prefix frontend/modular run deploy:srp:restore-drill -- --confirm-non-production-restore --stage=BS21RestoreDrillProductionSafety` and capture the history row.
+  - [x] After this commit is pulled on SRP, run `npm --prefix frontend/modular run deploy:srp:restore-drill -- --confirm-non-production-restore --stage=BS21RestoreDrillProductionSafety` and capture the history row.

@@ -198,7 +198,7 @@ need_remote_command() {
 }
 
 safe_name() {
-  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]_' | cut -c1-54
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]_' | cut -c1-24
 }
 
 if [ ! -f "$SRP_API_ENV_PATH" ]; then
@@ -305,8 +305,24 @@ fi
 
 export PGPASSWORD="$DB_PASSWORD"
 echo "Restoring $(basename "$BACKUP_FILE") into non-production database $RESTORE_DB..."
-dropdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" --if-exists "$RESTORE_DB"
-createdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" "$RESTORE_DB"
+drop_restore_db() {
+  sudo_cmd -u postgres psql -d postgres -v ON_ERROR_STOP=1 -c "select pg_terminate_backend(pid) from pg_stat_activity where datname = '$RESTORE_DB' and pid <> pg_backend_pid();" >/dev/null
+  if ! dropdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" --if-exists "$RESTORE_DB"; then
+    echo "App database user could not drop $RESTORE_DB; retrying via postgres sudo."
+    sudo_cmd -u postgres psql -d postgres -v ON_ERROR_STOP=1 -c "select pg_terminate_backend(pid) from pg_stat_activity where datname = '$RESTORE_DB' and pid <> pg_backend_pid();" >/dev/null
+    sudo_cmd -u postgres dropdb --if-exists "$RESTORE_DB"
+  fi
+}
+
+create_restore_db() {
+  if ! createdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" "$RESTORE_DB"; then
+    echo "App database user could not create $RESTORE_DB; retrying via postgres sudo with owner $DB_USER."
+    sudo_cmd -u postgres createdb -O "$DB_USER" "$RESTORE_DB"
+  fi
+}
+
+drop_restore_db
+create_restore_db
 pg_restore -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$RESTORE_DB" --clean --if-exists --no-owner --no-privileges "$BACKUP_FILE"
 
 echo "Running SQL smoke against $RESTORE_DB..."
@@ -390,7 +406,7 @@ RESTORE_KEPT="$KEEP_RESTORE_DB"
 if [ "$KEEP_RESTORE_DB" != true ]; then
   export PGPASSWORD="$DB_PASSWORD"
   echo "Dropping restore drill database $RESTORE_DB after successful smoke. Use --keep-restore-db to retain it."
-  dropdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" --if-exists "$RESTORE_DB"
+  drop_restore_db
   unset PGPASSWORD
 fi
 
