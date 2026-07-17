@@ -1,5 +1,16 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-17 - Swalekha PersonalFin_09: Investments II (Mutual Funds + SIP tracker)
+
+Amit said to keep going. Version `6.9.15`. Backend + frontend, no deploy executed.
+
+- New `SwalekhaMutualFund`/`SwalekhaMutualFundTransaction` entities - a folio with running `CurrentUnits`/`TotalInvested`, plus Purchase/SipInstallment/Redemption transactions. Genuinely integrated with the Accounts Hub ledger like `PersonalFin_08`'s FD/RD: Purchase/SIP debits the linked account, Redemption credits it back and reduces `TotalInvested` at the fund's average cost per unit. Deleting a transaction reverses its *exact* effect - Redemptions record precisely how much they removed so a later reversal doesn't need to re-derive a ratio.
+- **`SwalekhaXirrCalculator.cs`**: a standalone, unit-tested XIRR utility (Newton-Raphson + bisection fallback) over the fund's dated cash-flow history. Given the financial-correctness stakes, shipped with 5 xUnit tests - including a hand-verified case (invest 1000, get 1200 back exactly one year later must return exactly 20%) - before wiring it into any endpoint.
+- New `/investments/mutual-funds` list and detail pages (returns/XIRR panel, Record Transaction, transaction history), plus a Mutual Funds card on the Investments hub.
+- **Live-verified through the actual UI**: a real Rs 1,000 Purchase at NAV 100 (10 units, account debited), NAV updated to 130 -> Current Value Rs 1,300, Absolute Return Rs 300, **XIRR 29.94%** (hand-verified against the exact one-year-round-trip math, ~30% expected). Redemption and its exact reversal both checked at the API level. A SIP fund's due-this-month flag correctly flipped after an installment.
+- Validated: `dotnet build` (0 errors), full backend test suite (286 passed - 5 new XIRR tests, 0 regressions), clean `swalekha-web` build, `validate-structure.mjs`.
+- `PersonalFin_10` (Investments III - Shares/Stocks, optional PPF/EPF/NPS/Gold) is next.
+
 ## 2026-07-17 - Swalekha PersonalFin_08: Investments I (FD/RD) + About Swalekha page
 
 Amit said to keep going and asked for an About Us page crediting "AKS Labs (India) - Amit Kumar". Version `6.9.14`. Backend + frontend, no deploy executed.

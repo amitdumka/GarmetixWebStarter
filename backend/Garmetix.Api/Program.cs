@@ -482,6 +482,7 @@ app.MapSwalekhaTripEndpoints();
 app.MapSwalekhaProfileEndpoints();
 app.MapSwalekhaFamilyEndpoints();
 app.MapSwalekhaInvestmentEndpoints();
+app.MapSwalekhaMutualFundEndpoints();
 app.MapCommercialEndpoints();
 app.MapCustomerDuesReconciliationEndpoints();
 app.MapFinancialYearCloseoutEndpoints();

@@ -38,9 +38,18 @@
           <UIcon name="i-lucide-calendar-clock" class="size-5 shrink-0 text-warning" />
         </div>
       </UCard>
+      <UCard :ui="{ body: 'p-4' }">
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-xs font-medium uppercase text-muted">Mutual Fund Current Value</p>
+            <p class="truncate text-lg font-semibold text-highlighted">{{ formatCurrency(mutualFundCurrentValue) }}</p>
+          </div>
+          <UIcon name="i-lucide-pie-chart" class="size-5 shrink-0 text-primary" />
+        </div>
+      </UCard>
     </div>
 
-    <div class="grid gap-4 sm:grid-cols-2">
+    <div class="grid gap-4 sm:grid-cols-3">
       <UCard>
         <template #header>
           <div class="flex items-center justify-between">
@@ -58,6 +67,15 @@
           </div>
         </template>
         <p class="text-sm text-muted">{{ recurringDeposits.filter(d => !d.isClosed).length }} active, {{ recurringDeposits.filter(d => d.isClosed).length }} matured.</p>
+      </UCard>
+      <UCard>
+        <template #header>
+          <div class="flex items-center justify-between">
+            <p class="font-semibold text-highlighted">Mutual Funds &amp; SIPs</p>
+            <UButton to="/investments/mutual-funds" icon="i-lucide-arrow-right" color="primary" variant="ghost" size="sm">Manage</UButton>
+          </div>
+        </template>
+        <p class="text-sm text-muted">{{ mutualFunds.filter(f => f.isActive).length }} active fund(s){{ mutualFundsSipDue ? `, ${mutualFundsSipDue} SIP(s) due this month` : '' }}.</p>
       </UCard>
     </div>
 
@@ -79,11 +97,7 @@
       <template #header>
         <p class="font-semibold text-highlighted">Coming Up (Next Stages)</p>
       </template>
-      <div class="grid gap-2 sm:grid-cols-3">
-        <div class="rounded-md border border-default p-3 text-sm">
-          <p class="font-medium text-highlighted">PersonalFin_09</p>
-          <p class="text-muted">Mutual Funds &amp; SIP tracker</p>
-        </div>
+      <div class="grid gap-2 sm:grid-cols-2">
         <div class="rounded-md border border-default p-3 text-sm">
           <p class="font-medium text-highlighted">PersonalFin_10</p>
           <p class="text-muted">Shares/Stocks, PPF/EPF/NPS/Gold</p>
@@ -98,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { useSwalekhaApiClient, type SwalekhaFixedDeposit, type SwalekhaRecurringDeposit } from '../../utils/swalekha-api'
+import { useSwalekhaApiClient, type SwalekhaFixedDeposit, type SwalekhaMutualFund, type SwalekhaRecurringDeposit } from '../../utils/swalekha-api'
 
 useHead({ title: 'Investments - Swalekha' })
 
@@ -107,6 +121,7 @@ const loading = ref(false)
 const error = ref('')
 const fixedDeposits = ref<SwalekhaFixedDeposit[]>([])
 const recurringDeposits = ref<SwalekhaRecurringDeposit[]>([])
+const mutualFunds = ref<SwalekhaMutualFund[]>([])
 
 const maturityColumns = [
   { accessorKey: 'type', header: 'Type' },
@@ -117,6 +132,8 @@ const maturityColumns = [
 
 const activeFdPrincipal = computed(() => fixedDeposits.value.filter(d => !d.isClosed).reduce((sum, d) => sum + d.principalAmount, 0))
 const activeRdMonthly = computed(() => recurringDeposits.value.filter(d => !d.isClosed).reduce((sum, d) => sum + d.monthlyInstallment, 0))
+const mutualFundCurrentValue = computed(() => mutualFunds.value.reduce((sum, f) => sum + (f.currentValue ?? f.totalInvested), 0))
+const mutualFundsSipDue = computed(() => mutualFunds.value.filter(f => f.sipDueThisMonth).length)
 
 const upcomingMaturities = computed(() => {
   const cutoff = new Date()
@@ -142,12 +159,14 @@ async function refresh() {
   loading.value = true
   error.value = ''
   try {
-    const [fdResult, rdResult] = await Promise.all([
+    const [fdResult, rdResult, mfResult] = await Promise.all([
       api.get<SwalekhaFixedDeposit[]>('fixed-deposits?includeClosed=true'),
-      api.get<SwalekhaRecurringDeposit[]>('recurring-deposits?includeClosed=true')
+      api.get<SwalekhaRecurringDeposit[]>('recurring-deposits?includeClosed=true'),
+      api.get<SwalekhaMutualFund[]>('mutual-funds?includeInactive=true')
     ])
     fixedDeposits.value = fdResult
     recurringDeposits.value = rdResult
+    mutualFunds.value = mfResult
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Could not load investments.'
   } finally {

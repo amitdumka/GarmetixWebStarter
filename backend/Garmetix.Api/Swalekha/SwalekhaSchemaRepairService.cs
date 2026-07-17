@@ -443,6 +443,83 @@ public static class SwalekhaSchemaRepairService
             CREATE INDEX IF NOT EXISTS "IX_SwalekhaRecurringDeposits_MaturityDate" ON "SwalekhaRecurringDeposits" ("MaturityDate");
             """, cancellationToken);
 
+        // PersonalFin_09 - Investments II (Mutual Funds + SIP tracker).
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "SwalekhaMutualFunds" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+                "SchemeName" text NOT NULL DEFAULT '',
+                "Amc" text NULL,
+                "FolioNumber" text NULL,
+                "AccountId" uuid NULL,
+                "InvestmentMode" integer NOT NULL DEFAULT 0,
+                "SipAmount" numeric(18,2) NULL,
+                "SipDayOfMonth" integer NULL,
+                "LastSipInstallmentDate" timestamp without time zone NULL,
+                "CurrentNav" numeric(18,2) NULL,
+                "CurrentNavUpdatedAt" timestamp without time zone NULL,
+                "CurrentUnits" numeric(18,2) NOT NULL DEFAULT 0,
+                "TotalInvested" numeric(18,2) NOT NULL DEFAULT 0,
+                "IsActive" boolean NOT NULL DEFAULT true,
+                "Notes" text NULL,
+                CONSTRAINT "PK_SwalekhaMutualFunds" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaMutualFunds" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaMutualFunds" ADD COLUMN IF NOT EXISTS "SchemeName" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaMutualFunds" ADD COLUMN IF NOT EXISTS "Amc" text NULL;
+            ALTER TABLE "SwalekhaMutualFunds" ADD COLUMN IF NOT EXISTS "FolioNumber" text NULL;
+            ALTER TABLE "SwalekhaMutualFunds" ADD COLUMN IF NOT EXISTS "AccountId" uuid NULL;
+            ALTER TABLE "SwalekhaMutualFunds" ADD COLUMN IF NOT EXISTS "InvestmentMode" integer NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaMutualFunds" ADD COLUMN IF NOT EXISTS "SipAmount" numeric(18,2) NULL;
+            ALTER TABLE "SwalekhaMutualFunds" ADD COLUMN IF NOT EXISTS "SipDayOfMonth" integer NULL;
+            ALTER TABLE "SwalekhaMutualFunds" ADD COLUMN IF NOT EXISTS "LastSipInstallmentDate" timestamp without time zone NULL;
+            ALTER TABLE "SwalekhaMutualFunds" ADD COLUMN IF NOT EXISTS "CurrentNav" numeric(18,2) NULL;
+            ALTER TABLE "SwalekhaMutualFunds" ADD COLUMN IF NOT EXISTS "CurrentNavUpdatedAt" timestamp without time zone NULL;
+            ALTER TABLE "SwalekhaMutualFunds" ADD COLUMN IF NOT EXISTS "CurrentUnits" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaMutualFunds" ADD COLUMN IF NOT EXISTS "TotalInvested" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaMutualFunds" ADD COLUMN IF NOT EXISTS "IsActive" boolean NOT NULL DEFAULT true;
+            ALTER TABLE "SwalekhaMutualFunds" ADD COLUMN IF NOT EXISTS "Notes" text NULL;
+
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaMutualFunds_OwnerId" ON "SwalekhaMutualFunds" ("OwnerId");
+
+            CREATE TABLE IF NOT EXISTS "SwalekhaMutualFundTransactions" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+                "FundId" uuid NOT NULL,
+                "TransactionType" integer NOT NULL DEFAULT 0,
+                "TransactionDate" timestamp without time zone NOT NULL DEFAULT now(),
+                "Units" numeric(18,2) NOT NULL DEFAULT 0,
+                "NavAtTransaction" numeric(18,2) NOT NULL DEFAULT 0,
+                "Amount" numeric(18,2) NOT NULL DEFAULT 0,
+                "Narration" text NOT NULL DEFAULT '',
+                "InvestedAmountRemoved" numeric(18,2) NULL,
+                CONSTRAINT "PK_SwalekhaMutualFundTransactions" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaMutualFundTransactions" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaMutualFundTransactions" ADD COLUMN IF NOT EXISTS "FundId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaMutualFundTransactions" ADD COLUMN IF NOT EXISTS "TransactionType" integer NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaMutualFundTransactions" ADD COLUMN IF NOT EXISTS "TransactionDate" timestamp without time zone NOT NULL DEFAULT now();
+            ALTER TABLE "SwalekhaMutualFundTransactions" ADD COLUMN IF NOT EXISTS "Units" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaMutualFundTransactions" ADD COLUMN IF NOT EXISTS "NavAtTransaction" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaMutualFundTransactions" ADD COLUMN IF NOT EXISTS "Amount" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaMutualFundTransactions" ADD COLUMN IF NOT EXISTS "Narration" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaMutualFundTransactions" ADD COLUMN IF NOT EXISTS "InvestedAmountRemoved" numeric(18,2) NULL;
+
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaMutualFundTransactions_OwnerId" ON "SwalekhaMutualFundTransactions" ("OwnerId");
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaMutualFundTransactions_FundId_TransactionDate"
+                ON "SwalekhaMutualFundTransactions" ("FundId", "TransactionDate");
+            """, cancellationToken);
+
         logger.LogInformation("Swalekha account storage repair check completed.");
     }
 }

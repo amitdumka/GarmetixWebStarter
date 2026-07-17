@@ -419,6 +419,88 @@ export interface SwalekhaRecordInstallmentPayload {
   narration?: string | null
 }
 
+export type SwalekhaMutualFundInvestmentMode = 'Lumpsum' | 'SIP'
+export type SwalekhaMutualFundTransactionType = 'Purchase' | 'SipInstallment' | 'Redemption'
+
+export interface SwalekhaMutualFund {
+  id: string
+  schemeName: string
+  amc?: string | null
+  folioNumber?: string | null
+  accountId?: string | null
+  investmentMode: SwalekhaMutualFundInvestmentMode
+  sipAmount?: number | null
+  sipDayOfMonth?: number | null
+  lastSipInstallmentDate?: string | null
+  sipDueThisMonth: boolean
+  currentNav?: number | null
+  currentNavUpdatedAt?: string | null
+  currentUnits: number
+  totalInvested: number
+  currentValue?: number | null
+  absoluteReturn?: number | null
+  returnPercent?: number | null
+  isActive: boolean
+  notes?: string | null
+  createdAt: string
+}
+
+export interface SwalekhaMutualFundPayload {
+  schemeName: string
+  amc?: string | null
+  folioNumber?: string | null
+  accountId?: string | null
+  investmentMode: SwalekhaMutualFundInvestmentMode
+  sipAmount?: number | null
+  sipDayOfMonth?: number | null
+  isActive: boolean
+  notes?: string | null
+}
+
+export interface SwalekhaUpdateNavPayload {
+  currentNav: number
+}
+
+export interface SwalekhaMutualFundTransaction {
+  id: string
+  fundId: string
+  transactionType: SwalekhaMutualFundTransactionType
+  transactionDate: string
+  units: number
+  navAtTransaction: number
+  amount: number
+  narration: string
+  createdAt: string
+}
+
+export interface SwalekhaMutualFundTransactionPayload {
+  transactionType: SwalekhaMutualFundTransactionType
+  transactionDate: string
+  amount?: number | null
+  units?: number | null
+  navAtTransaction: number
+  narration?: string | null
+}
+
+export interface SwalekhaMutualFundTransactionList {
+  page: number
+  pageSize: number
+  totalCount: number
+  rows: SwalekhaMutualFundTransaction[]
+}
+
+export interface SwalekhaMutualFundReturns {
+  currentUnits: number
+  currentNav?: number | null
+  currentValue?: number | null
+  totalInvested: number
+  absoluteReturn?: number | null
+  returnPercent?: number | null
+  xirr?: number | null
+  xirrAvailable: boolean
+  xirrNote?: string | null
+}
+
 export function useSwalekhaApiClient() {
   const runtimeConfig = useRuntimeConfig()
   const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
