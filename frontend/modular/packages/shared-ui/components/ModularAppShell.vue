@@ -226,6 +226,12 @@ const colorMode = useColorMode()
 const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
 const assistantEnabled = computed(() => String(runtimeConfig.public.assistantEnabled || '').toLowerCase() === 'true')
 const appUrls = computed(() => (runtimeConfig.public.appUrls ?? {}) as Record<string, string | undefined>)
+// Swalekha (Personal & Personal Finance) is a deliberately isolated module - not part of
+// appUrls/the app switcher above. This is the one small exception: a single Owner-only link
+// into the user menu, gated on the same userType claim the backend's SwalekhaOwner policy
+// checks. swalekhaUrl is empty unless the current app declared NUXT_PUBLIC_SWALEKHA_URL.
+const swalekhaUrl = computed(() => String(runtimeConfig.public.swalekhaUrl || ''))
+const isOwner = computed(() => String(authSnapshot.value.user?.userType || '').toLowerCase() === 'owner')
 const effectiveAppId = computed<FrontendAppId>(() => normalizeFrontendAppId(props.appId || runtimeConfig.public.appId))
 const version = garmetixModularVersion
 const sidebarOpen = ref(false)
@@ -572,7 +578,14 @@ const userMenuItems = computed<DropdownMenuItem[][]>(() => [[{
     event?.preventDefault()
     openAppPath('main', '/profile')
   }
-}, {
+}, ...(isOwner.value && swalekhaUrl.value ? [{
+  label: 'Swalekha (Personal)',
+  icon: 'i-lucide-book-heart',
+  onSelect: (event?: Event) => {
+    event?.preventDefault()
+    window.open(swalekhaUrl.value, '_blank', 'noopener')
+  }
+}] : []), {
   label: 'Theme',
   icon: 'i-lucide-palette',
   children: [{

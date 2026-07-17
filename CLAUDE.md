@@ -1,5 +1,194 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-17 - `swalekha` branch marked final
+
+Amit confirmed the `swalekha` branch is done - no further commits are planned on it. Final commit `33c6543` (deploy script) is tagged `swalekha-final-v6.9.21`. All 15 `PersonalFin` stages plus the dedicated SRP deploy script are complete; the module remains undeployed (deployment is Amit's call, whenever he's ready). Any future Swalekha work (a bug fix, a new stage, an actual deploy) should branch again from this point rather than assume this branch keeps moving.
+
+## 2026-07-17 - Swalekha module deploy script (`srp-swalekha-deploy.sh`)
+
+Amit asked for a deployment script that deploys and configures Swalekha into an SRP host that already has the rest of Garmetix installed. Script created, not run.
+
+- New `frontend/modular/deploy/srp-swalekha-deploy.sh` (`npm run modular:deploy:srp:swalekha`) - deliberately not a whole-site redeploy. It copies the currently-live release forward on the remote host and layers on top of it, atomically via the same symlink-swap model `srp-whole-site-deploy.sh` already uses: a fresh `swalekha-web` build, a fresh publish of the shared `Garmetix.Api` (Swalekha's endpoints live in the same process as every other app), and `swalekha_db` + its `ConnectionStrings__Swalekha` entry (auto-created if missing, same Postgres host/user as the main database, database name only differs).
+- Also patches the one `swalekhaUrl` runtime-config string into every already-deployed app's compiled HTML in place, so the Owner-only profile-menu link lights up without rebuilding those apps from source.
+- Runs the mandatory pre-deploy database backup first (reuses `srp-backup-database.sh`, which already covers `swalekha_db`); `--install-remote` refreshes the Nginx `/swalekha/` location and restarts the API service; a verification pass curls `/swalekha/` and `/api/swalekha/health` on the host afterward.
+- Validated locally: `--dry-run` (plan prints correctly) and `--build-only` (real `swalekha-web` build + real self-contained `linux-x64` API publish, both succeeded, correct overlay directory structure) - **not run against the live SRP host**, per the standing "never deploy without explicit ask" rule.
+
+## 2026-07-17 - Swalekha PersonalFin_15: Document Vault & Hardening - roadmap complete
+
+Amit said "yes continue and keep continue and complete it" - the explicit instruction to finish the entire remaining roadmap without stopping. Version `6.9.21`. Backend + frontend, no deploy executed. **This is the last stage - all 15 `PersonalFin` stages from the original design (`docs/personal-finance-module-design.md`) are now code-complete.**
+
+- New `SwalekhaDocument` entity (Owner-scoped, like every other Swalekha table) + `/api/swalekha/documents`: list, a genuine multipart file-upload endpoint (first one in Swalekha, pattern researched from the existing `PurchaseInvoiceImportService.cs`), authenticated download, soft-delete. Files stored per-Owner on disk (extension whitelist, 15MB cap).
+- New `GET /api/swalekha/security/self-check` - a **live runtime assertion**, not a static claim, that `PersonalFin_06`'s Owner-isolation query filter actually works: compares a normally-filtered `SwalekhaAccounts` count against an explicit `IgnoreQueryFilters()` count scoped to the current Owner (must match), and confirms other Owners' rows genuinely exist elsewhere in the table but are correctly invisible.
+- New `/documents` page (upload/list/download/delete) and a Self-Check panel on `/about`.
+- `srp-backup-database.sh` extended to also dump `swalekha_db` on every stage backup, gracefully skipping if that connection string isn't present on a given host - code-complete but not yet exercised against a real deployed SRP host, since Swalekha has never been deployed.
+- **Live-verified end to end against the real local stack**: uploaded a real PDF (201, correctly listed), downloaded it (200), deleted it (204, correctly gone). Ran the self-check through the actual UI button - all 4 checks passed, including "5 account row(s) belonging to other Owners exist and are correctly invisible above," proving the isolation check ran against real other-Owner data accumulated from earlier stages this session, not an empty table.
+- Validated: `dotnet build` (0 errors), full backend test suite (291 passed, 0 regressions), clean `swalekha-web` build, `validate-structure.mjs`.
+- **Swalekha remains undeployed** - deployment is Amit's call, once he's ready to review the whole module together.
+
+## 2026-07-17 - Swalekha PersonalFin_14: Dashboard & Reports
+
+Amit said to keep going and complete the roadmap. Version `6.9.20`. Backend + frontend, no deploy executed. Closes out the last "feature" stage before the final Document Vault & Hardening stage.
+
+- `GET /api/swalekha/dashboard` computes a real Net Worth by live-aggregating every entity built across `PersonalFin_02`-`13`: Accounts, open FD/RD, active Mutual Funds/Shares (current market value when priced, else invested amount), Other Assets, and Contacts receivables as assets; open Loans and Contacts payables as liabilities.
+- **Disclosed scope decision**: FD/RD have no stored "current accrued value" field, so FDs count at principal and RDs at installments-paid-so-far, both explicitly labelled as such rather than fabricating an interest-accrued number.
+- A rolling 30-day Upcoming Dues feed generalizes `PersonalFin_13`'s single-calendar-month due-date computation to correctly span a month boundary.
+- `GET /api/swalekha/dashboard/export` - a plain CSV Net Worth + investment-holdings export, deliberately not attempting to extend the codebase's one existing write-only `.xlsx` builder for a new module.
+- Dashboard page rebuilt with real Net Worth/Assets/Liabilities, Upcoming Dues, Today's Appointments, existing Expense Breakdown.
+- **Live-verified against real accumulated test data from every prior stage this session, matching to the rupee**: Net Worth came back as exactly Rs 5,64,270.00, every single breakdown line item (Accounts, RD, MF, Shares, Other Assets, Loans) matching the real data exactly; the CSV export's totals matched the dashboard exactly.
+- Validated: `dotnet build` (0 errors), full backend test suite (291 passed, 0 regressions), clean `swalekha-web` build, `validate-structure.mjs`.
+- `PersonalFin_15` (Document Vault & Hardening) is the last stage on the original roadmap.
+
+## 2026-07-17 - Swalekha PersonalFin_13: Personal Organizer (Diary/Notes/Calendar)
+
+Amit said to keep going and complete the roadmap. Version `6.9.19`. Backend + frontend, no deploy executed. Starts Pillar B (the module's second major half, after Pillar A - Personal Finance - closed out with `PersonalFin_12`).
+
+- New Diary/Journal (dated entries, already private by construction via `PersonalFin_06`'s Owner-only isolation) and Personal Notes (topic-organized: Folder + freeform Tags, pin/search) - deliberately distinct entities, dated timeline vs. topic organization.
+- New Calendar & Appointments: manual appointments plus the ask's explicit "auto-populated finance due-dates" - `GET /api/swalekha/calendar` merges real appointments with due-dates computed *live* for the requested month from active Recurring Bills, open FD/RD maturities, and active Insurance policies' next-premium-due date. Nothing is duplicated into a stored table - same computed-not-stored pattern `PersonalFin_04`/`12` already used.
+- New `/journal`, `/notes`, `/calendar` pages (Calendar as a month-navigable, type-color-coded agenda list).
+- **Live-verified end to end**: a real journal entry and a real pinned/tagged/foldered note (tag search correctly matched); a real appointment via the UI and a real Recurring Bill via the API - the calendar correctly merged both onto the same day with the right badges and amounts.
+- Validated: `dotnet build` (0 errors), full backend test suite (291 passed, 0 regressions), clean `swalekha-web` build, `validate-structure.mjs`.
+- `PersonalFin_14` (Dashboard & Reports) is next.
+
+## 2026-07-17 - Swalekha PersonalFin_12: Insurance
+
+Amit said to keep going. Version `6.9.18`. Backend + frontend, no deploy executed.
+
+- New Insurance policy tracker (Life/Health/Term/Vehicle/Property/ULIP/Other, insurer/policy number/sum assured/nominee/premium amount+frequency/maturity date+amount), optionally linked to an Accounts Hub account - Pay Premium debits it, Mark Matured credits it with the payout, same integration pattern as `PersonalFin_08`-`11`.
+- `NextPremiumDueDate`/`PremiumDueNow` computed at read time from `PremiumFrequency` (Monthly/Quarterly/HalfYearly/Yearly) and `LastPremiumPaidDate` - a frequency-aware generalization of `PersonalFin_04`'s Recurring Bill due-date pattern, correctly flags overdue premiums too.
+- New `/insurance` page (create/edit, Pay Premium, Mark Matured, aggregate cards).
+- **Live-verified through the actual UI**: created a real policy (Rs 5,00,000 sum assured, Rs 12,000/Yearly premium, Rs 5,20,000 maturity) linked to a real account - due date correctly computed a year out, Pay Premium correctly debited the account and advanced the due date, Mark Matured correctly credited the maturity amount and flipped the policy to "Matured."
+- Validated: `dotnet build` (0 errors), full backend test suite (291 passed, 0 regressions), clean `swalekha-web` build, `validate-structure.mjs`.
+- `PersonalFin_13` (Personal Organizer - Diary/Journal, Personal Notes, Calendar & Appointments) is next - starts Pillar B, the module's second major half.
+
+## 2026-07-17 - Swalekha PersonalFin_11: Loans (EMI/Amortization)
+
+Amit said to keep going. Version `6.9.17`. Backend + frontend, no deploy executed.
+
+- New Loan Taken tracker (lender/loan number/principal/rate/tenure/EMI, running `OutstandingPrincipal`), optionally linked to an Accounts Hub account - every EMI/Prepayment debits it, same integration pattern as `PersonalFin_08`-`10`.
+- **`SwalekhaLoanCalculator.cs`**: standalone, unit-tested EMI/amortization utility (5 tests, incl. a textbook-verified case), following the exact precedent `SwalekhaXirrCalculator` set in `PersonalFin_09`.
+- Each EMI splits into interest/principal, both stored explicitly so deleting a payment reverses its exact effect (outstanding balance, account balance). A payment that clears the loan auto-closes it; deleting that payment reopens it.
+- **"Loans Given" deliberately has no new entity** - per the design doc, it reuses `PersonalFin_03`'s existing Person Ledger (`LoanGiven`/`RepaymentReceived` on a Contact) rather than duplicating a second ledger. The new Loans page links to Contacts for this.
+- **Live-verified through the actual UI**: created a real Rs 1,00,000 loan at 12%/12 months, Suggest correctly computed EMI Rs 8,884.88 (exact textbook value), the schedule amortized to exactly Rs 0 in 12 rows, a real EMI payment split exactly Rs 1,000 interest / Rs 7,884.88 principal with exact reversal, and a full prepayment correctly auto-closed the loan with exact reopen-on-reversal.
+- Validated: `dotnet build` (0 errors), full backend test suite (291 passed, 0 regressions), clean `swalekha-web` build, `validate-structure.mjs`.
+- `PersonalFin_12` (Insurance) is next.
+
+## 2026-07-17 - Swalekha PersonalFin_10: Investments III (Shares/Stocks + Other Assets)
+
+Amit said to keep going. Version `6.9.16`. Backend + frontend, no deploy executed.
+
+- New Share/Stock holding tracker (symbol/company/exchange/demat/broker), optionally linked to an Accounts Hub account, using the exact same integration pattern `PersonalFin_09` established for Mutual Funds: Buy debits the linked account and grows the position, Sell credits it back and reduces `TotalInvested` at average cost per share while adding the realized gain/loss to a running `RealizedPnL`. Deleting a transaction reverses its exact effect (units, invested amount, realized P&L, account balance) since Sells record precisely how much they removed.
+- New Other Assets entity for PPF/EPF/NPS/Gold - deliberately scoped as simple `CurrentValue` snapshots with no transaction history, matching the design's explicit "simple asset entries" framing.
+- New `/investments/shares` list+detail pages and `/investments/other-assets` page; Investments hub gained both cards.
+- **Live-verified with exact math via API checks**: Buy 10 shares at Rs 100 (account debited 2150->1150), Sell 4 at Rs 150 (avg-cost-removed Rs 400, realized P&L Rs 200, quantity 10->6, invested 1000->600, account credited to 1750), price update to Rs 120 correctly computed Current Value Rs 720 and Unrealized P&L Rs 120 (20%). The Browser pane itself degraded mid-session (blank screenshots, unreliable clicks) - a tooling issue, not an app bug, confirmed since every backend call still succeeded correctly and the same component class was already proven working via genuine clicks in the prior PersonalFin_09 session.
+- Validated: `dotnet build` (0 errors), full backend test suite (286 passed, 0 regressions), clean `swalekha-web` build, `validate-structure.mjs`.
+- `PersonalFin_11` (Loans Taken + Loans Given) is next.
+
+## 2026-07-17 - Swalekha PersonalFin_09: Investments II (Mutual Funds + SIP tracker)
+
+Amit said to keep going. Version `6.9.15`. Backend + frontend, no deploy executed.
+
+- New `SwalekhaMutualFund`/`SwalekhaMutualFundTransaction` entities - a folio with running `CurrentUnits`/`TotalInvested`, plus Purchase/SipInstallment/Redemption transactions. Genuinely integrated with the Accounts Hub ledger like `PersonalFin_08`'s FD/RD: Purchase/SIP debits the linked account, Redemption credits it back and reduces `TotalInvested` at the fund's average cost per unit. Deleting a transaction reverses its *exact* effect - Redemptions record precisely how much they removed so a later reversal doesn't need to re-derive a ratio.
+- **`SwalekhaXirrCalculator.cs`**: a standalone, unit-tested XIRR utility (Newton-Raphson + bisection fallback) over the fund's dated cash-flow history. Given the financial-correctness stakes, shipped with 5 xUnit tests - including a hand-verified case (invest 1000, get 1200 back exactly one year later must return exactly 20%) - before wiring it into any endpoint.
+- New `/investments/mutual-funds` list and detail pages (returns/XIRR panel, Record Transaction, transaction history), plus a Mutual Funds card on the Investments hub.
+- **Live-verified through the actual UI**: a real Rs 1,000 Purchase at NAV 100 (10 units, account debited), NAV updated to 130 -> Current Value Rs 1,300, Absolute Return Rs 300, **XIRR 29.94%** (hand-verified against the exact one-year-round-trip math, ~30% expected). Redemption and its exact reversal both checked at the API level. A SIP fund's due-this-month flag correctly flipped after an installment.
+- Validated: `dotnet build` (0 errors), full backend test suite (286 passed - 5 new XIRR tests, 0 regressions), clean `swalekha-web` build, `validate-structure.mjs`.
+- `PersonalFin_10` (Investments III - Shares/Stocks, optional PPF/EPF/NPS/Gold) is next.
+
+## 2026-07-17 - Swalekha PersonalFin_08: Investments I (FD/RD) + About Swalekha page
+
+Amit said to keep going and asked for an About Us page crediting "AKS Labs (India) - Amit Kumar". Version `6.9.14`. Backend + frontend, no deploy executed.
+
+- **Fixed Deposits + Recurring Deposits**: new `SwalekhaFixedDeposit`/`SwalekhaRecurringDeposit` entities, each optionally linked to one of the Owner's own Accounts Hub accounts. Not disconnected trackers: `Mark Matured` (both FD and RD) credits the linked account with the final maturity amount in the same DB transaction, and RD's `Record Installment` debits it per installment - both post real `SwalekhaAccountTransaction` rows, mirroring the roll-up pattern `PersonalFin_05`'s Trip-close already established.
+- New `/investments` hub (active FD principal, active RD monthly commitment, a 90-day upcoming-maturities feed) plus `/investments/fixed-deposits` and `/investments/recurring-deposits` detail pages.
+- **About Swalekha** (`/about`, sidebar footer link on every page): app description plus a "Developed By AKS Labs (India) - Amit Kumar" credit section.
+- **Live-verified through the actual UI**: created a real FD and RD linked to a real account, recorded one RD installment (account correctly debited 5650→5150), marked the FD matured (account correctly credited 3500→5650) - the Investments hub reflected the resulting counts correctly.
+- Validated: `dotnet build` (0 errors), full backend test suite (281 passed, 0 regressions), clean `swalekha-web` build, `validate-structure.mjs`.
+- `PersonalFin_09` (Investments II - Mutual Funds + SIP tracker) is next.
+
+## 2026-07-17 - Swalekha PersonalFin_07: Owner Profile, Family Connections, mutual-consent transfer sync
+
+Amit asked for profile-based data per Owner login (already covered by PersonalFin_06), an Owner Profile (PAN/Aadhar/Passport/spouse/children/contact/linked bank account), a family-member connection list so cross-owner transactions "need just one entry" (father pays son, son's own account updates automatically), and auto-provisioning the Owner's profile from the Garmetix Employee table. Version `6.9.13`. Backend + frontend, no deploy executed.
+
+- New `SwalekhaOwnerProfile` (PAN/Aadhar/Passport/address/spouse name+contact/`LinkedAccountId`) and `SwalekhaFamilyMember` (name/relationship/mobile/DOB/`LinkedOwnerId`) entities, `GET/PUT /api/swalekha/owner-profile` and `GET/POST/PUT/DELETE /api/swalekha/family` + `/family/linkable-owners` + `/family/{id}/transfer`.
+- **Auto-provisioning**: `EnsureProfileAsync` reads the current Owner's `AppUser.EmployeeId` straight from the shared `GarmetixDbContext` (the one place Swalekha deliberately crosses into the main database) and, when it resolves to an `EmployeeCategory.Owner` row, prefills PAN/Aadhar/Mobile/Email/spouse name - still fully editable afterward, never locked.
+- **Transfer sync is deliberately mutual-consent**, not a one-directional push: a family transfer only succeeds once *both* Owners have independently linked each other back, re-checked live at transfer time (not just at link-creation) so either side can revoke it. A confirmed transfer debits the sender and credits the recipient's own linked account in one atomic DB transaction - the recipient does nothing and their balance just updates, matching Amit's "one entry" ask exactly.
+- **Live-verified with three real logins** (not just builds): a genuine Employee-linked Owner (`AFOwner`, `EmployeeCategory.Owner`) auto-provisioned correctly with real PAN/Aadhar/mobile/spouse data; two Owners linked each other and `linkConfirmed` correctly flipped true only once mutual; a real ₹1,500 transfer driven through the actual UI moved money and updated both sides' balances (5000→3500 sender, 0→1500 recipient); the negative path (link not yet reciprocal) correctly rejected with a clear message before any money moved.
+- Validated: `dotnet build` (0 errors), full backend test suite (281 passed, 0 regressions), clean `swalekha-web` build, `validate-structure.mjs`.
+- `PersonalFin_08` (Investments I - FD/RD) is next.
+
+## 2026-07-17 - Swalekha PersonalFin_06: multi-owner data isolation (foundational fix)
+
+Amit flagged a real gap: Swalekha had no per-Owner data scoping - two Owner logins would have silently shared all accounts/contacts/expenses. Version `6.9.12`. No deploy executed, backend-only.
+
+- New `SwalekhaOwnedEntity` base (`Guid OwnerId`) - all 9 existing Swalekha entities retrofitted to extend it. New scoped `SwalekhaOwnerContext` + `SwalekhaOwnerMiddleware` (mirrors the existing `AuditActorContext`/`AuditActorMiddleware` pattern) populate the current owner from the JWT per request. `SwalekhaDbContext` now applies a global `!Deleted && OwnerId == CurrentOwnerId` query filter to every owned entity and auto-stamps `OwnerId` on insert (only when unset - a deliberate carve-out for `PersonalFin_07`'s cross-owner family-transfer sync).
+- Chose a global query filter over per-endpoint filtering deliberately - financial-data privacy is too easy to get wrong by forgetting a `.Where()` on the 35th handler; a single choke point can't be bypassed that way.
+- **Verified live with two real Owner logins**: Owner 2's data is completely invisible to Owner 1 and vice versa, confirmed via direct authenticated API calls. Pre-existing single-owner test data is now correctly orphaned (expected, was disposable test data).
+- Validated: `dotnet build` (0 errors), full backend test suite (281 passed, 0 regressions).
+- Roadmap renumbered: former `PersonalFin_06`-`13` are now `PersonalFin_08`-`15`; `PersonalFin_07` (Owner Profile + Family Connections + Transaction Sync) is next.
+
+## 2026-07-17 - Swalekha adopts the real Dashboard Layout (top bar + sidebar)
+
+Amit flagged a design issue right after the live click-through: Swalekha needed the same Dashboard Layout (top bar, sidebar menu, navigation system, Dashboard as the default page) as the main Garmetix apps, not the flat top bar it had. Version `6.9.11`. No backend changes, no deploy executed.
+
+- Rebuilt `app.vue` using the same `UDashboardGroup`/`UDashboardSidebar`/`UDashboardPanel`/`UDashboardNavbar` structure and shared `garmetix-dashboard-*` CSS as `ModularAppShell.vue`, but with only Swalekha's own 7-item nav (Dashboard/Accounts Hub/Contacts/Expenses/Income/Recurring Bills/Trips) - no app-switcher dropdown, no cross-app link anywhere, isolation from `PersonalFin_01` unchanged.
+- Rebuilt `pages/index.vue` into a real Dashboard (net worth, owed-to-you/you-owe, spent, income, bills-due-this-month cards from the real APIs) now that the sidebar handles navigation.
+- Verified live against the already-running local backend: sidebar renders correctly with real data, nav-click updates the active page and title, zero console errors, correct responsive collapse at narrow width vs. fixed sidebar at 1280px.
+
+## 2026-07-17 - Swalekha: first real local test pass finds and fixes two genuine bugs
+
+Amit asked to run Swalekha locally for testing. Version `6.9.10`. No deploy executed, backend-only changes: none (frontend-only fixes).
+
+- Stood up a full local stack for the first time: Docker Postgres (reused an existing `legacy-postgres-1` container), backend API run from its own build output directory (running it from the repo root broke `appsettings.json` resolution - ASP.NET Core resolves config relative to the process cwd, not the DLL location), a real Owner test login created via `POST /api/access/users` (enum fields had to be numeric, not string names - no `JsonStringEnumConverter` registered), and CORS opened up locally via `Cors__AllowedOriginsCsv` for the dev frontend ports.
+- **Two genuine bugs found and fixed on first real click-through** (every prior stage's validation was build/console-only, no live data): (1) `UTooltip` wrapping a `UButton` inside a `UTable` cell slot throws at render time, silently killing that row - present in all 10 Swalekha page files, fixed by switching to a plain `title` attribute. (2) Trip create/update 500'd whenever the date fields were left blank, since an empty-string date can't deserialize into the backend's `DateTime?` - fixed by converting empty strings to `null` before posting.
+- With both fixed, every `PersonalFin_02`-`05` feature was genuinely exercised end to end (account deposit/transfer, contact loan/settle, hidden-expense visibility, income, recurring-bill mark-paid, trip creation/close with the Travel roll-up confirmed working with zero data-copy step) - all correct, zero console errors.
+- Flagged the same `UTooltip`-in-table bug as a likely pre-existing issue elsewhere in the modular frontend (e.g. `final-accounts`) as a separate background task, not fixed in this session.
+
+## 2026-07-17 - Swalekha PersonalFin_05 (Travel Expense Sheets) shipped on branch `swalekha`
+
+Amit said "keep moving ahead" again. Version `6.9.9`. No deploy executed.
+
+- Backend: `SwalekhaTrip` model - a thin metadata wrapper around a dedicated `SwalekhaExpenseSheet` (`SheetType` "Travel") created automatically on trip creation. Expense entries reuse `PersonalFin_04`'s existing entry endpoints against the trip's `SheetId`, not duplicated. **Close Trip needed no data-copy step**: since the sheet is already Travel-typed from creation, the existing expense summary's `bySheetType` grouping already aggregates every trip under Travel automatically - closing just finalizes the trip (`IsClosed`/`ClosedAt`, sheet `IsActive=false`), with a matching reopen.
+- Frontend: `/trips` (trip table with budget-vs-spent, open/closed badge, close/reopen/edit/delete) and `/trips/[id]` (trip header, add-expense form hidden once closed, reused paginated entry table) in the `swalekha` app; dashboard nav updated.
+- Validated: `dotnet build` (0 errors), full backend test suite (281 passed, 0 regressions), clean `swalekha-web` production build, `validate-structure.mjs`, dev-server pass (zero console errors). No live click-through - no test credentials in this environment.
+- Next: `PersonalFin_06` (Investments I - Fixed Deposits + Recurring Deposits).
+
+## 2026-07-17 - Swalekha PersonalFin_04 (Expense & Income) shipped on branch `swalekha`
+
+Amit said "keep moving ahead" again. Version `6.9.8`. No deploy executed.
+
+- Backend: `SwalekhaExpenseSheet`/`SwalekhaExpenseEntry`/`SwalekhaIncomeEntry`/`SwalekhaRecurringBill` domain models, full CRUD APIs plus a cross-sheet expense summary (by sheet type and category) and a recurring-bill mark-paid action. **Deliberately standalone from Accounts Hub in v1** (no `PaymentAccountId` linking yet) - disclosed scope decision to avoid double-entry risk and keep the stage tractable; a future stage can add that integration if wanted.
+- Frontend: `/expenses` (summary cards, sheet table), `/expenses/[id]` (add-entry form with hidden toggle, show-hidden switch), `/income` (inline add + list), `/recurring-bills` (due-this-month badges, mark-paid) in the `swalekha` app; dashboard nav updated.
+- Validated: `dotnet build` (0 errors), full backend test suite (281 passed, 0 regressions), clean `swalekha-web` production build, `validate-structure.mjs`, dev-server pass (zero console errors across all three new routes). No live click-through - no test credentials in this environment.
+- Next: `PersonalFin_05` (Travel Expense Sheets), building directly on this stage's sheet/entry tables.
+
+## 2026-07-17 - Swalekha PersonalFin_03 (Contacts + Person Ledger) shipped on branch `swalekha`
+
+Amit said "keep moving ahead" right after `PersonalFin_02`. Version `6.9.7`. No deploy executed.
+
+- Backend: `SwalekhaContact`/`SwalekhaPersonLedgerEntry` domain models (Balance signed from the Owner's point of view - positive = contact owes Owner), a full contacts API (CRUD, paginated ledger, loan-given/loan-taken/repayment entries, delete-with-reversal, and a `settle` action that auto-computes and posts whichever repayment zeroes the balance), and `SwalekhaSchemaRepairService` extended with the two new tables.
+- Frontend: `/contacts` (summary cards, contact table, create/edit) and `/contacts/[id]` (ledger entry form, Settle button, paginated ledger) in the `swalekha` app; dashboard nav updated.
+- Validated: `dotnet build` (0 errors), full backend test suite (281 passed, 0 regressions), clean `swalekha-web` production build, `validate-structure.mjs`, dev-server pass (zero console errors, Owner-only redirect confirmed). No live click-through - no test credentials in this environment.
+- Next: `PersonalFin_04` (Expense & Income).
+
+## 2026-07-17 - Swalekha PersonalFin_02 (Accounts Hub Core) shipped on branch `swalekha`
+
+Amit confirmed "yes" to keep going past `PersonalFin_01`. Version `6.9.6`. No deploy executed.
+
+- Backend: `SwalekhaAccount`/`SwalekhaAccountTransaction` domain models, `SwalekhaDbContext` extended with the same soft-delete filter/decimal-precision/DateTime-kind normalization `GarmetixDbContext` already applies, a new idempotent `SwalekhaSchemaRepairService` (needed since startup `EnsureCreatedAsync` only creates tables the first time - it won't add new ones on later deploys), and a full accounts API (CRUD, paginated ledger, deposit/withdrawal, transfers posted as a linked leg pair that reverse together on delete). `CurrentBalance` is always updated transactionally alongside the ledger entry.
+- Frontend: `/accounts` (Accounts Hub - net worth, account table, create/edit + transfer slideovers) and `/accounts/[id]` (ledger detail) in the `swalekha` app; the dashboard's "coming soon" card for this stage was replaced with a live link.
+- Validated: `dotnet build` (0 errors), full backend test suite (281 passed, 0 regressions), clean `swalekha-web` production build, `validate-structure.mjs`, dev-server pass (zero console errors, Owner-only redirect confirmed). No live click-through of the account flow - no test credentials in this environment, same limitation as every prior stage.
+- Next: `PersonalFin_03` (Contacts + Person Ledger).
+
+## 2026-07-17 - Swalekha PersonalFin_01 (Foundation) shipped on branch `swalekha`
+
+Amit approved the Swalekha design (see the entry below) and then said to create a branch named after the app and keep pushing to it stage by stage. Branch `swalekha` (from `version6`) now has the first real build stage. Version `6.9.5`. No deploy executed.
+
+- Backend: a genuinely separate `swalekha_db` database + `SwalekhaDbContext` (own connection string, registered directly in `Program.cs`, zero domain tables yet), a new `GarmetixPolicies.SwalekhaOwner` policy (standalone `RequireAssertion` bypassing the shared Admin/Owner-permissive matrix, same pattern as the Stage 14Q.5 SuperAdmin-only fix, asserting `AccessPermissionMatrix.IsOwner` alone - widened from `private` to `public`), and `GET /api/swalekha/health`.
+- Frontend: a new isolated `frontend/modular/apps/swalekha` Nuxt app (port 3109, `/swalekha` path) with its own minimal top bar - deliberately not the shared `ModularAppShell.vue` switcher - and its own Owner-only login/access-denied/dashboard pages. Not registered in `apps.ts`/`routes.ts`/any other app's `appUrls`, so it cannot appear in the app switcher. The one deliberate exception: a single Owner-role-conditional link added to the existing profile dropdown (`ModularAppShell.vue`), wired via a new one-off `swalekhaUrl` config key on the 9 business apps - separate from the `appUrls` object the switcher itself reads.
+- Deploy wiring (build_app, Nginx location, `--apps=` list, runtime-config patching) added to `srp-whole-site-deploy.sh` but not run. `docs/database-stage-backup-protocol.md` flags that `swalekha_db` isn't covered by the existing backup command yet - required before any stage writes real data.
+- Validated: `dotnet build` (0 errors), full backend test suite (281 passed, 0 regressions), clean `swalekha-web` and `books-web` production builds, `validate-structure.mjs`. Committed and pushed to `origin/swalekha`; `version6` untouched.
+- Next: `PersonalFin_02` (Accounts Hub Core), continuing stage-by-stage on this branch per Amit's instruction.
+
 ## 2026-07-17 - Swalekha (Personal & Personal Finance) module: design approved, no code yet
 
 Amit asked for a brand-new, completely isolated "Personal & Personal Finance" module - usable only by the Owner login, not part of the existing app-switcher/sidebar, with a separate PostgreSQL database run by the same shared API process on the same domain/login. Pulled latest `origin/version6` first (fast-forward, no local changes lost). This was explicitly a design-first pass (Amit: "start designing then will you write code after approval") - ran it through plan mode, confirmed three decisions via `AskUserQuestion`, then wrote the design and got explicit approval via `ExitPlanMode` before touching anything else. **No application code, migrations, DbContext, backend policy, or frontend app scaffolding exists yet** - only documentation from this pass.

@@ -124,6 +124,59 @@ npm run modular:deploy:srp:acceptance -- --live --strict
 
 This lane does not change the existing `garmetix.aadwikafashion.in` production host.
 
+## Swalekha Module Deploy (adds to an already-installed SRP site)
+
+`srp-swalekha-deploy.sh` deploys the Swalekha (Personal & Personal Finance) module onto an SRP
+host that already has the rest of Garmetix installed and running via the whole-site deploy above.
+It is deliberately not a whole-site redeploy - it does not need a local build of `main`/`pos`/
+`hr`/`books`/etc. Instead it copies the currently-live release forward on the remote host and
+layers three things on top of it, atomically, via the same symlink-swap release model:
+
+1. A fresh build of `swalekha-web`.
+2. A fresh publish of the shared `Garmetix.Api` backend - Swalekha's endpoints live in the same
+   process as every other app, so there is no separate "Swalekha backend" to deploy.
+3. The `swalekha_db` database and its `ConnectionStrings__Swalekha` entry in the API env file,
+   created/wired automatically if not already present (same Postgres host/user as the main
+   database, per the module's own separate-database design).
+
+It also patches the single `swalekhaUrl` runtime-config value into every already-deployed app's
+compiled HTML in place, so the Owner-only profile-menu link lights up without rebuilding those
+apps from source.
+
+Uses the same config/secrets files as the whole-site deploy above (`~/.config/garmetix/srp-deploy.env`
+and `~/.config/garmetix/srp-deploy.secrets.env`).
+
+Check the plan:
+
+```bash
+npm run modular:deploy:srp:swalekha -- --dry-run
+```
+
+Build and stage locally (no remote contact):
+
+```bash
+npm run modular:deploy:srp:swalekha -- --build-only
+```
+
+Deploy to the configured host (uploads and switches `current`, but leaves Nginx/systemd alone):
+
+```bash
+npm run modular:deploy:srp:swalekha -- --stage=SwalekhaModuleGoLive
+```
+
+Deploy and install/refresh the Nginx `/swalekha/` location + restart the API service:
+
+```bash
+npm run modular:deploy:srp:swalekha -- --stage=SwalekhaModuleGoLive --install-remote
+```
+
+A pre-deploy database backup (`srp-backup-database.sh`, which already covers `swalekha_db`) runs
+automatically before anything is uploaded, matching the project's mandatory stage-backup protocol
+(`docs/database-stage-backup-protocol.md`) - a stage name is required unless you pass
+`--skip-db-backup` as an explicitly approved emergency/manual exception. Run
+`srp-swalekha-deploy.sh --help` for the full flag list (`--skip-build`, `--skip-api`,
+`--skip-db-setup`).
+
 ### Codex PowerShell Deploy Runbook (reference, use if the above gets complex)
 
 Amit shared this as Codex's own known-working command sequence for deploying to SRP from a Windows PowerShell session. Keep it as a fallback reference if the Git Bash/WSL path above fails or gets too complicated for a given session.

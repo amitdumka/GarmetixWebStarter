@@ -83,23 +83,35 @@ One small, Owner-role-conditional link is added to the shared profile/account dr
 
 **B4. Contacts** — a personal contact directory, separate from the CRM app's business customer records, and the source both the Person-to-Person Ledger (A5) and Calendar appointments link against.
 
+### Pillar C — Multi-Owner & Family (added `PersonalFin_06`/`07`, 2026-07-17)
+
+Swalekha is usable by more than one Owner login (e.g. two owners of the same company) — a gap the original design didn't account for. Every table now carries an `OwnerId`, enforced by a global query filter, so each Owner's financial data is completely private to them by default (see Isolation Architecture below).
+
+**C1. Owner Profile** — PAN, Aadhar, Passport number, contact phone/email, address, and a linked primary bank account (one of the Owner's own `SwalekhaAccount` rows). Auto-provisioned on first use from the shared `GarmetixDbContext`'s `Employee`/`EmployeeDetail` tables when the logged-in Owner's `AppUser.EmployeeId` is set (PAN/Aadhar/Mobile/bank fields/spouse name already exist there — re-typing them in Swalekha would be redundant), editable afterward.
+
+**C2. Family Connections** — a list of family members (spouse, children, parents, etc.) per Owner. A family member can optionally be *linked* to another real Owner login on the same platform (matched by email/username) — linking is reciprocal, so both sides see the connection. Linking does **not** expose either owner's private financial data to the other; it only enables C3.
+
+**C3. Family Transfer Sync** — sending money to a *linked* family member needs only one entry: the sender's own withdrawal. If the recipient is a linked Owner with a primary account configured, the system automatically posts the matching deposit into *their* account on their behalf (a deliberate, narrow, server-side exception to the owner-scoping in C0 — the sender never sees the recipient's account details, only that the transfer was synced).
+
 ## 5. Staged Roadmap
 
-Tracked as `PersonalFin_01` through `PersonalFin_13` in `.claude/todo.md`; each stage follows this project's established pattern (research → build → validate with real build/test runs → update `CLAUDE.md`/`.claude/todo.md`/`.claude/changelog.md` → version bump), same as the GST & Taxes and Final Accounts multi-stage modules.
+Tracked as `PersonalFin_01` through `PersonalFin_15` in `.claude/todo.md`; each stage follows this project's established pattern (research → build → validate with real build/test runs → update `CLAUDE.md`/`.claude/todo.md`/`.claude/changelog.md` → version bump), same as the GST & Taxes and Final Accounts multi-stage modules.
 
 1. **`PersonalFin_01` Foundation** — `swalekha_db` + `SwalekhaDbContext`, `GarmetixPolicies.SwalekhaOwner`, the new isolated `swalekha` frontend app (own shell, no switcher wiring), deploy wiring (path + Nginx, deliberately excluded from switcher registration), the one Owner-only profile-menu link, the backup-protocol doc update, and an empty dashboard shell. This stage exists purely to prove the isolation model end-to-end (login as Owner works, every other role is refused, the app is invisible from the switcher, the database is genuinely separate) before any real feature is built on top of it.
 2. **`PersonalFin_02` Accounts Hub Core** — Bank Accounts, Cash, Credit Cards; per-account ledger; manual deposit/withdraw/transfer.
 3. **`PersonalFin_03` Contacts + Person Ledger** — Contacts master; per-person dr/cr ledger (loan given/taken, repayments, settle).
 4. **`PersonalFin_04` Expense & Income** — Expense sheets by type (including Hidden), Income entries, categories/tags, recurring bills + reminders.
 5. **`PersonalFin_05` Travel Expense Sheets** — trip-scoped sheets; Close-Trip roll-up into the main Expense ledger under Travel, trip tag retained for reporting.
-6. **`PersonalFin_06` Investments I** — Fixed Deposits + Recurring Deposits.
-7. **`PersonalFin_07` Investments II** — Mutual Funds + SIP tracker.
-8. **`PersonalFin_08` Investments III** — Shares/Stocks, optional PPF/EPF/NPS/Gold.
-9. **`PersonalFin_09` Loans** — Loans Taken (EMI/amortization/prepayments) + Loans Given (linked to Stage 03's Person ledger).
-10. **`PersonalFin_10` Insurance** — Policies, premium reminders, nominee/sum-assured/maturity tracking.
-11. **`PersonalFin_11` Personal Organizer** — Diary/Journal, Personal Notes, Calendar & Appointments (including auto-populated finance due-dates).
-12. **`PersonalFin_12` Dashboard & Reports** — unified home dashboard (net worth, upcoming dues, today's appointments), portfolio allocation, expense breakdown, Excel/PDF tax-relevant export.
-13. **`PersonalFin_13` Document Vault & Hardening** — attach scanned documents (policy/loan/FD proofs) to records; an explicit Owner-only-access self-check; a `swalekha_db` backup/restore drill, matching the discipline `BS-21` established for the business database.
+6. **`PersonalFin_06` Multi-Owner Data Isolation** — `OwnerId` on every table, global query filter, auto-stamp on insert. Foundational fix, not a feature.
+7. **`PersonalFin_07` Owner Profile + Family Connections + Transaction Sync** — Pillar C above, plus Employee-table auto-provisioning.
+8. **`PersonalFin_08` Investments I** — Fixed Deposits + Recurring Deposits.
+9. **`PersonalFin_09` Investments II** — Mutual Funds + SIP tracker.
+10. **`PersonalFin_10` Investments III** — Shares/Stocks, optional PPF/EPF/NPS/Gold.
+11. **`PersonalFin_11` Loans** — Loans Taken (EMI/amortization/prepayments) + Loans Given (linked to Stage 03's Person ledger).
+12. **`PersonalFin_12` Insurance** — Policies, premium reminders, nominee/sum-assured/maturity tracking.
+13. **`PersonalFin_13` Personal Organizer** — Diary/Journal, Personal Notes, Calendar & Appointments (including auto-populated finance due-dates).
+14. **`PersonalFin_14` Dashboard & Reports** — unified home dashboard (net worth, upcoming dues, today's appointments), portfolio allocation, expense breakdown, Excel/PDF tax-relevant export.
+15. **`PersonalFin_15` Document Vault & Hardening** — attach scanned documents (policy/loan/FD proofs) to records; an explicit Owner-only-access self-check; a `swalekha_db` backup/restore drill, matching the discipline `BS-21` established for the business database.
 
 ## 6. Open Items To Confirm During Build (non-blocking)
 

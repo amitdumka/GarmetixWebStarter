@@ -33,6 +33,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBaseUrl: process.env.NUXT_PUBLIC_GARMETIX_API_BASE_URL || '/api',
+      swalekhaUrl: process.env.NUXT_PUBLIC_SWALEKHA_URL || 'http://localhost:3109',
       assistantEnabled: process.env.NUXT_PUBLIC_GARMETIX_ASSISTANT_ENABLED === 'true',
       appId: 'inventory',
       title: 'Garmetix Inventory',

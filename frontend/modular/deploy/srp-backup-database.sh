@@ -241,6 +241,38 @@ SHA256_VALUE="$(sha256sum "$BACKUP_FILE" | awk '{print $1}')"
 printf '%s  %s\n' "$SHA256_VALUE" "$(basename "$BACKUP_FILE")" > "$BACKUP_FILE.sha256"
 chmod 600 "$BACKUP_FILE" "$BACKUP_FILE.sha256"
 
+# PersonalFin_15 - Swalekha's swalekha_db is a second, separate database (its own
+# ConnectionStrings__Swalekha entry in the same API env file) - back it up too whenever it's
+# configured. Skips gracefully (not a hard failure) on hosts where Swalekha hasn't been deployed
+# yet, since ConnectionStrings__Swalekha won't exist there.
+SWALEKHA_CONNECTION_STRING="$(sudo_cmd sed -n 's/^ConnectionStrings__Swalekha=//p' "$SRP_API_ENV_PATH" | tail -1)"
+if [ -n "$SWALEKHA_CONNECTION_STRING" ]; then
+  CONNECTION_STRING="$SWALEKHA_CONNECTION_STRING"
+  SWALEKHA_DB_HOST="$(conn_value Host)"
+  SWALEKHA_DB_PORT="$(conn_value Port)"
+  SWALEKHA_DB_NAME="$(conn_value Database)"
+  SWALEKHA_DB_USER="$(conn_value Username)"
+  SWALEKHA_DB_PASSWORD="$(conn_value Password)"
+  SWALEKHA_DB_HOST="${SWALEKHA_DB_HOST:-127.0.0.1}"
+  SWALEKHA_DB_PORT="${SWALEKHA_DB_PORT:-5432}"
+
+  if [ -z "$SWALEKHA_DB_NAME" ] || [ -z "$SWALEKHA_DB_USER" ] || [ -z "$SWALEKHA_DB_PASSWORD" ]; then
+    echo "ConnectionStrings__Swalekha was present but could not be parsed - skipping the Swalekha backup." >&2
+  else
+    SWALEKHA_BACKUP_FILE="$SRP_BACKUP_DIR/swalekha-srp-db-${STAMP}-IST-${SAFE_STAGE}-v${GARMETIX_VERSION}.dump"
+
+    export PGPASSWORD="$SWALEKHA_DB_PASSWORD"
+    pg_dump -h "$SWALEKHA_DB_HOST" -p "$SWALEKHA_DB_PORT" -U "$SWALEKHA_DB_USER" -d "$SWALEKHA_DB_NAME" -Fc -f "$SWALEKHA_BACKUP_FILE"
+    unset PGPASSWORD
+
+    SWALEKHA_SHA256_VALUE="$(sha256sum "$SWALEKHA_BACKUP_FILE" | awk '{print $1}')"
+    printf '%s  %s\n' "$SWALEKHA_SHA256_VALUE" "$(basename "$SWALEKHA_BACKUP_FILE")" > "$SWALEKHA_BACKUP_FILE.sha256"
+    chmod 600 "$SWALEKHA_BACKUP_FILE" "$SWALEKHA_BACKUP_FILE.sha256"
+  fi
+else
+  echo "ConnectionStrings__Swalekha not found in $SRP_API_ENV_PATH - Swalekha module not deployed on this host yet, skipping its backup."
+fi
+
 if [ ! -f "$HISTORY_FILE" ]; then
   cat > "$HISTORY_FILE" <<HISTORY
 # Garmetix Database Backup File History
@@ -272,10 +304,26 @@ printf '| %s | %s | %s | %s | %s | %s | %s | `%s` |\n' \
   "$BACKUP_SIZE" \
   "$SHA256_VALUE" >> "$HISTORY_FILE"
 
+if [ -n "${SWALEKHA_BACKUP_FILE:-}" ] && [ -f "$SWALEKHA_BACKUP_FILE" ]; then
+  SWALEKHA_BACKUP_SIZE="$(du -h "$SWALEKHA_BACKUP_FILE" | awk '{print $1}')"
+  printf '| %s | %s | %s | %s | %s | %s | %s | `%s` |\n' \
+    "$HUMAN_STAMP" \
+    "$SAFE_STAGE" \
+    "$SWALEKHA_DB_NAME" \
+    "$GARMETIX_VERSION" \
+    "$GIT_COMMIT" \
+    "$(basename "$SWALEKHA_BACKUP_FILE")" \
+    "$SWALEKHA_BACKUP_SIZE" \
+    "$SWALEKHA_SHA256_VALUE" >> "$HISTORY_FILE"
+fi
+
 chmod 600 "$HISTORY_FILE"
 
 echo "Backup completed:"
 ls -lh "$BACKUP_FILE" "$BACKUP_FILE.sha256" "$HISTORY_FILE"
+if [ -n "${SWALEKHA_BACKUP_FILE:-}" ] && [ -f "$SWALEKHA_BACKUP_FILE" ]; then
+  ls -lh "$SWALEKHA_BACKUP_FILE" "$SWALEKHA_BACKUP_FILE.sha256"
+fi
 echo "Restore check:"
 echo "  sha256sum -c $BACKUP_FILE.sha256"
 echo "  pg_restore -l $BACKUP_FILE >/tmp/${SAFE_STAGE}-restore-list.txt"

@@ -84,6 +84,27 @@ The deploy script refuses a real upload/install if no stage name is supplied. `-
 - Creates or appends `Backupfilehistory.md`.
 - Prints a restore-check hint.
 
+## Swalekha (`swalekha_db`) - now covered by the same standard command
+
+The Swalekha (Personal & Personal Finance) module (`docs/personal-finance-module-design.md`) deliberately runs on its own separate PostgreSQL database, `swalekha_db`, alongside the main `garmetix` database on the same host - a scoped exception to this project's "one shared database" rule, approved for this module only.
+
+**As of `PersonalFin_15`, `frontend/modular/deploy/srp-backup-database.sh` backs up both databases in a single run.** After the main `garmetix` dump completes, the script reads a second connection string - `ConnectionStrings__Swalekha=` - from the same remote API env file (`$SRP_API_ENV_PATH`) and, if present, runs a second `pg_dump -Fc` against `swalekha_db` with its own filename, checksum, and `Backupfilehistory.md` row:
+
+```
+swalekha-srp-db-<timestamp>-IST-<StageName>-v<version>.dump
+```
+
+If a host doesn't have Swalekha deployed yet (no `ConnectionStrings__Swalekha` entry in the env file), the script logs a notice and skips the Swalekha half gracefully - it does not fail the main `garmetix` backup. The same `npm --prefix frontend/modular run deploy:srp:backup -- --stage=<StageName>` command covers both databases; no separate command is needed.
+
+**Restore** uses the identical template as the main database (see above), just pointed at the `swalekha-` prefixed dump file and a `swalekha_db`-named target:
+
+```bash
+createdb -h <host> -p <port> -U <user> <restore_db>
+pg_restore -h <host> -p <port> -U <user> -d <restore_db> --clean --if-exists --no-owner --no-privileges swalekha-srp-db-<timestamp>-IST-<StageName>-v<version>.dump
+```
+
+**Live restore drill status**: this extension has been built and code-reviewed but not yet exercised against a real deployed SRP host, since Swalekha has not been deployed as of `PersonalFin_15` (every stage in this module has stayed on the `swalekha` branch, "no deploy executed"). Running the actual `deploy:srp:restore-drill` command against `swalekha_db` for the first time is a task for whoever deploys Swalekha to SRP, following the same `BS-21`-style drill discipline already established for the main database.
+
 ## Restore Guidance
 
 Always restore into a separate database first unless Amit explicitly approves replacing the live database.
