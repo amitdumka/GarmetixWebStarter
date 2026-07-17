@@ -168,7 +168,8 @@ const navItems = [
   { label: 'Trips', icon: 'i-lucide-plane', to: '/trips' },
   { label: 'Calendar', icon: 'i-lucide-calendar-days', to: '/calendar' },
   { label: 'Journal', icon: 'i-lucide-book-open', to: '/journal' },
-  { label: 'Notes', icon: 'i-lucide-notebook-pen', to: '/notes' }
+  { label: 'Notes', icon: 'i-lucide-notebook-pen', to: '/notes' },
+  { label: 'Documents', icon: 'i-lucide-folder-lock', to: '/documents' }
 ]
 
 function isActive(to: string) {

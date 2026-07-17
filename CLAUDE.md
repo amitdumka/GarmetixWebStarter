@@ -1,5 +1,17 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-17 - Swalekha PersonalFin_15: Document Vault & Hardening - roadmap complete
+
+Amit said "yes continue and keep continue and complete it" - the explicit instruction to finish the entire remaining roadmap without stopping. Version `6.9.21`. Backend + frontend, no deploy executed. **This is the last stage - all 15 `PersonalFin` stages from the original design (`docs/personal-finance-module-design.md`) are now code-complete.**
+
+- New `SwalekhaDocument` entity (Owner-scoped, like every other Swalekha table) + `/api/swalekha/documents`: list, a genuine multipart file-upload endpoint (first one in Swalekha, pattern researched from the existing `PurchaseInvoiceImportService.cs`), authenticated download, soft-delete. Files stored per-Owner on disk (extension whitelist, 15MB cap).
+- New `GET /api/swalekha/security/self-check` - a **live runtime assertion**, not a static claim, that `PersonalFin_06`'s Owner-isolation query filter actually works: compares a normally-filtered `SwalekhaAccounts` count against an explicit `IgnoreQueryFilters()` count scoped to the current Owner (must match), and confirms other Owners' rows genuinely exist elsewhere in the table but are correctly invisible.
+- New `/documents` page (upload/list/download/delete) and a Self-Check panel on `/about`.
+- `srp-backup-database.sh` extended to also dump `swalekha_db` on every stage backup, gracefully skipping if that connection string isn't present on a given host - code-complete but not yet exercised against a real deployed SRP host, since Swalekha has never been deployed.
+- **Live-verified end to end against the real local stack**: uploaded a real PDF (201, correctly listed), downloaded it (200), deleted it (204, correctly gone). Ran the self-check through the actual UI button - all 4 checks passed, including "5 account row(s) belonging to other Owners exist and are correctly invisible above," proving the isolation check ran against real other-Owner data accumulated from earlier stages this session, not an empty table.
+- Validated: `dotnet build` (0 errors), full backend test suite (291 passed, 0 regressions), clean `swalekha-web` build, `validate-structure.mjs`.
+- **Swalekha remains undeployed** - deployment is Amit's call, once he's ready to review the whole module together.
+
 ## 2026-07-17 - Swalekha PersonalFin_14: Dashboard & Reports
 
 Amit said to keep going and complete the roadmap. Version `6.9.20`. Backend + frontend, no deploy executed. Closes out the last "feature" stage before the final Document Vault & Hardening stage.

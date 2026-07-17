@@ -828,6 +828,38 @@ public static class SwalekhaSchemaRepairService
             CREATE INDEX IF NOT EXISTS "IX_SwalekhaAppointments_StartAt" ON "SwalekhaAppointments" ("StartAt");
             """, cancellationToken);
 
+        // PersonalFin_15 - Document Vault.
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "SwalekhaDocuments" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+                "EntityType" text NOT NULL DEFAULT '',
+                "EntityId" uuid NULL,
+                "FileName" text NOT NULL DEFAULT '',
+                "StoredFilePath" text NOT NULL DEFAULT '',
+                "ContentType" text NOT NULL DEFAULT '',
+                "FileSizeBytes" bigint NOT NULL DEFAULT 0,
+                "Notes" text NULL,
+                CONSTRAINT "PK_SwalekhaDocuments" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaDocuments" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaDocuments" ADD COLUMN IF NOT EXISTS "EntityType" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaDocuments" ADD COLUMN IF NOT EXISTS "EntityId" uuid NULL;
+            ALTER TABLE "SwalekhaDocuments" ADD COLUMN IF NOT EXISTS "FileName" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaDocuments" ADD COLUMN IF NOT EXISTS "StoredFilePath" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaDocuments" ADD COLUMN IF NOT EXISTS "ContentType" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaDocuments" ADD COLUMN IF NOT EXISTS "FileSizeBytes" bigint NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaDocuments" ADD COLUMN IF NOT EXISTS "Notes" text NULL;
+
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaDocuments_OwnerId" ON "SwalekhaDocuments" ("OwnerId");
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaDocuments_EntityType_EntityId" ON "SwalekhaDocuments" ("EntityType", "EntityId");
+            """, cancellationToken);
+
         logger.LogInformation("Swalekha account storage repair check completed.");
     }
 }

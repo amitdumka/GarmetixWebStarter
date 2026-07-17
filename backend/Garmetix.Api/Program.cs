@@ -491,6 +491,8 @@ app.MapSwalekhaJournalEndpoints();
 app.MapSwalekhaNoteEndpoints();
 app.MapSwalekhaCalendarEndpoints();
 app.MapSwalekhaDashboardEndpoints();
+app.MapSwalekhaDocumentEndpoints();
+app.MapSwalekhaSecurityEndpoints();
 app.MapCommercialEndpoints();
 app.MapCustomerDuesReconciliationEndpoints();
 app.MapFinancialYearCloseoutEndpoints();

@@ -800,6 +800,31 @@ export interface SwalekhaDashboard {
   todayAppointments: SwalekhaAppointment[]
 }
 
+export type SwalekhaDocumentEntityType = 'FixedDeposit' | 'RecurringDeposit' | 'MutualFund' | 'ShareHolding' | 'Loan' | 'InsurancePolicy' | 'General'
+
+export interface SwalekhaDocument {
+  id: string
+  entityType: string
+  entityId?: string | null
+  fileName: string
+  contentType: string
+  fileSizeBytes: number
+  notes?: string | null
+  createdAt: string
+}
+
+export interface SwalekhaSelfCheckItem {
+  name: string
+  passed: boolean
+  detail: string
+}
+
+export interface SwalekhaSelfCheck {
+  allPassed: boolean
+  ownerId: string
+  checks: SwalekhaSelfCheckItem[]
+}
+
 export function useSwalekhaApiClient() {
   const runtimeConfig = useRuntimeConfig()
   const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
@@ -828,7 +853,35 @@ export function useSwalekhaApiClient() {
     return await client().delete<T>(normalizeSwalekhaPath(path))
   }
 
-  return { apiBaseUrl, get, post, put, del }
+  async function postForm<T>(path: string, formData: FormData) {
+    if (!apiBaseUrl.value) throw new Error('API base URL is not configured.')
+    const token = getStoredToken(window.localStorage)
+    const response = await fetch(`${apiBaseUrl.value}/${normalizeSwalekhaPath(path)}`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData
+    })
+    if (!response.ok) {
+      const text = await response.text().catch(() => '')
+      throw new Error(text || `Upload failed (${response.status}).`)
+    }
+    return (await response.json()) as T
+  }
+
+  async function openBlob(path: string) {
+    if (!apiBaseUrl.value) throw new Error('API base URL is not configured.')
+    const token = getStoredToken(window.localStorage)
+    const response = await fetch(`${apiBaseUrl.value}/${normalizeSwalekhaPath(path)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    })
+    if (!response.ok) throw new Error(`Could not download the file (${response.status}).`)
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
+  }
+
+  return { apiBaseUrl, get, post, put, del, postForm, openBlob }
 }
 
 function normalizeSwalekhaPath(path: string) {

@@ -58,9 +58,72 @@
         evolving personal project - new stages are added over time.
       </p>
     </UCard>
+
+    <UCard>
+      <template #header>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="font-semibold text-highlighted">Data Isolation Self-Check</p>
+          <UButton icon="i-lucide-shield-check" size="sm" :loading="checking" @click="runSelfCheck">Run Self-Check</UButton>
+        </div>
+      </template>
+
+      <div class="space-y-3">
+        <p class="text-sm text-muted">
+          A live, runtime check confirming this Owner's data is genuinely isolated from every other Owner - not a
+          static claim, an assertion run against the database right now.
+        </p>
+
+        <UAlert
+          v-if="selfCheckError"
+          icon="i-lucide-circle-alert"
+          color="error"
+          variant="subtle"
+          :description="selfCheckError"
+        />
+
+        <div v-if="selfCheck" class="space-y-2">
+          <UAlert
+            :icon="selfCheck.allPassed ? 'i-lucide-circle-check' : 'i-lucide-circle-alert'"
+            :color="selfCheck.allPassed ? 'success' : 'error'"
+            variant="subtle"
+            :title="selfCheck.allPassed ? 'All checks passed' : 'One or more checks failed'"
+          />
+          <div v-for="check in selfCheck.checks" :key="check.name" class="flex items-start gap-3 rounded-lg border border-default p-3">
+            <UIcon
+              :name="check.passed ? 'i-lucide-check-circle-2' : 'i-lucide-x-circle'"
+              :class="check.passed ? 'text-success' : 'text-error'"
+              class="mt-0.5 size-5 shrink-0"
+            />
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-highlighted">{{ check.name }}</p>
+              <p class="text-xs text-muted">{{ check.detail }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </UCard>
   </section>
 </template>
 
 <script setup lang="ts">
+import { useSwalekhaApiClient, type SwalekhaSelfCheck } from '../utils/swalekha-api'
+
 useHead({ title: 'About - Swalekha' })
+
+const api = useSwalekhaApiClient()
+const checking = ref(false)
+const selfCheck = ref<SwalekhaSelfCheck | null>(null)
+const selfCheckError = ref('')
+
+async function runSelfCheck() {
+  checking.value = true
+  selfCheckError.value = ''
+  try {
+    selfCheck.value = await api.get<SwalekhaSelfCheck>('security/self-check')
+  } catch (err) {
+    selfCheckError.value = err instanceof Error ? err.message : 'Could not run the self-check.'
+  } finally {
+    checking.value = false
+  }
+}
 </script>
