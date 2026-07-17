@@ -51,15 +51,9 @@
         </template>
         <template #actions-cell="{ row }">
           <div class="flex justify-end gap-1">
-            <UTooltip text="Ledger">
-              <UButton icon="i-lucide-list" color="neutral" variant="ghost" size="sm" @click="navigateTo(`/accounts/${row.original.id}`)" />
-            </UTooltip>
-            <UTooltip text="Edit">
-              <UButton icon="i-lucide-pencil" color="primary" variant="ghost" size="sm" @click="openEdit(row.original)" />
-            </UTooltip>
-            <UTooltip text="Delete">
-              <UButton icon="i-lucide-trash-2" color="error" variant="ghost" size="sm" @click="deleteAccount(row.original)" />
-            </UTooltip>
+            <UButton icon="i-lucide-list" color="neutral" variant="ghost" size="sm" title="Ledger" @click="navigateTo(`/accounts/${row.original.id}`)" />
+            <UButton icon="i-lucide-pencil" color="primary" variant="ghost" size="sm" title="Edit" @click="openEdit(row.original)" />
+            <UButton icon="i-lucide-trash-2" color="error" variant="ghost" size="sm" title="Delete" @click="deleteAccount(row.original)" />
           </div>
         </template>
       </UTable>

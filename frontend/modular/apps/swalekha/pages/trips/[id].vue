@@ -57,9 +57,7 @@
           <span class="font-mono text-sm">{{ formatCurrency(row.original.amount) }}</span>
         </template>
         <template #actions-cell="{ row }">
-          <UTooltip text="Delete">
-            <UButton icon="i-lucide-trash-2" color="error" variant="ghost" size="sm" @click="deleteEntry(row.original)" />
-          </UTooltip>
+          <UButton icon="i-lucide-trash-2" color="error" variant="ghost" size="sm" title="Delete" @click="deleteEntry(row.original)" />
         </template>
       </UTable>
       <div class="flex items-center justify-between gap-3 p-4">

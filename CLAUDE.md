@@ -1,5 +1,14 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-17 - Swalekha: first real local test pass finds and fixes two genuine bugs
+
+Amit asked to run Swalekha locally for testing. Version `6.9.10`. No deploy executed, backend-only changes: none (frontend-only fixes).
+
+- Stood up a full local stack for the first time: Docker Postgres (reused an existing `legacy-postgres-1` container), backend API run from its own build output directory (running it from the repo root broke `appsettings.json` resolution - ASP.NET Core resolves config relative to the process cwd, not the DLL location), a real Owner test login created via `POST /api/access/users` (enum fields had to be numeric, not string names - no `JsonStringEnumConverter` registered), and CORS opened up locally via `Cors__AllowedOriginsCsv` for the dev frontend ports.
+- **Two genuine bugs found and fixed on first real click-through** (every prior stage's validation was build/console-only, no live data): (1) `UTooltip` wrapping a `UButton` inside a `UTable` cell slot throws at render time, silently killing that row - present in all 10 Swalekha page files, fixed by switching to a plain `title` attribute. (2) Trip create/update 500'd whenever the date fields were left blank, since an empty-string date can't deserialize into the backend's `DateTime?` - fixed by converting empty strings to `null` before posting.
+- With both fixed, every `PersonalFin_02`-`05` feature was genuinely exercised end to end (account deposit/transfer, contact loan/settle, hidden-expense visibility, income, recurring-bill mark-paid, trip creation/close with the Travel roll-up confirmed working with zero data-copy step) - all correct, zero console errors.
+- Flagged the same `UTooltip`-in-table bug as a likely pre-existing issue elsewhere in the modular frontend (e.g. `final-accounts`) as a separate background task, not fixed in this session.
+
 ## 2026-07-17 - Swalekha PersonalFin_05 (Travel Expense Sheets) shipped on branch `swalekha`
 
 Amit said "keep moving ahead" again. Version `6.9.9`. No deploy executed.
