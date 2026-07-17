@@ -356,6 +356,93 @@ public static class SwalekhaSchemaRepairService
             CREATE INDEX IF NOT EXISTS "IX_SwalekhaFamilyMembers_LinkedOwnerId" ON "SwalekhaFamilyMembers" ("LinkedOwnerId");
             """, cancellationToken);
 
+        // PersonalFin_08 - Investments I (Fixed Deposits + Recurring Deposits).
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "SwalekhaFixedDeposits" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+                "BankName" text NOT NULL DEFAULT '',
+                "FdNumber" text NULL,
+                "AccountId" uuid NULL,
+                "PrincipalAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                "InterestRatePercent" numeric(18,2) NOT NULL DEFAULT 0,
+                "TenureMonths" integer NOT NULL DEFAULT 0,
+                "StartDate" timestamp without time zone NOT NULL DEFAULT now(),
+                "MaturityDate" timestamp without time zone NOT NULL DEFAULT now(),
+                "MaturityAmount" numeric(18,2) NULL,
+                "AutoRenew" boolean NOT NULL DEFAULT false,
+                "TdsDeducted" numeric(18,2) NULL,
+                "IsClosed" boolean NOT NULL DEFAULT false,
+                "ClosedAt" timestamp without time zone NULL,
+                "Notes" text NULL,
+                CONSTRAINT "PK_SwalekhaFixedDeposits" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaFixedDeposits" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaFixedDeposits" ADD COLUMN IF NOT EXISTS "BankName" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaFixedDeposits" ADD COLUMN IF NOT EXISTS "FdNumber" text NULL;
+            ALTER TABLE "SwalekhaFixedDeposits" ADD COLUMN IF NOT EXISTS "AccountId" uuid NULL;
+            ALTER TABLE "SwalekhaFixedDeposits" ADD COLUMN IF NOT EXISTS "PrincipalAmount" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaFixedDeposits" ADD COLUMN IF NOT EXISTS "InterestRatePercent" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaFixedDeposits" ADD COLUMN IF NOT EXISTS "TenureMonths" integer NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaFixedDeposits" ADD COLUMN IF NOT EXISTS "StartDate" timestamp without time zone NOT NULL DEFAULT now();
+            ALTER TABLE "SwalekhaFixedDeposits" ADD COLUMN IF NOT EXISTS "MaturityDate" timestamp without time zone NOT NULL DEFAULT now();
+            ALTER TABLE "SwalekhaFixedDeposits" ADD COLUMN IF NOT EXISTS "MaturityAmount" numeric(18,2) NULL;
+            ALTER TABLE "SwalekhaFixedDeposits" ADD COLUMN IF NOT EXISTS "AutoRenew" boolean NOT NULL DEFAULT false;
+            ALTER TABLE "SwalekhaFixedDeposits" ADD COLUMN IF NOT EXISTS "TdsDeducted" numeric(18,2) NULL;
+            ALTER TABLE "SwalekhaFixedDeposits" ADD COLUMN IF NOT EXISTS "IsClosed" boolean NOT NULL DEFAULT false;
+            ALTER TABLE "SwalekhaFixedDeposits" ADD COLUMN IF NOT EXISTS "ClosedAt" timestamp without time zone NULL;
+            ALTER TABLE "SwalekhaFixedDeposits" ADD COLUMN IF NOT EXISTS "Notes" text NULL;
+
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaFixedDeposits_OwnerId" ON "SwalekhaFixedDeposits" ("OwnerId");
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaFixedDeposits_MaturityDate" ON "SwalekhaFixedDeposits" ("MaturityDate");
+
+            CREATE TABLE IF NOT EXISTS "SwalekhaRecurringDeposits" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+                "BankName" text NOT NULL DEFAULT '',
+                "RdNumber" text NULL,
+                "AccountId" uuid NULL,
+                "MonthlyInstallment" numeric(18,2) NOT NULL DEFAULT 0,
+                "InterestRatePercent" numeric(18,2) NOT NULL DEFAULT 0,
+                "TenureMonths" integer NOT NULL DEFAULT 0,
+                "StartDate" timestamp without time zone NOT NULL DEFAULT now(),
+                "MaturityDate" timestamp without time zone NOT NULL DEFAULT now(),
+                "MaturityAmount" numeric(18,2) NULL,
+                "InstallmentsPaid" integer NOT NULL DEFAULT 0,
+                "IsClosed" boolean NOT NULL DEFAULT false,
+                "ClosedAt" timestamp without time zone NULL,
+                "Notes" text NULL,
+                CONSTRAINT "PK_SwalekhaRecurringDeposits" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaRecurringDeposits" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaRecurringDeposits" ADD COLUMN IF NOT EXISTS "BankName" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaRecurringDeposits" ADD COLUMN IF NOT EXISTS "RdNumber" text NULL;
+            ALTER TABLE "SwalekhaRecurringDeposits" ADD COLUMN IF NOT EXISTS "AccountId" uuid NULL;
+            ALTER TABLE "SwalekhaRecurringDeposits" ADD COLUMN IF NOT EXISTS "MonthlyInstallment" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaRecurringDeposits" ADD COLUMN IF NOT EXISTS "InterestRatePercent" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaRecurringDeposits" ADD COLUMN IF NOT EXISTS "TenureMonths" integer NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaRecurringDeposits" ADD COLUMN IF NOT EXISTS "StartDate" timestamp without time zone NOT NULL DEFAULT now();
+            ALTER TABLE "SwalekhaRecurringDeposits" ADD COLUMN IF NOT EXISTS "MaturityDate" timestamp without time zone NOT NULL DEFAULT now();
+            ALTER TABLE "SwalekhaRecurringDeposits" ADD COLUMN IF NOT EXISTS "MaturityAmount" numeric(18,2) NULL;
+            ALTER TABLE "SwalekhaRecurringDeposits" ADD COLUMN IF NOT EXISTS "InstallmentsPaid" integer NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaRecurringDeposits" ADD COLUMN IF NOT EXISTS "IsClosed" boolean NOT NULL DEFAULT false;
+            ALTER TABLE "SwalekhaRecurringDeposits" ADD COLUMN IF NOT EXISTS "ClosedAt" timestamp without time zone NULL;
+            ALTER TABLE "SwalekhaRecurringDeposits" ADD COLUMN IF NOT EXISTS "Notes" text NULL;
+
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaRecurringDeposits_OwnerId" ON "SwalekhaRecurringDeposits" ("OwnerId");
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaRecurringDeposits_MaturityDate" ON "SwalekhaRecurringDeposits" ("MaturityDate");
+            """, cancellationToken);
+
         logger.LogInformation("Swalekha account storage repair check completed.");
     }
 }

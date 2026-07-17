@@ -94,6 +94,17 @@
             >
               <span v-if="!collapsed">Log out</span>
             </UButton>
+            <UButton
+              to="/about"
+              icon="i-lucide-info"
+              color="neutral"
+              variant="ghost"
+              block
+              :square="collapsed"
+              class="justify-start"
+            >
+              <span v-if="!collapsed">About Swalekha</span>
+            </UButton>
           </div>
         </template>
       </UDashboardSidebar>
@@ -147,6 +158,7 @@ const navItems = [
   { label: 'My Profile', icon: 'i-lucide-id-card', to: '/profile' },
   { label: 'Family Members', icon: 'i-lucide-heart-handshake', to: '/family' },
   { label: 'Accounts Hub', icon: 'i-lucide-landmark', to: '/accounts' },
+  { label: 'Investments', icon: 'i-lucide-trending-up', to: '/investments' },
   { label: 'Contacts', icon: 'i-lucide-users', to: '/contacts' },
   { label: 'Expenses', icon: 'i-lucide-receipt', to: '/expenses' },
   { label: 'Income', icon: 'i-lucide-wallet', to: '/income' },

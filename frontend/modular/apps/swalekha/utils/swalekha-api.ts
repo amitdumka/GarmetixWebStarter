@@ -343,6 +343,82 @@ export interface SwalekhaFamilyTransferResult {
   fromAccountBalance: number
 }
 
+export interface SwalekhaFixedDeposit {
+  id: string
+  bankName: string
+  fdNumber?: string | null
+  accountId?: string | null
+  principalAmount: number
+  interestRatePercent: number
+  tenureMonths: number
+  startDate: string
+  maturityDate: string
+  maturityAmount?: number | null
+  autoRenew: boolean
+  tdsDeducted?: number | null
+  isClosed: boolean
+  closedAt?: string | null
+  notes?: string | null
+  createdAt: string
+}
+
+export interface SwalekhaFixedDepositPayload {
+  bankName: string
+  fdNumber?: string | null
+  accountId?: string | null
+  principalAmount: number
+  interestRatePercent: number
+  tenureMonths: number
+  startDate: string
+  maturityDate: string
+  maturityAmount?: number | null
+  autoRenew: boolean
+  tdsDeducted?: number | null
+  notes?: string | null
+}
+
+export interface SwalekhaMarkMaturedPayload {
+  maturityAmount: number
+  maturityCreditedDate: string
+  narration?: string | null
+}
+
+export interface SwalekhaRecurringDeposit {
+  id: string
+  bankName: string
+  rdNumber?: string | null
+  accountId?: string | null
+  monthlyInstallment: number
+  interestRatePercent: number
+  tenureMonths: number
+  startDate: string
+  maturityDate: string
+  maturityAmount?: number | null
+  installmentsPaid: number
+  isClosed: boolean
+  closedAt?: string | null
+  notes?: string | null
+  createdAt: string
+}
+
+export interface SwalekhaRecurringDepositPayload {
+  bankName: string
+  rdNumber?: string | null
+  accountId?: string | null
+  monthlyInstallment: number
+  interestRatePercent: number
+  tenureMonths: number
+  startDate: string
+  maturityDate: string
+  maturityAmount?: number | null
+  notes?: string | null
+}
+
+export interface SwalekhaRecordInstallmentPayload {
+  installmentDate: string
+  narration?: string | null
+}
+
 export function useSwalekhaApiClient() {
   const runtimeConfig = useRuntimeConfig()
   const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))

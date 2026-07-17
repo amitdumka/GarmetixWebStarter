@@ -1,5 +1,16 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-17 - Swalekha PersonalFin_08: Investments I (FD/RD) + About Swalekha page
+
+Amit said to keep going and asked for an About Us page crediting "AKS Labs (India) - Amit Kumar". Version `6.9.14`. Backend + frontend, no deploy executed.
+
+- **Fixed Deposits + Recurring Deposits**: new `SwalekhaFixedDeposit`/`SwalekhaRecurringDeposit` entities, each optionally linked to one of the Owner's own Accounts Hub accounts. Not disconnected trackers: `Mark Matured` (both FD and RD) credits the linked account with the final maturity amount in the same DB transaction, and RD's `Record Installment` debits it per installment - both post real `SwalekhaAccountTransaction` rows, mirroring the roll-up pattern `PersonalFin_05`'s Trip-close already established.
+- New `/investments` hub (active FD principal, active RD monthly commitment, a 90-day upcoming-maturities feed) plus `/investments/fixed-deposits` and `/investments/recurring-deposits` detail pages.
+- **About Swalekha** (`/about`, sidebar footer link on every page): app description plus a "Developed By AKS Labs (India) - Amit Kumar" credit section.
+- **Live-verified through the actual UI**: created a real FD and RD linked to a real account, recorded one RD installment (account correctly debited 5650→5150), marked the FD matured (account correctly credited 3500→5650) - the Investments hub reflected the resulting counts correctly.
+- Validated: `dotnet build` (0 errors), full backend test suite (281 passed, 0 regressions), clean `swalekha-web` build, `validate-structure.mjs`.
+- `PersonalFin_09` (Investments II - Mutual Funds + SIP tracker) is next.
+
 ## 2026-07-17 - Swalekha PersonalFin_07: Owner Profile, Family Connections, mutual-consent transfer sync
 
 Amit asked for profile-based data per Owner login (already covered by PersonalFin_06), an Owner Profile (PAN/Aadhar/Passport/spouse/children/contact/linked bank account), a family-member connection list so cross-owner transactions "need just one entry" (father pays son, son's own account updates automatically), and auto-provisioning the Owner's profile from the Garmetix Employee table. Version `6.9.13`. Backend + frontend, no deploy executed.
