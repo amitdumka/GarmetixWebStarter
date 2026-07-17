@@ -1,5 +1,14 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-17 - Swalekha module deploy script (`srp-swalekha-deploy.sh`)
+
+Amit asked for a deployment script that deploys and configures Swalekha into an SRP host that already has the rest of Garmetix installed. Script created, not run.
+
+- New `frontend/modular/deploy/srp-swalekha-deploy.sh` (`npm run modular:deploy:srp:swalekha`) - deliberately not a whole-site redeploy. It copies the currently-live release forward on the remote host and layers on top of it, atomically via the same symlink-swap model `srp-whole-site-deploy.sh` already uses: a fresh `swalekha-web` build, a fresh publish of the shared `Garmetix.Api` (Swalekha's endpoints live in the same process as every other app), and `swalekha_db` + its `ConnectionStrings__Swalekha` entry (auto-created if missing, same Postgres host/user as the main database, database name only differs).
+- Also patches the one `swalekhaUrl` runtime-config string into every already-deployed app's compiled HTML in place, so the Owner-only profile-menu link lights up without rebuilding those apps from source.
+- Runs the mandatory pre-deploy database backup first (reuses `srp-backup-database.sh`, which already covers `swalekha_db`); `--install-remote` refreshes the Nginx `/swalekha/` location and restarts the API service; a verification pass curls `/swalekha/` and `/api/swalekha/health` on the host afterward.
+- Validated locally: `--dry-run` (plan prints correctly) and `--build-only` (real `swalekha-web` build + real self-contained `linux-x64` API publish, both succeeded, correct overlay directory structure) - **not run against the live SRP host**, per the standing "never deploy without explicit ask" rule.
+
 ## 2026-07-17 - Swalekha PersonalFin_15: Document Vault & Hardening - roadmap complete
 
 Amit said "yes continue and keep continue and complete it" - the explicit instruction to finish the entire remaining roadmap without stopping. Version `6.9.21`. Backend + frontend, no deploy executed. **This is the last stage - all 15 `PersonalFin` stages from the original design (`docs/personal-finance-module-design.md`) are now code-complete.**
