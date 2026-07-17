@@ -23,7 +23,7 @@
 - [x] Implement reusable secure SMTP provider.
 - [x] Add Brevo, GoDaddy, Microsoft 365, Gmail, custom and local-relay presets.
 - [x] Encrypt credentials and persist protection keys safely.
-- [ ] Mask secrets in APIs/UI/logs and implement rotation. (Mask() helper exists; API/UI wiring is CM-05)
+- [x] Mask secrets in APIs/UI/logs and implement rotation.
 - [x] Add provider selection, connection test and test email.
 
 ## Queue
@@ -63,11 +63,11 @@
 
 ## UI and permissions
 
-- [ ] Add all `/communication` routes using standard layout.
-- [ ] Add granular permissions and backend authorization.
-- [ ] Add providers, templates, queue/log, events and suppression pages.
-- [ ] Add responsive loading, empty, validation and error states.
-- [ ] Verify cross-tenant/store/company access is rejected.
+- [ ] Add all `/communication` routes using standard layout. (dashboard + providers done; inbox/templates/queue/suppression arrive in later CM stages)
+- [x] Add granular permissions and backend authorization.
+- [ ] Add providers, templates, queue/log, events and suppression pages. (providers page done in CM-05)
+- [x] Add responsive loading, empty, validation and error states. (providers page)
+- [ ] Verify cross-tenant/store/company access is rejected. (deferred to CM-11 QA pass)
 
 ## Optional relay and operations
 

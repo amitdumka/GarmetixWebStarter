@@ -127,6 +127,11 @@ const appCopy: Record<FrontendAppId, { title: string, subtitle: string, badge: s
     title: 'Garmetix Final Accounts',
     subtitle: 'Balance sheet, P&L, cash flow, closing and CA review workspace.',
     badge: 'Final Accounts'
+  },
+  communication: {
+    title: 'Garmetix Communication & Mail',
+    subtitle: 'Internal messages, provider setup, templates, queue/log and suppression.',
+    badge: 'Communication'
   }
 }
 

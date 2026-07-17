@@ -289,6 +289,12 @@ builder.Services.AddAuthorization(options =>
     AddMatrixPolicy(options, GarmetixPolicies.Attendance);
     AddMatrixPolicy(options, GarmetixPolicies.Marketing);
     AddMatrixPolicy(options, GarmetixPolicies.Gst);
+    AddMatrixPolicy(options, GarmetixPolicies.Communication);
+    AddMatrixPolicy(options, GarmetixPolicies.CommunicationBroadcast);
+    AddMatrixPolicy(options, GarmetixPolicies.CommunicationTemplates);
+    AddMatrixPolicy(options, GarmetixPolicies.CommunicationProviders);
+    AddMatrixPolicy(options, GarmetixPolicies.CommunicationQueue);
+    AddMatrixPolicy(options, GarmetixPolicies.CommunicationSuppression);
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -477,6 +483,7 @@ app.MapFactoryResetEndpoints();
 app.MapGstReturnEndpoints();
 app.MapGstinEndpoints();
 app.MapGstTaxEndpoints();
+app.MapEmailProviderEndpoints();
 app.MapGstHsnEndpoints();
 app.MapGstRateEndpoints();
 app.MapGstAuditEndpoints();

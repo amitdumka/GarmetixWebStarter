@@ -81,6 +81,9 @@ public static class EmailCatalog
         public const string Invalid = "Invalid";
         public const string Manual = "Manual";
     }
+
+    /// <summary>Credential keys accepted by EmailProviderCredential - ApiKey for Brevo, SmtpUsername/SmtpPassword for the SMTP client.</summary>
+    public static readonly IReadOnlyList<string> CredentialKeys = ["ApiKey", "SmtpUsername", "SmtpPassword"];
 }
 
 /// <summary>

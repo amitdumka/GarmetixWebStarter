@@ -484,6 +484,14 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
           { id: 'posting-rules', label: 'Posting Rules', href: '/posting-rules', icon: 'i-lucide-route' },
         { id: 'setup', label: 'Setup', href: '/setup', icon: 'i-lucide-sliders-horizontal' }
       ] }
+  ],
+  communication: [
+    { key: 'dashboard', label: 'Dashboard', items: [
+      { id: 'home', label: 'Communication Home', href: '/', icon: 'i-lucide-layout-dashboard' }
+    ] },
+    { key: 'admin', label: 'Providers & Setup', items: [
+      { id: 'providers', label: 'Providers', href: '/providers', icon: 'i-lucide-server-cog' }
+    ] }
   ]
 }
 
@@ -657,7 +665,8 @@ function appDefaultBase(appId: FrontendAppId) {
     crm: '/crm/',
     admin: '/admin/',
     inventory: '/inventory/',
-    'final-accounts': '/final-accounts/'
+    'final-accounts': '/final-accounts/',
+    communication: '/communication/'
   }
   return bases[appId]
 }

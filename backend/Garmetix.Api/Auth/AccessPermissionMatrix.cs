@@ -25,6 +25,12 @@ public static class AccessPermissionMatrix
         GarmetixPolicies.Attendance,
         GarmetixPolicies.Marketing,
         GarmetixPolicies.Gst,
+        GarmetixPolicies.Communication,
+        GarmetixPolicies.CommunicationBroadcast,
+        GarmetixPolicies.CommunicationTemplates,
+        GarmetixPolicies.CommunicationProviders,
+        GarmetixPolicies.CommunicationQueue,
+        GarmetixPolicies.CommunicationSuppression,
         "Reports"
     ];
 
@@ -94,6 +100,45 @@ public static class AccessPermissionMatrix
                 Role(LoginRole.Accountant),
                 Role(LoginRole.RemoteAccountant),
                 Role(LoginRole.StoreManager)
+            ],
+            // Communication (personal inbox/compose/read) is for every staff role - it is the
+            // narrower CommunicationBroadcast/Templates/Providers/Queue/Suppression policies
+            // that are Admin/PowerUser-tier, matching the master prompt's "general
+            // communication access must not grant... other sensitive-record access" rule.
+            [GarmetixPolicies.Communication] =
+            [
+                Role(LoginRole.Admin),
+                Role(LoginRole.PowerUser),
+                Role(LoginRole.Accountant),
+                Role(LoginRole.RemoteAccountant),
+                Role(LoginRole.StoreManager),
+                Role(LoginRole.Salesman),
+                Role(LoginRole.HR),
+                Role(LoginRole.Payroll)
+            ],
+            [GarmetixPolicies.CommunicationBroadcast] =
+            [
+                Role(LoginRole.Admin),
+                Role(LoginRole.PowerUser)
+            ],
+            [GarmetixPolicies.CommunicationTemplates] =
+            [
+                Role(LoginRole.Admin),
+                Role(LoginRole.PowerUser)
+            ],
+            [GarmetixPolicies.CommunicationProviders] =
+            [
+                Role(LoginRole.Admin)
+            ],
+            [GarmetixPolicies.CommunicationQueue] =
+            [
+                Role(LoginRole.Admin),
+                Role(LoginRole.PowerUser)
+            ],
+            [GarmetixPolicies.CommunicationSuppression] =
+            [
+                Role(LoginRole.Admin),
+                Role(LoginRole.PowerUser)
             ]
         };
 
@@ -103,12 +148,12 @@ public static class AccessPermissionMatrix
         Profile("Owner", true, true, true, AllModules, "Full business and administration control."),
         Profile(Role(LoginRole.Admin), true, true, true, AllModules, "Full administration control."),
         Profile(Role(LoginRole.PowerUser), false, true, false, AllModules, "All operational modules without Admin or delete rights."),
-        Profile(Role(LoginRole.Accountant), false, true, false, [GarmetixPolicies.Accounting, GarmetixPolicies.Payroll, "Reports", GarmetixPolicies.Gst], "Accounting, payroll, reports, and GST operations."),
-        Profile(Role(LoginRole.RemoteAccountant), false, false, false, [GarmetixPolicies.Accounting, GarmetixPolicies.Payroll, "Reports", GarmetixPolicies.Gst], "Accounting review, salary payment review, reports, and GST without global edit/delete rights."),
-        Profile(Role(LoginRole.StoreManager), false, false, false, [GarmetixPolicies.Billing, GarmetixPolicies.Inventory, GarmetixPolicies.Purchase, GarmetixPolicies.Accounting, GarmetixPolicies.Hr, GarmetixPolicies.Attendance, GarmetixPolicies.Marketing, GarmetixPolicies.Gst, "Reports"], "Store views, HR attendance, and new entries; no Admin, payroll, edit, or delete rights."),
-        Profile(Role(LoginRole.Salesman), false, false, false, [GarmetixPolicies.Billing], "Billing and customer-facing digital bill entries from sale invoice screens only."),
-        Profile(Role(LoginRole.HR), false, false, false, [GarmetixPolicies.Hr, GarmetixPolicies.Attendance], "HR and attendance entries."),
-        Profile(Role(LoginRole.Payroll), false, false, false, [GarmetixPolicies.Payroll, GarmetixPolicies.Attendance], "Payroll and salary processing entries."),
+        Profile(Role(LoginRole.Accountant), false, true, false, [GarmetixPolicies.Accounting, GarmetixPolicies.Payroll, "Reports", GarmetixPolicies.Gst, GarmetixPolicies.Communication], "Accounting, payroll, reports, GST, and internal communication."),
+        Profile(Role(LoginRole.RemoteAccountant), false, false, false, [GarmetixPolicies.Accounting, GarmetixPolicies.Payroll, "Reports", GarmetixPolicies.Gst, GarmetixPolicies.Communication], "Accounting review, salary payment review, reports, GST, and internal communication without global edit/delete rights."),
+        Profile(Role(LoginRole.StoreManager), false, false, false, [GarmetixPolicies.Billing, GarmetixPolicies.Inventory, GarmetixPolicies.Purchase, GarmetixPolicies.Accounting, GarmetixPolicies.Hr, GarmetixPolicies.Attendance, GarmetixPolicies.Marketing, GarmetixPolicies.Gst, GarmetixPolicies.Communication, "Reports"], "Store views, HR attendance, new entries, and internal communication; no Admin, payroll, edit, or delete rights."),
+        Profile(Role(LoginRole.Salesman), false, false, false, [GarmetixPolicies.Billing, GarmetixPolicies.Communication], "Billing and customer-facing digital bill entries from sale invoice screens, plus internal communication."),
+        Profile(Role(LoginRole.HR), false, false, false, [GarmetixPolicies.Hr, GarmetixPolicies.Attendance, GarmetixPolicies.Communication], "HR and attendance entries, plus internal communication."),
+        Profile(Role(LoginRole.Payroll), false, false, false, [GarmetixPolicies.Payroll, GarmetixPolicies.Attendance, GarmetixPolicies.Communication], "Payroll and salary processing entries, plus internal communication."),
         Profile(Role(LoginRole.Member), false, false, false, [], "Authenticated account with no operational module assignment.")
     ];
 

@@ -17,6 +17,12 @@ public static class GarmetixPolicies
     public const string Attendance = "Attendance";
     public const string Marketing = "Marketing";
     public const string Gst = "Gst";
+    public const string Communication = "Communication";
+    public const string CommunicationBroadcast = "CommunicationBroadcast";
+    public const string CommunicationTemplates = "CommunicationTemplates";
+    public const string CommunicationProviders = "CommunicationProviders";
+    public const string CommunicationQueue = "CommunicationQueue";
+    public const string CommunicationSuppression = "CommunicationSuppression";
 
     /// <summary>
     /// Owner userType only - strictly, with no SuperAdmin/Admin fallback. Registered as a
