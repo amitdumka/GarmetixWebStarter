@@ -1,5 +1,13 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-17 - Swalekha adopts the real Dashboard Layout (top bar + sidebar)
+
+Amit flagged a design issue right after the live click-through: Swalekha needed the same Dashboard Layout (top bar, sidebar menu, navigation system, Dashboard as the default page) as the main Garmetix apps, not the flat top bar it had. Version `6.9.11`. No backend changes, no deploy executed.
+
+- Rebuilt `app.vue` using the same `UDashboardGroup`/`UDashboardSidebar`/`UDashboardPanel`/`UDashboardNavbar` structure and shared `garmetix-dashboard-*` CSS as `ModularAppShell.vue`, but with only Swalekha's own 7-item nav (Dashboard/Accounts Hub/Contacts/Expenses/Income/Recurring Bills/Trips) - no app-switcher dropdown, no cross-app link anywhere, isolation from `PersonalFin_01` unchanged.
+- Rebuilt `pages/index.vue` into a real Dashboard (net worth, owed-to-you/you-owe, spent, income, bills-due-this-month cards from the real APIs) now that the sidebar handles navigation.
+- Verified live against the already-running local backend: sidebar renders correctly with real data, nav-click updates the active page and title, zero console errors, correct responsive collapse at narrow width vs. fixed sidebar at 1280px.
+
 ## 2026-07-17 - Swalekha: first real local test pass finds and fixes two genuine bugs
 
 Amit asked to run Swalekha locally for testing. Version `6.9.10`. No deploy executed, backend-only changes: none (frontend-only fixes).

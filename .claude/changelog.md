@@ -4,6 +4,26 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-07-17 - Swalekha: adopted the real Dashboard Layout (top bar + sidebar) - branch `swalekha`
+
+**Type**: Design fix on the isolated frontend shell. No backend changes, no deploy executed.
+
+**What happened**: Right after the first live click-through session, Amit flagged a real design issue: "use Dashboard Layout as the main app Garmetix has, top bar, Sidebar Menu, Navigation System, Dashboard is the first and default page." Swalekha's `app.vue` had been a flat top bar with page-level nav buttons (the deliberate `PersonalFin_01` choice to avoid `ModularAppShell.vue`, since that component's header is a cross-app switcher dropdown) - but that choice had thrown away the whole Dashboard Layout structure (collapsible sidebar, persistent navigation, dashboard-panel content area) along with the switcher, when only the switcher needed to go.
+
+**Fix - rebuilt `frontend/modular/apps/swalekha/app.vue` from scratch** using the same Nuxt UI Pro dashboard primitives `ModularAppShell.vue` uses (`UApp` > `UDashboardGroup` > `UDashboardSidebar` + `UDashboardPanel` > `UDashboardNavbar`), and reusing the exact same shared `garmetix-dashboard-*`/`garmetix-shell-*` CSS classes from `packages/shared-ui/assets/modular-shell.css` (confirmed these are generic layout classes, not switcher-specific, so borrowing them is safe and gives pixel-consistent styling with the rest of the platform) - including the `garmetix-dashboard-shell` body class via `useHead` that the CSS needs to size the layout to the viewport, which `ModularAppShell.vue` sets the same way.
+
+- **Sidebar header**: a plain "Swalekha" brand link to `/` - no dropdown, no switcher, no other app's URL anywhere in the component.
+- **Sidebar body**: a 7-item `UNavigationMenu` (Dashboard/Accounts Hub/Contacts/Expenses/Income/Recurring Bills/Trips), each with `active` computed from the current route so the sidebar highlights correctly on sub-routes too (e.g. `/accounts/{id}` still highlights "Accounts Hub"), a small "DB connected" badge, and a "Login" button when unauthenticated.
+- **Sidebar footer**: the signed-in Owner's name + a Log out button - no dropdown of unrelated links.
+- **Panel header**: `UDashboardNavbar` with the current page's title (derived from the matching nav item), a sidebar-collapse toggle, and the color-mode button - same as every other app's top bar.
+- Rebuilt `pages/index.vue` into an actual Dashboard now that it's reached via sidebar nav rather than being the only page with "go to X" buttons on it: net worth, owed-to-you, you-owe, spent (visible), income, and bills-due-this-month summary cards, each pulled from the real `PersonalFin_02`-`04` endpoints in one `Promise.all` and each linking into its own section - plus the existing "coming up" preview cards for the still-unbuilt stages.
+
+**Validated live** (not just build-checked, continuing the discipline established earlier this session): clean `swalekha-web` production build, `node scripts/validate-structure.mjs` passing, and a real authenticated session against the already-running local backend - the dashboard's summary cards showed the exact real totals from earlier testing (₹54,500 net worth, ₹7,700 spent, ₹75,000 income), the full sidebar (brand, badges, all 7 nav items, user name, log out) rendered correctly via the accessibility tree at both a narrow viewport (correctly collapses into an on-demand slide-over dialog - the same responsive behavior the main app's `UDashboardSidebar` already has, not a regression) and a 1280px desktop viewport (fixed, always-visible sidebar), and clicking "Accounts Hub" in the sidebar navigated correctly with the page title and active nav state both updating - zero console errors throughout. (The Browser pane's screenshot/zoom capture tool was non-functional for the rest of this session regardless of page state; verification relied on the accessibility tree, `get_page_text`, and console logs instead, which were sufficient to confirm correct rendering and data.)
+
+Version bumped to `6.9.11`.
+
+---
+
 ## 2026-07-17 - Swalekha: first real local test pass finds and fixes two genuine bugs - branch `swalekha`
 
 **Type**: Live local verification + bug fixes, no new features. No deploy executed.
