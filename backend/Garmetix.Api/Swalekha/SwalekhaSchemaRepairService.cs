@@ -623,6 +623,81 @@ public static class SwalekhaSchemaRepairService
             CREATE INDEX IF NOT EXISTS "IX_SwalekhaOtherAssets_OwnerId" ON "SwalekhaOtherAssets" ("OwnerId");
             """, cancellationToken);
 
+        // PersonalFin_11 - Loans Taken.
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "SwalekhaLoans" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+                "LoanType" integer NOT NULL DEFAULT 0,
+                "LenderName" text NOT NULL DEFAULT '',
+                "LoanNumber" text NULL,
+                "AccountId" uuid NULL,
+                "PrincipalAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                "InterestRatePercent" numeric(18,2) NOT NULL DEFAULT 0,
+                "TenureMonths" integer NOT NULL DEFAULT 0,
+                "EmiAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                "StartDate" timestamp without time zone NOT NULL DEFAULT now(),
+                "OutstandingPrincipal" numeric(18,2) NOT NULL DEFAULT 0,
+                "IsClosed" boolean NOT NULL DEFAULT false,
+                "ClosedAt" timestamp without time zone NULL,
+                "Notes" text NULL,
+                CONSTRAINT "PK_SwalekhaLoans" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaLoans" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaLoans" ADD COLUMN IF NOT EXISTS "LoanType" integer NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaLoans" ADD COLUMN IF NOT EXISTS "LenderName" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaLoans" ADD COLUMN IF NOT EXISTS "LoanNumber" text NULL;
+            ALTER TABLE "SwalekhaLoans" ADD COLUMN IF NOT EXISTS "AccountId" uuid NULL;
+            ALTER TABLE "SwalekhaLoans" ADD COLUMN IF NOT EXISTS "PrincipalAmount" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaLoans" ADD COLUMN IF NOT EXISTS "InterestRatePercent" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaLoans" ADD COLUMN IF NOT EXISTS "TenureMonths" integer NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaLoans" ADD COLUMN IF NOT EXISTS "EmiAmount" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaLoans" ADD COLUMN IF NOT EXISTS "StartDate" timestamp without time zone NOT NULL DEFAULT now();
+            ALTER TABLE "SwalekhaLoans" ADD COLUMN IF NOT EXISTS "OutstandingPrincipal" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaLoans" ADD COLUMN IF NOT EXISTS "IsClosed" boolean NOT NULL DEFAULT false;
+            ALTER TABLE "SwalekhaLoans" ADD COLUMN IF NOT EXISTS "ClosedAt" timestamp without time zone NULL;
+            ALTER TABLE "SwalekhaLoans" ADD COLUMN IF NOT EXISTS "Notes" text NULL;
+
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaLoans_OwnerId" ON "SwalekhaLoans" ("OwnerId");
+
+            CREATE TABLE IF NOT EXISTS "SwalekhaLoanPayments" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+                "LoanId" uuid NOT NULL,
+                "PaymentType" integer NOT NULL DEFAULT 0,
+                "PaymentDate" timestamp without time zone NOT NULL DEFAULT now(),
+                "Amount" numeric(18,2) NOT NULL DEFAULT 0,
+                "PrincipalComponent" numeric(18,2) NOT NULL DEFAULT 0,
+                "InterestComponent" numeric(18,2) NOT NULL DEFAULT 0,
+                "OutstandingAfter" numeric(18,2) NOT NULL DEFAULT 0,
+                "Narration" text NOT NULL DEFAULT '',
+                CONSTRAINT "PK_SwalekhaLoanPayments" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaLoanPayments" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaLoanPayments" ADD COLUMN IF NOT EXISTS "LoanId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaLoanPayments" ADD COLUMN IF NOT EXISTS "PaymentType" integer NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaLoanPayments" ADD COLUMN IF NOT EXISTS "PaymentDate" timestamp without time zone NOT NULL DEFAULT now();
+            ALTER TABLE "SwalekhaLoanPayments" ADD COLUMN IF NOT EXISTS "Amount" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaLoanPayments" ADD COLUMN IF NOT EXISTS "PrincipalComponent" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaLoanPayments" ADD COLUMN IF NOT EXISTS "InterestComponent" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaLoanPayments" ADD COLUMN IF NOT EXISTS "OutstandingAfter" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaLoanPayments" ADD COLUMN IF NOT EXISTS "Narration" text NOT NULL DEFAULT '';
+
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaLoanPayments_OwnerId" ON "SwalekhaLoanPayments" ("OwnerId");
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaLoanPayments_LoanId_PaymentDate"
+                ON "SwalekhaLoanPayments" ("LoanId", "PaymentDate");
+            """, cancellationToken);
+
         logger.LogInformation("Swalekha account storage repair check completed.");
     }
 }

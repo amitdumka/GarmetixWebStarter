@@ -113,18 +113,12 @@
 
     <UCard>
       <template #header>
-        <p class="font-semibold text-highlighted">Coming Up (Next Stages)</p>
+        <div class="flex items-center justify-between">
+          <p class="font-semibold text-highlighted">Loans Taken</p>
+          <UButton to="/loans" icon="i-lucide-arrow-right" color="primary" variant="ghost" size="sm">Manage</UButton>
+        </div>
       </template>
-      <div class="grid gap-2 sm:grid-cols-2">
-        <div class="rounded-md border border-default p-3 text-sm">
-          <p class="font-medium text-highlighted">PersonalFin_11</p>
-          <p class="text-muted">Loans Taken &amp; Given</p>
-        </div>
-        <div class="rounded-md border border-default p-3 text-sm">
-          <p class="font-medium text-highlighted">PersonalFin_12</p>
-          <p class="text-muted">Insurance</p>
-        </div>
-      </div>
+      <p class="text-sm text-muted">EMI schedules, amortization and prepayments now live on their own Loans page.</p>
     </UCard>
   </section>
 </template>

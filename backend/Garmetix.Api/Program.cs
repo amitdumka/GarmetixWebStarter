@@ -485,6 +485,7 @@ app.MapSwalekhaInvestmentEndpoints();
 app.MapSwalekhaMutualFundEndpoints();
 app.MapSwalekhaShareEndpoints();
 app.MapSwalekhaOtherAssetEndpoints();
+app.MapSwalekhaLoanEndpoints();
 app.MapCommercialEndpoints();
 app.MapCustomerDuesReconciliationEndpoints();
 app.MapFinancialYearCloseoutEndpoints();

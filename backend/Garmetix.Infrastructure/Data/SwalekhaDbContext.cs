@@ -56,6 +56,8 @@ public sealed class SwalekhaDbContext(DbContextOptions<SwalekhaDbContext> option
     public DbSet<SwalekhaShareHolding> SwalekhaShareHoldings => Set<SwalekhaShareHolding>();
     public DbSet<SwalekhaShareTransaction> SwalekhaShareTransactions => Set<SwalekhaShareTransaction>();
     public DbSet<SwalekhaOtherAsset> SwalekhaOtherAssets => Set<SwalekhaOtherAsset>();
+    public DbSet<SwalekhaLoan> SwalekhaLoans => Set<SwalekhaLoan>();
+    public DbSet<SwalekhaLoanPayment> SwalekhaLoanPayments => Set<SwalekhaLoanPayment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -73,6 +75,8 @@ public sealed class SwalekhaDbContext(DbContextOptions<SwalekhaDbContext> option
             .HasIndex(entry => new { entry.FundId, entry.TransactionDate });
         modelBuilder.Entity<SwalekhaShareTransaction>()
             .HasIndex(entry => new { entry.HoldingId, entry.TransactionDate });
+        modelBuilder.Entity<SwalekhaLoanPayment>()
+            .HasIndex(entry => new { entry.LoanId, entry.PaymentDate });
 
         // Same three global conventions GarmetixDbContext applies, reused here so Swalekha gets
         // the same soft-delete/decimal/DateTime correctness for free instead of re-deriving it:

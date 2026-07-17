@@ -159,6 +159,7 @@ const navItems = [
   { label: 'Family Members', icon: 'i-lucide-heart-handshake', to: '/family' },
   { label: 'Accounts Hub', icon: 'i-lucide-landmark', to: '/accounts' },
   { label: 'Investments', icon: 'i-lucide-trending-up', to: '/investments' },
+  { label: 'Loans', icon: 'i-lucide-hand-coins', to: '/loans' },
   { label: 'Contacts', icon: 'i-lucide-users', to: '/contacts' },
   { label: 'Expenses', icon: 'i-lucide-receipt', to: '/expenses' },
   { label: 'Income', icon: 'i-lucide-wallet', to: '/income' },

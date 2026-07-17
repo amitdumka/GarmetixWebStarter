@@ -588,6 +588,85 @@ export interface SwalekhaOtherAssetPayload {
   notes?: string | null
 }
 
+export type SwalekhaLoanType = 'Personal' | 'Home' | 'Car' | 'Gold' | 'Education' | 'Other'
+export type SwalekhaLoanPaymentType = 'Emi' | 'Prepayment'
+
+export interface SwalekhaLoan {
+  id: string
+  loanType: SwalekhaLoanType
+  lenderName: string
+  loanNumber?: string | null
+  accountId?: string | null
+  principalAmount: number
+  interestRatePercent: number
+  tenureMonths: number
+  emiAmount: number
+  startDate: string
+  outstandingPrincipal: number
+  isClosed: boolean
+  closedAt?: string | null
+  notes?: string | null
+  createdAt: string
+}
+
+export interface SwalekhaLoanPayload {
+  loanType: SwalekhaLoanType
+  lenderName: string
+  loanNumber?: string | null
+  accountId?: string | null
+  principalAmount: number
+  interestRatePercent: number
+  tenureMonths: number
+  emiAmount: number
+  startDate: string
+  notes?: string | null
+}
+
+export interface SwalekhaCalculateEmiPayload {
+  principalAmount: number
+  interestRatePercent: number
+  tenureMonths: number
+}
+
+export interface SwalekhaCalculateEmiResult {
+  emiAmount: number
+}
+
+export interface SwalekhaAmortizationRow {
+  monthNumber: number
+  openingBalance: number
+  interestComponent: number
+  principalComponent: number
+  closingBalance: number
+}
+
+export interface SwalekhaLoanPayment {
+  id: string
+  loanId: string
+  paymentType: SwalekhaLoanPaymentType
+  paymentDate: string
+  amount: number
+  principalComponent: number
+  interestComponent: number
+  outstandingAfter: number
+  narration: string
+  createdAt: string
+}
+
+export interface SwalekhaLoanPaymentPayload {
+  paymentType: SwalekhaLoanPaymentType
+  paymentDate: string
+  amount: number
+  narration?: string | null
+}
+
+export interface SwalekhaLoanPaymentList {
+  page: number
+  pageSize: number
+  totalCount: number
+  rows: SwalekhaLoanPayment[]
+}
+
 export function useSwalekhaApiClient() {
   const runtimeConfig = useRuntimeConfig()
   const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))

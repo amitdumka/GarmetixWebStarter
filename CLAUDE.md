@@ -1,5 +1,17 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-17 - Swalekha PersonalFin_11: Loans (EMI/Amortization)
+
+Amit said to keep going. Version `6.9.17`. Backend + frontend, no deploy executed.
+
+- New Loan Taken tracker (lender/loan number/principal/rate/tenure/EMI, running `OutstandingPrincipal`), optionally linked to an Accounts Hub account - every EMI/Prepayment debits it, same integration pattern as `PersonalFin_08`-`10`.
+- **`SwalekhaLoanCalculator.cs`**: standalone, unit-tested EMI/amortization utility (5 tests, incl. a textbook-verified case), following the exact precedent `SwalekhaXirrCalculator` set in `PersonalFin_09`.
+- Each EMI splits into interest/principal, both stored explicitly so deleting a payment reverses its exact effect (outstanding balance, account balance). A payment that clears the loan auto-closes it; deleting that payment reopens it.
+- **"Loans Given" deliberately has no new entity** - per the design doc, it reuses `PersonalFin_03`'s existing Person Ledger (`LoanGiven`/`RepaymentReceived` on a Contact) rather than duplicating a second ledger. The new Loans page links to Contacts for this.
+- **Live-verified through the actual UI**: created a real Rs 1,00,000 loan at 12%/12 months, Suggest correctly computed EMI Rs 8,884.88 (exact textbook value), the schedule amortized to exactly Rs 0 in 12 rows, a real EMI payment split exactly Rs 1,000 interest / Rs 7,884.88 principal with exact reversal, and a full prepayment correctly auto-closed the loan with exact reopen-on-reversal.
+- Validated: `dotnet build` (0 errors), full backend test suite (291 passed, 0 regressions), clean `swalekha-web` build, `validate-structure.mjs`.
+- `PersonalFin_12` (Insurance) is next.
+
 ## 2026-07-17 - Swalekha PersonalFin_10: Investments III (Shares/Stocks + Other Assets)
 
 Amit said to keep going. Version `6.9.16`. Backend + frontend, no deploy executed.
