@@ -749,6 +749,85 @@ public static class SwalekhaSchemaRepairService
             CREATE INDEX IF NOT EXISTS "IX_SwalekhaInsurancePolicies_OwnerId" ON "SwalekhaInsurancePolicies" ("OwnerId");
             """, cancellationToken);
 
+        // PersonalFin_13 - Personal Organizer (Diary/Journal, Personal Notes, Calendar & Appointments).
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "SwalekhaJournalEntries" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+                "EntryDate" timestamp without time zone NOT NULL DEFAULT now(),
+                "Title" text NULL,
+                "Content" text NOT NULL DEFAULT '',
+                "Mood" text NULL,
+                CONSTRAINT "PK_SwalekhaJournalEntries" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaJournalEntries" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaJournalEntries" ADD COLUMN IF NOT EXISTS "EntryDate" timestamp without time zone NOT NULL DEFAULT now();
+            ALTER TABLE "SwalekhaJournalEntries" ADD COLUMN IF NOT EXISTS "Title" text NULL;
+            ALTER TABLE "SwalekhaJournalEntries" ADD COLUMN IF NOT EXISTS "Content" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaJournalEntries" ADD COLUMN IF NOT EXISTS "Mood" text NULL;
+
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaJournalEntries_OwnerId" ON "SwalekhaJournalEntries" ("OwnerId");
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaJournalEntries_EntryDate" ON "SwalekhaJournalEntries" ("EntryDate");
+
+            CREATE TABLE IF NOT EXISTS "SwalekhaPersonalNotes" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+                "Title" text NOT NULL DEFAULT '',
+                "Content" text NOT NULL DEFAULT '',
+                "Folder" text NULL,
+                "Tags" text NULL,
+                "IsPinned" boolean NOT NULL DEFAULT false,
+                CONSTRAINT "PK_SwalekhaPersonalNotes" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaPersonalNotes" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaPersonalNotes" ADD COLUMN IF NOT EXISTS "Title" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaPersonalNotes" ADD COLUMN IF NOT EXISTS "Content" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaPersonalNotes" ADD COLUMN IF NOT EXISTS "Folder" text NULL;
+            ALTER TABLE "SwalekhaPersonalNotes" ADD COLUMN IF NOT EXISTS "Tags" text NULL;
+            ALTER TABLE "SwalekhaPersonalNotes" ADD COLUMN IF NOT EXISTS "IsPinned" boolean NOT NULL DEFAULT false;
+
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaPersonalNotes_OwnerId" ON "SwalekhaPersonalNotes" ("OwnerId");
+
+            CREATE TABLE IF NOT EXISTS "SwalekhaAppointments" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+                "Title" text NOT NULL DEFAULT '',
+                "Description" text NULL,
+                "StartAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "EndAt" timestamp without time zone NULL,
+                "Location" text NULL,
+                "IsAllDay" boolean NOT NULL DEFAULT false,
+                "Notes" text NULL,
+                CONSTRAINT "PK_SwalekhaAppointments" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaAppointments" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaAppointments" ADD COLUMN IF NOT EXISTS "Title" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaAppointments" ADD COLUMN IF NOT EXISTS "Description" text NULL;
+            ALTER TABLE "SwalekhaAppointments" ADD COLUMN IF NOT EXISTS "StartAt" timestamp without time zone NOT NULL DEFAULT now();
+            ALTER TABLE "SwalekhaAppointments" ADD COLUMN IF NOT EXISTS "EndAt" timestamp without time zone NULL;
+            ALTER TABLE "SwalekhaAppointments" ADD COLUMN IF NOT EXISTS "Location" text NULL;
+            ALTER TABLE "SwalekhaAppointments" ADD COLUMN IF NOT EXISTS "IsAllDay" boolean NOT NULL DEFAULT false;
+            ALTER TABLE "SwalekhaAppointments" ADD COLUMN IF NOT EXISTS "Notes" text NULL;
+
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaAppointments_OwnerId" ON "SwalekhaAppointments" ("OwnerId");
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaAppointments_StartAt" ON "SwalekhaAppointments" ("StartAt");
+            """, cancellationToken);
+
         logger.LogInformation("Swalekha account storage repair check completed.");
     }
 }

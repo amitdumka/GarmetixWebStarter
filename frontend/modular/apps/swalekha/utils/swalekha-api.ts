@@ -716,6 +716,74 @@ export interface SwalekhaPayPremiumPayload {
   narration?: string | null
 }
 
+export interface SwalekhaJournalEntry {
+  id: string
+  entryDate: string
+  title?: string | null
+  content: string
+  mood?: string | null
+  createdAt: string
+}
+
+export interface SwalekhaJournalEntryPayload {
+  entryDate: string
+  title?: string | null
+  content: string
+  mood?: string | null
+}
+
+export interface SwalekhaPersonalNote {
+  id: string
+  title: string
+  content: string
+  folder?: string | null
+  tags?: string | null
+  isPinned: boolean
+  createdAt: string
+  updatedAt?: string | null
+}
+
+export interface SwalekhaPersonalNotePayload {
+  title: string
+  content: string
+  folder?: string | null
+  tags?: string | null
+  isPinned: boolean
+}
+
+export interface SwalekhaAppointment {
+  id: string
+  title: string
+  description?: string | null
+  startAt: string
+  endAt?: string | null
+  location?: string | null
+  isAllDay: boolean
+  notes?: string | null
+  createdAt: string
+}
+
+export interface SwalekhaAppointmentPayload {
+  title: string
+  description?: string | null
+  startAt: string
+  endAt?: string | null
+  location?: string | null
+  isAllDay: boolean
+  notes?: string | null
+}
+
+export type SwalekhaCalendarEventType = 'Appointment' | 'RecurringBill' | 'FixedDepositMaturity' | 'RecurringDepositMaturity' | 'InsurancePremium'
+
+export interface SwalekhaCalendarEvent {
+  date: string
+  eventType: SwalekhaCalendarEventType
+  title: string
+  description?: string | null
+  amount?: number | null
+  sourceId?: string | null
+}
+
 export function useSwalekhaApiClient() {
   const runtimeConfig = useRuntimeConfig()
   const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))

@@ -165,7 +165,10 @@ const navItems = [
   { label: 'Expenses', icon: 'i-lucide-receipt', to: '/expenses' },
   { label: 'Income', icon: 'i-lucide-wallet', to: '/income' },
   { label: 'Recurring Bills', icon: 'i-lucide-calendar-clock', to: '/recurring-bills' },
-  { label: 'Trips', icon: 'i-lucide-plane', to: '/trips' }
+  { label: 'Trips', icon: 'i-lucide-plane', to: '/trips' },
+  { label: 'Calendar', icon: 'i-lucide-calendar-days', to: '/calendar' },
+  { label: 'Journal', icon: 'i-lucide-book-open', to: '/journal' },
+  { label: 'Notes', icon: 'i-lucide-notebook-pen', to: '/notes' }
 ]
 
 function isActive(to: string) {

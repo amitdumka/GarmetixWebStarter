@@ -1,5 +1,16 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-17 - Swalekha PersonalFin_13: Personal Organizer (Diary/Notes/Calendar)
+
+Amit said to keep going and complete the roadmap. Version `6.9.19`. Backend + frontend, no deploy executed. Starts Pillar B (the module's second major half, after Pillar A - Personal Finance - closed out with `PersonalFin_12`).
+
+- New Diary/Journal (dated entries, already private by construction via `PersonalFin_06`'s Owner-only isolation) and Personal Notes (topic-organized: Folder + freeform Tags, pin/search) - deliberately distinct entities, dated timeline vs. topic organization.
+- New Calendar & Appointments: manual appointments plus the ask's explicit "auto-populated finance due-dates" - `GET /api/swalekha/calendar` merges real appointments with due-dates computed *live* for the requested month from active Recurring Bills, open FD/RD maturities, and active Insurance policies' next-premium-due date. Nothing is duplicated into a stored table - same computed-not-stored pattern `PersonalFin_04`/`12` already used.
+- New `/journal`, `/notes`, `/calendar` pages (Calendar as a month-navigable, type-color-coded agenda list).
+- **Live-verified end to end**: a real journal entry and a real pinned/tagged/foldered note (tag search correctly matched); a real appointment via the UI and a real Recurring Bill via the API - the calendar correctly merged both onto the same day with the right badges and amounts.
+- Validated: `dotnet build` (0 errors), full backend test suite (291 passed, 0 regressions), clean `swalekha-web` build, `validate-structure.mjs`.
+- `PersonalFin_14` (Dashboard & Reports) is next.
+
 ## 2026-07-17 - Swalekha PersonalFin_12: Insurance
 
 Amit said to keep going. Version `6.9.18`. Backend + frontend, no deploy executed.
