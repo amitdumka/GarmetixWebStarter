@@ -1,5 +1,16 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-17 - Swalekha PersonalFin_12: Insurance
+
+Amit said to keep going. Version `6.9.18`. Backend + frontend, no deploy executed.
+
+- New Insurance policy tracker (Life/Health/Term/Vehicle/Property/ULIP/Other, insurer/policy number/sum assured/nominee/premium amount+frequency/maturity date+amount), optionally linked to an Accounts Hub account - Pay Premium debits it, Mark Matured credits it with the payout, same integration pattern as `PersonalFin_08`-`11`.
+- `NextPremiumDueDate`/`PremiumDueNow` computed at read time from `PremiumFrequency` (Monthly/Quarterly/HalfYearly/Yearly) and `LastPremiumPaidDate` - a frequency-aware generalization of `PersonalFin_04`'s Recurring Bill due-date pattern, correctly flags overdue premiums too.
+- New `/insurance` page (create/edit, Pay Premium, Mark Matured, aggregate cards).
+- **Live-verified through the actual UI**: created a real policy (Rs 5,00,000 sum assured, Rs 12,000/Yearly premium, Rs 5,20,000 maturity) linked to a real account - due date correctly computed a year out, Pay Premium correctly debited the account and advanced the due date, Mark Matured correctly credited the maturity amount and flipped the policy to "Matured."
+- Validated: `dotnet build` (0 errors), full backend test suite (291 passed, 0 regressions), clean `swalekha-web` build, `validate-structure.mjs`.
+- `PersonalFin_13` (Personal Organizer - Diary/Journal, Personal Notes, Calendar & Appointments) is next - starts Pillar B, the module's second major half.
+
 ## 2026-07-17 - Swalekha PersonalFin_11: Loans (EMI/Amortization)
 
 Amit said to keep going. Version `6.9.17`. Backend + frontend, no deploy executed.

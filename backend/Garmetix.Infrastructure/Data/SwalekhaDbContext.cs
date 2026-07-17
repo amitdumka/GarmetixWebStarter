@@ -58,6 +58,7 @@ public sealed class SwalekhaDbContext(DbContextOptions<SwalekhaDbContext> option
     public DbSet<SwalekhaOtherAsset> SwalekhaOtherAssets => Set<SwalekhaOtherAsset>();
     public DbSet<SwalekhaLoan> SwalekhaLoans => Set<SwalekhaLoan>();
     public DbSet<SwalekhaLoanPayment> SwalekhaLoanPayments => Set<SwalekhaLoanPayment>();
+    public DbSet<SwalekhaInsurancePolicy> SwalekhaInsurancePolicies => Set<SwalekhaInsurancePolicy>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

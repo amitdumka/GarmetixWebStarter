@@ -698,6 +698,57 @@ public static class SwalekhaSchemaRepairService
                 ON "SwalekhaLoanPayments" ("LoanId", "PaymentDate");
             """, cancellationToken);
 
+        // PersonalFin_12 - Insurance.
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "SwalekhaInsurancePolicies" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+                "PolicyType" integer NOT NULL DEFAULT 0,
+                "Insurer" text NOT NULL DEFAULT '',
+                "PolicyNumber" text NULL,
+                "AccountId" uuid NULL,
+                "SumAssured" numeric(18,2) NULL,
+                "PremiumAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                "PremiumFrequency" integer NOT NULL DEFAULT 0,
+                "StartDate" timestamp without time zone NOT NULL DEFAULT now(),
+                "NomineeName" text NULL,
+                "NomineeRelationship" text NULL,
+                "MaturityDate" timestamp without time zone NULL,
+                "MaturityAmount" numeric(18,2) NULL,
+                "LastPremiumPaidDate" timestamp without time zone NULL,
+                "IsMatured" boolean NOT NULL DEFAULT false,
+                "MaturedAt" timestamp without time zone NULL,
+                "IsActive" boolean NOT NULL DEFAULT true,
+                "Notes" text NULL,
+                CONSTRAINT "PK_SwalekhaInsurancePolicies" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaInsurancePolicies" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaInsurancePolicies" ADD COLUMN IF NOT EXISTS "PolicyType" integer NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaInsurancePolicies" ADD COLUMN IF NOT EXISTS "Insurer" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaInsurancePolicies" ADD COLUMN IF NOT EXISTS "PolicyNumber" text NULL;
+            ALTER TABLE "SwalekhaInsurancePolicies" ADD COLUMN IF NOT EXISTS "AccountId" uuid NULL;
+            ALTER TABLE "SwalekhaInsurancePolicies" ADD COLUMN IF NOT EXISTS "SumAssured" numeric(18,2) NULL;
+            ALTER TABLE "SwalekhaInsurancePolicies" ADD COLUMN IF NOT EXISTS "PremiumAmount" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaInsurancePolicies" ADD COLUMN IF NOT EXISTS "PremiumFrequency" integer NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaInsurancePolicies" ADD COLUMN IF NOT EXISTS "StartDate" timestamp without time zone NOT NULL DEFAULT now();
+            ALTER TABLE "SwalekhaInsurancePolicies" ADD COLUMN IF NOT EXISTS "NomineeName" text NULL;
+            ALTER TABLE "SwalekhaInsurancePolicies" ADD COLUMN IF NOT EXISTS "NomineeRelationship" text NULL;
+            ALTER TABLE "SwalekhaInsurancePolicies" ADD COLUMN IF NOT EXISTS "MaturityDate" timestamp without time zone NULL;
+            ALTER TABLE "SwalekhaInsurancePolicies" ADD COLUMN IF NOT EXISTS "MaturityAmount" numeric(18,2) NULL;
+            ALTER TABLE "SwalekhaInsurancePolicies" ADD COLUMN IF NOT EXISTS "LastPremiumPaidDate" timestamp without time zone NULL;
+            ALTER TABLE "SwalekhaInsurancePolicies" ADD COLUMN IF NOT EXISTS "IsMatured" boolean NOT NULL DEFAULT false;
+            ALTER TABLE "SwalekhaInsurancePolicies" ADD COLUMN IF NOT EXISTS "MaturedAt" timestamp without time zone NULL;
+            ALTER TABLE "SwalekhaInsurancePolicies" ADD COLUMN IF NOT EXISTS "IsActive" boolean NOT NULL DEFAULT true;
+            ALTER TABLE "SwalekhaInsurancePolicies" ADD COLUMN IF NOT EXISTS "Notes" text NULL;
+
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaInsurancePolicies_OwnerId" ON "SwalekhaInsurancePolicies" ("OwnerId");
+            """, cancellationToken);
+
         logger.LogInformation("Swalekha account storage repair check completed.");
     }
 }

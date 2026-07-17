@@ -667,6 +667,55 @@ export interface SwalekhaLoanPaymentList {
   rows: SwalekhaLoanPayment[]
 }
 
+export type SwalekhaInsurancePolicyType = 'Life' | 'Health' | 'Term' | 'Vehicle' | 'Property' | 'ULIP' | 'Other'
+export type SwalekhaPremiumFrequency = 'Monthly' | 'Quarterly' | 'HalfYearly' | 'Yearly'
+
+export interface SwalekhaInsurancePolicy {
+  id: string
+  policyType: SwalekhaInsurancePolicyType
+  insurer: string
+  policyNumber?: string | null
+  accountId?: string | null
+  sumAssured?: number | null
+  premiumAmount: number
+  premiumFrequency: SwalekhaPremiumFrequency
+  startDate: string
+  nomineeName?: string | null
+  nomineeRelationship?: string | null
+  maturityDate?: string | null
+  maturityAmount?: number | null
+  lastPremiumPaidDate?: string | null
+  nextPremiumDueDate: string
+  premiumDueNow: boolean
+  isMatured: boolean
+  maturedAt?: string | null
+  isActive: boolean
+  notes?: string | null
+  createdAt: string
+}
+
+export interface SwalekhaInsurancePolicyPayload {
+  policyType: SwalekhaInsurancePolicyType
+  insurer: string
+  policyNumber?: string | null
+  accountId?: string | null
+  sumAssured?: number | null
+  premiumAmount: number
+  premiumFrequency: SwalekhaPremiumFrequency
+  startDate: string
+  nomineeName?: string | null
+  nomineeRelationship?: string | null
+  maturityDate?: string | null
+  maturityAmount?: number | null
+  isActive: boolean
+  notes?: string | null
+}
+
+export interface SwalekhaPayPremiumPayload {
+  paymentDate: string
+  narration?: string | null
+}
+
 export function useSwalekhaApiClient() {
   const runtimeConfig = useRuntimeConfig()
   const apiBaseUrl = computed(() => String(runtimeConfig.public.apiBaseUrl || ''))
