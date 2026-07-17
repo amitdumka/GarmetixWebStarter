@@ -1,5 +1,9 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-17 - `swalekha` branch marked final
+
+Amit confirmed the `swalekha` branch is done - no further commits are planned on it. Final commit `33c6543` (deploy script) is tagged `swalekha-final-v6.9.21`. All 15 `PersonalFin` stages plus the dedicated SRP deploy script are complete; the module remains undeployed (deployment is Amit's call, whenever he's ready). Any future Swalekha work (a bug fix, a new stage, an actual deploy) should branch again from this point rather than assume this branch keeps moving.
+
 ## 2026-07-17 - Swalekha module deploy script (`srp-swalekha-deploy.sh`)
 
 Amit asked for a deployment script that deploys and configures Swalekha into an SRP host that already has the rest of Garmetix installed. Script created, not run.
