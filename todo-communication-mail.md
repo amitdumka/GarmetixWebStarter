@@ -71,10 +71,10 @@
 
 ## Optional relay and operations
 
-- [ ] Add disabled isolated Postfix relay profile.
-- [ ] Restrict networks/senders and configure TLS upstream relay.
-- [ ] Add health, logs, queue operations and disable/fallback guide.
-- [ ] Document Brevo domain, DKIM, SPF, DMARC and Reply-To setup.
+- [x] Add disabled isolated Postfix relay profile.
+- [x] Restrict networks/senders and configure TLS upstream relay.
+- [x] Add health, logs, queue operations and disable/fallback guide.
+- [x] Document Brevo domain, DKIM, SPF, DMARC and Reply-To setup.
 
 ## Testing and handoff
 

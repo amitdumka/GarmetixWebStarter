@@ -1,0 +1,55 @@
+# Communication & Mail - optional Postfix-to-Brevo relay (CM-10).
+#
+# ISOLATED AND DISABLED BY DEFAULT. This file is never referenced by
+# srp-whole-site-deploy.sh, srp-swalekha-deploy.sh, or any other deploy script in this
+# repository, and running `docker compose up` here has zero effect on the main
+# application. It exists only for an operator who explicitly wants a local relay
+# hop between internal senders and Brevo's SMTP relay instead of calling Brevo
+# directly - most deployments never need this at all (the Communication & Mail
+# module's SMTP/Brevo-API providers already talk to Brevo directly, see
+# docs/communication-mail-deployment.md "Optional Postfix relay").
+#
+# To use: copy .env.example to .env in this directory, fill in real values, then run:
+#   docker compose up -d
+# (docker compose reads ./.env automatically - no --env-file flag needed.)
+#
+# Never expose port 25 to the public internet. RELAY_ALLOWED_NETWORKS below must stay
+# restricted to your own internal network/VPN CIDR - this is enforced in postfix/main.cf's
+# mynetworks setting, not just documented here.
+
+services:
+  postfix-relay:
+    image: catatnight/postfix:latest
+    container_name: garmetix-communication-postfix-relay
+    restart: unless-stopped
+    environment:
+      # Brevo SMTP relay credentials - the same SMTP username/password configured as a
+      # Provider in the Communication & Mail admin UI (Providers > New Provider > SMTP >
+      # Brevo preset), never the Brevo API key.
+      - RELAYHOST=[smtp-relay.brevo.com]:587
+      - SMTP_USER=${BREVO_SMTP_USERNAME:?set in .env, see .env.example}
+      - SMTP_PASSWORD=${BREVO_SMTP_PASSWORD:?set in .env, see .env.example}
+      # Restrict which internal senders may relay through this container. Comma-separated
+      # CIDR ranges, e.g. 10.0.0.0/24 for the app's own Docker/VPC network only.
+      - RELAY_ALLOWED_NETWORKS=${RELAY_ALLOWED_NETWORKS:?set in .env, see .env.example}
+      - MAILNAME=${RELAY_MAIL_DOMAIN:?set in .env, see .env.example}
+    ports:
+      # Bind to localhost/internal-network only - do not publish 0.0.0.0:25 on a public host.
+      - "${RELAY_BIND_ADDRESS:-127.0.0.1}:2525:25"
+    volumes:
+      - ./postfix/main.cf.template:/etc/postfix/main.cf.template:ro
+      - postfix-relay-logs:/var/log
+    healthcheck:
+      test: ["CMD", "postfix", "status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  postfix-relay-logs:
