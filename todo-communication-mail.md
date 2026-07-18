@@ -84,5 +84,5 @@
 - [x] Test secret leakage, header injection, webhook forgery and attachments. (webhook forgery: 8 real automated tests; rest via code review - see docs/communication-mail-testing.md)
 - [x] Run manual acceptance checklist. (see docs/communication-mail-testing.md - code-reviewed/architecturally verified; live-Brevo/live-browser items disclosed as not exercised)
 - [x] Update docs, completed/pending/blocked report and rollback plan. (docs/communication-mail-deployment.md, docs/communication-mail-testing.md, this file; CM-12 final report still pending)
-- [ ] Confirm branch remains unmerged and undeployed. (true as of every commit so far - final confirmation belongs in the CM-12 report)
+- [x] Confirm branch remains unmerged and undeployed. Confirmed: 12 commits on Mail-Com, zero merge/push/deploy commands run at any stage. See Garmetix-Mail-Com/FINAL-REPORT.md for the full CM-12 report.
 
