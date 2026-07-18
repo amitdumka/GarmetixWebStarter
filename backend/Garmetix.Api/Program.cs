@@ -40,6 +40,7 @@ using Garmetix.Api.InvoiceReplacement;
 using Garmetix.Api.OffBook;
 using Garmetix.Api.Onboarding;
 using Garmetix.Api.Swalekha;
+using Garmetix.Api.Configuration;
 using Garmetix.Api.Numbering;
 using Garmetix.Api.NonGstGoods;
 using Garmetix.Api.Payroll;
@@ -106,6 +107,13 @@ var swalekhaConnectionString = builder.Configuration.GetConnectionString("Swalek
     ?? throw new InvalidOperationException("Connection string 'Swalekha' is missing.");
 builder.Services.AddDbContext<SwalekhaDbContext>(options => options.UseNpgsql(swalekhaConnectionString));
 builder.Services.AddScoped<SwalekhaOwnerContext>();
+
+// Configuration & Settings pages - another deliberate, separate database (garmetix_config_db),
+// same isolation rationale as Swalekha's. Secure central store for the env-var configuration
+// previously only editable by hand-editing files on disk, plus free-form client settings.
+var configConnectionString = builder.Configuration.GetConnectionString("GarmetixConfig")
+    ?? throw new InvalidOperationException("Connection string 'GarmetixConfig' is missing.");
+builder.Services.AddDbContext<GarmetixConfigDbContext>(options => options.UseNpgsql(configConnectionString));
 
 builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddSingleton<PasswordResetTokenService>();
@@ -213,6 +221,7 @@ builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(gstTaxKeyPath));
 builder.Services.AddSingleton<GstCredentialProtector>();
 builder.Services.AddSingleton<EmailCredentialProtector>();
+builder.Services.AddSingleton<ConfigCredentialProtector>();
 builder.Services.AddHttpClient<BrevoApiEmailProviderClient>();
 builder.Services.AddScoped<SmtpEmailProviderClient>();
 builder.Services.AddScoped<LocalMasterOnlyEmailProviderClient>();
@@ -379,6 +388,23 @@ using (var swalekhaScope = app.Services.CreateScope())
     }
 }
 
+using (var configScope = app.Services.CreateScope())
+{
+    var configDb = configScope.ServiceProvider.GetRequiredService<GarmetixConfigDbContext>();
+    var configLogger = configScope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("ConfigDatabaseStartup");
+    try
+    {
+        await configDb.Database.EnsureCreatedAsync();
+        await ConfigSchemaRepairService.RepairConfigStorageAsync(configDb, configLogger);
+        await ConfigSchemaRepairService.EnsureCatalogEntriesAsync(configDb);
+        configLogger.LogInformation("Configuration database schema is ready.");
+    }
+    catch (Exception ex)
+    {
+        configLogger.LogWarning(ex, "Configuration database was not reachable at startup; the Configuration page will report errors until this is resolved.");
+    }
+}
+
 app.Use(async (context, next) =>
 {
     context.Response.Headers.TryAdd("X-Content-Type-Options", "nosniff");
@@ -527,6 +553,8 @@ app.MapSwalekhaMutualFundEndpoints();
 app.MapSwalekhaShareEndpoints();
 app.MapSwalekhaOtherAssetEndpoints();
 app.MapSwalekhaAssetEndpoints();
+app.MapConfigurationEndpoints();
+app.MapSettingsEndpoints();
 app.MapSwalekhaLoanEndpoints();
 app.MapSwalekhaInsuranceEndpoints();
 app.MapSwalekhaJournalEndpoints();

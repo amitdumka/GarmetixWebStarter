@@ -441,7 +441,9 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'setup', label: 'Company Setup', href: '/setup', icon: 'i-lucide-building-2' },
       { id: 'onboarding', label: 'Onboarding', href: '/client-onboarding', icon: 'i-lucide-route' },
       { id: 'access', label: 'Roles And Users', href: '/access', icon: 'i-lucide-shield-check' },
-      { id: 'license', label: 'License', href: '/license-activation', icon: 'i-lucide-key-round' }
+      { id: 'license', label: 'License', href: '/license-activation', icon: 'i-lucide-key-round' },
+      { id: 'configuration', label: 'Configuration', href: '/configuration', icon: 'i-lucide-server-cog' },
+      { id: 'settings', label: 'Settings', href: '/settings', icon: 'i-lucide-sliders-horizontal' }
     ] },
     { key: 'data', label: 'Data And Audit', items: [
       { id: 'import-export', label: 'Import Export', href: '/import-export', icon: 'i-lucide-file-down' },
@@ -556,6 +558,7 @@ const supportItems = computed<NavigationMenuItem[]>(() => [{
 }])
 
 const footerToolItems = computed<DropdownMenuItem[]>(() => [
+  dropdownRouteItem('Settings', 'i-lucide-sliders-horizontal', 'admin', '/settings'),
   dropdownRouteItem('System Health', 'i-lucide-activity', 'admin', '/system-health'),
   dropdownRouteItem('Dot Matrix Print', 'i-lucide-printer', 'admin', '/dot-matrix-print'),
   dropdownRouteItem('Runtime Diagnostics', 'i-lucide-stethoscope', 'admin', '/runtime-diagnostics'),
