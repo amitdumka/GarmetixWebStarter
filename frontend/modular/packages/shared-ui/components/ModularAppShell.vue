@@ -487,7 +487,8 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
   ],
   communication: [
     { key: 'dashboard', label: 'Dashboard', items: [
-      { id: 'home', label: 'Communication Home', href: '/', icon: 'i-lucide-layout-dashboard' }
+      { id: 'home', label: 'Communication Home', href: '/', icon: 'i-lucide-layout-dashboard' },
+      { id: 'mailbox', label: 'Mailbox', href: '/mailbox', icon: 'i-lucide-inbox' }
     ] },
     { key: 'admin', label: 'Providers & Setup', items: [
       { id: 'providers', label: 'Providers', href: '/providers', icon: 'i-lucide-server-cog' },

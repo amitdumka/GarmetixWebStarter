@@ -1,7 +1,7 @@
 {
     "name":  "@garmetix/communication-web",
     "private":  true,
-    "version":  "6.9.23",
+    "version":  "6.9.24",
     "type":  "module",
     "scripts":  {
     "dev": "nuxt dev --port 3110",

@@ -47,11 +47,11 @@
 
 ## Internal communication
 
-- [ ] Add conversation, compose, reply/reply-all and resolved recipients.
-- [ ] Add inbox/sent/draft/archive/trash and per-user read state.
-- [ ] Add search, filters, pagination and unread badge.
-- [ ] Add notification preferences and optional external notification.
-- [ ] Add secure attachments with authorization and validation.
+- [x] Add conversation, compose, reply/reply-all and resolved recipients.
+- [x] Add inbox/sent/draft/archive/trash and per-user read state.
+- [x] Add search, filters, pagination and unread badge.
+- [ ] Add notification preferences and optional external notification. (preferences endpoint/storage done; the actual email-echo-on-new-message notification is wired in a later stage once the queue integration point is chosen)
+- [x] Add secure attachments with authorization and validation.
 
 ## Webhooks and suppression
 
