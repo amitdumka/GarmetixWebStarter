@@ -29,7 +29,66 @@ public static class StockReportEndpoints
 
         group.MapGet("/summary", SummaryAsync);
         group.MapGet("/movement-history", MovementHistoryAsync);
+        group.MapPost("/low-stock-alert/send-email", SendLowStockAlertEmailAsync);
         return group;
+    }
+
+    /// <summary>
+    /// CM-08 Communication & Mail integration point - additive, opt-in digest built from the
+    /// same SummaryAsync/StockReportRowDto.Risk calculation the Stock Reports screen already
+    /// shows (Critical/Low buckets), not a separate low-stock computation. This codebase has no
+    /// stored per-product reorder level - Risk/LowStockThreshold (SummaryAsync's own parameter,
+    /// default 3) stand in for it, same as the report page itself. No single "owner" of a store
+    /// exists to auto-resolve a recipient, so the caller supplies one explicitly.
+    /// </summary>
+    private static async Task<IResult> SendLowStockAlertEmailAsync(
+        LowStockAlertEmailRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        StockLedgerService stockLedger,
+        Garmetix.Api.Communication.BusinessNotificationService notifications,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.RecipientEmail))
+        {
+            return Results.BadRequest(new { message = "A recipient email address is required." });
+        }
+
+        var summary = await SummaryAsync(context, db, stockLedger, request.LowStockThreshold, cancellationToken);
+        var atRiskRows = summary.Rows.Where(r => r.Risk is "Critical" or "Low").Take(20).ToList();
+        if (atRiskRows.Count == 0)
+        {
+            return Results.Ok(new { enqueued = false, skipReason = "No products are currently at Critical/Low risk." });
+        }
+
+        var digestId = Guid.NewGuid();
+        var results = new List<Communication.BusinessEmailResult>();
+        var createdByUserId = Guid.TryParse(context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var uid) ? uid : (Guid?)null;
+        var companyId = Guid.TryParse(context.User.FindFirst("companyId")?.Value, out var cid) ? cid : (Guid?)null;
+
+        // One row is sent as the representative digest item (Subject/Body reference it directly)
+        // and the remaining rows are appended as plain text so the recipient sees the whole list -
+        // avoids over-engineering a multi-item template grammar for a first pass.
+        var top = atRiskRows[0];
+        var restSummary = string.Join("; ", atRiskRows.Skip(1).Select(r => $"{r.ProductName} at {r.StoreName} ({r.Risk})"));
+        var tokens = new Dictionary<string, string>
+        {
+            ["recipientName"] = request.RecipientName ?? "Team",
+            ["productName"] = atRiskRows.Count > 1 ? $"{top.ProductName} and {atRiskRows.Count - 1} more" : top.ProductName,
+            ["storeName"] = top.StoreName,
+            ["currentStock"] = top.ProjectedQuantity.ToString("N0"),
+            ["reorderLevel"] = summary.LowStockThreshold.ToString("N0"),
+        };
+        if (!string.IsNullOrEmpty(restSummary))
+        {
+            tokens["reorderLevel"] += $" | Also low: {restSummary}";
+        }
+
+        var result = await notifications.SendLowStockDigestEmailAsync(
+            digestId, request.RecipientEmail, request.RecipientName, tokens,
+            companyId, null, null, createdByUserId, cancellationToken);
+
+        return Results.Ok(new { result.Enqueued, result.SkipReason, itemCount = atRiskRows.Count });
     }
 
     private static async Task<StockReportSummaryDto> SummaryAsync(

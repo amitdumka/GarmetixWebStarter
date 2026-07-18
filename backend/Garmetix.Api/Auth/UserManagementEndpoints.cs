@@ -20,6 +20,7 @@ public static class UserManagementEndpoints
         group.MapPut("/{id:guid}", UpdateUserAsync);
         group.MapPost("/{id:guid}/status", SetUserStatusAsync);
         group.MapPost("/{id:guid}/reset-password", ResetUserPasswordAsync);
+        group.MapPost("/{id:guid}/send-invitation-email", SendInvitationEmailAsync);
         group.MapDelete("/{id:guid}", DeleteUserAsync).RequireAuthorization(GarmetixPolicies.Delete);
 
         return group;
@@ -95,6 +96,67 @@ public static class UserManagementEndpoints
             cancellationToken);
 
         return Results.Created($"/api/access/users/{user.Id}", ToDto(user));
+    }
+
+    /// <summary>
+    /// CM-08 Communication & Mail integration point - additive, opt-in, called after
+    /// CreateUserAsync already returned (never inside it). Reuses the exact same
+    /// PasswordResetToken table/PasswordResetTokenService the real "forgot password" flow
+    /// (Program.cs ForgotPasswordAsync) uses - an invitation is functionally "please set your
+    /// password", so it completes through the same /reset-password verification endpoint,
+    /// rather than inventing a second token system. Sent through the new Communication & Mail
+    /// queue instead of the legacy PasswordResetEmailService/IEmailSender, which stays
+    /// untouched and keeps serving the existing forgot-password flow unchanged.
+    /// </summary>
+    private static async Task<IResult> SendInvitationEmailAsync(
+        Guid id,
+        HttpContext context,
+        GarmetixDbContext db,
+        PasswordResetTokenService resetTokens,
+        IConfiguration configuration,
+        Garmetix.Api.Communication.BusinessNotificationService notifications,
+        CancellationToken cancellationToken)
+    {
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+        if (user is null)
+        {
+            return Results.NotFound(new { message = "User not found." });
+        }
+
+        var token = resetTokens.CreateToken(user.Id);
+        var expiresAtUtc = DateTime.SpecifyKind(resetTokens.ExpiresAtUtc, DateTimeKind.Unspecified);
+        db.PasswordResetTokens.Add(new PasswordResetToken
+        {
+            UserId = user.Id,
+            TokenHash = resetTokens.HashToken(token),
+            CreatedAtUtc = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified),
+            ExpiresAtUtc = expiresAtUtc,
+            RequestIpAddress = context.Connection.RemoteIpAddress?.ToString() ?? string.Empty,
+            RequestUserAgent = context.Request.Headers.UserAgent.ToString(),
+        });
+        await db.SaveChangesAsync(cancellationToken);
+
+        var frontendBaseUrl = (configuration["PasswordReset:FrontendBaseUrl"] ?? string.Empty).TrimEnd('/');
+        var invitationUrl = string.IsNullOrWhiteSpace(frontendBaseUrl)
+            ? $"/reset-password?token={Uri.EscapeDataString(token)}"
+            : $"{frontendBaseUrl}/reset-password?token={Uri.EscapeDataString(token)}";
+
+        var inviterName = context.User.Identity?.Name ?? "An administrator";
+        var tokens = new Dictionary<string, string>
+        {
+            ["inviteeName"] = string.IsNullOrWhiteSpace(user.Name) ? user.UserName : user.Name,
+            ["inviterName"] = inviterName,
+            ["role"] = user.Role.ToString(),
+            ["invitationUrl"] = invitationUrl,
+        };
+
+        var createdByUserId = Guid.TryParse(context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var uid) ? uid : (Guid?)null;
+
+        var result = await notifications.SendUserInvitationEmailAsync(
+            user.Id, user.Email, user.Name, tokens,
+            user.CompanyId, user.StoreGroupId, user.StoreId, createdByUserId, cancellationToken);
+
+        return Results.Ok(new { result.Enqueued, result.SkipReason });
     }
 
     private static async Task<IResult> UpdateUserAsync(

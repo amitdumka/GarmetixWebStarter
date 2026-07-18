@@ -1,0 +1,41 @@
+# Communication & Mail optional Postfix relay - relay-only configuration.
+# This is a TEMPLATE for reference/manual setup; the actual catatnight/postfix image in
+# docker-compose.yml generates its own main.cf from the RELAYHOST/SMTP_USER/SMTP_PASSWORD/
+# RELAY_ALLOWED_NETWORKS environment variables at container start. If you swap to a different
+# Postfix base image, use this file as the source of truth for the required settings.
+
+# --- Identity ---
+myhostname = ${RELAY_MAIL_DOMAIN}
+mydomain = ${RELAY_MAIL_DOMAIN}
+myorigin = $mydomain
+
+# --- Relay-only, never a public-facing mail server ---
+# inet_interfaces=all is fine here because the container itself only binds to
+# RELAY_BIND_ADDRESS:2525 on the Docker host (see docker-compose.yml) - do not change this
+# setting to try to restrict network exposure; restrict it at the port-binding/firewall layer.
+inet_interfaces = all
+mydestination =
+relay_domains =
+smtpd_relay_restrictions = permit_mynetworks, reject_unauth_destination
+
+# --- Only accept mail from approved internal networks (never an open relay) ---
+mynetworks = 127.0.0.0/8, ${RELAY_ALLOWED_NETWORKS}
+smtpd_client_restrictions = permit_mynetworks, reject
+
+# --- Upstream: relay everything through Brevo over TLS ---
+relayhost = [smtp-relay.brevo.com]:587
+smtp_sasl_auth_enable = yes
+smtp_sasl_password_maps = static:${SMTP_USER}:${SMTP_PASSWORD}
+smtp_sasl_security_options = noanonymous
+smtp_tls_security_level = encrypt
+smtp_tls_wrappermode = no
+smtp_tls_mandatory_protocols = !SSLv2,!SSLv3,!TLSv1,!TLSv1.1
+smtp_tls_ciphers = high
+
+# --- Restrict which addresses may send through this relay ---
+# Populate /etc/postfix/sender_access with FROM addresses mapped to OK, default-deny
+# everything else. Regenerate with `postmap /etc/postfix/sender_access` after editing.
+smtpd_sender_restrictions = check_sender_access hash:/etc/postfix/sender_access, reject
+
+# --- Log rotation (container-level; also handled by docker-compose.yml's json-file driver) ---
+maillog_file = /var/log/postfix.log

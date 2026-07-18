@@ -39,6 +39,7 @@ public sealed record StockReportRowDto(
     string ReconciliationStatus,
     int MovementCount);
 
+public sealed record LowStockAlertEmailRequest(string RecipientEmail, string? RecipientName, decimal? LowStockThreshold);
 
 public sealed record StockMovementHistorySummaryDto(
     DateTime AsOf,

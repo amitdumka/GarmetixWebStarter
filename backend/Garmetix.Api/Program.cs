@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.RateLimiting;
 using Garmetix.Core.Models.Accounting;
 using Garmetix.Core.Models.Authentication;
 using Garmetix.Core.Models.HRM;
@@ -25,6 +26,7 @@ using Garmetix.Api.Dashboard;
 using Garmetix.Api.FinalAccounts;
 using Garmetix.Api.Hr;
 using Garmetix.Api.GstReturns;
+using Garmetix.Api.Communication;
 using Garmetix.Api.GstTax;
 using Garmetix.Api.Gstin;
 using Microsoft.AspNetCore.DataProtection;
@@ -210,6 +212,31 @@ builder.Services.AddDataProtection()
     .SetApplicationName("GarmetixApi")
     .PersistKeysToFileSystem(new DirectoryInfo(gstTaxKeyPath));
 builder.Services.AddSingleton<GstCredentialProtector>();
+builder.Services.AddSingleton<EmailCredentialProtector>();
+builder.Services.AddHttpClient<BrevoApiEmailProviderClient>();
+builder.Services.AddScoped<SmtpEmailProviderClient>();
+builder.Services.AddScoped<LocalMasterOnlyEmailProviderClient>();
+builder.Services.AddScoped<IEmailProviderClientFactory, EmailProviderClientFactory>();
+builder.Services.AddScoped<EmailProviderResolutionService>();
+builder.Services.AddScoped<EmailProviderTestService>();
+builder.Services.AddScoped<EmailEnqueueService>();
+builder.Services.AddScoped<EmailRateLimitService>();
+builder.Services.AddScoped<CommunicationRecipientResolver>();
+builder.Services.AddScoped<CommunicationAttachmentStorageService>();
+builder.Services.AddScoped<BusinessNotificationService>();
+builder.Services.Configure<BrevoWebhookOptions>(builder.Configuration.GetSection("Communication:BrevoWebhook"));
+builder.Services.AddSingleton<BrevoWebhookAuthenticator>();
+builder.Services.AddRateLimiter(options => options.AddFixedWindowLimiter("brevo-webhook", limiterOptions =>
+{
+    // Brevo can legitimately burst-deliver many events at once (a batch send's worth of
+    // delivered/opened/clicked events arriving together) - generous but bounded, scoped only
+    // to this one endpoint so it never affects normal user-facing API traffic.
+    limiterOptions.PermitLimit = 120;
+    limiterOptions.Window = TimeSpan.FromMinutes(1);
+    limiterOptions.QueueLimit = 0;
+}));
+builder.Services.Configure<EmailQueueOptions>(builder.Configuration.GetSection("Communication:EmailQueue"));
+builder.Services.AddHostedService<EmailQueueWorker>();
 builder.Services.AddHttpClient("GstGenericRestProvider");
 builder.Services.AddScoped<GstinResolutionService>();
 builder.Services.AddScoped<GstRateResolutionService>();
@@ -277,6 +304,12 @@ builder.Services.AddAuthorization(options =>
     AddMatrixPolicy(options, GarmetixPolicies.Attendance);
     AddMatrixPolicy(options, GarmetixPolicies.Marketing);
     AddMatrixPolicy(options, GarmetixPolicies.Gst);
+    AddMatrixPolicy(options, GarmetixPolicies.Communication);
+    AddMatrixPolicy(options, GarmetixPolicies.CommunicationBroadcast);
+    AddMatrixPolicy(options, GarmetixPolicies.CommunicationTemplates);
+    AddMatrixPolicy(options, GarmetixPolicies.CommunicationProviders);
+    AddMatrixPolicy(options, GarmetixPolicies.CommunicationQueue);
+    AddMatrixPolicy(options, GarmetixPolicies.CommunicationSuppression);
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -321,6 +354,7 @@ using (var scope = app.Services.CreateScope())
     await DatabaseSchemaRepairService.RepairKnownSchemaDriftAsync(db, logger);
     await scope.ServiceProvider.GetRequiredService<SystemDefaultsService>().EnsureStartupDefaultsAsync(CancellationToken.None);
     await GstTaxSeedService.EnsureSeedDataAsync(db, CancellationToken.None);
+    await EmailTemplateSeedService.EnsureSeedDataAsync(db, CancellationToken.None);
 }
 
 using (var swalekhaScope = app.Services.CreateScope())
@@ -378,6 +412,7 @@ if (app.Configuration.GetValue("ApiDocs:Enabled", true))
     });
 }
 
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseMiddleware<AuditActorMiddleware>();
 app.UseMiddleware<SwalekhaOwnerMiddleware>();
@@ -465,6 +500,12 @@ app.MapFactoryResetEndpoints();
 app.MapGstReturnEndpoints();
 app.MapGstinEndpoints();
 app.MapGstTaxEndpoints();
+app.MapEmailProviderEndpoints();
+app.MapEmailTemplateEndpoints();
+app.MapCommunicationEndpoints();
+app.MapBrevoWebhookEndpoints();
+app.MapEmailSuppressionEndpoints();
+app.MapEmailQueueEndpoints();
 app.MapGstHsnEndpoints();
 app.MapGstRateEndpoints();
 app.MapGstAuditEndpoints();

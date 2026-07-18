@@ -27,6 +27,7 @@ public static class PayrollEndpoints
         group.MapDelete("/payslips/{id:guid}", DeletePayslipAsync).RequireAuthorization(GarmetixPolicies.Delete);
         group.MapGet("/payslips/{id:guid}/print", GetPrintablePayslipAsync);
         group.MapGet("/payslips/{id:guid}/pdf", DownloadPayslipPdfAsync);
+        group.MapPost("/payslips/{id:guid}/send-email", SendPayslipEmailAsync);
         group.MapGet("/real-month-validation", RealMonthValidationAsync);
         group.MapGet("/real-month-validation.csv", DownloadRealMonthValidationCsvAsync);
 
@@ -139,6 +140,47 @@ public static class PayrollEndpoints
         return payslip is null
             ? Results.NotFound()
             : Results.File(PayrollPdfDocument.BuildPayslip(payslip), "application/pdf", $"payslip-{payslip.Summary.MonthYear.Replace(' ', '-')}.pdf");
+    }
+
+    /// <summary>
+    /// CM-08 Communication & Mail integration point - additive, opt-in, called after a payslip
+    /// already exists (never from GeneratePayslipsAsync/UpdatePayslipAsync). Reuses the exact
+    /// same PayrollService.GetPrintablePayslipAsync/PayrollPdfDocument.BuildPayslip calls
+    /// DownloadPayslipPdfAsync already uses, so the emailed PDF is byte-identical to the
+    /// downloadable one - no payroll calculation is duplicated into the Communication module.
+    /// </summary>
+    private static async Task<IResult> SendPayslipEmailAsync(
+        Guid id,
+        PayrollService service,
+        Garmetix.Api.Communication.BusinessNotificationService notifications,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        var payslip = await service.GetPrintablePayslipAsync(id, cancellationToken);
+        if (payslip is null)
+        {
+            return Results.NotFound(new { message = "Payslip not found." });
+        }
+
+        var tokens = new Dictionary<string, string>
+        {
+            ["employeeName"] = payslip.Summary.EmployeeName,
+            ["payPeriod"] = payslip.Summary.MonthYear,
+            ["netSalary"] = payslip.Summary.NetSalary.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("en-IN")),
+        };
+
+        var pdfBytes = PayrollPdfDocument.BuildPayslip(payslip);
+        var fileName = $"payslip-{payslip.Summary.MonthYear.Replace(' ', '-')}.pdf";
+        var createdByUserId = Guid.TryParse(context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var uid) ? uid : (Guid?)null;
+        var companyId = Guid.TryParse(context.User.FindFirst("companyId")?.Value, out var cid) ? cid : (Guid?)null;
+        var storeGroupId = Guid.TryParse(context.User.FindFirst("storeGroupId")?.Value, out var sgid) ? sgid : (Guid?)null;
+        var storeId = Guid.TryParse(context.User.FindFirst("storeId")?.Value, out var sid) ? sid : (Guid?)null;
+
+        var result = await notifications.SendPayslipEmailAsync(
+            id, payslip.Summary.EmployeeEmail ?? string.Empty, payslip.Summary.EmployeeName, tokens,
+            companyId, storeGroupId, storeId, createdByUserId, pdfBytes, fileName, cancellationToken);
+
+        return Results.Ok(new { result.Enqueued, result.SkipReason });
     }
 
     private static async Task<IResult> DownloadSalaryPaymentPdfAsync(

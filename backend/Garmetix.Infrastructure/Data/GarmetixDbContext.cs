@@ -8,6 +8,7 @@ using Garmetix.Core.Models.Audit;
 using Garmetix.Core.Models.Authentication;
 using Garmetix.Core.Models.Attendance;
 using Garmetix.Core.Models.Base;
+using Garmetix.Core.Models.Communication;
 using Garmetix.Core.Models.FinalAccounts;
 using Garmetix.Core.Models.HRM;
 using Garmetix.Core.Models.GstReturns;
@@ -54,6 +55,22 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<GstAuditFinding> GstAuditFindings => Set<GstAuditFinding>();
     public DbSet<GstEinvoiceIrnRecord> GstEinvoiceIrnRecords => Set<GstEinvoiceIrnRecord>();
     public DbSet<GstEwaybillRecord> GstEwaybillRecords => Set<GstEwaybillRecord>();
+    public DbSet<CommunicationConversation> CommunicationConversations => Set<CommunicationConversation>();
+    public DbSet<CommunicationMessage> CommunicationMessages => Set<CommunicationMessage>();
+    public DbSet<CommunicationRecipient> CommunicationRecipients => Set<CommunicationRecipient>();
+    public DbSet<CommunicationAttachment> CommunicationAttachments => Set<CommunicationAttachment>();
+    public DbSet<CommunicationPreference> CommunicationPreferences => Set<CommunicationPreference>();
+    public DbSet<EmailProviderConfiguration> EmailProviderConfigurations => Set<EmailProviderConfiguration>();
+    public DbSet<EmailProviderCredential> EmailProviderCredentials => Set<EmailProviderCredential>();
+    public DbSet<EmailTemplate> EmailTemplates => Set<EmailTemplate>();
+    public DbSet<EmailTemplateVersion> EmailTemplateVersions => Set<EmailTemplateVersion>();
+    public DbSet<EmailQueueItem> EmailQueueItems => Set<EmailQueueItem>();
+    public DbSet<EmailRecipient> EmailRecipients => Set<EmailRecipient>();
+    public DbSet<EmailAttachment> EmailAttachments => Set<EmailAttachment>();
+    public DbSet<EmailDeliveryAttempt> EmailDeliveryAttempts => Set<EmailDeliveryAttempt>();
+    public DbSet<EmailDeliveryEvent> EmailDeliveryEvents => Set<EmailDeliveryEvent>();
+    public DbSet<EmailSuppressionEntry> EmailSuppressionEntries => Set<EmailSuppressionEntry>();
+    public DbSet<EmailUsageCounter> EmailUsageCounters => Set<EmailUsageCounter>();
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
     public DbSet<DigitalInvoice> DigitalInvoices => Set<DigitalInvoice>();
     public DbSet<DigitalInvoiceEvent> DigitalInvoiceEvents => Set<DigitalInvoiceEvent>();
@@ -246,6 +263,51 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<GstEwaybillRecord>().HasIndex(item => new { item.CompanyId, item.InvoiceId });
         modelBuilder.Entity<GstEwaybillRecord>().HasIndex(item => new { item.CompanyId, item.PurchaseInvoiceId });
         modelBuilder.Entity<GstEwaybillRecord>().HasIndex(item => new { item.CompanyId, item.Status });
+        modelBuilder.Entity<CommunicationConversation>().ToTable("CommunicationConversations");
+        modelBuilder.Entity<CommunicationConversation>().Property(item => item.Revision).IsConcurrencyToken();
+        modelBuilder.Entity<CommunicationConversation>().HasIndex(item => new { item.CompanyId, item.LastMessageAtUtc });
+        modelBuilder.Entity<CommunicationMessage>().ToTable("CommunicationMessages");
+        modelBuilder.Entity<CommunicationMessage>().Property(item => item.Revision).IsConcurrencyToken();
+        modelBuilder.Entity<CommunicationMessage>().HasIndex(item => new { item.ConversationId, item.CreatedAt });
+        modelBuilder.Entity<CommunicationRecipient>().ToTable("CommunicationRecipients");
+        modelBuilder.Entity<CommunicationRecipient>().HasIndex(item => new { item.RecipientUserId, item.FolderState, item.IsRead });
+        modelBuilder.Entity<CommunicationRecipient>().HasIndex(item => new { item.MessageId, item.RecipientUserId }).IsUnique();
+        modelBuilder.Entity<CommunicationRecipient>().HasIndex(item => new { item.RecipientUserId, item.ConversationId });
+        modelBuilder.Entity<CommunicationAttachment>().ToTable("CommunicationAttachments");
+        modelBuilder.Entity<CommunicationAttachment>().HasIndex(item => item.MessageId);
+        modelBuilder.Entity<CommunicationPreference>().ToTable("CommunicationPreferences");
+        modelBuilder.Entity<CommunicationPreference>().HasIndex(item => item.UserId).IsUnique();
+        modelBuilder.Entity<EmailProviderConfiguration>().ToTable("EmailProviderConfigurations");
+        modelBuilder.Entity<EmailProviderConfiguration>().Property(item => item.Revision).IsConcurrencyToken();
+        modelBuilder.Entity<EmailProviderConfiguration>().HasIndex(item => new { item.CompanyId, item.StoreGroupId, item.StoreId, item.IsEnabled, item.Priority });
+        modelBuilder.Entity<EmailProviderCredential>().ToTable("EmailProviderCredentials");
+        modelBuilder.Entity<EmailProviderCredential>().HasIndex(item => new { item.ProviderId, item.CredentialKey }).IsUnique();
+        modelBuilder.Entity<EmailTemplate>().ToTable("EmailTemplates");
+        modelBuilder.Entity<EmailTemplate>().Property(item => item.Revision).IsConcurrencyToken();
+        modelBuilder.Entity<EmailTemplate>().HasIndex(item => new { item.CompanyId, item.TemplateKey }).IsUnique();
+        modelBuilder.Entity<EmailTemplateVersion>().ToTable("EmailTemplateVersions");
+        modelBuilder.Entity<EmailTemplateVersion>().HasIndex(item => new { item.TemplateId, item.VersionNumber }).IsUnique();
+        modelBuilder.Entity<EmailQueueItem>().ToTable("EmailQueueItems");
+        modelBuilder.Entity<EmailQueueItem>().Property(item => item.Revision).IsConcurrencyToken();
+        modelBuilder.Entity<EmailQueueItem>().HasIndex(item => item.IdempotencyKey).IsUnique();
+        modelBuilder.Entity<EmailQueueItem>().HasIndex(item => new { item.Status, item.NextAttemptAtUtc });
+        modelBuilder.Entity<EmailQueueItem>().HasIndex(item => item.CorrelationId);
+        modelBuilder.Entity<EmailQueueItem>().HasIndex(item => new { item.SourceModule, item.SourceType, item.SourceId });
+        modelBuilder.Entity<EmailQueueItem>().HasIndex(item => item.ProviderMessageId);
+        modelBuilder.Entity<EmailRecipient>().ToTable("EmailRecipients");
+        modelBuilder.Entity<EmailRecipient>().HasIndex(item => item.QueueItemId);
+        modelBuilder.Entity<EmailAttachment>().ToTable("EmailAttachments");
+        modelBuilder.Entity<EmailAttachment>().HasIndex(item => item.QueueItemId);
+        modelBuilder.Entity<EmailDeliveryAttempt>().ToTable("EmailDeliveryAttempts");
+        modelBuilder.Entity<EmailDeliveryAttempt>().HasIndex(item => new { item.QueueItemId, item.AttemptNumber }).IsUnique();
+        modelBuilder.Entity<EmailDeliveryEvent>().ToTable("EmailDeliveryEvents");
+        modelBuilder.Entity<EmailDeliveryEvent>().HasIndex(item => item.ProviderEventId).IsUnique();
+        modelBuilder.Entity<EmailDeliveryEvent>().HasIndex(item => item.QueueItemId);
+        modelBuilder.Entity<EmailDeliveryEvent>().HasIndex(item => item.ProviderMessageId);
+        modelBuilder.Entity<EmailSuppressionEntry>().ToTable("EmailSuppressionEntries");
+        modelBuilder.Entity<EmailSuppressionEntry>().HasIndex(item => new { item.CompanyId, item.EmailAddress });
+        modelBuilder.Entity<EmailUsageCounter>().ToTable("EmailUsageCounters");
+        modelBuilder.Entity<EmailUsageCounter>().HasIndex(item => new { item.ProviderId, item.CompanyId, item.PeriodKey }).IsUnique();
         modelBuilder.Entity<DigitalInvoice>().ToTable("DigitalInvoices");
         modelBuilder.Entity<DigitalInvoice>().HasIndex(item => item.PublicToken).IsUnique();
         modelBuilder.Entity<DigitalInvoice>().HasIndex(item => new { item.CompanyId, item.StoreId, item.InvoiceDate });
@@ -2105,6 +2167,25 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
             if (entry.State == EntityState.Modified)
             {
                 entry.Entity.UpdatedAt = now;
+            }
+        }
+
+        BumpConcurrencyRevisions();
+    }
+
+    // Entities configured with Property(x => x.Revision).IsConcurrencyToken() rely on this value
+    // actually changing on every write for the optimistic-concurrency check to detect a conflict;
+    // without it, EF's generated "WHERE Revision = @original" clause always matches the untouched
+    // stored value and DbUpdateConcurrencyException never fires.
+    private void BumpConcurrencyRevisions()
+    {
+        foreach (var entry in ChangeTracker.Entries().Where(entry => entry.State == EntityState.Modified))
+        {
+            var revisionProperty = entry.Properties.FirstOrDefault(property =>
+                property.Metadata.Name == "Revision" && property.Metadata.IsConcurrencyToken);
+            if (revisionProperty is not null && revisionProperty.CurrentValue is int currentRevision)
+            {
+                revisionProperty.CurrentValue = currentRevision + 1;
             }
         }
     }

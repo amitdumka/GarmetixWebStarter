@@ -41,7 +41,9 @@ export const routeRoles = {
   books: ['SuperAdmin', 'Owner', 'Admin', 'Accountant', 'CA'],
   finalAccounts: ['SuperAdmin', 'Owner', 'Admin', 'CA'],
   analytics: ['SuperAdmin', 'Owner', 'Admin', 'PowerUser', 'Accountant'],
-  authenticated: ['Authenticated']
+  authenticated: ['Authenticated'],
+  communication: ['SuperAdmin', 'Owner', 'Admin', 'PowerUser', 'Accountant', 'StoreManager', 'Salesman', 'HrManager'],
+  communicationAdmin: ['SuperAdmin', 'Owner', 'Admin', 'PowerUser']
 } as const
 
 export const routeModules = {
@@ -62,6 +64,7 @@ export const routeModules = {
   aiSense: { label: 'AI Sense', icon: 'i-lucide-brain-circuit', app: 'ai-sense' },
   inventoryApp: { label: 'Inventory Management', icon: 'i-lucide-boxes', app: 'inventory' },
   finalAccounts: { label: 'Final Accounts', icon: 'i-lucide-landmark', app: 'final-accounts' },
+  communication: { label: 'Communication & Mail', icon: 'i-lucide-mail', app: 'communication' },
   account: { label: 'Account', icon: 'i-lucide-circle-user-round', app: 'main' },
   help: { label: 'Help', icon: 'i-lucide-circle-help', app: 'main' },
   public: { label: 'Public', icon: 'i-lucide-info', app: 'main' }
@@ -138,6 +141,12 @@ export const garmetixRoutes: GarmetixRouteDefinition[] = [
   route({ id: 'final-accounts-projections', path: '/projections', label: 'Projection Engine', icon: 'i-lucide-trending-up', targetApp: 'final-accounts', moduleKey: 'finalAccounts', moduleLabel: 'Final Accounts', roles: [...routeRoles.finalAccounts], showInMenu: false, status: 'shell-ready', notes: 'BS-11 scenario projection engine.' }),
   route({ id: 'final-accounts-exchange', path: '/exchange', label: 'Tally Exchange', icon: 'i-lucide-package-check', targetApp: 'final-accounts', moduleKey: 'finalAccounts', moduleLabel: 'Final Accounts', roles: [...routeRoles.finalAccounts], showInMenu: false, status: 'shell-ready', notes: 'BS-12 TallyPrime exchange and CA package.' }),
   route({ id: 'final-accounts-posting-rules', path: '/posting-rules', label: 'Posting Rules', icon: 'i-lucide-route', targetApp: 'final-accounts', moduleKey: 'finalAccounts', moduleLabel: 'Final Accounts', roles: [...routeRoles.finalAccounts], showInMenu: false, status: 'shell-ready', notes: 'BS-04 posting-rule and mapping validation framework.' }),
+  route({ id: 'communication-home', path: '/', label: 'Communication Home', icon: 'i-lucide-layout-dashboard', targetApp: 'communication', moduleKey: 'communication', moduleLabel: 'Communication & Mail', roles: [...routeRoles.communication], showInMenu: false, status: 'shell-ready', notes: 'CM-01/05 dashboard shell; more panels arrive as later CM stages land.' }),
+  route({ id: 'communication-providers', path: '/providers', label: 'Providers', icon: 'i-lucide-server-cog', targetApp: 'communication', moduleKey: 'communication', moduleLabel: 'Communication & Mail', roles: [...routeRoles.communicationAdmin], showInMenu: false, status: 'shell-ready', notes: 'CM-05 provider/credential setup (Brevo API, SMTP presets, LocalMasterOnly fallback).' }),
+  route({ id: 'communication-templates', path: '/templates', label: 'Templates', icon: 'i-lucide-file-text', targetApp: 'communication', moduleKey: 'communication', moduleLabel: 'Communication & Mail', roles: [...routeRoles.communicationAdmin], showInMenu: false, status: 'shell-ready', notes: 'CM-06 template CRUD/versioning/approval/preview/test-send.' }),
+  route({ id: 'communication-mailbox', path: '/mailbox', label: 'Mailbox', icon: 'i-lucide-inbox', targetApp: 'communication', moduleKey: 'communication', moduleLabel: 'Communication & Mail', roles: [...routeRoles.communication], showInMenu: false, status: 'shell-ready', notes: 'CM-07 inbox/sent/drafts/archive/trash, compose, reply/reply-all, attachments.' }),
+  route({ id: 'communication-queue', path: '/queue', label: 'Queue & Log', icon: 'i-lucide-list-checks', targetApp: 'communication', moduleKey: 'communication', moduleLabel: 'Communication & Mail', roles: [...routeRoles.communicationAdmin], showInMenu: false, status: 'shell-ready', notes: 'CM-09 queue/log with delivery timeline, retry/cancel/reschedule/restore.' }),
+  route({ id: 'communication-suppression', path: '/suppression', label: 'Suppression', icon: 'i-lucide-shield-off', targetApp: 'communication', moduleKey: 'communication', moduleLabel: 'Communication & Mail', roles: [...routeRoles.communicationAdmin], showInMenu: false, status: 'shell-ready', notes: 'CM-09 bounce/complaint/invalid/manual suppression list, audited removal.' }),
   route({ id: 'day-book', path: '/day-book', label: 'Day Book', icon: 'i-lucide-book-open-check', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books] }),
   route({ id: 'ledgers', path: '/ledgers', label: 'Ledgers', icon: 'i-lucide-book-open', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books] }),
   route({ id: 'banking', path: '/banking', label: 'Banking', icon: 'i-lucide-piggy-bank', targetApp: 'books', moduleKey: 'accounting', moduleLabel: 'Accounting', roles: [...routeRoles.books] }),
