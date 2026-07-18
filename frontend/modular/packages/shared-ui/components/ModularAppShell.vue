@@ -490,7 +490,8 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'home', label: 'Communication Home', href: '/', icon: 'i-lucide-layout-dashboard' }
     ] },
     { key: 'admin', label: 'Providers & Setup', items: [
-      { id: 'providers', label: 'Providers', href: '/providers', icon: 'i-lucide-server-cog' }
+      { id: 'providers', label: 'Providers', href: '/providers', icon: 'i-lucide-server-cog' },
+      { id: 'templates', label: 'Templates', href: '/templates', icon: 'i-lucide-file-text' }
     ] }
   ]
 }

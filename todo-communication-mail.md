@@ -37,9 +37,9 @@
 
 ## Templates and integrations
 
-- [ ] Add safe HTML/text template CRUD, validation and preview.
-- [ ] Add versioning, test send, approval and restore.
-- [ ] Add initial system templates.
+- [x] Add safe HTML/text template CRUD, validation and preview.
+- [x] Add versioning, test send, approval and restore.
+- [x] Add initial system templates.
 - [ ] Integrate Sales without affecting invoice posting.
 - [ ] Integrate Purchase and Accounting.
 - [ ] Integrate HR/Payroll with confidential permissions.

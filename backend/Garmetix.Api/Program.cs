@@ -339,6 +339,7 @@ using (var scope = app.Services.CreateScope())
     await DatabaseSchemaRepairService.RepairKnownSchemaDriftAsync(db, logger);
     await scope.ServiceProvider.GetRequiredService<SystemDefaultsService>().EnsureStartupDefaultsAsync(CancellationToken.None);
     await GstTaxSeedService.EnsureSeedDataAsync(db, CancellationToken.None);
+    await EmailTemplateSeedService.EnsureSeedDataAsync(db, CancellationToken.None);
 }
 
 using (var swalekhaScope = app.Services.CreateScope())
@@ -484,6 +485,7 @@ app.MapGstReturnEndpoints();
 app.MapGstinEndpoints();
 app.MapGstTaxEndpoints();
 app.MapEmailProviderEndpoints();
+app.MapEmailTemplateEndpoints();
 app.MapGstHsnEndpoints();
 app.MapGstRateEndpoints();
 app.MapGstAuditEndpoints();
