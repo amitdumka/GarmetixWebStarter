@@ -6,11 +6,11 @@ namespace Garmetix.Api.AppInfo;
 public static class AppInfoEndpoints
 {
     public const string ProductName = "Garmetix";
-    public const string Version = "6.9.4";
-    public const string Stage = "Final Accounts report fix, part 3 - materialize then LINQ-to-objects";
-    public const string ReleaseName = "Version6: Final Accounts reports fixed for real (client-side aggregation)";
-    public const string BuildDate = "2026-07-15";
-    public const string BuildCode = "GARMETIX-V6-20260715-694";
+    public const string Version = "7.0.1";
+    public const string Stage = "Version7: BS-19 approved Final Accounts transaction backfill executor";
+    public const string ReleaseName = "Version7: approved BS-19 Final Accounts backfill with SRP safety gates";
+    public const string BuildDate = "2026-07-19";
+    public const string BuildCode = "GARMETIX-V7-20260719-701";
 
     public static RouteGroupBuilder MapAppInfoEndpoints(this WebApplication app)
     {
@@ -81,6 +81,7 @@ public static class AppInfoEndpoints
 
     private static readonly string[] Highlights =
     [
+        "Version7 7.0.1 adds the admin-only approved BS-19 Final Accounts backfill executor, with idempotent source posting links, sync-job evidence and grouped inventory source posting.",
         "Version6 6.9.4 aligns backend app-info with the modular frontend release identity and the Final Accounts report fix deployed on version6.",
         "Final Accounts report queries now materialize after database-safe filters and run downstream grouping, ordering and DTO projection in LINQ-to-Objects to avoid EF Core compound-projection translation failures.",
         "Stage 11D-154 replaces Stock Operations product dropdowns with searchable autocomplete pickers across Adjustment, Transfer, Physical Count and Write-off tabs, including barcode/store/stock/MRP selection hints.",

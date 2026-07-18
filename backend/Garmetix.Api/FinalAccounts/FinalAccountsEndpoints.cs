@@ -59,6 +59,7 @@ public static class FinalAccountsEndpoints
         enabled.MapGet("/sync/options", GetSyncOptionsAsync);
         enabled.MapGet("/sync/jobs", ListSyncJobsAsync);
         enabled.MapPost("/sync/manual", CreateManualSyncJobAsync);
+        enabled.MapPost("/sync/approved-backfill", RunApprovedBackfillAsync).RequireAuthorization(GarmetixPolicies.Admin);
         enabled.MapDelete("/sync/jobs/{id:guid}/dry-run", CleanupDryRunSyncJobAsync).RequireAuthorization(GarmetixPolicies.Admin);
         enabled.MapPost("/backfill/dry-run", DryRunBackfillAsync);
         enabled.MapPost("/reconciliation/summary", GetReconciliationAsync);
@@ -513,6 +514,13 @@ public static class FinalAccountsEndpoints
         HttpContext context,
         CancellationToken cancellationToken)
         => HandleAsync(() => sync.CreateManualSyncJobAsync(request, context, cancellationToken));
+
+    private static Task<IResult> RunApprovedBackfillAsync(
+        FinalAccountsBackfillRequest request,
+        FinalAccountsSyncService sync,
+        HttpContext context,
+        CancellationToken cancellationToken)
+        => HandleAsync(() => sync.RunApprovedBackfillAsync(request, context, cancellationToken));
 
     private static Task<IResult> CleanupDryRunSyncJobAsync(
         Guid id,

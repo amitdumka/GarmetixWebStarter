@@ -46,6 +46,11 @@ public sealed record FinalAccountsBackfillPreviewResponse(
     string ResumeCheckpoint,
     IReadOnlyList<FinalAccountsBackfillModulePreviewDto> ModulePreviews);
 
+public sealed record FinalAccountsApprovedBackfillResponse(
+    bool WritesData,
+    string SafetyMessage,
+    FinalAccountsSyncJobDto Job);
+
 public sealed record FinalAccountsSyncJobItemDto(
     Guid Id,
     string SourceType,
