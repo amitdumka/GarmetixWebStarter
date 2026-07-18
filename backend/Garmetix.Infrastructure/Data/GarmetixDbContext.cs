@@ -2169,6 +2169,25 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
                 entry.Entity.UpdatedAt = now;
             }
         }
+
+        BumpConcurrencyRevisions();
+    }
+
+    // Entities configured with Property(x => x.Revision).IsConcurrencyToken() rely on this value
+    // actually changing on every write for the optimistic-concurrency check to detect a conflict;
+    // without it, EF's generated "WHERE Revision = @original" clause always matches the untouched
+    // stored value and DbUpdateConcurrencyException never fires.
+    private void BumpConcurrencyRevisions()
+    {
+        foreach (var entry in ChangeTracker.Entries().Where(entry => entry.State == EntityState.Modified))
+        {
+            var revisionProperty = entry.Properties.FirstOrDefault(property =>
+                property.Metadata.Name == "Revision" && property.Metadata.IsConcurrencyToken);
+            if (revisionProperty is not null && revisionProperty.CurrentValue is int currentRevision)
+            {
+                revisionProperty.CurrentValue = currentRevision + 1;
+            }
+        }
     }
 
     private void NormalizeDateTimeKinds()

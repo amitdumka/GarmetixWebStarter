@@ -16,6 +16,9 @@ public sealed class EmailQueueClaimService(GarmetixDbContext db)
 {
     public async Task<List<EmailQueueItem>> ClaimBatchAsync(int batchSize, TimeSpan leaseDuration, string workerOwner, CancellationToken cancellationToken)
     {
+        // Raw FromSqlInterpolated parameters use Npgsql's default DateTime mapping (timestamptz,
+        // requires Kind=Utc), unlike mapped entity properties which go through DateTimeKindConverter
+        // to "timestamp without time zone". Postgres casts the timestamptz parameter on assignment.
         var leaseUntil = DateTime.UtcNow.Add(leaseDuration);
         var claimableStatuses = new[]
         {
@@ -42,7 +45,7 @@ public sealed class EmailQueueClaimService(GarmetixDbContext db)
                 FOR UPDATE SKIP LOCKED
             )
             RETURNING *
-            """).ToListAsync(cancellationToken);
+            """).IgnoreQueryFilters().ToListAsync(cancellationToken);
 
         return claimed;
     }
@@ -50,11 +53,12 @@ public sealed class EmailQueueClaimService(GarmetixDbContext db)
     /// <summary>Resets any Processing item whose lease expired (worker crashed/killed mid-send) back to Pending so another worker can retry it, or to DeadLetter if it already exhausted its attempt budget.</summary>
     public async Task<int> RecoverStaleLeasesAsync(CancellationToken cancellationToken)
     {
+        var now = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
         var staleItems = await db.EmailQueueItems
             .Where(item => !item.Deleted
                 && item.Status == EmailCatalog.QueueStatuses.Processing
                 && item.ProcessingLeaseUntilUtc != null
-                && item.ProcessingLeaseUntilUtc < DateTime.UtcNow)
+                && item.ProcessingLeaseUntilUtc < now)
             .ToListAsync(cancellationToken);
 
         foreach (var item in staleItems)
