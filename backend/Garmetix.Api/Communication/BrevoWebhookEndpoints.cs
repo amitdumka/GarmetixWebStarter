@@ -46,7 +46,7 @@ public static class BrevoWebhookEndpoints
     public static RouteGroupBuilder MapBrevoWebhookEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/communication/webhooks");
-        group.MapPost("/brevo", ReceiveBrevoWebhookAsync);
+        group.MapPost("/brevo", ReceiveBrevoWebhookAsync).RequireRateLimiting("brevo-webhook");
         return group;
     }
 

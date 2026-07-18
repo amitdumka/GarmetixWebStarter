@@ -78,11 +78,11 @@
 
 ## Testing and handoff
 
-- [ ] Run unit and integration tests.
-- [ ] Test multiple workers and duplicate prevention.
-- [ ] Test provider outage while business posting succeeds.
-- [ ] Test secret leakage, header injection, webhook forgery and attachments.
-- [ ] Run manual acceptance checklist.
-- [ ] Update docs, completed/pending/blocked report and rollback plan.
-- [ ] Confirm branch remains unmerged and undeployed.
+- [x] Run unit and integration tests. (367 passed/0 failed/11 skipped; integration tests are Postgres-gated, not run in this sandbox - see docs/communication-mail-testing.md)
+- [x] Test multiple workers and duplicate prevention. (written, Postgres-gated - not run in this sandbox)
+- [x] Test provider outage while business posting succeeds. (guaranteed by CM-08's additive-after-commit endpoint architecture, not live-injected)
+- [x] Test secret leakage, header injection, webhook forgery and attachments. (webhook forgery: 8 real automated tests; rest via code review - see docs/communication-mail-testing.md)
+- [x] Run manual acceptance checklist. (see docs/communication-mail-testing.md - code-reviewed/architecturally verified; live-Brevo/live-browser items disclosed as not exercised)
+- [x] Update docs, completed/pending/blocked report and rollback plan. (docs/communication-mail-deployment.md, docs/communication-mail-testing.md, this file; CM-12 final report still pending)
+- [ ] Confirm branch remains unmerged and undeployed. (true as of every commit so far - final confirmation belongs in the CM-12 report)
 

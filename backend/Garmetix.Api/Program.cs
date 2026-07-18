@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.RateLimiting;
 using Garmetix.Core.Models.Accounting;
 using Garmetix.Core.Models.Authentication;
 using Garmetix.Core.Models.HRM;
@@ -225,6 +226,15 @@ builder.Services.AddScoped<CommunicationAttachmentStorageService>();
 builder.Services.AddScoped<BusinessNotificationService>();
 builder.Services.Configure<BrevoWebhookOptions>(builder.Configuration.GetSection("Communication:BrevoWebhook"));
 builder.Services.AddSingleton<BrevoWebhookAuthenticator>();
+builder.Services.AddRateLimiter(options => options.AddFixedWindowLimiter("brevo-webhook", limiterOptions =>
+{
+    // Brevo can legitimately burst-deliver many events at once (a batch send's worth of
+    // delivered/opened/clicked events arriving together) - generous but bounded, scoped only
+    // to this one endpoint so it never affects normal user-facing API traffic.
+    limiterOptions.PermitLimit = 120;
+    limiterOptions.Window = TimeSpan.FromMinutes(1);
+    limiterOptions.QueueLimit = 0;
+}));
 builder.Services.Configure<EmailQueueOptions>(builder.Configuration.GetSection("Communication:EmailQueue"));
 builder.Services.AddHostedService<EmailQueueWorker>();
 builder.Services.AddHttpClient("GstGenericRestProvider");
@@ -402,6 +412,7 @@ if (app.Configuration.GetValue("ApiDocs:Enabled", true))
     });
 }
 
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseMiddleware<AuditActorMiddleware>();
 app.UseMiddleware<SwalekhaOwnerMiddleware>();
