@@ -200,6 +200,7 @@ SRP_FINAL_ACCOUNTS_BASE_PATH="${SRP_FINAL_ACCOUNTS_BASE_PATH:-/final-accounts/}"
 # any other app's appUrls/switcher registry above - see patch_static_runtime_config below for the
 # one small exception (a single flat swalekhaUrl value for the one profile-menu link).
 SRP_SWALEKHA_BASE_PATH="${SRP_SWALEKHA_BASE_PATH:-/swalekha/}"
+SRP_COMMUNICATION_BASE_PATH="${SRP_COMMUNICATION_BASE_PATH:-/communication/}"
 if [ "$SRP_PATH_BASED_URLS" = true ]; then
   SRP_PUBLIC_API_BASE_URL="/api"
   SRP_MAIN_URL="$SRP_MAIN_BASE_PATH"
@@ -212,6 +213,7 @@ if [ "$SRP_PATH_BASED_URLS" = true ]; then
   SRP_INVENTORY_URL="$SRP_INVENTORY_BASE_PATH"
   SRP_FINAL_ACCOUNTS_URL="$SRP_FINAL_ACCOUNTS_BASE_PATH"
   SRP_SWALEKHA_URL="$SRP_SWALEKHA_BASE_PATH"
+  SRP_COMMUNICATION_URL="$SRP_COMMUNICATION_BASE_PATH"
 else
   SRP_PUBLIC_API_BASE_URL="${SRP_PUBLIC_API_BASE_URL:-https://$SRP_DOMAIN/api}"
   SRP_MAIN_URL="${SRP_MAIN_URL:-https://$SRP_DOMAIN}"
@@ -224,6 +226,7 @@ else
   SRP_INVENTORY_URL="${SRP_INVENTORY_URL:-https://$SRP_DOMAIN/inventory}"
   SRP_FINAL_ACCOUNTS_URL="${SRP_FINAL_ACCOUNTS_URL:-https://$SRP_DOMAIN/final-accounts}"
   SRP_SWALEKHA_URL="${SRP_SWALEKHA_URL:-https://$SRP_DOMAIN/swalekha}"
+  SRP_COMMUNICATION_URL="${SRP_COMMUNICATION_URL:-https://$SRP_DOMAIN/communication}"
 fi
 SRP_API_PROJECT="${SRP_API_PROJECT:-backend/Garmetix.Api/Garmetix.Api.csproj}"
 if [ ! -f "$REPO_ROOT/$SRP_API_PROJECT" ] && [[ "$SRP_API_PROJECT" == legacy/backend/* ]]; then
@@ -279,6 +282,8 @@ Routes:
   $SRP_ADMIN_URL -> /admin/
   $SRP_INVENTORY_URL -> /inventory/
   $SRP_FINAL_ACCOUNTS_URL -> /final-accounts/
+  $SRP_SWALEKHA_URL -> /swalekha/
+  $SRP_COMMUNICATION_URL -> /communication/
   $SRP_PUBLIC_API_BASE_URL -> /api/
 PLAN
 }
@@ -437,6 +442,7 @@ patch_static_runtime_config() {
     # the app switcher). This is the one small, separate exception: a flat top-level runtime
     # config value used only for the single Owner-only profile-menu link.
     perl -0pi -e "s#swalekhaUrl:\"[^\"]*\"#swalekhaUrl:\"$SRP_SWALEKHA_URL\"#g" "$file"
+    perl -0pi -e "s#NUXT_PUBLIC_GARMETIX_COMMUNICATION_URL:\"[^\"]*\"#NUXT_PUBLIC_GARMETIX_COMMUNICATION_URL:\"$SRP_COMMUNICATION_URL\"#g" "$file"
   done
 }
 
@@ -482,6 +488,7 @@ build_app() {
         NUXT_PUBLIC_GARMETIX_INVENTORY_URL="$SRP_INVENTORY_URL" \
         NUXT_PUBLIC_GARMETIX_FINAL_ACCOUNTS_URL="$SRP_FINAL_ACCOUNTS_URL" \
         NUXT_PUBLIC_SWALEKHA_URL="$SRP_SWALEKHA_URL" \
+        NUXT_PUBLIC_GARMETIX_COMMUNICATION_URL="$SRP_COMMUNICATION_URL" \
         NUXT_PUBLIC_GARMETIX_ASSISTANT_ENABLED="$SRP_ASSISTANT_ENABLED" \
         "$NPM_COMMAND" run "build:$app_name"
       ); then
@@ -518,7 +525,7 @@ write_templates() {
   cat > "$OPS_ROOT/nginx-garmetix-srp.conf" <<NGINX
 server {
     listen $SRP_NGINX_PORT;
-    server_name $SRP_DOMAIN;
+    server_name $SRP_DOMAIN swalekha.aadwikafashion.in;
     absolute_redirect off;
     port_in_redirect off;
     server_name_in_redirect off;
@@ -538,7 +545,7 @@ server {
         proxy_read_timeout 300s;
     }
 
-    rewrite ^/(pos|hr|ai-sense|books|crm|admin|inventory|final-accounts|swalekha)/(.+)/$ /\$1/\$2 permanent;
+    rewrite ^/(pos|hr|ai-sense|books|crm|admin|inventory|final-accounts|swalekha|communication)/(.+)/$ /\$1/\$2 permanent;
 
     location /pos/ {
         try_files \$uri \$uri/index.html \$uri/ /pos/index.html;
@@ -574,6 +581,10 @@ server {
 
     location /swalekha/ {
         try_files \$uri \$uri/index.html \$uri/ /swalekha/index.html;
+    }
+
+    location /communication/ {
+        try_files \$uri \$uri/index.html \$uri/ /communication/index.html;
     }
 
     location / {
@@ -814,6 +825,7 @@ build_app admin "$SRP_ADMIN_BASE_PATH" "$WEB_ROOT/admin"
 build_app inventory "$SRP_INVENTORY_BASE_PATH" "$WEB_ROOT/inventory"
 build_app final-accounts "$SRP_FINAL_ACCOUNTS_BASE_PATH" "$WEB_ROOT/final-accounts"
 build_app swalekha "$SRP_SWALEKHA_BASE_PATH" "$WEB_ROOT/swalekha"
+build_app communication "$SRP_COMMUNICATION_BASE_PATH" "$WEB_ROOT/communication"
 publish_api
 write_templates
 

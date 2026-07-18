@@ -259,15 +259,20 @@ if [ -n "$SWALEKHA_CONNECTION_STRING" ]; then
   if [ -z "$SWALEKHA_DB_NAME" ] || [ -z "$SWALEKHA_DB_USER" ] || [ -z "$SWALEKHA_DB_PASSWORD" ]; then
     echo "ConnectionStrings__Swalekha was present but could not be parsed - skipping the Swalekha backup." >&2
   else
-    SWALEKHA_BACKUP_FILE="$SRP_BACKUP_DIR/swalekha-srp-db-${STAMP}-IST-${SAFE_STAGE}-v${GARMETIX_VERSION}.dump"
-
     export PGPASSWORD="$SWALEKHA_DB_PASSWORD"
-    pg_dump -h "$SWALEKHA_DB_HOST" -p "$SWALEKHA_DB_PORT" -U "$SWALEKHA_DB_USER" -d "$SWALEKHA_DB_NAME" -Fc -f "$SWALEKHA_BACKUP_FILE"
-    unset PGPASSWORD
+    SWALEKHA_DB_EXISTS="$(psql -h "$SWALEKHA_DB_HOST" -p "$SWALEKHA_DB_PORT" -U "$SWALEKHA_DB_USER" -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$SWALEKHA_DB_NAME'" 2>/dev/null || true)"
+    if [ "$SWALEKHA_DB_EXISTS" != "1" ]; then
+      unset PGPASSWORD
+      echo "Swalekha database '$SWALEKHA_DB_NAME' does not exist yet (first deploy, not yet auto-provisioned by the API) - skipping its backup."
+    else
+      SWALEKHA_BACKUP_FILE="$SRP_BACKUP_DIR/swalekha-srp-db-${STAMP}-IST-${SAFE_STAGE}-v${GARMETIX_VERSION}.dump"
+      pg_dump -h "$SWALEKHA_DB_HOST" -p "$SWALEKHA_DB_PORT" -U "$SWALEKHA_DB_USER" -d "$SWALEKHA_DB_NAME" -Fc -f "$SWALEKHA_BACKUP_FILE"
+      unset PGPASSWORD
 
-    SWALEKHA_SHA256_VALUE="$(sha256sum "$SWALEKHA_BACKUP_FILE" | awk '{print $1}')"
-    printf '%s  %s\n' "$SWALEKHA_SHA256_VALUE" "$(basename "$SWALEKHA_BACKUP_FILE")" > "$SWALEKHA_BACKUP_FILE.sha256"
-    chmod 600 "$SWALEKHA_BACKUP_FILE" "$SWALEKHA_BACKUP_FILE.sha256"
+      SWALEKHA_SHA256_VALUE="$(sha256sum "$SWALEKHA_BACKUP_FILE" | awk '{print $1}')"
+      printf '%s  %s\n' "$SWALEKHA_SHA256_VALUE" "$(basename "$SWALEKHA_BACKUP_FILE")" > "$SWALEKHA_BACKUP_FILE.sha256"
+      chmod 600 "$SWALEKHA_BACKUP_FILE" "$SWALEKHA_BACKUP_FILE.sha256"
+    fi
   fi
 else
   echo "ConnectionStrings__Swalekha not found in $SRP_API_ENV_PATH - Swalekha module not deployed on this host yet, skipping its backup."
