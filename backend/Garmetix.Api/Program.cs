@@ -654,7 +654,7 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         get.RequireAuthorization(readPolicyName);
     }
 
-    group.MapPost("/", async (T entity, GarmetixDbContext db, HttpContext context, GstinLookupService gstinLookup, SystemDefaultsService systemDefaults, CancellationToken cancellationToken) =>
+    group.MapPost("/", async (T entity, GarmetixDbContext db, HttpContext context, GstinLookupService gstinLookup, SystemDefaultsService systemDefaults, PasswordResetTokenService resetTokens, IConfiguration configuration, Garmetix.Api.Communication.BusinessNotificationService notifications, CancellationToken cancellationToken) =>
     {
         if (!WorkspaceScope.CanWrite(entity, context, out var message))
         {
@@ -679,6 +679,12 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
             return Results.BadRequest(new { message = duplicateDailyMessage });
         }
 
+        var (ownerAccountError, createdOwnerUser) = await EnsureOwnerEmployeeAccountAsync(entity, db, cancellationToken);
+        if (ownerAccountError is not null)
+        {
+            return Results.BadRequest(new { message = ownerAccountError });
+        }
+
         db.Set<T>().Add(entity);
         await SyncEmployeeSalesmanAsync(entity, db, cancellationToken);
         await SyncAttendancePunchesFromDailyRecordAsync(entity, db, context, cancellationToken);
@@ -693,10 +699,15 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
             await systemDefaults.EnsureManagerSalesmanForStoreAsync(store.Id, cancellationToken);
         }
 
+        if (createdOwnerUser is not null)
+        {
+            await SendOwnerAccountInvitationAsync(createdOwnerUser, context, db, resetTokens, configuration, notifications, cancellationToken);
+        }
+
         return Results.Created($"{route}/{entity.Id}", entity);
     }).RequireAuthorization(policyName);
 
-    group.MapPut("/{id:guid}", async (Guid id, T entity, GarmetixDbContext db, HttpContext context, GstinLookupService gstinLookup, SystemDefaultsService systemDefaults, CancellationToken cancellationToken) =>
+    group.MapPut("/{id:guid}", async (Guid id, T entity, GarmetixDbContext db, HttpContext context, GstinLookupService gstinLookup, SystemDefaultsService systemDefaults, PasswordResetTokenService resetTokens, IConfiguration configuration, Garmetix.Api.Communication.BusinessNotificationService notifications, CancellationToken cancellationToken) =>
     {
         entity.Id = id;
         if (!await WorkspaceScope.ApplyTo(db.Set<T>().AsNoTracking(), context).AnyAsync(item => item.Id == id, cancellationToken))
@@ -722,6 +733,12 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
             return Results.BadRequest(new { message = duplicateDailyMessage });
         }
 
+        var (ownerAccountError, createdOwnerUser) = await EnsureOwnerEmployeeAccountAsync(entity, db, cancellationToken);
+        if (ownerAccountError is not null)
+        {
+            return Results.BadRequest(new { message = ownerAccountError });
+        }
+
         db.Entry(entity).State = EntityState.Modified;
         await SyncEmployeeSalesmanAsync(entity, db, cancellationToken);
         await SyncAttendancePunchesFromDailyRecordAsync(entity, db, context, cancellationToken);
@@ -733,6 +750,11 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         else if (entity is Store store)
         {
             await systemDefaults.EnsureManagerSalesmanForStoreAsync(store.Id, cancellationToken);
+        }
+
+        if (createdOwnerUser is not null)
+        {
+            await SendOwnerAccountInvitationAsync(createdOwnerUser, context, db, resetTokens, configuration, notifications, cancellationToken);
         }
 
         return Results.Ok(entity);
@@ -976,6 +998,104 @@ static async Task<string?> PrepareEmployeeMasterAsync<T>(T entity, GarmetixDbCon
     }
 
     return null;
+}
+
+/// <summary>
+/// When an Employee is saved as Category.Owner (create or update-to-Owner), auto-creates the
+/// matching AppUser login (UserType.Owner, linked via EmployeeId) that Swalekha's owner-profile
+/// auto-fill (SwalekhaProfileEndpoints.EnsureProfileAsync) already reads from. Deliberately never
+/// sets a usable password here - the returned user (if any) still needs an invitation email sent
+/// by the caller after SaveChangesAsync succeeds, reusing the same PasswordResetTokenService flow
+/// UserManagementEndpoints.SendInvitationEmailAsync already uses, so the new Owner always sets
+/// their own password rather than the system generating one.
+/// </summary>
+static async Task<(string? ErrorMessage, AppUser? CreatedUser)> EnsureOwnerEmployeeAccountAsync<T>(T entity, GarmetixDbContext db, CancellationToken cancellationToken) where T : class
+{
+    if (entity is not Employee employee || employee.Category != EmployeeCategory.Owner)
+    {
+        return (null, null);
+    }
+
+    var alreadyLinked = await db.Users.AnyAsync(user => user.EmployeeId == employee.Id, cancellationToken);
+    if (alreadyLinked)
+    {
+        return (null, null);
+    }
+
+    if (string.IsNullOrWhiteSpace(employee.Email) || string.IsNullOrWhiteSpace(employee.Mobile))
+    {
+        return ("This employee is marked as Owner, which auto-creates a Garmetix/Swalekha login - an email address and mobile number are required first.", null);
+    }
+
+    var normalizedEmail = employee.Email.Trim();
+    var emailConflict = await db.Users.AnyAsync(user => user.Email == normalizedEmail, cancellationToken);
+    if (emailConflict)
+    {
+        return ($"Cannot auto-create an Owner login: a user account with email '{normalizedEmail}' already exists. Resolve the conflict (use a different employee email, or unlink/delete the existing account) before saving.", null);
+    }
+
+    var userNameConflict = await db.Users.AnyAsync(user => user.UserName == normalizedEmail, cancellationToken);
+    if (userNameConflict)
+    {
+        return ($"Cannot auto-create an Owner login: a user account with username '{normalizedEmail}' already exists. Resolve the conflict before saving.", null);
+    }
+
+    var newUser = new AppUser
+    {
+        Id = Guid.NewGuid(),
+        Name = employee.FullName.Trim(),
+        UserName = normalizedEmail,
+        Email = normalizedEmail,
+        Password = PasswordHasher.Hash(Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N")),
+        Role = LoginRole.Admin,
+        UserType = UserType.Owner,
+        CompanyId = employee.CompanyId,
+        StoreGroupId = employee.StoreGroupId,
+        StoreId = employee.StoreId,
+        Admin = true,
+        IsActive = true,
+        AppOperation = AppOperation.All,
+        EmployeeId = employee.Id
+    };
+
+    db.Users.Add(newUser);
+    return (null, newUser);
+}
+
+static async Task SendOwnerAccountInvitationAsync(AppUser user, HttpContext context, GarmetixDbContext db, PasswordResetTokenService resetTokens, IConfiguration configuration, Garmetix.Api.Communication.BusinessNotificationService notifications, CancellationToken cancellationToken)
+{
+    var token = resetTokens.CreateToken(user.Id);
+    var expiresAtUtc = DateTime.SpecifyKind(resetTokens.ExpiresAtUtc, DateTimeKind.Unspecified);
+    db.PasswordResetTokens.Add(new PasswordResetToken
+    {
+        UserId = user.Id,
+        TokenHash = resetTokens.HashToken(token),
+        CreatedAtUtc = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified),
+        ExpiresAtUtc = expiresAtUtc,
+        RequestIpAddress = context.Connection.RemoteIpAddress?.ToString() ?? string.Empty,
+        RequestUserAgent = context.Request.Headers.UserAgent.ToString(),
+    });
+    await db.SaveChangesAsync(cancellationToken);
+
+    var frontendBaseUrl = (configuration["PasswordReset:FrontendBaseUrl"] ?? string.Empty).TrimEnd('/');
+    var invitationUrl = string.IsNullOrWhiteSpace(frontendBaseUrl)
+        ? $"/reset-password?token={Uri.EscapeDataString(token)}"
+        : $"{frontendBaseUrl}/reset-password?token={Uri.EscapeDataString(token)}";
+
+    var inviterName = context.User.Identity?.Name ?? "An administrator";
+    var tokens = new Dictionary<string, string>
+    {
+        ["inviteeName"] = string.IsNullOrWhiteSpace(user.Name) ? user.UserName : user.Name,
+        ["inviterName"] = inviterName,
+        ["role"] = "Owner (auto-created from Employee record)",
+        ["invitationUrl"] = invitationUrl,
+    };
+
+    var createdByUserId = Guid.TryParse(context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var uid) ? uid : (Guid?)null;
+
+    await notifications.SendUserInvitationEmailAsync(
+        user.Id, user.Email, user.Name, tokens,
+        user.CompanyId, user.StoreGroupId, user.StoreId, createdByUserId, cancellationToken);
 }
 
 static async Task SyncEmployeeSalesmanAsync<T>(T entity, GarmetixDbContext db, CancellationToken cancellationToken) where T : class

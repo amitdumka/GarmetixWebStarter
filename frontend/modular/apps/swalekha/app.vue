@@ -191,7 +191,7 @@ const pageTitle = computed(() => navItems.find(item => isActive(item.to))?.label
 const userLabel = computed(() => authSnapshot.value.user?.name || authSnapshot.value.user?.userName || 'Owner')
 
 onMounted(async () => {
-  authSnapshot.value = getAuthSessionSnapshot(window.localStorage)
+  refreshAuthSnapshot()
   if (authSnapshot.value.hasToken) {
     try {
       const api = useSwalekhaApiClient()
@@ -202,11 +202,27 @@ onMounted(async () => {
   }
 })
 
+function refreshAuthSnapshot() {
+  authSnapshot.value = getAuthSessionSnapshot(window.localStorage)
+}
+
 function logout() {
   clearStoredSession(window.localStorage)
-  authSnapshot.value = getAuthSessionSnapshot(window.localStorage)
+  refreshAuthSnapshot()
   navigateTo('/login')
 }
+
+// app.vue is the persistent root layout - it only mounts once per full page load, so a
+// client-side navigateTo() after login (see pages/login.vue) never re-triggers onMounted
+// below. Without this watcher, authSnapshot stays frozen at its pre-login {hasToken:false}
+// value forever, so the sidebar keeps showing just "Login" even though the user is signed
+// in and every page's own API calls work fine off the real token in localStorage. Every
+// other modular app avoids this via the same watcher in shared-ui's ModularAppShell.vue -
+// Swalekha deliberately doesn't use that shared shell (see the comment above), so it needs
+// its own copy of this one piece.
+watch(() => route.fullPath, () => {
+  if (import.meta.client) refreshAuthSnapshot()
+})
 
 // The garmetix-dashboard-* CSS (shared-ui/assets/modular-shell.css) sizes the sidebar/panel to
 // fill the viewport via this body class - without it the dashboard layout can look collapsed.
