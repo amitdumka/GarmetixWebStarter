@@ -19,6 +19,19 @@
     <UAlert v-if="message" color="success" variant="subtle" icon="i-lucide-circle-check" :description="message" />
 
     <section class="garmetix-section-card">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 class="garmetix-panel-title">Email Low Stock Digest</h3>
+          <p class="garmetix-panel-subtitle">Sends the current Critical/Low risk items to a recipient via Communication & Mail.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <UInput v-model="digestEmail" type="email" placeholder="recipient@example.com" class="w-64" />
+          <UButton icon="i-lucide-mail" color="primary" variant="soft" :loading="sendingDigest" @click="sendLowStockDigest">Send Digest</UButton>
+        </div>
+      </div>
+    </section>
+
+    <section class="garmetix-section-card">
       <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 class="garmetix-panel-title">Stock Operation Documents</h3>
@@ -127,6 +140,8 @@ const detailLoading = ref('')
 const error = ref('')
 const message = ref('')
 const search = ref('')
+const digestEmail = ref('')
+const sendingDigest = ref(false)
 const documents = ref<ApiRecord[]>([])
 const products = ref<ApiRecord[]>([])
 const stores = ref<ApiRecord[]>([])
@@ -190,6 +205,32 @@ const itemColumns = [
 function readArrayFrom(source: ApiRecord | null, key: string): ApiRecord[] {
   const value = source?.[key]
   return Array.isArray(value) ? value as ApiRecord[] : []
+}
+
+async function sendLowStockDigest() {
+  if (!digestEmail.value.trim()) {
+    error.value = 'Enter a recipient email address first.'
+    return
+  }
+  sendingDigest.value = true
+  error.value = ''
+  message.value = ''
+  try {
+    const result = await post<ApiRecord>('inventory/stock-reports/low-stock-alert/send-email', {
+      recipientEmail: digestEmail.value.trim(),
+      recipientName: null,
+      lowStockThreshold: null
+    })
+    if (result?.enqueued) {
+      message.value = `Low stock digest queued (${result.itemCount ?? 0} item(s)).`
+    } else {
+      error.value = readText(result, ['skipReason'], 'Could not queue the low stock digest.')
+    }
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Failed to queue the low stock digest.'
+  } finally {
+    sendingDigest.value = false
+  }
 }
 
 async function refresh() {

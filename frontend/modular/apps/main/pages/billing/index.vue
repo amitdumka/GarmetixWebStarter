@@ -14,6 +14,7 @@
     </div>
 
     <UAlert v-if="error" color="error" variant="subtle" icon="i-lucide-circle-alert" :description="error" />
+    <UAlert v-if="message" :color="messageTone" variant="subtle" :icon="messageTone === 'success' ? 'i-lucide-circle-check' : 'i-lucide-triangle-alert'" :description="message" />
 
     <section class="grid gap-3 md:grid-cols-4">
       <div v-for="card in summaryCards" :key="card.label" class="garmetix-metric-card">
@@ -127,7 +128,10 @@
           <div>
             <div class="mb-2 flex items-center justify-between">
               <h4 class="text-sm font-semibold">Items</h4>
-              <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-refresh-cw" :loading="receiptLoading" @click="loadReceipt(selectedInvoice)">Reload</UButton>
+              <div class="flex gap-1">
+                <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-mail" :loading="sendingInvoiceEmail" @click="emailInvoice(selectedInvoice)">Email Invoice</UButton>
+                <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-refresh-cw" :loading="receiptLoading" @click="loadReceipt(selectedInvoice)">Reload</UButton>
+              </div>
             </div>
             <div class="max-h-72 space-y-2 overflow-auto pr-1">
               <div v-if="!receiptItems.length" class="rounded-md border border-dashed border-default p-4 text-center text-sm text-muted">
@@ -156,7 +160,7 @@ import { formatDate, readArray, readNumber, readText, toRows, type ApiRecord, us
 
 useHead({ title: 'Sale Invoices - Garmetix Back Office' })
 
-const { get } = useMainApiClient()
+const { get, post } = useMainApiClient()
 
 const statusOptions = [
   { value: 'all', label: 'All sales' },
@@ -186,7 +190,10 @@ const pageSizeOptions = [
 
 const loading = ref(false)
 const receiptLoading = ref(false)
+const sendingInvoiceEmail = ref(false)
 const error = ref('')
+const message = ref('')
+const messageTone = ref<'success' | 'warning'>('success')
 const search = ref('')
 const statusFilter = ref('all')
 const datePreset = ref('today')
@@ -306,6 +313,28 @@ async function loadReceipt(invoice: ApiRecord | null) {
     error.value = caught instanceof Error ? caught.message : 'Unable to load invoice receipt items.'
   } finally {
     receiptLoading.value = false
+  }
+}
+
+async function emailInvoice(invoice: ApiRecord | null) {
+  const id = readText(invoice, ['id'], '')
+  if (!id) return
+  sendingInvoiceEmail.value = true
+  message.value = ''
+  error.value = ''
+  try {
+    const result = await post<ApiRecord>(`billing/sales/${id}/send-email`)
+    if (result?.enqueued) {
+      messageTone.value = 'success'
+      message.value = `Invoice email queued for ${readText(invoice, ['customerName'], 'the customer')}.`
+    } else {
+      messageTone.value = 'warning'
+      message.value = readText(result, ['skipReason'], 'Could not queue the invoice email.')
+    }
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Failed to queue the invoice email.'
+  } finally {
+    sendingInvoiceEmail.value = false
   }
 }
 

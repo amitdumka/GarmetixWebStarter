@@ -99,7 +99,7 @@
                   <UButton size="xs" icon="i-lucide-pencil" color="neutral" variant="soft" @click="editPayslip(slip)" />
                   <UButton size="xs" icon="i-lucide-wallet-cards" variant="soft" @click="startPaymentFromPayslip(slip)">Pay</UButton>
                   <UButton size="xs" icon="i-lucide-download" color="neutral" variant="soft" @click="downloadPayslip(slip)">PDF</UButton>
-                  <UButton size="xs" icon="i-lucide-mail" color="neutral" variant="soft" @click="sharePayslipEmail(slip)">Email</UButton>
+                  <UButton size="xs" icon="i-lucide-mail" color="neutral" variant="soft" :loading="sendingPayslipEmailId === readText(slip, ['id'], '')" @click="sharePayslipEmail(slip)">Email</UButton>
                   <UButton size="xs" icon="i-lucide-message-circle" color="success" variant="soft" @click="sharePayslipWhatsApp(slip)">WhatsApp</UButton>
                   <UButton size="xs" icon="i-lucide-trash-2" color="error" variant="soft" @click="deletePayslip(slip)" />
                 </div>
@@ -987,12 +987,24 @@ async function downloadPayment(payment: ApiRecord) {
   await downloadFile(`api/salary-payments/${id}/pdf`, `salary-payment-${readText(payment, ['voucherNumber'], id).replace(/[\\/]/g, '-')}.pdf`)
 }
 
-function sharePayslipEmail(slip: ApiRecord) {
-  const employee = readText(slip, ['employeeName'], 'Employee')
-  const email = readText(slip, ['employeeEmail'], '')
-  const subject = encodeURIComponent(`Garmetix payslip - ${readText(slip, ['monthYear'], '')}`)
-  const body = encodeURIComponent(`Dear ${employee},\n\nYour payslip for ${readText(slip, ['monthYear'], '')} is ready in Garmetix.\n\nNet salary: ${money(readNumber(slip, ['netSalary']))}\nPaid: ${money(readNumber(slip, ['paidAmount']))}\nDue: ${money(readNumber(slip, ['dueAmount']))}\n\nRegards,\nGarmetix`)
-  window.location.href = `mailto:${email && email !== '-' ? email : ''}?subject=${subject}&body=${body}`
+const sendingPayslipEmailId = ref('')
+
+async function sharePayslipEmail(slip: ApiRecord) {
+  const id = readText(slip, ['id'], '')
+  if (!id) return
+  sendingPayslipEmailId.value = id
+  try {
+    const result = await post<ApiRecord>(`api/payroll/payslips/${id}/send-email`)
+    if (result?.enqueued) {
+      showMessage(`Payslip email queued for ${readText(slip, ['employeeName'], 'the employee')}.`, 'success')
+    } else {
+      showMessage(readText(result, ['skipReason'], 'Could not queue the payslip email.'), 'warning')
+    }
+  } catch (err) {
+    showMessage(err instanceof Error ? err.message : 'Failed to queue the payslip email.', 'error')
+  } finally {
+    sendingPayslipEmailId.value = ''
+  }
 }
 
 function sharePayslipWhatsApp(slip: ApiRecord) {

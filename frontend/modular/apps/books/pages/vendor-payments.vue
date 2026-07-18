@@ -74,6 +74,15 @@
                     <div class="flex flex-wrap items-center gap-1">
                       <UButton icon="i-lucide-eye" size="xs" color="neutral" variant="ghost" @click="selectPayment(payment)" />
                       <UButton icon="i-lucide-pencil" size="xs" color="neutral" variant="ghost" @click="startEdit(payment)" />
+                      <UButton
+                        v-if="readText(payment, ['voucherId'], '')"
+                        icon="i-lucide-mail"
+                        size="xs"
+                        color="neutral"
+                        variant="ghost"
+                        :loading="sendingPaymentEmailVoucherId === readText(payment, ['voucherId'], '')"
+                        @click="emailVendorPayment(payment)"
+                      />
                       <UButton icon="i-lucide-trash-2" size="xs" color="error" variant="ghost" @click="askDelete(payment)" />
                     </div>
                   </td>
@@ -268,6 +277,7 @@ const saving = ref(false)
 const invoiceSearching = ref(false)
 const error = ref('')
 const message = ref('')
+const sendingPaymentEmailVoucherId = ref('')
 const search = ref('')
 const kindFilter = ref('all')
 const downloadLoading = ref('')
@@ -496,6 +506,26 @@ async function saveCreate() {
     error.value = caught instanceof Error ? caught.message : 'Unable to save vendor payment.'
   } finally {
     saving.value = false
+  }
+}
+
+async function emailVendorPayment(payment: ApiRecord) {
+  const voucherId = readText(payment, ['voucherId'], '')
+  if (!voucherId) return
+  sendingPaymentEmailVoucherId.value = voucherId
+  error.value = ''
+  message.value = ''
+  try {
+    const result = await post<ApiRecord>(`purchase/payments/${voucherId}/send-email`)
+    if (result?.enqueued) {
+      message.value = `Payment confirmation email queued for ${readText(payment, ['vendorName'], 'the vendor')}.`
+    } else {
+      error.value = readText(result, ['skipReason'], 'Could not queue the payment email.')
+    }
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Failed to queue the payment email.'
+  } finally {
+    sendingPaymentEmailVoucherId.value = ''
   }
 }
 

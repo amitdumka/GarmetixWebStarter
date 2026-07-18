@@ -50,6 +50,9 @@
         </template>
         <template #actions-cell="{ row }">
           <div class="flex items-center justify-end gap-1">
+            <UTooltip text="Send Invitation Email">
+              <UButton icon="i-lucide-mail" color="neutral" variant="ghost" size="sm" :loading="invitingUserId === row.original.id" @click="sendInvitation(row.original)" />
+            </UTooltip>
             <UTooltip text="Reset Password">
               <UButton icon="i-lucide-key-round" color="neutral" variant="ghost" size="sm" @click="askReset(row.original)" />
             </UTooltip>
@@ -405,6 +408,24 @@ async function saveUser() {
     toast.add({ title: 'Error', description: caught instanceof Error ? caught.message : 'Failed to save user.', color: 'error' })
   } finally {
     saving.value = false
+  }
+}
+
+const invitingUserId = ref('')
+
+async function sendInvitation(user: any) {
+  invitingUserId.value = user.id
+  try {
+    const result = await post<any>(`access/users/${user.id}/send-invitation-email`)
+    if (result?.enqueued) {
+      toast.add({ title: 'Success', description: `Invitation email queued for ${user.name || user.userName}.`, color: 'success' })
+    } else {
+      toast.add({ title: 'Not sent', description: String(result?.skipReason ?? 'Could not queue the invitation email.'), color: 'warning' })
+    }
+  } catch (caught) {
+    toast.add({ title: 'Error', description: caught instanceof Error ? caught.message : 'Failed to queue the invitation email.', color: 'error' })
+  } finally {
+    invitingUserId.value = ''
   }
 }
 
