@@ -32,7 +32,7 @@ public static class EmailQueueStateMachine
         [EmailCatalog.QueueStatuses.Delivered] = new() { EmailCatalog.QueueStatuses.Complained },
         [EmailCatalog.QueueStatuses.Deferred] = new() { EmailCatalog.QueueStatuses.Processing, EmailCatalog.QueueStatuses.Failed },
         [EmailCatalog.QueueStatuses.Failed] = new() { EmailCatalog.QueueStatuses.Processing, EmailCatalog.QueueStatuses.DeadLetter },
-        [EmailCatalog.QueueStatuses.DeadLetter] = new() { EmailCatalog.QueueStatuses.Processing },
+        [EmailCatalog.QueueStatuses.DeadLetter] = new() { EmailCatalog.QueueStatuses.Pending, EmailCatalog.QueueStatuses.Processing },
         // Bounced, Complained, Rejected, Cancelled are terminal: a resend creates a new
         // linked EmailQueueItem (ResentFromQueueItemId), it never mutates a terminal row.
         [EmailCatalog.QueueStatuses.Bounced] = new(),

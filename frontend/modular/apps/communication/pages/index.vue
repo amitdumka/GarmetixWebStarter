@@ -29,6 +29,8 @@
         <UButton icon="i-lucide-inbox" color="primary" variant="soft" to="/mailbox">Mailbox</UButton>
         <UButton icon="i-lucide-server-cog" color="primary" variant="soft" to="/providers">Providers & Setup</UButton>
         <UButton icon="i-lucide-file-text" color="primary" variant="soft" to="/templates">Templates</UButton>
+        <UButton icon="i-lucide-list-checks" color="primary" variant="soft" to="/queue">Queue & Log</UButton>
+        <UButton icon="i-lucide-shield-off" color="primary" variant="soft" to="/suppression">Suppression</UButton>
       </div>
     </section>
   </section>

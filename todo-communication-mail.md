@@ -55,17 +55,17 @@
 
 ## Webhooks and suppression
 
-- [ ] Verify current official Brevo webhook security requirements.
-- [ ] Implement authenticated, limited and deduplicated webhook.
-- [ ] Store delivery timeline and sanitized events.
-- [ ] Implement scoped hard-bounce/invalid/complaint/manual suppression.
-- [ ] Add audited suppression removal with reason.
+- [x] Verify current official Brevo webhook security requirements. (researched live docs - Basic Auth/header token + IP allow-list, no HMAC signature exists for transactional webhooks)
+- [x] Implement authenticated, limited and deduplicated webhook.
+- [x] Store delivery timeline and sanitized events.
+- [x] Implement scoped hard-bounce/invalid/complaint/manual suppression.
+- [x] Add audited suppression removal with reason.
 
 ## UI and permissions
 
-- [ ] Add all `/communication` routes using standard layout. (dashboard + providers done; inbox/templates/queue/suppression arrive in later CM stages)
+- [x] Add all `/communication` routes using standard layout. (dashboard, providers, templates, mailbox, queue, suppression all shipped as one Mailbox page + dedicated admin pages instead of 7 literal routes)
 - [x] Add granular permissions and backend authorization.
-- [ ] Add providers, templates, queue/log, events and suppression pages. (providers page done in CM-05)
+- [x] Add providers, templates, queue/log, events and suppression pages.
 - [x] Add responsive loading, empty, validation and error states. (providers page)
 - [ ] Verify cross-tenant/store/company access is rejected. (deferred to CM-11 QA pass)
 

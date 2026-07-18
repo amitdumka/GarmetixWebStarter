@@ -492,7 +492,9 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
     ] },
     { key: 'admin', label: 'Providers & Setup', items: [
       { id: 'providers', label: 'Providers', href: '/providers', icon: 'i-lucide-server-cog' },
-      { id: 'templates', label: 'Templates', href: '/templates', icon: 'i-lucide-file-text' }
+      { id: 'templates', label: 'Templates', href: '/templates', icon: 'i-lucide-file-text' },
+      { id: 'queue', label: 'Queue & Log', href: '/queue', icon: 'i-lucide-list-checks' },
+      { id: 'suppression', label: 'Suppression', href: '/suppression', icon: 'i-lucide-shield-off' }
     ] }
   ]
 }
