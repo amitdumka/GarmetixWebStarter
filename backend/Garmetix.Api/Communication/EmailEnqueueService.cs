@@ -20,7 +20,8 @@ public sealed record EmailEnqueueRequest(
     IReadOnlyList<EmailAddressValue> To,
     int Revision,
     Guid? CreatedByUserId,
-    DateTime? ScheduledForUtc = null);
+    DateTime? ScheduledForUtc = null,
+    IReadOnlyList<EmailAttachmentPayload>? Attachments = null);
 
 /// <summary>
 /// The single entry point business modules call to queue an outbound email (never a direct
@@ -30,7 +31,7 @@ public sealed record EmailEnqueueRequest(
 /// can never double-send. A genuine resend must go through ResendAsync, which creates a new
 /// linked row with a bumped revision instead of mutating history.
 /// </summary>
-public sealed class EmailEnqueueService(GarmetixDbContext db)
+public sealed class EmailEnqueueService(GarmetixDbContext db, CommunicationAttachmentStorageService attachmentStorage)
 {
     public async Task<EmailQueueItem> EnqueueAsync(EmailEnqueueRequest request, CancellationToken cancellationToken)
     {
@@ -103,6 +104,26 @@ public sealed class EmailEnqueueService(GarmetixDbContext db)
             }
 
             throw;
+        }
+
+        if (request.Attachments is { Count: > 0 })
+        {
+            foreach (var attachment in request.Attachments)
+            {
+                var (storedFileName, storedRelativePath, checksum) = await attachmentStorage.SaveEmailAttachmentAsync(
+                    request.CompanyId, queueItem.Id, attachment.Content, attachment.FileName, cancellationToken);
+                db.EmailAttachments.Add(new EmailAttachment
+                {
+                    QueueItemId = queueItem.Id,
+                    OriginalFileName = attachment.FileName,
+                    StoredFileName = storedFileName,
+                    StoredRelativePath = storedRelativePath,
+                    ContentType = attachment.ContentType,
+                    SizeBytes = attachment.Content.LongLength,
+                    Sha256Checksum = checksum,
+                });
+            }
+            await db.SaveChangesAsync(cancellationToken);
         }
 
         return queueItem;

@@ -222,6 +222,7 @@ builder.Services.AddScoped<EmailEnqueueService>();
 builder.Services.AddScoped<EmailRateLimitService>();
 builder.Services.AddScoped<CommunicationRecipientResolver>();
 builder.Services.AddScoped<CommunicationAttachmentStorageService>();
+builder.Services.AddScoped<BusinessNotificationService>();
 builder.Services.Configure<EmailQueueOptions>(builder.Configuration.GetSection("Communication:EmailQueue"));
 builder.Services.AddHostedService<EmailQueueWorker>();
 builder.Services.AddHttpClient("GstGenericRestProvider");

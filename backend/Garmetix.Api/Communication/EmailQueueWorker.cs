@@ -68,6 +68,7 @@ public sealed class EmailQueueWorker(
                 scope.ServiceProvider.GetRequiredService<EmailProviderResolutionService>(),
                 scope.ServiceProvider.GetRequiredService<IEmailProviderClientFactory>(),
                 scope.ServiceProvider.GetRequiredService<EmailRateLimitService>(),
+                scope.ServiceProvider.GetRequiredService<CommunicationAttachmentStorageService>(),
                 options);
 
             foreach (var item in claimed)

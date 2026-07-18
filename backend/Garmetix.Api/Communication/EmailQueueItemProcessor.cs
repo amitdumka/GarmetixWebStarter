@@ -15,6 +15,7 @@ public sealed class EmailQueueItemProcessor(
     EmailProviderResolutionService providerResolution,
     IEmailProviderClientFactory clientFactory,
     EmailRateLimitService rateLimiter,
+    CommunicationAttachmentStorageService attachmentStorage,
     EmailQueueOptions options)
 {
     public async Task ProcessAsync(EmailQueueItem item, CancellationToken cancellationToken)
@@ -56,7 +57,11 @@ public sealed class EmailQueueItemProcessor(
             ReplyToEmail: resolved.Provider.ReplyToEmail,
             Cc: recipients.Where(r => r.Kind == EmailCatalog.RecipientKinds.Cc).Select(r => new EmailAddressValue(r.EmailAddress, r.DisplayName)).ToList(),
             Bcc: recipients.Where(r => r.Kind == EmailCatalog.RecipientKinds.Bcc).Select(r => new EmailAddressValue(r.EmailAddress, r.DisplayName)).ToList(),
-            Attachments: attachments.Select(a => new EmailAttachmentPayload(a.OriginalFileName, a.ContentType, File.Exists(a.StoredRelativePath) ? File.ReadAllBytes(a.StoredRelativePath) : [])).ToList());
+            Attachments: attachments.Select(a =>
+            {
+                var absolutePath = attachmentStorage.ResolveAbsolutePath(a.StoredRelativePath);
+                return new EmailAttachmentPayload(a.OriginalFileName, a.ContentType, File.Exists(absolutePath) ? File.ReadAllBytes(absolutePath) : []);
+            }).ToList());
 
         var client = clientFactory.GetClient(resolved.Provider.ProviderType);
         var result = await client.SendAsync(resolved.Provider, resolved.Credentials, request, cancellationToken);

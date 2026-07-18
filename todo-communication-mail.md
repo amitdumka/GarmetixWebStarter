@@ -40,10 +40,10 @@
 - [x] Add safe HTML/text template CRUD, validation and preview.
 - [x] Add versioning, test send, approval and restore.
 - [x] Add initial system templates.
-- [ ] Integrate Sales without affecting invoice posting.
-- [ ] Integrate Purchase and Accounting.
-- [ ] Integrate HR/Payroll with confidential permissions.
-- [ ] Integrate Inventory and Administration.
+- [x] Integrate Sales without affecting invoice posting. (POST /api/billing/sales/{id}/send-email, additive after commit)
+- [x] Integrate Purchase and Accounting. (Purchase: POST /api/purchase/payments/{id}/send-email; Accounting daily-summary/system-alert templates seeded but not yet wired to a trigger event)
+- [x] Integrate HR/Payroll with confidential permissions. (POST /api/payroll/payslips/{id}/send-email, gated by the existing GarmetixPolicies.Payroll on the whole route group)
+- [x] Integrate Inventory and Administration. (Inventory: POST /api/inventory/stock-reports/low-stock-alert/send-email; Admin: POST /api/access/users/{id}/send-invitation-email)
 
 ## Internal communication
 

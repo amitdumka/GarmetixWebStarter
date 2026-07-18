@@ -74,4 +74,27 @@ public sealed class CommunicationAttachmentStorageService(IConfiguration configu
     }
 
     public string ResolveAbsolutePath(string storedRelativePath) => Path.Combine(StorageRoot(), storedRelativePath);
+
+    /// <summary>Saves an in-memory attachment (e.g. a generated invoice/payslip PDF) for an EmailQueueItem, using the same disk-storage shape as internal-message attachments.</summary>
+    public async Task<(string StoredFileName, string StoredRelativePath, string Sha256Checksum)> SaveEmailAttachmentAsync(
+        Guid? companyId, Guid queueItemId, byte[] content, string originalFileName, CancellationToken cancellationToken)
+    {
+        var extension = Path.GetExtension(originalFileName);
+        var storedFileName = $"{Guid.NewGuid():N}{extension}";
+        var relativeDir = Path.Combine(
+            companyId?.ToString("N") ?? "global",
+            DateTime.UtcNow.ToString("yyyy"),
+            DateTime.UtcNow.ToString("MM"),
+            "email-queue",
+            queueItemId.ToString("N"));
+        var absoluteDir = Path.Combine(StorageRoot(), relativeDir);
+        Directory.CreateDirectory(absoluteDir);
+
+        var absolutePath = Path.Combine(absoluteDir, storedFileName);
+        await File.WriteAllBytesAsync(absolutePath, content, cancellationToken);
+
+        var checksum = Convert.ToHexString(SHA256.HashData(content)).ToLowerInvariant();
+        var storedRelativePath = Path.Combine(relativeDir, storedFileName);
+        return (storedFileName, storedRelativePath, checksum);
+    }
 }

@@ -35,6 +35,7 @@ public static class BillingEndpoints
         group.MapPost("/sales/{id:guid}/digital-bill", EnsureSaleDigitalBillAsync);
         group.MapPost("/sales/{id:guid}/digital-bill/send-whatsapp", SendSaleDigitalBillWhatsAppAsync);
         group.MapGet("/sales/{id:guid}/pdf", DownloadInvoicePdfAsync);
+        group.MapPost("/sales/{id:guid}/send-email", SendSaleInvoiceEmailAsync);
         group.MapPut("/sales/{id:guid}", UpdateSaleInvoiceAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapDelete("/sales/{id:guid}", DeleteSaleInvoiceAsync).RequireAuthorization(GarmetixPolicies.Delete);
         group.MapDelete("/sales/{id:guid}/hard-delete", HardDeleteSaleInvoiceAsync).RequireAuthorization(GarmetixPolicies.Admin);
@@ -556,10 +557,36 @@ public static class BillingEndpoints
         IConfiguration configuration,
         CancellationToken cancellationToken)
     {
+        var built = await BuildInvoicePdfModelAsync(id, context, db, configuration, cancellationToken);
+        if (built is null)
+        {
+            return Results.NotFound();
+        }
+
+        var (invoice, model) = built.Value;
+        var pdf = InvoicePdfDocument.Build(
+            model,
+            format ?? "a4",
+            copy ?? "customer",
+            reprint == true,
+            signatures != false);
+        var safeNumber = Regex.Replace(invoice.InvoiceNumber, @"[^A-Za-z0-9_-]+", "-").Trim('-');
+        return Results.File(pdf, "application/pdf", $"{(safeNumber.Length > 0 ? safeNumber : "invoice")}-{NormalizePdfFormat(format)}.pdf");
+    }
+
+    /// <summary>
+    /// Shared by DownloadInvoicePdfAsync and the CM-08 Communication & Mail SendSaleInvoiceEmailAsync
+    /// integration - pure extraction of the existing invoice-load + InvoicePdfModel-build logic,
+    /// no behavior change. Keeping this the single place invoice PDF data is assembled means the
+    /// emailed PDF is always byte-identical to the downloadable one.
+    /// </summary>
+    private static async Task<(Garmetix.Core.Models.Inventory.Invoice Invoice, InvoicePdfModel Model)?> BuildInvoicePdfModelAsync(
+        Guid id, HttpContext context, GarmetixDbContext db, IConfiguration configuration, CancellationToken cancellationToken)
+    {
         var invoice = await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context).FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (invoice is null)
         {
-            return Results.NotFound();
+            return null;
         }
 
         var company = await db.Companies.AsNoTracking()
@@ -630,14 +657,53 @@ public static class BillingEndpoints
             invoice.Remarks,
             BuildGoodsReturnPolicyUrl(context, configuration));
 
-        var pdf = InvoicePdfDocument.Build(
-            model,
-            format ?? "a4",
-            copy ?? "customer",
-            reprint == true,
-            signatures != false);
+        return (invoice, model);
+    }
+
+    /// <summary>
+    /// CM-08 Communication & Mail integration point - additive, opt-in, called after a sale
+    /// invoice already exists (never from CreateSaleAsync/CreateSaleCoreAsync). Reuses
+    /// BuildInvoicePdfModelAsync/InvoicePdfDocument.Build, so the emailed PDF is the same one
+    /// DownloadInvoicePdfAsync serves - no invoice calculation is duplicated into the
+    /// Communication module.
+    /// </summary>
+    private static async Task<IResult> SendSaleInvoiceEmailAsync(
+        Guid id,
+        HttpContext context,
+        GarmetixDbContext db,
+        IConfiguration configuration,
+        Garmetix.Api.Communication.BusinessNotificationService notifications,
+        CancellationToken cancellationToken)
+    {
+        var built = await BuildInvoicePdfModelAsync(id, context, db, configuration, cancellationToken);
+        if (built is null)
+        {
+            return Results.NotFound(new { message = "Sale invoice not found." });
+        }
+
+        var (invoice, model) = built.Value;
+        var customer = await db.Customers.AsNoTracking().FirstOrDefaultAsync(c => c.Id == invoice.CustomerId, cancellationToken);
+
+        var tokens = new Dictionary<string, string>
+        {
+            ["customerName"] = model.CustomerName,
+            ["storeName"] = model.StoreName,
+            ["invoiceNumber"] = model.InvoiceNumber,
+            ["invoiceDate"] = model.OnDate.ToString("dd MMM yyyy"),
+            ["invoiceTotal"] = model.BillAmount.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("en-IN")),
+        };
+
+        var pdfBytes = InvoicePdfDocument.Build(model, "a4", "customer", reprint: false, signatures: true);
         var safeNumber = Regex.Replace(invoice.InvoiceNumber, @"[^A-Za-z0-9_-]+", "-").Trim('-');
-        return Results.File(pdf, "application/pdf", $"{(safeNumber.Length > 0 ? safeNumber : "invoice")}-{NormalizePdfFormat(format)}.pdf");
+        var fileName = $"{(safeNumber.Length > 0 ? safeNumber : "invoice")}.pdf";
+
+        var createdByUserId = Guid.TryParse(context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var uid) ? uid : (Guid?)null;
+
+        var result = await notifications.SendSaleInvoiceEmailAsync(
+            id, customer?.Email ?? string.Empty, model.CustomerName, tokens,
+            invoice.CompanyId, null, invoice.StoreId, createdByUserId, pdfBytes, fileName, cancellationToken);
+
+        return Results.Ok(new { result.Enqueued, result.SkipReason });
     }
 
 

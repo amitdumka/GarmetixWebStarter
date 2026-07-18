@@ -51,6 +51,7 @@ public static class PurchaseEndpoints
         group.MapPost("/vendors/{vendorId:guid}/goods-return", CreateVendorGoodsReturnAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/invoices/{id:guid}/payment-voucher", CreateVendorPaymentVoucherAsync);
         group.MapPost("/payments/advance", CreateVendorAdvancePaymentAsync);
+        group.MapPost("/payments/{id:guid}/send-email", SendVendorPaymentEmailAsync);
         group.MapPost("/invoices/{id:guid}/cancel", CancelPurchaseAsync).RequireAuthorization(GarmetixPolicies.Delete);
 
         return group;
@@ -3374,6 +3375,50 @@ public static class PurchaseEndpoints
             invoice.InvoiceStatus.ToString()));
     }
 
+    /// <summary>
+    /// CM-08 Communication & Mail integration point - additive, opt-in, read-only over an
+    /// already-committed payment voucher (never called from CreateVendorPaymentVoucherAsync/
+    /// CreateVendorAdvancePaymentAsync). No dedicated vendor-payment-receipt PDF exists in this
+    /// codebase (PurchasePdfDocument is invoice/inward-shaped), so this is an email-only
+    /// confirmation for a first pass, matching the CM-08 research survey's scope call.
+    /// </summary>
+    private static async Task<IResult> SendVendorPaymentEmailAsync(
+        Guid id,
+        HttpContext context,
+        GarmetixDbContext db,
+        Garmetix.Api.Communication.BusinessNotificationService notifications,
+        CancellationToken cancellationToken)
+    {
+        var voucher = await WorkspaceScope.ApplyTo(db.Vouchers.AsNoTracking(), context).FirstOrDefaultAsync(v => v.Id == id, cancellationToken);
+        if (voucher is null)
+        {
+            return Results.NotFound(new { message = "Payment voucher not found." });
+        }
+
+        var payment = await db.PurchasePayments.AsNoTracking().FirstOrDefaultAsync(p => p.VoucherId == id, cancellationToken);
+        var vendor = payment is null ? null : await db.Vendors.AsNoTracking().FirstOrDefaultAsync(v => v.Id == payment.VendorId, cancellationToken);
+        var invoice = payment?.PurchaseInvoiceId is { } invoiceId
+            ? await db.PurchaseInvoices.AsNoTracking().FirstOrDefaultAsync(i => i.Id == invoiceId, cancellationToken)
+            : null;
+
+        var tokens = new Dictionary<string, string>
+        {
+            ["vendorName"] = vendor?.Name ?? voucher.PartyName ?? "Vendor",
+            ["storeName"] = "Garmetix Store",
+            ["amount"] = voucher.Amount.ToString("C2", System.Globalization.CultureInfo.GetCultureInfo("en-IN")),
+            ["invoiceNumber"] = invoice?.InvoiceNumber ?? voucher.VoucherNumber,
+            ["paymentDate"] = voucher.OnDate.ToString("dd MMM yyyy"),
+            ["paymentMode"] = voucher.PaymentMode.ToString(),
+        };
+
+        var createdByUserId = Guid.TryParse(context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var uid) ? uid : (Guid?)null;
+
+        var result = await notifications.SendVendorPaymentEmailAsync(
+            id, vendor?.Email ?? string.Empty, vendor?.Name, tokens,
+            voucher.CompanyId, voucher.StoreGroupId, voucher.StoreId, createdByUserId, cancellationToken);
+
+        return Results.Ok(new { result.Enqueued, result.SkipReason });
+    }
 
     private static async Task<IResult> UpdatePurchaseInvoiceAsync(
         Guid id,
