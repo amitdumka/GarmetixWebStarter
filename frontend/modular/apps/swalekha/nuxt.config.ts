@@ -11,6 +11,12 @@ export default defineNuxtConfig({
         { name: 'application-name', content: 'Swalekha' },
         { name: 'apple-mobile-web-app-title', content: 'Swalekha' },
         { name: 'theme-color', content: '#1e1b2e' }
+      ],
+      link: [
+        { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32x32.png' },
+        { rel: 'icon', type: 'image/png', sizes: '192x192', href: '/swalekha-icon-192.png' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
+        { rel: 'manifest', href: '/site.webmanifest' }
       ]
     }
   },

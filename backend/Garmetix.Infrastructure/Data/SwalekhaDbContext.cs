@@ -56,6 +56,7 @@ public sealed class SwalekhaDbContext(DbContextOptions<SwalekhaDbContext> option
     public DbSet<SwalekhaShareHolding> SwalekhaShareHoldings => Set<SwalekhaShareHolding>();
     public DbSet<SwalekhaShareTransaction> SwalekhaShareTransactions => Set<SwalekhaShareTransaction>();
     public DbSet<SwalekhaOtherAsset> SwalekhaOtherAssets => Set<SwalekhaOtherAsset>();
+    public DbSet<SwalekhaAsset> SwalekhaAssets => Set<SwalekhaAsset>();
     public DbSet<SwalekhaLoan> SwalekhaLoans => Set<SwalekhaLoan>();
     public DbSet<SwalekhaLoanPayment> SwalekhaLoanPayments => Set<SwalekhaLoanPayment>();
     public DbSet<SwalekhaInsurancePolicy> SwalekhaInsurancePolicies => Set<SwalekhaInsurancePolicy>();

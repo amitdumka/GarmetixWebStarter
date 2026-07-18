@@ -93,6 +93,22 @@ public static class SwalekhaDashboardEndpoints
         var otherAssetsTotal = await db.SwalekhaOtherAssets.AsNoTracking().Where(a => a.IsActive).SumAsync(a => (decimal?)a.CurrentValue, cancellationToken) ?? 0m;
         assets.Add(new SwalekhaBreakdownRow("Other Assets (PPF/EPF/NPS/Gold)", otherAssetsTotal, null));
 
+        var immovableTotal = await db.SwalekhaAssets.AsNoTracking()
+            .Where(a => a.IsActive && a.Category == SwalekhaAssetCategory.Immovable)
+            .SumAsync(a => (decimal?)a.CurrentValue, cancellationToken) ?? 0m;
+        if (immovableTotal != 0)
+        {
+            assets.Add(new SwalekhaBreakdownRow("Property (House/Flat/Land)", immovableTotal, null));
+        }
+
+        var movableTotal = await db.SwalekhaAssets.AsNoTracking()
+            .Where(a => a.IsActive && a.Category == SwalekhaAssetCategory.Movable)
+            .SumAsync(a => (decimal?)a.CurrentValue, cancellationToken) ?? 0m;
+        if (movableTotal != 0)
+        {
+            assets.Add(new SwalekhaBreakdownRow("Movable Assets (Gold/Vehicle/Valuables)", movableTotal, null));
+        }
+
         var contacts = await db.SwalekhaContacts.AsNoTracking().Where(c => c.IsActive).ToListAsync(cancellationToken);
         var receivables = contacts.Where(c => c.Balance > 0).Sum(c => c.Balance);
         var payables = contacts.Where(c => c.Balance < 0).Sum(c => Math.Abs(c.Balance));

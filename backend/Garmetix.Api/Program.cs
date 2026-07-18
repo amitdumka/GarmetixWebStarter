@@ -526,6 +526,7 @@ app.MapSwalekhaInvestmentEndpoints();
 app.MapSwalekhaMutualFundEndpoints();
 app.MapSwalekhaShareEndpoints();
 app.MapSwalekhaOtherAssetEndpoints();
+app.MapSwalekhaAssetEndpoints();
 app.MapSwalekhaLoanEndpoints();
 app.MapSwalekhaInsuranceEndpoints();
 app.MapSwalekhaJournalEndpoints();

@@ -860,6 +860,43 @@ public static class SwalekhaSchemaRepairService
             CREATE INDEX IF NOT EXISTS "IX_SwalekhaDocuments_EntityType_EntityId" ON "SwalekhaDocuments" ("EntityType", "EntityId");
             """, cancellationToken);
 
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "SwalekhaAssets" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+                "Category" integer NOT NULL DEFAULT 0,
+                "AssetSubType" text NOT NULL DEFAULT '',
+                "Name" text NOT NULL DEFAULT '',
+                "PurchaseValue" numeric(18,2) NULL,
+                "PurchaseDate" timestamp without time zone NULL,
+                "CurrentValue" numeric(18,2) NOT NULL DEFAULT 0,
+                "AsOfDate" timestamp without time zone NOT NULL DEFAULT now(),
+                "Location" text NULL,
+                "IsActive" boolean NOT NULL DEFAULT true,
+                "Notes" text NULL,
+                CONSTRAINT "PK_SwalekhaAssets" PRIMARY KEY ("Id")
+            );
+
+            ALTER TABLE "SwalekhaAssets" ADD COLUMN IF NOT EXISTS "OwnerId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000';
+            ALTER TABLE "SwalekhaAssets" ADD COLUMN IF NOT EXISTS "Category" integer NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaAssets" ADD COLUMN IF NOT EXISTS "AssetSubType" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaAssets" ADD COLUMN IF NOT EXISTS "Name" text NOT NULL DEFAULT '';
+            ALTER TABLE "SwalekhaAssets" ADD COLUMN IF NOT EXISTS "PurchaseValue" numeric(18,2) NULL;
+            ALTER TABLE "SwalekhaAssets" ADD COLUMN IF NOT EXISTS "PurchaseDate" timestamp without time zone NULL;
+            ALTER TABLE "SwalekhaAssets" ADD COLUMN IF NOT EXISTS "CurrentValue" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "SwalekhaAssets" ADD COLUMN IF NOT EXISTS "AsOfDate" timestamp without time zone NOT NULL DEFAULT now();
+            ALTER TABLE "SwalekhaAssets" ADD COLUMN IF NOT EXISTS "Location" text NULL;
+            ALTER TABLE "SwalekhaAssets" ADD COLUMN IF NOT EXISTS "IsActive" boolean NOT NULL DEFAULT true;
+            ALTER TABLE "SwalekhaAssets" ADD COLUMN IF NOT EXISTS "Notes" text NULL;
+
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaAssets_OwnerId" ON "SwalekhaAssets" ("OwnerId");
+            CREATE INDEX IF NOT EXISTS "IX_SwalekhaAssets_Category" ON "SwalekhaAssets" ("Category");
+            """, cancellationToken);
+
         logger.LogInformation("Swalekha account storage repair check completed.");
     }
 }

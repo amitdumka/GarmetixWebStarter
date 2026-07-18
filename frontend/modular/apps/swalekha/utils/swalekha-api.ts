@@ -588,6 +588,44 @@ export interface SwalekhaOtherAssetPayload {
   notes?: string | null
 }
 
+export type SwalekhaAssetCategory = 'Immovable' | 'Movable'
+
+export interface SwalekhaAsset {
+  id: string
+  category: SwalekhaAssetCategory
+  assetSubType: string
+  name: string
+  purchaseValue?: number | null
+  purchaseDate?: string | null
+  currentValue: number
+  asOfDate: string
+  location?: string | null
+  isActive: boolean
+  notes?: string | null
+  createdAt: string
+}
+
+export interface SwalekhaAssetPayload {
+  category: SwalekhaAssetCategory
+  assetSubType: string
+  name: string
+  purchaseValue?: number | null
+  purchaseDate?: string | null
+  currentValue: number
+  asOfDate: string
+  location?: string | null
+  isActive: boolean
+  notes?: string | null
+}
+
+export interface SwalekhaAssetSummary {
+  immovableTotal: number
+  immovableCount: number
+  movableTotal: number
+  movableCount: number
+  grandTotal: number
+}
+
 export type SwalekhaLoanType = 'Personal' | 'Home' | 'Car' | 'Gold' | 'Education' | 'Other'
 export type SwalekhaLoanPaymentType = 'Emi' | 'Prepayment'
 

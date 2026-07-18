@@ -1,9 +1,12 @@
 <template>
   <section class="mx-auto max-w-xl garmetix-section-card">
-    <div class="mb-5">
-      <p class="garmetix-kicker"><UIcon name="i-lucide-book-heart" class="size-4" /> Swalekha access</p>
-      <h2 class="garmetix-dashboard-title">Login</h2>
-      <p class="mt-1 text-sm text-muted">Owner login only. Every other account is refused.</p>
+    <div class="mb-5 flex items-center gap-3">
+      <img src="/swalekha-icon-192.png" alt="Swalekha" class="size-12 shrink-0 rounded-xl" />
+      <div>
+        <p class="garmetix-kicker"><UIcon name="i-lucide-book-heart" class="size-4" /> Swalekha access</p>
+        <h2 class="garmetix-dashboard-title">Login</h2>
+        <p class="mt-1 text-sm text-muted">Owner login only. Every other account is refused.</p>
+      </div>
     </div>
 
     <form class="space-y-4" @submit.prevent="submit">
