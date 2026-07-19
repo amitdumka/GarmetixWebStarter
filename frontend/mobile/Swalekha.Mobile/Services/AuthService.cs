@@ -31,6 +31,13 @@ public sealed class AuthService
 
     public bool IsAuthenticated => CurrentToken is not null && CurrentUser is not null;
 
+    /// <summary>In-memory only, never persisted by AuthService itself - set right after a
+    /// successful LoginAsync so the immediately-following PIN-setup prompt can offer to vault
+    /// it (PinAuthService.SetupPinAsync is the only thing that writes it to SecureStorage).
+    /// Callers should clear this once consumed (setup or skip) so a plaintext password doesn't
+    /// linger in memory longer than the one screen that needs it.</summary>
+    public string? LastLoginPassword { get; set; }
+
     public async Task<AuthUserDto> LoginAsync(string userName, string password, CancellationToken cancellationToken = default)
     {
         HttpResponseMessage response;
@@ -73,6 +80,7 @@ public sealed class AuthService
 
         CurrentToken = auth.Token;
         CurrentUser = auth.User;
+        LastLoginPassword = password;
         await PersistSessionAsync(auth, cancellationToken);
 
         return auth.User;

@@ -6,11 +6,13 @@ namespace Swalekha.Mobile;
 public partial class AppShell : Shell
 {
     private readonly AuthService _authService;
+    private readonly PinAuthService _pinAuthService;
 
-    public AppShell(AuthService authService)
+    public AppShell(AuthService authService, PinAuthService pinAuthService)
     {
         InitializeComponent();
         _authService = authService;
+        _pinAuthService = pinAuthService;
         Loaded += OnLoaded;
 
         // Note: AccountsPage, ExpenseSheetsPage, InvestmentsHubPage (bottom tabs) and
@@ -44,11 +46,22 @@ public partial class AppShell : Shell
         Routing.RegisterRoute(nameof(LoanDetailPage), typeof(LoanDetailPage));
         Routing.RegisterRoute(nameof(InsurancePolicyEditPage), typeof(InsurancePolicyEditPage));
         Routing.RegisterRoute(nameof(InsurancePolicyDetailPage), typeof(InsurancePolicyDetailPage));
+        Routing.RegisterRoute(nameof(PinSetupPage), typeof(PinSetupPage));
     }
 
     private async void OnLoaded(object? sender, EventArgs e)
     {
         Loaded -= OnLoaded;
+
+        // Quick-access PIN set up: always route through the PIN unlock screen, even if the
+        // stored session token is still valid - PinLoginViewModel checks that itself, and
+        // silently re-authenticates with the vaulted credentials if it has expired. Without a
+        // PIN set up, fall back to the original session-restore-or-stay-on-Login behavior.
+        if (await _pinAuthService.HasPinSetupAsync())
+        {
+            await GoToAsync($"//{nameof(PinLoginPage)}");
+            return;
+        }
 
         var hasSession = await _authService.RestoreSessionAsync();
         if (hasSession)
@@ -56,4 +69,23 @@ public partial class AppShell : Shell
             await GoToAsync($"//{nameof(DashboardPage)}");
         }
     }
+
+    private Task NavigateFromFlyoutAsync(string route)
+    {
+        FlyoutIsPresented = false;
+        return GoToAsync(route);
+    }
+
+    private void OnContactsTapped(object? sender, TappedEventArgs e) => _ = NavigateFromFlyoutAsync("//ContactsPage");
+    private void OnIncomeTapped(object? sender, TappedEventArgs e) => _ = NavigateFromFlyoutAsync("//IncomePage");
+    private void OnRecurringBillsTapped(object? sender, TappedEventArgs e) => _ = NavigateFromFlyoutAsync("//RecurringBillsPage");
+    private void OnTripsTapped(object? sender, TappedEventArgs e) => _ = NavigateFromFlyoutAsync("//TripsPage");
+    private void OnLoansTapped(object? sender, TappedEventArgs e) => _ = NavigateFromFlyoutAsync("//LoansPage");
+    private void OnInsuranceTapped(object? sender, TappedEventArgs e) => _ = NavigateFromFlyoutAsync("//InsurancePoliciesPage");
+    private void OnJournalTapped(object? sender, TappedEventArgs e) => _ = NavigateFromFlyoutAsync("//JournalPage");
+    private void OnNotesTapped(object? sender, TappedEventArgs e) => _ = NavigateFromFlyoutAsync("//NotesPage");
+    private void OnCalendarTapped(object? sender, TappedEventArgs e) => _ = NavigateFromFlyoutAsync("//CalendarPage");
+    private void OnDocumentsTapped(object? sender, TappedEventArgs e) => _ = NavigateFromFlyoutAsync("//DocumentsPage");
+    private void OnSelfCheckTapped(object? sender, TappedEventArgs e) => _ = NavigateFromFlyoutAsync("//SelfCheckPage");
+    private void OnSettingsTapped(object? sender, TappedEventArgs e) => _ = NavigateFromFlyoutAsync("//SettingsPage");
 }

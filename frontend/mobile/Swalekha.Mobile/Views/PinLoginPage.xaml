@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
+             x:Class="Swalekha.Mobile.Views.PinLoginPage"
+             x:DataType="viewModels:PinLoginViewModel"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
+
+    <Grid RowDefinitions="0.7*,3*,1.3*" Padding="24,0">
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="0"
+                                  MaximumWidthRequest="420"
+                                  HorizontalOptions="Center">
+
+                <VerticalStackLayout Spacing="4" Margin="4,0,4,24" HorizontalOptions="Center">
+                    <Label Text="Swalekha"
+                           FontSize="26"
+                           FontAttributes="Bold"
+                           HorizontalOptions="Center"
+                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                    <Label Text="{Binding OwnerName, StringFormat='Welcome back, {0}'}"
+                           FontSize="13"
+                           HorizontalOptions="Center"
+                           HorizontalTextAlignment="Center"
+                           TextColor="{StaticResource SwalekhaMuted}" />
+                </VerticalStackLayout>
+
+                <Border Padding="22" StrokeThickness="1" StrokeShape="RoundRectangle 18"
+                        Stroke="{AppThemeBinding Light={StaticResource SwalekhaCardBorderLight}, Dark={StaticResource SwalekhaCardBorderDark}}"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                    <VerticalStackLayout Spacing="14">
+
+                        <Label Text="Enter your 4-digit PIN" FontSize="13"
+                               HorizontalOptions="Center"
+                               TextColor="{StaticResource SwalekhaMuted}" />
+
+                        <Entry Text="{Binding Pin}"
+                               Keyboard="Numeric"
+                               IsPassword="True"
+                               MaxLength="4"
+                               FontSize="28"
+                               HorizontalTextAlignment="Center"
+                               HorizontalOptions="Center"
+                               WidthRequest="160" />
+
+                        <Label Text="{Binding ErrorMessage}"
+                               IsVisible="{Binding HasError}"
+                               TextColor="{StaticResource SwalekhaDanger}"
+                               BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaDangerBg}, Dark={StaticResource SwalekhaDangerBgDark}}"
+                               HorizontalTextAlignment="Center"
+                               LineBreakMode="WordWrap"
+                               Padding="10"
+                               FontSize="12.5" />
+
+                        <buttons:SfButton Text="Unlock"
+                                           Command="{Binding UnlockCommand}"
+                                           HeightRequest="46"
+                                           CornerRadius="10"
+                                           FontSize="15"
+                                           Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                           TextColor="{StaticResource White}" />
+
+                        <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                           IsVisible="{Binding IsBusy}"
+                                           Color="{StaticResource Secondary}" />
+
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="Use username &amp; password instead"
+                       FontSize="13"
+                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                       HorizontalOptions="Center"
+                       Margin="0,20,0,0">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding UseFullLoginCommand}" />
+                    </Label.GestureRecognizers>
+                </Label>
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

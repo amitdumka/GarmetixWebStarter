@@ -59,6 +59,41 @@
                     Stroke="{AppThemeBinding Light={StaticResource SwalekhaCardBorderLight}, Dark={StaticResource SwalekhaCardBorderDark}}"
                     BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
                 <VerticalStackLayout Spacing="10">
+                    <Label Text="Quick PIN access" FontSize="14" FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                    <Label Text="Unlock Swalekha with a 4-digit PIN instead of your username and password every time. If your session expires, the PIN signs you back in automatically."
+                           FontSize="12" TextColor="{StaticResource SwalekhaMuted}" />
+
+                    <buttons:SfButton Text="Set up PIN"
+                                       Command="{Binding SetupPinCommand}"
+                                       IsVisible="{Binding HasPinSetup, Converter={StaticResource InvertedBoolConverter}}"
+                                       HeightRequest="44" CornerRadius="10"
+                                       Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                       TextColor="{StaticResource White}" />
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsVisible="{Binding HasPinSetup}">
+                        <buttons:SfButton Grid.Column="0" Text="Change PIN"
+                                           Command="{Binding ChangePinCommand}"
+                                           HeightRequest="44" CornerRadius="10" FontSize="13"
+                                           Background="Transparent"
+                                           Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                           StrokeThickness="1"
+                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                        <buttons:SfButton Grid.Column="1" Text="Turn off"
+                                           Command="{Binding DisableQuickAccessCommand}"
+                                           HeightRequest="44" CornerRadius="10" FontSize="13"
+                                           Background="Transparent"
+                                           Stroke="{StaticResource SwalekhaDanger}"
+                                           StrokeThickness="1"
+                                           TextColor="{StaticResource SwalekhaDanger}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Padding="16" StrokeThickness="1" StrokeShape="RoundRectangle 16"
+                    Stroke="{AppThemeBinding Light={StaticResource SwalekhaCardBorderLight}, Dark={StaticResource SwalekhaCardBorderDark}}"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                <VerticalStackLayout Spacing="10">
                     <Label Text="Account" FontSize="14" FontAttributes="Bold"
                            TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                     <buttons:SfButton Text="Sign out"

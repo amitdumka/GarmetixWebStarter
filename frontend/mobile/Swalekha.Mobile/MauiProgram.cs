@@ -40,9 +40,14 @@ public static class MauiProgram
         builder.Services.AddSingleton<AuthService>();
         builder.Services.AddSingleton<SwalekhaApiClient>();
         builder.Services.AddSingleton<AppThemeService>();
+        builder.Services.AddSingleton<PinAuthService>();
 
         builder.Services.AddTransient<LoginViewModel>();
         builder.Services.AddTransient<LoginPage>();
+        builder.Services.AddTransient<PinLoginViewModel>();
+        builder.Services.AddTransient<PinLoginPage>();
+        builder.Services.AddTransient<PinSetupViewModel>();
+        builder.Services.AddTransient<PinSetupPage>();
         builder.Services.AddTransient<DashboardViewModel>();
         builder.Services.AddTransient<DashboardPage>();
         builder.Services.AddTransient<AccountsViewModel>();

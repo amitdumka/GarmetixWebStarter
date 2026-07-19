@@ -7,10 +7,12 @@ namespace Swalekha.Mobile.ViewModels;
 public sealed partial class LoginViewModel : BaseViewModel
 {
     private readonly AuthService _authService;
+    private readonly PinAuthService _pinAuthService;
 
-    public LoginViewModel(AuthService authService)
+    public LoginViewModel(AuthService authService, PinAuthService pinAuthService)
     {
         _authService = authService;
+        _pinAuthService = pinAuthService;
     }
 
     [ObservableProperty]
@@ -41,7 +43,11 @@ public sealed partial class LoginViewModel : BaseViewModel
         {
             await _authService.LoginAsync(UserName.Trim(), Password);
             Password = string.Empty;
-            await Shell.Current.GoToAsync($"//{nameof(Views.DashboardPage)}");
+
+            var hasPinSetup = await _pinAuthService.HasPinSetupAsync();
+            await Shell.Current.GoToAsync(hasPinSetup
+                ? $"//{nameof(Views.DashboardPage)}"
+                : nameof(Views.PinSetupPage));
         });
     }
 }

@@ -15,6 +15,13 @@
         ContentTemplate="{DataTemplate views:LoginPage}"
         Route="LoginPage" />
 
+    <ShellContent
+        Title="Unlock"
+        Shell.FlyoutBehavior="Disabled"
+        Shell.FlyoutItemIsVisible="False"
+        ContentTemplate="{DataTemplate views:PinLoginPage}"
+        Route="PinLoginPage" />
+
     <!-- Bottom tab bar: the four most frequently used sections. -->
     <TabBar Route="MainTabs">
         <ShellContent Title="Dashboard" Route="DashboardPage"
@@ -27,42 +34,149 @@
                       ContentTemplate="{DataTemplate views:InvestmentsHubPage}" />
     </TabBar>
 
-    <!-- Side menu (flyout): everything else, one destination per entry. -->
-    <FlyoutItem Title="Contacts" Route="ContactsFlyout">
+    <!-- Side menu (flyout): everything else, one destination per entry. Every route below is
+         still a real Shell route (so GoToAsync/back-stack behavior is unchanged) - only the
+         flyout's own visual list is replaced with a grouped, branded layout instead of the
+         default flat one. -->
+    <FlyoutItem Title="Contacts" FlyoutItemIsVisible="False" Route="ContactsFlyout">
         <ShellContent ContentTemplate="{DataTemplate views:ContactsPage}" Route="ContactsPage" />
     </FlyoutItem>
-    <FlyoutItem Title="Income" Route="IncomeFlyout">
+    <FlyoutItem Title="Income" FlyoutItemIsVisible="False" Route="IncomeFlyout">
         <ShellContent ContentTemplate="{DataTemplate views:IncomePage}" Route="IncomePage" />
     </FlyoutItem>
-    <FlyoutItem Title="Recurring bills" Route="RecurringBillsFlyout">
+    <FlyoutItem Title="Recurring bills" FlyoutItemIsVisible="False" Route="RecurringBillsFlyout">
         <ShellContent ContentTemplate="{DataTemplate views:RecurringBillsPage}" Route="RecurringBillsPage" />
     </FlyoutItem>
-    <FlyoutItem Title="Trips" Route="TripsFlyout">
+    <FlyoutItem Title="Trips" FlyoutItemIsVisible="False" Route="TripsFlyout">
         <ShellContent ContentTemplate="{DataTemplate views:TripsPage}" Route="TripsPage" />
     </FlyoutItem>
-    <FlyoutItem Title="Loans" Route="LoansFlyout">
+    <FlyoutItem Title="Loans" FlyoutItemIsVisible="False" Route="LoansFlyout">
         <ShellContent ContentTemplate="{DataTemplate views:LoansPage}" Route="LoansPage" />
     </FlyoutItem>
-    <FlyoutItem Title="Insurance" Route="InsuranceFlyout">
+    <FlyoutItem Title="Insurance" FlyoutItemIsVisible="False" Route="InsuranceFlyout">
         <ShellContent ContentTemplate="{DataTemplate views:InsurancePoliciesPage}" Route="InsurancePoliciesPage" />
     </FlyoutItem>
-    <FlyoutItem Title="Journal" Route="JournalFlyout">
+    <FlyoutItem Title="Journal" FlyoutItemIsVisible="False" Route="JournalFlyout">
         <ShellContent ContentTemplate="{DataTemplate views:JournalPage}" Route="JournalPage" />
     </FlyoutItem>
-    <FlyoutItem Title="Notes" Route="NotesFlyout">
+    <FlyoutItem Title="Notes" FlyoutItemIsVisible="False" Route="NotesFlyout">
         <ShellContent ContentTemplate="{DataTemplate views:NotesPage}" Route="NotesPage" />
     </FlyoutItem>
-    <FlyoutItem Title="Calendar" Route="CalendarFlyout">
+    <FlyoutItem Title="Calendar" FlyoutItemIsVisible="False" Route="CalendarFlyout">
         <ShellContent ContentTemplate="{DataTemplate views:CalendarPage}" Route="CalendarPage" />
     </FlyoutItem>
-    <FlyoutItem Title="Documents" Route="DocumentsFlyout">
+    <FlyoutItem Title="Documents" FlyoutItemIsVisible="False" Route="DocumentsFlyout">
         <ShellContent ContentTemplate="{DataTemplate views:DocumentsPage}" Route="DocumentsPage" />
     </FlyoutItem>
-    <FlyoutItem Title="Security self-check" Route="SelfCheckFlyout">
+    <FlyoutItem Title="Security self-check" FlyoutItemIsVisible="False" Route="SelfCheckFlyout">
         <ShellContent ContentTemplate="{DataTemplate views:SelfCheckPage}" Route="SelfCheckPage" />
     </FlyoutItem>
-    <FlyoutItem Title="Settings" Route="SettingsFlyout">
+    <FlyoutItem Title="Settings" FlyoutItemIsVisible="False" Route="SettingsFlyout">
         <ShellContent ContentTemplate="{DataTemplate views:SettingsPage}" Route="SettingsPage" />
     </FlyoutItem>
+
+    <Shell.FlyoutHeader>
+        <VerticalStackLayout Padding="20,32,20,16" Spacing="2"
+                              BackgroundColor="{AppThemeBinding Light=#F2F6F8, Dark=#0C161D}">
+            <Label Text="Swalekha" FontSize="20" FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light=#0B4F6C, Dark=#14919B}" />
+            <Label Text="Your personal finance ledger" FontSize="12" TextColor="#5C7684" />
+        </VerticalStackLayout>
+    </Shell.FlyoutHeader>
+
+    <Shell.FlyoutContent>
+        <ScrollView BackgroundColor="{AppThemeBinding Light=White, Dark=#1C2E3B}">
+            <VerticalStackLayout Padding="8,4,8,20" Spacing="2">
+
+                <Label Text="PERSONAL FINANCE" FontSize="11" FontAttributes="Bold" Margin="12,14,0,4"
+                       TextColor="#5C7684" />
+                <Label Text="Contacts" Padding="12,12" FontSize="15"
+                       TextColor="{AppThemeBinding Light=Black, Dark=White}">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnContactsTapped" />
+                    </Label.GestureRecognizers>
+                </Label>
+                <Label Text="Income" Padding="12,12" FontSize="15"
+                       TextColor="{AppThemeBinding Light=Black, Dark=White}">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnIncomeTapped" />
+                    </Label.GestureRecognizers>
+                </Label>
+                <Label Text="Recurring bills" Padding="12,12" FontSize="15"
+                       TextColor="{AppThemeBinding Light=Black, Dark=White}">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnRecurringBillsTapped" />
+                    </Label.GestureRecognizers>
+                </Label>
+                <Label Text="Trips" Padding="12,12" FontSize="15"
+                       TextColor="{AppThemeBinding Light=Black, Dark=White}">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnTripsTapped" />
+                    </Label.GestureRecognizers>
+                </Label>
+                <Label Text="Loans" Padding="12,12" FontSize="15"
+                       TextColor="{AppThemeBinding Light=Black, Dark=White}">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnLoansTapped" />
+                    </Label.GestureRecognizers>
+                </Label>
+                <Label Text="Insurance" Padding="12,12" FontSize="15"
+                       TextColor="{AppThemeBinding Light=Black, Dark=White}">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnInsuranceTapped" />
+                    </Label.GestureRecognizers>
+                </Label>
+
+                <BoxView HeightRequest="1" Margin="12,10"
+                         Color="{AppThemeBinding Light=#C8C8C8, Dark=#2C4557}" />
+
+                <Label Text="PERSONAL ORGANIZER" FontSize="11" FontAttributes="Bold" Margin="12,10,0,4"
+                       TextColor="#5C7684" />
+                <Label Text="Journal" Padding="12,12" FontSize="15"
+                       TextColor="{AppThemeBinding Light=Black, Dark=White}">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnJournalTapped" />
+                    </Label.GestureRecognizers>
+                </Label>
+                <Label Text="Notes" Padding="12,12" FontSize="15"
+                       TextColor="{AppThemeBinding Light=Black, Dark=White}">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnNotesTapped" />
+                    </Label.GestureRecognizers>
+                </Label>
+                <Label Text="Calendar" Padding="12,12" FontSize="15"
+                       TextColor="{AppThemeBinding Light=Black, Dark=White}">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnCalendarTapped" />
+                    </Label.GestureRecognizers>
+                </Label>
+
+                <BoxView HeightRequest="1" Margin="12,10"
+                         Color="{AppThemeBinding Light=#C8C8C8, Dark=#2C4557}" />
+
+                <Label Text="TOOLS" FontSize="11" FontAttributes="Bold" Margin="12,10,0,4"
+                       TextColor="#5C7684" />
+                <Label Text="Documents" Padding="12,12" FontSize="15"
+                       TextColor="{AppThemeBinding Light=Black, Dark=White}">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnDocumentsTapped" />
+                    </Label.GestureRecognizers>
+                </Label>
+                <Label Text="Security self-check" Padding="12,12" FontSize="15"
+                       TextColor="{AppThemeBinding Light=Black, Dark=White}">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnSelfCheckTapped" />
+                    </Label.GestureRecognizers>
+                </Label>
+                <Label Text="Settings" Padding="12,12" FontSize="15"
+                       TextColor="{AppThemeBinding Light=Black, Dark=White}">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnSettingsTapped" />
+                    </Label.GestureRecognizers>
+                </Label>
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </Shell.FlyoutContent>
 
 </Shell>
