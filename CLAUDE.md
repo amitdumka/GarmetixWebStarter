@@ -1,5 +1,15 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-19 - Android Swalekha: Contacts + Person Ledger stage (PersonalFin_03 parity)
+
+Amit said "keep continue" again right after the Accounts Hub stage. This stage ports `PersonalFin_03`'s Contacts + Person Ledger; DTOs read directly from `SwalekhaContactsEndpoints.cs`, no backend changes.
+
+- New `ContactsPage` (owed-to-you/you-owe summary cards, tap a row to open detail, `+ Add contact`), `ContactEditPage` (create/edit, same `[QueryProperty]`-decides-mode pattern as `AccountEditPage`), `ContactDetailPage` (balance header with a "positive = owes you" explainer, inline ledger-entry form covering all four entry types - LoanGiven/LoanTaken/RepaymentReceived/RepaymentPaid - a Settle button that posts whichever repayment zeroes the balance server-side, per-row Delete).
+- `SwalekhaApiClient` gained the contact/ledger/settle calls, reusing the same `SendAsync`/`SendNoContentAsync` pipeline the Accounts Hub stage built.
+- Dashboard's single "Accounts hub" link became a two-card row (Accounts hub + Contacts) reached the same way - a `TapGestureRecognizer` on an `SfCard`.
+- Validated: `dotnet build -f net10.0-android` (0 errors). **Not run on a device/emulator** - same standing limitation as every prior stage.
+- Next: Expense & Income (`PersonalFin_04`).
+
 ## 2026-07-19 - Android Swalekha: Accounts Hub stage (PersonalFin_02 parity)
 
 Amit said "keep continue" right after the foundation stage landed - the same "keep going stage by stage" pattern the web Swalekha module was built with. This stage ports `PersonalFin_02`'s Accounts Hub Core to the Android app; DTOs read directly from `SwalekhaAccountsEndpoints.cs`, no backend changes.

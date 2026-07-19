@@ -46,6 +46,33 @@ public sealed class SwalekhaApiClient
     public Task<SwalekhaTransferResult> CreateTransferAsync(SwalekhaTransferPayload payload, CancellationToken cancellationToken = default)
         => SendAsync<SwalekhaTransferResult>(HttpMethod.Post, "api/swalekha/transfers", payload, cancellationToken);
 
+    public Task<List<SwalekhaContactDto>> GetContactsAsync(CancellationToken cancellationToken = default)
+        => SendAsync<List<SwalekhaContactDto>>(HttpMethod.Get, "api/swalekha/contacts", null, cancellationToken);
+
+    public Task<SwalekhaContactDto> GetContactAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaContactDto>(HttpMethod.Get, $"api/swalekha/contacts/{id}", null, cancellationToken);
+
+    public Task<SwalekhaContactDto> CreateContactAsync(SwalekhaContactPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaContactDto>(HttpMethod.Post, "api/swalekha/contacts", payload, cancellationToken);
+
+    public Task<SwalekhaContactDto> UpdateContactAsync(Guid id, SwalekhaContactPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaContactDto>(HttpMethod.Put, $"api/swalekha/contacts/{id}", payload, cancellationToken);
+
+    public Task DeleteContactAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/contacts/{id}", null, cancellationToken);
+
+    public Task<SwalekhaPersonLedgerList> GetContactLedgerAsync(Guid contactId, int page, int pageSize, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaPersonLedgerList>(HttpMethod.Get, $"api/swalekha/contacts/{contactId}/ledger?page={page}&pageSize={pageSize}", null, cancellationToken);
+
+    public Task<SwalekhaPersonLedgerEntryDto> AddLedgerEntryAsync(Guid contactId, SwalekhaPersonLedgerEntryPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaPersonLedgerEntryDto>(HttpMethod.Post, $"api/swalekha/contacts/{contactId}/ledger", payload, cancellationToken);
+
+    public Task DeleteLedgerEntryAsync(Guid contactId, Guid entryId, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/contacts/{contactId}/ledger/{entryId}", null, cancellationToken);
+
+    public Task SettleContactAsync(Guid contactId, SwalekhaSettlePayload payload, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Post, $"api/swalekha/contacts/{contactId}/settle", payload, cancellationToken);
+
     private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {
         var response = await SendCoreAsync(method, path, body, cancellationToken);
