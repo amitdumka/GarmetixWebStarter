@@ -1,5 +1,16 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-19 - Android Swalekha: Investments I stage (closes PersonalFin_08)
+
+Amit said "ok keep continue". Ports `PersonalFin_08` (Fixed Deposits + Recurring Deposits) to the Android app; DTOs read directly from `SwalekhaInvestmentEndpoints.cs`, no backend changes. First stage with genuine Accounts Hub integration on the mobile side - Mark Matured (FD and RD) and RD's Record Installment post real ledger transactions against a linked account, exactly like the backend already does for the web app.
+
+- New `InvestmentsHubPage` (active-count/principal summary cards for both FD and RD, tap through to either list), `FixedDepositsPage`/`RecurringDepositsPage` (show-matured toggle, tap a row to open detail), `FixedDepositEditPage`/`RecurringDepositEditPage` (bank/number/optional linked-account `Picker` sourced from the Accounts Hub/rate/tenure/dates-as-text/notes), `FixedDepositDetailPage`/`RecurringDepositDetailPage` (Mark Matured flow with a "credits the linked account automatically" note matching the real backend behavior; RD detail additionally has Record Installment).
+- Both edit ViewModels load the Accounts list on open specifically to populate that linked-account picker - the first place in the mobile app an edit screen needs data from a different module.
+- `SwalekhaApiClient` gained the FD/RD CRUD + mark-matured/record-installment calls.
+- Dashboard's Trips card became a two-card row with Trips, plus a new full-width "Investments" card below.
+- Validated: `dotnet build -f net10.0-android` (0 errors). **Not run on a device/emulator** - same standing limitation as every prior stage.
+- Next: Investments II - Mutual Funds (`PersonalFin_09`).
+
 ## 2026-07-19 - Android Swalekha: Trips stage (closes PersonalFin_05)
 
 Amit said "ok keep continue". Ports `PersonalFin_05` (Travel Expense Sheets) to the Android app; DTOs read directly from `SwalekhaTripEndpoints.cs`, no backend changes. Same "no data-copy on close" design as the web/backend: a Trip is metadata wrapped around a dedicated `SwalekhaExpenseSheet` (SheetType "Travel") created on trip creation, so trip expenses reuse the existing `PersonalFin_04` expense-entry endpoints against `Trip.SheetId` - the mobile `TripDetailViewModel` calls the same `GetExpenseEntriesAsync`/`AddExpenseEntryAsync`/`DeleteExpenseEntryAsync` the Expense Sheets stage already built, nothing duplicated.

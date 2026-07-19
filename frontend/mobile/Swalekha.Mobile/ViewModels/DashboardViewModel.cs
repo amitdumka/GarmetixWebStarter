@@ -107,6 +107,10 @@ public sealed partial class DashboardViewModel : BaseViewModel
         => await Shell.Current.GoToAsync(nameof(Views.TripsPage));
 
     [RelayCommand]
+    private static async Task OpenInvestmentsAsync()
+        => await Shell.Current.GoToAsync(nameof(Views.InvestmentsHubPage));
+
+    [RelayCommand]
     private async Task LogoutAsync()
     {
         _authService.Logout();

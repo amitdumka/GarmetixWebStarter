@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:cards="clr-namespace:Syncfusion.Maui.Toolkit.Cards;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:inputLayout="clr-namespace:Syncfusion.Maui.Toolkit.TextInputLayout;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
+             x:Class="Swalekha.Mobile.Views.RecurringDepositDetailPage"
+             x:DataType="viewModels:RecurringDepositDetailViewModel"
+             Title="Recurring deposit"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
+
+    <RefreshView Command="{Binding LoadCommand}" IsRefreshing="{Binding IsBusy}">
+        <ScrollView>
+            <VerticalStackLayout Padding="16" Spacing="14">
+
+                <cards:SfCard Padding="16" StrokeThickness="0" CornerRadius="14"
+                              BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                              IsVisible="{Binding Deposit, Converter={StaticResource NullableHasValueConverter}}">
+                    <VerticalStackLayout Spacing="2">
+                        <Label Text="{Binding Deposit.BankName}" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource White}" />
+                        <Label Text="{Binding Deposit.RdNumber}" FontSize="12" TextColor="{StaticResource SecondaryDarkText}"
+                               IsVisible="{Binding Deposit.RdNumber, Converter={StaticResource NullableHasValueConverter}}" />
+                        <Label Text="{Binding Deposit.MonthlyInstallment, StringFormat='₹{0:N0}/mo'}" FontSize="24" FontAttributes="Bold" TextColor="{StaticResource White}" Margin="0,6,0,0" />
+                        <Label FontSize="11" TextColor="{StaticResource SecondaryDarkText}">
+                            <Label.Text>
+                                <Binding Path="Deposit.InstallmentsPaid" StringFormat="{}{0} installments paid" />
+                            </Label.Text>
+                        </Label>
+                        <Label Text="{Binding Deposit.MaturityDate, StringFormat='Matures {0:dd MMM yyyy}'}" FontSize="11" TextColor="{StaticResource SecondaryDarkText}" />
+                        <Label Text="Matured" FontSize="11" FontAttributes="Bold" TextColor="{StaticResource SecondaryDarkText}"
+                               IsVisible="{Binding Deposit.IsClosed}" />
+                    </VerticalStackLayout>
+                </cards:SfCard>
+
+                <Label Text="{Binding ErrorMessage}"
+                       IsVisible="{Binding HasError}"
+                       TextColor="{StaticResource SwalekhaDanger}"
+                       BackgroundColor="{StaticResource SwalekhaDangerBg}"
+                       Padding="10" FontSize="13" />
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10" IsVisible="{Binding CanMarkMatured}">
+                    <buttons:SfButton Grid.Column="0" Text="Record installment"
+                                       Command="{Binding RecordInstallmentCommand}"
+                                       HeightRequest="42" CornerRadius="8"
+                                       Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                       TextColor="{StaticResource White}" />
+                    <buttons:SfButton Grid.Column="1" Text="Mark matured"
+                                       Command="{Binding ToggleMaturingCommand}"
+                                       HeightRequest="42" CornerRadius="8"
+                                       Background="Transparent"
+                                       Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                       StrokeThickness="1"
+                                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                </Grid>
+
+                <cards:SfCard Padding="14" StrokeThickness="0" CornerRadius="14"
+                              IsVisible="{Binding IsMaturing}"
+                              BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                    <VerticalStackLayout Spacing="10">
+                        <inputLayout:SfTextInputLayout Hint="Maturity amount credited" ContainerType="Outlined">
+                            <Entry Text="{Binding MaturityAmountText}" Keyboard="Numeric" />
+                        </inputLayout:SfTextInputLayout>
+                        <Label Text="If a bank account is linked, it will be credited automatically."
+                               FontSize="11" TextColor="{StaticResource SwalekhaMuted}" />
+                        <buttons:SfButton Text="Confirm matured"
+                                           Command="{Binding ConfirmMaturedCommand}"
+                                           HeightRequest="42" CornerRadius="8"
+                                           Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                           TextColor="{StaticResource White}" />
+                    </VerticalStackLayout>
+                </cards:SfCard>
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </RefreshView>
+</ContentPage>

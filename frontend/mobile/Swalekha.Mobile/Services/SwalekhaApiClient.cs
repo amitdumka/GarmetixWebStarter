@@ -145,6 +145,45 @@ public sealed class SwalekhaApiClient
     public Task<SwalekhaTripDto> ReopenTripAsync(Guid id, CancellationToken cancellationToken = default)
         => SendAsync<SwalekhaTripDto>(HttpMethod.Post, $"api/swalekha/trips/{id}/reopen", null, cancellationToken);
 
+    public Task<List<SwalekhaFixedDepositDto>> GetFixedDepositsAsync(bool includeClosed, CancellationToken cancellationToken = default)
+        => SendAsync<List<SwalekhaFixedDepositDto>>(HttpMethod.Get, $"api/swalekha/fixed-deposits?includeClosed={includeClosed}", null, cancellationToken);
+
+    public Task<SwalekhaFixedDepositDto> GetFixedDepositAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaFixedDepositDto>(HttpMethod.Get, $"api/swalekha/fixed-deposits/{id}", null, cancellationToken);
+
+    public Task<SwalekhaFixedDepositDto> CreateFixedDepositAsync(SwalekhaFixedDepositPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaFixedDepositDto>(HttpMethod.Post, "api/swalekha/fixed-deposits", payload, cancellationToken);
+
+    public Task<SwalekhaFixedDepositDto> UpdateFixedDepositAsync(Guid id, SwalekhaFixedDepositPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaFixedDepositDto>(HttpMethod.Put, $"api/swalekha/fixed-deposits/{id}", payload, cancellationToken);
+
+    public Task DeleteFixedDepositAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/fixed-deposits/{id}", null, cancellationToken);
+
+    public Task<SwalekhaFixedDepositDto> MarkFixedDepositMaturedAsync(Guid id, SwalekhaMarkMaturedPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaFixedDepositDto>(HttpMethod.Post, $"api/swalekha/fixed-deposits/{id}/mark-matured", payload, cancellationToken);
+
+    public Task<List<SwalekhaRecurringDepositDto>> GetRecurringDepositsAsync(bool includeClosed, CancellationToken cancellationToken = default)
+        => SendAsync<List<SwalekhaRecurringDepositDto>>(HttpMethod.Get, $"api/swalekha/recurring-deposits?includeClosed={includeClosed}", null, cancellationToken);
+
+    public Task<SwalekhaRecurringDepositDto> GetRecurringDepositAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaRecurringDepositDto>(HttpMethod.Get, $"api/swalekha/recurring-deposits/{id}", null, cancellationToken);
+
+    public Task<SwalekhaRecurringDepositDto> CreateRecurringDepositAsync(SwalekhaRecurringDepositPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaRecurringDepositDto>(HttpMethod.Post, "api/swalekha/recurring-deposits", payload, cancellationToken);
+
+    public Task<SwalekhaRecurringDepositDto> UpdateRecurringDepositAsync(Guid id, SwalekhaRecurringDepositPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaRecurringDepositDto>(HttpMethod.Put, $"api/swalekha/recurring-deposits/{id}", payload, cancellationToken);
+
+    public Task DeleteRecurringDepositAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/recurring-deposits/{id}", null, cancellationToken);
+
+    public Task<SwalekhaRecurringDepositDto> RecordRecurringDepositInstallmentAsync(Guid id, SwalekhaRecordInstallmentPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaRecurringDepositDto>(HttpMethod.Post, $"api/swalekha/recurring-deposits/{id}/record-installment", payload, cancellationToken);
+
+    public Task<SwalekhaRecurringDepositDto> MarkRecurringDepositMaturedAsync(Guid id, SwalekhaMarkMaturedPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaRecurringDepositDto>(HttpMethod.Post, $"api/swalekha/recurring-deposits/{id}/mark-matured", payload, cancellationToken);
+
     private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {
         var response = await SendCoreAsync(method, path, body, cancellationToken);

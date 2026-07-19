@@ -28,6 +28,13 @@ public partial class AppShell : Shell
         Routing.RegisterRoute(nameof(TripsPage), typeof(TripsPage));
         Routing.RegisterRoute(nameof(TripEditPage), typeof(TripEditPage));
         Routing.RegisterRoute(nameof(TripDetailPage), typeof(TripDetailPage));
+        Routing.RegisterRoute(nameof(InvestmentsHubPage), typeof(InvestmentsHubPage));
+        Routing.RegisterRoute(nameof(FixedDepositsPage), typeof(FixedDepositsPage));
+        Routing.RegisterRoute(nameof(FixedDepositEditPage), typeof(FixedDepositEditPage));
+        Routing.RegisterRoute(nameof(FixedDepositDetailPage), typeof(FixedDepositDetailPage));
+        Routing.RegisterRoute(nameof(RecurringDepositsPage), typeof(RecurringDepositsPage));
+        Routing.RegisterRoute(nameof(RecurringDepositEditPage), typeof(RecurringDepositEditPage));
+        Routing.RegisterRoute(nameof(RecurringDepositDetailPage), typeof(RecurringDepositDetailPage));
     }
 
     private async void OnLoaded(object? sender, EventArgs e)

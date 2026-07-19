@@ -74,6 +74,20 @@ public static class MauiProgram
         builder.Services.AddTransient<TripEditPage>();
         builder.Services.AddTransient<TripDetailViewModel>();
         builder.Services.AddTransient<TripDetailPage>();
+        builder.Services.AddTransient<InvestmentsHubViewModel>();
+        builder.Services.AddTransient<InvestmentsHubPage>();
+        builder.Services.AddTransient<FixedDepositsViewModel>();
+        builder.Services.AddTransient<FixedDepositsPage>();
+        builder.Services.AddTransient<FixedDepositEditViewModel>();
+        builder.Services.AddTransient<FixedDepositEditPage>();
+        builder.Services.AddTransient<FixedDepositDetailViewModel>();
+        builder.Services.AddTransient<FixedDepositDetailPage>();
+        builder.Services.AddTransient<RecurringDepositsViewModel>();
+        builder.Services.AddTransient<RecurringDepositsPage>();
+        builder.Services.AddTransient<RecurringDepositEditViewModel>();
+        builder.Services.AddTransient<RecurringDepositEditPage>();
+        builder.Services.AddTransient<RecurringDepositDetailViewModel>();
+        builder.Services.AddTransient<RecurringDepositDetailPage>();
         builder.Services.AddTransient<AppShell>();
 
 #if DEBUG

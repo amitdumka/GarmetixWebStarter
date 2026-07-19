@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:cards="clr-namespace:Syncfusion.Maui.Toolkit.Cards;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
+             xmlns:models="clr-namespace:Swalekha.Mobile.Models"
+             x:Class="Swalekha.Mobile.Views.RecurringDepositsPage"
+             x:DataType="viewModels:RecurringDepositsViewModel"
+             Title="Recurring deposits"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
+
+    <Grid RowDefinitions="*,Auto">
+
+        <RefreshView Grid.Row="0" Command="{Binding LoadCommand}" IsRefreshing="{Binding IsBusy}">
+            <ScrollView>
+                <VerticalStackLayout Padding="16" Spacing="12">
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Grid.Column="0" Text="Show matured" FontSize="12" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" IsToggled="{Binding IncludeClosed}" />
+                    </Grid>
+
+                    <Label Text="{Binding ErrorMessage}"
+                           IsVisible="{Binding HasError}"
+                           TextColor="{StaticResource SwalekhaDanger}"
+                           BackgroundColor="{StaticResource SwalekhaDangerBg}"
+                           Padding="10" FontSize="13" />
+
+                    <Label Text="No recurring deposits yet."
+                           IsVisible="{Binding HasNoDeposits}"
+                           FontSize="13" TextColor="{StaticResource SwalekhaMuted}"
+                           HorizontalOptions="Center" Margin="0,24,0,0" />
+
+                    <CollectionView x:Name="DepositsList"
+                                    ItemsSource="{Binding Deposits}"
+                                    SelectionMode="Single"
+                                    SelectionChanged="OnDepositSelected">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:SwalekhaRecurringDepositDto">
+                                <cards:SfCard Padding="14" Margin="0,0,0,8" StrokeThickness="0" CornerRadius="12"
+                                              BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <VerticalStackLayout Grid.Column="0" Spacing="1">
+                                            <Label Text="{Binding BankName}" FontSize="14" FontAttributes="Bold" />
+                                            <Label FontSize="11" TextColor="{StaticResource SwalekhaMuted}">
+                                                <Label.Text>
+                                                    <Binding Path="InstallmentsPaid" StringFormat="{}{0} installments paid" />
+                                                </Label.Text>
+                                            </Label>
+                                            <Label Text="Matured" FontSize="10" FontAttributes="Bold" TextColor="{StaticResource SwalekhaMuted}"
+                                                   IsVisible="{Binding IsClosed}" />
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="1" Text="{Binding MonthlyInstallment, StringFormat='₹{0:N0}/mo'}"
+                                               FontSize="15" FontAttributes="Bold" VerticalOptions="Center"
+                                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                                    </Grid>
+                                </cards:SfCard>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
+
+        <buttons:SfButton Grid.Row="1" Text="+ Add recurring deposit"
+                           Command="{Binding AddDepositCommand}"
+                           Margin="16" HeightRequest="48" CornerRadius="10"
+                           Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                           TextColor="{StaticResource White}" />
+    </Grid>
+</ContentPage>
