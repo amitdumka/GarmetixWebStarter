@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:cards="clr-namespace:Syncfusion.Maui.Toolkit.Cards;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:inputLayout="clr-namespace:Syncfusion.Maui.Toolkit.TextInputLayout;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
+             xmlns:models="clr-namespace:Swalekha.Mobile.Models"
+             x:Class="Swalekha.Mobile.Views.OtherAssetsPage"
+             x:DataType="viewModels:OtherAssetsViewModel"
+             x:Name="PageRoot"
+             Title="Other assets"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
+
+    <Grid RowDefinitions="*,Auto">
+
+        <RefreshView Grid.Row="0" Command="{Binding LoadCommand}" IsRefreshing="{Binding IsBusy}">
+            <ScrollView>
+                <VerticalStackLayout Padding="16" Spacing="12">
+
+                    <cards:SfCard Padding="16" StrokeThickness="0" CornerRadius="14"
+                                  BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Total value" FontSize="12" TextColor="{StaticResource SecondaryDarkText}" />
+                            <Label Text="{Binding TotalValue, StringFormat='₹{0:N0}'}" FontSize="24" FontAttributes="Bold" TextColor="{StaticResource White}" />
+                        </VerticalStackLayout>
+                    </cards:SfCard>
+
+                    <Label Text="{Binding ErrorMessage}"
+                           IsVisible="{Binding HasError}"
+                           TextColor="{StaticResource SwalekhaDanger}"
+                           BackgroundColor="{StaticResource SwalekhaDangerBg}"
+                           Padding="10" FontSize="13" />
+
+                    <cards:SfCard Padding="14" StrokeThickness="0" CornerRadius="14"
+                                  IsVisible="{Binding IsEditingForm}"
+                                  BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                        <VerticalStackLayout Spacing="10">
+                            <Picker ItemsSource="{x:Static viewModels:OtherAssetsViewModel.AssetTypes}"
+                                    SelectedItem="{Binding FormAssetType}" />
+                            <inputLayout:SfTextInputLayout Hint="Name" ContainerType="Outlined">
+                                <Entry Text="{Binding FormName}" Placeholder="PPF account, family gold..." />
+                            </inputLayout:SfTextInputLayout>
+                            <inputLayout:SfTextInputLayout Hint="Current value" ContainerType="Outlined">
+                                <Entry Text="{Binding FormValueText}" Keyboard="Numeric" />
+                            </inputLayout:SfTextInputLayout>
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                                <buttons:SfButton Grid.Column="0" Text="Save"
+                                                   Command="{Binding SaveAssetCommand}"
+                                                   HeightRequest="42" CornerRadius="8"
+                                                   Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                                   TextColor="{StaticResource White}" />
+                                <buttons:SfButton Grid.Column="1" Text="Cancel"
+                                                   Command="{Binding CancelFormCommand}"
+                                                   HeightRequest="42" CornerRadius="8"
+                                                   Background="Transparent"
+                                                   TextColor="{StaticResource SwalekhaMuted}" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </cards:SfCard>
+
+                    <Label Text="No other assets yet."
+                           IsVisible="{Binding HasNoAssets}"
+                           FontSize="13" TextColor="{StaticResource SwalekhaMuted}"
+                           HorizontalOptions="Center" Margin="0,24,0,0" />
+
+                    <CollectionView ItemsSource="{Binding Assets}">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:SwalekhaOtherAssetDto">
+                                <cards:SfCard Padding="12" Margin="0,0,0,6" StrokeThickness="0" CornerRadius="10"
+                                              BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                                    <cards:SfCard.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.EditAssetCommand}"
+                                                               CommandParameter="{Binding .}" />
+                                    </cards:SfCard.GestureRecognizers>
+                                    <Grid ColumnDefinitions="*,Auto,Auto">
+                                        <VerticalStackLayout Grid.Column="0" Spacing="1">
+                                            <Label Text="{Binding Name}" FontSize="12" FontAttributes="Bold" />
+                                            <Label Text="{Binding AssetType}" FontSize="11" TextColor="{StaticResource SwalekhaMuted}" />
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="1" Text="{Binding CurrentValue, StringFormat='₹{0:N0}'}"
+                                               FontSize="13" FontAttributes="Bold" VerticalOptions="Center" Margin="0,0,10,0" />
+                                        <Button Grid.Column="2" Text="Delete" FontSize="11"
+                                                Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.DeleteAssetCommand}"
+                                                CommandParameter="{Binding .}"
+                                                BackgroundColor="Transparent" TextColor="{StaticResource SwalekhaDanger}"
+                                                Padding="0" VerticalOptions="Center" />
+                                    </Grid>
+                                </cards:SfCard>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
+
+        <buttons:SfButton Grid.Row="1" Text="+ Add asset"
+                           Command="{Binding ShowAddFormCommand}"
+                           Margin="16" HeightRequest="48" CornerRadius="10"
+                           Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                           TextColor="{StaticResource White}" />
+    </Grid>
+</ContentPage>

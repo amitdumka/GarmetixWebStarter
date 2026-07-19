@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:cards="clr-namespace:Syncfusion.Maui.Toolkit.Cards;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:inputLayout="clr-namespace:Syncfusion.Maui.Toolkit.TextInputLayout;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
+             xmlns:models="clr-namespace:Swalekha.Mobile.Models"
+             x:Class="Swalekha.Mobile.Views.ShareDetailPage"
+             x:DataType="viewModels:ShareDetailViewModel"
+             x:Name="PageRoot"
+             Title="Holding"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Edit" Command="{Binding EditHoldingCommand}" />
+    </ContentPage.ToolbarItems>
+
+    <RefreshView Command="{Binding LoadCommand}" IsRefreshing="{Binding IsBusy}">
+        <ScrollView>
+            <VerticalStackLayout Padding="16" Spacing="14">
+
+                <cards:SfCard Padding="16" StrokeThickness="0" CornerRadius="14"
+                              BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                              IsVisible="{Binding Holding, Converter={StaticResource NullableHasValueConverter}}">
+                    <VerticalStackLayout Spacing="2">
+                        <Label Text="{Binding Holding.Symbol}" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource White}" />
+                        <Label Text="{Binding Holding.CompanyName}" FontSize="12" TextColor="{StaticResource SecondaryDarkText}"
+                               IsVisible="{Binding Holding.CompanyName, Converter={StaticResource NullableHasValueConverter}}" />
+                        <Label Text="{Binding Holding.CurrentValue, StringFormat='₹{0:N0}'}" FontSize="24" FontAttributes="Bold" TextColor="{StaticResource White}" Margin="0,6,0,0"
+                               IsVisible="{Binding Holding.CurrentValue, Converter={StaticResource NullableHasValueConverter}}" />
+                        <Label Text="{Binding Holding.TotalInvested, StringFormat='Invested: ₹{0:N0}'}" FontSize="11" TextColor="{StaticResource SecondaryDarkText}" />
+                        <Grid ColumnDefinitions="*,*,*" Margin="0,6,0,0">
+                            <VerticalStackLayout Grid.Column="0">
+                                <Label Text="Quantity" FontSize="10" TextColor="{StaticResource SecondaryDarkText}" />
+                                <Label Text="{Binding Holding.CurrentQuantity, StringFormat='{0:N0}'}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource White}" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1">
+                                <Label Text="Unrealized" FontSize="10" TextColor="{StaticResource SecondaryDarkText}" />
+                                <Label Text="{Binding Holding.UnrealizedPnLPercent, StringFormat='{0:N1}%'}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource White}"
+                                       IsVisible="{Binding Holding.UnrealizedPnLPercent, Converter={StaticResource NullableHasValueConverter}}" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="2">
+                                <Label Text="Realized" FontSize="10" TextColor="{StaticResource SecondaryDarkText}" />
+                                <Label Text="{Binding Holding.RealizedPnL, StringFormat='₹{0:N0}'}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource White}" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </VerticalStackLayout>
+                </cards:SfCard>
+
+                <Label Text="{Binding ErrorMessage}"
+                       IsVisible="{Binding HasError}"
+                       TextColor="{StaticResource SwalekhaDanger}"
+                       BackgroundColor="{StaticResource SwalekhaDangerBg}"
+                       Padding="10" FontSize="13" />
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <buttons:SfButton Grid.Column="0" Text="Record transaction"
+                                       Command="{Binding ToggleAddTransactionCommand}"
+                                       HeightRequest="42" CornerRadius="8"
+                                       Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                       TextColor="{StaticResource White}" />
+                    <buttons:SfButton Grid.Column="1" Text="Update price"
+                                       Command="{Binding ToggleUpdatePriceCommand}"
+                                       HeightRequest="42" CornerRadius="8"
+                                       Background="Transparent"
+                                       Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                       StrokeThickness="1"
+                                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                </Grid>
+
+                <cards:SfCard Padding="14" StrokeThickness="0" CornerRadius="14"
+                              IsVisible="{Binding IsUpdatingPrice}"
+                              BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                    <VerticalStackLayout Spacing="10">
+                        <inputLayout:SfTextInputLayout Hint="Current price per share" ContainerType="Outlined">
+                            <Entry Text="{Binding NewPriceText}" Keyboard="Numeric" />
+                        </inputLayout:SfTextInputLayout>
+                        <buttons:SfButton Text="Save price"
+                                           Command="{Binding SavePriceCommand}"
+                                           HeightRequest="42" CornerRadius="8"
+                                           Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                           TextColor="{StaticResource White}" />
+                    </VerticalStackLayout>
+                </cards:SfCard>
+
+                <cards:SfCard Padding="14" StrokeThickness="0" CornerRadius="14"
+                              IsVisible="{Binding IsAddingTransaction}"
+                              BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                    <VerticalStackLayout Spacing="10">
+                        <Picker ItemsSource="{x:Static viewModels:ShareDetailViewModel.TransactionTypes}"
+                                SelectedItem="{Binding NewTransactionType}" />
+                        <inputLayout:SfTextInputLayout Hint="Quantity" ContainerType="Outlined">
+                            <Entry Text="{Binding NewQuantityText}" Keyboard="Numeric" />
+                        </inputLayout:SfTextInputLayout>
+                        <inputLayout:SfTextInputLayout Hint="Price per share" ContainerType="Outlined">
+                            <Entry Text="{Binding NewPricePerShareText}" Keyboard="Numeric" />
+                        </inputLayout:SfTextInputLayout>
+                        <inputLayout:SfTextInputLayout Hint="Narration (optional)" ContainerType="Outlined">
+                            <Entry Text="{Binding NewNarration}" />
+                        </inputLayout:SfTextInputLayout>
+                        <buttons:SfButton Text="Save transaction"
+                                           Command="{Binding AddTransactionCommand}"
+                                           HeightRequest="42" CornerRadius="8"
+                                           Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                           TextColor="{StaticResource White}" />
+                    </VerticalStackLayout>
+                </cards:SfCard>
+
+                <Label Text="Transactions" FontSize="13" FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+
+                <CollectionView ItemsSource="{Binding Transactions}">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:SwalekhaShareTransactionDto">
+                            <cards:SfCard Padding="12" Margin="0,0,0,6" StrokeThickness="0" CornerRadius="10"
+                                          BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                                <Grid ColumnDefinitions="*,Auto,Auto">
+                                    <VerticalStackLayout Grid.Column="0" Spacing="1">
+                                        <Label Text="{Binding TransactionType}" FontSize="12" FontAttributes="Bold" />
+                                        <Label FontSize="10" TextColor="{StaticResource SwalekhaMuted}">
+                                            <Label.Text>
+                                                <MultiBinding StringFormat="{}{0:N0} @ ₹{1}">
+                                                    <Binding Path="Quantity" />
+                                                    <Binding Path="PricePerShare" />
+                                                </MultiBinding>
+                                            </Label.Text>
+                                        </Label>
+                                        <Label Text="{Binding TransactionDate, StringFormat='{0:dd MMM yyyy}'}" FontSize="10" TextColor="{StaticResource SwalekhaMuted}" />
+                                    </VerticalStackLayout>
+                                    <Label Grid.Column="1" Text="{Binding Amount, StringFormat='₹{0:N0}'}"
+                                           FontSize="13" FontAttributes="Bold" VerticalOptions="Center" Margin="0,0,10,0" />
+                                    <Button Grid.Column="2" Text="Delete" FontSize="11"
+                                            Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.DeleteTransactionCommand}"
+                                            CommandParameter="{Binding .}"
+                                            BackgroundColor="Transparent" TextColor="{StaticResource SwalekhaDanger}"
+                                            Padding="0" VerticalOptions="Center" />
+                                </Grid>
+                            </cards:SfCard>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </RefreshView>
+</ContentPage>

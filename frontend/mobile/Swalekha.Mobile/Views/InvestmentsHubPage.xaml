@@ -78,6 +78,42 @@
                     </Grid>
                 </cards:SfCard>
 
+                <cards:SfCard Padding="16" StrokeThickness="0" CornerRadius="14"
+                              BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                    <cards:SfCard.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding OpenSharesCommand}" />
+                    </cards:SfCard.GestureRecognizers>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <VerticalStackLayout Grid.Column="0" Spacing="1">
+                            <Label Text="Shares &amp; stocks" FontSize="14" FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                            <Label FontSize="11" TextColor="{StaticResource SwalekhaMuted}">
+                                <Label.Text>
+                                    <Binding Path="ActiveShareCount" StringFormat="{}{0} holdings" />
+                                </Label.Text>
+                            </Label>
+                        </VerticalStackLayout>
+                        <Label Grid.Column="1" Text="{Binding ShareCurrentValue, StringFormat='₹{0:N0}'}"
+                               FontSize="15" FontAttributes="Bold" VerticalOptions="Center" />
+                    </Grid>
+                </cards:SfCard>
+
+                <cards:SfCard Padding="16" StrokeThickness="0" CornerRadius="14"
+                              BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                    <cards:SfCard.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding OpenOtherAssetsCommand}" />
+                    </cards:SfCard.GestureRecognizers>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <VerticalStackLayout Grid.Column="0" Spacing="1">
+                            <Label Text="Other assets" FontSize="14" FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                            <Label Text="PPF, EPF, NPS, Gold" FontSize="11" TextColor="{StaticResource SwalekhaMuted}" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="1" Text="{Binding OtherAssetValue, StringFormat='₹{0:N0}'}"
+                               FontSize="15" FontAttributes="Bold" VerticalOptions="Center" />
+                    </Grid>
+                </cards:SfCard>
+
             </VerticalStackLayout>
         </ScrollView>
     </RefreshView>

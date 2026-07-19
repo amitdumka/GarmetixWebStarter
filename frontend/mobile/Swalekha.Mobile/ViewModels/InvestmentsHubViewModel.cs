@@ -32,6 +32,18 @@ public sealed partial class InvestmentsHubViewModel : BaseViewModel
     [ObservableProperty]
     private decimal mutualFundCurrentValue;
 
+    [ObservableProperty]
+    private int activeShareCount;
+
+    [ObservableProperty]
+    private decimal shareCurrentValue;
+
+    [ObservableProperty]
+    private int otherAssetCount;
+
+    [ObservableProperty]
+    private decimal otherAssetValue;
+
     [RelayCommand]
     private async Task LoadAsync()
     {
@@ -48,6 +60,14 @@ public sealed partial class InvestmentsHubViewModel : BaseViewModel
             var funds = await _apiClient.GetMutualFundsAsync(false);
             ActiveMutualFundCount = funds.Count;
             MutualFundCurrentValue = funds.Sum(f => f.CurrentValue ?? f.TotalInvested);
+
+            var shares = await _apiClient.GetSharesAsync(false);
+            ActiveShareCount = shares.Count;
+            ShareCurrentValue = shares.Sum(s => s.CurrentValue ?? s.TotalInvested);
+
+            var otherAssets = await _apiClient.GetOtherAssetsAsync(false);
+            OtherAssetCount = otherAssets.Count;
+            OtherAssetValue = otherAssets.Sum(a => a.CurrentValue);
         });
     }
 
@@ -62,4 +82,12 @@ public sealed partial class InvestmentsHubViewModel : BaseViewModel
     [RelayCommand]
     private static async Task OpenMutualFundsAsync()
         => await Shell.Current.GoToAsync(nameof(MutualFundsPage));
+
+    [RelayCommand]
+    private static async Task OpenSharesAsync()
+        => await Shell.Current.GoToAsync(nameof(SharesPage));
+
+    [RelayCommand]
+    private static async Task OpenOtherAssetsAsync()
+        => await Shell.Current.GoToAsync(nameof(OtherAssetsPage));
 }

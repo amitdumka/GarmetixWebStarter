@@ -214,6 +214,45 @@ public sealed class SwalekhaApiClient
     public Task DeleteMutualFundTransactionAsync(Guid fundId, Guid transactionId, CancellationToken cancellationToken = default)
         => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/mutual-funds/{fundId}/transactions/{transactionId}", null, cancellationToken);
 
+    public Task<List<SwalekhaShareHoldingDto>> GetSharesAsync(bool includeInactive, CancellationToken cancellationToken = default)
+        => SendAsync<List<SwalekhaShareHoldingDto>>(HttpMethod.Get, $"api/swalekha/shares?includeInactive={includeInactive}", null, cancellationToken);
+
+    public Task<SwalekhaShareHoldingDto> GetShareAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaShareHoldingDto>(HttpMethod.Get, $"api/swalekha/shares/{id}", null, cancellationToken);
+
+    public Task<SwalekhaShareHoldingDto> CreateShareAsync(SwalekhaShareHoldingPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaShareHoldingDto>(HttpMethod.Post, "api/swalekha/shares", payload, cancellationToken);
+
+    public Task<SwalekhaShareHoldingDto> UpdateShareAsync(Guid id, SwalekhaShareHoldingPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaShareHoldingDto>(HttpMethod.Put, $"api/swalekha/shares/{id}", payload, cancellationToken);
+
+    public Task DeleteShareAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/shares/{id}", null, cancellationToken);
+
+    public Task<SwalekhaShareHoldingDto> UpdateSharePriceAsync(Guid id, decimal price, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaShareHoldingDto>(HttpMethod.Put, $"api/swalekha/shares/{id}/price", new SwalekhaUpdateSharePricePayload(price), cancellationToken);
+
+    public Task<SwalekhaShareTransactionList> GetShareTransactionsAsync(Guid holdingId, int page, int pageSize, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaShareTransactionList>(HttpMethod.Get, $"api/swalekha/shares/{holdingId}/transactions?page={page}&pageSize={pageSize}", null, cancellationToken);
+
+    public Task<SwalekhaShareTransactionDto> AddShareTransactionAsync(Guid holdingId, SwalekhaShareTransactionPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaShareTransactionDto>(HttpMethod.Post, $"api/swalekha/shares/{holdingId}/transactions", payload, cancellationToken);
+
+    public Task DeleteShareTransactionAsync(Guid holdingId, Guid transactionId, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/shares/{holdingId}/transactions/{transactionId}", null, cancellationToken);
+
+    public Task<List<SwalekhaOtherAssetDto>> GetOtherAssetsAsync(bool includeInactive, CancellationToken cancellationToken = default)
+        => SendAsync<List<SwalekhaOtherAssetDto>>(HttpMethod.Get, $"api/swalekha/other-assets?includeInactive={includeInactive}", null, cancellationToken);
+
+    public Task<SwalekhaOtherAssetDto> CreateOtherAssetAsync(SwalekhaOtherAssetPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaOtherAssetDto>(HttpMethod.Post, "api/swalekha/other-assets", payload, cancellationToken);
+
+    public Task<SwalekhaOtherAssetDto> UpdateOtherAssetAsync(Guid id, SwalekhaOtherAssetPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaOtherAssetDto>(HttpMethod.Put, $"api/swalekha/other-assets/{id}", payload, cancellationToken);
+
+    public Task DeleteOtherAssetAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/other-assets/{id}", null, cancellationToken);
+
     private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {
         var response = await SendCoreAsync(method, path, body, cancellationToken);

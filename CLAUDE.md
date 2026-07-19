@@ -1,5 +1,16 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-19 - Android Swalekha: Investments III stage (closes PersonalFin_10, all Investments done)
+
+Amit said to keep continuing. Ports `PersonalFin_10` (Shares/Stocks + Other Assets) to the Android app; DTOs read directly from `SwalekhaShareEndpoints.cs`/`SwalekhaOtherAssetEndpoints.cs`, no backend changes. This closes out every Investment stage (I/II/III) - `PersonalFin_08`, `09`, `10` are all done on Android now.
+
+- New `SharesPage`/`ShareEditPage`/`ShareDetailPage` - same structural pattern as the Mutual Funds stage (current-value hero, optional linked-account picker, Update Price + Buy/Sell transaction recording), since the backend genuinely mirrors that stage's design (average-cost realized/unrealized P&L instead of XIRR, no separate `/returns` endpoint needed since the holding DTO already carries `CurrentValue`/`UnrealizedPnL`/`RealizedPnL` computed server-side).
+- New `OtherAssetsPage` - a single-page list+inline-form for PPF/EPF/NPS/Gold/Other, deliberately following the same lightweight pattern as Income/Recurring Bills rather than a two-page master-detail, matching the backend's explicit "simple asset entries" scope (`CurrentValue`-only snapshots, no transaction history, no account integration).
+- `SwalekhaApiClient` gained the share/other-asset CRUD + price-update + transaction calls.
+- Investments hub gained two more cards (Shares & stocks, Other assets), rounding it out to all five investment types.
+- Validated: `dotnet build -f net10.0-android` (0 errors). **Not run on a device/emulator yet.**
+- Next: Loans (`PersonalFin_11`) - the first stage needing a ported EMI/amortization calculator.
+
 ## 2026-07-19 - Android Swalekha: Investments II stage (closes PersonalFin_09)
 
 Amit said to keep continuing, and that he'll install the app on a phone and test it once the remaining stages land. Ports `PersonalFin_09` (Mutual Funds + SIP + XIRR) to the Android app; DTOs read directly from `SwalekhaMutualFundEndpoints.cs`, no backend changes. **XIRR is not reimplemented on the client** - `SwalekhaXirrCalculator` already runs server-side behind `GET /api/swalekha/mutual-funds/{id}/returns`, so the mobile app just displays whatever that endpoint returns (`Xirr`/`XirrAvailable`/`XirrNote`), the same "don't duplicate financial-correctness logic across platforms" call this project made repeatedly on the web side.

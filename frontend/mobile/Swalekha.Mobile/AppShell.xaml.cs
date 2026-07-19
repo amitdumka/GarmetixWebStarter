@@ -38,6 +38,10 @@ public partial class AppShell : Shell
         Routing.RegisterRoute(nameof(MutualFundsPage), typeof(MutualFundsPage));
         Routing.RegisterRoute(nameof(MutualFundEditPage), typeof(MutualFundEditPage));
         Routing.RegisterRoute(nameof(MutualFundDetailPage), typeof(MutualFundDetailPage));
+        Routing.RegisterRoute(nameof(SharesPage), typeof(SharesPage));
+        Routing.RegisterRoute(nameof(ShareEditPage), typeof(ShareEditPage));
+        Routing.RegisterRoute(nameof(ShareDetailPage), typeof(ShareDetailPage));
+        Routing.RegisterRoute(nameof(OtherAssetsPage), typeof(OtherAssetsPage));
     }
 
     private async void OnLoaded(object? sender, EventArgs e)
