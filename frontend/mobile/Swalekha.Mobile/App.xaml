@@ -11,9 +11,12 @@
                 <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <converters:IntIsZeroConverter x:Key="IntIsZeroConverter" />
+            <converters:IntIsNotZeroConverter x:Key="IntIsNotZeroConverter" />
             <converters:NullableHasValueConverter x:Key="NullableHasValueConverter" />
             <converters:StringEqualsConverter x:Key="StringEqualsConverter" />
             <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+            <converters:ThemeChipBackgroundConverter x:Key="ThemeChipBackgroundConverter" />
+            <converters:ThemeChipTextConverter x:Key="ThemeChipTextConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

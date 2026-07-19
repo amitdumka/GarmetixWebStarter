@@ -4,17 +4,65 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:views="clr-namespace:Swalekha.Mobile.Views"
-    Shell.FlyoutBehavior="Disabled"
+    Shell.FlyoutBehavior="Flyout"
+    FlyoutBackgroundColor="{AppThemeBinding Light=White, Dark=#1C2E3B}"
     Title="Swalekha">
 
     <ShellContent
         Title="Sign in"
+        Shell.FlyoutBehavior="Disabled"
+        Shell.FlyoutItemIsVisible="False"
         ContentTemplate="{DataTemplate views:LoginPage}"
         Route="LoginPage" />
 
-    <ShellContent
-        Title="Dashboard"
-        ContentTemplate="{DataTemplate views:DashboardPage}"
-        Route="DashboardPage" />
+    <!-- Bottom tab bar: the four most frequently used sections. -->
+    <TabBar Route="MainTabs">
+        <ShellContent Title="Dashboard" Route="DashboardPage"
+                      ContentTemplate="{DataTemplate views:DashboardPage}" />
+        <ShellContent Title="Accounts" Route="AccountsPage"
+                      ContentTemplate="{DataTemplate views:AccountsPage}" />
+        <ShellContent Title="Expenses" Route="ExpenseSheetsPage"
+                      ContentTemplate="{DataTemplate views:ExpenseSheetsPage}" />
+        <ShellContent Title="Investments" Route="InvestmentsHubPage"
+                      ContentTemplate="{DataTemplate views:InvestmentsHubPage}" />
+    </TabBar>
+
+    <!-- Side menu (flyout): everything else, one destination per entry. -->
+    <FlyoutItem Title="Contacts" Route="ContactsFlyout">
+        <ShellContent ContentTemplate="{DataTemplate views:ContactsPage}" Route="ContactsPage" />
+    </FlyoutItem>
+    <FlyoutItem Title="Income" Route="IncomeFlyout">
+        <ShellContent ContentTemplate="{DataTemplate views:IncomePage}" Route="IncomePage" />
+    </FlyoutItem>
+    <FlyoutItem Title="Recurring bills" Route="RecurringBillsFlyout">
+        <ShellContent ContentTemplate="{DataTemplate views:RecurringBillsPage}" Route="RecurringBillsPage" />
+    </FlyoutItem>
+    <FlyoutItem Title="Trips" Route="TripsFlyout">
+        <ShellContent ContentTemplate="{DataTemplate views:TripsPage}" Route="TripsPage" />
+    </FlyoutItem>
+    <FlyoutItem Title="Loans" Route="LoansFlyout">
+        <ShellContent ContentTemplate="{DataTemplate views:LoansPage}" Route="LoansPage" />
+    </FlyoutItem>
+    <FlyoutItem Title="Insurance" Route="InsuranceFlyout">
+        <ShellContent ContentTemplate="{DataTemplate views:InsurancePoliciesPage}" Route="InsurancePoliciesPage" />
+    </FlyoutItem>
+    <FlyoutItem Title="Journal" Route="JournalFlyout">
+        <ShellContent ContentTemplate="{DataTemplate views:JournalPage}" Route="JournalPage" />
+    </FlyoutItem>
+    <FlyoutItem Title="Notes" Route="NotesFlyout">
+        <ShellContent ContentTemplate="{DataTemplate views:NotesPage}" Route="NotesPage" />
+    </FlyoutItem>
+    <FlyoutItem Title="Calendar" Route="CalendarFlyout">
+        <ShellContent ContentTemplate="{DataTemplate views:CalendarPage}" Route="CalendarPage" />
+    </FlyoutItem>
+    <FlyoutItem Title="Documents" Route="DocumentsFlyout">
+        <ShellContent ContentTemplate="{DataTemplate views:DocumentsPage}" Route="DocumentsPage" />
+    </FlyoutItem>
+    <FlyoutItem Title="Security self-check" Route="SelfCheckFlyout">
+        <ShellContent ContentTemplate="{DataTemplate views:SelfCheckPage}" Route="SelfCheckPage" />
+    </FlyoutItem>
+    <FlyoutItem Title="Settings" Route="SettingsFlyout">
+        <ShellContent ContentTemplate="{DataTemplate views:SettingsPage}" Route="SettingsPage" />
+    </FlyoutItem>
 
 </Shell>

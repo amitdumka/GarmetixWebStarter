@@ -15,25 +15,30 @@
             <VerticalStackLayout Padding="16" Spacing="14">
 
                 <!-- Top bar -->
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                    <Border Grid.Column="0" WidthRequest="38" HeightRequest="38"
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
+                    <Button Grid.Column="0" Text="&#9776;" FontSize="18"
+                            Clicked="OnMenuClicked"
+                            BackgroundColor="Transparent"
+                            TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                            VerticalOptions="Center" Padding="6" WidthRequest="38" HeightRequest="38" />
+                    <Border Grid.Column="1" WidthRequest="38" HeightRequest="38"
                             StrokeShape="RoundRectangle 19" Stroke="Transparent"
                             BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}">
                         <Label Text="{Binding OwnerInitials}" TextColor="{StaticResource White}"
                                FontAttributes="Bold" FontSize="14"
                                HorizontalOptions="Center" VerticalOptions="Center" />
                     </Border>
-                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="0">
+                    <VerticalStackLayout Grid.Column="2" VerticalOptions="Center" Spacing="0">
                         <Label Text="Swalekha" FontSize="12" TextColor="{StaticResource SwalekhaMuted}" />
                         <Label FontSize="16" FontAttributes="Bold"
                                Text="{Binding OwnerName, StringFormat='Hi, {0}'}"
                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                     </VerticalStackLayout>
-                    <Button Grid.Column="2" Text="Sign out" FontSize="12"
-                            Command="{Binding LogoutCommand}"
+                    <Button Grid.Column="3" Text="&#9881;" FontSize="20"
+                            Command="{Binding OpenSettingsCommand}"
                             BackgroundColor="Transparent"
-                            TextColor="{StaticResource SwalekhaMuted}"
-                            VerticalOptions="Center" Padding="0" />
+                            TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                            VerticalOptions="Center" Padding="6" WidthRequest="38" HeightRequest="38" />
                 </Grid>
 
                 <Label Text="{Binding ErrorMessage}"
@@ -62,217 +67,31 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                    <Border Grid.Column="0" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
-                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
-                                  BackgroundColor="Transparent">
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding OpenAccountsCommand}" />
-                        </Border.GestureRecognizers>
-                        <VerticalStackLayout Padding="14,12" Spacing="0">
-                            <Label Text="Accounts hub" FontSize="13" FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                            <Label Text="Open &#8250;" FontSize="11"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                        </VerticalStackLayout>
-                    </Border>
-                    <Border Grid.Column="1" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
-                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
-                                  BackgroundColor="Transparent">
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding OpenContactsCommand}" />
-                        </Border.GestureRecognizers>
-                        <VerticalStackLayout Padding="14,12" Spacing="0">
-                            <Label Text="Contacts" FontSize="13" FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                            <Label Text="Open &#8250;" FontSize="11"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                        </VerticalStackLayout>
-                    </Border>
-                </Grid>
-
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                    <Border Grid.Column="0" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
-                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
-                                  BackgroundColor="Transparent">
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding OpenExpensesCommand}" />
-                        </Border.GestureRecognizers>
-                        <VerticalStackLayout Padding="14,12" Spacing="0">
-                            <Label Text="Expense sheets" FontSize="13" FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                            <Label Text="Open &#8250;" FontSize="11"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                        </VerticalStackLayout>
-                    </Border>
-                    <Border Grid.Column="1" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
-                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
-                                  BackgroundColor="Transparent">
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding OpenIncomeCommand}" />
-                        </Border.GestureRecognizers>
-                        <VerticalStackLayout Padding="14,12" Spacing="0">
-                            <Label Text="Income" FontSize="13" FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                            <Label Text="Open &#8250;" FontSize="11"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                        </VerticalStackLayout>
-                    </Border>
-                </Grid>
-
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                    <Border Grid.Column="0" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
-                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
-                                  BackgroundColor="Transparent">
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding OpenRecurringBillsCommand}" />
-                        </Border.GestureRecognizers>
-                        <VerticalStackLayout Padding="14,12" Spacing="0">
-                            <Label Text="Recurring bills" FontSize="13" FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                            <Label Text="Open &#8250;" FontSize="11"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                        </VerticalStackLayout>
-                    </Border>
-                    <Border Grid.Column="1" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
-                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
-                                  BackgroundColor="Transparent">
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding OpenTripsCommand}" />
-                        </Border.GestureRecognizers>
-                        <VerticalStackLayout Padding="14,12" Spacing="0">
-                            <Label Text="Trips" FontSize="13" FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                            <Label Text="Open &#8250;" FontSize="11"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                        </VerticalStackLayout>
-                    </Border>
-                </Grid>
-
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                    <Border Grid.Column="0" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
-                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
-                                  BackgroundColor="Transparent">
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding OpenInvestmentsCommand}" />
-                        </Border.GestureRecognizers>
-                        <VerticalStackLayout Padding="14,12" Spacing="0">
-                            <Label Text="Investments" FontSize="13" FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                            <Label Text="Open &#8250;" FontSize="11"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                        </VerticalStackLayout>
-                    </Border>
-                    <Border Grid.Column="1" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
-                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
-                                  BackgroundColor="Transparent">
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding OpenLoansCommand}" />
-                        </Border.GestureRecognizers>
-                        <VerticalStackLayout Padding="14,12" Spacing="0">
-                            <Label Text="Loans" FontSize="13" FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                            <Label Text="Open &#8250;" FontSize="11"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                        </VerticalStackLayout>
-                    </Border>
-                </Grid>
-
-                <Border Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
-                              Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
-                              BackgroundColor="Transparent">
-                    <Border.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding OpenInsuranceCommand}" />
-                    </Border.GestureRecognizers>
-                    <Grid ColumnDefinitions="*,Auto" Padding="14,12">
-                        <Label Grid.Column="0" Text="Insurance" FontSize="14" FontAttributes="Bold" VerticalOptions="Center"
+                <!-- Assets vs liabilities -->
+                <Border Padding="14" StrokeThickness="0" StrokeShape="RoundRectangle 14"
+                              IsVisible="{Binding HasLoadedOnce}"
+                              BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Assets vs liabilities" FontSize="13" FontAttributes="Bold"
                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                        <Label Grid.Column="1" Text="Open &#8250;" FontSize="13" VerticalOptions="Center"
-                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                    </Grid>
+                        <chart:SfCartesianChart HeightRequest="190">
+                            <chart:SfCartesianChart.XAxes>
+                                <chart:CategoryAxis ShowMajorGridLines="False" />
+                            </chart:SfCartesianChart.XAxes>
+                            <chart:SfCartesianChart.YAxes>
+                                <chart:NumericalAxis ShowMajorGridLines="True" />
+                            </chart:SfCartesianChart.YAxes>
+                            <chart:SfCartesianChart.Series>
+                                <chart:ColumnSeries ItemsSource="{Binding NetWorthComposition}"
+                                                     XBindingPath="Category"
+                                                     YBindingPath="Value"
+                                                     PaletteBrushes="{Binding NetWorthPalette}"
+                                                     CornerRadius="8,8,0,0"
+                                                     EnableTooltip="True" />
+                            </chart:SfCartesianChart.Series>
+                        </chart:SfCartesianChart>
+                    </VerticalStackLayout>
                 </Border>
-
-                <Label Text="Personal organizer" FontSize="12" FontAttributes="Bold" TextColor="{StaticResource SwalekhaMuted}" Margin="0,4,0,0" />
-
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                    <Border Grid.Column="0" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
-                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
-                                  BackgroundColor="Transparent">
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding OpenJournalCommand}" />
-                        </Border.GestureRecognizers>
-                        <VerticalStackLayout Padding="14,12" Spacing="0">
-                            <Label Text="Journal" FontSize="13" FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                            <Label Text="Open &#8250;" FontSize="11"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                        </VerticalStackLayout>
-                    </Border>
-                    <Border Grid.Column="1" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
-                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
-                                  BackgroundColor="Transparent">
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding OpenNotesCommand}" />
-                        </Border.GestureRecognizers>
-                        <VerticalStackLayout Padding="14,12" Spacing="0">
-                            <Label Text="Notes" FontSize="13" FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                            <Label Text="Open &#8250;" FontSize="11"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                        </VerticalStackLayout>
-                    </Border>
-                </Grid>
-
-                <Border Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
-                              Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
-                              BackgroundColor="Transparent">
-                    <Border.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding OpenCalendarCommand}" />
-                    </Border.GestureRecognizers>
-                    <Grid ColumnDefinitions="*,Auto" Padding="14,12">
-                        <Label Grid.Column="0" Text="Calendar &amp; appointments" FontSize="14" FontAttributes="Bold" VerticalOptions="Center"
-                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                        <Label Grid.Column="1" Text="Open &#8250;" FontSize="13" VerticalOptions="Center"
-                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                    </Grid>
-                </Border>
-
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                    <Border Grid.Column="0" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
-                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
-                                  BackgroundColor="Transparent">
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding OpenDocumentsCommand}" />
-                        </Border.GestureRecognizers>
-                        <VerticalStackLayout Padding="14,12" Spacing="0">
-                            <Label Text="Documents" FontSize="13" FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                            <Label Text="Open &#8250;" FontSize="11"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                        </VerticalStackLayout>
-                    </Border>
-                    <Border Grid.Column="1" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
-                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
-                                  BackgroundColor="Transparent">
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding OpenSelfCheckCommand}" />
-                        </Border.GestureRecognizers>
-                        <VerticalStackLayout Padding="14,12" Spacing="0">
-                            <Label Text="Security self-check" FontSize="13" FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                            <Label Text="Open &#8250;" FontSize="11"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                        </VerticalStackLayout>
-                    </Border>
-                </Grid>
-
-                <buttons:SfButton Text="Export net worth CSV"
-                                   Command="{Binding ExportCsvCommand}"
-                                   HeightRequest="42" CornerRadius="8"
-                                   Background="Transparent"
-                                   Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
-                                   StrokeThickness="1"
-                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
 
                 <!-- Assets breakdown chart -->
                 <Border Padding="14" StrokeThickness="0" StrokeShape="RoundRectangle 14"
@@ -293,6 +112,61 @@
                                                        InnerRadius="0.6" />
                             </chart:SfCircularChart.Series>
                         </chart:SfCircularChart>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Liabilities breakdown chart -->
+                <Border Padding="14" StrokeThickness="0" StrokeShape="RoundRectangle 14"
+                              IsVisible="{Binding HasLiabilitiesBreakdown}"
+                              BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Liabilities by category" FontSize="13" FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                        <chart:SfCartesianChart HeightRequest="200">
+                            <chart:SfCartesianChart.XAxes>
+                                <chart:CategoryAxis ShowMajorGridLines="False" />
+                            </chart:SfCartesianChart.XAxes>
+                            <chart:SfCartesianChart.YAxes>
+                                <chart:NumericalAxis ShowMajorGridLines="True" />
+                            </chart:SfCartesianChart.YAxes>
+                            <chart:SfCartesianChart.Series>
+                                <chart:ColumnSeries ItemsSource="{Binding LiabilitiesBreakdown}"
+                                                     XBindingPath="Category"
+                                                     YBindingPath="Value"
+                                                     CornerRadius="8,8,0,0"
+                                                     EnableTooltip="True">
+                                    <chart:ColumnSeries.Fill>
+                                        <SolidColorBrush Color="{StaticResource SwalekhaDanger}" />
+                                    </chart:ColumnSeries.Fill>
+                                </chart:ColumnSeries>
+                            </chart:SfCartesianChart.Series>
+                        </chart:SfCartesianChart>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Today's appointments -->
+                <Border Padding="14" StrokeThickness="0" StrokeShape="RoundRectangle 14"
+                              IsVisible="{Binding TodayAppointments.Count, Converter={StaticResource IntIsNotZeroConverter}}"
+                              BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Today's appointments" FontSize="13" FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                        <CollectionView ItemsSource="{Binding TodayAppointments}">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="models:SwalekhaAppointmentDto">
+                                    <Grid ColumnDefinitions="*,Auto" Padding="0,7">
+                                        <VerticalStackLayout Grid.Column="0" Spacing="0">
+                                            <Label Text="{Binding Title}" FontSize="13" />
+                                            <Label Text="{Binding Location}" FontSize="11"
+                                                   IsVisible="{Binding Location, Converter={StaticResource NullableHasValueConverter}}"
+                                                   TextColor="{StaticResource SwalekhaMuted}" />
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="1" Text="{Binding StartAt, StringFormat='{0:hh:mm tt}'}"
+                                               FontSize="12" TextColor="{StaticResource SwalekhaMuted}" VerticalOptions="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
                     </VerticalStackLayout>
                 </Border>
 
@@ -326,6 +200,14 @@
                         </CollectionView>
                     </VerticalStackLayout>
                 </Border>
+
+                <buttons:SfButton Text="Export net worth CSV"
+                                   Command="{Binding ExportCsvCommand}"
+                                   HeightRequest="42" CornerRadius="8"
+                                   Background="Transparent"
+                                   Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                   StrokeThickness="1"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
 
             </VerticalStackLayout>
         </ScrollView>

@@ -39,6 +39,7 @@ public static class MauiProgram
 
         builder.Services.AddSingleton<AuthService>();
         builder.Services.AddSingleton<SwalekhaApiClient>();
+        builder.Services.AddSingleton<AppThemeService>();
 
         builder.Services.AddTransient<LoginViewModel>();
         builder.Services.AddTransient<LoginPage>();
@@ -124,6 +125,8 @@ public static class MauiProgram
         builder.Services.AddTransient<DocumentsPage>();
         builder.Services.AddTransient<SelfCheckViewModel>();
         builder.Services.AddTransient<SelfCheckPage>();
+        builder.Services.AddTransient<SettingsViewModel>();
+        builder.Services.AddTransient<SettingsPage>();
         builder.Services.AddTransient<AppShell>();
 
 #if DEBUG

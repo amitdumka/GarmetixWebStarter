@@ -20,4 +20,12 @@ public partial class DashboardPage : ContentPage
             _viewModel.LoadCommand.Execute(null);
         }
     }
+
+    private void OnMenuClicked(object? sender, EventArgs e)
+    {
+        if (Shell.Current is not null)
+        {
+            Shell.Current.FlyoutIsPresented = true;
+        }
+    }
 }

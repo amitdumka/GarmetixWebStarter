@@ -13,22 +13,20 @@ public partial class AppShell : Shell
         _authService = authService;
         Loaded += OnLoaded;
 
-        Routing.RegisterRoute(nameof(AccountsPage), typeof(AccountsPage));
+        // Note: AccountsPage, ExpenseSheetsPage, InvestmentsHubPage (bottom tabs) and
+        // ContactsPage, IncomePage, RecurringBillsPage, TripsPage, LoansPage,
+        // InsurancePoliciesPage, JournalPage, NotesPage, CalendarPage, DocumentsPage,
+        // SelfCheckPage, SettingsPage (side menu) are declared directly in AppShell.xaml as
+        // ShellContent routes - registering them again here would throw a duplicate-route error.
         Routing.RegisterRoute(nameof(AccountEditPage), typeof(AccountEditPage));
         Routing.RegisterRoute(nameof(AccountDetailPage), typeof(AccountDetailPage));
         Routing.RegisterRoute(nameof(TransferPage), typeof(TransferPage));
-        Routing.RegisterRoute(nameof(ContactsPage), typeof(ContactsPage));
         Routing.RegisterRoute(nameof(ContactEditPage), typeof(ContactEditPage));
         Routing.RegisterRoute(nameof(ContactDetailPage), typeof(ContactDetailPage));
-        Routing.RegisterRoute(nameof(ExpenseSheetsPage), typeof(ExpenseSheetsPage));
         Routing.RegisterRoute(nameof(ExpenseSheetEditPage), typeof(ExpenseSheetEditPage));
         Routing.RegisterRoute(nameof(ExpenseSheetDetailPage), typeof(ExpenseSheetDetailPage));
-        Routing.RegisterRoute(nameof(IncomePage), typeof(IncomePage));
-        Routing.RegisterRoute(nameof(RecurringBillsPage), typeof(RecurringBillsPage));
-        Routing.RegisterRoute(nameof(TripsPage), typeof(TripsPage));
         Routing.RegisterRoute(nameof(TripEditPage), typeof(TripEditPage));
         Routing.RegisterRoute(nameof(TripDetailPage), typeof(TripDetailPage));
-        Routing.RegisterRoute(nameof(InvestmentsHubPage), typeof(InvestmentsHubPage));
         Routing.RegisterRoute(nameof(FixedDepositsPage), typeof(FixedDepositsPage));
         Routing.RegisterRoute(nameof(FixedDepositEditPage), typeof(FixedDepositEditPage));
         Routing.RegisterRoute(nameof(FixedDepositDetailPage), typeof(FixedDepositDetailPage));
@@ -42,17 +40,10 @@ public partial class AppShell : Shell
         Routing.RegisterRoute(nameof(ShareEditPage), typeof(ShareEditPage));
         Routing.RegisterRoute(nameof(ShareDetailPage), typeof(ShareDetailPage));
         Routing.RegisterRoute(nameof(OtherAssetsPage), typeof(OtherAssetsPage));
-        Routing.RegisterRoute(nameof(LoansPage), typeof(LoansPage));
         Routing.RegisterRoute(nameof(LoanEditPage), typeof(LoanEditPage));
         Routing.RegisterRoute(nameof(LoanDetailPage), typeof(LoanDetailPage));
-        Routing.RegisterRoute(nameof(InsurancePoliciesPage), typeof(InsurancePoliciesPage));
         Routing.RegisterRoute(nameof(InsurancePolicyEditPage), typeof(InsurancePolicyEditPage));
         Routing.RegisterRoute(nameof(InsurancePolicyDetailPage), typeof(InsurancePolicyDetailPage));
-        Routing.RegisterRoute(nameof(JournalPage), typeof(JournalPage));
-        Routing.RegisterRoute(nameof(NotesPage), typeof(NotesPage));
-        Routing.RegisterRoute(nameof(CalendarPage), typeof(CalendarPage));
-        Routing.RegisterRoute(nameof(DocumentsPage), typeof(DocumentsPage));
-        Routing.RegisterRoute(nameof(SelfCheckPage), typeof(SelfCheckPage));
     }
 
     private async void OnLoaded(object? sender, EventArgs e)

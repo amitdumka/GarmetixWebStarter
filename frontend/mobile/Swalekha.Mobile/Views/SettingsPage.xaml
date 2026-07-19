@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
+             x:Class="Swalekha.Mobile.Views.SettingsPage"
+             x:DataType="viewModels:SettingsViewModel"
+             Title="Settings"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="18" Spacing="18">
+
+            <VerticalStackLayout Spacing="2">
+                <Label Text="Settings" FontSize="22" FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                <Label Text="{Binding OwnerName, StringFormat='Signed in as {0}'}"
+                       FontSize="13" TextColor="{StaticResource SwalekhaMuted}" />
+            </VerticalStackLayout>
+
+            <Border Padding="16" StrokeThickness="1" StrokeShape="RoundRectangle 16"
+                    Stroke="{AppThemeBinding Light={StaticResource SwalekhaCardBorderLight}, Dark={StaticResource SwalekhaCardBorderDark}}"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Appearance" FontSize="14" FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                    <Label Text="Choose how Swalekha looks. System follows your device's setting."
+                           FontSize="12" TextColor="{StaticResource SwalekhaMuted}" />
+
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8" Margin="0,4,0,0">
+                        <buttons:SfButton Grid.Column="0" Text="System"
+                                           Command="{Binding ChooseSystemCommand}"
+                                           HeightRequest="42" CornerRadius="10" FontSize="13"
+                                           Background="{Binding IsSystem, Converter={StaticResource ThemeChipBackgroundConverter}}"
+                                           TextColor="{Binding IsSystem, Converter={StaticResource ThemeChipTextConverter}}"
+                                           Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                           StrokeThickness="1" />
+
+                        <buttons:SfButton Grid.Column="1" Text="Light"
+                                           Command="{Binding ChooseLightCommand}"
+                                           HeightRequest="42" CornerRadius="10" FontSize="13"
+                                           Background="{Binding IsLight, Converter={StaticResource ThemeChipBackgroundConverter}}"
+                                           TextColor="{Binding IsLight, Converter={StaticResource ThemeChipTextConverter}}"
+                                           Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                           StrokeThickness="1" />
+
+                        <buttons:SfButton Grid.Column="2" Text="Dark"
+                                           Command="{Binding ChooseDarkCommand}"
+                                           HeightRequest="42" CornerRadius="10" FontSize="13"
+                                           Background="{Binding IsDark, Converter={StaticResource ThemeChipBackgroundConverter}}"
+                                           TextColor="{Binding IsDark, Converter={StaticResource ThemeChipTextConverter}}"
+                                           Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                           StrokeThickness="1" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Padding="16" StrokeThickness="1" StrokeShape="RoundRectangle 16"
+                    Stroke="{AppThemeBinding Light={StaticResource SwalekhaCardBorderLight}, Dark={StaticResource SwalekhaCardBorderDark}}"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Account" FontSize="14" FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                    <buttons:SfButton Text="Sign out"
+                                       Command="{Binding LogoutCommand}"
+                                       HeightRequest="44" CornerRadius="10"
+                                       Background="Transparent"
+                                       Stroke="{StaticResource SwalekhaDanger}"
+                                       StrokeThickness="1"
+                                       TextColor="{StaticResource SwalekhaDanger}" />
+                </VerticalStackLayout>
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

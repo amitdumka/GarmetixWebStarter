@@ -5,6 +5,7 @@ using Microsoft.Maui.ApplicationModel.DataTransfer;
 using Microsoft.Maui.Storage;
 using Swalekha.Mobile.Models;
 using Swalekha.Mobile.Services;
+using Microsoft.Maui.Graphics;
 
 namespace Swalekha.Mobile.ViewModels;
 
@@ -33,7 +34,23 @@ public sealed partial class DashboardViewModel : BaseViewModel
 
     public ObservableCollection<SwalekhaBreakdownRow> AssetsBreakdown { get; } = new();
 
+    public ObservableCollection<SwalekhaBreakdownRow> LiabilitiesBreakdown { get; } = new();
+
+    /// <summary>Assets vs liabilities as two bars - real totals from the same dashboard payload,
+    /// not a fabricated trend (no historical net-worth series exists server-side yet).</summary>
+    public ObservableCollection<SwalekhaBreakdownRow> NetWorthComposition { get; } = new();
+
     public ObservableCollection<SwalekhaCalendarEventDto> UpcomingDues { get; } = new();
+
+    public ObservableCollection<SwalekhaAppointmentDto> TodayAppointments { get; } = new();
+
+    public bool HasLiabilitiesBreakdown => LiabilitiesBreakdown.Count > 0;
+
+    public IList<Brush> NetWorthPalette { get; } = new List<Brush>
+    {
+        new SolidColorBrush(Color.FromArgb("#14919B")),
+        new SolidColorBrush(Color.FromArgb("#D64545"))
+    };
 
     public string OwnerName => _authService.CurrentUser?.Name ?? "Owner";
 
@@ -74,10 +91,27 @@ public sealed partial class DashboardViewModel : BaseViewModel
                 AssetsBreakdown.Add(row);
             }
 
+            LiabilitiesBreakdown.Clear();
+            foreach (var row in dashboard.LiabilitiesBreakdown.Where(r => r.Value != 0))
+            {
+                LiabilitiesBreakdown.Add(row);
+            }
+            OnPropertyChanged(nameof(HasLiabilitiesBreakdown));
+
+            NetWorthComposition.Clear();
+            NetWorthComposition.Add(new SwalekhaBreakdownRow("Assets", TotalAssets, null));
+            NetWorthComposition.Add(new SwalekhaBreakdownRow("Liabilities", TotalLiabilities, null));
+
             UpcomingDues.Clear();
             foreach (var due in dashboard.UpcomingDues.Take(10))
             {
                 UpcomingDues.Add(due);
+            }
+
+            TodayAppointments.Clear();
+            foreach (var appointment in dashboard.TodayAppointments)
+            {
+                TodayAppointments.Add(appointment);
             }
 
             HasLoadedOnce = true;
@@ -85,60 +119,8 @@ public sealed partial class DashboardViewModel : BaseViewModel
     }
 
     [RelayCommand]
-    private static async Task OpenAccountsAsync()
-        => await Shell.Current.GoToAsync(nameof(Views.AccountsPage));
-
-    [RelayCommand]
-    private static async Task OpenContactsAsync()
-        => await Shell.Current.GoToAsync(nameof(Views.ContactsPage));
-
-    [RelayCommand]
-    private static async Task OpenExpensesAsync()
-        => await Shell.Current.GoToAsync(nameof(Views.ExpenseSheetsPage));
-
-    [RelayCommand]
-    private static async Task OpenIncomeAsync()
-        => await Shell.Current.GoToAsync(nameof(Views.IncomePage));
-
-    [RelayCommand]
-    private static async Task OpenRecurringBillsAsync()
-        => await Shell.Current.GoToAsync(nameof(Views.RecurringBillsPage));
-
-    [RelayCommand]
-    private static async Task OpenTripsAsync()
-        => await Shell.Current.GoToAsync(nameof(Views.TripsPage));
-
-    [RelayCommand]
-    private static async Task OpenInvestmentsAsync()
-        => await Shell.Current.GoToAsync(nameof(Views.InvestmentsHubPage));
-
-    [RelayCommand]
-    private static async Task OpenLoansAsync()
-        => await Shell.Current.GoToAsync(nameof(Views.LoansPage));
-
-    [RelayCommand]
-    private static async Task OpenInsuranceAsync()
-        => await Shell.Current.GoToAsync(nameof(Views.InsurancePoliciesPage));
-
-    [RelayCommand]
-    private static async Task OpenJournalAsync()
-        => await Shell.Current.GoToAsync(nameof(Views.JournalPage));
-
-    [RelayCommand]
-    private static async Task OpenNotesAsync()
-        => await Shell.Current.GoToAsync(nameof(Views.NotesPage));
-
-    [RelayCommand]
-    private static async Task OpenCalendarAsync()
-        => await Shell.Current.GoToAsync(nameof(Views.CalendarPage));
-
-    [RelayCommand]
-    private static async Task OpenDocumentsAsync()
-        => await Shell.Current.GoToAsync(nameof(Views.DocumentsPage));
-
-    [RelayCommand]
-    private static async Task OpenSelfCheckAsync()
-        => await Shell.Current.GoToAsync(nameof(Views.SelfCheckPage));
+    private static async Task OpenSettingsAsync()
+        => await Shell.Current.GoToAsync("//SettingsPage");
 
     [RelayCommand]
     private async Task ExportCsvAsync()
@@ -156,12 +138,5 @@ public sealed partial class DashboardViewModel : BaseViewModel
                 File = new ShareFile(localPath, "text/csv")
             });
         });
-    }
-
-    [RelayCommand]
-    private async Task LogoutAsync()
-    {
-        _authService.Logout();
-        await Shell.Current.GoToAsync($"//{nameof(Views.LoginPage)}");
     }
 }
