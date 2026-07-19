@@ -49,3 +49,47 @@ public sealed record SwalekhaAccountDto(
     bool IsActive,
     string? Notes,
     DateTime CreatedAt);
+
+public sealed record SwalekhaAccountPayload(
+    string Name,
+    string AccountType,
+    string? BankName,
+    string? AccountNumberMasked,
+    string? Ifsc,
+    decimal? CreditLimit,
+    int? StatementDayOfMonth,
+    int? DueDayOfMonth,
+    decimal OpeningBalance,
+    string? Currency,
+    bool IsActive,
+    string? Notes);
+
+public sealed record SwalekhaTransactionDto(
+    Guid Id,
+    Guid AccountId,
+    string TransactionType,
+    decimal Amount,
+    DateTime TransactionDate,
+    string Narration,
+    Guid? CounterAccountId,
+    string? CounterAccountName,
+    decimal RunningBalance,
+    Guid? TransferGroupId,
+    DateTime CreatedAt);
+
+public sealed record SwalekhaTransactionPayload(
+    decimal Amount,
+    DateTime TransactionDate,
+    string Narration,
+    string TransactionType);
+
+public sealed record SwalekhaTransactionList(int Page, int PageSize, int TotalCount, IReadOnlyList<SwalekhaTransactionDto> Rows);
+
+public sealed record SwalekhaTransferPayload(
+    Guid FromAccountId,
+    Guid ToAccountId,
+    decimal Amount,
+    DateTime TransactionDate,
+    string? Narration);
+
+public sealed record SwalekhaTransferResult(SwalekhaAccountDto FromAccount, SwalekhaAccountDto ToAccount);

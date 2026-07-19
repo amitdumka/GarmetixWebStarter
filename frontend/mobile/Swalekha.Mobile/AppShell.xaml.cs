@@ -12,6 +12,11 @@ public partial class AppShell : Shell
         InitializeComponent();
         _authService = authService;
         Loaded += OnLoaded;
+
+        Routing.RegisterRoute(nameof(AccountsPage), typeof(AccountsPage));
+        Routing.RegisterRoute(nameof(AccountEditPage), typeof(AccountEditPage));
+        Routing.RegisterRoute(nameof(AccountDetailPage), typeof(AccountDetailPage));
+        Routing.RegisterRoute(nameof(TransferPage), typeof(TransferPage));
     }
 
     private async void OnLoaded(object? sender, EventArgs e)

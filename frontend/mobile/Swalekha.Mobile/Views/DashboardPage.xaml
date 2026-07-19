@@ -62,6 +62,20 @@
                     </VerticalStackLayout>
                 </cards:SfCard>
 
+                <cards:SfCard Padding="0" StrokeThickness="1" CornerRadius="12"
+                              Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                              BackgroundColor="Transparent">
+                    <cards:SfCard.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding OpenAccountsCommand}" />
+                    </cards:SfCard.GestureRecognizers>
+                    <Grid ColumnDefinitions="*,Auto" Padding="14,12">
+                        <Label Grid.Column="0" Text="Accounts hub" FontSize="14" FontAttributes="Bold" VerticalOptions="Center"
+                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                        <Label Grid.Column="1" Text="Open &#8250;" FontSize="13" VerticalOptions="Center"
+                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                    </Grid>
+                </cards:SfCard>
+
                 <!-- Assets breakdown chart -->
                 <cards:SfCard Padding="14" StrokeThickness="0" CornerRadius="14"
                               IsVisible="{Binding HasLoadedOnce}"

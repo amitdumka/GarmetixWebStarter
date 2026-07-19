@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:cards="clr-namespace:Syncfusion.Maui.Toolkit.Cards;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
+             xmlns:models="clr-namespace:Swalekha.Mobile.Models"
+             x:Class="Swalekha.Mobile.Views.AccountsPage"
+             x:DataType="viewModels:AccountsViewModel"
+             Title="Accounts hub"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
+
+    <Grid RowDefinitions="*,Auto">
+
+        <RefreshView Grid.Row="0" Command="{Binding LoadCommand}" IsRefreshing="{Binding IsBusy}">
+            <ScrollView>
+                <VerticalStackLayout Padding="16" Spacing="12">
+
+                    <cards:SfCard Padding="16" StrokeThickness="0" CornerRadius="14"
+                                  BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Total across accounts" FontSize="12" TextColor="{StaticResource SecondaryDarkText}" />
+                            <Label Text="{Binding TotalBalance, StringFormat='₹{0:N0}'}" FontSize="24" FontAttributes="Bold" TextColor="{StaticResource White}" />
+                        </VerticalStackLayout>
+                    </cards:SfCard>
+
+                    <Label Text="{Binding ErrorMessage}"
+                           IsVisible="{Binding HasError}"
+                           TextColor="{StaticResource SwalekhaDanger}"
+                           BackgroundColor="{StaticResource SwalekhaDangerBg}"
+                           Padding="10" FontSize="13" />
+
+                    <Label Text="No accounts yet. Tap + to add your first one."
+                           IsVisible="{Binding HasNoAccounts}"
+                           FontSize="13" TextColor="{StaticResource SwalekhaMuted}"
+                           HorizontalOptions="Center" Margin="0,24,0,0" />
+
+                    <CollectionView x:Name="AccountsList"
+                                    ItemsSource="{Binding Accounts}"
+                                    SelectionMode="Single"
+                                    SelectionChanged="OnAccountSelected">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:SwalekhaAccountDto">
+                                <cards:SfCard Padding="14" Margin="0,0,0,8" StrokeThickness="0" CornerRadius="12"
+                                              BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <VerticalStackLayout Grid.Column="0" Spacing="1">
+                                            <Label Text="{Binding Name}" FontSize="14" FontAttributes="Bold" />
+                                            <Label Text="{Binding AccountType}" FontSize="11" TextColor="{StaticResource SwalekhaMuted}" />
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="1" Text="{Binding CurrentBalance, StringFormat='₹{0:N0}'}"
+                                               FontSize="15" FontAttributes="Bold" VerticalOptions="Center"
+                                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                                    </Grid>
+                                </cards:SfCard>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                    <buttons:SfButton Text="Transfer between accounts"
+                                       Command="{Binding OpenTransferCommand}"
+                                       HeightRequest="44" CornerRadius="8"
+                                       Background="Transparent"
+                                       Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                       StrokeThickness="1"
+                                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
+
+        <buttons:SfButton Grid.Row="1" Text="+ Add account"
+                           Command="{Binding AddAccountCommand}"
+                           Margin="16" HeightRequest="48" CornerRadius="10"
+                           Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                           TextColor="{StaticResource White}" />
+    </Grid>
+</ContentPage>

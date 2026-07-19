@@ -1,5 +1,16 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-19 - Android Swalekha: Accounts Hub stage (PersonalFin_02 parity)
+
+Amit said "keep continue" right after the foundation stage landed - the same "keep going stage by stage" pattern the web Swalekha module was built with. This stage ports `PersonalFin_02`'s Accounts Hub Core to the Android app; DTOs read directly from `SwalekhaAccountsEndpoints.cs`, no backend changes.
+
+- New `AccountsPage` (list with a total-balance hero card, tap a row to open detail, `+ Add account`, `Transfer between accounts`), `AccountEditPage` (one form for both create and edit - `[QueryProperty(nameof(AccountId), "id")]` decides the mode), `AccountDetailPage` (account header, inline Deposit/Withdrawal entry, paginated ledger with per-row Delete, Edit/Transfer actions), `TransferPage` (From/To account pickers, optional preselected `fromId` from the account detail screen).
+- `SwalekhaApiClient` gained a shared `SendAsync`/`SendCoreAsync` request pipeline (was GET-only) so POST/PUT/DELETE share the same error handling as GET; added the six new account/transaction/transfer calls.
+- Routes registered directly on `Shell` (`Routing.RegisterRoute`) rather than as `ShellContent` tabs, since these are pushed/popped detail screens, not top-level destinations - reached via a new "Accounts hub" card on the Dashboard.
+- Two real MAUI XAML gotchas hit and fixed while wiring the ledger's per-row Delete button: `RelativeSource AncestorType` cannot target a view-model type (it only walks `VisualElement` ancestors) - reaching a page-level command from inside a `CollectionView` `DataTemplate` needs `{Binding Source={x:Reference PageRoot}, Path=BindingContext.DeleteTransactionCommand}` instead, which is what's actually used.
+- Validated: `dotnet build -f net10.0-android` (0 errors). **Not run on a device/emulator** - same standing limitation as the foundation stage, no Android emulator or live backend in this environment.
+- Next: Contacts + Person Ledger (`PersonalFin_03`).
+
 ## 2026-07-19 - Android Swalekha app: foundation stage on branch `android-swalekha`
 
 Amit asked for a native Android app for the Swalekha module, on a new branch off `version7`, using a good free UI kit ("fluidic ui") and wanted a visual comparison first. Branched `android-swalekha` from `version7`'s `55ced28`. Presented a phone-mockup comparison of three genuinely free options (Material 3/Compose, Fluent UI, Syncfusion) as a published artifact; Amit picked **Syncfusion on .NET MAUI**. During setup, found the better fit is `Syncfusion.Maui.Toolkit` (fully MIT-licensed, no revenue threshold) rather than Essential Studio's Community License (which does have a <$1M-revenue condition) - same charts/gauges, no licensing caveat at all.

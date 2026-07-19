@@ -44,6 +44,14 @@ public static class MauiProgram
         builder.Services.AddTransient<LoginPage>();
         builder.Services.AddTransient<DashboardViewModel>();
         builder.Services.AddTransient<DashboardPage>();
+        builder.Services.AddTransient<AccountsViewModel>();
+        builder.Services.AddTransient<AccountsPage>();
+        builder.Services.AddTransient<AccountEditViewModel>();
+        builder.Services.AddTransient<AccountEditPage>();
+        builder.Services.AddTransient<AccountDetailViewModel>();
+        builder.Services.AddTransient<AccountDetailPage>();
+        builder.Services.AddTransient<TransferViewModel>();
+        builder.Services.AddTransient<TransferPage>();
         builder.Services.AddTransient<AppShell>();
 
 #if DEBUG

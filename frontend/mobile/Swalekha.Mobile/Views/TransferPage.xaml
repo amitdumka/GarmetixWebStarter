@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:inputLayout="clr-namespace:Syncfusion.Maui.Toolkit.TextInputLayout;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
+             x:Class="Swalekha.Mobile.Views.TransferPage"
+             x:DataType="viewModels:TransferViewModel"
+             Title="Transfer"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="14">
+
+            <Label Text="{Binding ErrorMessage}"
+                   IsVisible="{Binding HasError}"
+                   TextColor="{StaticResource SwalekhaDanger}"
+                   BackgroundColor="{StaticResource SwalekhaDangerBg}"
+                   Padding="10" FontSize="13" />
+
+            <VerticalStackLayout Spacing="4">
+                <Label Text="From account" FontSize="12" TextColor="{StaticResource SwalekhaMuted}" />
+                <Picker ItemsSource="{Binding Accounts}"
+                        ItemDisplayBinding="{Binding Name}"
+                        SelectedItem="{Binding FromAccount}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="4">
+                <Label Text="To account" FontSize="12" TextColor="{StaticResource SwalekhaMuted}" />
+                <Picker ItemsSource="{Binding Accounts}"
+                        ItemDisplayBinding="{Binding Name}"
+                        SelectedItem="{Binding ToAccount}" />
+            </VerticalStackLayout>
+
+            <inputLayout:SfTextInputLayout Hint="Amount" ContainerType="Outlined">
+                <Entry Text="{Binding AmountText}" Keyboard="Numeric" />
+            </inputLayout:SfTextInputLayout>
+
+            <inputLayout:SfTextInputLayout Hint="Narration (optional)" ContainerType="Outlined">
+                <Entry Text="{Binding Narration}" />
+            </inputLayout:SfTextInputLayout>
+
+            <buttons:SfButton Text="Transfer"
+                               Command="{Binding SubmitCommand}"
+                               HeightRequest="48" CornerRadius="8"
+                               Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                               TextColor="{StaticResource White}" />
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="{StaticResource Secondary}" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

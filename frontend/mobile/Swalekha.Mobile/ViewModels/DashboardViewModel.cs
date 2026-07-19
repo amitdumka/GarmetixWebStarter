@@ -83,6 +83,10 @@ public sealed partial class DashboardViewModel : BaseViewModel
     }
 
     [RelayCommand]
+    private static async Task OpenAccountsAsync()
+        => await Shell.Current.GoToAsync(nameof(Views.AccountsPage));
+
+    [RelayCommand]
     private async Task LogoutAsync()
     {
         _authService.Logout();
