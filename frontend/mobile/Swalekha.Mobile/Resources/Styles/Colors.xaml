@@ -15,11 +15,18 @@
     <Color x:Key="Tertiary">#0F6E56</Color>
 
     <Color x:Key="SwalekhaBackground">#F2F6F8</Color>
-    <Color x:Key="SwalekhaBackgroundDark">#0E1A22</Color>
-    <Color x:Key="SwalekhaSurfaceDark">#152531</Color>
+    <Color x:Key="SwalekhaBackgroundDark">#0C161D</Color>
+    <!-- Deliberately much lighter than SwalekhaBackgroundDark - the previous #152531 was nearly
+         indistinguishable from the #0E1A22 page background, so every card silently blended into
+         the page instead of reading as a raised surface. -->
+    <Color x:Key="SwalekhaSurfaceDark">#1C2E3B</Color>
+    <Color x:Key="SwalekhaCardBorderLight">#DCE7EC</Color>
+    <Color x:Key="SwalekhaCardBorderDark">#2C4557</Color>
     <Color x:Key="SwalekhaMuted">#5C7684</Color>
+    <Color x:Key="SwalekhaMutedDark">#8CA3B0</Color>
     <Color x:Key="SwalekhaDanger">#D64545</Color>
     <Color x:Key="SwalekhaDangerBg">#FDEEEE</Color>
+    <Color x:Key="SwalekhaDangerBgDark">#3A1F1F</Color>
     <Color x:Key="SwalekhaSuccess">#1E8449</Color>
 
     <Color x:Key="White">White</Color>

@@ -10,65 +10,84 @@
              Shell.NavBarIsVisible="False"
              BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
 
-    <ScrollView>
-        <VerticalStackLayout Padding="28,0" Spacing="0" VerticalOptions="Center">
+    <!-- Grid star rows (not a plain centered stack) so the form's vertical position scales with
+         actual screen height at runtime instead of a fixed margin - reads correctly from small
+         phones to tall/large-screen devices instead of only being tuned for one test device. -->
+    <Grid RowDefinitions="0.8*,Auto,1.2*" Padding="24,0">
 
-            <VerticalStackLayout Spacing="4" Margin="0,0,0,32">
-                <Label Text="Swalekha"
-                       FontSize="30"
-                       FontAttributes="Bold"
-                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
-                <Label Text="Your personal finance ledger"
-                       FontSize="14"
-                       TextColor="{StaticResource SwalekhaMuted}" />
-            </VerticalStackLayout>
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="0"
+                                  MaximumWidthRequest="420"
+                                  HorizontalOptions="Center">
 
-            <cards:SfCardView Padding="20" BorderWidth="0" CornerRadius="16"
-                          BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
-                <VerticalStackLayout Spacing="16">
-
-                    <inputLayout:SfTextInputLayout Hint="Username" ContainerType="Outlined">
-                        <Entry Text="{Binding UserName}"
-                               Keyboard="Email"
-                               ReturnType="Next"
-                               IsSpellCheckEnabled="False"
-                               IsTextPredictionEnabled="False" />
-                    </inputLayout:SfTextInputLayout>
-
-                    <inputLayout:SfTextInputLayout Hint="Password" ContainerType="Outlined">
-                        <Entry Text="{Binding Password}"
-                               IsPassword="True"
-                               ReturnType="Go"
-                               ReturnCommand="{Binding LoginCommand}" />
-                    </inputLayout:SfTextInputLayout>
-
-                    <Label Text="{Binding ErrorMessage}"
-                           IsVisible="{Binding HasError}"
-                           TextColor="{StaticResource SwalekhaDanger}"
-                           BackgroundColor="{StaticResource SwalekhaDangerBg}"
-                           Padding="10"
-                           FontSize="13" />
-
-                    <buttons:SfButton Text="Sign in"
-                                       Command="{Binding LoginCommand}"
-                                       HeightRequest="48"
-                                       CornerRadius="8"
-                                       Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
-                                       TextColor="{StaticResource White}" />
-
-                    <ActivityIndicator IsRunning="{Binding IsBusy}"
-                                       IsVisible="{Binding IsBusy}"
-                                       Color="{StaticResource Secondary}" />
-
+                <VerticalStackLayout Spacing="4" Margin="4,0,4,24" HorizontalOptions="Center">
+                    <Label Text="Swalekha"
+                           FontSize="26"
+                           FontAttributes="Bold"
+                           HorizontalOptions="Center"
+                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                    <Label Text="Your personal finance ledger"
+                           FontSize="13"
+                           HorizontalOptions="Center"
+                           HorizontalTextAlignment="Center"
+                           TextColor="{StaticResource SwalekhaMuted}" />
                 </VerticalStackLayout>
-            </cards:SfCardView>
 
-            <Label Text="Owner accounts only."
-                   FontSize="12"
-                   TextColor="{StaticResource SwalekhaMuted}"
-                   HorizontalOptions="Center"
-                   Margin="0,16,0,0" />
+                <cards:SfCardView Padding="22" BorderWidth="1" CornerRadius="18"
+                          BorderColor="{AppThemeBinding Light={StaticResource SwalekhaCardBorderLight}, Dark={StaticResource SwalekhaCardBorderDark}}"
+                          BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                    <cards:SfCardView.Shadow>
+                        <Shadow Brush="Black" Opacity="0.22" Radius="16" Offset="0,6" />
+                    </cards:SfCardView.Shadow>
+                    <VerticalStackLayout Spacing="14">
 
-        </VerticalStackLayout>
-    </ScrollView>
+                        <inputLayout:SfTextInputLayout Hint="Username" ContainerType="Outlined">
+                            <Entry Text="{Binding UserName}"
+                                   Keyboard="Email"
+                                   ReturnType="Next"
+                                   FontSize="15"
+                                   IsSpellCheckEnabled="False"
+                                   IsTextPredictionEnabled="False" />
+                        </inputLayout:SfTextInputLayout>
+
+                        <inputLayout:SfTextInputLayout Hint="Password" ContainerType="Outlined">
+                            <Entry Text="{Binding Password}"
+                                   IsPassword="True"
+                                   FontSize="15"
+                                   ReturnType="Go"
+                                   ReturnCommand="{Binding LoginCommand}" />
+                        </inputLayout:SfTextInputLayout>
+
+                        <Label Text="{Binding ErrorMessage}"
+                               IsVisible="{Binding HasError}"
+                               TextColor="{StaticResource SwalekhaDanger}"
+                               BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaDangerBg}, Dark={StaticResource SwalekhaDangerBgDark}}"
+                               LineBreakMode="WordWrap"
+                               Padding="10"
+                               FontSize="12.5" />
+
+                        <buttons:SfButton Text="Sign in"
+                                           Command="{Binding LoginCommand}"
+                                           HeightRequest="46"
+                                           CornerRadius="10"
+                                           FontSize="15"
+                                           Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                           TextColor="{StaticResource White}" />
+
+                        <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                           IsVisible="{Binding IsBusy}"
+                                           Color="{StaticResource Secondary}" />
+
+                    </VerticalStackLayout>
+                </cards:SfCardView>
+
+                <Label Text="Owner accounts only."
+                       FontSize="12"
+                       TextColor="{StaticResource SwalekhaMuted}"
+                       HorizontalOptions="Center"
+                       Margin="0,18,0,0" />
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
 </ContentPage>
