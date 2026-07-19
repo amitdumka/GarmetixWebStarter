@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:cards="clr-namespace:Syncfusion.Maui.Toolkit.Cards;assembly=Syncfusion.Maui.Toolkit"
              xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
              xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
              xmlns:models="clr-namespace:Swalekha.Mobile.Models"
@@ -38,7 +37,7 @@
                                     SelectionChanged="OnDepositSelected">
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="models:SwalekhaRecurringDepositDto">
-                                <cards:SfCardView Padding="14" Margin="0,0,0,8" BorderWidth="0" CornerRadius="12"
+                                <Border Padding="14" Margin="0,0,0,8" StrokeThickness="0" StrokeShape="RoundRectangle 12"
                                               BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <VerticalStackLayout Grid.Column="0" Spacing="1">
@@ -55,7 +54,7 @@
                                                FontSize="15" FontAttributes="Bold" VerticalOptions="Center"
                                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                                     </Grid>
-                                </cards:SfCardView>
+                                </Border>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>

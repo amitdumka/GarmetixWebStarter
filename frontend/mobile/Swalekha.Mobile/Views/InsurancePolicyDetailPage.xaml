@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:cards="clr-namespace:Syncfusion.Maui.Toolkit.Cards;assembly=Syncfusion.Maui.Toolkit"
              xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
              xmlns:inputLayout="clr-namespace:Syncfusion.Maui.Toolkit.TextInputLayout;assembly=Syncfusion.Maui.Toolkit"
              xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
@@ -18,7 +17,7 @@
         <ScrollView>
             <VerticalStackLayout Padding="16" Spacing="14">
 
-                <cards:SfCardView Padding="16" BorderWidth="0" CornerRadius="14"
+                <Border Padding="16" StrokeThickness="0" StrokeShape="RoundRectangle 14"
                               BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                               IsVisible="{Binding Policy, Converter={StaticResource NullableHasValueConverter}}">
                     <VerticalStackLayout Spacing="2">
@@ -40,7 +39,7 @@
                         <Label Text="Matured" FontSize="11" FontAttributes="Bold" TextColor="{StaticResource SecondaryDarkText}"
                                IsVisible="{Binding Policy.IsMatured}" />
                     </VerticalStackLayout>
-                </cards:SfCardView>
+                </Border>
 
                 <Label Text="{Binding ErrorMessage}"
                        IsVisible="{Binding HasError}"
@@ -63,7 +62,7 @@
                                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                 </Grid>
 
-                <cards:SfCardView Padding="14" BorderWidth="0" CornerRadius="14"
+                <Border Padding="14" StrokeThickness="0" StrokeShape="RoundRectangle 14"
                               IsVisible="{Binding IsMaturing}"
                               BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
                     <VerticalStackLayout Spacing="10">
@@ -78,9 +77,9 @@
                                            Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
                                            TextColor="{StaticResource White}" />
                     </VerticalStackLayout>
-                </cards:SfCardView>
+                </Border>
 
-                <cards:SfCardView Padding="14" BorderWidth="0" CornerRadius="14"
+                <Border Padding="14" StrokeThickness="0" StrokeShape="RoundRectangle 14"
                               IsVisible="{Binding Policy.NomineeName, Converter={StaticResource NullableHasValueConverter}}"
                               BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
                     <VerticalStackLayout Spacing="2">
@@ -88,7 +87,7 @@
                         <Label Text="{Binding Policy.NomineeName}" FontSize="13" FontAttributes="Bold" />
                         <Label Text="{Binding Policy.NomineeRelationship}" FontSize="11" TextColor="{StaticResource SwalekhaMuted}" />
                     </VerticalStackLayout>
-                </cards:SfCardView>
+                </Border>
 
             </VerticalStackLayout>
         </ScrollView>

@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:cards="clr-namespace:Syncfusion.Maui.Toolkit.Cards;assembly=Syncfusion.Maui.Toolkit"
              xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
              xmlns:chart="clr-namespace:Syncfusion.Maui.Toolkit.Charts;assembly=Syncfusion.Maui.Toolkit"
              xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
@@ -44,7 +43,7 @@
                        Padding="10" FontSize="13" />
 
                 <!-- Net worth -->
-                <cards:SfCardView Padding="18" BorderWidth="0" CornerRadius="14"
+                <Border Padding="18" StrokeThickness="0" StrokeShape="RoundRectangle 14"
                               BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}">
                     <VerticalStackLayout Spacing="4">
                         <Label Text="Net worth" FontSize="12" TextColor="{StaticResource SecondaryDarkText}" />
@@ -61,210 +60,210 @@
                             </VerticalStackLayout>
                         </Grid>
                     </VerticalStackLayout>
-                </cards:SfCardView>
+                </Border>
 
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                    <cards:SfCardView Grid.Column="0" Padding="0" BorderWidth="1" CornerRadius="12"
-                                  BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                    <Border Grid.Column="0" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
+                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
                                   BackgroundColor="Transparent">
-                        <cards:SfCardView.GestureRecognizers>
+                        <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenAccountsCommand}" />
-                        </cards:SfCardView.GestureRecognizers>
+                        </Border.GestureRecognizers>
                         <VerticalStackLayout Padding="14,12" Spacing="0">
                             <Label Text="Accounts hub" FontSize="13" FontAttributes="Bold"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                             <Label Text="Open &#8250;" FontSize="11"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                         </VerticalStackLayout>
-                    </cards:SfCardView>
-                    <cards:SfCardView Grid.Column="1" Padding="0" BorderWidth="1" CornerRadius="12"
-                                  BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                    </Border>
+                    <Border Grid.Column="1" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
+                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
                                   BackgroundColor="Transparent">
-                        <cards:SfCardView.GestureRecognizers>
+                        <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenContactsCommand}" />
-                        </cards:SfCardView.GestureRecognizers>
+                        </Border.GestureRecognizers>
                         <VerticalStackLayout Padding="14,12" Spacing="0">
                             <Label Text="Contacts" FontSize="13" FontAttributes="Bold"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                             <Label Text="Open &#8250;" FontSize="11"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                         </VerticalStackLayout>
-                    </cards:SfCardView>
+                    </Border>
                 </Grid>
 
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                    <cards:SfCardView Grid.Column="0" Padding="0" BorderWidth="1" CornerRadius="12"
-                                  BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                    <Border Grid.Column="0" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
+                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
                                   BackgroundColor="Transparent">
-                        <cards:SfCardView.GestureRecognizers>
+                        <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenExpensesCommand}" />
-                        </cards:SfCardView.GestureRecognizers>
+                        </Border.GestureRecognizers>
                         <VerticalStackLayout Padding="14,12" Spacing="0">
                             <Label Text="Expense sheets" FontSize="13" FontAttributes="Bold"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                             <Label Text="Open &#8250;" FontSize="11"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                         </VerticalStackLayout>
-                    </cards:SfCardView>
-                    <cards:SfCardView Grid.Column="1" Padding="0" BorderWidth="1" CornerRadius="12"
-                                  BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                    </Border>
+                    <Border Grid.Column="1" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
+                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
                                   BackgroundColor="Transparent">
-                        <cards:SfCardView.GestureRecognizers>
+                        <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenIncomeCommand}" />
-                        </cards:SfCardView.GestureRecognizers>
+                        </Border.GestureRecognizers>
                         <VerticalStackLayout Padding="14,12" Spacing="0">
                             <Label Text="Income" FontSize="13" FontAttributes="Bold"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                             <Label Text="Open &#8250;" FontSize="11"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                         </VerticalStackLayout>
-                    </cards:SfCardView>
+                    </Border>
                 </Grid>
 
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                    <cards:SfCardView Grid.Column="0" Padding="0" BorderWidth="1" CornerRadius="12"
-                                  BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                    <Border Grid.Column="0" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
+                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
                                   BackgroundColor="Transparent">
-                        <cards:SfCardView.GestureRecognizers>
+                        <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenRecurringBillsCommand}" />
-                        </cards:SfCardView.GestureRecognizers>
+                        </Border.GestureRecognizers>
                         <VerticalStackLayout Padding="14,12" Spacing="0">
                             <Label Text="Recurring bills" FontSize="13" FontAttributes="Bold"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                             <Label Text="Open &#8250;" FontSize="11"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                         </VerticalStackLayout>
-                    </cards:SfCardView>
-                    <cards:SfCardView Grid.Column="1" Padding="0" BorderWidth="1" CornerRadius="12"
-                                  BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                    </Border>
+                    <Border Grid.Column="1" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
+                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
                                   BackgroundColor="Transparent">
-                        <cards:SfCardView.GestureRecognizers>
+                        <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenTripsCommand}" />
-                        </cards:SfCardView.GestureRecognizers>
+                        </Border.GestureRecognizers>
                         <VerticalStackLayout Padding="14,12" Spacing="0">
                             <Label Text="Trips" FontSize="13" FontAttributes="Bold"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                             <Label Text="Open &#8250;" FontSize="11"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                         </VerticalStackLayout>
-                    </cards:SfCardView>
+                    </Border>
                 </Grid>
 
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                    <cards:SfCardView Grid.Column="0" Padding="0" BorderWidth="1" CornerRadius="12"
-                                  BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                    <Border Grid.Column="0" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
+                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
                                   BackgroundColor="Transparent">
-                        <cards:SfCardView.GestureRecognizers>
+                        <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenInvestmentsCommand}" />
-                        </cards:SfCardView.GestureRecognizers>
+                        </Border.GestureRecognizers>
                         <VerticalStackLayout Padding="14,12" Spacing="0">
                             <Label Text="Investments" FontSize="13" FontAttributes="Bold"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                             <Label Text="Open &#8250;" FontSize="11"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                         </VerticalStackLayout>
-                    </cards:SfCardView>
-                    <cards:SfCardView Grid.Column="1" Padding="0" BorderWidth="1" CornerRadius="12"
-                                  BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                    </Border>
+                    <Border Grid.Column="1" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
+                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
                                   BackgroundColor="Transparent">
-                        <cards:SfCardView.GestureRecognizers>
+                        <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenLoansCommand}" />
-                        </cards:SfCardView.GestureRecognizers>
+                        </Border.GestureRecognizers>
                         <VerticalStackLayout Padding="14,12" Spacing="0">
                             <Label Text="Loans" FontSize="13" FontAttributes="Bold"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                             <Label Text="Open &#8250;" FontSize="11"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                         </VerticalStackLayout>
-                    </cards:SfCardView>
+                    </Border>
                 </Grid>
 
-                <cards:SfCardView Padding="0" BorderWidth="1" CornerRadius="12"
-                              BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                <Border Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
+                              Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
                               BackgroundColor="Transparent">
-                    <cards:SfCardView.GestureRecognizers>
+                    <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding OpenInsuranceCommand}" />
-                    </cards:SfCardView.GestureRecognizers>
+                    </Border.GestureRecognizers>
                     <Grid ColumnDefinitions="*,Auto" Padding="14,12">
                         <Label Grid.Column="0" Text="Insurance" FontSize="14" FontAttributes="Bold" VerticalOptions="Center"
                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                         <Label Grid.Column="1" Text="Open &#8250;" FontSize="13" VerticalOptions="Center"
                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                     </Grid>
-                </cards:SfCardView>
+                </Border>
 
                 <Label Text="Personal organizer" FontSize="12" FontAttributes="Bold" TextColor="{StaticResource SwalekhaMuted}" Margin="0,4,0,0" />
 
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                    <cards:SfCardView Grid.Column="0" Padding="0" BorderWidth="1" CornerRadius="12"
-                                  BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                    <Border Grid.Column="0" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
+                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
                                   BackgroundColor="Transparent">
-                        <cards:SfCardView.GestureRecognizers>
+                        <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenJournalCommand}" />
-                        </cards:SfCardView.GestureRecognizers>
+                        </Border.GestureRecognizers>
                         <VerticalStackLayout Padding="14,12" Spacing="0">
                             <Label Text="Journal" FontSize="13" FontAttributes="Bold"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                             <Label Text="Open &#8250;" FontSize="11"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                         </VerticalStackLayout>
-                    </cards:SfCardView>
-                    <cards:SfCardView Grid.Column="1" Padding="0" BorderWidth="1" CornerRadius="12"
-                                  BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                    </Border>
+                    <Border Grid.Column="1" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
+                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
                                   BackgroundColor="Transparent">
-                        <cards:SfCardView.GestureRecognizers>
+                        <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenNotesCommand}" />
-                        </cards:SfCardView.GestureRecognizers>
+                        </Border.GestureRecognizers>
                         <VerticalStackLayout Padding="14,12" Spacing="0">
                             <Label Text="Notes" FontSize="13" FontAttributes="Bold"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                             <Label Text="Open &#8250;" FontSize="11"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                         </VerticalStackLayout>
-                    </cards:SfCardView>
+                    </Border>
                 </Grid>
 
-                <cards:SfCardView Padding="0" BorderWidth="1" CornerRadius="12"
-                              BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                <Border Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
+                              Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
                               BackgroundColor="Transparent">
-                    <cards:SfCardView.GestureRecognizers>
+                    <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding OpenCalendarCommand}" />
-                    </cards:SfCardView.GestureRecognizers>
+                    </Border.GestureRecognizers>
                     <Grid ColumnDefinitions="*,Auto" Padding="14,12">
                         <Label Grid.Column="0" Text="Calendar &amp; appointments" FontSize="14" FontAttributes="Bold" VerticalOptions="Center"
                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                         <Label Grid.Column="1" Text="Open &#8250;" FontSize="13" VerticalOptions="Center"
                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                     </Grid>
-                </cards:SfCardView>
+                </Border>
 
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                    <cards:SfCardView Grid.Column="0" Padding="0" BorderWidth="1" CornerRadius="12"
-                                  BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                    <Border Grid.Column="0" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
+                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
                                   BackgroundColor="Transparent">
-                        <cards:SfCardView.GestureRecognizers>
+                        <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenDocumentsCommand}" />
-                        </cards:SfCardView.GestureRecognizers>
+                        </Border.GestureRecognizers>
                         <VerticalStackLayout Padding="14,12" Spacing="0">
                             <Label Text="Documents" FontSize="13" FontAttributes="Bold"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                             <Label Text="Open &#8250;" FontSize="11"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                         </VerticalStackLayout>
-                    </cards:SfCardView>
-                    <cards:SfCardView Grid.Column="1" Padding="0" BorderWidth="1" CornerRadius="12"
-                                  BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                    </Border>
+                    <Border Grid.Column="1" Padding="0" StrokeThickness="1" StrokeShape="RoundRectangle 12"
+                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
                                   BackgroundColor="Transparent">
-                        <cards:SfCardView.GestureRecognizers>
+                        <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenSelfCheckCommand}" />
-                        </cards:SfCardView.GestureRecognizers>
+                        </Border.GestureRecognizers>
                         <VerticalStackLayout Padding="14,12" Spacing="0">
                             <Label Text="Security self-check" FontSize="13" FontAttributes="Bold"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                             <Label Text="Open &#8250;" FontSize="11"
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                         </VerticalStackLayout>
-                    </cards:SfCardView>
+                    </Border>
                 </Grid>
 
                 <buttons:SfButton Text="Export net worth CSV"
@@ -276,7 +275,7 @@
                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
 
                 <!-- Assets breakdown chart -->
-                <cards:SfCardView Padding="14" BorderWidth="0" CornerRadius="14"
+                <Border Padding="14" StrokeThickness="0" StrokeShape="RoundRectangle 14"
                               IsVisible="{Binding HasLoadedOnce}"
                               BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
                     <VerticalStackLayout Spacing="4">
@@ -295,10 +294,10 @@
                             </chart:SfCircularChart.Series>
                         </chart:SfCircularChart>
                     </VerticalStackLayout>
-                </cards:SfCardView>
+                </Border>
 
                 <!-- Upcoming dues -->
-                <cards:SfCardView Padding="14" BorderWidth="0" CornerRadius="14"
+                <Border Padding="14" StrokeThickness="0" StrokeShape="RoundRectangle 14"
                               IsVisible="{Binding HasLoadedOnce}"
                               BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
                     <VerticalStackLayout Spacing="6">
@@ -326,7 +325,7 @@
                             </CollectionView.ItemTemplate>
                         </CollectionView>
                     </VerticalStackLayout>
-                </cards:SfCardView>
+                </Border>
 
             </VerticalStackLayout>
         </ScrollView>

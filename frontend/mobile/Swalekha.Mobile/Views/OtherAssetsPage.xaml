@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:cards="clr-namespace:Syncfusion.Maui.Toolkit.Cards;assembly=Syncfusion.Maui.Toolkit"
              xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
              xmlns:inputLayout="clr-namespace:Syncfusion.Maui.Toolkit.TextInputLayout;assembly=Syncfusion.Maui.Toolkit"
              xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
@@ -18,13 +17,13 @@
             <ScrollView>
                 <VerticalStackLayout Padding="16" Spacing="12">
 
-                    <cards:SfCardView Padding="16" BorderWidth="0" CornerRadius="14"
+                    <Border Padding="16" StrokeThickness="0" StrokeShape="RoundRectangle 14"
                                   BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}">
                         <VerticalStackLayout Spacing="2">
                             <Label Text="Total value" FontSize="12" TextColor="{StaticResource SecondaryDarkText}" />
                             <Label Text="{Binding TotalValue, StringFormat='₹{0:N0}'}" FontSize="24" FontAttributes="Bold" TextColor="{StaticResource White}" />
                         </VerticalStackLayout>
-                    </cards:SfCardView>
+                    </Border>
 
                     <Label Text="{Binding ErrorMessage}"
                            IsVisible="{Binding HasError}"
@@ -32,7 +31,7 @@
                            BackgroundColor="{StaticResource SwalekhaDangerBg}"
                            Padding="10" FontSize="13" />
 
-                    <cards:SfCardView Padding="14" BorderWidth="0" CornerRadius="14"
+                    <Border Padding="14" StrokeThickness="0" StrokeShape="RoundRectangle 14"
                                   IsVisible="{Binding IsEditingForm}"
                                   BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
                         <VerticalStackLayout Spacing="10">
@@ -57,7 +56,7 @@
                                                    TextColor="{StaticResource SwalekhaMuted}" />
                             </Grid>
                         </VerticalStackLayout>
-                    </cards:SfCardView>
+                    </Border>
 
                     <Label Text="No other assets yet."
                            IsVisible="{Binding HasNoAssets}"
@@ -67,12 +66,12 @@
                     <CollectionView ItemsSource="{Binding Assets}">
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="models:SwalekhaOtherAssetDto">
-                                <cards:SfCardView Padding="12" Margin="0,0,0,6" BorderWidth="0" CornerRadius="10"
+                                <Border Padding="12" Margin="0,0,0,6" StrokeThickness="0" StrokeShape="RoundRectangle 10"
                                               BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
-                                    <cards:SfCardView.GestureRecognizers>
+                                    <Border.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.EditAssetCommand}"
                                                                CommandParameter="{Binding .}" />
-                                    </cards:SfCardView.GestureRecognizers>
+                                    </Border.GestureRecognizers>
                                     <Grid ColumnDefinitions="*,Auto,Auto">
                                         <VerticalStackLayout Grid.Column="0" Spacing="1">
                                             <Label Text="{Binding Name}" FontSize="12" FontAttributes="Bold" />
@@ -86,7 +85,7 @@
                                                 BackgroundColor="Transparent" TextColor="{StaticResource SwalekhaDanger}"
                                                 Padding="0" VerticalOptions="Center" />
                                     </Grid>
-                                </cards:SfCardView>
+                                </Border>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>
