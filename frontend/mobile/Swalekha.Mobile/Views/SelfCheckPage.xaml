@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:cards="clr-namespace:Syncfusion.Maui.Toolkit.Cards;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
+             xmlns:models="clr-namespace:Swalekha.Mobile.Models"
+             x:Class="Swalekha.Mobile.Views.SelfCheckPage"
+             x:DataType="viewModels:SelfCheckViewModel"
+             Title="Security self-check"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="14">
+
+            <Label Text="Confirms your data is genuinely isolated from every other Owner logged into Swalekha - a live check against the database, not a static claim."
+                   FontSize="12" TextColor="{StaticResource SwalekhaMuted}" />
+
+            <Label Text="{Binding ErrorMessage}"
+                   IsVisible="{Binding HasError}"
+                   TextColor="{StaticResource SwalekhaDanger}"
+                   BackgroundColor="{StaticResource SwalekhaDangerBg}"
+                   Padding="10" FontSize="13" />
+
+            <cards:SfCard Padding="16" StrokeThickness="0" CornerRadius="14"
+                          IsVisible="{Binding HasRun}"
+                          BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}">
+                <Label Text="All checks passed" FontSize="15" FontAttributes="Bold" TextColor="{StaticResource White}"
+                       IsVisible="{Binding AllPassed}" />
+                <Label Text="One or more checks failed" FontSize="15" FontAttributes="Bold" TextColor="{StaticResource White}"
+                       IsVisible="{Binding AllPassed, Converter={StaticResource InvertedBoolConverter}}" />
+            </cards:SfCard>
+
+            <buttons:SfButton Text="Run self-check"
+                               Command="{Binding RunCheckCommand}"
+                               HeightRequest="48" CornerRadius="8"
+                               Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                               TextColor="{StaticResource White}" />
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="{StaticResource Secondary}" />
+
+            <CollectionView ItemsSource="{Binding Checks}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:SwalekhaSelfCheckItem">
+                        <cards:SfCard Padding="12" Margin="0,0,0,6" StrokeThickness="0" CornerRadius="10"
+                                      BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                            <VerticalStackLayout Spacing="2">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <Label Grid.Column="0" Text="{Binding Name}" FontSize="13" FontAttributes="Bold" />
+                                    <Label Grid.Column="1" Text="Pass" FontSize="11" FontAttributes="Bold" TextColor="{StaticResource SwalekhaSuccess}" IsVisible="{Binding Passed}" />
+                                    <Label Grid.Column="1" Text="Fail" FontSize="11" FontAttributes="Bold" TextColor="{StaticResource SwalekhaDanger}"
+                                           IsVisible="{Binding Passed, Converter={StaticResource InvertedBoolConverter}}" />
+                                </Grid>
+                                <Label Text="{Binding Detail}" FontSize="11" TextColor="{StaticResource SwalekhaMuted}" />
+                            </VerticalStackLayout>
+                        </cards:SfCard>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

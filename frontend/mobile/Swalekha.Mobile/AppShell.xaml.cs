@@ -51,6 +51,8 @@ public partial class AppShell : Shell
         Routing.RegisterRoute(nameof(JournalPage), typeof(JournalPage));
         Routing.RegisterRoute(nameof(NotesPage), typeof(NotesPage));
         Routing.RegisterRoute(nameof(CalendarPage), typeof(CalendarPage));
+        Routing.RegisterRoute(nameof(DocumentsPage), typeof(DocumentsPage));
+        Routing.RegisterRoute(nameof(SelfCheckPage), typeof(SelfCheckPage));
     }
 
     private async void OnLoaded(object? sender, EventArgs e)

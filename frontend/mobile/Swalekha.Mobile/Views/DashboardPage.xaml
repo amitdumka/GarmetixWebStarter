@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:cards="clr-namespace:Syncfusion.Maui.Toolkit.Cards;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
              xmlns:chart="clr-namespace:Syncfusion.Maui.Toolkit.Charts;assembly=Syncfusion.Maui.Toolkit"
              xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
              xmlns:models="clr-namespace:Swalekha.Mobile.Models"
@@ -236,6 +237,43 @@
                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                     </Grid>
                 </cards:SfCard>
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <cards:SfCard Grid.Column="0" Padding="0" StrokeThickness="1" CornerRadius="12"
+                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                  BackgroundColor="Transparent">
+                        <cards:SfCard.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenDocumentsCommand}" />
+                        </cards:SfCard.GestureRecognizers>
+                        <VerticalStackLayout Padding="14,12" Spacing="0">
+                            <Label Text="Documents" FontSize="13" FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                            <Label Text="Open &#8250;" FontSize="11"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                        </VerticalStackLayout>
+                    </cards:SfCard>
+                    <cards:SfCard Grid.Column="1" Padding="0" StrokeThickness="1" CornerRadius="12"
+                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                  BackgroundColor="Transparent">
+                        <cards:SfCard.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenSelfCheckCommand}" />
+                        </cards:SfCard.GestureRecognizers>
+                        <VerticalStackLayout Padding="14,12" Spacing="0">
+                            <Label Text="Security self-check" FontSize="13" FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                            <Label Text="Open &#8250;" FontSize="11"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                        </VerticalStackLayout>
+                    </cards:SfCard>
+                </Grid>
+
+                <buttons:SfButton Text="Export net worth CSV"
+                                   Command="{Binding ExportCsvCommand}"
+                                   HeightRequest="42" CornerRadius="8"
+                                   Background="Transparent"
+                                   Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                   StrokeThickness="1"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
 
                 <!-- Assets breakdown chart -->
                 <cards:SfCard Padding="14" StrokeThickness="0" CornerRadius="14"

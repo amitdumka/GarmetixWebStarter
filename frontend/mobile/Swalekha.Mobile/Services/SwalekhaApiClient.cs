@@ -340,6 +340,63 @@ public sealed class SwalekhaApiClient
     public Task<List<SwalekhaCalendarEventDto>> GetCalendarAsync(int year, int month, CancellationToken cancellationToken = default)
         => SendAsync<List<SwalekhaCalendarEventDto>>(HttpMethod.Get, $"api/swalekha/calendar?year={year}&month={month}", null, cancellationToken);
 
+    public async Task<byte[]> DownloadDashboardExportAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await SendCoreAsync(HttpMethod.Get, "api/swalekha/dashboard/export", null, cancellationToken);
+        return await response.Content.ReadAsByteArrayAsync(cancellationToken);
+    }
+
+    public Task<SwalekhaSelfCheckDto> RunSecuritySelfCheckAsync(CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaSelfCheckDto>(HttpMethod.Get, "api/swalekha/security/self-check", null, cancellationToken);
+
+    public Task<List<SwalekhaDocumentDto>> GetDocumentsAsync(CancellationToken cancellationToken = default)
+        => SendAsync<List<SwalekhaDocumentDto>>(HttpMethod.Get, "api/swalekha/documents", null, cancellationToken);
+
+    public async Task<SwalekhaDocumentDto> UploadDocumentAsync(string filePath, string fileName, string contentType, string entityType, string? notes, CancellationToken cancellationToken = default)
+    {
+        using var content = new MultipartFormDataContent();
+        await using var fileStream = File.OpenRead(filePath);
+        using var streamContent = new StreamContent(fileStream);
+        streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType);
+        content.Add(streamContent, "file", fileName);
+        content.Add(new StringContent(entityType), "entityType");
+        if (!string.IsNullOrWhiteSpace(notes))
+        {
+            content.Add(new StringContent(notes), "notes");
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "api/swalekha/documents") { Content = content };
+        HttpResponseMessage response;
+        try
+        {
+            response = await _client.SendAsync(request, cancellationToken);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            throw new SwalekhaApiException($"Couldn't reach the server at {ApiSettings.BaseUrl}. Check your connection.");
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var detail = await TryReadMessageAsync(response, cancellationToken);
+            throw new SwalekhaApiException(detail ?? $"Upload failed ({(int)response.StatusCode}).", (int)response.StatusCode);
+        }
+
+        return await response.Content.ReadFromJsonAsync<SwalekhaDocumentDto>(JsonOptions, cancellationToken)
+            ?? throw new SwalekhaApiException("The server returned an empty response.");
+    }
+
+    public async Task<(byte[] Bytes, string ContentType)> DownloadDocumentAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var response = await SendCoreAsync(HttpMethod.Get, $"api/swalekha/documents/{id}/download", null, cancellationToken);
+        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+        var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+        return (bytes, contentType);
+    }
+
+    public Task DeleteDocumentAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/documents/{id}", null, cancellationToken);
+
     private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {
         var response = await SendCoreAsync(method, path, body, cancellationToken);

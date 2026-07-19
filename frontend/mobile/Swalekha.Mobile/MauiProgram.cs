@@ -120,6 +120,10 @@ public static class MauiProgram
         builder.Services.AddTransient<NotesPage>();
         builder.Services.AddTransient<CalendarViewModel>();
         builder.Services.AddTransient<CalendarPage>();
+        builder.Services.AddTransient<DocumentsViewModel>();
+        builder.Services.AddTransient<DocumentsPage>();
+        builder.Services.AddTransient<SelfCheckViewModel>();
+        builder.Services.AddTransient<SelfCheckPage>();
         builder.Services.AddTransient<AppShell>();
 
 #if DEBUG

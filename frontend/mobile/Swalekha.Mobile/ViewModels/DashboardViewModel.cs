@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Maui.ApplicationModel.DataTransfer;
+using Microsoft.Maui.Storage;
 using Swalekha.Mobile.Models;
 using Swalekha.Mobile.Services;
 
@@ -129,6 +131,32 @@ public sealed partial class DashboardViewModel : BaseViewModel
     [RelayCommand]
     private static async Task OpenCalendarAsync()
         => await Shell.Current.GoToAsync(nameof(Views.CalendarPage));
+
+    [RelayCommand]
+    private static async Task OpenDocumentsAsync()
+        => await Shell.Current.GoToAsync(nameof(Views.DocumentsPage));
+
+    [RelayCommand]
+    private static async Task OpenSelfCheckAsync()
+        => await Shell.Current.GoToAsync(nameof(Views.SelfCheckPage));
+
+    [RelayCommand]
+    private async Task ExportCsvAsync()
+    {
+        await RunAsync(async () =>
+        {
+            var bytes = await _apiClient.DownloadDashboardExportAsync();
+            var fileName = $"swalekha-net-worth-{DateTime.Today:yyyyMMdd}.csv";
+            var localPath = Path.Combine(FileSystem.CacheDirectory, fileName);
+            await File.WriteAllBytesAsync(localPath, bytes);
+
+            await Share.Default.RequestAsync(new ShareFileRequest
+            {
+                Title = fileName,
+                File = new ShareFile(localPath, "text/csv")
+            });
+        });
+    }
 
     [RelayCommand]
     private async Task LogoutAsync()

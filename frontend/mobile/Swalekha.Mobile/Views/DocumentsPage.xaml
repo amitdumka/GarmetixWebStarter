@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:cards="clr-namespace:Syncfusion.Maui.Toolkit.Cards;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:inputLayout="clr-namespace:Syncfusion.Maui.Toolkit.TextInputLayout;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
+             xmlns:models="clr-namespace:Swalekha.Mobile.Models"
+             x:Class="Swalekha.Mobile.Views.DocumentsPage"
+             x:DataType="viewModels:DocumentsViewModel"
+             x:Name="PageRoot"
+             Title="Documents"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
+
+    <Grid RowDefinitions="*,Auto">
+
+        <RefreshView Grid.Row="0" Command="{Binding LoadCommand}" IsRefreshing="{Binding IsBusy}">
+            <ScrollView>
+                <VerticalStackLayout Padding="16" Spacing="12">
+
+                    <Label Text="{Binding ErrorMessage}"
+                           IsVisible="{Binding HasError}"
+                           TextColor="{StaticResource SwalekhaDanger}"
+                           BackgroundColor="{StaticResource SwalekhaDangerBg}"
+                           Padding="10" FontSize="13" />
+
+                    <Label Text="{Binding StatusMessage}"
+                           IsVisible="{Binding StatusMessage, Converter={StaticResource NullableHasValueConverter}}"
+                           TextColor="{StaticResource SwalekhaSuccess}"
+                           FontSize="12" />
+
+                    <cards:SfCard Padding="14" StrokeThickness="0" CornerRadius="14"
+                                  BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                        <VerticalStackLayout Spacing="10">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="Document type" FontSize="12" TextColor="{StaticResource SwalekhaMuted}" />
+                                <Picker ItemsSource="{x:Static viewModels:DocumentsViewModel.EntityTypes}" SelectedItem="{Binding UploadEntityType}" />
+                            </VerticalStackLayout>
+                            <inputLayout:SfTextInputLayout Hint="Notes (optional)" ContainerType="Outlined">
+                                <Entry Text="{Binding UploadNotes}" />
+                            </inputLayout:SfTextInputLayout>
+                            <buttons:SfButton Text="Pick file and upload"
+                                               Command="{Binding PickAndUploadCommand}"
+                                               HeightRequest="44" CornerRadius="8"
+                                               Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                               TextColor="{StaticResource White}" />
+                            <Label Text="PDF, PNG, JPG or WEBP. Max 15 MB." FontSize="10" TextColor="{StaticResource SwalekhaMuted}" />
+                        </VerticalStackLayout>
+                    </cards:SfCard>
+
+                    <Label Text="No documents uploaded yet."
+                           IsVisible="{Binding HasNoDocuments}"
+                           FontSize="13" TextColor="{StaticResource SwalekhaMuted}"
+                           HorizontalOptions="Center" Margin="0,24,0,0" />
+
+                    <CollectionView ItemsSource="{Binding Documents}">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:SwalekhaDocumentDto">
+                                <cards:SfCard Padding="12" Margin="0,0,0,6" StrokeThickness="0" CornerRadius="10"
+                                              BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                                    <Grid ColumnDefinitions="*,Auto,Auto">
+                                        <VerticalStackLayout Grid.Column="0" Spacing="1">
+                                            <Label Text="{Binding FileName}" FontSize="12" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                            <Label Text="{Binding EntityType}" FontSize="10" TextColor="{StaticResource SwalekhaMuted}" />
+                                            <Label Text="{Binding CreatedAt, StringFormat='{0:dd MMM yyyy}'}" FontSize="10" TextColor="{StaticResource SwalekhaMuted}" />
+                                        </VerticalStackLayout>
+                                        <Button Grid.Column="1" Text="Open" FontSize="11"
+                                                Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.DownloadCommand}"
+                                                CommandParameter="{Binding .}"
+                                                BackgroundColor="Transparent"
+                                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                                Padding="0" VerticalOptions="Center" Margin="0,0,10,0" />
+                                        <Button Grid.Column="2" Text="Delete" FontSize="11"
+                                                Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.DeleteCommand}"
+                                                CommandParameter="{Binding .}"
+                                                BackgroundColor="Transparent" TextColor="{StaticResource SwalekhaDanger}"
+                                                Padding="0" VerticalOptions="Center" />
+                                    </Grid>
+                                </cards:SfCard>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
+
+    </Grid>
+</ContentPage>
