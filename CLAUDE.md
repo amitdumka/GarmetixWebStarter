@@ -1,5 +1,17 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-19 - Android Swalekha: Income + Recurring Bills stage (closes PersonalFin_04)
+
+Amit said "keep continue" again. Closes out `PersonalFin_04` on the Android app (Expense Sheets already landed in the prior stage). DTOs read directly from `SwalekhaIncomeEndpoints.cs`/`SwalekhaRecurringBillEndpoints.cs`, no backend changes.
+
+- Both are flat lists with no natural per-item detail screen, so both got a single-page pattern (list + total, an inline add/edit form toggled by a button or by tapping a row, per-row Delete) rather than a separate edit page - a deliberate departure from the Accounts/Contacts/Expense-Sheets pattern where a dedicated detail page made sense.
+- `IncomePage`: total-income hero card, Source/Amount/Narration form, tap a row to edit it in place.
+- `RecurringBillsPage`: Name/Amount/DueDayOfMonth/Category/Notes/Active form, a "Due this month" badge per the backend's own `DueThisMonth` computation, and a Mark Paid action per row.
+- `SwalekhaApiClient` gained the income and recurring-bill CRUD + mark-paid calls.
+- Dashboard gained two more quick-action cards (Income alongside Expense sheets in a row, Recurring bills full-width below).
+- Validated: `dotnet build -f net10.0-android` (0 errors). **Not run on a device/emulator** - same standing limitation as every prior stage.
+- Next: Travel Expense Sheets (`PersonalFin_05`).
+
 ## 2026-07-19 - Android Swalekha: Expense Sheets stage (PersonalFin_04, expenses half only)
 
 Amit said "keep continue" again. This stage ports the expense-sheet half of `PersonalFin_04`; DTOs read directly from `SwalekhaExpenseEndpoints.cs`, no backend changes. **Deliberately scoped smaller than the web stage**: the web `PersonalFin_04` covered Expense Sheets + Income + Recurring Bills together in one pass - splitting Expense Sheets out as its own mobile stage keeps each stage reviewable; Income and Recurring Bills are the explicit next stage rather than silently dropped.

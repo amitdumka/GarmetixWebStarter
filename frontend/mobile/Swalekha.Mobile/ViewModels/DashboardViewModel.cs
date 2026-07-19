@@ -95,6 +95,14 @@ public sealed partial class DashboardViewModel : BaseViewModel
         => await Shell.Current.GoToAsync(nameof(Views.ExpenseSheetsPage));
 
     [RelayCommand]
+    private static async Task OpenIncomeAsync()
+        => await Shell.Current.GoToAsync(nameof(Views.IncomePage));
+
+    [RelayCommand]
+    private static async Task OpenRecurringBillsAsync()
+        => await Shell.Current.GoToAsync(nameof(Views.RecurringBillsPage));
+
+    [RelayCommand]
     private async Task LogoutAsync()
     {
         _authService.Logout();

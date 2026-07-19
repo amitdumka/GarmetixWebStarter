@@ -97,6 +97,33 @@ public sealed class SwalekhaApiClient
     public Task DeleteExpenseEntryAsync(Guid sheetId, Guid entryId, CancellationToken cancellationToken = default)
         => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/expense-sheets/{sheetId}/entries/{entryId}", null, cancellationToken);
 
+    public Task<SwalekhaIncomeList> GetIncomeAsync(int page, int pageSize, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaIncomeList>(HttpMethod.Get, $"api/swalekha/income?page={page}&pageSize={pageSize}", null, cancellationToken);
+
+    public Task<SwalekhaIncomeEntryDto> CreateIncomeAsync(SwalekhaIncomeEntryPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaIncomeEntryDto>(HttpMethod.Post, "api/swalekha/income", payload, cancellationToken);
+
+    public Task<SwalekhaIncomeEntryDto> UpdateIncomeAsync(Guid id, SwalekhaIncomeEntryPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaIncomeEntryDto>(HttpMethod.Put, $"api/swalekha/income/{id}", payload, cancellationToken);
+
+    public Task DeleteIncomeAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/income/{id}", null, cancellationToken);
+
+    public Task<List<SwalekhaRecurringBillDto>> GetRecurringBillsAsync(CancellationToken cancellationToken = default)
+        => SendAsync<List<SwalekhaRecurringBillDto>>(HttpMethod.Get, "api/swalekha/recurring-bills", null, cancellationToken);
+
+    public Task<SwalekhaRecurringBillDto> CreateRecurringBillAsync(SwalekhaRecurringBillPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaRecurringBillDto>(HttpMethod.Post, "api/swalekha/recurring-bills", payload, cancellationToken);
+
+    public Task<SwalekhaRecurringBillDto> UpdateRecurringBillAsync(Guid id, SwalekhaRecurringBillPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaRecurringBillDto>(HttpMethod.Put, $"api/swalekha/recurring-bills/{id}", payload, cancellationToken);
+
+    public Task DeleteRecurringBillAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/recurring-bills/{id}", null, cancellationToken);
+
+    public Task<SwalekhaRecurringBillDto> MarkRecurringBillPaidAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaRecurringBillDto>(HttpMethod.Post, $"api/swalekha/recurring-bills/{id}/mark-paid", new SwalekhaMarkPaidPayload(null), cancellationToken);
+
     private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {
         var response = await SendCoreAsync(method, path, body, cancellationToken);

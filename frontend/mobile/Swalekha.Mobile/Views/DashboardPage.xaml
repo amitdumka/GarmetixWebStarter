@@ -91,14 +91,43 @@
                     </cards:SfCard>
                 </Grid>
 
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <cards:SfCard Grid.Column="0" Padding="0" StrokeThickness="1" CornerRadius="12"
+                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                  BackgroundColor="Transparent">
+                        <cards:SfCard.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenExpensesCommand}" />
+                        </cards:SfCard.GestureRecognizers>
+                        <VerticalStackLayout Padding="14,12" Spacing="0">
+                            <Label Text="Expense sheets" FontSize="13" FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                            <Label Text="Open &#8250;" FontSize="11"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                        </VerticalStackLayout>
+                    </cards:SfCard>
+                    <cards:SfCard Grid.Column="1" Padding="0" StrokeThickness="1" CornerRadius="12"
+                                  Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                  BackgroundColor="Transparent">
+                        <cards:SfCard.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenIncomeCommand}" />
+                        </cards:SfCard.GestureRecognizers>
+                        <VerticalStackLayout Padding="14,12" Spacing="0">
+                            <Label Text="Income" FontSize="13" FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                            <Label Text="Open &#8250;" FontSize="11"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                        </VerticalStackLayout>
+                    </cards:SfCard>
+                </Grid>
+
                 <cards:SfCard Padding="0" StrokeThickness="1" CornerRadius="12"
                               Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
                               BackgroundColor="Transparent">
                     <cards:SfCard.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding OpenExpensesCommand}" />
+                        <TapGestureRecognizer Command="{Binding OpenRecurringBillsCommand}" />
                     </cards:SfCard.GestureRecognizers>
                     <Grid ColumnDefinitions="*,Auto" Padding="14,12">
-                        <Label Grid.Column="0" Text="Expense sheets" FontSize="14" FontAttributes="Bold" VerticalOptions="Center"
+                        <Label Grid.Column="0" Text="Recurring bills" FontSize="14" FontAttributes="Bold" VerticalOptions="Center"
                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                         <Label Grid.Column="1" Text="Open &#8250;" FontSize="13" VerticalOptions="Center"
                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />

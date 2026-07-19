@@ -23,6 +23,8 @@ public partial class AppShell : Shell
         Routing.RegisterRoute(nameof(ExpenseSheetsPage), typeof(ExpenseSheetsPage));
         Routing.RegisterRoute(nameof(ExpenseSheetEditPage), typeof(ExpenseSheetEditPage));
         Routing.RegisterRoute(nameof(ExpenseSheetDetailPage), typeof(ExpenseSheetDetailPage));
+        Routing.RegisterRoute(nameof(IncomePage), typeof(IncomePage));
+        Routing.RegisterRoute(nameof(RecurringBillsPage), typeof(RecurringBillsPage));
     }
 
     private async void OnLoaded(object? sender, EventArgs e)

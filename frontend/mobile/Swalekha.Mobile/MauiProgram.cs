@@ -64,6 +64,10 @@ public static class MauiProgram
         builder.Services.AddTransient<ExpenseSheetEditPage>();
         builder.Services.AddTransient<ExpenseSheetDetailViewModel>();
         builder.Services.AddTransient<ExpenseSheetDetailPage>();
+        builder.Services.AddTransient<IncomeViewModel>();
+        builder.Services.AddTransient<IncomePage>();
+        builder.Services.AddTransient<RecurringBillsViewModel>();
+        builder.Services.AddTransient<RecurringBillsPage>();
         builder.Services.AddTransient<AppShell>();
 
 #if DEBUG

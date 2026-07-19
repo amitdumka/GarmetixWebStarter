@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:cards="clr-namespace:Syncfusion.Maui.Toolkit.Cards;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:inputLayout="clr-namespace:Syncfusion.Maui.Toolkit.TextInputLayout;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
+             xmlns:models="clr-namespace:Swalekha.Mobile.Models"
+             x:Class="Swalekha.Mobile.Views.RecurringBillsPage"
+             x:DataType="viewModels:RecurringBillsViewModel"
+             x:Name="PageRoot"
+             Title="Recurring bills"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
+
+    <Grid RowDefinitions="*,Auto">
+
+        <RefreshView Grid.Row="0" Command="{Binding LoadCommand}" IsRefreshing="{Binding IsBusy}">
+            <ScrollView>
+                <VerticalStackLayout Padding="16" Spacing="12">
+
+                    <Label Text="{Binding ErrorMessage}"
+                           IsVisible="{Binding HasError}"
+                           TextColor="{StaticResource SwalekhaDanger}"
+                           BackgroundColor="{StaticResource SwalekhaDangerBg}"
+                           Padding="10" FontSize="13" />
+
+                    <cards:SfCard Padding="14" StrokeThickness="0" CornerRadius="14"
+                                  IsVisible="{Binding IsEditingForm}"
+                                  BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                        <VerticalStackLayout Spacing="10">
+                            <inputLayout:SfTextInputLayout Hint="Name" ContainerType="Outlined">
+                                <Entry Text="{Binding FormName}" Placeholder="Netflix, electricity, EMI..." />
+                            </inputLayout:SfTextInputLayout>
+                            <inputLayout:SfTextInputLayout Hint="Amount" ContainerType="Outlined">
+                                <Entry Text="{Binding FormAmountText}" Keyboard="Numeric" />
+                            </inputLayout:SfTextInputLayout>
+                            <inputLayout:SfTextInputLayout Hint="Due day of month (1-31)" ContainerType="Outlined">
+                                <Entry Text="{Binding FormDueDayText}" Keyboard="Numeric" />
+                            </inputLayout:SfTextInputLayout>
+                            <inputLayout:SfTextInputLayout Hint="Category (optional)" ContainerType="Outlined">
+                                <Entry Text="{Binding FormCategory}" />
+                            </inputLayout:SfTextInputLayout>
+                            <inputLayout:SfTextInputLayout Hint="Notes (optional)" ContainerType="Outlined">
+                                <Entry Text="{Binding FormNotes}" />
+                            </inputLayout:SfTextInputLayout>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Grid.Column="0" Text="Active" VerticalOptions="Center" />
+                                <Switch Grid.Column="1" IsToggled="{Binding FormIsActive}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                                <buttons:SfButton Grid.Column="0" Text="Save"
+                                                   Command="{Binding SaveBillCommand}"
+                                                   HeightRequest="42" CornerRadius="8"
+                                                   Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                                   TextColor="{StaticResource White}" />
+                                <buttons:SfButton Grid.Column="1" Text="Cancel"
+                                                   Command="{Binding CancelFormCommand}"
+                                                   HeightRequest="42" CornerRadius="8"
+                                                   Background="Transparent"
+                                                   TextColor="{StaticResource SwalekhaMuted}" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </cards:SfCard>
+
+                    <Label Text="No recurring bills yet."
+                           IsVisible="{Binding HasNoBills}"
+                           FontSize="13" TextColor="{StaticResource SwalekhaMuted}"
+                           HorizontalOptions="Center" Margin="0,24,0,0" />
+
+                    <CollectionView ItemsSource="{Binding Bills}">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:SwalekhaRecurringBillDto">
+                                <cards:SfCard Padding="12" Margin="0,0,0,6" StrokeThickness="0" CornerRadius="10"
+                                              BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                                    <VerticalStackLayout Spacing="6">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <VerticalStackLayout Grid.Column="0" Spacing="1">
+                                                <Label Text="{Binding Name}" FontSize="12" FontAttributes="Bold" />
+                                                <Label FontSize="10" TextColor="{StaticResource SwalekhaMuted}">
+                                                    <Label.Text>
+                                                        <Binding Path="DueDayOfMonth" StringFormat="Due day {0} of month" />
+                                                    </Label.Text>
+                                                </Label>
+                                            </VerticalStackLayout>
+                                            <Label Grid.Column="1" Text="{Binding Amount, StringFormat='₹{0:N0}'}"
+                                                   FontSize="13" FontAttributes="Bold" VerticalOptions="Center" />
+                                        </Grid>
+                                        <Label Text="Due this month" FontSize="10" FontAttributes="Bold"
+                                               TextColor="{StaticResource SwalekhaDanger}"
+                                               IsVisible="{Binding DueThisMonth}" />
+                                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                                            <Button Grid.Column="0" Text="Mark paid" FontSize="11"
+                                                    Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.MarkPaidCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    BackgroundColor="Transparent"
+                                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                                    Padding="0" />
+                                            <Button Grid.Column="1" Text="Edit" FontSize="11"
+                                                    Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.EditBillCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    BackgroundColor="Transparent" TextColor="{StaticResource SwalekhaMuted}"
+                                                    Padding="0" />
+                                            <Button Grid.Column="2" Text="Delete" FontSize="11"
+                                                    Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.DeleteBillCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    BackgroundColor="Transparent" TextColor="{StaticResource SwalekhaDanger}"
+                                                    Padding="0" />
+                                        </Grid>
+                                    </VerticalStackLayout>
+                                </cards:SfCard>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
+
+        <buttons:SfButton Grid.Row="1" Text="+ Add bill"
+                           Command="{Binding ShowAddFormCommand}"
+                           Margin="16" HeightRequest="48" CornerRadius="10"
+                           Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                           TextColor="{StaticResource White}" />
+    </Grid>
+</ContentPage>
