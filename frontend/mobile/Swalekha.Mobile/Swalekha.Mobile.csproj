@@ -18,6 +18,12 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 
+		<!-- Runtime XAML inflation for both configurations - the compile-time XamlC compiler
+		     (Release's default) fails to resolve Syncfusion.Maui.Toolkit types (XC0000), while
+		     runtime inflation (Debug's default) works reliably. Pinning both avoids a
+		     Debug-builds-but-Release-fails split. -->
+		<MauiXamlInflator>Runtime</MauiXamlInflator>
+
 		<!-- Display name -->
 		<ApplicationTitle>Swalekha</ApplicationTitle>
 
