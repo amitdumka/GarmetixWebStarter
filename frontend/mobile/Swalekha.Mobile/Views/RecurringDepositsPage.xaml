@@ -38,7 +38,7 @@
                                     SelectionChanged="OnDepositSelected">
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="models:SwalekhaRecurringDepositDto">
-                                <cards:SfCard Padding="14" Margin="0,0,0,8" StrokeThickness="0" CornerRadius="12"
+                                <cards:SfCardView Padding="14" Margin="0,0,0,8" BorderWidth="0" CornerRadius="12"
                                               BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <VerticalStackLayout Grid.Column="0" Spacing="1">
@@ -55,7 +55,7 @@
                                                FontSize="15" FontAttributes="Bold" VerticalOptions="Center"
                                                TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
                                     </Grid>
-                                </cards:SfCard>
+                                </cards:SfCardView>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>

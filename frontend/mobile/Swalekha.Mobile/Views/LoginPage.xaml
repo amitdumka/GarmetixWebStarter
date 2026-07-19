@@ -23,7 +23,7 @@
                        TextColor="{StaticResource SwalekhaMuted}" />
             </VerticalStackLayout>
 
-            <cards:SfCard Padding="20" StrokeThickness="0" CornerRadius="16"
+            <cards:SfCardView Padding="20" BorderWidth="0" CornerRadius="16"
                           BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
                 <VerticalStackLayout Spacing="16">
 
@@ -61,7 +61,7 @@
                                        Color="{StaticResource Secondary}" />
 
                 </VerticalStackLayout>
-            </cards:SfCard>
+            </cards:SfCardView>
 
             <Label Text="Owner accounts only."
                    FontSize="12"

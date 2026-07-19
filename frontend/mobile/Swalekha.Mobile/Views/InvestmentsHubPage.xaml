@@ -18,11 +18,11 @@
                        BackgroundColor="{StaticResource SwalekhaDangerBg}"
                        Padding="10" FontSize="13" />
 
-                <cards:SfCard Padding="16" StrokeThickness="0" CornerRadius="14"
+                <cards:SfCardView Padding="16" BorderWidth="0" CornerRadius="14"
                               BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
-                    <cards:SfCard.GestureRecognizers>
+                    <cards:SfCardView.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding OpenFixedDepositsCommand}" />
-                    </cards:SfCard.GestureRecognizers>
+                    </cards:SfCardView.GestureRecognizers>
                     <Grid ColumnDefinitions="*,Auto">
                         <VerticalStackLayout Grid.Column="0" Spacing="1">
                             <Label Text="Fixed deposits" FontSize="14" FontAttributes="Bold"
@@ -36,13 +36,13 @@
                         <Label Grid.Column="1" Text="{Binding ActiveFixedDepositPrincipal, StringFormat='₹{0:N0}'}"
                                FontSize="15" FontAttributes="Bold" VerticalOptions="Center" />
                     </Grid>
-                </cards:SfCard>
+                </cards:SfCardView>
 
-                <cards:SfCard Padding="16" StrokeThickness="0" CornerRadius="14"
+                <cards:SfCardView Padding="16" BorderWidth="0" CornerRadius="14"
                               BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
-                    <cards:SfCard.GestureRecognizers>
+                    <cards:SfCardView.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding OpenRecurringDepositsCommand}" />
-                    </cards:SfCard.GestureRecognizers>
+                    </cards:SfCardView.GestureRecognizers>
                     <Grid ColumnDefinitions="*,Auto">
                         <VerticalStackLayout Grid.Column="0" Spacing="1">
                             <Label Text="Recurring deposits" FontSize="14" FontAttributes="Bold"
@@ -56,13 +56,13 @@
                         <Label Grid.Column="1" Text="{Binding ActiveRecurringDepositMonthlyCommitment, StringFormat='₹{0:N0}/mo'}"
                                FontSize="15" FontAttributes="Bold" VerticalOptions="Center" />
                     </Grid>
-                </cards:SfCard>
+                </cards:SfCardView>
 
-                <cards:SfCard Padding="16" StrokeThickness="0" CornerRadius="14"
+                <cards:SfCardView Padding="16" BorderWidth="0" CornerRadius="14"
                               BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
-                    <cards:SfCard.GestureRecognizers>
+                    <cards:SfCardView.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding OpenMutualFundsCommand}" />
-                    </cards:SfCard.GestureRecognizers>
+                    </cards:SfCardView.GestureRecognizers>
                     <Grid ColumnDefinitions="*,Auto">
                         <VerticalStackLayout Grid.Column="0" Spacing="1">
                             <Label Text="Mutual funds" FontSize="14" FontAttributes="Bold"
@@ -76,13 +76,13 @@
                         <Label Grid.Column="1" Text="{Binding MutualFundCurrentValue, StringFormat='₹{0:N0}'}"
                                FontSize="15" FontAttributes="Bold" VerticalOptions="Center" />
                     </Grid>
-                </cards:SfCard>
+                </cards:SfCardView>
 
-                <cards:SfCard Padding="16" StrokeThickness="0" CornerRadius="14"
+                <cards:SfCardView Padding="16" BorderWidth="0" CornerRadius="14"
                               BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
-                    <cards:SfCard.GestureRecognizers>
+                    <cards:SfCardView.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding OpenSharesCommand}" />
-                    </cards:SfCard.GestureRecognizers>
+                    </cards:SfCardView.GestureRecognizers>
                     <Grid ColumnDefinitions="*,Auto">
                         <VerticalStackLayout Grid.Column="0" Spacing="1">
                             <Label Text="Shares &amp; stocks" FontSize="14" FontAttributes="Bold"
@@ -96,13 +96,13 @@
                         <Label Grid.Column="1" Text="{Binding ShareCurrentValue, StringFormat='₹{0:N0}'}"
                                FontSize="15" FontAttributes="Bold" VerticalOptions="Center" />
                     </Grid>
-                </cards:SfCard>
+                </cards:SfCardView>
 
-                <cards:SfCard Padding="16" StrokeThickness="0" CornerRadius="14"
+                <cards:SfCardView Padding="16" BorderWidth="0" CornerRadius="14"
                               BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
-                    <cards:SfCard.GestureRecognizers>
+                    <cards:SfCardView.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding OpenOtherAssetsCommand}" />
-                    </cards:SfCard.GestureRecognizers>
+                    </cards:SfCardView.GestureRecognizers>
                     <Grid ColumnDefinitions="*,Auto">
                         <VerticalStackLayout Grid.Column="0" Spacing="1">
                             <Label Text="Other assets" FontSize="14" FontAttributes="Bold"
@@ -112,7 +112,7 @@
                         <Label Grid.Column="1" Text="{Binding OtherAssetValue, StringFormat='₹{0:N0}'}"
                                FontSize="15" FontAttributes="Bold" VerticalOptions="Center" />
                     </Grid>
-                </cards:SfCard>
+                </cards:SfCardView>
 
             </VerticalStackLayout>
         </ScrollView>

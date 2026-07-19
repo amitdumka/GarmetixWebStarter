@@ -24,7 +24,7 @@
                            BackgroundColor="{StaticResource SwalekhaDangerBg}"
                            Padding="10" FontSize="13" />
 
-                    <cards:SfCard Padding="14" StrokeThickness="0" CornerRadius="14"
+                    <cards:SfCardView Padding="14" BorderWidth="0" CornerRadius="14"
                                   IsVisible="{Binding IsEditingForm}"
                                   BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
                         <VerticalStackLayout Spacing="10">
@@ -60,7 +60,7 @@
                                                    TextColor="{StaticResource SwalekhaMuted}" />
                             </Grid>
                         </VerticalStackLayout>
-                    </cards:SfCard>
+                    </cards:SfCardView>
 
                     <Label Text="No recurring bills yet."
                            IsVisible="{Binding HasNoBills}"
@@ -70,7 +70,7 @@
                     <CollectionView ItemsSource="{Binding Bills}">
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="models:SwalekhaRecurringBillDto">
-                                <cards:SfCard Padding="12" Margin="0,0,0,6" StrokeThickness="0" CornerRadius="10"
+                                <cards:SfCardView Padding="12" Margin="0,0,0,6" BorderWidth="0" CornerRadius="10"
                                               BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
                                     <VerticalStackLayout Spacing="6">
                                         <Grid ColumnDefinitions="*,Auto">
@@ -107,7 +107,7 @@
                                                     Padding="0" />
                                         </Grid>
                                     </VerticalStackLayout>
-                                </cards:SfCard>
+                                </cards:SfCardView>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>

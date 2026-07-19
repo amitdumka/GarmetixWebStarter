@@ -14,7 +14,7 @@
         <ScrollView>
             <VerticalStackLayout Padding="16" Spacing="14">
 
-                <cards:SfCard Padding="16" StrokeThickness="0" CornerRadius="14"
+                <cards:SfCardView Padding="16" BorderWidth="0" CornerRadius="14"
                               BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                               IsVisible="{Binding Deposit, Converter={StaticResource NullableHasValueConverter}}">
                     <VerticalStackLayout Spacing="2">
@@ -27,7 +27,7 @@
                         <Label Text="Matured" FontSize="11" FontAttributes="Bold" TextColor="{StaticResource SecondaryDarkText}"
                                IsVisible="{Binding Deposit.IsClosed}" />
                     </VerticalStackLayout>
-                </cards:SfCard>
+                </cards:SfCardView>
 
                 <Label Text="{Binding ErrorMessage}"
                        IsVisible="{Binding HasError}"
@@ -42,7 +42,7 @@
                                    Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
                                    TextColor="{StaticResource White}" />
 
-                <cards:SfCard Padding="14" StrokeThickness="0" CornerRadius="14"
+                <cards:SfCardView Padding="14" BorderWidth="0" CornerRadius="14"
                               IsVisible="{Binding IsMaturing}"
                               BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
                     <VerticalStackLayout Spacing="10">
@@ -57,7 +57,7 @@
                                            Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
                                            TextColor="{StaticResource White}" />
                     </VerticalStackLayout>
-                </cards:SfCard>
+                </cards:SfCardView>
 
             </VerticalStackLayout>
         </ScrollView>

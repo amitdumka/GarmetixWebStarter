@@ -32,7 +32,7 @@
                            BackgroundColor="{StaticResource SwalekhaDangerBg}"
                            Padding="10" FontSize="13" />
 
-                    <cards:SfCard Padding="14" StrokeThickness="0" CornerRadius="14"
+                    <cards:SfCardView Padding="14" BorderWidth="0" CornerRadius="14"
                                   IsVisible="{Binding IsAddingAppointment}"
                                   BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
                         <VerticalStackLayout Spacing="10">
@@ -51,7 +51,7 @@
                                                Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
                                                TextColor="{StaticResource White}" />
                         </VerticalStackLayout>
-                    </cards:SfCard>
+                    </cards:SfCardView>
 
                     <Label Text="Nothing on the calendar this month."
                            IsVisible="{Binding HasNoEvents}"
@@ -61,7 +61,7 @@
                     <CollectionView ItemsSource="{Binding Events}">
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="models:SwalekhaCalendarEventDto">
-                                <cards:SfCard Padding="12" Margin="0,0,0,6" StrokeThickness="0" CornerRadius="10"
+                                <cards:SfCardView Padding="12" Margin="0,0,0,6" BorderWidth="0" CornerRadius="10"
                                               BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
                                     <Grid ColumnDefinitions="Auto,*,Auto,Auto">
                                         <Label Grid.Column="0" Text="{Binding Date, StringFormat='{0:dd}'}" FontSize="18" FontAttributes="Bold" WidthRequest="34"
@@ -80,7 +80,7 @@
                                                 BackgroundColor="Transparent" TextColor="{StaticResource SwalekhaDanger}"
                                                 Padding="0" VerticalOptions="Center" />
                                     </Grid>
-                                </cards:SfCard>
+                                </cards:SfCardView>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>

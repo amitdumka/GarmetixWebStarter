@@ -17,20 +17,20 @@
                 <VerticalStackLayout Padding="16" Spacing="12">
 
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                        <cards:SfCard Grid.Column="0" Padding="14" StrokeThickness="0" CornerRadius="12"
+                        <cards:SfCardView Grid.Column="0" Padding="14" BorderWidth="0" CornerRadius="12"
                                       BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
                             <VerticalStackLayout Spacing="2">
                                 <Label Text="Owed to you" FontSize="11" TextColor="{StaticResource SwalekhaMuted}" />
                                 <Label Text="{Binding TotalOwedToYou, StringFormat='₹{0:N0}'}" FontSize="17" FontAttributes="Bold" TextColor="{StaticResource SwalekhaSuccess}" />
                             </VerticalStackLayout>
-                        </cards:SfCard>
-                        <cards:SfCard Grid.Column="1" Padding="14" StrokeThickness="0" CornerRadius="12"
+                        </cards:SfCardView>
+                        <cards:SfCardView Grid.Column="1" Padding="14" BorderWidth="0" CornerRadius="12"
                                       BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
                             <VerticalStackLayout Spacing="2">
                                 <Label Text="You owe" FontSize="11" TextColor="{StaticResource SwalekhaMuted}" />
                                 <Label Text="{Binding TotalYouOwe, StringFormat='₹{0:N0}'}" FontSize="17" FontAttributes="Bold" TextColor="{StaticResource SwalekhaDanger}" />
                             </VerticalStackLayout>
-                        </cards:SfCard>
+                        </cards:SfCardView>
                     </Grid>
 
                     <Label Text="{Binding ErrorMessage}"
@@ -50,7 +50,7 @@
                                     SelectionChanged="OnContactSelected">
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="models:SwalekhaContactDto">
-                                <cards:SfCard Padding="14" Margin="0,0,0,8" StrokeThickness="0" CornerRadius="12"
+                                <cards:SfCardView Padding="14" Margin="0,0,0,8" BorderWidth="0" CornerRadius="12"
                                               BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <VerticalStackLayout Grid.Column="0" Spacing="1">
@@ -62,7 +62,7 @@
                                                FontSize="15" FontAttributes="Bold" VerticalOptions="Center"
                                                TextColor="{StaticResource SwalekhaSuccess}" />
                                     </Grid>
-                                </cards:SfCard>
+                                </cards:SfCardView>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>

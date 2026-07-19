@@ -22,14 +22,14 @@
                    BackgroundColor="{StaticResource SwalekhaDangerBg}"
                    Padding="10" FontSize="13" />
 
-            <cards:SfCard Padding="16" StrokeThickness="0" CornerRadius="14"
+            <cards:SfCardView Padding="16" BorderWidth="0" CornerRadius="14"
                           IsVisible="{Binding HasRun}"
                           BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}">
                 <Label Text="All checks passed" FontSize="15" FontAttributes="Bold" TextColor="{StaticResource White}"
                        IsVisible="{Binding AllPassed}" />
                 <Label Text="One or more checks failed" FontSize="15" FontAttributes="Bold" TextColor="{StaticResource White}"
                        IsVisible="{Binding AllPassed, Converter={StaticResource InvertedBoolConverter}}" />
-            </cards:SfCard>
+            </cards:SfCardView>
 
             <buttons:SfButton Text="Run self-check"
                                Command="{Binding RunCheckCommand}"
@@ -42,7 +42,7 @@
             <CollectionView ItemsSource="{Binding Checks}">
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="models:SwalekhaSelfCheckItem">
-                        <cards:SfCard Padding="12" Margin="0,0,0,6" StrokeThickness="0" CornerRadius="10"
+                        <cards:SfCardView Padding="12" Margin="0,0,0,6" BorderWidth="0" CornerRadius="10"
                                       BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
                             <VerticalStackLayout Spacing="2">
                                 <Grid ColumnDefinitions="*,Auto">
@@ -53,7 +53,7 @@
                                 </Grid>
                                 <Label Text="{Binding Detail}" FontSize="11" TextColor="{StaticResource SwalekhaMuted}" />
                             </VerticalStackLayout>
-                        </cards:SfCard>
+                        </cards:SfCardView>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>

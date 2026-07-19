@@ -24,7 +24,7 @@
                            BackgroundColor="{StaticResource SwalekhaDangerBg}"
                            Padding="10" FontSize="13" />
 
-                    <cards:SfCard Padding="14" StrokeThickness="0" CornerRadius="14"
+                    <cards:SfCardView Padding="14" BorderWidth="0" CornerRadius="14"
                                   IsVisible="{Binding IsEditingForm}"
                                   BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
                         <VerticalStackLayout Spacing="10">
@@ -50,7 +50,7 @@
                                                    TextColor="{StaticResource SwalekhaMuted}" />
                             </Grid>
                         </VerticalStackLayout>
-                    </cards:SfCard>
+                    </cards:SfCardView>
 
                     <Label Text="No journal entries yet."
                            IsVisible="{Binding HasNoEntries}"
@@ -60,12 +60,12 @@
                     <CollectionView ItemsSource="{Binding Entries}">
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="models:SwalekhaJournalEntryDto">
-                                <cards:SfCard Padding="14" Margin="0,0,0,8" StrokeThickness="0" CornerRadius="12"
+                                <cards:SfCardView Padding="14" Margin="0,0,0,8" BorderWidth="0" CornerRadius="12"
                                               BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
-                                    <cards:SfCard.GestureRecognizers>
+                                    <cards:SfCardView.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.EditEntryCommand}"
                                                                CommandParameter="{Binding .}" />
-                                    </cards:SfCard.GestureRecognizers>
+                                    </cards:SfCardView.GestureRecognizers>
                                     <VerticalStackLayout Spacing="4">
                                         <Grid ColumnDefinitions="*,Auto">
                                             <Label Grid.Column="0" Text="{Binding EntryDate, StringFormat='{0:dd MMM yyyy}'}" FontSize="11" TextColor="{StaticResource SwalekhaMuted}" />
@@ -81,7 +81,7 @@
                                                 BackgroundColor="Transparent" TextColor="{StaticResource SwalekhaDanger}"
                                                 Padding="0" />
                                     </VerticalStackLayout>
-                                </cards:SfCard>
+                                </cards:SfCardView>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>

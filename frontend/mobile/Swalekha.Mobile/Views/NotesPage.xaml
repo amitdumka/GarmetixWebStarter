@@ -28,7 +28,7 @@
                            BackgroundColor="{StaticResource SwalekhaDangerBg}"
                            Padding="10" FontSize="13" />
 
-                    <cards:SfCard Padding="14" StrokeThickness="0" CornerRadius="14"
+                    <cards:SfCardView Padding="14" BorderWidth="0" CornerRadius="14"
                                   IsVisible="{Binding IsEditingForm}"
                                   BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
                         <VerticalStackLayout Spacing="10">
@@ -63,7 +63,7 @@
                                                    TextColor="{StaticResource SwalekhaMuted}" />
                             </Grid>
                         </VerticalStackLayout>
-                    </cards:SfCard>
+                    </cards:SfCardView>
 
                     <Label Text="No notes yet."
                            IsVisible="{Binding HasNoNotes}"
@@ -73,12 +73,12 @@
                     <CollectionView ItemsSource="{Binding Notes}">
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="models:SwalekhaPersonalNoteDto">
-                                <cards:SfCard Padding="14" Margin="0,0,0,8" StrokeThickness="0" CornerRadius="12"
+                                <cards:SfCardView Padding="14" Margin="0,0,0,8" BorderWidth="0" CornerRadius="12"
                                               BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
-                                    <cards:SfCard.GestureRecognizers>
+                                    <cards:SfCardView.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.EditNoteCommand}"
                                                                CommandParameter="{Binding .}" />
-                                    </cards:SfCard.GestureRecognizers>
+                                    </cards:SfCardView.GestureRecognizers>
                                     <VerticalStackLayout Spacing="4">
                                         <Grid ColumnDefinitions="*,Auto">
                                             <Label Grid.Column="0" Text="{Binding Title}" FontSize="14" FontAttributes="Bold" />
@@ -95,7 +95,7 @@
                                                 BackgroundColor="Transparent" TextColor="{StaticResource SwalekhaDanger}"
                                                 Padding="0" />
                                     </VerticalStackLayout>
-                                </cards:SfCard>
+                                </cards:SfCardView>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>

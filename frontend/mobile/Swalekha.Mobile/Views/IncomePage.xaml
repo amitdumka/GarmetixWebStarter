@@ -18,13 +18,13 @@
             <ScrollView>
                 <VerticalStackLayout Padding="16" Spacing="12">
 
-                    <cards:SfCard Padding="16" StrokeThickness="0" CornerRadius="14"
+                    <cards:SfCardView Padding="16" BorderWidth="0" CornerRadius="14"
                                   BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}">
                         <VerticalStackLayout Spacing="2">
                             <Label Text="Total income" FontSize="12" TextColor="{StaticResource SecondaryDarkText}" />
                             <Label Text="{Binding TotalAmount, StringFormat='₹{0:N0}'}" FontSize="24" FontAttributes="Bold" TextColor="{StaticResource White}" />
                         </VerticalStackLayout>
-                    </cards:SfCard>
+                    </cards:SfCardView>
 
                     <Label Text="{Binding ErrorMessage}"
                            IsVisible="{Binding HasError}"
@@ -32,7 +32,7 @@
                            BackgroundColor="{StaticResource SwalekhaDangerBg}"
                            Padding="10" FontSize="13" />
 
-                    <cards:SfCard Padding="14" StrokeThickness="0" CornerRadius="14"
+                    <cards:SfCardView Padding="14" BorderWidth="0" CornerRadius="14"
                                   IsVisible="{Binding IsEditingForm}"
                                   BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
                         <VerticalStackLayout Spacing="10">
@@ -58,7 +58,7 @@
                                                    TextColor="{StaticResource SwalekhaMuted}" />
                             </Grid>
                         </VerticalStackLayout>
-                    </cards:SfCard>
+                    </cards:SfCardView>
 
                     <Label Text="No income entries yet."
                            IsVisible="{Binding HasNoEntries}"
@@ -68,12 +68,12 @@
                     <CollectionView ItemsSource="{Binding Entries}">
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="models:SwalekhaIncomeEntryDto">
-                                <cards:SfCard Padding="12" Margin="0,0,0,6" StrokeThickness="0" CornerRadius="10"
+                                <cards:SfCardView Padding="12" Margin="0,0,0,6" BorderWidth="0" CornerRadius="10"
                                               BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
-                                    <cards:SfCard.GestureRecognizers>
+                                    <cards:SfCardView.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.EditEntryCommand}"
                                                                CommandParameter="{Binding .}" />
-                                    </cards:SfCard.GestureRecognizers>
+                                    </cards:SfCardView.GestureRecognizers>
                                     <Grid ColumnDefinitions="*,Auto,Auto">
                                         <VerticalStackLayout Grid.Column="0" Spacing="1">
                                             <Label Text="{Binding Source}" FontSize="12" FontAttributes="Bold" />
@@ -90,7 +90,7 @@
                                                 BackgroundColor="Transparent" TextColor="{StaticResource SwalekhaDanger}"
                                                 Padding="0" VerticalOptions="Center" />
                                     </Grid>
-                                </cards:SfCard>
+                                </cards:SfCardView>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>
