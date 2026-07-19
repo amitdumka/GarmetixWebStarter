@@ -12,6 +12,7 @@
             </ResourceDictionary.MergedDictionaries>
             <converters:IntIsZeroConverter x:Key="IntIsZeroConverter" />
             <converters:NullableHasValueConverter x:Key="NullableHasValueConverter" />
+            <converters:StringEqualsConverter x:Key="StringEqualsConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

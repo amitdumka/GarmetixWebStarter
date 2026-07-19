@@ -1,5 +1,16 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-19 - Android Swalekha: Personal Organizer stage (closes PersonalFin_13, all of Pillar B done)
+
+Amit said to keep continuing. Ports `PersonalFin_13` (Diary/Notes/Calendar) to the Android app; DTOs read directly from `SwalekhaJournalEndpoints.cs`/`SwalekhaNoteEndpoints.cs`/`SwalekhaCalendarEndpoints.cs`, no backend changes. **Closes out all of Pillar B** - only the two closing stages (Dashboard export, Document Vault) remain on the whole 15-stage roadmap.
+
+- New `JournalPage`/`NotesPage` - both single-page list+inline-form screens (same pattern as Income/Recurring Bills/Other Assets), since both are flat CRUD lists: Journal is dated entries with an optional mood tag, Notes adds folder/tags/pin plus a search box that re-queries the backend's own `search` param (title/content/tags).
+- New `CalendarPage` - a month-navigable agenda backed by `GET /api/swalekha/calendar?year=&month=`, which the backend already merges from real appointments plus finance due-dates computed live from Pillar A (recurring bills, FD/RD maturities, insurance premiums) - the mobile page just renders whatever comes back, with Delete only enabled for genuine `Appointment`-type rows (the computed finance-due rows have no backing record to delete). Added a new `StringEqualsConverter` for that EventType check, alongside the existing `NullableHasValueConverter`.
+- `SwalekhaApiClient` gained the journal/notes/appointments CRUD + calendar-month calls.
+- Dashboard gained a "Personal organizer" section: Journal/Notes as a two-card row, Calendar & appointments full-width below.
+- Validated: `dotnet build -f net10.0-android` (0 errors, one real fix along the way - `[ObservableProperty]` backing fields keep the declared lowercase field name, e.g. `year`, not an auto-prefixed `_year`, and the constructor was assigning to the wrong name). **Not run on a device/emulator yet.**
+- Next: Dashboard export + Document Vault (`PersonalFin_14`-`15`), the last two stages on the roadmap.
+
 ## 2026-07-19 - Android Swalekha: Insurance stage (closes PersonalFin_12, all of Pillar A done)
 
 Amit said to keep continuing. Ports `PersonalFin_12` (Insurance) to the Android app; DTOs read directly from `SwalekhaInsuranceEndpoints.cs`, no backend changes. **This closes out every Pillar A (Personal Finance) stage** - `PersonalFin_02` through `12` are all on Android now; only Pillar B (Personal Organizer) and the closing stages (Dashboard export, Document Vault) remain.

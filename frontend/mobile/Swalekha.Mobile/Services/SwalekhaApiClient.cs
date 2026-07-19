@@ -304,6 +304,42 @@ public sealed class SwalekhaApiClient
     public Task<SwalekhaInsurancePolicyDto> MarkInsurancePolicyMaturedAsync(Guid id, SwalekhaMarkMaturedPayload payload, CancellationToken cancellationToken = default)
         => SendAsync<SwalekhaInsurancePolicyDto>(HttpMethod.Post, $"api/swalekha/insurance-policies/{id}/mark-matured", payload, cancellationToken);
 
+    public Task<List<SwalekhaJournalEntryDto>> GetJournalEntriesAsync(CancellationToken cancellationToken = default)
+        => SendAsync<List<SwalekhaJournalEntryDto>>(HttpMethod.Get, "api/swalekha/journal", null, cancellationToken);
+
+    public Task<SwalekhaJournalEntryDto> CreateJournalEntryAsync(SwalekhaJournalEntryPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaJournalEntryDto>(HttpMethod.Post, "api/swalekha/journal", payload, cancellationToken);
+
+    public Task<SwalekhaJournalEntryDto> UpdateJournalEntryAsync(Guid id, SwalekhaJournalEntryPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaJournalEntryDto>(HttpMethod.Put, $"api/swalekha/journal/{id}", payload, cancellationToken);
+
+    public Task DeleteJournalEntryAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/journal/{id}", null, cancellationToken);
+
+    public Task<List<SwalekhaPersonalNoteDto>> GetNotesAsync(string? search, CancellationToken cancellationToken = default)
+        => SendAsync<List<SwalekhaPersonalNoteDto>>(HttpMethod.Get, $"api/swalekha/notes?search={Uri.EscapeDataString(search ?? string.Empty)}", null, cancellationToken);
+
+    public Task<SwalekhaPersonalNoteDto> CreateNoteAsync(SwalekhaPersonalNotePayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaPersonalNoteDto>(HttpMethod.Post, "api/swalekha/notes", payload, cancellationToken);
+
+    public Task<SwalekhaPersonalNoteDto> UpdateNoteAsync(Guid id, SwalekhaPersonalNotePayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaPersonalNoteDto>(HttpMethod.Put, $"api/swalekha/notes/{id}", payload, cancellationToken);
+
+    public Task DeleteNoteAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/notes/{id}", null, cancellationToken);
+
+    public Task<List<SwalekhaAppointmentDto>> GetAppointmentsAsync(CancellationToken cancellationToken = default)
+        => SendAsync<List<SwalekhaAppointmentDto>>(HttpMethod.Get, "api/swalekha/appointments", null, cancellationToken);
+
+    public Task<SwalekhaAppointmentDto> CreateAppointmentAsync(SwalekhaAppointmentPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaAppointmentDto>(HttpMethod.Post, "api/swalekha/appointments", payload, cancellationToken);
+
+    public Task DeleteAppointmentAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/appointments/{id}", null, cancellationToken);
+
+    public Task<List<SwalekhaCalendarEventDto>> GetCalendarAsync(int year, int month, CancellationToken cancellationToken = default)
+        => SendAsync<List<SwalekhaCalendarEventDto>>(HttpMethod.Get, $"api/swalekha/calendar?year={year}&month={month}", null, cancellationToken);
+
     private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {
         var response = await SendCoreAsync(method, path, body, cancellationToken);

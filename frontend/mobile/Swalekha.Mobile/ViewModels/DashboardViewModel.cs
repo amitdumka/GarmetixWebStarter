@@ -119,6 +119,18 @@ public sealed partial class DashboardViewModel : BaseViewModel
         => await Shell.Current.GoToAsync(nameof(Views.InsurancePoliciesPage));
 
     [RelayCommand]
+    private static async Task OpenJournalAsync()
+        => await Shell.Current.GoToAsync(nameof(Views.JournalPage));
+
+    [RelayCommand]
+    private static async Task OpenNotesAsync()
+        => await Shell.Current.GoToAsync(nameof(Views.NotesPage));
+
+    [RelayCommand]
+    private static async Task OpenCalendarAsync()
+        => await Shell.Current.GoToAsync(nameof(Views.CalendarPage));
+
+    [RelayCommand]
     private async Task LogoutAsync()
     {
         _authService.Logout();
