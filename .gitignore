@@ -25,3 +25,7 @@ backend/**/bin/
 backend/**/obj/
 legacy/**/bin/
 legacy/**/obj/
+frontend/mobile/**/bin/
+frontend/mobile/**/obj/
+frontend/mobile/**/.vs/
+frontend/mobile/**/*.csproj.user

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:cards="clr-namespace:Syncfusion.Maui.Toolkit.Cards;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:inputLayout="clr-namespace:Syncfusion.Maui.Toolkit.TextInputLayout;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
+             x:Class="Swalekha.Mobile.Views.LoginPage"
+             x:DataType="viewModels:LoginViewModel"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="28,0" Spacing="0" VerticalOptions="Center">
+
+            <VerticalStackLayout Spacing="4" Margin="0,0,0,32">
+                <Label Text="Swalekha"
+                       FontSize="30"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                <Label Text="Your personal finance ledger"
+                       FontSize="14"
+                       TextColor="{StaticResource SwalekhaMuted}" />
+            </VerticalStackLayout>
+
+            <cards:SfCard Padding="20" StrokeThickness="0" CornerRadius="16"
+                          BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                <VerticalStackLayout Spacing="16">
+
+                    <inputLayout:SfTextInputLayout Hint="Username" ContainerType="Outlined">
+                        <Entry Text="{Binding UserName}"
+                               Keyboard="Email"
+                               ReturnType="Next"
+                               IsSpellCheckEnabled="False"
+                               IsTextPredictionEnabled="False" />
+                    </inputLayout:SfTextInputLayout>
+
+                    <inputLayout:SfTextInputLayout Hint="Password" ContainerType="Outlined">
+                        <Entry Text="{Binding Password}"
+                               IsPassword="True"
+                               ReturnType="Go"
+                               ReturnCommand="{Binding LoginCommand}" />
+                    </inputLayout:SfTextInputLayout>
+
+                    <Label Text="{Binding ErrorMessage}"
+                           IsVisible="{Binding HasError}"
+                           TextColor="{StaticResource SwalekhaDanger}"
+                           BackgroundColor="{StaticResource SwalekhaDangerBg}"
+                           Padding="10"
+                           FontSize="13" />
+
+                    <buttons:SfButton Text="Sign in"
+                                       Command="{Binding LoginCommand}"
+                                       HeightRequest="48"
+                                       CornerRadius="8"
+                                       Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                       TextColor="{StaticResource White}" />
+
+                    <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                       IsVisible="{Binding IsBusy}"
+                                       Color="{StaticResource Secondary}" />
+
+                </VerticalStackLayout>
+            </cards:SfCard>
+
+            <Label Text="Owner accounts only."
+                   FontSize="12"
+                   TextColor="{StaticResource SwalekhaMuted}"
+                   HorizontalOptions="Center"
+                   Margin="0,16,0,0" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

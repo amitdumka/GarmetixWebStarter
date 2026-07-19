@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:cards="clr-namespace:Syncfusion.Maui.Toolkit.Cards;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:chart="clr-namespace:Syncfusion.Maui.Toolkit.Charts;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
+             xmlns:models="clr-namespace:Swalekha.Mobile.Models"
+             x:Class="Swalekha.Mobile.Views.DashboardPage"
+             x:DataType="viewModels:DashboardViewModel"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
+
+    <RefreshView Command="{Binding LoadCommand}" IsRefreshing="{Binding IsBusy}">
+        <ScrollView>
+            <VerticalStackLayout Padding="16" Spacing="14">
+
+                <!-- Top bar -->
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                    <Border Grid.Column="0" WidthRequest="38" HeightRequest="38"
+                            StrokeShape="RoundRectangle 19" Stroke="Transparent"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}">
+                        <Label Text="{Binding OwnerInitials}" TextColor="{StaticResource White}"
+                               FontAttributes="Bold" FontSize="14"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Border>
+                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="0">
+                        <Label Text="Swalekha" FontSize="12" TextColor="{StaticResource SwalekhaMuted}" />
+                        <Label FontSize="16" FontAttributes="Bold"
+                               Text="{Binding OwnerName, StringFormat='Hi, {0}'}"
+                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                    </VerticalStackLayout>
+                    <Button Grid.Column="2" Text="Sign out" FontSize="12"
+                            Command="{Binding LogoutCommand}"
+                            BackgroundColor="Transparent"
+                            TextColor="{StaticResource SwalekhaMuted}"
+                            VerticalOptions="Center" Padding="0" />
+                </Grid>
+
+                <Label Text="{Binding ErrorMessage}"
+                       IsVisible="{Binding HasError}"
+                       TextColor="{StaticResource SwalekhaDanger}"
+                       BackgroundColor="{StaticResource SwalekhaDangerBg}"
+                       Padding="10" FontSize="13" />
+
+                <!-- Net worth -->
+                <cards:SfCard Padding="18" StrokeThickness="0" CornerRadius="14"
+                              BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Net worth" FontSize="12" TextColor="{StaticResource SecondaryDarkText}" />
+                        <Label FontSize="26" FontAttributes="Bold" TextColor="{StaticResource White}"
+                               Text="{Binding NetWorth, StringFormat='₹{0:N0}'}" />
+                        <Grid ColumnDefinitions="*,*" Margin="0,8,0,0">
+                            <VerticalStackLayout Grid.Column="0" Spacing="0">
+                                <Label Text="Assets" FontSize="11" TextColor="{StaticResource SecondaryDarkText}" />
+                                <Label Text="{Binding TotalAssets, StringFormat='₹{0:N0}'}" FontSize="14" TextColor="{StaticResource White}" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="0">
+                                <Label Text="Liabilities" FontSize="11" TextColor="{StaticResource SecondaryDarkText}" />
+                                <Label Text="{Binding TotalLiabilities, StringFormat='₹{0:N0}'}" FontSize="14" TextColor="{StaticResource White}" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </VerticalStackLayout>
+                </cards:SfCard>
+
+                <!-- Assets breakdown chart -->
+                <cards:SfCard Padding="14" StrokeThickness="0" CornerRadius="14"
+                              IsVisible="{Binding HasLoadedOnce}"
+                              BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Assets by category" FontSize="13" FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                        <chart:SfCircularChart HeightRequest="230">
+                            <chart:SfCircularChart.Legend>
+                                <chart:ChartLegend Placement="Bottom" ToggleSeriesVisibility="False" />
+                            </chart:SfCircularChart.Legend>
+                            <chart:SfCircularChart.Series>
+                                <chart:DoughnutSeries ItemsSource="{Binding AssetsBreakdown}"
+                                                       XBindingPath="Category"
+                                                       YBindingPath="Value"
+                                                       EnableTooltip="True"
+                                                       InnerRadius="0.6" />
+                            </chart:SfCircularChart.Series>
+                        </chart:SfCircularChart>
+                    </VerticalStackLayout>
+                </cards:SfCard>
+
+                <!-- Upcoming dues -->
+                <cards:SfCard Padding="14" StrokeThickness="0" CornerRadius="14"
+                              IsVisible="{Binding HasLoadedOnce}"
+                              BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Upcoming dues (next 30 days)" FontSize="13" FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+
+                        <Label Text="Nothing due in the next 30 days."
+                               IsVisible="{Binding UpcomingDues.Count, Converter={StaticResource IntIsZeroConverter}}"
+                               FontSize="12" TextColor="{StaticResource SwalekhaMuted}" />
+
+                        <CollectionView ItemsSource="{Binding UpcomingDues}">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="models:SwalekhaCalendarEventDto">
+                                    <Grid ColumnDefinitions="*,Auto" Padding="0,7">
+                                        <VerticalStackLayout Grid.Column="0" Spacing="0">
+                                            <Label Text="{Binding Title}" FontSize="13" />
+                                            <Label Text="{Binding Date, StringFormat='{0:dd MMM yyyy}'}"
+                                                   FontSize="11" TextColor="{StaticResource SwalekhaMuted}" />
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="1" Text="{Binding Amount, StringFormat='₹{0:N0}'}"
+                                               IsVisible="{Binding Amount, Converter={StaticResource NullableHasValueConverter}}"
+                                               FontSize="13" FontAttributes="Bold" VerticalOptions="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </VerticalStackLayout>
+                </cards:SfCard>
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </RefreshView>
+</ContentPage>
