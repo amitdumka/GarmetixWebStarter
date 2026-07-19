@@ -35,6 +35,9 @@ public partial class AppShell : Shell
         Routing.RegisterRoute(nameof(RecurringDepositsPage), typeof(RecurringDepositsPage));
         Routing.RegisterRoute(nameof(RecurringDepositEditPage), typeof(RecurringDepositEditPage));
         Routing.RegisterRoute(nameof(RecurringDepositDetailPage), typeof(RecurringDepositDetailPage));
+        Routing.RegisterRoute(nameof(MutualFundsPage), typeof(MutualFundsPage));
+        Routing.RegisterRoute(nameof(MutualFundEditPage), typeof(MutualFundEditPage));
+        Routing.RegisterRoute(nameof(MutualFundDetailPage), typeof(MutualFundDetailPage));
     }
 
     private async void OnLoaded(object? sender, EventArgs e)

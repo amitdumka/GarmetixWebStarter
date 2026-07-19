@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:inputLayout="clr-namespace:Syncfusion.Maui.Toolkit.TextInputLayout;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
+             x:Class="Swalekha.Mobile.Views.MutualFundEditPage"
+             x:DataType="viewModels:MutualFundEditViewModel"
+             Title="{Binding Title}"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="14">
+
+            <Label Text="{Binding ErrorMessage}"
+                   IsVisible="{Binding HasError}"
+                   TextColor="{StaticResource SwalekhaDanger}"
+                   BackgroundColor="{StaticResource SwalekhaDangerBg}"
+                   Padding="10" FontSize="13" />
+
+            <inputLayout:SfTextInputLayout Hint="Scheme name" ContainerType="Outlined">
+                <Entry Text="{Binding SchemeName}" />
+            </inputLayout:SfTextInputLayout>
+
+            <inputLayout:SfTextInputLayout Hint="AMC (optional)" ContainerType="Outlined">
+                <Entry Text="{Binding Amc}" />
+            </inputLayout:SfTextInputLayout>
+
+            <inputLayout:SfTextInputLayout Hint="Folio number (optional)" ContainerType="Outlined">
+                <Entry Text="{Binding FolioNumber}" />
+            </inputLayout:SfTextInputLayout>
+
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Linked account (optional)" FontSize="12" TextColor="{StaticResource SwalekhaMuted}" />
+                <Picker ItemsSource="{Binding Accounts}" ItemDisplayBinding="{Binding Name}" SelectedItem="{Binding LinkedAccount}" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Investment mode" FontSize="12" TextColor="{StaticResource SwalekhaMuted}" />
+                <Picker ItemsSource="{x:Static viewModels:MutualFundEditViewModel.InvestmentModes}" SelectedItem="{Binding InvestmentMode}" />
+            </VerticalStackLayout>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12" IsVisible="{Binding IsSip}">
+                <inputLayout:SfTextInputLayout Grid.Column="0" Hint="SIP amount" ContainerType="Outlined">
+                    <Entry Text="{Binding SipAmountText}" Keyboard="Numeric" />
+                </inputLayout:SfTextInputLayout>
+                <inputLayout:SfTextInputLayout Grid.Column="1" Hint="SIP day of month" ContainerType="Outlined">
+                    <Entry Text="{Binding SipDayText}" Keyboard="Numeric" />
+                </inputLayout:SfTextInputLayout>
+            </Grid>
+
+            <inputLayout:SfTextInputLayout Hint="Notes (optional)" ContainerType="Outlined">
+                <Entry Text="{Binding Notes}" />
+            </inputLayout:SfTextInputLayout>
+
+            <Grid ColumnDefinitions="*,Auto">
+                <Label Grid.Column="0" Text="Active" VerticalOptions="Center" />
+                <Switch Grid.Column="1" IsToggled="{Binding IsActive}" />
+            </Grid>
+
+            <buttons:SfButton Text="Save"
+                               Command="{Binding SaveCommand}"
+                               HeightRequest="48" CornerRadius="8"
+                               Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                               TextColor="{StaticResource White}" />
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="{StaticResource Secondary}" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

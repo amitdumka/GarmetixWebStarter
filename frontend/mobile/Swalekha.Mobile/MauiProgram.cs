@@ -88,6 +88,12 @@ public static class MauiProgram
         builder.Services.AddTransient<RecurringDepositEditPage>();
         builder.Services.AddTransient<RecurringDepositDetailViewModel>();
         builder.Services.AddTransient<RecurringDepositDetailPage>();
+        builder.Services.AddTransient<MutualFundsViewModel>();
+        builder.Services.AddTransient<MutualFundsPage>();
+        builder.Services.AddTransient<MutualFundEditViewModel>();
+        builder.Services.AddTransient<MutualFundEditPage>();
+        builder.Services.AddTransient<MutualFundDetailViewModel>();
+        builder.Services.AddTransient<MutualFundDetailPage>();
         builder.Services.AddTransient<AppShell>();
 
 #if DEBUG

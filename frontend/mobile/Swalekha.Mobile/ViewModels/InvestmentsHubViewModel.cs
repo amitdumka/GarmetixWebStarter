@@ -26,6 +26,12 @@ public sealed partial class InvestmentsHubViewModel : BaseViewModel
     [ObservableProperty]
     private decimal activeRecurringDepositMonthlyCommitment;
 
+    [ObservableProperty]
+    private int activeMutualFundCount;
+
+    [ObservableProperty]
+    private decimal mutualFundCurrentValue;
+
     [RelayCommand]
     private async Task LoadAsync()
     {
@@ -38,6 +44,10 @@ public sealed partial class InvestmentsHubViewModel : BaseViewModel
             var rds = await _apiClient.GetRecurringDepositsAsync(false);
             ActiveRecurringDepositCount = rds.Count;
             ActiveRecurringDepositMonthlyCommitment = rds.Sum(r => r.MonthlyInstallment);
+
+            var funds = await _apiClient.GetMutualFundsAsync(false);
+            ActiveMutualFundCount = funds.Count;
+            MutualFundCurrentValue = funds.Sum(f => f.CurrentValue ?? f.TotalInvested);
         });
     }
 
@@ -48,4 +58,8 @@ public sealed partial class InvestmentsHubViewModel : BaseViewModel
     [RelayCommand]
     private static async Task OpenRecurringDepositsAsync()
         => await Shell.Current.GoToAsync(nameof(RecurringDepositsPage));
+
+    [RelayCommand]
+    private static async Task OpenMutualFundsAsync()
+        => await Shell.Current.GoToAsync(nameof(MutualFundsPage));
 }

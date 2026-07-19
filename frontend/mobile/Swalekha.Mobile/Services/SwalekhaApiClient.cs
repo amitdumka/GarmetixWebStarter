@@ -184,6 +184,36 @@ public sealed class SwalekhaApiClient
     public Task<SwalekhaRecurringDepositDto> MarkRecurringDepositMaturedAsync(Guid id, SwalekhaMarkMaturedPayload payload, CancellationToken cancellationToken = default)
         => SendAsync<SwalekhaRecurringDepositDto>(HttpMethod.Post, $"api/swalekha/recurring-deposits/{id}/mark-matured", payload, cancellationToken);
 
+    public Task<List<SwalekhaMutualFundDto>> GetMutualFundsAsync(bool includeInactive, CancellationToken cancellationToken = default)
+        => SendAsync<List<SwalekhaMutualFundDto>>(HttpMethod.Get, $"api/swalekha/mutual-funds?includeInactive={includeInactive}", null, cancellationToken);
+
+    public Task<SwalekhaMutualFundDto> GetMutualFundAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaMutualFundDto>(HttpMethod.Get, $"api/swalekha/mutual-funds/{id}", null, cancellationToken);
+
+    public Task<SwalekhaMutualFundDto> CreateMutualFundAsync(SwalekhaMutualFundPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaMutualFundDto>(HttpMethod.Post, "api/swalekha/mutual-funds", payload, cancellationToken);
+
+    public Task<SwalekhaMutualFundDto> UpdateMutualFundAsync(Guid id, SwalekhaMutualFundPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaMutualFundDto>(HttpMethod.Put, $"api/swalekha/mutual-funds/{id}", payload, cancellationToken);
+
+    public Task DeleteMutualFundAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/mutual-funds/{id}", null, cancellationToken);
+
+    public Task<SwalekhaMutualFundDto> UpdateMutualFundNavAsync(Guid id, decimal nav, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaMutualFundDto>(HttpMethod.Put, $"api/swalekha/mutual-funds/{id}/nav", new SwalekhaUpdateNavPayload(nav), cancellationToken);
+
+    public Task<SwalekhaMutualFundReturnsDto> GetMutualFundReturnsAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaMutualFundReturnsDto>(HttpMethod.Get, $"api/swalekha/mutual-funds/{id}/returns", null, cancellationToken);
+
+    public Task<SwalekhaMutualFundTransactionList> GetMutualFundTransactionsAsync(Guid fundId, int page, int pageSize, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaMutualFundTransactionList>(HttpMethod.Get, $"api/swalekha/mutual-funds/{fundId}/transactions?page={page}&pageSize={pageSize}", null, cancellationToken);
+
+    public Task<SwalekhaMutualFundTransactionDto> AddMutualFundTransactionAsync(Guid fundId, SwalekhaMutualFundTransactionPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaMutualFundTransactionDto>(HttpMethod.Post, $"api/swalekha/mutual-funds/{fundId}/transactions", payload, cancellationToken);
+
+    public Task DeleteMutualFundTransactionAsync(Guid fundId, Guid transactionId, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/mutual-funds/{fundId}/transactions/{transactionId}", null, cancellationToken);
+
     private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {
         var response = await SendCoreAsync(method, path, body, cancellationToken);

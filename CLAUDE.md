@@ -1,5 +1,15 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-19 - Android Swalekha: Investments II stage (closes PersonalFin_09)
+
+Amit said to keep continuing, and that he'll install the app on a phone and test it once the remaining stages land. Ports `PersonalFin_09` (Mutual Funds + SIP + XIRR) to the Android app; DTOs read directly from `SwalekhaMutualFundEndpoints.cs`, no backend changes. **XIRR is not reimplemented on the client** - `SwalekhaXirrCalculator` already runs server-side behind `GET /api/swalekha/mutual-funds/{id}/returns`, so the mobile app just displays whatever that endpoint returns (`Xirr`/`XirrAvailable`/`XirrNote`), the same "don't duplicate financial-correctness logic across platforms" call this project made repeatedly on the web side.
+
+- New `MutualFundsPage` (current-value/invested hero card, SIP-due badge per row, tap to open detail), `MutualFundEditPage` (scheme/AMC/folio/optional linked-account picker/Lumpsum-or-SIP mode picker that conditionally reveals SIP amount+day fields), `MutualFundDetailPage` (a returns panel showing current value, return %, XIRR - or the backend's own "not enough history yet" note when XIRR isn't computable - Update NAV, and a Record Transaction form that switches between an Amount field for Purchase/SIP and a Units field for Redemption).
+- `SwalekhaApiClient` gained the mutual-fund CRUD + NAV-update + returns + transaction calls.
+- Investments hub gained a third card (Mutual Funds, active count + current value).
+- Validated: `dotnet build -f net10.0-android` (0 errors). **Not run on a device/emulator yet** - Amit is planning to install and test on a real phone once the rest of the roadmap lands.
+- Next: Investments III - Shares/Stocks + Other Assets (`PersonalFin_10`).
+
 ## 2026-07-19 - Android Swalekha: Investments I stage (closes PersonalFin_08)
 
 Amit said "ok keep continue". Ports `PersonalFin_08` (Fixed Deposits + Recurring Deposits) to the Android app; DTOs read directly from `SwalekhaInvestmentEndpoints.cs`, no backend changes. First stage with genuine Accounts Hub integration on the mobile side - Mark Matured (FD and RD) and RD's Record Installment post real ledger transactions against a linked account, exactly like the backend already does for the web app.
