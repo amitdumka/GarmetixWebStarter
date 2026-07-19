@@ -102,6 +102,12 @@ public static class MauiProgram
         builder.Services.AddTransient<ShareDetailPage>();
         builder.Services.AddTransient<OtherAssetsViewModel>();
         builder.Services.AddTransient<OtherAssetsPage>();
+        builder.Services.AddTransient<LoansViewModel>();
+        builder.Services.AddTransient<LoansPage>();
+        builder.Services.AddTransient<LoanEditViewModel>();
+        builder.Services.AddTransient<LoanEditPage>();
+        builder.Services.AddTransient<LoanDetailViewModel>();
+        builder.Services.AddTransient<LoanDetailPage>();
         builder.Services.AddTransient<AppShell>();
 
 #if DEBUG

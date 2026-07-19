@@ -253,6 +253,36 @@ public sealed class SwalekhaApiClient
     public Task DeleteOtherAssetAsync(Guid id, CancellationToken cancellationToken = default)
         => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/other-assets/{id}", null, cancellationToken);
 
+    public Task<List<SwalekhaLoanDto>> GetLoansAsync(bool includeClosed, CancellationToken cancellationToken = default)
+        => SendAsync<List<SwalekhaLoanDto>>(HttpMethod.Get, $"api/swalekha/loans?includeClosed={includeClosed}", null, cancellationToken);
+
+    public Task<SwalekhaLoanDto> GetLoanAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaLoanDto>(HttpMethod.Get, $"api/swalekha/loans/{id}", null, cancellationToken);
+
+    public Task<SwalekhaLoanDto> CreateLoanAsync(SwalekhaLoanPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaLoanDto>(HttpMethod.Post, "api/swalekha/loans", payload, cancellationToken);
+
+    public Task<SwalekhaLoanDto> UpdateLoanAsync(Guid id, SwalekhaLoanPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaLoanDto>(HttpMethod.Put, $"api/swalekha/loans/{id}", payload, cancellationToken);
+
+    public Task DeleteLoanAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/loans/{id}", null, cancellationToken);
+
+    public Task<SwalekhaCalculateEmiResult> CalculateEmiAsync(SwalekhaCalculateEmiPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaCalculateEmiResult>(HttpMethod.Post, "api/swalekha/loans/calculate-emi", payload, cancellationToken);
+
+    public Task<List<SwalekhaAmortizationRow>> GetAmortizationScheduleAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendAsync<List<SwalekhaAmortizationRow>>(HttpMethod.Get, $"api/swalekha/loans/{id}/amortization-schedule", null, cancellationToken);
+
+    public Task<SwalekhaLoanPaymentList> GetLoanPaymentsAsync(Guid loanId, int page, int pageSize, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaLoanPaymentList>(HttpMethod.Get, $"api/swalekha/loans/{loanId}/payments?page={page}&pageSize={pageSize}", null, cancellationToken);
+
+    public Task<SwalekhaLoanPaymentDto> AddLoanPaymentAsync(Guid loanId, SwalekhaLoanPaymentPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaLoanPaymentDto>(HttpMethod.Post, $"api/swalekha/loans/{loanId}/payments", payload, cancellationToken);
+
+    public Task DeleteLoanPaymentAsync(Guid loanId, Guid paymentId, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/loans/{loanId}/payments/{paymentId}", null, cancellationToken);
+
     private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {
         var response = await SendCoreAsync(method, path, body, cancellationToken);

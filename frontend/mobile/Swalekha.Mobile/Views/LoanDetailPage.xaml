@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:cards="clr-namespace:Syncfusion.Maui.Toolkit.Cards;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:inputLayout="clr-namespace:Syncfusion.Maui.Toolkit.TextInputLayout;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
+             xmlns:models="clr-namespace:Swalekha.Mobile.Models"
+             x:Class="Swalekha.Mobile.Views.LoanDetailPage"
+             x:DataType="viewModels:LoanDetailViewModel"
+             x:Name="PageRoot"
+             Title="Loan"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Edit" Command="{Binding EditLoanCommand}" />
+    </ContentPage.ToolbarItems>
+
+    <RefreshView Command="{Binding LoadCommand}" IsRefreshing="{Binding IsBusy}">
+        <ScrollView>
+            <VerticalStackLayout Padding="16" Spacing="14">
+
+                <cards:SfCard Padding="16" StrokeThickness="0" CornerRadius="14"
+                              BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                              IsVisible="{Binding Loan, Converter={StaticResource NullableHasValueConverter}}">
+                    <VerticalStackLayout Spacing="2">
+                        <Label Text="{Binding Loan.LenderName}" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource White}" />
+                        <Label Text="{Binding Loan.LoanType}" FontSize="12" TextColor="{StaticResource SecondaryDarkText}" />
+                        <Label Text="{Binding Loan.OutstandingPrincipal, StringFormat='₹{0:N0} outstanding'}" FontSize="24" FontAttributes="Bold" TextColor="{StaticResource White}" Margin="0,6,0,0" />
+                        <Label Text="{Binding Loan.EmiAmount, StringFormat='EMI ₹{0:N0}/mo'}" FontSize="11" TextColor="{StaticResource SecondaryDarkText}" />
+                        <Label Text="Closed" FontSize="11" FontAttributes="Bold" TextColor="{StaticResource SecondaryDarkText}"
+                               IsVisible="{Binding Loan.IsClosed}" />
+                    </VerticalStackLayout>
+                </cards:SfCard>
+
+                <Label Text="{Binding ErrorMessage}"
+                       IsVisible="{Binding HasError}"
+                       TextColor="{StaticResource SwalekhaDanger}"
+                       BackgroundColor="{StaticResource SwalekhaDangerBg}"
+                       Padding="10" FontSize="13" />
+
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <buttons:SfButton Grid.Column="0" Text="Record payment"
+                                       Command="{Binding ToggleAddPaymentCommand}"
+                                       HeightRequest="42" CornerRadius="8"
+                                       Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                       TextColor="{StaticResource White}" />
+                    <buttons:SfButton Grid.Column="1" Text="Amortization schedule"
+                                       Command="{Binding ToggleScheduleCommand}"
+                                       HeightRequest="42" CornerRadius="8"
+                                       Background="Transparent"
+                                       Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                       StrokeThickness="1"
+                                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                </Grid>
+
+                <cards:SfCard Padding="14" StrokeThickness="0" CornerRadius="14"
+                              IsVisible="{Binding IsAddingPayment}"
+                              BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                    <VerticalStackLayout Spacing="10">
+                        <Picker ItemsSource="{x:Static viewModels:LoanDetailViewModel.PaymentTypes}"
+                                SelectedItem="{Binding NewPaymentType}" />
+                        <inputLayout:SfTextInputLayout Hint="Amount" ContainerType="Outlined">
+                            <Entry Text="{Binding NewAmountText}" Keyboard="Numeric" />
+                        </inputLayout:SfTextInputLayout>
+                        <inputLayout:SfTextInputLayout Hint="Narration (optional)" ContainerType="Outlined">
+                            <Entry Text="{Binding NewNarration}" />
+                        </inputLayout:SfTextInputLayout>
+                        <buttons:SfButton Text="Save payment"
+                                           Command="{Binding AddPaymentCommand}"
+                                           HeightRequest="42" CornerRadius="8"
+                                           Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                                           TextColor="{StaticResource White}" />
+                    </VerticalStackLayout>
+                </cards:SfCard>
+
+                <VerticalStackLayout Spacing="6" IsVisible="{Binding IsShowingSchedule}">
+                    <Label Text="Amortization schedule" FontSize="13" FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                    <CollectionView ItemsSource="{Binding Schedule}" HeightRequest="260">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:SwalekhaAmortizationRow">
+                                <Grid ColumnDefinitions="Auto,*,*,*" Padding="0,4">
+                                    <Label Grid.Column="0" Text="{Binding MonthNumber}" FontSize="11" WidthRequest="24" />
+                                    <Label Grid.Column="1" Text="{Binding InterestComponent, StringFormat='₹{0:N0}'}" FontSize="11" TextColor="{StaticResource SwalekhaMuted}" />
+                                    <Label Grid.Column="2" Text="{Binding PrincipalComponent, StringFormat='₹{0:N0}'}" FontSize="11" />
+                                    <Label Grid.Column="3" Text="{Binding ClosingBalance, StringFormat='₹{0:N0}'}" FontSize="11" FontAttributes="Bold" />
+                                </Grid>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+
+                <Label Text="Payments" FontSize="13" FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+
+                <CollectionView ItemsSource="{Binding Payments}">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:SwalekhaLoanPaymentDto">
+                            <cards:SfCard Padding="12" Margin="0,0,0,6" StrokeThickness="0" CornerRadius="10"
+                                          BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                                <Grid ColumnDefinitions="*,Auto,Auto">
+                                    <VerticalStackLayout Grid.Column="0" Spacing="1">
+                                        <Label Text="{Binding PaymentType}" FontSize="12" FontAttributes="Bold" />
+                                        <Label FontSize="10" TextColor="{StaticResource SwalekhaMuted}">
+                                            <Label.Text>
+                                                <MultiBinding StringFormat="Interest ₹{0:N0} · Principal ₹{1:N0}">
+                                                    <Binding Path="InterestComponent" />
+                                                    <Binding Path="PrincipalComponent" />
+                                                </MultiBinding>
+                                            </Label.Text>
+                                        </Label>
+                                        <Label Text="{Binding PaymentDate, StringFormat='{0:dd MMM yyyy}'}" FontSize="10" TextColor="{StaticResource SwalekhaMuted}" />
+                                    </VerticalStackLayout>
+                                    <Label Grid.Column="1" Text="{Binding Amount, StringFormat='₹{0:N0}'}"
+                                           FontSize="13" FontAttributes="Bold" VerticalOptions="Center" Margin="0,0,10,0" />
+                                    <Button Grid.Column="2" Text="Delete" FontSize="11"
+                                            Command="{Binding Source={x:Reference PageRoot}, Path=BindingContext.DeletePaymentCommand}"
+                                            CommandParameter="{Binding .}"
+                                            BackgroundColor="Transparent" TextColor="{StaticResource SwalekhaDanger}"
+                                            Padding="0" VerticalOptions="Center" />
+                                </Grid>
+                            </cards:SfCard>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </RefreshView>
+</ContentPage>

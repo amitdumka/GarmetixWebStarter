@@ -1,5 +1,15 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-19 - Android Swalekha: Loans stage (closes PersonalFin_11)
+
+Amit said to keep continuing. Ports `PersonalFin_11` (Loans Taken) to the Android app; DTOs read directly from `SwalekhaLoanEndpoints.cs`, no backend changes. **Neither the EMI formula nor the amortization projection is reimplemented on the client** - `SwalekhaLoanCalculator` (reducing-balance EMI + month-by-month schedule) already runs server-side behind `POST /calculate-emi` and `GET /{id}/amortization-schedule`, so the mobile app is a pure consumer of both, same call this project made for XIRR in the Mutual Funds stage - a loan-EMI formula is exactly the kind of financial-correctness logic that shouldn't exist in two places.
+- Deliberately no "Loans Given" here - per the backend's own design note, that reuses `PersonalFin_03`'s Person Ledger (`LoanGiven` entries on a Contact, already shipped in the Contacts stage) rather than a second ledger, so nothing needed building for it.
+- New `LoansPage` (outstanding-total hero, show-closed toggle, tap to open detail), `LoanEditPage` (type/lender/optional linked-account/principal/rate/tenure/EMI fields plus a **Suggest EMI** button that calls the real server endpoint rather than guessing a number client-side), `LoanDetailPage` (outstanding-vs-EMI header, Record Payment for EMI/Prepayment - server computes the actual interest/principal split and auto-closes the loan when it hits zero - and a collapsible Amortization Schedule table fetched from the server, not computed locally).
+- `SwalekhaApiClient` gained the loan CRUD + calculate-emi + amortization-schedule + payment calls.
+- Dashboard's Investments card became a two-card row with a new Loans card alongside it.
+- Validated: `dotnet build -f net10.0-android` (0 errors). **Not run on a device/emulator yet.**
+- Next: Insurance (`PersonalFin_12`).
+
 ## 2026-07-19 - Android Swalekha: Investments III stage (closes PersonalFin_10, all Investments done)
 
 Amit said to keep continuing. Ports `PersonalFin_10` (Shares/Stocks + Other Assets) to the Android app; DTOs read directly from `SwalekhaShareEndpoints.cs`/`SwalekhaOtherAssetEndpoints.cs`, no backend changes. This closes out every Investment stage (I/II/III) - `PersonalFin_08`, `09`, `10` are all done on Android now.

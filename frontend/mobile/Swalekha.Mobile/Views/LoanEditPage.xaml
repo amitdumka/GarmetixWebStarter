@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:inputLayout="clr-namespace:Syncfusion.Maui.Toolkit.TextInputLayout;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
+             x:Class="Swalekha.Mobile.Views.LoanEditPage"
+             x:DataType="viewModels:LoanEditViewModel"
+             Title="{Binding Title}"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="14">
+
+            <Label Text="{Binding ErrorMessage}"
+                   IsVisible="{Binding HasError}"
+                   TextColor="{StaticResource SwalekhaDanger}"
+                   BackgroundColor="{StaticResource SwalekhaDangerBg}"
+                   Padding="10" FontSize="13" />
+
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Loan type" FontSize="12" TextColor="{StaticResource SwalekhaMuted}" />
+                <Picker ItemsSource="{x:Static viewModels:LoanEditViewModel.LoanTypes}" SelectedItem="{Binding LoanType}" />
+            </VerticalStackLayout>
+
+            <inputLayout:SfTextInputLayout Hint="Lender name" ContainerType="Outlined">
+                <Entry Text="{Binding LenderName}" />
+            </inputLayout:SfTextInputLayout>
+
+            <inputLayout:SfTextInputLayout Hint="Loan number (optional)" ContainerType="Outlined">
+                <Entry Text="{Binding LoanNumber}" />
+            </inputLayout:SfTextInputLayout>
+
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Linked account (optional)" FontSize="12" TextColor="{StaticResource SwalekhaMuted}" />
+                <Picker ItemsSource="{Binding Accounts}" ItemDisplayBinding="{Binding Name}" SelectedItem="{Binding LinkedAccount}" />
+            </VerticalStackLayout>
+
+            <inputLayout:SfTextInputLayout Hint="Principal amount" ContainerType="Outlined">
+                <Entry Text="{Binding PrincipalAmountText}" Keyboard="Numeric" />
+            </inputLayout:SfTextInputLayout>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <inputLayout:SfTextInputLayout Grid.Column="0" Hint="Interest rate %" ContainerType="Outlined">
+                    <Entry Text="{Binding InterestRateText}" Keyboard="Numeric" />
+                </inputLayout:SfTextInputLayout>
+                <inputLayout:SfTextInputLayout Grid.Column="1" Hint="Tenure (months)" ContainerType="Outlined">
+                    <Entry Text="{Binding TenureMonthsText}" Keyboard="Numeric" />
+                </inputLayout:SfTextInputLayout>
+            </Grid>
+
+            <inputLayout:SfTextInputLayout Hint="EMI amount" ContainerType="Outlined">
+                <Entry Text="{Binding EmiAmountText}" Keyboard="Numeric" />
+            </inputLayout:SfTextInputLayout>
+
+            <buttons:SfButton Text="Suggest EMI"
+                               Command="{Binding SuggestEmiCommand}"
+                               HeightRequest="40" CornerRadius="8"
+                               Background="Transparent"
+                               Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                               StrokeThickness="1"
+                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+
+            <inputLayout:SfTextInputLayout Hint="Start date (YYYY-MM-DD)" ContainerType="Outlined">
+                <Entry Text="{Binding StartDateText}" />
+            </inputLayout:SfTextInputLayout>
+
+            <inputLayout:SfTextInputLayout Hint="Notes (optional)" ContainerType="Outlined">
+                <Entry Text="{Binding Notes}" />
+            </inputLayout:SfTextInputLayout>
+
+            <buttons:SfButton Text="Save"
+                               Command="{Binding SaveCommand}"
+                               HeightRequest="48" CornerRadius="8"
+                               Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                               TextColor="{StaticResource White}" />
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="{StaticResource Secondary}" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
