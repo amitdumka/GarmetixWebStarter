@@ -103,6 +103,10 @@ public sealed partial class DashboardViewModel : BaseViewModel
         => await Shell.Current.GoToAsync(nameof(Views.RecurringBillsPage));
 
     [RelayCommand]
+    private static async Task OpenTripsAsync()
+        => await Shell.Current.GoToAsync(nameof(Views.TripsPage));
+
+    [RelayCommand]
     private async Task LogoutAsync()
     {
         _authService.Logout();

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:inputLayout="clr-namespace:Syncfusion.Maui.Toolkit.TextInputLayout;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
+             x:Class="Swalekha.Mobile.Views.TripEditPage"
+             x:DataType="viewModels:TripEditViewModel"
+             Title="{Binding Title}"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="14">
+
+            <Label Text="{Binding ErrorMessage}"
+                   IsVisible="{Binding HasError}"
+                   TextColor="{StaticResource SwalekhaDanger}"
+                   BackgroundColor="{StaticResource SwalekhaDangerBg}"
+                   Padding="10" FontSize="13" />
+
+            <inputLayout:SfTextInputLayout Hint="Trip name" ContainerType="Outlined">
+                <Entry Text="{Binding Name}" />
+            </inputLayout:SfTextInputLayout>
+
+            <inputLayout:SfTextInputLayout Hint="Destination (optional)" ContainerType="Outlined">
+                <Entry Text="{Binding Destination}" />
+            </inputLayout:SfTextInputLayout>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <inputLayout:SfTextInputLayout Grid.Column="0" Hint="Start date (YYYY-MM-DD)" ContainerType="Outlined">
+                    <Entry Text="{Binding StartDateText}" Placeholder="2026-08-01" />
+                </inputLayout:SfTextInputLayout>
+                <inputLayout:SfTextInputLayout Grid.Column="1" Hint="End date (YYYY-MM-DD)" ContainerType="Outlined">
+                    <Entry Text="{Binding EndDateText}" Placeholder="2026-08-10" />
+                </inputLayout:SfTextInputLayout>
+            </Grid>
+
+            <inputLayout:SfTextInputLayout Hint="Budget (optional)" ContainerType="Outlined">
+                <Entry Text="{Binding BudgetText}" Keyboard="Numeric" />
+            </inputLayout:SfTextInputLayout>
+
+            <inputLayout:SfTextInputLayout Hint="Notes (optional)" ContainerType="Outlined">
+                <Entry Text="{Binding Notes}" />
+            </inputLayout:SfTextInputLayout>
+
+            <buttons:SfButton Text="Save"
+                               Command="{Binding SaveCommand}"
+                               HeightRequest="48" CornerRadius="8"
+                               Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                               TextColor="{StaticResource White}" />
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="{StaticResource Secondary}" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

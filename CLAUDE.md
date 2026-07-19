@@ -1,5 +1,15 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-19 - Android Swalekha: Trips stage (closes PersonalFin_05)
+
+Amit said "ok keep continue". Ports `PersonalFin_05` (Travel Expense Sheets) to the Android app; DTOs read directly from `SwalekhaTripEndpoints.cs`, no backend changes. Same "no data-copy on close" design as the web/backend: a Trip is metadata wrapped around a dedicated `SwalekhaExpenseSheet` (SheetType "Travel") created on trip creation, so trip expenses reuse the existing `PersonalFin_04` expense-entry endpoints against `Trip.SheetId` - the mobile `TripDetailViewModel` calls the same `GetExpenseEntriesAsync`/`AddExpenseEntryAsync`/`DeleteExpenseEntryAsync` the Expense Sheets stage already built, nothing duplicated.
+
+- New `TripsPage` (show-closed toggle, tap a trip to open detail, `+ Add trip`), `TripEditPage` (name/destination/dates-as-text/budget/notes - dates are plain `YYYY-MM-DD` text fields rather than a `DatePicker`, since the fields are optional and `DatePicker.Date` in MAUI is non-nullable), `TripDetailPage` (budget-vs-spent header, "Add expense" hidden once the trip is closed via a computed `CanAddEntry` property, a "Close trip"/"Reopen trip" toggle button whose label flips via a computed `CloseButtonText` property).
+- `SwalekhaApiClient` gained the trip CRUD + close/reopen calls.
+- Dashboard's "Recurring bills" card became a two-card row with a new "Trips" card alongside it.
+- Validated: `dotnet build -f net10.0-android` (0 errors). **Not run on a device/emulator** - same standing limitation as every prior stage.
+- Next: Investments I - Fixed/Recurring Deposits (`PersonalFin_08`).
+
 ## 2026-07-19 - Android Swalekha: Income + Recurring Bills stage (closes PersonalFin_04)
 
 Amit said "keep continue" again. Closes out `PersonalFin_04` on the Android app (Expense Sheets already landed in the prior stage). DTOs read directly from `SwalekhaIncomeEndpoints.cs`/`SwalekhaRecurringBillEndpoints.cs`, no backend changes.

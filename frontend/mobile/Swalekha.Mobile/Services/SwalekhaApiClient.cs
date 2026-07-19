@@ -124,6 +124,27 @@ public sealed class SwalekhaApiClient
     public Task<SwalekhaRecurringBillDto> MarkRecurringBillPaidAsync(Guid id, CancellationToken cancellationToken = default)
         => SendAsync<SwalekhaRecurringBillDto>(HttpMethod.Post, $"api/swalekha/recurring-bills/{id}/mark-paid", new SwalekhaMarkPaidPayload(null), cancellationToken);
 
+    public Task<List<SwalekhaTripDto>> GetTripsAsync(bool includeClosed, CancellationToken cancellationToken = default)
+        => SendAsync<List<SwalekhaTripDto>>(HttpMethod.Get, $"api/swalekha/trips?includeClosed={includeClosed}", null, cancellationToken);
+
+    public Task<SwalekhaTripDto> GetTripAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaTripDto>(HttpMethod.Get, $"api/swalekha/trips/{id}", null, cancellationToken);
+
+    public Task<SwalekhaTripDto> CreateTripAsync(SwalekhaTripPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaTripDto>(HttpMethod.Post, "api/swalekha/trips", payload, cancellationToken);
+
+    public Task<SwalekhaTripDto> UpdateTripAsync(Guid id, SwalekhaTripPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaTripDto>(HttpMethod.Put, $"api/swalekha/trips/{id}", payload, cancellationToken);
+
+    public Task DeleteTripAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/trips/{id}", null, cancellationToken);
+
+    public Task<SwalekhaTripDto> CloseTripAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaTripDto>(HttpMethod.Post, $"api/swalekha/trips/{id}/close", null, cancellationToken);
+
+    public Task<SwalekhaTripDto> ReopenTripAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaTripDto>(HttpMethod.Post, $"api/swalekha/trips/{id}/reopen", null, cancellationToken);
+
     private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {
         var response = await SendCoreAsync(method, path, body, cancellationToken);
