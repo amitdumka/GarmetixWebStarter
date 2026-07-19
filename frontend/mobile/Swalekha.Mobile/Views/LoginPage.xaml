@@ -10,10 +10,12 @@
              Shell.NavBarIsVisible="False"
              BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
 
-    <!-- Grid star rows (not a plain centered stack) so the form's vertical position scales with
+    <!-- Grid star rows (not a plain centered stack, and not "Auto" for the scroll row - a
+         ScrollView needs a genuinely bounded height to scroll correctly; "Auto" lets it silently
+         under-report its size and clip content) so the form's vertical position scales with
          actual screen height at runtime instead of a fixed margin - reads correctly from small
          phones to tall/large-screen devices instead of only being tuned for one test device. -->
-    <Grid RowDefinitions="0.8*,Auto,1.2*" Padding="24,0">
+    <Grid RowDefinitions="0.7*,3*,1.3*" Padding="24,0">
 
         <ScrollView Grid.Row="1">
             <VerticalStackLayout Spacing="0"
@@ -33,12 +35,12 @@
                            TextColor="{StaticResource SwalekhaMuted}" />
                 </VerticalStackLayout>
 
-                <cards:SfCardView Padding="22" BorderWidth="1" CornerRadius="18"
-                          BorderColor="{AppThemeBinding Light={StaticResource SwalekhaCardBorderLight}, Dark={StaticResource SwalekhaCardBorderDark}}"
-                          BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
-                    <cards:SfCardView.Shadow>
+                <Border Padding="22" StrokeThickness="1" StrokeShape="RoundRectangle 18"
+                        Stroke="{AppThemeBinding Light={StaticResource SwalekhaCardBorderLight}, Dark={StaticResource SwalekhaCardBorderDark}}"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                    <Border.Shadow>
                         <Shadow Brush="Black" Opacity="0.22" Radius="16" Offset="0,6" />
-                    </cards:SfCardView.Shadow>
+                    </Border.Shadow>
                     <VerticalStackLayout Spacing="14">
 
                         <inputLayout:SfTextInputLayout Hint="Username" ContainerType="Outlined">
@@ -79,7 +81,7 @@
                                            Color="{StaticResource Secondary}" />
 
                     </VerticalStackLayout>
-                </cards:SfCardView>
+                </Border>
 
                 <Label Text="Owner accounts only."
                        FontSize="12"
