@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:inputLayout="clr-namespace:Syncfusion.Maui.Toolkit.TextInputLayout;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
+             x:Class="Swalekha.Mobile.Views.InsurancePolicyEditPage"
+             x:DataType="viewModels:InsurancePolicyEditViewModel"
+             Title="{Binding Title}"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="14">
+
+            <Label Text="{Binding ErrorMessage}"
+                   IsVisible="{Binding HasError}"
+                   TextColor="{StaticResource SwalekhaDanger}"
+                   BackgroundColor="{StaticResource SwalekhaDangerBg}"
+                   Padding="10" FontSize="13" />
+
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Policy type" FontSize="12" TextColor="{StaticResource SwalekhaMuted}" />
+                <Picker ItemsSource="{x:Static viewModels:InsurancePolicyEditViewModel.PolicyTypes}" SelectedItem="{Binding PolicyType}" />
+            </VerticalStackLayout>
+
+            <inputLayout:SfTextInputLayout Hint="Insurer" ContainerType="Outlined">
+                <Entry Text="{Binding Insurer}" />
+            </inputLayout:SfTextInputLayout>
+
+            <inputLayout:SfTextInputLayout Hint="Policy number (optional)" ContainerType="Outlined">
+                <Entry Text="{Binding PolicyNumber}" />
+            </inputLayout:SfTextInputLayout>
+
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Linked account (optional)" FontSize="12" TextColor="{StaticResource SwalekhaMuted}" />
+                <Picker ItemsSource="{Binding Accounts}" ItemDisplayBinding="{Binding Name}" SelectedItem="{Binding LinkedAccount}" />
+            </VerticalStackLayout>
+
+            <inputLayout:SfTextInputLayout Hint="Sum assured (optional)" ContainerType="Outlined">
+                <Entry Text="{Binding SumAssuredText}" Keyboard="Numeric" />
+            </inputLayout:SfTextInputLayout>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <inputLayout:SfTextInputLayout Grid.Column="0" Hint="Premium amount" ContainerType="Outlined">
+                    <Entry Text="{Binding PremiumAmountText}" Keyboard="Numeric" />
+                </inputLayout:SfTextInputLayout>
+                <VerticalStackLayout Grid.Column="1" Spacing="4">
+                    <Label Text="Frequency" FontSize="12" TextColor="{StaticResource SwalekhaMuted}" />
+                    <Picker ItemsSource="{x:Static viewModels:InsurancePolicyEditViewModel.PremiumFrequencies}" SelectedItem="{Binding PremiumFrequency}" />
+                </VerticalStackLayout>
+            </Grid>
+
+            <inputLayout:SfTextInputLayout Hint="Start date (YYYY-MM-DD)" ContainerType="Outlined">
+                <Entry Text="{Binding StartDateText}" />
+            </inputLayout:SfTextInputLayout>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <inputLayout:SfTextInputLayout Grid.Column="0" Hint="Nominee name (optional)" ContainerType="Outlined">
+                    <Entry Text="{Binding NomineeName}" />
+                </inputLayout:SfTextInputLayout>
+                <inputLayout:SfTextInputLayout Grid.Column="1" Hint="Relationship (optional)" ContainerType="Outlined">
+                    <Entry Text="{Binding NomineeRelationship}" />
+                </inputLayout:SfTextInputLayout>
+            </Grid>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <inputLayout:SfTextInputLayout Grid.Column="0" Hint="Maturity date (optional)" ContainerType="Outlined">
+                    <Entry Text="{Binding MaturityDateText}" />
+                </inputLayout:SfTextInputLayout>
+                <inputLayout:SfTextInputLayout Grid.Column="1" Hint="Maturity amount (optional)" ContainerType="Outlined">
+                    <Entry Text="{Binding MaturityAmountText}" Keyboard="Numeric" />
+                </inputLayout:SfTextInputLayout>
+            </Grid>
+
+            <inputLayout:SfTextInputLayout Hint="Notes (optional)" ContainerType="Outlined">
+                <Entry Text="{Binding Notes}" />
+            </inputLayout:SfTextInputLayout>
+
+            <Grid ColumnDefinitions="*,Auto">
+                <Label Grid.Column="0" Text="Active" VerticalOptions="Center" />
+                <Switch Grid.Column="1" IsToggled="{Binding IsActive}" />
+            </Grid>
+
+            <buttons:SfButton Text="Save"
+                               Command="{Binding SaveCommand}"
+                               HeightRequest="48" CornerRadius="8"
+                               Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                               TextColor="{StaticResource White}" />
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="{StaticResource Secondary}" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

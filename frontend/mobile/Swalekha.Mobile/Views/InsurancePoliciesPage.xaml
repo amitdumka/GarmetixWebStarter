@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:cards="clr-namespace:Syncfusion.Maui.Toolkit.Cards;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
+             xmlns:models="clr-namespace:Swalekha.Mobile.Models"
+             x:Class="Swalekha.Mobile.Views.InsurancePoliciesPage"
+             x:DataType="viewModels:InsurancePoliciesViewModel"
+             Title="Insurance"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
+
+    <Grid RowDefinitions="*,Auto">
+
+        <RefreshView Grid.Row="0" Command="{Binding LoadCommand}" IsRefreshing="{Binding IsBusy}">
+            <ScrollView>
+                <VerticalStackLayout Padding="16" Spacing="12">
+
+                    <cards:SfCard Padding="16" StrokeThickness="0" CornerRadius="14"
+                                  BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Total sum assured" FontSize="12" TextColor="{StaticResource SecondaryDarkText}" />
+                            <Label Text="{Binding TotalSumAssured, StringFormat='₹{0:N0}'}" FontSize="24" FontAttributes="Bold" TextColor="{StaticResource White}" />
+                        </VerticalStackLayout>
+                    </cards:SfCard>
+
+                    <Label Text="{Binding ErrorMessage}"
+                           IsVisible="{Binding HasError}"
+                           TextColor="{StaticResource SwalekhaDanger}"
+                           BackgroundColor="{StaticResource SwalekhaDangerBg}"
+                           Padding="10" FontSize="13" />
+
+                    <Label Text="No insurance policies yet."
+                           IsVisible="{Binding HasNoPolicies}"
+                           FontSize="13" TextColor="{StaticResource SwalekhaMuted}"
+                           HorizontalOptions="Center" Margin="0,24,0,0" />
+
+                    <CollectionView x:Name="PoliciesList"
+                                    ItemsSource="{Binding Policies}"
+                                    SelectionMode="Single"
+                                    SelectionChanged="OnPolicySelected">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:SwalekhaInsurancePolicyDto">
+                                <cards:SfCard Padding="14" Margin="0,0,0,8" StrokeThickness="0" CornerRadius="12"
+                                              BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SwalekhaSurfaceDark}}">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <VerticalStackLayout Grid.Column="0" Spacing="1">
+                                            <Label Text="{Binding Insurer}" FontSize="14" FontAttributes="Bold" />
+                                            <Label Text="{Binding PolicyType}" FontSize="11" TextColor="{StaticResource SwalekhaMuted}" />
+                                            <Label Text="Premium due" FontSize="10" FontAttributes="Bold" TextColor="{StaticResource SwalekhaDanger}"
+                                                   IsVisible="{Binding PremiumDueNow}" />
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="1" Text="{Binding PremiumAmount, StringFormat='₹{0:N0}'}"
+                                               FontSize="15" FontAttributes="Bold" VerticalOptions="Center"
+                                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}" />
+                                    </Grid>
+                                </cards:SfCard>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
+
+        <buttons:SfButton Grid.Row="1" Text="+ Add policy"
+                           Command="{Binding AddPolicyCommand}"
+                           Margin="16" HeightRequest="48" CornerRadius="10"
+                           Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                           TextColor="{StaticResource White}" />
+    </Grid>
+</ContentPage>

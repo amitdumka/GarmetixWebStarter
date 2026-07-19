@@ -115,6 +115,10 @@ public sealed partial class DashboardViewModel : BaseViewModel
         => await Shell.Current.GoToAsync(nameof(Views.LoansPage));
 
     [RelayCommand]
+    private static async Task OpenInsuranceAsync()
+        => await Shell.Current.GoToAsync(nameof(Views.InsurancePoliciesPage));
+
+    [RelayCommand]
     private async Task LogoutAsync()
     {
         _authService.Logout();

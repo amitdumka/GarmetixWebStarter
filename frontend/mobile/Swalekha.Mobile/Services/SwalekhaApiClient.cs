@@ -283,6 +283,27 @@ public sealed class SwalekhaApiClient
     public Task DeleteLoanPaymentAsync(Guid loanId, Guid paymentId, CancellationToken cancellationToken = default)
         => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/loans/{loanId}/payments/{paymentId}", null, cancellationToken);
 
+    public Task<List<SwalekhaInsurancePolicyDto>> GetInsurancePoliciesAsync(bool includeInactive, CancellationToken cancellationToken = default)
+        => SendAsync<List<SwalekhaInsurancePolicyDto>>(HttpMethod.Get, $"api/swalekha/insurance-policies?includeInactive={includeInactive}", null, cancellationToken);
+
+    public Task<SwalekhaInsurancePolicyDto> GetInsurancePolicyAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaInsurancePolicyDto>(HttpMethod.Get, $"api/swalekha/insurance-policies/{id}", null, cancellationToken);
+
+    public Task<SwalekhaInsurancePolicyDto> CreateInsurancePolicyAsync(SwalekhaInsurancePolicyPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaInsurancePolicyDto>(HttpMethod.Post, "api/swalekha/insurance-policies", payload, cancellationToken);
+
+    public Task<SwalekhaInsurancePolicyDto> UpdateInsurancePolicyAsync(Guid id, SwalekhaInsurancePolicyPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaInsurancePolicyDto>(HttpMethod.Put, $"api/swalekha/insurance-policies/{id}", payload, cancellationToken);
+
+    public Task DeleteInsurancePolicyAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/insurance-policies/{id}", null, cancellationToken);
+
+    public Task<SwalekhaInsurancePolicyDto> PayInsurancePremiumAsync(Guid id, SwalekhaPayPremiumPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaInsurancePolicyDto>(HttpMethod.Post, $"api/swalekha/insurance-policies/{id}/pay-premium", payload, cancellationToken);
+
+    public Task<SwalekhaInsurancePolicyDto> MarkInsurancePolicyMaturedAsync(Guid id, SwalekhaMarkMaturedPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaInsurancePolicyDto>(HttpMethod.Post, $"api/swalekha/insurance-policies/{id}/mark-matured", payload, cancellationToken);
+
     private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {
         var response = await SendCoreAsync(method, path, body, cancellationToken);

@@ -1,5 +1,16 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-19 - Android Swalekha: Insurance stage (closes PersonalFin_12, all of Pillar A done)
+
+Amit said to keep continuing. Ports `PersonalFin_12` (Insurance) to the Android app; DTOs read directly from `SwalekhaInsuranceEndpoints.cs`, no backend changes. **This closes out every Pillar A (Personal Finance) stage** - `PersonalFin_02` through `12` are all on Android now; only Pillar B (Personal Organizer) and the closing stages (Dashboard export, Document Vault) remain.
+
+- New `InsurancePoliciesPage` (total-sum-assured hero, premium-due badge per row, tap to open detail), `InsurancePolicyEditPage` (type/insurer/policy number/optional linked-account/sum assured/premium amount+frequency/nominee/optional maturity date+amount), `InsurancePolicyDetailPage` (due-date header with a "premium due now" flag straight from the backend's own live computation, Pay Premium, Mark Matured, a nominee card).
+- `NextPremiumDueDate`/`PremiumDueNow` are computed server-side from `PremiumFrequency` - the mobile app just displays them, same "don't duplicate financial-date logic" discipline as every prior money-integration stage.
+- `SwalekhaApiClient` gained the insurance CRUD + pay-premium + mark-matured calls; the mark-matured call reuses the `SwalekhaMarkMaturedPayload` type already defined for FD/RD in the Investments I stage, since it's the exact same shape and action.
+- Dashboard's Investments/Loans row is followed by a new full-width Insurance card.
+- Validated: `dotnet build -f net10.0-android` (0 errors). **Not run on a device/emulator yet.**
+- Next: Personal Organizer - Diary/Notes/Calendar (`PersonalFin_13`), starting Pillar B.
+
 ## 2026-07-19 - Android Swalekha: Loans stage (closes PersonalFin_11)
 
 Amit said to keep continuing. Ports `PersonalFin_11` (Loans Taken) to the Android app; DTOs read directly from `SwalekhaLoanEndpoints.cs`, no backend changes. **Neither the EMI formula nor the amortization projection is reimplemented on the client** - `SwalekhaLoanCalculator` (reducing-balance EMI + month-by-month schedule) already runs server-side behind `POST /calculate-emi` and `GET /{id}/amortization-schedule`, so the mobile app is a pure consumer of both, same call this project made for XIRR in the Mutual Funds stage - a loan-EMI formula is exactly the kind of financial-correctness logic that shouldn't exist in two places.
