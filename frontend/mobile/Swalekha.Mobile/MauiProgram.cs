@@ -58,6 +58,12 @@ public static class MauiProgram
         builder.Services.AddTransient<ContactEditPage>();
         builder.Services.AddTransient<ContactDetailViewModel>();
         builder.Services.AddTransient<ContactDetailPage>();
+        builder.Services.AddTransient<ExpenseSheetsViewModel>();
+        builder.Services.AddTransient<ExpenseSheetsPage>();
+        builder.Services.AddTransient<ExpenseSheetEditViewModel>();
+        builder.Services.AddTransient<ExpenseSheetEditPage>();
+        builder.Services.AddTransient<ExpenseSheetDetailViewModel>();
+        builder.Services.AddTransient<ExpenseSheetDetailPage>();
         builder.Services.AddTransient<AppShell>();
 
 #if DEBUG

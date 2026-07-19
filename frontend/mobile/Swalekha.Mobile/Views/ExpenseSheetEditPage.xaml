@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:buttons="clr-namespace:Syncfusion.Maui.Toolkit.Buttons;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:inputLayout="clr-namespace:Syncfusion.Maui.Toolkit.TextInputLayout;assembly=Syncfusion.Maui.Toolkit"
+             xmlns:viewModels="clr-namespace:Swalekha.Mobile.ViewModels"
+             x:Class="Swalekha.Mobile.Views.ExpenseSheetEditPage"
+             x:DataType="viewModels:ExpenseSheetEditViewModel"
+             Title="{Binding Title}"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SwalekhaBackground}, Dark={StaticResource SwalekhaBackgroundDark}}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="14">
+
+            <Label Text="{Binding ErrorMessage}"
+                   IsVisible="{Binding HasError}"
+                   TextColor="{StaticResource SwalekhaDanger}"
+                   BackgroundColor="{StaticResource SwalekhaDangerBg}"
+                   Padding="10" FontSize="13" />
+
+            <inputLayout:SfTextInputLayout Hint="Sheet name" ContainerType="Outlined">
+                <Entry Text="{Binding Name}" />
+            </inputLayout:SfTextInputLayout>
+
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Sheet type (pick a suggestion or type your own below)" FontSize="12" TextColor="{StaticResource SwalekhaMuted}" />
+                <Picker ItemsSource="{x:Static viewModels:ExpenseSheetEditViewModel.SheetTypeSuggestions}"
+                        SelectedItem="{Binding SheetType}" />
+            </VerticalStackLayout>
+
+            <inputLayout:SfTextInputLayout Hint="Sheet type (free text)" ContainerType="Outlined">
+                <Entry Text="{Binding SheetType}" />
+            </inputLayout:SfTextInputLayout>
+
+            <inputLayout:SfTextInputLayout Hint="Budget (optional)" ContainerType="Outlined">
+                <Entry Text="{Binding BudgetText}" Keyboard="Numeric" />
+            </inputLayout:SfTextInputLayout>
+
+            <inputLayout:SfTextInputLayout Hint="Notes (optional)" ContainerType="Outlined">
+                <Entry Text="{Binding Notes}" />
+            </inputLayout:SfTextInputLayout>
+
+            <Grid ColumnDefinitions="*,Auto">
+                <Label Grid.Column="0" Text="Active" VerticalOptions="Center" />
+                <Switch Grid.Column="1" IsToggled="{Binding IsActive}" />
+            </Grid>
+
+            <buttons:SfButton Text="Save"
+                               Command="{Binding SaveCommand}"
+                               HeightRequest="48" CornerRadius="8"
+                               Background="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Secondary}}"
+                               TextColor="{StaticResource White}" />
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" Color="{StaticResource Secondary}" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

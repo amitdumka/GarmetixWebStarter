@@ -1,5 +1,15 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-07-19 - Android Swalekha: Expense Sheets stage (PersonalFin_04, expenses half only)
+
+Amit said "keep continue" again. This stage ports the expense-sheet half of `PersonalFin_04`; DTOs read directly from `SwalekhaExpenseEndpoints.cs`, no backend changes. **Deliberately scoped smaller than the web stage**: the web `PersonalFin_04` covered Expense Sheets + Income + Recurring Bills together in one pass - splitting Expense Sheets out as its own mobile stage keeps each stage reviewable; Income and Recurring Bills are the explicit next stage rather than silently dropped.
+
+- New `ExpenseSheetsPage` (total-spent-visible hero card, tap a sheet to open detail, `+ Add sheet`), `ExpenseSheetEditPage` (name/type/budget/notes/active - `SheetType` is free text on the backend, so the form offers a `Picker` of common suggestions - Personal/House/Medical/Gifts/Hidden - plus a plain text field for anything else), `ExpenseSheetDetailPage` (budget-vs-spent header, inline add-entry form with a Category free-text field and a "Hide from summaries" switch matching the backend's per-entry `IsHidden` privacy flag, a "Show hidden" toggle on the entry list, per-row Delete).
+- `SwalekhaApiClient` gained the expense-sheet/entry CRUD calls on the same shared request pipeline.
+- Dashboard gained a third quick-action card ("Expense sheets") below the Accounts/Contacts row.
+- Validated: `dotnet build -f net10.0-android` (0 errors). **Not run on a device/emulator** - same standing limitation as every prior stage.
+- Next: Income + Recurring Bills (the rest of `PersonalFin_04`).
+
 ## 2026-07-19 - Android Swalekha: Contacts + Person Ledger stage (PersonalFin_03 parity)
 
 Amit said "keep continue" again right after the Accounts Hub stage. This stage ports `PersonalFin_03`'s Contacts + Person Ledger; DTOs read directly from `SwalekhaContactsEndpoints.cs`, no backend changes.

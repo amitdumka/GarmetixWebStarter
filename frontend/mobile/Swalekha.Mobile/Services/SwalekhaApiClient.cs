@@ -73,6 +73,30 @@ public sealed class SwalekhaApiClient
     public Task SettleContactAsync(Guid contactId, SwalekhaSettlePayload payload, CancellationToken cancellationToken = default)
         => SendNoContentAsync(HttpMethod.Post, $"api/swalekha/contacts/{contactId}/settle", payload, cancellationToken);
 
+    public Task<List<SwalekhaExpenseSheetDto>> GetExpenseSheetsAsync(CancellationToken cancellationToken = default)
+        => SendAsync<List<SwalekhaExpenseSheetDto>>(HttpMethod.Get, "api/swalekha/expense-sheets", null, cancellationToken);
+
+    public Task<SwalekhaExpenseSheetDto> GetExpenseSheetAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaExpenseSheetDto>(HttpMethod.Get, $"api/swalekha/expense-sheets/{id}", null, cancellationToken);
+
+    public Task<SwalekhaExpenseSheetDto> CreateExpenseSheetAsync(SwalekhaExpenseSheetPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaExpenseSheetDto>(HttpMethod.Post, "api/swalekha/expense-sheets", payload, cancellationToken);
+
+    public Task<SwalekhaExpenseSheetDto> UpdateExpenseSheetAsync(Guid id, SwalekhaExpenseSheetPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaExpenseSheetDto>(HttpMethod.Put, $"api/swalekha/expense-sheets/{id}", payload, cancellationToken);
+
+    public Task DeleteExpenseSheetAsync(Guid id, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/expense-sheets/{id}", null, cancellationToken);
+
+    public Task<SwalekhaExpenseEntryList> GetExpenseEntriesAsync(Guid sheetId, int page, int pageSize, bool includeHidden, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaExpenseEntryList>(HttpMethod.Get, $"api/swalekha/expense-sheets/{sheetId}/entries?page={page}&pageSize={pageSize}&includeHidden={includeHidden}", null, cancellationToken);
+
+    public Task<SwalekhaExpenseEntryDto> AddExpenseEntryAsync(Guid sheetId, SwalekhaExpenseEntryPayload payload, CancellationToken cancellationToken = default)
+        => SendAsync<SwalekhaExpenseEntryDto>(HttpMethod.Post, $"api/swalekha/expense-sheets/{sheetId}/entries", payload, cancellationToken);
+
+    public Task DeleteExpenseEntryAsync(Guid sheetId, Guid entryId, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(HttpMethod.Delete, $"api/swalekha/expense-sheets/{sheetId}/entries/{entryId}", null, cancellationToken);
+
     private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
     {
         var response = await SendCoreAsync(method, path, body, cancellationToken);
