@@ -37,7 +37,7 @@
 import { formatIndianMoney } from '@garmetix/shared-utils'
 import { readNumber, type ApiRecord, useAiApiClient } from '../utils/ai-api'
 
-useHead({ title: 'Stock Risk - Garmetix AI Sense' })
+useHead({ title: 'Stock Reports Preview - Garmetix AI Sense' })
 
 const { get } = useAiApiClient()
 const threshold = ref(5)

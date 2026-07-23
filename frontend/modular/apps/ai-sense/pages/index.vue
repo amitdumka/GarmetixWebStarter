@@ -14,7 +14,7 @@
         </div>
         <div class="flex flex-wrap gap-2">
           <UButton to="/dashboard/business" icon="i-lucide-chart-no-axes-combined">Business</UButton>
-          <UButton to="/stock-reports" color="neutral" variant="soft" icon="i-lucide-package-search">Stock Risk</UButton>
+          <UButton to="/stock-reports-preview" color="neutral" variant="soft" icon="i-lucide-package-search">Stock Risk</UButton>
         </div>
       </div>
     </div>

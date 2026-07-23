@@ -3032,12 +3032,78 @@ public static async Task RepairCommunicationStorageAsync(GarmetixDbContext db, I
     logger.LogInformation("Communication & Mail storage repair check completed.");
 }
 
-public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
+public static async Task RepairStockAuditStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
+    {
+        // Stock Audit (period + per-day scan counting) can be added to a Docker volume whose EF migration
+        // history was already baselined before these tables existed - every Stock Audit endpoint calls this
+        // before querying, mirroring RepairGstTaxStorageAsync above.
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "StockAuditPeriods" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "CompanyId" uuid NOT NULL,
+                "StoreGroupId" uuid NOT NULL,
+                "StoreId" uuid NOT NULL,
+                "CreatedBy" text NULL,
+                "Name" text NOT NULL DEFAULT '',
+                "StartDate" timestamp without time zone NOT NULL,
+                "EndDate" timestamp without time zone NOT NULL,
+                "Status" text NOT NULL DEFAULT 'Open',
+                "Notes" text NULL,
+                "ClosedAt" timestamp without time zone NULL,
+                CONSTRAINT "PK_StockAuditPeriods" PRIMARY KEY ("Id")
+            );
+
+            CREATE INDEX IF NOT EXISTS "IX_StockAuditPeriods_CompanyId_StoreId_Status" ON "StockAuditPeriods" ("CompanyId", "StoreId", "Status");
+
+            CREATE TABLE IF NOT EXISTS "StockAuditScans" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "CompanyId" uuid NOT NULL,
+                "StoreGroupId" uuid NOT NULL,
+                "StoreId" uuid NOT NULL,
+                "CreatedBy" text NULL,
+                "AuditPeriodId" uuid NOT NULL,
+                "ProductId" uuid NULL,
+                "StockId" uuid NULL,
+                "Barcode" text NOT NULL DEFAULT '',
+                "ScanDate" timestamp without time zone NOT NULL,
+                "Quantity" numeric(18,3) NOT NULL DEFAULT 0,
+                "ScanCount" integer NOT NULL DEFAULT 0,
+                "FirstScannedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "LastScannedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "ProductName" text NOT NULL DEFAULT '',
+                "CategoryName" text NULL,
+                "SubCategoryName" text NULL,
+                "Color" text NULL,
+                "Size" text NULL,
+                "Unit" text NULL,
+                "MRP" numeric(18,4) NOT NULL DEFAULT 0,
+                "CostPrice" numeric(18,4) NOT NULL DEFAULT 0,
+                CONSTRAINT "PK_StockAuditScans" PRIMARY KEY ("Id")
+            );
+
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_StockAuditScans_AuditPeriodId_StoreId_Barcode_ScanDate"
+                ON "StockAuditScans" ("AuditPeriodId", "StoreId", "Barcode", "ScanDate");
+            CREATE INDEX IF NOT EXISTS "IX_StockAuditScans_AuditPeriodId_ScanDate" ON "StockAuditScans" ("AuditPeriodId", "ScanDate");
+            """, cancellationToken);
+
+        logger.LogInformation("Stock Audit storage repair check completed.");
+    }
+
+    public static async Task RepairKnownSchemaDriftAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
     {
         try
         {
             await RepairGstReturnStorageAsync(db, logger, cancellationToken);
             await RepairGstTaxStorageAsync(db, logger, cancellationToken);
+            await RepairStockAuditStorageAsync(db, logger, cancellationToken);
             await RepairPosHeldBillStorageAsync(db, logger, cancellationToken);
             await RepairCashVoucherConversionStorageAsync(db, logger, cancellationToken);
             await RepairStoreDayStorageAsync(db, logger, cancellationToken);

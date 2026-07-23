@@ -367,7 +367,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'purchase', label: 'Purchase Analysis', href: '/purchase-analysis', icon: 'i-lucide-chart-column-increasing' },
       { id: 'profit', label: 'Profit Analysis', href: '/profit-analysis', icon: 'i-lucide-chart-pie' },
       { id: 'stock-risk', label: 'Stock Risk', href: '/stock-risk', icon: 'i-lucide-package-search' },
-      { id: 'stock-reports', label: 'Stock Reports', href: '/stock-reports', icon: 'i-lucide-chart-column-stacked' },
+      { id: 'stock-reports-preview', label: 'Stock Reports (Preview)', href: '/stock-reports-preview', icon: 'i-lucide-chart-column-stacked' },
       { id: 'daily', label: 'Daily Summary', href: '/daily-summary', icon: 'i-lucide-calendar-days' }
     ] }
   ],
@@ -469,7 +469,11 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
     ] },
     { key: 'operations', label: 'Operations', items: [
       { id: 'stock', label: 'Stock Operations', href: '/stock', icon: 'i-lucide-arrow-right-left' },
-      { id: 'barcodes', label: 'Barcodes And Labels', href: '/barcodes', icon: 'i-lucide-scan-barcode' }
+      { id: 'barcodes', label: 'Barcodes And Labels', href: '/barcodes', icon: 'i-lucide-scan-barcode' },
+      { id: 'stock-audit', label: 'Stock Audit', href: '/stock-audit', icon: 'i-lucide-scan-line' },
+      { id: 'stock-audit-reports', label: 'Stock Audit Reports', href: '/stock-audit-reports', icon: 'i-lucide-clipboard-list' },
+      { id: 'stock-reports', label: 'Stock Reports', href: '/stock-reports', icon: 'i-lucide-clipboard-list' },
+      { id: 'stock-valuation-closure', label: 'Stock Valuation Closure', href: '/stock-valuation-closure', icon: 'i-lucide-shield-check' }
     ] }
   ],
   'final-accounts': [

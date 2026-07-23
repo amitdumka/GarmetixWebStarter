@@ -9,6 +9,13 @@ public static class GarmetixPolicies
     public const string Delete = "Delete";
     public const string Billing = "Billing";
     public const string Inventory = "Inventory";
+    /// <summary>
+    /// Dedicated sub-policy for the Stock Audit feature (physical counting by barcode scan), covering both
+    /// read and write - StoreManager and Accountant can add scans here even though they don't have (and
+    /// shouldn't gain) the broader Inventory module's Products/Stocks/Categories/Brands read/write access or
+    /// the blanket Edit capability. Same "dedicated sub-policy" pattern as CommunicationBroadcast/Templates/etc.
+    /// </summary>
+    public const string StockAudit = "StockAudit";
     public const string Purchase = "Purchase";
     public const string Accounting = "Accounting";
     public const string FinalAccounts = "FinalAccounts";

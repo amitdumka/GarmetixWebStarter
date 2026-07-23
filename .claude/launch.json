@@ -42,6 +42,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "frontend/modular", "--workspace", "@garmetix/swalekha-web", "run", "dev"],
       "port": 3109
+    },
+    {
+      "name": "inventory-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend/modular", "--workspace", "@garmetix/inventory-web", "run", "dev"],
+      "port": 3107
     }
   ]
 }

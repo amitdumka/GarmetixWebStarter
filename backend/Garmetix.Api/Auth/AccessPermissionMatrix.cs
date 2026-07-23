@@ -18,6 +18,7 @@ public static class AccessPermissionMatrix
     [
         GarmetixPolicies.Billing,
         GarmetixPolicies.Inventory,
+        GarmetixPolicies.StockAudit,
         GarmetixPolicies.Purchase,
         GarmetixPolicies.Accounting,
         GarmetixPolicies.Hr,
@@ -49,6 +50,18 @@ public static class AccessPermissionMatrix
                 Role(LoginRole.Admin),
                 Role(LoginRole.PowerUser),
                 Role(LoginRole.StoreManager)
+            ],
+            // Deliberately wider than Inventory itself: Stock Audit is meant to be operable by whoever can
+            // physically count stock day to day, including Accountant (who has Edit rights but no broader
+            // Inventory module access) and StoreManager (who has Inventory read access but not Edit). Kept
+            // as its own policy so granting it never widens access to Products/Stocks/Categories/Brands or
+            // the blanket Edit capability elsewhere.
+            [GarmetixPolicies.StockAudit] =
+            [
+                Role(LoginRole.Admin),
+                Role(LoginRole.PowerUser),
+                Role(LoginRole.StoreManager),
+                Role(LoginRole.Accountant)
             ],
             [GarmetixPolicies.Purchase] =
             [
@@ -148,9 +161,9 @@ public static class AccessPermissionMatrix
         Profile("Owner", true, true, true, AllModules, "Full business and administration control."),
         Profile(Role(LoginRole.Admin), true, true, true, AllModules, "Full administration control."),
         Profile(Role(LoginRole.PowerUser), false, true, false, AllModules, "All operational modules without Admin or delete rights."),
-        Profile(Role(LoginRole.Accountant), false, true, false, [GarmetixPolicies.Accounting, GarmetixPolicies.Payroll, "Reports", GarmetixPolicies.Gst, GarmetixPolicies.Communication], "Accounting, payroll, reports, GST, and internal communication."),
+        Profile(Role(LoginRole.Accountant), false, true, false, [GarmetixPolicies.Accounting, GarmetixPolicies.Payroll, "Reports", GarmetixPolicies.Gst, GarmetixPolicies.Communication, GarmetixPolicies.StockAudit], "Accounting, payroll, reports, GST, Stock Audit, and internal communication."),
         Profile(Role(LoginRole.RemoteAccountant), false, false, false, [GarmetixPolicies.Accounting, GarmetixPolicies.Payroll, "Reports", GarmetixPolicies.Gst, GarmetixPolicies.Communication], "Accounting review, salary payment review, reports, GST, and internal communication without global edit/delete rights."),
-        Profile(Role(LoginRole.StoreManager), false, false, false, [GarmetixPolicies.Billing, GarmetixPolicies.Inventory, GarmetixPolicies.Purchase, GarmetixPolicies.Accounting, GarmetixPolicies.Hr, GarmetixPolicies.Attendance, GarmetixPolicies.Marketing, GarmetixPolicies.Gst, GarmetixPolicies.Communication, "Reports"], "Store views, HR attendance, new entries, and internal communication; no Admin, payroll, edit, or delete rights."),
+        Profile(Role(LoginRole.StoreManager), false, false, false, [GarmetixPolicies.Billing, GarmetixPolicies.Inventory, GarmetixPolicies.StockAudit, GarmetixPolicies.Purchase, GarmetixPolicies.Accounting, GarmetixPolicies.Hr, GarmetixPolicies.Attendance, GarmetixPolicies.Marketing, GarmetixPolicies.Gst, GarmetixPolicies.Communication, "Reports"], "Store views, Stock Audit, HR attendance, new entries, and internal communication; no Admin, payroll, edit, or delete rights."),
         Profile(Role(LoginRole.Salesman), false, false, false, [GarmetixPolicies.Billing, GarmetixPolicies.Communication], "Billing and customer-facing digital bill entries from sale invoice screens, plus internal communication."),
         Profile(Role(LoginRole.HR), false, false, false, [GarmetixPolicies.Hr, GarmetixPolicies.Attendance, GarmetixPolicies.Communication], "HR and attendance entries, plus internal communication."),
         Profile(Role(LoginRole.Payroll), false, false, false, [GarmetixPolicies.Payroll, GarmetixPolicies.Attendance, GarmetixPolicies.Communication], "Payroll and salary processing entries, plus internal communication."),

@@ -303,7 +303,7 @@ const requiredPaths = [
   'apps/ai-sense/pages/index.vue',
   'apps/ai-sense/pages/login.vue',
   'apps/ai-sense/pages/dashboard/business.vue',
-  'apps/ai-sense/pages/stock-reports.vue',
+  'apps/ai-sense/pages/stock-reports-preview.vue',
   'apps/ai-sense/pages/sales-analysis.vue',
   'apps/ai-sense/pages/purchase-analysis.vue',
   'apps/ai-sense/pages/profit-analysis.vue',

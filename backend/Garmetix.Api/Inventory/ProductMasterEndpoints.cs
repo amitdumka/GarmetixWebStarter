@@ -257,7 +257,8 @@ public static class ProductMasterEndpoints
             .ToArray();
     }
 
-    private static string? DetectProductSize(params string?[] sources)
+    /// <summary>Shared with <see cref="StockAuditEndpoints"/> so scan-time size snapshots use the exact same heuristic as the Product Master's own size filter/sort.</summary>
+    internal static string? DetectProductSize(params string?[] sources)
     {
         foreach (var source in sources)
         {

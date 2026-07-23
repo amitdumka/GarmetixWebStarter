@@ -305,6 +305,7 @@ builder.Services.AddAuthorization(options =>
     AddMatrixPolicy(options, GarmetixPolicies.Delete);
     AddMatrixPolicy(options, GarmetixPolicies.Billing);
     AddMatrixPolicy(options, GarmetixPolicies.Inventory);
+    AddMatrixPolicy(options, GarmetixPolicies.StockAudit);
     AddMatrixPolicy(options, GarmetixPolicies.Purchase);
     AddMatrixPolicy(options, GarmetixPolicies.Accounting);
     AddMatrixPolicy(options, GarmetixPolicies.FinalAccounts);
@@ -577,6 +578,7 @@ app.MapProductLookupEndpoints();
 app.MapInventoryProductMasterEndpoints();
 app.MapInventoryStockOperationEndpoints();
 app.MapInventoryStockReportEndpoints();
+app.MapInventoryStockAuditEndpoints();
 app.MapPriceTagEndpoints();
 app.MapNonGstGoodsEndpoints();
 app.MapOracleSecondarySyncEndpoints();

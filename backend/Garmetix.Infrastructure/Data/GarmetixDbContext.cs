@@ -90,6 +90,8 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<StockMovement> StockMovements => Set<StockMovement>();
     public DbSet<StockOperationDocument> StockOperationDocuments => Set<StockOperationDocument>();
     public DbSet<StockOperationItem> StockOperationItems => Set<StockOperationItem>();
+    public DbSet<StockAuditPeriod> StockAuditPeriods => Set<StockAuditPeriod>();
+    public DbSet<StockAuditScan> StockAuditScans => Set<StockAuditScan>();
     public DbSet<NonGstGoodsDocument> NonGstGoodsDocuments => Set<NonGstGoodsDocument>();
     public DbSet<NonGstGoodsItem> NonGstGoodsItems => Set<NonGstGoodsItem>();
     public DbSet<DocumentSequence> DocumentSequences => Set<DocumentSequence>();
@@ -422,6 +424,13 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<Stock>().HasIndex(stock => new { stock.CompanyId, stock.StoreId, stock.IsOFB });
         modelBuilder.Entity<Stock>().HasIndex(stock => new { stock.CompanyId, stock.StoreId, stock.ProductId, stock.IsOFB });
         modelBuilder.Entity<Stock>().HasIndex(stock => new { stock.CompanyId, stock.StoreId, stock.Barcode });
+        modelBuilder.Entity<StockAuditPeriod>().ToTable("StockAuditPeriods");
+        modelBuilder.Entity<StockAuditPeriod>().HasIndex(item => new { item.CompanyId, item.StoreId, item.Status });
+        modelBuilder.Entity<StockAuditScan>().ToTable("StockAuditScans");
+        modelBuilder.Entity<StockAuditScan>().HasIndex(item => new { item.AuditPeriodId, item.StoreId, item.Barcode, item.ScanDate }).IsUnique();
+        modelBuilder.Entity<StockAuditScan>().HasIndex(item => new { item.AuditPeriodId, item.ScanDate });
+        modelBuilder.Entity<StockAuditScan>().Property(item => item.MRP).HasPrecision(18, 4);
+        modelBuilder.Entity<StockAuditScan>().Property(item => item.CostPrice).HasPrecision(18, 4);
         modelBuilder.Entity<PurchaseInvoiceImportBatch>().ToTable("PurchaseInvoiceImportBatches");
         modelBuilder.Entity<PurchaseInvoiceImportBatch>().HasIndex(item => new { item.CompanyId, item.StoreId, item.Status, item.CreatedAt });
         modelBuilder.Entity<PurchaseInvoiceImportBatch>().HasIndex(item => new { item.CompanyId, item.VendorGstinFinal, item.SupplierInvoiceNumber });
