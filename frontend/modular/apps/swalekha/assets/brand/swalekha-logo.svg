@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 260">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="980" y2="260" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3B1D73"/>
+      <stop offset="55%" stop-color="#241155"/>
+      <stop offset="100%" stop-color="#120821"/>
+    </linearGradient>
+    <linearGradient id="badgeGrad" x1="0" y1="0" x2="200" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5B21B6"/>
+      <stop offset="55%" stop-color="#2E1065"/>
+      <stop offset="100%" stop-color="#120821"/>
+    </linearGradient>
+    <linearGradient id="coinGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFE9A8"/>
+      <stop offset="45%" stop-color="#F4C24E"/>
+      <stop offset="100%" stop-color="#D89A2C"/>
+    </linearGradient>
+    <linearGradient id="pageLeft" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#DCD3F7"/>
+      <stop offset="100%" stop-color="#F1ECFC"/>
+    </linearGradient>
+    <linearGradient id="textGold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#FFE29A"/>
+      <stop offset="100%" stop-color="#E9B24E"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="980" height="260" rx="32" ry="32" fill="url(#bgGrad)"/>
+
+  <!-- icon badge -->
+  <g transform="translate(40,30)">
+    <rect x="0" y="0" width="200" height="200" rx="46" ry="46" fill="url(#badgeGrad)"/>
+    <rect x="1.5" y="1.5" width="197" height="197" rx="45" ry="45" fill="none" stroke="#FFFFFF" stroke-opacity="0.10" stroke-width="1.6"/>
+
+    <g transform="translate(0,-2)">
+      <path d="M100 66
+               C 87 70, 69 69, 57 74
+               C 54 75.6, 52 78.6, 52 82
+               L 52 131
+               C 52 135.3, 55.9 138.3, 60.1 137
+               C 72.6 133.9, 87.4 134.3, 100 140.5
+               Z" fill="url(#pageLeft)" transform="translate(0,0) scale(1)"/>
+      <path d="M100 66
+               C 113 70, 131 69, 143 74
+               C 146 75.6, 148 78.6, 148 82
+               L 148 131
+               C 148 135.3, 144.1 138.3, 139.9 137
+               C 127.4 133.9, 112.6 134.3, 100 140.5
+               Z" fill="#FFFFFF"/>
+      <rect x="98.8" y="67" width="2.4" height="72" rx="1.2" fill="#B9ACE0" opacity="0.55"/>
+    </g>
+
+    <ellipse cx="100" cy="127" rx="23" ry="5.4" fill="#000000" opacity="0.20"/>
+    <circle cx="100" cy="100" r="29.5" fill="url(#coinGrad)" stroke="#B57A1E" stroke-width="2"/>
+    <text x="100" y="111" font-family="DejaVu Sans, Noto Sans, Arial" font-size="35" font-weight="bold"
+          fill="#4A2E06" text-anchor="middle">&#8377;</text>
+  </g>
+
+  <!-- wordmark -->
+  <text x="272" y="145" font-family="DejaVu Sans, Noto Sans, Arial" font-size="92" font-weight="bold" fill="#FFFFFF">Swalekha</text>
+  <text x="274" y="198" font-family="DejaVu Sans, Noto Sans, Arial" font-size="27" fill="#C9BEE8" letter-spacing="0.5">
+    Personal Ledger &amp; Personal Finance
+  </text>
+</svg>
