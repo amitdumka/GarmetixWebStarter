@@ -44,7 +44,7 @@
           <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-download" :disabled="!missingProducts.length" @click="exportMissingBarcodeCsv">Export Missing Barcode CSV</UButton>
         </div>
 
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
           <UCard :ui="{ body: 'p-3' }"><p class="text-xs text-muted">Invoices</p><p class="text-lg font-semibold">{{ readNumber(preview, ['invoiceCount']) }}</p></UCard>
           <UCard :ui="{ body: 'p-3' }"><p class="text-xs text-muted">Lines</p><p class="text-lg font-semibold">{{ readNumber(preview, ['lineCount']) }}</p></UCard>
           <UCard :ui="{ body: 'p-3' }"><p class="text-xs text-muted">Matched</p><p class="text-lg font-semibold text-success">{{ readNumber(preview, ['matchedLineCount']) }}</p></UCard>
@@ -52,6 +52,7 @@
           <UCard :ui="{ body: 'p-3' }"><p class="text-xs text-muted">Total</p><p class="text-lg font-semibold">{{ money(readNumber(preview, ['invoiceAmountTotal'])) }}</p></UCard>
           <UCard :ui="{ body: 'p-3' }"><p class="text-xs text-muted">Fully Matched Invoices</p><p class="text-lg font-semibold">{{ readNumber(preview, ['fullyMatchedInvoiceCount']) }}</p></UCard>
           <UCard :ui="{ body: 'p-3' }"><p class="text-xs text-muted">Auto-Hidden (Already Imported)</p><p class="text-lg font-semibold">{{ readNumber(preview, ['autoHiddenExistingInvoiceCount']) }}</p></UCard>
+          <UCard :ui="{ body: 'p-3' }"><p class="text-xs text-muted">Return / Adjustment</p><p class="text-lg font-semibold" :class="returnOrAdjustmentCount > 0 ? 'text-warning' : ''">{{ returnOrAdjustmentCount }}</p></UCard>
         </div>
 
         <UAlert v-if="warnings.length" color="warning" variant="subtle" icon="i-lucide-triangle-alert" title="Warnings" :description="warnings.join(' | ')" />
@@ -101,7 +102,10 @@
               <tr v-if="!pagedLineRows.length"><td colspan="11" class="px-3 py-8 text-center text-muted">No lines match these filters.</td></tr>
               <tr v-for="row in pagedLineRows" :key="row.key" class="align-top">
                 <td class="px-2 py-2"><input type="checkbox" v-model="row.raw.importLine"></td>
-                <td class="px-2 py-2 tabular-nums">{{ row.sourceInvoiceNumber }}</td>
+                <td class="px-2 py-2 tabular-nums">
+                  {{ row.sourceInvoiceNumber }}
+                  <UBadge v-if="row.isReturnOrAdjustment" size="xs" color="warning" variant="soft" class="ml-1">Return/Adj</UBadge>
+                </td>
                 <td class="px-2 py-2">{{ row.itemName }}</td>
                 <td class="px-2 py-2 text-xs text-muted">{{ row.category }}{{ row.size ? ' / ' + row.size : '' }}</td>
                 <td class="px-2 py-2 tabular-nums">{{ row.vyaparItemCode || '-' }}</td>
@@ -128,34 +132,53 @@
 
       <!-- Step 3: Payment sources -->
       <section v-if="paymentSources.length" class="garmetix-section-card space-y-3">
-        <h3 class="garmetix-panel-title">Step 3 - Map Payment Sources To Bank Accounts</h3>
-        <p class="text-xs text-muted">Non-cash Vyapar payment sources need a Garmetix bank account so payments post correctly.</p>
+        <h3 class="garmetix-panel-title">Step 3 - Map Payment Sources</h3>
+        <p class="text-xs text-muted">
+          Debit/Credit Card always settle to a POS/EDC machine account. UPI can settle either directly to a bank account
+          or through a POS/EDC machine. Cash defaults to the Cash In Hand ledger, but can optionally be mapped to a bank
+          account too (e.g. cash banked the same day).
+        </p>
         <div class="garmetix-table-panel overflow-x-auto">
-          <table class="w-full min-w-[700px] text-left text-sm">
+          <table class="w-full min-w-[820px] text-left text-sm">
             <thead class="bg-muted/30 text-xs uppercase text-muted">
-              <tr><th class="px-2 py-2">Source</th><th class="px-2 py-2">Mode</th><th class="px-2 py-2 text-right">Total</th><th class="px-2 py-2 text-right">Invoices</th><th class="px-2 py-2">Bank Account</th></tr>
+              <tr>
+                <th class="px-2 py-2">Source</th>
+                <th class="px-2 py-2">Kind</th>
+                <th class="px-2 py-2 text-right">Total</th>
+                <th class="px-2 py-2 text-right">Invoices</th>
+                <th class="px-2 py-2">Settles To</th>
+                <th class="px-2 py-2">Account</th>
+              </tr>
             </thead>
             <tbody class="divide-y divide-default">
               <tr v-for="source in paymentSources" :key="source.key">
                 <td class="px-2 py-2">{{ source.sourceName }}<p class="text-xs text-muted">{{ source.exampleDescription }}</p></td>
-                <td class="px-2 py-2">{{ source.paymentMode }}</td>
+                <td class="px-2 py-2"><UBadge size="xs" :color="paymentKindColor(source.paymentKindLabel)" variant="soft">{{ source.paymentKindLabel }}</UBadge></td>
                 <td class="px-2 py-2 text-right tabular-nums">{{ money(source.totalAmount) }}</td>
                 <td class="px-2 py-2 text-right tabular-nums">{{ source.invoiceCount }}</td>
                 <td class="px-2 py-2">
                   <USelect
-                    v-if="source.paymentMode !== 'Cash'"
+                    v-if="source.paymentKindLabel === 'UPI'"
+                    v-model="paymentTargetKind[source.key]"
+                    :items="targetKindItems"
+                    class="w-40"
+                  />
+                  <span v-else class="text-xs text-muted">{{ fixedTargetKindLabel(source.paymentKindLabel) }}</span>
+                </td>
+                <td class="px-2 py-2">
+                  <USelect
                     v-model="paymentMappings[source.key]"
-                    :items="bankAccountItems"
-                    placeholder="Select bank account"
+                    :items="accountItemsFor(source)"
+                    :placeholder="source.paymentKindLabel === 'Cash' ? 'Optional' : 'Select account'"
                     class="w-56"
                   />
-                  <span v-else class="text-xs text-muted">Cash - no mapping needed</span>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
         <UAlert v-if="unmappedNonCashCount > 0" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="`${unmappedNonCashCount} non-cash payment source(s) still unmapped.`" />
+        <UAlert v-if="!posMachineAccounts.length" color="neutral" variant="subtle" icon="i-lucide-info" description="No POS/EDC Machine account exists yet - create one from Books &gt; Banking (Account Type: POS / EDC Machine) before mapping Card sources." />
       </section>
 
       <!-- Step 4: Confirm -->
@@ -237,6 +260,11 @@ const linesPage = ref(1)
 const linesPageSize = ref<number>(pageSizeOptions[0].value)
 
 const paymentMappings = reactive<Record<string, string>>({})
+// 'bank' = a regular Garmetix bank account; 'edc' = an account tagged Account Type = POS/EDC Machine.
+// Only UPI sources let the operator choose - Debit/Credit Card is always forced to 'edc', everything
+// else (Cash/Cheque/Other) is always 'bank'. Kept in sync with books-api.ts's posMachineAccountTypeValue.
+const POS_MACHINE_ACCOUNT_TYPE = 7
+const paymentTargetKind = reactive<Record<string, 'bank' | 'edc'>>({})
 const confirmForm = reactive({
   useVyaparInvoiceNumbers: true,
   createMissingProductsAndStock: false,
@@ -253,15 +281,46 @@ function money(value: number) {
 }
 
 const storeItems = computed(() => stores.value.map(item => ({ label: readText(item, ['name']), value: readText(item, ['id'], '') })).filter(item => item.value))
-const bankAccountItems = computed(() => bankAccounts.value.map(item => ({ label: readText(item, ['accountHolderName', 'bankName'], readText(item, ['name'])), value: readText(item, ['id'], '') })).filter(item => item.value))
+function accountLabel(item: ApiRecord) {
+  return readText(item, ['accountHolderName', 'bankName'], readText(item, ['name']))
+}
+const regularBankAccounts = computed(() => bankAccounts.value.filter(item => readNumber(item, ['accountType']) !== POS_MACHINE_ACCOUNT_TYPE))
+const posMachineAccounts = computed(() => bankAccounts.value.filter(item => readNumber(item, ['accountType']) === POS_MACHINE_ACCOUNT_TYPE))
+const bankAccountItems = computed(() => regularBankAccounts.value.map(item => ({ label: accountLabel(item), value: readText(item, ['id'], '') })).filter(item => item.value))
+const posMachineAccountItems = computed(() => posMachineAccounts.value.map(item => ({ label: accountLabel(item), value: readText(item, ['id'], '') })).filter(item => item.value))
 const salesmanItems = computed(() => salesmen.value.map(item => ({ label: readText(item, ['name', 'fullName']), value: readText(item, ['id'], '') })).filter(item => item.value))
+
+const targetKindItems = [
+  { label: 'Bank Account', value: 'bank' },
+  { label: 'POS / EDC Machine', value: 'edc' }
+]
+function fixedTargetKindLabel(kind: string) {
+  if (kind === 'Credit Card' || kind === 'Debit Card') return 'POS / EDC Machine'
+  if (kind === 'Cash') return 'Bank Account (optional)'
+  return 'Bank Account'
+}
+function effectiveTargetKind(source: { key: string, paymentKindLabel: string }) {
+  if (source.paymentKindLabel === 'Credit Card' || source.paymentKindLabel === 'Debit Card') return 'edc'
+  if (source.paymentKindLabel === 'UPI') return paymentTargetKind[source.key] || 'bank'
+  return 'bank'
+}
+function accountItemsFor(source: { key: string, paymentKindLabel: string }) {
+  return effectiveTargetKind(source) === 'edc' ? posMachineAccountItems.value : bankAccountItems.value
+}
+function paymentKindColor(kind: string) {
+  if (kind === 'Cash') return 'neutral'
+  if (kind === 'Credit Card' || kind === 'Debit Card') return 'primary'
+  if (kind === 'UPI') return 'success'
+  return 'neutral'
+}
 
 const invoiceFilterItems = [
   { label: 'All Invoices', value: 'all' },
   { label: 'Ready For Import', value: 'ready' },
   { label: 'Fully Matched', value: 'fullyMatched' },
   { label: 'Needs Review', value: 'review' },
-  { label: 'Duplicate', value: 'duplicate' }
+  { label: 'Duplicate', value: 'duplicate' },
+  { label: 'Return / Adjustment', value: 'returnAdjustment' }
 ]
 const lineFilterItems = [
   { label: 'All Lines', value: 'all' },
@@ -288,10 +347,18 @@ const paymentSources = computed(() => toRows(preview.value?.paymentSources).map(
   key: `${readText(item, ['sourceName'])}::${readText(item, ['paymentMode'])}`,
   sourceName: readText(item, ['sourceName']),
   paymentMode: readText(item, ['paymentMode']),
+  paymentKindLabel: readText(item, ['paymentKindLabel'], 'Other'),
   totalAmount: readNumber(item, ['totalAmount']),
   invoiceCount: readNumber(item, ['invoiceCount']),
   exampleDescription: readText(item, ['exampleDescription'], '')
 })))
+watch(paymentSources, (sources) => {
+  sources.forEach(source => {
+    if (source.paymentKindLabel === 'UPI' && !paymentTargetKind[source.key]) {
+      paymentTargetKind[source.key] = 'bank'
+    }
+  })
+})
 const unmappedNonCashCount = computed(() => paymentSources.value.filter(source => source.paymentMode !== 'Cash' && !paymentMappings[source.key]).length)
 
 const invoiceRows = computed(() => toRows(preview.value?.invoices))
@@ -304,13 +371,15 @@ function invoiceMatchesFilter(inv: ApiRecord) {
   if (invoiceFilter.value === 'ready') return Boolean(inv.readyForImport)
   if (invoiceFilter.value === 'fullyMatched') return Boolean(inv.fullyMatched)
   if (invoiceFilter.value === 'duplicate') return Boolean(inv.duplicateInvoice)
-  if (invoiceFilter.value === 'review') return !inv.fullyMatched && !inv.duplicateInvoice
+  if (invoiceFilter.value === 'returnAdjustment') return Boolean(inv.isReturnOrAdjustment)
+  if (invoiceFilter.value === 'review') return !inv.fullyMatched && !inv.duplicateInvoice && !inv.isReturnOrAdjustment
   return true
 }
+const returnOrAdjustmentCount = computed(() => invoiceRows.value.filter(inv => inv.isReturnOrAdjustment).length)
 
 const lineRows = computed(() => {
   const term = searchTerm.value.trim().toLowerCase()
-  const rows: Array<{ key: string, raw: ApiRecord, sourceInvoiceNumber: string, itemName: string, category: string, size: string, vyaparItemCode: string, garmetixBarcode: string, quantity: number, lineTotal: number, matchStatus: string }> = []
+  const rows: Array<{ key: string, raw: ApiRecord, sourceInvoiceNumber: string, itemName: string, category: string, size: string, vyaparItemCode: string, garmetixBarcode: string, quantity: number, lineTotal: number, matchStatus: string, isReturnOrAdjustment: boolean }> = []
   invoiceRows.value.forEach((inv, invIndex) => {
     if (!invoiceMatchesFilter(inv)) return
     toRows(inv.lines).forEach((line, lineIndex) => {
@@ -339,7 +408,8 @@ const lineRows = computed(() => {
         garmetixBarcode,
         quantity: readNumber(line, ['quantity']),
         lineTotal: readNumber(line, ['lineTotal']),
-        matchStatus
+        matchStatus,
+        isReturnOrAdjustment: Boolean(inv.isReturnOrAdjustment)
       })
     })
   })

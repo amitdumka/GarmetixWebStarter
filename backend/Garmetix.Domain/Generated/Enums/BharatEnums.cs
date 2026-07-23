@@ -33,7 +33,7 @@ namespace Garmetix.Core.Enums
     { Fabric, ReadyMade, Accessories }
 
     public enum AccountType
-    { Saving, Current, CashCredit, OverDraft, Others, Loan, CF, }
+    { Saving, Current, CashCredit, OverDraft, Others, Loan, CF, PosMachine, }
 
     public enum AppMode
     {

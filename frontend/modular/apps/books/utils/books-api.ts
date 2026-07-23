@@ -209,8 +209,14 @@ export const accountTypeOptions = [
   { value: 3, label: 'Over Draft' },
   { value: 4, label: 'Others' },
   { value: 5, label: 'Loan' },
-  { value: 6, label: 'CF' }
+  { value: 6, label: 'CF' },
+  { value: 7, label: 'POS / EDC Machine' }
 ] as const
+
+// Kept in sync with AccountType.PosMachine on the backend - used wherever a settlement account for
+// card swipes / UPI-via-machine needs to be distinguished from a real bank account (e.g. Vyapar Sale
+// Import's payment mapping step).
+export const posMachineAccountTypeValue = 7
 
 export const voucherTypeOptions = [
   { value: 0, label: 'Payment' },

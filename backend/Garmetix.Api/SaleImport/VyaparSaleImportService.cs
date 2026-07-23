@@ -270,10 +270,16 @@ public sealed class VyaparSaleImportService(
             var paidZeroBalanceDiscount = paidWithZeroBalance && totalAmount > paidAmount && paidAmount > 0
                 ? Math.Round(totalAmount - paidAmount, 2, MidpointRounding.AwayFromZero)
                 : 0m;
+            var isReturnOrAdjustment = IsReturnOrAdjustmentTransactionType(saleHeader?.TransactionTypeRaw)
+                || group.Any(row => IsReturnOrAdjustmentTransactionType(row.TransactionTypeRaw));
             var headerWarnings = new List<string>();
             if (duplicate)
             {
                 headerWarnings.Add("Duplicate invoice already exists in Garmetix.");
+            }
+            if (isReturnOrAdjustment)
+            {
+                headerWarnings.Add("Looks like a Sale Return / Credit Note adjustment (Vyapar Transaction Type). Excluded from auto-import buckets - match it against the original invoice and post it manually (e.g. via Sales Return) after import.");
             }
             if (Math.Abs(totalAmount - Math.Round(lineTotal, 0, MidpointRounding.AwayFromZero)) > 1m)
             {
@@ -291,7 +297,7 @@ public sealed class VyaparSaleImportService(
             var payments = parsedPayments.Count > 0
                 ? parsedPayments
                 : [new VyaparSaleImportPaymentDto("Imported payment", PaymentMode.Cash, paidAmount, null, "Vyapar import paid")];
-            var fullyMatched = !duplicate && lineDtos.Count > 0 && lineDtos.All(item => item.MatchStatus == "Matched" && !item.ReviewRequired && item.ImportLine);
+            var fullyMatched = !duplicate && !isReturnOrAdjustment && lineDtos.Count > 0 && lineDtos.All(item => item.MatchStatus == "Matched" && !item.ReviewRequired && item.ImportLine);
             var customerName = ExtractCustomerNameFromParty(saleHeader?.PartyName ?? first.PartyName);
             var customerMobile = CleanMobile(saleHeader?.MobileNumber);
             var sourceDescription = saleHeader?.Description;
@@ -308,7 +314,7 @@ public sealed class VyaparSaleImportService(
                 paidAmount,
                 balanceDue,
                 duplicate,
-                !duplicate && lineDtos.All(item => !item.ReviewRequired || item.MatchStatus == "InsufficientStock"),
+                !duplicate && !isReturnOrAdjustment && lineDtos.All(item => !item.ReviewRequired || item.MatchStatus == "InsufficientStock"),
                 headerWarnings,
                 payments,
                 lineDtos,
@@ -317,7 +323,8 @@ public sealed class VyaparSaleImportService(
                 null,
                 null,
                 sourceDescription,
-                BuildImportInvoiceRemark(invoiceNo, saleHeader?.InvoiceDate ?? first.InvoiceDate, sourceDescription, payments)));
+                BuildImportInvoiceRemark(invoiceNo, saleHeader?.InvoiceDate ?? first.InvoiceDate, sourceDescription, payments),
+                isReturnOrAdjustment));
         }
 
         if (saleRows.Count == 0)
@@ -336,6 +343,11 @@ public sealed class VyaparSaleImportService(
         {
             warnings.Add($"{autoHiddenInvoices.Count} invoices already imported for the same Vyapar invoice/date were auto-hidden from the current preview.");
         }
+        var returnOrAdjustmentCount = invoices.Count(item => item.IsReturnOrAdjustment);
+        if (returnOrAdjustmentCount > 0)
+        {
+            warnings.Add($"{returnOrAdjustmentCount} invoice(s) look like Sale Return / Credit Note adjustments and were excluded from the auto-import buckets - review and match each one to its original invoice individually.");
+        }
 
         var paymentSources = invoices
             .SelectMany(invoice => invoice.Payments.Select(payment => new { invoice.SourceInvoiceNumber, Payment = payment }))
@@ -347,7 +359,8 @@ public sealed class VyaparSaleImportService(
                 group.Sum(item => item.Payment.Amount),
                 group.Select(item => item.SourceInvoiceNumber).Distinct(StringComparer.OrdinalIgnoreCase).Count(),
                 group.Select(item => item.Payment.SourceDescription).FirstOrDefault(item => !string.IsNullOrWhiteSpace(item)),
-                null))
+                null,
+                GuessPaymentKindLabel(group.Key, group.Select(item => item.Payment.SourceDescription).FirstOrDefault(item => !string.IsNullOrWhiteSpace(item)))))
             .OrderBy(item => item.SourceName)
             .ToList();
         var uniqueCustomers = invoices
@@ -1867,13 +1880,21 @@ public sealed class VyaparSaleImportService(
             .Where(item => item.Amount > 0)
             .Select(item =>
             {
-                var mappedBankId = item.PaymentMode == PaymentMode.Cash
-                    ? null
-                    : item.BankAccountId ?? (paymentBankMap.TryGetValue(item.SourceName, out var mapped) ? mapped : null);
+                var mappedBankId = item.BankAccountId ?? (paymentBankMap.TryGetValue(item.SourceName, out var mapped) ? mapped : (Guid?)null);
                 if (item.PaymentMode != PaymentMode.Cash && !mappedBankId.HasValue)
                 {
                     throw new InvalidOperationException($"Vyapar payment source '{item.SourceName}' is non-cash but is not mapped to a Garmetix bank account.");
                 }
+                // Cash is the one source that stays optional to map. If the operator explicitly maps it
+                // to a bank/POS account (e.g. cash banked same-day, or a cash drawer tracked as its own
+                // account), the payment has to post as a bank receipt instead of Cash - PaymentMode.Cash
+                // always resolves to the Cash-In-Hand ledger regardless of BankAccountId downstream
+                // (AccountingPostingService.ResolveSalesInvoiceSettlementLedgerAsync/ResolveSettlementLedgerAsync),
+                // so the mode itself has to change to route through the mapped account. Left unmapped,
+                // Cash keeps posting to Cash-In-Hand exactly as before.
+                var postingMode = item.PaymentMode == PaymentMode.Cash && mappedBankId.HasValue
+                    ? PaymentMode.NEFT
+                    : item.PaymentMode;
                 var paymentDetails = JsonSerializer.Serialize(new
                 {
                     source = "VyaparSaleImport",
@@ -1883,7 +1904,7 @@ public sealed class VyaparSaleImportService(
                     referenceNote = item.PaymentReferenceNote
                 });
                 return new SalesInvoicePaymentPosting(
-                    item.PaymentMode,
+                    postingMode,
                     Math.Round(item.Amount, 2, MidpointRounding.AwayFromZero),
                     mappedBankId,
                     FirstNonEmpty(item.ReferenceNumber, item.PaymentReferenceNote, item.SourceName),
@@ -1932,7 +1953,9 @@ public sealed class VyaparSaleImportService(
                 continue;
             }
             var transactionType = Clean(record.Get("Transaction Type"));
-            if (!string.IsNullOrWhiteSpace(transactionType) && !transactionType.Contains("Sale", StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(transactionType)
+                && !transactionType.Contains("Sale", StringComparison.OrdinalIgnoreCase)
+                && !IsReturnOrAdjustmentTransactionType(transactionType))
             {
                 continue;
             }
@@ -1966,7 +1989,8 @@ public sealed class VyaparSaleImportService(
                 ParseDecimal(record.Get("Received/Paid Amount")),
                 ParseDecimal(FirstNonEmpty(record.Get("Balance Due"), record.Get("Balance"))),
                 payments,
-                description));
+                description,
+                transactionType));
         }
         return result;
     }
@@ -1990,7 +2014,9 @@ public sealed class VyaparSaleImportService(
                 continue;
             }
             var transactionType = Clean(record.Get("Transaction Type"));
-            if (!string.IsNullOrWhiteSpace(transactionType) && !transactionType.Contains("Sale", StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(transactionType)
+                && !transactionType.Contains("Sale", StringComparison.OrdinalIgnoreCase)
+                && !IsReturnOrAdjustmentTransactionType(transactionType))
             {
                 continue;
             }
@@ -2011,7 +2037,8 @@ public sealed class VyaparSaleImportService(
                 ParseDecimal(record.Get("Discount")),
                 ParseDecimal(record.Get("Tax Percent")),
                 ParseDecimal(record.Get("Tax")),
-                ParseDecimal(record.Get("Amount"))));
+                ParseDecimal(record.Get("Amount")),
+                transactionType));
         }
         return result;
     }
@@ -2025,6 +2052,32 @@ public sealed class VyaparSaleImportService(
         if (value.Contains("upi") || value.Contains("amy") || value.Contains("phone") || value.Contains("paytm")) return PaymentMode.UPI;
         return PaymentMode.UPI;
     }
+
+    // Purely descriptive label for Step 3 of the import UI - splits the generic PaymentMode.Card
+    // bucket into Credit Card/Debit Card and tags Cash/Cheque/UPI/Bank Transfer, guessed from the
+    // Vyapar source name/description text. Never affects accounting posting (only PaymentMode does).
+    private static string GuessPaymentKindLabel(string sourceName, string? description)
+    {
+        var text = $"{sourceName} {description}".ToLowerInvariant();
+        if (text.Contains("cash")) return "Cash";
+        if (text.Contains("cheque") || text.Contains("check")) return "Cheque";
+        if (text.Contains("credit card") || text.Contains("credit-card") || text.Contains(" cc ") || text.EndsWith(" cc")) return "Credit Card";
+        if (text.Contains("debit card") || text.Contains("debit-card") || text.Contains("rupay debit") || text.Contains(" dc ") || text.EndsWith(" dc")) return "Debit Card";
+        if (text.Contains("upi") || text.Contains("gpay") || text.Contains("g-pay") || text.Contains("phonepe") || text.Contains("paytm") || text.Contains("bhim")) return "UPI";
+        if (text.Contains("card") || text.Contains("pos") || text.Contains("edc") || text.Contains("swipe")) return "Debit Card";
+        if (text.Contains("neft") || text.Contains("rtgs") || text.Contains("imps") || text.Contains("bank transfer") || text.Contains("bank")) return "Bank Transfer";
+        return "Other";
+    }
+
+    // Vyapar's "Transaction Type" column is normally just "Sale", but a return/adjustment can show
+    // up as "Sale Return" or "Credit Note" in the same sheet - these must never be silently dropped
+    // (they were previously excluded whenever the text didn't contain "Sale") nor silently imported
+    // as a normal positive sale. They are parsed and flagged instead; see IsReturnOrAdjustment on
+    // VyaparSaleImportInvoiceDto.
+    private static bool IsReturnOrAdjustmentTransactionType(string? transactionType)
+        => !string.IsNullOrWhiteSpace(transactionType)
+            && (transactionType.Contains("Return", StringComparison.OrdinalIgnoreCase)
+                || transactionType.Contains("Credit Note", StringComparison.OrdinalIgnoreCase));
 
     private static (decimal Cgst, decimal Sgst, decimal Igst) SplitGst(decimal taxAmount, TaxType taxType)
     {
@@ -2284,7 +2337,8 @@ public sealed class VyaparSaleImportService(
         decimal ReceivedAmount,
         decimal BalanceDue,
         IReadOnlyList<VyaparSaleImportPaymentDto> Payments,
-        string? Description);
+        string? Description,
+        string? TransactionTypeRaw = null);
 
     private sealed record VyaparParsedItemRow(
         string InvoiceNumber,
@@ -2303,7 +2357,8 @@ public sealed class VyaparSaleImportService(
         decimal DiscountAmount,
         decimal TaxRate,
         decimal TaxAmount,
-        decimal LineTotal);
+        decimal LineTotal,
+        string? TransactionTypeRaw = null);
 
     private sealed record ImportStockCreateResult(Product Product, Stock Stock, bool ProductCreated, bool StockCreated, bool BridgeMovementCreated);
 

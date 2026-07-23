@@ -48,7 +48,8 @@ public sealed record VyaparSaleImportInvoiceDto(
     Guid? ExistingInvoiceId = null,
     string? ExistingInvoiceNumber = null,
     string? SourceDescription = null,
-    string? ImportRemark = null);
+    string? ImportRemark = null,
+    bool IsReturnOrAdjustment = false);
 
 public sealed record VyaparSaleImportLineDto(
     int LineNumber,
@@ -95,7 +96,12 @@ public sealed record VyaparSaleImportPaymentSourceDto(
     decimal TotalAmount,
     int InvoiceCount,
     string? ExampleDescription,
-    Guid? BankAccountId = null);
+    Guid? BankAccountId = null,
+    // Purely descriptive - guessed from the Vyapar source name/description text so Step 3 of the
+    // import UI can show and group Cash/Credit Card/Debit Card/UPI/Cheque/Bank Transfer separately,
+    // even though the underlying PaymentMode enum only distinguishes Cash/Card/UPI/Cheque/etc.
+    // Never used for accounting posting - only PaymentMode/BankAccountId drive that.
+    string PaymentKindLabel = "Other");
 
 public sealed record VyaparSaleImportMissingProductDto(
     string? VyaparItemCode,
