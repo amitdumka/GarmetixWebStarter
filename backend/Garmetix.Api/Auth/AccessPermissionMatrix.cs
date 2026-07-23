@@ -19,6 +19,7 @@ public static class AccessPermissionMatrix
         GarmetixPolicies.Billing,
         GarmetixPolicies.Inventory,
         GarmetixPolicies.StockAudit,
+        GarmetixPolicies.InvoiceBookAdjustment,
         GarmetixPolicies.Purchase,
         GarmetixPolicies.Accounting,
         GarmetixPolicies.Hr,
@@ -61,6 +62,13 @@ public static class AccessPermissionMatrix
                 Role(LoginRole.Admin),
                 Role(LoginRole.PowerUser),
                 Role(LoginRole.StoreManager),
+                Role(LoginRole.Accountant)
+            ],
+            // Owner/SuperAdmin/Admin already pass every policy via IsAdminOrOwner; Accountant is the
+            // only additional role granted here, matching Amit's explicit "owner, admin, accountant level
+            // access" for this feature. PowerUser/StoreManager/Salesman are deliberately excluded.
+            [GarmetixPolicies.InvoiceBookAdjustment] =
+            [
                 Role(LoginRole.Accountant)
             ],
             [GarmetixPolicies.Purchase] =
@@ -161,7 +169,7 @@ public static class AccessPermissionMatrix
         Profile("Owner", true, true, true, AllModules, "Full business and administration control."),
         Profile(Role(LoginRole.Admin), true, true, true, AllModules, "Full administration control."),
         Profile(Role(LoginRole.PowerUser), false, true, false, AllModules, "All operational modules without Admin or delete rights."),
-        Profile(Role(LoginRole.Accountant), false, true, false, [GarmetixPolicies.Accounting, GarmetixPolicies.Payroll, "Reports", GarmetixPolicies.Gst, GarmetixPolicies.Communication, GarmetixPolicies.StockAudit], "Accounting, payroll, reports, GST, Stock Audit, and internal communication."),
+        Profile(Role(LoginRole.Accountant), false, true, false, [GarmetixPolicies.Accounting, GarmetixPolicies.Payroll, "Reports", GarmetixPolicies.Gst, GarmetixPolicies.Communication, GarmetixPolicies.StockAudit, GarmetixPolicies.InvoiceBookAdjustment], "Accounting, payroll, reports, GST, Stock Audit, Invoice Books Adjustment, and internal communication."),
         Profile(Role(LoginRole.RemoteAccountant), false, false, false, [GarmetixPolicies.Accounting, GarmetixPolicies.Payroll, "Reports", GarmetixPolicies.Gst, GarmetixPolicies.Communication], "Accounting review, salary payment review, reports, GST, and internal communication without global edit/delete rights."),
         Profile(Role(LoginRole.StoreManager), false, false, false, [GarmetixPolicies.Billing, GarmetixPolicies.Inventory, GarmetixPolicies.StockAudit, GarmetixPolicies.Purchase, GarmetixPolicies.Accounting, GarmetixPolicies.Hr, GarmetixPolicies.Attendance, GarmetixPolicies.Marketing, GarmetixPolicies.Gst, GarmetixPolicies.Communication, "Reports"], "Store views, Stock Audit, HR attendance, new entries, and internal communication; no Admin, payroll, edit, or delete rights."),
         Profile(Role(LoginRole.Salesman), false, false, false, [GarmetixPolicies.Billing, GarmetixPolicies.Communication], "Billing and customer-facing digital bill entries from sale invoice screens, plus internal communication."),

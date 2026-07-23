@@ -3216,6 +3216,18 @@ public static async Task RepairStockAuditStorageAsync(GarmetixDbContext db, ILog
                 -- with PostgreSQL 42703 (column s.Remarks does not exist). Keep this repair idempotent.
                 ALTER TABLE "SalesInvoices" ADD COLUMN IF NOT EXISTS "Remarks" text NULL;
 
+                -- Invoice Books Adjustment: BookDate is auto-set to OnDate at creation
+                -- (GarmetixDbContext.StampInvoiceBookDates) and can be moved to a different GST filing
+                -- period afterward from the dedicated Invoice Books Adjustment page (Owner/Admin/Accountant
+                -- only). GST Returns (GSTR-1/3B/HSN summary/invoice register) filter and date Sale
+                -- invoices by BookDate, not OnDate - see migration 20260723090000_AddInvoiceBookDate.cs.
+                ALTER TABLE "SalesInvoices" ADD COLUMN IF NOT EXISTS "BookDate" timestamp without time zone NULL;
+                UPDATE "SalesInvoices" SET "BookDate" = "OnDate" WHERE "BookDate" IS NULL;
+                ALTER TABLE "SalesInvoices" ALTER COLUMN "BookDate" SET NOT NULL;
+                ALTER TABLE "SalesInvoices" ADD COLUMN IF NOT EXISTS "BookDateUpdatedAt" timestamp without time zone NULL;
+                ALTER TABLE "SalesInvoices" ADD COLUMN IF NOT EXISTS "BookDateUpdatedBy" text NULL;
+                CREATE INDEX IF NOT EXISTS "IX_SalesInvoices_CompanyId_StoreId_BookDate" ON "SalesInvoices" ("CompanyId", "StoreId", "BookDate");
+
                 ALTER TABLE "Vendors" ADD COLUMN IF NOT EXISTS "GSTLegalName" text NULL;
                 ALTER TABLE "Vendors" ADD COLUMN IF NOT EXISTS "GSTTradeName" text NULL;
                 ALTER TABLE "Vendors" ADD COLUMN IF NOT EXISTS "GSTPrincipalAddress" text NULL;

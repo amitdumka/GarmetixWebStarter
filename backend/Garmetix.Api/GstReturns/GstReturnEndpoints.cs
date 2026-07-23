@@ -539,15 +539,18 @@ public static class GstReturnEndpoints
         var rows = new List<GstInvoiceRegisterRow>();
         if (normalizedDirection is "sales" or "both")
         {
+            // GST returns file Sale invoices under their BookDate (GST filing period), not their real
+            // OnDate - an invoice can be booked into a later/earlier return period than its actual sale
+            // date via the Invoice Books Adjustment page. See Invoice.BookDate.
             var sales = await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context)
-                .Where(item => item.CompanyId == scope.CompanyId && item.OnDate >= scope.Start && item.OnDate < scope.End && item.InvoiceStatus != InvoiceStatus.Cancelled)
-                .OrderBy(item => item.OnDate)
+                .Where(item => item.CompanyId == scope.CompanyId && item.BookDate >= scope.Start && item.BookDate < scope.End && item.InvoiceStatus != InvoiceStatus.Cancelled)
+                .OrderBy(item => item.BookDate)
                 .ThenBy(item => item.InvoiceNumber)
                 .ToListAsync(cancellationToken);
             rows.AddRange(sales.Select(invoice =>
             {
                 var sign = invoice.ReturnInvoice ? -1m : 1m;
-                return new GstInvoiceRegisterRow("Sales", invoice.InvoiceNumber, null, invoice.OnDate, invoice.CustomerName ?? "Walk-in Customer", invoice.CustomerGSTIN,
+                return new GstInvoiceRegisterRow("Sales", invoice.InvoiceNumber, null, invoice.BookDate, invoice.CustomerName ?? "Walk-in Customer", invoice.CustomerGSTIN,
                     invoice.InvoiceStatus.ToString(), invoice.ReturnInvoice, Round(sign * invoice.NetAmount), Round(sign * (invoice.CGSTAmount ?? invoice.TaxAmount / 2)),
                     Round(sign * (invoice.SGSTAmount ?? invoice.TaxAmount / 2)), Round(sign * (invoice.IGSTAmount ?? 0)), Round(sign * invoice.TaxAmount), Round(sign * invoice.BillAmount));
             }));
@@ -581,7 +584,7 @@ public static class GstReturnEndpoints
         CancellationToken cancellationToken)
     {
         var invoices = await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context)
-            .Where(item => item.CompanyId == companyId && item.OnDate >= start && item.OnDate < end && item.InvoiceStatus != InvoiceStatus.Cancelled)
+            .Where(item => item.CompanyId == companyId && item.BookDate >= start && item.BookDate < end && item.InvoiceStatus != InvoiceStatus.Cancelled)
             .ToListAsync(cancellationToken);
         var invoiceIds = invoices.Select(item => item.Id).ToHashSet();
         var invoiceLookup = invoices.ToDictionary(item => item.Id);
@@ -757,7 +760,7 @@ public static class GstReturnEndpoints
         }
 
         var invoices = await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context)
-            .Where(item => item.CompanyId == company.Id && item.OnDate >= start && item.OnDate < end && item.InvoiceStatus != InvoiceStatus.Cancelled)
+            .Where(item => item.CompanyId == company.Id && item.BookDate >= start && item.BookDate < end && item.InvoiceStatus != InvoiceStatus.Cancelled)
             .ToListAsync(cancellationToken);
         var invoiceIds = invoices.Select(item => item.Id).ToList();
         var items = await db.InvoiceItems.AsNoTracking()
@@ -785,7 +788,7 @@ public static class GstReturnEndpoints
                 if (!string.IsNullOrWhiteSpace(invoice.CustomerGSTIN))
                 {
                     b2b.Add(new Gstr1B2BInvoiceRow(
-                        invoice.CustomerGSTIN!, invoice.CustomerName ?? "Customer", invoice.InvoiceNumber, invoice.OnDate, recipientState,
+                        invoice.CustomerGSTIN!, invoice.CustomerName ?? "Customer", invoice.InvoiceNumber, invoice.BookDate, recipientState,
                         "N", invoice.ReturnInvoice ? "Credit Note" : "Regular", invoice.BillAmount, line.TaxPercentage,
                         taxable, igst, cgst, sgst, 0, string.Empty));
                 }
@@ -845,7 +848,7 @@ public static class GstReturnEndpoints
         }
 
         var sales = await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context)
-            .Where(item => item.CompanyId == company.Id && item.OnDate >= start && item.OnDate < end && item.InvoiceStatus != InvoiceStatus.Cancelled)
+            .Where(item => item.CompanyId == company.Id && item.BookDate >= start && item.BookDate < end && item.InvoiceStatus != InvoiceStatus.Cancelled)
             .ToListAsync(cancellationToken);
         var purchases = await WorkspaceScope.ApplyTo(db.PurchaseInvoices.AsNoTracking(), context)
             .Where(item => item.CompanyId == company.Id && item.OnDate >= start && item.OnDate < end && item.InvoiceStatus != InvoiceStatus.Cancelled)

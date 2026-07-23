@@ -195,6 +195,17 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Bill Discount", AutoGenerateField = false)] public decimal BillDiscountAmount { get; set; } = 0m;
         [Display(Name = "Remarks")] public string? Remarks { get; set; }
 
+        /// <summary>
+        /// The GST filing period this invoice belongs to. Auto-set to <see cref="BaseInvoice.OnDate"/> at
+        /// creation (see GarmetixDbContext.StampInvoiceBookDates) and can only be changed afterward from the
+        /// dedicated "Invoice Books Adjustment" page - never from the sale invoice entry form itself. GST
+        /// Returns (GSTR-1/3B/HSN summary/invoice register) filter and date Sale invoices by BookDate, not
+        /// OnDate; payments, accounting postings and every other module keep using OnDate unchanged.
+        /// </summary>
+        [Display(Name = "Book Date")] public DateTime BookDate { get; set; }
+        [Display(Name = "Book Date Updated At", AutoGenerateField = false)] public DateTime? BookDateUpdatedAt { get; set; }
+        [Display(Name = "Book Date Updated By", AutoGenerateField = false)] public string? BookDateUpdatedBy { get; set; }
+
         [Display(Name = "Salesman", AutoGenerateField = false)] public virtual Salesman? Saleman { get; set; }
         [Display(Name = "Customer", AutoGenerateField = false)] public virtual Customer? Customer { get; set; }
         [Display(Name = "Invoice Items", AutoGenerateField = false)] public virtual ICollection<InvoiceItem> InvoiceItems { get; set; } = new List<InvoiceItem>();

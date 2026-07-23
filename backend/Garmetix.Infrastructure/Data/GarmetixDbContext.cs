@@ -462,6 +462,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<Vendor>().HasIndex(vendor => new { vendor.CompanyId, vendor.GSTIN }).IsUnique(false);
         modelBuilder.Entity<Salesman>().HasIndex(salesman => new { salesman.CompanyId, salesman.StoreId, salesman.Name }).IsUnique(false);
         modelBuilder.Entity<Invoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.StoreId, invoice.InvoiceNumber }).IsUnique(false);
+        modelBuilder.Entity<Invoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.StoreId, invoice.BookDate }).IsUnique(false);
         modelBuilder.Entity<PurchaseInvoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.VendorId, invoice.InvoiceNumber }).IsUnique(false);
         modelBuilder.Entity<PurchaseInvoice>().HasIndex(invoice => new { invoice.CompanyId, invoice.StoreId, invoice.InwardNumber }).IsUnique(false);
         modelBuilder.Entity<PurchaseReturn>().HasIndex(item => new { item.CompanyId, item.StoreId, item.ReturnNumber }).IsUnique(false);
@@ -2158,7 +2159,23 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     private void PrepareEntitiesForSave()
     {
         StampAuditableEntities();
+        StampInvoiceBookDates();
         NormalizeDateTimeKinds();
+    }
+
+    // BookDate defaults to the invoice's own OnDate for every newly created Sale invoice - this is the
+    // one place that happens, so invoice entry forms/DTOs never need to know about BookDate at all. It can
+    // only be changed afterward from the dedicated Invoice Books Adjustment page (InvoiceBookAdjustmentEndpoints),
+    // which updates an already-persisted row directly rather than going through this Added-state hook.
+    private void StampInvoiceBookDates()
+    {
+        foreach (var entry in ChangeTracker.Entries<Invoice>().Where(entry => entry.State == EntityState.Added))
+        {
+            if (entry.Entity.BookDate == default)
+            {
+                entry.Entity.BookDate = entry.Entity.OnDate;
+            }
+        }
     }
 
     private void StampAuditableEntities()

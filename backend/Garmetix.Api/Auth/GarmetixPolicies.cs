@@ -16,6 +16,14 @@ public static class GarmetixPolicies
     /// the blanket Edit capability. Same "dedicated sub-policy" pattern as CommunicationBroadcast/Templates/etc.
     /// </summary>
     public const string StockAudit = "StockAudit";
+    /// <summary>
+    /// Dedicated sub-policy for the Invoice Books Adjustment page (editing a Sale invoice's GST-filing
+    /// BookDate). Owner/SuperAdmin/Admin pass via the standard IsAdminOrOwner bypass; Accountant is the
+    /// only other role granted here - PowerUser/StoreManager/Salesman do not get it, since this can move
+    /// an invoice's tax liability into a different GST return period. Same dedicated-policy pattern as
+    /// StockAudit/CommunicationBroadcast.
+    /// </summary>
+    public const string InvoiceBookAdjustment = "InvoiceBookAdjustment";
     public const string Purchase = "Purchase";
     public const string Accounting = "Accounting";
     public const string FinalAccounts = "FinalAccounts";

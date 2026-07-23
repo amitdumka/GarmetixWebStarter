@@ -306,6 +306,7 @@ builder.Services.AddAuthorization(options =>
     AddMatrixPolicy(options, GarmetixPolicies.Billing);
     AddMatrixPolicy(options, GarmetixPolicies.Inventory);
     AddMatrixPolicy(options, GarmetixPolicies.StockAudit);
+    AddMatrixPolicy(options, GarmetixPolicies.InvoiceBookAdjustment);
     AddMatrixPolicy(options, GarmetixPolicies.Purchase);
     AddMatrixPolicy(options, GarmetixPolicies.Accounting);
     AddMatrixPolicy(options, GarmetixPolicies.FinalAccounts);
@@ -501,6 +502,7 @@ app.MapBillingFinalQaEndpoints();
 app.MapGoodsReturnAcceptanceEndpoints();
 app.MapSaleReviewEndpoints();
 app.MapVyaparSaleImportEndpoints();
+app.MapInvoiceBookAdjustmentEndpoints();
 app.MapInvoiceReplacementEndpoints();
 app.MapTailoringEndpoints();
 app.MapPurchaseEndpoints();
