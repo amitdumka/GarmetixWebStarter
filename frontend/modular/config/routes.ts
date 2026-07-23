@@ -94,6 +94,9 @@ export const garmetixRoutes: GarmetixRouteDefinition[] = [
   route({ id: 'dashboard-map', path: '/dashboard/map', label: 'Store Map', icon: 'i-lucide-map', targetApp: 'main', moduleKey: 'dashboard', moduleLabel: 'Dashboards', roles: [...routeRoles.adminPower] }),
 
   route({ id: 'billing', path: '/billing', label: 'Sale Invoices', icon: 'i-lucide-receipt-text', targetApp: 'main', moduleKey: 'sales', moduleLabel: 'Sales', roles: [...routeRoles.storeOps] }),
+  route({ id: 'vyapar-import', path: '/billing/vyapar-import', label: 'Vyapar Sale Import', icon: 'i-lucide-file-spreadsheet', targetApp: 'main', moduleKey: 'sales', moduleLabel: 'Sales', roles: [...routeRoles.storeOps] }),
+  route({ id: 'vyapar-imported', path: '/billing/vyapar-imported', label: 'Vyapar Imported Invoices', icon: 'i-lucide-list', targetApp: 'main', moduleKey: 'sales', moduleLabel: 'Sales', roles: [...routeRoles.storeOps] }),
+  route({ id: 'vyapar-import-batches', path: '/billing/vyapar-import-batches', label: 'Vyapar Import Batches', icon: 'i-lucide-layers', targetApp: 'main', moduleKey: 'sales', moduleLabel: 'Sales', roles: [...routeRoles.storeOps] }),
   route({ id: 'pos-home', path: '/', label: 'Home', icon: 'i-lucide-house', targetApp: 'pos', moduleKey: 'pos', moduleLabel: 'POS', roles: [...routeRoles.pos], status: 'modular-ready' }),
   route({ id: 'pos-day-open', path: '/day-open', label: 'Day Open', icon: 'i-lucide-sunrise', targetApp: 'pos', moduleKey: 'pos', moduleLabel: 'POS', roles: [...routeRoles.pos], legacyPath: '/store-day', status: 'modular-ready' }),
   route({ id: 'billing-new', path: '/sale', label: 'POS Sale Screen', icon: 'i-lucide-scan-barcode', targetApp: 'pos', moduleKey: 'pos', moduleLabel: 'POS', roles: [...routeRoles.pos], legacyPath: '/billing/new', status: 'modular-ready', notes: 'Version6 POS first parity lane.' }),

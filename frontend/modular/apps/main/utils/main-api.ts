@@ -149,6 +149,18 @@ export function toRows(value: unknown, keys: string[] = ['items', 'rows', 'data'
   return []
 }
 
+export const pageSizeOptions = [
+  { label: '25 / page', value: 25 },
+  { label: '50 / page', value: 50 },
+  { label: '100 / page', value: 100 }
+] as const
+
+export function paginateRows<T>(rows: T[], page: number, pageSize: number): T[] {
+  const size = Math.max(1, Number(pageSize) || 25)
+  const start = Math.max(0, (Math.max(1, Number(page) || 1) - 1) * size)
+  return rows.slice(start, start + size)
+}
+
 export function formatDate(value: unknown) {
   if (!value) return '-'
   const date = new Date(String(value))

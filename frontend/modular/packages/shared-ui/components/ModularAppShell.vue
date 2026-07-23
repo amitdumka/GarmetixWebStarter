@@ -292,7 +292,10 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
     ] },
     { key: 'sales', label: 'Sales', items: [
       { id: 'billing', label: 'Sale Invoices', href: '/billing', icon: 'i-lucide-receipt-indian-rupee' },
-      { id: 'tailoring', label: 'Tailoring', href: '/tailoring', icon: 'i-lucide-scissors' }
+      { id: 'tailoring', label: 'Tailoring', href: '/tailoring', icon: 'i-lucide-scissors' },
+      { id: 'vyapar-import', label: 'Vyapar Sale Import', href: '/billing/vyapar-import', icon: 'i-lucide-file-spreadsheet' },
+      { id: 'vyapar-imported', label: 'Vyapar Imported Invoices', href: '/billing/vyapar-imported', icon: 'i-lucide-list' },
+      { id: 'vyapar-import-batches', label: 'Vyapar Import Batches', href: '/billing/vyapar-import-batches', icon: 'i-lucide-layers' }
     ] },
     { key: 'purchase', label: 'Purchase', items: [
       { id: 'purchase', label: 'Purchase', href: '/purchase', icon: 'i-lucide-package-plus' },
