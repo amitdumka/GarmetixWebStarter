@@ -13,10 +13,13 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
+        <UButton color="neutral" variant="ghost" icon="i-lucide-calculator" @click="rateCalculatorOpen = true">Rate Calculator</UButton>
         <UButton color="neutral" variant="ghost" icon="i-lucide-refresh-cw" :loading="loading" @click="refresh" />
         <UButton color="warning" variant="soft" icon="i-lucide-pause-circle" :loading="holding" :disabled="!cart.length || holding" @click="holdCurrentBill">Hold Bill</UButton>
       </div>
     </header>
+
+    <RateCalculatorModal v-model:open="rateCalculatorOpen" />
 
     <!-- Main Split Area -->
     <main class="flex-1 flex overflow-hidden">
@@ -361,6 +364,7 @@ const loading = ref(false)
 const saving = ref(false)
 const holding = ref(false)
 const productLoading = ref(false)
+const rateCalculatorOpen = ref(false)
 const message = ref('')
 const messageTone = ref<'success' | 'error' | 'warning' | 'neutral'>('neutral')
 const messageIcon = computed(() => messageTone.value === 'success' ? 'i-lucide-circle-check' : messageTone.value === 'error' ? 'i-lucide-circle-alert' : messageTone.value === 'warning' ? 'i-lucide-triangle-alert' : 'i-lucide-info')

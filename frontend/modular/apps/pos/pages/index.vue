@@ -8,10 +8,13 @@
         </div>
         <div class="flex flex-wrap gap-2">
           <UButton to="/sale" icon="i-lucide-scan-barcode">Open Sale</UButton>
+          <UButton color="neutral" variant="soft" icon="i-lucide-calculator" @click="rateCalculatorOpen = true">Rate Calculator</UButton>
           <UButton color="neutral" variant="soft" icon="i-lucide-refresh-cw" :loading="loading" @click="refresh">Refresh</UButton>
         </div>
       </div>
     </div>
+
+    <RateCalculatorModal v-model:open="rateCalculatorOpen" />
 
     <UAlert v-if="error" color="warning" variant="subtle" icon="i-lucide-triangle-alert" :description="error" />
 
@@ -68,6 +71,7 @@ const api = computed(() => createGarmetixApiClient({
 const loading = ref(false)
 const error = ref('')
 const todaysRows = ref<SaleInvoiceRow[]>([])
+const rateCalculatorOpen = ref(false)
 
 const quickActions = [
   { label: 'Day Open', to: '/day-open', icon: 'i-lucide-sunrise' },
