@@ -272,6 +272,12 @@ public sealed class VyaparSaleImportService(
                 : 0m;
             var isReturnOrAdjustment = IsReturnOrAdjustmentTransactionType(saleHeader?.TransactionTypeRaw)
                 || group.Any(row => IsReturnOrAdjustmentTransactionType(row.TransactionTypeRaw));
+            // Vyapar marks a voided sale with Payment Status "Cancelled" (Transaction Type can still
+            // read "Sale[Cancelled]") - found in real customer data. A cancelled invoice with no item
+            // lines never reaches this loop at all (nothing to group by), but one that still carries
+            // item lines must not be auto-posted as a normal live sale.
+            var isCancelledInVyapar = string.Equals(saleHeader?.PaymentStatus?.Trim(), "Cancelled", StringComparison.OrdinalIgnoreCase);
+            var excludeFromAutoImport = isReturnOrAdjustment || isCancelledInVyapar;
             var headerWarnings = new List<string>();
             if (duplicate)
             {
@@ -280,6 +286,10 @@ public sealed class VyaparSaleImportService(
             if (isReturnOrAdjustment)
             {
                 headerWarnings.Add("Looks like a Sale Return / Credit Note adjustment (Vyapar Transaction Type). Excluded from auto-import buckets - match it against the original invoice and post it manually (e.g. via Sales Return) after import.");
+            }
+            if (isCancelledInVyapar)
+            {
+                headerWarnings.Add("Vyapar marks this invoice Cancelled. Excluded from auto-import buckets - review before importing.");
             }
             if (Math.Abs(totalAmount - Math.Round(lineTotal, 0, MidpointRounding.AwayFromZero)) > 1m)
             {
@@ -297,7 +307,7 @@ public sealed class VyaparSaleImportService(
             var payments = parsedPayments.Count > 0
                 ? parsedPayments
                 : [new VyaparSaleImportPaymentDto("Imported payment", PaymentMode.Cash, paidAmount, null, "Vyapar import paid")];
-            var fullyMatched = !duplicate && !isReturnOrAdjustment && lineDtos.Count > 0 && lineDtos.All(item => item.MatchStatus == "Matched" && !item.ReviewRequired && item.ImportLine);
+            var fullyMatched = !duplicate && !excludeFromAutoImport && lineDtos.Count > 0 && lineDtos.All(item => item.MatchStatus == "Matched" && !item.ReviewRequired && item.ImportLine);
             var customerName = ExtractCustomerNameFromParty(saleHeader?.PartyName ?? first.PartyName);
             var customerMobile = CleanMobile(saleHeader?.MobileNumber);
             var sourceDescription = saleHeader?.Description;
@@ -314,7 +324,7 @@ public sealed class VyaparSaleImportService(
                 paidAmount,
                 balanceDue,
                 duplicate,
-                !duplicate && !isReturnOrAdjustment && lineDtos.All(item => !item.ReviewRequired || item.MatchStatus == "InsufficientStock"),
+                !duplicate && !excludeFromAutoImport && lineDtos.All(item => !item.ReviewRequired || item.MatchStatus == "InsufficientStock"),
                 headerWarnings,
                 payments,
                 lineDtos,
@@ -324,7 +334,7 @@ public sealed class VyaparSaleImportService(
                 null,
                 sourceDescription,
                 BuildImportInvoiceRemark(invoiceNo, saleHeader?.InvoiceDate ?? first.InvoiceDate, sourceDescription, payments),
-                isReturnOrAdjustment));
+                excludeFromAutoImport));
         }
 
         if (saleRows.Count == 0)
@@ -346,7 +356,7 @@ public sealed class VyaparSaleImportService(
         var returnOrAdjustmentCount = invoices.Count(item => item.IsReturnOrAdjustment);
         if (returnOrAdjustmentCount > 0)
         {
-            warnings.Add($"{returnOrAdjustmentCount} invoice(s) look like Sale Return / Credit Note adjustments and were excluded from the auto-import buckets - review and match each one to its original invoice individually.");
+            warnings.Add($"{returnOrAdjustmentCount} invoice(s) look like a Sale Return/Credit Note adjustment or are marked Cancelled in Vyapar, and were excluded from the auto-import buckets - review each one individually before importing.");
         }
 
         var paymentSources = invoices
@@ -360,7 +370,7 @@ public sealed class VyaparSaleImportService(
                 group.Select(item => item.SourceInvoiceNumber).Distinct(StringComparer.OrdinalIgnoreCase).Count(),
                 group.Select(item => item.Payment.SourceDescription).FirstOrDefault(item => !string.IsNullOrWhiteSpace(item)),
                 null,
-                GuessPaymentKindLabel(group.Key, group.Select(item => item.Payment.SourceDescription).FirstOrDefault(item => !string.IsNullOrWhiteSpace(item)))))
+                GuessPaymentKindLabel(group.First().Payment.PaymentMode, group.Key, group.Select(item => item.Payment.SourceDescription).FirstOrDefault(item => !string.IsNullOrWhiteSpace(item)))))
             .OrderBy(item => item.SourceName)
             .ToList();
         var uniqueCustomers = invoices
@@ -2054,18 +2064,25 @@ public sealed class VyaparSaleImportService(
     }
 
     // Purely descriptive label for Step 3 of the import UI - splits the generic PaymentMode.Card
-    // bucket into Credit Card/Debit Card and tags Cash/Cheque/UPI/Bank Transfer, guessed from the
-    // Vyapar source name/description text. Never affects accounting posting (only PaymentMode does).
-    private static string GuessPaymentKindLabel(string sourceName, string? description)
+    // bucket into Credit Card/Debit Card, guessed from the Vyapar source name/description text.
+    // Deliberately derives from the *already-resolved* PaymentMode rather than re-guessing it from
+    // text independently - GuessPaymentMode already has its own keyword list (e.g. "amy" -> UPI,
+    // tuned to real customer data), and a second independent text guesser drifted out of sync with
+    // it on real data (e.g. "SBI Aadwika Fashion AMY" - a genuinely UPI-routed account per real
+    // Vyapar "Payment Type" annotations - guessed "Other" instead of "UPI"). Reading PaymentMode
+    // directly makes that drift impossible. Never affects accounting posting (only PaymentMode does).
+    private static string GuessPaymentKindLabel(PaymentMode paymentMode, string sourceName, string? description)
     {
-        var text = $"{sourceName} {description}".ToLowerInvariant();
-        if (text.Contains("cash")) return "Cash";
-        if (text.Contains("cheque") || text.Contains("check")) return "Cheque";
-        if (text.Contains("credit card") || text.Contains("credit-card") || text.Contains(" cc ") || text.EndsWith(" cc")) return "Credit Card";
-        if (text.Contains("debit card") || text.Contains("debit-card") || text.Contains("rupay debit") || text.Contains(" dc ") || text.EndsWith(" dc")) return "Debit Card";
-        if (text.Contains("upi") || text.Contains("gpay") || text.Contains("g-pay") || text.Contains("phonepe") || text.Contains("paytm") || text.Contains("bhim")) return "UPI";
-        if (text.Contains("card") || text.Contains("pos") || text.Contains("edc") || text.Contains("swipe")) return "Debit Card";
-        if (text.Contains("neft") || text.Contains("rtgs") || text.Contains("imps") || text.Contains("bank transfer") || text.Contains("bank")) return "Bank Transfer";
+        if (paymentMode == PaymentMode.Cash) return "Cash";
+        if (paymentMode == PaymentMode.Cheque) return "Cheque";
+        if (paymentMode == PaymentMode.UPI) return "UPI";
+        if (paymentMode == PaymentMode.Card)
+        {
+            var text = $"{sourceName} {description}".ToLowerInvariant();
+            if (text.Contains("credit card") || text.Contains("credit-card") || text.Contains(" cc ") || text.EndsWith(" cc")) return "Credit Card";
+            return "Debit Card";
+        }
+        if (paymentMode is PaymentMode.IMPS or PaymentMode.RTGS or PaymentMode.NEFT or PaymentMode.DemandDraft) return "Bank Transfer";
         return "Other";
     }
 
