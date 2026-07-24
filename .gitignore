@@ -1,3 +1,6 @@
+# Real business/customer data exports (PII, financial data) - never committed.
+/Excels/
+
 # Root workspace ignores for Version6 backend/frontend layout.
 node_modules/
 .nuxt/

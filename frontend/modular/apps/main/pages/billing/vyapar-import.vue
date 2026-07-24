@@ -220,6 +220,9 @@
           <p class="text-sm">Invoices to import: <strong>{{ approvalMode === 'fullyMatched' ? fullyMatchedInvoices.length : readyInvoices.length }}</strong></p>
           <p class="text-sm">Create missing products/stock: <strong>{{ confirmForm.createMissingProductsAndStock ? 'Yes' : 'No' }}</strong></p>
           <p class="text-sm">Allow stock bridge: <strong>{{ confirmForm.allowStockBridgeForInsufficientStock ? 'Yes' : 'No' }}</strong></p>
+          <UAlert v-if="(approvalMode === 'fullyMatched' ? fullyMatchedInvoices.length : readyInvoices.length) > 40" color="neutral" variant="subtle" icon="i-lucide-info" description="Large batches are posted in smaller chunks automatically. This can take a few minutes - keep this tab open and watch the progress below." />
+          <UAlert v-if="error" color="error" variant="subtle" icon="i-lucide-circle-alert" :description="error" />
+          <UAlert v-if="confirming && progressMessage" color="primary" variant="subtle" icon="i-lucide-loader" :description="progressMessage" />
           <div class="flex justify-end gap-2">
             <UButton color="primary" icon="i-lucide-check" :loading="confirming" @click="confirmImport">Approve & Import</UButton>
           </div>
@@ -275,6 +278,11 @@ const confirmForm = reactive({
 
 const approvalOpen = ref(false)
 const approvalMode = ref<'fullyMatched' | 'ready'>('fullyMatched')
+const progressMessage = ref('')
+// Posting hundreds of invoices in one HTTP request risks a proxy/browser timeout with zero visible
+// feedback (looks like the button "did nothing"). The backend accepts repeated confirm calls sharing
+// one importBatchId, so large batches are split into chunks posted sequentially instead.
+const CONFIRM_CHUNK_SIZE = 40
 
 function money(value: number) {
   return formatIndianMoney(value)
@@ -545,17 +553,34 @@ function openApproval(mode: 'fullyMatched' | 'ready') {
   approvalOpen.value = true
 }
 
+function newBatchId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
 async function confirmImport() {
-  if (!preview.value || !selectedStore.value) return
+  if (!preview.value) {
+    error.value = 'Preview data is missing - reload the preview and try again.'
+    return
+  }
+  if (!selectedStore.value) {
+    error.value = 'Selected store could not be resolved. Reselect the store in Step 1, reload the preview, and try again.'
+    return
+  }
   confirming.value = true
   error.value = ''
+  progressMessage.value = ''
   try {
     const invoices = approvalMode.value === 'fullyMatched' ? fullyMatchedInvoices.value : readyInvoices.value
+    if (!invoices.length) {
+      error.value = 'No invoices in this bucket to import.'
+      return
+    }
     const paymentBankMappings = paymentSources.value
       .filter(source => paymentMappings[source.key])
       .map(source => ({ sourceName: source.sourceName, paymentMode: source.paymentMode, bankAccountId: paymentMappings[source.key] }))
 
-    const body = {
+    const commonFields = {
       companyId: readText(selectedStore.value, ['companyId'], ''),
       storeGroupId: readText(selectedStore.value, ['storeGroupId'], ''),
       storeId: storeId.value,
@@ -564,19 +589,62 @@ async function confirmImport() {
       allowStockBridgeForInsufficientStock: confirmForm.allowStockBridgeForInsufficientStock,
       defaultBankAccountId: confirmForm.defaultBankAccountId || null,
       defaultSalesmanId: confirmForm.defaultSalesmanId || null,
-      invoices,
       paymentBankMappings,
       finalApprovalConfirmed: true,
       sourceFileName: readText(preview.value, ['sourceFileName'], '')
     }
-    const result = await post<ApiRecord>('sale-import/vyapar/confirm', body)
-    confirmResult.value = result
-    message.value = 'Import confirmed.'
+
+    const batchId = newBatchId()
+    const chunks: ApiRecord[][] = []
+    for (let i = 0; i < invoices.length; i += CONFIRM_CHUNK_SIZE) chunks.push(invoices.slice(i, i + CONFIRM_CHUNK_SIZE))
+
+    const aggregate = {
+      importBatchId: batchId,
+      importBatchReference: '',
+      importedInvoiceCount: 0,
+      skippedInvoiceCount: 0,
+      importedLineCount: 0,
+      createdProductCount: 0,
+      createdStockCount: 0,
+      bridgeStockMovementCount: 0,
+      importedBillAmount: 0,
+      importedInvoiceNumbers: [] as string[],
+      skippedInvoices: [] as string[],
+      warnings: [] as string[]
+    }
+
+    let doneCount = 0
+    for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+      const chunk = chunks[chunkIndex]
+      progressMessage.value = chunks.length > 1
+        ? `Importing ${doneCount + chunk.length} of ${invoices.length} invoices (chunk ${chunkIndex + 1} of ${chunks.length})...`
+        : `Importing ${invoices.length} invoice(s)...`
+      const body = { ...commonFields, invoices: chunk, importBatchId: batchId }
+      const result = await post<ApiRecord>('sale-import/vyapar/confirm', body)
+      aggregate.importBatchReference = readText(result, ['importBatchReference'], aggregate.importBatchReference)
+      aggregate.importedInvoiceCount += readNumber(result, ['importedInvoiceCount'])
+      aggregate.skippedInvoiceCount += readNumber(result, ['skippedInvoiceCount'])
+      aggregate.importedLineCount += readNumber(result, ['importedLineCount'])
+      aggregate.createdProductCount += readNumber(result, ['createdProductCount'])
+      aggregate.createdStockCount += readNumber(result, ['createdStockCount'])
+      aggregate.bridgeStockMovementCount += readNumber(result, ['bridgeStockMovementCount'])
+      aggregate.importedBillAmount += readNumber(result, ['importedBillAmount'])
+      aggregate.importedInvoiceNumbers.push(...readArray(result, ['importedInvoiceNumbers']).map(item => String(item)))
+      aggregate.skippedInvoices.push(...readArray(result, ['skippedInvoices']).map(item => String(item)))
+      aggregate.warnings.push(...readArray(result, ['warnings']).map(item => String(item)))
+      doneCount += chunk.length
+    }
+
+    confirmResult.value = aggregate
+    message.value = chunks.length > 1
+      ? `Import confirmed across ${chunks.length} chunk(s). Batch reference ${aggregate.importBatchReference}.`
+      : 'Import confirmed.'
     approvalOpen.value = false
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Unable to confirm import.'
   } finally {
     confirming.value = false
+    progressMessage.value = ''
   }
 }
 

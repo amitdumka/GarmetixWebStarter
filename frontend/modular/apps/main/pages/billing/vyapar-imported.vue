@@ -16,6 +16,7 @@
     </div>
 
     <UAlert v-if="error" color="error" variant="subtle" icon="i-lucide-circle-alert" :description="error" />
+    <UAlert v-if="message" color="success" variant="subtle" icon="i-lucide-circle-check" :description="message" :close-button="{ icon: 'i-lucide-x' }" @close="message = ''" />
 
     <section class="garmetix-section-card">
       <div class="flex flex-wrap items-end gap-3">
@@ -30,6 +31,11 @@
       </div>
     </section>
 
+    <section v-if="selectedIds.size" class="garmetix-section-card flex flex-wrap items-center justify-between gap-2">
+      <p class="text-sm">{{ selectedIds.size }} invoice(s) selected for undo.</p>
+      <UButton icon="i-lucide-undo-2" color="error" variant="soft" @click="openBulkUndo">Undo Selected</UButton>
+    </section>
+
     <section class="grid gap-3 sm:grid-cols-3">
       <UCard :ui="{ body: 'p-4' }"><p class="text-xs text-muted">Imported Bill Amount</p><p class="text-xl font-semibold">{{ money(billTotal) }}</p></UCard>
       <UCard :ui="{ body: 'p-4' }"><p class="text-xs text-muted">Paid</p><p class="text-xl font-semibold text-success">{{ money(paidTotal) }}</p></UCard>
@@ -41,6 +47,7 @@
         <table class="w-full min-w-[900px] text-left text-sm">
           <thead class="bg-muted/30 text-xs uppercase text-muted">
             <tr>
+              <th class="px-3 py-2"><input type="checkbox" :checked="allOnPageSelected" @change="toggleSelectAllOnPage"></th>
               <th class="px-3 py-2">Invoice</th>
               <th class="px-3 py-2">Vyapar Source</th>
               <th class="px-3 py-2">Date</th>
@@ -52,8 +59,11 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-default">
-            <tr v-if="!rows.length"><td colspan="8" class="px-3 py-8 text-center text-muted">No imported invoices found.</td></tr>
+            <tr v-if="!rows.length"><td colspan="9" class="px-3 py-8 text-center text-muted">No imported invoices found.</td></tr>
             <tr v-for="row in rows" :key="row.id">
+              <td class="px-3 py-2">
+                <input v-if="!row.invoiceStatus.toLowerCase().includes('cancel')" type="checkbox" :checked="selectedIds.has(row.id)" @change="toggleSelect(row.id)">
+              </td>
               <td class="px-3 py-2 tabular-nums">{{ row.invoiceNumber }}</td>
               <td class="px-3 py-2 tabular-nums">{{ row.sourceInvoiceNumber }}</td>
               <td class="px-3 py-2">{{ formatDate(row.invoiceDate) }}</td>
@@ -75,6 +85,24 @@
         </div>
       </div>
     </section>
+
+    <UModal v-model:open="bulkUndoOpen" title="Undo Selected Invoices" description="Each selected invoice is individually cancelled - stock, payment and accounting are reversed for every one of them. This cannot be undone from here.">
+      <template #body>
+        <div class="grid gap-3">
+          <p class="text-sm">Invoices to undo: <strong>{{ selectedIds.size }}</strong></p>
+          <p class="text-sm">Type <strong>UNDO SELECTED</strong> to confirm.</p>
+          <UInput v-model="bulkUndoConfirmText" placeholder="UNDO SELECTED" />
+          <div v-if="bulkUndoResults.length" class="max-h-48 overflow-y-auto text-xs">
+            <p v-for="result in bulkUndoResults" :key="result.id" :class="result.ok ? 'text-success' : 'text-error'">
+              {{ result.invoiceNumber }}: {{ result.ok ? 'Undone' : result.message }}
+            </p>
+          </div>
+          <div class="flex justify-end gap-2">
+            <UButton color="error" icon="i-lucide-undo-2" :disabled="bulkUndoConfirmText !== 'UNDO SELECTED'" :loading="bulkUndoing" @click="confirmBulkUndo">Undo Selected</UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
   </section>
 </template>
 
@@ -85,10 +113,11 @@ import { formatDate, readNumber, readText, toRows, type ApiRecord, useMainApiCli
 
 useHead({ title: 'Vyapar Imported Invoices - Garmetix' })
 
-const { get } = useMainApiClient()
+const { get, del } = useMainApiClient()
 
 const loading = ref(false)
 const error = ref('')
+const message = ref('')
 const fromDate = ref(startOfMonth())
 const toDate = ref(todayIso())
 const search = ref('')
@@ -99,6 +128,12 @@ const billTotal = ref(0)
 const paidTotal = ref(0)
 const balanceTotal = ref(0)
 const items = ref<ApiRecord[]>([])
+
+const selectedIds = reactive(new Set<string>())
+const bulkUndoOpen = ref(false)
+const bulkUndoConfirmText = ref('')
+const bulkUndoing = ref(false)
+const bulkUndoResults = ref<Array<{ id: string, invoiceNumber: string, ok: boolean, message: string }>>([])
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
@@ -131,6 +166,20 @@ const rows = computed(() => items.value.map(item => ({
   remarks: readText(item, ['remarks'], '')
 })))
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
+const selectableRows = computed(() => rows.value.filter(row => !row.invoiceStatus.toLowerCase().includes('cancel')))
+const allOnPageSelected = computed(() => selectableRows.value.length > 0 && selectableRows.value.every(row => selectedIds.has(row.id)))
+
+function toggleSelect(id: string) {
+  if (selectedIds.has(id)) selectedIds.delete(id)
+  else selectedIds.add(id)
+}
+function toggleSelectAllOnPage() {
+  if (allOnPageSelected.value) {
+    selectableRows.value.forEach(row => selectedIds.delete(row.id))
+  } else {
+    selectableRows.value.forEach(row => selectedIds.add(row.id))
+  }
+}
 
 async function load() {
   loading.value = true
@@ -156,6 +205,35 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+function openBulkUndo() {
+  if (!selectedIds.size) return
+  bulkUndoConfirmText.value = ''
+  bulkUndoResults.value = []
+  bulkUndoOpen.value = true
+}
+
+async function confirmBulkUndo() {
+  if (bulkUndoConfirmText.value !== 'UNDO SELECTED') return
+  bulkUndoing.value = true
+  error.value = ''
+  const targets = rows.value.filter(row => selectedIds.has(row.id))
+  const results: Array<{ id: string, invoiceNumber: string, ok: boolean, message: string }> = []
+  for (const row of targets) {
+    try {
+      await del<unknown>(`billing/sales/${row.id}`)
+      results.push({ id: row.id, invoiceNumber: row.invoiceNumber, ok: true, message: '' })
+      selectedIds.delete(row.id)
+    } catch (caught) {
+      results.push({ id: row.id, invoiceNumber: row.invoiceNumber, ok: false, message: caught instanceof Error ? caught.message : 'Failed' })
+    }
+    bulkUndoResults.value = [...results]
+  }
+  bulkUndoing.value = false
+  const okCount = results.filter(item => item.ok).length
+  message.value = `${okCount} of ${results.length} invoice(s) undone.`
+  await load()
 }
 
 onMounted(load)
