@@ -49,9 +49,9 @@ public sealed record VyaparSaleImportInvoiceDto(
     string? ExistingInvoiceNumber = null,
     string? SourceDescription = null,
     string? ImportRemark = null,
-    // True for a Sale Return/Credit Note adjustment (Vyapar Transaction Type) or an invoice Vyapar
-    // itself marks Cancelled - either way this invoice is excluded from the Fully Matched and Ready
-    // For Import buckets and must be reviewed/posted manually.
+    // True for a Sale Return/Credit Note adjustment (Vyapar Transaction Type) - excluded from the
+    // Fully Matched and Ready For Import buckets and must be reviewed/posted manually. A Vyapar
+    // Cancelled invoice is a different case - it is ignored outright and never reaches this DTO at all.
     bool IsReturnOrAdjustment = false);
 
 public sealed record VyaparSaleImportLineDto(

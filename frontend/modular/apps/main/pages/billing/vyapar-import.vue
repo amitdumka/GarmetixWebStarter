@@ -282,7 +282,9 @@ function money(value: number) {
 
 const storeItems = computed(() => stores.value.map(item => ({ label: readText(item, ['name']), value: readText(item, ['id'], '') })).filter(item => item.value))
 function accountLabel(item: ApiRecord) {
-  return readText(item, ['accountHolderName', 'bankName'], readText(item, ['name']))
+  const name = readText(item, ['accountHolderName', 'bankName'], readText(item, ['name']))
+  const branch = readText(item, ['branch'], '')
+  return branch ? `${name} (${branch})` : name
 }
 const regularBankAccounts = computed(() => bankAccounts.value.filter(item => readNumber(item, ['accountType']) !== POS_MACHINE_ACCOUNT_TYPE))
 const posMachineAccounts = computed(() => bankAccounts.value.filter(item => readNumber(item, ['accountType']) === POS_MACHINE_ACCOUNT_TYPE))

@@ -243,6 +243,12 @@ namespace Garmetix.Core.Models.Inventory
         [Display(Name = "Gateway Reference")] public string? GatewayReference { get; set; }
         [Display(Name = "Settlement Status")] public string? SettlementStatus { get; set; }
         [Display(Name = "Payment Details Json")] public string? PaymentDetailsJson { get; set; }
+        /// <summary>
+        /// Set once this payment (a Card/UPI receipt against a POS/EDC Machine account) has been
+        /// included in an <see cref="Garmetix.Core.Models.Accounting.EdcSettlementBatch"/> reconciling
+        /// it against the actual bank credit. Null/unset means still outstanding.
+        /// </summary>
+        [Display(Name = "EDC Settlement Batch", AutoGenerateField = false)] public Guid? EdcSettlementBatchId { get; set; }
     }
 
     public class CardPayment : CompanyBase

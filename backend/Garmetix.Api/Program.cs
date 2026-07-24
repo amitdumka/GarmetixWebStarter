@@ -520,6 +520,7 @@ app.MapImportExportEndpoints();
 app.MapAdminJsonDataEndpoints();
 app.MapAuditEndpoints();
 app.MapAccountingEndpoints();
+app.MapEdcSettlementEndpoints();
 app.MapFinalAccountsEndpoints();
 app.MapDayBookEndpoints();
 app.MapPettyCashEndpoints();

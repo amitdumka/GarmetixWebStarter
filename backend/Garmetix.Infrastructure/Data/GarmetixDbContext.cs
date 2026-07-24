@@ -145,6 +145,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<ChequeLog> ChequeLogs => Set<ChequeLog>();
     public DbSet<BankCashTranscation> BankCashTranscations => Set<BankCashTranscation>();
     public DbSet<BankStatementLine> BankStatementLines => Set<BankStatementLine>();
+    public DbSet<EdcSettlementBatch> EdcSettlementBatches => Set<EdcSettlementBatch>();
     public DbSet<FinancialYearLock> FinancialYearLocks => Set<FinancialYearLock>();
     public DbSet<LedgerGroup> LedgerGroups => Set<LedgerGroup>();
     public DbSet<Ledger> Ledgers => Set<Ledger>();
@@ -492,6 +493,8 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<TailoringVendorPayment>().HasIndex(payment => new { payment.CompanyId, payment.TailoringOrderId, payment.OnDate });
         modelBuilder.Entity<TailoringOrderHistory>().HasIndex(history => new { history.CompanyId, history.TailoringOrderId, history.EventDate });
         modelBuilder.Entity<InvoicePayment>().HasIndex(payment => new { payment.CompanyId, payment.StoreId, payment.InvoiceId, payment.OnDate });
+        modelBuilder.Entity<InvoicePayment>().HasIndex(payment => new { payment.CompanyId, payment.BankAccountId, payment.EdcSettlementBatchId });
+        modelBuilder.Entity<EdcSettlementBatch>().HasIndex(batch => new { batch.CompanyId, batch.StoreId, batch.PosMachineAccountId, batch.SettlementDate });
         modelBuilder.Entity<CardPayment>().HasIndex(payment => new { payment.CompanyId, payment.StoreId, payment.InvoiceId, payment.OnDate });
         modelBuilder.Entity<VendorPayment>().HasIndex(payment => new { payment.CompanyId, payment.VendorId, payment.OnDate });
         modelBuilder.Entity<CommercialNote>().HasIndex(note => new { note.CompanyId, note.StoreId, note.NoteNumber }).IsUnique(false);

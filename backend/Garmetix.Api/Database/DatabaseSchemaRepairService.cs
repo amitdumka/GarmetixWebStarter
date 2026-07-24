@@ -3228,6 +3228,41 @@ public static async Task RepairStockAuditStorageAsync(GarmetixDbContext db, ILog
                 ALTER TABLE "SalesInvoices" ADD COLUMN IF NOT EXISTS "BookDateUpdatedBy" text NULL;
                 CREATE INDEX IF NOT EXISTS "IX_SalesInvoices_CompanyId_StoreId_BookDate" ON "SalesInvoices" ("CompanyId", "StoreId", "BookDate");
 
+                -- EDC/POS Settlement reconciliation: links a Card/UPI InvoicePayment to the batch that
+                -- reconciled it against the actual delayed bank credit. See migration
+                -- 20260725090000_AddEdcSettlement.cs.
+                ALTER TABLE "InvoicePayments" ADD COLUMN IF NOT EXISTS "EdcSettlementBatchId" uuid NULL;
+                CREATE INDEX IF NOT EXISTS "IX_InvoicePayments_CompanyId_BankAccountId_EdcSettlementBatchId" ON "InvoicePayments" ("CompanyId", "BankAccountId", "EdcSettlementBatchId");
+
+                CREATE TABLE IF NOT EXISTS "EdcSettlementBatches" (
+                    "Id" uuid NOT NULL,
+                    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                    "UpdatedAt" timestamp without time zone NULL,
+                    "Synced" boolean NOT NULL DEFAULT false,
+                    "Deleted" boolean NOT NULL DEFAULT false,
+                    "CompanyId" uuid NOT NULL,
+                    "StoreGroupId" uuid NOT NULL,
+                    "StoreId" uuid NOT NULL,
+                    "CreatedBy" text NULL,
+                    "PosMachineAccountId" uuid NOT NULL,
+                    "RealBankAccountId" uuid NOT NULL,
+                    "SettlementDate" timestamp without time zone NOT NULL DEFAULT now(),
+                    "GrossAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "NetAmountReceived" numeric(18,2) NOT NULL DEFAULT 0,
+                    "ChargeAmount" numeric(18,2) NOT NULL DEFAULT 0,
+                    "PaymentCount" integer NOT NULL DEFAULT 0,
+                    "ReferenceNumber" text NULL,
+                    "Remarks" text NULL,
+                    "JournalEntryId" uuid NULL,
+                    "JournalEntryNumber" text NULL,
+                    "Reversed" boolean NOT NULL DEFAULT false,
+                    "ReversedAt" timestamp without time zone NULL,
+                    "ReversedBy" text NULL,
+                    CONSTRAINT "PK_EdcSettlementBatches" PRIMARY KEY ("Id")
+                );
+
+                CREATE INDEX IF NOT EXISTS "IX_EdcSettlementBatches_CompanyId_StoreId_PosMachineAccountId_SettlementDate" ON "EdcSettlementBatches" ("CompanyId", "StoreId", "PosMachineAccountId", "SettlementDate");
+
                 ALTER TABLE "Vendors" ADD COLUMN IF NOT EXISTS "GSTLegalName" text NULL;
                 ALTER TABLE "Vendors" ADD COLUMN IF NOT EXISTS "GSTTradeName" text NULL;
                 ALTER TABLE "Vendors" ADD COLUMN IF NOT EXISTS "GSTPrincipalAddress" text NULL;

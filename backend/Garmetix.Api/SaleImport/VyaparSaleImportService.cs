@@ -147,6 +147,7 @@ public sealed class VyaparSaleImportService(
         var invoices = new List<VyaparSaleImportInvoiceDto>();
         var missingIndex = new Dictionary<string, VyaparSaleImportMissingProductDto>(StringComparer.OrdinalIgnoreCase);
         var lineNumber = 0;
+        var skippedCancelledCount = 0;
 
         foreach (var group in itemRows.GroupBy(item => item.InvoiceNumber, StringComparer.OrdinalIgnoreCase).OrderBy(item => item.Min(row => row.InvoiceDate)))
         {
@@ -154,6 +155,16 @@ public sealed class VyaparSaleImportService(
             saleByInvoice.TryGetValue(invoiceNo, out var saleHeader);
             var first = group.First();
             var invoiceDate = (saleHeader?.InvoiceDate ?? first.InvoiceDate).Date;
+            // A Vyapar-cancelled sale (Payment Status "Cancelled", Transaction Type can read
+            // "Sale[Cancelled]") never happened as a real sale - ignore it outright rather than
+            // surfacing it for review. Most cancelled invoices have zero Item Details lines anyway
+            // (this loop would never see them), but this also covers a cancelled invoice that still
+            // carries item lines.
+            if (string.Equals(saleHeader?.PaymentStatus?.Trim(), "Cancelled", StringComparison.OrdinalIgnoreCase))
+            {
+                skippedCancelledCount++;
+                continue;
+            }
             if (existingBySourceAndDate.TryGetValue(ImportKey(invoiceNo, invoiceDate), out var alreadyImported))
             {
                 autoHiddenInvoices.Add(new VyaparSaleImportImportedInvoiceDto(
@@ -272,12 +283,6 @@ public sealed class VyaparSaleImportService(
                 : 0m;
             var isReturnOrAdjustment = IsReturnOrAdjustmentTransactionType(saleHeader?.TransactionTypeRaw)
                 || group.Any(row => IsReturnOrAdjustmentTransactionType(row.TransactionTypeRaw));
-            // Vyapar marks a voided sale with Payment Status "Cancelled" (Transaction Type can still
-            // read "Sale[Cancelled]") - found in real customer data. A cancelled invoice with no item
-            // lines never reaches this loop at all (nothing to group by), but one that still carries
-            // item lines must not be auto-posted as a normal live sale.
-            var isCancelledInVyapar = string.Equals(saleHeader?.PaymentStatus?.Trim(), "Cancelled", StringComparison.OrdinalIgnoreCase);
-            var excludeFromAutoImport = isReturnOrAdjustment || isCancelledInVyapar;
             var headerWarnings = new List<string>();
             if (duplicate)
             {
@@ -286,10 +291,6 @@ public sealed class VyaparSaleImportService(
             if (isReturnOrAdjustment)
             {
                 headerWarnings.Add("Looks like a Sale Return / Credit Note adjustment (Vyapar Transaction Type). Excluded from auto-import buckets - match it against the original invoice and post it manually (e.g. via Sales Return) after import.");
-            }
-            if (isCancelledInVyapar)
-            {
-                headerWarnings.Add("Vyapar marks this invoice Cancelled. Excluded from auto-import buckets - review before importing.");
             }
             if (Math.Abs(totalAmount - Math.Round(lineTotal, 0, MidpointRounding.AwayFromZero)) > 1m)
             {
@@ -307,7 +308,7 @@ public sealed class VyaparSaleImportService(
             var payments = parsedPayments.Count > 0
                 ? parsedPayments
                 : [new VyaparSaleImportPaymentDto("Imported payment", PaymentMode.Cash, paidAmount, null, "Vyapar import paid")];
-            var fullyMatched = !duplicate && !excludeFromAutoImport && lineDtos.Count > 0 && lineDtos.All(item => item.MatchStatus == "Matched" && !item.ReviewRequired && item.ImportLine);
+            var fullyMatched = !duplicate && !isReturnOrAdjustment && lineDtos.Count > 0 && lineDtos.All(item => item.MatchStatus == "Matched" && !item.ReviewRequired && item.ImportLine);
             var customerName = ExtractCustomerNameFromParty(saleHeader?.PartyName ?? first.PartyName);
             var customerMobile = CleanMobile(saleHeader?.MobileNumber);
             var sourceDescription = saleHeader?.Description;
@@ -324,7 +325,7 @@ public sealed class VyaparSaleImportService(
                 paidAmount,
                 balanceDue,
                 duplicate,
-                !duplicate && !excludeFromAutoImport && lineDtos.All(item => !item.ReviewRequired || item.MatchStatus == "InsufficientStock"),
+                !duplicate && !isReturnOrAdjustment && lineDtos.All(item => !item.ReviewRequired || item.MatchStatus == "InsufficientStock"),
                 headerWarnings,
                 payments,
                 lineDtos,
@@ -334,7 +335,7 @@ public sealed class VyaparSaleImportService(
                 null,
                 sourceDescription,
                 BuildImportInvoiceRemark(invoiceNo, saleHeader?.InvoiceDate ?? first.InvoiceDate, sourceDescription, payments),
-                excludeFromAutoImport));
+                isReturnOrAdjustment));
         }
 
         if (saleRows.Count == 0)
@@ -353,10 +354,14 @@ public sealed class VyaparSaleImportService(
         {
             warnings.Add($"{autoHiddenInvoices.Count} invoices already imported for the same Vyapar invoice/date were auto-hidden from the current preview.");
         }
+        if (skippedCancelledCount > 0)
+        {
+            warnings.Add($"{skippedCancelledCount} invoice(s) marked Cancelled in Vyapar were ignored - they never affected a real sale.");
+        }
         var returnOrAdjustmentCount = invoices.Count(item => item.IsReturnOrAdjustment);
         if (returnOrAdjustmentCount > 0)
         {
-            warnings.Add($"{returnOrAdjustmentCount} invoice(s) look like a Sale Return/Credit Note adjustment or are marked Cancelled in Vyapar, and were excluded from the auto-import buckets - review each one individually before importing.");
+            warnings.Add($"{returnOrAdjustmentCount} invoice(s) look like a Sale Return/Credit Note adjustment and were excluded from the auto-import buckets - review and match each one to its original invoice individually.");
         }
 
         var paymentSources = invoices

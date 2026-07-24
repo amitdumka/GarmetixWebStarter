@@ -11,6 +11,25 @@ using Microsoft.EntityFrameworkCore;
 namespace Garmetix.Api.Accounting;
 
 public sealed record VendorRefundPostingResult(Guid JournalEntryId, Guid? BankTransactionId);
+public sealed record EdcSettlementRequest(
+    Guid CompanyId,
+    Guid StoreGroupId,
+    Guid StoreId,
+    Guid PosMachineAccountId,
+    Guid RealBankAccountId,
+    DateTime SettlementDate,
+    decimal NetAmountReceived,
+    string? ReferenceNumber,
+    string? Remarks,
+    IReadOnlyList<Guid> InvoicePaymentIds);
+public sealed record EdcSettlementPostResult(
+    Guid BatchId,
+    decimal GrossAmount,
+    decimal NetAmountReceived,
+    decimal ChargeAmount,
+    int PaymentCount,
+    Guid JournalEntryId,
+    string JournalEntryNumber);
 public sealed record PurchaseReturnTaxPosting(Guid ReversalId, string ProductName, string? HsnCode, decimal TaxAmount);
 public sealed record StockOperationAccountingResult(Guid JournalEntryId, string EntryNumber, decimal Amount);
 public sealed record SalesInvoicePaymentPosting(
@@ -316,6 +335,185 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
                 : creditCarryForward > 0
                     ? $"GST credit carry forward of {creditCarryForward:0.00} posted."
                     : "GST output/input transfer posted with no net payable.");
+    }
+
+    /// <summary>
+    /// Reconciles a batch of Card/UPI InvoicePayments posted against a POS/EDC Machine BankAccount
+    /// (e.g. a PhonePe device) with the actual, later, lump-sum bank credit the aggregator settles -
+    /// net of its processing charge. Transfers the gross selected total out of the POS/EDC account's
+    /// clearing ledger into the real bank account (net amount) and books the shortfall as a charges
+    /// expense: Debit RealBank(net) + Debit Charges(fee) = Credit PosMachineAccount(gross).
+    /// </summary>
+    public async Task<EdcSettlementPostResult> PostEdcSettlementAsync(
+        EdcSettlementRequest request,
+        CancellationToken cancellationToken)
+    {
+        var strategy = db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            var result = await PostEdcSettlementCoreAsync(request, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return result;
+        });
+    }
+
+    private async Task<EdcSettlementPostResult> PostEdcSettlementCoreAsync(
+        EdcSettlementRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (request.InvoicePaymentIds.Count == 0)
+        {
+            throw new InvalidOperationException("Select at least one outstanding receipt to settle.");
+        }
+
+        if (request.PosMachineAccountId == request.RealBankAccountId)
+        {
+            throw new InvalidOperationException("The POS/EDC account and the settled-to bank account must be different.");
+        }
+
+        var posMachineAccount = await db.BankAccounts.FirstOrDefaultAsync(
+            item => item.Id == request.PosMachineAccountId && item.CompanyId == request.CompanyId, cancellationToken)
+            ?? throw new InvalidOperationException("POS/EDC account was not found.");
+        if (posMachineAccount.AccountType != AccountType.PosMachine)
+        {
+            throw new InvalidOperationException("Selected account is not tagged as a POS/EDC Machine account.");
+        }
+
+        var realBankAccount = await db.BankAccounts.FirstOrDefaultAsync(
+            item => item.Id == request.RealBankAccountId && item.CompanyId == request.CompanyId, cancellationToken)
+            ?? throw new InvalidOperationException("Settled-to bank account was not found.");
+
+        var payments = await db.InvoicePayments
+            .Where(item => request.InvoicePaymentIds.Contains(item.Id) && item.CompanyId == request.CompanyId)
+            .ToListAsync(cancellationToken);
+        if (payments.Count != request.InvoicePaymentIds.Count)
+        {
+            throw new InvalidOperationException("One or more selected receipts were not found.");
+        }
+        if (payments.Any(item => item.BankAccountId != request.PosMachineAccountId))
+        {
+            throw new InvalidOperationException("One or more selected receipts do not belong to the selected POS/EDC account.");
+        }
+        if (payments.Any(item => item.EdcSettlementBatchId.HasValue))
+        {
+            throw new InvalidOperationException("One or more selected receipts are already part of another settlement batch.");
+        }
+
+        var grossAmount = Math.Round(payments.Sum(item => item.Amount), 2, MidpointRounding.AwayFromZero);
+        var netAmountReceived = Math.Round(request.NetAmountReceived, 2, MidpointRounding.AwayFromZero);
+        if (netAmountReceived <= 0)
+        {
+            throw new InvalidOperationException("Net amount received must be greater than zero.");
+        }
+        if (netAmountReceived > grossAmount)
+        {
+            throw new InvalidOperationException($"Net amount received ({netAmountReceived:0.00}) cannot exceed the selected receipts' gross total ({grossAmount:0.00}).");
+        }
+        var chargeAmount = Math.Round(grossAmount - netAmountReceived, 2, MidpointRounding.AwayFromZero);
+
+        var realBankLedger = await db.Ledgers.FirstOrDefaultAsync(item => item.Id == realBankAccount.LedgerId, cancellationToken)
+            ?? throw new InvalidOperationException("Settled-to bank account is not linked to a ledger.");
+        var posMachineLedger = await db.Ledgers.FirstOrDefaultAsync(item => item.Id == posMachineAccount.LedgerId, cancellationToken)
+            ?? throw new InvalidOperationException("POS/EDC account is not linked to a ledger.");
+        var chargesLedger = await EnsureNamedLedgerAsync(
+            request.CompanyId, "EDC/UPI Settlement Charges", "Indirect Expenses",
+            LedgerCategory.IndirectExpenses, LedgerType.Expenses, cancellationToken);
+
+        var batch = new EdcSettlementBatch
+        {
+            CompanyId = request.CompanyId,
+            StoreGroupId = request.StoreGroupId,
+            StoreId = request.StoreId,
+            PosMachineAccountId = request.PosMachineAccountId,
+            RealBankAccountId = request.RealBankAccountId,
+            SettlementDate = request.SettlementDate.Date,
+            GrossAmount = grossAmount,
+            NetAmountReceived = netAmountReceived,
+            ChargeAmount = chargeAmount,
+            PaymentCount = payments.Count,
+            ReferenceNumber = string.IsNullOrWhiteSpace(request.ReferenceNumber) ? null : request.ReferenceNumber.Trim(),
+            Remarks = string.IsNullOrWhiteSpace(request.Remarks) ? null : request.Remarks.Trim()
+        };
+        db.EdcSettlementBatches.Add(batch);
+
+        var narration = $"EDC settlement: {posMachineAccount.AccountHolderName} -> {realBankAccount.AccountHolderName} ({payments.Count} receipt(s))";
+        var lines = new List<JournalLineDraft>
+        {
+            new(realBankLedger.Id, null, netAmountReceived, 0, narration)
+        };
+        if (chargeAmount > 0)
+        {
+            lines.Add(new(chargesLedger.Id, null, chargeAmount, 0, narration));
+        }
+        lines.Add(new(posMachineLedger.Id, null, 0, grossAmount, narration));
+
+        var entryNumber = $"EDC-{batch.SettlementDate:yyyyMMdd}-{batch.Id.ToString("N")[..8]}";
+        var journal = await RepostSourceJournalAsync(
+            "EdcSettlement", batch.Id, entryNumber, batch.SettlementDate,
+            batch.ReferenceNumber ?? entryNumber, narration,
+            request.CompanyId, request.StoreGroupId, request.StoreId, lines, cancellationToken);
+
+        batch.JournalEntryId = journal.Id;
+        batch.JournalEntryNumber = journal.EntryNumber;
+
+        foreach (var payment in payments)
+        {
+            payment.EdcSettlementBatchId = batch.Id;
+            payment.SettlementStatus = "Settled";
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        return new EdcSettlementPostResult(batch.Id, grossAmount, netAmountReceived, chargeAmount, payments.Count, journal.Id, journal.EntryNumber);
+    }
+
+    public async Task ReverseEdcSettlementAsync(Guid batchId, Guid companyId, string? reversedBy, CancellationToken cancellationToken)
+    {
+        var strategy = db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+            var batch = await db.EdcSettlementBatches.FirstOrDefaultAsync(
+                item => item.Id == batchId && item.CompanyId == companyId, cancellationToken)
+                ?? throw new InvalidOperationException("Settlement batch was not found.");
+            if (batch.Reversed)
+            {
+                throw new InvalidOperationException("This settlement batch is already reversed.");
+            }
+
+            var payments = await db.InvoicePayments
+                .Where(item => item.EdcSettlementBatchId == batchId)
+                .ToListAsync(cancellationToken);
+            foreach (var payment in payments)
+            {
+                payment.EdcSettlementBatchId = null;
+                payment.SettlementStatus = "Open";
+            }
+
+            if (batch.JournalEntryId.HasValue)
+            {
+                var journal = await db.JournalEntries
+                    .Include(entry => entry.Lines)
+                    .FirstOrDefaultAsync(entry => entry.Id == batch.JournalEntryId.Value, cancellationToken);
+                if (journal is not null)
+                {
+                    // RepostSourceJournalAsync upserts by (SourceType, SourceId) and would leave an
+                    // orphaned zero-line journal if replayed with an empty line list - hard-delete
+                    // explicitly instead, matching the pattern used elsewhere for reversal.
+                    db.JournalLines.RemoveRange(journal.Lines ?? []);
+                    db.JournalEntries.Remove(journal);
+                }
+            }
+
+            batch.Reversed = true;
+            batch.ReversedAt = DateTime.Now;
+            batch.ReversedBy = reversedBy;
+
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        });
     }
 
     public async Task<AccountingPostResult> SaveVoucherAsync(
