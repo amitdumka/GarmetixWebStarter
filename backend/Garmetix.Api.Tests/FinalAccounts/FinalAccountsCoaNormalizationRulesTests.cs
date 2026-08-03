@@ -45,6 +45,38 @@ public sealed class FinalAccountsCoaNormalizationRulesTests
         Assert.Equal(FinalAccountsAccountType.Liability, result.AccountType);
     }
 
+    [Theory]
+    [InlineData("Employees", LedgerCategory.Employees, "Loans & Advances (Asset)", "EMPLOYEE_ADVANCES", FinalAccountsAccountType.Asset)]
+    [InlineData("No Group", LedgerCategory.UnCategory, "Suspense Account", "SUSPENSE", FinalAccountsAccountType.Liability)]
+    [InlineData("Petty Expenses", LedgerCategory.Expenses, "Indirect Expenses", "INDIRECT_EXPENSES", FinalAccountsAccountType.Expense)]
+    [InlineData("Store Expenses", LedgerCategory.Expenses, "Indirect Expenses", "INDIRECT_EXPENSES", FinalAccountsAccountType.Expense)]
+    [InlineData("Snacks & Refreshments", LedgerCategory.IndirectExpenses, "Indirect Expenses", "INDIRECT_EXPENSES", FinalAccountsAccountType.Expense)]
+    [InlineData("Loans - Secured", LedgerCategory.SecuredLoans, "Secured Loans", "SECURED_LOANS", FinalAccountsAccountType.Liability)]
+    [InlineData("Loans - Unsecured", LedgerCategory.UnsecuredLoans, "Unsecured Loans", "UNSECURED_LOANS", FinalAccountsAccountType.Liability)]
+    [InlineData("Suspense Account", LedgerCategory.SuspenseAccount, "Suspense Account", "SUSPENSE", FinalAccountsAccountType.Liability)]
+    public void ApprovedLedgerGroupClassificationsUseTallyStyleEvidence(string name, LedgerCategory category, string primaryGroup, string ruleCode, FinalAccountsAccountType accountType)
+    {
+        var result = FinalAccountsCoaNormalizationRules.ClassifyLedgerGroup(name, category);
+
+        Assert.Equal(primaryGroup, result.PrimaryGroup);
+        Assert.Equal(ruleCode, result.RuleCode);
+        Assert.Equal(accountType, result.AccountType);
+        Assert.Equal("APPROVED_EXACT_NAME", result.MatchSource);
+        Assert.True(result.Confidence >= 90);
+    }
+
+    [Theory]
+    [InlineData("Current Assets", LedgerCategory.CurrentAssets, "Current Assets", FinalAccountsAccountType.Asset)]
+    [InlineData("Current Liabilities", LedgerCategory.CurrentLiabilities, "Current Liabilities", FinalAccountsAccountType.Liability)]
+    public void KeywordMatchingDoesNotMatchWordsInsideOtherWords(string name, LedgerCategory category, string primaryGroup, FinalAccountsAccountType accountType)
+    {
+        var result = FinalAccountsCoaNormalizationRules.ClassifyLedgerGroup(name, category);
+
+        Assert.Equal(primaryGroup, result.PrimaryGroup);
+        Assert.Equal(accountType, result.AccountType);
+        Assert.NotEqual("INDIRECT_EXPENSES", result.RuleCode);
+    }
+
     [Fact]
     public void UnknownGroupRequiresManualClassification()
     {

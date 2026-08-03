@@ -9,6 +9,15 @@ public static class FinalAccountsCoaNormalizationRules
     public const string PreviewEndpointPath = "/api/final-accounts/audit/coa-normalization";
     public const string BackupRequirement = "Run the deployed-host backup before remote deploy or live normalization review: npm --prefix frontend/modular run deploy:srp:backup -- --stage=BS17IndianCOANormalization";
 
+    private static readonly IReadOnlyList<CoaPrimaryGroupRule> ApprovedExactNameRules =
+    [
+        Rule("EMPLOYEE_ADVANCES", "Loans & Advances (Asset)", FinalAccountsAccountType.Asset, 96, [LedgerCategory.Employees], ["employees"]),
+        Rule("SUSPENSE", "Suspense Account", FinalAccountsAccountType.Liability, 94, [LedgerCategory.SuspenseAccount, LedgerCategory.UnCategory], ["no group", "suspense account"]),
+        Rule("INDIRECT_EXPENSES", "Indirect Expenses", FinalAccountsAccountType.Expense, 96, [LedgerCategory.IndirectExpenses, LedgerCategory.Expenses], ["petty expenses", "store expenses", "snacks & refreshments", "snacks refeshments", "snacks refreshments"]),
+        Rule("SECURED_LOANS", "Secured Loans", FinalAccountsAccountType.Liability, 96, [LedgerCategory.SecuredLoans], ["loans secured"]),
+        Rule("UNSECURED_LOANS", "Unsecured Loans", FinalAccountsAccountType.Liability, 96, [LedgerCategory.UnsecuredLoans, LedgerCategory.Loan], ["loans unsecured"])
+    ];
+
     private static readonly IReadOnlyList<CoaPrimaryGroupRule> Rules =
     [
         Rule("CAPITAL", "Capital Account", FinalAccountsAccountType.Equity, 96, [LedgerCategory.CapitalAccount], ["capital", "owner", "partner", "proprietor", "equity"]),
@@ -77,12 +86,18 @@ public static class FinalAccountsCoaNormalizationRules
     public static CoaClassificationResult ClassifyLedgerGroup(string name, LedgerCategory category)
     {
         var normalized = NormalizeName(name);
+        var approvedExactNameRule = ApprovedExactNameRules.FirstOrDefault(rule => rule.Keywords.Any(keyword => string.Equals(normalized, NormalizeName(keyword), StringComparison.OrdinalIgnoreCase)));
+        if (approvedExactNameRule is not null)
+        {
+            return ToClassification(approvedExactNameRule, approvedExactNameRule.Confidence, "APPROVED_EXACT_NAME");
+        }
+
         var categoryMatches = Rules.Where(rule => rule.Categories.Contains(category)).ToList();
         var keywordMatches = Rules
             .Select(rule => new
             {
                 Rule = rule,
-                Matched = rule.Keywords.Any(keyword => normalized.Contains(NormalizeName(keyword), StringComparison.OrdinalIgnoreCase))
+                Matched = rule.Keywords.Any(keyword => ContainsNormalizedPhrase(normalized, keyword))
             })
             .Where(item => item.Matched)
             .Select(item => item.Rule)
@@ -102,7 +117,7 @@ public static class FinalAccountsCoaNormalizationRules
             confidence -= 8;
         }
 
-        return new(selected.RuleCode, selected.PrimaryGroup, selected.AccountType, FinalAccountsCatalogRules.ExpectedNaturalBalance(selected.AccountType), Math.Max(0, confidence), "AUTO_RULE");
+        return ToClassification(selected, Math.Max(0, confidence), "AUTO_RULE");
     }
 
     public static string NormalizeName(string? value)
@@ -124,6 +139,20 @@ public static class FinalAccountsCoaNormalizationRules
         IReadOnlyList<LedgerCategory> categories,
         IReadOnlyList<string> keywords)
         => new(code, primaryGroup, accountType, confidence, categories, keywords);
+
+    private static bool ContainsNormalizedPhrase(string normalized, string keyword)
+    {
+        var normalizedKeyword = NormalizeName(keyword);
+        if (string.IsNullOrWhiteSpace(normalized) || string.IsNullOrWhiteSpace(normalizedKeyword))
+        {
+            return false;
+        }
+
+        return $" {normalized} ".Contains($" {normalizedKeyword} ", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static CoaClassificationResult ToClassification(CoaPrimaryGroupRule rule, int confidence, string matchSource)
+        => new(rule.RuleCode, rule.PrimaryGroup, rule.AccountType, FinalAccountsCatalogRules.ExpectedNaturalBalance(rule.AccountType), confidence, matchSource);
 
     private sealed record CoaPrimaryGroupRule(
         string RuleCode,
