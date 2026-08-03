@@ -136,6 +136,7 @@ builder.Services.AddScoped<AccountingPostingService>();
 builder.Services.AddScoped<SystemDefaultsService>();
 builder.Services.AddScoped<DocumentNumberService>();
 builder.Services.AddScoped<StockLedgerService>();
+builder.Services.AddScoped<SalesInvoiceHardDeleteService>();
 builder.Services.AddScoped<ApplicationMessageLogService>();
 builder.Services.AddScoped<DigitalBillCrmService>();
 builder.Services.AddScoped<DigitalBillWhatsAppService>();

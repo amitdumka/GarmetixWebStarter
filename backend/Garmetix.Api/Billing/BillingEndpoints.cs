@@ -1232,6 +1232,7 @@ public static class BillingEndpoints
         Guid id,
         HttpContext context,
         GarmetixDbContext db,
+        SalesInvoiceHardDeleteService hardDelete,
         string? confirmInvoiceNumber = null,
         string? reason = null,
         bool deleteAudit = false,
@@ -1242,6 +1243,7 @@ public static class BillingEndpoints
             id,
             context,
             db,
+            hardDelete,
             confirmInvoiceNumber,
             reason,
             deleteAudit,
@@ -1252,6 +1254,7 @@ public static class BillingEndpoints
         Guid id,
         HttpContext context,
         GarmetixDbContext db,
+        SalesInvoiceHardDeleteService hardDelete,
         string? confirmInvoiceNumber,
         string? reason,
         bool deleteAudit,
@@ -1286,129 +1289,28 @@ public static class BillingEndpoints
             return Results.Conflict(new { message = $"This invoice has linked revised/return/exchange documents: {string.Join(", ", linkedInvoices)}. Hard delete those linked documents first or keep the audit chain." });
         }
 
-        var invoiceNumber = invoice.InvoiceNumber;
-        var companyId = invoice.CompanyId;
-        var storeId = invoice.StoreId;
-        var storeGroupId = await db.Stores.AsNoTracking()
-            .Where(item => item.Id == storeId)
+        var invoiceNumberForAudit = invoice.InvoiceNumber;
+        var companyIdForAudit = invoice.CompanyId;
+        var storeIdForAudit = invoice.StoreId;
+        var storeGroupIdForAudit = await db.Stores.AsNoTracking()
+            .Where(item => item.Id == storeIdForAudit)
             .Select(item => item.StoreGroupId)
             .FirstOrDefaultAsync(cancellationToken);
+        var beforeSnapshot = new { invoice.Id, invoice.InvoiceNumber, invoice.BillAmount, invoice.PaidAmount, invoice.InvoiceStatus };
 
-        var saleBankReference = $"SI-{invoiceNumber}";
-        var saleCancelBankReference = $"SIC-{invoiceNumber}";
-        var saleReturnBankReference = $"SR-{invoiceNumber}";
-        var saleExchangeBankReference = $"SX-{invoiceNumber}";
-
-        var bankTransactions = await db.BankTransactions
-            .Where(item => item.CompanyId == companyId && item.Reference != null &&
-                (item.Reference == saleBankReference || item.Reference.StartsWith(saleBankReference + "-") ||
-                 item.Reference == saleCancelBankReference || item.Reference.StartsWith(saleCancelBankReference + "-") ||
-                 item.Reference == saleReturnBankReference || item.Reference.StartsWith(saleReturnBankReference + "-") ||
-                 item.Reference == saleExchangeBankReference || item.Reference.StartsWith(saleExchangeBankReference + "-")))
-            .ToListAsync(cancellationToken);
-        var bankTransactionIds = bankTransactions.Select(item => item.Id).ToList();
-
-        var bankStatementLines = bankTransactionIds.Count == 0
-            ? new List<Garmetix.Core.Models.Accounting.BankStatementLine>()
-            : await db.BankStatementLines.Where(item => item.BankTransactionId.HasValue && bankTransactionIds.Contains(item.BankTransactionId.Value)).ToListAsync(cancellationToken);
-        var chequeLogs = bankTransactionIds.Count == 0
-            ? new List<Garmetix.Core.Models.Accounting.ChequeLog>()
-            : await db.ChequeLogs.Where(item => item.BankTransactionId.HasValue && bankTransactionIds.Contains(item.BankTransactionId.Value)).ToListAsync(cancellationToken);
-
-        var journalEntries = await db.JournalEntries
-            .Where(item => item.CompanyId == companyId &&
-                ((item.SourceId.HasValue && item.SourceId.Value == invoice.Id) ||
-                 item.ReferenceNumber == $"SI-{invoiceNumber}" ||
-                 item.ReferenceNumber == $"SIC-{invoiceNumber}" ||
-                 item.ReferenceNumber == $"SR-{invoiceNumber}" ||
-                 item.ReferenceNumber == $"SX-{invoiceNumber}"))
-            .ToListAsync(cancellationToken);
-        var journalEntryIds = journalEntries.Select(item => item.Id).ToList();
-        var journalLines = journalEntryIds.Count == 0
-            ? new List<Garmetix.Core.Models.Accounting.JournalLine>()
-            : await db.JournalLines.Where(item => journalEntryIds.Contains(item.JournalEntryId)).ToListAsync(cancellationToken);
-
-        var invoiceItems = await db.InvoiceItems.Where(item => item.InvoiceId == invoice.Id).ToListAsync(cancellationToken);
-        var invoicePayments = await db.InvoicePayments.Where(item => item.InvoiceId == invoice.Id).ToListAsync(cancellationToken);
-        var cardPayments = await db.CardPayments.Where(item => item.InvoiceId == invoice.Id).ToListAsync(cancellationToken);
-        var stockMovements = await db.StockMovements
-            .Where(item => item.CompanyId == companyId &&
-                ((item.SourceId.HasValue && item.SourceId.Value == invoice.Id) ||
-                 item.SourceNumber == invoiceNumber ||
-                 item.SourceNumber == $"SI-{invoiceNumber}" ||
-                 item.SourceNumber == $"SIC-{invoiceNumber}"))
-            .ToListAsync(cancellationToken);
-        var commercialNotes = await db.CommercialNotes
-            .Where(item => item.CompanyId == companyId &&
-                ((item.SourceId.HasValue && item.SourceId.Value == invoice.Id) || item.SourceNumber == invoiceNumber))
-            .ToListAsync(cancellationToken);
-        var loyaltyLedgers = await db.LoyaltyPointLedgers
-            .Where(item => item.CompanyId == companyId &&
-                ((item.SourceId.HasValue && item.SourceId.Value == invoice.Id) || item.SourceNumber == invoiceNumber))
-            .ToListAsync(cancellationToken);
-        var auditEntries = deleteAudit
-            ? await db.AuditLogEntries.Where(item => item.EntityId == invoice.Id || item.Reference == invoiceNumber || item.Reference == $"SI-{invoiceNumber}" || item.Reference == $"SIC-{invoiceNumber}").ToListAsync(cancellationToken)
-            : new List<AuditLogEntry>();
-        var digitalInvoices = await db.DigitalInvoices
-            .Where(item => item.CompanyId == companyId && item.InvoiceId == invoice.Id && !item.Deleted)
-            .ToListAsync(cancellationToken);
-
-        var response = new AdminHardDeleteSaleResponse(
-            invoice.Id,
-            invoiceNumber,
-            "HardDeleted",
-            invoiceItems.Count,
-            invoicePayments.Count,
-            cardPayments.Count,
-            stockMovements.Count,
-            journalEntries.Count,
-            journalLines.Count,
-            bankTransactions.Count,
-            bankStatementLines.Count,
-            chequeLogs.Count,
-            commercialNotes.Count,
-            loyaltyLedgers.Count,
-            auditEntries.Count);
-
-        db.BankStatementLines.RemoveRange(bankStatementLines);
-        db.ChequeLogs.RemoveRange(chequeLogs);
-        db.BankTransactions.RemoveRange(bankTransactions);
-        db.JournalLines.RemoveRange(journalLines);
-        db.JournalEntries.RemoveRange(journalEntries);
-        db.InvoicePayments.RemoveRange(invoicePayments);
-        db.CardPayments.RemoveRange(cardPayments);
-        db.InvoiceItems.RemoveRange(invoiceItems);
-        db.StockMovements.RemoveRange(stockMovements);
-        db.CommercialNotes.RemoveRange(commercialNotes);
-        db.LoyaltyPointLedgers.RemoveRange(loyaltyLedgers);
-        db.SalesInvoices.Remove(invoice);
-        if (auditEntries.Count > 0)
-        {
-            db.AuditLogEntries.RemoveRange(auditEntries);
-        }
-        foreach (var digitalInvoice in digitalInvoices)
-        {
-            // Soft-delete rather than remove: keeps WhatsApp log / feedback / campaign
-            // recipient history intact while stopping the CRM Digital Bills list from
-            // still showing a live-looking link for an invoice that no longer exists.
-            digitalInvoice.Deleted = true;
-            digitalInvoice.IsActive = false;
-            digitalInvoice.DisabledAt = DateTime.UtcNow;
-            digitalInvoice.DisableReason = "Source sale invoice was hard-deleted";
-            digitalInvoice.UpdatedAt = DateTime.UtcNow;
-        }
+        var response = await hardDelete.HardDeleteAsync(invoice, deleteAudit, cancellationToken);
 
         AddBillingAudit(
             db,
             context,
             "HardDeleted",
-            invoice.Id,
-            invoiceNumber,
-            companyId,
-            storeGroupId,
-            storeId,
+            id,
+            invoiceNumberForAudit,
+            companyIdForAudit,
+            storeGroupIdForAudit,
+            storeIdForAudit,
             string.IsNullOrWhiteSpace(reason) ? "Admin hard delete after cancellation/reversal" : reason.Trim(),
-            before: new { invoice.Id, invoice.InvoiceNumber, invoice.BillAmount, invoice.PaidAmount, invoice.InvoiceStatus },
+            before: beforeSnapshot,
             after: response);
 
         await db.SaveChangesAsync(cancellationToken);

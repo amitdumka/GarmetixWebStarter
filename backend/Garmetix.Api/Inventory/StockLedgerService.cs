@@ -142,6 +142,64 @@ public sealed class StockLedgerService(GarmetixDbContext db)
         return snapshot;
     }
 
+    /// <summary>
+    /// Corrects a historical inward (QuantityIn) movement's recorded quantity - e.g. a bulk-import script
+    /// that under-recorded stock vs. the source invoice line - and replays the whole ledger for that stock
+    /// so every later movement's Before/After/AverageCost/InventoryValue and the Stock rollup stay consistent,
+    /// exactly as PostAsync already does when adding a new movement. The movement's own CostPrice is left
+    /// untouched; only its quantity changes.
+    /// </summary>
+    public async Task<StockLedgerPosting> CorrectMovementQuantityAsync(
+        Guid movementId,
+        decimal correctedQuantityIn,
+        CancellationToken cancellationToken)
+    {
+        var target = await db.StockMovements.FirstOrDefaultAsync(item => item.Id == movementId, cancellationToken)
+            ?? throw new InvalidOperationException("Stock movement was not found.");
+        if (target.QuantityOut > 0 || target.QuantityIn <= 0)
+        {
+            throw new InvalidOperationException("Only inward (QuantityIn) stock movements can be quantity-corrected with this tool.");
+        }
+        if (correctedQuantityIn <= 0)
+        {
+            throw new InvalidOperationException("Corrected quantity must be greater than zero.");
+        }
+        if (!target.StockId.HasValue)
+        {
+            throw new InvalidOperationException("Stock movement has no linked stock record.");
+        }
+
+        var stock = await db.Stocks.FirstOrDefaultAsync(item => item.Id == target.StockId.Value, cancellationToken)
+            ?? throw new InvalidOperationException("Linked stock record was not found.");
+
+        target.QuantityIn = correctedQuantityIn;
+        target.UpdatedAt = DateTime.UtcNow;
+
+        var movements = await db.StockMovements
+            .Where(item => item.StockId == stock.Id)
+            .ToListAsync(cancellationToken);
+
+        var snapshot = StockLedgerSnapshot.Empty;
+        StockLedgerPosting? targetPosting = null;
+        foreach (var item in movements
+            .OrderBy(item => item.OnDate)
+            .ThenBy(item => item.CreatedAt)
+            .ThenBy(item => item.Id))
+        {
+            var posting = StockLedgerCalculator.Apply(
+                snapshot, item.QuantityIn, item.QuantityOut, item.CostPrice, item.OnDate, allowNegative: true);
+            ApplyPosting(item, posting);
+            snapshot = posting.After;
+            if (item.Id == movementId)
+            {
+                targetPosting = posting;
+            }
+        }
+
+        ApplyProjection(stock, snapshot);
+        return targetPosting ?? throw new InvalidOperationException("Correction could not be applied.");
+    }
+
     private static void ApplyProjection(Stock stock, StockLedgerSnapshot snapshot)
     {
         stock.PurchaseQty = snapshot.TotalQuantityIn;

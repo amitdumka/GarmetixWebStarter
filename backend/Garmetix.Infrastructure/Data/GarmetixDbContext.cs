@@ -1517,7 +1517,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
             ActionType = action,
             SourceType = sourceType,
             SourceId = entityId.Value,
-            SourceNumber = sourceNumber,
+            SourceNumber = TruncatePlain(sourceNumber, 120),
             PartyName = TruncatePlain(party, 120),
             PaymentMode = TruncatePlain(mode, 120),
             Amount = Math.Round(amount, 2),

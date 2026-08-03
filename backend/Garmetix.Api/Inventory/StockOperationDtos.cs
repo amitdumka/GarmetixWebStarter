@@ -38,6 +38,19 @@ public sealed record StockAdjustmentRequest(
     string Direction,
     string? Reason);
 
+public sealed record CorrectMovementQuantityRequest(
+    decimal CorrectedQuantityIn,
+    string Reason);
+
+public sealed record CorrectMovementQuantityResponse(
+    Guid MovementId,
+    Guid StockId,
+    string Barcode,
+    decimal PreviousQuantityIn,
+    decimal CorrectedQuantityIn,
+    decimal StockQuantityAfter,
+    decimal AverageCostAfter);
+
 public sealed record StockTransferRequest(
     Guid FromStockId,
     Guid ToStoreId,

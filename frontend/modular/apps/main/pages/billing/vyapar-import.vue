@@ -369,7 +369,7 @@ watch(paymentSources, (sources) => {
     }
   })
 })
-const unmappedNonCashCount = computed(() => paymentSources.value.filter(source => source.paymentMode !== 'Cash' && !paymentMappings[source.key]).length)
+const unmappedNonCashCount = computed(() => paymentSources.value.filter(source => source.paymentKindLabel !== 'Cash' && !paymentMappings[source.key]).length)
 
 const invoiceRows = computed(() => toRows(preview.value?.invoices))
 
@@ -578,7 +578,7 @@ async function confirmImport() {
     }
     const paymentBankMappings = paymentSources.value
       .filter(source => paymentMappings[source.key])
-      .map(source => ({ sourceName: source.sourceName, paymentMode: source.paymentMode, bankAccountId: paymentMappings[source.key] }))
+      .map(source => ({ sourceName: source.sourceName, paymentMode: Number(source.paymentMode), bankAccountId: paymentMappings[source.key] }))
 
     const commonFields = {
       companyId: readText(selectedStore.value, ['companyId'], ''),
@@ -620,7 +620,17 @@ async function confirmImport() {
         ? `Importing ${doneCount + chunk.length} of ${invoices.length} invoices (chunk ${chunkIndex + 1} of ${chunks.length})...`
         : `Importing ${invoices.length} invoice(s)...`
       const body = { ...commonFields, invoices: chunk, importBatchId: batchId }
-      const result = await post<ApiRecord>('sale-import/vyapar/confirm', body)
+      let result: ApiRecord
+      try {
+        result = await post<ApiRecord>('sale-import/vyapar/confirm', body)
+      } catch (chunkError) {
+        // Surface exactly which invoices were in the failing chunk so a recurrence is trivial to
+        // pinpoint, instead of re-guessing across the whole batch again.
+        const invoiceNumbers = chunk.map(item => readText(item, ['sourceInvoiceNumber'], '?')).join(', ')
+        const baseMessage = chunkError instanceof Error ? chunkError.message : 'Unable to confirm import.'
+        confirmResult.value = { ...aggregate }
+        throw new Error(`Chunk ${chunkIndex + 1} of ${chunks.length} failed (invoices: ${invoiceNumbers}): ${baseMessage}. ${doneCount} invoice(s) from earlier chunks were already imported successfully.`)
+      }
       aggregate.importBatchReference = readText(result, ['importBatchReference'], aggregate.importBatchReference)
       aggregate.importedInvoiceCount += readNumber(result, ['importedInvoiceCount'])
       aggregate.skippedInvoiceCount += readNumber(result, ['skippedInvoiceCount'])

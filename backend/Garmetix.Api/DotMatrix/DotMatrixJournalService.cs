@@ -168,9 +168,9 @@ public sealed class DotMatrixJournalService(GarmetixDbContext db, IOptions<DotMa
             ActionType = actionType,
             SourceType = sourceType,
             SourceId = sourceId,
-            SourceNumber = sourceNumber,
+            SourceNumber = ClampToColumn(sourceNumber, 120),
             PartyName = DotMatrixTextFormatter.Fit(partyName, Math.Min(120, Math.Max(10, partyName.Length))).Trim(),
-            PaymentMode = paymentMode,
+            PaymentMode = ClampToColumn(paymentMode, 120),
             Amount = Math.Round(amount, 2),
             SequenceNo = nowUtc.Ticks,
             LineWidth = setting.LineWidth,
@@ -185,6 +185,11 @@ public sealed class DotMatrixJournalService(GarmetixDbContext db, IOptions<DotMa
         logger.LogInformation("Queued dot-matrix print entry {EntryId} {SourceType} {ActionType}", entry.Id, sourceType, actionType);
         return entry;
     }
+
+    // SourceNumber/PaymentMode are varchar(120) columns but were previously written unclamped -
+    // a long value here throws PostgresException 22001 and fails the whole SaveChanges batch.
+    private static string ClampToColumn(string? value, int maxLength)
+        => string.IsNullOrEmpty(value) ? string.Empty : value.Length <= maxLength ? value : value[..maxLength];
 
     public async Task<DotMatrixPrintQueueEntry> QueueReprintAsync(Guid entryId, string? requestedBy, CancellationToken cancellationToken)
     {

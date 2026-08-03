@@ -158,15 +158,15 @@
       </div>
     </section>
 
-    <UModal v-model:open="undoOpen" title="Reverse Import Batch" description="This cancels every active invoice in the batch and reverses stock/accounting. This cannot be undone.">
+    <UModal v-model:open="undoOpen" title="Hard Delete Import Batch" description="This permanently deletes every active invoice in the batch - line items, stock movements, payments and any accounting postings - as if the import never happened, so the same file can be reimported cleanly. This cannot be undone.">
       <template #body>
         <div class="grid gap-3">
           <p class="text-sm">Batch: <strong>{{ undoTarget?.batchReference }}</strong> ({{ undoTarget?.activeInvoiceCount }} active invoice(s))</p>
-          <UTextarea v-model="undoReason" :rows="3" placeholder="Reason for reversal" />
-          <label class="flex items-center gap-2 text-sm"><input type="checkbox" v-model="undoConfirmed"> I understand this reverses stock and accounting for this batch.</label>
+          <UTextarea v-model="undoReason" :rows="3" placeholder="Reason for hard delete" />
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" v-model="undoConfirmed"> I understand this permanently deletes these invoices and everything they created (stock movements, payments, accounting) - not reversible.</label>
           <UAlert v-if="undoError" color="error" variant="subtle" :description="undoError" />
           <div class="flex justify-end gap-2">
-            <UButton color="error" icon="i-lucide-undo-2" :loading="undoing" :disabled="!undoConfirmed" @click="confirmUndo">Reverse Batch</UButton>
+            <UButton color="error" icon="i-lucide-trash-2" :loading="undoing" :disabled="!undoConfirmed" @click="confirmUndo">Hard Delete Batch</UButton>
           </div>
         </div>
       </template>
@@ -354,10 +354,10 @@ async function confirmUndo() {
       reason: undoReason.value.trim() || null
     })
     undoOpen.value = false
-    message.value = `Batch ${undoTarget.value.batchReference} reversed.`
+    message.value = `Batch ${undoTarget.value.batchReference} hard-deleted.`
     await Promise.all([loadBatches(), loadSummary()])
   } catch (caught) {
-    undoError.value = caught instanceof Error ? caught.message : 'Unable to reverse batch.'
+    undoError.value = caught instanceof Error ? caught.message : 'Unable to hard-delete batch.'
   } finally {
     undoing.value = false
   }

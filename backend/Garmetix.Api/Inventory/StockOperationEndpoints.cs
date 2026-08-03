@@ -25,6 +25,7 @@ public static class StockOperationEndpoints
         group.MapPost("/transfer", CreateTransferAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/physical-count", CreatePhysicalCountAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapPost("/write-off", CreateWriteOffAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        group.MapPost("/movements/{id:guid}/correct-quantity", CorrectMovementQuantityAsync).RequireAuthorization(GarmetixPolicies.Admin);
 
         return group;
     }
@@ -905,6 +906,55 @@ public static class StockOperationEndpoints
             StoreId = stock.StoreId
         };
         return movement;
+    }
+
+    private static async Task<IResult> CorrectMovementQuantityAsync(
+        Guid id,
+        CorrectMovementQuantityRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        StockLedgerService stockLedger,
+        CancellationToken cancellationToken)
+    {
+        if (request.CorrectedQuantityIn <= 0)
+        {
+            return Results.BadRequest(new { message = "Corrected quantity must be greater than zero." });
+        }
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            return Results.BadRequest(new { message = "A reason is required to correct a historical stock movement quantity." });
+        }
+
+        var movement = await WorkspaceScope.ApplyTo(db.StockMovements, context)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (movement is null)
+        {
+            return Results.NotFound(new { message = "Stock movement was not found." });
+        }
+
+        var previousQuantityIn = movement.QuantityIn;
+        var priorRemarks = movement.Remarks;
+        movement.Remarks = string.IsNullOrWhiteSpace(priorRemarks)
+            ? $"Quantity corrected from {previousQuantityIn:0.##} to {request.CorrectedQuantityIn:0.##}: {request.Reason.Trim()}"
+            : $"{priorRemarks} | Quantity corrected from {previousQuantityIn:0.##} to {request.CorrectedQuantityIn:0.##}: {request.Reason.Trim()}";
+
+        try
+        {
+            var posting = await stockLedger.CorrectMovementQuantityAsync(id, request.CorrectedQuantityIn, cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            return Results.Ok(new CorrectMovementQuantityResponse(
+                movement.Id,
+                movement.StockId ?? Guid.Empty,
+                movement.Barcode,
+                previousQuantityIn,
+                request.CorrectedQuantityIn,
+                posting.After.Quantity,
+                posting.After.AverageCost));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
     }
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

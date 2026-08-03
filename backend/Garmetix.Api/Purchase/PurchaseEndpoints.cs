@@ -3442,11 +3442,19 @@ public static class PurchaseEndpoints
         var invoiceNumber = request.InvoiceNumber?.Trim();
         if (!string.IsNullOrWhiteSpace(invoiceNumber))
         {
-            var exists = await WorkspaceScope.ApplyTo(db.PurchaseInvoices.AsNoTracking(), context)
-                .AnyAsync(item => item.Id != id && item.CompanyId == invoice.CompanyId && item.InvoiceNumber == invoiceNumber, cancellationToken);
-            if (exists)
+            // Only re-check uniqueness when the number is actually changing. Vendor invoice numbers are
+            // free text and the create/inward path never enforced uniqueness on them (two different vendors,
+            // or the same vendor across periods, can legitimately share a number) - so pre-existing invoices
+            // can already collide. Re-validating on every save (even when this field isn't touched) would
+            // permanently block editing any other field on such an invoice.
+            if (!string.Equals(invoiceNumber, invoice.InvoiceNumber, StringComparison.Ordinal))
             {
-                return Results.Conflict(new { message = $"Purchase invoice number {invoiceNumber} already exists." });
+                var exists = await WorkspaceScope.ApplyTo(db.PurchaseInvoices.AsNoTracking(), context)
+                    .AnyAsync(item => item.Id != id && item.CompanyId == invoice.CompanyId && item.InvoiceNumber == invoiceNumber, cancellationToken);
+                if (exists)
+                {
+                    return Results.Conflict(new { message = $"Purchase invoice number {invoiceNumber} already exists." });
+                }
             }
             invoice.InvoiceNumber = invoiceNumber;
         }
@@ -3454,11 +3462,14 @@ public static class PurchaseEndpoints
         var inwardNumber = request.InwardNumber?.Trim();
         if (!string.IsNullOrWhiteSpace(inwardNumber))
         {
-            var exists = await WorkspaceScope.ApplyTo(db.PurchaseInvoices.AsNoTracking(), context)
-                .AnyAsync(item => item.Id != id && item.CompanyId == invoice.CompanyId && item.InwardNumber == inwardNumber, cancellationToken);
-            if (exists)
+            if (!string.Equals(inwardNumber, invoice.InwardNumber, StringComparison.Ordinal))
             {
-                return Results.Conflict(new { message = $"Inward number {inwardNumber} already exists." });
+                var exists = await WorkspaceScope.ApplyTo(db.PurchaseInvoices.AsNoTracking(), context)
+                    .AnyAsync(item => item.Id != id && item.CompanyId == invoice.CompanyId && item.InwardNumber == inwardNumber, cancellationToken);
+                if (exists)
+                {
+                    return Results.Conflict(new { message = $"Inward number {inwardNumber} already exists." });
+                }
             }
             invoice.InwardNumber = inwardNumber;
         }

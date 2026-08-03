@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Garmetix.Api.Accounting;
+using Garmetix.Api.Billing;
 using Garmetix.Api.Inventory;
 using Garmetix.Api.Numbering;
 using Garmetix.Api.Workspace;
@@ -25,6 +26,7 @@ public sealed class VyaparSaleImportService(
     DocumentNumberService documentNumbers,
     AccountingPostingService accounting,
     StockLedgerService stockLedger,
+    SalesInvoiceHardDeleteService hardDelete,
     ILogger<VyaparSaleImportService> logger)
 {
     private const long MaxUploadBytes = 25L * 1024L * 1024L;
@@ -967,22 +969,40 @@ public sealed class VyaparSaleImportService(
             invoices = invoices.Where(item => item.StoreId == request.StoreId.Value).ToList();
         }
 
+        // Hard-delete rather than soft-cancel: a soft-cancel reverses stock by posting a NEW offsetting
+        // movement dated "now," but a reimport's stock-availability check replays movements only up to the
+        // ORIGINAL invoice's own historical date - so that offsetting movement (dated after the cutoff) was
+        // invisible to it, and a clean reimport of the same historical file kept failing with "insufficient
+        // stock" even though total/current stock was already mathematically correct. Hard-deleting the exact
+        // rows this import created removes the original stock-out movement outright, so the historical-date
+        // check sees the batch as if it had never run at all.
         await using var tx = await db.Database.BeginTransactionAsync(cancellationToken);
-        var cancelled = new List<string>();
+        var removedInvoices = new List<string>();
         var skipped = new List<string>();
         decimal reversedQuantity = 0;
         decimal reversedAmount = 0;
         foreach (var invoice in invoices)
         {
-            if (invoice.InvoiceStatus == InvoiceStatus.Cancelled)
+            var linkedInvoices = await db.SalesInvoices.AsNoTracking()
+                .Where(item => item.OriginalInvoiceId == invoice.Id && item.CompanyId == invoice.CompanyId)
+                .Select(item => item.InvoiceNumber)
+                .Take(5)
+                .ToListAsync(cancellationToken);
+            if (linkedInvoices.Count > 0)
             {
-                skipped.Add($"{invoice.InvoiceNumber}: already cancelled.");
+                skipped.Add($"{invoice.InvoiceNumber}: has linked revised/return/exchange documents ({string.Join(", ", linkedInvoices)}) - undo those first.");
                 continue;
             }
-            var result = await CancelImportedInvoiceAsync(context, invoice, reason, cancellationToken);
-            cancelled.Add(invoice.InvoiceNumber);
-            reversedQuantity += result.ReversedQuantity;
-            reversedAmount += result.ReversedAmount;
+
+            var itemTotals = await db.InvoiceItems
+                .Where(item => item.InvoiceId == invoice.Id)
+                .Select(item => new { item.BilledQuantity, item.Amount })
+                .ToListAsync(cancellationToken);
+            reversedQuantity += itemTotals.Sum(item => item.BilledQuantity);
+            reversedAmount += itemTotals.Sum(item => item.Amount);
+
+            await hardDelete.HardDeleteAsync(invoice, deleteAudit: false, cancellationToken);
+            removedInvoices.Add(invoice.InvoiceNumber);
         }
 
         AddVyaparImportAudit(
@@ -993,15 +1013,15 @@ public sealed class VyaparSaleImportService(
             request.CompanyId,
             request.StoreGroupId,
             request.StoreId ?? invoices.FirstOrDefault()?.StoreId,
-            cancelled.Count,
+            removedInvoices.Count,
             skipped.Count,
             0,
             reversedAmount,
-            new { CancelledInvoices = cancelled, SkippedInvoices = skipped, ReversedQuantity = reversedQuantity, Reason = reason });
+            new { HardDeletedInvoices = removedInvoices, SkippedInvoices = skipped, ReversedQuantity = reversedQuantity, Reason = reason });
 
         await db.SaveChangesAsync(cancellationToken);
         await tx.CommitAsync(cancellationToken);
-        return new VyaparSaleImportUndoResponse(request.BatchId, cancelled.Count, skipped.Count, reversedQuantity, reversedAmount, cancelled, skipped);
+        return new VyaparSaleImportUndoResponse(request.BatchId, removedInvoices.Count, skipped.Count, reversedQuantity, reversedAmount, removedInvoices, skipped);
     }
 
     public async Task<VyaparSaleImportClearHistoryResponse> ClearImportHistoryAsync(
@@ -1478,82 +1498,6 @@ public sealed class VyaparSaleImportService(
         await db.Database.ExecuteSqlRawAsync("""
             ALTER TABLE "SalesInvoices" ADD COLUMN IF NOT EXISTS "Remarks" text NULL;
             """, cancellationToken);
-    }
-
-    private async Task<(decimal ReversedQuantity, decimal ReversedAmount)> CancelImportedInvoiceAsync(
-        HttpContext context,
-        Invoice invoice,
-        string reason,
-        CancellationToken cancellationToken)
-    {
-        var originalPaidAmount = invoice.PaidAmount;
-        var originalPaymentMode = invoice.PaymentMode;
-        var originalPaymentRows = await db.InvoicePayments
-            .AsNoTracking()
-            .Where(item => item.InvoiceId == invoice.Id && item.CompanyId == invoice.CompanyId)
-            .OrderBy(item => item.OnDate)
-            .ThenBy(item => item.Id)
-            .ToListAsync(cancellationToken);
-        var originalBankAccountId = await db.BankTransactions
-            .Where(item => item.CompanyId == invoice.CompanyId &&
-                (item.Reference == $"SI-{invoice.InvoiceNumber}" || item.Reference.StartsWith($"SI-{invoice.InvoiceNumber}-PAY-")))
-            .Select(item => (Guid?)item.BankAccountId)
-            .FirstOrDefaultAsync(cancellationToken);
-        var storeGroupId = await db.Stores
-            .Where(item => item.Id == invoice.StoreId)
-            .Select(item => item.StoreGroupId)
-            .FirstOrDefaultAsync(cancellationToken);
-        var items = await db.InvoiceItems.Where(item => item.InvoiceId == invoice.Id).ToListAsync(cancellationToken);
-        decimal reversedQuantity = 0;
-        decimal reversedAmount = 0;
-        foreach (var item in items)
-        {
-            var stock = await db.Stocks.FirstOrDefaultAsync(stockItem =>
-                stockItem.ProductId == item.ProductId &&
-                stockItem.Barcode == item.Barcode &&
-                stockItem.StoreId == invoice.StoreId &&
-                !stockItem.IsOFB,
-                cancellationToken);
-            if (stock is null)
-            {
-                continue;
-            }
-            stock.SoldValue = Math.Max(0, stock.SoldValue - item.Amount);
-            var snapshot = await stockLedger.GetSnapshotAsync(stock, cancellationToken);
-            await stockLedger.PostAsync(stock, new StockMovement
-            {
-                Barcode = stock.Barcode,
-                MovementType = "VyaparImportUndoIn",
-                QuantityIn = item.BilledQuantity,
-                CostPrice = snapshot.AverageCost,
-                MRP = item.MRP,
-                TaxRate = item.TaxPercentage,
-                HSNCode = item.HSNCode ?? stock.HSNCode,
-                SourceType = "VyaparSaleImportUndo",
-                SourceId = invoice.Id,
-                SourceNumber = invoice.InvoiceNumber,
-                Remarks = reason,
-                OnDate = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified),
-                CompanyId = invoice.CompanyId,
-                StoreGroupId = storeGroupId,
-                StoreId = invoice.StoreId
-            }, cancellationToken);
-            reversedQuantity += item.BilledQuantity;
-            reversedAmount += item.Amount;
-        }
-        var customer = await db.Customers.FirstOrDefaultAsync(item => item.Id == invoice.CustomerId, cancellationToken);
-        if (customer is not null)
-        {
-            customer.BillCount = Math.Max(0, customer.BillCount - 1);
-            customer.Amount = Math.Max(0, customer.Amount - invoice.BillAmount);
-        }
-        invoice.InvoiceStatus = InvoiceStatus.Cancelled;
-        invoice.PaidAmount = 0;
-        invoice.PaymentMode = null;
-        invoice.CreditSale = false;
-        invoice.Remarks = string.Join(" | ", new[] { invoice.Remarks, $"VyaparImportUndoAt={DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}", $"UndoReason={reason}" }.Where(item => !string.IsNullOrWhiteSpace(item)));
-        await accounting.PostSalesInvoiceCancellationAsync(invoice, customer, storeGroupId, originalPaidAmount, originalPaymentMode, originalBankAccountId, ToAccountingPaymentPostings(originalPaymentRows), cancellationToken);
-        return (reversedQuantity, reversedAmount);
     }
 
     private static IReadOnlyList<SalesInvoicePaymentPosting> ToAccountingPaymentPostings(IReadOnlyList<InvoicePayment> payments)

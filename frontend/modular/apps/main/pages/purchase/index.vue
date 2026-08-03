@@ -177,6 +177,10 @@
             <UInput v-model="editForm.inwardNumber" />
           </label>
           <label class="space-y-1 text-sm">
+            <span class="text-muted">Purchase invoice date</span>
+            <UInput v-model="editForm.onDate" type="date" />
+          </label>
+          <label class="space-y-1 text-sm">
             <span class="text-muted">Inward date</span>
             <UInput v-model="editForm.inwardDate" type="date" />
           </label>
@@ -333,7 +337,7 @@ const cancelOpen = ref(false)
 const deleteOpen = ref(false)
 const cancelReason = ref('')
 
-const editForm = reactive({ invoiceNumber: '', inwardNumber: '', inwardDate: '', supplierInvoiceDate: '', dueDate: '', vendorName: '', vendorGstin: '' })
+const editForm = reactive({ invoiceNumber: '', inwardNumber: '', onDate: '', inwardDate: '', supplierInvoiceDate: '', dueDate: '', vendorName: '', vendorGstin: '' })
 const payForm = reactive({ amount: 0, paymentMode: 0, bankAccountId: '', slipNumber: '', remarks: '' })
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / Number(pageSize.value || 50))))
@@ -470,6 +474,7 @@ function startEdit(invoice: ApiRecord) {
   Object.assign(editForm, {
     invoiceNumber: readText(invoice, ['invoiceNumber'], ''),
     inwardNumber: readText(invoice, ['inwardNumber'], ''),
+    onDate: String(invoice.onDate || '').slice(0, 10),
     inwardDate: String(invoice.inwardDate || '').slice(0, 10),
     supplierInvoiceDate: String(invoice.supplierInvoiceDate || '').slice(0, 10),
     dueDate: String(invoice.dueDate || '').slice(0, 10),
@@ -489,6 +494,7 @@ async function saveEdit() {
     await put<unknown>(`purchase/invoices/${id}`, {
       invoiceNumber: editForm.invoiceNumber || null,
       inwardNumber: editForm.inwardNumber || null,
+      onDate: editForm.onDate || null,
       inwardDate: editForm.inwardDate || null,
       supplierInvoiceDate: editForm.supplierInvoiceDate || null,
       dueDate: editForm.dueDate || null,

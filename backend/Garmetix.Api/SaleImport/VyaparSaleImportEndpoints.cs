@@ -1,4 +1,7 @@
 using Garmetix.Api.Auth;
+using Microsoft.AspNetCore.Http.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Garmetix.Api.SaleImport;
 
@@ -33,11 +36,30 @@ public static class VyaparSaleImportEndpoints
         .RequireAuthorization(GarmetixPolicies.Billing);
 
         group.MapPost("/confirm", async (
-            VyaparSaleImportConfirmRequest request,
-            VyaparSaleImportService service,
             HttpContext context,
+            VyaparSaleImportService service,
+            IOptions<JsonOptions> jsonOptions,
             CancellationToken cancellationToken) =>
         {
+            VyaparSaleImportConfirmRequest? request;
+            try
+            {
+                request = await context.Request.ReadFromJsonAsync<VyaparSaleImportConfirmRequest>(
+                    jsonOptions.Value.SerializerOptions, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                // Minimal-API implicit body binding swallows deserialization failures as an empty 400.
+                // Reading the body explicitly surfaces the real field/reason so a bad request is diagnosable
+                // instead of showing up as a generic "invalid request" with no clue which invoice/field broke.
+                return Results.BadRequest(new { message = $"Could not read the import request body: {ex.Message}" });
+            }
+
+            if (request is null)
+            {
+                return Results.BadRequest(new { message = "Import request body was empty." });
+            }
+
             try
             {
                 var result = await service.ConfirmAsync(context, request, cancellationToken);
@@ -46,6 +68,18 @@ public static class VyaparSaleImportEndpoints
             catch (InvalidOperationException ex)
             {
                 return Results.BadRequest(new { message = ex.Message });
+            }
+            catch (DbUpdateException ex)
+            {
+                // A raw SaveChanges failure (e.g. a Postgres column-length/constraint violation) previously
+                // fell through to the generic global exception handler as an opaque "Unexpected server error"
+                // with no clue which field or invoice caused it. Surfacing the real database message here
+                // lets the frontend's per-chunk error enrichment show it next to the actual invoice numbers.
+                var detail = ex.InnerException?.Message ?? ex.Message;
+                return Results.Problem(
+                    title: "Could not save this batch of invoices.",
+                    detail: detail,
+                    statusCode: StatusCodes.Status500InternalServerError);
             }
         }).RequireAuthorization(GarmetixPolicies.Edit);
 
