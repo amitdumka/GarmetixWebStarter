@@ -10,7 +10,7 @@
 ## Current Branch And SRP Target
 
 - Local branch: `version7`.
-- Latest pushed commit observed on 2026-08-04: `21e6190 fix(final-accounts): resolve inventory BS19 import backfill`.
+- Latest pushed commit observed on 2026-08-04: `ee803ba fix(final-accounts): apply approved BS20 classification rules`.
 - Public API observed version: `7.0.1`.
 - Public API observed stage: `Version7: BS-19 approved Final Accounts transaction backfill executor`.
 - Public API observed build code: `GARMETIX-V7-20260719-701`.
@@ -164,6 +164,30 @@
   - `outputs/final-accounts-evidence/20260803-210849-cleanup-after-bs19-backfill`.
 - Created stock evidence repair and backfill completion note:
   - `outputs/final-accounts-evidence/20260803-210840-bs19-inventory-approved-backfill/bs19-inventory-stock-evidence-repair-and-backfill-completion.md`.
+- Applied Amit-approved BS-20 evidence-only classifier rules in code and deployed to SRP `192.168.11.94`:
+  - Commit: `ee803ba fix(final-accounts): apply approved BS20 classification rules`.
+  - No Books ledger groups, ledgers, party links, transaction source rows, COA normalization, report-source switch, or production restore were changed.
+  - Fixed BS-20 read-only keyword matching so `rent` no longer falsely matches inside `Current Assets` / `Current Liabilities`.
+  - Approved group evidence now classifies `Employees` as `Loans & Advances (Asset)`, `No Group` as `Suspense Account`, and `Petty Expenses` / `Store Expenses` / `Snacks & Refreshments` as `Indirect Expenses`.
+  - `Input GST` and `GST Credit Carry Forward` now present as Current Assets in BS-20 direct-ledger evidence.
+- Validated local Final Accounts tests:
+  - `dotnet test backend/Garmetix.Api.Tests/Garmetix.Api.Tests.csproj --filter FullyQualifiedName~FinalAccounts -c Release --no-restore`
+  - Result: `212` passed, `0` failed.
+- Took mandatory SRP backup for `BS20ApprovedClassificationRulesDeploy` before deploy:
+  - `garmetix-srp-db-20260804-024707-IST-BS20ApprovedClassificationRulesDeploy-v6.9.43.dump`.
+  - `swalekha-srp-db-20260804-024707-IST-BS20ApprovedClassificationRulesDeploy-v6.9.43.dump`.
+- SRP deploy script took its required pre-deploy backup for `BS20ApprovedClassificationRulesDeploy`:
+  - `garmetix-srp-db-20260804-025552-IST-BS20ApprovedClassificationRulesDeploy-v6.9.43.dump`.
+  - `swalekha-srp-db-20260804-025552-IST-BS20ApprovedClassificationRulesDeploy-v6.9.43.dump`.
+- Deployed to SRP `192.168.11.94`:
+  - Release: `/opt/garmetix-srp/releases/20260803212513`.
+  - LAN `/books/`: HTTP `200`.
+  - LAN `/api/app-info`: HTTP `200`.
+  - Public `/books/`: HTTP `200`.
+- Captured latest official BS-16 through BS-20 evidence after BS-20 classifier deploy:
+  - `outputs/final-accounts-evidence/20260803-212633-current-bs16-bs20-after-sale-import`.
+  - BS-20 issue types now: `StatementDifference` and `ExceptionMappingsRemain`.
+  - `ManualLedgerGroupClassification` is no longer reported by the endpoint.
 
 ## Evidence Paths
 
@@ -195,6 +219,7 @@
 - `outputs/final-accounts-evidence/20260803-210848-bs19-sync-job-summary`
 - `outputs/final-accounts-evidence/20260803-210849-current-bs16-bs20-after-sale-import`
 - `outputs/final-accounts-evidence/20260803-210849-cleanup-after-bs19-backfill`
+- `outputs/final-accounts-evidence/20260803-212633-current-bs16-bs20-after-sale-import`
 
 ## Latest SRP Backup Evidence
 
@@ -218,6 +243,10 @@
 - `swalekha-srp-db-20260804-023504-IST-BS19InventoryStockEvidenceRepair-v6.9.43.dump`
 - `garmetix-srp-db-20260804-023817-IST-BS19InventoryBackfillAfterStockEvidenceRepair-v6.9.43.dump`
 - `swalekha-srp-db-20260804-023817-IST-BS19InventoryBackfillAfterStockEvidenceRepair-v6.9.43.dump`
+- `garmetix-srp-db-20260804-024707-IST-BS20ApprovedClassificationRulesDeploy-v6.9.43.dump`
+- `swalekha-srp-db-20260804-024707-IST-BS20ApprovedClassificationRulesDeploy-v6.9.43.dump`
+- `garmetix-srp-db-20260804-025552-IST-BS20ApprovedClassificationRulesDeploy-v6.9.43.dump`
+- `swalekha-srp-db-20260804-025552-IST-BS20ApprovedClassificationRulesDeploy-v6.9.43.dump`
 
 ## Current BS-19 Result
 
@@ -246,13 +275,12 @@
 - Posted journal lines: `2874`.
 - Trial Balance period debit: `4,101,602.99`.
 - Trial Balance period credit: `4,101,602.99`.
-- Profit after tax: `-268,910.58`.
-- Balance Sheet assets: `1,440,655.14`.
-- Balance Sheet liabilities and equity: `54,738.98`.
+- Profit after tax: `-122,584.20`.
+- Balance Sheet assets: `1,532,251.71`.
+- Balance Sheet liabilities and equity: `146,259.36`.
 - Active exception mappings: `78`.
-- Blocking issues: `2`.
+- Blocking issues: `1`.
 - Issues:
-  - `ManualLedgerGroupClassification`: still reported by endpoint; Amit approved evidence-only classification for Employees and No Group, but no ledger move/COA normalization was run.
   - `StatementDifference`: `10`.
   - `ExceptionMappingsRemain`: `78`.
 
@@ -291,7 +319,7 @@
   - Sales difference: `-125,186.05` even though Sales pending/drift is now zero; Amit accepted this as discount plus debit round-off presentation.
   - Net reconciliation difference: `-125,186.05`.
 - P1: Resolve or obtain Amit/CA approval for BS-20 direct-ledger blockers:
-  - Manual ledger group classifications approved as evidence-only on 2026-08-04: `Employees` and `No Group`.
+  - Manual ledger group classifications are resolved in the endpoint after evidence-only classifier deploy.
   - `10` statement differences.
   - `78` exception mappings still active.
 - P2: Purchase payment difference remains expected because Amit confirmed purchase payments are not entered yet. Do not auto-create purchase payments.
@@ -309,7 +337,7 @@
 
 ## Next Recommended Sequence
 
-1. Review BS-20 direct-ledger integration statement differences and active exception mappings with Amit/CA.
+1. Prepare/read BS-20 statement-difference explanation and active exception-mapping review for Amit/CA.
 2. Keep purchase payment difference as expected until Amit enters purchase payments.
 3. Keep the 2 zero purchase stock rows as zero until Amit rectifies purchase invoices.
 4. Only after BS-20 is clean or explicitly approved, decide whether to proceed with any COA normalization, relink, report-source switch or production restore.
