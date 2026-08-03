@@ -58,6 +58,22 @@ public sealed class FinalAccountsSyncRulesTests
     }
 
     [Fact]
+    public void InventoryAdapterKeysTreatVyaparSaleImportAsSaleCogs()
+    {
+        var adapters = FinalAccountsSyncRules.InventoryAdapterKeys(["VyaparImportHistoricalStockBridgeIn", "VyaparSaleImport"]);
+
+        Assert.Equal(["sale-cogs"], adapters);
+    }
+
+    [Fact]
+    public void InventoryBackfillExcludesOpeningMigrationAndZeroValueRows()
+    {
+        Assert.True(FinalAccountsSyncRules.ShouldExcludeInventoryBackfillCandidate(["RegularUnbilledOpeningStockImport"], 38195m));
+        Assert.True(FinalAccountsSyncRules.ShouldExcludeInventoryBackfillCandidate(["StockOperationDocument"], 0m));
+        Assert.False(FinalAccountsSyncRules.ShouldExcludeInventoryBackfillCandidate(["VyaparSaleImport"], 135537.52m));
+    }
+
+    [Fact]
     public void PartialFailurePolicySupportsStopOrContinue()
     {
         Assert.False(FinalAccountsSyncRules.ShouldContinueAfterFailure(stopOnError: true, failedCount: 1));

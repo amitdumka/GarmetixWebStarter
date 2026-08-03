@@ -788,18 +788,26 @@ public sealed class FinalAccountsSyncService(
                 {
                     var first = group.OrderBy(item => item.OnDate).First();
                     var sourceTypes = group.Select(item => item.SourceType ?? string.Empty).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-                    return new SourceCandidate(
-                        "Inventory",
-                        group.Key,
-                        first.CompanyId,
-                        first.StoreGroupId,
-                        first.StoreId,
-                        first.SourceNumber ?? first.Barcode,
-                        group.Min(item => item.OnDate),
-                        group.Sum(item => Math.Abs(item.CostImpact)),
-                        group.Max(item => item.UpdatedAt),
-                        InventoryAdapterKeys(sourceTypes));
-                }));
+                    var sourceAmount = group.Sum(item => Math.Abs(item.CostImpact));
+                    return new
+                    {
+                        SourceTypes = sourceTypes,
+                        SourceAmount = sourceAmount,
+                        Candidate = new SourceCandidate(
+                            "Inventory",
+                            group.Key,
+                            first.CompanyId,
+                            first.StoreGroupId,
+                            first.StoreId,
+                            first.SourceNumber ?? first.Barcode,
+                            group.Min(item => item.OnDate),
+                            sourceAmount,
+                            group.Max(item => item.UpdatedAt),
+                            FinalAccountsSyncRules.InventoryAdapterKeys(sourceTypes))
+                    };
+                })
+                .Where(item => !FinalAccountsSyncRules.ShouldExcludeInventoryBackfillCandidate(item.SourceTypes, item.SourceAmount))
+                .Select(item => item.Candidate));
         }
 
         if (modules.Contains("Payroll", StringComparer.OrdinalIgnoreCase))
@@ -1001,36 +1009,6 @@ public sealed class FinalAccountsSyncService(
             VoucherType.Expense => "voucher-expense",
             _ => "voucher-payment"
         };
-
-    private static IReadOnlyList<string> InventoryAdapterKeys(IReadOnlyList<string> sourceTypes)
-    {
-        if (sourceTypes.Any(item => item is "SalesInvoice" or "SalesExchange"))
-        {
-            return ["sale-cogs"];
-        }
-
-        if (sourceTypes.Any(item => item is "SalesReturn" or "SalesInvoiceCancellation"))
-        {
-            return ["sale-return-stock-restoration"];
-        }
-
-        if (sourceTypes.Any(item => item is "PurchaseInvoice" or "PurchaseInvoiceImport"))
-        {
-            return ["purchase-inventory"];
-        }
-
-        if (sourceTypes.Any(item => item == "PurchaseReturn"))
-        {
-            return ["purchase-return-inventory"];
-        }
-
-        if (sourceTypes.Any(item => item == "StockOperationDocument"))
-        {
-            return ["stock-adjustment", "stock-transfer"];
-        }
-
-        return [];
-    }
 
     private IQueryable<FinalAccountsSourcePostingLink> SourceLinksInScope(FinalAccountsScopeDto scope)
         => db.FinalAccountsSourcePostingLinks.Where(item =>

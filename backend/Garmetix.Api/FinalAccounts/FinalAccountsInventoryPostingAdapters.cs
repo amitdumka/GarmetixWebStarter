@@ -204,7 +204,7 @@ public sealed class SaleCogsAdapter(GarmetixDbContext db) : FinalAccountsPosting
     public override async Task<FinalAccountsPostingPreviewRequest> BuildPreviewAsync(Guid sourceId, FinalAccountsScopeDto scope, HttpContext context, CancellationToken cancellationToken)
     {
         _ = context;
-        var movements = await LoadMovementsAsync(sourceId, ["SalesInvoice", "SalesExchange"], quantityOut: true, cancellationToken);
+        var movements = await LoadMovementsAsync(sourceId, ["SalesInvoice", "SalesExchange", "VyaparSaleImport"], quantityOut: true, cancellationToken);
         var first = movements.First();
         EnsureScope(scope, first.CompanyId, first.StoreGroupId, first.StoreId);
         var reference = first.SourceNumber ?? first.SourceId?.ToString("D") ?? sourceId.ToString("D");

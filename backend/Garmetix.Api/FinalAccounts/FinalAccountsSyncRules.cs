@@ -5,6 +5,7 @@ namespace Garmetix.Api.FinalAccounts;
 public static class FinalAccountsSyncRules
 {
     public static readonly IReadOnlyList<string> DefaultModules = ["Sales", "Purchase", "CashBank", "Gst", "Inventory", "Payroll"];
+    private static readonly string[] OpeningOrMigrationInventorySourceTypes = ["RegularUnbilledOpeningStockImport"];
 
     public static IReadOnlyList<string> NormalizeModules(IReadOnlyList<string>? modules)
     {
@@ -72,6 +73,46 @@ public static class FinalAccountsSyncRules
         }
 
         return alreadyLinked ? FinalAccountsSyncItemStatus.SkippedExisting : FinalAccountsSyncItemStatus.Pending;
+    }
+
+    public static bool ShouldExcludeInventoryBackfillCandidate(IReadOnlyList<string> sourceTypes, decimal sourceAmount)
+    {
+        if (Math.Abs(FinalAccountsJournalRules.RoundAmount(sourceAmount)) <= 0.01m)
+        {
+            return true;
+        }
+
+        return sourceTypes.Any(sourceType => OpeningOrMigrationInventorySourceTypes.Contains(sourceType, StringComparer.OrdinalIgnoreCase));
+    }
+
+    public static IReadOnlyList<string> InventoryAdapterKeys(IReadOnlyList<string> sourceTypes)
+    {
+        if (sourceTypes.Any(item => item is "SalesInvoice" or "SalesExchange" or "VyaparSaleImport"))
+        {
+            return ["sale-cogs"];
+        }
+
+        if (sourceTypes.Any(item => item is "SalesReturn" or "SalesInvoiceCancellation"))
+        {
+            return ["sale-return-stock-restoration"];
+        }
+
+        if (sourceTypes.Any(item => item is "PurchaseInvoice" or "PurchaseInvoiceImport"))
+        {
+            return ["purchase-inventory"];
+        }
+
+        if (sourceTypes.Any(item => item == "PurchaseReturn"))
+        {
+            return ["purchase-return-inventory"];
+        }
+
+        if (sourceTypes.Any(item => item == "StockOperationDocument"))
+        {
+            return ["stock-adjustment", "stock-transfer"];
+        }
+
+        return [];
     }
 
     public static bool ShouldContinueAfterFailure(bool stopOnError, int failedCount)
