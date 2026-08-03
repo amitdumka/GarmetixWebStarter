@@ -137,6 +137,33 @@
   - `outputs/final-accounts-evidence/20260803-204927-bs19-sync-job-summary`.
 - Created Inventory resolution completion evidence note:
   - `outputs/final-accounts-evidence/20260803-204823-bs19-inventory-approved-backfill/bs19-inventory-resolution-completion-evidence.md`.
+- Amit approved continuing with the best safe stock evidence treatment for the remaining Inventory blockers.
+- Took mandatory SRP backup for `BS19InventoryStockEvidenceRepair`:
+  - `garmetix-srp-db-20260804-023504-IST-BS19InventoryStockEvidenceRepair-v6.9.43.dump`.
+  - `swalekha-srp-db-20260804-023504-IST-BS19InventoryStockEvidenceRepair-v6.9.43.dump`.
+- Ran guarded stock evidence repair:
+  - Evidence: `outputs/final-accounts-evidence/20260803-210731-bs19-inventory-stock-evidence-repair`.
+  - Updated only the exact expected `7` stock rows and `11` sale stock movement rows.
+  - Added one excluded opening/migration stock-in evidence row for `25010074` using source type `RegularUnbilledOpeningStockImport`.
+  - Post-repair original blocker check: `0` blocking movement rows.
+- Took mandatory SRP backup for `BS19InventoryBackfillAfterStockEvidenceRepair`:
+  - `garmetix-srp-db-20260804-023817-IST-BS19InventoryBackfillAfterStockEvidenceRepair-v6.9.43.dump`.
+  - `swalekha-srp-db-20260804-023817-IST-BS19InventoryBackfillAfterStockEvidenceRepair-v6.9.43.dump`.
+- Ran Inventory-only BS-19 approved backfill after stock evidence repair:
+  - Evidence: `outputs/final-accounts-evidence/20260803-210840-bs19-inventory-approved-backfill`.
+  - Job: `FA-SYNC-6B9764A4`.
+  - Status: `Completed`.
+  - Source rows: `81`.
+  - Skipped existing rows: `72`, amount `153,011.82`.
+  - Posted rows: `9`, amount `18,005.05`.
+  - Failed rows: `0`.
+  - Drift rows: `0`.
+- Captured latest official BS-16 through BS-20 evidence:
+  - `outputs/final-accounts-evidence/20260803-210849-current-bs16-bs20-after-sale-import`.
+- Captured latest cleanup/inventory/sales/purchase/accounting totals:
+  - `outputs/final-accounts-evidence/20260803-210849-cleanup-after-bs19-backfill`.
+- Created stock evidence repair and backfill completion note:
+  - `outputs/final-accounts-evidence/20260803-210840-bs19-inventory-approved-backfill/bs19-inventory-stock-evidence-repair-and-backfill-completion.md`.
 
 ## Evidence Paths
 
@@ -163,6 +190,11 @@
 - `outputs/final-accounts-evidence/20260803-204917-cleanup-after-bs19-backfill`
 - `outputs/final-accounts-evidence/20260803-204918-current-bs16-bs20-after-sale-import`
 - `outputs/final-accounts-evidence/20260803-204927-bs19-sync-job-summary`
+- `outputs/final-accounts-evidence/20260803-210731-bs19-inventory-stock-evidence-repair`
+- `outputs/final-accounts-evidence/20260803-210840-bs19-inventory-approved-backfill`
+- `outputs/final-accounts-evidence/20260803-210848-bs19-sync-job-summary`
+- `outputs/final-accounts-evidence/20260803-210849-current-bs16-bs20-after-sale-import`
+- `outputs/final-accounts-evidence/20260803-210849-cleanup-after-bs19-backfill`
 
 ## Latest SRP Backup Evidence
 
@@ -182,23 +214,26 @@
 - `swalekha-srp-db-20260804-021047-IST-BS19InventoryResolutionAdapterDeploy-v6.9.43.dump`
 - `garmetix-srp-db-20260804-021523-IST-BS19InventoryResolutionBackfillAndDriftHashRefresh-v6.9.43.dump`
 - `swalekha-srp-db-20260804-021523-IST-BS19InventoryResolutionBackfillAndDriftHashRefresh-v6.9.43.dump`
+- `garmetix-srp-db-20260804-023504-IST-BS19InventoryStockEvidenceRepair-v6.9.43.dump`
+- `swalekha-srp-db-20260804-023504-IST-BS19InventoryStockEvidenceRepair-v6.9.43.dump`
+- `garmetix-srp-db-20260804-023817-IST-BS19InventoryBackfillAfterStockEvidenceRepair-v6.9.43.dump`
+- `swalekha-srp-db-20260804-023817-IST-BS19InventoryBackfillAfterStockEvidenceRepair-v6.9.43.dump`
 
 ## Current BS-19 Result
 
 - Read-only endpoint: `/api/final-accounts/audit/transaction-backfill-reconciliation`.
 - Source count: `1011`.
-- Already linked: `1002`.
-- Pending: `9`.
+- Already linked: `1011`.
+- Pending: `0`.
 - Drift count: `0`.
-- Source total: `2,971,906.16`.
-- Reconciliation difference: `-115,015.85`.
+- Source total: `2,979,741.01`.
+- Reconciliation difference: `-125,186.05`.
 - Issues:
-  - `ModuleDifferences`: `2`.
+  - `ModuleDifferences`: `1`.
   - `ReconciliationDifference`: `1`.
-  - `PendingBackfillRows`: `9`.
 - Module evidence:
   - `CashBank`: source count `686`, pending `0`, drift `0`, difference `0.00`, status `Balanced`.
-  - `Inventory`: source count `81`, pending `9`, drift `0`, difference `10,170.20`, status `Difference`.
+  - `Inventory`: source count `81`, pending `0`, drift `0`, difference `0.00`, status `Balanced`.
   - `Payroll`: source count `23`, pending `0`, difference `0`, status `Balanced`.
   - `Purchase`: source count `1`, pending `0`, difference `0`, status `Balanced`.
   - `Sales`: source count `220`, pending `0`, drift `0`, difference `-125,186.05`, status `Difference`.
@@ -245,15 +280,16 @@
 ## Pending Work
 
 - P0: Amit/CA review and approval of refreshed BS-16 through BS-21 evidence.
-- P1: Review or correct the `9` remaining BS-19 Inventory rows before rerunning Inventory backfill:
-  - Inventory pending `9`, drift `0`, difference `10,170.20`.
-  - `8` rows are blocked by missing stock cost evidence.
-  - `1` row is blocked by negative stock movement evidence.
-- P1 recommendation: Sales, CashBank and most Inventory historical Vyapar sale invoices/payments are now linked. Do not bypass the missing-cost or negative-stock guards; fix stock evidence first, then take a fresh SRP backup and rerun Inventory-only BS-19 backfill.
+- P1: BS-19 transaction backfill is now clean by the official endpoint:
+  - Pending `0`.
+  - Drift `0`.
+  - Inventory difference `0.00`.
+  - Sales difference `-125,186.05` remains accepted by Amit as discount plus debit round-off presentation.
+- P1 recommendation: Do not rerun source cleanup/backfill unless new sale/purchase/import data is changed. Continue to BS-20 direct-ledger review.
 - P1: Investigate the BS-19 reconciliation differences read-only first:
-  - Inventory difference: `10,170.20`.
+  - Inventory difference: `0.00`.
   - Sales difference: `-125,186.05` even though Sales pending/drift is now zero; Amit accepted this as discount plus debit round-off presentation.
-  - Net reconciliation difference: `-115,015.85`.
+  - Net reconciliation difference: `-125,186.05`.
 - P1: Resolve or obtain Amit/CA approval for BS-20 direct-ledger blockers:
   - Manual ledger group classifications approved as evidence-only on 2026-08-04: `Employees` and `No Group`.
   - `10` statement differences.
@@ -273,12 +309,10 @@
 
 ## Next Recommended Sequence
 
-1. Correct or approve stock evidence for the 9 remaining Inventory COGS blockers:
-   - Missing stock cost evidence: `AF/2025/1153`, `AF/2025/1157`, `AF/2025/1170`, `AF/2025/1180`, `AF/2025/1198`, `AF/2025/1209`, `AF/2025/1228`, `AFSS/202607/INV/0003`.
-   - Negative stock movement evidence: `AFSS-202607-INV-0007`.
-2. After those 9 are fixed, take a fresh SRP backup and rerun Inventory-only BS-19 backfill.
-3. Keep purchase payment difference as expected until Amit enters purchase payments.
-4. Only after BS-19 and BS-20 are clean or explicitly approved, decide whether to proceed with any COA normalization, relink, report-source switch or production restore.
+1. Review BS-20 direct-ledger integration statement differences and active exception mappings with Amit/CA.
+2. Keep purchase payment difference as expected until Amit enters purchase payments.
+3. Keep the 2 zero purchase stock rows as zero until Amit rectifies purchase invoices.
+4. Only after BS-20 is clean or explicitly approved, decide whether to proceed with any COA normalization, relink, report-source switch or production restore.
 
 ## Useful Commands
 
