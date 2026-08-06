@@ -119,6 +119,7 @@ builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddSingleton<PasswordResetTokenService>();
 builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Email"));
 builder.Services.Configure<LicenseOptions>(builder.Configuration.GetSection("License"));
+builder.Services.Configure<Garmetix.Api.Licensing.SaaSOptions>(builder.Configuration.GetSection("SaaS"));
 builder.Services.AddSingleton<LicenseActivationService>();
 builder.Services.Configure<PasswordResetOptions>(builder.Configuration.GetSection("PasswordReset"));
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
@@ -134,6 +135,7 @@ builder.Services.AddScoped<IBiometricEnrollmentService, BiometricEnrollmentServi
 builder.Services.AddScoped<IAttendancePhotoProofService, AttendancePhotoProofService>();
 builder.Services.AddScoped<AccountingPostingService>();
 builder.Services.AddScoped<SystemDefaultsService>();
+builder.Services.AddScoped<Garmetix.Api.Licensing.SaaSValidationService>();
 builder.Services.AddScoped<DocumentNumberService>();
 builder.Services.AddScoped<StockLedgerService>();
 builder.Services.AddScoped<SalesInvoiceHardDeleteService>();
@@ -449,6 +451,7 @@ app.UseMiddleware<ActiveUserMiddleware>();
 app.UseMiddleware<ApplicationMessageLogMiddleware>();
 app.UseAuthorization();
 app.UseMiddleware<LicenseEnforcementMiddleware>();
+app.UseMiddleware<Garmetix.Api.Licensing.SaaSSubscriptionEnforcementMiddleware>();
 app.UseMiddleware<StoreDayGuardMiddleware>();
 app.Use(async (context, next) =>
 {
@@ -616,6 +619,7 @@ app.MapStage10LProductionSupportEndpoints();
 app.MapStage10MProductionRehearsalEndpoints();
 app.MapEmailDeliveryDiagnosticsEndpoints();
 app.MapLicenseEndpoints();
+app.MapSaaSManagerEndpoints();
 app.MapReleaseStabilizationEndpoints();
 app.MapAfssSeederEndpoints();
 app.MapPortableSeederEndpoints();
@@ -689,7 +693,7 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         get.RequireAuthorization(readPolicyName);
     }
 
-    group.MapPost("/", async (T entity, GarmetixDbContext db, HttpContext context, GstinLookupService gstinLookup, SystemDefaultsService systemDefaults, PasswordResetTokenService resetTokens, IConfiguration configuration, Garmetix.Api.Communication.BusinessNotificationService notifications, CancellationToken cancellationToken) =>
+    group.MapPost("/", async (T entity, GarmetixDbContext db, HttpContext context, GstinLookupService gstinLookup, SystemDefaultsService systemDefaults, PasswordResetTokenService resetTokens, IConfiguration configuration, Garmetix.Api.Communication.BusinessNotificationService notifications, Garmetix.Api.Licensing.SaaSValidationService saasValidation, CancellationToken cancellationToken) =>
     {
         if (!WorkspaceScope.CanWrite(entity, context, out var message))
         {
@@ -718,6 +722,23 @@ static RouteGroupBuilder MapCrud<T>(WebApplication app, string route, string pol
         if (ownerAccountError is not null)
         {
             return Results.BadRequest(new { message = ownerAccountError });
+        }
+
+        if (entity is StoreGroup newStoreGroup)
+        {
+            var quotaError = await saasValidation.ValidateStoreGroupCreationAsync(db, newStoreGroup.CompanyId, cancellationToken);
+            if (quotaError is not null)
+            {
+                return Results.BadRequest(new { message = quotaError });
+            }
+        }
+        else if (entity is Store newStore)
+        {
+            var quotaError = await saasValidation.ValidateStoreCreationAsync(db, newStore.CompanyId, cancellationToken);
+            if (quotaError is not null)
+            {
+                return Results.BadRequest(new { message = quotaError });
+            }
         }
 
         db.Set<T>().Add(entity);

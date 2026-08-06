@@ -47,6 +47,7 @@ public static class UserManagementEndpoints
         GarmetixDbContext db,
         ApplicationMessageLogService logs,
         ILoggerFactory loggerFactory,
+        Garmetix.Api.Licensing.SaaSValidationService saasValidation,
         CancellationToken cancellationToken)
     {
         var validation = ValidateUserRequest(request, requirePassword: true);
@@ -64,6 +65,12 @@ public static class UserManagementEndpoints
         if (exists)
         {
             return Results.Conflict(new { message = "A user with the same username or email already exists." });
+        }
+
+        var quotaError = await saasValidation.ValidateUserCreationAsync(db, request.CompanyId, cancellationToken);
+        if (quotaError is not null)
+        {
+            return Results.BadRequest(new { message = quotaError });
         }
 
         var user = new AppUser

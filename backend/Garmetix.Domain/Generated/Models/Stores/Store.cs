@@ -47,6 +47,7 @@ namespace Garmetix.Core.Models.Stores
         [Display(Name = "Contact Mobile")] public string ContactMobile { get; set; } = string.Empty;
         [Display(Name = "CIN")] public string CIN { get; set; } = string.Empty;
         [Display(Name = "Company Type")] public CompanyType CompanyType { get; set; } = CompanyType.Proprietorship;
+        [Display(Name = "SaaS Client Id", AutoGenerateField = false)] public Guid? SaaSClientId { get; set; }
 
     }
     public class StoreGroup : BaseEntity

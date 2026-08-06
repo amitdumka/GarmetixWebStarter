@@ -467,6 +467,107 @@ public static class DatabaseSchemaRepairService
         logger.LogInformation("GST & Taxes module storage repair check completed.");
     }
 
+    public static async Task RepairSaaSManagerStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
+    {
+        // Same idempotent-repair reason as RepairGstTaxStorageAsync above: the SaaS Manager module
+        // (Clients/Plans/Tokens/TenantSubscriptions) can land on a Docker volume whose EF migration
+        // history was already baselined before these tables existed.
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "SaaSClients" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "ClientCode" text NOT NULL DEFAULT '',
+                "Name" text NOT NULL DEFAULT '',
+                "Email" text NULL,
+                "Mobile" text NULL,
+                "Address" text NULL,
+                "City" text NULL,
+                "State" text NULL,
+                "Country" text NOT NULL DEFAULT 'India',
+                "ZipCode" text NULL,
+                "Gstin" text NULL,
+                "Active" boolean NOT NULL DEFAULT true,
+                CONSTRAINT "PK_SaaSClients" PRIMARY KEY ("Id")
+            );
+
+            CREATE TABLE IF NOT EXISTS "SaaSPlans" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "PlanName" text NOT NULL DEFAULT '',
+                "MaxCompanies" integer NOT NULL DEFAULT 1,
+                "MaxStoreGroups" integer NOT NULL DEFAULT 1,
+                "MaxStores" integer NOT NULL DEFAULT 2,
+                "MaxUsers" integer NOT NULL DEFAULT 20,
+                "IncludedModulesCsv" text NOT NULL DEFAULT '',
+                "Active" boolean NOT NULL DEFAULT true,
+                CONSTRAINT "PK_SaaSPlans" PRIMARY KEY ("Id")
+            );
+
+            CREATE TABLE IF NOT EXISTS "SaaSTokens" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "TokenString" text NOT NULL DEFAULT '',
+                "SaaSClientId" uuid NOT NULL,
+                "SaaSPlanId" uuid NOT NULL,
+                "ValidityDays" integer NOT NULL DEFAULT 365,
+                "ExpiresAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "IsActivated" boolean NOT NULL DEFAULT false,
+                "ActivatedAtUtc" timestamp without time zone NULL,
+                "ActivatedCompanyId" uuid NULL,
+                "Notes" text NULL,
+                CONSTRAINT "PK_SaaSTokens" PRIMARY KEY ("Id")
+            );
+
+            CREATE TABLE IF NOT EXISTS "TenantSubscriptions" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "CompanyId" uuid NOT NULL,
+                "SaaSClientId" uuid NOT NULL,
+                "SaaSPlanId" uuid NOT NULL,
+                "SaaSTokenId" uuid NULL,
+                "PlanName" text NOT NULL DEFAULT '',
+                "MaxCompanies" integer NOT NULL DEFAULT 1,
+                "MaxStoreGroups" integer NOT NULL DEFAULT 1,
+                "MaxStores" integer NOT NULL DEFAULT 2,
+                "MaxUsers" integer NOT NULL DEFAULT 20,
+                "ValidFrom" timestamp without time zone NOT NULL DEFAULT now(),
+                "ValidTo" timestamp without time zone NOT NULL DEFAULT now(),
+                "IsActive" boolean NOT NULL DEFAULT true,
+                CONSTRAINT "PK_TenantSubscriptions" PRIMARY KEY ("Id")
+            );
+            """, cancellationToken);
+
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_SaaSClients_ClientCode" ON "SaaSClients" ("ClientCode");
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_SaaSTokens_TokenString" ON "SaaSTokens" ("TokenString");
+            CREATE INDEX IF NOT EXISTS "IX_SaaSTokens_SaaSClientId_IsActivated" ON "SaaSTokens" ("SaaSClientId", "IsActivated");
+            CREATE INDEX IF NOT EXISTS "IX_TenantSubscriptions_CompanyId_IsActive" ON "TenantSubscriptions" ("CompanyId", "IsActive");
+            CREATE INDEX IF NOT EXISTS "IX_TenantSubscriptions_SaaSClientId_IsActive" ON "TenantSubscriptions" ("SaaSClientId", "IsActive");
+            """, cancellationToken);
+
+        // Company.SaaSClientId - the explicit, always-nullable link that gates every bit of quota/expiry
+        // enforcement in this module. Defaults to NULL for every existing row, so no pre-existing
+        // company is ever affected unless someone deliberately links it via the SaaS Manager UI.
+        await db.Database.ExecuteSqlRawAsync("""
+            ALTER TABLE "Companies" ADD COLUMN IF NOT EXISTS "SaaSClientId" uuid NULL;
+            CREATE INDEX IF NOT EXISTS "IX_Companies_SaaSClientId" ON "Companies" ("SaaSClientId");
+            """, cancellationToken);
+
+        logger.LogInformation("SaaS Manager module storage repair check completed.");
+    }
+
 
 public static async Task RepairCashVoucherConversionStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
 {
@@ -3113,6 +3214,7 @@ public static async Task RepairStockAuditStorageAsync(GarmetixDbContext db, ILog
             await RepairDigitalBillCrmStorageAsync(db, logger, cancellationToken);
             await RepairFinalAccountsStorageAsync(db, logger, cancellationToken);
             await RepairCommunicationStorageAsync(db, logger, cancellationToken);
+            await RepairSaaSManagerStorageAsync(db, logger, cancellationToken);
 
             await db.Database.ExecuteSqlRawAsync("""
                 CREATE TABLE IF NOT EXISTS "FinancialYearLocks" (

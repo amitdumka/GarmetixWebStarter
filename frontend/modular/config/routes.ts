@@ -34,6 +34,7 @@ type RouteInput = Omit<GarmetixRouteDefinition, 'externalUrlEnvKey' | 'externalU
 export const routeRoles = {
   all: ['SuperAdmin', 'Owner', 'Admin', 'PowerUser', 'Accountant', 'CA', 'StoreManager', 'HrManager', 'Cashier', 'Salesman'],
   ownerAdmin: ['SuperAdmin', 'Owner', 'Admin'],
+  superAdminOnly: ['SuperAdmin'],
   adminPower: ['SuperAdmin', 'Owner', 'Admin', 'PowerUser'],
   storeOps: ['SuperAdmin', 'Owner', 'Admin', 'PowerUser', 'StoreManager'],
   pos: ['SuperAdmin', 'Owner', 'Admin', 'StoreManager', 'Cashier', 'Salesman'],
@@ -254,6 +255,8 @@ export const garmetixRoutes: GarmetixRouteDefinition[] = [
 
   route({ id: 'setup', path: '/setup', label: 'Company Setup', icon: 'i-lucide-building-2', targetApp: 'admin', moduleKey: 'admin', moduleLabel: 'Admin SaaS', roles: [...routeRoles.ownerAdmin] }),
   route({ id: 'client-onboarding', path: '/client-onboarding', label: 'Client Onboarding', icon: 'i-lucide-handshake', targetApp: 'admin', moduleKey: 'admin', moduleLabel: 'Admin SaaS', roles: [...routeRoles.ownerAdmin] }),
+  route({ id: 'saas-manager', path: '/saas', label: 'SaaS Manager', icon: 'i-lucide-network', targetApp: 'admin', moduleKey: 'admin', moduleLabel: 'Admin SaaS', roles: [...routeRoles.superAdminOnly], notes: 'SuperAdmin-only platform-operator console: SaaS Clients/Plans/Tokens/Subscriptions.' }),
+  route({ id: 'subscription', path: '/subscription', label: 'Subscription', icon: 'i-lucide-badge-check', targetApp: 'admin', moduleKey: 'admin', moduleLabel: 'Admin SaaS', roles: [...routeRoles.ownerAdmin] }),
   route({ id: 'af-ss', path: '/af-ss', label: 'AF SS', icon: 'i-lucide-settings-2', targetApp: 'admin', moduleKey: 'admin', moduleLabel: 'Admin SaaS', roles: [...routeRoles.ownerAdmin] }),
   route({ id: 'access', path: '/access', label: 'Users And Roles', icon: 'i-lucide-shield-check', targetApp: 'admin', moduleKey: 'admin', moduleLabel: 'Admin SaaS', roles: [...routeRoles.ownerAdmin] }),
   route({ id: 'permission-final-acceptance', path: '/permission-final-acceptance', label: 'Permission Final Acceptance', icon: 'i-lucide-badge-check', targetApp: 'admin', moduleKey: 'admin', moduleLabel: 'Admin SaaS', roles: [...routeRoles.ownerAdmin] }),
