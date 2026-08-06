@@ -210,6 +210,22 @@ public sealed record UpdateSaleInvoiceRequest(
     Guid? SalesmanId,
     string? Remarks = null);
 
+public sealed record RoundOffCorrectionRequest(decimal Amount, string? Note);
+
+public sealed record RoundOffCorrectionResponse(
+    Guid InvoiceId,
+    string InvoiceNumber,
+    decimal PreviousRoundOff,
+    decimal NewRoundOff,
+    decimal PreviousBillAmount,
+    decimal NewBillAmount,
+    decimal PreviousPaidAmount,
+    decimal NewPaidAmount,
+    Guid CorrectedPaymentId,
+    string CorrectedPaymentMode,
+    decimal PreviousPaymentAmount,
+    decimal NewPaymentAmount);
+
 public sealed record CancelInvoiceRequest(string? Reason);
 
 public sealed record CancelInvoiceResponse(

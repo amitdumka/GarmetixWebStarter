@@ -39,6 +39,7 @@ public static class BillingEndpoints
         group.MapPut("/sales/{id:guid}", UpdateSaleInvoiceAsync).RequireAuthorization(GarmetixPolicies.Edit);
         group.MapDelete("/sales/{id:guid}", DeleteSaleInvoiceAsync).RequireAuthorization(GarmetixPolicies.Delete);
         group.MapDelete("/sales/{id:guid}/hard-delete", HardDeleteSaleInvoiceAsync).RequireAuthorization(GarmetixPolicies.Admin);
+        group.MapPost("/sales/{id:guid}/round-off-correction", ApplyRoundOffCorrectionAsync).RequireAuthorization(GarmetixPolicies.Admin);
         group.MapPost("/sales/{id:guid}/returns", CreateSalesReturnAsync);
         group.MapPost("/sales/{id:guid}/exchange", CreateSalesExchangeAsync);
         group.MapPost("/sales/{id:guid}/cancel", CancelSaleAsync).RequireAuthorization(GarmetixPolicies.Delete);
@@ -1209,6 +1210,103 @@ public static class BillingEndpoints
 
         await db.SaveChangesAsync(cancellationToken);
         return Results.Ok(new { invoice.Id, invoice.InvoiceNumber, invoice.OnDate, invoice.CustomerName, invoice.CustomerMobileNumber, invoice.CustomerGSTIN, salesmanId = invoice.SalemanId, invoice.Remarks });
+    }
+
+    private static async Task<IResult> ApplyRoundOffCorrectionAsync(
+        Guid id,
+        RoundOffCorrectionRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        AccountingPostingService accounting,
+        CancellationToken cancellationToken)
+    {
+        var amount = Math.Round(request.Amount, 2, MidpointRounding.AwayFromZero);
+        if (amount <= 0)
+        {
+            return Results.BadRequest(new { message = "Correction amount must be greater than zero." });
+        }
+
+        var invoice = await WorkspaceScope.ApplyTo(db.SalesInvoices, context)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (invoice is null)
+        {
+            return Results.NotFound(new { message = "Sales invoice was not found." });
+        }
+
+        if (invoice.InvoiceStatus == InvoiceStatus.Cancelled)
+        {
+            return Results.Conflict(new { message = "Cancelled sales invoices cannot be corrected." });
+        }
+
+        var customer = await db.Customers.FirstOrDefaultAsync(item => item.Id == invoice.CustomerId, cancellationToken);
+        if (customer is null)
+        {
+            return Results.Conflict(new { message = "Customer for this invoice was not found." });
+        }
+
+        var store = await db.Stores.AsNoTracking().FirstOrDefaultAsync(item => item.Id == invoice.StoreId, cancellationToken);
+        if (store is null)
+        {
+            return Results.Conflict(new { message = "Store for this invoice was not found." });
+        }
+
+        var invoicePayments = await db.InvoicePayments
+            .Where(item => item.InvoiceId == invoice.Id)
+            .OrderBy(item => item.OnDate)
+            .ToListAsync(cancellationToken);
+
+        var payment = invoicePayments.OrderByDescending(item => item.Amount).FirstOrDefault();
+        if (payment is null)
+        {
+            return Results.Conflict(new { message = "No payment record found on this invoice to correct." });
+        }
+
+        var previousRoundOff = invoice.RoundOff;
+        var previousBillAmount = invoice.BillAmount;
+        var previousPaidAmount = invoice.PaidAmount;
+        var previousPaymentAmount = payment.Amount;
+
+        invoice.RoundOff = Math.Round(invoice.RoundOff + amount, 2, MidpointRounding.AwayFromZero);
+        invoice.BillAmount = Math.Round(invoice.BillAmount + amount, 2, MidpointRounding.AwayFromZero);
+        invoice.PaidAmount = Math.Round(invoice.PaidAmount + amount, 2, MidpointRounding.AwayFromZero);
+        invoice.UpdatedAt = DateTime.UtcNow;
+        var note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim();
+        var remarkAddition = $"Round-off correction +Rs.{amount:0.00} applied on {DateTime.Now:yyyy-MM-dd HH:mm} to match Vyapar source total.{(note is null ? string.Empty : " " + note)}";
+        invoice.Remarks = string.IsNullOrWhiteSpace(invoice.Remarks) ? remarkAddition : $"{invoice.Remarks}\n{remarkAddition}";
+
+        payment.Amount = Math.Round(payment.Amount + amount, 2, MidpointRounding.AwayFromZero);
+
+        var paymentPostings = invoicePayments
+            .Where(item => item.Amount > 0)
+            .Select(item => new SalesInvoicePaymentPosting(
+                item.PaymentMode,
+                item.Amount,
+                item.BankAccountId,
+                item.ReferenceNumber,
+                item.GatewayReference,
+                item.SettlementStatus,
+                item.AdjustmentSourceType,
+                item.AdjustmentSourceId,
+                item.PaymentDetailsJson))
+            .ToList();
+
+        await accounting.PostSalesInvoiceAsync(invoice, customer, store.StoreGroupId, paymentPostings, cancellationToken);
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        return Results.Ok(new RoundOffCorrectionResponse(
+            invoice.Id,
+            invoice.InvoiceNumber,
+            previousRoundOff,
+            invoice.RoundOff,
+            previousBillAmount,
+            invoice.BillAmount,
+            previousPaidAmount,
+            invoice.PaidAmount,
+            payment.Id,
+            payment.PaymentMode.ToString(),
+            previousPaymentAmount,
+            payment.Amount));
     }
 
     private static Task<IResult> DeleteSaleInvoiceAsync(
