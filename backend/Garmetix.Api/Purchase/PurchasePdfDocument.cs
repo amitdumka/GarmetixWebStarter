@@ -101,23 +101,26 @@ public static class PurchasePdfDocument
             {
                 canvas.StrokeRect(left + 6, currentTop, bodyWidth - 12, rowHeight, 0.18, 0.82, 0.85, 0.88);
                 canvas.WrappedText(ItemPrintName(item), left + 8, currentTop + 4, bodyWidth * (compact ? 0.34 : 0.29), 6.4, compact ? 1 : 2);
-                canvas.RightText(item.Quantity.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[2] - 4, currentTop + 4, 6.5, false, 0.08, 0.12, 0.18);
-                if (compact)
-                {
-                    canvas.RightText(item.Mrp.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[3] - 4, currentTop + 4, 6.5, false, 0.08, 0.12, 0.18);
-                    canvas.RightText(item.BasicRate.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[4] - 4, currentTop + 4, 6.5, false, 0.08, 0.12, 0.18);
-                    canvas.RightText(item.TaxAmount.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[5] - 4, currentTop + 4, 6.5, false, 0.08, 0.12, 0.18);
-                    canvas.RightText(item.Amount.ToString("N2", CultureInfo.InvariantCulture), left + bodyWidth - 10, currentTop + 4, 6.5, true, 0.08, 0.12, 0.18);
-                }
-                else
-                {
-                    canvas.RightText(item.Mrp.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[3] - 4, currentTop + 4, 6.5, false, 0.08, 0.12, 0.18);
-                    canvas.RightText(item.BasicRate.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[4] - 4, currentTop + 4, 6.5, false, 0.08, 0.12, 0.18);
-                    canvas.RightText(item.CostPrice.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[5] - 4, currentTop + 4, 6.5, false, 0.08, 0.12, 0.18);
-                    canvas.RightText(item.DiscountAmount.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[6] - 4, currentTop + 4, 6.5, false, 0.08, 0.12, 0.18);
-                    canvas.RightText(item.TaxAmount.ToString("N2", CultureInfo.InvariantCulture), left + 6 + (bodyWidth - 12) * columns[7] - 4, currentTop + 4, 6.5, false, 0.08, 0.12, 0.18);
-                    canvas.RightText(item.Amount.ToString("N2", CultureInfo.InvariantCulture), left + bodyWidth - 10, currentTop + 4, 6.5, true, 0.08, 0.12, 0.18);
-                }
+                var values = compact
+                    ? new[]
+                    {
+                        item.Quantity.ToString("N2", CultureInfo.InvariantCulture),
+                        item.Mrp.ToString("N2", CultureInfo.InvariantCulture),
+                        item.BasicRate.ToString("N2", CultureInfo.InvariantCulture),
+                        item.TaxAmount.ToString("N2", CultureInfo.InvariantCulture),
+                        item.Amount.ToString("N2", CultureInfo.InvariantCulture)
+                    }
+                    : new[]
+                    {
+                        item.Quantity.ToString("N2", CultureInfo.InvariantCulture),
+                        item.Mrp.ToString("N2", CultureInfo.InvariantCulture),
+                        item.BasicRate.ToString("N2", CultureInfo.InvariantCulture),
+                        item.CostPrice.ToString("N2", CultureInfo.InvariantCulture),
+                        item.DiscountAmount.ToString("N2", CultureInfo.InvariantCulture),
+                        item.TaxAmount.ToString("N2", CultureInfo.InvariantCulture),
+                        item.Amount.ToString("N2", CultureInfo.InvariantCulture)
+                    };
+                DrawRowValues(canvas, left + 6, currentTop + 4, bodyWidth - 12, columns, values);
                 currentTop += rowHeight;
             }
 
@@ -191,9 +194,11 @@ public static class PurchasePdfDocument
             return;
         }
 
-        var totalLeft = left + bodyWidth - (compact ? 172 : 210);
-        DrawTotals(canvas, totalLeft, summaryTop + (compact ? 16 : 22), compact ? 166 : 202, model, compact);
-        canvas.WrappedText($"Amount in words: {AmountInWords(model.BillAmount)} only", left + 12, summaryTop + 30, Math.Max(100, totalLeft - left - 24), 7, compact ? 3 : 4, true);
+        var gridTop = summaryTop + (compact ? 18 : 24);
+        var gridRowHeight = compact ? 22.0 : 34.0;
+        DrawTotalsGrid(canvas, left + 6, gridTop, bodyWidth - 12, gridRowHeight, model, compact);
+        var wordsTop = gridTop + gridRowHeight * 2 + (compact ? 8 : 10);
+        canvas.WrappedText($"Amount in words: {AmountInWords(model.BillAmount)} only", left + 12, wordsTop, bodyWidth - 24, 7, compact ? 2 : 3, true);
     }
 
     private static void DrawSignatureStrip(PdfCanvas canvas, double left, double bodyWidth, double height, bool compact, string[] labels)
@@ -286,7 +291,29 @@ public static class PurchasePdfDocument
         canvas.FillRect(left, top, width, height, 0.02, 0.09, 0.16);
         for (var index = 0; index < headers.Length; index++)
         {
-            canvas.Text(headers[index], left + width * columns[index] + 4, top + 6, 7, true, 1, 1, 1);
+            var colLeft = left + width * columns[index];
+            var colWidth = width * (columns[index + 1] - columns[index]);
+            if (index == 0)
+            {
+                canvas.Text(headers[index], colLeft + 4, top + 6, 7, true, 1, 1, 1);
+            }
+            else
+            {
+                canvas.CenteredText(headers[index], colLeft, top + 6, colWidth, 7, true, 1, 1, 1);
+            }
+        }
+    }
+
+    private static void DrawRowValues(PdfCanvas canvas, double left, double top, double width, double[] columns, string[] values)
+    {
+        // values[0] is the first numeric column (column index 1, right after Item / HSN); the last value (Amount) is bold.
+        for (var index = 0; index < values.Length; index++)
+        {
+            var columnIndex = index + 1;
+            var colLeft = left + width * columns[columnIndex];
+            var colWidth = width * (columns[columnIndex + 1] - columns[columnIndex]);
+            var isLast = index == values.Length - 1;
+            canvas.CenteredText(values[index], colLeft, top, colWidth, 6.5, isLast, 0.08, 0.12, 0.18);
         }
     }
 
@@ -297,42 +324,52 @@ public static class PurchasePdfDocument
         canvas.Text(TrimTo(value, 20), x + 5, top + 16, 7.8, true, 0.08, 0.12, 0.18);
     }
 
-    private static void DrawTotals(PdfCanvas canvas, double left, double top, double width, PurchasePdfModel model, bool compact)
+    private static void DrawTotalsGrid(PdfCanvas canvas, double left, double top, double width, double rowHeight, PurchasePdfModel model, bool compact)
     {
-        var rows = new[]
+        var totalQty = model.Items.Sum(item => item.Quantity);
+        var totalItems = model.Items.Count;
+        var cgst = model.Items.Sum(item => item.CgstAmount ?? 0);
+        var sgst = model.Items.Sum(item => item.SgstAmount ?? 0);
+        var igst = model.Items.Sum(item => item.IgstAmount ?? 0);
+
+        var row1 = new (string Label, string Value)[]
         {
-            ("MRP", model.MRP, false),
-            ("Discount", model.DiscountAmount, false),
-            ("Taxable", model.NetAmount, false),
-            ("CGST", model.Items.Sum(item => item.CgstAmount ?? 0), false),
-            ("SGST", model.Items.Sum(item => item.SgstAmount ?? 0), false),
-            ("IGST", model.Items.Sum(item => item.IgstAmount ?? 0), false),
-            ("Tax", model.TaxAmount, false),
-            ("Freight", model.FreightAmount, false),
-            ("Round off", model.RoundOff, false),
-            ("Bill amount", model.BillAmount, true),
-            ("Paid", model.PaidAmount, false),
-            ("Balance", model.BalanceAmount, true)
+            ("Total Qty", totalQty.ToString("N2", CultureInfo.InvariantCulture)),
+            ("Items", totalItems.ToString(CultureInfo.InvariantCulture)),
+            ("MRP", model.MRP.ToString("N2", CultureInfo.InvariantCulture)),
+            ("Discount", model.DiscountAmount.ToString("N2", CultureInfo.InvariantCulture)),
+            ("Taxable", model.NetAmount.ToString("N2", CultureInfo.InvariantCulture)),
+            ("CGST", cgst.ToString("N2", CultureInfo.InvariantCulture)),
+            ("SGST", sgst.ToString("N2", CultureInfo.InvariantCulture))
+        };
+        var row2 = new (string Label, string Value)[]
+        {
+            ("IGST", igst.ToString("N2", CultureInfo.InvariantCulture)),
+            ("Tax", model.TaxAmount.ToString("N2", CultureInfo.InvariantCulture)),
+            ("Freight", model.FreightAmount.ToString("N2", CultureInfo.InvariantCulture)),
+            ("Round off", model.RoundOff.ToString("N2", CultureInfo.InvariantCulture)),
+            ("Bill Amount", model.BillAmount.ToString("N2", CultureInfo.InvariantCulture)),
+            ("Paid", model.PaidAmount.ToString("N2", CultureInfo.InvariantCulture)),
+            ("Balance", model.BalanceAmount.ToString("N2", CultureInfo.InvariantCulture))
         };
 
-        var rowHeight = compact ? 7.8 : 10.3;
-        var fontSize = compact ? 5.8 : 6.6;
-        var padding = compact ? 6.0 : 10.0;
-        var boxHeight = rows.Length * rowHeight + padding;
-        canvas.FillRect(left, top, width, boxHeight, 0.95, 0.97, 0.98);
-        canvas.StrokeRect(left, top, width, boxHeight, 0.4, 0.72, 0.75, 0.79);
-        var rowTop = top + (compact ? 4.0 : 7.0);
-        foreach (var (label, amount, bold) in rows)
-        {
-            DrawAmount(canvas, left + (compact ? 6 : 10), width - (compact ? 12 : 20), rowTop, label, amount, fontSize, bold);
-            rowTop += rowHeight;
-        }
+        var colWidth = width / row1.Length;
+        DrawTotalsRow(canvas, left, top, colWidth, rowHeight, row1, compact);
+        DrawTotalsRow(canvas, left, top + rowHeight, colWidth, rowHeight, row2, compact);
     }
 
-    private static void DrawAmount(PdfCanvas canvas, double left, double width, double top, string label, decimal value, double size, bool bold = false)
+    private static void DrawTotalsRow(PdfCanvas canvas, double left, double top, double colWidth, double rowHeight, (string Label, string Value)[] cells, bool compact)
     {
-        canvas.Text(label, left, top, size, bold, 0.08, 0.12, 0.18);
-        canvas.RightText(value.ToString("N2", CultureInfo.InvariantCulture), left + width, top, size, bold, 0.08, 0.12, 0.18);
+        var labelSize = compact ? 5.2 : 6.2;
+        var valueSize = compact ? 6.4 : 7.6;
+        for (var index = 0; index < cells.Length; index++)
+        {
+            var x = left + index * colWidth;
+            canvas.FillRect(x, top, colWidth, rowHeight, 0.95, 0.97, 0.98);
+            canvas.StrokeRect(x, top, colWidth, rowHeight, 0.35, 0.74, 0.78, 0.82);
+            canvas.CenteredText(cells[index].Label, x, top + (compact ? 5 : 7), colWidth, labelSize, false, 0.38, 0.43, 0.49);
+            canvas.CenteredText(cells[index].Value, x, top + (compact ? 14 : 18), colWidth, valueSize, true, 0.08, 0.12, 0.18);
+        }
     }
 
     private static void DrawThermalAmount(PdfCanvas canvas, double left, double width, ref double top, string label, decimal value, double size, double lineHeight, bool bold = false)
