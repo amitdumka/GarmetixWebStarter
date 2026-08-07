@@ -131,6 +131,33 @@ public sealed record RecentInvoiceDto(
     DateTime? DigitalBillLastWhatsAppSentAt = null,
     string? Remarks = null);
 
+public sealed record SalesReturnExchangeRow(
+    Guid Id,
+    string InvoiceNumber,
+    DateTime OnDate,
+    string Kind,
+    string InvoiceStatus,
+    decimal BillAmount,
+    decimal PaidAmount,
+    Guid? OriginalInvoiceId,
+    string? OriginalInvoiceNumber,
+    string CustomerName,
+    string? CustomerMobileNumber,
+    string? CreditNoteNumber,
+    string? Reason);
+
+public sealed record PagedSalesReturnExchangeDto(
+    IReadOnlyList<SalesReturnExchangeRow> Items,
+    int Total,
+    int Page,
+    int PageSize,
+    string DatePreset,
+    DateTime FromDate,
+    DateTime ToDate,
+    int ReturnCount,
+    int ExchangeCount,
+    decimal TotalCreditAmount);
+
 public sealed record PagedSaleInvoicesDto(
     IReadOnlyList<RecentInvoiceDto> Items,
     int Total,

@@ -292,6 +292,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
     ] },
     { key: 'sales', label: 'Sales', items: [
       { id: 'billing', label: 'Sale Invoices', href: '/billing', icon: 'i-lucide-receipt-indian-rupee' },
+      { id: 'sale-returns-register', label: 'Sale Return / Exchange Register', href: '/billing/sale-returns', icon: 'i-lucide-undo-2' },
       { id: 'tailoring', label: 'Tailoring', href: '/tailoring', icon: 'i-lucide-scissors' },
       { id: 'vyapar-import', label: 'Vyapar Sale Import', href: '/billing/vyapar-import', icon: 'i-lucide-file-spreadsheet' },
       { id: 'vyapar-imported', label: 'Vyapar Imported Invoices', href: '/billing/vyapar-imported', icon: 'i-lucide-list' },
@@ -333,6 +334,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'hold-bills', label: 'Hold Bills', href: '/hold-bills', icon: 'i-lucide-pause-circle' },
       { id: 'returns', label: 'Returns', href: '/returns', icon: 'i-lucide-rotate-ccw' },
       { id: 'exchange', label: 'Exchange', href: '/exchange', icon: 'i-lucide-repeat-2' },
+      { id: 'returns-register', label: 'Return / Exchange Register', href: '/returns-register', icon: 'i-lucide-list-checks' },
       { id: 'print', label: 'Print Queue', href: '/print', icon: 'i-lucide-printer' },
       { id: 'day-close', label: 'Day Close', href: '/day-close', icon: 'i-lucide-sunset' }
     ] }

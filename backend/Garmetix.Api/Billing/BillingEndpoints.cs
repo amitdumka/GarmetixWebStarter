@@ -31,6 +31,7 @@ public static class BillingEndpoints
         group.MapPost("/sales", CreateSaleAsync);
         group.MapGet("/sales", SearchSalesAsync);
         group.MapGet("/sales/recent", GetRecentSalesAsync);
+        group.MapGet("/sales/returns-register", GetSalesReturnExchangeRegisterAsync);
         group.MapGet("/sales/{id:guid}/receipt", GetReceiptAsync);
         group.MapPost("/sales/{id:guid}/digital-bill", EnsureSaleDigitalBillAsync);
         group.MapPost("/sales/{id:guid}/digital-bill/send-whatsapp", SendSaleDigitalBillWhatsAppAsync);
@@ -382,6 +383,114 @@ public static class BillingEndpoints
         }
 
         return (today, today.AddDays(1), "today");
+    }
+
+    private static async Task<PagedSalesReturnExchangeDto> GetSalesReturnExchangeRegisterAsync(
+        HttpContext context,
+        GarmetixDbContext db,
+        string? datePreset = "month",
+        int? year = null,
+        int? month = null,
+        DateTime? from = null,
+        DateTime? to = null,
+        string? kind = null,
+        string? q = null,
+        int page = 1,
+        int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 25, 200);
+
+        var (fromDate, toDateExclusive, resolvedPreset) = ResolveSalesDateRange(datePreset, year, month, from, to);
+
+        var query = WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context)
+            .Where(invoice => invoice.OriginalInvoiceId != null && invoice.OnDate >= fromDate && invoice.OnDate < toDateExclusive);
+
+        if (string.Equals(kind, "Return", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(invoice => invoice.ReturnInvoice);
+        }
+        else if (string.Equals(kind, "Exchange", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(invoice => !invoice.ReturnInvoice);
+        }
+
+        var term = q?.Trim().ToLowerInvariant();
+        if (!string.IsNullOrWhiteSpace(term))
+        {
+            query = query.Where(invoice =>
+                invoice.InvoiceNumber.ToLower().Contains(term) ||
+                (invoice.CustomerName != null && invoice.CustomerName.ToLower().Contains(term)) ||
+                (invoice.CustomerMobileNumber != null && invoice.CustomerMobileNumber.ToLower().Contains(term)));
+        }
+
+        var total = await query.CountAsync(cancellationToken);
+        var returnCount = await query.CountAsync(invoice => invoice.ReturnInvoice, cancellationToken);
+        var totalCreditAmount = await query
+            .Where(invoice => invoice.ReturnInvoice)
+            .SumAsync(invoice => (decimal?)invoice.BillAmount, cancellationToken) ?? 0;
+
+        var rows = await query
+            .OrderByDescending(invoice => invoice.OnDate)
+            .ThenByDescending(invoice => invoice.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(invoice => new
+            {
+                invoice.Id,
+                invoice.InvoiceNumber,
+                invoice.OnDate,
+                invoice.ReturnInvoice,
+                InvoiceStatus = invoice.InvoiceStatus.ToString(),
+                invoice.BillAmount,
+                invoice.PaidAmount,
+                invoice.OriginalInvoiceId,
+                CustomerName = invoice.CustomerName ?? "Walk-in Customer",
+                invoice.CustomerMobileNumber,
+                invoice.Remarks
+            })
+            .ToListAsync(cancellationToken);
+
+        var originalIds = rows.Where(row => row.OriginalInvoiceId.HasValue).Select(row => row.OriginalInvoiceId!.Value).Distinct().ToList();
+        var originalNumbers = await db.SalesInvoices.AsNoTracking()
+            .Where(invoice => originalIds.Contains(invoice.Id))
+            .Select(invoice => new { invoice.Id, invoice.InvoiceNumber })
+            .ToDictionaryAsync(item => item.Id, item => item.InvoiceNumber, cancellationToken);
+
+        var returnIds = rows.Where(row => row.ReturnInvoice).Select(row => row.Id).ToList();
+        var creditNoteNumbers = await db.CommercialNotes.AsNoTracking()
+            .Where(note => note.SourceType == "SalesReturn" && note.SourceId != null && returnIds.Contains(note.SourceId!.Value))
+            .Select(note => new { SourceId = note.SourceId!.Value, note.NoteNumber })
+            .ToDictionaryAsync(item => item.SourceId, item => item.NoteNumber, cancellationToken);
+
+        var items = rows.Select(row => new SalesReturnExchangeRow(
+            row.Id,
+            row.InvoiceNumber,
+            row.OnDate,
+            row.ReturnInvoice ? "Return" : "Exchange",
+            row.InvoiceStatus,
+            row.BillAmount,
+            row.PaidAmount,
+            row.OriginalInvoiceId,
+            row.OriginalInvoiceId.HasValue && originalNumbers.TryGetValue(row.OriginalInvoiceId.Value, out var originalNumber) ? originalNumber : null,
+            row.CustomerName,
+            row.CustomerMobileNumber,
+            row.ReturnInvoice && creditNoteNumbers.TryGetValue(row.Id, out var creditNoteNumber) ? creditNoteNumber : null,
+            row.Remarks
+        )).ToList();
+
+        return new PagedSalesReturnExchangeDto(
+            items,
+            total,
+            page,
+            pageSize,
+            resolvedPreset,
+            fromDate,
+            toDateExclusive.AddDays(-1),
+            returnCount,
+            total - returnCount,
+            totalCreditAmount);
     }
 
     private static async Task<IReadOnlyList<RecentInvoiceDto>> GetRecentSalesAsync(HttpContext context, GarmetixDbContext db, int take = 25, CancellationToken cancellationToken = default)
