@@ -29,11 +29,18 @@
 <script setup lang="ts">
 import { readText, type ApiRecord } from '../utils/admin-api'
 
-const props = defineProps<{
-  columns?: Array<{ key: string, label: string }>
-  rows?: ApiRecord[]
-  emptyText?: string
-}>()
+// Deliberately a runtime (not type-only) props declaration. Type-only `defineProps<{...}>()`
+// referencing the imported `ApiRecord` type alias silently compiled to zero runtime props in
+// production (confirmed live: columns/rows/empty-text all fell through as raw HTML attributes on
+// the component's root element instead of reaching `props.columns` etc. inside setup - the exact
+// cause of every "table shows empty even though the count/other panels on the same page have real
+// data" report across every page using this component). Runtime props sidestep that compiler path
+// entirely and are guaranteed to work regardless of cross-file type resolution.
+const props = defineProps({
+  columns: { type: Array as () => Array<{ key: string, label: string }>, default: () => [] },
+  rows: { type: Array as () => ApiRecord[], default: () => [] },
+  emptyText: { type: String, default: '' }
+})
 
 const safeColumns = computed(() => Array.isArray(props.columns) ? props.columns : [])
 const safeRows = computed(() => Array.isArray(props.rows) ? props.rows : [])
