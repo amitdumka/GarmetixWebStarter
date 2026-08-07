@@ -987,12 +987,22 @@ public sealed class DatabaseBackupService(
             return null;
         }
 
-        var firstToken = File.ReadLines(path)
-            .Select(line => line.Trim())
-            .FirstOrDefault(line => !string.IsNullOrWhiteSpace(line))?
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            .FirstOrDefault();
-        return firstToken?.Length == 64 ? firstToken : null;
+        try
+        {
+            var firstToken = File.ReadLines(path)
+                .Select(line => line.Trim())
+                .FirstOrDefault(line => !string.IsNullOrWhiteSpace(line))?
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .FirstOrDefault();
+            return firstToken?.Length == 64 ? firstToken : null;
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+        {
+            // A single unreadable checksum file (e.g. wrong OS permissions on one backup among
+            // many) must never take down the whole backup list - report it as "no checksum on
+            // file" rather than throwing, matching TryReadManifest's existing resilience above.
+            return null;
+        }
     }
 
     private BackupManifestDto? TryReadManifest(string dumpPath)
