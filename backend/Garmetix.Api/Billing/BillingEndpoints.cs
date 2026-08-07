@@ -40,6 +40,7 @@ public static class BillingEndpoints
         group.MapDelete("/sales/{id:guid}", DeleteSaleInvoiceAsync).RequireAuthorization(GarmetixPolicies.Delete);
         group.MapDelete("/sales/{id:guid}/hard-delete", HardDeleteSaleInvoiceAsync).RequireAuthorization(GarmetixPolicies.Admin);
         group.MapPost("/sales/{id:guid}/round-off-correction", ApplyRoundOffCorrectionAsync).RequireAuthorization(GarmetixPolicies.Admin);
+        group.MapPost("/sales/{id:guid}/payments/{paymentId:guid}/reclassify", ReclassifyInvoicePaymentAsync).RequireAuthorization(GarmetixPolicies.Admin);
         group.MapPost("/sales/{id:guid}/returns", CreateSalesReturnAsync);
         group.MapPost("/sales/{id:guid}/exchange", CreateSalesExchangeAsync);
         group.MapPost("/sales/{id:guid}/cancel", CancelSaleAsync).RequireAuthorization(GarmetixPolicies.Delete);
@@ -1306,6 +1307,95 @@ public static class BillingEndpoints
             payment.Id,
             payment.PaymentMode.ToString(),
             previousPaymentAmount,
+            payment.Amount));
+    }
+
+    private static async Task<IResult> ReclassifyInvoicePaymentAsync(
+        Guid id,
+        Guid paymentId,
+        ReclassifyInvoicePaymentRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        AccountingPostingService accounting,
+        CancellationToken cancellationToken)
+    {
+        if (!Enum.TryParse<PaymentMode>(request.NewPaymentMode, true, out var newMode))
+        {
+            return Results.BadRequest(new { message = $"'{request.NewPaymentMode}' is not a recognized payment mode." });
+        }
+
+        var invoice = await WorkspaceScope.ApplyTo(db.SalesInvoices, context)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (invoice is null)
+        {
+            return Results.NotFound(new { message = "Sales invoice was not found." });
+        }
+
+        if (invoice.InvoiceStatus == InvoiceStatus.Cancelled)
+        {
+            return Results.Conflict(new { message = "Cancelled sales invoices cannot be corrected." });
+        }
+
+        var customer = await db.Customers.FirstOrDefaultAsync(item => item.Id == invoice.CustomerId, cancellationToken);
+        if (customer is null)
+        {
+            return Results.Conflict(new { message = "Customer for this invoice was not found." });
+        }
+
+        var store = await db.Stores.AsNoTracking().FirstOrDefaultAsync(item => item.Id == invoice.StoreId, cancellationToken);
+        if (store is null)
+        {
+            return Results.Conflict(new { message = "Store for this invoice was not found." });
+        }
+
+        var invoicePayments = await db.InvoicePayments
+            .Where(item => item.InvoiceId == invoice.Id)
+            .OrderBy(item => item.OnDate)
+            .ToListAsync(cancellationToken);
+
+        var payment = invoicePayments.FirstOrDefault(item => item.Id == paymentId);
+        if (payment is null)
+        {
+            return Results.NotFound(new { message = "Payment was not found on this invoice." });
+        }
+
+        var previousMode = payment.PaymentMode.ToString();
+        payment.PaymentMode = newMode;
+        payment.AdjustmentSourceType = "VyaparCreditNoteImport";
+        if (!string.IsNullOrWhiteSpace(request.ReferenceNumber))
+        {
+            payment.ReferenceNumber = request.ReferenceNumber.Trim();
+        }
+
+        var note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim();
+        var remarkAddition = $"Payment reclassified {previousMode} -> {newMode} on {DateTime.Now:yyyy-MM-dd HH:mm}.{(note is null ? string.Empty : " " + note)}";
+        invoice.Remarks = string.IsNullOrWhiteSpace(invoice.Remarks) ? remarkAddition : $"{invoice.Remarks}\n{remarkAddition}";
+        invoice.UpdatedAt = DateTime.UtcNow;
+
+        var paymentPostings = invoicePayments
+            .Where(item => item.Amount > 0)
+            .Select(item => new SalesInvoicePaymentPosting(
+                item.PaymentMode,
+                item.Amount,
+                item.BankAccountId,
+                item.ReferenceNumber,
+                item.GatewayReference,
+                item.SettlementStatus,
+                item.AdjustmentSourceType,
+                item.AdjustmentSourceId,
+                item.PaymentDetailsJson))
+            .ToList();
+
+        await accounting.PostSalesInvoiceAsync(invoice, customer, store.StoreGroupId, paymentPostings, cancellationToken);
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        return Results.Ok(new ReclassifyInvoicePaymentResponse(
+            invoice.Id,
+            invoice.InvoiceNumber,
+            payment.Id,
+            previousMode,
+            payment.PaymentMode.ToString(),
             payment.Amount));
     }
 

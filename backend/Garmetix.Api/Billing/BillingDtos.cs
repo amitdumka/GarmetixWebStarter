@@ -226,6 +226,16 @@ public sealed record RoundOffCorrectionResponse(
     decimal PreviousPaymentAmount,
     decimal NewPaymentAmount);
 
+public sealed record ReclassifyInvoicePaymentRequest(string NewPaymentMode, string? ReferenceNumber, string? Note);
+
+public sealed record ReclassifyInvoicePaymentResponse(
+    Guid InvoiceId,
+    string InvoiceNumber,
+    Guid PaymentId,
+    string PreviousPaymentMode,
+    string NewPaymentMode,
+    decimal Amount);
+
 public sealed record CancelInvoiceRequest(string? Reason);
 
 public sealed record CancelInvoiceResponse(

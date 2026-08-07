@@ -28,6 +28,24 @@ public class CommercialNote : StoreBase
     [Display(Name = "Remarks")] public string? Remarks { get; set; }
 }
 
+public class CommercialNoteItem : CompanyBase
+{
+    [Display(Name = "Commercial Note")] public Guid CommercialNoteId { get; set; }
+    [Display(Name = "Product")] public Guid? ProductId { get; set; }
+    [Display(Name = "Barcode")] public string? Barcode { get; set; }
+    [Display(Name = "Product Name")] public string ProductName { get; set; } = string.Empty;
+    [Display(Name = "HSN Code")] public string? HSNCode { get; set; }
+    [Display(Name = "Category")] public string? Category { get; set; }
+    [Display(Name = "Quantity")] public decimal Quantity { get; set; }
+    [Display(Name = "Unit Price")] public decimal UnitPrice { get; set; }
+    [Display(Name = "Discount Amount")] public decimal DiscountAmount { get; set; }
+    [Display(Name = "Tax Percent")] public decimal TaxPercentage { get; set; }
+    [Display(Name = "Tax Amount")] public decimal TaxAmount { get; set; }
+    [Display(Name = "Amount")] public decimal Amount { get; set; }
+    [Display(Name = "Stock Adjusted")] public bool StockAdjusted { get; set; }
+    [Display(Name = "Stock Adjustment Note")] public string? StockAdjustmentNote { get; set; }
+}
+
 public class CustomerAdvanceReceipt : StoreBase
 {
     [Display(Name = "Receipt Number")] public required string ReceiptNumber { get; set; } = string.Empty;

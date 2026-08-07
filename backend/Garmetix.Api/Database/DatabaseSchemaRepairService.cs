@@ -597,6 +597,43 @@ public static class DatabaseSchemaRepairService
         logger.LogInformation("Company Google Drive connection storage repair check completed.");
     }
 
+    public static async Task RepairCommercialNoteItemStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
+    {
+        // Line-item detail for CommercialNote (Credit/Debit Note), added for the Vyapar
+        // historical Sale Return/Credit Note import - same idempotent-repair reason as every
+        // other schema-touching module in this project's history.
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "CommercialNoteItems" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "CompanyId" uuid NOT NULL,
+                "CreatedBy" text NULL,
+                "CommercialNoteId" uuid NOT NULL,
+                "ProductId" uuid NULL,
+                "Barcode" text NULL,
+                "ProductName" text NOT NULL DEFAULT '',
+                "HSNCode" text NULL,
+                "Category" text NULL,
+                "Quantity" numeric NOT NULL DEFAULT 0,
+                "UnitPrice" numeric NOT NULL DEFAULT 0,
+                "DiscountAmount" numeric NOT NULL DEFAULT 0,
+                "TaxPercentage" numeric NOT NULL DEFAULT 0,
+                "TaxAmount" numeric NOT NULL DEFAULT 0,
+                "Amount" numeric NOT NULL DEFAULT 0,
+                "StockAdjusted" boolean NOT NULL DEFAULT false,
+                "StockAdjustmentNote" text NULL,
+                CONSTRAINT "PK_CommercialNoteItems" PRIMARY KEY ("Id")
+            );
+            CREATE INDEX IF NOT EXISTS "IX_CommercialNoteItems_CommercialNoteId" ON "CommercialNoteItems" ("CommercialNoteId");
+            CREATE INDEX IF NOT EXISTS "IX_CommercialNoteItems_CompanyId_Barcode" ON "CommercialNoteItems" ("CompanyId", "Barcode");
+            """, cancellationToken);
+
+        logger.LogInformation("Commercial note line-item storage repair check completed.");
+    }
+
 
 public static async Task RepairCashVoucherConversionStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
 {
@@ -3245,6 +3282,7 @@ public static async Task RepairStockAuditStorageAsync(GarmetixDbContext db, ILog
             await RepairCommunicationStorageAsync(db, logger, cancellationToken);
             await RepairSaaSManagerStorageAsync(db, logger, cancellationToken);
             await RepairCompanyGoogleDriveStorageAsync(db, logger, cancellationToken);
+            await RepairCommercialNoteItemStorageAsync(db, logger, cancellationToken);
 
             await db.Database.ExecuteSqlRawAsync("""
                 CREATE TABLE IF NOT EXISTS "FinancialYearLocks" (

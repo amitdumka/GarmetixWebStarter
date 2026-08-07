@@ -133,6 +133,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<VendorPayment> VendorPayments => Set<VendorPayment>();
     public DbSet<PurchasePayment> PurchasePayments => Set<PurchasePayment>();
     public DbSet<CommercialNote> CommercialNotes => Set<CommercialNote>();
+    public DbSet<CommercialNoteItem> CommercialNoteItems => Set<CommercialNoteItem>();
     public DbSet<CustomerAdvanceReceipt> CustomerAdvanceReceipts => Set<CustomerAdvanceReceipt>();
     public DbSet<LoyaltyProgram> LoyaltyPrograms => Set<LoyaltyProgram>();
     public DbSet<LoyaltyPointLedger> LoyaltyPointLedgers => Set<LoyaltyPointLedger>();
@@ -517,6 +518,8 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<VendorPayment>().HasIndex(payment => new { payment.CompanyId, payment.VendorId, payment.OnDate });
         modelBuilder.Entity<CommercialNote>().HasIndex(note => new { note.CompanyId, note.StoreId, note.NoteNumber }).IsUnique(false);
         modelBuilder.Entity<CommercialNote>().HasIndex(note => new { note.CompanyId, note.PartyType, note.PartyName });
+        modelBuilder.Entity<CommercialNoteItem>().HasIndex(item => item.CommercialNoteId);
+        modelBuilder.Entity<CommercialNoteItem>().HasIndex(item => new { item.CompanyId, item.Barcode });
         modelBuilder.Entity<CustomerAdvanceReceipt>().HasIndex(receipt => new { receipt.CompanyId, receipt.StoreId, receipt.ReceiptNumber }).IsUnique(false);
         modelBuilder.Entity<CustomerAdvanceReceipt>().HasIndex(receipt => new { receipt.CompanyId, receipt.CustomerId, receipt.OnDate });
         modelBuilder.Entity<LoyaltyProgram>().HasIndex(program => new { program.CompanyId, program.StoreId });
