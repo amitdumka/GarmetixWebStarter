@@ -29,14 +29,29 @@
         <div class="mb-3 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h3 class="garmetix-panel-title">Log Register</h3>
-            <p class="text-xs text-muted">{{ filteredRows.length }} log(s)</p>
+            <p class="text-xs text-muted">{{ filteredRows.length }} log(s){{ filteredRows.length !== logs.length ? ` (of ${logs.length} loaded)` : '' }}</p>
           </div>
-          <div class="flex flex-col gap-2 sm:flex-row">
+          <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <USelect v-model="levelFilter" :items="levelItems" class="sm:w-40" />
-            <UInput v-model="search" icon="i-lucide-search" placeholder="Search logs" class="sm:w-72" />
+            <USelect v-model="sourceFilter" :items="sourceItems" class="sm:w-40" />
+            <USelect v-model="successFilter" :items="successItems" class="sm:w-40" />
+            <UInput v-model="search" icon="i-lucide-search" placeholder="Search logs" class="sm:w-64" />
+            <UButton v-if="hasActiveFilters" size="sm" color="neutral" variant="ghost" icon="i-lucide-x" @click="clearFilters">Clear</UButton>
           </div>
         </div>
-        <AdminMasterTable :columns="columns" :rows="filteredRows" empty-text="No message logs found." />
+        <AdminMasterTable :columns="columns" :rows="pagedRows" empty-text="No message logs found." />
+        <div v-if="filteredRows.length" class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex items-center gap-2 text-xs text-muted">
+            <span>Rows per page</span>
+            <USelect v-model="pageSize" :items="pageSizeItems" class="w-24" />
+            <span>Showing {{ pageStartLabel }}-{{ pageEndLabel }} of {{ filteredRows.length }}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <UButton size="sm" color="neutral" variant="soft" icon="i-lucide-chevron-left" :disabled="page <= 1" @click="page--">Prev</UButton>
+            <span class="text-xs text-muted">Page {{ page }} of {{ totalPages }}</span>
+            <UButton size="sm" color="neutral" variant="soft" icon="i-lucide-chevron-right" trailing :disabled="page >= totalPages" @click="page++">Next</UButton>
+          </div>
+        </div>
       </div>
 
       <aside class="garmetix-detail-panel">
@@ -70,12 +85,33 @@ const loading = ref(true)
 const error = ref('')
 const search = ref('')
 const levelFilter = ref('all')
+const sourceFilter = ref('all')
+const successFilter = ref('all')
 const selectedLogId = ref('')
 const logs = ref<ApiRecord[]>([])
+const page = ref(1)
+const pageSize = ref(25)
+const pageSizeItems = [
+  { label: '25', value: 25 },
+  { label: '50', value: 50 },
+  { label: '100', value: 100 },
+  { label: '200', value: 200 }
+]
+
 const levelItems = computed(() => [
   { label: 'All Levels', value: 'all' },
   ...Array.from(new Set(logs.value.map(item => readText(item, ['level'])).filter(item => item !== '-'))).sort().map(item => ({ label: item, value: item }))
 ])
+const sourceItems = computed(() => [
+  { label: 'All Sources', value: 'all' },
+  ...Array.from(new Set(logs.value.map(item => readText(item, ['source'])).filter(item => item !== '-'))).sort().map(item => ({ label: item, value: item }))
+])
+const successItems = [
+  { label: 'Success + Failure', value: 'all' },
+  { label: 'Success Only', value: 'success' },
+  { label: 'Failure Only', value: 'failure' }
+]
+
 const cards = computed(() => [
   { label: 'Logs', value: logs.value.length, detail: 'Latest returned rows' },
   { label: 'Errors', value: logs.value.filter(item => readText(item, ['level']).toLowerCase().includes('error')).length, detail: 'Failed operations' },
@@ -97,16 +133,40 @@ const rowItems = computed(() => logs.value.map(item => ({
   source: readText(item, ['source']),
   event: readText(item, ['eventName']),
   message: readText(item, ['message']),
-  user: readText(item, ['userName'], 'System')
+  user: readText(item, ['userName'], 'System'),
+  successRaw: item.success
 })))
+const hasActiveFilters = computed(() => levelFilter.value !== 'all' || sourceFilter.value !== 'all' || successFilter.value !== 'all' || search.value.trim() !== '')
 const filteredRows = computed(() => {
   const term = search.value.trim().toLowerCase()
   return rowItems.value.filter(row => {
     const levelMatches = levelFilter.value === 'all' || row.level === levelFilter.value
+    const sourceMatches = sourceFilter.value === 'all' || row.source === sourceFilter.value
+    const successMatches = successFilter.value === 'all'
+      || (successFilter.value === 'success' && row.successRaw !== false)
+      || (successFilter.value === 'failure' && row.successRaw === false)
     const textMatches = !term || JSON.stringify(row).toLowerCase().includes(term)
-    return levelMatches && textMatches
+    return levelMatches && sourceMatches && successMatches && textMatches
   })
 })
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredRows.value.length / pageSize.value)))
+const pagedRows = computed(() => {
+  const start = (page.value - 1) * pageSize.value
+  return filteredRows.value.slice(start, start + pageSize.value)
+})
+const pageStartLabel = computed(() => filteredRows.value.length === 0 ? 0 : (page.value - 1) * pageSize.value + 1)
+const pageEndLabel = computed(() => Math.min(page.value * pageSize.value, filteredRows.value.length))
+
+watch([levelFilter, sourceFilter, successFilter, search, pageSize], () => { page.value = 1 })
+watch(totalPages, value => { if (page.value > value) page.value = value })
+
+function clearFilters() {
+  levelFilter.value = 'all'
+  sourceFilter.value = 'all'
+  successFilter.value = 'all'
+  search.value = ''
+}
+
 const logSelectItems = computed(() => logs.value.slice(0, 100).map(item => ({
   label: `${readText(item, ['level'])} - ${readText(item, ['eventName'])}`,
   value: readText(item, ['id'], '')
@@ -141,7 +201,7 @@ async function refresh() {
   loading.value = true
   error.value = ''
   try {
-    logs.value = toRows(await get<unknown>('message-logs', { take: 200 }))
+    logs.value = toRows(await get<unknown>('message-logs', { take: 500 }))
     if (!selectedLogId.value && logs.value.length > 0) selectedLogId.value = readText(logs.value[0], ['id'], '')
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Unable to load message logs.'
