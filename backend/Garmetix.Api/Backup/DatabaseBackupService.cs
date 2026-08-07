@@ -120,8 +120,16 @@ public sealed class DatabaseBackupService(
     ILogger<DatabaseBackupService> logger)
 {
     private readonly BackupOptions options = options.Value;
+    private readonly string backupDirectory = ResolveDirectory(options.Value.Directory);
     private readonly SemaphoreSlim operationLock = new(1, 1);
     private volatile bool restoreInProgress;
+
+    /// <summary>A relative Directory resolves against the app's own content root (matching the same
+    /// portable-path pattern LicenseActivationService already uses for its activation file) so a
+    /// Docker-era default or a bare-metal systemd deployment both land somewhere the process actually
+    /// owns and can write to, instead of a hardcoded "/app/..." that only exists inside a container.</summary>
+    private static string ResolveDirectory(string configured)
+        => Path.IsPathRooted(configured) ? configured : Path.Combine(AppContext.BaseDirectory, configured);
 
     private static readonly string[] RequiredRestoreTables =
     [
@@ -148,14 +156,14 @@ public sealed class DatabaseBackupService(
     public IReadOnlyList<BackupFileDto> ListBackups()
     {
         EnsureDirectory();
-        return Directory.EnumerateFiles(options.Directory, "*.dump", SearchOption.AllDirectories)
+        return Directory.EnumerateFiles(backupDirectory, "*.dump", SearchOption.AllDirectories)
             .Where(path => !IsTemporaryRestoreFile(path))
             .Select(path =>
             {
                 var file = new FileInfo(path);
                 var checksum = TryReadChecksum(path);
                 var manifest = TryReadManifest(path);
-                var relativePath = Path.GetRelativePath(options.Directory, path);
+                var relativePath = Path.GetRelativePath(backupDirectory, path);
                 return new BackupFileDto(
                     file.Name,
                     file.Length,
@@ -181,8 +189,8 @@ public sealed class DatabaseBackupService(
 
         EnsureDirectory();
         var normalized = fileName.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
-        var candidate = Path.GetFullPath(Path.Combine(options.Directory, normalized));
-        var backupRoot = Path.GetFullPath(options.Directory) + Path.DirectorySeparatorChar;
+        var candidate = Path.GetFullPath(Path.Combine(backupDirectory, normalized));
+        var backupRoot = Path.GetFullPath(backupDirectory) + Path.DirectorySeparatorChar;
         if (candidate.StartsWith(backupRoot, StringComparison.Ordinal)
             && File.Exists(candidate)
             && string.Equals(Path.GetExtension(candidate), ".dump", StringComparison.OrdinalIgnoreCase))
@@ -196,7 +204,7 @@ public sealed class DatabaseBackupService(
             return null;
         }
 
-        return Directory.EnumerateFiles(options.Directory, "*.dump", SearchOption.AllDirectories)
+        return Directory.EnumerateFiles(backupDirectory, "*.dump", SearchOption.AllDirectories)
             .Where(path => string.Equals(Path.GetFileName(path), safeName, StringComparison.OrdinalIgnoreCase))
             .Where(path => !IsTemporaryRestoreFile(path))
             .OrderByDescending(path => File.GetCreationTimeUtc(path))
@@ -270,7 +278,7 @@ public sealed class DatabaseBackupService(
         {
             EnsureDirectory();
             uploadedPath = Path.Combine(
-                options.Directory,
+                backupDirectory,
                 $"restore-preview-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.dump");
 
             await using (var target = new FileStream(
@@ -326,7 +334,7 @@ public sealed class DatabaseBackupService(
             restoreInProgress = true;
             EnsureDirectory();
             uploadedPath = Path.Combine(
-                options.Directory,
+                backupDirectory,
                 $"restore-upload-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.dump");
 
             await using (var target = new FileStream(
@@ -402,12 +410,12 @@ public sealed class DatabaseBackupService(
             ? (double?)null
             : Math.Round((now - latest.CreatedAtUtc).TotalHours, 2);
         var hasRecentBackup = latestAgeHours is not null && latestAgeHours <= 30;
-        var directoryExists = Directory.Exists(options.Directory);
-        var directoryWritable = CanWriteDirectory(options.Directory);
+        var directoryExists = Directory.Exists(backupDirectory);
+        var directoryWritable = CanWriteDirectory(backupDirectory);
         long? freeSpaceBytes = null;
         try
         {
-            var root = Path.GetPathRoot(Path.GetFullPath(options.Directory));
+            var root = Path.GetPathRoot(Path.GetFullPath(backupDirectory));
             if (!string.IsNullOrWhiteSpace(root))
             {
                 freeSpaceBytes = new DriveInfo(root).AvailableFreeSpace;
@@ -419,7 +427,7 @@ public sealed class DatabaseBackupService(
         }
 
         var folderSize = directoryExists
-            ? Directory.EnumerateFiles(options.Directory, "*", SearchOption.AllDirectories)
+            ? Directory.EnumerateFiles(backupDirectory, "*", SearchOption.AllDirectories)
                 .Select(path => new FileInfo(path))
                 .Where(file => file.Exists)
                 .Sum(file => file.Length)
@@ -451,7 +459,7 @@ public sealed class DatabaseBackupService(
         return new BackupMaintenanceStatusDto(
             options.Enabled,
             restoreInProgress,
-            options.Directory,
+            backupDirectory,
             directoryExists,
             directoryWritable,
             freeSpaceBytes,
@@ -518,28 +526,28 @@ public sealed class DatabaseBackupService(
 
     private int CountOrphanSidecars()
     {
-        if (!Directory.Exists(options.Directory))
+        if (!Directory.Exists(backupDirectory))
         {
             return 0;
         }
 
-        return Directory.EnumerateFiles(options.Directory, "*", SearchOption.AllDirectories)
+        return Directory.EnumerateFiles(backupDirectory, "*", SearchOption.AllDirectories)
             .Count(path => IsSidecar(path) && !File.Exists(RemoveSidecarExtension(path)));
     }
 
     private int CountTemporaryRestoreFiles()
     {
-        if (!Directory.Exists(options.Directory))
+        if (!Directory.Exists(backupDirectory))
         {
             return 0;
         }
 
-        return Directory.EnumerateFiles(options.Directory, "restore-*.dump", SearchOption.TopDirectoryOnly).Count();
+        return Directory.EnumerateFiles(backupDirectory, "restore-*.dump", SearchOption.TopDirectoryOnly).Count();
     }
 
     private void DeleteOrphanSidecars(List<BackupCleanupItemDto> deleted)
     {
-        foreach (var path in Directory.EnumerateFiles(options.Directory, "*", SearchOption.AllDirectories)
+        foreach (var path in Directory.EnumerateFiles(backupDirectory, "*", SearchOption.AllDirectories)
             .Where(path => IsSidecar(path) && !File.Exists(RemoveSidecarExtension(path))))
         {
             DeleteMaintenanceFile(path, "orphan sidecar", deleted);
@@ -548,7 +556,7 @@ public sealed class DatabaseBackupService(
 
     private void DeleteTemporaryRestoreFiles(List<BackupCleanupItemDto> deleted)
     {
-        foreach (var path in Directory.EnumerateFiles(options.Directory, "restore-*.dump", SearchOption.TopDirectoryOnly))
+        foreach (var path in Directory.EnumerateFiles(backupDirectory, "restore-*.dump", SearchOption.TopDirectoryOnly))
         {
             DeleteMaintenanceFile(path, "temporary restore upload/preview", deleted);
             DeleteFileIfExists(ChecksumPath(path));
@@ -674,7 +682,7 @@ public sealed class DatabaseBackupService(
         var indiaNow = ToIndiaTime(DateTimeOffset.UtcNow);
         var sequence = NextBackupSequence(safeCompany, AppInfoEndpoints.Version, indiaNow, safeSource);
         var fileName = $"{safeCompany}-Garmetix-v{AppInfoEndpoints.Version}-{indiaNow:yyyyMMdd-HHmmss}-B{sequence:000}-{safeSource}.dump";
-        var filePath = Path.Combine(options.Directory, fileName);
+        var filePath = Path.Combine(backupDirectory, fileName);
         var connection = GetConnectionInfo();
 
         var result = await RunProcessAsync(
@@ -734,7 +742,7 @@ public sealed class DatabaseBackupService(
             }
         }
 
-        return new BackupFileDto(file.Name, file.Length, file.CreationTimeUtc, source, sha256, true, true, companyName, AppInfoEndpoints.Version, Path.GetRelativePath(options.Directory, filePath));
+        return new BackupFileDto(file.Name, file.Length, file.CreationTimeUtc, source, sha256, true, true, companyName, AppInfoEndpoints.Version, Path.GetRelativePath(backupDirectory, filePath));
     }
 
     private void ApplyRetention()
@@ -743,7 +751,7 @@ public sealed class DatabaseBackupService(
         var keepMinimum = Math.Max(options.KeepMinimum, 1);
         var retentionDays = Math.Max(options.RetentionDays, 0);
         var cutoff = retentionDays > 0 ? DateTime.UtcNow.AddDays(-retentionDays) : DateTime.MinValue;
-        var automaticFiles = Directory.EnumerateFiles(options.Directory, "*.dump", SearchOption.AllDirectories)
+        var automaticFiles = Directory.EnumerateFiles(backupDirectory, "*.dump", SearchOption.AllDirectories)
             .Where(path => SourceFromFileName(Path.GetFileName(path)).Equals("scheduled", StringComparison.OrdinalIgnoreCase))
             .Select(path => new FileInfo(path))
             .OrderByDescending(file => file.CreationTimeUtc)
@@ -893,7 +901,7 @@ public sealed class DatabaseBackupService(
 
     private void EnsureDirectory()
     {
-        Directory.CreateDirectory(options.Directory);
+        Directory.CreateDirectory(backupDirectory);
     }
 
     private async Task<ProofArchiveInfo?> TryCreatePurchaseImportProofArchiveAsync(string dumpPath, CancellationToken cancellationToken)
@@ -1012,7 +1020,7 @@ public sealed class DatabaseBackupService(
             return options.RestoreDrillMarkerPath;
         }
 
-        return Path.Combine(options.Directory, "restore-drill-status.json");
+        return Path.Combine(backupDirectory, "restore-drill-status.json");
     }
 
     private static string ComputeSha256(string path)
@@ -1103,7 +1111,7 @@ public sealed class DatabaseBackupService(
     private int NextBackupSequence(string safeCompany, string version, DateTimeOffset indiaNow, string safeSource)
     {
         var prefix = $"{safeCompany}-Garmetix-v{version}-{indiaNow:yyyyMMdd}";
-        return Directory.EnumerateFiles(options.Directory, "*.dump", SearchOption.AllDirectories)
+        return Directory.EnumerateFiles(backupDirectory, "*.dump", SearchOption.AllDirectories)
             .Select(Path.GetFileName)
             .Count(name => name is not null
                 && name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
