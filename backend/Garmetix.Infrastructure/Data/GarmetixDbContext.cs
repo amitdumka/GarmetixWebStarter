@@ -7,6 +7,7 @@ using Garmetix.Core.Models.Accounting;
 using Garmetix.Core.Models.Audit;
 using Garmetix.Core.Models.Authentication;
 using Garmetix.Core.Models.Attendance;
+using Garmetix.Core.Models.Backup;
 using Garmetix.Core.Models.Base;
 using Garmetix.Core.Models.Communication;
 using Garmetix.Core.Models.FinalAccounts;
@@ -60,6 +61,7 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
     public DbSet<SaaSPlan> SaaSPlans => Set<SaaSPlan>();
     public DbSet<SaaSToken> SaaSTokens => Set<SaaSToken>();
     public DbSet<TenantSubscription> TenantSubscriptions => Set<TenantSubscription>();
+    public DbSet<CompanyGoogleDriveConnection> CompanyGoogleDriveConnections => Set<CompanyGoogleDriveConnection>();
     public DbSet<CommunicationConversation> CommunicationConversations => Set<CommunicationConversation>();
     public DbSet<CommunicationMessage> CommunicationMessages => Set<CommunicationMessage>();
     public DbSet<CommunicationRecipient> CommunicationRecipients => Set<CommunicationRecipient>();
@@ -272,6 +274,8 @@ public sealed class GarmetixDbContext(DbContextOptions<GarmetixDbContext> option
         modelBuilder.Entity<TenantSubscription>().ToTable("TenantSubscriptions");
         modelBuilder.Entity<TenantSubscription>().HasIndex(item => new { item.CompanyId, item.IsActive });
         modelBuilder.Entity<TenantSubscription>().HasIndex(item => new { item.SaaSClientId, item.IsActive });
+        modelBuilder.Entity<CompanyGoogleDriveConnection>().ToTable("CompanyGoogleDriveConnections");
+        modelBuilder.Entity<CompanyGoogleDriveConnection>().HasIndex(item => item.CompanyId).IsUnique();
         modelBuilder.Entity<GstAuditFinding>().HasIndex(item => new { item.CompanyId, item.ModuleArea, item.RuleCode });
         modelBuilder.Entity<GstEinvoiceIrnRecord>().ToTable("GstEinvoiceIrnRecords");
         modelBuilder.Entity<GstEinvoiceIrnRecord>().HasIndex(item => new { item.CompanyId, item.InvoiceId }).IsUnique();

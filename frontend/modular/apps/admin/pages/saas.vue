@@ -29,7 +29,7 @@
       </div>
     </section>
 
-    <UTabs v-model="activeTab" :items="tabs" class="w-full max-w-lg" />
+    <UTabs v-model="activeTab" :items="tabs" class="w-full max-w-3xl" :ui="{ label: 'whitespace-nowrap' }" />
 
     <section class="garmetix-section-card overflow-hidden p-0">
       <!-- Clients -->

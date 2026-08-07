@@ -270,6 +270,9 @@ builder.Services.Configure<GoogleDriveBackupOptions>(builder.Configuration.GetSe
 builder.Services.AddHttpClient("GoogleDriveAuth");
 builder.Services.AddHttpClient("GoogleDriveBackup");
 builder.Services.AddSingleton<GoogleDriveBackupService>();
+builder.Services.Configure<Garmetix.Api.Backup.GoogleOAuthOptions>(builder.Configuration.GetSection("GoogleOAuth"));
+builder.Services.AddSingleton<Garmetix.Api.Backup.GoogleDriveCredentialProtector>();
+builder.Services.AddScoped<Garmetix.Api.Backup.CompanyGoogleDriveBackupService>();
 builder.Services.AddSingleton<DatabaseBackupService>();
 builder.Services.AddHostedService<BackupAutomationHostedService>();
 builder.Services.Configure<OracleSecondarySyncOptions>(builder.Configuration.GetSection("OracleSync"));
@@ -530,6 +533,7 @@ app.MapDayBookEndpoints();
 app.MapPettyCashEndpoints();
 app.MapCashVoucherEndpoints();
 app.MapBackupEndpoints();
+app.MapCompanyGoogleDriveEndpoints();
 app.MapFactoryResetEndpoints();
 app.MapGstReturnEndpoints();
 app.MapGstinEndpoints();

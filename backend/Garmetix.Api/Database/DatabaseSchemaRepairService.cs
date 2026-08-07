@@ -568,6 +568,35 @@ public static class DatabaseSchemaRepairService
         logger.LogInformation("SaaS Manager module storage repair check completed.");
     }
 
+    public static async Task RepairCompanyGoogleDriveStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
+    {
+        // Same idempotent-repair reason as RepairSaaSManagerStorageAsync above.
+        await db.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "CompanyGoogleDriveConnections" (
+                "Id" uuid NOT NULL,
+                "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+                "UpdatedAt" timestamp without time zone NULL,
+                "Synced" boolean NOT NULL DEFAULT false,
+                "Deleted" boolean NOT NULL DEFAULT false,
+                "CompanyId" uuid NOT NULL,
+                "GoogleAccountEmail" text NOT NULL DEFAULT '',
+                "EncryptedRefreshToken" text NOT NULL DEFAULT '',
+                "FolderId" text NOT NULL DEFAULT '',
+                "FolderName" text NOT NULL DEFAULT '',
+                "ConnectedAtUtc" timestamp without time zone NOT NULL DEFAULT now(),
+                "ConnectedByUserName" text NULL,
+                "IsActive" boolean NOT NULL DEFAULT true,
+                "LastSuccessAtUtc" timestamp without time zone NULL,
+                "LastAction" text NULL,
+                "LastError" text NULL,
+                CONSTRAINT "PK_CompanyGoogleDriveConnections" PRIMARY KEY ("Id")
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_CompanyGoogleDriveConnections_CompanyId" ON "CompanyGoogleDriveConnections" ("CompanyId");
+            """, cancellationToken);
+
+        logger.LogInformation("Company Google Drive connection storage repair check completed.");
+    }
+
 
 public static async Task RepairCashVoucherConversionStorageAsync(GarmetixDbContext db, ILogger logger, CancellationToken cancellationToken = default)
 {
@@ -3215,6 +3244,7 @@ public static async Task RepairStockAuditStorageAsync(GarmetixDbContext db, ILog
             await RepairFinalAccountsStorageAsync(db, logger, cancellationToken);
             await RepairCommunicationStorageAsync(db, logger, cancellationToken);
             await RepairSaaSManagerStorageAsync(db, logger, cancellationToken);
+            await RepairCompanyGoogleDriveStorageAsync(db, logger, cancellationToken);
 
             await db.Database.ExecuteSqlRawAsync("""
                 CREATE TABLE IF NOT EXISTS "FinancialYearLocks" (
