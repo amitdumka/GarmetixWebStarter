@@ -57,6 +57,18 @@ public sealed class VyaparCreditNoteImportService(GarmetixDbContext db, StockLed
 {
     public async Task<VyaparCreditNoteImportResponse> ImportAsync(VyaparCreditNoteImportRequest request, CancellationToken cancellationToken)
     {
+        var strategy = db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            var result = await ImportCoreAsync(request, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return result;
+        });
+    }
+
+    private async Task<VyaparCreditNoteImportResponse> ImportCoreAsync(VyaparCreditNoteImportRequest request, CancellationToken cancellationToken)
+    {
         if (string.IsNullOrWhiteSpace(request.ReferenceNumber))
         {
             throw new InvalidOperationException("Reference number is required.");
