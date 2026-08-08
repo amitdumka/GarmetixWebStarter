@@ -1,0 +1,321 @@
+is_global = true
+build_property.EnableAotAnalyzer = 
+build_property.EnableSingleFileAnalyzer = true
+build_property.EnableTrimAnalyzer = false
+build_property.IncludeAllContentForSelfExtract = 
+build_property.MvvmToolkitEnableINotifyPropertyChangingSupport = true
+build_property._MvvmToolkitIsUsingWindowsRuntimePack = false
+build_property.CsWinRTComponent = 
+build_property.CsWinRTAotOptimizerEnabled = 
+build_property.CsWinRTAotWarningLevel = 
+build_property.TargetFramework = net9.0-android
+build_property.TargetFrameworkIdentifier = .NETCoreApp
+build_property.TargetFrameworkVersion = v9.0
+build_property.TargetPlatformMinVersion = 
+build_property.UsingMicrosoftNETSdkWeb = 
+build_property.ProjectTypeGuids = 
+build_property.InvariantGlobalization = false
+build_property.PlatformNeutralAssembly = 
+build_property.EnforceExtendedAnalyzerRules = 
+build_property.EntryPointFilePath = 
+build_property._SupportedPlatformList = Linux,macOS,Windows
+build_property.RootNamespace = Swalekha.Mobile
+build_property.ProjectDir = C:\AIarea\Codex\GarmetixWebStarter\frontend\mobile\Swalekha.Mobile\
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = false
+build_property.EffectiveAnalysisLevelStyle = 9.0
+build_property.EnableCodeStyleSeverity = 
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/App.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.App.xaml
+build_metadata.AdditionalFiles.TargetPath = App.xaml
+build_metadata.AdditionalFiles.RelativePath = App.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/AppShell.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.AppShell.xaml
+build_metadata.AdditionalFiles.TargetPath = AppShell.xaml
+build_metadata.AdditionalFiles.RelativePath = AppShell.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Resources/Styles/Colors.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Resources.Styles.Colors.xaml
+build_metadata.AdditionalFiles.TargetPath = Resources\Styles\Colors.xaml
+build_metadata.AdditionalFiles.RelativePath = Resources\Styles\Colors.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Resources/Styles/Styles.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Resources.Styles.Styles.xaml
+build_metadata.AdditionalFiles.TargetPath = Resources\Styles\Styles.xaml
+build_metadata.AdditionalFiles.RelativePath = Resources\Styles\Styles.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/AccountDetailPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.AccountDetailPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\AccountDetailPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\AccountDetailPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/AccountEditPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.AccountEditPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\AccountEditPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\AccountEditPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/AccountsPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.AccountsPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\AccountsPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\AccountsPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/CalendarPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.CalendarPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\CalendarPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\CalendarPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/ContactDetailPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.ContactDetailPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\ContactDetailPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\ContactDetailPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/ContactEditPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.ContactEditPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\ContactEditPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\ContactEditPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/ContactsPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.ContactsPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\ContactsPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\ContactsPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/DashboardPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.DashboardPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\DashboardPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\DashboardPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/DocumentsPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.DocumentsPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\DocumentsPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\DocumentsPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/ExpenseSheetDetailPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.ExpenseSheetDetailPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\ExpenseSheetDetailPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\ExpenseSheetDetailPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/ExpenseSheetEditPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.ExpenseSheetEditPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\ExpenseSheetEditPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\ExpenseSheetEditPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/ExpenseSheetsPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.ExpenseSheetsPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\ExpenseSheetsPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\ExpenseSheetsPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/FixedDepositDetailPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.FixedDepositDetailPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\FixedDepositDetailPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\FixedDepositDetailPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/FixedDepositEditPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.FixedDepositEditPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\FixedDepositEditPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\FixedDepositEditPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/FixedDepositsPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.FixedDepositsPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\FixedDepositsPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\FixedDepositsPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/IncomePage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.IncomePage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\IncomePage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\IncomePage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/InsurancePoliciesPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.InsurancePoliciesPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\InsurancePoliciesPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\InsurancePoliciesPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/InsurancePolicyDetailPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.InsurancePolicyDetailPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\InsurancePolicyDetailPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\InsurancePolicyDetailPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/InsurancePolicyEditPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.InsurancePolicyEditPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\InsurancePolicyEditPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\InsurancePolicyEditPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/InvestmentsHubPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.InvestmentsHubPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\InvestmentsHubPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\InvestmentsHubPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/JournalPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.JournalPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\JournalPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\JournalPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/LoanDetailPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.LoanDetailPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\LoanDetailPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\LoanDetailPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/LoanEditPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.LoanEditPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\LoanEditPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\LoanEditPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/LoansPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.LoansPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\LoansPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\LoansPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/LoginPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.LoginPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\LoginPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\LoginPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/MutualFundDetailPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.MutualFundDetailPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\MutualFundDetailPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\MutualFundDetailPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/MutualFundEditPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.MutualFundEditPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\MutualFundEditPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\MutualFundEditPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/MutualFundsPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.MutualFundsPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\MutualFundsPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\MutualFundsPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/NotesPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.NotesPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\NotesPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\NotesPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/OtherAssetsPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.OtherAssetsPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\OtherAssetsPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\OtherAssetsPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/PinLoginPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.PinLoginPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\PinLoginPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\PinLoginPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/PinSetupPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.PinSetupPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\PinSetupPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\PinSetupPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/RecurringBillsPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.RecurringBillsPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\RecurringBillsPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\RecurringBillsPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/RecurringDepositDetailPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.RecurringDepositDetailPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\RecurringDepositDetailPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\RecurringDepositDetailPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/RecurringDepositEditPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.RecurringDepositEditPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\RecurringDepositEditPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\RecurringDepositEditPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/RecurringDepositsPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.RecurringDepositsPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\RecurringDepositsPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\RecurringDepositsPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/SelfCheckPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.SelfCheckPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\SelfCheckPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\SelfCheckPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/SettingsPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.SettingsPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\SettingsPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\SettingsPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/ShareDetailPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.ShareDetailPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\ShareDetailPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\ShareDetailPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/ShareEditPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.ShareEditPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\ShareEditPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\ShareEditPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/SharesPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.SharesPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\SharesPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\SharesPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/TransferPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.TransferPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\TransferPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\TransferPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/TripDetailPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.TripDetailPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\TripDetailPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\TripDetailPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/TripEditPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.TripEditPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\TripEditPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\TripEditPage.xaml
+
+[C:/AIarea/Codex/GarmetixWebStarter/frontend/mobile/Swalekha.Mobile/Views/TripsPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = Swalekha.Mobile.Views.TripsPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\TripsPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\TripsPage.xaml

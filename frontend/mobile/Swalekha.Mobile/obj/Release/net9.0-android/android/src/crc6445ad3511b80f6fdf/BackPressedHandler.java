@@ -1,0 +1,46 @@
+package crc6445ad3511b80f6fdf;
+
+
+public class BackPressedHandler
+	extends androidx.activity.OnBackPressedCallback
+	implements
+		mono.android.IGCUserPeer
+{
+/** @hide */
+	public static final String __md_methods;
+	static {
+		__md_methods = 
+			"n_handleOnBackPressed:()V:GetHandleOnBackPressedHandler\n" +
+			"";
+		mono.android.Runtime.register ("Syncfusion.Maui.Toolkit.Internals.BackPressedHandler, Syncfusion.Maui.Toolkit", BackPressedHandler.class, __md_methods);
+	}
+
+	public BackPressedHandler (boolean p0)
+	{
+		super (p0);
+		if (getClass () == BackPressedHandler.class) {
+			mono.android.TypeManager.Activate ("Syncfusion.Maui.Toolkit.Internals.BackPressedHandler, Syncfusion.Maui.Toolkit", "System.Boolean, System.Private.CoreLib", this, new java.lang.Object[] { p0 });
+		}
+	}
+
+	public void handleOnBackPressed ()
+	{
+		n_handleOnBackPressed ();
+	}
+
+	private native void n_handleOnBackPressed ();
+
+	private java.util.ArrayList refList;
+	public void monodroidAddReference (java.lang.Object obj)
+	{
+		if (refList == null)
+			refList = new java.util.ArrayList ();
+		refList.add (obj);
+	}
+
+	public void monodroidClearReferences ()
+	{
+		if (refList != null)
+			refList.clear ();
+	}
+}
