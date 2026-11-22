@@ -360,6 +360,11 @@ private static async Task<IReadOnlyList<PettyCashTransactionLine>> BuildTransact
         var cashRefunds = invoicePayments
             .Where(item => item.PaymentMode == PaymentMode.Cash && returnInvoiceIds.Contains(item.InvoiceId))
             .Sum(item => item.Amount);
+        // Held store credit paid out in cash (Billing > store-credit-refund) is also money leaving the till.
+        cashRefunds += await db.JournalLines.AsNoTracking()
+            .Where(line => line.JournalEntry!.SourceType == "StoreCreditRefund" && line.JournalEntry.StoreId == storeId
+                && line.JournalEntry.OnDate >= dayStart && line.JournalEntry.OnDate < dayEnd && line.Ledger!.Name == "Cash In Hand")
+            .SumAsync(line => line.Credit, cancellationToken);
         var dueReceipts = invoicePayments
             .Where(item => item.PaymentMode == PaymentMode.Cash && !currentInvoiceIds.Contains(item.InvoiceId) && !returnInvoiceIds.Contains(item.InvoiceId))
             .Sum(item => item.Amount);
