@@ -27,7 +27,8 @@ public sealed record InvoicePdfModel(
     IReadOnlyList<ReceiptPaymentDto> Payments,
     string DocumentCode,
     string? Remarks = null,
-    string? PolicyUrl = null);
+    string? PolicyUrl = null,
+    string DocumentTitle = "TAX INVOICE");
 
 public static class InvoicePdfDocument
 {
@@ -146,7 +147,7 @@ public static class InvoicePdfDocument
         canvas.FillRect(left, top + 44, bodyWidth, 2.5, 0.02, 0.70, 0.64);
         canvas.Text(model.CompanyName, left + 12, top + 8, compact ? 12.5 : 15, true, 1, 1, 1);
         canvas.WrappedText(model.CompanyAddress, left + 12, top + 26, bodyWidth * 0.58, compact ? 6 : 7, 2, false, 0.82, 0.88, 0.94);
-        canvas.Text("TAX INVOICE", left + bodyWidth - (compact ? 130 : 170), top + 8, compact ? 10 : 12.5, true, 1, 1, 1);
+        canvas.Text(model.DocumentTitle, left + bodyWidth - (compact ? 130 : 170), top + 8, compact ? 10 : 12.5, true, 1, 1, 1);
         canvas.Text($"{copy} | Page {pageNumber}/{pageCount}", left + bodyWidth - (compact ? 130 : 170), top + 25, 7, false, 0.82, 0.88, 0.94);
         if (firstPage)
         {
@@ -264,7 +265,7 @@ public static class InvoicePdfDocument
         }
         canvas.Line(left, top, left + bodyWidth, top, 0.4, 0.45, 0.49, 0.54);
         top += 5;
-        canvas.CenteredText($"TAX INVOICE - {copy}", left, top, bodyWidth, font + 0.5, true, 0.02, 0.09, 0.16);
+        canvas.CenteredText($"{model.DocumentTitle} - {copy}", left, top, bodyWidth, font + 0.5, true, 0.02, 0.09, 0.16);
         top += lineHeight;
         if (reprint)
         {

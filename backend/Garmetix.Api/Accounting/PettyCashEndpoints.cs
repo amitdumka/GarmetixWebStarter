@@ -351,8 +351,17 @@ private static async Task<IReadOnlyList<PettyCashTransactionLine>> BuildTransact
             .Select(item => new { item.Id, item.BillAmount, item.PaidAmount, item.PaymentMode, item.CreditSale })
             .ToListAsync(cancellationToken);
         var currentInvoiceIds = invoices.Select(item => item.Id).ToHashSet();
+        // A CASH REFUND on a sales-return invoice is money paid out, not a receipt: keep it out of dueReceipts and
+        // count it with payments below (the return invoice itself is excluded from `invoices`).
+        var returnInvoiceIds = (await db.SalesInvoices.AsNoTracking()
+            .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd && item.ReturnInvoice)
+            .Select(item => item.Id)
+            .ToListAsync(cancellationToken)).ToHashSet();
+        var cashRefunds = invoicePayments
+            .Where(item => item.PaymentMode == PaymentMode.Cash && returnInvoiceIds.Contains(item.InvoiceId))
+            .Sum(item => item.Amount);
         var dueReceipts = invoicePayments
-            .Where(item => item.PaymentMode == PaymentMode.Cash && !currentInvoiceIds.Contains(item.InvoiceId))
+            .Where(item => item.PaymentMode == PaymentMode.Cash && !currentInvoiceIds.Contains(item.InvoiceId) && !returnInvoiceIds.Contains(item.InvoiceId))
             .Sum(item => item.Amount);
         var nonCashSales = invoicePayments
             .Where(item => currentInvoiceIds.Contains(item.InvoiceId) && item.PaymentMode != PaymentMode.Cash)
@@ -373,7 +382,8 @@ private static async Task<IReadOnlyList<PettyCashTransactionLine>> BuildTransact
         var receipts = vouchers.Where(item => item.VoucherType == VoucherType.Receipt).Sum(item => item.Amount)
             + cashVouchers.Where(item => item.VoucherType == VoucherType.Receipt).Sum(item => item.Amount);
         var payments = vouchers.Where(item => item.VoucherType == VoucherType.Payment).Sum(item => item.Amount)
-            + cashVouchers.Where(item => item.VoucherType == VoucherType.Payment).Sum(item => item.Amount);
+            + cashVouchers.Where(item => item.VoucherType == VoucherType.Payment).Sum(item => item.Amount)
+            + cashRefunds;
         var expenses = vouchers.Where(item => item.VoucherType == VoucherType.Expense).Sum(item => item.Amount)
             + cashVouchers.Where(item => item.VoucherType == VoucherType.Expense).Sum(item => item.Amount);
 
@@ -404,6 +414,10 @@ private static async Task<IReadOnlyList<PettyCashTransactionLine>> BuildTransact
         if (salaryPayments > 0)
         {
             notes.Add($"Includes {Round(salaryPayments):0.00} in cash salary payments made today (from Salary Payment records), already subtracted from cash in hand.");
+        }
+        if (cashRefunds > 0)
+        {
+            notes.Add($"Payments include {Round(cashRefunds):0.00} in cash refunds paid on sales returns today, already subtracted from cash in hand.");
         }
 
         return new PettyCashPreparation(

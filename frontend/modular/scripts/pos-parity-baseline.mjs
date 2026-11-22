@@ -15,6 +15,8 @@ const requiredFiles = [
   'apps/pos/pages/hold-bills.vue',
   'apps/pos/pages/returns.vue',
   'apps/pos/pages/exchange.vue',
+  'apps/pos/pages/return-new.vue',
+  'apps/pos/pages/exchange-new.vue',
   'apps/pos/pages/print.vue',
   'apps/pos/pages/day-close.vue',
   'apps/pos/utils/local-pos-storage.ts',

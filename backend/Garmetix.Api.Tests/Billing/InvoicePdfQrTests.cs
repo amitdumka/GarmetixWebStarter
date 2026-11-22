@@ -47,3 +47,35 @@ public sealed class InvoicePdfQrTests
         Assert.True(FillCount(thermal) > FillCount(a4) + 150);
     }
 }
+
+public sealed class InvoicePdfTitleTests
+{
+    private static InvoicePdfModel Model(string title) => new(
+        "Aadwika Fashion", "Dumka", "9000000000", "20ABCDE1234F1Z5", "Main Store",
+        "SR-2026-0001", new DateTime(2026, 11, 22, 10, 30, 0), "Refunded",
+        "Walk-in Customer", "0000000000",
+        1000m, 100m, 857m, 43m, 0m, 900m, 900m, 0m,
+        [new ReceiptItemDto(Guid.NewGuid(), null, "Shirt", "BC001", 1m, 1000m, 100m, 5m, 43m, 21.5m, 21.5m, 0m, "6205", "PCS", 900m)],
+        [],
+        DocumentCodeService.Create(DocumentCodeService.SaleInvoice, Guid.NewGuid()),
+        DocumentTitle: title);
+
+    [Theory]
+    [InlineData("a4")]
+    [InlineData("a5")]
+    [InlineData("thermal-2")]
+    [InlineData("thermal-3")]
+    public void Return_invoice_prints_as_credit_note_in_every_format(string format)
+    {
+        var text = System.Text.Encoding.Latin1.GetString(InvoicePdfDocument.Build(Model("CREDIT NOTE"), format, "customer", false, true));
+        Assert.Contains("CREDIT NOTE", text);
+        Assert.DoesNotContain("TAX INVOICE", text);
+    }
+
+    [Fact]
+    public void Normal_invoice_still_prints_as_tax_invoice()
+    {
+        var text = System.Text.Encoding.Latin1.GetString(InvoicePdfDocument.Build(Model("TAX INVOICE"), "a4", "customer", false, true));
+        Assert.Contains("TAX INVOICE", text);
+    }
+}

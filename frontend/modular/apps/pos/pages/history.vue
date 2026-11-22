@@ -238,8 +238,8 @@
           <div class="flex flex-wrap items-center gap-2">
             <PosPrintFormatPicker compact />
             <UButton icon="i-lucide-printer" :loading="printingId === selectedInvoice.id" @click="printInvoice(selectedInvoice)">Reprint</UButton>
-            <UButton color="neutral" variant="soft" icon="i-lucide-undo-2" to="/returns">Return</UButton>
-            <UButton color="neutral" variant="soft" icon="i-lucide-repeat-2" to="/exchange">Exchange</UButton>
+            <UButton color="neutral" variant="soft" icon="i-lucide-undo-2" :to="{ path: '/return-new', query: { invoiceId: selectedInvoice.id } }">Return</UButton>
+            <UButton color="neutral" variant="soft" icon="i-lucide-repeat-2" :to="{ path: '/exchange-new', query: { invoiceId: selectedInvoice.id } }">Exchange</UButton>
             <UButton v-if="canCancel(selectedInvoice)" color="warning" variant="soft" icon="i-lucide-ban" :loading="cancellingId === selectedInvoice.id" @click="cancelInvoice(selectedInvoice)">Cancel</UButton>
             <UButton v-if="canHardDelete(selectedInvoice)" color="error" variant="soft" icon="i-lucide-shredder" :loading="hardDeletingId === selectedInvoice.id" @click="hardDeleteInvoice(selectedInvoice)">Delete</UButton>
           </div>

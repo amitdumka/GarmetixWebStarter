@@ -94,11 +94,11 @@ function checkPosWorkflowMarkers() {
       markers: ['Save & Print', 'paymentRequiresBank', 'upsertPrintQueueItem', 'productLookupTerm', 'selectedProductFromSearch', 'F8', 'F9']
     },
     {
-      file: 'apps/pos/pages/returns.vue',
-      markers: ['Save & Print Return', 'refundRequiresBank', 'upsertPrintQueueItem', 'selectBestMatch']
+      file: 'apps/pos/pages/return-new.vue',
+      markers: ['Save & Print Return', 'refundRequiresBank', 'upsertPrintQueueItem']
     },
     {
-      file: 'apps/pos/pages/exchange.vue',
+      file: 'apps/pos/pages/exchange-new.vue',
       markers: ['Save & Print Exchange', 'additionalRequiresBank', 'remainingCreditPreview', 'lookupAndAdd']
     },
     {

@@ -766,7 +766,8 @@ public static class BillingEndpoints
             payments,
             Garmetix.Api.ProductLookup.DocumentCodeService.Create(Garmetix.Api.ProductLookup.DocumentCodeService.SaleInvoice, invoice.Id),
             invoice.Remarks,
-            BuildGoodsReturnPolicyUrl(context, configuration));
+            BuildGoodsReturnPolicyUrl(context, configuration),
+            invoice.ReturnInvoice ? "CREDIT NOTE" : "TAX INVOICE");
 
         return (invoice, model);
     }

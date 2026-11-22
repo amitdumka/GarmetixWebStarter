@@ -655,7 +655,14 @@ private static async Task<IResult> VoidDayCloseAsync(
             .Select(item => new { item.Id, item.BillAmount, item.PaidAmount, item.PaymentMode, item.CreditSale })
             .ToListAsync(cancellationToken);
         var currentInvoiceIds = invoices.Select(item => item.Id).ToHashSet();
-        var dueReceipts = invoicePayments.Where(item => item.PaymentMode == PaymentMode.Cash && !currentInvoiceIds.Contains(item.InvoiceId)).Sum(item => item.Amount);
+        // Sales-return (credit note) invoices are excluded from `invoices` above, so a CASH REFUND recorded on one used to
+        // fall into dueReceipts and ADD to expected cash. It is money paid out: treat it as a cash payment instead.
+        var returnInvoiceIds = (await db.SalesInvoices.AsNoTracking()
+            .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd && item.ReturnInvoice)
+            .Select(item => item.Id)
+            .ToListAsync(cancellationToken)).ToHashSet();
+        var cashRefunds = invoicePayments.Where(item => item.PaymentMode == PaymentMode.Cash && returnInvoiceIds.Contains(item.InvoiceId)).Sum(item => item.Amount);
+        var dueReceipts = invoicePayments.Where(item => item.PaymentMode == PaymentMode.Cash && !currentInvoiceIds.Contains(item.InvoiceId) && !returnInvoiceIds.Contains(item.InvoiceId)).Sum(item => item.Amount);
         var nonCashSales = invoicePayments.Where(item => currentInvoiceIds.Contains(item.InvoiceId) && item.PaymentMode != PaymentMode.Cash).Sum(item => item.Amount);
         var customerDue = invoices.Where(item => item.CreditSale || item.BillAmount > item.PaidAmount).Sum(item => Math.Max(0, item.BillAmount - item.PaidAmount));
 
@@ -671,7 +678,8 @@ private static async Task<IResult> VoidDayCloseAsync(
         var receipts = vouchers.Where(item => item.VoucherType == VoucherType.Receipt).Sum(item => item.Amount)
             + cashVouchers.Where(item => item.VoucherType == VoucherType.Receipt).Sum(item => item.Amount);
         var payments = vouchers.Where(item => item.VoucherType == VoucherType.Payment).Sum(item => item.Amount)
-            + cashVouchers.Where(item => item.VoucherType == VoucherType.Payment).Sum(item => item.Amount);
+            + cashVouchers.Where(item => item.VoucherType == VoucherType.Payment).Sum(item => item.Amount)
+            + cashRefunds;
         var expenses = vouchers.Where(item => item.VoucherType == VoucherType.Expense).Sum(item => item.Amount)
             + cashVouchers.Where(item => item.VoucherType == VoucherType.Expense).Sum(item => item.Amount);
 
@@ -707,6 +715,10 @@ private static async Task<IResult> VoidDayCloseAsync(
         if (salaryPayments > 0)
         {
             notes.Add($"Includes {Math.Round(salaryPayments, 2):0.00} in cash salary payments made today (from Salary Payment records), already subtracted from cash in hand.");
+        }
+        if (cashRefunds > 0)
+        {
+            notes.Add($"Payments include {Math.Round(cashRefunds, 2):0.00} in cash refunds paid on sales returns today, already subtracted from cash in hand.");
         }
 
         return new PettyCashBookSummaryDto(

@@ -279,7 +279,8 @@ public sealed class DigitalBillCrmService(GarmetixDbContext db, IConfiguration c
             items,
             payments,
             Garmetix.Api.ProductLookup.DocumentCodeService.Create(Garmetix.Api.ProductLookup.DocumentCodeService.SaleInvoice, invoice.Id),
-            PolicyUrl: BuildGoodsReturnPolicyUrl(context));
+            PolicyUrl: BuildGoodsReturnPolicyUrl(context),
+            DocumentTitle: invoice.ReturnInvoice ? "CREDIT NOTE" : "TAX INVOICE");
 
         var pdf = InvoicePdfDocument.Build(model, format ?? "a4", copy ?? "customer", reprint == true, signatures != false);
         await TrackEventAsync(item, "PdfDownloaded", context, "PublicInvoice", null, null, cancellationToken);

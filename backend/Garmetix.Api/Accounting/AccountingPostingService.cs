@@ -1938,6 +1938,19 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
                 cancellationToken);
         }
 
+        // Whatever was NOT refunded stays with the customer as store credit. Park it in the "Customer Store Credit"
+        // liability so the customer ledger nets to zero for this return. Without this the credit stayed as a credit
+        // balance in the customer's own ledger, and when it was later used (exchange or a credit-note payment, which
+        // debit Customer Store Credit) the customer ledger still showed it owed while Customer Store Credit went debit.
+        var refundedAndPosted = refundAmount > 0 && refundPaymentMode.HasValue ? refundAmount : 0m;
+        var storeCreditHeld = Math.Round(returnInvoice.BillAmount - refundedAndPosted, 2, MidpointRounding.AwayFromZero);
+        if (storeCreditHeld > 0)
+        {
+            var storeCreditLedger = await EnsureNamedLedgerAsync(returnInvoice.CompanyId, "Customer Store Credit", "Current Liabilities", LedgerCategory.CurrentLiabilities, LedgerType.CurrentLiability, cancellationToken);
+            lines.Add(new(customerLedgerId, party.Id, storeCreditHeld, 0, $"Store credit held {returnInvoice.InvoiceNumber}"));
+            lines.Add(new(storeCreditLedger.Id, null, 0, storeCreditHeld, $"Store credit held {returnInvoice.InvoiceNumber}"));
+        }
+
         await RepostSourceJournalAsync(
             "SalesReturn",
             returnInvoice.Id,

@@ -81,26 +81,32 @@ function checkSourceContracts() {
       ]
     },
     {
-      label: 'Return cashier workflow',
+      label: 'Return list workflow',
       file: 'apps/pos/pages/returns.vue',
+      markers: ['data-pos-return-search', '@keyup.enter="selectBestMatch"', '/return-new', 'F2']
+    },
+    {
+      label: 'Return form workflow',
+      file: 'apps/pos/pages/return-new.vue',
       markers: [
-        'data-pos-return-search',
-        '@keyup.enter="selectBestMatch"',
         'Return all',
         'refundRequiresBank',
         'Refund amount cannot be more than return value',
         'Select bank account for non-cash refund',
         'upsertPrintQueueItem',
         'Save & Print Return',
-        'F2',
         'F4'
       ]
     },
     {
-      label: 'Exchange cashier workflow',
+      label: 'Exchange list workflow',
       file: 'apps/pos/pages/exchange.vue',
+      markers: ['data-pos-exchange-search', '@keyup.enter="selectBestMatch"', '/exchange-new', 'F2']
+    },
+    {
+      label: 'Exchange form workflow',
+      file: 'apps/pos/pages/exchange-new.vue',
       markers: [
-        'data-pos-exchange-search',
         'data-pos-exchange-product-search',
         '@keyup.enter="lookupAndAdd"',
         'Return all',
