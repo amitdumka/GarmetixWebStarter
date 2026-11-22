@@ -580,6 +580,7 @@ app.MapSwalekhaDocumentEndpoints();
 app.MapSwalekhaSecurityEndpoints();
 app.MapCommercialEndpoints();
 app.MapCustomerDuesReconciliationEndpoints();
+app.MapCustomerHistoryEndpoints();
 app.MapFinancialYearCloseoutEndpoints();
 app.MapBankReconciliationClosureEndpoints();
 app.MapProfitLossReportEndpoints();

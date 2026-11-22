@@ -83,6 +83,7 @@
               </td>
               <td class="border-b border-default p-3">
                 <div class="flex flex-wrap justify-end gap-2">
+                  <UButton size="xs" color="primary" variant="soft" icon="i-lucide-eye" @click="openView(customer)">View</UButton>
                   <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-pencil" @click="editCustomer(customer)">Edit</UButton>
                   <UButton v-if="readNumber(customer, ['creditBalance']) > 0" size="xs" color="warning" variant="soft" icon="i-lucide-banknote" @click="openRefund(customer)">Refund Credit</UButton>
                   <UButton size="xs" icon="i-lucide-gift" @click="openLoyalty(customer)">Loyalty</UButton>
@@ -105,6 +106,13 @@
         <UButton color="neutral" variant="soft" icon="i-lucide-chevrons-right" :disabled="page >= totalPages" @click="page = totalPages">Last</UButton>
       </div>
     </div>
+
+    <CustomerViewPanel
+      v-model:open="viewOpen"
+      :customer="viewCustomer"
+      @edit="editCustomer"
+      @refund="refundFromView"
+    />
 
     <USlideover v-model:open="refundOpen" title="Refund Store Credit">
       <template #body>
@@ -333,6 +341,19 @@ async function openLoyalty(customer: ApiRecord) {
   } finally {
     ledgerLoading.value = false
   }
+}
+
+const viewOpen = ref(false)
+const viewCustomer = ref<ApiRecord | null>(null)
+
+function openView(customer: ApiRecord) {
+  viewCustomer.value = customer
+  viewOpen.value = true
+}
+
+function refundFromView(customer: ApiRecord) {
+  viewOpen.value = false
+  openRefund(customer)
 }
 
 const refundOpen = ref(false)
