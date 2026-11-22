@@ -21,15 +21,12 @@
 </template>
 
 <script setup lang="ts">
-withDefaults(defineProps<{
-  title: string
-  description: string
-  badge?: string
-  badgeColor?: 'primary' | 'success' | 'warning' | 'error' | 'neutral'
-  items?: string[]
-}>(), {
-  badge: 'Route shell',
-  badgeColor: 'warning',
-  items: () => ['Legacy parity', 'API read model', 'Role permission check']
+// Runtime props on purpose: type-only defineProps<{...}>() compiles to zero props in this production build.
+defineProps({
+  title: { type: String, required: true },
+  description: { type: String, required: true },
+  badge: { type: String, default: 'Route shell' },
+  badgeColor: { type: String as () => 'primary' | 'success' | 'warning' | 'error' | 'neutral', default: 'warning' },
+  items: { type: Array as () => string[], default: () => ['Legacy parity', 'API read model', 'Role permission check'] }
 })
 </script>

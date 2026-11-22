@@ -107,23 +107,17 @@
 import { formatIndianMoney } from '@garmetix/shared-utils'
 import { readArray, readNumber, readText, type ApiRecord, useMainApiClient } from '../utils/main-api'
 
-const props = withDefaults(defineProps<{
-  title?: string
-  description?: string
-  endpoint?: string
-  primaryKeys?: string[]
-  secondaryKeys?: string[]
-  signalKeys?: string[]
-  trendKeys?: string[]
-  primaryTitle?: string
-  secondaryTitle?: string
-}>(), {
-  primaryKeys: () => ['recentSales', 'recentActivities', 'stores', 'storeGroups', 'workQueue'],
-  secondaryKeys: () => ['recentPurchases', 'stockAlerts', 'quickActions', 'adminQueue'],
-  signalKeys: () => ['healthSignals', 'signals'],
-  trendKeys: () => ['trend', 'salesTrend'],
-  primaryTitle: 'Primary Rows',
-  secondaryTitle: 'Secondary Rows'
+// Runtime props on purpose: type-only defineProps<{...}>() compiles to zero props in this production build.
+const props = defineProps({
+  title: { type: String, default: undefined },
+  description: { type: String, default: undefined },
+  endpoint: { type: String, default: undefined },
+  primaryKeys: { type: Array as () => string[], default: () => ['recentSales', 'recentActivities', 'stores', 'storeGroups', 'workQueue'] },
+  secondaryKeys: { type: Array as () => string[], default: () => ['recentPurchases', 'stockAlerts', 'quickActions', 'adminQueue'] },
+  signalKeys: { type: Array as () => string[], default: () => ['healthSignals', 'signals'] },
+  trendKeys: { type: Array as () => string[], default: () => ['trend', 'salesTrend'] },
+  primaryTitle: { type: String, default: 'Primary Rows' },
+  secondaryTitle: { type: String, default: 'Secondary Rows' }
 })
 
 const route = useRoute()

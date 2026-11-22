@@ -29,7 +29,14 @@ public static class CustomerMergeEndpoints
             .WithTags("Customer merge")
             .RequireAuthorization(GarmetixPolicies.Admin);
 
-        group.MapPost("/{sourceId:guid}/merge-into-walkin/{targetId:guid}", MergeIntoWalkInAsync);
+        group.MapPost("/{sourceId:guid}/merge-into-walkin/{targetId:guid}",
+            (Guid sourceId, Guid targetId, MergeCustomerRequest? request, HttpContext context, GarmetixDbContext db, AccountingPostingService accounting, CancellationToken ct)
+                => MergeAsync(sourceId, targetId, request, context, db, accounting, duplicateMode: false, ct));
+        // Two customer records that share the same mobile number (a duplicate): fold the source into the target, keeping
+        // every invoice's own name and mobile untouched.
+        group.MapPost("/{sourceId:guid}/merge-duplicate/{targetId:guid}",
+            (Guid sourceId, Guid targetId, MergeCustomerRequest? request, HttpContext context, GarmetixDbContext db, AccountingPostingService accounting, CancellationToken ct)
+                => MergeAsync(sourceId, targetId, request, context, db, accounting, duplicateMode: true, ct));
         return group;
     }
 
@@ -40,13 +47,14 @@ public static class CustomerMergeEndpoints
         public string Quoted => $"\"{Schema}\".\"{Table}\"";
     }
 
-    private static async Task<IResult> MergeIntoWalkInAsync(
+    private static async Task<IResult> MergeAsync(
         Guid sourceId,
         Guid targetId,
         MergeCustomerRequest? request,
         HttpContext context,
         GarmetixDbContext db,
         AccountingPostingService accounting,
+        bool duplicateMode,
         CancellationToken cancellationToken)
     {
         request ??= new MergeCustomerRequest(false, null);
@@ -77,14 +85,26 @@ public static class CustomerMergeEndpoints
             }
         }
 
-        if (target.MobileNumber != BillingEndpoints.WalkInMobileNumber)
+        if (duplicateMode)
         {
-            return Results.BadRequest(new { message = $"The target must be the standard Walk-in Customer (mobile {BillingEndpoints.WalkInMobileNumber})." });
+            var sourceMobile = (source.MobileNumber ?? string.Empty).Trim();
+            if (BillingEndpoints.IsBlankCustomerMobile(sourceMobile) || sourceMobile == BillingEndpoints.WalkInMobileNumber
+                || sourceMobile != (target.MobileNumber ?? string.Empty).Trim())
+            {
+                return Results.BadRequest(new { message = "Duplicate merge needs two customers with the same real mobile number." });
+            }
         }
-
-        if (source.MobileNumber == BillingEndpoints.WalkInMobileNumber)
+        else
         {
-            return Results.BadRequest(new { message = "The source is already a Walk-in Customer." });
+            if (target.MobileNumber != BillingEndpoints.WalkInMobileNumber)
+            {
+                return Results.BadRequest(new { message = $"The target must be the standard Walk-in Customer (mobile {BillingEndpoints.WalkInMobileNumber})." });
+            }
+
+            if (source.MobileNumber == BillingEndpoints.WalkInMobileNumber)
+            {
+                return Results.BadRequest(new { message = "The source is already a Walk-in Customer." });
+            }
         }
 
         // Source party/ledger (may legitimately be missing for a customer that never had accounting posted).
@@ -148,9 +168,19 @@ public static class CustomerMergeEndpoints
                 await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
                 // 1) Keep the customer's name visible on each moved invoice, and stop showing the WALKIN placeholder mobile.
-                var invoices = await db.SalesInvoices.IgnoreQueryFilters()
-                    .Where(item => item.CustomerId == source.Id)
-                    .ToListAsync(cancellationToken);
+                var invoices = duplicateMode
+                    ? new List<Invoice>()
+                    : await db.SalesInvoices.IgnoreQueryFilters()
+                        .Where(item => item.CustomerId == source.Id)
+                        .ToListAsync(cancellationToken);
+                if (duplicateMode)
+                {
+                    target.Amount += source.Amount;
+                    target.BillCount += source.BillCount;
+                    target.CreditBalance += source.CreditBalance;
+                    target.LoyaltyPoints += source.LoyaltyPoints;
+                }
+
                 foreach (var invoice in invoices)
                 {
                     if (string.IsNullOrWhiteSpace(invoice.CustomerName))

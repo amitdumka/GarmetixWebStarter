@@ -216,9 +216,10 @@ type MenuGroup = {
   items: MenuItem[]
 }
 
-const props = defineProps<{
-  appId?: FrontendAppId
-}>()
+// Runtime props on purpose: type-only defineProps<{...}>() compiles to zero props in this production build.
+const props = defineProps({
+  appId: { type: String as () => FrontendAppId, default: undefined }
+})
 
 const route = useRoute()
 const runtimeConfig = useRuntimeConfig()

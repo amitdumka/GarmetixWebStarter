@@ -408,15 +408,7 @@ public sealed class DigitalBillCrmService(GarmetixDbContext db, IConfiguration c
 
     private string BuildGoodsReturnPolicyUrl(HttpContext context)
     {
-        var configuredBase = configuration["DigitalBills:PublicBaseUrl"]?.Trim().TrimEnd('/');
-        if (!string.IsNullOrWhiteSpace(configuredBase))
-        {
-            return $"{configuredBase}/goods-return-policy";
-        }
-
-        var scheme = string.IsNullOrWhiteSpace(context.Request.Scheme) ? "https" : context.Request.Scheme;
-        var host = context.Request.Host.HasValue ? context.Request.Host.Value : "garmetix.aadwikafashion.in";
-        return $"{scheme}://{host}/goods-return-policy";
+        return Garmetix.Api.Billing.PublicUrlBuilder.GoodsReturnPolicy(context, configuration);
     }
 
     private static DigitalBillActionResponseDto ToAction(DigitalInvoice item, string message)

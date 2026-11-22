@@ -9,14 +9,11 @@
 </template>
 
 <script setup lang="ts">
-withDefaults(defineProps<{
-  message?: string
-  color?: 'success' | 'error' | 'warning' | 'neutral' | 'primary' | 'info'
-  icon?: string
-}>(), {
-  message: '',
-  color: 'neutral',
-  icon: 'i-lucide-info'
+// Runtime props on purpose: type-only defineProps<{...}>() compiles to zero props in this production build.
+defineProps({
+  message: { type: String, default: '' },
+  color: { type: String as () => 'success' | 'error' | 'warning' | 'neutral' | 'primary' | 'info', default: 'neutral' },
+  icon: { type: String, default: 'i-lucide-info' }
 })
 </script>
 

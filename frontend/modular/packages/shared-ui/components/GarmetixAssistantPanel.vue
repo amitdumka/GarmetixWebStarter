@@ -104,10 +104,11 @@ interface ChatMessage {
   toolCalls?: AssistantToolCallDto[]
 }
 
-const props = defineProps<{
-  apiBaseUrl: string
-  appId?: string
-}>()
+// Runtime props on purpose: type-only defineProps<{...}>() compiles to zero props in this production build.
+const props = defineProps({
+  apiBaseUrl: { type: String, required: true },
+  appId: { type: String, default: undefined }
+})
 
 const hasToken = computed(() => Boolean(import.meta.client && getStoredToken(window.localStorage)))
 const messages = ref<ChatMessage[]>([])

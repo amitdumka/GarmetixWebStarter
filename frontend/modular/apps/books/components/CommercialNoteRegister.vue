@@ -105,9 +105,10 @@
 import { formatIndianMoney } from '@garmetix/shared-utils'
 import { formatDate, readNumber, readText, toRows, type ApiRecord, useBooksApiClient } from '../utils/books-api'
 
-const props = defineProps<{
-  noteType: number
-}>()
+// Runtime props on purpose: type-only defineProps<{...}>() compiles to zero props in this production build.
+const props = defineProps({
+  noteType: { type: Number, required: true }
+})
 
 const { get, download } = useBooksApiClient()
 const loading = ref(true)

@@ -821,15 +821,7 @@ public static class BillingEndpoints
 
     private static string BuildGoodsReturnPolicyUrl(HttpContext context, IConfiguration configuration)
     {
-        var configuredBase = configuration["DigitalBills:PublicBaseUrl"]?.Trim().TrimEnd('/');
-        if (!string.IsNullOrWhiteSpace(configuredBase))
-        {
-            return $"{configuredBase}/goods-return-policy";
-        }
-
-        var scheme = string.IsNullOrWhiteSpace(context.Request.Scheme) ? "https" : context.Request.Scheme;
-        var host = context.Request.Host.HasValue ? context.Request.Host.Value : "garmetix.aadwikafashion.in";
-        return $"{scheme}://{host}/goods-return-policy";
+        return PublicUrlBuilder.GoodsReturnPolicy(context, configuration);
     }
 
     private static async Task<ReceiptDto?> LoadReceiptAsync(Guid id, HttpContext context, GarmetixDbContext db, CancellationToken cancellationToken)

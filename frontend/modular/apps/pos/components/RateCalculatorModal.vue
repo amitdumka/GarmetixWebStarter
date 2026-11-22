@@ -50,7 +50,8 @@
 <script setup lang="ts">
 import { formatIndianMoney } from '@garmetix/shared-utils'
 
-const props = defineProps<{ open: boolean }>()
+// Runtime props on purpose: type-only defineProps<{...}>() compiles to zero props in this production build.
+const props = defineProps({ open: { type: Boolean, default: false } })
 const emit = defineEmits<{ 'update:open': [value: boolean] }>()
 
 const openModel = computed({

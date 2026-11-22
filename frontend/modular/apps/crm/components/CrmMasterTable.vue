@@ -66,33 +66,22 @@ import { formatDate, readNumber, readText, toRows, type ApiRecord, useCrmApiClie
 
 type ColumnType = 'text' | 'money' | 'number' | 'date'
 
-const props = withDefaults(defineProps<{
-  title: string
-  description: string
-  endpoint: string
-  eyebrow?: string
-  icon?: string
-  tableTitle?: string
-  rowKeys?: string[]
-  titleKeys?: string[]
-  subtitleKeys?: string[]
-  columns?: Array<{ label: string, keys: string[], type?: ColumnType }>
-  summary?: Array<{ label: string, keys: string[], type?: ColumnType, caption?: string }>
-  query?: Record<string, string | number | boolean | null | undefined>
-  rowArrayKeys?: string[]
-  take?: number
-}>(), {
-  eyebrow: 'CRM read model',
-  icon: 'i-lucide-users',
-  tableTitle: 'Record',
-  rowKeys: () => ['id', 'customerId', 'digitalInvoiceId', 'invoiceNumber', 'name', 'mobileNumber'],
-  titleKeys: () => ['name', 'customerName', 'invoiceNumber', 'campaignName', 'messageTitle', 'label', 'storeName'],
-  subtitleKeys: () => ['mobileNumber', 'customerMobile', 'gstin', 'publicPath', 'status', 'whatsAppStatus'],
-  columns: () => [],
-  summary: () => [],
-  query: () => ({}),
-  rowArrayKeys: () => ['items', 'rows', 'data', 'results'],
-  take: 50
+// Runtime props on purpose: type-only defineProps<{...}>() compiles to zero props in this production build.
+const props = defineProps({
+  title: { type: String, required: true },
+  description: { type: String, required: true },
+  endpoint: { type: String, required: true },
+  eyebrow: { type: String, default: 'CRM read model' },
+  icon: { type: String, default: 'i-lucide-users' },
+  tableTitle: { type: String, default: 'Record' },
+  rowKeys: { type: Array as () => string[], default: () => ['id', 'customerId', 'digitalInvoiceId', 'invoiceNumber', 'name', 'mobileNumber'] },
+  titleKeys: { type: Array as () => string[], default: () => ['name', 'customerName', 'invoiceNumber', 'campaignName', 'messageTitle', 'label', 'storeName'] },
+  subtitleKeys: { type: Array as () => string[], default: () => ['mobileNumber', 'customerMobile', 'gstin', 'publicPath', 'status', 'whatsAppStatus'] },
+  columns: { type: Array as () => Array<{ label: string, keys: string[], type?: ColumnType }>, default: () => [] },
+  summary: { type: Array as () => Array<{ label: string, keys: string[], type?: ColumnType, caption?: string }>, default: () => [] },
+  query: { type: Object as () => Record<string, string | number | boolean | null | undefined>, default: () => ({}) },
+  rowArrayKeys: { type: Array as () => string[], default: () => ['items', 'rows', 'data', 'results'] },
+  take: { type: Number, default: 50 }
 })
 
 const { get } = useCrmApiClient()

@@ -21,13 +21,11 @@
 </template>
 
 <script setup lang="ts">
-withDefaults(defineProps<{
-  title: string
-  description: string
-  badge?: string
-  items?: string[]
-}>(), {
-  badge: 'Endpoint planned',
-  items: () => ['Trend data', 'Risk signal', 'Action note']
+// Runtime props on purpose: type-only defineProps<{...}>() compiles to zero props in this production build.
+defineProps({
+  title: { type: String, required: true },
+  description: { type: String, required: true },
+  badge: { type: String, default: 'Endpoint planned' },
+  items: { type: Array as () => string[], default: () => ['Trend data', 'Risk signal', 'Action note'] }
 })
 </script>

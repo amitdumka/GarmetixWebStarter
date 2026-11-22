@@ -33,14 +33,15 @@
 <script setup lang="ts">
 import { formatDateTime, readArray, readNumber, readText, type ApiRecord, useAdminApiClient } from '../utils/admin-api'
 
-const props = defineProps<{
-  title: string
-  subtitle: string
-  description: string
-  summaryEndpoint: string
-  listEndpoint: string
-  listKey: string
-}>()
+// Runtime props on purpose: type-only defineProps<{...}>() compiles to zero props in this production build.
+const props = defineProps({
+  title: { type: String, required: true },
+  subtitle: { type: String, required: true },
+  description: { type: String, required: true },
+  summaryEndpoint: { type: String, required: true },
+  listEndpoint: { type: String, required: true },
+  listKey: { type: String, required: true }
+})
 
 const { get } = useAdminApiClient()
 const loading = ref(true)
