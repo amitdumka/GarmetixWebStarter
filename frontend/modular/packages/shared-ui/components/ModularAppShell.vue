@@ -351,6 +351,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'attendance', label: 'Attendance', href: '/attendance', icon: 'i-lucide-calendar-check' },
       { id: 'attendance-dash', label: 'Attendance Dashboard', href: '/attendance-dash', icon: 'i-lucide-calendar-check' },
       { id: 'today', label: 'Today', href: '/attendance/today', icon: 'i-lucide-calendar-check-2' },
+      { id: 'employee-calendar', label: 'Employee Calendar', href: '/attendance/employee-calendar', icon: 'i-lucide-calendar-days' },
       { id: 'monthly', label: 'Monthly', href: '/attendance/monthly', icon: 'i-lucide-calendar-range' },
       { id: 'manual-punch', label: 'Manual Punch', href: '/attendance/manual-punch', icon: 'i-lucide-hand' },
       { id: 'regularization', label: 'Regularization', href: '/attendance/regularization', icon: 'i-lucide-calendar-clock' },
