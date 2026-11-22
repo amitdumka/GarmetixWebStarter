@@ -46,6 +46,7 @@ public static class BillingEndpoints
         group.MapPost("/sales/{id:guid}/exchange", CreateSalesExchangeAsync);
         group.MapPost("/sales/{id:guid}/cancel", CancelSaleAsync).RequireAuthorization(GarmetixPolicies.Delete);
         group.MapPost("/customers/{customerId:guid}/store-credit-refund", RefundStoreCreditAsync);
+        group.MapPost("/store-credit-correction", CorrectStoreCreditLedgerAsync).RequireAuthorization(GarmetixPolicies.Admin);
 
         return group;
     }
@@ -1677,6 +1678,46 @@ public static class BillingEndpoints
         StockLedgerService stockLedger,
         CancellationToken cancellationToken)
         => CancelSaleAsync(id, request, context, db, accounting, stockLedger, cancellationToken);
+
+    /// <summary>
+    /// Admin-only ledger correction: reduces the Customer Store Credit liability against Cash In Hand without touching any
+    /// customer balance. For clearing leftovers that no customer can claim (for example test documents). A reason is mandatory.
+    /// </summary>
+    private static async Task<IResult> CorrectStoreCreditLedgerAsync(
+        StoreCreditCorrectionRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        AccountingPostingService accounting,
+        CancellationToken cancellationToken)
+    {
+        if (request.Amount <= 0)
+        {
+            return Results.BadRequest(new { message = "Amount must be greater than zero." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length < 10)
+        {
+            return Results.BadRequest(new { message = "Enter a reason of at least 10 characters for this correction." });
+        }
+
+        var strategy = db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync<IResult>(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            var store = await WorkspaceScope.ApplyTo(db.Stores, context).FirstOrDefaultAsync(item => item.Id == request.StoreId, cancellationToken);
+            if (store is null)
+            {
+                return Results.BadRequest(new { message = "Selected store is outside your access scope." });
+            }
+
+            var correctionId = Guid.NewGuid();
+            var reference = $"SCC-{DateTime.Now:yyyyMMddHHmmss}-{correctionId.ToString("N")[..4].ToUpperInvariant()}";
+            await accounting.PostStoreCreditRefundAsync(null, store.CompanyId, store.StoreGroupId, store.Id, correctionId, reference, request.Amount, PaymentMode.Cash, null, "Correction: " + request.Reason.Trim(), cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Results.Ok(new { referenceNumber = reference, amount = request.Amount });
+        });
+    }
 
     /// <summary>Pays out (part of) a customer's held store credit in cash or via a bank mode.</summary>
     private static async Task<IResult> RefundStoreCreditAsync(

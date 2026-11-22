@@ -84,6 +84,7 @@
               <td class="border-b border-default p-3">
                 <div class="flex flex-wrap justify-end gap-2">
                   <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-pencil" @click="editCustomer(customer)">Edit</UButton>
+                  <UButton v-if="readNumber(customer, ['creditBalance']) > 0" size="xs" color="warning" variant="soft" icon="i-lucide-banknote" @click="openRefund(customer)">Refund Credit</UButton>
                   <UButton size="xs" icon="i-lucide-gift" @click="openLoyalty(customer)">Loyalty</UButton>
                 </div>
               </td>
@@ -104,6 +105,38 @@
         <UButton color="neutral" variant="soft" icon="i-lucide-chevrons-right" :disabled="page >= totalPages" @click="page = totalPages">Last</UButton>
       </div>
     </div>
+
+    <USlideover v-model:open="refundOpen" title="Refund Store Credit">
+      <template #body>
+        <div v-if="refundCustomer" class="grid gap-4">
+          <div class="rounded-md border border-default p-4">
+            <p class="garmetix-kicker"><UIcon name="i-lucide-banknote" class="size-4" /> Pay out held credit</p>
+            <h3 class="text-xl font-semibold text-highlighted">{{ readText(refundCustomer, ['name'], 'Customer') }}</h3>
+            <p class="text-sm text-muted">Holds {{ money(readNumber(refundCustomer, ['creditBalance'])) }} of store credit. The payout reduces the customer's credit and the Customer Store Credit ledger, and is taken out of expected cash at Day Close when paid in cash.</p>
+          </div>
+          <UAlert v-if="refundError" color="error" variant="subtle" icon="i-lucide-circle-alert" :description="refundError" />
+          <UFormField label="Store">
+            <USelect v-model="refundForm.storeId" :items="refundStoreItems" class="w-full" />
+          </UFormField>
+          <UFormField label="Amount to refund">
+            <UInput v-model.number="refundForm.amount" type="number" min="0" step="0.01" class="w-full" />
+          </UFormField>
+          <UFormField label="Paid by">
+            <USelect v-model="refundForm.paymentMode" :items="refundModeItems" class="w-full" />
+          </UFormField>
+          <UFormField v-if="refundForm.paymentMode !== 0" label="Bank account">
+            <USelect v-model="refundForm.bankAccountId" :items="refundBankItems" placeholder="Select bank account" class="w-full" />
+          </UFormField>
+          <UFormField label="Reason (optional)">
+            <UInput v-model="refundForm.reason" class="w-full" placeholder="e.g. Customer asked for cash instead of credit" />
+          </UFormField>
+          <div class="flex flex-wrap gap-2">
+            <UButton icon="i-lucide-check" :loading="refundSaving" :disabled="!canSubmitRefund" @click="submitRefund">Refund {{ money(Number(refundForm.amount || 0)) }}</UButton>
+            <UButton color="neutral" variant="ghost" icon="i-lucide-x" @click="refundOpen = false">Cancel</UButton>
+          </div>
+        </div>
+      </template>
+    </USlideover>
 
     <USlideover v-model:open="loyaltyOpen" title="Customer Loyalty">
       <template #body>
@@ -154,7 +187,7 @@ import { formatDate, readId, readNumber, readText, toRows, type ApiRecord, useCr
 
 const router = useRouter()
 const toast = useToast()
-const { get } = useCrmApiClient()
+const { get, post } = useCrmApiClient()
 
 const customers = ref<ApiRecord[]>([])
 const search = ref('')
@@ -299,6 +332,66 @@ async function openLoyalty(customer: ApiRecord) {
     toast.add({ title: 'Could not load loyalty ledger', description: ledgerError.value, color: 'error' })
   } finally {
     ledgerLoading.value = false
+  }
+}
+
+const refundOpen = ref(false)
+const refundCustomer = ref<ApiRecord | null>(null)
+const refundSaving = ref(false)
+const refundError = ref('')
+const refundStores = ref<ApiRecord[]>([])
+const refundBanks = ref<ApiRecord[]>([])
+const refundForm = reactive({ storeId: '', amount: 0, paymentMode: 0, bankAccountId: '', reason: '' })
+const refundModeItems = [
+  { label: 'Cash', value: 0 },
+  { label: 'UPI', value: 2 },
+  { label: 'Bank transfer (NEFT)', value: 6 }
+]
+const refundStoreItems = computed(() => refundStores.value.map(item => ({ label: readText(item, ['name', 'storeCode'], 'Store'), value: readId(item) })))
+const refundBankItems = computed(() => refundBanks.value.map(item => ({ label: `${readText(item, ['accountHolderName', 'name'], 'Bank account')} - ${readText(item, ['accountNumber'], '')}`, value: readId(item) })))
+const canSubmitRefund = computed(() => {
+  const credit = refundCustomer.value ? readNumber(refundCustomer.value, ['creditBalance']) : 0
+  const amount = Number(refundForm.amount || 0)
+  return Boolean(refundForm.storeId) && amount > 0 && amount <= credit + 0.001 && (refundForm.paymentMode === 0 || Boolean(refundForm.bankAccountId))
+})
+
+async function openRefund(customer: ApiRecord) {
+  refundCustomer.value = customer
+  refundError.value = ''
+  refundForm.amount = readNumber(customer, ['creditBalance'])
+  refundForm.paymentMode = 0
+  refundForm.bankAccountId = ''
+  refundForm.reason = ''
+  refundOpen.value = true
+  try {
+    if (!refundStores.value.length) refundStores.value = toRows(await get<unknown>('stores'))
+    if (!refundBanks.value.length) refundBanks.value = toRows(await get<unknown>('bank-accounts').catch(() => []))
+    if (!refundForm.storeId) refundForm.storeId = readId(refundStores.value[0]) || ''
+  } catch (caught) {
+    refundError.value = stripServerUrl(caught instanceof Error ? caught.message : 'Could not load stores.')
+  }
+}
+
+async function submitRefund() {
+  const id = readId(refundCustomer.value)
+  if (!id || !canSubmitRefund.value) return
+  refundSaving.value = true
+  refundError.value = ''
+  try {
+    const result = await post<{ referenceNumber: string, remainingStoreCredit: number }>(`billing/customers/${encodeURIComponent(id)}/store-credit-refund`, {
+      storeId: refundForm.storeId,
+      amount: Number(refundForm.amount),
+      paymentMode: refundForm.paymentMode,
+      bankAccountId: refundForm.paymentMode === 0 ? null : refundForm.bankAccountId || null,
+      reason: refundForm.reason.trim() || null
+    })
+    toast.add({ title: 'Store credit refunded', description: `${result.referenceNumber} - ${money(Number(refundForm.amount))} paid. Remaining credit ${money(result.remainingStoreCredit)}.`, color: 'success' })
+    refundOpen.value = false
+    await refresh()
+  } catch (caught) {
+    refundError.value = stripServerUrl(caught instanceof Error ? caught.message : 'Could not refund store credit.')
+  } finally {
+    refundSaving.value = false
   }
 }
 

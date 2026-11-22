@@ -1967,7 +1967,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
 
     /// <summary>Pays out held store credit to the customer: Dr Customer Store Credit, Cr cash/bank.</summary>
     public async Task PostStoreCreditRefundAsync(
-        Customer customer,
+        Customer? customer,
         Guid companyId,
         Guid storeGroupId,
         Guid storeId,
@@ -1988,7 +1988,7 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
             new(settlementLedger.Id, null, 0, amount, narration)
         };
         var onDate = DateTime.Now;
-        await UpsertInvoiceBankTransactionAsync(companyId, paymentMode, bankAccountId, TransactionType.Withdraw, onDate, $"SCR-{referenceNumber}", narration, amount, customer.Name, cancellationToken);
+        await UpsertInvoiceBankTransactionAsync(companyId, paymentMode, bankAccountId, TransactionType.Withdraw, onDate, $"SCR-{referenceNumber}", narration, amount, customer?.Name ?? "Store credit correction", cancellationToken);
         await RepostSourceJournalAsync("StoreCreditRefund", refundId, $"SCR-{referenceNumber}", onDate, referenceNumber, narration, companyId, storeGroupId, storeId, lines, cancellationToken);
     }
 

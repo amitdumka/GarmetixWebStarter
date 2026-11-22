@@ -272,6 +272,11 @@ public sealed record StoreCreditRefundRequest(
     Guid? BankAccountId,
     string? Reason);
 
+public sealed record StoreCreditCorrectionRequest(
+    Guid StoreId,
+    decimal Amount,
+    string Reason);
+
 public sealed record StoreCreditRefundResponse(
     string ReferenceNumber,
     decimal RefundedAmount,

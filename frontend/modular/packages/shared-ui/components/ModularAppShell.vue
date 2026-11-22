@@ -382,6 +382,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
     { key: 'accounting', label: 'Accounting', items: [
       { id: 'home', label: 'Books Home', href: '/', icon: 'i-lucide-layout-dashboard' },
       { id: 'accounting', label: 'Accounting', href: '/accounting', icon: 'i-lucide-landmark' },
+      { id: 'accountant-review', label: 'Accountant Review', href: '/accountant-review', icon: 'i-lucide-clipboard-check' },
       { id: 'day-book', label: 'Day Book', href: '/day-book', icon: 'i-lucide-book-open-check' },
       { id: 'ledgers', label: 'Ledgers', href: '/ledgers', icon: 'i-lucide-book-open' },
       { id: 'parties', label: 'Parties', href: '/parties', icon: 'i-lucide-users-round' },
