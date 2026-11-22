@@ -17,7 +17,7 @@ using System.Text.RegularExpressions;
 
 namespace Garmetix.Api.Billing;
 
-public static class BillingEndpoints
+public static partial class BillingEndpoints
 {
     public static RouteGroupBuilder MapBillingEndpoints(this WebApplication app)
     {
@@ -37,7 +37,7 @@ public static class BillingEndpoints
         group.MapPost("/sales/{id:guid}/digital-bill/send-whatsapp", SendSaleDigitalBillWhatsAppAsync);
         group.MapGet("/sales/{id:guid}/pdf", DownloadInvoicePdfAsync);
         group.MapPost("/sales/{id:guid}/send-email", SendSaleInvoiceEmailAsync);
-        group.MapPut("/sales/{id:guid}", UpdateSaleInvoiceAsync).RequireAuthorization(GarmetixPolicies.Edit);
+        MapSaleEditEndpoints(group);
         group.MapDelete("/sales/{id:guid}", DeleteSaleInvoiceAsync).RequireAuthorization(GarmetixPolicies.Delete);
         group.MapDelete("/sales/{id:guid}/hard-delete", HardDeleteSaleInvoiceAsync).RequireAuthorization(GarmetixPolicies.Admin);
         group.MapPost("/sales/{id:guid}/round-off-correction", ApplyRoundOffCorrectionAsync).RequireAuthorization(GarmetixPolicies.Admin);
@@ -1287,49 +1287,6 @@ public static class BillingEndpoints
             digitalBillWhatsAppResult?.ErrorMessage));
     }
 
-
-    private static async Task<IResult> UpdateSaleInvoiceAsync(
-        Guid id,
-        UpdateSaleInvoiceRequest request,
-        HttpContext context,
-        GarmetixDbContext db,
-        CancellationToken cancellationToken)
-    {
-        var invoice = await WorkspaceScope.ApplyTo(db.SalesInvoices, context)
-            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
-        if (invoice is null)
-        {
-            return Results.NotFound(new { message = "Sales invoice was not found." });
-        }
-
-        if (invoice.InvoiceStatus == InvoiceStatus.Cancelled)
-        {
-            return Results.Conflict(new { message = "Cancelled sales invoices cannot be edited." });
-        }
-
-        var invoiceNumber = request.InvoiceNumber?.Trim();
-        if (!string.IsNullOrWhiteSpace(invoiceNumber))
-        {
-            var exists = await WorkspaceScope.ApplyTo(db.SalesInvoices.AsNoTracking(), context)
-                .AnyAsync(item => item.Id != id && item.CompanyId == invoice.CompanyId && item.InvoiceNumber == invoiceNumber, cancellationToken);
-            if (exists)
-            {
-                return Results.Conflict(new { message = $"Sales invoice number {invoiceNumber} already exists." });
-            }
-            invoice.InvoiceNumber = invoiceNumber;
-        }
-
-        if (request.OnDate.HasValue) invoice.OnDate = request.OnDate.Value.Date;
-        if (!string.IsNullOrWhiteSpace(request.CustomerName)) invoice.CustomerName = request.CustomerName.Trim();
-        if (!string.IsNullOrWhiteSpace(request.CustomerMobileNumber)) invoice.CustomerMobileNumber = request.CustomerMobileNumber.Trim();
-        invoice.CustomerGSTIN = string.IsNullOrWhiteSpace(request.CustomerGstin) ? null : request.CustomerGstin.Trim().ToUpperInvariant();
-        if (request.SalesmanId.HasValue && request.SalesmanId.Value != Guid.Empty) invoice.SalemanId = request.SalesmanId.Value;
-        invoice.Remarks = string.IsNullOrWhiteSpace(request.Remarks) ? null : request.Remarks.Trim();
-        invoice.UpdatedAt = DateTime.UtcNow;
-
-        await db.SaveChangesAsync(cancellationToken);
-        return Results.Ok(new { invoice.Id, invoice.InvoiceNumber, invoice.OnDate, invoice.CustomerName, invoice.CustomerMobileNumber, invoice.CustomerGSTIN, salesmanId = invoice.SalemanId, invoice.Remarks });
-    }
 
     private static async Task<IResult> ApplyRoundOffCorrectionAsync(
         Guid id,

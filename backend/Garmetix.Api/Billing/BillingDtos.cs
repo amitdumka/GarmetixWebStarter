@@ -237,6 +237,33 @@ public sealed record UpdateSaleInvoiceRequest(
     Guid? SalesmanId,
     string? Remarks = null);
 
+public sealed record SaleEditItemRequest(
+    Guid ProductId,
+    string Barcode,
+    decimal Quantity,
+    decimal Mrp,
+    decimal DiscountAmount);
+
+public sealed record SaleEditPaymentRequest(
+    PaymentMode PaymentMode,
+    decimal Amount,
+    Guid? BankAccountId,
+    string? ReferenceNumber,
+    DateTime? OnDate);
+
+public sealed record UpdateSaleInvoiceExtendedRequest(
+    string? InvoiceNumber,
+    DateTime? OnDate,
+    string? CustomerName,
+    string? CustomerMobileNumber,
+    string? CustomerGstin,
+    Guid? SalesmanId,
+    string? Remarks,
+    decimal BillDiscountAmount,
+    IReadOnlyList<SaleEditItemRequest> Items,
+    IReadOnlyList<SaleEditPaymentRequest>? Payments,
+    string? Reason);
+
 public sealed record RoundOffCorrectionRequest(decimal Amount, string? Note);
 
 public sealed record RoundOffCorrectionResponse(

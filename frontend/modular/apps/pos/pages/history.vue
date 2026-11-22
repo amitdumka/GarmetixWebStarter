@@ -119,6 +119,8 @@
                 <td class="border-b border-default p-3 text-right">
                   <div class="flex flex-wrap justify-end gap-2">
                     <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-eye" :loading="receiptLoadingId === invoice.id" @click="selectInvoice(invoice)">View</UButton>
+                    <UButton v-if="canCancel(invoice)" size="xs" color="neutral" variant="soft" icon="i-lucide-pencil" @click="openEdit(invoice, 'basic')">Edit</UButton>
+                    <UButton v-if="canCancel(invoice)" size="xs" color="primary" variant="soft" icon="i-lucide-pencil-ruler" @click="openEdit(invoice, 'extended')">Items &amp; Payments</UButton>
                     <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-printer" :loading="printingId === invoice.id" @click="printInvoice(invoice)">Print</UButton>
                     <UButton
                       v-if="canCancel(invoice)"
@@ -246,11 +248,14 @@
         </div>
       </template>
     </USlideover>
+
+    <SaleInvoiceEditPanel v-model:open="editOpen" :invoice-id="editInvoiceId" :mode="editMode" :api="api" @saved="onEdited" />
   </section>
 </template>
 
 <script setup lang="ts">
 import { createGarmetixApiClient } from '@garmetix/shared-api'
+import SaleInvoiceEditPanel from '../../../packages/shared-ui/components/SaleInvoiceEditPanel.vue'
 import { getStoredToken } from '@garmetix/shared-auth'
 import { formatIndianMoney } from '@garmetix/shared-utils'
 import { normalizePosDocumentSearch, openBillingInvoicePdf, textMatchesDocumentSearch } from '../utils/pos-documents'
@@ -587,6 +592,21 @@ async function printInvoice(invoice: SaleInvoice) {
   } finally {
     printingId.value = ''
   }
+}
+
+const editOpen = ref(false)
+const editInvoiceId = ref('')
+const editMode = ref('basic')
+
+function openEdit(invoice: SaleInvoice, mode: 'basic' | 'extended') {
+  editInvoiceId.value = invoice.id
+  editMode.value = mode
+  editOpen.value = true
+}
+
+async function onEdited() {
+  showMessage('success', 'Invoice updated.')
+  await refresh()
 }
 
 async function cancelInvoice(invoice: SaleInvoice | null) {

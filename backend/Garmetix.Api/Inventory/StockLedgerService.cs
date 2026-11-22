@@ -200,6 +200,32 @@ public sealed class StockLedgerService(GarmetixDbContext db)
         return targetPosting ?? throw new InvalidOperationException("Correction could not be applied.");
     }
 
+    /// <summary>
+    /// Replays one stock's whole movement history in date order and rewrites every movement's before/after quantity,
+    /// average cost and inventory value plus the stock rollup. Used after movements were re-dated.
+    /// </summary>
+    public async Task<StockLedgerSnapshot> ReplayAsync(Stock stock, CancellationToken cancellationToken)
+    {
+        var movements = await db.StockMovements
+            .Where(item => item.StockId == stock.Id)
+            .ToListAsync(cancellationToken);
+
+        var snapshot = StockLedgerSnapshot.Empty;
+        foreach (var item in movements
+            .OrderBy(item => item.OnDate)
+            .ThenBy(item => item.CreatedAt)
+            .ThenBy(item => item.Id))
+        {
+            var posting = StockLedgerCalculator.Apply(
+                snapshot, item.QuantityIn, item.QuantityOut, item.CostPrice, item.OnDate, allowNegative: true);
+            ApplyPosting(item, posting);
+            snapshot = posting.After;
+        }
+
+        ApplyProjection(stock, snapshot);
+        return snapshot;
+    }
+
     private static void ApplyProjection(Stock stock, StockLedgerSnapshot snapshot)
     {
         stock.PurchaseQty = snapshot.TotalQuantityIn;

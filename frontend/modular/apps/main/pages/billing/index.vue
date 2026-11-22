@@ -84,7 +84,11 @@
               {{ money(readNumber(invoice, ['balanceAmount'])) }}
             </td>
             <td class="border-b border-default p-3 text-right">
-              <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-eye" @click="selectInvoice(invoice)">View</UButton>
+              <div class="flex flex-wrap justify-end gap-1">
+                <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-eye" @click="selectInvoice(invoice)">View</UButton>
+                <UButton v-if="canEditInvoice(invoice)" size="xs" color="neutral" variant="soft" icon="i-lucide-pencil" @click="openEdit(invoice, 'basic')">Edit</UButton>
+                <UButton v-if="canEditInvoice(invoice)" size="xs" color="primary" variant="soft" icon="i-lucide-pencil-ruler" @click="openEdit(invoice, 'extended')">Items &amp; Payments</UButton>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -151,16 +155,38 @@
         </div>
       </template>
     </USlideover>
+
+    <SaleInvoiceEditPanel v-model:open="editOpen" :invoice-id="editInvoiceId" :mode="editMode" :api="{ get, put }" @saved="onEdited" />
   </section>
 </template>
 
 <script setup lang="ts">
 import { formatIndianMoney } from '@garmetix/shared-utils'
+import SaleInvoiceEditPanel from '../../../../packages/shared-ui/components/SaleInvoiceEditPanel.vue'
 import { formatDate, readArray, readNumber, readText, toRows, type ApiRecord, useMainApiClient } from '../../utils/main-api'
 
 useHead({ title: 'Sale Invoices - Garmetix Back Office' })
 
-const { get, post } = useMainApiClient()
+const { get, post, put } = useMainApiClient()
+
+const editOpen = ref(false)
+const editInvoiceId = ref('')
+const editMode = ref('basic')
+
+function canEditInvoice(invoice: ApiRecord) {
+  const status = readText(invoice, ['invoiceStatus', 'status'], '').toLowerCase()
+  return Boolean(readText(invoice, ['id'], '')) && !status.includes('cancel')
+}
+
+function openEdit(invoice: ApiRecord, mode: 'basic' | 'extended') {
+  editInvoiceId.value = readText(invoice, ['id'], '')
+  editMode.value = mode
+  editOpen.value = true
+}
+
+async function onEdited() {
+  await refresh()
+}
 
 const statusOptions = [
   { value: 'all', label: 'All sales' },
