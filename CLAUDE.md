@@ -1,5 +1,16 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-11-22 - POS return/exchange pages, QR on invoices, walk-in customers, CRM edit fix (v6.9.44 - v6.9.48)
+
+Deployed to SRP 192.168.11.127 in five steps, each with a sha256-verified pre-deploy backup. Detail, open issues and the plan for counter-based Day Open/Close are in .claude/todo.md ("Nov 2026 session") and .claude/roadmap.md.
+
+- **Sale Return / Exchange** now use separate form pages (/return-new, /exchange-new); returns print as CREDIT NOTE; the return journal books unrefunded credit into Customer Store Credit; cash refunds reduce expected cash in Day Close and Petty Cash. Not yet exercised with a real return.
+- **Invoice QR**: the sale invoice never printed a real QR (placeholder box). Fixed for A4/A5/thermal; thermal also prints an Instagram follow QR; POS history resolves scanned codes.
+- **Walk-in rule**: sales with no mobile number use the standard Walk-in Customer (0000000000); name stays on the invoice. Admin merge tool added and used once (Pankaj Mishra (Dukan)).
+- **CRM Edit Customer** blank form fixed (type-only defineProps compiled to no props - other components unaudited).
+- **POS print layout** (A4/A5/Thermal 58/80) saved per device; **Books Vouchers** hide customer ledgers and autofill the party.
+- **Planned next**: Day Open / Day Close redesigned around Store and Counter (multi-counter, multi-store) - roadmap item, not started.
+
 ## 2026-08-07 - Sale Return / Exchange Register (new page, Back Office + POS)
 
 Amit reported: "Sale return and Exchange of goods has option to sale return or exchange, but there is no page where i can see all sale return or exchange of goods inovices and details." Confirmed via research: the POS app has working creation flows (`/returns`, `/exchange` calling `POST billing/sales/{id}/returns`/`/exchange`), but no page anywhere - modular or legacy - lists completed returns/exchanges, and the backend's `SearchSalesAsync` never exposed `InvoiceType`/`OriginalInvoiceId` to filter on. Mirrors the register pattern already built for Purchase Returns (`purchase-return/index.vue` + `GET purchase/returns/recent`).

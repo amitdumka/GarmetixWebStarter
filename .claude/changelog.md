@@ -4,6 +4,20 @@ Append-only. Newest entry on top. Format: date, session summary, files touched, 
 
 ---
 
+## 2026-11-22 - POS / CRM / Books fixes, QR, returns and exchange redesign (v6.9.44 - v6.9.48)
+
+**Type**: bug fixes + small features, all deployed to SRP .127 with a pre-deploy DB backup each time. Full list and open issues are in .claude/todo.md under "Nov 2026 session".
+
+- 6.9.44 Books Vouchers: customer ledgers hidden from the Ledger picker; Party/Payee autofill hardened.
+- 6.9.45 POS: saved per-device print layout (A4/A5/Thermal 58/80).
+- 6.9.46 CRM Edit Customer fixed (runtime props); no-mobile sales go to the standard Walk-in Customer 0000000000; admin merge-into-walkin endpoint used to fold Pankaj Mishra (Dukan) into Walk-In Customer (backup taken first, books stayed balanced).
+- 6.9.47 Sale invoices print a real QR in every format; thermal receipts end with the Instagram QR; POS history resolves scanned GMX:SALE codes.
+- 6.9.48 Sale Return / Exchange forms on their own pages (/return-new, /exchange-new); returns print as CREDIT NOTE; return journal books unrefunded credit into Customer Store Credit; cash refunds reduce expected cash in Day Close and Petty Cash.
+- Ops: SRP .127 had a wrong clock and no gateway/DNS on its cable port (login looked broken and cloudflared could not start); fixed on the host by the owner. Not yet verified live: the return/exchange accounting changes (no real return exists yet).
+- Planned: counter-based Day Open / Day Close (store + counter) - see roadmap.
+
+---
+
 ## 2026-07-17 - Swalekha PersonalFin_06 (Multi-Owner Data Isolation) - branch `swalekha`
 
 **Type**: Foundational security/privacy fix on the Swalekha module, inserted ahead of the next feature stage. No deploy executed.

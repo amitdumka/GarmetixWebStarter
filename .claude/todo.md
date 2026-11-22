@@ -150,6 +150,35 @@ Amit asked for a brand-new, completely isolated "Personal & Personal Finance" mo
   - Validated: `dotnet build` (0 errors, same 7 pre-existing warnings), full backend test suite (291 passed, 0 regressions), clean `swalekha-web` production build, `validate-structure.mjs`. **Live-verified end to end against the real local stack**: uploaded a real PDF through the authenticated multipart flow (`201`, correctly listed with type/size/notes), downloaded it (`200`), deleted it (`204`, correctly disappeared from the list - soft delete confirmed). Ran the self-check through the actual UI button (not just the API) - all 4 checks passed, including "5 account row(s) belonging to other Owners exist and are correctly invisible above," proving the isolation check ran against real other-Owner data accumulated from earlier stages this session, not an empty table.
   - **All 15 `PersonalFin` stages are now complete** (`docs/personal-finance-module-design.md`'s original plan). Swalekha remains undeployed - deployment is Amit's call, per the established holding pattern for this module.
 
+## Nov 2026 session (v6.9.44 - v6.9.48, deployed to SRP .127) - done, issues, future
+
+### Done
+- [x] **Books Vouchers (6.9.44)**: Ledger picker hides customer ledgers (Sundry Debtor / customer-party); Party/Payee autofills from the ledger party (falls back to the ledger name; clears an auto-filled name on a non-party ledger).
+- [x] **POS print layout (6.9.45)**: per-device saved layout A4 / A5 / Thermal 58 mm / Thermal 80 mm, picker on Sale, Sales History (header + View panel) and Print Queue; openBillingInvoicePdf defaults to the saved layout for every print path.
+- [x] **CRM Edit Customer blank form (6.9.46)**: type-only defineProps compiled to no props, so customer-id fell through as an attribute. Switched CustomerForm (and the POS print picker) to runtime props.
+- [x] **No-mobile sales (6.9.46)**: blank / WALKIN / all-zero mobile now books to the single standard Walk-in Customer (0000000000), never renamed; typed name kept on the invoice (CustomerName + remark); typed GSTIN kept for B2B; billing import follows the same rule.
+- [x] **Customer merge tool (6.9.46)**: admin-only POST /api/customers/{id}/merge-into-walkin/{walkInId} (preview, then confirm with MERGE CUSTOMER; one transaction). Used once: Pankaj Mishra (Dukan) merged into Walk-In Customer (24 invoices, 1 credit note, 13 loyalty rows, 49 journal lines moved; books stayed balanced).
+- [x] **Invoice QR (6.9.47)**: sale invoices printed a fake "SCAN CODE" box. Now a real QR in A4/A5/thermal; thermal also prints the invoice QR + Instagram follow QR (https://www.instagram.com/aadwikafashion) at the end; POS Sales History resolves a scanned GMX:SALE code.
+- [x] **Sale Return / Exchange (6.9.48)**: forms moved to their own pages (/return-new, /exchange-new); lists only search and select; returns print as CREDIT NOTE; return journal now books the unrefunded amount into Customer Store Credit; cash refunds now reduce expected cash in Day Close and the Petty Cash sheet.
+
+### Open issues found (not yet fixed)
+- [ ] **Return / exchange never exercised live**: the store-credit journal fix, the CREDIT NOTE print and the cash-refund day-close fix are covered by code review and unit tests only. Needs one real cash-refund return and one exchange, then check Day Close, Trial Balance, Customer ledger and Customer Store Credit.
+- [ ] **Type-only defineProps fragility**: confirmed to compile to zero props in some components in the production build (CustomerForm, AdminMasterTable). About 15 other components still use the type-only form and were not audited; convert them to runtime props or find the root cause.
+- [ ] **Day Close logic is duplicated**: StoreDayEndpoints.CalculateBookSummaryAsync and PettyCashEndpoints.CalculateAsync compute the same cash figure separately; every fix has to be made twice. Fold into one shared service when Day Open/Close is redesigned (see Future).
+- [ ] **Receipt policy URL is wrong**: thermal receipts print "Policy: https://192.168.11.127/goods-return-policy" (raw IP, https, no port). Find where the base URL setting comes from and set the real public URL.
+- [ ] **Duplicate / junk customers and ledgers**: several "Walk-in" customers with real mobile numbers (Walkin Customer 9057154856, Walk-in Customer 8292845913), duplicate ledgers (Royalwood vs Royalwood International), legacy customers still on the WALKIN placeholder mobile. Review and merge with the merge tool.
+- [ ] **Stale validation scripts**: pos-cashier-workflow-acceptance, pos-final-closure and pos-parity-baseline fail on "Expected Stage 14 lane" (they require the stage string to contain "Stage 14"); the page markers they check pass. Loosen the stage check.
+- [ ] **SRP host reliability (.127)**: the server clock was months behind (no NTP) and the cable port had a static IP with no gateway/DNS, which broke login (token seen as expired), cloudflared and the public site. /etc/netplan/99-static-enp2s0.yaml needs routes + nameservers; keep NTP enabled; Wi-Fi passwords were pasted into chat and equal the admin password, so rotate them.
+- [ ] **Rollback points**: pre-deploy DB backups for this session are in /opt/garmetix/backup/database/ (stages CrmEditWalkinPrintLayoutVoucherPartyCustomerMerge, InvoiceQrAndInstagramQr, PosReturnExchangePagesJournalFixes).
+
+### Future - Counter-based Day Open / Day Close (planned, advanced version)
+- [ ] **Redesign Day Open and Day Close around Store AND Counter.** Today both are store-based (one open/close and one petty cash sheet per store per day). A store can have several counters, and a business can have several stores, so each counter needs its own opening cash, sales, refunds, receipts and closing, rolled up into a store-level day close.
+  - Data: introduce a Counter (register/till) entity under Store; tag sales, payments, refunds, vouchers and petty cash entries with CounterId; user/session to counter assignment.
+  - Flow: Counter Open (opening float) -> sales/returns on that counter -> Counter Close (counted cash vs expected) -> Store Day Close consolidates all counters and records differences per counter.
+  - Reports: per-counter cash reconciliation, store consolidation, multi-store view.
+  - Prerequisites: merge the two duplicated day-close calculations into one service; add counter-aware petty cash; decide how non-counter vouchers (expenses, salary) are attributed.
+  - Keep backwards compatible: a store with one counter behaves exactly as today.
+
 ## Process Reminders
 
 - [ ] Before any backend/API/DB change: confirm with Amit if it can affect `frontend/legacy/garmetix-web`.
