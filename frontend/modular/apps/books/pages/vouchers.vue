@@ -53,7 +53,7 @@
         </label>
         <label class="space-y-1 text-sm">
           <span class="text-muted">Ledger</span>
-          <USelectMenu v-model="form.ledgerId" value-key="value" :items="ledgerSelectItems" placeholder="Search ledger..." class="w-full" />
+          <USelectMenu v-model="form.ledgerId" value-key="value" :items="voucherLedgerSelectItems" placeholder="Search ledger (customers excluded)..." class="w-full" />
         </label>
         <label class="space-y-1 text-sm">
           <span class="text-muted">Party / Payee</span>
@@ -323,6 +323,29 @@ const ledgerSelectItems = computed(() => ledgers.value
     value: readText(item, ['id'], '')
   }))
   .filter(item => item.value))
+// Vouchers are for everyone except customers: customer (Sundry Debtor / Customer-party) ledgers are
+// settled through sales receipts, so they are hidden from the voucher entry Ledger picker. The ledger
+// of the voucher being edited is always kept so an older voucher still shows its own ledger.
+const SUNDRY_DEBTOR_LEDGER_TYPES = new Set(['20', 'sundrydebtor'])
+const CUSTOMER_PARTY_CATEGORIES = new Set(['0', '4', 'customer', 'debitor'])
+const customerLedgerIds = computed(() => {
+  const ids = new Set<string>()
+  ledgers.value.forEach((item) => {
+    if (SUNDRY_DEBTOR_LEDGER_TYPES.has(String(item.ledgerType ?? '').toLowerCase())) {
+      const id = readText(item, ['id'], '')
+      if (id) ids.add(id)
+    }
+  })
+  parties.value.forEach((item) => {
+    if (CUSTOMER_PARTY_CATEGORIES.has(String(item.category ?? '').toLowerCase())) {
+      const ledgerId = readText(item, ['ledgerId'], '')
+      if (ledgerId) ids.add(ledgerId)
+    }
+  })
+  return ids
+})
+const voucherLedgerSelectItems = computed(() => ledgerSelectItems.value
+  .filter(item => !customerLedgerIds.value.has(item.value) || item.value === form.ledgerId))
 const ledgerFilterItems = computed(() => [
   { label: 'All Ledgers', value: 'all' },
   ...ledgerSelectItems.value
@@ -506,7 +529,7 @@ function clearListFilters() {
 }
 
 function seedDefaultFormValues() {
-  form.ledgerId = ledgerSelectItems.value.find(item => item.label === 'Cash In Hand')?.value || ledgerSelectItems.value[0]?.value || ''
+  form.ledgerId = voucherLedgerSelectItems.value.find(item => item.label === 'Cash In Hand')?.value || voucherLedgerSelectItems.value[0]?.value || ''
   form.employeeId = employeeSelectItems.value[0]?.value || ''
   form.accountNumber = bankAccountSelectItems.value[0]?.value || ''
 }
@@ -744,9 +767,22 @@ async function downloadVoucherById(id: string, voucherNumber: string, mode: 'a4'
   }
 }
 
+// Auto-fill Party / Payee from the ledger's linked party (as legacy does). A party ledger without a Party
+// row falls back to the ledger's own name (party ledgers are named after their party). When the user then
+// switches to a non-party ledger, a name we auto-filled is cleared so it never lingers on the wrong ledger.
+let partyNameAutoFilled = false
 watch(() => form.ledgerId, (ledgerId) => {
+  if (!ledgerId) return
   const party = parties.value.find(item => readText(item, ['ledgerId'], '') === ledgerId)
-  if (party) form.partyName = readText(party, ['name'], form.partyName)
+  const ledger = ledgerRecord(ledgerId)
+  const linkedName = readText(party, ['name'], '') || (ledger && ledger.isParty === true ? readText(ledger, ['name'], '') : '')
+  if (linkedName) {
+    form.partyName = linkedName
+    partyNameAutoFilled = true
+  } else if (partyNameAutoFilled) {
+    form.partyName = ''
+    partyNameAutoFilled = false
+  }
 })
 
 watch(() => form.paymentMode, () => {
