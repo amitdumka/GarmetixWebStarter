@@ -265,6 +265,18 @@ public sealed record ReclassifyInvoicePaymentResponse(
 
 public sealed record CancelInvoiceRequest(string? Reason);
 
+public sealed record StoreCreditRefundRequest(
+    Guid StoreId,
+    decimal Amount,
+    PaymentMode PaymentMode,
+    Guid? BankAccountId,
+    string? Reason);
+
+public sealed record StoreCreditRefundResponse(
+    string ReferenceNumber,
+    decimal RefundedAmount,
+    decimal RemainingStoreCredit);
+
 public sealed record CancelInvoiceResponse(
     Guid InvoiceId,
     string InvoiceNumber,

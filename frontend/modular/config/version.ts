@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.9.49',
-  stage: 'Component props fix, receipt policy link, duplicate customer merge',
-  label: 'Fixes components whose props were silently dropped in production builds; receipt policy link no longer prints the LAN address; duplicate customers can be merged',
-  summary: 'Every component declared its props with the type-only defineProps form, which this production build compiles to zero props (the CRM Edit Customer blank form was one case). All 16 remaining components now use runtime prop declarations, which also revives the POS toast, the placeholder pages, the CRM and Main read-only tables and the Debit/Credit note registers. The goods return policy link printed on invoices and digital bills now falls back to the public domain when the request came in over a raw IP address, localhost or a LAN name. Admins can merge two customers that share the same mobile number through a new preview-then-confirm endpoint.'
+  version: '6.9.50',
+  stage: 'Return cancel guard, store credit refund, walk-in credit guard',
+  label: 'Sales returns can no longer be cancelled, held store credit can be refunded, walk-in customers cannot hold store credit',
+  summary: 'Cancelling a return or credit note would have put stock back twice, so it is now blocked, as is cancelling an invoice that has returns. Cancelling an exchange now gives the store credit it used back to the customer. The shared Walk-in Customer can no longer be left holding store credit and can only use the credit its own exchange created. A new store credit refund endpoint pays held credit out in cash or by bank mode.'
 } as const

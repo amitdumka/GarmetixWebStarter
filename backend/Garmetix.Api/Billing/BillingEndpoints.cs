@@ -45,6 +45,7 @@ public static class BillingEndpoints
         group.MapPost("/sales/{id:guid}/returns", CreateSalesReturnAsync);
         group.MapPost("/sales/{id:guid}/exchange", CreateSalesExchangeAsync);
         group.MapPost("/sales/{id:guid}/cancel", CancelSaleAsync).RequireAuthorization(GarmetixPolicies.Delete);
+        group.MapPost("/customers/{customerId:guid}/store-credit-refund", RefundStoreCreditAsync);
 
         return group;
     }
@@ -1677,6 +1678,51 @@ public static class BillingEndpoints
         CancellationToken cancellationToken)
         => CancelSaleAsync(id, request, context, db, accounting, stockLedger, cancellationToken);
 
+    /// <summary>Pays out (part of) a customer's held store credit in cash or via a bank mode.</summary>
+    private static async Task<IResult> RefundStoreCreditAsync(
+        Guid customerId,
+        StoreCreditRefundRequest request,
+        HttpContext context,
+        GarmetixDbContext db,
+        AccountingPostingService accounting,
+        CancellationToken cancellationToken)
+    {
+        if (request.Amount <= 0)
+        {
+            return Results.BadRequest(new { message = "Refund amount must be greater than zero." });
+        }
+
+        var strategy = db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync<IResult>(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            var store = await WorkspaceScope.ApplyTo(db.Stores, context).FirstOrDefaultAsync(item => item.Id == request.StoreId, cancellationToken);
+            if (store is null)
+            {
+                return Results.BadRequest(new { message = "Selected store is outside your access scope." });
+            }
+
+            var customer = await db.Customers.FirstOrDefaultAsync(item => item.Id == customerId && item.CompanyId == store.CompanyId, cancellationToken);
+            if (customer is null)
+            {
+                return Results.NotFound();
+            }
+
+            if (request.Amount > customer.CreditBalance)
+            {
+                return Results.BadRequest(new { message = $"Customer holds only {customer.CreditBalance:0.00} of store credit." });
+            }
+
+            var refundId = Guid.NewGuid();
+            var reference = $"SCR-{DateTime.Now:yyyyMMddHHmmss}-{refundId.ToString("N")[..4].ToUpperInvariant()}";
+            customer.CreditBalance -= request.Amount;
+            await accounting.PostStoreCreditRefundAsync(customer, store.CompanyId, store.StoreGroupId, store.Id, refundId, reference, request.Amount, request.PaymentMode, request.BankAccountId, request.Reason, cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return Results.Ok(new StoreCreditRefundResponse(reference, request.Amount, customer.CreditBalance));
+        });
+    }
+
     private static Task<IResult> CancelSaleAsync(
         Guid id,
         CancelInvoiceRequest request,
@@ -1717,6 +1763,17 @@ public static class BillingEndpoints
         if (invoice.InvoiceStatus == InvoiceStatus.Cancelled)
         {
             return Results.Conflict(new { message = "Invoice is already cancelled." });
+        }
+
+        // A return / credit note cannot be cancelled like a sale: cancelling would put the goods back into stock a second time.
+        if (invoice.ReturnInvoice)
+        {
+            return Results.Conflict(new { message = "A sales return / credit note cannot be cancelled. Use Refund Store Credit if the customer is still owed money." });
+        }
+
+        if (await db.SalesInvoices.AnyAsync(item => item.OriginalInvoiceId == invoice.Id && item.ReturnInvoice && item.InvoiceStatus != InvoiceStatus.Cancelled, cancellationToken))
+        {
+            return Results.Conflict(new { message = "This invoice has returns against it and cannot be cancelled." });
         }
 
         var originalPaidAmount = invoice.PaidAmount;
@@ -1784,6 +1841,8 @@ public static class BillingEndpoints
         {
             customer.BillCount = Math.Max(0, customer.BillCount - 1);
             customer.Amount = Math.Max(0, customer.Amount - invoice.BillAmount);
+            // Store credit that paid part of this invoice goes back to the customer.
+            customer.CreditBalance += originalPaymentRows.Where(row => row.PaymentMode == PaymentMode.CreditBalance).Sum(row => row.Amount);
         }
 
         invoice.InvoiceStatus = InvoiceStatus.Cancelled;
@@ -1947,7 +2006,8 @@ public static class BillingEndpoints
             documentNumbers,
             accounting,
             stockLedger,
-            cancellationToken);
+            cancellationToken,
+            creditUsedByExchange: true);
 
         if (!returnResult.Success)
         {
@@ -2069,7 +2129,14 @@ public static class BillingEndpoints
         }
 
         var billAmount = Math.Round(grossMrp - itemDiscount, 0);
-        var creditApplied = Math.Min(customer.CreditBalance, billAmount);
+        var isWalkIn = customer.MobileNumber == WalkInMobileNumber;
+        // The shared Walk-in Customer must only ever use the credit created by this very exchange, never anyone else's.
+        var creditApplied = Math.Min(isWalkIn ? returnResult.CreditAmount : customer.CreditBalance, billAmount);
+        if (isWalkIn && returnResult.CreditAmount - creditApplied > 0)
+        {
+            return Results.BadRequest(new { message = "The replacement is worth less than the returned item, and store credit cannot be held for the anonymous Walk-in Customer. Choose items worth at least the returned value, use Sale Return to refund, or sell to a customer with a mobile number." });
+        }
+
         var additionalDue = Math.Max(billAmount - creditApplied, 0);
         var additionalPaid = Math.Min(Math.Max(request.AdditionalPaidAmount, 0), additionalDue);
         customer.CreditBalance = Math.Max(0, customer.CreditBalance - creditApplied);
@@ -2185,7 +2252,8 @@ public static class BillingEndpoints
         DocumentNumberService documentNumbers,
         AccountingPostingService accounting,
         StockLedgerService stockLedger,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool creditUsedByExchange = false)
     {
         var original = await WorkspaceScope.ApplyTo(db.SalesInvoices, context)
             .FirstOrDefaultAsync(item => item.Id == originalInvoiceId, cancellationToken);
@@ -2346,6 +2414,11 @@ public static class BillingEndpoints
         var billAmount = Math.Round(creditAmount, 0);
         var refund = Math.Min(Math.Max(refundAmount, 0), billAmount);
         var storeCredit = Math.Max(billAmount - refund, 0);
+        if (storeCredit > 0 && !creditUsedByExchange && customer.MobileNumber == WalkInMobileNumber)
+        {
+            return SalesReturnCoreResult.BadRequest("Store credit cannot be held for the anonymous Walk-in Customer. Refund the full amount, or sell to a customer with a mobile number.");
+        }
+
         var returnInvoice = new Invoice
         {
             Id = returnInvoiceId,

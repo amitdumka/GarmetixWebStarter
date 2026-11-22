@@ -1965,6 +1965,33 @@ public sealed class AccountingPostingService(GarmetixDbContext db, DocumentNumbe
             cancellationToken);
     }
 
+    /// <summary>Pays out held store credit to the customer: Dr Customer Store Credit, Cr cash/bank.</summary>
+    public async Task PostStoreCreditRefundAsync(
+        Customer customer,
+        Guid companyId,
+        Guid storeGroupId,
+        Guid storeId,
+        Guid refundId,
+        string referenceNumber,
+        decimal amount,
+        PaymentMode paymentMode,
+        Guid? bankAccountId,
+        string? reason,
+        CancellationToken cancellationToken)
+    {
+        var storeCreditLedger = await EnsureNamedLedgerAsync(companyId, "Customer Store Credit", "Current Liabilities", LedgerCategory.CurrentLiabilities, LedgerType.CurrentLiability, cancellationToken);
+        var settlementLedger = await ResolveSettlementLedgerAsync(companyId, paymentMode, bankAccountId, cancellationToken);
+        var narration = string.IsNullOrWhiteSpace(reason) ? $"Store credit refund {referenceNumber}" : $"Store credit refund {referenceNumber} - {reason}";
+        var lines = new List<JournalLineDraft>
+        {
+            new(storeCreditLedger.Id, null, amount, 0, narration),
+            new(settlementLedger.Id, null, 0, amount, narration)
+        };
+        var onDate = DateTime.Now;
+        await UpsertInvoiceBankTransactionAsync(companyId, paymentMode, bankAccountId, TransactionType.Withdraw, onDate, $"SCR-{referenceNumber}", narration, amount, customer.Name, cancellationToken);
+        await RepostSourceJournalAsync("StoreCreditRefund", refundId, $"SCR-{referenceNumber}", onDate, referenceNumber, narration, companyId, storeGroupId, storeId, lines, cancellationToken);
+    }
+
     public async Task PostSalaryPaymentAsync(
         SalaryPayment payment,
         CancellationToken cancellationToken)
