@@ -119,8 +119,8 @@
                 <td class="border-b border-default p-3 text-right">
                   <div class="flex flex-wrap justify-end gap-2">
                     <UButton size="xs" color="neutral" variant="ghost" icon="i-lucide-eye" :loading="receiptLoadingId === invoice.id" @click="selectInvoice(invoice)">View</UButton>
-                    <UButton v-if="canCancel(invoice)" size="xs" color="neutral" variant="soft" icon="i-lucide-pencil" @click="openEdit(invoice, 'basic')">Edit</UButton>
-                    <UButton v-if="canCancel(invoice)" size="xs" color="primary" variant="soft" icon="i-lucide-pencil-ruler" @click="openEdit(invoice, 'extended')">Items &amp; Payments</UButton>
+                    <UButton v-if="canEditSale(invoice)" size="xs" color="neutral" variant="soft" icon="i-lucide-pencil" @click="openEdit(invoice, 'basic')">Edit</UButton>
+                    <UButton v-if="canEditSale(invoice)" size="xs" color="primary" variant="soft" icon="i-lucide-pencil-ruler" @click="openEdit(invoice, 'extended')">Items &amp; Payments</UButton>
                     <UButton size="xs" color="neutral" variant="soft" icon="i-lucide-printer" :loading="printingId === invoice.id" @click="printInvoice(invoice)">Print</UButton>
                     <UButton
                       v-if="canCancel(invoice)"
@@ -592,6 +592,11 @@ async function printInvoice(invoice: SaleInvoice) {
   } finally {
     printingId.value = ''
   }
+}
+
+function canEditSale(invoice: SaleInvoice | null) {
+  const status = String(invoice?.invoiceStatus || '').toLowerCase()
+  return Boolean(invoice?.id) && !isCancelled(invoice) && !status.includes('refund') && !/^(SR|CN)-/i.test(String(invoice?.invoiceNumber || ''))
 }
 
 const editOpen = ref(false)

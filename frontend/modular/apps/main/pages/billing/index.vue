@@ -175,7 +175,10 @@ const editMode = ref('basic')
 
 function canEditInvoice(invoice: ApiRecord) {
   const status = readText(invoice, ['invoiceStatus', 'status'], '').toLowerCase()
-  return Boolean(readText(invoice, ['id'], '')) && !status.includes('cancel')
+  const number = readText(invoice, ['invoiceNumber'], '')
+  // Cancelled bills, return / credit-note documents and bills that already have returns cannot be edited.
+  return Boolean(readText(invoice, ['id'], '')) && !status.includes('cancel') && !status.includes('refund')
+    && !/^(SR|CN)-/i.test(number)
 }
 
 function openEdit(invoice: ApiRecord, mode: 'basic' | 'extended') {
