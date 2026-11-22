@@ -1,5 +1,9 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-11-22 (later) - Return/exchange tested live; v6.9.50-51
+
+Ran a real cash-refund return and exchange on SRP .127. Fixes: cancel is blocked on return/credit-note invoices and on invoices that have returns; cancelling an exchange gives its store credit back; the shared Walk-in Customer cannot hold store credit (return must be fully refunded, exchange must be at least the returned value); new POST /api/billing/customers/{id}/store-credit-refund pays held credit out; Day Close and Petty Cash deduct cash store-credit payouts. Test residue: Rs 149 left on Customer Store Credit ledger (needs a manual journal voucher). Also v6.9.49: runtime props for 16 components, receipt policy URL fallback, merge-duplicate customer tool.
+
 ## 2026-11-22 - POS return/exchange pages, QR on invoices, walk-in customers, CRM edit fix (v6.9.44 - v6.9.48)
 
 Deployed to SRP 192.168.11.127 in five steps, each with a sha256-verified pre-deploy backup. Detail, open issues and the plan for counter-based Day Open/Close are in .claude/todo.md ("Nov 2026 session") and .claude/roadmap.md.
