@@ -1001,7 +1001,20 @@ public static class BillingEndpoints
             ? await gstinLookup.ValidatePartyAsync("Customer", request.CustomerGstin, request.CustomerName, null, cancellationToken)
             : null;
         var customer = await GetOrCreateCustomerAsync(request, db, gstinLookup, customerValidation, cancellationToken);
-        var interState = IsInterStateSupply(billingStore.SupplierGstin, customer.GSTIN);
+        // Walk-in (no mobile) sales: the shared Walk-in Customer carries mobile 0000000000, so the name typed at the
+        // counter and any GSTIN given for a B2B bill live on the invoice, not on the shared customer record.
+        var isWalkInSale = customer.MobileNumber == WalkInMobileNumber;
+        var typedCustomerName = request.CustomerName?.Trim() ?? string.Empty;
+        var hasTypedWalkInName = isWalkInSale
+            && !string.IsNullOrWhiteSpace(typedCustomerName)
+            && !typedCustomerName.Equals("Walk-in Customer", StringComparison.OrdinalIgnoreCase)
+            && !typedCustomerName.Equals("New Customer", StringComparison.OrdinalIgnoreCase);
+        var invoiceCustomerName = hasTypedWalkInName ? typedCustomerName : customer.Name;
+        var invoiceCustomerGstin = !string.IsNullOrWhiteSpace(customer.GSTIN)
+            ? customer.GSTIN
+            : (isWalkInSale && !string.IsNullOrWhiteSpace(request.CustomerGstin) ? GstinLookupService.NormalizeGstin(request.CustomerGstin) : customer.GSTIN);
+        var invoiceRemarks = hasTypedWalkInName ? $"Customer: {typedCustomerName} (no mobile provided)" : null;
+        var interState = IsInterStateSupply(billingStore.SupplierGstin, invoiceCustomerGstin);
         var invoiceNumber = await documentNumbers.NextSaleInvoiceAsync(request.CompanyId, request.StoreGroupId, request.StoreId, cancellationToken);
         var invoiceId = Guid.NewGuid();
 
@@ -1194,11 +1207,12 @@ public static class BillingEndpoints
             ItemCount = invoiceItems.Count,
             PaymentMode = invoicePaymentMode,
             CustomerId = customer.Id,
-            CustomerName = customer.Name,
+            CustomerName = invoiceCustomerName,
             CustomerMobileNumber = customer.MobileNumber,
-            CustomerGSTIN = customer.GSTIN,
-            B2BSale = !string.IsNullOrWhiteSpace(customer.GSTIN),
-            SaleInvoiceType = !string.IsNullOrWhiteSpace(customer.GSTIN) ? SaleInvoiceType.B2B : SaleInvoiceType.B2C,
+            CustomerGSTIN = invoiceCustomerGstin,
+            B2BSale = !string.IsNullOrWhiteSpace(invoiceCustomerGstin),
+            SaleInvoiceType = !string.IsNullOrWhiteSpace(invoiceCustomerGstin) ? SaleInvoiceType.B2B : SaleInvoiceType.B2C,
+            Remarks = invoiceRemarks,
             SalemanId = salesmanId.Value,
             CreditSale = paidAmount < billAmount,
             PaidAmount = paidAmount,
@@ -2552,6 +2566,17 @@ public static class BillingEndpoints
         public static SalesReturnCoreResult Ok(Invoice originalInvoice, Invoice returnInvoice, Customer customer, Guid storeGroupId, decimal creditAmount, decimal refundedAmount, decimal storeCreditAmount, decimal reversedQuantity) => new(true, StatusCodes.Status200OK, string.Empty, originalInvoice, returnInvoice, customer, storeGroupId, creditAmount, refundedAmount, storeCreditAmount, reversedQuantity);
     }
 
+    internal const string WalkInMobileNumber = "0000000000";
+
+    // Blank, the legacy "WALKIN" placeholder, or an all-zero number all mean "customer gave no mobile number".
+    internal static bool IsBlankCustomerMobile(string? mobile)
+    {
+        var value = mobile?.Trim();
+        return string.IsNullOrEmpty(value)
+            || value.Equals("WALKIN", StringComparison.OrdinalIgnoreCase)
+            || value.All(ch => ch == '0');
+    }
+
     private static async Task<Customer> GetOrCreateCustomerAsync(
         PosSaleRequest request,
         GarmetixDbContext db,
@@ -2559,22 +2584,57 @@ public static class BillingEndpoints
         PartyGstinValidationResponse? validation,
         CancellationToken cancellationToken)
     {
-        var mobile = string.IsNullOrWhiteSpace(request.CustomerMobileNumber) ? "WALKIN" : request.CustomerMobileNumber.Trim();
+        var mobile = request.CustomerMobileNumber?.Trim() ?? string.Empty;
         var gstin = GstinLookupService.NormalizeGstin(request.CustomerGstin);
-        var customer = request.CustomerId.HasValue
-            ? await db.Customers.FirstOrDefaultAsync(item => item.CompanyId == request.CompanyId && item.Id == request.CustomerId.Value, cancellationToken)
-            : await db.Customers.FirstOrDefaultAsync(
-                item => item.CompanyId == request.CompanyId &&
-                    ((!string.IsNullOrWhiteSpace(gstin) && item.GSTIN == gstin) || item.MobileNumber == mobile),
-                cancellationToken);
+        var mobileIsBlank = IsBlankCustomerMobile(mobile);
+
+        Customer? customer = null;
+        if (request.CustomerId.HasValue)
+        {
+            customer = await db.Customers.FirstOrDefaultAsync(item => item.CompanyId == request.CompanyId && item.Id == request.CustomerId.Value, cancellationToken);
+            // A customer record with no mobile on file must never be reused for a sale; fall through to Walk-in instead.
+            if (customer is not null && string.IsNullOrWhiteSpace(customer.MobileNumber))
+            {
+                customer = null;
+            }
+        }
+
+        if (customer is null && !string.IsNullOrWhiteSpace(gstin))
+        {
+            customer = await db.Customers.FirstOrDefaultAsync(item => item.CompanyId == request.CompanyId && item.GSTIN == gstin, cancellationToken);
+        }
+
+        if (customer is null && !mobileIsBlank)
+        {
+            customer = await db.Customers.FirstOrDefaultAsync(item => item.CompanyId == request.CompanyId && item.MobileNumber == mobile, cancellationToken);
+        }
+
+        if (customer is null && mobileIsBlank)
+        {
+            // No usable mobile number: never create or reuse a blank-mobile customer. Everyone without a mobile
+            // is booked to the single standard Walk-in Customer (mobile 0000000000); the name typed at the counter
+            // is kept on the invoice itself (CustomerName + Remarks), not on this shared customer.
+            customer = await db.Customers
+                .Where(item => item.CompanyId == request.CompanyId && item.MobileNumber == WalkInMobileNumber)
+                .OrderBy(item => item.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (customer is null)
+            {
+                customer = new Customer
+                {
+                    Name = "Walk-in Customer",
+                    Address = "Dumka",
+                    MobileNumber = WalkInMobileNumber,
+                    CompanyId = request.CompanyId
+                };
+                db.Customers.Add(customer);
+            }
+
+            return customer;
+        }
 
         if (customer is not null)
         {
-            if (!string.IsNullOrWhiteSpace(request.CustomerName) && customer.Name == "Walk-in Customer")
-            {
-                customer.Name = request.CustomerName.Trim();
-            }
-
             if (validation is not null)
             {
                 gstinLookup.ApplyVerification(customer, validation);

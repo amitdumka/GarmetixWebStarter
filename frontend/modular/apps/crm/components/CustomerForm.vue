@@ -95,7 +95,12 @@
 import { stripServerUrl } from '@garmetix/shared-utils'
 import { readId, readRecord, toRows, useCrmApiClient, type ApiRecord } from '../utils/crm-api'
 
-const props = defineProps<{ customerId?: string }>()
+// Runtime props declaration on purpose: the type-only form `defineProps<{ customerId?: string }>()` compiled to
+// zero props in the production build, so `customer-id` fell through as an HTML attribute and Edit showed a blank
+// "New Customer" form.
+const props = defineProps({
+  customerId: { type: String, default: undefined }
+})
 
 const router = useRouter()
 const toast = useToast()

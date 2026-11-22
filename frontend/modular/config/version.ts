@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.9.45',
-  stage: 'POS: saved print layout (A4 / A5 / Thermal 58 mm / Thermal 80 mm)',
-  label: 'POS invoices print in the layout chosen on this device instead of always A4',
-  summary: 'POS always sent invoices to the normal A4 printer layout (Save and Print, Sales History print/reprint, Print Queue). The API already renders thermal-2 (58 mm) and thermal-3 (80 mm) PDFs, but no page ever asked for them. Added a per-device saved Print layout setting (localStorage) with a picker on Sale, Sales History (header and View panel) and Print Queue; openBillingInvoicePdf now defaults to the saved layout, so every print path (sale, history, print queue, returns, exchange, returns register) follows it with A4 as the default.'
+  version: '6.9.46',
+  stage: 'CRM customer edit fix + Walk-in Customer (0000000000) for sales without a mobile number',
+  label: 'CRM Edit Customer loads the record; no-mobile sales use the standard Walk-in Customer instead of blank-mobile customers',
+  summary: 'CRM Edit Customer showed a blank New Customer form: CustomerForm used type-only defineProps, which compiled to no props in the production build, so customer-id fell through as an HTML attribute. Switched to runtime props (same fix applied to the new POS print layout picker). Sales: a blank, WALKIN or all-zero mobile no longer creates or reuses a blank-mobile customer. It books to one standard Walk-in Customer with mobile 0000000000, the shared customer is never renamed, and the name typed at the counter is stored on the invoice (CustomerName plus a Customer: remark); a GSTIN typed for a no-mobile B2B bill is kept on the invoice. The billing import follows the same rule.'
 } as const

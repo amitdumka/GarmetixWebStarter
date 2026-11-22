@@ -22,7 +22,10 @@ import {
   type PosPrintFormat
 } from '../utils/pos-print-settings'
 
-defineProps<{ compact?: boolean }>()
+// Runtime props declaration (type-only defineProps has silently produced no props in this build).
+defineProps({
+  compact: { type: Boolean, default: false }
+})
 
 const format = usePosPrintFormat()
 

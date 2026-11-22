@@ -2759,7 +2759,9 @@ public static class ImportExportEndpoints
         BillingImportLine line,
         CancellationToken cancellationToken)
     {
-        var mobile = string.IsNullOrWhiteSpace(line.CustomerMobile) ? "WALKIN" : line.CustomerMobile.Trim();
+        // No mobile -> the standard Walk-in Customer (0000000000); never a blank/"WALKIN" mobile customer.
+        var isWalkIn = Garmetix.Api.Billing.BillingEndpoints.IsBlankCustomerMobile(line.CustomerMobile);
+        var mobile = isWalkIn ? Garmetix.Api.Billing.BillingEndpoints.WalkInMobileNumber : line.CustomerMobile!.Trim();
         var customer = await db.Customers.FirstOrDefaultAsync(
             item => item.CompanyId == line.CompanyId && item.MobileNumber == mobile,
             cancellationToken);
@@ -2769,14 +2771,10 @@ public static class ImportExportEndpoints
             customer = new Customer
             {
                 CompanyId = line.CompanyId,
-                Name = string.IsNullOrWhiteSpace(line.CustomerName) ? "Walk-in Customer" : line.CustomerName.Trim(),
+                Name = isWalkIn || string.IsNullOrWhiteSpace(line.CustomerName) ? "Walk-in Customer" : line.CustomerName.Trim(),
                 MobileNumber = mobile
             };
             db.Customers.Add(customer);
-        }
-        else if (!string.IsNullOrWhiteSpace(line.CustomerName) && customer.Name == "Walk-in Customer")
-        {
-            customer.Name = line.CustomerName.Trim();
         }
 
         return customer;
