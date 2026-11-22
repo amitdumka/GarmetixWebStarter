@@ -478,6 +478,24 @@ function buildInvoiceQuery() {
   return query
 }
 
+// The QR printed on every invoice encodes "GMX:SALE:<invoice id>". The invoice search only matches invoice number,
+// customer name, mobile and GSTIN, so a scanned code is first resolved to its invoice number (and the date range is
+// widened to all sales, since the invoice may be older than today).
+async function resolveScannedInvoiceCode() {
+  const raw = String(search.value || '').trim().replace(/^\*+|\*+$/g, '')
+  if (!/^GMX:SALE:/i.test(raw)) return
+  try {
+    const result = await api.value.get<{ number?: string }>(`scan/${encodeURIComponent(raw)}`)
+    if (result?.number) {
+      search.value = result.number
+      datePreset.value = 'all'
+      page.value = 1
+    }
+  } catch (error) {
+    showMessage('warning', error instanceof Error ? error.message : 'Scanned invoice code was not found.')
+  }
+}
+
 async function refresh() {
   if (!import.meta.client) return
   const token = getStoredToken(window.localStorage)
@@ -488,6 +506,7 @@ async function refresh() {
 
   loading.value = true
   try {
+    await resolveScannedInvoiceCode()
     const response = await api.value.get<PagedSaleInvoicesResponse>(`billing/sales?${buildInvoiceQuery().toString()}`)
     const rows = Array.isArray(response?.items) ? response.items : []
     invoices.value = rows

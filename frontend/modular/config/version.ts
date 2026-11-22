@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.9.46',
-  stage: 'CRM customer edit fix + Walk-in Customer (0000000000) for sales without a mobile number',
-  label: 'CRM Edit Customer loads the record; no-mobile sales use the standard Walk-in Customer instead of blank-mobile customers',
-  summary: 'CRM Edit Customer showed a blank New Customer form: CustomerForm used type-only defineProps, which compiled to no props in the production build, so customer-id fell through as an HTML attribute. Switched to runtime props (same fix applied to the new POS print layout picker). Sales: a blank, WALKIN or all-zero mobile no longer creates or reuses a blank-mobile customer. It books to one standard Walk-in Customer with mobile 0000000000, the shared customer is never renamed, and the name typed at the counter is stored on the invoice (CustomerName plus a Customer: remark); a GSTIN typed for a no-mobile B2B bill is kept on the invoice. The billing import follows the same rule.'
+  version: '6.9.47',
+  stage: 'Sale invoice: real QR in every format + Instagram QR on thermal receipts',
+  label: 'Sale invoices print a scannable invoice QR (A4, A5, thermal) and thermal receipts end with the Instagram follow QR',
+  summary: 'The sale invoice PDF never printed a real QR: its canvas Qr() drew an empty box labelled SCAN CODE (the purchase, voucher and petty-cash PDFs already used the real renderer). It now uses the shared DocumentCodeService renderer, so A4 and A5 carry a working GMX:SALE code, and the thermal 58/80 mm receipts, which had only a Scan text line, now print the invoice QR followed by an Instagram follow QR (https://www.instagram.com/aadwikafashion) at the end. POS Sales History now resolves a scanned GMX:SALE code through /api/scan to the invoice number and widens the date range to all sales so older invoices are found. Added regression tests that fail if a QR is ever drawn as an empty box again.'
 } as const
