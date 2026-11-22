@@ -298,6 +298,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'vyapar-import', label: 'Vyapar Sale Import', href: '/billing/vyapar-import', icon: 'i-lucide-file-spreadsheet' },
       { id: 'vyapar-imported', label: 'Vyapar Imported Invoices', href: '/billing/vyapar-imported', icon: 'i-lucide-list' },
       { id: 'vyapar-import-batches', label: 'Vyapar Import Batches', href: '/billing/vyapar-import-batches', icon: 'i-lucide-layers' },
+      { id: 'posted-invoice', label: 'Posted Invoice Entry', href: '/billing/posted-invoice', icon: 'i-lucide-calendar-plus' },
       { id: 'invoice-book-adjustment', label: 'Invoice Books Adjustment', href: '/billing/invoice-book-adjustment', icon: 'i-lucide-calendar-cog' }
     ] },
     { key: 'purchase', label: 'Purchase', items: [

@@ -940,6 +940,7 @@ public static partial class BillingEndpoints
         StockLedgerService stockLedger,
         DigitalBillCrmService digitalBills,
         DigitalBillWhatsAppService digitalBillWhatsApp,
+        SalesInvoiceEditService saleEdit,
         CancellationToken cancellationToken)
     {
         var strategy = db.Database.CreateExecutionStrategy();
@@ -953,6 +954,7 @@ public static partial class BillingEndpoints
             stockLedger,
             digitalBills,
             digitalBillWhatsApp,
+            saleEdit,
             cancellationToken));
     }
 
@@ -966,6 +968,7 @@ public static partial class BillingEndpoints
         StockLedgerService stockLedger,
         DigitalBillCrmService digitalBills,
         DigitalBillWhatsAppService digitalBillWhatsApp,
+        SalesInvoiceEditService saleEdit,
         CancellationToken cancellationToken)
     {
         if (request.Items.Count == 0)
@@ -990,6 +993,23 @@ public static partial class BillingEndpoints
             return Results.BadRequest(new { message = "Selected billing store is outside your access scope." });
         }
 
+        // Posted (back-dated) entry: a sale that was missed on its real day. Defaults to now for ordinary counter sales.
+        var backDated = request.SaleDate.HasValue && request.SaleDate.Value.Date != DateTime.Today;
+        var saleOn = backDated ? request.SaleDate!.Value.Date + DateTime.Now.TimeOfDay : DateTime.Now;
+        if (request.SaleDate.HasValue && request.SaleDate.Value.Date > DateTime.Today)
+        {
+            return Results.BadRequest(new { message = "Sale date cannot be in the future." });
+        }
+
+        if (backDated)
+        {
+            var locked = await saleEdit.CheckPeriodOpenAsync(request.CompanyId, request.StoreId, saleOn, cancellationToken);
+            if (locked is not null)
+            {
+                return Results.Conflict(new { message = locked });
+            }
+        }
+
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
 
         var customerValidation = !string.IsNullOrWhiteSpace(request.CustomerGstin)
@@ -1010,7 +1030,7 @@ public static partial class BillingEndpoints
             : (isWalkInSale && !string.IsNullOrWhiteSpace(request.CustomerGstin) ? GstinLookupService.NormalizeGstin(request.CustomerGstin) : customer.GSTIN);
         var invoiceRemarks = hasTypedWalkInName ? $"Customer: {typedCustomerName} (no mobile provided)" : null;
         var interState = IsInterStateSupply(billingStore.SupplierGstin, invoiceCustomerGstin);
-        var invoiceNumber = await documentNumbers.NextSaleInvoiceAsync(request.CompanyId, request.StoreGroupId, request.StoreId, cancellationToken);
+        var invoiceNumber = await documentNumbers.NextSaleInvoiceAsync(request.CompanyId, request.StoreGroupId, request.StoreId, saleOn, cancellationToken);
         var invoiceId = Guid.NewGuid();
 
         var invoiceItems = new List<InvoiceItem>();
@@ -1080,24 +1100,31 @@ public static partial class BillingEndpoints
             });
 
             stock.SoldValue += lineAmount;
-            await stockLedger.PostAsync(stock, new StockMovement
+            try
             {
-                Barcode = stock.Barcode,
-                MovementType = "SaleOut",
-                QuantityOut = requestItem.Quantity,
-                CostPrice = stockSnapshot.AverageCost,
-                MRP = requestItem.Mrp,
-                TaxRate = stock.TaxRate,
-                HSNCode = stock.HSNCode ?? stock.Product?.HSNCode,
-                SourceType = "SalesInvoice",
-                SourceId = invoiceId,
-                SourceNumber = invoiceNumber,
-                Remarks = "POS sale",
-                OnDate = DateTime.Now,
-                CompanyId = request.CompanyId,
-                StoreGroupId = request.StoreGroupId,
-                StoreId = request.StoreId
-            }, cancellationToken);
+                await stockLedger.PostAsync(stock, new StockMovement
+                {
+                    Barcode = stock.Barcode,
+                    MovementType = "SaleOut",
+                    QuantityOut = requestItem.Quantity,
+                    CostPrice = stockSnapshot.AverageCost,
+                    MRP = requestItem.Mrp,
+                    TaxRate = stock.TaxRate,
+                    HSNCode = stock.HSNCode ?? stock.Product?.HSNCode,
+                    SourceType = "SalesInvoice",
+                    SourceId = invoiceId,
+                    SourceNumber = invoiceNumber,
+                    Remarks = backDated ? "Posted (back-dated) sale" : "POS sale",
+                    OnDate = saleOn,
+                    CompanyId = request.CompanyId,
+                    StoreGroupId = request.StoreGroupId,
+                    StoreId = request.StoreId
+                }, cancellationToken);
+            }
+            catch (ArgumentException ex) when (backDated)
+            {
+                return Results.BadRequest(new { message = $"{requestItem.Barcode} was not in stock on {saleOn:dd MMM yyyy}: {ex.Message} Enter the purchase first or choose a later date." });
+            }
 
             grossMrp += lineMrp;
             itemDiscount += lineDiscount;
@@ -1184,7 +1211,7 @@ public static partial class BillingEndpoints
         {
             Id = invoiceId,
             InvoiceNumber = invoiceNumber,
-            OnDate = DateTime.Now,
+            OnDate = saleOn,
             InvoiceType = InvoiceType.Regular,
             InvoiceStatus = paidAmount >= billAmount ? InvoiceStatus.Paid : InvoiceStatus.PartiallyPaid,
             MRP = grossMrp,
@@ -1225,7 +1252,7 @@ public static partial class BillingEndpoints
 
         db.SalesInvoices.Add(invoice);
         db.InvoiceItems.AddRange(invoiceItems);
-        AddInvoicePayments(invoice, paymentDetails, db);
+        AddInvoicePayments(invoice, paymentDetails, db, saleOn);
         if (request.OriginalInvoiceId.HasValue || request.ReplacementApprovalRequested)
         {
             InvoiceReplacementAudit.Add(
@@ -1249,6 +1276,19 @@ public static partial class BillingEndpoints
         customer.BillCount += 1;
         customer.Amount += billAmount;
         await LoyaltyService.AwardSalePointsAsync(invoice, customer, db, cancellationToken);
+        if (backDated)
+        {
+            foreach (var entry in db.ChangeTracker.Entries<LoyaltyPointLedger>().Where(item => item.State == EntityState.Added && item.Entity.SourceId == invoice.Id))
+            {
+                entry.Entity.OnDate = saleOn;
+            }
+
+            AddBillingAudit(db, context, "PostedEntry", invoice.Id, invoice.InvoiceNumber, request.CompanyId, request.StoreGroupId, request.StoreId,
+                $"Back-dated sale entered for {saleOn:yyyy-MM-dd} on {DateTime.Now:yyyy-MM-dd HH:mm}.",
+                before: null,
+                after: new { invoice.InvoiceNumber, invoice.OnDate, invoice.BillAmount, invoice.PaidAmount });
+        }
+
         await accounting.PostSalesInvoiceAsync(invoice, customer, request.StoreGroupId, ToAccountingPaymentPostings(paymentDetails), cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
@@ -1259,7 +1299,8 @@ public static partial class BillingEndpoints
         try
         {
             digitalBill = await digitalBills.EnsureForSaleInvoiceAsync(invoice.Id, context, cancellationToken);
-            if (digitalBill is not null)
+            // A back-dated entry must not message the customer about an old sale.
+            if (digitalBill is not null && !backDated)
             {
                 digitalBillWhatsAppResult = await digitalBillWhatsApp.TryAutoSendForDigitalInvoiceAsync(digitalBill.Id, context, cancellationToken);
             }
@@ -2909,14 +2950,14 @@ public static partial class BillingEndpoints
         return null;
     }
 
-    private static void AddInvoicePayments(Invoice invoice, IReadOnlyList<NormalizedInvoicePayment> payments, GarmetixDbContext db)
+    private static void AddInvoicePayments(Invoice invoice, IReadOnlyList<NormalizedInvoicePayment> payments, GarmetixDbContext db, DateTime? paymentDate = null)
     {
         foreach (var payment in payments.Where(item => item.Amount > 0))
         {
             db.InvoicePayments.Add(new InvoicePayment
             {
                 InvoiceId = invoice.Id,
-                OnDate = DateTime.Now,
+                OnDate = paymentDate ?? DateTime.Now,
                 Amount = payment.Amount,
                 PaymentMode = payment.PaymentMode,
                 ReferenceNumber = payment.ReferenceNumber,

@@ -20,7 +20,8 @@ public sealed record PosSaleRequest(
     Guid? OriginalInvoiceId = null,
     bool ReplacementApprovalRequested = false,
     string? ReplacementReason = null,
-    string? Remarks = null);
+    string? Remarks = null,
+    DateTime? SaleDate = null);
 
 public sealed record InvoicePaymentDetailRequest(
     PaymentMode PaymentMode,
