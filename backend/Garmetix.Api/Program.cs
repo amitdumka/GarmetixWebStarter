@@ -505,6 +505,7 @@ app.MapStoreDayEndpoints();
 app.MapCashDetailsEndpoints();
 app.MapDotMatrixPrintEndpoints();
 app.MapBillingEndpoints();
+app.MapCustomerMergeEndpoints();
 app.MapPosHeldBillEndpoints();
 app.MapBillingFinalQaEndpoints();
 app.MapGoodsReturnAcceptanceEndpoints();
