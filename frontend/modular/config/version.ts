@@ -1,6 +1,6 @@
 export const garmetixModularVersion = {
-  version: '6.9.44',
-  stage: 'Books Vouchers: party autofill hardening + customer ledgers hidden',
-  label: 'Voucher entry: ledger picker excludes customer ledgers; Party/Payee auto-fills from the ledger party',
-  summary: 'Voucher entry now hides customer (Sundry Debtor / Customer-party) ledgers from the Ledger picker so vouchers are for everyone except customers; the ledger of a voucher being edited is always kept. Party/Payee auto-fills from the ledger-linked party (falling back to the ledger name for party ledgers without a Party row) and clears an auto-filled name when switching to a non-party ledger.'
+  version: '6.9.45',
+  stage: 'POS: saved print layout (A4 / A5 / Thermal 58 mm / Thermal 80 mm)',
+  label: 'POS invoices print in the layout chosen on this device instead of always A4',
+  summary: 'POS always sent invoices to the normal A4 printer layout (Save and Print, Sales History print/reprint, Print Queue). The API already renders thermal-2 (58 mm) and thermal-3 (80 mm) PDFs, but no page ever asked for them. Added a per-device saved Print layout setting (localStorage) with a picker on Sale, Sales History (header and View panel) and Print Queue; openBillingInvoicePdf now defaults to the saved layout, so every print path (sale, history, print queue, returns, exchange, returns register) follows it with A4 as the default.'
 } as const

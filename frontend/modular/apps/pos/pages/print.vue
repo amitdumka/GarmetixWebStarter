@@ -7,7 +7,8 @@
           <h2 class="garmetix-dashboard-title">Print Queue</h2>
           <p class="garmetix-dashboard-subtitle">Reprint recently saved POS invoices and recover failed print starts.</p>
         </div>
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <PosPrintFormatPicker compact />
           <UButton color="neutral" variant="soft" icon="i-lucide-refresh-cw" :loading="loading" @click="refresh">Refresh</UButton>
           <UButton color="neutral" variant="ghost" icon="i-lucide-trash-2" @click="clearLocalQueue">Clear local queue</UButton>
         </div>

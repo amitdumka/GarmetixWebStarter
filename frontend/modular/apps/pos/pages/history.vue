@@ -9,7 +9,8 @@
             Search, page, reprint, cancel, hard delete and review Digital Bill CRM activity from the POS counter.
           </p>
         </div>
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <PosPrintFormatPicker compact />
           <UButton to="/sale" icon="i-lucide-scan-barcode">New Sale</UButton>
           <UButton color="neutral" variant="soft" icon="i-lucide-refresh-cw" :loading="loading" @click="refresh">Refresh</UButton>
         </div>
@@ -234,7 +235,8 @@
             </div>
           </div>
 
-          <div class="flex flex-wrap gap-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <PosPrintFormatPicker compact />
             <UButton icon="i-lucide-printer" :loading="printingId === selectedInvoice.id" @click="printInvoice(selectedInvoice)">Reprint</UButton>
             <UButton color="neutral" variant="soft" icon="i-lucide-undo-2" to="/returns">Return</UButton>
             <UButton color="neutral" variant="soft" icon="i-lucide-repeat-2" to="/exchange">Exchange</UButton>

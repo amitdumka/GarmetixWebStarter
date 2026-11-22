@@ -240,10 +240,12 @@
             <div v-if="paymentBalance > 0" class="flex justify-between text-xs text-error"><dt>Shortfall / Balance</dt><dd>{{ money(paymentBalance) }}</dd></div>
           </dl>
 
-          <UButton 
-            block 
-            size="xl" 
-            icon="i-lucide-printer" 
+          <PosPrintFormatPicker compact class="justify-between" />
+
+          <UButton
+            block
+            size="xl"
+            icon="i-lucide-printer"
             color="primary" 
             :loading="saving" 
             :disabled="!canSave || paymentTotal < payableTotal" 

@@ -1,4 +1,5 @@
 import { stripServerUrl } from '@garmetix/shared-utils'
+import { getSavedPrintFormat } from './pos-print-settings'
 
 export interface BillingPdfOptions {
   apiBaseUrl: string
@@ -20,7 +21,8 @@ export async function openBillingInvoicePdf(options: BillingPdfOptions) {
   if (!options.invoiceId) throw new Error('Invoice reference is missing.')
 
   const query = new URLSearchParams({
-    format: options.format || 'a4',
+    // No explicit layout from the page -> use the layout saved on this device (A4 by default).
+    format: options.format || getSavedPrintFormat(),
     copy: options.copy || 'customer',
     reprint: String(options.reprint ?? false),
     signatures: String(options.signatures ?? true)
