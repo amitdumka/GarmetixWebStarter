@@ -1,5 +1,9 @@
 Note: All Claude work and instruction log here. Full detail lives in `.claude/` (profile, environment, standing instructions, learnings, roadmap, todo, changelog) - this file is the short pointer/summary for Codex.
 
+## 2026-11-23 - HR Employee Attendance Calendar (v6.9.57)
+
+HR > Attendance > Employee Calendar (/attendance/employee-calendar): pick an employee, month and year; a Sunday-first calendar shows every day colour coded (green present, orange half day, red absent/leave, blue Sunday, yellow store closed/holiday, grey dashed no record) with in/out times, and a summary below (days in month, Sundays, working days, store-closed days, present, half days, absent, leave, no record, attendance %). Backend GET /api/hr/attendance-calendar reads the classic daily Attendance rows (the ones payroll counts); Sundays are filled in when no row exists, store-closed days come from Day Open/Close holiday records, past working days with no row show as No record (not auto-absent). Verified live against real employees.
+
 ## 2026-11-23 - Posted (back-dated) invoice entry (v6.9.56)
 
 Back Office > Sales > Posted Invoice Entry (/billing/posted-invoice): choose store, sale date, salesman, customer, items, discount and payments; posts a normal sale dated on the chosen day. Backend: PosSaleRequest.SaleDate (optional) drives the invoice number month, invoice date, stock movement, payment dates, loyalty row and journal (BookDate follows); future dates and closed financial years are refused; a sale dated before the stock existed is refused with a clear message; back-dated entries are audit-logged (PostedEntry) and never auto-send the WhatsApp digital bill. Verified live with a throwaway sale (all dates matched, books balanced) then cancelled. Not copied from the POS page: hold bills, loyalty redemption, credit-note / store-credit payments, GSTIN lookup.
