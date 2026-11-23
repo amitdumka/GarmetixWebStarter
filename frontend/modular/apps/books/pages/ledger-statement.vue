@@ -205,7 +205,7 @@ function signed(row: ApiRecord) {
   return readText(row, ['balanceType'], 'Dr') === 'Cr' ? -amount : amount
 }
 
-const isOpeningRow = (row: ApiRecord) => readText(row, ['sourceType'], '') === 'OPENING'
+const isOpeningRow = (row: ApiRecord) => readText(row, ['entryNumber'], '').toUpperCase() === 'OPENING' || readText(row, ['sourceType'], '').toUpperCase() === 'OPENING'
 const openingRow = computed(() => rows.value.find(isOpeningRow) || null)
 const entryRows = computed(() => rows.value.filter(row => !isOpeningRow(row)))
 const opening = computed(() => ({
