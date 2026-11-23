@@ -36,7 +36,8 @@
           <div class="flex flex-wrap gap-2 text-xs">
             <span class="inline-flex items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-emerald-400">Cash sale</span>
             <span class="inline-flex items-center gap-1 rounded-md border border-blue-500/40 bg-blue-500/10 px-2 py-1 text-blue-400">Non-cash sale</span>
-            <span class="inline-flex items-center gap-1 rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1 text-red-400">Expenses and payments</span>
+            <span class="inline-flex items-center gap-1 rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1 text-red-400">Expenses</span>
+            <span class="inline-flex items-center gap-1 rounded-md border border-orange-500/40 bg-orange-500/10 px-2 py-1 text-orange-400">Payments</span>
             <span class="inline-flex items-center gap-1 rounded-md border border-yellow-500/40 bg-yellow-500/10 px-2 py-1 text-yellow-400">Bank deposit</span>
           </div>
         </div>
@@ -62,6 +63,7 @@
                 <p v-if="day.cashSale" class="flex justify-between text-emerald-400"><span>Cash</span><span>{{ compact(day.cashSale) }}</span></p>
                 <p v-if="day.nonCashSale" class="flex justify-between text-blue-400"><span>Non-cash</span><span>{{ compact(day.nonCashSale) }}</span></p>
                 <p v-if="day.totalExpense" class="flex justify-between text-red-400"><span>Expense</span><span>{{ compact(day.totalExpense) }}</span></p>
+                <p v-if="day.payments" class="flex justify-between text-orange-400"><span>Payment</span><span>{{ compact(day.payments) }}</span></p>
                 <p v-if="day.bankDeposit" class="flex justify-between text-yellow-400"><span>Deposit</span><span>{{ compact(day.bankDeposit) }}</span></p>
               </div>
             </div>
@@ -86,7 +88,7 @@ import { readNumber, readText, toRows, type ApiRecord, useMainApiClient } from '
 
 useHead({ title: 'Sales & Expense Calendar - Garmetix' })
 
-type Day = { date: string, day: number, bills: number, sale: number, cashSale: number, nonCashSale: number, creditSale: number, returns: number, expenses: number, payments: number, salary: number, totalExpense: number, bankDeposit: number }
+type Day = { date: string, day: number, bills: number, sale: number, cashSale: number, nonCashSale: number, creditSale: number, returns: number, expenses: number, payments: number, salary: number, totalExpense: number, cashDeposit: number, bankNonCash: number, bankDeposit: number }
 
 const { get } = useMainApiClient()
 const now = new Date()
@@ -116,7 +118,7 @@ function compact(value: number) {
 }
 
 function hasActivity(day: Day) {
-  return Boolean(day.sale || day.totalExpense || day.bankDeposit || day.returns)
+  return Boolean(day.sale || day.totalExpense || day.payments || day.bankDeposit || day.returns)
 }
 
 function dayTitle(day: Day) {
@@ -125,8 +127,9 @@ function dayTitle(day: Day) {
     `${day.date}: ${day.bills} bill(s)`,
     `Sale ${money(day.sale)} (cash ${money(day.cashSale)}, non-cash ${money(day.nonCashSale)}, credit ${money(day.creditSale)})`,
     day.returns ? `Sales returns ${money(day.returns)}` : '',
-    `Expenses ${money(day.expenses)}, payments ${money(day.payments)}, salary ${money(day.salary)}`,
-    `Bank deposit ${money(day.bankDeposit)}`
+    `Expenses ${money(day.expenses)}, salary ${money(day.salary)}`,
+    `Payments (not expense) ${money(day.payments)}`,
+    `Bank deposit ${money(day.bankDeposit)} (cash deposited ${money(day.cashDeposit)}, bank-bound non-cash sale ${money(day.bankNonCash)})`
   ].filter(Boolean).join('\n')
 }
 
@@ -142,13 +145,15 @@ const summaryCards = computed(() => {
     { label: 'Cash sale', value: money('cashSale'), caption: 'Received in cash', cls: 'text-emerald-400' },
     { label: 'Non-cash sale', value: money('nonCashSale'), caption: 'Card, UPI, bank and others', cls: 'text-blue-400' },
     { label: 'Credit (unpaid)', value: money('creditSale'), caption: 'Billed but not yet paid', cls: n('creditSale') ? 'text-orange-400' : '' },
-    { label: 'Total expense', value: money('totalExpense'), caption: 'Expenses + payments + salary', cls: 'text-red-400' },
+    { label: 'Total expense', value: money('totalExpense'), caption: 'Expense vouchers + salary', cls: 'text-red-400' },
     { label: 'Expenses', value: money('expenses'), caption: 'Expense vouchers', cls: '' },
-    { label: 'Payments', value: money('payments'), caption: 'Payment vouchers', cls: '' },
     { label: 'Salary paid', value: money('salary'), caption: 'Salary payments', cls: '' },
+    { label: 'Payments', value: money('payments'), caption: 'Payment vouchers - reported apart, not an expense', cls: 'text-orange-400' },
     { label: 'Average sale / day', value: money('averageSalePerDay'), caption: averageCaption, cls: '' },
     { label: 'Average expense / day', value: money('averageExpensePerDay'), caption: averageCaption, cls: '' },
-    { label: 'Bank deposit', value: money('bankDeposit'), caption: 'Cash deposited in bank this month', cls: 'text-yellow-400' },
+    { label: 'Bank deposit', value: money('bankDeposit'), caption: 'Cash deposited + card, UPI, IMPS, RTGS, NEFT, cheque, DD sales', cls: 'text-yellow-400' },
+    { label: 'Cash deposited', value: money('cashDeposit'), caption: 'Cash taken to the bank (Day Close entries)', cls: '' },
+    { label: 'Non-cash to bank', value: money('bankNonCash'), caption: 'Excludes coupons, credit notes, wallets, others', cls: '' },
     { label: 'Sales returns', value: money('salesReturns'), caption: 'Shown apart, not deducted from sale', cls: n('salesReturns') ? 'text-orange-400' : '' }
   ]
 })

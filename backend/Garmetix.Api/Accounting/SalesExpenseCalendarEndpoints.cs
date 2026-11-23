@@ -7,7 +7,7 @@ namespace Garmetix.Api.Accounting;
 
 /// <summary>
 /// One store, one month, day by day: sales (cash / non-cash / credit), expenses (expense vouchers, payment vouchers,
-/// salary) and bank deposits, laid out for a calendar with a month summary. Uses the same definitions as Day Close
+/// salary; payment vouchers are reported apart) and bank deposits (cash deposited + bank-bound non-cash sales), laid out for a calendar with a month summary. Uses the same definitions as Day Close
 /// and Petty Cash so the figures agree with them.
 /// </summary>
 public static class SalesExpenseCalendarEndpoints
@@ -23,9 +23,14 @@ public static class SalesExpenseCalendarEndpoints
 
     private static decimal Round(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
 
+    // Non-cash modes whose money reaches the bank account. Coupons, credit notes, debit notes, sale returns, wallets,
+    // credit balance and "others" are not bank receipts.
+    private static bool GoesToBank(PaymentMode mode) => mode is PaymentMode.Card or PaymentMode.UPI or PaymentMode.IMPS
+        or PaymentMode.RTGS or PaymentMode.NEFT or PaymentMode.Cheque or PaymentMode.DemandDraft;
+
     private sealed class DayTotals
     {
-        public decimal Sale, Cash, NonCash, Credit, Returns, Expenses, Payments, Salary, BankDeposit;
+        public decimal Sale, Cash, NonCash, Credit, Returns, Expenses, Payments, Salary, CashDeposit, BankNonCash;
         public int Bills;
     }
 
@@ -90,6 +95,7 @@ public static class SalesExpenseCalendarEndpoints
             bucket.Sale += invoice.BillAmount;
             bucket.Cash += cash;
             bucket.NonCash += nonCash;
+            bucket.BankNonCash += paymentsByInvoice[invoice.Id].Where(item => GoesToBank(item.PaymentMode)).Sum(item => item.Amount);
             bucket.Credit += Math.Max(0, invoice.BillAmount - cash - nonCash);
         }
 
@@ -119,7 +125,7 @@ public static class SalesExpenseCalendarEndpoints
             .Where(item => item.StoreId == storeId && item.OnDate >= monthStart && item.OnDate < nextMonth && item.TransactionType == TransactionType.Deposit)
             .Select(item => new { item.OnDate, item.Amount })
             .ToListAsync(cancellationToken);
-        foreach (var deposit in deposits) totals[deposit.OnDate.Day].BankDeposit += deposit.Amount;
+        foreach (var deposit in deposits) totals[deposit.OnDate.Day].CashDeposit += deposit.Amount;
 
         var days = totals.OrderBy(item => item.Key).Select(item =>
         {
@@ -137,8 +143,10 @@ public static class SalesExpenseCalendarEndpoints
                 expenses = Round(d.Expenses),
                 payments = Round(d.Payments),
                 salary = Round(d.Salary),
-                totalExpense = Round(d.Expenses + d.Payments + d.Salary),
-                bankDeposit = Round(d.BankDeposit)
+                totalExpense = Round(d.Expenses + d.Salary),
+                cashDeposit = Round(d.CashDeposit),
+                bankNonCash = Round(d.BankNonCash),
+                bankDeposit = Round(d.CashDeposit + d.BankNonCash)
             };
         }).ToList();
 
@@ -171,6 +179,8 @@ public static class SalesExpenseCalendarEndpoints
                 totalExpense = Round(totalExpense),
                 averageSalePerDay = lastCounted == 0 ? 0m : Round(sale / lastCounted),
                 averageExpensePerDay = lastCounted == 0 ? 0m : Round(totalExpense / lastCounted),
+                cashDeposit = Round(days.Sum(item => item.cashDeposit)),
+                bankNonCash = Round(days.Sum(item => item.bankNonCash)),
                 bankDeposit = Round(days.Sum(item => item.bankDeposit)),
                 daysWithSale = days.Count(item => item.sale > 0),
                 bestDay = days.OrderByDescending(item => item.sale).Where(item => item.sale > 0).Select(item => new { item.date, item.sale }).FirstOrDefault()
