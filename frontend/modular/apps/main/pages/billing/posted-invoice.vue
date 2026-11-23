@@ -56,7 +56,7 @@
       <div class="overflow-x-auto">
         <table class="w-full min-w-[760px] border-collapse text-sm">
           <thead class="bg-muted/30 text-left text-xs uppercase text-muted">
-            <tr><th class="border-b border-default p-2">Item</th><th class="border-b border-default p-2 w-24">Qty</th><th class="border-b border-default p-2 w-28">MRP</th><th class="border-b border-default p-2 w-28">Discount / unit</th><th class="border-b border-default p-2 text-right">Line</th><th class="border-b border-default p-2 w-12"></th></tr>
+            <tr><th class="border-b border-default p-2">Item</th><th class="border-b border-default p-2 w-24">Qty</th><th class="border-b border-default p-2 w-28">MRP</th><th class="border-b border-default p-2 w-32">Discount / unit (Rs or %)</th><th class="border-b border-default p-2 text-right">Line</th><th class="border-b border-default p-2 w-12"></th></tr>
           </thead>
           <tbody>
             <tr v-if="!lines.length"><td colspan="6" class="p-6 text-center text-muted">No items yet. Scan or search to add.</td></tr>
@@ -64,8 +64,8 @@
               <td class="border-b border-default p-2"><p class="font-medium">{{ line.name }}</p><p class="text-xs text-muted">{{ line.barcode }} | in stock {{ line.availableQty }}</p></td>
               <td class="border-b border-default p-2"><UInput v-model.number="line.quantity" type="number" min="0" step="1" size="sm" /></td>
               <td class="border-b border-default p-2"><UInput v-model.number="line.mrp" type="number" min="0" step="0.01" size="sm" /></td>
-              <td class="border-b border-default p-2"><UInput v-model.number="line.discountAmount" type="number" min="0" step="0.01" size="sm" /></td>
-              <td class="border-b border-default p-2 text-right">{{ money((Number(line.mrp) - Number(line.discountAmount)) * Number(line.quantity)) }}</td>
+              <td class="border-b border-default p-2"><UInput v-model="line.discountAmount" type="text" inputmode="decimal" placeholder="0 or 10%" size="sm" /></td>
+              <td class="border-b border-default p-2 text-right">{{ money((Number(line.mrp) - unitDiscount(line)) * Number(line.quantity)) }}</td>
               <td class="border-b border-default p-2"><UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" @click="lines.splice(index, 1)" /></td>
             </tr>
           </tbody>
@@ -73,7 +73,7 @@
       </div>
 
       <div class="grid gap-3 sm:grid-cols-3">
-        <UFormField label="Bill discount (whole bill)"><UInput v-model.number="form.billDiscount" type="number" min="0" step="0.01" class="w-full" /></UFormField>
+        <UFormField label="Bill discount (whole bill)" :hint="billDiscountValue ? `= ${money(billDiscountValue)}` : 'Rs amount, or a % like 10%'"><UInput v-model="form.billDiscount" type="text" inputmode="decimal" placeholder="0 or 10%" class="w-full" /></UFormField>
         <div class="rounded-md border border-default p-3"><p class="text-xs uppercase text-muted">Bill amount</p><p class="text-xl font-semibold">{{ money(billAmount) }}</p></div>
         <div class="rounded-md border border-default p-3"><p class="text-xs uppercase text-muted">Balance after payments</p><p class="text-xl font-semibold" :class="balance < 0 ? 'text-error' : balance > 0 ? 'text-warning' : ''">{{ money(balance) }}</p></div>
       </div>
@@ -117,7 +117,7 @@ const router = useRouter()
 const { get, post } = useMainApiClient()
 const money = (value: number) => formatIndianMoney(value)
 
-type Line = { key: string, productId: string, barcode: string, name: string, quantity: number, mrp: number, discountAmount: number, availableQty: number }
+type Line = { key: string, productId: string, barcode: string, name: string, quantity: number, mrp: number, discountAmount: number | string, availableQty: number }
 type Payment = { key: string, paymentMode: number, amount: number, bankAccountId: string, referenceNumber: string }
 
 const today = new Date().toISOString().slice(0, 10)
@@ -136,7 +136,7 @@ const error = ref('')
 const customerNote = ref('')
 const created = ref<{ invoiceNumber: string, billAmount: number, paidAmount: number } | null>(null)
 const createdDate = ref('')
-const form = reactive({ storeId: '', saleDate: yesterday, salesmanId: '', customerMobile: '', customerName: '', customerGstin: '', billDiscount: 0 })
+const form = reactive({ storeId: '', saleDate: yesterday, salesmanId: '', customerMobile: '', customerName: '', customerGstin: '', billDiscount: '' as string | number })
 let keySeed = 0
 const nextKey = () => `k${++keySeed}`
 
@@ -150,13 +150,33 @@ const bankItems = computed(() => banks.value.map(item => ({ label: `${readText(i
 const selectedStore = computed(() => stores.value.find(item => String(item.id) === form.storeId) || null)
 
 const grossMrp = computed(() => lines.value.reduce((sum, line) => sum + Number(line.mrp || 0) * Number(line.quantity || 0), 0))
-const itemDiscount = computed(() => lines.value.reduce((sum, line) => sum + Number(line.discountAmount || 0) * Number(line.quantity || 0), 0))
-const billAmount = computed(() => Math.round(grossMrp.value - itemDiscount.value - Number(form.billDiscount || 0)))
+// A discount can be typed as an amount ("100") or a percentage ("10%").
+function parseDiscount(input: number | string | null | undefined, base: number) {
+  const text = String(input ?? '').trim()
+  if (!text) return 0
+  if (text.endsWith('%')) {
+    const percent = Number(text.slice(0, -1).trim())
+    return Number.isFinite(percent) && percent >= 0 ? Math.round(base * percent) / 100 : Number.NaN
+  }
+  const amount = Number(text)
+  return Number.isFinite(amount) && amount >= 0 ? amount : Number.NaN
+}
+function unitDiscount(line: Line) {
+  return parseDiscount(line.discountAmount, Number(line.mrp || 0)) || 0
+}
+const itemDiscount = computed(() => lines.value.reduce((sum, line) => sum + unitDiscount(line) * Number(line.quantity || 0), 0))
+const billDiscountValue = computed(() => {
+  const value = parseDiscount(form.billDiscount, grossMrp.value - itemDiscount.value)
+  return Number.isFinite(value) ? value : 0
+})
+const discountsValid = computed(() => lines.value.every(line => Number.isFinite(parseDiscount(line.discountAmount, Number(line.mrp || 0)))) && Number.isFinite(parseDiscount(form.billDiscount, grossMrp.value - itemDiscount.value)))
+const billAmount = computed(() => Math.round(grossMrp.value - itemDiscount.value - billDiscountValue.value))
 const paidTotal = computed(() => payments.value.reduce((sum, item) => sum + Number(item.amount || 0), 0))
 const balance = computed(() => billAmount.value - paidTotal.value)
 const canSave = computed(() => Boolean(form.storeId && form.saleDate && form.salesmanId)
   && lines.value.length > 0
-  && lines.value.every(line => Number(line.quantity) > 0 && Number(line.mrp) >= 0 && Number(line.discountAmount) >= 0)
+  && lines.value.every(line => Number(line.quantity) > 0 && Number(line.mrp) >= 0 && unitDiscount(line) <= Number(line.mrp))
+  && discountsValid.value
   && balance.value >= 0 && billAmount.value > 0
   && payments.value.every(item => Number(item.amount) > 0 && (item.paymentMode === 0 || Boolean(item.bankAccountId)))
   && confirmed.value && !saving.value)
@@ -236,7 +256,7 @@ async function addFromSearch() {
 function reset() {
   lines.value = []
   payments.value = []
-  Object.assign(form, { customerMobile: '', customerName: '', customerGstin: '', billDiscount: 0 })
+  Object.assign(form, { customerMobile: '', customerName: '', customerGstin: '', billDiscount: '' as string | number })
   customerNote.value = ''
   confirmed.value = false
 }
@@ -258,10 +278,10 @@ async function submit() {
       paymentMode: payments.value[0]?.paymentMode ?? 0,
       bankAccountId: null,
       paidAmount: paidTotal.value,
-      billDiscountAmount: Number(form.billDiscount || 0),
+      billDiscountAmount: billDiscountValue.value,
       salesmanId: form.salesmanId || null,
       saleDate: form.saleDate,
-      items: lines.value.map(line => ({ productId: line.productId, barcode: line.barcode, quantity: Number(line.quantity), mrp: Number(line.mrp), discountAmount: Number(line.discountAmount || 0) })),
+      items: lines.value.map(line => ({ productId: line.productId, barcode: line.barcode, quantity: Number(line.quantity), mrp: Number(line.mrp), discountAmount: unitDiscount(line) })),
       payments: payments.value.map(item => ({
         paymentMode: Number(item.paymentMode),
         amount: Number(item.amount),
