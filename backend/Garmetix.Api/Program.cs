@@ -526,6 +526,7 @@ app.MapAccessMatrixEndpoints();
 app.MapHrEndpoints();
 app.MapAttendanceEndpoints();
 app.MapEmployeeAttendanceCalendarEndpoints();
+app.MapSalesExpenseCalendarEndpoints();
 app.MapPayrollEndpoints();
 app.MapSalaryPaymentEndpoints();
 app.MapImportExportEndpoints();
