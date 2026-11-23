@@ -24,7 +24,7 @@
       </div>
     </section>
 
-    <div class="garmetix-section-card grid gap-3 lg:grid-cols-[minmax(220px,1fr)_160px_150px_150px_auto]">
+    <div class="garmetix-section-card grid gap-3 md:grid-cols-2 lg:grid-cols-[minmax(200px,1fr)_150px_140px_150px_150px_100px_auto]">
       <UFormField label="Search invoice, customer or mobile">
         <UInput v-model="search" icon="i-lucide-search" placeholder="Invoice, customer, mobile" @keyup.enter="applyFilters" />
       </UFormField>
@@ -34,6 +34,12 @@
       <UFormField label="Date">
         <USelect v-model="datePreset" :items="datePresetOptions" />
       </UFormField>
+      <UFormField label="From date">
+        <UInput v-model="customFromDate" type="date" :max="customToDate || undefined" @update:model-value="onDatesEdited" />
+      </UFormField>
+      <UFormField label="To date">
+        <UInput v-model="customToDate" type="date" :min="customFromDate || undefined" @update:model-value="onDatesEdited" />
+      </UFormField>
       <UFormField label="Rows">
         <USelect v-model="pageSize" :items="pageSizeOptions" />
       </UFormField>
@@ -41,14 +47,6 @@
         <UButton color="neutral" variant="soft" icon="i-lucide-list-filter" :loading="loading" @click="applyFilters">Find</UButton>
         <UButton color="neutral" variant="ghost" icon="i-lucide-x" @click="clearSearch">Clear</UButton>
       </div>
-      <template v-if="datePreset === 'custom'">
-        <UFormField label="From">
-          <UInput v-model="customFromDate" type="date" />
-        </UFormField>
-        <UFormField label="To">
-          <UInput v-model="customToDate" type="date" />
-        </UFormField>
-      </template>
     </div>
 
     <div class="garmetix-table-panel overflow-x-auto">
@@ -320,6 +318,8 @@ async function clearSearch() {
   search.value = ''
   statusFilter.value = 'all'
   datePreset.value = 'today'
+  customFromDate.value = toInputDate(new Date())
+  customToDate.value = toInputDate(new Date())
   page.value = 1
   await refresh()
 }
@@ -367,8 +367,34 @@ async function emailInvoice(invoice: ApiRecord | null) {
   }
 }
 
+// Picking a preset fills From/To so the exact period is always visible; editing either date switches to a custom period.
+let syncingDates = false
+function presetRange(preset: string): [Date, Date] | null {
+  const today = new Date()
+  const y = today.getFullYear()
+  const m = today.getMonth()
+  if (preset === 'today') return [today, today]
+  if (preset === 'yesterday') { const d = new Date(y, m, today.getDate() - 1); return [d, d] }
+  if (preset === 'month') return [new Date(y, m, 1), new Date(y, m + 1, 0)]
+  if (preset === 'last-month') return [new Date(y, m - 1, 1), new Date(y, m, 0)]
+  if (preset === 'year') return [new Date(y, 0, 1), new Date(y, 11, 31)]
+  return null
+}
+function onDatesEdited() {
+  if (syncingDates) return
+  if (datePreset.value !== 'custom') datePreset.value = 'custom'
+}
+watch(datePreset, (preset) => {
+  const range = presetRange(preset)
+  if (range) {
+    syncingDates = true
+    customFromDate.value = toInputDate(range[0])
+    customToDate.value = toInputDate(range[1])
+    syncingDates = false
+  }
+})
 watch([statusFilter, datePreset, pageSize], () => { void applyFilters() })
-watch([customFromDate, customToDate], () => { if (datePreset.value === 'custom') void applyFilters() })
+watch([customFromDate, customToDate], () => { if (datePreset.value === 'custom' && !syncingDates) void applyFilters() })
 
 onMounted(refresh)
 </script>
