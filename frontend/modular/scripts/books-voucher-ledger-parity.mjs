@@ -38,8 +38,7 @@ checkFile('apps/books/pages/vouchers.vue', [
 checkFile('apps/books/pages/ledgers.vue', [
   'accounting/ledger-sync/repair',
   'REPAIR LEDGER SYNC',
-  'Ledger Statement',
-  'accounting/ledger-statement/${selectedLedgerId.value}'
+  'Ledger And Party Statements'
 ])
 
 checkFile('docs/stage-14c2-books-voucher-ledger-parity.md', [

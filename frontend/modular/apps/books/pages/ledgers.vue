@@ -133,19 +133,12 @@
       </template>
     </UModal>
 
-    <section class="garmetix-section-card">
-      <div class="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h3 class="garmetix-panel-title">Ledger Statement</h3>
-          <p class="garmetix-panel-subtitle">Audit posted entries for a selected ledger without exposing internal party flags.</p>
-        </div>
-        <div class="flex flex-col gap-2 sm:flex-row">
-          <USelectMenu v-model="selectedLedgerId" value-key="value" :items="ledgerSelectItems" placeholder="Search ledger..." class="sm:w-72" />
-          <UButton icon="i-lucide-file-search" color="neutral" variant="soft" :loading="statementLoading" @click="loadLedgerStatement">View</UButton>
-        </div>
+    <section class="garmetix-section-card flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h3 class="garmetix-panel-title">Ledger And Party Statements</h3>
+        <p class="garmetix-panel-subtitle">Statements now have their own page: pick a ledger or party and a period.</p>
       </div>
-
-      <BooksMasterTable :columns="ledgerStatementColumns" :rows="ledgerStatementRows" empty-text="Select a ledger to view posted entries." />
+      <UButton to="/ledger-statement" icon="i-lucide-file-search" color="primary" variant="soft">Open Statement Page</UButton>
     </section>
   </section>
 </template>
@@ -197,20 +190,17 @@ function emptyLedgerForm(): LedgerForm {
 const { get, post, put, del } = useBooksApiClient()
 const loading = ref(true)
 const repairing = ref(false)
-const statementLoading = ref(false)
 const saving = ref(false)
 const error = ref('')
 const message = ref('')
 const search = ref('')
 const activeTab = ref<LedgerTab>('ledgers')
-const selectedLedgerId = ref('')
 const formMode = ref<'create' | 'edit'>('create')
 const formOpen = ref(false)
 
 const ledgerGroups = ref<ApiRecord[]>([])
 const ledgers = ref<ApiRecord[]>([])
 const ledgerSync = ref<ApiRecord | null>(null)
-const ledgerStatement = ref<ApiRecord[]>([])
 const setupStatus = ref<ApiRecord | null>(null)
 const companies = ref<ApiRecord[]>([])
 const stores = ref<ApiRecord[]>([])
@@ -221,9 +211,6 @@ const ledgerGroupSelectItems = computed(() => ledgerGroups.value
   .map(item => ({ label: readText(item, ['name']), value: readText(item, ['id'], '') }))
   .filter(item => item.value))
 const ledgerTypeSelectItems = ledgerTypeOptions.map(item => ({ label: item.label, value: item.value }))
-const ledgerSelectItems = computed(() => ledgers.value
-  .map(item => ({ label: readText(item, ['name']), value: readText(item, ['id'], '') }))
-  .filter(item => item.value))
 
 const tabs: Array<{ key: LedgerTab, label: string, icon: string, description: string }> = [
   { key: 'ledgers', label: 'Ledger', icon: 'i-lucide-book-open', description: 'Chart of accounts with protected internal party/bank flags hidden.' },
@@ -313,25 +300,6 @@ const pagedRows = computed(() => paginateRows(filteredRows.value, page.value, pa
 watch([search, pageSize], () => { page.value = 1 })
 watch(totalPages, (value) => { if (page.value > value) page.value = value })
 
-const ledgerStatementColumns = [
-  { key: 'date', label: 'Date' },
-  { key: 'entry', label: 'Entry' },
-  { key: 'source', label: 'Source' },
-  { key: 'particulars', label: 'Particulars' },
-  { key: 'debit', label: 'Debit' },
-  { key: 'credit', label: 'Credit' },
-  { key: 'balance', label: 'Balance' }
-]
-const ledgerStatementRows = computed(() => ledgerStatement.value.map(item => ({
-  date: readText(item, ['onDate']),
-  entry: readText(item, ['entryNumber', 'referenceNumber']),
-  source: readText(item, ['sourceType']),
-  particulars: readText(item, ['particulars']),
-  debit: formatIndianMoney(readNumber(item, ['debit'])),
-  credit: formatIndianMoney(readNumber(item, ['credit'])),
-  balance: `${formatIndianMoney(readNumber(item, ['balance']))} ${readText(item, ['balanceType'], '')}`.trim()
-})))
-
 function resolveCompanyId() {
   const companyId = readText(setupStatus.value, ['companyId'], '')
     || readText(stores.value[0], ['companyId'], '')
@@ -359,8 +327,6 @@ async function refresh() {
     if (ledgerData.status === 'fulfilled') ledgers.value = toRows(ledgerData.value)
     if (syncData.status === 'fulfilled' && syncData.value && typeof syncData.value === 'object') ledgerSync.value = syncData.value as ApiRecord
 
-    if (!selectedLedgerId.value && ledgers.value.length) selectedLedgerId.value = readText(ledgers.value[0], ['id'], '')
-
     const failedReasons = [groupData, ledgerData, syncData]
       .filter((item): item is PromiseRejectedResult => item.status === 'rejected')
       .map(item => item.reason instanceof Error ? item.reason.message : String(item.reason))
@@ -385,23 +351,6 @@ async function repairLedgerSync() {
     error.value = caught instanceof Error ? caught.message : 'Unable to repair ledger sync.'
   } finally {
     repairing.value = false
-  }
-}
-
-async function loadLedgerStatement() {
-  if (!selectedLedgerId.value) {
-    error.value = 'Select ledger before loading statement.'
-    return
-  }
-
-  statementLoading.value = true
-  error.value = ''
-  try {
-    ledgerStatement.value = toRows(await get<unknown>(`accounting/ledger-statement/${selectedLedgerId.value}`))
-  } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : 'Unable to load ledger statement.'
-  } finally {
-    statementLoading.value = false
   }
 }
 

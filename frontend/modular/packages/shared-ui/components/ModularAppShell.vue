@@ -389,6 +389,7 @@ const localMenus: Record<FrontendAppId, MenuGroup[]> = {
       { id: 'day-book', label: 'Day Book', href: '/day-book', icon: 'i-lucide-book-open-check' },
       { id: 'ledgers', label: 'Ledgers', href: '/ledgers', icon: 'i-lucide-book-open' },
       { id: 'parties', label: 'Parties', href: '/parties', icon: 'i-lucide-users-round' },
+      { id: 'ledger-statement', label: 'Ledger / Party Statement', href: '/ledger-statement', icon: 'i-lucide-file-search' },
       { id: 'banking', label: 'Banking', href: '/banking', icon: 'i-lucide-piggy-bank' },
       { id: 'edc-settlement', label: 'EDC / POS Settlement', href: '/edc-settlement', icon: 'i-lucide-credit-card' },
       { id: 'vouchers', label: 'Vouchers', href: '/vouchers', icon: 'i-lucide-banknote' },

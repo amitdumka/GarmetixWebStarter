@@ -108,7 +108,7 @@ const requiredPageUsages = [
   {
     label: 'ledgers.vue',
     path: join(modularRoot, 'apps/books/pages/ledgers.vue'),
-    tokens: ['ledger-groups', 'ledgers', 'accounting/ledger-sync/status', 'accounting/ledger-sync/repair', 'accounting/ledger-statement', 'issueCount', 'fixAction']
+    tokens: ['ledger-groups', 'ledgers', 'accounting/ledger-sync/status', 'accounting/ledger-sync/repair', 'issueCount', 'fixAction']
   },
   {
     label: 'vouchers.vue',
