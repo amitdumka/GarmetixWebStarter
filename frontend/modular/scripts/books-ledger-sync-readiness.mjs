@@ -116,8 +116,11 @@ function inspectSourceGuards() {
   const failures = []
   for (const file of sourceFiles) {
     const source = readFileSync(file, 'utf8')
-    if (/PartyLedger|IsParty|isParty/.test(source)) failures.push(`${file} exposes internal party-ledger flag text.`)
-    if (/BankLedger|IsBank|isBankLedger/.test(source)) failures.push(`${file} exposes internal bank-ledger flag text.`)
+    // Script code may read a flag (e.g. to auto-fill the party name); it must never be shown on screen or written.
+    const shown = source.split('<script')[0]
+    const script = source.slice(shown.length)
+    if (/PartyLedger|IsParty|isParty/.test(shown) || /\bisParty\s*(:|=(?!=))/i.test(script)) failures.push(`${file} exposes or writes the internal party-ledger flag.`)
+    if (/BankLedger|IsBank|isBankLedger/.test(shown) || /\bisBank(Ledger)?\s*(:|=(?!=))/i.test(script)) failures.push(`${file} exposes or writes the internal bank-ledger flag.`)
   }
   console.log('PASS source guard: internal party/bank ledger flags are not exposed in Books pages.')
   return failures

@@ -107,17 +107,15 @@ const readChecks = [
   { id: 'release-smoke', path: 'release-stabilization/smoke-checks', label: 'release stabilization smoke checks' }
 ]
 
+// Backup restore, cleanup and CSV import are live, guarded features (guards asserted above).
 const forbiddenAdminPageTokens = [
   'factory-reset',
-  'backups/restore',
   'cloud/{fileId}/restore',
   '.post(',
   '.delete(',
   '.put(',
   'license/generate',
-  'license/activate',
-  'import-export/import',
-  'maintenance/cleanup'
+  'license/activate'
 ]
 
 const backendGuards = [
@@ -229,9 +227,9 @@ function assertSourceGuards() {
   assertIncludes('Admin shell includes message logs route', adminShellSource, "/message-logs")
   assertIncludes('Admin shell includes production readiness route', adminShellSource, "/production-readiness")
   assertIncludes('Admin login stores authenticated user', sourceFiles.login, 'setStoredUser')
-  assertIncludes('Backup page says create/delete/restore actions are not exposed', sourceFiles.backupPage, 'Create, cleanup, delete and restore actions are not exposed here.')
-  assertIncludes('Google Drive page says restore actions remain disabled', sourceFiles.drivePage, 'Upload, delete, download and restore actions remain disabled')
-  assertIncludes('Import/export page says commit actions remain legacy audited flow', sourceFiles.importExportPage, 'Upload/commit actions remain in the legacy audited flow')
+  assertIncludes('Backup restore needs the typed RESTORE confirmation', sourceFiles.backupPage, "restoreConfirmation !== 'RESTORE'")
+  assertIncludes('Google Drive restore needs the typed RESTORE confirmation', sourceFiles.drivePage, "restoreConfirmation !== 'RESTORE'")
+  assertIncludes('Import commit is offered only after a preview with no invalid rows', sourceFiles.importExportPage, 'importResult && importResult.invalidRows === 0')
   assertIncludes('License page says activation/generation is deferred', sourceFiles.licensePage, 'Activation/generation actions are deferred')
   assertIncludes('Message logs page keeps details out of save messages', sourceFiles.messageLogsPage, 'Detailed diagnostics stay here instead of leaking into user save messages.')
 

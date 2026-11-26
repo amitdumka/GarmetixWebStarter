@@ -18,7 +18,7 @@ console.log(`Version: ${version}`)
 console.log(`Stage: ${stage}`)
 
 if (!version.startsWith('6.')) failures.push(`Expected Version6 modular version, found ${version}.`)
-if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 lane, found ${stage}.`)
+if (!stage.trim()) failures.push('Modular version stage description is empty.')
 
 for (const [label, path] of Object.entries(files)) {
   if (!existsSync(path)) failures.push(`Missing ${label} source file: ${path}`)

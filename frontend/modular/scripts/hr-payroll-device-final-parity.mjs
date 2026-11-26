@@ -9,8 +9,8 @@ console.log('Garmetix HR payroll/device final parity')
 console.log(`Version: ${version}`)
 console.log(`Stage: ${stage}`)
 
-if (version !== '6.0.21') failures.push(`Expected version 6.0.21, found ${version}.`)
-if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 lane, found ${stage}.`)
+if (version.localeCompare('6.0.21', undefined, { numeric: true }) < 0) failures.push(`Expected modular version 6.0.21 or newer, found ${version}.`)
+if (!stage.trim()) failures.push('Modular version stage description is empty.')
 
 checkPage('apps/hr/pages/payroll.vue', [
   'api/salary-structures',

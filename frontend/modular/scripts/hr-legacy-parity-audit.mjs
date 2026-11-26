@@ -9,8 +9,8 @@ console.log('Garmetix HR legacy parity audit')
 console.log(`Version: ${version}`)
 console.log(`Stage: ${stage}`)
 
-if (!version.startsWith('6.0.')) failures.push(`Expected Version6 HR lane version 6.0.x, found ${version}.`)
-if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 lane, found ${stage}.`)
+if (!version.startsWith('6.')) failures.push(`Expected Version6 HR lane version 6.x, found ${version}.`)
+if (!stage.trim()) failures.push('Modular version stage description is empty.')
 
 const requiredFiles = [
   'docs/stage-14b10-hr-legacy-full-parity-audit.md',

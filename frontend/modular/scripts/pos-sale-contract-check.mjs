@@ -33,8 +33,8 @@ function parseArray(source, name) {
   return [...match[1].matchAll(/'([^']+)'/g)].map(item => item[1])
 }
 
-function compare(label, backendKeys, frontendKeys) {
-  const missing = backendKeys.filter(key => !frontendKeys.includes(key))
+function compare(label, backendKeys, frontendKeys, notSentByPos = []) {
+  const missing = backendKeys.filter(key => !frontendKeys.includes(key) && !notSentByPos.includes(key))
   const extra = frontendKeys.filter(key => !backendKeys.includes(key))
 
   if (missing.length || extra.length) {
@@ -48,7 +48,9 @@ const backend = readFileSync(backendDtoPath, 'utf8')
 const saleFrontend = readFileSync(saleContractPath, 'utf8')
 const returnFrontend = readFileSync(returnContractPath, 'utf8')
 
-compare('PosSaleRequest', parseRecordParameters(backend, 'PosSaleRequest'), parseArray(saleFrontend, 'posSaleRequestKeys'))
+compare('PosSaleRequest', parseRecordParameters(backend, 'PosSaleRequest'), parseArray(saleFrontend, 'posSaleRequestKeys'),
+  // Optional back-date, sent only by Back Office > Posted Invoice Entry. The POS counter always bills as of now.
+  ['saleDate'])
 compare('PosSaleItemRequest', parseRecordParameters(backend, 'PosSaleItemRequest'), parseArray(saleFrontend, 'posSaleItemKeys'))
 compare('InvoicePaymentDetailRequest', parseRecordParameters(backend, 'InvoicePaymentDetailRequest'), parseArray(saleFrontend, 'posSalePaymentKeys'))
 compare('SalesReturnRequest', parseRecordParameters(backend, 'SalesReturnRequest'), parseArray(returnFrontend, 'salesReturnRequestKeys'))

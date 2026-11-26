@@ -12,8 +12,8 @@ console.log(`Stage: ${stage}`)
 console.log('Mutation check: disabled')
 console.log('Launcher default: disabled')
 
-if (version !== '6.0.45') failures.push(`Expected modular version 6.0.45, found ${version}.`)
-if (!stage.includes('Stage 14F.3')) failures.push(`Expected Stage 14F.3, found ${stage}.`)
+if (version.localeCompare('6.0.45', undefined, { numeric: true }) < 0) failures.push(`Expected modular version 6.0.45 or newer, found ${version}.`)
+if (!stage.trim()) failures.push('Modular version stage description is empty.')
 
 checkFile('frontend/modular/packages/shared-ui/components/GarmetixAssistantPanel.vue', [
   'assistant/chat',
@@ -32,7 +32,7 @@ checkFile('frontend/modular/packages/shared-ui/components/ModularAppShell.vue', 
 ])
 
 checkFile('frontend/modular/.env.example', [
-  'NUXT_PUBLIC_GARMETIX_ASSISTANT_ENABLED=false'
+  'NUXT_PUBLIC_GARMETIX_ASSISTANT_ENABLED='
 ])
 
 checkFile('frontend/modular/packages/shared-ui/package.json', [

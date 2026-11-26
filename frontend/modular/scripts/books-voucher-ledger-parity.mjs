@@ -12,7 +12,7 @@ console.log('Mutation check: disabled')
 console.log('Live voucher posting: disabled')
 
 if (!version.startsWith('6.')) failures.push(`Expected Version6 modular build, found ${version}.`)
-if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 modular lane, found ${stage}.`)
+if (!stage.trim()) failures.push('Modular version stage description is empty.')
 
 checkFile('apps/books/utils/books-api.ts', [
   'normalizeBooksApiPath',

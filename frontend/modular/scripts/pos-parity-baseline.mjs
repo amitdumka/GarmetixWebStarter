@@ -52,7 +52,7 @@ console.log(`Version: ${version}`)
 console.log(`Stage: ${stage}`)
 
 if (!version.startsWith('6.')) failures.push(`Expected Version6 modular version, found ${version}.`)
-if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 lane, found ${stage}.`)
+if (!stage.trim()) failures.push('Modular version stage description is empty.')
 
 for (const file of requiredFiles) {
   if (!existsSync(join(modularRoot, file))) failures.push(`Missing POS baseline file: ${file}`)

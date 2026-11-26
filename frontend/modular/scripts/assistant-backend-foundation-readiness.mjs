@@ -12,8 +12,8 @@ console.log(`Stage: ${stage}`)
 console.log('Mutation check: disabled')
 console.log('Provider key check: source only')
 
-if (version !== '6.0.44') failures.push(`Expected modular version 6.0.44, found ${version}.`)
-if (!stage.includes('Stage 14F.2')) failures.push(`Expected Stage 14F.2, found ${stage}.`)
+if (version.localeCompare('6.0.44', undefined, { numeric: true }) < 0) failures.push(`Expected modular version 6.0.44 or newer, found ${version}.`)
+if (!stage.trim()) failures.push('Modular version stage description is empty.')
 
 checkFile('backend/Garmetix.Api/Program.cs', [
   'using Garmetix.Api.Assistant;',

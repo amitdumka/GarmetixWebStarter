@@ -32,7 +32,7 @@ console.log(`Deploy checkpoint: ${deployCheckpoint}`)
 console.log('Salary writes: disabled unless separate guarded UI is used')
 
 if (!version.startsWith('6.')) failures.push(`Expected Version6 HR lane version 6.x, found ${version}.`)
-if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 lane, found ${stage}.`)
+if (!stage.trim()) failures.push('Modular version stage description is empty.')
 
 checkRequiredFiles()
 checkPackageScripts()

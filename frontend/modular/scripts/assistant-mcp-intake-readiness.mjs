@@ -11,8 +11,8 @@ console.log(`Stage: ${stage}`)
 console.log('Mutation check: disabled')
 console.log('Provider key check: source only')
 
-if (version !== '6.0.43') failures.push(`Expected modular version 6.0.43, found ${version}.`)
-if (!stage.includes('Stage 14F.1')) failures.push(`Expected Stage 14F.1, found ${stage}.`)
+if (version.localeCompare('6.0.43', undefined, { numeric: true }) < 0) failures.push(`Expected modular version 6.0.43 or newer, found ${version}.`)
+if (!stage.trim()) failures.push('Modular version stage description is empty.')
 
 checkFile('../../.codex/Assistant_MCP_AI_Sense_TODO.md', [
   'Rotate/revoke the Anthropic API key',

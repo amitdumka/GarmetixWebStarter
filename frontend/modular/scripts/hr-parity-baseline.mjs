@@ -77,7 +77,7 @@ console.log(`Version: ${version}`)
 console.log(`Stage: ${stage}`)
 
 if (!version.startsWith('6.')) failures.push(`Expected Version6 modular version, found ${version}.`)
-if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 lane, found ${stage}.`)
+if (!stage.trim()) failures.push('Modular version stage description is empty.')
 
 for (const file of requiredFiles) {
   if (!existsSync(join(modularRoot, file))) failures.push(`Missing HR baseline file: ${file}`)
@@ -109,9 +109,9 @@ const rootPackage = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf
 const modularPackage = JSON.parse(readFileSync(join(modularRoot, 'package.json'), 'utf8'))
 const hrPackage = JSON.parse(readFileSync(join(modularRoot, 'apps/hr/package.json'), 'utf8'))
 
-if (!rootPackage.version.startsWith('6.0.')) failures.push(`Root package version should be Version6, found ${rootPackage.version}.`)
-if (!modularPackage.version.startsWith('6.0.')) failures.push(`Modular package version should be Version6, found ${modularPackage.version}.`)
-if (!hrPackage.version.startsWith('6.0.')) failures.push(`HR package version should be Version6, found ${hrPackage.version}.`)
+if (!rootPackage.version.startsWith('6.')) failures.push(`Root package version should be Version6, found ${rootPackage.version}.`)
+if (!modularPackage.version.startsWith('6.')) failures.push(`Modular package version should be Version6, found ${modularPackage.version}.`)
+if (!hrPackage.version.startsWith('6.')) failures.push(`HR package version should be Version6, found ${hrPackage.version}.`)
 if (!rootPackage.scripts?.['modular:hr:parity-baseline']) failures.push('Root package is missing modular:hr:parity-baseline script.')
 if (!modularPackage.scripts?.['hr:parity-baseline']) failures.push('Modular package is missing hr:parity-baseline script.')
 

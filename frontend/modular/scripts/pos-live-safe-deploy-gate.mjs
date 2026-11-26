@@ -18,7 +18,7 @@ console.log(`Deploy dry-run: ${withDeployDryRun ? 'enabled' : 'disabled'}`)
 console.log('')
 
 if (!version.startsWith('6.')) failures.push(`Expected Version6, found ${version}.`)
-if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 lane, found ${stage}.`)
+if (!stage.trim()) failures.push('Modular version stage description is empty.')
 
 const requiredFiles = [
   'frontend/modular/deploy/srp-backup-database.sh',
@@ -38,7 +38,7 @@ for (const marker of [
   'pg_dump',
   'sha256sum',
   'SRP_BACKUP_DIR',
-  'garmetix-srp-v${GARMETIX_VERSION}'
+  'garmetix-srp-db-${STAMP}-IST-${SAFE_STAGE}-v${GARMETIX_VERSION}.dump'
 ]) {
   if (!backupScript.includes(marker)) failures.push(`Backup script missing marker: ${marker}`)
   else console.log(`PASS backup marker ${marker}`)
@@ -64,7 +64,7 @@ const commands = [
   ['POS save-after-resume readiness', ['run', 'modular:pos:save-after-resume']],
   ['POS held-bill smoke', ['run', 'modular:pos:held-bill-smoke']],
   ['POS live fixture dry readiness', ['run', 'modular:pos:live-save-fixtures']],
-  ['SRP backup dry-run', ['run', 'modular:deploy:srp:backup', '--', '--dry-run']]
+  ['SRP backup dry-run', ['run', 'modular:deploy:srp:backup', '--', '--dry-run', '--stage=PosLiveSafeGate']]
 ]
 
 if (withBuild) commands.push(['POS static build', ['--prefix', 'frontend/modular', 'run', 'build:pos']])

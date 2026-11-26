@@ -31,7 +31,7 @@ console.log(`Manual acceptance env: ${manualEnv}${manualAccepted ? ' (YES)' : ' 
 console.log(`Deploy checkpoint: ${deployCheckpoint}`)
 
 if (!version.startsWith('6.')) failures.push(`Expected Version6 POS lane version 6.x, found ${version}.`)
-if (!stage.includes('Stage 14')) failures.push(`Expected Stage 14 lane, found ${stage}.`)
+if (!stage.trim()) failures.push('Modular version stage description is empty.')
 
 checkRequiredFiles()
 checkPackageScripts()

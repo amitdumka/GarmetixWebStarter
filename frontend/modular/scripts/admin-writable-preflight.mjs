@@ -189,22 +189,25 @@ function assertPayloadGuards() {
 function assertAdminUiStillReadOnly() {
   const forbiddenTokens = [
     'factory-reset',
-    'backups/restore',
     'backups/{fileName}',
     'cloud/{fileId}/restore',
     'license/generate',
     'license/activate',
-    'import-export/import',
     '.post(',
     '.delete(',
     '.put('
   ]
 
+  // Local restore and CSV import are live features: require their guards instead of their absence.
+  for (const guard of ["restoreConfirmation !== 'RESTORE'", 'importResult && importResult.invalidRows === 0']) {
+    if (!adminSource.includes(guard)) failures.push(`Admin modular UI lost a write guard: ${guard}`)
+  }
+
   for (const token of forbiddenTokens) {
     if (adminSource.includes(token)) failures.push(`Admin modular UI exposes a write token during preflight: ${token}`)
   }
 
-  console.log('PASS Admin modular UI remains read-only for destructive operations.')
+  console.log('PASS Admin modular UI keeps write guards and exposes no factory reset or license mutations.')
 }
 
 function printSkippedMutations() {
