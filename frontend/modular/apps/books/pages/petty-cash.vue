@@ -363,7 +363,7 @@ const reconciliationDifferences = ref<ApiRecord[]>([])
 
 const storeOptions = computed(() => {
   const rows = stores.value.map(item => ({ label: storeName(item.id), value: String(item.id) }))
-  return rows.length ? rows : [{ label: 'No stores', value: '' }]
+  return rows
 })
 const selectedStoreName = computed(() => storeName(selectedStoreId.value))
 const selectedSheetTitle = computed(() => selectedSheet.value ? `${storeName(selectedSheet.value.storeId)} - ${formatDate(selectedSheet.value.onDate)}` : 'Select a sheet')
