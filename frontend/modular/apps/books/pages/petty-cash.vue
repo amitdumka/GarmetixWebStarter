@@ -200,6 +200,8 @@
             <div><p class="text-muted">Calculated cash</p><p class="font-semibold">{{ money(calculatedCash) }}</p></div>
           </div>
 
+          <p v-if="formSalaryPaid > 0" class="text-sm text-muted">Total out includes {{ money(formSalaryPaid) }} salary paid in cash on this date.</p>
+
           <div class="flex justify-end gap-2">
             <UButton type="submit" icon="i-lucide-save" color="primary" :loading="saving">
               {{ editMode === 'create' ? 'Save Sheet' : 'Update Sheet' }}
@@ -352,6 +354,8 @@ const editMode = ref<'create' | 'edit'>('create')
 const formOpen = ref(false)
 const form = reactive<SheetForm>(emptySheetForm())
 const formPreparation = ref<ApiRecord | null>(null)
+// Cash salary paid that day. It is not a sheet field, but it still leaves the till.
+const formSalaryPaid = computed(() => readNumber(formPreparation.value, ['salaryPayments']))
 
 const printOpen = ref(false)
 const printSheetData = ref<ApiRecord | null>(null)
@@ -424,7 +428,7 @@ const mismatchRows = computed(() => {
 })
 
 const totalIn = computed(() => form.openingBalance + form.sales + form.receipts + form.dueReceipts + form.bankWithdrawal)
-const totalOut = computed(() => form.expenses + form.payments + form.customerDue + form.bankDeposit + form.nonCashSale)
+const totalOut = computed(() => form.expenses + form.payments + form.customerDue + form.bankDeposit + form.nonCashSale + formSalaryPaid.value)
 const calculatedCash = computed(() => totalIn.value - totalOut.value)
 
 const printIncomeRows = computed(() => printSheetData.value ? [
@@ -610,6 +614,16 @@ function startEdit(sheet: ApiRecord) {
   message.value = ''
   error.value = ''
   formOpen.value = true
+  void loadEditPreparation()
+}
+
+// Editing keeps the saved values; the preparation is only needed for that day's cash salary.
+async function loadEditPreparation() {
+  try {
+    formPreparation.value = await get<ApiRecord>('petty-cash-sheets/prepare', { storeId: form.storeId, onDate: form.onDate })
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Could not load the cash salary paid for this date.'
+  }
 }
 
 async function prepareFormSheet() {

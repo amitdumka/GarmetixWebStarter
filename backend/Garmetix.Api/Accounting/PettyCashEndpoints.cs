@@ -184,7 +184,10 @@ public static class PettyCashEndpoints
             CopyEditableValues(sheet, entity);
         }
 
-        entity.CashInHand = CalculateCashInHand(entity);
+        var movements = await DayCashCalculator.LoadAsync(db, entity.StoreId, entity.OnDate, cancellationToken);
+        entity.CashInHand = DayCashCalculator.CashInHand(entity.OpeningBalance, entity.Sales, entity.Receipts,
+            entity.DueReceipts, entity.BankWithdrawal, entity.Expenses, entity.Payments, entity.CustomerDue,
+            entity.BankDeposit, entity.NonCashSale, movements.SalaryPayments);
         await db.SaveChangesAsync(cancellationToken);
 
         var expected = await CalculateAsync(db, entity.StoreId, entity.OnDate, cancellationToken);
@@ -335,77 +338,12 @@ private static async Task<IReadOnlyList<PettyCashTransactionLine>> BuildTransact
         CancellationToken cancellationToken)
     {
         var dayStart = onDate.Date;
-        var dayEnd = dayStart.AddDays(1);
         var previousDate = dayStart.AddDays(-1);
         var previousSheet = await db.PettyCashSheets.AsNoTracking()
             .FirstOrDefaultAsync(item => item.StoreId == storeId && item.OnDate == previousDate, cancellationToken);
-        var opening = previousSheet?.CashInHand ?? 0m;
+        var opening = Round(previousSheet?.CashInHand ?? 0m);
+        var movements = await DayCashCalculator.LoadAsync(db, storeId, dayStart, cancellationToken);
 
-        var invoicePayments = await db.InvoicePayments.AsNoTracking()
-            .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd)
-            .Select(item => new { item.InvoiceId, item.PaymentMode, item.Amount })
-            .ToListAsync(cancellationToken);
-
-        var invoices = await db.SalesInvoices.AsNoTracking()
-            .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd && !item.ReturnInvoice)
-            .Select(item => new { item.Id, item.BillAmount, item.PaidAmount, item.PaymentMode, item.CreditSale })
-            .ToListAsync(cancellationToken);
-        var currentInvoiceIds = invoices.Select(item => item.Id).ToHashSet();
-        // A CASH REFUND on a sales-return invoice is money paid out, not a receipt: keep it out of dueReceipts and
-        // count it with payments below (the return invoice itself is excluded from `invoices`).
-        var returnInvoiceIds = (await db.SalesInvoices.AsNoTracking()
-            .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd && item.ReturnInvoice)
-            .Select(item => item.Id)
-            .ToListAsync(cancellationToken)).ToHashSet();
-        var cashRefunds = invoicePayments
-            .Where(item => item.PaymentMode == PaymentMode.Cash && returnInvoiceIds.Contains(item.InvoiceId))
-            .Sum(item => item.Amount);
-        // Held store credit paid out in cash (Billing > store-credit-refund) is also money leaving the till.
-        cashRefunds += await db.JournalLines.AsNoTracking()
-            .Where(line => line.JournalEntry!.SourceType == "StoreCreditRefund" && line.JournalEntry.StoreId == storeId
-                && line.JournalEntry.OnDate >= dayStart && line.JournalEntry.OnDate < dayEnd && line.Ledger!.Name == "Cash In Hand")
-            .SumAsync(line => line.Credit, cancellationToken);
-        var dueReceipts = invoicePayments
-            .Where(item => item.PaymentMode == PaymentMode.Cash && !currentInvoiceIds.Contains(item.InvoiceId) && !returnInvoiceIds.Contains(item.InvoiceId))
-            .Sum(item => item.Amount);
-        var nonCashSales = invoicePayments
-            .Where(item => currentInvoiceIds.Contains(item.InvoiceId) && item.PaymentMode != PaymentMode.Cash)
-            .Sum(item => item.Amount);
-        var customerDue = invoices
-            .Where(item => item.CreditSale || item.BillAmount > item.PaidAmount)
-            .Sum(item => Math.Max(0, item.BillAmount - item.PaidAmount));
-
-        var vouchers = await db.Vouchers.AsNoTracking()
-            .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd && item.PaymentMode == PaymentMode.Cash)
-            .Select(item => new { item.VoucherType, item.Amount })
-            .ToListAsync(cancellationToken);
-        var cashVouchers = await db.CashVouchers.AsNoTracking()
-            .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd)
-            .Select(item => new { item.VoucherType, item.Amount })
-            .ToListAsync(cancellationToken);
-
-        var receipts = vouchers.Where(item => item.VoucherType == VoucherType.Receipt).Sum(item => item.Amount)
-            + cashVouchers.Where(item => item.VoucherType == VoucherType.Receipt).Sum(item => item.Amount);
-        var payments = vouchers.Where(item => item.VoucherType == VoucherType.Payment).Sum(item => item.Amount)
-            + cashVouchers.Where(item => item.VoucherType == VoucherType.Payment).Sum(item => item.Amount)
-            + cashRefunds;
-        var expenses = vouchers.Where(item => item.VoucherType == VoucherType.Expense).Sum(item => item.Amount)
-            + cashVouchers.Where(item => item.VoucherType == VoucherType.Expense).Sum(item => item.Amount);
-
-        var bankCash = await db.BankCashTranscations.AsNoTracking()
-            .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd)
-            .Select(item => new { item.TransactionType, item.Amount })
-            .ToListAsync(cancellationToken);
-        var bankWithdrawal = bankCash.Where(item => item.TransactionType == TransactionType.Withdraw).Sum(item => item.Amount);
-        var bankDeposit = bankCash.Where(item => item.TransactionType == TransactionType.Deposit).Sum(item => item.Amount);
-
-        var salaryPayments = await db.SalaryPayments.AsNoTracking()
-            .Where(item => item.StoreId == storeId && !item.Deleted && item.PaymentMode == PaymentMode.Cash
-                && item.OnDate >= dayStart && item.OnDate < dayEnd)
-            .SumAsync(item => item.Amount, cancellationToken);
-
-        var sales = invoices.Sum(item => item.BillAmount);
-        var cashInHand = opening + sales + receipts + dueReceipts + bankWithdrawal - expenses - payments - customerDue - bankDeposit - nonCashSales - salaryPayments;
         var notes = new List<string>
         {
             "Sales use the day's invoice total; credit and non-cash portions are deducted separately.",
@@ -416,32 +354,25 @@ private static async Task<IReadOnlyList<PettyCashTransactionLine>> BuildTransact
         {
             notes.Insert(0, $"No petty cash sheet was found for {previousDate:dd MMM yyyy}; opening balance is zero.");
         }
-        if (salaryPayments > 0)
-        {
-            notes.Add($"Includes {Round(salaryPayments):0.00} in cash salary payments made today (from Salary Payment records), already subtracted from cash in hand.");
-        }
-        if (cashRefunds > 0)
-        {
-            notes.Add($"Payments include {Round(cashRefunds):0.00} in cash refunds paid on sales returns today, already subtracted from cash in hand.");
-        }
+        notes.AddRange(movements.Notes());
 
         return new PettyCashPreparation(
             storeId,
             dayStart,
-            Round(opening),
-            Round(sales),
-            Round(receipts),
-            Round(dueReceipts),
-            Round(bankWithdrawal),
-            Round(expenses),
-            Round(payments),
-            Round(customerDue),
-            Round(bankDeposit),
-            Round(nonCashSales),
-            Round(cashInHand),
+            opening,
+            movements.Sales,
+            movements.Receipts,
+            movements.DueReceipts,
+            movements.BankWithdrawal,
+            movements.Expenses,
+            movements.Payments,
+            movements.CustomerDue,
+            movements.BankDeposit,
+            movements.NonCashSale,
+            movements.CashInHand(opening),
             previousSheet is null ? "No previous-day sheet" : $"Closing balance for {previousDate:dd MMM yyyy}",
             notes,
-            Round(salaryPayments));
+            movements.SalaryPayments);
     }
 
     private static List<object> FindDifferences(PettyCashSheet actual, PettyCashPreparation expected)
@@ -524,10 +455,6 @@ private static async Task<IReadOnlyList<PettyCashTransactionLine>> BuildTransact
             }
         }
     }
-
-    private static decimal CalculateCashInHand(PettyCashSheet sheet)
-        => Round(sheet.OpeningBalance + sheet.Sales + sheet.Receipts + sheet.DueReceipts + sheet.BankWithdrawal
-            - sheet.Expenses - sheet.Payments - sheet.CustomerDue - sheet.BankDeposit - sheet.NonCashSale);
 
     private static void CopyEditableValues(PettyCashSheet source, PettyCashSheet target)
     {

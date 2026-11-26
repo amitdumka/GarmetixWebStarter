@@ -1,3 +1,4 @@
+using Garmetix.Api.Accounting;
 
 using Garmetix.Api.Auth;
 using Garmetix.Api.DotMatrix;
@@ -552,7 +553,7 @@ private static async Task<IResult> VoidDayCloseAsync(
         var customerDue = Math.Round(draft.CustomerDue, 2);
         var bankDeposit = Math.Round(draft.BankDeposit, 2);
         var nonCashSale = Math.Round(draft.NonCashSale, 2);
-        var cashInHand = Math.Round(opening + sales + receipts + dueReceipts + bankWithdrawal - expenses - payments - customerDue - bankDeposit - nonCashSale - current.SalaryPayments, 2);
+        var cashInHand = DayCashCalculator.CashInHand(opening, sales, receipts, dueReceipts, bankWithdrawal, expenses, payments, customerDue, bankDeposit, nonCashSale, current.SalaryPayments);
         var difference = current.PreviousPettyCashClosingBalance.HasValue
             ? Math.Round(opening - current.PreviousPettyCashClosingBalance.Value, 2)
             : 0m;
@@ -625,7 +626,6 @@ private static async Task<IResult> VoidDayCloseAsync(
     private static async Task<PettyCashBookSummaryDto> CalculateBookSummaryAsync(GarmetixDbContext db, Guid storeId, DateTime onDate, CancellationToken cancellationToken)
     {
         var dayStart = onDate.Date;
-        var dayEnd = dayStart.AddDays(1);
         var dayBegin = await db.DayBegins.AsNoTracking()
             .Where(item => item.StoreId == storeId && item.OnDate == dayStart && !item.Deleted)
             .Select(item => new { item.OpeningBalance })
@@ -645,63 +645,7 @@ private static async Task<IResult> VoidDayCloseAsync(
             ? BuildOpeningMismatchMessage(previousPettyCash.OnDate, previousPettyCash.Balance, opening, openingDifference)
             : string.Empty;
 
-        var invoicePayments = await db.InvoicePayments.AsNoTracking()
-            .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd)
-            .Select(item => new { item.InvoiceId, item.PaymentMode, item.Amount })
-            .ToListAsync(cancellationToken);
-
-        var invoices = await db.SalesInvoices.AsNoTracking()
-            .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd && !item.ReturnInvoice)
-            .Select(item => new { item.Id, item.BillAmount, item.PaidAmount, item.PaymentMode, item.CreditSale })
-            .ToListAsync(cancellationToken);
-        var currentInvoiceIds = invoices.Select(item => item.Id).ToHashSet();
-        // Sales-return (credit note) invoices are excluded from `invoices` above, so a CASH REFUND recorded on one used to
-        // fall into dueReceipts and ADD to expected cash. It is money paid out: treat it as a cash payment instead.
-        var returnInvoiceIds = (await db.SalesInvoices.AsNoTracking()
-            .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd && item.ReturnInvoice)
-            .Select(item => item.Id)
-            .ToListAsync(cancellationToken)).ToHashSet();
-        var cashRefunds = invoicePayments.Where(item => item.PaymentMode == PaymentMode.Cash && returnInvoiceIds.Contains(item.InvoiceId)).Sum(item => item.Amount);
-        // Held store credit paid out in cash (Billing > store-credit-refund) is also money leaving the till.
-        cashRefunds += await db.JournalLines.AsNoTracking()
-            .Where(line => line.JournalEntry!.SourceType == "StoreCreditRefund" && line.JournalEntry.StoreId == storeId
-                && line.JournalEntry.OnDate >= dayStart && line.JournalEntry.OnDate < dayEnd && line.Ledger!.Name == "Cash In Hand")
-            .SumAsync(line => line.Credit, cancellationToken);
-        var dueReceipts = invoicePayments.Where(item => item.PaymentMode == PaymentMode.Cash && !currentInvoiceIds.Contains(item.InvoiceId) && !returnInvoiceIds.Contains(item.InvoiceId)).Sum(item => item.Amount);
-        var nonCashSales = invoicePayments.Where(item => currentInvoiceIds.Contains(item.InvoiceId) && item.PaymentMode != PaymentMode.Cash).Sum(item => item.Amount);
-        var customerDue = invoices.Where(item => item.CreditSale || item.BillAmount > item.PaidAmount).Sum(item => Math.Max(0, item.BillAmount - item.PaidAmount));
-
-        var vouchers = await db.Vouchers.AsNoTracking()
-            .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd && item.PaymentMode == PaymentMode.Cash)
-            .Select(item => new { item.VoucherType, item.Amount })
-            .ToListAsync(cancellationToken);
-        var cashVouchers = await db.CashVouchers.AsNoTracking()
-            .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd)
-            .Select(item => new { item.VoucherType, item.Amount })
-            .ToListAsync(cancellationToken);
-
-        var receipts = vouchers.Where(item => item.VoucherType == VoucherType.Receipt).Sum(item => item.Amount)
-            + cashVouchers.Where(item => item.VoucherType == VoucherType.Receipt).Sum(item => item.Amount);
-        var payments = vouchers.Where(item => item.VoucherType == VoucherType.Payment).Sum(item => item.Amount)
-            + cashVouchers.Where(item => item.VoucherType == VoucherType.Payment).Sum(item => item.Amount)
-            + cashRefunds;
-        var expenses = vouchers.Where(item => item.VoucherType == VoucherType.Expense).Sum(item => item.Amount)
-            + cashVouchers.Where(item => item.VoucherType == VoucherType.Expense).Sum(item => item.Amount);
-
-        var bankCash = await db.BankCashTranscations.AsNoTracking()
-            .Where(item => item.StoreId == storeId && item.OnDate >= dayStart && item.OnDate < dayEnd)
-            .Select(item => new { item.TransactionType, item.Amount })
-            .ToListAsync(cancellationToken);
-        var bankWithdrawal = bankCash.Where(item => item.TransactionType == TransactionType.Withdraw).Sum(item => item.Amount);
-        var bankDeposit = bankCash.Where(item => item.TransactionType == TransactionType.Deposit).Sum(item => item.Amount);
-
-        var salaryPayments = await db.SalaryPayments.AsNoTracking()
-            .Where(item => item.StoreId == storeId && !item.Deleted && item.PaymentMode == PaymentMode.Cash
-                && item.OnDate >= dayStart && item.OnDate < dayEnd)
-            .SumAsync(item => item.Amount, cancellationToken);
-
-        var sales = invoices.Sum(item => item.BillAmount);
-        var cashInHand = opening + sales + receipts + dueReceipts + bankWithdrawal - expenses - payments - customerDue - bankDeposit - nonCashSales - salaryPayments;
+        var movements = await DayCashCalculator.LoadAsync(db, storeId, dayStart, cancellationToken);
         var notes = new List<string>
         {
             dayBegin is not null
@@ -717,27 +661,20 @@ private static async Task<IResult> VoidDayCloseAsync(
         {
             notes.Add("No previous petty cash sheet was found; today's Day Open amount is authoritative.");
         }
-        if (salaryPayments > 0)
-        {
-            notes.Add($"Includes {Math.Round(salaryPayments, 2):0.00} in cash salary payments made today (from Salary Payment records), already subtracted from cash in hand.");
-        }
-        if (cashRefunds > 0)
-        {
-            notes.Add($"Payments include {Math.Round(cashRefunds, 2):0.00} in cash refunds paid on sales returns today, already subtracted from cash in hand.");
-        }
+        notes.AddRange(movements.Notes());
 
         return new PettyCashBookSummaryDto(
-            Math.Round(opening, 2),
-            Math.Round(sales, 2),
-            Math.Round(receipts, 2),
-            Math.Round(dueReceipts, 2),
-            Math.Round(bankWithdrawal, 2),
-            Math.Round(expenses, 2),
-            Math.Round(payments, 2),
-            Math.Round(customerDue, 2),
-            Math.Round(bankDeposit, 2),
-            Math.Round(nonCashSales, 2),
-            Math.Round(cashInHand, 2),
+            opening,
+            movements.Sales,
+            movements.Receipts,
+            movements.DueReceipts,
+            movements.BankWithdrawal,
+            movements.Expenses,
+            movements.Payments,
+            movements.CustomerDue,
+            movements.BankDeposit,
+            movements.NonCashSale,
+            movements.CashInHand(opening),
             openingSource,
             notes,
             previousPettyCash.Found,
@@ -746,7 +683,7 @@ private static async Task<IResult> VoidDayCloseAsync(
             openingDifference,
             openingMismatch,
             openingMismatchMessage,
-            Math.Round(salaryPayments, 2));
+            movements.SalaryPayments);
     }
 
     private static bool CanUseStore(HttpContext context, Guid storeId)
