@@ -421,7 +421,7 @@ public static class DataConsistencyEndpoints
     private static async Task CheckAccountingAsync(HttpContext context, GarmetixDbContext db, List<DataConsistencyIssueDto> issues, CancellationToken cancellationToken)
     {
         var entries = await WorkspaceScope.ApplyTo(db.JournalEntries.AsNoTracking(), context)
-            .Select(entry => new { entry.Id, entry.CompanyId, entry.StoreId, entry.EntryNumber, entry.SourceType })
+            .Select(entry => new { entry.Id, entry.CompanyId, entry.StoreId, entry.EntryNumber, entry.SourceType, entry.SourceId })
             .ToListAsync(cancellationToken);
         var entryIds = entries.Select(entry => entry.Id).ToHashSet();
 
@@ -433,10 +433,26 @@ public static class DataConsistencyEndpoints
         var lineTotals = lines.GroupBy(line => line.JournalEntryId)
             .ToDictionary(group => group.Key, group => new { Debit = group.Sum(line => line.Debit), Credit = group.Sum(line => line.Credit), Count = group.Count() });
 
+        var emptySalesIds = entries
+            .Where(entry => entry.SourceType == "SalesInvoice" && entry.SourceId.HasValue && !lineTotals.ContainsKey(entry.Id))
+            .Select(entry => entry.SourceId!.Value)
+            .ToList();
+        var zeroValueInvoiceIds = emptySalesIds.Count == 0
+            ? new HashSet<Guid>()
+            : (await db.SalesInvoices.AsNoTracking()
+                .Where(invoice => emptySalesIds.Contains(invoice.Id) && invoice.BillAmount == 0)
+                .Select(invoice => invoice.Id)
+                .ToListAsync(cancellationToken)).ToHashSet();
+
         foreach (var entry in entries)
         {
             if (!lineTotals.TryGetValue(entry.Id, out var total) || total.Count == 0)
             {
+                if (entry.SourceType == "SalesInvoice" && entry.SourceId.HasValue && zeroValueInvoiceIds.Contains(entry.SourceId.Value))
+                {
+                    continue;
+                }
+
                 issues.Add(Issue("Warning", "Accounting", "JOURNAL_LINES_MISSING", "Journal entry has no lines", $"Journal entry {entry.EntryNumber} has no journal lines.", "JournalEntry", entry.Id, entry.EntryNumber, entry.CompanyId, entry.StoreId, null, 0, null));
                 continue;
             }

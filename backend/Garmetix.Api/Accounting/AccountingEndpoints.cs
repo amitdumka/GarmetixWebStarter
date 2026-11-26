@@ -1048,6 +1048,19 @@ public static class AccountingEndpoints
         var issues = new List<JournalValidationIssue>();
         decimal totalDebit = 0;
         decimal totalCredit = 0;
+
+        // A zero-value sales invoice legitimately has nothing to post, so an empty journal is expected.
+        var emptySalesSourceIds = entries
+            .Where(item => item.SourceType == "SalesInvoice" && item.SourceId.HasValue && (item.Lines == null || item.Lines.Count == 0))
+            .Select(item => item.SourceId!.Value)
+            .ToList();
+        var zeroValueInvoiceIds = emptySalesSourceIds.Count == 0
+            ? new HashSet<Guid>()
+            : (await db.SalesInvoices.AsNoTracking()
+                .Where(item => emptySalesSourceIds.Contains(item.Id) && item.BillAmount == 0)
+                .Select(item => item.Id)
+                .ToListAsync(cancellationToken)).ToHashSet();
+
         foreach (var entry in entries)
         {
             var lines = entry.Lines?.ToList() ?? [];
@@ -1059,6 +1072,11 @@ public static class AccountingEndpoints
 
             if (lines.Count == 0)
             {
+                if (entry.SourceId.HasValue && zeroValueInvoiceIds.Contains(entry.SourceId.Value))
+                {
+                    continue;
+                }
+
                 issues.Add(ToJournalValidationIssue(entry, debit, credit, difference, "Error", "Journal entry has no lines."));
                 continue;
             }
