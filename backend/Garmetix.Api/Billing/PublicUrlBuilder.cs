@@ -9,7 +9,7 @@ namespace Garmetix.Api.Billing;
 /// </summary>
 public static class PublicUrlBuilder
 {
-    private const string FallbackHost = "garmetix.aadwikafashion.in";
+    private const string FallbackHost = "srp.aadwikafashion.in";
 
     public static string GoodsReturnPolicy(HttpContext context, IConfiguration configuration)
     {
